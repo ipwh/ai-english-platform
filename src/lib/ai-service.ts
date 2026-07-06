@@ -35,7 +35,7 @@ async function callDeepSeek(
     throw new Error('AI 服務尚未設定。請在環境變數中設定 DEEPSEEK_API_KEY。');
   }
 
-  const timeoutMs = options?.timeoutMs || 25000; // 25 秒預設
+  const timeoutMs = options?.timeoutMs || 8000; // 8 秒預設（Vercel 免費版上限 10s）
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -65,7 +65,7 @@ async function callDeepSeek(
     return data.choices[0]?.message?.content || '';
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('AI 服務回應超時，請減少題數後重試（建議 3-5 題）。');
+      throw new Error('AI 服務回應超時（Vercel 免費版 10 秒限制）。請減少題數至 3-5 題後重試。');
     }
     throw err;
   } finally {
@@ -163,7 +163,7 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.7, maxTokens: 3072, jsonMode: true, timeoutMs: 20000 }
+    { temperature: 0.7, maxTokens: 2048, jsonMode: true, timeoutMs: 8000 }
   );
 
   return parseGeneratedQuestions(result);

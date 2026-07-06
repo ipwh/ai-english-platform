@@ -35,7 +35,7 @@ const defaultForm: GenerateForm = {
   languageSkill: '',
   difficulty: 'core',
   questionType: 'mc',
-  questionCount: 10,
+  questionCount: 5,
   gradeLevel: 'S4',
 };
 
@@ -328,10 +328,9 @@ export default function PracticeListPage() {
                     onChange={(e) => setForm({ ...form, questionCount: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                   >
+                    <option value={3}>3 題（推薦）</option>
                     <option value={5}>5 題（快速）</option>
-                    <option value={10}>10 題（標準）</option>
-                    <option value={15}>15 題（進階）</option>
-                    <option value={20}>20 題（全面）</option>
+                    <option value={8}>8 題（標準）</option>
                   </select>
                 </div>
               </div>
