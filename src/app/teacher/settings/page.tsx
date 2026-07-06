@@ -199,34 +199,5 @@ export default function TeacherSettingsPage() {
     </div>
   );
 }
-              <option>永久保存</option>
-              <option>3 年</option>
-              <option>1 年</option>
-            </select>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">AI 分析數據匿名化</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-            </label>
-          </div>
-          <p className="text-xs text-gray-400 mt-3">
-            本平台遵守《個人資料（私隱）條例》（香港法例第486章）。所有學生數據僅用於教學用途，不會向第三方披露。
-          </p>
-        </div>
-      </section>
-
-      {/* 儲存 */}
-      <button
-        onClick={handleSave}
-        className={`w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors ${
-          saved ? 'bg-green-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'
-        }`}
-      >
-        <Save className="w-4 h-4" />
-        {saved ? '已儲存！' : '儲存設定'}
-      </button>
-    </div>
   );
 }
