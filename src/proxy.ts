@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySessionToken } from '@/lib/auth';
 
-const publicPaths = ['/login', '/role-select', '/api/auth', '/style-guide'];
+const publicPaths = ['/login', '/role-select', '/api/', '/style-guide'];
 
 const rolePaths: Record<string, string[]> = {
   student: ['/student'],

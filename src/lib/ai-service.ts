@@ -29,34 +29,48 @@ interface DeepSeekResponse {
 
 async function callDeepSeek(
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
+  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number }
 ): Promise<string> {
   if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
-    throw new Error('DeepSeek API Key 尚未設定。請在 .env.local 中設定 DEEPSEEK_API_KEY。');
+    throw new Error('AI 服務尚未設定。請在環境變數中設定 DEEPSEEK_API_KEY。');
   }
 
-  const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
-      messages,
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.maxTokens ?? 2048,
-      response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
-    }),
-  });
+  const timeoutMs = options?.timeoutMs || 25000; // 25 秒預設
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`DeepSeek API 錯誤 (${res.status}): ${err}`);
+  try {
+    const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: DEEPSEEK_MODEL,
+        messages,
+        temperature: options?.temperature ?? 0.7,
+        max_tokens: options?.maxTokens ?? 1024,
+        response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`AI 服務錯誤 (${res.status})`);
+    }
+
+    const data: DeepSeekResponse = await res.json();
+    return data.choices[0]?.message?.content || '';
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('AI 服務回應超時，請減少題數後重試（建議 3-5 題）。');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data: DeepSeekResponse = await res.json();
-  return data.choices[0]?.message?.content || '';
 }
 
 // ============================================
@@ -149,7 +163,7 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.7, maxTokens: 8192, jsonMode: true }
+    { temperature: 0.7, maxTokens: 3072, jsonMode: true, timeoutMs: 20000 }
   );
 
   return parseGeneratedQuestions(result);

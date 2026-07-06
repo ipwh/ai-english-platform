@@ -103,7 +103,7 @@ export default function PracticeListPage() {
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({ error: 'AI 服務暫時無法使用，請稍後重試' }));
 
       if (!res.ok) {
         setGenError(json.error || `伺服器錯誤 (${res.status})，請稍後重試`);
