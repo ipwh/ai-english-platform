@@ -2,9 +2,13 @@
 // 認證系統 — Prisma DB + JWT 工具
 // ============================================
 
-import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from './types';
 import db from './db';
+import { createSessionToken } from './jwt';
+
+// Re-export JWT utilities from Edge-safe module
+// (jwt.ts 不含 Prisma 依賴，可在 Edge Runtime 安全使用)
+export { verifySessionToken, type SessionPayload } from './jwt';
 
 // ============================================
 // 密碼工具
@@ -23,42 +27,6 @@ function simpleHash(password: string): string {
 
 function verifyPassword(password: string, hash: string): boolean {
   return simpleHash(password) === hash;
-}
-
-// ============================================
-// JWT 工具
-// ============================================
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'english-platform-secret-key-change-in-production-2026'
-);
-
-const JWT_EXPIRY = '7d';
-
-export interface SessionPayload {
-  userId: string;
-  email: string;
-  nameZh: string;
-  nameEn: string;
-  role: UserRole;
-  className?: string;
-}
-
-export async function createSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT(payload as unknown as Record<string, unknown>)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(JWT_EXPIRY)
-    .sign(JWT_SECRET);
-}
-
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as SessionPayload;
-  } catch {
-    return null;
-  }
 }
 
 // ============================================
