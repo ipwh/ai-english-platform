@@ -35,12 +35,20 @@ export default async function middleware(request: NextRequest) {
     request.cookies.has('next-auth.session-token') ||
     request.cookies.has('__Secure-next-auth.session-token');
 
+  const isVercelProtected = request.cookies.has('_vercel_jwt');
+  const allCookieNames = request.cookies.getAll().map(c => c.name);
+
   console.log('[middleware]', {
     pathname,
     hasNextAuthCookie,
+    isVercelProtected,
     cookieCount: request.cookies.getAll().length,
-    cookieNames: request.cookies.getAll().map(c => c.name),
+    cookieNames: allCookieNames,
   });
+
+  if (isVercelProtected && !hasNextAuthCookie) {
+    console.warn('[middleware] ⚠️ Vercel Deployment Protection detected. This may block NextAuth session cookies.');
+  }
 
   if (hasNextAuthCookie) {
     return NextResponse.next();

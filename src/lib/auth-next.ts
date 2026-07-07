@@ -115,6 +115,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
+  events: {
+    async signIn(message) {
+      console.log('[auth:event] signIn succeeded', {
+        email: message.user.email,
+        provider: message.account?.provider,
+        isNewUser: message.isNewUser,
+      });
+    },
+    async createUser(message) {
+      console.log('[auth:event] user created', { id: message.user.id });
+    },
+    async linkAccount(message) {
+      console.log('[auth:event] account linked', {
+        provider: message.account.provider,
+        userId: message.user.id,
+      });
+    },
+  },
   pages: {
     signIn: '/login',
     error: '/login',
