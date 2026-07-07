@@ -69,7 +69,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = (user as { role?: string }).role || 'student';
       }
 
-      if (!token.id && token.email) {
+      if (token.email) {
         const dbUser = await db.user.findUnique({
           where: { email: token.email as string },
           select: { id: true, role: true },

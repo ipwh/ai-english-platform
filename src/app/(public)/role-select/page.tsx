@@ -39,9 +39,8 @@ export default function RoleSelectPage() {
 
       switchRole(role);
 
-      // 使用 window.location.href 做全頁面跳轉，確保 middleware / auth 狀態從伺服器重新載入
-      const target = role === 'student' ? '/student/dashboard' : '/teacher/dashboard';
-      window.location.href = target;
+      // 走首頁的伺服器端 auth redirect，避免前端拿到過期的 JWT role
+      window.location.href = '/';
     } catch {
       setError(t('login.networkError'));
     } finally {

@@ -10,7 +10,9 @@ export default async function Home() {
     if (role === 'teacher') {
       redirect('/teacher/dashboard');
     }
-    // student 或未選角色 → 一律先到角色選擇頁
+    if (role === 'student') {
+      redirect('/student/dashboard');
+    }
     redirect('/role-select');
   }
 
