@@ -10,6 +10,7 @@ import { mockVocab } from '@/lib/mock-data';
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import type { Familiarity, VocabItem } from '@/lib/types';
+import { useT } from '@/hooks/use-i18n';
 
 const familiarityLabels: Record<Familiarity, string> = {
   'new': '新學', 'learning': '學習中', 'familiar': '已熟悉', 'mastered': '已掌握',
@@ -26,6 +27,7 @@ const familiarityProgress: Record<Familiarity, number> = {
 };
 
 export default function VocabularyPage() {
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Familiarity | 'all'>('all');
 

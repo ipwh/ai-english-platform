@@ -10,8 +10,10 @@ import { mockReviews } from '@/lib/mock-data';
 import { formatDate } from '@/lib/utils';
 import EmptyState from '@/components/shared/EmptyState';
 import type { ReviewStatus } from '@/lib/types';
+import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReviewPage() {
+  const { t } = useT();
   const [reviews, setReviews] = useState(mockReviews);
   const [selectedReview, setSelectedReview] = useState(reviews[0]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');

@@ -11,6 +11,7 @@ import { mockTeacher, mockTeacherKpis, mockSkillHeatmap, mockAtRiskStudents, moc
 import KpiCard from '@/components/shared/KpiCard';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { formatDate, getRiskColor } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const heatmapColors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-green-400', 'bg-teal-500'];
@@ -24,6 +25,7 @@ function getHeatColor(val: number): string {
 }
 
 export default function TeacherDashboardPage() {
+  const { t } = useT();
   const teacher = mockTeacher;
   const kpis = mockTeacherKpis;
   const recentAssignments = mockTeacherAssignments.slice(0, 3);

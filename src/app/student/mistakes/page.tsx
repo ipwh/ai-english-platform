@@ -11,6 +11,7 @@ import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels } from '@/lib/nav';
 import { formatDate } from '@/lib/utils';
 import type { GrammarItem, LanguageSkill, MistakeType } from '@/lib/types';
+import { useT } from '@/hooks/use-i18n';
 
 const mistakeTypeLabels: Record<string, string> = {
   'grammar': '文法錯誤',
@@ -21,6 +22,7 @@ const mistakeTypeLabels: Record<string, string> = {
 };
 
 export default function MistakesPage() {
+  const { t } = useT();
   const [skillFilter, setSkillFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<MistakeType | 'all'>('all');
   const [search, setSearch] = useState('');

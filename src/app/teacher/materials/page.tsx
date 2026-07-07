@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Upload, FileText, File, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
 import { mockMaterials } from '@/lib/mock-data';
 import { formatDate } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 
 const typeIcons: Record<string, React.ElementType> = {
   'pdf': FileText,
@@ -17,6 +18,7 @@ const typeIcons: Record<string, React.ElementType> = {
 };
 
 export default function TeacherMaterialsPage() {
+  const { t } = useT();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 

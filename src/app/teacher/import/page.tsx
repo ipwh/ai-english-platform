@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from 'react';
 import { Upload, Download, CheckCircle, XCircle, AlertTriangle, FileText, Users, GraduationCap } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface ImportDetail {
   email: string;
@@ -23,6 +24,7 @@ interface ImportResult {
 }
 
 export default function ImportPage() {
+  const { t } = useT();
   const [file, setFile] = useState<File | null>(null);
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [loading, setLoading] = useState(false);

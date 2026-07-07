@@ -10,6 +10,7 @@ import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2,
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { mockQuestions, mockStudent } from '@/lib/mock-data';
+import { useT } from '@/hooks/use-i18n';
 
 interface DiagnosticResult {
   id: string;
@@ -32,6 +33,7 @@ const diagnosticQuestions = [
 ].slice(0, 12);
 
 export default function DiagnosticPage() {
+  const { t } = useT();
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});

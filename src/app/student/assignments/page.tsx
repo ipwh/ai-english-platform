@@ -13,8 +13,10 @@ import { formatDate, daysRemaining, getStatusColor } from '@/lib/utils';
 import { statusLabels } from '@/lib/nav';
 import type { AssignmentStatus } from '@/lib/types';
 import EmptyState from '@/components/shared/EmptyState';
+import { useT } from '@/hooks/use-i18n';
 
 export default function StudentAssignmentsPage() {
+  const { t } = useT();
   const [filter, setFilter] = useState<AssignmentStatus | 'all'>('all');
   const [assignments, setAssignments] = useState(mockStudentAssignments);
   const [loading, setLoading] = useState(true);

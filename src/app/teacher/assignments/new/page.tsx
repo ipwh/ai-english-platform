@@ -10,8 +10,10 @@ import { ArrowLeft, Send, Sparkles, Loader2, Eye, Trash2 } from 'lucide-react';
 import { mockClasses } from '@/lib/mock-data';
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import Modal from '@/components/shared/Modal';
+import { useT } from '@/hooks/use-i18n';
 
 export default function NewAssignmentPage() {
+  const { t } = useT();
   const router = useRouter();
   const [showSuccess, setShowSuccess] = useState(false);
   const [step, setStep] = useState<'config' | 'preview'>('config');

@@ -10,9 +10,11 @@ import { ArrowLeft, Users, TrendingUp, Target, Download, ChevronRight } from 'lu
 import { mockClasses, mockClassStudents, mockSkillHeatmap } from '@/lib/mock-data';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { getRiskColor, formatDate } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function ClassDetailPage() {
+  const { t } = useT();
   const params = useParams();
   const classId = params.classId as string;
   const cls = mockClasses.find(c => c.id === classId) || mockClasses[0];

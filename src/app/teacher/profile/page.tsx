@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import { LogOut, User, Settings, Shield, Mail, ChevronRight, Save, X } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/lib/utils';
+import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherProfilePage() {
+  const { t } = useT();
   const router = useRouter();
   const { logout, userDisplayName } = useAppStore();
   const [profile, setProfile] = useState<any>(null);

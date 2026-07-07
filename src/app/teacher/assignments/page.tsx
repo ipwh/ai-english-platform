@@ -11,8 +11,10 @@ import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { formatDate, daysRemaining } from '@/lib/utils';
 import { statusLabels } from '@/lib/nav';
+import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherAssignmentsPage() {
+  const { t } = useT();
   const [assignments, setAssignments] = useState(mockTeacherAssignments);
   const [loading, setLoading] = useState(true);
 

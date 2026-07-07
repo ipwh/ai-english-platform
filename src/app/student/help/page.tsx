@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { Lightbulb, BookOpen, AlertTriangle, MessageCircle, ChevronRight, ChevronDown, ThumbsUp } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface QAItem {
   q: string;
@@ -58,6 +59,7 @@ const aiAdvice = [
 ];
 
 export default function StudentHelpPage() {
+  const { t } = useT();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (

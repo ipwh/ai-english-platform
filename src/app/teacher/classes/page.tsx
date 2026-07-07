@@ -8,8 +8,10 @@ import Link from 'next/link';
 import { Users, TrendingUp, Target, ChevronRight, Loader2 } from 'lucide-react';
 import { mockClasses } from '@/lib/mock-data';
 import ProgressBar from '@/components/shared/ProgressBar';
+import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherClassesPage() {
+  const { t } = useT();
   const [classes, setClasses] = useState(mockClasses);
   const [loading, setLoading] = useState(true);
 

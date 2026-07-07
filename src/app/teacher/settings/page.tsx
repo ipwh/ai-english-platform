@@ -8,8 +8,10 @@ import { useState, useEffect } from 'react';
 import { Save, Bell, Shield, BookOpen, Users, Sparkles, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import AdvancedSettings from '@/components/shared/AdvancedSettings';
 import { GRAMMAR_ITEM_LABELS } from '@/lib/types';
+import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherSettingsPage() {
+  const { t } = useT();
   const [saved, setSaved] = useState(false);
   const [aiStatus, setAiStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
 

@@ -8,8 +8,10 @@ import { Download, FileText, Users, BarChart3, FileSpreadsheet } from 'lucide-re
 import { mockWeeklyReports } from '@/lib/mock-data';
 import { formatDate } from '@/lib/utils';
 import ProgressBar from '@/components/shared/ProgressBar';
+import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReportsPage() {
+  const { t } = useT();
   const reports = mockWeeklyReports;
 
   return (
