@@ -33,7 +33,7 @@ export default function StudentAssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📝 我的作業</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('assignments.title')}</h1>
 
       {/* 統計摘要 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

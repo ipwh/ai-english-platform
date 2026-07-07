@@ -14,11 +14,11 @@ import type { GrammarItem, LanguageSkill, MistakeType } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 const mistakeTypeLabels: Record<string, string> = {
-  'grammar': '文法錯誤',
-  'vocabulary': '詞彙錯誤',
-  'comprehension': '理解錯誤',
-  'careless': '粗心大意',
-  'time-management': '時間不足',
+  'grammar': t('mistakes.type') + ': Grammar',
+  'vocabulary': 'Vocabulary',
+  'comprehension': 'Comprehension',
+  'careless': 'Careless',
+  'time-management': 'Time',
 };
 
 export default function MistakesPage() {
@@ -75,7 +75,7 @@ export default function MistakesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📋 我的錯題庫</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('mistakes.title')}</h1>
 
       {/* 統計摘要 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

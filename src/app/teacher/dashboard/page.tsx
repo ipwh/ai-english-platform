@@ -79,8 +79,8 @@ export default function TeacherDashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">教師主頁</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">歡迎回來，{teacher.nameZh}老師</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.dashboard.title')}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('teacher.greeting', { name: teacher.nameZh })}</p>
         </div>
       </div>
 
@@ -94,7 +94,7 @@ export default function TeacherDashboardPage() {
         {/* 班級完成率圖 */}
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-500" /> 班級完成率
+            <BarChart3 className="w-5 h-5 text-blue-500" /> {t('teacher.classCompletion')}
           </h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={classChartData}>
@@ -111,13 +111,13 @@ export default function TeacherDashboardPage() {
         {/* 技能弱點熱圖 */}
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-orange-500" /> 技能弱點熱圖
+            <AlertTriangle className="w-5 h-5 text-orange-500" /> {t('teacher.skillHeatmap')}
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr>
-                  <th className="text-left py-1 text-gray-400 font-medium">技能</th>
+                  <th className="text-left py-1 text-gray-400 font-medium">{t('teacher.skill')}</th>
                   <th className="px-2 py-1 text-gray-400 font-medium">4A</th>
                   <th className="px-2 py-1 text-gray-400 font-medium">4B</th>
                   <th className="px-2 py-1 text-gray-400 font-medium">5C</th>
