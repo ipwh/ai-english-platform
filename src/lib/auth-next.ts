@@ -40,6 +40,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return true;
     },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs (e.g. /role-select from signIn options)
+      if (url.startsWith('/')) {
+        // If the resolved url is just baseUrl + '/', send to role-select
+        const resolved = `${baseUrl}${url}`;
+        if (resolved === `${baseUrl}/` || resolved === baseUrl) {
+          return `${baseUrl}/role-select`;
+        }
+        return resolved;
+      }
+      // Allows callback URLs on the same origin
+      try {
+        if (new URL(url).origin === baseUrl) {
+          if (url === baseUrl || url === `${baseUrl}/`) {
+            return `${baseUrl}/role-select`;
+          }
+          return url;
+        }
+      } catch {
+        // ignore invalid URLs
+      }
+      return `${baseUrl}/role-select`;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;

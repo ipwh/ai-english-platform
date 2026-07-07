@@ -38,19 +38,20 @@ export default function RoleSelectPage() {
         setError(t('role.saveFailed'));
         return;
       }
-    } catch {
-      setError(t('login.networkError'));
-      return;
-    }
 
-    switchRole(role);
-    setTimeout(() => {
+      switchRole(role);
+
+      // 等一幀再跳轉，確保 store 已更新
       if (role === 'student') {
         router.replace('/student/dashboard');
       } else {
         router.replace('/teacher/dashboard');
       }
-    }, 200);
+    } catch {
+      setError(t('login.networkError'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
