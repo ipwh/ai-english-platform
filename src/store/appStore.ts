@@ -120,7 +120,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Fallback: JWT session
     try {
-      const res = await fetch('/api/auth/session');
+      const res = await fetch('/api/auth/jwt-session');
       if (res.ok) {
         const json = await res.json();
         if (json.loggedIn && json.user) {
