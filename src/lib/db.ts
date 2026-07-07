@@ -69,4 +69,15 @@ export const db = globalForPrisma.prisma ?? createPrismaClient();
 // 所有環境都 cache，避免 serverless 每次調用重建 Pool
 globalForPrisma.prisma = db;
 
+// 啟動時探測 DB 連線（僅記錄，不中斷啟動）
+if (typeof window === 'undefined') {
+  db.$connect()
+    .then(() => {
+      console.log('[db] connected successfully');
+    })
+    .catch((err: unknown) => {
+      console.error('[db] connection test failed', err);
+    });
+}
+
 export default db;
