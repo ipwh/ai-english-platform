@@ -3,6 +3,7 @@
 // ============================================
 
 import type { UserRole } from './types';
+import type { SessionPayload } from './jwt';
 import db from './db';
 import { createSessionToken } from './jwt';
 
