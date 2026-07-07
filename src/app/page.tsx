@@ -1,12 +1,15 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { auth } from '@/lib/auth-next';
 
 export default async function Home() {
   const session = await auth();
+  const cookieStore = await cookies();
+  const selectedRole = cookieStore.get('selected_role')?.value;
 
   // 已登入（Google OAuth / NextAuth session）
   if (session?.user?.id) {
-    const role = session.user.role;
+    const role = selectedRole || session.user.role;
     if (role === 'teacher') {
       redirect('/teacher/dashboard');
     }

@@ -23,7 +23,16 @@ export async function PATCH(request: NextRequest) {
       data: { role },
     });
 
-    return NextResponse.json({ success: true, role });
+    const response = NextResponse.json({ success: true, role });
+    response.cookies.set('selected_role', role, {
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 10,
+    });
+
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     return NextResponse.json({ error: message }, { status: 500 });
