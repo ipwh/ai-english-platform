@@ -1,16 +1,40 @@
 // ============================================
 // 種子資料腳本 — 初始化資料庫
+// 支援 SQLite（開發）及 PostgreSQL（生產）
 // 執行: npx tsx prisma/seed.ts
 // ============================================
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
 
-const dbUrl = 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';
-console.log(`📁 資料庫路徑: ${dbUrl}`);
+function getDbUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (url) return url;
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    throw new Error('生產環境必須設定 DATABASE_URL');
+  }
+  return 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';
+}
 
-const adapter = new PrismaLibSql({ url: dbUrl });
-const db = new PrismaClient({ adapter });
+const dbUrl = getDbUrl();
+const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://');
+
+console.log(`📁 資料庫: ${isPostgres ? 'PostgreSQL' : 'SQLite'} @ ${dbUrl.replace(/\/\/.*@/, '//***@')}`);
+
+let db: PrismaClient;
+
+if (isPostgres) {
+  // PostgreSQL: 使用 pg adapter
+  const { PrismaPg } = require('@prisma/adapter-pg') as typeof import('@prisma/adapter-pg');
+  const { Pool } = require('pg') as typeof import('pg');
+  const pool = new Pool({ connectionString: dbUrl, max: 5 });
+  const adapter = new PrismaPg(pool);
+  db = new PrismaClient({ adapter });
+} else {
+  // SQLite: 使用 libsql adapter
+  const adapter = new PrismaLibSql({ url: dbUrl });
+  db = new PrismaClient({ adapter });
+}
 
 function simpleHash(password: string): string {
   let hash = 0;
