@@ -21,8 +21,8 @@ export default function RoleSelectPage() {
   const handleSelect = async (role: UserRole) => {
     setError('');
     setLoading(true);
+
     try {
-      // 儲存角色到後端 DB
       const res = await fetch('/api/auth/role', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -32,7 +32,7 @@ export default function RoleSelectPage() {
       if (!res.ok) {
         if (res.status === 401) {
           setError(t('role.sessionExpired'));
-          router.replace('/login');
+          setTimeout(() => router.replace('/login'), 600);
           return;
         }
         setError(t('role.saveFailed'));
@@ -41,16 +41,16 @@ export default function RoleSelectPage() {
     } catch {
       setError(t('login.networkError'));
       return;
-    } finally {
-      setLoading(false);
     }
 
     switchRole(role);
-    if (role === 'student') {
-      router.push('/student/dashboard');
-    } else {
-      router.push('/teacher/dashboard');
-    }
+    setTimeout(() => {
+      if (role === 'student') {
+        router.replace('/student/dashboard');
+      } else {
+        router.replace('/teacher/dashboard');
+      }
+    }, 200);
   };
 
   return (
