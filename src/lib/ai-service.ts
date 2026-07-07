@@ -133,10 +133,13 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
 【聆聽題特別要求】
-- listeningContent: 一段完整的英文對話或獨白（50-100字），作為學生的聆聽材料
-- 對話必須用自然段落形式書寫，嚴禁使用 "Woman:" "Man:" "A:" "B:" 等角色標籤
-- 正確格式示例："Excuse me, could you tell me where the nearest MTR station is? Sure, just go straight and turn left at the second crossing."
-- 錯誤格式示例："Woman: Where is the MTR? Man: Go straight and turn left."（禁止此格式！）
+- listeningContent: 一段完整的英文對話（50-100字），作為學生的聆聽材料
+- 對話必須使用角色標籤格式，每行一個角色發言，以便 TTS 系統用不同聲音朗讀
+- 正確格式示例：
+  Woman: Excuse me, could you tell me where the nearest MTR station is?
+  Man: Sure, just go straight and turn left at the second crossing.
+  Woman: Thank you so much!
+- 可用角色標籤：Woman / Man / Boy / Girl / A / B
 - listeningContentZh: 中文簡短情境說明
 - prompt: 針對聆聽內容的題目問題` : ''}
 

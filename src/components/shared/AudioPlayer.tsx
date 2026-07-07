@@ -1,11 +1,11 @@
 // ============================================
-// AudioPlayer — 文字轉語音元件
+// AudioPlayer — 文字轉語音元件（支援多人對話）
 // 使用瀏覽器 Web Speech API，無需外部錄音檔
-// 自動清除對話角色標籤（Woman:/Man: 等）
+// 自動解析對話角色標籤（Woman:/Man: 等），用不同語音朗讀
 // ============================================
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 
 interface AudioPlayerProps {
@@ -17,12 +17,55 @@ interface AudioPlayerProps {
   onPlayEnd?: () => void;
 }
 
-/** 清除對話角色標籤，避免 TTS 讀出 "Woman:" "Man:" 等 */
-function cleanDialogueText(text: string): string {
-  return text
-    .replace(/^(Woman|Man|Boy|Girl|Speaker\s*\d|A|B)\s*[:：]\s*/gim, '')
-    .replace(/\n(Woman|Man|Boy|Girl|Speaker\s*\d|A|B)\s*[:：]\s*/gim, '\n')
-    .trim();
+interface DialogueLine {
+  speaker: string | null;
+  text: string;
+}
+
+/** 對話行模式：Woman: / Man: / A: / B: / Speaker 1: */
+const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl|Speaker\s*\d|[A-B])\s*[:：]\s*(.+)$/i;
+
+/** 將文字解析成對話段落 */
+function parseDialogue(text: string): DialogueLine[] {
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const dialogue: DialogueLine[] = [];
+
+  for (const line of lines) {
+    const match = line.match(SPEAKER_LINE_RE);
+    if (match) {
+      dialogue.push({ speaker: match[1].toLowerCase(), text: match[2] });
+    } else {
+      dialogue.push({ speaker: null, text: line });
+    }
+  }
+
+  if (dialogue.length === 0) {
+    dialogue.push({ speaker: null, text });
+  }
+
+  return dialogue;
+}
+
+/** 從可用語音中選一個（依語言與性別偏好） */
+function pickVoice(
+  voices: SpeechSynthesisVoice[],
+  lang: 'en' | 'zh',
+  gender: 'female' | 'male' | 'any' = 'any',
+): SpeechSynthesisVoice | null {
+  const candidates = voices.filter(v => v.lang.startsWith(lang === 'zh' ? 'zh' : 'en'));
+  if (candidates.length === 0) return null;
+
+  if (gender === 'female') {
+    return candidates.find(v => /female|samantha|karen|zira|victoria/i.test(v.name))
+      || candidates[candidates.length - 1]
+      || candidates[0];
+  }
+  if (gender === 'male') {
+    return candidates.find(v => /male|daniel|tom|david|alex/i.test(v.name))
+      || candidates[0]
+      || null;
+  }
+  return candidates[0];
 }
 
 export default function AudioPlayer({
@@ -35,134 +78,122 @@ export default function AudioPlayer({
 }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const cancelled = useRef(false);
 
-  // 檢查瀏覽器支援
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      setSupported(false);
-    }
-  }, []);
+  if (typeof window === 'undefined') {
+    return <span className="text-xs text-gray-400">TTS 不可用</span>;
+  }
 
-  /** 檢測文字主要語言：含有 CJK 字符則判定為中文 */
-  const detectLang = useCallback((text: string): 'en' | 'zh' => {
-    const cjkCount = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
-    const totalChars = text.replace(/\s/g, '').length;
-    return totalChars > 0 && cjkCount / totalChars > 0.3 ? 'zh' : 'en';
-  }, []);
+  const synth = window.speechSynthesis;
+  if (!synth) {
+    return <span className="text-xs text-gray-400">瀏覽器不支援語音</span>;
+  }
 
-  const getVoice = useCallback((lang: 'en' | 'zh', preferFemale?: boolean): SpeechSynthesisVoice | null => {
-    const voices = window.speechSynthesis.getVoices();
-    if (lang === 'zh') {
-      // 中文語音：優先繁體中文（zh-HK / zh-TW），其次任何中文
-      const zhVoices = voices.filter(v => v.lang.startsWith('zh-HK') || v.lang.startsWith('zh-TW'));
-      if (zhVoices.length > 0) return zhVoices[0];
-      const anyZh = voices.filter(v => v.lang.startsWith('zh'));
-      return anyZh[0] || null;
-    }
-    // 英文語音
-    const enVoices = voices.filter(v => v.lang.startsWith('en'));
-    if (enVoices.length === 0) return null;
-    if (preferFemale) {
-      return enVoices.find(v => v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Karen'))
-        || enVoices[enVoices.length - 1] || enVoices[0] || null;
-    }
-    return enVoices.find(v => v.name.includes('Google') || v.name.includes('Daniel') || v.name.includes('Tom'))
-      || enVoices[0] || null;
-  }, []);
+  const handleStop = useCallback(() => {
+    cancelled.current = true;
+    synth.cancel();
+    setPlaying(false);
+    setLoading(false);
+  }, [synth]);
 
   const handlePlay = useCallback(() => {
-    if (!supported || !text) return;
+    if (!text) return;
 
     if (playing) {
-      window.speechSynthesis.cancel();
-      setPlaying(false);
+      handleStop();
       return;
     }
 
     setLoading(true);
+    cancelled.current = false;
+    synth.cancel();
 
-    // Chrome 修復：先取消再恢復，避免 speech 卡住
-    window.speechSynthesis.cancel();
+    const dialogue = parseDialogue(text);
 
-    const voices = window.speechSynthesis.getVoices();
-    const doSpeak = () => {
-      const cleanedText = cleanDialogueText(text);
-      const utterance = new SpeechSynthesisUtterance(cleanedText);
-      const lang = detectLang(cleanedText);
-      const voice = getVoice(lang);
-      if (voice) utterance.voice = voice;
-      utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
-      utterance.rate = lang === 'zh' ? 0.95 : 0.9;
-      utterance.pitch = 1;
+    const cjkCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    const lang: 'en' | 'zh' = cjkCount / Math.max(text.length, 1) > 0.3 ? 'zh' : 'en';
 
-      // 防止 Chrome GC 回收 utterance
-      utteranceRef.current = utterance;
+    const trySpeak = () => {
+      const voices = synth.getVoices();
+      if (voices.length === 0) {
+        setTimeout(trySpeak, 100);
+        return;
+      }
 
-      utterance.onstart = () => {
-        setLoading(false);
-        setPlaying(true);
-      };
-      utterance.onend = () => {
-        setPlaying(false);
-        utteranceRef.current = null;
-        onPlayEnd?.();
-      };
-      utterance.onerror = (e) => {
-        // 忽略取消導致的錯誤
-        if (e.error !== 'canceled' && e.error !== 'interrupted') {
-          console.warn('TTS error:', e.error);
-        }
-        setPlaying(false);
-        setLoading(false);
-        utteranceRef.current = null;
-      };
+      const femaleVoice = pickVoice(voices, lang, 'female') || pickVoice(voices, lang, 'any');
+      const maleVoice = pickVoice(voices, lang, 'male') || pickVoice(voices, lang, 'any');
+      const defaultVoice = pickVoice(voices, lang, 'any');
 
-      // Chrome 修復：長文本需要 keep-alive
-      const keepAlive = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          clearInterval(keepAlive);
+      const map = new Map<string, SpeechSynthesisVoice | null>();
+      map.set('woman', femaleVoice);
+      map.set('girl', femaleVoice);
+      map.set('man', maleVoice);
+      map.set('boy', maleVoice);
+      map.set('a', femaleVoice);
+      map.set('b', maleVoice);
+
+      let idx = 0;
+
+      const speakNext = () => {
+        if (cancelled.current) {
+          setPlaying(false);
+          setLoading(false);
           return;
         }
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      }, 5000);
 
-      utterance.onend = () => {
-        clearInterval(keepAlive);
-        setPlaying(false);
-        utteranceRef.current = null;
-        onPlayEnd?.();
+        while (idx < dialogue.length && !dialogue[idx].text.trim()) {
+          idx++;
+        }
+
+        if (idx >= dialogue.length) {
+          setPlaying(false);
+          setLoading(false);
+          onPlayEnd?.();
+          return;
+        }
+
+        const line = dialogue[idx];
+        const utterance = new SpeechSynthesisUtterance(line.text);
+        utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+
+        if (line.speaker) {
+          const voice = map.get(line.speaker);
+          if (voice) utterance.voice = voice;
+        } else if (defaultVoice) {
+          utterance.voice = defaultVoice;
+        }
+
+        utterance.onstart = () => {
+          setLoading(false);
+          setPlaying(true);
+        };
+
+        utterance.onend = () => {
+          idx++;
+          setTimeout(speakNext, line.speaker ? 120 : 60);
+        };
+
+        utterance.onerror = (e) => {
+          if (e.error === 'canceled' || e.error === 'interrupted') {
+            setPlaying(false);
+            setLoading(false);
+            return;
+          }
+          console.warn('TTS error:', e.error);
+          idx++;
+          setTimeout(speakNext, 100);
+        };
+
+        synth.speak(utterance);
       };
 
-      window.speechSynthesis.speak(utterance);
+      speakNext();
     };
 
-    if (voices.length === 0) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        doSpeak();
-      };
-    } else {
-      doSpeak();
-    }
-  }, [text, playing, supported, detectLang, getVoice, onPlayEnd]);
-
-  // 組件卸載時停止播放
-  useEffect(() => {
-    return () => {
-      window.speechSynthesis.cancel();
-    };
-  }, []);
-
-  if (!supported) {
-    return (
-      <span className={`text-xs text-gray-400 ${className}`}>
-        🔇 瀏覽器不支援語音播放
-      </span>
-    );
-  }
+    trySpeak();
+  }, [text, playing, synth, handleStop, onPlayEnd]);
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs gap-1',
