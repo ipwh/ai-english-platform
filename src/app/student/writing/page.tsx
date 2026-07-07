@@ -48,21 +48,29 @@ export default function WritingPage() {
 
   const handleGenerate = async () => {
     setGenLoading(true);
+    setGeneratedOutline('');  // 清除舊大綱
     const topic = useCustomTopic && customTopic ? customTopic : topicHint;
     const typeName = textTypes[textType]?.en || textType;
     const promptText = `Write a ${typeName} (${wordLimit} words) for ${gradeLevel} student${topic ? '. Topic: ' + topic : ''}. Return ONLY the writing prompt/title.`;
+
+    let newPrompt = '';
+
     try {
       const res = await fetch('/api/ai/generate-questions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ difficulty: 'core', gradeLevel, count: 1, questionType: 'short-writing', topic: promptText }),
       });
       const json = await res.json();
-      if (json.questions?.[0]) setGeneratedPrompt(json.questions[0].prompt || json.questions[0].answer || 'Write about your experience.');
+      if (json.questions?.[0]) {
+        newPrompt = json.questions[0].prompt || json.questions[0].answer || '';
+        setGeneratedPrompt(newPrompt);
+      }
     } catch { /* ignore */ }
 
     if (wantOutline) {
       try {
-        const resolvedTopic = useCustomTopic && customTopic ? customTopic : (generatedPrompt || topicHint || 'general');
+        // 用剛剛拿到的新題目（不是 stale state）
+        const resolvedTopic = useCustomTopic && customTopic ? customTopic : (newPrompt || topicHint || 'general');
         const outlinePrompt = `You are an experienced HKDSE English writing tutor. Create a detailed paragraph-by-paragraph writing outline for the following task. DO NOT simply restate the topic title. For EACH paragraph, provide:
 
 1) A clear topic sentence (what this paragraph argues / describes)
@@ -86,7 +94,8 @@ ${lang === 'zh' ? '- Output the outline in Traditional Chinese (繁體中文), b
 IMPORTANT rules:
 - Every paragraph must have DIFFERENT, specific content — do NOT repeat the same idea across paragraphs.
 - Use concrete, topic-relevant examples (e.g. if the topic is about environmental protection, mention specific actions like "reducing plastic waste" or "using public transport", NOT just "protect the environment").
-- The outline must be immediately usable by a ${gradeLevel} student to start writing — each bullet point should be a complete thought, not a vague heading.`;
+- The outline must be immediately usable by a ${gradeLevel} student to start writing — each bullet point should be a complete thought, not a vague heading.
+- Return ONLY the outline text. Do NOT wrap in JSON. Do NOT include introductory phrases like "Here is an outline".`;
 
         const outlineRes = await fetch('/api/ai/generate-questions', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -96,8 +105,15 @@ IMPORTANT rules:
           }),
         });
         const oj = await outlineRes.json();
-        if (oj.questions?.[0]) setGeneratedOutline(oj.questions[0].prompt || oj.questions[0].answer || '');
-      } catch { /* ignore */ }
+        const outlineText = oj.questions?.[0]?.prompt || oj.questions?.[0]?.answer || '';
+        if (outlineText && outlineText.length > 20) {
+          setGeneratedOutline(outlineText);
+        } else {
+          setGeneratedOutline(t(lang, '⚠️ AI 未能生成大綱，請重試。', '⚠️ Could not generate outline. Please try again.'));
+        }
+      } catch {
+        setGeneratedOutline(t(lang, '⚠️ 大綱生成失敗，請檢查網絡連線。', '⚠️ Outline generation failed. Check your connection.'));
+      }
     }
     setGenLoading(false);
   };
