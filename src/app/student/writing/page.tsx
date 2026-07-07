@@ -62,11 +62,37 @@ export default function WritingPage() {
 
     if (wantOutline) {
       try {
+        const resolvedTopic = useCustomTopic && customTopic ? customTopic : (generatedPrompt || topicHint || 'general');
+        const outlinePrompt = `You are an experienced HKDSE English writing tutor. Create a detailed paragraph-by-paragraph writing outline for the following task. DO NOT simply restate the topic title. For EACH paragraph, provide:
+
+1) A clear topic sentence (what this paragraph argues / describes)
+2) 2-3 specific content points or arguments the student should include (use concrete examples, NOT generic phrases like "discuss the topic")
+3) Suggested sentence starters or linking phrases (e.g. "One major reason is…", "For instance…", "In contrast…")
+
+Structure the outline as follows:
+- Paragraph 1 — Introduction: Hook + background + thesis statement (state the writer's position clearly)
+- Paragraph 2 — Body 1: First main argument with supporting evidence / example
+- Paragraph 3 — Body 2: Second main argument with supporting evidence / example
+${wordLimit >= 300 ? '- Paragraph 4 — Body 3 / Counter-argument: Address an opposing view and rebut it' : ''}
+- Final Paragraph — Conclusion: Restate thesis (in different words), summarise key points, final thought / call to action
+
+Writing task:
+- Text type: ${typeName}
+- Grade: ${gradeLevel}
+- Word limit: ~${wordLimit} words
+- Topic: ${resolvedTopic}
+${lang === 'zh' ? '- Output the outline in Traditional Chinese (繁體中文), but keep key English terms where appropriate (e.g. topic sentence, thesis statement).' : '- Output the outline in English.'}
+
+IMPORTANT rules:
+- Every paragraph must have DIFFERENT, specific content — do NOT repeat the same idea across paragraphs.
+- Use concrete, topic-relevant examples (e.g. if the topic is about environmental protection, mention specific actions like "reducing plastic waste" or "using public transport", NOT just "protect the environment").
+- The outline must be immediately usable by a ${gradeLevel} student to start writing — each bullet point should be a complete thought, not a vague heading.`;
+
         const outlineRes = await fetch('/api/ai/generate-questions', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             difficulty: 'core', gradeLevel, count: 1, questionType: 'short-writing',
-            topic: `Create a structured writing outline (3-5 bullet points${lang === 'zh' ? ' in Traditional Chinese' : ''}) for a ${wordLimit}-word ${typeName} for ${gradeLevel}. Topic: ${useCustomTopic && customTopic ? customTopic : (generatedPrompt || topicHint || 'general')}. Return as plain text bullet points.`,
+            topic: outlinePrompt,
           }),
         });
         const oj = await outlineRes.json();
