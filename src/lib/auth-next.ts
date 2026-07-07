@@ -25,8 +25,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, user }) {
       if (session.user) {
-        session.user.id = user.id;
-        session.user.role = user.role || 'student';
+        // Guard against unexpected null user to avoid AuthError on /api/auth/session.
+        if (user?.id) {
+          session.user.id = user.id;
+          session.user.role = user.role || 'student';
+        }
       }
       return session;
     },
@@ -38,4 +41,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: 'database',
   },
+  trustHost: true,
 });

@@ -71,6 +71,8 @@ const translations: Record<string, { zh: string; en: string }> = {
   'role.teacher': { zh: '👩‍🏫 教師', en: '👩‍🏫 Teacher' },
   'role.studentDesc': { zh: '進行練習、查看進度、溫習錯題', en: 'Practice, track progress, review mistakes' },
   'role.teacherDesc': { zh: '管理班級、派發任務、覆核批改', en: 'Manage classes, assign tasks, review work' },
+  'role.saveFailed': { zh: '儲存身份失敗，請重試。', en: 'Failed to save role, please try again.' },
+  'role.sessionExpired': { zh: '登入已過期，請重新登入。', en: 'Session expired. Please sign in again.' },
 
   // Student Pages
   'student.startPractice': { zh: '開始今天的練習吧！', en: 'Start practicing today!' },
