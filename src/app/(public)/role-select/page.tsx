@@ -5,14 +5,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { GraduationCap, Users, Loader2 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 
 export default function RoleSelectPage() {
-  const router = useRouter();
   const { switchRole } = useAppStore();
   const { t } = useT();
   const [loading, setLoading] = useState(false);
@@ -32,7 +30,7 @@ export default function RoleSelectPage() {
       if (!res.ok) {
         if (res.status === 401) {
           setError(t('role.sessionExpired'));
-          setTimeout(() => router.replace('/login'), 600);
+          setTimeout(() => { window.location.href = '/login'; }, 600);
           return;
         }
         setError(t('role.saveFailed'));
@@ -41,12 +39,9 @@ export default function RoleSelectPage() {
 
       switchRole(role);
 
-      // 等一幀再跳轉，確保 store 已更新
-      if (role === 'student') {
-        router.replace('/student/dashboard');
-      } else {
-        router.replace('/teacher/dashboard');
-      }
+      // 使用 window.location.href 做全頁面跳轉，確保 middleware / auth 狀態從伺服器重新載入
+      const target = role === 'student' ? '/student/dashboard' : '/teacher/dashboard';
+      window.location.href = target;
     } catch {
       setError(t('login.networkError'));
     } finally {
