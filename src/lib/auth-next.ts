@@ -21,6 +21,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+      console.log('[auth] signIn callback entered', {
+        provider: account?.provider,
+        email: user.email,
+        timestamp: new Date().toISOString(),
+      });
+
       if (account?.provider === 'google' && user.email) {
         try {
           const existing = await db.user.findUnique({
@@ -29,6 +35,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (!existing) {
+            console.log('[auth] creating new user for', user.email);
             await db.user.create({
               data: {
                 email: user.email,
@@ -37,11 +44,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 role: 'student',
               },
             });
+          } else {
+            console.log('[auth] existing user found', existing.id, existing.role);
           }
         } catch (error) {
           console.error('[auth] failed to ensure Google user exists', error);
         }
       }
+
+      console.log('[auth] signIn callback complete, returning true');
       return true;
     },
     async redirect({ url, baseUrl }) {
@@ -67,21 +78,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return `${baseUrl}/role-select`;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      // 首次登入時 user 與 account 都有值
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: string }).role || 'student';
+        token.provider = account?.provider;
       }
 
+      // 從 DB 同步最新角色（含錯誤保護，避免 DB 逾時中斷整個 callback）
       if (token.email) {
-        const dbUser = await db.user.findUnique({
-          where: { email: token.email as string },
-          select: { id: true, role: true },
-        });
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { email: token.email as string },
+            select: { id: true, role: true },
+          });
 
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role || 'student';
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || 'student';
+          }
+        } catch (err) {
+          console.error('[auth] jwt callback: db lookup failed', err);
+          // 不中斷流程，沿用 token 中已有的值
         }
       }
 
@@ -102,6 +121,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: 'jwt',
+  },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Secure-authjs.session-token'
+        : 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
   },
   trustHost: true,
 });

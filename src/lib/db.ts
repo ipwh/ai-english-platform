@@ -39,7 +39,12 @@ function createPrismaClient(): PrismaClient {
       const { PrismaPg } = require('@prisma/adapter-pg') as typeof import('@prisma/adapter-pg');
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Pool } = require('pg') as typeof import('pg');
-      const pool = new Pool({ connectionString: dbUrl, max: 5 });
+      const pool = new Pool({
+        connectionString: dbUrl,
+        max: 1,
+        connectionTimeoutMillis: 8000,
+        idleTimeoutMillis: 30000,
+      });
       const adapter = new PrismaPg(pool);
       return new PrismaClient({
         adapter,
@@ -61,8 +66,7 @@ function createPrismaClient(): PrismaClient {
 
 export const db = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db;
-}
+// 所有環境都 cache，避免 serverless 每次調用重建 Pool
+globalForPrisma.prisma = db;
 
 export default db;
