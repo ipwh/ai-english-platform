@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/utils';
 
 export default function StudentProfilePage() {
   const router = useRouter();
+  const { t } = useT();
   const { logout, userDisplayName } = useAppStore();
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);

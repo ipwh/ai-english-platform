@@ -29,6 +29,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 樣式 | Tailwind CSS 4 |
 | 資料庫 | Prisma 7 + SQLite (開發) / PostgreSQL (生產) |
 | 狀態管理 | Zustand |
+| 國際化 | 自訂 i18n（useT hook + Zustand language store，支援繁體中文/English，含變數插值） |
 | 圖表 | Recharts |
 | AI | DeepSeek API (chat/completions) + Vertex AI Embeddings |
 | 語音 | Web Speech API (TTS) |
@@ -169,7 +170,7 @@ npm run test:watch    # 持續監控模式
 | API 路由 | ✅ 完整（AI × 6 + CRUD × 5 + 認證 + Drive + 匯入 + RAG） |
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，自動切換） |
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，Prisma DB 查詢 |
-| 前端頁面 | ⚠️ 核心頁面已接 API，部分仍保留 mock fallback |
+| 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換（useT hook 已接全部 23 頁，翻譯鍵完整） |
 | Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR |
 | 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
 
