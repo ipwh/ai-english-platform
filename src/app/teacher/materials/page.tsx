@@ -69,7 +69,7 @@ export default function TeacherMaterialsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📁 教材中心</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.materials.title')}</h1>
 
       {/* 上傳區 */}
       <label className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer block">

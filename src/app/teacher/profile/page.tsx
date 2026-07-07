@@ -43,7 +43,7 @@ export default function TeacherProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('profile.teacher')}</h1>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
         <div className="w-20 h-20 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center mx-auto mb-4">

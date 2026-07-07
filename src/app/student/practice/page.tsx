@@ -184,7 +184,7 @@ export default function PracticeListPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">🤖 AI 練習中心</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('practice.title')}</h1>
         {/* 本週統計 */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-gray-500">
           <span className="flex items-center gap-1"><BarChart3 className="w-4 h-4" /> 本週 {weeklyStats.questionsDone} 題</span>

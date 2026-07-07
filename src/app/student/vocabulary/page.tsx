@@ -101,7 +101,7 @@ export default function VocabularyPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📚 生字簿</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('vocab.title')}</h1>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <TrendingUp className="w-4 h-4" /> 掌握率 {stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0}%
         </div>

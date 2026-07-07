@@ -24,7 +24,7 @@ export default function TeacherClassesPage() {
   }, []);
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📊 班級進度</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.classes.title')}</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {mockClasses.map((cls) => (

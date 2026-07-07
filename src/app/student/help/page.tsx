@@ -64,7 +64,7 @@ export default function StudentHelpPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">💡 求助與建議</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('help.title')}</h1>
 
       {/* AI 學習建議卡片 */}
       <section>

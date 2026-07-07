@@ -16,7 +16,7 @@ export default function TeacherReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📄 報告與匯出</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.reports.title')}</h1>
 
       {/* 快速報表類型 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

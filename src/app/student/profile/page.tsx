@@ -34,7 +34,7 @@ export default function StudentProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('profile.student')}</h1>
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border text-center">
         <div className="w-20 h-20 bg-teal-100 dark:bg-teal-800 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-3xl font-bold text-teal-600 dark:text-teal-300">{displayName.charAt(0)}</span>

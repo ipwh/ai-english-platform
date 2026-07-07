@@ -29,7 +29,7 @@ export default function TeacherAssignmentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📋 任務派發中心</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.assignments.title')}</h1>
         <Link
           href="/teacher/assignments/new"
           className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"

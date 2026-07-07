@@ -37,7 +37,7 @@ export default function TeacherSettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">⚙️ 系統設定</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.settings.title')}</h1>
 
       {/* 年級與班別設定 */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
