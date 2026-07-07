@@ -34,6 +34,14 @@ export default async function middleware(request: NextRequest) {
     request.cookies.has('__Secure-authjs.session-token') ||
     request.cookies.has('next-auth.session-token') ||
     request.cookies.has('__Secure-next-auth.session-token');
+
+  console.log('[middleware]', {
+    pathname,
+    hasNextAuthCookie,
+    cookieCount: request.cookies.getAll().length,
+    cookieNames: request.cookies.getAll().map(c => c.name),
+  });
+
   if (hasNextAuthCookie) {
     return NextResponse.next();
   }

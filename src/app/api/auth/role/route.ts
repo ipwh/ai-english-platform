@@ -53,19 +53,37 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session = await auth();
+
+  console.log('[role-select:POST]', {
+    hasSession: !!session?.user?.id,
+    userId: session?.user?.id ?? null,
+    timestamp: new Date().toISOString(),
+    url: request.url,
+    cookieNames: request.cookies.getAll().map(c => c.name),
+  });
+
   if (!session?.user?.id) {
+    console.log('[role-select:POST] no session → redirect /login');
     return NextResponse.redirect(new URL('/login', request.url), 303);
   }
 
   const formData = await request.formData();
   const role = formData.get('role');
+
+  console.log('[role-select:POST]', { role });
+
   if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
+    console.log('[role-select:POST] invalid role → redirect /role-select');
     return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
   }
 
   await updateUserRole(session.user.id, role);
 
-  return createRoleResponse(request, role);
+  const response = createRoleResponse(request, role);
+
+  console.log('[role-select:POST] redirect →', response.headers.get('location'));
+
+  return response;
 }
 
 // GET /api/auth/role — 獲取當前用戶資訊
