@@ -35,9 +35,11 @@ interface AppState {
   isLoggedIn: boolean;
   currentRole: UserRole | null;
   userId: string | null;
+  userDisplayName: string | null;
 
   // UI 狀態
   isDarkMode: boolean;
+  language: 'zh' | 'en';
   sidebarOpen: boolean;
   mobileMenuOpen: boolean;
 
@@ -55,6 +57,7 @@ interface AppState {
   initSession: () => Promise<void>;
   switchRole: (role: UserRole) => void;
   toggleDarkMode: () => void;
+  toggleLanguage: () => void;
   toggleSidebar: () => void;
   toggleMobileMenu: () => void;
   markNotificationRead: (id: string) => void;
@@ -75,7 +78,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoggedIn: false,
   currentRole: null,
   userId: null,
-  isDarkMode: false,
+  userDisplayName: null as string | null,
+  isDarkMode: typeof window !== 'undefined' ? localStorage.getItem('darkMode') === 'true' : false,
+  language: (typeof window !== 'undefined' ? localStorage.getItem('lang') : null) as 'zh' | 'en' | null || 'zh',
   sidebarOpen: true,
   mobileMenuOpen: false,
   notifications: mockNotifications,
@@ -94,8 +99,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLoggedIn: false, currentRole: null, userId: null });
   },
 
-  /** 從伺服器 session 初始化登入狀態 */
+  /** 從伺服器 session 初始化登入狀態（支援 NextAuth + JWT） */
   initSession: async () => {
+    // 優先嘗試 NextAuth session
+    try {
+      const authRes = await fetch('/api/auth/role');
+      if (authRes.ok) {
+        const authJson = await authRes.json();
+        if (authJson.user) {
+          set({
+            isLoggedIn: true,
+            currentRole: (authJson.user.role as UserRole) || 'student',
+            userId: authJson.user.id,
+            userDisplayName: authJson.user.nameZh || authJson.user.name || authJson.user.email?.split('@')[0] || null,
+          });
+          return;
+        }
+      }
+    } catch { /* fallback to JWT */ }
+
+    // Fallback: JWT session
     try {
       const res = await fetch('/api/auth/session');
       if (res.ok) {
@@ -116,7 +139,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleDarkMode: () => {
-    set((state) => ({ isDarkMode: !state.isDarkMode }));
+    set((state) => {
+      const next = !state.isDarkMode;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('darkMode', String(next));
+        document.documentElement.classList.toggle('dark', next);
+      }
+      return { isDarkMode: next };
+    });
+  },
+
+  toggleLanguage: () => {
+    set((state) => {
+      const next = state.language === 'zh' ? 'en' : 'zh';
+      if (typeof window !== 'undefined') localStorage.setItem('lang', next);
+      return { language: next };
+    });
   },
 
   toggleSidebar: () => {

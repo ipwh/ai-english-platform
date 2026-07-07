@@ -21,7 +21,14 @@ export default function TeacherSettingsPage() {
       .catch(() => setAiStatus('disconnected'));
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    try {
+      await fetch('/api/auth/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch { /* ignore */ }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

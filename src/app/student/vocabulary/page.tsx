@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Sparkles, Loader2, BookMarked, TrendingUp } from 'lucide-react';
 import { mockVocab } from '@/lib/mock-data';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -28,46 +28,51 @@ const familiarityProgress: Record<Familiarity, number> = {
 export default function VocabularyPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Familiarity | 'all'>('all');
-  const [vocab, setVocab] = useState(mockVocab);
 
   // === AI 例句生成 ===
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [vocab, setVocab] = useState<VocabItem[]>(mockVocab);
+
+  useEffect(() => {
+    fetch('/api/vocabulary?studentId=student')
+      .then(r => r.json())
+      .then(d => { if (d.vocab?.length) setVocab(d.vocab); })
+      .catch(() => {});
+  }, []);
+
   const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
 
   const handleAIExample = async (v: VocabItem) => {
     setGeneratingId(v.id);
     try {
+      // 使用 AI 生成例句
       const res = await fetch('/api/ai/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          grammarItem: undefined,
-          languageSkill: undefined,
           difficulty: 'core',
           gradeLevel: 'S4',
           count: 1,
           questionType: 'short-writing',
-          topic: `Create example sentence: ${v.word}`,
+          topic: `Write an example sentence using the word "${v.word}" (meaning: ${v.meaningZh})`,
         }),
       });
-      // 簡單的 AI 例句請求（使用 explain-mistake 端點的效果更好，但我們用 generate-questions 變通）
-      const exampleRes = await fetch('/api/ai/explain-mistake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: `The word "${v.word}" (${v.meaningZh})`,
-          correctAnswer: v.word,
-          studentAnswer: '',
-          grammarItemZh: v.word,
-        }),
-      });
-      const json = await exampleRes.json();
-      if (res.ok || json.explanation?.reasonZh) {
-        setAiExamples(prev => ({
-          ...prev,
-          [v.id]: `📖 ${v.word}: ${v.exampleSentence}`,
-        }));
+      if (res.ok) {
+        const data = await res.json();
+        const questions = data.questions || [];
+        if (questions.length > 0) {
+          setAiExamples(prev => ({
+            ...prev,
+            [v.id]: `📖 ${questions[0].prompt || `${v.word}: ${v.exampleSentence}`}`,
+          }));
+          return;
+        }
       }
+      // Fallback to mock example
+      setAiExamples(prev => ({
+        ...prev,
+        [v.id]: `📖 ${v.word}: ${v.exampleSentence}`,
+      }));
     } catch { /* silent */ }
     finally { setGeneratingId(null); }
   };

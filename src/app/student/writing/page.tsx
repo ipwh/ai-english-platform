@@ -1,281 +1,278 @@
-// ============================================
-// 學生端 — 寫作支援頁面
-// ============================================
+// Writing Support — AI prompts, word count, outline, assistance
 'use client';
 
-import { useState } from 'react';
-import { Send, Lightbulb, AlertTriangle, CheckCircle, PencilLine, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
-import { mockWritings } from '@/lib/mock-data';
-import { formatDate } from '@/lib/utils';
+import { useState, useEffect, useCallback } from 'react';
+import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash } from 'lucide-react';
+import { useAppStore } from '@/store/appStore';
+
+const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
+const textTypes: Record<string, { zh: string; en: string }> = {
+  essay: { zh: 'Essay 文章', en: 'Essay' }, letter: { zh: 'Letter 書信', en: 'Letter' },
+  report: { zh: 'Report 報告', en: 'Report' }, article: { zh: 'Article 專欄', en: 'Article' },
+  story: { zh: 'Story 故事', en: 'Story' }, argumentative: { zh: 'Argumentative 議論文', en: 'Argumentative' },
+  review: { zh: 'Review 評論', en: 'Review' }, email: { zh: 'Email 電郵', en: 'Email' },
+};
+const wordLimits = [100, 150, 200, 300, 400, 500, 800];
+
+const t = (lang: string, zh: string, en: string) => lang === 'zh' ? zh : en;
 
 export default function WritingPage() {
-  const [selectedDraft, setSelectedDraft] = useState(mockWritings[0]);
-  const [showNewWriting, setShowNewWriting] = useState(false);
-  const [newPrompt, setNewPrompt] = useState('');
-  const [newDraft, setNewDraft] = useState('');
+  const { language } = useAppStore();
+  const lang = language || 'zh';
 
-  // === AI 寫作批改狀態 ===
+  const [gradeLevel, setGradeLevel] = useState('S4');
+  const [textType, setTextType] = useState('essay');
+  const [wordLimit, setWordLimit] = useState(200);
+  const [topicHint, setTopicHint] = useState('');
+  const [customTopic, setCustomTopic] = useState('');
+  const [useCustomTopic, setUseCustomTopic] = useState(false);
+  const [wantOutline, setWantOutline] = useState(true);
+  const [generatedPrompt, setGeneratedPrompt] = useState('');
+  const [generatedOutline, setGeneratedOutline] = useState('');
+  const [genLoading, setGenLoading] = useState(false);
+
+  const [draft, setDraft] = useState('');
+  const wordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0;
+  const charCount = draft.length;
+  const wordProgress = Math.min(100, Math.round((wordCount / wordLimit) * 100));
+
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showVocabHelp, setShowVocabHelp] = useState(true);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [vocabHelp, setVocabHelp] = useState<{ word: string; meaning: string }[]>([]);
+  const [assistLoading, setAssistLoading] = useState(false);
+
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<{
-    overallScore: number;
-    strengths: string[];
-    weaknesses: string[];
-    grammarErrors: { original: string; correction: string; explanation: string }[];
-    chinglishWarnings: { original: string; suggestion: string; explanation: string }[];
-    vocabularySuggestions: { original: string; suggestion: string; reason: string }[];
-    structureFeedback: string;
-    revisedVersion?: string;
-    generalComment: string;
-  } | null>(null);
+  const [aiResult, setAiResult] = useState<any>(null);
   const [aiError, setAiError] = useState('');
 
-  const handleAIAnalyze = async () => {
-    if (!newPrompt || !newDraft) return;
-    setAiLoading(true);
-    setAiError('');
-    setAiResult(null);
+  const handleGenerate = async () => {
+    setGenLoading(true);
+    const topic = useCustomTopic && customTopic ? customTopic : topicHint;
+    const typeName = textTypes[textType]?.en || textType;
+    const promptText = `Write a ${typeName} (${wordLimit} words) for ${gradeLevel} student${topic ? '. Topic: ' + topic : ''}. Return ONLY the writing prompt/title.`;
     try {
-      const res = await fetch('/api/ai/analyze-writing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newPrompt,
-          prompt: newPrompt,
-          studentDraft: newDraft,
-        }),
+      const res = await fetch('/api/ai/generate-questions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ difficulty: 'core', gradeLevel, count: 1, questionType: 'short-writing', topic: promptText }),
       });
       const json = await res.json();
-      if (res.ok && json.analysis) {
-        setAiResult(json.analysis);
-      } else {
-        setAiError(json.error || 'AI 批改暫時無法使用');
-      }
-    } catch {
-      setAiError('AI 服務連線失敗');
-    } finally {
-      setAiLoading(false);
+      if (json.questions?.[0]) setGeneratedPrompt(json.questions[0].prompt || json.questions[0].answer || 'Write about your experience.');
+    } catch { /* ignore */ }
+
+    if (wantOutline) {
+      try {
+        const outlineRes = await fetch('/api/ai/generate-questions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            difficulty: 'core', gradeLevel, count: 1, questionType: 'short-writing',
+            topic: `Create a structured writing outline (3-5 bullet points${lang === 'zh' ? ' in Traditional Chinese' : ''}) for a ${wordLimit}-word ${typeName} for ${gradeLevel}. Topic: ${useCustomTopic && customTopic ? customTopic : (generatedPrompt || topicHint || 'general')}. Return as plain text bullet points.`,
+          }),
+        });
+        const oj = await outlineRes.json();
+        if (oj.questions?.[0]) setGeneratedOutline(oj.questions[0].prompt || oj.questions[0].answer || '');
+      } catch { /* ignore */ }
     }
+    setGenLoading(false);
   };
+
+  const fetchAssistance = useCallback(async () => {
+    if (!draft.trim() || (!showSuggestions && !showVocabHelp)) return;
+    setAssistLoading(true);
+    try {
+      const res = await fetch('/api/ai/analyze-writing', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft.slice(0, 2000) }),
+      });
+      const json = await res.json();
+      if (json.analysis) {
+        if (showSuggestions) {
+          setSuggestions([
+            ...(json.analysis.weaknesses || []).slice(0, 2).map((w: string) => t(lang, '改善建議：' + w, 'Tip: ' + w)),
+            ...(json.analysis.strengths || []).slice(0, 1).map((s: string) => t(lang, '做得好：' + s, 'Good: ' + s)),
+          ]);
+        }
+        if (showVocabHelp) {
+          setVocabHelp((json.analysis.vocabularySuggestions || []).slice(0, 5).map(
+            (v: { original: string; suggestion: string; reason: string }) => ({ word: v.suggestion, meaning: v.reason })
+          ));
+        }
+      }
+    } catch { /* ignore */ }
+    finally { setAssistLoading(false); }
+  }, [draft, generatedPrompt, showSuggestions, showVocabHelp, lang]);
+
+  useEffect(() => {
+    if (draft.length < 20) { setSuggestions([]); setVocabHelp([]); return; }
+    const timer = setTimeout(fetchAssistance, 1500);
+    return () => clearTimeout(timer);
+  }, [draft, fetchAssistance]);
+
+  const handleSubmit = async () => {
+    if (!draft.trim()) return;
+    setAiLoading(true); setAiError(''); setAiResult(null);
+    try {
+      const res = await fetch('/api/ai/analyze-writing', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft }),
+      });
+      const json = await res.json();
+      if (res.ok && json.analysis) setAiResult(json.analysis);
+      else setAiError(json.error || t(lang, 'AI 分析暫時無法使用', 'AI analysis unavailable'));
+    } catch { setAiError(t(lang, '連線失敗', 'Connection failed')); }
+    finally { setAiLoading(false); }
+  };
+
+  const realTopic = useCustomTopic && customTopic ? customTopic : generatedPrompt;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">✍️ 寫作支援</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t(lang, '✍️ 寫作支援', '✍️ Writing Support')}</h1>
 
-      {/* 新增寫作 */}
-      {!showNewWriting ? (
-        <button
-          onClick={() => setShowNewWriting(true)}
-          className="w-full py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl text-gray-400 hover:border-teal-400 hover:text-teal-500 transition-colors flex items-center justify-center gap-2"
-        >
-          <PencilLine className="w-5 h-5" /> 開始新寫作
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-purple-500" /> {t(lang, 'AI 題目生成', 'AI Prompt Generator')}
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t(lang, '年級', 'Grade')}</label>
+            <select value={gradeLevel} onChange={e => setGradeLevel(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">{gradeLevels.map(g => <option key={g}>{g}</option>)}</select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t(lang, '文體', 'Text Type')}</label>
+            <select value={textType} onChange={e => setTextType(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+              {Object.entries(textTypes).map(([k, v]) => <option key={k} value={k}>{lang === 'zh' ? v.zh : v.en}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t(lang, '字數上限', 'Word Limit')}</label>
+            <select value={wordLimit} onChange={e => setWordLimit(Number(e.target.value))} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+              {wordLimits.map(w => <option key={w} value={w}>{w} {t(lang, '字', 'words')}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t(lang, '主題提示（可選）', 'Topic Hint (optional)')}</label>
+            <input value={topicHint} onChange={e => setTopicHint(e.target.value)} placeholder={t(lang, '例如：環境保護', 'e.g. environment')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white" />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2 cursor-pointer">
+          <input type="checkbox" checked={useCustomTopic} onChange={e => setUseCustomTopic(e.target.checked)} className="rounded" />
+          {t(lang, '使用自訂題目（不使用 AI 生成）', 'Use custom topic (skip AI generation)')}
+        </label>
+        {useCustomTopic && (
+          <input value={customTopic} onChange={e => setCustomTopic(e.target.value)} placeholder={t(lang, '輸入你的自訂作文題目...', 'Enter your custom writing topic...')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white mb-3" />
+        )}
+        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3 cursor-pointer">
+          <input type="checkbox" checked={wantOutline} onChange={e => setWantOutline(e.target.checked)} className="rounded" />
+          {t(lang, '生成 AI 作文大綱（結構建議）', 'Generate AI writing outline')}
+        </label>
+        <button onClick={handleGenerate} disabled={genLoading || (useCustomTopic && !customTopic)}
+          className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 disabled:opacity-50 flex items-center gap-2">
+          {genLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {genLoading ? t(lang, '生成中...', 'Generating...') : (useCustomTopic ? t(lang, '確認題目', 'Confirm Topic') : t(lang, '生成題目', 'Generate Prompt'))}
         </button>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
-          <h2 className="font-semibold text-gray-900 dark:text-white">新寫作練習</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">題目 / 主題</label>
-            <input
-              type="text"
-              value={newPrompt}
-              onChange={(e) => setNewPrompt(e.target.value)}
-              placeholder="例如：Write a letter of complaint..."
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500"
-            />
+        {realTopic && (
+          <div className="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+            <p className="text-sm font-medium text-purple-800 dark:text-purple-200">{t(lang, '作文題目：', 'Your Prompt:')}</p>
+            <p className="text-lg text-gray-900 dark:text-white mt-1">{realTopic}</p>
+            <p className="text-xs text-gray-500 mt-2">{t(lang, '字數', 'Words')}：{wordLimit} | {t(lang, '文體', 'Type')}：{lang === 'zh' ? textTypes[textType].zh : textTypes[textType].en} | {t(lang, '年級', 'Level')}：{gradeLevel}</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">你的寫作</label>
-            <textarea
-              value={newDraft}
-              onChange={(e) => setNewDraft(e.target.value)}
-              placeholder="在此寫下你的文章..."
-              rows={6}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-            />
+        )}
+        {generatedOutline && (
+          <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{t(lang, 'AI 作文大綱：', 'AI Writing Outline:')}</p>
+            <pre className="text-sm text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-line">{generatedOutline}</pre>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleAIAnalyze}
-              disabled={aiLoading || !newPrompt || !newDraft}
-              className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 disabled:opacity-50 flex items-center gap-2"
-            >
-              {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {aiLoading ? 'AI 批改中...' : '提交 AI 批改'}
-            </button>
-            <button onClick={() => { setShowNewWriting(false); setAiResult(null); setAiError(''); }} className="px-4 py-2 text-gray-500 text-sm">取消</button>
-          </div>
+        )}
+      </div>
 
-          {/* AI 批改結果 */}
-          {aiError && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-600 dark:text-red-400">
-              ⚠️ {aiError}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <PencilLine className="w-5 h-5 text-teal-500" /> {t(lang, '你的寫作', 'Your Writing')}
+          </h2>
+          <div className="flex items-center gap-4 text-sm">
+            <span className={`flex items-center gap-1 font-bold ${wordCount > wordLimit ? 'text-red-500' : wordCount >= wordLimit * 0.8 ? 'text-amber-500' : 'text-gray-500'}`}>
+              <Hash className="w-4 h-4" />{wordCount} / {wordLimit} {t(lang, '字', 'words')}
+            </span>
+            <span className="text-gray-400">{charCount} {t(lang, '字元', 'chars')}</span>
+          </div>
+        </div>
+        <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
+          <div className={`h-full rounded-full transition-all ${wordCount > wordLimit ? 'bg-red-500' : wordCount >= wordLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'}`} style={{ width: `${wordProgress}%` }} />
+        </div>
+        <textarea value={draft} onChange={e => setDraft(e.target.value)}
+          placeholder={realTopic ? t(lang, `請根據題目「${realTopic}」在此寫作...`, `Write about "${realTopic}" here...`) : t(lang, '請先生成或輸入題目，然後在此寫作...', 'Generate or enter a topic first, then write here...')}
+          rows={8} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[200px]" />
+        <div className="flex items-center gap-4 mt-3 flex-wrap">
+          <button onClick={handleSubmit} disabled={aiLoading || !draft.trim()}
+            className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 disabled:opacity-50 flex items-center gap-2">
+            {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {aiLoading ? t(lang, 'AI 批改中...', 'Analyzing...') : t(lang, '提交 AI 批改', 'Submit for AI Analysis')}
+          </button>
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={showSuggestions} onChange={e => setShowSuggestions(e.target.checked)} className="rounded" />
+            <Lightbulb className="w-4 h-4 text-amber-500" /> {t(lang, '寫作提示', 'Writing Tips')}
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={showVocabHelp} onChange={e => setShowVocabHelp(e.target.checked)} className="rounded" />
+            <CheckCircle className="w-4 h-4 text-green-500" /> {t(lang, '詞彙建議', 'Vocab Help')}
+          </label>
+          {assistLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+        </div>
+      </div>
+
+      {(showSuggestions || showVocabHelp) && (suggestions.length > 0 || vocabHelp.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-5 border border-amber-200 dark:border-amber-800">
+              <h3 className="font-semibold text-amber-800 dark:text-amber-200 mb-3 flex items-center gap-2"><Lightbulb className="w-5 h-5" /> {t(lang, '寫作提示', 'Writing Tips')}</h3>
+              <ul className="space-y-2">{suggestions.map((s, i) => <li key={i} className="text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2"><span className="text-amber-400 mt-0.5">•</span> {s}</li>)}</ul>
             </div>
           )}
-
-          {aiResult && (
-            <div className="space-y-4 mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                <h3 className="font-semibold text-purple-800 dark:text-purple-200">AI 寫作分析</h3>
-              </div>
-
-              {/* 評分 */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600 dark:text-gray-400">整體評分：</span>
-                <span className={`text-2xl font-bold ${aiResult.overallScore >= 70 ? 'text-green-600' : aiResult.overallScore >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {aiResult.overallScore}/100
-                </span>
-              </div>
-
-              {/* 中式英文警示 */}
-              {aiResult.chinglishWarnings.length > 0 && (
-                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-2">🚨 中式英文警示</p>
-                  {aiResult.chinglishWarnings.map((w, i) => (
-                    <div key={i} className="text-xs text-orange-700 dark:text-orange-300 mb-1">
-                      ❌ 「{w.original}」→ ✅ 「{w.suggestion}」— {w.explanation}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 文法錯誤 */}
-              {aiResult.grammarErrors.length > 0 && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                  <p className="text-xs font-semibold text-red-600 mb-2">📝 文法修正</p>
-                  {aiResult.grammarErrors.map((e, i) => (
-                    <div key={i} className="text-xs text-red-700 dark:text-red-300 mb-1">
-                      「{e.original}」→「{e.correction}」— {e.explanation}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 總評 */}
-              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-                <p className="text-xs font-medium text-gray-500 mb-1">AI 總評</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">{aiResult.generalComment}</p>
-              </div>
+          {showVocabHelp && vocabHelp.length > 0 && (
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-5 border border-green-200 dark:border-green-800">
+              <h3 className="font-semibold text-green-800 dark:text-green-200 mb-3 flex items-center gap-2"><CheckCircle className="w-5 h-5" /> {t(lang, '詞彙建議', 'Vocabulary Suggestions')}</h3>
+              <div className="space-y-2">{vocabHelp.map((v, i) => <div key={i} className="text-sm"><span className="font-medium text-green-700 dark:text-green-300">{v.word}</span><span className="text-green-600 dark:text-green-400 ml-2">— {v.meaning}</span></div>)}</div>
             </div>
           )}
         </div>
       )}
 
-      {/* AI 寫作工具箱 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* 句型框架 */}
-        <details className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 group">
-          <summary className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2 cursor-pointer list-none">
-            <Lightbulb className="w-4 h-4" /> 句型框架
-          </summary>
-          <div className="mt-3 space-y-2 text-xs text-blue-600 dark:text-blue-400">
-            <p><strong>引言段：</strong>Hook → Background → Thesis Statement</p>
-            <p><strong>主體段：</strong>Topic Sentence → Example → Explanation → Link</p>
-            <p><strong>結論段：</strong>Restate Thesis → Summarize → Final Thought</p>
+      {aiError && <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl text-sm text-red-600">⚠️ {aiError}</div>}
+      {aiResult && (
+        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800 space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-600" /><h3 className="font-semibold text-purple-800 dark:text-purple-200">{t(lang, 'AI 寫作分析', 'AI Writing Analysis')}</h3>
+            <span className="ml-auto text-2xl font-bold text-purple-700">{aiResult.overallScore}/100</span>
           </div>
-        </details>
-
-        {/* 連接詞面板 */}
-        <details className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-          <summary className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2 cursor-pointer list-none">
-            <ArrowRight className="w-4 h-4" /> 連接詞建議
-          </summary>
-          <div className="mt-3 space-y-1.5 text-xs text-green-600 dark:text-green-400">
-            <p><strong>補充：</strong>Furthermore, Moreover, In addition, Additionally</p>
-            <p><strong>轉折：</strong>However, Nevertheless, On the other hand, Although</p>
-            <p><strong>因果：</strong>Therefore, As a result, Consequently, Thus</p>
-            <p><strong>舉例：</strong>For instance, For example, Such as, Namely</p>
-            <p><strong>總結：</strong>In conclusion, To sum up, Overall, In brief</p>
-          </div>
-        </details>
-
-        {/* Chinglish 警示 */}
-        <details className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
-          <summary className="text-sm font-medium text-orange-700 dark:text-orange-300 flex items-center gap-2 cursor-pointer list-none">
-            <AlertTriangle className="w-4 h-4" /> 常見 Chinglish
-          </summary>
-          <div className="mt-3 space-y-1.5 text-xs text-orange-600 dark:text-orange-400">
-            <p>❌ according to my opinion → ✅ In my opinion</p>
-            <p>❌ I very like it → ✅ I really like it</p>
-            <p>❌ There have many people → ✅ There are many people</p>
-            <p>❌ I am agree → ✅ I agree</p>
-            <p>❌ Although...but → ✅ Although... (no but)</p>
-            <p>❌ Because...so → ✅ Because... (no so)</p>
-          </div>
-        </details>
-      </div>
-
-      {/* 寫作草稿列表 */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">我的寫作草稿</h2>
-        <div className="space-y-4">
-          {mockWritings.map((w) => (
-            <div key={w.id} className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border cursor-pointer transition-colors ${
-              selectedDraft.id === w.id ? 'border-teal-400 ring-1 ring-teal-400' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300'
-            }`} onClick={() => setSelectedDraft(w)}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-gray-900 dark:text-white">{w.title}</h3>
-                <span className="text-xs text-gray-400">{formatDate(w.submittedAt)}</span>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{w.prompt}</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">{aiResult.generalComment}</p>
+          {aiResult.strengths?.length > 0 && (
+            <div><p className="text-xs font-medium text-green-600 mb-1">{t(lang, '優點：', 'Strengths:')}</p><ul className="list-disc list-inside text-sm text-gray-600 space-y-0.5">{aiResult.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}</ul></div>
+          )}
+          {aiResult.grammarErrors?.length > 0 && (
+            <div><p className="text-xs font-medium text-red-600 mb-1">{t(lang, '文法錯誤：', 'Grammar Errors:')}</p>
+              {aiResult.grammarErrors.map((e: { original: string; correction: string; explanation: string }, i: number) => (
+                <div key={i} className="text-sm text-red-700 ml-2"><span className="line-through">{e.original}</span> → <span className="font-medium">{e.correction}</span><span className="text-gray-500 ml-2">({e.explanation})</span></div>))}
             </div>
-          ))}
+          )}
+          {aiResult.chinglishWarnings?.length > 0 && (
+            <div><p className="text-xs font-medium text-amber-600 mb-1">{t(lang, '中式英文：', 'Chinglish:')}</p>
+              {aiResult.chinglishWarnings.map((c: { original: string; suggestion: string }, i: number) => (
+                <div key={i} className="text-sm text-amber-700 ml-2"><span className="line-through">{c.original}</span> → <span className="font-medium">{c.suggestion}</span></div>))}
+            </div>
+          )}
+          {aiResult.structureFeedback && <div><p className="text-xs font-medium text-blue-600 mb-1">{t(lang, '結構評語：', 'Structure:')}</p><p className="text-sm text-gray-600">{aiResult.structureFeedback}</p></div>}
+          {aiResult.vocabularySuggestions?.length > 0 && (
+            <div><p className="text-xs font-medium text-green-600 mb-1">{t(lang, '詞彙建議：', 'Vocabulary:')}</p>
+              {aiResult.vocabularySuggestions.map((v: { original: string; suggestion: string; reason: string }, i: number) => (
+                <div key={i} className="text-sm text-green-700 ml-2"><span className="line-through">{v.original}</span> → <span className="font-medium">{v.suggestion}</span><span className="text-gray-500 ml-2">({v.reason})</span></div>))}
+            </div>
+          )}
+          {aiResult.revisedVersion && (
+            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg"><p className="text-xs font-medium text-purple-600 mb-1">{t(lang, '修改版：', 'Revised:')}</p><p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p></div>
+          )}
         </div>
-      </section>
-
-      {/* 選中草稿詳情 */}
-      {selectedDraft && (
-        <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
-          <h2 className="font-semibold text-gray-900 dark:text-white">{selectedDraft.title}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{selectedDraft.prompt}</p>
-
-          {/* 草稿 vs 修正對照 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
-              <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">📝 你的原文</h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedDraft.draft}</p>
-            </div>
-            {selectedDraft.revisedVersion && (
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
-                <h3 className="text-xs font-medium text-green-600 dark:text-green-400 mb-2">✅ AI 修正版</h3>
-                <p className="text-sm text-green-800 dark:text-green-200 whitespace-pre-wrap">{selectedDraft.revisedVersion}</p>
-              </div>
-            )}
-          </div>
-
-          {/* AI 建議 */}
-          {selectedDraft.aiSuggestions && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-              <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">🤖 AI 寫作建議</h3>
-              <ul className="space-y-1">
-                {selectedDraft.aiSuggestions.map((s, i) => (
-                  <li key={i} className="text-sm text-blue-600 dark:text-blue-400 flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Chinglish 警示 */}
-          {selectedDraft.chinglishWarnings && selectedDraft.chinglishWarnings.length > 0 && (
-            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4">
-              <h3 className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">⚠️ 中式英文警示</h3>
-              <ul className="space-y-1">
-                {selectedDraft.chinglishWarnings.map((w, i) => (
-                  <li key={i} className="text-sm text-orange-600 dark:text-orange-400">{w}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 教師評語 */}
-          {selectedDraft.teacherComment && (
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4">
-              <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">👩‍🏫 教師評語</h3>
-              <p className="text-sm text-purple-600 dark:text-purple-400">{selectedDraft.teacherComment}</p>
-            </div>
-          )}
-        </section>
       )}
     </div>
   );

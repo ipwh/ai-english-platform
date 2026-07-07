@@ -59,9 +59,39 @@ export default function NewAssignmentPage() {
     } finally { setGenerating(false); }
   };
 
-  const handlePublish = () => {
-    // TODO: connect to API — 提交任務至後端
-    setShowSuccess(true);
+  const handlePublish = async () => {
+    if (!generatedQuestions.length) return;
+    setGenError('');
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title || `${skillLabels[form.skill] || form.skill} — ${form.gradeLevel}`,
+          className: form.classId || '4A',
+          gradeLevel: form.gradeLevel,
+          strand: 'knowledge',
+          grammarItem: form.skill,
+          difficulty: form.difficulty,
+          questionCount: generatedQuestions.length,
+          createdBy: 'teacher',
+          questions: generatedQuestions.map((q, i) => ({
+            questionType: form.questionType,
+            prompt: q.prompt,
+            options: q.choices ? JSON.stringify(q.choices) : null,
+            answer: q.answer,
+            orderIndex: i,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '發布失敗');
+      }
+      setShowSuccess(true);
+    } catch (err: unknown) {
+      setGenError(err instanceof Error ? err.message : '發布失敗');
+    }
   };
 
   return (

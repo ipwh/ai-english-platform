@@ -1,0 +1,47 @@
+// ============================================
+// API: /api/mistakes — 錯題記錄
+// ============================================
+
+import { NextRequest, NextResponse } from 'next/server';
+import db from '@/lib/db';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { studentId, questionId, studentAnswer, correctAnswer, mistakeType, aiExplanation } = body;
+
+    if (!studentId || !questionId) {
+      return NextResponse.json({ error: 'studentId, questionId 為必填' }, { status: 400 });
+    }
+
+    const mistake = await db.mistake.create({
+      data: {
+        studentId,
+        questionId,
+        studentAnswer: studentAnswer || '',
+        correctAnswer: correctAnswer || '',
+        mistakeType: mistakeType || 'grammar',
+        aiExplanation,
+      },
+    });
+
+    return NextResponse.json({ mistake }, { status: 201 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知錯誤';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const studentId = searchParams.get('studentId');
+  if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+
+  const mistakes = await db.mistake.findMany({
+    where: { studentId },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+
+  return NextResponse.json({ mistakes });
+}

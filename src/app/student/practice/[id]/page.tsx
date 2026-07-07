@@ -29,6 +29,17 @@ function checkAnswer(student: string, correct: string, type: string): boolean {
   return normalize(student) === normalize(correct);
 }
 
+/** 取得完整答案文字（MC 題從選項中查找完整句子，非 MC 題直接回傳答案） */
+function getFullAnswerText(question: PracticeQuestion): string {
+  if (question.choices && question.choices.length > 0) {
+    const fullChoice = question.choices.find(
+      c => c.charAt(0).toUpperCase() === question.answer.trim().toUpperCase()
+    );
+    return fullChoice || question.answer;
+  }
+  return question.answer;
+}
+
 export default function PracticeQuestionPage() {
   const params = useParams();
   const router = useRouter();
@@ -110,6 +121,39 @@ export default function PracticeQuestionPage() {
       setAiError('AI 服務連線失敗');
     } finally {
       setAiLoading(false);
+    }
+
+    // 儲存練習記錄到後端
+    if (isSessionMode) {
+      fetch('/api/practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: store.userId || 'student',
+          skill: question.grammarItem || question.languageSkill || 'general',
+          skillZh: question.subSkillZh || '',
+          difficulty: question.difficulty || 'core',
+          totalQuestions: sessionQuestions.length,
+          correctCount: correct ? 1 : 0,
+          source: 'ai-generated',
+        }),
+      }).catch(() => {});
+    }
+
+    // 答錯時儲存錯題
+    if (!correct) {
+      fetch('/api/mistakes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: store.userId || 'student',
+          questionId: question.id,
+          studentAnswer: selectedAnswer,
+          correctAnswer: question.answer,
+          mistakeType: 'grammar',
+          aiExplanation: '',
+        }),
+      }).catch(() => {});
     }
   };
 
@@ -348,10 +392,15 @@ export default function PracticeQuestionPage() {
           </div>
 
           {!isCorrect && (
-            <p className="text-sm mb-2">
+            <div className="text-sm mb-2 flex items-center gap-2">
               <span className="text-gray-500 dark:text-gray-400">正確答案：</span>
               <span className="font-bold text-green-700 dark:text-green-300">{question.answer}</span>
-            </p>
+              <AudioPlayer
+                text={getFullAnswerText(question)}
+                label=""
+                size="sm"
+              />
+            </div>
           )}
 
           {/* AI 解釋（中/英切換） */}

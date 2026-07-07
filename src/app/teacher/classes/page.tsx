@@ -1,15 +1,25 @@
 // ============================================
 // 教師端 — 班級進度總覽
-// TODO: connect to API
 // ============================================
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, TrendingUp, Target, ChevronRight } from 'lucide-react';
+import { Users, TrendingUp, Target, ChevronRight, Loader2 } from 'lucide-react';
 import { mockClasses } from '@/lib/mock-data';
 import ProgressBar from '@/components/shared/ProgressBar';
 
 export default function TeacherClassesPage() {
+  const [classes, setClasses] = useState(mockClasses);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/classes')
+      .then(r => r.json())
+      .then(d => { if (d.classes?.length) setClasses(d.classes.map((c: { id: string; name: string; gradeLevel: string; _count?: { students: number; assignments: number } }) => ({ id: c.id, name: c.name, gradeLevel: c.gradeLevel, studentCount: c._count?.students ?? 0, avgAccuracy: 0, avgCompletionRate: 0 }))); })
+      .catch(() => { /* fallback to mock */ })
+      .finally(() => setLoading(false));
+  }, []);
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📊 班級進度</h1>

@@ -5,7 +5,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, FileText, File, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Upload, FileText, File, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
 import { mockMaterials } from '@/lib/mock-data';
 import { formatDate } from '@/lib/utils';
 
@@ -22,6 +22,8 @@ export default function TeacherMaterialsPage() {
 
   // === AI 教材分析 ===
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [driveUrl, setDriveUrl] = useState('');
+  const [driveLoading, setDriveLoading] = useState(false);
   const [aiResults, setAiResults] = useState<Record<string, {
     summary: string;
     keyVocabulary: { word: string; meaningZh: string }[];
@@ -68,11 +70,81 @@ export default function TeacherMaterialsPage() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📁 教材中心</h1>
 
       {/* 上傳區 */}
-      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+      <label className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer block">
         <Upload className="w-10 h-10 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
         <p className="text-sm text-gray-500 dark:text-gray-400">拖放檔案至此，或點擊上傳</p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">支援 PDF、DOCX、PPT、圖片（最大 20MB）</p>
-        {/* TODO: connect to API — 檔案上傳至後端 */}
+        <input
+          type="file"
+          accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg,.txt"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            // 文字檔直接讀取內容
+            if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+              const text = await file.text();
+              try {
+                const res = await fetch('/api/ai/analyze-material', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title: file.name, content: text }),
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  alert(`教材「${file.name}」分析完成！`);
+                }
+              } catch { alert('AI 分析失敗，請重試。'); }
+            } else {
+              alert(`已選取：${file.name}（${(file.size / 1024).toFixed(0)} KB）\n此檔案類型暫不支援自動分析，請使用文字檔。`);
+            }
+            e.target.value = '';
+          }}
+          className="hidden"
+        />
+      </label>
+
+      {/* Google Drive 匯入 */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-2 mb-2">
+          <Link2 className="w-4 h-4 text-blue-500" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">從 Google Drive 匯入</span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={driveUrl}
+            onChange={(e) => setDriveUrl(e.target.value)}
+            placeholder="貼上 Google Drive 分享連結..."
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={async () => {
+              if (!driveUrl) return;
+              setDriveLoading(true);
+              try {
+                const res = await fetch('/api/drive/download', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: driveUrl }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  alert(`已匯入：${data.file.name}（${data.file.contentLength} 字元）`);
+                  setDriveUrl('');
+                } else {
+                  alert(data.error || '匯入失敗');
+                }
+              } catch { alert('連線失敗'); }
+              finally { setDriveLoading(false); }
+            }}
+            disabled={driveLoading || !driveUrl}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium flex items-center gap-1"
+          >
+            {driveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+            匯入
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">支援 .txt、.csv、.md 檔案。請先將檔案分享給服務帳號。</p>
       </div>
 
       {/* 搜尋 */}

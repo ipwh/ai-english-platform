@@ -1,11 +1,11 @@
 // ============================================
 // 教師端 — 任務派發中心（列表）
-// TODO: connect to API
 // ============================================
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Clock, Users, ChevronRight } from 'lucide-react';
+import { Plus, Clock, Users, ChevronRight, Loader2 } from 'lucide-react';
 import { mockTeacherAssignments } from '@/lib/mock-data';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
@@ -13,7 +13,16 @@ import { formatDate, daysRemaining } from '@/lib/utils';
 import { statusLabels } from '@/lib/nav';
 
 export default function TeacherAssignmentsPage() {
-  const assignments = mockTeacherAssignments;
+  const [assignments, setAssignments] = useState(mockTeacherAssignments);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/assignments')
+      .then(r => r.json())
+      .then(d => { if (d.assignments?.length) setAssignments(d.assignments); })
+      .catch(() => { /* fallback to mock */ })
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="space-y-6">

@@ -5,9 +5,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateQuestions, isDeepSeekConfigured } from '@/lib/ai-service';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rateLimit = checkRateLimit({ ...AI_RATE_LIMIT, identifier: `ai-gen:${ip}` });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.message }, {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+      });
+    }
+
     if (!isDeepSeekConfigured()) {
       return NextResponse.json(
         { error: 'DeepSeek API 尚未設定，請在 .env.local 中設定 DEEPSEEK_API_KEY。' },

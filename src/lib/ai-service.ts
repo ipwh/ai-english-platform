@@ -4,6 +4,16 @@
 // API 文件: https://platform.deepseek.com/api-docs
 // ============================================
 
+import {
+  GeneratedQuestionsArraySchema,
+  AnswerAnalysisSchema,
+  WritingAnalysisSchema,
+  MistakeExplanationSchema,
+  ProgressAnalysisSchema,
+  MaterialAnalysisSchema,
+  validateAIResponse,
+} from './ai-schema';
+
 // ============================================
 // 設定
 // ============================================
@@ -35,7 +45,7 @@ async function callDeepSeek(
     throw new Error('AI 服務尚未設定。請在環境變數中設定 DEEPSEEK_API_KEY。');
   }
 
-  const timeoutMs = options?.timeoutMs || 8000; // 8 秒預設（Vercel 免費版上限 10s）
+  const timeoutMs = options?.timeoutMs || 30000; // 30 秒預設（本地開發；Vercel 部署時建議設為 8000）
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -65,7 +75,7 @@ async function callDeepSeek(
     return data.choices[0]?.message?.content || '';
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('AI 服務回應超時（Vercel 免費版 10 秒限制）。請減少題數至 3-5 題後重試。');
+      throw new Error('AI 服務回應超時。請稍後重試，或減少題目數量。');
     }
     throw err;
   } finally {
@@ -163,10 +173,13 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.7, maxTokens: 2048, jsonMode: true, timeoutMs: 8000 }
+    { temperature: 0.7, maxTokens: 2048, jsonMode: true, timeoutMs: 25000 }
   );
 
-  return parseGeneratedQuestions(result);
+  const questions = parseGeneratedQuestions(result);
+  const validated = validateAIResponse(GeneratedQuestionsArraySchema, questions);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
 }
 
 /**
@@ -178,7 +191,7 @@ function parseGeneratedQuestions(raw: string): GeneratedQuestion[] {
 }
 
 /** 嘗試修復被截斷的 JSON */
-function repairTruncatedJSON(json: string): string | null {
+export function repairTruncatedJSON(json: string): string | null {
   let depth = 0;
   let lastComplete = -1;
 
@@ -200,7 +213,7 @@ function repairTruncatedJSON(json: string): string | null {
 }
 
 /** 穩健解析 AI 回傳的 JSON，處理 markdown 代碼塊、截斷等常見問題 */
-function parseAIJSON<T>(raw: string): T {
+export function parseAIJSON<T>(raw: string): T {
   let cleaned = raw
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/g, '')
@@ -291,7 +304,10 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
     { temperature: 0.3, maxTokens: 2048, jsonMode: true }
   );
 
-  return parseAIJSON<AnswerAnalysis>(result);
+  const analysis = parseAIJSON<AnswerAnalysis>(result);
+  const validated = validateAIResponse(AnswerAnalysisSchema, analysis);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
 }
 
 // ============================================
@@ -355,7 +371,10 @@ ${input.studentDraft}
     { temperature: 0.4, maxTokens: 4096, jsonMode: true }
   );
 
-  return parseAIJSON<WritingAnalysis>(result);
+  const writing = parseAIJSON<WritingAnalysis>(result);
+  const validated = validateAIResponse(WritingAnalysisSchema, writing);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
 }
 
 // ============================================
@@ -407,7 +426,10 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
     { temperature: 0.5, maxTokens: 2048, jsonMode: true }
   );
 
-  return parseAIJSON<MistakeExplanation>(result);
+  const explanation = parseAIJSON<MistakeExplanation>(result);
+  const validated = validateAIResponse(MistakeExplanationSchema, explanation);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
 }
 
 // ============================================
@@ -472,7 +494,10 @@ ${recentDesc}
     { temperature: 0.6, maxTokens: 2048, jsonMode: true }
   );
 
-  return parseAIJSON<ProgressAnalysis>(result);
+  const progress = parseAIJSON<ProgressAnalysis>(result);
+  const validated = validateAIResponse(ProgressAnalysisSchema, progress);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
 }
 
 // ============================================
@@ -524,7 +549,10 @@ ${input.content.slice(0, 8000)}
     { temperature: 0.4, maxTokens: 4096, jsonMode: true }
   );
 
-  return parseAIJSON<MaterialAnalysis>(result);
+  const material = parseAIJSON<MaterialAnalysis>(result);
+  const validated = validateAIResponse(MaterialAnalysisSchema, material);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
 }
 
 // ============================================

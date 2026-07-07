@@ -1,28 +1,16 @@
 // ============================================
-// 認證系統 — 用戶資料庫 + JWT 工具
-// 目前使用 mock 資料庫，可替換為 PostgreSQL/MongoDB
+// 認證系統 — Prisma DB + JWT 工具
 // ============================================
 
 import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from './types';
+import db from './db';
 
 // ============================================
-// 用戶資料（Mock Database）
-// TODO: 替換為真實資料庫 (PostgreSQL / MongoDB / Planetscale)
+// 密碼工具
 // ============================================
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  passwordHash: string; // 實際應使用 bcrypt hash
-  nameZh: string;
-  nameEn: string;
-  role: UserRole;
-  className?: string;
-  classNumber?: string;
-}
-
-// 簡易密碼雜湊（示範用，正式環境請用 bcrypt）
+/** 簡易密碼雜湊（與 prisma/seed.ts 一致） */
 function simpleHash(password: string): string {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
@@ -36,46 +24,6 @@ function simpleHash(password: string): string {
 function verifyPassword(password: string, hash: string): boolean {
   return simpleHash(password) === hash;
 }
-
-// Mock 用戶資料庫
-const mockUsers: AuthUser[] = [
-  {
-    id: 's001',
-    email: 'student@school.hk',
-    passwordHash: simpleHash('student123'),
-    nameZh: '陳家明',
-    nameEn: 'Chan Ka Ming',
-    role: 'student',
-    className: '4A',
-    classNumber: '15',
-  },
-  {
-    id: 's002',
-    email: 'student2@school.hk',
-    passwordHash: simpleHash('student123'),
-    nameZh: '李志偉',
-    nameEn: 'Lee Chi Wai',
-    role: 'student',
-    className: '4A',
-    classNumber: '20',
-  },
-  {
-    id: 't001',
-    email: 'teacher@school.hk',
-    passwordHash: simpleHash('teacher123'),
-    nameZh: '黃淑儀',
-    nameEn: 'Wong Suk Yee',
-    role: 'teacher',
-  },
-  {
-    id: 'admin001',
-    email: 'admin@school.hk',
-    passwordHash: simpleHash('admin123'),
-    nameZh: '系統管理員',
-    nameEn: 'System Admin',
-    role: 'admin',
-  },
-];
 
 // ============================================
 // JWT 工具
@@ -96,16 +44,7 @@ export interface SessionPayload {
   className?: string;
 }
 
-export async function createSessionToken(user: AuthUser): Promise<string> {
-  const payload: SessionPayload = {
-    userId: user.id,
-    email: user.email,
-    nameZh: user.nameZh,
-    nameEn: user.nameEn,
-    role: user.role,
-    className: user.className,
-  };
-
+export async function createSessionToken(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -123,7 +62,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
 }
 
 // ============================================
-// 認證邏輯
+// 認證邏輯（Prisma DB）
 // ============================================
 
 export interface LoginResult {
@@ -135,37 +74,43 @@ export interface LoginResult {
 
 export async function authenticateUser(email: string, password: string): Promise<LoginResult> {
   const emailLower = email.toLowerCase().trim();
-  const user = mockUsers.find(u => u.email.toLowerCase() === emailLower);
+
+  const user = await db.user.findUnique({
+    where: { email: emailLower },
+    include: { class: { select: { name: true } } },
+  });
 
   if (!user) {
     return { success: false, error: '電郵地址或密碼不正確。' };
   }
 
-  if (!verifyPassword(password, user.passwordHash)) {
+  if (!user.passwordHash || !verifyPassword(password, user.passwordHash)) {
     return { success: false, error: '電郵地址或密碼不正確。' };
   }
 
-  const token = await createSessionToken(user);
-
-  return {
-    success: true,
-    token,
-    user: {
-      userId: user.id,
-      email: user.email,
-      nameZh: user.nameZh,
-      nameEn: user.nameEn,
-      role: user.role,
-      className: user.className,
-    },
+  const sessionPayload: SessionPayload = {
+    userId: user.id,
+    email: user.email,
+    nameZh: user.nameZh || user.name || user.email,
+    nameEn: user.nameEn || user.name || user.email,
+    role: (user.role as UserRole) || 'student',
+    className: user.class?.name || undefined,
   };
+
+  const token = await createSessionToken(sessionPayload);
+
+  return { success: true, token, user: sessionPayload };
 }
 
-export function getDemoUsers(): { email: string; password: string; role: string; name: string }[] {
-  return mockUsers.map(u => ({
+export async function getDemoUsers(): Promise<{ email: string; password: string; role: string; name: string }[]> {
+  const users = await db.user.findMany({
+    select: { email: true, role: true, nameZh: true, name: true },
+    take: 20,
+  });
+  return users.map(u => ({
     email: u.email,
     password: u.role === 'student' ? 'student123' : u.role === 'teacher' ? 'teacher123' : 'admin123',
     role: u.role,
-    name: u.nameZh,
+    name: u.nameZh || u.name || u.email,
   }));
 }

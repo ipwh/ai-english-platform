@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sensitive credentials
+*client_secret_*.json
+*gcp-service-account*.json
+materials/_extracted/
+
+# Large PDF materials (too big for GitHub)
+materials/*.pdf
+materials/**/*.pdf
+
+# Database files
+*.db
+*.db-journal
+
+# Build output
+next-output.log

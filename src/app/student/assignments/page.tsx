@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { mockStudentAssignments } from '@/lib/mock-data';
@@ -16,7 +16,16 @@ import EmptyState from '@/components/shared/EmptyState';
 
 export default function StudentAssignmentsPage() {
   const [filter, setFilter] = useState<AssignmentStatus | 'all'>('all');
-  const assignments = mockStudentAssignments;
+  const [assignments, setAssignments] = useState(mockStudentAssignments);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/assignments')
+      .then(r => r.json())
+      .then(d => { if (d.assignments?.length) setAssignments(d.assignments.map((a: { id: string; title: string; className: string; difficulty: string; grammarItem?: string; languageSkill?: string; dueDate?: string; status?: string; questionCount?: number }) => ({ ...a, status: (a.status || 'not-started') as AssignmentStatus, questionCount: a.questionCount || 5, score: null, submittedAt: a.dueDate }))); })
+      .catch(() => { /* fallback to mock */ })
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = filter === 'all' ? assignments : assignments.filter(a => a.status === filter);
 

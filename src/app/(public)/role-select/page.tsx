@@ -1,20 +1,31 @@
 // ============================================
-// 角色選擇頁面
+// 角色選擇頁面（Google OAuth 首次登入後使用）
 // ============================================
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
-import { GraduationCap, Users } from 'lucide-react';
+import { GraduationCap, Users, Loader2 } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 
 export default function RoleSelectPage() {
   const router = useRouter();
   const { switchRole } = useAppStore();
+  const [loading, setLoading] = useState(false);
 
-  const handleSelect = (role: UserRole) => {
+  const handleSelect = async (role: UserRole) => {
+    setLoading(true);
+    try {
+      // 儲存角色到後端 DB
+      await fetch('/api/auth/role', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+    } catch { /* 即使失敗也繼續 */ }
+
     switchRole(role);
-    // TODO: connect to API — 角色切換由後端驗證
     if (role === 'student') {
       router.push('/student/dashboard');
     } else {

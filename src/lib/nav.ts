@@ -12,6 +12,7 @@ import {
 
 export interface NavItem {
   label: string;
+  i18nKey: string;
   href: string;
   icon: LucideIcon;
   badge?: string;
@@ -19,31 +20,62 @@ export interface NavItem {
 
 export interface NavSection {
   title?: string;
+  titleKey?: string;
   items: NavItem[];
+}
+
+// Helper: 根據語言獲取標籤
+export function getNavLabel(item: NavItem, lang: string): string {
+  if (lang === 'en') {
+    const enLabels: Record<string, string> = {
+      'nav.dashboard': 'Dashboard', 'nav.practice': 'AI Practice', 'nav.mistakes': 'My Mistakes',
+      'nav.vocabulary': 'Vocabulary', 'nav.progress': 'My Progress', 'nav.writing': 'Writing Support',
+      'nav.assignments': 'Assignments', 'nav.diagnostic': 'Diagnostic Test', 'nav.help': 'Help',
+      'nav.profile': 'Profile', 'nav.home': 'Home', 'nav.practice_short': 'Practice',
+      'nav.mistakes_short': 'Mistakes', 'nav.progress_short': 'Progress', 'nav.more': 'More',
+      'teacher.overview': 'Overview', 'teacher.dashboard': 'Dashboard', 'teacher.assignments': 'Assignments',
+      'teacher.classes': 'Class Progress', 'teacher.students': 'Student List', 'teacher.review': 'Review',
+      'teacher.materials': 'Materials', 'teacher.import': 'Import', 'teacher.reports': 'Reports',
+      'teacher.settings': 'Settings', 'teacher.management': 'Management',
+    };
+    return enLabels[item.i18nKey] || item.label;
+  }
+  return item.label;
+}
+
+export function getSectionTitle(section: NavSection, lang: string): string | undefined {
+  if (!section.titleKey) return section.title;
+  if (lang === 'en') {
+    const enTitles: Record<string, string> = {
+      'teacher.overview': 'Overview', 'teacher.management': 'Management',
+    };
+    return enTitles[section.titleKey] || section.title;
+  }
+  return section.title;
 }
 
 // ========================================
 // 學生端導航
 // ========================================
 export const studentNavItems: NavItem[] = [
-  { label: '學習主頁', href: '/student/dashboard', icon: LayoutDashboard },
-  { label: 'AI 練習', href: '/student/practice', icon: BookOpen },
-  { label: '我的錯題', href: '/student/mistakes', icon: AlertTriangle },
-  { label: '生字簿', href: '/student/vocabulary', icon: BookMarked },
-  { label: '我的進度', href: '/student/progress', icon: TrendingUp },
-  { label: '寫作支援', href: '/student/writing', icon: PencilLine },
-  { label: '我的作業', href: '/student/assignments', icon: ClipboardList },
-  { label: '求助建議', href: '/student/help', icon: HelpCircle },
-  { label: '個人檔案', href: '/student/profile', icon: User },
+  { label: '學習主頁', i18nKey: 'nav.dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+  { label: 'AI 練習', i18nKey: 'nav.practice', href: '/student/practice', icon: BookOpen },
+  { label: '我的錯題', i18nKey: 'nav.mistakes', href: '/student/mistakes', icon: AlertTriangle },
+  { label: '生字簿', i18nKey: 'nav.vocabulary', href: '/student/vocabulary', icon: BookMarked },
+  { label: '我的進度', i18nKey: 'nav.progress', href: '/student/progress', icon: TrendingUp },
+  { label: '寫作支援', i18nKey: 'nav.writing', href: '/student/writing', icon: PencilLine },
+  { label: '我的作業', i18nKey: 'nav.assignments', href: '/student/assignments', icon: ClipboardList },
+  { label: '診斷測驗', i18nKey: 'nav.diagnostic', href: '/student/diagnostic', icon: Search },
+  { label: '求助建議', i18nKey: 'nav.help', href: '/student/help', icon: HelpCircle },
+  { label: '個人檔案', i18nKey: 'nav.profile', href: '/student/profile', icon: User },
 ];
 
-// 學生端底部 Tab（手機）- 精選常用 5 個
 export const studentTabItems: NavItem[] = [
-  { label: '主頁', href: '/student/dashboard', icon: LayoutDashboard },
-  { label: '練習', href: '/student/practice', icon: BookOpen },
-  { label: '錯題', href: '/student/mistakes', icon: AlertTriangle },
-  { label: '進度', href: '/student/progress', icon: TrendingUp },
-  { label: '更多', href: '/student/profile', icon: User },
+  { label: '主頁', i18nKey: 'nav.home', href: '/student/dashboard', icon: LayoutDashboard },
+  { label: '練習', i18nKey: 'nav.practice_short', href: '/student/practice', icon: BookOpen },
+  { label: '錯題', i18nKey: 'nav.mistakes_short', href: '/student/mistakes', icon: AlertTriangle },
+  { label: '進度', i18nKey: 'nav.progress_short', href: '/student/progress', icon: TrendingUp },
+  { label: '更多', i18nKey: 'nav.more', href: '/student/profile', icon: User },
 ];
 
 // ========================================
@@ -51,34 +83,35 @@ export const studentTabItems: NavItem[] = [
 // ========================================
 export const teacherNavSections: NavSection[] = [
   {
-    title: '總覽',
+    title: '總覽', titleKey: 'teacher.overview',
     items: [
-      { label: '教師主頁', href: '/teacher/dashboard', icon: LayoutDashboard },
-      { label: '班級進度', href: '/teacher/classes', icon: Users },
-      { label: '學生分析', href: '/teacher/students', icon: GraduationCap },
+      { label: '教師主頁', i18nKey: 'teacher.dashboard', href: '/teacher/dashboard', icon: LayoutDashboard },
+      { label: '班級進度', i18nKey: 'teacher.classes', href: '/teacher/classes', icon: Users },
+      { label: '學生分析', i18nKey: 'teacher.students', href: '/teacher/students', icon: GraduationCap },
     ],
   },
   {
-    title: '教學工具',
+    title: '教學工具', titleKey: 'teacher.management',
     items: [
-      { label: '任務派發', href: '/teacher/assignments', icon: ClipboardList },
-      { label: '教材中心', href: '/teacher/materials', icon: Upload },
-      { label: 'AI 批改覆核', href: '/teacher/review', icon: ClipboardCheck },
+      { label: '任務派發', i18nKey: 'teacher.assignments', href: '/teacher/assignments', icon: ClipboardList },
+      { label: '教材中心', i18nKey: 'teacher.materials', href: '/teacher/materials', icon: Upload },
+      { label: 'AI 批改覆核', i18nKey: 'teacher.review', href: '/teacher/review', icon: ClipboardCheck },
+      { label: '導入資料', i18nKey: 'teacher.import', href: '/teacher/import', icon: FileText },
     ],
   },
   {
-    title: '報告與設定',
+    title: '報告與設定', titleKey: 'nav.profile',
     items: [
-      { label: '報告匯出', href: '/teacher/reports', icon: BarChart3 },
-      { label: '系統設定', href: '/teacher/settings', icon: Settings },
-      { label: '個人檔案', href: '/teacher/profile', icon: User },
+      { label: '報告匯出', i18nKey: 'teacher.reports', href: '/teacher/reports', icon: BarChart3 },
+      { label: '系統設定', i18nKey: 'teacher.settings', href: '/teacher/settings', icon: Settings },
+      { label: '個人檔案', i18nKey: 'nav.profile', href: '/teacher/profile', icon: User },
     ],
   },
 ];
 
 // 教師端 header 導航（快捷）
 export const teacherQuickLinks: NavItem[] = [
-  { label: '搜尋', href: '#', icon: Search },
+  { label: '搜尋', i18nKey: 'common.search', href: '#', icon: Search },
 ];
 
 // ========================================

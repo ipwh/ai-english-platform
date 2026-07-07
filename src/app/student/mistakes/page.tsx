@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2 } from 'lucide-react';
 import { mockMistakes } from '@/lib/mock-data';
@@ -24,6 +24,14 @@ export default function MistakesPage() {
   const [skillFilter, setSkillFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<MistakeType | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [mistakes, setMistakes] = useState(mockMistakes);
+
+  useEffect(() => {
+    fetch('/api/mistakes?studentId=student')
+      .then(r => r.json())
+      .then(d => { if (d.mistakes?.length) setMistakes(d.mistakes); })
+      .catch(() => {});
+  }, []);
 
   // === AI 解說狀態 ===
   const [explainingId, setExplainingId] = useState<string | null>(null);
@@ -56,7 +64,7 @@ export default function MistakesPage() {
     finally { setExplainingId(null); }
   };
 
-  const filtered = mockMistakes.filter((m) => {
+  const filtered = mistakes.filter((m) => {
     if (skillFilter !== 'all' && m.grammarItem !== skillFilter && m.languageSkill !== skillFilter) return false;
     if (typeFilter !== 'all' && m.mistakeType !== typeFilter) return false;
     if (search && !m.questionSummary.includes(search)) return false;
@@ -70,10 +78,10 @@ export default function MistakesPage() {
       {/* 統計摘要 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: '總錯題數', value: mockMistakes.length, unit: '題' },
-          { label: '已溫習', value: mockMistakes.filter(m => m.reviewed).length, unit: '題' },
-          { label: '重溫清單', value: mockMistakes.filter(m => m.inReviewList).length, unit: '題' },
-          { label: '待溫習', value: mockMistakes.filter(m => !m.reviewed).length, unit: '題' },
+          { label: '總錯題數', value: mistakes.length, unit: '題' },
+          { label: '已溫習', value: mistakes.filter(m => m.reviewed).length, unit: '題' },
+          { label: '重溫清單', value: mistakes.filter(m => m.inReviewList).length, unit: '題' },
+          { label: '待溫習', value: mistakes.filter(m => !m.reviewed).length, unit: '題' },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>

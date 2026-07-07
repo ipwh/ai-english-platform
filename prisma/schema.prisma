@@ -1,0 +1,358 @@
+// ============================================
+// Prisma Schema — AI 英語學習平台
+// 資料庫: SQLite (開發) → PostgreSQL (正式)
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================
+// 一、使用者 (教師、學生、管理員)
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  nameZh        String?
+  nameEn        String?
+  role          String    @default("student") // "student" | "teacher" | "admin"
+  avatar        String?
+  streakDays    Int       @default(0)
+  joinedAt      DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // === 學生專屬欄位 ===
+  classId       String?
+  class         Class?    @relation(fields: [classId], references: [id])
+  classNumber   String?   // 班號 (e.g. "15")
+  level         String?   // GradeLevel: S1-S6
+  overallAccuracy Float?  @default(0)
+
+  // === 教師專屬欄位 ===
+  subjects      String?   // JSON 陣列: '["English Language"]'
+  taughtClasses TeacherClass[]
+
+  // === 關聯 ===
+  assignments   Assignment[]
+  mistakes      Mistake[]
+  vocabItems    VocabItem[]
+  writingDrafts WritingDraft[]
+  submissions   Submission[]
+  reviews       Review[]
+  notifications Notification[]
+  badges        UserBadge[]
+  sessions      PracticeSession[]
+  accounts      Account[]
+  sessionsAuth  Session[]
+
+  // === RAG 關聯 ===
+  uploadedMaterials Material[]
+}
+
+// ============================================
+// 二、班級 — 聯繫教師與學生
+// ============================================
+
+model Class {
+  id            String    @id @default(cuid())
+  name          String    @unique   // e.g. "4A", "5C"
+  gradeLevel    String              // S1-S6
+  academicYear  String    @default("2025-2026")
+  createdAt     DateTime  @default(now())
+
+  // 關聯
+  students      User[]
+  teachers      TeacherClass[]
+  assignments   Assignment[]
+}
+
+// 教師 ↔ 班級 (多對多)
+model TeacherClass {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  isFormTeacher Boolean @default(false) // 是否為班主任
+
+  @@unique([teacherId, classId])
+}
+
+// ============================================
+// 三、學習任務 (Assignment)
+// ============================================
+
+model Assignment {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  className       String
+  gradeLevel      String
+  strand          String    // CurriculumStrand
+  grammarItem     String?
+  languageSkill   String?
+  difficulty      String    // DifficultyLevel
+  questionCount   Int       @default(5)
+  timeLimit       Int?      // 分鐘
+  dueDate         DateTime?
+  completionRate  Float     @default(0)
+  createdBy       String    // teacherId
+  teacher         User      @relation(fields: [createdBy], references: [id])
+  class           Class     @relation(fields: [className], references: [name])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  questions       AssignmentQuestion[]
+  submissions     Submission[]
+}
+
+model AssignmentQuestion {
+  id            String    @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  questionType  String    // mc, fill-blank, etc.
+  prompt        String
+  options       String?   // JSON for MC
+  answer        String
+  explanation   String?
+  orderIndex    Int       @default(0)
+}
+
+// 學生提交
+model Submission {
+  id            String    @id @default(cuid())
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User      @relation(fields: [studentId], references: [id])
+  answers       String    // JSON: { questionId: answer }
+  score         Float?
+  aiFeedback    String?
+  submittedAt   DateTime?
+  gradedAt      DateTime?
+  status        String    @default("pending") // pending | submitted | graded
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// 四、錯題記錄
+// ============================================
+
+model Mistake {
+  id             String    @id @default(cuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId     String
+  studentAnswer  String
+  correctAnswer  String
+  mistakeType    String    // grammar | vocabulary | comprehension | careless | time-management | chinglish
+  aiExplanation  String?
+  reviewed       Boolean   @default(false)
+  inReviewList   Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}
+
+// ============================================
+// 五、詞彙庫
+// ============================================
+
+model VocabItem {
+  id              String    @id @default(cuid())
+  studentId       String
+  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  word            String
+  partOfSpeech    String
+  meaningZh       String
+  exampleSentence String?
+  familiarity     String    @default("new") // new | learning | familiar | mastered
+  nextReviewDate  DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+// ============================================
+// 六、寫作草稿
+// ============================================
+
+model WritingDraft {
+  id               String    @id @default(cuid())
+  studentId        String
+  student          User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title            String
+  prompt           String
+  draft            String
+  revisedVersion   String?
+  aiSuggestions    String?   // JSON
+  chinglishWarnings String?  // JSON
+  teacherComment   String?
+  status           String    @default("draft") // draft | revised | reviewed
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+// ============================================
+// 七、教材 (Material) — RAG 核心
+// ============================================
+
+model Material {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  type        String    // pdf | docx | image | ppt | video | audio | link | text
+  fileUrl     String?
+  content     String?   // 提取的文字內容（OCR/解析後）
+  tags        String?   // JSON 陣列
+  gradeLevel  String?
+  strand      String?
+  ocrStatus   String    @default("none") // none | processing | done | failed
+  ragStatus   String    @default("none") // none | chunking | embedding | done
+  fileSize    Int?
+  uploadedBy  String
+  uploader    User      @relation(fields: [uploadedBy], references: [id])
+  createdAt   DateTime  @default(now())
+
+  // === RAG 嵌入區塊 ===
+  chunks      MaterialChunk[]
+}
+
+// 材料文字區塊（用於向量嵌入）
+model MaterialChunk {
+  id          String    @id @default(cuid())
+  materialId  String
+  material    Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  chunkIndex  Int
+  content     String
+  tokenCount  Int       @default(0)
+  embedding   String?   // JSON 浮點陣列（向量）
+  createdAt   DateTime  @default(now())
+}
+
+// ============================================
+// 八、練習記錄 (Practice Session)
+// ============================================
+
+model PracticeSession {
+  id             String    @id @default(cuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill          String    // grammarItem or languageSkill
+  skillZh        String
+  difficulty     String
+  totalQuestions Int
+  correctCount   Int       @default(0)
+  source         String    // ai-generated | mock | assignment
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+}
+
+// ============================================
+// 九、通知
+// ============================================
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    // assignment | feedback | reminder | system | achievement
+  title     String
+  message   String
+  link      String?
+  read      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+}
+
+// ============================================
+// 十、教師覆核 (Review)
+// ============================================
+
+model Review {
+  id              String    @id @default(cuid())
+  submissionId    String?
+  studentId       String
+  student         User      @relation(fields: [studentId], references: [id])
+  teacherId       String?
+  questionPrompt  String
+  studentAnswer   String
+  correctAnswer   String?
+  aiScore         Float?
+  aiFeedback      String?
+  teacherScore    Float?
+  teacherFeedback String?
+  status          String    @default("pending") // pending | reviewed | escalated
+  createdAt       DateTime  @default(now())
+}
+
+// ============================================
+// 十一、徽章
+// ============================================
+
+model Badge {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    String    @default("achievement")
+  createdAt   DateTime  @default(now())
+
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge     @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+// ============================================
+// 十一、NextAuth.js 模型（Google OAuth）
+// ============================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

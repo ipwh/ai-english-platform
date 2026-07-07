@@ -45,10 +45,25 @@ export default function AudioPlayer({
     }
   }, []);
 
-  const getEnglishVoice = useCallback((preferFemale?: boolean): SpeechSynthesisVoice | null => {
+  /** 檢測文字主要語言：含有 CJK 字符則判定為中文 */
+  const detectLang = useCallback((text: string): 'en' | 'zh' => {
+    const cjkCount = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
+    const totalChars = text.replace(/\s/g, '').length;
+    return totalChars > 0 && cjkCount / totalChars > 0.3 ? 'zh' : 'en';
+  }, []);
+
+  const getVoice = useCallback((lang: 'en' | 'zh', preferFemale?: boolean): SpeechSynthesisVoice | null => {
     const voices = window.speechSynthesis.getVoices();
-    // 嘗試用不同語音區分角色
+    if (lang === 'zh') {
+      // 中文語音：優先繁體中文（zh-HK / zh-TW），其次任何中文
+      const zhVoices = voices.filter(v => v.lang.startsWith('zh-HK') || v.lang.startsWith('zh-TW'));
+      if (zhVoices.length > 0) return zhVoices[0];
+      const anyZh = voices.filter(v => v.lang.startsWith('zh'));
+      return anyZh[0] || null;
+    }
+    // 英文語音
     const enVoices = voices.filter(v => v.lang.startsWith('en'));
+    if (enVoices.length === 0) return null;
     if (preferFemale) {
       return enVoices.find(v => v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Karen'))
         || enVoices[enVoices.length - 1] || enVoices[0] || null;
@@ -75,10 +90,11 @@ export default function AudioPlayer({
     const doSpeak = () => {
       const cleanedText = cleanDialogueText(text);
       const utterance = new SpeechSynthesisUtterance(cleanedText);
-      const voice = getEnglishVoice();
+      const lang = detectLang(cleanedText);
+      const voice = getVoice(lang);
       if (voice) utterance.voice = voice;
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
+      utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+      utterance.rate = lang === 'zh' ? 0.95 : 0.9;
       utterance.pitch = 1;
 
       // 防止 Chrome GC 回收 utterance
@@ -131,7 +147,7 @@ export default function AudioPlayer({
     } else {
       doSpeak();
     }
-  }, [text, playing, supported, getEnglishVoice, onPlayEnd]);
+  }, [text, playing, supported, detectLang, getVoice, onPlayEnd]);
 
   // 組件卸載時停止播放
   useEffect(() => {

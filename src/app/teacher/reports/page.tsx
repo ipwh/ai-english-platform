@@ -48,13 +48,30 @@ export default function TeacherReportsPage() {
                   <p className="text-xs text-gray-500">週次：{formatDate(r.weekStart)} 起</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600" title="匯出 PDF">
-                    <FileText className="w-3 h-3" /> PDF
+                  <button
+                    onClick={() => {
+                      const csv = [
+                        'Class,Avg Accuracy,Avg Completion,Active Students',
+                        `${r.className},${r.avgAccuracy}%,${r.avgCompletion}%,${r.activeStudents}`,
+                      ].join('\n');
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `report-${r.className}.csv`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    title="匯出 CSV"
+                  >
+                    <FileText className="w-3 h-3" /> CSV
                   </button>
-                  <button className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600" title="匯出 CSV">
-                    <FileSpreadsheet className="w-3 h-3" /> CSV
+                  <button
+                    onClick={() => alert('PDF 匯出功能即將推出')}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-400 text-white rounded-lg hover:bg-gray-500"
+                    title="匯出 PDF（即將推出）"
+                  >
+                    <FileSpreadsheet className="w-3 h-3" /> PDF
                   </button>
-                  {/* TODO: connect to API — 匯出功能由後端生成 */}
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
