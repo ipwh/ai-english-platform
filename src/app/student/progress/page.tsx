@@ -14,9 +14,11 @@ import { mockStudentKpis, mockMasteryList, mockPracticeTrend, mockSkillProgress,
 import KpiCard from '@/components/shared/KpiCard';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { useAppStore } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 
 export default function StudentProgressPage() {
   const store = useAppStore();
+  const { t } = useT();
   const weeklyStats = store.getWeeklyStats();
   const masteryBySkill = store.getMasteryBySkill();
   const recentSessions = store.getRecentSessions(5);

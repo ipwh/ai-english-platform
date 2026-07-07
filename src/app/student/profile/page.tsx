@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, Mail, Save, X } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 import { formatDate } from '@/lib/utils';
 
 export default function StudentProfilePage() {
