@@ -98,6 +98,50 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.aiStatus': { zh: 'AI 服務狀態', en: 'AI Service Status' },
   'teacher.connected': { zh: '已連線', en: 'Connected' },
   'teacher.disconnected': { zh: '未連線', en: 'Disconnected' },
+
+  // Student Dashboard
+  'student.dashboard.title': { zh: 'Start practicing today!', en: 'Start practicing today!' },
+  'student.dashboard.practice': { zh: '練習', en: 'Practice' },
+  'student.dashboard.aiInsight': { zh: 'AI 學習洞察', en: 'AI Learning Insights' },
+  'student.dashboard.aiAnalysis': { zh: 'AI 分析', en: 'AI Analysis' },
+
+  // Writing Page
+  'writing.title': { zh: '✍️ 寫作支援', en: '✍️ Writing Support' },
+  'writing.promptGen': { zh: 'AI 題目生成', en: 'AI Prompt Generator' },
+  'writing.grade': { zh: '年級', en: 'Grade' },
+  'writing.textType': { zh: '文體', en: 'Text Type' },
+  'writing.wordLimit': { zh: '字數上限', en: 'Word Limit' },
+  'writing.topicHint': { zh: '主題提示（可選）', en: 'Topic Hint (optional)' },
+  'writing.customTopic': { zh: '使用自訂題目（不使用 AI 生成）', en: 'Use custom topic (skip AI generation)' },
+  'writing.customTopicPlaceholder': { zh: '輸入你的自訂作文題目...', en: 'Enter your custom writing topic...' },
+  'writing.genOutline': { zh: '生成 AI 作文大綱（結構建議）', en: 'Generate AI writing outline' },
+  'writing.confirmTopic': { zh: '確認題目', en: 'Confirm Topic' },
+  'writing.genPrompt': { zh: '生成題目', en: 'Generate Prompt' },
+  'writing.generating': { zh: '生成中...', en: 'Generating...' },
+  'writing.yourPrompt': { zh: '作文題目：', en: 'Your Prompt:' },
+  'writing.words': { zh: '字', en: 'words' },
+  'writing.type': { zh: '文體', en: 'Type' },
+  'writing.level': { zh: '年級', en: 'Level' },
+  'writing.aiOutline': { zh: 'AI 作文大綱：', en: 'AI Writing Outline:' },
+  'writing.yourWriting': { zh: '你的寫作', en: 'Your Writing' },
+  'writing.chars': { zh: '字元', en: 'chars' },
+  'writing.writePlaceholder': { zh: '請先生成或輸入題目，然後在此寫作...', en: 'Generate or enter a topic first, then write here...' },
+  'writing.aiAnalyze': { zh: '提交 AI 批改', en: 'Submit for AI Analysis' },
+  'writing.analyzing': { zh: 'AI 批改中...', en: 'Analyzing...' },
+  'writing.writingTips': { zh: '寫作提示', en: 'Writing Tips' },
+  'writing.vocabHelp': { zh: '詞彙建議', en: 'Vocab Help' },
+  'writing.vocabSuggestions': { zh: '詞彙建議', en: 'Vocabulary Suggestions' },
+  'writing.aiAnalysisResult': { zh: 'AI 寫作分析', en: 'AI Writing Analysis' },
+
+  // Practice Page
+  'practice.title': { zh: '📝 AI 練習', en: '📝 AI Practice' },
+  'practice.generate': { zh: '生成題目', en: 'Generate Questions' },
+  'practice.generating': { zh: '生成中...', en: 'Generating...' },
+  'practice.start': { zh: '開始練習', en: 'Start Practice' },
+
+  // Generic
+  'generic.startPractice': { zh: '開始練習', en: 'Start Practice' },
+  'generic.words': { zh: '字', en: 'words' },
 };
 
 /**
