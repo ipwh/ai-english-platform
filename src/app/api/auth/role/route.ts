@@ -6,6 +6,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth-next';
 import db from '@/lib/db';
 
+async function updateUserRole(userId: string, role: string) {
+  await db.user.update({
+    where: { id: userId },
+    data: { role },
+  });
+}
+
+function createRoleResponse(request: NextRequest, role: string, body?: Record<string, unknown>) {
+  const target = role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
+  const response = body
+    ? NextResponse.json(body)
+    : NextResponse.redirect(new URL(target, request.url), 303);
+
+  response.cookies.set('selected_role', role, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 10,
+  });
+
+  return response;
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     const session = await auth();
@@ -18,25 +42,30 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '無效的角色' }, { status: 400 });
     }
 
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { role },
-    });
+    await updateUserRole(session.user.id, role);
 
-    const response = NextResponse.json({ success: true, role });
-    response.cookies.set('selected_role', role, {
-      httpOnly: false,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 10,
-    });
-
-    return response;
+    return createRoleResponse(request, role, { success: true, role });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.redirect(new URL('/login', request.url), 303);
+  }
+
+  const formData = await request.formData();
+  const role = formData.get('role');
+  if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
+    return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
+  }
+
+  await updateUserRole(session.user.id, role);
+
+  return createRoleResponse(request, role);
 }
 
 // GET /api/auth/role — 獲取當前用戶資訊

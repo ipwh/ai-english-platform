@@ -5,48 +5,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
-import { GraduationCap, Users, Loader2 } from 'lucide-react';
-import type { UserRole } from '@/lib/types';
+import { GraduationCap, Users } from 'lucide-react';
 
 export default function RoleSelectPage() {
-  const { switchRole } = useAppStore();
   const { t } = useT();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const handleSelect = async (role: UserRole) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/role', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
-      });
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          setError(t('role.sessionExpired'));
-          setTimeout(() => { window.location.href = '/login'; }, 600);
-          return;
-        }
-        setError(t('role.saveFailed'));
-        return;
-      }
-
-      switchRole(role);
-
-      // 走首頁的伺服器端 auth redirect，避免前端拿到過期的 JWT role
-      window.location.href = '/';
-    } catch {
-      setError(t('login.networkError'));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4">
@@ -64,32 +28,34 @@ export default function RoleSelectPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* 學生 */}
-          <button
-            onClick={() => handleSelect('student')}
-            disabled={loading}
-            className="group bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-teal-400 dark:hover:border-teal-500 transition-all text-center"
-          >
-            <div className="w-16 h-16 bg-teal-100 dark:bg-teal-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-              <GraduationCap className="w-8 h-8 text-teal-600 dark:text-teal-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.student')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.studentDesc')}</p>
-            {loading && <Loader2 className="w-4 h-4 animate-spin mx-auto mt-3 text-teal-500" />}
-          </button>
+          <form action="/api/auth/role" method="post">
+            <input type="hidden" name="role" value="student" />
+            <button
+              type="submit"
+              className="group w-full bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-teal-400 dark:hover:border-teal-500 transition-all text-center"
+            >
+              <div className="w-16 h-16 bg-teal-100 dark:bg-teal-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <GraduationCap className="w-8 h-8 text-teal-600 dark:text-teal-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.student')}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.studentDesc')}</p>
+            </button>
+          </form>
 
           {/* 教師 */}
-          <button
-            onClick={() => handleSelect('teacher')}
-            disabled={loading}
-            className="group bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500 transition-all text-center"
-          >
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-              <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.teacher')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.teacherDesc')}</p>
-            {loading && <Loader2 className="w-4 h-4 animate-spin mx-auto mt-3 text-blue-500" />}
-          </button>
+          <form action="/api/auth/role" method="post">
+            <input type="hidden" name="role" value="teacher" />
+            <button
+              type="submit"
+              className="group w-full bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500 transition-all text-center"
+            >
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.teacher')}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.teacherDesc')}</p>
+            </button>
+          </form>
         </div>
       </div>
     </div>
