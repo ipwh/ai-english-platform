@@ -137,11 +137,11 @@ export default function DiagnosticPage() {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📋 首次能力評估</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">完成 {totalSteps} 題測試，了解你的英語程度，制定最適合的學習路線。</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('diagnostic.title2')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">{t('diagnostic.title2Desc', { n: totalSteps })}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">測試內容（約 10 分鐘）</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('diagnostic.content')}</h2>
           <div className="space-y-3">
             {skills.map((s) => (
               <div key={s.id} className="flex gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
@@ -157,11 +157,11 @@ export default function DiagnosticPage() {
           </div>
           <button onClick={() => setStarted(true)}
             className="mt-6 w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors">
-            開始測試 <ArrowRight className="w-4 h-4" />
+            {t('diagnostic.startBtn')} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">💡 測試結果僅供系統推薦合適難度的練習，不會計入任何成績。</p>
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">{t('diagnostic.disclaimer')}</p>
         </div>
       </div>
     );
@@ -172,8 +172,8 @@ export default function DiagnosticPage() {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">📋 能力評估</h1>
-          <span className="text-sm text-gray-500">第 {currentStep + 1}/{totalSteps} 題</span>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('diagnostic.assessment')}</h1>
+          <span className="text-sm text-gray-500">{t('diagnostic.questionN', { current: currentStep + 1, total: totalSteps })}</span>
         </div>
         <ProgressBar value={currentStep + 1} max={totalSteps} size="sm" showPercentage={false} />
 
@@ -195,10 +195,10 @@ export default function DiagnosticPage() {
             </div>
           ) : (
             <div>
-              <input type="text" placeholder="請輸入答案..." onKeyDown={(e) => { if (e.key === 'Enter') handleAnswer((e.target as HTMLInputElement).value); }}
+              <input type="text" placeholder={t('diagnostic.inputAnswer')} onKeyDown={(e) => { if (e.key === 'Enter') handleAnswer((e.target as HTMLInputElement).value); }}
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400" />
               <button onClick={() => { const el = document.querySelector('input') as HTMLInputElement; if (el) handleAnswer(el.value); }}
-                className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">提交</button>
+                className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
             </div>
           )}
         </div>
@@ -215,19 +215,19 @@ export default function DiagnosticPage() {
         <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
           <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">評估完成！</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">以下是你的英語能力分析結果</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('diagnostic.complete')}</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">{t('diagnostic.completeDesc')}</p>
       </div>
 
       {/* 總體評分 */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-900 dark:text-white">整體程度</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white">{t('diagnostic.overallLevel')}</h2>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${overallScore >= 60 ? 'bg-teal-100 text-teal-700' : 'bg-orange-100 text-orange-700'}`}>
-            {overallScore >= 70 ? '核心 → 挑戰' : overallScore >= 50 ? '補底 → 核心' : '補底'}
+            {overallScore >= 70 ? t('diagnostic.coreToChallenge') : overallScore >= 50 ? t('diagnostic.remedialToCore') : t('diagnostic.remedial')}
           </span>
         </div>
-        <ProgressBar value={overallScore} size="lg" label="綜合能力" />
+        <ProgressBar value={overallScore} size="lg" label={t('diagnostic.comprehensive')} />
       </div>
 
       {/* 各技能結果 */}
@@ -248,19 +248,19 @@ export default function DiagnosticPage() {
       {/* AI 分析報告 */}
       <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800">
         <h3 className="font-semibold text-purple-800 dark:text-purple-200 mb-3 flex items-center gap-2">
-          <Sparkles className="w-5 h-5" /> AI 學習建議
+          <Sparkles className="w-5 h-5" /> {t('diagnostic.aiAdvice')}
         </h3>
         {aiLoading ? (
-          <div className="flex items-center gap-2 text-purple-600"><Loader2 className="w-4 h-4 animate-spin" />分析中...</div>
+          <div className="flex items-center gap-2 text-purple-600"><Loader2 className="w-4 h-4 animate-spin" />{t('diagnostic.analyzing')}</div>
         ) : aiReport ? (
           <p className="text-sm text-purple-700 dark:text-purple-300">{aiReport}</p>
         ) : (
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             {results.filter(r => r.score < 60).map(r => (
-              <p key={r.id}>• <strong>{r.label}</strong>：建議從補底練習開始，每日完成 5 題針對性訓練。</p>
+              <p key={r.id}>• <strong>{r.label}</strong>：{t('diagnostic.remedialAdvice')}</p>
             ))}
             {results.filter(r => r.score >= 60).map(r => (
-              <p key={r.id}>• <strong>{r.label}</strong>：基礎不錯，可以嘗試挑戰難度的練習。</p>
+              <p key={r.id}>• <strong>{r.label}</strong>：{t('diagnostic.coreAdvice')}</p>
             ))}
           </div>
         )}
@@ -268,7 +268,7 @@ export default function DiagnosticPage() {
 
       <Link href="/student/dashboard"
         className="block w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl text-center transition-colors">
-        前往學習主頁，開始練習 <ArrowRight className="w-4 h-4 inline ml-1" />
+        {t('diagnostic.goDashboard')} <ArrowRight className="w-4 h-4 inline ml-1" />
       </Link>
     </div>
   );

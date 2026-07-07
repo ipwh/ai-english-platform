@@ -46,7 +46,7 @@ export default function StudentProgressPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">📊 我的進度</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('progress.title')}</h1>
 
       {/* KPI 卡片 */}
       <div className="grid grid-cols-3 gap-3">
@@ -57,7 +57,7 @@ export default function StudentProgressPage() {
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-teal-500" />
-          練習趨勢（近 5 週）
+          {t('progress.trend')}
         </h2>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={mockPracticeTrend}>
@@ -75,7 +75,7 @@ export default function StudentProgressPage() {
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Target className="w-5 h-5 text-teal-500" />
-          技能掌握度
+          {t('progress.skillMastery')}
         </h2>
         <div className="space-y-3">
           {displayMastery.map((m, i) => (
@@ -94,7 +94,7 @@ export default function StudentProgressPage() {
       {/* 雷達圖 + 進步對比 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">能力雷達圖</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('progress.radar')}</h2>
           <ResponsiveContainer width="100%" height={250}>
             <RadarChart data={radarData}>
               <PolarGrid stroke="#e5e7eb" />
@@ -106,7 +106,7 @@ export default function StudentProgressPage() {
         </section>
 
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">本月進步</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('progress.monthly')}</h2>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={mockSkillProgress} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -125,7 +125,7 @@ export default function StudentProgressPage() {
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <Clock className="w-5 h-5 text-teal-500" />
-            最近練習記錄
+            {t('progress.recentSessions')}
           </h2>
           <div className="space-y-2">
             {recentSessions.map((s) => (
@@ -152,7 +152,7 @@ export default function StudentProgressPage() {
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Award className="w-5 h-5 text-yellow-500" />
-          成就徽章
+          {t('progress.badges')}
         </h2>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
           {mockBadges.map((badge) => (
@@ -160,7 +160,7 @@ export default function StudentProgressPage() {
               <div className="text-2xl mb-1">{badge.icon}</div>
               <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{badge.name}</p>
               <p className="text-[10px] text-gray-400 mt-0.5">{badge.description}</p>
-              {badge.unlockedAt && <p className="text-[10px] text-teal-500 mt-1">已解鎖</p>}
+              {badge.unlockedAt && <p className="text-[10px] text-teal-500 mt-1">{t('progress.unlocked')}</p>}
             </div>
           ))}
         </div>
