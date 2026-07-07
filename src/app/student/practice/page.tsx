@@ -15,6 +15,7 @@ import { mockQuestions, mockStudent } from '@/lib/mock-data';
 import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 import type { GrammarItem, LanguageSkill, DifficultyLevel, GradeLevel } from '@/lib/types';
 
 // ============================================
@@ -45,6 +46,7 @@ const recommendedSkills = mockStudent.weakSkills;
 export default function PracticeListPage() {
   const router = useRouter();
   const store = useAppStore();
+  const { t } = useT();
   const [tab, setTab] = useState<'generate' | 'browse'>('generate');
   const [search, setSearch] = useState('');
   const [skillFilter, setSkillFilter] = useState<string>('all');
