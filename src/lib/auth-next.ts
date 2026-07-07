@@ -63,7 +63,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = (token.id as string | undefined) || session.user.email || '';
-        session.user.role = (token.role as string | undefined) || 'student';
+        const role = (token.role as string | undefined) || 'student';
+        session.user.role = role === 'teacher' || role === 'student' ? role : 'student';
       }
       return session;
     },
