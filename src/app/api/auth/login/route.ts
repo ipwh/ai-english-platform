@@ -45,6 +45,11 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('[auth/login] Error:', message);
-    return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });
+    // 開發/測試階段顯示詳細錯誤以方便除錯
+    const isDev = process.env.NODE_ENV === 'development';
+    return NextResponse.json(
+      { error: isDev ? `伺服器錯誤：${message}` : '伺服器錯誤，請稍後再試。' },
+      { status: 500 }
+    );
   }
 }

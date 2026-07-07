@@ -12,7 +12,20 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function getDbUrl(): string {
-  return process.env.DATABASE_URL || 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';
+  const url = process.env.DATABASE_URL;
+  if (url) return url;
+
+  // 生產環境必須設定 DATABASE_URL
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    throw new Error(
+      '[db] 生產環境必須設定 DATABASE_URL 環境變數。\n' +
+      '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
+      '範例: postgresql://user:pass@host:5432/dbname'
+    );
+  }
+
+  // 開發環境預設 SQLite
+  return 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';
 }
 
 function createPrismaClient(): PrismaClient {
