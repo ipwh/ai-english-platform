@@ -59,7 +59,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'login.demoAccounts': { zh: '示範帳號（點擊自動填入）：', en: 'Demo Accounts (click to fill):' },
   'login.demoStudent': { zh: '🧑‍🎓 學生', en: '🧑‍🎓 Student' },
   'login.demoTeacher': { zh: '👩‍🏫 教師', en: '👩‍🏫 Teacher' },
-  'login.emailPlaceholder': { zh: 'your-email@school.hk', en: 'your-email@school.hk' },
+  'login.emailPlaceholder': { zh: '請使用下方的 Google 帳號或點擊學生 / 老師的示範帳號登入', en: 'Please use Google account below or click a student/teacher demo account to sign in' },
   'login.passwordPlaceholder': { zh: '請輸入密碼', en: 'Enter password' },
   'login.loginFailed': { zh: '登入失敗，請重試。', en: 'Login failed, please try again.' },
   'login.networkError': { zh: '網絡錯誤，請檢查連線後重試。', en: 'Network error, please check connection and retry.' },

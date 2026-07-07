@@ -20,6 +20,19 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **課業管理** — 指派練習、查看完成狀況
 - **成績報告** — 班級及個別學生成績分析
 
+### 🛡️ 管理員後台（`/admin`）
+- **批量匯入** — CSV 批量匯入學生與教師資料（支援模板下載、Zod 驗證、upsert、dry-run 預覽、錯誤報告）
+- **使用者管理** — 分頁查看、搜尋、篩選所有使用者（依角色/年級/班級），可編輯單筆資料（姓名、email、班級、科目、部門、學年等）
+- **數據儀表板** — Recharts 圖表：各年級平均準確率長條圖、各班級準確率、月度練習趨勢折線圖、準確率分佈環形圖
+- **全校匯出** — 一鍵匯出學生完整數據 CSV（含進度、準確率、練習次數、錯題數、詞彙數）及教師數據 CSV（含任教科目、班級、作業數）
+- **跨學年追蹤** — `academicYear` 欄位支援跨學年數據查詢與匯出
+- **權限控制** — Middleware + API 雙層驗證，僅 `role === 'admin'` 可存取後台
+
+### 📱 行動裝置支援
+- **統一側欄佈局**（`SidebarLayout`）：教師端與學生端共用，桌面可收合為圖標模式，手機為抽屜式滑入 + 遮罩
+- **學生手機底部快捷列**：5 個常用功能快速切換（主頁、練習、錯題、進度、更多）
+- 所有功能在手機與桌面完全一致，無功能缺漏
+
 ## Tech Stack
 
 | 類別 | 技術 |
@@ -71,6 +84,7 @@ npm run dev
 |------|------|
 | 🔵 Google OAuth | 使用學校 Google 帳號一鍵登入（推薦） |
 | 🔑 密碼登入 | `teacher@school.hk` / `teacher123` 或 `student@school.hk` / `student123` |
+| 🛡️ 管理員 | `ipwh@pochiu.edu.hk` / `admin123`（同時具備教師身份） |
 
 ## 環境變數
 
@@ -108,15 +122,22 @@ src/
 │   │   ├── vocabulary/        # 詞彙庫
 │   │   ├── auth/              # 認證（NextAuth + JWT login/logout/session/role）
 │   │   ├── drive/             # Google Drive 教材下載
-│   │   ├── import/            # CSV 匯入
+│   │   ├── import/            # CSV 匯入（舊版，保留相容）
+│   │   ├── admin/             # 管理員 API
+│   │   │   ├── import/        #   批量匯入（template + students + teachers）
+│   │   │   ├── users/         #   使用者 CRUD
+│   │   │   ├── export/        #   數據匯出（students + teachers CSV）
+│   │   │   └── stats/         #   全校統計數據
 │   │   └── rag/               # RAG 向量檢索（DeepSeek + Vertex AI）
 │   ├── (public)/             # 公開頁面（登入、角色選擇）
-│   ├── student/              # 學生端頁面（9 頁）
-│   └── teacher/              # 教師端頁面（11 頁）
+│   ├── student/              # 學生端頁面（10 頁，sidebar + 手機底部導航）
+│   ├── teacher/              # 教師端頁面（11 頁，sidebar 佈局）
+│   └── admin/                # 管理員後台（5 頁：總覽、匯入、使用者管理、數據分析、班級管理）
 ├── components/
 │   ├── shared/               # 共用元件（AudioPlayer、Modal、Toast 等）
 │   ├── student/              # 學生端專用元件
-│   └── teacher/              # 教師端專用元件
+│   ├── teacher/              # 教師端專用元件
+│   └── layout/               # 佈局元件（SidebarLayout、StudentLayout、TeacherLayout）
 ├── lib/
 │   ├── ai-service.ts         # AI 服務層（6 個 AI 函數 + JSON 解析）
 │   ├── ai-schema.ts          # Zod Schema 驗證（6 組）
@@ -126,6 +147,7 @@ src/
 │   ├── db.ts                 # Prisma 7（自動 SQLite/PostgreSQL 切換）
 │   ├── vertex-embeddings.ts  # Vertex AI 向量嵌入 + 語義搜尋
 │   ├── types.ts              # 核心型別定義（KLACG 2017 對齊）
+│   ├── import-utils.ts        # CSV 解析、Zod 驗證、模板生成
 │   ├── use-ai.ts             # 前端 AI React Hooks
 │   ├── rag-service.ts        # RAG 嵌入與相似度搜尋
 │   └── utils.ts              # 通用工具函數
@@ -135,6 +157,43 @@ src/
 │   └── ai-service.test.ts    # 29 個單元測試
 └── middleware.ts              # 路由守衛（NextAuth + JWT 雙支援）
 ```
+
+## CSV 批量匯入格式
+
+管理員可透過 `/admin/import` 頁面下載模板並上傳 CSV 進行批量匯入。
+
+### 學生 CSV 欄位 (`students_template.csv`)
+
+| 欄位 | 必填 | 格式 / 範例 | 說明 |
+|------|------|------------|------|
+| `studentId` | ✅ | `s10001` | `s` + 數字 |
+| `email` | ✅ | `student1@school.edu.hk` | 有效 email |
+| `nameZh` | ✅ | `陳大文` | 中文姓名 |
+| `nameEn` | ✅ | `Chan Tai Man` | 英文姓名 |
+| `level` | ✅ | `S4` | S1–S6 |
+| `className` | ✅ | `4A` | 數字+英文字母 |
+| `classNumber` | ❌ | `15` | 班號 |
+| `gender` | ❌ | `M` / `F` | 性別 |
+| `joinedAt` | ❌ | `2025-09-01` | 入學日期（預設今天） |
+
+### 教師 CSV 欄位 (`teachers_template.csv`)
+
+| 欄位 | 必填 | 格式 / 範例 | 說明 |
+|------|------|------------|------|
+| `teacherId` | ✅ | `chantm` | 英文姓氏+名字縮寫（e.g. 陳大文 → `chantm`） |
+| `email` | ✅ | `teacher1@school.edu.hk` | 有效 email |
+| `nameZh` | ✅ | `陳大文` | 中文姓名 |
+| `nameEn` | ✅ | `Chan Tai Man` | 英文姓名 |
+| `subjects` | ❌ | `"[""English Language""]"` 或 `English Language\|History` | JSON 陣列或 `\|` 分隔 |
+| `department` | ❌ | `English` | 所屬部門 |
+| `gender` | ❌ | `M` / `F` | 性別 |
+
+### 匯入行為
+- **Upsert**：email 已存在則更新，不存在則新增
+- **跨角色保護**：若 email 已被其他角色使用，拒絕匯入並報告原因
+- **自動建立班級**：CSV 中的 `className` 若不存在，自動建立
+- **Dry-run 預覽**：勾選「預覽模式」可查看匯入結果而不實際寫入
+- **錯誤報告**：逐列顯示成功/更新/失敗筆數及詳細原因
 
 ## 資料庫指令
 
@@ -167,10 +226,12 @@ npm run test:watch    # 持續監控模式
 | 層級 | 狀態 |
 |------|------|
 | AI 服務層 | ✅ 完整（6 個函數 + Zod 驗證 + 限流） |
-| API 路由 | ✅ 完整（AI × 6 + CRUD × 5 + 認證 + Drive + 匯入 + RAG） |
+| API 路由 | ✅ 完整（AI × 6 + CRUD × 5 + 認證 + Drive + 匯入 + RAG + 管理員 API × 8） |
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，自動切換） |
-| 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，Prisma DB 查詢 |
-| 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換（useT hook 已接全部 23 頁，翻譯鍵完整） |
+| 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，Prisma DB 查詢，Middleware admin 路由保護 |
+| 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 管理員後台 5 頁 |
+| 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤 |
+| 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
 | Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR |
 | 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
 

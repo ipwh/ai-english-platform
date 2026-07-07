@@ -36,15 +36,6 @@ export default async function middleware(request: NextRequest) {
     request.cookies.has('__Secure-next-auth.session-token');
 
   const isVercelProtected = request.cookies.has('_vercel_jwt');
-  const allCookieNames = request.cookies.getAll().map(c => c.name);
-
-  console.log('[middleware]', {
-    pathname,
-    hasNextAuthCookie,
-    isVercelProtected,
-    cookieCount: request.cookies.getAll().length,
-    cookieNames: allCookieNames,
-  });
 
   if (isVercelProtected && !hasNextAuthCookie) {
     console.warn('[middleware] ⚠️ Vercel Deployment Protection detected. This may block NextAuth session cookies.');
@@ -58,7 +49,15 @@ export default async function middleware(request: NextRequest) {
   const token = request.cookies.get('session_token')?.value;
   if (token) {
     const payload = await verifySessionToken(token);
-    if (payload) return NextResponse.next();
+    if (payload) {
+      // === Admin 路由保護：僅 role === 'admin' 可存取 /admin ===
+      if (pathname.startsWith('/admin') && payload.role !== 'admin') {
+        const forbiddenUrl = new URL('/login', request.url);
+        forbiddenUrl.searchParams.set('error', 'admin_only');
+        return NextResponse.redirect(forbiddenUrl);
+      }
+      return NextResponse.next();
+    }
   }
 
   // 未認證 → 導向登入頁

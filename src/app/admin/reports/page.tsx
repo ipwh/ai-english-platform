@@ -1,0 +1,286 @@
+// ============================================
+// 管理員數據儀表板 — /admin/reports
+// 使用 Recharts 顯示全校統計圖表
+// ============================================
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend,
+} from 'recharts';
+import {
+  TrendingUp, Users, BookOpen, AlertTriangle,
+  RefreshCw, GraduationCap, Target,
+} from 'lucide-react';
+
+// ---- Types ----
+interface StatsData {
+  overview: {
+    totalStudents: number;
+    totalTeachers: number;
+    totalAdmins: number;
+    totalSessions: number;
+    totalMistakes: number;
+    totalAssignments: number;
+  };
+  byLevel: { level: string; studentCount: number; avgAccuracy: number }[];
+  byClass: { className: string; gradeLevel: string; studentCount: number; avgAccuracy: number }[];
+  monthlyTrend: { month: string; sessions: number; accuracy: number }[];
+  accuracyDistribution: { range: string; count: number }[];
+}
+
+const COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#22d3ee'];
+const LEVEL_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe', '#00C49F'];
+
+// ---- Stat Card ----
+function StatCard({
+  label, value, icon: Icon, color,
+}: {
+  label: string; value: number | string;
+  icon: React.ComponentType<{ className?: string }>; color: string;
+}) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+        <Icon className="w-6 h-6" />
+      </div>
+      <div>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// ---- Custom Tooltip ----
+function CustomTooltip({ active, payload, label }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
+        {payload.map((p: any, i: number) => (
+          <p key={i} className="text-gray-600 dark:text-gray-400">
+            {p.name}: <span className="font-semibold">{p.value}{p.name.includes('準確率') || p.name.includes('Accuracy') ? '%' : ''}</span>
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
+
+// ============================================
+// Main Page
+// ============================================
+
+export default function AdminReportsPage() {
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const fetchStats = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/stats');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '載入失敗');
+      setStats(json);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '載入失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchStats(); }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <RefreshCw className="w-8 h-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-center">
+          <p className="text-red-600 dark:text-red-400 mb-3">{error}</p>
+          <button onClick={fetchStats} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">重試</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">全校數據分析</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">即時統計與學習趨勢</p>
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <StatCard label="學生總數" value={stats.overview.totalStudents} icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" />
+        <StatCard label="教師總數" value={stats.overview.totalTeachers} icon={GraduationCap} color="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" />
+        <StatCard label="練習總次數" value={stats.overview.totalSessions} icon={Target} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" />
+        <StatCard label="錯題總數" value={stats.overview.totalMistakes} icon={AlertTriangle} color="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" />
+        <StatCard label="作業總數" value={stats.overview.totalAssignments} icon={BookOpen} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
+        <StatCard label="管理員" value={stats.overview.totalAdmins} icon={TrendingUp} color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" />
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Bar Chart: Accuracy by Level */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            各年級平均準確率
+          </h3>
+          {stats.byLevel.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stats.byLevel} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="level" stroke="#9ca3af" fontSize={12} />
+                <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="avgAccuracy" name="平均準確率" radius={[6, 6, 0, 0]}>
+                  {stats.byLevel.map((_, i) => (
+                    <Cell key={i} fill={LEVEL_COLORS[i % LEVEL_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-400 text-center py-16">暫無數據</p>
+          )}
+        </div>
+
+        {/* Bar Chart: Accuracy by Class */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            各班級平均準確率
+          </h3>
+          {stats.byClass.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stats.byClass.slice(0, 12)} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="className" stroke="#9ca3af" fontSize={11} />
+                <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="avgAccuracy" name="平均準確率" fill="#8884d8" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-400 text-center py-16">暫無數據</p>
+          )}
+        </div>
+
+        {/* Line Chart: Monthly Trend */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            練習趨勢（近6個月）
+          </h3>
+          {stats.monthlyTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={stats.monthlyTrend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#9ca3af" fontSize={11} />
+                <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} />
+                <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line yAxisId="left" type="monotone" dataKey="sessions" name="練習次數" stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
+                <Line yAxisId="right" type="monotone" dataKey="accuracy" name="準確率" stroke="#82ca9d" strokeWidth={2} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-400 text-center py-16">暫無數據</p>
+          )}
+        </div>
+
+        {/* Pie Chart: Accuracy Distribution */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            學生準確率分佈
+          </h3>
+          {stats.accuracyDistribution.some(d => d.count > 0) ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={stats.accuracyDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={3}
+                  dataKey="count"
+                  nameKey="range"
+                  label={({ range, count }) => count > 0 ? `${range}%` : ''}
+                >
+                  {stats.accuracyDistribution.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend formatter={(value) => `${value}%`} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-400 text-center py-16">暫無數據</p>
+          )}
+        </div>
+      </div>
+
+      {/* Level Detail Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">各年級詳細數據</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">年級</th>
+                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">學生人數</th>
+                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">平均準確率</th>
+                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">進度條</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {stats.byLevel.map(l => (
+                <tr key={l.level} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                  <td className="px-6 py-3 font-medium text-gray-900 dark:text-white">{l.level}</td>
+                  <td className="px-6 py-3 text-center text-gray-600 dark:text-gray-400">{l.studentCount}</td>
+                  <td className="px-6 py-3 text-center">
+                    <span className={`font-medium ${l.avgAccuracy >= 70 ? 'text-green-600' : l.avgAccuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {l.avgAccuracy}%
+                    </span>
+                  </td>
+                  <td className="px-6 py-3">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all"
+                        style={{ width: `${Math.min(100, l.avgAccuracy)}%` }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {stats.byLevel.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">暫無數據</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

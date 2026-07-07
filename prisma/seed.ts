@@ -125,20 +125,37 @@ async function main() {
   }
   console.log(`✅ 已建立 ${studentCount} 名學生`);
 
-  // ========== 4. 建立管理員 ==========
+  // ========== 4. 建立管理員（預設管理員 + 教師雙重身份） ==========
+  // ipwh@pochiu.edu.hk — 預設為教師及管理員
+  await db.user.upsert({
+    where: { email: 'ipwh@pochiu.edu.hk' },
+    update: {},
+    create: {
+      email: 'ipwh@pochiu.edu.hk',
+      passwordHash: simpleHash('admin123'),
+      nameZh: '系統管理員',
+      nameEn: 'System Admin',
+      role: 'admin',
+      subjects: JSON.stringify(['English Language']),
+      department: 'English',
+      streakDays: 0,
+    },
+  });
+  console.log('✅ 管理員: ipwh@pochiu.edu.hk (admin + teacher)');
+
   await db.user.upsert({
     where: { email: 'admin@school.hk' },
     update: {},
     create: {
       email: 'admin@school.hk',
       passwordHash: simpleHash('admin123'),
-      nameZh: '系統管理員',
-      nameEn: 'System Admin',
+      nameZh: '備用管理員',
+      nameEn: 'Backup Admin',
       role: 'admin',
       streakDays: 0,
     },
   });
-  console.log('✅ 管理員: admin@school.hk');
+  console.log('✅ 備用管理員: admin@school.hk');
 
   // ========== 5. 示範教材 (供 RAG 使用) ==========
   const materials = await Promise.all([

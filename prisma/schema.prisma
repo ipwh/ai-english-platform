@@ -37,9 +37,11 @@ model User {
   classNumber   String?   // 班號 (e.g. "15")
   level         String?   // GradeLevel: S1-S6
   overallAccuracy Float?  @default(0)
+  academicYear  String?   // 學年追蹤 (e.g. "2025-2026")
 
   // === 教師專屬欄位 ===
   subjects      String?   // JSON 陣列: '["English Language"]'
+  department    String?   // 所屬部門
   taughtClasses TeacherClass[]
 
   // === 關聯 ===
