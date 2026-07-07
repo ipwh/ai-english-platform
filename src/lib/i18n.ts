@@ -1,6 +1,7 @@
 // ============================================
-// i18n — 繁體中文 / English 翻譯系統
+// i18n — 繁體中文 / English 翻譯系統（純函數，無 React 依賴）
 // 用法: import { t } from '@/lib/i18n'; t('nav.dashboard')
+//       import { useT } from '@/hooks/use-i18n'; // Client Component 用（響應式）
 // ============================================
 
 const translations: Record<string, { zh: string; en: string }> = {
@@ -53,14 +54,21 @@ const translations: Record<string, { zh: string; en: string }> = {
   'login.email': { zh: '電郵地址', en: 'Email' },
   'login.password': { zh: '密碼', en: 'Password' },
   'login.signIn': { zh: '登入', en: 'Sign In' },
+  'login.signingIn': { zh: '登入中...', en: 'Signing in...' },
   'login.googleSignIn': { zh: '使用 Google 帳號登入', en: 'Sign in with Google' },
-  'login.demoAccounts': { zh: '示範帳號（點擊自動填入）', en: 'Demo Accounts (click to fill)' },
+  'login.demoAccounts': { zh: '示範帳號（點擊自動填入）：', en: 'Demo Accounts (click to fill):' },
+  'login.demoStudent': { zh: '🧑‍🎓 學生', en: '🧑‍🎓 Student' },
+  'login.demoTeacher': { zh: '👩‍🏫 教師', en: '👩‍🏫 Teacher' },
+  'login.emailPlaceholder': { zh: 'your-email@school.hk', en: 'your-email@school.hk' },
+  'login.passwordPlaceholder': { zh: '請輸入密碼', en: 'Enter password' },
+  'login.loginFailed': { zh: '登入失敗，請重試。', en: 'Login failed, please try again.' },
+  'login.networkError': { zh: '網絡錯誤，請檢查連線後重試。', en: 'Network error, please check connection and retry.' },
 
   // Role Select
   'role.title': { zh: '選擇身份', en: 'Select Role' },
   'role.subtitle': { zh: '請選擇你要使用的身份進入平台', en: 'Choose your role to enter the platform' },
-  'role.student': { zh: '學生', en: 'Student' },
-  'role.teacher': { zh: '教師', en: 'Teacher' },
+  'role.student': { zh: '🧑‍🎓 學生', en: '🧑‍🎓 Student' },
+  'role.teacher': { zh: '👩‍🏫 教師', en: '👩‍🏫 Teacher' },
   'role.studentDesc': { zh: '進行練習、查看進度、溫習錯題', en: 'Practice, track progress, review mistakes' },
   'role.teacherDesc': { zh: '管理班級、派發任務、覆核批改', en: 'Manage classes, assign tasks, review work' },
 
@@ -100,12 +108,4 @@ export function t(key: string, lang?: string): string {
   const entry = translations[key];
   if (!entry) return key;
   return lang === 'en' ? entry.en : entry.zh;
-}
-
-/**
- * React Hook: 從 Zustand store 讀取語言並提供 t 函數
- */
-export function useT() {
-  // 需要在 React 組件中使用
-  return { t: (key: string) => t(key, typeof window !== 'undefined' ? (localStorage.getItem('lang') || 'zh') : 'zh') };
 }
