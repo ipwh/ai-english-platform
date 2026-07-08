@@ -93,7 +93,9 @@ export default function AudioPlayer({
     }
     return DEFAULT_SPEED;
   });
+  const [useLuvVoice, setUseLuvVoice] = useState(true); // 優先使用 LuvVoice
   const cancelled = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Persist speed preference
   useEffect(() => {
@@ -107,13 +109,14 @@ export default function AudioPlayer({
   }
 
   const synth = window.speechSynthesis;
-  if (!synth) {
-    return <span className="text-xs text-gray-400">瀏覽器不支援語音</span>;
-  }
 
   const handleStop = useCallback(() => {
     cancelled.current = true;
-    synth.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (synth) synth.cancel();
     setPlaying(false);
     setLoading(false);
   }, [synth]);
@@ -128,94 +131,157 @@ export default function AudioPlayer({
 
     setLoading(true);
     cancelled.current = false;
-    synth.cancel();
-
-    const dialogue = parseDialogue(text);
+    if (synth) synth.cancel();
 
     const cjkCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
     const lang: 'en' | 'zh' = cjkCount / Math.max(text.length, 1) > 0.3 ? 'zh' : 'en';
 
-    const trySpeak = () => {
-      const voices = synth.getVoices();
-      if (voices.length === 0) {
-        setTimeout(trySpeak, 100);
-        return;
-      }
+    // ── 方案 A: LuvVoice API（高品質 TTS）──
+    const tryLuvVoice = async () => {
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, lang, speed }),
+        });
 
-      const femaleVoice = pickVoice(voices, lang, 'female') || pickVoice(voices, lang, 'any');
-      const maleVoice = pickVoice(voices, lang, 'male') || pickVoice(voices, lang, 'any');
-      const defaultVoice = pickVoice(voices, lang, 'any');
-
-      const map = new Map<string, SpeechSynthesisVoice | null>();
-      map.set('woman', femaleVoice);
-      map.set('girl', femaleVoice);
-      map.set('man', maleVoice);
-      map.set('boy', maleVoice);
-      map.set('a', femaleVoice);
-      map.set('b', maleVoice);
-
-      let idx = 0;
-
-      const speakNext = () => {
-        if (cancelled.current) {
-          setPlaying(false);
-          setLoading(false);
-          return;
+        if (!res.ok) {
+          const data = await res.json();
+          // 501 = 未設定 API key，直接降級
+          if (res.status === 501 || data.fallback) {
+            console.log('[AudioPlayer] LuvVoice unavailable, falling back to browser TTS');
+            setUseLuvVoice(false);
+            return false;
+          }
+          throw new Error(data.error || 'TTS failed');
         }
 
-        while (idx < dialogue.length && !dialogue[idx].text.trim()) {
-          idx++;
-        }
+        const data = await res.json();
+        if (!data.audioUrl) throw new Error('No audio URL returned');
 
-        if (idx >= dialogue.length) {
-          setPlaying(false);
-          setLoading(false);
-          onPlayEnd?.();
-          return;
-        }
+        // 使用 <audio> 播放 MP3
+        const audio = new Audio(data.audioUrl);
+        audioRef.current = audio;
+        audio.playbackRate = speed;
 
-        const line = dialogue[idx];
-        const utterance = new SpeechSynthesisUtterance(line.text);
-        utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
-        utterance.rate = speed;
-        utterance.pitch = 1;
-
-        if (line.speaker) {
-          const voice = map.get(line.speaker);
-          if (voice) utterance.voice = voice;
-        } else if (defaultVoice) {
-          utterance.voice = defaultVoice;
-        }
-
-        utterance.onstart = () => {
+        audio.onplay = () => {
           setLoading(false);
           setPlaying(true);
         };
 
-        utterance.onend = () => {
-          idx++;
-          setTimeout(speakNext, line.speaker ? 120 : 60);
+        audio.onended = () => {
+          setPlaying(false);
+          setLoading(false);
+          audioRef.current = null;
+          onPlayEnd?.();
         };
 
-        utterance.onerror = (e) => {
-          if (e.error === 'canceled' || e.error === 'interrupted') {
+        audio.onerror = () => {
+          console.warn('[AudioPlayer] LuvVoice audio playback failed, falling back');
+          setUseLuvVoice(false);
+          audioRef.current = null;
+          return false;
+        };
+
+        audio.play().catch(() => {
+          setUseLuvVoice(false);
+          audioRef.current = null;
+          return false;
+        });
+
+        return true;
+      } catch (err) {
+        console.warn('[AudioPlayer] LuvVoice error:', err);
+        setUseLuvVoice(false);
+        return false;
+      }
+    };
+
+    // ── 方案 B: 瀏覽器 Web Speech API（備援）──
+    const useBrowserTTS = () => {
+      if (!synth) {
+        setLoading(false);
+        return;
+      }
+
+      const dialogue = parseDialogue(text);
+
+      const trySpeak = () => {
+        const voices = synth.getVoices();
+        if (voices.length === 0) {
+          setTimeout(trySpeak, 100);
+          return;
+        }
+
+        const femaleVoice = pickVoice(voices, lang, 'female') || pickVoice(voices, lang, 'any');
+        const maleVoice = pickVoice(voices, lang, 'male') || pickVoice(voices, lang, 'any');
+        const defaultVoice = pickVoice(voices, lang, 'any');
+
+        const map = new Map<string, SpeechSynthesisVoice | null>();
+        map.set('woman', femaleVoice);
+        map.set('girl', femaleVoice);
+        map.set('man', maleVoice);
+        map.set('boy', maleVoice);
+        map.set('a', femaleVoice);
+        map.set('b', maleVoice);
+
+        let idx = 0;
+
+        const speakNext = () => {
+          if (cancelled.current) {
             setPlaying(false);
             setLoading(false);
             return;
           }
-          console.warn('TTS error:', e.error);
-          idx++;
-          setTimeout(speakNext, 100);
+
+          while (idx < dialogue.length && !dialogue[idx].text.trim()) idx++;
+
+          if (idx >= dialogue.length) {
+            setPlaying(false);
+            setLoading(false);
+            onPlayEnd?.();
+            return;
+          }
+
+          const line = dialogue[idx];
+          const utterance = new SpeechSynthesisUtterance(line.text);
+          utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+          utterance.rate = speed;
+          utterance.pitch = 1;
+
+          if (line.speaker) {
+            const voice = map.get(line.speaker);
+            if (voice) utterance.voice = voice;
+          } else if (defaultVoice) {
+            utterance.voice = defaultVoice;
+          }
+
+          utterance.onstart = () => { setLoading(false); setPlaying(true); };
+          utterance.onend = () => { idx++; setTimeout(speakNext, line.speaker ? 120 : 60); };
+          utterance.onerror = (e) => {
+            if (e.error === 'canceled' || e.error === 'interrupted') { setPlaying(false); setLoading(false); return; }
+            idx++;
+            setTimeout(speakNext, 100);
+          };
+
+          synth.speak(utterance);
         };
 
-        synth.speak(utterance);
+        speakNext();
       };
 
-      speakNext();
+      trySpeak();
     };
 
-    trySpeak();
-  }, [text, playing, synth, handleStop, onPlayEnd, speed]);
+    // 優先嘗試 LuvVoice，失敗則降級至瀏覽器 TTS
+    if (useLuvVoice) {
+      tryLuvVoice().then(success => {
+        if (!success) useBrowserTTS();
+      });
+    } else {
+      useBrowserTTS();
+    }
+  }, [text, playing, synth, handleStop, onPlayEnd, speed, useLuvVoice]);
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs gap-1',
