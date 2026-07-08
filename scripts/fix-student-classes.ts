@@ -65,38 +65,46 @@ async function main() {
   });
   console.log(`📊 Moved ${demosMoved.count} demo students (@school.hk) → '${DEMO_CLASS_NAME}'\n`);
 
-  // ── Phase 3: Redistribute S4 students evenly across 4A/4B/4C/4D ──
+  // ── Phase 3: Assign unassigned S4 students evenly across 4A/4B/4C/4D ──
   const s4Classes = allClasses.filter(c => c.gradeLevel === 'S4').sort((a, b) => a.name.localeCompare(b.name));
   if (s4Classes.length === 4) {
     const s4Students = await db.user.findMany({
-      where: { role: 'student', level: 'S4', email: { not: { contains: '@school.hk' } } },
+      where: { role: 'student', level: 'S4', classId: null, email: { not: { contains: '@school.hk' } } },
       select: { id: true, email: true, classNumber: true },
       orderBy: { classNumber: 'asc' },
     });
-    console.log(`📊 S4 real students: ${s4Students.length} → redistributing across 4A/4B/4C/4D...`);
-    for (let i = 0; i < s4Students.length; i++) {
-      const cls = s4Classes[i % 4];
-      await db.user.update({ where: { id: s4Students[i].id }, data: { classId: cls.id } });
-      if ((i + 1) % 50 === 0) console.log(`  S4: ${i + 1}/${s4Students.length}...`);
+    if (s4Students.length > 0) {
+      console.log(`📊 S4 unassigned students: ${s4Students.length} → distributing across 4A/4B/4C/4D...`);
+      for (let i = 0; i < s4Students.length; i++) {
+        const cls = s4Classes[i % 4];
+        await db.user.update({ where: { id: s4Students[i].id }, data: { classId: cls.id } });
+        if ((i + 1) % 50 === 0) console.log(`  S4: ${i + 1}/${s4Students.length}...`);
+      }
+      console.log(`  ✅ S4 assigned: ~${Math.ceil(s4Students.length / 4)} per class\n`);
+    } else {
+      console.log('✅ All S4 students already have class assignments\n');
     }
-    console.log(`  ✅ S4 redistributed: ~${Math.ceil(s4Students.length / 4)} per class\n`);
   }
 
-  // ── Phase 4: Redistribute S5 students evenly across 5A/5B/5C/5D ──
+  // ── Phase 4: Assign unassigned S5 students evenly across 5A/5B/5C/5D ──
   const s5Classes = allClasses.filter(c => c.gradeLevel === 'S5').sort((a, b) => a.name.localeCompare(b.name));
   if (s5Classes.length === 4) {
     const s5Students = await db.user.findMany({
-      where: { role: 'student', level: 'S5', email: { not: { contains: '@school.hk' } } },
+      where: { role: 'student', level: 'S5', classId: null, email: { not: { contains: '@school.hk' } } },
       select: { id: true, email: true, classNumber: true },
       orderBy: { classNumber: 'asc' },
     });
-    console.log(`📊 S5 real students: ${s5Students.length} → redistributing across 5A/5B/5C/5D...`);
-    for (let i = 0; i < s5Students.length; i++) {
-      const cls = s5Classes[i % 4];
-      await db.user.update({ where: { id: s5Students[i].id }, data: { classId: cls.id } });
-      if ((i + 1) % 50 === 0) console.log(`  S5: ${i + 1}/${s5Students.length}...`);
+    if (s5Students.length > 0) {
+      console.log(`📊 S5 unassigned students: ${s5Students.length} → distributing across 5A/5B/5C/5D...`);
+      for (let i = 0; i < s5Students.length; i++) {
+        const cls = s5Classes[i % 4];
+        await db.user.update({ where: { id: s5Students[i].id }, data: { classId: cls.id } });
+        if ((i + 1) % 50 === 0) console.log(`  S5: ${i + 1}/${s5Students.length}...`);
+      }
+      console.log(`  ✅ S5 assigned: ~${Math.ceil(s5Students.length / 4)} per class\n`);
+    } else {
+      console.log('✅ All S5 students already have class assignments\n');
     }
-    console.log(`  ✅ S5 redistributed: ~${Math.ceil(s5Students.length / 4)} per class\n`);
   }
 
   // ── Phase 5: Assign any remaining unassigned (non-demo) students ──

@@ -2,6 +2,21 @@
   "functions": {
     "src/app/api/ai/**/*.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/import/**/*.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/admin/sync-sheets/**/*.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/admin/fix-classes/**/*.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/ocr/**/*.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/export/**/*.ts": {
+      "maxDuration": 30
     }
   }
 }

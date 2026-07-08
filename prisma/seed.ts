@@ -49,13 +49,30 @@ function simpleHash(password: string): string {
 async function main() {
   console.log('🌱 開始匯入種子資料...\n');
 
-  // ========== 1. 建立班級 ==========
-  const classes = await Promise.all([
-    db.class.upsert({ where: { name: '4A' }, update: {}, create: { name: '4A', gradeLevel: 'S4' } }),
-    db.class.upsert({ where: { name: '4B' }, update: {}, create: { name: '4B', gradeLevel: 'S4' } }),
-    db.class.upsert({ where: { name: '5C' }, update: {}, create: { name: '5C', gradeLevel: 'S5' } }),
-    db.class.upsert({ where: { name: '5D' }, update: {}, create: { name: '5D', gradeLevel: 'S5' } }),
-  ]);
+  // ========== 1. 建立班級 (S1-S6, A-D) ==========
+  const STANDARD_CLASSES = [
+    { name: '1A', gradeLevel: 'S1' }, { name: '1B', gradeLevel: 'S1' },
+    { name: '1C', gradeLevel: 'S1' }, { name: '1D', gradeLevel: 'S1' },
+    { name: '2A', gradeLevel: 'S2' }, { name: '2B', gradeLevel: 'S2' },
+    { name: '2C', gradeLevel: 'S2' }, { name: '2D', gradeLevel: 'S2' },
+    { name: '3A', gradeLevel: 'S3' }, { name: '3B', gradeLevel: 'S3' },
+    { name: '3C', gradeLevel: 'S3' }, { name: '3D', gradeLevel: 'S3' },
+    { name: '4A', gradeLevel: 'S4' }, { name: '4B', gradeLevel: 'S4' },
+    { name: '4C', gradeLevel: 'S4' }, { name: '4D', gradeLevel: 'S4' },
+    { name: '5A', gradeLevel: 'S5' }, { name: '5B', gradeLevel: 'S5' },
+    { name: '5C', gradeLevel: 'S5' }, { name: '5D', gradeLevel: 'S5' },
+    { name: '6A', gradeLevel: 'S6' }, { name: '6B', gradeLevel: 'S6' },
+    { name: '6C', gradeLevel: 'S6' }, { name: '6D', gradeLevel: 'S6' },
+  ];
+  const classes = await Promise.all(
+    STANDARD_CLASSES.map(cls =>
+      db.class.upsert({
+        where: { name: cls.name },
+        update: {},
+        create: { name: cls.name, gradeLevel: cls.gradeLevel },
+      })
+    )
+  );
   console.log(`✅ 已建立 ${classes.length} 個班級`);
 
   // ========== 2. 建立教師 ==========

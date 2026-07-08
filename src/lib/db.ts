@@ -41,9 +41,12 @@ function createPrismaClient(): PrismaClient {
       const { Pool } = require('pg') as typeof import('pg');
       const pool = new Pool({
         connectionString: dbUrl,
-        max: 1,
-        connectionTimeoutMillis: 8000,
-        idleTimeoutMillis: 30000,
+        max: 5,
+        connectionTimeoutMillis: 15000,
+        idleTimeoutMillis: 60000,
+        // Vercel serverless: 每個 function instance 約需 1-2 連線
+        // max:5 允許 5 個並行請求而不排隊
+        // 若使用 Cloud SQL 可調至 10-20
       });
       const adapter = new PrismaPg(pool);
       return new PrismaClient({

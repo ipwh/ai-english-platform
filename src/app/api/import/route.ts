@@ -174,14 +174,20 @@ export async function POST(request: NextRequest) {
 
         const existing = await bulkDb.user.findUnique({ where: { email: importRow.email } });
         if (existing) {
+          // CSV 有指定 class 時強制覆寫，不再保留舊的錯誤班別
+          // 只有當 CSV 完全沒有 class 欄位時才保留原有 classId
+          const effectiveClassId = importRow.class !== undefined ? classId : (classId || existing.classId);
+          const effectiveClassNumber = importRow.classNumber !== undefined
+            ? (importRow.classNumber || null)
+            : existing.classNumber;
           await bulkDb.user.update({
             where: { email: importRow.email },
             data: {
               nameZh: importRow.nameZh || existing.nameZh,
               nameEn: importRow.nameEn || existing.nameEn,
               level: importRow.level || existing.level,
-              classId: classId || existing.classId,
-              classNumber: importRow.classNumber || existing.classNumber,
+              classId: effectiveClassId,
+              classNumber: effectiveClassNumber,
               subjects: importRow.subjects ? JSON.stringify(importRow.subjects) : existing.subjects,
             },
           });
@@ -190,7 +196,7 @@ export async function POST(request: NextRequest) {
             email: importRow.email,
             nameZh: importRow.nameZh,
             status: 'created',
-            reason: '已更新班級資料',
+            reason: importRow.class !== undefined ? '已更新班級資料（含班別覆寫）' : '已更新班級資料',
           });
           continue;
         }
@@ -264,9 +270,10 @@ function normalizeRow(row: Record<string, string>, role: 'student' | 'teacher'):
   };
 
   if (role === 'student') {
-    base.class = row.class || row['班級'] || undefined;
+    base.class = normalizeClass(row.className || row.class || row['班級'] || '');
+    if (!base.class) base.class = undefined;
     base.classNumber = row.classNumber || row['班號'] || undefined;
-    base.level = row.level || row['年級'] || undefined;
+    base.level = row.level || row['年級'] || (base.class ? inferGradeLevel(base.class) : undefined);
   } else {
     base.classes = (row.classes || row['任教班級'] || '')
       .split('|').map(c => c.trim()).filter(Boolean);
@@ -279,7 +286,12 @@ function normalizeRow(row: Record<string, string>, role: 'student' | 'teacher'):
 }
 
 function inferGradeLevel(className: string): string {
-  const match = className.match(/^(\d)/);
+  const match = className.trim().match(/^(\d)/);
   if (match) return `S${match[1]}`;
+  console.warn(`⚠️ Cannot infer grade level from class name: "${className}", defaulting to S4`);
   return 'S4';
+}
+
+function normalizeClass(className: string): string {
+  return className.trim().toUpperCase();
 }

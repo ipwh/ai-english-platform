@@ -1,5 +1,11 @@
 // ============================================
 // POST /api/admin/fix-classes — 一鍵修復所有學生班級關聯
+// 支援兩種模式：
+//   - 預設模式：只修復 classId=null 的學生（安全，不影響已分配學生）
+//   - forceRedistribute=true：清除所有非 Demo 學生的班別，全部重新平均分配
+//     （用於班別資料大規模錯誤時的徹底修復）
+//
+// 流程：
 // 1. 建立 Demo 班別 + 將 @school.hk 學生移入
 // 2. 自動建立缺失標準班級 (1A–6D)
 // 3. 平均重編 S4 學生至 4A/4B/4C/4D
@@ -35,6 +41,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 
+    // 讀取選用參數
+    let forceRedistribute = false;
+    let targetLevels: string[] = []; // 空白 = 全部級別
+    try {
+      const body = await request.json().catch(() => ({}));
+      forceRedistribute = body.forceRedistribute === true;
+      if (body.levels && Array.isArray(body.levels)) targetLevels = body.levels;
+    } catch {
+      // 無 body 時使用預設值
+    }
+
+    console.log(`[fix-classes] forceRedistribute=${forceRedistribute}, targetLevels=${targetLevels.join(',') || 'all'}`);
+
     // Step 1: Ensure standard classes exist
     const existingClasses = await db.class.findMany();
     const existingNames = new Set(existingClasses.map(c => c.name));
@@ -58,36 +77,58 @@ export async function POST(request: NextRequest) {
       data: { classId: demoClass.id, level: 'Demo' },
     });
 
+    // === 強制重新分配模式：先清除所有非 Demo 學生的班別 ===
+    let clearedCount = 0;
+    if (forceRedistribute) {
+      const clearWhere: Record<string, unknown> = {
+        role: 'student',
+        email: { not: { contains: '@school.hk' } },
+        classId: { not: null },
+      };
+      if (targetLevels.length > 0) {
+        clearWhere.level = { in: targetLevels };
+      }
+      const cleared = await db.user.updateMany({
+        where: clearWhere,
+        data: { classId: null },
+      });
+      clearedCount = cleared.count;
+      console.log(`[fix-classes] forceRedistribute: cleared ${clearedCount} students' class assignments`);
+    }
+
     // Reload classes
     const allClasses = await db.class.findMany();
 
-    // Step 4: Redistribute S4 students evenly (exclude demo)
+    // === 輔助函數：將指定 level 的 classId=null 學生 round-robin 分配 ===
+    async function redistributeLevel(level: string, classes: { id: string; name: string }[]): Promise<number> {
+      const students = await db.user.findMany({
+        where: {
+          role: 'student',
+          level,
+          classId: null,
+          email: { not: { contains: '@school.hk' } },
+        },
+        select: { id: true },
+        orderBy: { classNumber: 'asc' },
+      });
+      for (let i = 0; i < students.length; i++) {
+        await db.user.update({
+          where: { id: students[i].id },
+          data: { classId: classes[i % classes.length].id },
+        });
+      }
+      return students.length;
+    }
+
+    // Step 4: S4 重新分配
     const s4Classes = allClasses.filter(c => c.gradeLevel === 'S4').sort((a, b) => a.name.localeCompare(b.name));
-    if (s4Classes.length === 4) {
-      const s4Students = await db.user.findMany({
-        where: { role: 'student', level: 'S4', email: { not: { contains: '@school.hk' } } },
-        select: { id: true },
-        orderBy: { classNumber: 'asc' },
-      });
-      for (let i = 0; i < s4Students.length; i++) {
-        await db.user.update({ where: { id: s4Students[i].id }, data: { classId: s4Classes[i % 4].id } });
-      }
-    }
+    const s4Assigned = s4Classes.length === 4 ? await redistributeLevel('S4', s4Classes) : 0;
 
-    // Step 5: Redistribute S5 students evenly (exclude demo)
+    // Step 5: S5 重新分配
     const s5Classes = allClasses.filter(c => c.gradeLevel === 'S5').sort((a, b) => a.name.localeCompare(b.name));
-    if (s5Classes.length === 4) {
-      const s5Students = await db.user.findMany({
-        where: { role: 'student', level: 'S5', email: { not: { contains: '@school.hk' } } },
-        select: { id: true },
-        orderBy: { classNumber: 'asc' },
-      });
-      for (let i = 0; i < s5Students.length; i++) {
-        await db.user.update({ where: { id: s5Students[i].id }, data: { classId: s5Classes[i % 4].id } });
-      }
-    }
+    const s5Assigned = s5Classes.length === 4 ? await redistributeLevel('S5', s5Classes) : 0;
 
-    // Step 6: Assign remaining unassigned (non-demo)
+    // Step 6: 其他級別未分配學生
     const classByLevel = new Map<string, { id: string; name: string }[]>();
     for (const c of allClasses) {
       if (c.name === DEMO_CLASS_NAME) continue;
@@ -131,10 +172,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
+      mode: forceRedistribute ? 'forceRedistribute' : 'fixUnassignedOnly',
+      clearedCount,
       createdClasses,
       demosMoved: demosMoved.count,
-      s4Redistributed: s4Classes.length === 4,
-      s5Redistributed: s5Classes.length === 4,
+      s4Assigned,
+      s5Assigned,
       assigned,
       skipped,
       remainingWithoutClass: remaining,

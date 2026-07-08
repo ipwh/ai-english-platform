@@ -56,6 +56,12 @@ function parseCSVLine(line: string): string[] {
 /** 年級 S1-S6 */
 const gradeLevelSchema = z.enum(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']);
 
+/** 從 className 提取年級 (1A → S1) */
+function gradeFromClass(className: string): string | null {
+  const match = className.trim().match(/^(\d)/);
+  return match ? `S${match[1]}` : null;
+}
+
 /** 學生 CSV 欄位驗證 */
 export const studentRowSchema = z.object({
   studentId: z
@@ -73,14 +79,28 @@ export const studentRowSchema = z.object({
   className: z
     .string()
     .min(1, '班級為必填')
-    .regex(/^[1-6][A-E]$/, '班級格式必須為數字+英文字母（例：4A）'),
+    .transform(c => c.trim().toUpperCase())
+    .refine(
+      c => /^[1-6][A-E]$/.test(c),
+      '班級格式必須為數字+英文字母（例：4A）'
+    ),
   classNumber: z.string().optional(),
   gender: z.enum(['M', 'F']).optional(),
   joinedAt: z
     .string()
     .optional()
     .transform(v => v || new Date().toISOString().split('T')[0]),
-});
+}).refine(
+  (data) => {
+    // 驗證 level 與 className 一致 (e.g. S4 ↔ 4A)
+    const expectedLevel = gradeFromClass(data.className);
+    return expectedLevel === data.level;
+  },
+  {
+    message: '年級(level) 與 班級(className) 不一致，例如 S4 對應 4A/4B/4C/4D',
+    path: ['level'],
+  }
+);
 
 export type StudentRow = z.infer<typeof studentRowSchema>;
 
@@ -225,7 +245,8 @@ export function generateTeacherTemplate(): string {
 
 /** 根據班級名稱推斷年級 */
 export function inferGradeLevel(className: string): string {
-  const match = className.match(/^(\d)/);
+  const match = className.trim().match(/^(\d)/);
   if (match) return `S${match[1]}`;
+  console.warn(`⚠️ Cannot infer grade level from class name: "${className}", defaulting to S4`);
   return 'S4';
 }

@@ -27,18 +27,25 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // === Vercel Deployment Protection 處理 ===
+  // 若開啟了 Vercel Deployment Protection，_vercel_jwt cookie 會在所有請求中出現
+  // 這不應該阻擋正常的 auth flow；只在同時缺少所有 auth cookie 時記錄警告
+  const isVercelProtected = request.cookies.has('_vercel_jwt');
+
   // NextAuth v5 session cookie check（Google OAuth 登入）
-  // 僅檢查 cookie 存在性，實際 session 驗證由頁面/API 的 auth() 處理
   const hasNextAuthCookie =
     request.cookies.has('authjs.session-token') ||
     request.cookies.has('__Secure-authjs.session-token') ||
     request.cookies.has('next-auth.session-token') ||
     request.cookies.has('__Secure-next-auth.session-token');
 
-  const isVercelProtected = request.cookies.has('_vercel_jwt');
-
+  // 若只有 Vercel protection cookie 而沒有任何 auth cookie，
+  // 且當前不是 auth 相關路徑 → 可能是 Vercel 驗證阻擋了正常登入流程
   if (isVercelProtected && !hasNextAuthCookie) {
-    console.warn('[middleware] ⚠️ Vercel Deployment Protection detected. This may block NextAuth session cookies.');
+    console.warn(
+      '[middleware] ⚠️ Vercel Deployment Protection detected without auth cookies. ' +
+      'If users report login issues, consider disabling Deployment Protection in Vercel Dashboard → Settings → Deployment Protection.'
+    );
   }
 
   if (hasNextAuthCookie) {
