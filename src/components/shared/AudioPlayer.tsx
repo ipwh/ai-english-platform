@@ -5,7 +5,7 @@
 // ============================================
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 
 interface AudioPlayerProps {
@@ -21,6 +21,12 @@ interface DialogueLine {
   speaker: string | null;
   text: string;
 }
+
+/** Available playback speeds */
+const SPEEDS = [0.75, 1.0, 1.25, 1.5] as const;
+const SPEED_LABELS: Record<number, string> = { 0.75: '0.75×', 1: '1×', 1.25: '1.25×', 1.5: '1.5×' };
+const DEFAULT_SPEED = 0.9;
+const SPEED_STORAGE_KEY = 'audio-player-speed';
 
 /** 對話行模式：Woman: / Man: / A: / B: / Speaker 1: */
 const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl|Speaker\s*\d|[A-B])\s*[:：]\s*(.+)$/i;
@@ -78,7 +84,23 @@ export default function AudioPlayer({
 }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [speed, setSpeed] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_SPEED;
+    const saved = localStorage.getItem(SPEED_STORAGE_KEY);
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (SPEEDS.includes(parsed as typeof SPEEDS[number])) return parsed;
+    }
+    return DEFAULT_SPEED;
+  });
   const cancelled = useRef(false);
+
+  // Persist speed preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SPEED_STORAGE_KEY, String(speed));
+    }
+  }, [speed]);
 
   if (typeof window === 'undefined') {
     return <span className="text-xs text-gray-400">TTS 不可用</span>;
@@ -155,7 +177,7 @@ export default function AudioPlayer({
         const line = dialogue[idx];
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
-        utterance.rate = 0.9;
+        utterance.rate = speed;
         utterance.pitch = 1;
 
         if (line.speaker) {
@@ -193,7 +215,7 @@ export default function AudioPlayer({
     };
 
     trySpeak();
-  }, [text, playing, synth, handleStop, onPlayEnd]);
+  }, [text, playing, synth, handleStop, onPlayEnd, speed]);
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs gap-1',
@@ -204,24 +226,46 @@ export default function AudioPlayer({
   const iconSize = { sm: 'w-3 h-3', md: 'w-4 h-4', lg: 'w-5 h-5' };
 
   return (
-    <button
-      onClick={handlePlay}
-      disabled={loading}
-      className={`inline-flex items-center rounded-lg font-medium transition-colors disabled:opacity-50 ${
-        playing
-          ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-      } ${sizeClasses[size]} ${className}`}
-      title={playing ? '停止播放' : `播放：${label}`}
-    >
-      {loading ? (
-        <Loader2 className={`${iconSize[size]} animate-spin`} />
-      ) : playing ? (
-        <Pause className={iconSize[size]} />
-      ) : (
-        <Volume2 className={iconSize[size]} />
+    <div className={`inline-flex items-center gap-1 ${className}`}>
+      <button
+        onClick={handlePlay}
+        disabled={loading}
+        className={`inline-flex items-center rounded-lg font-medium transition-colors disabled:opacity-50 ${
+          playing
+            ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+        } ${sizeClasses[size]}`}
+        title={playing ? '停止播放' : `播放：${label}`}
+      >
+        {loading ? (
+          <Loader2 className={`${iconSize[size]} animate-spin`} />
+        ) : playing ? (
+          <Pause className={iconSize[size]} />
+        ) : (
+          <Volume2 className={iconSize[size]} />
+        )}
+        {playing ? '停止' : label}
+      </button>
+
+      {/* Speed selector */}
+      {!playing && (
+        <div className="flex items-center gap-0.5">
+          {SPEEDS.map(s => (
+            <button
+              key={s}
+              onClick={(e) => { e.stopPropagation(); setSpeed(s); }}
+              className={`px-1.5 py-0.5 text-xs rounded-md font-medium transition-colors ${
+                speed === s
+                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+              }`}
+              title={`語速 ${SPEED_LABELS[s]}`}
+            >
+              {SPEED_LABELS[s]}
+            </button>
+          ))}
+        </div>
       )}
-      {playing ? '停止' : label}
-    </button>
+    </div>
   );
 }

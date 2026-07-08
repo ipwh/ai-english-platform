@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash } from 'lucide-react';
+import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
+import OcrUpload from '@/components/shared/OcrUpload';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {
@@ -45,6 +46,36 @@ export default function WritingPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
   const [aiError, setAiError] = useState('');
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async (format: 'pdf' | 'docx') => {
+    if (!aiResult) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/export/writing-analysis?format=${format}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis: { ...aiResult, topic: realTopic, studentDraft: draft },
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '匯出失敗');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `writing-analysis-${Date.now()}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '匯出失敗');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleGenerate = async () => {
     setGenLoading(true);
@@ -244,6 +275,10 @@ export default function WritingPage() {
             {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {aiLoading ? t(lang, 'AI 批改中...', 'Analyzing...') : t(lang, '提交 AI 批改', 'Submit for AI Analysis')}
           </button>
+          <OcrUpload
+            onTextExtracted={(text) => setDraft(prev => prev ? prev + '\n' + text : text)}
+            disabled={aiLoading}
+          />
           <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
             <input type="checkbox" checked={showSuggestions} onChange={e => setShowSuggestions(e.target.checked)} className="rounded" />
             <Lightbulb className="w-4 h-4 text-amber-500" /> {t(lang, '寫作提示', 'Writing Tips')}
@@ -279,6 +314,20 @@ export default function WritingPage() {
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-purple-600" /><h3 className="font-semibold text-purple-800 dark:text-purple-200">{t(lang, 'AI 寫作分析', 'AI Writing Analysis')}</h3>
             <span className="ml-auto text-2xl font-bold text-purple-700">{aiResult.overallScore}/100</span>
+            <button
+              onClick={() => handleExport('pdf')}
+              disabled={exporting}
+              className="ml-3 px-2.5 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 rounded-md font-medium flex items-center gap-1 disabled:opacity-50"
+            >
+              <FileDown className="w-3 h-3" /> PDF
+            </button>
+            <button
+              onClick={() => handleExport('docx')}
+              disabled={exporting}
+              className="px-2.5 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 rounded-md font-medium flex items-center gap-1 disabled:opacity-50"
+            >
+              <FileDown className="w-3 h-3" /> DOCX
+            </button>
           </div>
           <p className="text-sm text-gray-700 dark:text-gray-300">{aiResult.generalComment}</p>
           {aiResult.strengths?.length > 0 && (

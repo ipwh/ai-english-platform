@@ -147,29 +147,18 @@ export async function POST(request: NextRequest) {
             email: importRow.email,
             nameZh: importRow.nameZh,
             status: exists ? 'skipped' : 'created',
-            reason: exists ? '已存在，將被跳過' : '將被新增',
+            reason: exists ? '已存在，取消預覽後匯入將更新班級資料' : '將被新增',
           });
           if (!exists) results.success++;
           else results.skipped++;
           continue;
         }
 
-        // 實際寫入
-        const existing = await db.user.findUnique({ where: { email: importRow.email } });
-        if (existing) {
-          results.skipped++;
-          results.details.push({
-            email: importRow.email,
-            nameZh: importRow.nameZh,
-            status: 'skipped',
-            reason: '已存在',
-          });
-          continue;
-        }
-
-        // 確保班級存在（學生）
+        // ---- 實際寫入（非 dryRun）----
+        // 確保班級存在並取得 classId（學生）
+        let classId: string | undefined;
         if (importRow.class) {
-          await db.class.upsert({
+          const cls = await db.class.upsert({
             where: { name: importRow.class },
             update: {},
             create: {
@@ -177,9 +166,34 @@ export async function POST(request: NextRequest) {
               gradeLevel: importRow.level || inferGradeLevel(importRow.class),
             },
           });
+          classId = cls.id;
         }
 
-        // 創建用戶
+        const existing = await db.user.findUnique({ where: { email: importRow.email } });
+        if (existing) {
+          // ✅ 更新現有用戶（最關鍵：更新 classId）
+          await db.user.update({
+            where: { email: importRow.email },
+            data: {
+              nameZh: importRow.nameZh || existing.nameZh,
+              nameEn: importRow.nameEn || existing.nameEn,
+              level: importRow.level || existing.level,
+              classId: classId || existing.classId,
+              classNumber: importRow.classNumber || existing.classNumber,
+              subjects: importRow.subjects ? JSON.stringify(importRow.subjects) : existing.subjects,
+            },
+          });
+          results.success++;
+          results.details.push({
+            email: importRow.email,
+            nameZh: importRow.nameZh,
+            status: 'created', // 使用 created 表示已處理
+            reason: '已更新班級資料',
+          });
+          continue;
+        }
+
+        // 創建新用戶
         await db.user.create({
           data: {
             email: importRow.email,
@@ -187,10 +201,9 @@ export async function POST(request: NextRequest) {
             nameZh: importRow.nameZh,
             nameEn: importRow.nameEn || importRow.nameZh,
             role: importRow.role,
-            classId: importRow.class || undefined,
+            classId: classId,
             classNumber: importRow.classNumber || undefined,
             level: importRow.level || (importRow.class ? inferGradeLevel(importRow.class) : undefined),
-            // 教師欄位
             subjects: importRow.subjects ? JSON.stringify(importRow.subjects) : undefined,
           },
         });
