@@ -41,6 +41,27 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
 
+    // 清除所有 NextAuth session cookie，避免舊 Google OAuth session 覆蓋 JWT 登入
+    const nextAuthCookieNames = [
+      'authjs.session-token',
+      '__Secure-authjs.session-token',
+      'next-auth.session-token',
+      '__Secure-next-auth.session-token',
+      'authjs.callback-url',
+      'next-auth.callback-url',
+      'authjs.csrf-token',
+      'next-auth.csrf-token',
+    ];
+    for (const name of nextAuthCookieNames) {
+      response.cookies.set(name, '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      });
+    }
+
     return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';

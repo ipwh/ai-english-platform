@@ -99,9 +99,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLoggedIn: false, currentRole: null, userId: null });
   },
 
-  /** 從伺服器 session 初始化登入狀態（支援 NextAuth + JWT） */
+  /** 從伺服器 session 初始化登入狀態（JWT 優先，NextAuth 為備援） */
   initSession: async () => {
-    // 優先嘗試 NextAuth session
+    // 優先檢查 JWT session（密碼登入）— 確保 demo 帳號不會被 stale NextAuth cookie 覆蓋
+    try {
+      const jwtRes = await fetch('/api/auth/jwt-session');
+      if (jwtRes.ok) {
+        const jwtJson = await jwtRes.json();
+        if (jwtJson.loggedIn && jwtJson.user) {
+          set({
+            isLoggedIn: true,
+            currentRole: jwtJson.user.role,
+            userId: jwtJson.user.userId,
+            userDisplayName: jwtJson.user.nameZh || jwtJson.user.nameEn || jwtJson.user.email?.split('@')[0] || null,
+          });
+          return;
+        }
+      }
+    } catch { /* fallback to NextAuth */ }
+
+    // Fallback: NextAuth session（Google OAuth 登入）
     try {
       const authRes = await fetch('/api/auth/role');
       if (authRes.ok) {
@@ -114,21 +131,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             userDisplayName: authJson.user.nameZh || authJson.user.name || authJson.user.email?.split('@')[0] || null,
           });
           return;
-        }
-      }
-    } catch { /* fallback to JWT */ }
-
-    // Fallback: JWT session
-    try {
-      const res = await fetch('/api/auth/jwt-session');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.loggedIn && json.user) {
-          set({
-            isLoggedIn: true,
-            currentRole: json.user.role,
-            userId: json.user.userId,
-          });
         }
       }
     } catch { /* 未登入 */ }
