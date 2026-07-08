@@ -116,89 +116,97 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // ---- Phase 3: 單一 transaction 批次寫入 ----
-    await db.$transaction(async (tx) => {
-      // 3a. 批次建立所有需要的班級
-      const existingClasses = await tx.class.findMany({
-        where: { name: { in: uniqueClassNames } },
-        select: { id: true, name: true },
-      });
-      const classMap = new Map(existingClasses.map(c => [c.name, c.id]));
+    // ---- Phase 3: 先建立班級（獨立操作，避免長時間 transaction）----
+    const existingClasses = await db.class.findMany({
+      where: { name: { in: uniqueClassNames } },
+      select: { id: true, name: true },
+    });
+    const classMap = new Map(existingClasses.map(c => [c.name, c.id]));
 
-      for (const name of uniqueClassNames) {
-        if (!classMap.has(name)) {
-          const cls = await tx.class.create({
-            data: {
-              name,
-              gradeLevel: inferGradeLevel(name),
-            },
-          });
-          classMap.set(name, cls.id);
-        }
+    for (const name of uniqueClassNames) {
+      if (!classMap.has(name)) {
+        const cls = await db.class.create({
+          data: { name, gradeLevel: inferGradeLevel(name) },
+        });
+        classMap.set(name, cls.id);
       }
+    }
 
-      // 3b. 批次查詢已存在的使用者（含角色）
-      const existingUsers = await tx.user.findMany({
-        where: { email: { in: allEmails } },
-        select: { id: true, email: true, role: true },
-      });
-      const existingUserMap = new Map(existingUsers.map(u => [u.email, u]));
+    // ---- Phase 4: 批次查詢已存在的使用者 ----
+    const existingUsers = await db.user.findMany({
+      where: { email: { in: allEmails } },
+      select: { id: true, email: true, role: true },
+    });
+    const existingUserMap = new Map(existingUsers.map(u => [u.email, u]));
 
-      // 3c. 分批 upsert 使用者（每批 50 筆避免 SQL 過長）
-      const BATCH_SIZE = 50;
-      const defaultPwHash = simpleHash('student123');
+    // ---- Phase 5: 分批寫入（每批獨立 commit，避免 Vercel 10s timeout）----
+    const BATCH_SIZE = 50;
+    const defaultPwHash = simpleHash('student123');
 
-      for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
-        const batch = validRows.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+      const batch = validRows.slice(i, i + BATCH_SIZE);
+      const batchOps: Promise<void>[] = [];
 
-        for (const { rowNum, data } of batch) {
-          try {
-            const existing = existingUserMap.get(data.email);
-            const classId = classMap.get(data.className);
+      for (const { rowNum, data } of batch) {
+        const existing = existingUserMap.get(data.email);
+        const classId = classMap.get(data.className);
 
-            // 跨角色衝突檢查
-            if (existing && existing.role !== 'student') {
-              const roleLabel = existing.role === 'teacher' ? '教師' : '管理員';
-              throw new Error(`email ${data.email} 已被${roleLabel}使用`);
-            }
+        // 跨角色衝突檢查
+        if (existing && existing.role !== 'student') {
+          const roleLabel = existing.role === 'teacher' ? '教師' : '管理員';
+          result.failed++;
+          result.errors.push(`第 ${rowNum} 列 (${data.email}): email 已被${roleLabel}使用`);
+          result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: `email 已被${roleLabel}使用` });
+          continue;
+        }
 
-            if (existing) {
-              await tx.user.update({
-                where: { email: data.email },
-                data: {
-                  nameZh: data.nameZh,
-                  nameEn: data.nameEn,
-                  level: data.level,
-                  classId: classId || undefined,
-                  classNumber: data.classNumber || undefined,
-                  joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
-                },
-              });
+        if (existing) {
+          // UPDATE existing student — classId is the critical fix
+          batchOps.push(
+            db.user.update({
+              where: { email: data.email },
+              data: {
+                nameZh: data.nameZh,
+                nameEn: data.nameEn,
+                level: data.level,
+                classId: classId || undefined,
+                classNumber: data.classNumber || undefined,
+                joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
+              },
+            }).then(() => {
               result.updated++;
               result.details.push({ row: rowNum, studentId: data.studentId, email: data.email, nameZh: data.nameZh, status: 'updated' });
-            } else {
-              try {
-                await tx.user.create({
-                  data: {
-                    id: data.studentId,
-                    email: data.email,
-                    nameZh: data.nameZh,
-                    nameEn: data.nameEn,
-                    role: 'student',
-                    level: data.level,
-                    classId: classId || undefined,
-                    classNumber: data.classNumber || undefined,
-                    joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
-                    passwordHash: defaultPwHash,
-                  },
-                });
-                result.success++;
-                result.details.push({ row: rowNum, studentId: data.studentId, email: data.email, nameZh: data.nameZh, status: 'created' });
-              } catch (createErr: unknown) {
-                // ID 衝突：使用 auto-generated cuid 重試
-                const msg = createErr instanceof Error ? createErr.message : '';
-                if (msg.includes('Unique constraint') && msg.includes('id')) {
-                  await tx.user.create({
+            }).catch((err: Error) => {
+              result.failed++;
+              result.errors.push(`第 ${rowNum} 列 (${data.email}): ${err.message}`);
+              result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: err.message });
+            })
+          );
+        } else {
+          // CREATE new student
+          batchOps.push(
+            db.user.create({
+              data: {
+                id: data.studentId,
+                email: data.email,
+                nameZh: data.nameZh,
+                nameEn: data.nameEn,
+                role: 'student',
+                level: data.level,
+                classId: classId || undefined,
+                classNumber: data.classNumber || undefined,
+                joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
+                passwordHash: defaultPwHash,
+              },
+            }).then(() => {
+              result.success++;
+              result.details.push({ row: rowNum, studentId: data.studentId, email: data.email, nameZh: data.nameZh, status: 'created' });
+            }).catch(async (createErr: Error) => {
+              // ID 衝突：使用 auto-generated cuid 重試
+              const msg = createErr.message;
+              if (msg.includes('Unique constraint') && msg.includes('id')) {
+                try {
+                  await db.user.create({
                     data: {
                       email: data.email,
                       nameZh: data.nameZh,
@@ -213,20 +221,28 @@ export async function POST(request: NextRequest) {
                   });
                   result.success++;
                   result.details.push({ row: rowNum, studentId: '(auto)', email: data.email, nameZh: data.nameZh, status: 'created' });
-                } else {
-                  throw createErr;
+                } catch (retryErr: unknown) {
+                  const retryMsg = retryErr instanceof Error ? retryErr.message : '未知錯誤';
+                  result.failed++;
+                  result.errors.push(`第 ${rowNum} 列 (${data.email}): ${retryMsg}`);
+                  result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: retryMsg });
                 }
+              } else {
+                result.failed++;
+                result.errors.push(`第 ${rowNum} 列 (${data.email}): ${msg}`);
+                result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: msg });
               }
-            }
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : '未知錯誤';
-            result.failed++;
-            result.errors.push(`第 ${rowNum} 列 (${data.email}): ${msg}`);
-            result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: msg });
-          }
+            })
+          );
         }
       }
-    });
+
+      // 等待此批次完成（獨立 commit，不會因單筆失敗而全 rollback）
+      await Promise.allSettled(batchOps);
+
+      // 進度回報（透過 console，可在 Vercel logs 看到）
+      console.log(`[import/students] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(validRows.length / BATCH_SIZE)} done (${Math.min(i + BATCH_SIZE, validRows.length)}/${validRows.length})`);
+    }
 
     return NextResponse.json(result);
   } catch (err: unknown) {

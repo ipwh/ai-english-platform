@@ -77,60 +77,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // Phase 2: Batch upsert in single transaction
-    await db.$transaction(async (tx) => {
-      const existingUsers = await tx.user.findMany({
-        where: { email: { in: allEmails } },
-        select: { id: true, email: true, role: true },
-      });
-      const existingMap = new Map(existingUsers.map(u => [u.email, u]));
-      const defaultPwHash = simpleHash('teacher123');
+    // Phase 2: Batch upsert — 每批獨立 commit，避免 Vercel timeout
+    const existingUsers = await db.user.findMany({
+      where: { email: { in: allEmails } },
+      select: { id: true, email: true, role: true },
+    });
+    const existingMap = new Map(existingUsers.map(u => [u.email, u]));
+    const defaultPwHash = simpleHash('teacher123');
+    const BATCH_SIZE = 50;
 
-      for (const { rowNum, data } of validRows) {
-        try {
-          const existing = existingMap.get(data.email);
+    for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+      const batch = validRows.slice(i, i + BATCH_SIZE);
+      const batchOps: Promise<void>[] = [];
 
-          if (existing && existing.role !== 'teacher') {
-            const roleLabel = existing.role === 'student' ? '學生' : '管理員';
-            throw new Error(`email ${data.email} 已被${roleLabel}使用`);
-          }
+      for (const { rowNum, data } of batch) {
+        const existing = existingMap.get(data.email);
 
-          const userData = {
-            email: data.email,
-            nameZh: data.nameZh,
-            nameEn: data.nameEn,
-            role: 'teacher' as const,
-            subjects: data.subjects || '["English Language"]',
-            department: data.department || undefined,
-            ...(existing ? {} : { passwordHash: defaultPwHash }),
-          };
-
-          if (existing) {
-            await tx.user.update({ where: { email: data.email }, data: userData });
-            result.updated++;
-            result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'updated' });
-          } else {
-            try {
-              await tx.user.create({ data: { id: data.teacherId, ...userData } });
-            } catch (createErr: unknown) {
-              const msg = createErr instanceof Error ? createErr.message : '';
-              if (msg.includes('Unique constraint')) {
-                await tx.user.create({ data: userData });
-              } else {
-                throw createErr;
-              }
-            }
-            result.success++;
-            result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'created' });
-          }
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : '未知錯誤';
+        if (existing && existing.role !== 'teacher') {
+          const roleLabel = existing.role === 'student' ? '學生' : '管理員';
           result.failed++;
-          result.errors.push(`第 ${rowNum} 列 (${data.email}): ${msg}`);
-          result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: msg });
+          result.errors.push(`第 ${rowNum} 列 (${data.email}): email 已被${roleLabel}使用`);
+          result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: `email 已被${roleLabel}使用` });
+          continue;
+        }
+
+        const userData = {
+          email: data.email,
+          nameZh: data.nameZh,
+          nameEn: data.nameEn,
+          role: 'teacher' as const,
+          subjects: data.subjects || '["English Language"]',
+          department: data.department || undefined,
+          ...(existing ? {} : { passwordHash: defaultPwHash }),
+        };
+
+        if (existing) {
+          batchOps.push(
+            db.user.update({ where: { email: data.email }, data: userData }).then(() => {
+              result.updated++;
+              result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'updated' });
+            }).catch((err: Error) => {
+              result.failed++;
+              result.errors.push(`第 ${rowNum} 列 (${data.email}): ${err.message}`);
+            })
+          );
+        } else {
+          batchOps.push(
+            db.user.create({ data: { id: data.teacherId, ...userData } }).then(() => {
+              result.success++;
+              result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'created' });
+            }).catch(async (createErr: Error) => {
+              if (createErr.message.includes('Unique constraint')) {
+                try {
+                  await db.user.create({ data: userData });
+                  result.success++;
+                  result.details.push({ row: rowNum, teacherId: '(auto)', email: data.email, nameZh: data.nameZh, status: 'created' });
+                } catch (retryErr: unknown) {
+                  const retryMsg = retryErr instanceof Error ? retryErr.message : '未知錯誤';
+                  result.failed++;
+                  result.errors.push(`第 ${rowNum} 列 (${data.email}): ${retryMsg}`);
+                }
+              } else {
+                result.failed++;
+                result.errors.push(`第 ${rowNum} 列 (${data.email}): ${createErr.message}`);
+              }
+            })
+          );
         }
       }
-    });
+
+      await Promise.allSettled(batchOps);
+      console.log(`[import/teachers] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(validRows.length / BATCH_SIZE)} done`);
+    }
 
     return NextResponse.json(result);
   } catch (err: unknown) {
