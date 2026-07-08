@@ -11,13 +11,13 @@ export async function GET(request: NextRequest) {
   const token = request.cookies.get('session_token')?.value;
 
   if (!token) {
-    return NextResponse.json({ loggedIn: false }, { status: 401 });
+    return NextResponse.json({ loggedIn: false });
   }
 
   const jwtSession = await verifySessionToken(token);
 
   if (!jwtSession) {
-    return NextResponse.json({ loggedIn: false }, { status: 401 });
+    return NextResponse.json({ loggedIn: false });
   }
 
   return NextResponse.json({
