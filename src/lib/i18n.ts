@@ -31,6 +31,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.reports': { zh: '成績報告', en: 'Reports' },
   'teacher.settings': { zh: '系統設定', en: 'Settings' },
   'teacher.management': { zh: '教學管理', en: 'Management' },
+  'teacher.reports_settings': { zh: '報告與設定', en: 'Reports & Settings' },
 
   // Common
   'common.welcome': { zh: '歡迎回來', en: 'Welcome back' },
@@ -398,6 +399,12 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.materials.imported': { zh: '已匯入：{name}（{length} 字元）', en: 'Imported: {name} ({length} chars)' },
   'teacher.materials.importFailed': { zh: '匯入失敗', en: 'Import failed' },
   'teacher.materials.connectionFailed': { zh: '連線失敗', en: 'Connection failed' },
+  'teacher.materials.statusPending': { zh: '待處理', en: 'Pending' },
+  'teacher.materials.statusProcessing': { zh: '處理中', en: 'Processing' },
+  'teacher.materials.statusDone': { zh: '已完成', en: 'Done' },
+  'teacher.materials.statusFailed': { zh: '失敗', en: 'Failed' },
+  'teacher.materials.expand': { zh: '展開', en: 'Expand' },
+  'teacher.materials.collapse': { zh: '收合', en: 'Collapse' },
 
   // Teacher Import
   'teacher.import.title': { zh: '導入用戶資料', en: 'Import Users' },

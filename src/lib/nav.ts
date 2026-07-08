@@ -9,6 +9,7 @@ import {
   ClipboardCheck, BarChart3, Settings, Search,
   type LucideIcon
 } from 'lucide-react';
+import { t } from '@/lib/i18n';
 
 export interface NavItem {
   label: string;
@@ -45,13 +46,7 @@ export function getNavLabel(item: NavItem, lang: string): string {
 
 export function getSectionTitle(section: NavSection, lang: string): string | undefined {
   if (!section.titleKey) return section.title;
-  if (lang === 'en') {
-    const enTitles: Record<string, string> = {
-      'teacher.overview': 'Overview', 'teacher.management': 'Management',
-    };
-    return enTitles[section.titleKey] || section.title;
-  }
-  return section.title;
+  return t(section.titleKey, lang);
 }
 
 // ========================================
@@ -100,7 +95,7 @@ export const teacherNavSections: NavSection[] = [
     ],
   },
   {
-    title: '報告與設定', titleKey: 'nav.profile',
+    title: '報告與設定', titleKey: 'teacher.reports_settings',
     items: [
       { label: '報告匯出', i18nKey: 'teacher.reports', href: '/teacher/reports', icon: BarChart3 },
       { label: '系統設定', i18nKey: 'teacher.settings', href: '/teacher/settings', icon: Settings },
