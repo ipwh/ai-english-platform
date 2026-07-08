@@ -167,6 +167,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'generic.manageTask': { zh: '管理任務', en: 'Manage Tasks' },
   'generic.save': { zh: '儲存', en: 'Save' },
   'generic.saved': { zh: '已儲存', en: 'Saved' },
+  'generic.saving': { zh: '儲存中...', en: 'Saving...' },
   'generic.cancel': { zh: '取消', en: 'Cancel' },
   'generic.confirm': { zh: '確認', en: 'Confirm' },
   'generic.back': { zh: '返回', en: 'Back' },

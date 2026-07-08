@@ -14,8 +14,11 @@ import { useT } from '@/hooks/use-i18n';
 export default function TeacherSettingsPage() {
   const { t } = useT();
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [aiStatus, setAiStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [classes, setClasses] = useState<{ id: string; name: string; gradeLevel: string }[]>([]);
+  const [selectedGrades, setSelectedGrades] = useState<string[]>(['S4', 'S5']);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/api/ai/status')
@@ -26,18 +29,34 @@ export default function TeacherSettingsPage() {
       .then(r => r.json())
       .then(d => setClasses(d.classes || []))
       .catch(() => {});
+    // Load current teacher settings
+    fetch('/api/auth/settings')
+      .then(r => r.json())
+      .then(d => {
+        if (d.settings?.classIds) setSelectedClassIds(d.settings.classIds);
+        if (d.settings?.classNames?.length) setSelectedGrades([]); // Don't override if classes are set
+      })
+      .catch(() => {});
   }, []);
 
+  const toggleClass = (id: string) => {
+    setSelectedClassIds(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+  };
+
   const handleSave = async () => {
+    setSaving(true);
     try {
-      await fetch('/api/auth/settings', {
+      const res = await fetch('/api/auth/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ classIds: selectedClassIds }),
       });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
     } catch { /* ignore */ }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    finally { setSaving(false); }
   };
 
   return (
@@ -55,7 +74,7 @@ export default function TeacherSettingsPage() {
             <div className="flex gap-2 flex-wrap">
               {['S1','S2','S3','S4','S5','S6'].map(g => (
                 <label key={g} className="flex items-center gap-1 text-sm cursor-pointer">
-                  <input type="checkbox" defaultChecked={g === 'S4' || g === 'S5'} className="rounded" /> {gradeLabels[g] || g}
+                  <input type="checkbox" checked={selectedGrades.includes(g)} onChange={() => setSelectedGrades(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])} className="rounded" /> {gradeLabels[g] || g}
                 </label>
               ))}
             </div>
@@ -65,7 +84,7 @@ export default function TeacherSettingsPage() {
             <div className="flex gap-2 flex-wrap">
               {classes.length > 0 ? classes.map(c => (
                 <label key={c.id} className="flex items-center gap-1 text-sm cursor-pointer">
-                  <input type="checkbox" defaultChecked className="rounded" /> {c.name}
+                  <input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleClass(c.id)} className="rounded" /> {c.name}
                 </label>
               )) : (
                 <span className="text-xs text-gray-400">{t('generic.loading')}</span>
@@ -197,11 +216,11 @@ export default function TeacherSettingsPage() {
         </div>
       </section>
 
-      <button
-        onClick={handleSave}
-        className="w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
-      >
-        {saved ? <><CheckCircle className="w-4 h-4" /> {t('generic.saved')}</> : <><Save className="w-4 h-4" /> {t('teacher.settings.saveSettings')}</>}
+      <button onClick={handleSave} disabled={saving}
+        className="w-full py-3 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors">
+        {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('generic.saving')}</> :
+         saved ? <><CheckCircle className="w-4 h-4" /> {t('generic.saved')}</> :
+         <><Save className="w-4 h-4" /> {t('teacher.settings.saveSettings')}</>}
       </button>
     </div>
   );
