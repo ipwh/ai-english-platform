@@ -48,73 +48,65 @@ export default function WritingPage() {
 
   const handleGenerate = async () => {
     setGenLoading(true);
-    setGeneratedOutline('');  // 清除舊大綱
+    setGeneratedPrompt('');
+    setGeneratedOutline('');
     const topic = useCustomTopic && customTopic ? customTopic : topicHint;
     const typeName = textTypes[textType]?.en || textType;
-    const promptText = `Write a ${typeName} (${wordLimit} words) for ${gradeLevel} student${topic ? '. Topic: ' + topic : ''}. Return ONLY the writing prompt/title.`;
 
+    // Step 1: Generate writing prompt via dedicated endpoint
     let newPrompt = '';
-
     try {
-      const res = await fetch('/api/ai/generate-questions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ difficulty: 'core', gradeLevel, count: 1, questionType: 'short-writing', topic: promptText }),
+      const promptRes = await fetch('/api/ai/generate-writing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'prompt',
+          textType: typeName,
+          gradeLevel,
+          wordLimit,
+          topicHint: topic || undefined,
+          lang,
+        }),
       });
-      const json = await res.json();
-      if (json.questions?.[0]) {
-        newPrompt = json.questions[0].prompt || json.questions[0].answer || '';
+      const pj = await promptRes.json();
+      if (pj.prompt) {
+        newPrompt = pj.prompt;
         setGeneratedPrompt(newPrompt);
+      } else {
+        setGeneratedPrompt(t(lang, '⚠️ AI 未能生成題目，請重試。', '⚠️ Could not generate prompt. Please try again.'));
       }
-    } catch { /* ignore */ }
+    } catch {
+      setGeneratedPrompt(t(lang, '⚠️ 題目生成失敗，請檢查網絡。', '⚠️ Prompt generation failed.'));
+    }
 
+    // Step 2: Generate outline via dedicated endpoint (uses the actual generated prompt)
     if (wantOutline) {
       try {
-        // 用剛剛拿到的新題目（不是 stale state）
-        const resolvedTopic = useCustomTopic && customTopic ? customTopic : (newPrompt || topicHint || 'general');
-        const outlinePrompt = `You are an experienced HKDSE English writing tutor. Create a detailed paragraph-by-paragraph writing outline for the following task. DO NOT simply restate the topic title. For EACH paragraph, provide:
-
-1) A clear topic sentence (what this paragraph argues / describes)
-2) 2-3 specific content points or arguments the student should include (use concrete examples, NOT generic phrases like "discuss the topic")
-3) Suggested sentence starters or linking phrases (e.g. "One major reason is…", "For instance…", "In contrast…")
-
-Structure the outline as follows:
-- Paragraph 1 — Introduction: Hook + background + thesis statement (state the writer's position clearly)
-- Paragraph 2 — Body 1: First main argument with supporting evidence / example
-- Paragraph 3 — Body 2: Second main argument with supporting evidence / example
-${wordLimit >= 300 ? '- Paragraph 4 — Body 3 / Counter-argument: Address an opposing view and rebut it' : ''}
-- Final Paragraph — Conclusion: Restate thesis (in different words), summarise key points, final thought / call to action
-
-Writing task:
-- Text type: ${typeName}
-- Grade: ${gradeLevel}
-- Word limit: ~${wordLimit} words
-- Topic: ${resolvedTopic}
-${lang === 'zh' ? '- Output the outline in Traditional Chinese (繁體中文), but keep key English terms where appropriate (e.g. topic sentence, thesis statement).' : '- Output the outline in English.'}
-
-IMPORTANT rules:
-- Every paragraph must have DIFFERENT, specific content — do NOT repeat the same idea across paragraphs.
-- Use concrete, topic-relevant examples (e.g. if the topic is about environmental protection, mention specific actions like "reducing plastic waste" or "using public transport", NOT just "protect the environment").
-- The outline must be immediately usable by a ${gradeLevel} student to start writing — each bullet point should be a complete thought, not a vague heading.
-- Return ONLY the outline text. Do NOT wrap in JSON. Do NOT include introductory phrases like "Here is an outline".`;
-
-        const outlineRes = await fetch('/api/ai/generate-questions', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        const resolvedPrompt = newPrompt || topic || 'general topic';
+        const outlineRes = await fetch('/api/ai/generate-writing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            difficulty: 'core', gradeLevel, count: 1, questionType: 'short-writing',
-            topic: outlinePrompt,
+            action: 'outline',
+            textType: typeName,
+            gradeLevel,
+            wordLimit,
+            writingPrompt: resolvedPrompt,
+            topicHint: topic || undefined,
+            lang,
           }),
         });
         const oj = await outlineRes.json();
-        const outlineText = oj.questions?.[0]?.prompt || oj.questions?.[0]?.answer || '';
-        if (outlineText && outlineText.length > 20) {
-          setGeneratedOutline(outlineText);
+        if (oj.outline && oj.outline.length > 20) {
+          setGeneratedOutline(oj.outline);
         } else {
           setGeneratedOutline(t(lang, '⚠️ AI 未能生成大綱，請重試。', '⚠️ Could not generate outline. Please try again.'));
         }
       } catch {
-        setGeneratedOutline(t(lang, '⚠️ 大綱生成失敗，請檢查網絡連線。', '⚠️ Outline generation failed. Check your connection.'));
+        setGeneratedOutline(t(lang, '⚠️ 大綱生成失敗，請檢查網絡。', '⚠️ Outline generation failed.'));
       }
     }
+
     setGenLoading(false);
   };
 

@@ -559,7 +559,121 @@ ${input.content.slice(0, 8000)}
 }
 
 // ============================================
-// 七、輔助函數
+// 七、寫作題目生成（獨立於練習題目生成）
+// ============================================
+
+export interface GenerateWritingPromptInput {
+  textType: string;
+  gradeLevel: string;
+  wordLimit: number;
+  topicHint?: string;
+  lang?: 'zh' | 'en';
+}
+
+export interface GenerateWritingOutlineInput {
+  textType: string;
+  gradeLevel: string;
+  wordLimit: number;
+  writingPrompt: string;
+  topicHint?: string;
+  lang?: 'zh' | 'en';
+}
+
+/**
+ * 生成寫作題目 — 產出一個具體、有啟發性的作文題目
+ * 與 generateQuestions 完全分離，有獨立的 system prompt
+ */
+export async function generateWritingPrompt(input: GenerateWritingPromptInput): Promise<string> {
+  const lang = input.lang || 'en';
+  const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner and writing tutor.
+Your ONLY job is to create ONE engaging, specific writing prompt for a ${input.gradeLevel} student.
+
+The prompt must:
+- Be a clear, focused writing task (1-3 sentences)
+- Include the context/situation, the writer's role, and the required text type
+- Match HKDSE Paper 2 style (e.g. "You are the editor of your school magazine. Write an article about...")
+- Be appropriate for ${input.gradeLevel} level (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — simpler topics, personal experience' : 'senior secondary — social issues, argumentative, DSE-level'})
+- Include a clear word limit instruction
+
+Text type required: ${input.textType}
+Word limit: ~${input.wordLimit} words
+${input.topicHint ? `Topic area to consider: ${input.topicHint}` : 'Choose an engaging, age-appropriate topic.'}
+
+${lang === 'zh' ? 'Return ONLY the writing prompt text in English. Do NOT include any other text, explanation, or formatting.' : 'Return ONLY the writing prompt text. Do NOT include any other text, explanation, or formatting.'}
+
+CRITICAL: Return ONLY the prompt itself. Do NOT include headings like "Writing Prompt:" or "Here is a prompt:". Do NOT wrap in quotes or JSON.`;
+
+  const userPrompt = `Generate one writing prompt for a ${input.gradeLevel} student. Text type: ${input.textType}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic area: ${input.topicHint}` : ''}`;
+
+  const result = await callDeepSeek(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.8, maxTokens: 512, timeoutMs: 25000 }
+  );
+
+  return result.trim();
+}
+
+/**
+ * 生成寫作大綱 — 產出結構化的、段落式的大綱
+ * 每個段落有獨特的具體內容，不是題目的重述
+ */
+export async function generateWritingOutline(input: GenerateWritingOutlineInput): Promise<string> {
+  const lang = input.lang || 'en';
+  const systemPrompt = `You are an experienced HKDSE English writing tutor. Your job is to create a DETAILED, STRUCTURED writing outline that helps a ${input.gradeLevel} student plan their essay.
+
+THE OUTLINE MUST BE COMPLETELY DIFFERENT FROM THE WRITING PROMPT. The prompt tells the student WHAT to write. The outline tells them HOW to write it — paragraph by paragraph, with concrete content ideas.
+
+For EACH paragraph, you MUST provide:
+1. **Topic sentence** — The main idea of this paragraph (a full sentence the student can adapt)
+2. **Content points** — 2-3 SPECIFIC arguments, examples, or details the student should include. These must be CONCRETE and TOPIC-SPECIFIC. For example, if the topic is about environmental protection, write "mention the plastic bag levy scheme in Hong Kong" NOT "give an example about the environment".
+3. **Useful phrases** — 1-2 sentence starters or linking expressions the student can use (e.g. "It is widely believed that…", "A case in point is…", "This leads to…")
+
+Structure:
+- **Paragraph 1 — Introduction**
+  - Hook (interesting opening to grab attention)
+  - Background context (1-2 sentences of relevant background)
+  - Thesis statement (clearly state the writer's position/main argument)
+${input.wordLimit >= 300 ? '- **Paragraph 2 — Body Paragraph 1**: First main argument with supporting evidence\n- **Paragraph 3 — Body Paragraph 2**: Second main argument with supporting evidence\n- **Paragraph 4 — Counter-argument / Rebuttal**: Address an opposing view and explain why your position is stronger' : '- **Paragraph 2 — Body Paragraph 1**: First main argument with supporting evidence\n- **Paragraph 3 — Body Paragraph 2**: Second main argument with supporting evidence'}
+- **Final Paragraph — Conclusion**
+  - Restate thesis (in different words)
+  - Summarise key arguments (1 sentence)
+  - Concluding thought / call to action / looking forward
+
+Writing task details:
+- Text type: ${input.textType}
+- Grade: ${input.gradeLevel}
+- Word limit: ~${input.wordLimit} words
+- Prompt: ${input.writingPrompt}
+${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}
+
+${lang === 'zh'
+  ? `IMPORTANT: Write the outline in Traditional Chinese (繁體中文). Keep key English writing terms in English (e.g. "topic sentence", "thesis statement", "hook"). Content points and explanations should be in Chinese so the student can easily understand and use them.`
+  : `Write the outline in English.`}
+
+RULES:
+- Every paragraph MUST have DIFFERENT content — do not repeat ideas across paragraphs.
+- Give CONCRETE, SPECIFIC content points — not vague suggestions like "discuss the advantages".
+- The outline should be immediately usable — a student should be able to write each paragraph by following your bullet points.
+- Return ONLY the outline. No introductory phrases like "Here is an outline". No concluding remarks. No JSON.`;
+
+  const userPrompt = `Create a detailed paragraph-by-paragraph writing outline for this task:\n\nPrompt: ${input.writingPrompt}\n\nText type: ${input.textType}\nGrade: ${input.gradeLevel}\nWords: ~${input.wordLimit}`;
+
+  const result = await callDeepSeek(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.7, maxTokens: 2048, timeoutMs: 25000 }
+  );
+
+  return result.trim();
+}
+
+// ============================================
+// 八、輔助函數
 // ============================================
 
 /** 檢查 DeepSeek API 是否已設定 */
