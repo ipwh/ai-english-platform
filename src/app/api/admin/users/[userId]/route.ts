@@ -5,21 +5,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { verifySessionToken } from '@/lib/jwt';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    // ---- 認證 ----
-    const token =
-      request.cookies.get('session_token')?.value ||
-      request.headers.get('authorization')?.replace('Bearer ', '') ||
-      '';
-    const session = await verifySessionToken(token);
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: '權限不足' }, { status: 403 });
+    // ---- 認證：僅 admin（JWT + NextAuth 雙重支援）----
+    const auth = await verifyAdmin(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 
     const { userId } = await params;

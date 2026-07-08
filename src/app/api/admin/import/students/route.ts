@@ -12,7 +12,7 @@ import {
   emptyImportResult,
 } from '@/lib/import-utils';
 import type { ImportResult, ImportDetail } from '@/lib/import-utils';
-import { verifySessionToken } from '@/lib/jwt';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 /** 簡易密碼雜湊（與 seed.ts 一致） */
 function simpleHash(password: string): string {
@@ -29,18 +29,10 @@ export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
 
   try {
-    // ---- 認證：僅 admin ----
-    const token =
-      request.cookies.get('session_token')?.value ||
-      request.headers.get('authorization')?.replace('Bearer ', '') ||
-      '';
-
-    const session = await verifySessionToken(token);
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json(
-        { error: '權限不足：僅管理員可執行批量匯入' },
-        { status: 403 }
-      );
+    // ---- 認證：僅 admin（JWT + NextAuth 雙重支援）----
+    const auth = await verifyAdmin(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 
     // ---- 解析上傳檔案 ----
