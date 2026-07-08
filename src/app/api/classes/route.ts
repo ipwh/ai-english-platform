@@ -11,9 +11,10 @@ export async function GET(request: NextRequest) {
   const teacherId = searchParams.get('teacherId');
 
   const classes = await db.class.findMany({
-    where: teacherId ? {
-      teachers: { some: { teacherId } },
-    } : undefined,
+    where: {
+      name: { not: 'Demo' },
+      ...(teacherId ? { teachers: { some: { teacherId } } } : {}),
+    },
     include: {
       _count: { select: { students: true, assignments: true } },
     },

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const taughtClassIds = taughtClasses.map(tc => tc.classId);
 
     // If teacher has no taught classes, return all students (for admin-teachers)
-    const where: any = { role: 'student' };
+    const where: any = { role: 'student', level: { not: 'Demo' } };
     if (taughtClassIds.length > 0) {
       where.classId = { in: taughtClassIds };
     }
@@ -61,7 +61,10 @@ export async function GET(request: NextRequest) {
     });
 
     const classes = await db.class.findMany({
-      where: taughtClassIds.length > 0 ? { id: { in: taughtClassIds } } : undefined,
+      where: {
+        name: { not: 'Demo' },
+        ...(taughtClassIds.length > 0 ? { id: { in: taughtClassIds } } : {}),
+      },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, gradeLevel: true },
     });
