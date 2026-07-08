@@ -1,6 +1,6 @@
 // ============================================
 // POST /api/admin/import/students
-// 批量匯入學生資料 — 支援 upsert、Zod 驗證、transaction
+// 批量匯入學生資料 — 單一 transaction，高效批次處理
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
 
   try {
-    // ---- 認證：僅 admin（JWT + NextAuth 雙重支援）----
+    // ---- 認證 ----
     const auth = await verifyAdmin(request);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
@@ -56,139 +56,177 @@ export async function POST(request: NextRequest) {
 
     result.total = rows.length;
 
-    // ---- 逐列處理 ----
+    // ---- Phase 1: Zod 驗證所有列 ----
+    const validRows: { rowNum: number; data: ReturnType<typeof studentRowSchema.parse> }[] = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const rowNum = i + 2; // CSV row number (1-indexed + header)
+      const rowNum = i + 2;
+      const parsed = studentRowSchema.safeParse(row);
 
-      try {
-        // Zod 驗證
-        const parsed = studentRowSchema.safeParse(row);
-
-        if (!parsed.success) {
-          const issues = parsed.error.issues
-            .map(iss => `${iss.path.join('.')}: ${iss.message}`)
-            .join('; ');
-          result.failed++;
-          result.errors.push(`第 ${rowNum} 列: ${issues}`);
-          result.details.push({
-            row: rowNum,
-            email: row.email || '(無)',
-            nameZh: row.nameZh || '(無)',
-            status: 'error',
-            reason: issues,
-          });
-          continue;
-        }
-
-        const data = parsed.data;
-
-        // Dry run 模式：僅檢查是否已存在
-        if (dryRun) {
-          const exists = await db.user.findUnique({
-            where: { email: data.email },
-          });
-          result.details.push({
-            row: rowNum,
-            studentId: data.studentId,
-            email: data.email,
-            nameZh: data.nameZh,
-            status: exists ? 'skipped' : 'created',
-            reason: exists ? '已存在，將被更新 (upsert)' : '將被新增',
-          });
-          if (!exists) result.success++;
-          else result.updated++;
-          continue;
-        }
-
-        // ---- 實際寫入（transaction） ----
-        await db.$transaction(async (tx) => {
-          // 1. 確保班級存在
-          const cls = await tx.class.upsert({
-            where: { name: data.className },
-            update: {},
-            create: {
-              name: data.className,
-              gradeLevel: data.level || inferGradeLevel(data.className),
-            },
-          });
-
-          // 2. 檢查是否已存在（含跨角色衝突檢查）
-          const existing = await tx.user.findUnique({
-            where: { email: data.email },
-          });
-
-          // 若 email 已被非 student 角色使用，拒絕匯入
-          if (existing && existing.role !== 'student') {
-            throw new Error(
-              `email ${data.email} 已被 ${existing.role === 'teacher' ? '教師' : '管理員'} 使用，無法匯入為學生`
-            );
-          }
-
-          // 3. Upsert 使用者
-          const userData = {
-            email: data.email,
-            nameZh: data.nameZh,
-            nameEn: data.nameEn,
-            role: 'student' as const,
-            level: data.level,
-            classId: cls.id,
-            classNumber: data.classNumber || undefined,
-            joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
-            // 新用戶才設定 passwordHash
-            ...(existing
-              ? {}
-              : { passwordHash: simpleHash('student123') }),
-          };
-
-          if (existing) {
-            await tx.user.update({
-              where: { email: data.email },
-              data: userData,
-            });
-          } else {
-            // 使用指定的 studentId 作為 id（若已被佔用則自動生成）
-            await tx.user.create({
-              data: {
-                id: data.studentId,
-                ...userData,
-              },
-            });
-          }
-        });
-
-        const existing = await db.user.findUnique({
-          where: { email: data.email },
-        });
-
-        const wasExisting = existing && existing.updatedAt > existing.createdAt;
-
-        if (wasExisting) {
-          result.updated++;
-        } else {
-          result.success++;
-        }
-
-        result.details.push({
-          row: rowNum,
-          studentId: data.studentId,
-          email: data.email,
-          nameZh: data.nameZh,
-          status: wasExisting ? 'updated' : 'created',
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '未知錯誤';
+      if (!parsed.success) {
+        const issues = parsed.error.issues
+          .map(iss => `${iss.path.join('.')}: ${iss.message}`)
+          .join('; ');
         result.failed++;
-        result.errors.push(`第 ${rowNum} 列 (${row.email || '無 email'}): ${msg}`);
+        result.errors.push(`第 ${rowNum} 列: ${issues}`);
         result.details.push({
           row: rowNum,
           email: row.email || '(無)',
           nameZh: row.nameZh || '(無)',
           status: 'error',
-          reason: msg,
+          reason: issues,
         });
+      } else {
+        validRows.push({ rowNum, data: parsed.data });
       }
     }
+
+    if (validRows.length === 0) {
+      return NextResponse.json(result);
+    }
+
+    // ---- Phase 2: 收集唯一班級名稱 & email 列表 ----
+    const uniqueClassNames = [...new Set(validRows.map(r => r.data.className))];
+    const allEmails = validRows.map(r => r.data.email);
+
+    // ---- Dry run: 批量檢查已存在的 email ----
+    if (dryRun) {
+      const existingEmails = new Set(
+        (await db.user.findMany({
+          where: { email: { in: allEmails } },
+          select: { email: true },
+        })).map(u => u.email)
+      );
+
+      for (const { rowNum, data } of validRows) {
+        const exists = existingEmails.has(data.email);
+        result.details.push({
+          row: rowNum,
+          studentId: data.studentId,
+          email: data.email,
+          nameZh: data.nameZh,
+          status: exists ? 'skipped' : 'created',
+          reason: exists ? '已存在，將被更新 (upsert)' : '將被新增',
+        });
+        if (!exists) result.success++;
+        else result.updated++;
+      }
+
+      return NextResponse.json(result);
+    }
+
+    // ---- Phase 3: 單一 transaction 批次寫入 ----
+    await db.$transaction(async (tx) => {
+      // 3a. 批次建立所有需要的班級
+      const existingClasses = await tx.class.findMany({
+        where: { name: { in: uniqueClassNames } },
+        select: { id: true, name: true },
+      });
+      const classMap = new Map(existingClasses.map(c => [c.name, c.id]));
+
+      for (const name of uniqueClassNames) {
+        if (!classMap.has(name)) {
+          const cls = await tx.class.create({
+            data: {
+              name,
+              gradeLevel: inferGradeLevel(name),
+            },
+          });
+          classMap.set(name, cls.id);
+        }
+      }
+
+      // 3b. 批次查詢已存在的使用者（含角色）
+      const existingUsers = await tx.user.findMany({
+        where: { email: { in: allEmails } },
+        select: { id: true, email: true, role: true },
+      });
+      const existingUserMap = new Map(existingUsers.map(u => [u.email, u]));
+
+      // 3c. 分批 upsert 使用者（每批 50 筆避免 SQL 過長）
+      const BATCH_SIZE = 50;
+      const defaultPwHash = simpleHash('student123');
+
+      for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+        const batch = validRows.slice(i, i + BATCH_SIZE);
+
+        for (const { rowNum, data } of batch) {
+          try {
+            const existing = existingUserMap.get(data.email);
+            const classId = classMap.get(data.className);
+
+            // 跨角色衝突檢查
+            if (existing && existing.role !== 'student') {
+              const roleLabel = existing.role === 'teacher' ? '教師' : '管理員';
+              throw new Error(`email ${data.email} 已被${roleLabel}使用`);
+            }
+
+            if (existing) {
+              await tx.user.update({
+                where: { email: data.email },
+                data: {
+                  nameZh: data.nameZh,
+                  nameEn: data.nameEn,
+                  level: data.level,
+                  classId: classId || undefined,
+                  classNumber: data.classNumber || undefined,
+                  joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
+                },
+              });
+              result.updated++;
+              result.details.push({ row: rowNum, studentId: data.studentId, email: data.email, nameZh: data.nameZh, status: 'updated' });
+            } else {
+              try {
+                await tx.user.create({
+                  data: {
+                    id: data.studentId,
+                    email: data.email,
+                    nameZh: data.nameZh,
+                    nameEn: data.nameEn,
+                    role: 'student',
+                    level: data.level,
+                    classId: classId || undefined,
+                    classNumber: data.classNumber || undefined,
+                    joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
+                    passwordHash: defaultPwHash,
+                  },
+                });
+                result.success++;
+                result.details.push({ row: rowNum, studentId: data.studentId, email: data.email, nameZh: data.nameZh, status: 'created' });
+              } catch (createErr: unknown) {
+                // ID 衝突：使用 auto-generated cuid 重試
+                const msg = createErr instanceof Error ? createErr.message : '';
+                if (msg.includes('Unique constraint') && msg.includes('id')) {
+                  await tx.user.create({
+                    data: {
+                      email: data.email,
+                      nameZh: data.nameZh,
+                      nameEn: data.nameEn,
+                      role: 'student',
+                      level: data.level,
+                      classId: classId || undefined,
+                      classNumber: data.classNumber || undefined,
+                      joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
+                      passwordHash: defaultPwHash,
+                    },
+                  });
+                  result.success++;
+                  result.details.push({ row: rowNum, studentId: '(auto)', email: data.email, nameZh: data.nameZh, status: 'created' });
+                } else {
+                  throw createErr;
+                }
+              }
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : '未知錯誤';
+            result.failed++;
+            result.errors.push(`第 ${rowNum} 列 (${data.email}): ${msg}`);
+            result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: msg });
+          }
+        }
+      }
+    });
 
     return NextResponse.json(result);
   } catch (err: unknown) {

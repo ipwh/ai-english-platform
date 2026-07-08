@@ -1,6 +1,6 @@
 // ============================================
 // POST /api/admin/import/teachers
-// 批量匯入教師資料 — 支援 upsert、Zod 驗證、transaction
+// 批量匯入教師資料 — 單一 transaction，高效批次處理
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,7 +13,6 @@ import {
 import type { ImportResult } from '@/lib/import-utils';
 import { verifyAdmin } from '@/lib/admin-auth';
 
-/** 簡易密碼雜湊（與 seed.ts 一致） */
 function simpleHash(password: string): string {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
@@ -28,13 +27,11 @@ export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
 
   try {
-    // ---- 認證：僅 admin（JWT + NextAuth 雙重支援）----
     const auth = await verifyAdmin(request);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 
-    // ---- 解析上傳檔案 ----
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const dryRun = formData.get('dryRun') === 'true';
@@ -45,134 +42,95 @@ export async function POST(request: NextRequest) {
 
     const text = await file.text();
     const rows = parseCSV(text);
-
     if (rows.length === 0) {
-      return NextResponse.json(
-        { error: 'CSV 檔案沒有有效資料（至少需要標題列 + 一筆資料）' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'CSV 檔案沒有有效資料' }, { status: 400 });
     }
-
     result.total = rows.length;
 
-    // ---- 逐列處理 ----
+    // Phase 1: Validate all rows
+    const validRows: { rowNum: number; data: ReturnType<typeof teacherRowSchema.parse> }[] = [];
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNum = i + 2; // CSV row number (1-indexed + header)
+      const parsed = teacherRowSchema.safeParse(rows[i]);
+      if (!parsed.success) {
+        const issues = parsed.error.issues.map(iss => `${iss.path.join('.')}: ${iss.message}`).join('; ');
+        result.failed++;
+        result.errors.push(`第 ${i + 2} 列: ${issues}`);
+        result.details.push({ row: i + 2, email: rows[i].email || '(無)', nameZh: rows[i].nameZh || '(無)', status: 'error', reason: issues });
+      } else {
+        validRows.push({ rowNum: i + 2, data: parsed.data });
+      }
+    }
+    if (validRows.length === 0) return NextResponse.json(result);
 
-      try {
-        // Zod 驗證
-        const parsed = teacherRowSchema.safeParse(row);
+    const allEmails = validRows.map(r => r.data.email);
 
-        if (!parsed.success) {
-          const issues = parsed.error.issues
-            .map(iss => `${iss.path.join('.')}: ${iss.message}`)
-            .join('; ');
-          result.failed++;
-          result.errors.push(`第 ${rowNum} 列: ${issues}`);
-          result.details.push({
-            row: rowNum,
-            email: row.email || '(無)',
-            nameZh: row.nameZh || '(無)',
-            status: 'error',
-            reason: issues,
-          });
-          continue;
-        }
+    // Dry run: batch check
+    if (dryRun) {
+      const existingEmails = new Set(
+        (await db.user.findMany({ where: { email: { in: allEmails } }, select: { email: true } })).map(u => u.email)
+      );
+      for (const { rowNum, data } of validRows) {
+        const exists = existingEmails.has(data.email);
+        result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: exists ? 'skipped' : 'created', reason: exists ? '已存在，將被更新' : '將被新增' });
+        if (!exists) result.success++; else result.updated++;
+      }
+      return NextResponse.json(result);
+    }
 
-        const data = parsed.data;
+    // Phase 2: Batch upsert in single transaction
+    await db.$transaction(async (tx) => {
+      const existingUsers = await tx.user.findMany({
+        where: { email: { in: allEmails } },
+        select: { id: true, email: true, role: true },
+      });
+      const existingMap = new Map(existingUsers.map(u => [u.email, u]));
+      const defaultPwHash = simpleHash('teacher123');
 
-        // Dry run 模式
-        if (dryRun) {
-          const exists = await db.user.findUnique({
-            where: { email: data.email },
-          });
-          result.details.push({
-            row: rowNum,
-            teacherId: data.teacherId,
-            email: data.email,
-            nameZh: data.nameZh,
-            status: exists ? 'skipped' : 'created',
-            reason: exists ? '已存在，將被更新 (upsert)' : '將被新增',
-          });
-          if (!exists) result.success++;
-          else result.updated++;
-          continue;
-        }
+      for (const { rowNum, data } of validRows) {
+        try {
+          const existing = existingMap.get(data.email);
 
-        // ---- 實際寫入（transaction） ----
-        await db.$transaction(async (tx) => {
-          // 1. 檢查是否已存在（含跨角色衝突檢查）
-          const existing = await tx.user.findUnique({
-            where: { email: data.email },
-          });
-
-          // 若 email 已被非 teacher 角色使用，拒絕匯入
           if (existing && existing.role !== 'teacher') {
-            throw new Error(
-              `email ${data.email} 已被 ${existing.role === 'student' ? '學生' : '管理員'} 使用，無法匯入為教師`
-            );
+            const roleLabel = existing.role === 'student' ? '學生' : '管理員';
+            throw new Error(`email ${data.email} 已被${roleLabel}使用`);
           }
 
-          // 2. Upsert 使用者
           const userData = {
             email: data.email,
             nameZh: data.nameZh,
             nameEn: data.nameEn,
             role: 'teacher' as const,
             subjects: data.subjects || '["English Language"]',
-            ...(existing
-              ? {}
-              : { passwordHash: simpleHash('teacher123') }),
+            department: data.department || undefined,
+            ...(existing ? {} : { passwordHash: defaultPwHash }),
           };
 
           if (existing) {
-            await tx.user.update({
-              where: { email: data.email },
-              data: userData,
-            });
+            await tx.user.update({ where: { email: data.email }, data: userData });
+            result.updated++;
+            result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'updated' });
           } else {
-            // 使用指定的 teacherId 作為 id
-            await tx.user.create({
-              data: {
-                id: data.teacherId,
-                ...userData,
-              },
-            });
+            try {
+              await tx.user.create({ data: { id: data.teacherId, ...userData } });
+            } catch (createErr: unknown) {
+              const msg = createErr instanceof Error ? createErr.message : '';
+              if (msg.includes('Unique constraint')) {
+                await tx.user.create({ data: userData });
+              } else {
+                throw createErr;
+              }
+            }
+            result.success++;
+            result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'created' });
           }
-        });
-
-        const existing = await db.user.findUnique({
-          where: { email: data.email },
-        });
-        const wasExisting = existing && existing.updatedAt > existing.createdAt;
-
-        if (wasExisting) {
-          result.updated++;
-        } else {
-          result.success++;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : '未知錯誤';
+          result.failed++;
+          result.errors.push(`第 ${rowNum} 列 (${data.email}): ${msg}`);
+          result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: msg });
         }
-
-        result.details.push({
-          row: rowNum,
-          teacherId: data.teacherId,
-          email: data.email,
-          nameZh: data.nameZh,
-          status: wasExisting ? 'updated' : 'created',
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '未知錯誤';
-        result.failed++;
-        result.errors.push(`第 ${rowNum} 列 (${row.email || '無 email'}): ${msg}`);
-        result.details.push({
-          row: rowNum,
-          email: row.email || '(無)',
-          nameZh: row.nameZh || '(無)',
-          status: 'error',
-          reason: msg,
-        });
       }
-    }
+    });
 
     return NextResponse.json(result);
   } catch (err: unknown) {
