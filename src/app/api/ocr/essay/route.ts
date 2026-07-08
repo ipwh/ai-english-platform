@@ -17,24 +17,39 @@ async function getVisionClient(): Promise<import('@google-cloud/vision').ImageAn
 
   const { ImageAnnotatorClient } = await import('@google-cloud/vision');
 
-  // 優先使用環境變數，否則讀取 service account JSON
+  // 方案 1: GOOGLE_APPLICATION_CREDENTIALS 環境變數（指向 JSON 檔案路徑）
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    visionClient = new ImageAnnotatorClient();
-  } else {
-    // 從 materials/gcp-service-account.json 讀取憑證
     try {
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      const keyPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-      const keyContent = await fs.readFile(keyPath, 'utf-8');
-      const credentials = JSON.parse(keyContent);
+      visionClient = new ImageAnnotatorClient();
+      return visionClient;
+    } catch { /* 繼續嘗試其他方案 */ }
+  }
+
+  // 方案 2: GCP_SERVICE_ACCOUNT_JSON 環境變數（直接包含 JSON 內容，適用於 Vercel）
+  if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+    try {
+      const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
       visionClient = new ImageAnnotatorClient({ credentials });
-    } catch {
-      throw new Error('無法載入 GCP 憑證，請設定 GOOGLE_APPLICATION_CREDENTIALS 環境變數');
+      return visionClient;
+    } catch (e) {
+      console.error('[ocr] Failed to parse GCP_SERVICE_ACCOUNT_JSON:', e);
     }
   }
 
-  return visionClient;
+  // 方案 3: 從 materials/gcp-service-account.json 讀取（本機開發用）
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const keyPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+    const keyContent = await fs.readFile(keyPath, 'utf-8');
+    const credentials = JSON.parse(keyContent);
+    visionClient = new ImageAnnotatorClient({ credentials });
+    return visionClient;
+  } catch {
+    throw new Error(
+      '無法載入 GCP 憑證。請在 Vercel 環境變數中設定 GCP_SERVICE_ACCOUNT_JSON（貼上完整的 service account JSON 內容）。'
+    );
+  }
 }
 
 /** 驗證使用者已登入（支援 JWT + NextAuth） */
