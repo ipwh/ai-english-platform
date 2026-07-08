@@ -5,7 +5,6 @@
 
 import { create } from 'zustand';
 import type { UserRole, Notification, PracticeQuestion, DifficultyLevel } from '@/lib/types';
-import { mockNotifications } from '@/lib/mock-data';
 
 // ============================================
 // 練習題目（AI 生成或預設）
@@ -83,8 +82,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   language: (typeof window !== 'undefined' ? localStorage.getItem('lang') : null) as 'zh' | 'en' | null || 'zh',
   sidebarOpen: true,
   mobileMenuOpen: false,
-  notifications: mockNotifications,
-  unreadCount: mockNotifications.filter(n => !n.read).length,
+  notifications: [],
+  unreadCount: 0,
   practiceSessions: [],
   currentSession: null,
 
