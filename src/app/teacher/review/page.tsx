@@ -17,8 +17,8 @@ export default function TeacherReviewPage() {
   const [reviews, setReviews] = useState(mockReviews);
   const [selectedReview, setSelectedReview] = useState(reviews[0]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');
-  const [teacherScore, setTeacherScore] = useState<number | undefined>(selectedReview.teacherScore);
-  const [teacherFeedback, setTeacherFeedback] = useState(selectedReview.teacherFeedback || '');
+  const [teacherScore, setTeacherScore] = useState<number | undefined>(selectedReview?.teacherScore);
+  const [teacherFeedback, setTeacherFeedback] = useState(selectedReview?.teacherFeedback || '');
 
   // === AI 重新分析 ===
   const [aiLoading, setAiLoading] = useState(false);

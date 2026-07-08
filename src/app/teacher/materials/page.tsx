@@ -5,16 +5,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, FileText, File, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
+import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
 import { mockMaterials } from '@/lib/mock-data';
 import { formatDate } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
 
 const typeIcons: Record<string, React.ElementType> = {
   'pdf': FileText,
-  'docx': File,
+  'docx': FileIcon,
   'image': Image,
-  'ppt': File,
+  'ppt': FileIcon,
 };
 
 export default function TeacherMaterialsPage() {

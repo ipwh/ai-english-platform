@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
           email: data.email,
           nameZh: data.nameZh,
           status: exists ? 'skipped' : 'created',
-          reason: exists ? '已存在，將被更新 (upsert)' : '將被新增',
+          reason: exists ? '已存在，取消勾選預覽模式後再匯入即可更新班級資料' : '將被新增',
         });
         if (!exists) result.success++;
         else result.updated++;
