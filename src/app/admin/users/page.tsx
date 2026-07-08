@@ -91,7 +91,7 @@ function EditModal({
         body: JSON.stringify({
           ...form,
           subjects: form.subjects
-            ? form.subjects.split(',').map(s => s.trim()).filter(Boolean)
+            ? form.subjects.split(',').map((s: string) => s.trim()).filter(Boolean)
             : [],
         }),
       });

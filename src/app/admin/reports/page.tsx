@@ -221,7 +221,9 @@ export default function AdminReportsPage() {
                   paddingAngle={3}
                   dataKey="count"
                   nameKey="range"
-                  label={({ range, count }) => count > 0 ? `${range}%` : ''}
+                  label={({ name, value }: { name?: string; value?: number }) =>
+                    value && value > 0 ? `${name || ''}%` : ''
+                  }
                 >
                   {stats.accuracyDistribution.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
