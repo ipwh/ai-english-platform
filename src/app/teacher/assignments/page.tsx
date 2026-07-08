@@ -53,7 +53,7 @@ export default function TeacherAssignmentsPage() {
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600">{a.className}</span>
                     <SkillChip grammarItem={a.grammarItem} languageSkill={a.languageSkill} />
-                    <span className="text-xs text-gray-400">{a.questionType} · {a.questionCount} 題</span>
+                    <span className="text-xs text-gray-400">{a.questionType} · {a.questionCount} {t('generic.questions')}</span>
                   </div>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -65,7 +65,7 @@ export default function TeacherAssignmentsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-xs text-gray-500">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> 截止：{formatDate(a.dueDate)}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {t('teacher.assignments.dueDate', { date: formatDate(a.dueDate) })}</span>
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {a.className}</span>
                 </div>
                 <div className="flex items-center gap-2">
