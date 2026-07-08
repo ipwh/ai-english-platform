@@ -61,3 +61,5 @@ materials/**/*.pdf
 # Build output
 next-output.log
 neon.txt
+.vercel
+.env*
