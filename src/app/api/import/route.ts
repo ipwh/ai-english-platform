@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { getBulkDb } from '@/lib/db';
 
 // ---- 簡易 CSV 解析（無需外部依賴） ----
 function parseCSV(text: string): Record<string, string>[] {
@@ -155,10 +156,12 @@ export async function POST(request: NextRequest) {
         }
 
         // ---- 實際寫入（非 dryRun）----
+        const bulkDb = getBulkDb(); // 大量匯入專用 DB（較大連線池）
+
         // 確保班級存在並取得 classId（學生）
         let classId: string | undefined;
         if (importRow.class) {
-          const cls = await db.class.upsert({
+          const cls = await bulkDb.class.upsert({
             where: { name: importRow.class },
             update: {},
             create: {
@@ -169,10 +172,9 @@ export async function POST(request: NextRequest) {
           classId = cls.id;
         }
 
-        const existing = await db.user.findUnique({ where: { email: importRow.email } });
+        const existing = await bulkDb.user.findUnique({ where: { email: importRow.email } });
         if (existing) {
-          // ✅ 更新現有用戶（最關鍵：更新 classId）
-          await db.user.update({
+          await bulkDb.user.update({
             where: { email: importRow.email },
             data: {
               nameZh: importRow.nameZh || existing.nameZh,
@@ -187,14 +189,13 @@ export async function POST(request: NextRequest) {
           results.details.push({
             email: importRow.email,
             nameZh: importRow.nameZh,
-            status: 'created', // 使用 created 表示已處理
+            status: 'created',
             reason: '已更新班級資料',
           });
           continue;
         }
 
-        // 創建新用戶
-        await db.user.create({
+        await bulkDb.user.create({
           data: {
             email: importRow.email,
             passwordHash: simpleHash(importRow.password || 'student123'),
@@ -211,12 +212,12 @@ export async function POST(request: NextRequest) {
         // 教師 ↔ 班級關聯
         if (importRow.role === 'teacher' && importRow.classes) {
           for (const className of importRow.classes) {
-            const cls = await db.class.upsert({
+            const cls = await bulkDb.class.upsert({
               where: { name: className },
               update: {},
               create: { name: className, gradeLevel: inferGradeLevel(className) },
             });
-            await db.teacherClass.create({
+            await bulkDb.teacherClass.create({
               data: {
                 teacher: { connect: { email: importRow.email } },
                 class: { connect: { id: cls.id } },

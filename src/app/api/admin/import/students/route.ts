@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { getBulkDb } from '@/lib/db';
 import {
   parseCSV,
   studentRowSchema,
@@ -116,8 +117,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // ---- Phase 3: 先建立班級（獨立操作，避免長時間 transaction）----
-    const existingClasses = await db.class.findMany({
+    // ---- Phase 3: 先建立班級（使用大量匯入專用 DB）----
+    const bulkDb = getBulkDb();
+    const existingClasses = await bulkDb.class.findMany({
       where: { name: { in: uniqueClassNames } },
       select: { id: true, name: true },
     });
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     for (const name of uniqueClassNames) {
       if (!classMap.has(name)) {
-        const cls = await db.class.create({
+        const cls = await bulkDb.class.create({
           data: { name, gradeLevel: inferGradeLevel(name) },
         });
         classMap.set(name, cls.id);
@@ -133,7 +135,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- Phase 4: 批次查詢已存在的使用者 ----
-    const existingUsers = await db.user.findMany({
+    const existingUsers = await bulkDb.user.findMany({
       where: { email: { in: allEmails } },
       select: { id: true, email: true, role: true },
     });
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
         if (existing) {
           // UPDATE existing student — classId is the critical fix
           batchOps.push(
-            db.user.update({
+            bulkDb.user.update({
               where: { email: data.email },
               data: {
                 nameZh: data.nameZh,
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest) {
         } else {
           // CREATE new student
           batchOps.push(
-            db.user.create({
+            bulkDb.user.create({
               data: {
                 id: data.studentId,
                 email: data.email,
@@ -206,7 +208,7 @@ export async function POST(request: NextRequest) {
               const msg = createErr.message;
               if (msg.includes('Unique constraint') && msg.includes('id')) {
                 try {
-                  await db.user.create({
+                  await bulkDb.user.create({
                     data: {
                       email: data.email,
                       nameZh: data.nameZh,

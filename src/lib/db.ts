@@ -69,6 +69,36 @@ export const db = globalForPrisma.prisma ?? createPrismaClient();
 // 所有環境都 cache，避免 serverless 每次調用重建 Pool
 globalForPrisma.prisma = db;
 
+// ---- 大量匯入專用 DB 客戶端（較大連線池，避免逾時）----
+let bulkDbCache: PrismaClient | null = null;
+
+export function getBulkDb(): PrismaClient {
+  if (bulkDbCache) return bulkDbCache;
+
+  const dbUrl = getDbUrl();
+  const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://');
+
+  if (isPostgres) {
+    const { PrismaPg } = require('@prisma/adapter-pg') as typeof import('@prisma/adapter-pg');
+    const { Pool } = require('pg') as typeof import('pg');
+    const pool = new Pool({
+      connectionString: dbUrl,
+      max: 8, // 大量寫入需要較大連線池
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 60000,
+    });
+    bulkDbCache = new PrismaClient({
+      adapter: new PrismaPg(pool),
+      log: ['error'],
+    });
+  } else {
+    // SQLite：使用同一個客戶端
+    bulkDbCache = db;
+  }
+
+  return bulkDbCache;
+}
+
 // 啟動時探測 DB 連線（僅記錄，不中斷啟動）
 if (typeof window === 'undefined') {
   db.$connect()
