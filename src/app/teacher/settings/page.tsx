@@ -12,7 +12,8 @@ import { gradeLabels } from '@/lib/nav';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherSettingsPage() {
-  const { t } = useT();
+  const { t, language } = useT();
+  const lang = language || 'zh';
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiStatus, setAiStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
@@ -74,7 +75,7 @@ export default function TeacherSettingsPage() {
             <div className="flex gap-2 flex-wrap">
               {['S1','S2','S3','S4','S5','S6'].map(g => (
                 <label key={g} className="flex items-center gap-1 text-sm cursor-pointer">
-                  <input type="checkbox" checked={selectedGrades.includes(g)} onChange={() => setSelectedGrades(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])} className="rounded" /> {gradeLabels[g] || g}
+                  <input type="checkbox" checked={selectedGrades.includes(g)} onChange={() => setSelectedGrades(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])} className="rounded" /> {lang === 'en' ? g : gradeLabels[g] || g}
                 </label>
               ))}
             </div>
@@ -103,7 +104,7 @@ export default function TeacherSettingsPage() {
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(GRAMMAR_ITEM_LABELS).map(([key, val]) => (
             <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" defaultChecked className="rounded" /> {val.zh}
+              <input type="checkbox" defaultChecked className="rounded" /> {lang === 'en' ? val.en : val.zh}
             </label>
           ))}
         </div>
