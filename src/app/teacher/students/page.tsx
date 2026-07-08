@@ -31,10 +31,10 @@ export default function TeacherStudentsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/admin/users?role=student&pageSize=100').then(r => r.json()),
+      fetch('/api/teacher/students').then(r => r.json()),
       fetch('/api/classes').then(r => r.json()),
-    ]).then(([userData, classData]) => {
-      setStudents(userData.users || []);
+    ]).then(([studentData, classData]) => {
+      setStudents(studentData.students || []);
       setClasses((classData.classes || []).map((c: any) => c.name));
       setLoading(false);
     }).catch(() => setLoading(false));
