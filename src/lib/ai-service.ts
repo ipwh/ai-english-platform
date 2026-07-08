@@ -617,49 +617,59 @@ CRITICAL: Return ONLY the prompt itself. Do NOT include headings like "Writing P
 }
 
 /**
- * 生成寫作大綱 — 產出結構化的、段落式的大綱
+ * 生成寫作大綱 — 產出中英對照、結構化的段落式大綱
  * 每個段落有獨特的具體內容，不是題目的重述
  */
 export async function generateWritingOutline(input: GenerateWritingOutlineInput): Promise<string> {
   const lang = input.lang || 'en';
-  const systemPrompt = `You are an experienced HKDSE English writing tutor. Your job is to create a DETAILED, STRUCTURED writing outline that helps a ${input.gradeLevel} student plan their essay.
+  const systemPrompt = `You are an experienced HKDSE English writing tutor. Your job is to create a DETAILED, STRUCTURED, BILINGUAL (Chinese + English) writing outline that helps a ${input.gradeLevel} student plan their essay.
 
 THE OUTLINE MUST BE COMPLETELY DIFFERENT FROM THE WRITING PROMPT. The prompt tells the student WHAT to write. The outline tells them HOW to write it — paragraph by paragraph, with concrete content ideas.
 
-For EACH paragraph, you MUST provide:
-1. **Topic sentence** — The main idea of this paragraph (a full sentence the student can adapt)
-2. **Content points** — 2-3 SPECIFIC arguments, examples, or details the student should include. These must be CONCRETE and TOPIC-SPECIFIC. For example, if the topic is about environmental protection, write "mention the plastic bag levy scheme in Hong Kong" NOT "give an example about the environment".
-3. **Useful phrases** — 1-2 sentence starters or linking expressions the student can use (e.g. "It is widely believed that…", "A case in point is…", "This leads to…")
+FORMAT: Every section MUST be in BOTH Chinese (繁體中文) AND English, using this exact format:
+
+---
+## Paragraph N — [Paragraph Role] / [中文角色]
+**Topic sentence / 主題句**:
+- EN: [one clear topic sentence]
+- ZH: [對應中文]
+
+**Content points / 內容要點** (use SHORT PHRASES only, NOT full sentences):
+- EN: [short phrase 1] / ZH: [對應中文短語]
+- EN: [short phrase 2] / ZH: [對應中文短語]
+- EN: [short phrase 3] / ZH: [對應中文短語]
+
+**Useful phrases / 實用句式**:
+- EN: [linking phrase or sentence starter] / ZH: [對應中文]
+---
+
+CRITICAL RULES:
+1. ALL content points MUST be SHORT PHRASES (3-8 words in English, 4-10 characters in Chinese) — NOT complete sentences. For example: "plastic bag levy scheme" NOT "The government introduced a plastic bag levy scheme in 2009."
+2. Every section MUST have BOTH Chinese and English — always side by side.
+3. Every paragraph MUST have COMPLETELY DIFFERENT content — do not repeat ideas.
+4. Be CONCRETE and TOPIC-SPECIFIC — mention real facts, places, policies, or examples relevant to the topic.
+5. The outline must be immediately usable — a student should be able to write each paragraph by following your points.
+6. Return ONLY the outline. No introductory phrases like "Here is an outline". No concluding remarks. No JSON.
 
 Structure:
-- **Paragraph 1 — Introduction**
-  - Hook (interesting opening to grab attention)
-  - Background context (1-2 sentences of relevant background)
-  - Thesis statement (clearly state the writer's position/main argument)
-${input.wordLimit >= 300 ? '- **Paragraph 2 — Body Paragraph 1**: First main argument with supporting evidence\n- **Paragraph 3 — Body Paragraph 2**: Second main argument with supporting evidence\n- **Paragraph 4 — Counter-argument / Rebuttal**: Address an opposing view and explain why your position is stronger' : '- **Paragraph 2 — Body Paragraph 1**: First main argument with supporting evidence\n- **Paragraph 3 — Body Paragraph 2**: Second main argument with supporting evidence'}
-- **Final Paragraph — Conclusion**
-  - Restate thesis (in different words)
-  - Summarise key arguments (1 sentence)
-  - Concluding thought / call to action / looking forward
+- **Paragraph 1 — Introduction / 導論**
+  - Hook / 開首語
+  - Background context / 背景
+  - Thesis statement / 論點陳述
+${input.wordLimit >= 300 ? '- **Paragraph 2 — Body 1 / 主體段落一**: First main argument\n- **Paragraph 3 — Body 2 / 主體段落二**: Second main argument\n- **Paragraph 4 — Counter-argument / 反論駁斥**: Opposing view + rebuttal' : '- **Paragraph 2 — Body 1 / 主體段落一**: First main argument\n- **Paragraph 3 — Body 2 / 主體段落二**: Second main argument'}
+- **Final Paragraph — Conclusion / 結論**
+  - Restate thesis / 重申論點
+  - Summarise key points / 總結要點
+  - Final thought / 結語
 
 Writing task details:
 - Text type: ${input.textType}
 - Grade: ${input.gradeLevel}
 - Word limit: ~${input.wordLimit} words
 - Prompt: ${input.writingPrompt}
-${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}
+${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}`;
 
-${lang === 'zh'
-  ? `IMPORTANT: Write the outline in Traditional Chinese (繁體中文). Keep key English writing terms in English (e.g. "topic sentence", "thesis statement", "hook"). Content points and explanations should be in Chinese so the student can easily understand and use them.`
-  : `Write the outline in English.`}
-
-RULES:
-- Every paragraph MUST have DIFFERENT content — do not repeat ideas across paragraphs.
-- Give CONCRETE, SPECIFIC content points — not vague suggestions like "discuss the advantages".
-- The outline should be immediately usable — a student should be able to write each paragraph by following your bullet points.
-- Return ONLY the outline. No introductory phrases like "Here is an outline". No concluding remarks. No JSON.`;
-
-  const userPrompt = `Create a detailed paragraph-by-paragraph writing outline for this task:\n\nPrompt: ${input.writingPrompt}\n\nText type: ${input.textType}\nGrade: ${input.gradeLevel}\nWords: ~${input.wordLimit}`;
+  const userPrompt = `Create a detailed bilingual (ZH+EN) paragraph-by-paragraph writing outline for this task. Use SHORT PHRASES for content points, NOT full sentences.\n\nPrompt: ${input.writingPrompt}\n\nText type: ${input.textType}\nGrade: ${input.gradeLevel}\nWords: ~${input.wordLimit}`;
 
   const result = await callDeepSeek(
     [
