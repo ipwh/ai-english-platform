@@ -31,20 +31,18 @@ export async function POST(_request?: NextRequest) {
     });
 
     if (existing) {
-      // 確保 role 為 admin
-      if (existing.role !== 'admin') {
-        await db.user.update({
-          where: { email: adminEmail },
-          data: { role: 'admin' },
-        });
-        return NextResponse.json({
-          message: `管理員帳號已存在，role 已更新為 admin`,
-          email: adminEmail,
-        });
-      }
+      // 確保 role 為 admin，並補設定密碼（若之前是 Google OAuth 建立則無密碼）
+      await db.user.update({
+        where: { email: adminEmail },
+        data: {
+          role: 'admin',
+          passwordHash: simpleHash(adminPassword),
+        },
+      });
       return NextResponse.json({
-        message: '管理員帳號已存在，無需建立',
+        message: '管理員帳號已存在，role 及密碼已更新',
         email: adminEmail,
+        password: adminPassword,
       });
     }
 
