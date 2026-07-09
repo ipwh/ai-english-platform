@@ -16,7 +16,11 @@ function simpleHash(password: string): string {
   return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
 }
 
-export async function POST(request: NextRequest) {
+export async function GET() {
+  return POST();
+}
+
+export async function POST(_request?: NextRequest) {
   try {
     const adminEmail = 'ipwh@pochiu.edu.hk';
     const adminPassword = 'admin123';
