@@ -26,6 +26,7 @@ export default function TeacherMaterialsPage() {
 
   // === AI 教材分析 ===
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [indexingId, setIndexingId] = useState<string | null>(null);
   const [driveUrl, setDriveUrl] = useState('');
   const [driveLoading, setDriveLoading] = useState(false);
   const [aiResults, setAiResults] = useState<Record<string, {
@@ -55,6 +56,19 @@ export default function TeacherMaterialsPage() {
       }
     } catch { /* silent fail */ }
     finally { setAnalyzingId(null); }
+  };
+
+  // RAG 索引
+  const handleRagIndex = async (materialId: string) => {
+    setIndexingId(materialId);
+    try {
+      await fetch('/api/rag?action=index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materialId }),
+      });
+    } catch { /* silent */ }
+    finally { setIndexingId(null); }
   };
 
   const [materials, setMaterials] = useState<any[]>([]);
@@ -256,6 +270,18 @@ export default function TeacherMaterialsPage() {
                   >
                     <Sparkles className="w-4 h-4" /> 從此教材生成練習題目
                   </button>
+
+                  {/* RAG 語義索引 */}
+                  {m.ragStatus !== 'done' && (
+                    <button
+                      onClick={() => handleRagIndex(m.id)}
+                      disabled={indexingId === m.id}
+                      className="w-full py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 hover:bg-purple-200 text-sm rounded-lg font-medium flex items-center justify-center gap-2"
+                    >
+                      <Loader2 className={`w-4 h-4 ${indexingId === m.id ? 'animate-spin' : ''}`} />
+                      {indexingId === m.id ? '索引建立中...' : '建立語義索引 (RAG)'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
