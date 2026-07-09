@@ -69,7 +69,7 @@ interface AppState {
   clearCurrentSession: () => void;
   getMasteryBySkill: () => { skill: string; skillZh: string; accuracy: number; total: number }[];
   getRecentSessions: (limit?: number) => PracticeSession[];
-  getWeeklyStats: () => { questionsDone: number; accuracy: number; sessionsCount: number };
+  getWeeklyStats: () => { questionsDone: number; accuracy: number; sessionsCount: number; streakDays: number };
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -255,6 +255,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const correctTotal = weekSessions.reduce((sum, s) => sum + s.correctCount, 0);
     const accuracy = questionsDone > 0 ? Math.round((correctTotal / questionsDone) * 100) : 0;
 
-    return { questionsDone, accuracy, sessionsCount: weekSessions.length };
+    return { questionsDone, accuracy, sessionsCount: weekSessions.length, streakDays: 0 };
   },
 }));
