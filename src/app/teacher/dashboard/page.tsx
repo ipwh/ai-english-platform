@@ -39,11 +39,11 @@ export default function TeacherDashboardPage() {
     { label: t('teacher.completionRate'), value: `${stats.overview?.totalAssignments || 0}`, unit: t('teacher.assignments.title'), trend: 'stable' as const },
   ] : [];
 
-  // Class chart data from real classes
+  // Class chart data from real classes (no practice data yet)
   const classChartData = classes.slice(0, 8).map((c: any) => ({
     name: c.name,
-    [t('teacher.completionRate')]: Math.round(Math.random() * 40 + 50),
-    [t('teacher.avgAccuracy')]: Math.round(Math.random() * 30 + 55),
+    [t('teacher.completionRate')]: 0,
+    [t('teacher.avgAccuracy')]: 0,
   }));
 
   // AI advice
