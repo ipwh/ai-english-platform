@@ -1,6 +1,6 @@
 // ============================================
-// 角色選擇頁面（僅教師/管理員使用；學生會被自動導向）
-// 支援 JWT + NextAuth 雙重認證
+// 角色選擇頁面（僅教師/管理員使用；純學生會被自動導向）
+// 使用 email 模式判斷真實身份（不受 DB role 污染影響）
 // ============================================
 'use client';
 
@@ -9,55 +9,64 @@ import { useRouter } from 'next/navigation';
 import { useT } from '@/hooks/use-i18n';
 import { GraduationCap, Users, Shield } from 'lucide-react';
 
+/** 根據 email 判斷用戶可選的最高角色 */
+function getMaxRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
+  if (email === 'ipwh@pochiu.edu.hk') return 'admin';
+  const prefix = email.split('@')[0];
+  if (/^s\d{7}$/i.test(prefix)) return 'student';
+  return 'teacher';
+}
+
 export default function RoleSelectPage() {
   const { t } = useT();
   const router = useRouter();
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [maxRole, setMaxRole] = useState<'admin' | 'teacher' | 'student'>('teacher');
 
   useEffect(() => {
-    // 檢查當前 session 的角色：學生不應看到此頁
+    // 使用 email 模式判斷身份（不依賴 DB/JWT role，避免被舊版角色切換污染）
+    const checkAccess = (email: string) => {
+      const role = getMaxRoleByEmail(email);
+      setMaxRole(role);
+      if (role === 'student') {
+        // 純學生不可切換角色 → 直接導向學生頁
+        router.replace('/student/dashboard');
+        return;
+      }
+      setChecking(false);
+    };
+
     // 優先檢查 JWT session
     fetch('/api/auth/jwt-session')
       .then(r => r.json())
       .then(jwtData => {
-        if (jwtData?.loggedIn && jwtData?.user) {
-          const role = jwtData.user.role;
-          if (role === 'student') {
-            router.replace('/student/dashboard');
-            return;
-          }
-          setIsAdmin(role === 'admin');
-          setChecking(false);
+        if (jwtData?.loggedIn && jwtData?.user?.email) {
+          checkAccess(jwtData.user.email);
           return;
         }
         // Fallback: NextAuth session
-        return fetch('/api/auth/session')
+        return fetch('/api/auth/role')
           .then(r => r.json())
           .then(data => {
-            const role = data?.user?.role || data?.role;
-            if (role === 'student') {
-              router.replace('/student/dashboard');
+            if (data?.user?.email) {
+              checkAccess(data.user.email);
             } else {
-              setIsAdmin(role === 'admin');
-              setChecking(false);
+              router.replace('/login');
             }
           });
       })
       .catch(() => {
-        fetch('/api/auth/session')
+        fetch('/api/auth/role')
           .then(r => r.json())
           .then(data => {
-            const role = data?.user?.role || data?.role;
-            if (role === 'student') {
-              router.replace('/student/dashboard');
+            if (data?.user?.email) {
+              checkAccess(data.user.email);
             } else {
-              setIsAdmin(role === 'admin');
-              setChecking(false);
+              router.replace('/login');
             }
           })
-          .catch(() => setChecking(false));
+          .catch(() => router.replace('/login'));
       });
   }, [router]);
 
@@ -114,8 +123,8 @@ export default function RoleSelectPage() {
             </button>
           </form>
 
-          {/* 管理員 — 僅 admin 用戶可見 */}
-          {isAdmin && (
+          {/* 管理員 — 僅 email 為 ipwh@pochiu.edu.hk 的用戶可見 */}
+          {maxRole === 'admin' && (
             <form action="/api/auth/role" method="post">
               <input type="hidden" name="role" value="admin" />
               <button
