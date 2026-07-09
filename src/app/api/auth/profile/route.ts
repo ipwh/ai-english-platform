@@ -4,15 +4,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth-next';
+import { verifySessionToken } from '@/lib/jwt';
 import db from '@/lib/db';
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: '未登入' }, { status: 401 });
+async function resolveCurrentUser(request?: NextRequest) {
+  const jwtToken = request?.cookies.get('session_token')?.value;
+  if (jwtToken) {
+    const payload = await verifySessionToken(jwtToken);
+    if (payload?.userId) {
+      return db.user.findUnique({
+        where: { id: payload.userId },
+        select: {
+          id: true, email: true, name: true, nameZh: true, nameEn: true,
+          role: true, image: true, level: true, classNumber: true,
+          streakDays: true, joinedAt: true, createdAt: true,
+          class: { select: { name: true, gradeLevel: true } },
+        },
+      });
+    }
   }
 
-  const user = await db.user.findUnique({
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  return db.user.findUnique({
     where: { id: session.user.id },
     select: {
       id: true, email: true, name: true, nameZh: true, nameEn: true,
@@ -21,6 +36,13 @@ export async function GET() {
       class: { select: { name: true, gradeLevel: true } },
     },
   });
+}
+
+export async function GET(request: NextRequest) {
+  const user = await resolveCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ error: '未登入' }, { status: 401 });
+  }
 
   if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 });
   return NextResponse.json({ user });
@@ -28,8 +50,8 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const currentUser = await resolveCurrentUser(request);
+    if (!currentUser?.id) {
       return NextResponse.json({ error: '未登入' }, { status: 401 });
     }
 
@@ -47,7 +69,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const user = await db.user.update({
-      where: { id: session.user.id },
+      where: { id: currentUser.id },
       data,
       select: { id: true, nameZh: true, nameEn: true, level: true, classNumber: true },
     });

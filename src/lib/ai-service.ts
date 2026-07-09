@@ -10,6 +10,7 @@ import {
   WritingAnalysisSchema,
   MistakeExplanationSchema,
   ProgressAnalysisSchema,
+  StudyHelpResponseSchema,
   MaterialAnalysisSchema,
   validateAIResponse,
 } from './ai-schema';
@@ -520,6 +521,67 @@ ${recentDesc}
 
   const progress = parseAIJSON<ProgressAnalysis>(result);
   const validated = validateAIResponse(ProgressAnalysisSchema, progress);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
+}
+
+export interface StudyHelpInput {
+  question: string;
+  studentLevel: string;
+  weakSkills?: { name: string; nameZh: string; accuracy: number }[];
+  recentMistakes?: { mistakeType: string; questionId: string; createdAt?: string }[];
+  recentPerformance?: { date: string; accuracy: number; questionsDone: number }[];
+}
+
+export interface StudyHelpResponse {
+  answer: string;
+  followUpTips: string[];
+  recommendedFocus: string[];
+}
+
+export async function answerStudyHelp(input: StudyHelpInput): Promise<StudyHelpResponse> {
+  const weakSkillsDesc = (input.weakSkills || [])
+    .map(s => `${s.nameZh} (${s.accuracy}%)`)
+    .join('、');
+
+  const mistakesDesc = (input.recentMistakes || [])
+    .slice(0, 5)
+    .map(m => `${m.mistakeType}${m.createdAt ? ` @ ${m.createdAt}` : ''}`)
+    .join('、');
+
+  const recentDesc = (input.recentPerformance || [])
+    .slice(0, 5)
+    .map(p => `${p.date}: ${p.accuracy}% / ${p.questionsDone}題`)
+    .join('\n');
+
+  const systemPrompt = `你是一位香港中學英文科私人學習顧問。
+請根據學生的個人背景、弱項與近期表現，回答學生的英文學習問題。
+請使用繁體中文，語氣清晰、具體、可執行。
+請以 JSON 格式回覆，欄位如下：
+1. answer: string 直接回答學生問題
+2. followUpTips: string[] 2-4個後續學習建議
+3. recommendedFocus: string[] 1-3個建議優先聚焦的技能/主題`;
+
+  const userPrompt = `學生年級：${input.studentLevel}
+弱項：${weakSkillsDesc || '暫無明顯弱項'}
+近期錯題：${mistakesDesc || '暫無'}
+近期表現：
+${recentDesc || '暫無'}
+
+學生問題：${sanitizeForAI(input.question)}
+
+請根據以上學生背景，提供個人化建議。`;
+
+  const result = await callDeepSeek(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.5, maxTokens: 2048, jsonMode: true }
+  );
+
+  const help = parseAIJSON<StudyHelpResponse>(result);
+  const validated = validateAIResponse(StudyHelpResponseSchema, help);
   if (!validated.success) throw new Error(validated.error);
   return validated.data;
 }

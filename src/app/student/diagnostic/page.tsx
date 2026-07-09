@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -20,10 +20,149 @@ interface DiagnosticResult {
   suggestion: string;
 }
 
+interface StudentProfile {
+  id: string;
+  level?: string | null;
+  streakDays?: number | null;
+  class?: { gradeLevel?: string | null } | null;
+}
+
+interface PracticeSessionLite {
+  skill: string;
+  skillZh: string;
+  totalQuestions: number;
+  correctCount: number;
+  startedAt: string;
+}
+
+interface MistakeLite {
+  mistakeType: string;
+  createdAt: string;
+}
+
+interface WeakSkill {
+  name: string;
+  nameZh: string;
+  accuracy: number;
+}
+
+interface DiagnosticPlan {
+  grammarItem?: string;
+  grammarItemZh?: string;
+  languageSkill?: string;
+  languageSkillZh?: string;
+  questionType: 'mc' | 'short-writing';
+  count: number;
+  difficulty: 'remedial' | 'core' | 'challenge';
+}
+
+function getStudentLevel(profile: StudentProfile | null): string {
+  return profile?.level || profile?.class?.gradeLevel || 'S4';
+}
+
+function normalizeSkillName(skill: string) {
+  const key = skill.toLowerCase();
+  if (key.includes('read')) return { name: 'reading', nameZh: '閱讀' };
+  if (key.includes('writ')) return { name: 'writing', nameZh: '寫作' };
+  if (key.includes('vocab') || key.includes('phrasal')) return { name: 'vocabulary', nameZh: '詞彙' };
+  return { name: 'grammar', nameZh: '文法' };
+}
+
+function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: MistakeLite[]): WeakSkill[] {
+  const accuracyMap = new Map<string, { nameZh: string; correct: number; total: number }>();
+
+  for (const session of sessions) {
+    const normalized = normalizeSkillName(session.skill || session.skillZh || 'grammar');
+    const current = accuracyMap.get(normalized.name) || { nameZh: normalized.nameZh, correct: 0, total: 0 };
+    current.correct += session.correctCount || 0;
+    current.total += session.totalQuestions || 0;
+    accuracyMap.set(normalized.name, current);
+  }
+
+  const penaltyMap: Record<string, number> = { grammar: 0, vocabulary: 0, reading: 0, writing: 0 };
+  for (const mistake of mistakes) {
+    if (mistake.mistakeType === 'grammar' || mistake.mistakeType === 'chinglish') penaltyMap.grammar += 10;
+    else if (mistake.mistakeType === 'vocabulary') penaltyMap.vocabulary += 10;
+    else if (mistake.mistakeType === 'comprehension') penaltyMap.reading += 10;
+  }
+
+  const base = Array.from(accuracyMap.entries()).map(([name, value]) => ({
+    name,
+    nameZh: value.nameZh,
+    accuracy: Math.max(0, Math.round((value.correct / Math.max(1, value.total)) * 100) - (penaltyMap[name] || 0)),
+  }));
+
+  const defaults = [
+    { name: 'grammar', nameZh: '文法', accuracy: 65 },
+    { name: 'vocabulary', nameZh: '詞彙', accuracy: 65 },
+    { name: 'reading', nameZh: '閱讀', accuracy: 65 },
+    { name: 'writing', nameZh: '寫作', accuracy: 65 },
+  ];
+
+  for (const item of defaults) {
+    if (!base.some(b => b.name === item.name)) base.push(item);
+  }
+
+  return base.sort((a, b) => a.accuracy - b.accuracy);
+}
+
+function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): DiagnosticPlan[] {
+  const overall = weakSkills.reduce((sum, item) => sum + item.accuracy, 0) / Math.max(1, weakSkills.length);
+  const difficulty: 'remedial' | 'core' | 'challenge' = overall < 45 ? 'remedial' : overall < 75 ? 'core' : 'challenge';
+  const weakest = weakSkills[0]?.name;
+  const second = weakSkills[1]?.name;
+  const junior = ['S1', 'S2', 'S3'].includes(level);
+
+  const plans: DiagnosticPlan[] = [];
+
+  if (weakest === 'grammar' || second === 'grammar') {
+    plans.push({
+      grammarItem: junior ? 'subject-verb-agreement' : 'tenses',
+      grammarItemZh: junior ? '主謂一致' : '時態',
+      questionType: 'mc',
+      count: 3,
+      difficulty,
+    });
+  }
+
+  if (weakest === 'vocabulary' || second === 'vocabulary') {
+    plans.push({
+      grammarItem: 'phrasal-verbs',
+      grammarItemZh: '詞彙搭配與片語動詞',
+      questionType: 'mc',
+      count: 2,
+      difficulty,
+    });
+  }
+
+  if (weakest === 'reading' || second === 'reading' || plans.length < 2) {
+    plans.push({
+      languageSkill: 'reading',
+      languageSkillZh: '閱讀',
+      questionType: 'mc',
+      count: 2,
+      difficulty,
+    });
+  }
+
+  plans.push({
+    languageSkill: 'writing',
+    languageSkillZh: '寫作',
+    questionType: 'short-writing',
+    count: 1,
+    difficulty: difficulty === 'challenge' ? 'core' : difficulty,
+  });
+
+  return plans.slice(0, 4);
+}
+
 export default function DiagnosticPage() {
   const { t } = useT();
 
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [weakSkills, setWeakSkills] = useState<WeakSkill[]>([]);
+  const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [genError, setGenError] = useState('');
   const [started, setStarted] = useState(false);
@@ -34,32 +173,63 @@ export default function DiagnosticPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
 
-  // 🔥 載入時自動生成診斷題目
+  // 🔥 載入時根據學生年級與弱項自動生成診斷題目
   useEffect(() => {
     setLoadingQuestions(true);
-    // 生成多個技能範疇的題目：文法、詞彙、閱讀理解
-    Promise.all([
-      fetch('/api/ai/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammarItem: 'tenses', difficulty: 'core', gradeLevel: 'S4', count: 3, questionType: 'mc' }),
-      }).then(r => r.json()),
-      fetch('/api/ai/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammarItem: 'vocabulary', difficulty: 'core', gradeLevel: 'S4', count: 2, questionType: 'mc' }),
-      }).then(r => r.json()),
-      fetch('/api/ai/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ languageSkill: 'reading', difficulty: 'core', gradeLevel: 'S4', count: 2, questionType: 'mc' }),
-      }).then(r => r.json()),
-    ])
-      .then(([grammarRes, vocabRes, readingRes]) => {
+    fetch('/api/auth/profile')
+      .then(async profileRes => {
+        const profileJson = await profileRes.json();
+        if (!profileRes.ok || !profileJson.user?.id) throw new Error(profileJson.error || '未能取得學生資料');
+
+        const profile = profileJson.user as StudentProfile;
+        setStudentProfile(profile);
+        const studentLevel = getStudentLevel(profile);
+
+        const [practiceJson, mistakeJson] = await Promise.all([
+          fetch(`/api/practice?studentId=${profile.id}`).then(r => r.json()),
+          fetch(`/api/mistakes?studentId=${profile.id}`).then(r => r.json()),
+        ]);
+
+        const sessions = (practiceJson.sessions || []) as PracticeSessionLite[];
+        const mistakes = (mistakeJson.mistakes || []) as MistakeLite[];
+        const derivedWeakSkills = buildWeakSkills(sessions, mistakes);
+        const plans = buildDiagnosticPlans(studentLevel, derivedWeakSkills);
+
+        setWeakSkills(derivedWeakSkills);
+        setRecentPerformance(
+          sessions.slice(0, 5).map(session => ({
+            date: new Date(session.startedAt).toLocaleDateString('zh-HK'),
+            accuracy: Math.round((session.correctCount / Math.max(1, session.totalQuestions)) * 100),
+            questionsDone: session.totalQuestions,
+          }))
+        );
+
+        return Promise.all(
+          plans.map(plan =>
+            fetch('/api/ai/generate-questions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                grammarItem: plan.grammarItem,
+                grammarItemZh: plan.grammarItemZh,
+                languageSkill: plan.languageSkill,
+                languageSkillZh: plan.languageSkillZh,
+                difficulty: plan.difficulty,
+                gradeLevel: studentLevel,
+                count: plan.count,
+                questionType: plan.questionType,
+              }),
+            })
+              .then(r => r.json())
+              .then(data => ({ ...data, __skill: plan.languageSkill, __grammar: plan.grammarItem, __grammarZh: plan.grammarItemZh }))
+          )
+        );
+      })
+      .then((responses: Array<{ questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string }>; __skill?: string; __grammar?: string; __grammarZh?: string }>) => {
         const allQuestions: PracticeQuestion[] = [];
         let id = 0;
 
-        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string }> }, skill?: string, grammar?: string) => {
+        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
           (res.questions || []).forEach((q: { prompt: string; choices?: string[]; answer: string; questionType?: string }) => {
             allQuestions.push({
               id: `diag-${++id}`,
@@ -71,7 +241,7 @@ export default function DiagnosticPage() {
               grammarItem: grammar as PracticeQuestion['grammarItem'],
               languageSkill: skill as PracticeQuestion['languageSkill'],
               subSkill: grammar || skill || 'diagnostic',
-              subSkillZh: grammar === 'tenses' ? '時態' : grammar === 'vocabulary' ? '詞彙' : skill === 'reading' ? '閱讀理解' : '診斷測試',
+              subSkillZh: grammarZh || (grammar === 'tenses' ? '時態' : grammar === 'vocabulary' ? '詞彙' : skill === 'reading' ? '閱讀理解' : skill === 'writing' ? '寫作' : '診斷測試'),
               difficulty: 'core',
               gradeLevel: 'S4',
               keyStage: 'KS4',
@@ -83,9 +253,9 @@ export default function DiagnosticPage() {
           });
         };
 
-        addQuestions(grammarRes, undefined, 'tenses');
-        addQuestions(vocabRes, undefined, 'vocabulary');
-        addQuestions(readingRes, 'reading');
+        for (const response of responses) {
+          addQuestions(response, response.__skill, response.__grammar, response.__grammarZh);
+        }
 
         if (allQuestions.length > 0) {
           setQuestions(allQuestions);
@@ -93,7 +263,10 @@ export default function DiagnosticPage() {
           setGenError('AI 題目生成失敗，請稍後再試。');
         }
       })
-      .catch(() => setGenError('AI 服務連線失敗，請檢查網絡後重試。'))
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'AI 服務連線失敗，請檢查網絡後重試。';
+        setGenError(message);
+      })
       .finally(() => setLoadingQuestions(false));
   }, []);
 
@@ -201,11 +374,11 @@ export default function DiagnosticPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentLevel: 'S4',
+          studentLevel: getStudentLevel(studentProfile),
           overallAccuracy: Math.round(computed.reduce((s, r) => s + r.score, 0) / computed.length),
           weakSkills: computed.filter(r => r.score < 60).map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score })),
-          recentPerformance: [],
-          streakDays: 0,
+          recentPerformance,
+          streakDays: studentProfile?.streakDays ?? 0,
         }),
       });
       const json = await res.json();

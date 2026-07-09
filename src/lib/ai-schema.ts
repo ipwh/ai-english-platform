@@ -105,6 +105,12 @@ export const ProgressAnalysisSchema = z.object({
   estimatedTimeToImprove: z.string().min(1),
 });
 
+export const StudyHelpResponseSchema = z.object({
+  answer: z.string().min(1),
+  followUpTips: z.array(z.string()),
+  recommendedFocus: z.array(z.string()),
+});
+
 // ============================================
 // 六、教材分析
 // ============================================
