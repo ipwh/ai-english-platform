@@ -4,9 +4,9 @@
 // ============================================
 'use client';
 
-import { useState, useCallback } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search, Sparkles, Zap, Clock, RotateCcw, BookOpen, ClipboardList,
   Loader2, Target, ChevronDown, Play, BarChart3,
@@ -42,10 +42,12 @@ const defaultForm: GenerateForm = {
 // 根據學生弱項推薦的技能
 const recommendedSkills: any[] = [];
 
-export default function PracticeListPage() {
+function PracticeListPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const store = useAppStore();
   const { t } = useT();
+  const autoStartedRef = useRef(false);
   const [tab, setTab] = useState<'generate' | 'browse'>('generate');
   const [search, setSearch] = useState('');
   const [skillFilter, setSkillFilter] = useState<string>('all');
@@ -57,6 +59,7 @@ export default function PracticeListPage() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [recommendationNote, setRecommendationNote] = useState('');
 
   // === 練習記錄 ===
   const recentSessions = store.getRecentSessions(5);
@@ -67,18 +70,20 @@ export default function PracticeListPage() {
   const filtered: any[] = [];
 
   // === AI 生成練習 ===
-  const handleGenerate = useCallback(async () => {
-    if (!form.grammarItem && !form.languageSkill) {
+  const handleGenerate = useCallback(async (inputForm?: GenerateForm, note?: string) => {
+    const activeForm = inputForm || form;
+    if (!activeForm.grammarItem && !activeForm.languageSkill) {
       setGenError('請選擇至少一項文法項目或語言技能');
       return;
     }
     setGenerating(true);
     setGenError('');
+    if (note) setRecommendationNote(note);
 
     try {
-      const grammarKey = form.grammarItem;
+      const grammarKey = activeForm.grammarItem;
       const grammarZh = skillLabels[grammarKey] || grammarKey;
-      const langKey = form.languageSkill;
+      const langKey = activeForm.languageSkill;
       const langZh = skillLabels[langKey] || langKey;
       const skillKey = grammarKey || langKey;
       const skillZh = grammarZh || langZh;
@@ -91,10 +96,10 @@ export default function PracticeListPage() {
           grammarItemZh: grammarZh || undefined,
           languageSkill: langKey || undefined,
           languageSkillZh: langZh || undefined,
-          difficulty: form.difficulty,
-          gradeLevel: form.gradeLevel,
-          count: form.questionCount,
-          questionType: form.questionType,
+          difficulty: activeForm.difficulty,
+          gradeLevel: activeForm.gradeLevel,
+          count: activeForm.questionCount,
+          questionType: activeForm.questionType,
         }),
       });
 
@@ -113,14 +118,14 @@ export default function PracticeListPage() {
       // 將 AI 生成的題目轉換為 PracticeQuestion 格式
       const questions = json.questions.map((q: Record<string, unknown>, i: number) => ({
         id: `ai-${Date.now()}-${i}`,
-        type: q.type || form.questionType,
+        type: q.type || activeForm.questionType,
         strand: 'knowledge' as const,
-        grammarItem: (form.grammarItem || undefined) as GrammarItem | undefined,
-        languageSkill: (form.languageSkill || undefined) as LanguageSkill | undefined,
+        grammarItem: (activeForm.grammarItem || undefined) as GrammarItem | undefined,
+        languageSkill: (activeForm.languageSkill || undefined) as LanguageSkill | undefined,
         subSkill: skillZh,
         subSkillZh: skillZh,
-        difficulty: form.difficulty,
-        gradeLevel: form.gradeLevel,
+        difficulty: activeForm.difficulty,
+        gradeLevel: activeForm.gradeLevel,
         keyStage: 'KS4' as const,
         prompt: q.prompt as string,
         promptZh: q.promptZh as string | undefined,
@@ -144,7 +149,7 @@ export default function PracticeListPage() {
         results: {},
         skill: skillKey,
         skillZh,
-        difficulty: form.difficulty,
+        difficulty: activeForm.difficulty,
         totalQuestions: questions.length,
         correctCount: 0,
         source: 'ai-generated',
@@ -161,6 +166,35 @@ export default function PracticeListPage() {
       setGenerating(false);
     }
   }, [form, store, router]);
+
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (searchParams.get('mode') !== 'diagnostic') return;
+
+    const grammarItem = searchParams.get('grammarItem') || '';
+    const languageSkill = searchParams.get('languageSkill') || '';
+    const difficulty = (searchParams.get('difficulty') as DifficultyLevel | null) || 'remedial';
+    const questionType = searchParams.get('questionType') || (languageSkill === 'writing' ? 'short-writing' : 'mc');
+    const questionCount = Number(searchParams.get('questionCount') || '5');
+    const gradeLevel = (searchParams.get('gradeLevel') as GradeLevel | null) || 'S4';
+    const weakLabel = searchParams.get('weakLabel') || '弱項';
+
+    if (!grammarItem && !languageSkill) return;
+
+    autoStartedRef.current = true;
+    const nextForm: GenerateForm = {
+      grammarItem,
+      languageSkill,
+      difficulty,
+      questionType,
+      questionCount,
+      gradeLevel,
+    };
+
+    setTab('generate');
+    setForm(nextForm);
+    void handleGenerate(nextForm, `已根據診斷結果，為你推薦 ${weakLabel} 的針對性練習。`);
+  }, [handleGenerate, searchParams]);
 
   // === 從推薦弱項快速生成 ===
   const handleQuickGenerate = useCallback((grammarItem: string, grammarZh: string) => {
@@ -336,8 +370,14 @@ export default function PracticeListPage() {
               <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-600">{genError}</div>
             )}
 
+            {recommendationNote && !genError && (
+              <div className="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg text-sm text-teal-700 dark:text-teal-300">
+                {recommendationNote}
+              </div>
+            )}
+
             <button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
               disabled={generating}
               className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
             >
@@ -468,5 +508,17 @@ export default function PracticeListPage() {
         </section>
       )}
     </div>
+  );
+}
+
+export default function PracticeListPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+      </div>
+    }>
+      <PracticeListPageContent />
+    </Suspense>
   );
 }

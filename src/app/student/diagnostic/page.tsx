@@ -20,6 +20,15 @@ interface DiagnosticResult {
   suggestion: string;
 }
 
+interface PracticeRecommendation {
+  grammarItem?: string;
+  languageSkill?: string;
+  difficulty: 'remedial' | 'core' | 'challenge';
+  questionType: 'mc' | 'short-writing';
+  questionCount: number;
+  weakLabel: string;
+}
+
 interface StudentProfile {
   id: string;
   level?: string | null;
@@ -154,6 +163,30 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
   });
 
   return plans.slice(0, 4);
+}
+
+function buildPracticeRecommendation(results: DiagnosticResult[], level: string): PracticeRecommendation {
+  const weakest = [...results].sort((a, b) => a.score - b.score)[0] || results[0];
+  const difficulty: 'remedial' | 'core' | 'challenge' = weakest.score < 50 ? 'remedial' : weakest.score < 75 ? 'core' : 'challenge';
+
+  if (weakest?.id === 'reading') {
+    return { languageSkill: 'reading', difficulty, questionType: 'mc', questionCount: 5, weakLabel: weakest.label };
+  }
+  if (weakest?.id === 'writing') {
+    return { languageSkill: 'writing', difficulty: difficulty === 'challenge' ? 'core' : difficulty, questionType: 'short-writing', questionCount: 3, weakLabel: weakest.label };
+  }
+  if (weakest?.id === 'vocabulary') {
+    return { grammarItem: 'phrasal-verbs', difficulty, questionType: 'mc', questionCount: 5, weakLabel: weakest.label };
+  }
+
+  const junior = ['S1', 'S2', 'S3'].includes(level);
+  return {
+    grammarItem: junior ? 'subject-verb-agreement' : 'tenses',
+    difficulty,
+    questionType: 'mc',
+    questionCount: 5,
+    weakLabel: weakest?.label || '文法',
+  };
 }
 
 export default function DiagnosticPage() {
@@ -465,6 +498,8 @@ export default function DiagnosticPage() {
 
   // ====== 結果畫面 ======
   const overallScore = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length);
+  const recommendation = buildPracticeRecommendation(results, getStudentLevel(studentProfile));
+  const practiceHref = `/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(recommendation.grammarItem || '')}&languageSkill=${encodeURIComponent(recommendation.languageSkill || '')}&difficulty=${recommendation.difficulty}&questionType=${recommendation.questionType}&questionCount=${recommendation.questionCount}&gradeLevel=${encodeURIComponent(getStudentLevel(studentProfile))}&weakLabel=${encodeURIComponent(recommendation.weakLabel)}`;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -521,6 +556,19 @@ export default function DiagnosticPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-5 border border-orange-200 dark:border-orange-800">
+        <div className="flex items-center gap-2 mb-2 text-orange-700 dark:text-orange-300 font-semibold">
+          <Target className="w-5 h-5" /> 推薦下一步練習
+        </div>
+        <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
+          系統判斷你目前最需要加強的是「{recommendation.weakLabel}」，已為你準備一組 {recommendation.difficulty === 'remedial' ? '補底' : recommendation.difficulty === 'core' ? '核心' : '挑戰'} 練習。
+        </p>
+        <Link href={practiceHref}
+          className="block w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl text-center transition-colors">
+          立即開始弱項訓練 <ArrowRight className="w-4 h-4 inline ml-1" />
+        </Link>
       </div>
 
       <Link href="/student/dashboard"
