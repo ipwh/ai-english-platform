@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, X, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
 
 import { formatDate } from '@/lib/utils';
