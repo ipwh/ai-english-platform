@@ -57,7 +57,6 @@ export async function GET(request: NextRequest) {
         _count: { select: { sessions: true, mistakes: true } },
       },
       orderBy: [{ class: { name: 'asc' } }, { classNumber: 'asc' }],
-      take: 500,
     });
 
     const classes = await db.class.findMany({
