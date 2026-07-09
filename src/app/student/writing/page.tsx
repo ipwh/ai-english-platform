@@ -47,6 +47,24 @@ export default function WritingPage() {
   const [aiResult, setAiResult] = useState<any>(null);
   const [aiError, setAiError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+
+  // Auto-save draft every 10 seconds
+  useEffect(() => {
+    if (!draft.trim()) return;
+    const timer = setTimeout(async () => {
+      setSaveStatus('saving');
+      try {
+        await fetch('/api/writing', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: 'current', draft }),
+        });
+        setSaveStatus('saved');
+      } catch { setSaveStatus('unsaved'); }
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [draft]);
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     if (!aiResult) return;
