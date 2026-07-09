@@ -254,25 +254,8 @@ export async function POST(request: NextRequest) {
     // 建立 email → user 的快速查找 Map
     const existingMap = new Map(existingUsers.map(u => [u.email.toLowerCase(), u]));
 
-    // 確保所有需要的班級存在（批量 upsert）
+    // 計算所有需要的班級
     const uniqueClasses = [...new Set(rows.map(r => r.class).filter(Boolean))];
-    const classMap = new Map<string, string>(); // className → classId
-    if (!dryRun && uniqueClasses.length > 0) {
-      for (const className of uniqueClasses) {
-        const cls = await db.class.upsert({
-          where: { name: className },
-          update: {},
-          create: { name: className, gradeLevel: inferGradeLevel(className) },
-        });
-        classMap.set(className, cls.id);
-      }
-    }
-
-    // 計算班別分布（快速）
-    const previewDist: Record<string, number> = {};
-    for (const row of rows) {
-      if (row.class) previewDist[row.class] = (previewDist[row.class] || 0) + 1;
-    }
 
     // === 分析每筆資料（記憶體中比對，不查 DB）===
     const toCreate: SheetRow[] = [];
@@ -288,14 +271,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // === 預覽模式：直接回傳分析結果（超快，只有 1 次 DB 查詢）===
+    // === 預覽模式：直接回傳分析結果 ===
     if (dryRun) {
+      // 快速計算預期的 class distribution
+      const previewDist: Record<string, number> = {};
+      for (const row of rows) {
+        if (row.class) previewDist[row.class] = (previewDist[row.class] || 0) + 1;
+      }
+
       for (const row of toCreate) {
         result.details.push({
-          email: row.email,
-          nameZh: row.nameZh,
-          action: 'created',
-          newClass: row.class || '(無)',
+          email: row.email, nameZh: row.nameZh,
+          action: 'created', newClass: row.class || '(無)',
           reason: '新學生，將被建立',
         });
         result.created++;
@@ -307,22 +294,36 @@ export async function POST(request: NextRequest) {
             email: row.email,
             nameZh: existingMap.get(row.email)?.nameZh || row.nameZh,
             action: 'class_fixed',
-            oldClass: oldClass || '(無)',
-            newClass,
+            oldClass: oldClass || '(無)', newClass,
             reason: `班別將從 ${oldClass || '(無)'} 修正為 ${newClass}`,
           });
           result.classFixed++;
-        } else {
-          result.updated++;
-        }
+        } else { result.updated++; }
       }
       result.classDistribution = previewDist;
       return NextResponse.json(result);
     }
 
-    // === 實際同步模式 ===
+    // === 實際同步模式（以下只在 !dryRun 時執行）===
 
-    // 批量建立新學生（使用 createMany 一次寫入）
+    // 快速建立 classMap：先查現有班級，只建立缺少的
+    const existingClasses = await db.class.findMany({
+      where: { name: { in: uniqueClasses } },
+      select: { id: true, name: true },
+    });
+    const classMap = new Map(existingClasses.map(c => [c.name, c.id]));
+
+    // 只建立不存在的班級
+    const missingClasses = uniqueClasses.filter(c => !classMap.has(c));
+    if (missingClasses.length > 0) {
+      await Promise.all(missingClasses.map(className =>
+        db.class.create({
+          data: { name: className, gradeLevel: inferGradeLevel(className) },
+        }).then(cls => { classMap.set(className, cls.id); })
+      ));
+    }
+
+    // 批量建立新學生
     if (toCreate.length > 0) {
       try {
         await db.user.createMany({
@@ -338,62 +339,59 @@ export async function POST(request: NextRequest) {
           skipDuplicates: true,
         });
         result.created = toCreate.length;
-        console.log(`[sync-sheets] Bulk created ${toCreate.length} new students`);
+        console.log(`[sync-sheets] Created ${toCreate.length} new students`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '未知錯誤';
-        result.errors.push(`批量建立失敗: ${msg}`);
+        result.errors.push(`批量建立失敗: ${(err as Error).message}`);
       }
     }
 
-    // 批量更新現有學生 — 使用 raw SQL 單次查詢完成所有更新（避免 504）
+    // 批量更新 — 使用 unnest 陣列，只用 6 個參數處理全部學生
     if (toUpdate.length > 0) {
       try {
-        // 建立 VALUES 子句和參數陣列
-        const valuePlaceholders: string[] = [];
-        const params: (string | null)[] = [];
-        let paramIdx = 1;
+        const emails: string[] = [];
+        const cids: (string | null)[] = [];
+        const cnos: (string | null)[] = [];
+        const lvls: (string | null)[] = [];
+        const nzhs: (string | null)[] = [];
+        const nens: (string | null)[] = [];
 
         for (const { row } of toUpdate) {
-          const classId = row.class ? classMap.get(row.class) || null : null;
-          const level = row.level || (row.class ? inferGradeLevel(row.class) : null) || null;
-          const nameZhVal = row.nameZh || null;
-          const nameEnVal = row.nameEn || null;
-          const classNoVal = row.classNumber || null;
-
-          valuePlaceholders.push(
-            `($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5})`
-          );
-          params.push(row.email, classId, classNoVal, level, nameZhVal, nameEnVal);
-          paramIdx += 6;
+          emails.push(row.email);
+          cids.push(row.class ? (classMap.get(row.class) || null) : null);
+          cnos.push(row.classNumber || null);
+          lvls.push(row.level || (row.class ? inferGradeLevel(row.class) : null));
+          nzhs.push(row.nameZh || null);
+          nens.push(row.nameEn || null);
         }
 
-        // 單次 SQL 更新所有學生
-        const updateSql = `
-          UPDATE "User" SET
-            "classId" = v."classId"::text,
-            "classNumber" = v."classNumber"::text,
-            "level" = v."level"::text,
-            "nameZh" = COALESCE(NULLIF(v."nameZh"::text, ''), "User"."nameZh"),
-            "nameEn" = COALESCE(NULLIF(v."nameEn"::text, ''), "User"."nameEn"),
+        await db.$executeRawUnsafe(
+          `UPDATE "User" SET
+            "classId" = v.cid::text,
+            "classNumber" = v.cno::text,
+            "level" = v.lvl::text,
+            "nameZh" = COALESCE(NULLIF(v.nzh::text, ''), "User"."nameZh"),
+            "nameEn" = COALESCE(NULLIF(v.nen::text, ''), "User"."nameEn"),
             "updatedAt" = NOW()
-          FROM (VALUES ${valuePlaceholders.join(', ')}) AS v(email, "classId", "classNumber", "level", "nameZh", "nameEn")
-          WHERE "User".email = v.email::text
-            AND "User".role = 'student'
-        `;
+          FROM (
+            SELECT
+              unnest($1::text[]) AS email,
+              unnest($2::text[]) AS cid,
+              unnest($3::text[]) AS cno,
+              unnest($4::text[]) AS lvl,
+              unnest($5::text[]) AS nzh,
+              unnest($6::text[]) AS nen
+          ) AS v
+          WHERE "User".email = v.email::text AND "User".role = 'student'`,
+          emails, cids, cnos, lvls, nzhs, nens
+        );
 
-        await db.$executeRawUnsafe(updateSql, ...params);
-
-        // 計算 classFixed vs updated
         for (const { row, oldClass } of toUpdate) {
-          const newClass = row.class || '';
-          if (row.class && oldClass !== newClass) result.classFixed++;
+          if (row.class && oldClass !== row.class) result.classFixed++;
           else result.updated++;
         }
-
-        console.log(`[sync-sheets] Bulk updated ${toUpdate.length} students in 1 query`);
+        console.log(`[sync-sheets] Bulk updated ${toUpdate.length} students`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '未知錯誤';
-        result.errors.push(`批量更新失敗: ${msg}`);
+        result.errors.push(`批量更新失敗: ${(err as Error).message}`);
         console.error('[sync-sheets] Bulk update error:', err);
       }
     }
