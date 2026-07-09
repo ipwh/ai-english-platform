@@ -85,7 +85,7 @@ npm run dev
 | 方式 | 說明 |
 |------|------|
 | 🔵 Google OAuth | 使用學校 Google 帳號一鍵登入（推薦） |
-| 🔑 密碼登入 | `ipwh@pochiu.edu.hk` / `admin123` |
+
 
 #### Google OAuth 自動角色識別
 

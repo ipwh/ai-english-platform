@@ -130,6 +130,7 @@ export default function RoleSelectPage() {
               </button>
             </form>
           )}
+        </div>
       </div>
     </div>
   );
