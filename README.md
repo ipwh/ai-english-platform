@@ -21,10 +21,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **成績報告** — 班級及個別學生成績分析
 
 ### 🛡️ 管理員後台（`/admin`）
+- **Google Sheets 同步** — 一鍵從 Google Sheets 同步全校學生班別名單（真相來源），支援 dry-run 預覽
 - **批量匯入** — CSV 批量匯入學生與教師資料（支援模板下載、Zod 驗證、upsert、dry-run 預覽、錯誤報告）
 - **使用者管理** — 分頁查看、搜尋、篩選所有使用者（依角色/年級/班級），可編輯單筆資料（姓名、email、班級、科目、部門、學年等）
 - **數據儀表板** — Recharts 圖表：各年級平均準確率長條圖、各班級準確率、月度練習趨勢折線圖、準確率分佈環形圖
 - **全校匯出** — 一鍵匯出學生完整數據 CSV（含進度、準確率、練習次數、錯題數、詞彙數）及教師數據 CSV（含任教科目、班級、作業數）
+- **班級修復** — 一鍵修復班級關聯（支援強制重新分配模式）
 - **跨學年追蹤** — `academicYear` 欄位支援跨學年數據查詢與匯出
 - **權限控制** — Middleware + API 雙層驗證，僅 `role === 'admin'` 可存取後台
 
@@ -101,6 +103,8 @@ npm run dev
 | `DATABASE_URL` | Prisma 連線字串（SQLite 或 PostgreSQL） | ❌ |
 | `JWT_SECRET` | JWT 簽署密鑰 | ❌ |
 | `GOOGLE_APPLICATION_CREDENTIALS` | GCP 服務帳號 JSON 路徑 | ❌ |
+| `GOOGLE_SHEETS_CLASS_ROSTER_ID` | Google Sheets 班別名單 ID（用於同步學生班別） | ❌ |
+| `GCP_SERVICE_ACCOUNT_JSON` | GCP 服務帳號 JSON 內容（Vercel 用，替代檔案路徑） | ❌ |
 
 ## 專案結構
 
@@ -127,7 +131,9 @@ src/
 │   │   │   ├── import/        #   批量匯入（template + students + teachers）
 │   │   │   ├── users/         #   使用者 CRUD
 │   │   │   ├── export/        #   數據匯出（students + teachers CSV）
-│   │   │   └── stats/         #   全校統計數據
+│   │   │   ├── stats/         #   全校統計數據
+│   │   │   ├── sync-sheets/   #   Google Sheets 班別同步
+│   │   │   └── fix-classes/   #   班級修復工具
 │   │   └── rag/               # RAG 向量檢索（DeepSeek + Vertex AI）
 │   ├── (public)/             # 公開頁面（登入、角色選擇）
 │   ├── student/              # 學生端頁面（10 頁，sidebar + 手機底部導航）
@@ -195,6 +201,65 @@ src/
 - **Dry-run 預覽**：勾選「預覽模式」可查看匯入結果而不實際寫入
 - **錯誤報告**：逐列顯示成功/更新/失敗筆數及詳細原因
 
+## Google Sheets 班別同步 🔄
+
+管理員可從 Google Sheets **一鍵同步**全校學生的班別名單。教師在 Sheets 中維護學生名單（真相來源），平台讀取後自動更新資料庫。
+
+### 設定步驟
+
+1. **建立 Google Sheet** 並填入學生資料，欄位支援多種常見名稱：
+
+   | CLASSCODE | CLASSNO | CHNAME | ENNAME | EMAIL |
+   |-----------|---------|--------|--------|-------|
+   | 4A | 15 | 陳大文 | Chan Tai Man | s2025001@pochiu.edu.hk |
+
+   > 亦支援 `Email / Class / ClassNumber / NameZh / NameEn / Level` 等欄位名稱。系統會自動辨識標題列。
+
+2. **共用給 Service Account**：右上角「共用」→ 加入 `vision-api-user@amiable-nirvana-500300-a0.iam.gserviceaccount.com`（檢視者權限）
+
+3. **設定環境變數** `GOOGLE_SHEETS_CLASS_ROSTER_ID` 為 Sheet ID（從網址列 `/d/XXXX/edit` 中的 `XXXX`）
+
+4. **重新部署** Vercel 使環境變數生效
+
+### 同步指令
+
+在 admin 登入後的瀏覽器 DevTools Console 中執行：
+
+```javascript
+// 預覽模式（不寫入，檢查將做的變更）
+fetch('/api/admin/sync-sheets', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ dryRun: true })
+}).then(r => r.json()).then(console.log)
+
+// 正式同步
+fetch('/api/admin/sync-sheets', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({})
+}).then(r => r.json()).then(console.log)
+```
+
+### 回傳結果說明
+
+| 欄位 | 說明 |
+|------|------|
+| `totalRows` | Sheet 中的學生總數 |
+| `created` | 新增的學生數（平台中不存在） |
+| `updated` | 已更新的學生數 |
+| `classFixed` | 班別被修正的學生數（轉班） |
+| `classDistribution` | 各班人數分布 |
+| `errors` | 失敗的記錄 |
+
+### 同步行為
+
+- **Sheet 是真相來源**：班別以 Sheet 為準，一律覆寫資料庫中的舊值
+- **不刪除學生**：只新增和更新，不會刪除平台中已有的學生
+- **保留角色**：不會把教師降級為學生
+- **自動建立班級**：Sheet 中出現的新班級名稱會自動建立
+- **級別推斷**：若無 Level 欄位，從 CLASSCODE（如 `4A`）自動推斷為 `S4`
+
 ## 資料庫指令
 
 ```bash
@@ -230,9 +295,9 @@ npm run test:watch    # 持續監控模式
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，自動切換） |
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，Prisma DB 查詢，Middleware admin 路由保護 |
 | 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 管理員後台 5 頁 |
-| 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤 |
+| 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤、Google Sheets 同步、班級修復 |
 | 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
-| Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR |
+| Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 |
 | 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
 
 ## 部署
