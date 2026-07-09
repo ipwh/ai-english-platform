@@ -29,7 +29,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
           const existing = await db.user.findUnique({
             where: { email: user.email },
-            select: { id: true, role: true },
+            select: { id: true, role: true, name: true, nameEn: true, image: true },
           });
 
           if (!existing) {
@@ -37,13 +37,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             await db.user.create({
               data: {
                 email: user.email,
-                name: user.name || profile?.name || null,
+                name: user.name || (profile as { name?: string } | null)?.name || null,
+                nameEn: user.name || (profile as { name?: string } | null)?.name || null,
                 image: user.image || (profile as { picture?: string } | null)?.picture || null,
                 role: 'student',
               },
             });
           } else {
             console.log('[auth] existing user found', existing.id, existing.role);
+            // 每次 Google 登入時更新名稱和頭像（確保與 Google Workspace 一致）
+            const googleName = user.name || (profile as { name?: string } | null)?.name;
+            const googlePic = user.image || (profile as { picture?: string } | null)?.picture;
+            if (googleName && googleName !== existing.name) {
+              await db.user.update({
+                where: { id: existing.id },
+                data: {
+                  name: googleName,
+                  nameEn: existing.nameEn || googleName, // 保留已有的 nameEn，沒有才設
+                  image: googlePic || existing.image,
+                },
+              });
+              console.log('[auth] updated name from Google profile:', googleName);
+            }
           }
         } catch (error) {
           console.error('[auth] failed to ensure Google user exists', error);
