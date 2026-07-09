@@ -345,37 +345,58 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 批量更新現有學生（分批處理，每批 50 筆以避免 transaction 過大）
-    const BATCH_SIZE = 50;
-    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-      const batch = toUpdate.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async ({ row, oldClass }) => {
-        try {
-          const classId = row.class ? classMap.get(row.class) : undefined;
-          const level = row.level || (row.class ? inferGradeLevel(row.class) : undefined);
-          const isClassChanged = row.class && oldClass !== row.class;
+    // 批量更新現有學生 — 使用 raw SQL 單次查詢完成所有更新（避免 504）
+    if (toUpdate.length > 0) {
+      try {
+        // 建立 VALUES 子句和參數陣列
+        const valuePlaceholders: string[] = [];
+        const params: (string | null)[] = [];
+        let paramIdx = 1;
 
-          await db.user.update({
-            where: { email: row.email },
-            data: {
-              nameZh: row.nameZh || undefined,
-              nameEn: row.nameEn || undefined,
-              classId: classId,
-              classNumber: row.classNumber || undefined,
-              level: level || undefined,
-            },
-          });
+        for (const { row } of toUpdate) {
+          const classId = row.class ? classMap.get(row.class) || null : null;
+          const level = row.level || (row.class ? inferGradeLevel(row.class) : null) || null;
+          const nameZhVal = row.nameZh || null;
+          const nameEnVal = row.nameEn || null;
+          const classNoVal = row.classNumber || null;
 
-          if (isClassChanged) result.classFixed++;
-          else result.updated++;
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : '未知錯誤';
-          result.errors.push(`${row.email}: ${msg}`);
+          valuePlaceholders.push(
+            `($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5})`
+          );
+          params.push(row.email, classId, classNoVal, level, nameZhVal, nameEnVal);
+          paramIdx += 6;
         }
-      }));
-    }
 
-    console.log(`[sync-sheets] Updated ${toUpdate.length} students`);
+        // 單次 SQL 更新所有學生
+        const updateSql = `
+          UPDATE "User" SET
+            "classId" = v."classId"::text,
+            "classNumber" = v."classNumber"::text,
+            "level" = v."level"::text,
+            "nameZh" = COALESCE(NULLIF(v."nameZh"::text, ''), "User"."nameZh"),
+            "nameEn" = COALESCE(NULLIF(v."nameEn"::text, ''), "User"."nameEn"),
+            "updatedAt" = NOW()
+          FROM (VALUES ${valuePlaceholders.join(', ')}) AS v(email, "classId", "classNumber", "level", "nameZh", "nameEn")
+          WHERE "User".email = v.email::text
+            AND "User".role = 'student'
+        `;
+
+        await db.$executeRawUnsafe(updateSql, ...params);
+
+        // 計算 classFixed vs updated
+        for (const { row, oldClass } of toUpdate) {
+          const newClass = row.class || '';
+          if (row.class && oldClass !== newClass) result.classFixed++;
+          else result.updated++;
+        }
+
+        console.log(`[sync-sheets] Bulk updated ${toUpdate.length} students in 1 query`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '未知錯誤';
+        result.errors.push(`批量更新失敗: ${msg}`);
+        console.error('[sync-sheets] Bulk update error:', err);
+      }
+    }
 
     // 計算最終班別分布
     const distribution = await db.user.groupBy({
