@@ -4,7 +4,8 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
 
 import { formatDate } from '@/lib/utils';
@@ -19,6 +20,7 @@ const typeIcons: Record<string, React.ElementType> = {
 
 export default function TeacherMaterialsPage() {
   const { t } = useT();
+  const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
@@ -248,7 +250,10 @@ export default function TeacherMaterialsPage() {
                   )}
 
                   {/* 從教材建立練習 */}
-                  <button className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg font-medium flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => router.push(`/teacher/assignments/new?materialId=${m.id}&materialTitle=${encodeURIComponent(m.title)}`)}
+                    className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg font-medium flex items-center justify-center gap-2"
+                  >
                     <Sparkles className="w-4 h-4" /> 從此教材生成練習題目
                   </button>
                 </div>

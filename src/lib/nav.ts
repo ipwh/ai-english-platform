@@ -105,9 +105,8 @@ export const teacherNavSections: NavSection[] = [
 ];
 
 // 教師端 header 導航（快捷）
-export const teacherQuickLinks: NavItem[] = [
-  { label: '搜尋', i18nKey: 'common.search', href: '#', icon: Search },
-];
+export const teacherQuickLinks: NavItem[] = [];
+
 
 // ========================================
 // 技能中文標籤

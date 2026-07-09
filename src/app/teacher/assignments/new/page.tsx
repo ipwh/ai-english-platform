@@ -4,9 +4,9 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Send, Sparkles, Loader2, Eye, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, Loader2 } from 'lucide-react';
 
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import Modal from '@/components/shared/Modal';
@@ -32,6 +32,14 @@ export default function NewAssignmentPage() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState<{ prompt: string; choices?: string[]; answer: string }[]>([]);
+  const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/classes')
+      .then(r => r.json())
+      .then(d => setClasses(d.classes || []))
+      .catch(() => {});
+  }, []);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -119,7 +127,7 @@ export default function NewAssignmentPage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">班別</label>
                 <select value={form.classId} onChange={(e) => setForm({...form, classId: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" required>
                   <option value="">選擇班別</option>
-                  {[]}
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
