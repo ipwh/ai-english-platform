@@ -144,26 +144,6 @@ function LoginForm() {
               {t('login.googleSignIn')}
             </button>
           </div>
-
-          {/* 示範帳號 */}
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-xs">
-            <p className="font-medium text-gray-500 dark:text-gray-400 mb-2">{t('login.demoAccounts')}</p>
-            <div className="space-y-1.5">
-              {[
-                { role: t('login.demoStudent'), email: 'student@school.hk', pw: 'student123' },
-                { role: t('login.demoTeacher'), email: 'teacher@school.hk', pw: 'teacher123' },
-              ].map((demo) => (
-                <button
-                  key={demo.email}
-                  onClick={() => { setEmail(demo.email); setPassword(demo.pw); }}
-                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-left"
-                >
-                  <span className="text-gray-600 dark:text-gray-300">{demo.role}</span>
-                  <span className="text-gray-400 font-mono">{demo.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
