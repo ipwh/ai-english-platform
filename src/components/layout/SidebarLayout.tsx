@@ -174,6 +174,7 @@ export default function SidebarLayout({
     unreadCount,
     initSession,
     userDisplayName,
+    currentRole,
   } = store;
 
   const displayName = userDisplayName || (role === 'student' ? 'Student' : 'Teacher');
@@ -439,8 +440,8 @@ export default function SidebarLayout({
                 )}
               </div>
 
-              {/* 角色切換 — 僅教師/管理員顯示 */}
-              {role === 'teacher' && (
+              {/* 角色切換 — DB 角色為 admin/teacher 的用戶, 在任何視圖（學生/教師）皆顯示 */}
+              {(currentRole === 'admin' || currentRole === 'teacher') && (
                 <Link
                   href="/role-select"
                   className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"

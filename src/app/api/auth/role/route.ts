@@ -116,7 +116,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
   }
 
-  await updateUserRole(userId, role);
+  // ⚠️ 不再更新 DB role — 角色切換僅設定 selected_role cookie
+  // DB role 保持為用戶的「真實最高角色」（admin/teacher/student）
+  // 這樣用戶在學生/教師/管理員視圖之間切換時，平台仍能識別其真實身份
 
   const response = createRoleResponse(request, role);
 
