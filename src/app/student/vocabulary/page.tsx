@@ -11,14 +11,8 @@ import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import type { Familiarity, VocabItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
+import { getFamiliarityLabel, getFamiliarityColor } from '@/lib/utils';
 
-const familiarityLabels: Record<Familiarity, string> = {
-  'new': '新學', 'learning': '學習中', 'familiar': '已熟悉', 'mastered': '已掌握',
-};
-const familiarityColors: Record<Familiarity, string> = {
-  'new': 'bg-red-100 text-red-700', 'learning': 'bg-orange-100 text-orange-700',
-  'familiar': 'bg-blue-100 text-blue-700', 'mastered': 'bg-green-100 text-green-700',
-};
 const nextFamiliarity: Record<Familiarity, Familiarity> = {
   'new': 'learning', 'learning': 'familiar', 'familiar': 'mastered', 'mastered': 'mastered',
 };
@@ -175,10 +169,10 @@ export default function VocabularyPage() {
               {/* 熟悉度 — 點擊切換 */}
               <button
                 onClick={() => toggleFamiliarity(v)}
-                className={`text-xs px-2 py-1 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity ${familiarityColors[v.familiarity]}`}
+                className={`text-xs px-2 py-1 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity ${getFamiliarityColor(v.familiarity)}`}
                 title="點擊切換熟悉度"
               >
-                {familiarityLabels[v.familiarity]}
+                {getFamiliarityLabel(v.familiarity)}
               </button>
             </div>
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">

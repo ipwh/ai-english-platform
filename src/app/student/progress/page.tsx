@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line,
 } from 'recharts';
-import { mockStudentKpis, mockMasteryList, mockPracticeTrend, mockSkillProgress, mockBadges } from '@/lib/mock-data';
+import { mockMasteryList, mockPracticeTrend, mockSkillProgress, mockBadges } from '@/lib/mock-data';
 import KpiCard from '@/components/shared/KpiCard';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { useAppStore } from '@/store/appStore';
