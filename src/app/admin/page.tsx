@@ -3,8 +3,9 @@
 // ============================================
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { Upload, Users, BookOpen, BarChart3 } from 'lucide-react';
+import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2, CheckCircle } from 'lucide-react';
 
 const quickLinks = [
   {
@@ -38,6 +39,28 @@ const quickLinks = [
 ];
 
 export default function AdminDashboard() {
+  const [toolRunning, setToolRunning] = useState<string | null>(null);
+  const [toolResult, setToolResult] = useState<string>('');
+
+  const runTool = async (endpoint: string, name: string) => {
+    setToolRunning(name);
+    setToolResult('');
+    try {
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await res.json();
+      setToolResult(`${name} 完成：${JSON.stringify(data).slice(0, 200)}`);
+    } catch {
+      setToolResult(`${name} 失敗`);
+    }
+    finally { setToolRunning(null); }
+  };
+
+  const tools = [
+    { name: '同步班別', desc: '從 Google Sheets 同步學生班別名單', endpoint: '/api/admin/sync-sheets', icon: RefreshCw, color: 'text-teal-500' },
+    { name: '匯出 Dashboard', desc: '將統計數據寫入 Google Sheets', endpoint: '/api/admin/export-sheets', icon: FileSpreadsheet, color: 'text-green-500' },
+    { name: '修復班級', desc: '重新分配未編班學生', endpoint: '/api/admin/fix-classes', icon: Wrench, color: 'text-orange-500' },
+    { name: '清理 Mock', desc: '刪除所有示範數據（@school.hk）', endpoint: '/api/admin/cleanup-mock-data', icon: Trash2, color: 'text-red-500' },
+  ];
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
@@ -73,6 +96,39 @@ export default function AdminDashboard() {
             </div>
           </Link>
         ))}
+      </div>
+
+      {/* 管理工具 */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <Wrench className="w-5 h-5 text-gray-500" /> 管理工具
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {tools.map((tool) => (
+            <button
+              key={tool.name}
+              onClick={() => runTool(tool.endpoint, tool.name)}
+              disabled={toolRunning !== null}
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-left hover:border-gray-300 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center gap-3">
+                {toolRunning === tool.name
+                  ? <Loader2 className={`w-5 h-5 animate-spin ${tool.color}`} />
+                  : <tool.icon className={`w-5 h-5 ${tool.color}`} />
+                }
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{tool.name}</p>
+                  <p className="text-xs text-gray-500">{tool.desc}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {toolResult && (
+          <p className="mt-3 text-xs text-gray-500 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg font-mono">
+            {toolResult}
+          </p>
+        )}
       </div>
     </div>
   );

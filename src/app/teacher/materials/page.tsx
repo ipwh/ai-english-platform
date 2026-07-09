@@ -55,7 +55,21 @@ export default function TeacherMaterialsPage() {
     finally { setAnalyzingId(null); }
   };
 
-  const filtered: any[] = [];
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/materials')
+      .then(r => r.json())
+      .then(d => setMaterials(d.materials || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = materials.filter(m => {
+    if (search && !m.title.includes(search)) return false;
+    return true;
+  });
 
   const statusLabel: Record<string, { label: string; color: string }> = {
     'pending': { label: '待處理', color: 'bg-gray-100 text-gray-600' },
