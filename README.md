@@ -85,8 +85,19 @@ npm run dev
 | 方式 | 說明 |
 |------|------|
 | 🔵 Google OAuth | 使用學校 Google 帳號一鍵登入（推薦） |
-| 🔑 密碼登入 | `teacher@school.hk` / `teacher123` 或 `student@school.hk` / `student123` |
-| 🛡️ 管理員 | `ipwh@pochiu.edu.hk` / `admin123`（同時具備教師身份） |
+| 🔑 密碼登入 | `ipwh@pochiu.edu.hk` / `admin123` |
+
+#### Google OAuth 自動角色識別
+
+系統根據 email 格式自動判斷身份：
+
+| Email 格式 | 角色 | 登入後 |
+|-----------|------|--------|
+| `s` + 7 位數字（如 `s2025006@pochiu.edu.hk`） | 學生 | → 直接進入學生主頁 |
+| 英文姓名縮寫（如 `chantm@pochiu.edu.hk`） | 教師 | → 角色選擇頁（學生/教師/管理員） |
+| `ipwh@pochiu.edu.hk` | 管理員 | → 角色選擇頁（學生/教師/管理員） |
+
+> 新教師首次 Google OAuth 登入時會自動建立帳號並設為教師角色。學生需先透過 [Google Sheets 同步](#google-sheets-班別同步-🔄) 匯入。
 
 ## 環境變數
 
@@ -338,11 +349,11 @@ npm run test:watch    # 持續監控模式
 | AI 服務層 | ✅ 完整（6 個函數 + Zod 驗證 + 限流） |
 | API 路由 | ✅ 完整（AI × 6 + CRUD × 5 + 認證 + Drive + 匯入 + RAG + 管理員 API × 8） |
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，自動切換） |
-| 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，Prisma DB 查詢，Middleware admin 路由保護 |
+| 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 格式自動識別學生/教師角色，Middleware 路由保護 |
 | 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 管理員後台 5 頁 |
-| 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤、Google Sheets 同步、班級修復 |
+| 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤、Google Sheets 同步、班級修復、管理工具一鍵執行 |
 | 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
-| Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 |
+| Google 整合 | ✅ OAuth 登入（自動角色識別）+ Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 + RAG 語義索引 |
 | 隱私合規 | ✅ PDPO 去識別化（sanitizeForAI），傳送 AI 前自動移除身份證、電話、電郵 |
 | 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
 
