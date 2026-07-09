@@ -46,14 +46,15 @@ function LoginForm() {
         login(json.user.role);
       }
 
-      // 重導向
+      // 重導向 — 非學生身份先到根路徑，由 root page 判斷角色導向
       const redirect = searchParams.get('redirect');
       if (redirect) {
         router.push(redirect);
       } else if (json.user?.role === 'student') {
         router.push('/student/dashboard');
       } else {
-        router.push('/teacher/dashboard');
+        // admin / teacher → 根路徑 → role-select
+        router.push('/');
       }
     } catch {
       setError(t('login.networkError'));

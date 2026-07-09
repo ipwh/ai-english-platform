@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth-next';
+import { verifySessionToken } from '@/lib/jwt';
 import db from '@/lib/db';
 
 async function updateUserRole(userId: string, role: string) {
@@ -14,7 +15,7 @@ async function updateUserRole(userId: string, role: string) {
 }
 
 function createRoleResponse(request: NextRequest, role: string, body?: Record<string, unknown>) {
-  const target = role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
+  const target = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
   const response = body
     ? NextResponse.json(body)
     : NextResponse.redirect(new URL(target, request.url), 303);
@@ -32,8 +33,27 @@ function createRoleResponse(request: NextRequest, role: string, body?: Record<st
 
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    // === 優先檢查 JWT session（密碼登入） ===
+    const jwtToken = request.cookies.get('session_token')?.value;
+    let userId: string | null = null;
+
+    if (jwtToken) {
+      const jwtPayload = await verifySessionToken(jwtToken);
+      if (jwtPayload) {
+        userId = jwtPayload.userId;
+      }
+    }
+
+    // === Fallback: NextAuth session（Google OAuth 登入） ===
+    if (!userId) {
+      const session = await auth();
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: '未登入' }, { status: 401 });
+      }
+      userId = session.user.id;
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: '未登入' }, { status: 401 });
     }
 
@@ -42,7 +62,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '無效的角色' }, { status: 400 });
     }
 
-    await updateUserRole(session.user.id, role);
+    await updateUserRole(userId, role);
 
     return createRoleResponse(request, role, { success: true, role });
   } catch (err: unknown) {
@@ -52,32 +72,51 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
+  // === 優先檢查 JWT session（密碼登入） ===
+  const jwtToken = request.cookies.get('session_token')?.value;
+  let userId: string | null = null;
 
-  console.log('[role-select:POST]', {
-    hasSession: !!session?.user?.id,
-    userId: session?.user?.id ?? null,
-    timestamp: new Date().toISOString(),
-    url: request.url,
-    cookieNames: request.cookies.getAll().map(c => c.name),
-  });
+  if (jwtToken) {
+    const jwtPayload = await verifySessionToken(jwtToken);
+    if (jwtPayload) {
+      userId = jwtPayload.userId;
+    }
+  }
 
-  if (!session?.user?.id) {
-    console.log('[role-select:POST] no session → redirect /login');
+  // === Fallback: NextAuth session（Google OAuth 登入） ===
+  if (!userId) {
+    const session = await auth();
+    console.log('[role-select:POST]', {
+      hasSession: !!session?.user?.id,
+      userId: session?.user?.id ?? null,
+      timestamp: new Date().toISOString(),
+      url: request.url,
+      cookieNames: request.cookies.getAll().map(c => c.name),
+    });
+
+    if (!session?.user?.id) {
+      console.log('[role-select:POST] no session → redirect /login');
+      return NextResponse.redirect(new URL('/login', request.url), 303);
+    }
+    userId = session.user.id;
+  }
+
+  if (!userId) {
+    console.log('[role-select:POST] no userId → redirect /login');
     return NextResponse.redirect(new URL('/login', request.url), 303);
   }
 
   const formData = await request.formData();
   const role = formData.get('role');
 
-  console.log('[role-select:POST]', { role });
+  console.log('[role-select:POST]', { role, userId });
 
   if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
     console.log('[role-select:POST] invalid role → redirect /role-select');
     return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
   }
 
-  await updateUserRole(session.user.id, role);
+  await updateUserRole(userId, role);
 
   const response = createRoleResponse(request, role);
 

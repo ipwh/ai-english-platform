@@ -57,7 +57,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'login.signIn': { zh: '登入', en: 'Sign In' },
   'login.signingIn': { zh: '登入中...', en: 'Signing in...' },
   'login.googleSignIn': { zh: '使用 Google 帳號登入', en: 'Sign in with Google' },
-  'login.emailPlaceholder': { zh: '請使用下方的 Google 帳號或點擊學生 / 老師的示範帳號登入', en: 'Please use Google account below or click a student/teacher demo account to sign in' },
+  'login.emailPlaceholder': { zh: '請輸入你的電郵地址', en: 'Enter your email address' },
   'login.passwordPlaceholder': { zh: '請輸入密碼', en: 'Enter password' },
   'login.loginFailed': { zh: '登入失敗，請重試。', en: 'Login failed, please try again.' },
   'login.networkError': { zh: '網絡錯誤，請檢查連線後重試。', en: 'Network error, please check connection and retry.' },

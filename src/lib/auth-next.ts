@@ -133,7 +133,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = (token.id as string | undefined) || session.user.email || '';
         const role = (token.role as string | undefined) || 'student';
-        session.user.role = role === 'teacher' || role === 'student' ? role : 'student';
+        session.user.role = role === 'teacher' || role === 'student' || role === 'admin' ? role : 'student';
       }
       return session;
     },

@@ -7,7 +7,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft } from 'lucide-react';
+import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { getNavLabel, getSectionTitle, studentTabItems } from '@/lib/nav';
 import type { NavItem, NavSection } from '@/lib/nav';
@@ -438,6 +438,17 @@ export default function SidebarLayout({
                   </div>
                 )}
               </div>
+
+              {/* 角色切換 — 僅教師/管理員顯示 */}
+              {role === 'teacher' && (
+                <Link
+                  href="/role-select"
+                  className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"
+                  title="切換身份"
+                >
+                  <Shuffle className="w-5 h-5" />
+                </Link>
+              )}
 
               <button
                 onClick={toggleLanguage}

@@ -9,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Upload, Users, BookOpen, LogOut,
   Menu, ChevronLeft, BarChart3, AlertTriangle, RefreshCw,
+  Shuffle,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 
@@ -185,7 +186,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </button>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              管理員後台
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/role-select"
+                  className="p-1.5 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"
+                  title="切換身份"
+                >
+                  <Shuffle className="w-4 h-4" />
+                  <span className="text-xs">切換身份</span>
+                </Link>
+              </div>
             </div>
           </div>
         </header>

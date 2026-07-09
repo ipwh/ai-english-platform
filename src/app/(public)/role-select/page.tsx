@@ -1,5 +1,6 @@
 // ============================================
 // 角色選擇頁面（僅教師/管理員使用；學生會被自動導向）
+// 支援 JWT + NextAuth 雙重認證
 // ============================================
 'use client';
 
@@ -13,19 +14,51 @@ export default function RoleSelectPage() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // 檢查當前 session 的角色：學生不應看到此頁
-    fetch('/api/auth/session')
+    // 優先檢查 JWT session
+    fetch('/api/auth/jwt-session')
       .then(r => r.json())
-      .then(data => {
-        if (data?.user?.role === 'student' || data?.role === 'student') {
-          router.replace('/student/dashboard');
-        } else {
+      .then(jwtData => {
+        if (jwtData?.loggedIn && jwtData?.user) {
+          const role = jwtData.user.role;
+          if (role === 'student') {
+            router.replace('/student/dashboard');
+            return;
+          }
+          setIsAdmin(role === 'admin');
           setChecking(false);
+          return;
         }
+        // Fallback: NextAuth session
+        return fetch('/api/auth/session')
+          .then(r => r.json())
+          .then(data => {
+            const role = data?.user?.role || data?.role;
+            if (role === 'student') {
+              router.replace('/student/dashboard');
+            } else {
+              setIsAdmin(role === 'admin');
+              setChecking(false);
+            }
+          });
       })
-      .catch(() => setChecking(false));
+      .catch(() => {
+        fetch('/api/auth/session')
+          .then(r => r.json())
+          .then(data => {
+            const role = data?.user?.role || data?.role;
+            if (role === 'student') {
+              router.replace('/student/dashboard');
+            } else {
+              setIsAdmin(role === 'admin');
+              setChecking(false);
+            }
+          })
+          .catch(() => setChecking(false));
+      });
   }, [router]);
 
   if (checking) {
@@ -81,21 +114,22 @@ export default function RoleSelectPage() {
             </button>
           </form>
 
-          {/* 管理員 */}
-          <form action="/api/auth/role" method="post">
-            <input type="hidden" name="role" value="admin" />
-            <button
-              type="submit"
-              className="group w-full bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-purple-400 dark:hover:border-purple-500 transition-all text-center"
-            >
-              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                <Shield className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.admin')}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.adminDesc')}</p>
-            </button>
-          </form>
-        </div>
+          {/* 管理員 — 僅 admin 用戶可見 */}
+          {isAdmin && (
+            <form action="/api/auth/role" method="post">
+              <input type="hidden" name="role" value="admin" />
+              <button
+                type="submit"
+                className="group w-full bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-purple-400 dark:hover:border-purple-500 transition-all text-center"
+              >
+                <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <Shield className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.admin')}</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.adminDesc')}</p>
+              </button>
+            </form>
+          )}
       </div>
     </div>
   );
