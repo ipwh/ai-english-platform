@@ -161,7 +161,7 @@ export default function TeacherMaterialsPage() {
       {/* 教材列表 */}
       <div className="space-y-3">
         {filtered.map((m) => {
-          const Icon = typeIcons[m.type] || File;
+            const Icon = typeIcons[m.type] || FileIcon;
           const isExpanded = expandedId === m.id;
           return (
             <div key={m.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">

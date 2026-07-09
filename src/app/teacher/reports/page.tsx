@@ -3,16 +3,35 @@
 // ============================================
 'use client';
 
-import { FileText, Users, BarChart3 } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Users, BarChart3, Loader2, CheckCircle } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReportsPage() {
   const { t } = useT();
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const handleGenerate = async (type: string) => {
+    if (type === 'weekly') {
+      setGenerating('weekly');
+      try {
+        await fetch('/api/admin/export-sheets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        setDone('weekly');
+        setTimeout(() => setDone(null), 3000);
+      } catch { /* ignore */ }
+      finally { setGenerating(null); }
+    }
+  };
 
   const reportTypes = [
-    { label: t('teacher.reports.weekly'), icon: BarChart3, desc: t('teacher.reports.weeklyDesc') },
-    { label: t('teacher.reports.individual'), icon: Users, desc: t('teacher.reports.individualDesc') },
-    { label: t('teacher.reports.parent'), icon: FileText, desc: t('teacher.reports.parentDesc') },
+    { id: 'weekly', label: t('teacher.reports.weekly'), icon: BarChart3, desc: t('teacher.reports.weeklyDesc'), available: true },
+    { id: 'individual', label: t('teacher.reports.individual'), icon: Users, desc: t('teacher.reports.individualDesc'), available: false },
+    { id: 'parent', label: t('teacher.reports.parent'), icon: FileText, desc: t('teacher.reports.parentDesc'), available: false },
   ];
 
   return (
@@ -27,8 +46,18 @@ export default function TeacherReportsPage() {
             </div>
             <h3 className="font-medium text-gray-900 dark:text-white">{item.label}</h3>
             <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
-            <button className="mt-3 px-4 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-lg hover:bg-gray-200 transition-colors">
-              {t('teacher.reports.generate')}
+            <button
+              onClick={() => item.available ? handleGenerate(item.id) : null}
+              disabled={!item.available || generating === item.id}
+              className={`mt-3 px-4 py-1.5 text-xs rounded-lg transition-colors ${
+                item.available
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {generating === item.id ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
+              {done === item.id ? <CheckCircle className="w-3 h-3 inline mr-1" /> : null}
+              {item.available ? t('teacher.reports.generate') : t('teacher.reports.pdfSoon')}
             </button>
           </div>
         ))}

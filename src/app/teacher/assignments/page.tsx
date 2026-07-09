@@ -43,10 +43,9 @@ export default function TeacherAssignmentsPage() {
         {assignments.map((a) => {
           const remaining = daysRemaining(a.dueDate);
           return (
-            <Link
+            <div
               key={a.id}
-              href={`/teacher/assignments`}
-              className="block bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-blue-300 transition-colors"
+              className="block bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -76,7 +75,7 @@ export default function TeacherAssignmentsPage() {
                   </div>
                 </div>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>

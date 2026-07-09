@@ -15,7 +15,19 @@ import { useT } from '@/hooks/use-i18n';
 export default function TeacherReviewPage() {
   const { t } = useT();
   const [reviews, setReviews] = useState<any[]>([]);
-  const [selectedReview, setSelectedReview] = useState<any>(reviews[0]);
+  const [selectedReview, setSelectedReview] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/reviews')
+      .then(r => r.json())
+      .then(d => {
+        setReviews(d.reviews || []);
+        if (d.reviews?.length > 0) setSelectedReview(d.reviews[0]);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');
   const [teacherScore, setTeacherScore] = useState<number | undefined>(selectedReview?.teacherScore);
   const [teacherFeedback, setTeacherFeedback] = useState(selectedReview?.teacherFeedback || '');
@@ -29,6 +41,12 @@ export default function TeacherReviewPage() {
   const updateReview = (id: string, updates: Partial<typeof selectedReview>) => {
     setReviews((prev: any[]) => prev.map((r: any) => r.id === id ? { ...r, ...updates } : r));
     setSelectedReview((prev: any) => prev.id === id ? { ...prev, ...updates } : prev);
+    // Persist to API
+    fetch(`/api/reviews/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    }).catch(() => {});
   };
 
   const handleAccept = () => {
