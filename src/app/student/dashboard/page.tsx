@@ -10,10 +10,17 @@ import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/lib/utils';
 
 export default function StudentDashboardPage() {
-  const { userDisplayName } = useAppStore();
+  const { userDisplayName, weeklyStats } = useAppStore();
   const { t } = useT();
   const displayName = userDisplayName || 'Student';
   const [aiInsight, setAiInsight] = useState<any>(null);
+
+  const kpis = [
+    { label: '本週練習', value: weeklyStats?.questionsDone || 0, unit: '題', trend: 'up' as const, change: 0 },
+    { label: '正確率', value: weeklyStats?.accuracy || 0, unit: '%', trend: 'stable' as const, change: 0 },
+    { label: '練習次數', value: weeklyStats?.sessionsCount || 0, unit: '次', trend: 'up' as const, change: 0 },
+    { label: '連續天數', value: weeklyStats?.streakDays || 0, unit: '天', trend: 'stable' as const, change: 0 },
+  ];
 
   return (
     <div className="space-y-6">
@@ -25,7 +32,7 @@ export default function StudentDashboardPage() {
         </Link>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {null}
+        {kpis.map((kpi, i) => <KpiCard key={i} data={kpi} />)}
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-3">{t('student.dashboard.aiInsight')}</h2>

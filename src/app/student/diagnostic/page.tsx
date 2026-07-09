@@ -24,6 +24,21 @@ const diagnosticQuestions: PracticeQuestion[] = [];
 
 export default function DiagnosticPage() {
   const { t } = useT();
+
+  // 診斷題目尚未連接 AI 題目生成 API
+  if (diagnosticQuestions.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <div className="w-16 h-16 bg-teal-100 dark:bg-teal-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Sparkles className="w-8 h-8 text-teal-500" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('diagnostic.title')}</h2>
+        <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+          診斷測試功能即將推出。系統將根據你的年級自動生成合適的題目，幫你找出強弱項。
+        </p>
+      </div>
+    );
+  }
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});

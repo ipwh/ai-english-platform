@@ -30,7 +30,7 @@ export default function VocabularyPage() {
   const [vocab, setVocab] = useState<VocabItem[]>([]);
 
   useEffect(() => {
-    fetch('/api/vocabulary?studentId=student')
+    fetch('/api/vocabulary')
       .then(r => r.json())
       .then(d => { if (d.vocab?.length) setVocab(d.vocab); })
       .catch(() => {});

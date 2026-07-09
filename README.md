@@ -260,6 +260,51 @@ fetch('/api/admin/sync-sheets', {
 - **自動建立班級**：Sheet 中出現的新班級名稱會自動建立
 - **級別推斷**：若無 Level 欄位，從 CLASSCODE（如 `4A`）自動推斷為 `S4`
 
+## 學年轉換 🔄
+
+每年 9 月開學時，依以下流程更新學生名單。**所有學生的學習紀錄（錯題、練習、寫作）自動跟隨學生保留，不受升班影響。**
+
+### 準備新學年 Sheet
+
+在現有的 Google Sheet 中：
+
+| 操作 | 做法 |
+|------|------|
+| **S6 畢業生** | 刪除該列，或移到另一個分頁歸檔 |
+| **升班（如 S5→S6）** | 將 CLASSCODE 從 `5A` 改為 `6A`，Level 從 `S5` 改為 `S6` |
+| **新 S1 學生** | 新增資料列，CLASSCODE = `1A`~`1D`，Level = `S1` |
+| **轉班學生** | 直接修改 CLASSCODE |
+| **EMAIL 不變** | ❗ EMAIL 是永久識別碼，不可修改 |
+
+### 同步到平台
+
+```javascript
+// 1. 先 dry-run 預覽（不寫入）
+fetch('/api/admin/sync-sheets', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ dryRun: true })
+}).then(r => r.json()).then(console.log)
+
+// 2. 確認 classFixed（升班人數）和 created（新 S1 人數）合理後，正式同步
+fetch('/api/admin/sync-sheets', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({})
+}).then(r => r.json()).then(console.log)
+```
+
+### 同步後結果
+
+| 指標 | 說明 |
+|------|------|
+| `created` | 新 S1 學生數（自動建立帳號） |
+| `classFixed` | 升班/轉班的學生數 |
+| `updated` | 資料已刷新的學生數 |
+
+- 畢業生保留在資料庫中（學習紀錄完整），不會出現在新學年課堂名單
+- 所有練習、錯題、寫作紀錄關聯到 `studentId`（永久不變），升班後完整保留
+
 ## 資料庫指令
 
 ```bash

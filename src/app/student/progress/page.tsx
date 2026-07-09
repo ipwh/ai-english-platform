@@ -24,9 +24,9 @@ export default function StudentProgressPage() {
 
   // 合併 KPI（優先使用實際練習數據）
   const kpis = [
-    { label: '本週練習量', value: weeklyStats.questionsDone || 32, unit: '題', trend: 'up' as const, change: 0 },
-    { label: '正確率', value: weeklyStats.accuracy || 68, unit: '%', trend: 'up' as const, change: 0 },
-    { label: '練習次數', value: weeklyStats.sessionsCount || 7, unit: '次', trend: 'stable' as const, change: 0 },
+    { label: '本週練習量', value: weeklyStats.questionsDone || 0, unit: '題', trend: 'up' as const, change: 0 },
+    { label: '正確率', value: weeklyStats.accuracy || 0, unit: '%', trend: 'up' as const, change: 0 },
+    { label: '練習次數', value: weeklyStats.sessionsCount || 0, unit: '次', trend: 'stable' as const, change: 0 },
   ];
 
   // 合併技能掌握度（mock + 實際）

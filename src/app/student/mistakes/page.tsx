@@ -30,7 +30,7 @@ export default function MistakesPage() {
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
 
   useEffect(() => {
-    fetch('/api/mistakes?studentId=student')
+    fetch('/api/mistakes')
       .then(r => r.json())
       .then(d => { if (d.mistakes?.length) setMistakes(d.mistakes); })
       .catch(() => {});
@@ -65,6 +65,12 @@ export default function MistakesPage() {
       }
     } catch { /* silent */ }
     finally { setExplainingId(null); }
+  };
+
+  const toggleReviewList = (id: string) => {
+    setMistakes(prev =>
+      prev.map(m => m.id === id ? { ...m, inReviewList: !m.inReviewList } : m)
+    );
   };
 
   const filtered = mistakes.filter((m) => {
@@ -196,7 +202,7 @@ export default function MistakesPage() {
                   {explainingId === m.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   {explainingId === m.id ? '分析中...' : (explanations[m.id] ? '重新解說' : 'AI 解說')}
                 </button>
-                <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                <button onClick={() => toggleReviewList(m.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   <BookMarked className="w-3 h-3" /> {m.inReviewList ? '移出重溫' : '加入重溫'}
                 </button>
               </div>
