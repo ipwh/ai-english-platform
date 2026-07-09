@@ -83,7 +83,7 @@ export default function StudentAssignmentsPage() {
             return (
               <Link
                 key={a.id}
-                href={`/student/practice?assignment=${a.id}`}
+                href={`/student/assignments/${a.id}`}
                 className="block bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-teal-300 transition-colors"
               >
                 <div className="flex items-start justify-between mb-2">

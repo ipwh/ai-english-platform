@@ -4,6 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { verifySessionToken } from '@/lib/jwt';
+import { auth } from '@/lib/auth-next';
 
 export async function GET() {
   try {
@@ -40,6 +42,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // 取得真實 userId：先查 JWT，再查 NextAuth
+    let userId = 'system';
+    const jwtToken = request.cookies.get('session_token')?.value;
+    if (jwtToken) {
+      const payload = await verifySessionToken(jwtToken);
+      if (payload) userId = payload.userId;
+    }
+    if (userId === 'system') {
+      const session = await auth();
+      if (session?.user?.id) userId = session.user.id;
+    }
+
     const body = await request.json();
     const { title, description, type, gradeLevel, strand, content, tags, fileSize } = body;
 
@@ -57,7 +71,7 @@ export async function POST(request: NextRequest) {
         content: content || null,
         tags: tags ? JSON.stringify(tags) : null,
         fileSize: fileSize || null,
-        uploadedBy: 'system', // TODO: use real userId from session
+        uploadedBy: userId,
         ocrStatus: 'none',
         ragStatus: 'none',
       },

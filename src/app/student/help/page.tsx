@@ -1,10 +1,10 @@
 // ============================================
-// 學生端 — 求助與建議頁面
+// 學生端 — 求助與建議頁面（含 AI 問答）
 // ============================================
 'use client';
 
 import { useState } from 'react';
-import { Lightbulb, BookOpen, AlertTriangle, MessageCircle, ChevronRight, ChevronDown, ThumbsUp } from 'lucide-react';
+import { Lightbulb, BookOpen, AlertTriangle, MessageCircle, ChevronRight, ChevronDown, ThumbsUp, Sparkles, Send, Loader2 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
 interface QAItem {
@@ -62,9 +62,85 @@ export default function StudentHelpPage() {
   const { t } = useT();
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  // === AI 問答狀態 ===
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [aiAnswer, setAiAnswer] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
+  const handleAskAI = async () => {
+    if (!aiQuestion.trim()) return;
+    setAiLoading(true);
+    setAiError('');
+    setAiAnswer('');
+
+    try {
+      const res = await fetch('/api/ai/explain-mistake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: aiQuestion.trim(),
+          studentAnswer: '',
+          correctAnswer: '',
+          mistakeType: 'grammar',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.explanation) {
+        setAiAnswer(data.explanation);
+      } else {
+        setAiError('AI 暫時無法回答，請稍後再試。');
+      }
+    } catch {
+      setAiError('網絡錯誤，請檢查連線。');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('help.title')}</h1>
+
+      {/* 🤖 AI 智能問答 */}
+      <section className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-teal-500" /> AI 學習助手
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          有任何英文學習問題？直接問 AI，例如：「如何用過去完成式？」、「recommend 和 suggest 有什麼分別？」
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={aiQuestion}
+            onChange={(e) => setAiQuestion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAskAI(); }}
+            placeholder="輸入你的英文學習問題..."
+            className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <button
+            onClick={handleAskAI}
+            disabled={aiLoading || !aiQuestion.trim()}
+            className="px-4 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white font-medium rounded-xl flex items-center gap-2 transition-colors"
+          >
+            {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {aiLoading ? '思考中...' : '提問'}
+          </button>
+        </div>
+        {aiError && (
+          <p className="mt-3 text-sm text-red-500">{aiError}</p>
+        )}
+        {aiAnswer && (
+          <div className="mt-3 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Sparkles className="w-4 h-4 text-teal-500" />
+              <span className="font-medium text-teal-700 dark:text-teal-400">AI 回答</span>
+            </div>
+            <p className="whitespace-pre-wrap">{aiAnswer}</p>
+          </div>
+        )}
+      </section>
 
       {/* AI 學習建議卡片 */}
       <section>

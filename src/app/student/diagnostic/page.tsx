@@ -1,10 +1,10 @@
 // ============================================
 // 學生端 — 診斷測試頁面
-// 完整流程：選擇技能 → 逐題作答 → AI 分析報告
+// 完整流程：AI 生成題目 → 逐題作答 → AI 分析報告
 // ============================================
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -20,25 +20,12 @@ interface DiagnosticResult {
   suggestion: string;
 }
 
-const diagnosticQuestions: PracticeQuestion[] = [];
-
 export default function DiagnosticPage() {
   const { t } = useT();
 
-  // 診斷題目尚未連接 AI 題目生成 API
-  if (diagnosticQuestions.length === 0) {
-    return (
-      <div className="text-center py-20">
-        <div className="w-16 h-16 bg-teal-100 dark:bg-teal-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Sparkles className="w-8 h-8 text-teal-500" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('diagnostic.title')}</h2>
-        <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-          診斷測試功能即將推出。系統將根據你的年級自動生成合適的題目，幫你找出強弱項。
-        </p>
-      </div>
-    );
-  }
+  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [genError, setGenError] = useState('');
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -47,8 +34,100 @@ export default function DiagnosticPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
 
-  const currentQ = diagnosticQuestions[currentStep];
-  const totalSteps = diagnosticQuestions.length;
+  // 🔥 載入時自動生成診斷題目
+  useEffect(() => {
+    setLoadingQuestions(true);
+    // 生成多個技能範疇的題目：文法、詞彙、閱讀理解
+    Promise.all([
+      fetch('/api/ai/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grammarItem: 'tenses', difficulty: 'core', gradeLevel: 'S4', count: 3, questionType: 'mc' }),
+      }).then(r => r.json()),
+      fetch('/api/ai/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grammarItem: 'vocabulary', difficulty: 'core', gradeLevel: 'S4', count: 2, questionType: 'mc' }),
+      }).then(r => r.json()),
+      fetch('/api/ai/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ languageSkill: 'reading', difficulty: 'core', gradeLevel: 'S4', count: 2, questionType: 'mc' }),
+      }).then(r => r.json()),
+    ])
+      .then(([grammarRes, vocabRes, readingRes]) => {
+        const allQuestions: PracticeQuestion[] = [];
+        let id = 0;
+
+        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string }> }, skill?: string, grammar?: string) => {
+          (res.questions || []).forEach((q: { prompt: string; choices?: string[]; answer: string; questionType?: string }) => {
+            allQuestions.push({
+              id: `diag-${++id}`,
+              type: (q.questionType || 'mc') as PracticeQuestion['type'],
+              strand: 'knowledge',
+              prompt: q.prompt,
+              choices: q.choices || undefined,
+              answer: q.answer,
+              grammarItem: grammar as PracticeQuestion['grammarItem'],
+              languageSkill: skill as PracticeQuestion['languageSkill'],
+              subSkill: grammar || skill || 'diagnostic',
+              subSkillZh: grammar === 'tenses' ? '時態' : grammar === 'vocabulary' ? '詞彙' : skill === 'reading' ? '閱讀理解' : '診斷測試',
+              difficulty: 'core',
+              gradeLevel: 'S4',
+              keyStage: 'KS4',
+              explanationZh: '',
+              explanationEn: '',
+              commonMistake: '',
+              hintLevels: [],
+            });
+          });
+        };
+
+        addQuestions(grammarRes, undefined, 'tenses');
+        addQuestions(vocabRes, undefined, 'vocabulary');
+        addQuestions(readingRes, 'reading');
+
+        if (allQuestions.length > 0) {
+          setQuestions(allQuestions);
+        } else {
+          setGenError('AI 題目生成失敗，請稍後再試。');
+        }
+      })
+      .catch(() => setGenError('AI 服務連線失敗，請檢查網絡後重試。'))
+      .finally(() => setLoadingQuestions(false));
+  }, []);
+
+  // 載入中
+  if (loadingQuestions) {
+    return (
+      <div className="text-center py-20">
+        <Loader2 className="w-10 h-10 animate-spin text-teal-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('diagnostic.title')}</h2>
+        <p className="text-gray-500 dark:text-gray-400">AI 正在為你生成診斷題目...</p>
+      </div>
+    );
+  }
+
+  // 生成失敗
+  if (genError || questions.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Sparkles className="w-8 h-8 text-red-400" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('diagnostic.title')}</h2>
+        <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-4">
+          {genError || '暫無法生成診斷題目，請稍後再試。'}
+        </p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">
+          重新載入
+        </button>
+      </div>
+    );
+  }
+
+  const currentQ = questions[currentStep];
+  const totalSteps = questions.length;
 
   // 技能分類
   const skills = [
@@ -74,7 +153,7 @@ export default function DiagnosticPage() {
 
     // 計算各技能分數
     const skillScores: Record<string, { correct: number; total: number }> = {};
-    for (const q of diagnosticQuestions) {
+    for (const q of questions) {
       const key = q.grammarItem ? 'grammar' : q.languageSkill === 'reading' ? 'reading' : q.languageSkill === 'writing' ? 'writing' : 'vocabulary';
       if (!skillScores[key]) skillScores[key] = { correct: 0, total: 0 };
       skillScores[key].total++;
