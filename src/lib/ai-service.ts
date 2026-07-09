@@ -15,6 +15,27 @@ import {
 } from './ai-schema';
 
 // ============================================
+// PDPO 去識別化 — 傳送給 AI 前移除個人資料
+// ============================================
+
+/**
+ * 移除文字中的個人識別資訊後再傳送給 AI API。
+ * 香港 PDPO 合規要求：不可將學生真實姓名、身份證、電話、電郵等傳送給第三方 AI。
+ */
+export function sanitizeForAI(text: string): string {
+  return text
+    // 香港身份證格式 A123456(7) 或 A1234567
+    .replace(/[A-Za-z]\d{6}\(\d\)/g, '[HKID_REMOVED]')
+    .replace(/[A-Za-z]\d{7}/g, '[HKID_REMOVED]')
+    // 香港電話 8 位數字（避免誤判年份，要求前後為邊界）
+    .replace(/(?<!\d)\d{8}(?!\d)/g, '[PHONE_REMOVED]')
+    // 電郵地址
+    .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL_REMOVED]')
+    // 常見香港學校關鍵字（選擇性，視需要啟用）
+    // .replace(/Po Chiu|寶血|PCCS|pochiu/gi, '[SCHOOL]')
+}
+
+// ============================================
 // 設定
 // ============================================
 
@@ -361,7 +382,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
 學生作文內容：
 """
-${input.studentDraft}
+${sanitizeForAI(input.studentDraft)}
 """
 
 請詳細批改這篇作文。`;

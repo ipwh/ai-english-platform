@@ -1,11 +1,14 @@
 // ============================================
 // POST /api/export/writing-analysis
 // 匯出 AI 作文分析結果 (PDF / DOCX)
+// PDF 使用 pdfkit + 內嵌中文字型，支援繁體中文
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
+import fs from 'fs';
+import path from 'path';
 
 /** 驗證使用者已登入 */
 async function authenticateUser(request: NextRequest): Promise<string | null> {
@@ -33,152 +36,204 @@ interface WritingAnalysis {
   studentDraft?: string;
 }
 
-/** 建立 PDF 內容（使用 jsPDF） */
-async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+/** 嘗試載入中文字型（支援 Windows 開發 + Vercel 部署） */
+async function loadCJKFont(): Promise<Buffer | null> {
+  const candidates = [
+    // 專案內嵌字型（部署用）
+    path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf'),
+    path.join(process.cwd(), 'public', 'fonts', 'cjk-font.ttf'),
+    // Windows 系統字型（本地開發用）
+    'C:\\Windows\\Fonts\\msjh.ttc',
+    'C:\\Windows\\Fonts\\kaiu.ttf',
+    // macOS 系統字型
+    '/System/Library/Fonts/PingFang.ttc',
+    '/System/Library/Fonts/STHeiti Light.ttc',
+    // Linux/Vercel 常見字型
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+  ];
+  for (const fontPath of candidates) {
+    try {
+      if (fs.existsSync(fontPath)) {
+        return fs.readFileSync(fontPath);
+      }
+    } catch { /* continue */ }
+  }
+  return null;
+}
 
-  // 載入中文字型支援（使用內建字型，僅支援基本 ASCII）
-  // 若要完整中文支援，需 embed 中文字型檔，此處使用英文標籤
-  let y = 20;
-  const margin = 20;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const contentWidth = pageWidth - margin * 2;
+/** 建立 PDF 內容（使用 pdfkit，支援繁體中文） */
+async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
+  const PDFDocument = (await import('pdfkit')).default;
+
+  const fontData = await loadCJKFont();
+  const hasCJK = fontData !== null;
+
+  const doc = new PDFDocument({
+    size: 'A4',
+    margin: 50,
+    info: { Title: `Writing Analysis - ${analysis.topic || 'Report'}`, Author: 'AI English Platform' },
+  });
+
+  // 註冊字型
+  if (hasCJK) {
+    doc.registerFont('CJK', fontData!);
+  }
+
+  const font = hasCJK ? 'CJK' : 'Helvetica';
+  const contentWidth = doc.page.width - 100;
+  let y = 50;
+
+  // Helper: 安全輸出文字（處理中文換行）
+  const addText = (text: string, fontSize: number, opts?: { color?: string; indent?: number }) => {
+    doc.font(font).fontSize(fontSize);
+    if (opts?.color) doc.fillColor(opts.color);
+    else doc.fillColor('#1a1a1a');
+    const x = 50 + (opts?.indent || 0);
+    doc.text(text, x, y, { width: contentWidth - (opts?.indent || 0), lineGap: 3 });
+    y = doc.y + 4;
+  };
+
+  const checkPageBreak = (needed: number) => {
+    if (y + needed > doc.page.height - 50) {
+      doc.addPage();
+      y = 50;
+    }
+  };
 
   // Title
-  doc.setFontSize(18);
-  doc.text('AI Writing Analysis Report', margin, y);
-  y += 10;
+  doc.font(font).fontSize(20).fillColor('#1a5276');
+  doc.text(hasCJK ? 'AI 寫作分析報告' : 'AI Writing Analysis Report', 50, y, { width: contentWidth });
+  y = doc.y + 12;
 
   // Topic
   if (analysis.topic) {
-    doc.setFontSize(11);
-    doc.text(`Topic: ${analysis.topic}`, margin, y);
-    y += 7;
+    checkPageBreak(20);
+    doc.font(font).fontSize(12).fillColor('#555555');
+    const label = hasCJK ? `題目：${analysis.topic}` : `Topic: ${analysis.topic}`;
+    doc.text(label, 50, y, { width: contentWidth });
+    y = doc.y + 8;
   }
 
   // Overall Score
   if (analysis.overallScore !== undefined) {
-    doc.setFontSize(14);
-    doc.text(`Overall Score: ${analysis.overallScore}/100`, margin, y);
-    y += 10;
+    checkPageBreak(30);
+    doc.font(font).fontSize(16).fillColor('#1a5276');
+    const scoreLabel = hasCJK ? `總分：${analysis.overallScore}/100` : `Overall Score: ${analysis.overallScore}/100`;
+    doc.text(scoreLabel, 50, y, { width: contentWidth });
+    y = doc.y + 12;
   }
 
   // Strengths
-  if (analysis.strengths && analysis.strengths.length > 0) {
-    doc.setFontSize(13);
-    doc.text('Strengths', margin, y);
-    y += 7;
-    doc.setFontSize(10);
+  if (analysis.strengths?.length) {
+    checkPageBreak(20);
+    doc.font(font).fontSize(14).fillColor('#27ae60');
+    doc.text(hasCJK ? '優點' : 'Strengths', 50, y);
+    y = doc.y + 8;
     for (const s of analysis.strengths) {
-      const lines = doc.splitTextToSize(`- ${s}`, contentWidth);
-      for (const line of lines) {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(line, margin, y);
-        y += 5;
-      }
+      checkPageBreak(16);
+      doc.font(font).fontSize(10).fillColor('#333333');
+      const bullet = hasCJK ? `• ${s}` : `- ${s}`;
+      doc.text(bullet, 60, y, { width: contentWidth - 10 });
+      y = doc.y + 4;
     }
-    y += 4;
+    y += 6;
   }
 
   // Weaknesses
-  if (analysis.weaknesses && analysis.weaknesses.length > 0) {
-    doc.setFontSize(13);
-    doc.text('Areas for Improvement', margin, y);
-    y += 7;
-    doc.setFontSize(10);
+  if (analysis.weaknesses?.length) {
+    checkPageBreak(20);
+    doc.font(font).fontSize(14).fillColor('#c0392b');
+    doc.text(hasCJK ? '待改善' : 'Areas for Improvement', 50, y);
+    y = doc.y + 8;
     for (const w of analysis.weaknesses) {
-      const lines = doc.splitTextToSize(`- ${w}`, contentWidth);
-      for (const line of lines) {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(line, margin, y);
-        y += 5;
-      }
+      checkPageBreak(16);
+      doc.font(font).fontSize(10).fillColor('#333333');
+      const bullet = hasCJK ? `• ${w}` : `- ${w}`;
+      doc.text(bullet, 60, y, { width: contentWidth - 10 });
+      y = doc.y + 4;
     }
-    y += 4;
+    y += 6;
   }
 
-  // Grammar Errors table
-  if (analysis.grammarErrors && analysis.grammarErrors.length > 0) {
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setFontSize(13);
-    doc.text('Grammar Corrections', margin, y);
-    y += 8;
-    doc.setFontSize(9);
+  // Grammar Errors
+  if (analysis.grammarErrors?.length) {
+    checkPageBreak(30);
+    doc.font(font).fontSize(14).fillColor('#e67e22');
+    doc.text(hasCJK ? '文法修正' : 'Grammar Corrections', 50, y);
+    y = doc.y + 8;
     for (const err of analysis.grammarErrors) {
-      if (y > 270) { doc.addPage(); y = 20; }
-      const line = `${err.original} → ${err.correction}`;
-      const lines = doc.splitTextToSize(line, contentWidth);
-      for (const l of lines) {
-        doc.text(l, margin, y);
-        y += 4;
-      }
+      checkPageBreak(20);
+      doc.font(font).fontSize(9).fillColor('#c0392b');
+      doc.text(err.original, 55, y, { width: contentWidth - 5, strike: true });
+      const origY = doc.y;
+      doc.font(font).fontSize(9).fillColor('#27ae60');
+      doc.text(` → ${err.correction}`, 55 + doc.widthOfString(err.original), y - 11, { width: contentWidth - 10 });
+      y = Math.max(origY, doc.y) + 2;
       if (err.explanation) {
-        doc.setTextColor(100, 100, 100);
-        const expl = doc.splitTextToSize(`  ${err.explanation}`, contentWidth);
-        for (const el of expl) { doc.text(el, margin, y); y += 4; }
-        doc.setTextColor(0, 0, 0);
+        doc.font(font).fontSize(8).fillColor('#888888');
+        doc.text(err.explanation, 60, y, { width: contentWidth - 15 });
+        y = doc.y + 3;
       }
-      y += 2;
     }
-    y += 4;
+    y += 6;
   }
 
   // Structure Feedback
   if (analysis.structureFeedback) {
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setFontSize(13);
-    doc.text('Structure Feedback', margin, y);
-    y += 7;
-    doc.setFontSize(10);
-    const lines = doc.splitTextToSize(analysis.structureFeedback, contentWidth);
-    for (const line of lines) {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(line, margin, y);
-      y += 5;
-    }
-    y += 4;
+    checkPageBreak(20);
+    doc.font(font).fontSize(14).fillColor('#8e44ad');
+    doc.text(hasCJK ? '結構評語' : 'Structure Feedback', 50, y);
+    y = doc.y + 8;
+    doc.font(font).fontSize(10).fillColor('#333333');
+    doc.text(analysis.structureFeedback, 50, y, { width: contentWidth });
+    y = doc.y + 8;
   }
 
   // Revised Version
   if (analysis.revisedVersion) {
-    if (y > 220) { doc.addPage(); y = 20; }
-    doc.setFontSize(13);
-    doc.text('Revised Version', margin, y);
-    y += 7;
-    doc.setFontSize(10);
-    const lines = doc.splitTextToSize(analysis.revisedVersion, contentWidth - 5);
-    for (const line of lines) {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(line, margin, y);
-      y += 5;
-    }
+    checkPageBreak(20);
+    doc.font(font).fontSize(14).fillColor('#2980b9');
+    doc.text(hasCJK ? '修改版' : 'Revised Version', 50, y);
+    y = doc.y + 8;
+    doc.font(font).fontSize(10).fillColor('#333333');
+    doc.text(analysis.revisedVersion, 50, y, { width: contentWidth });
+    y = doc.y + 8;
   }
 
   // Vocabulary Suggestions
-  if (analysis.vocabularySuggestions && analysis.vocabularySuggestions.length > 0) {
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setFontSize(13);
-    doc.text('Vocabulary Suggestions', margin, y);
-    y += 7;
-    doc.setFontSize(9);
+  if (analysis.vocabularySuggestions?.length) {
+    checkPageBreak(20);
+    doc.font(font).fontSize(14).fillColor('#16a085');
+    doc.text(hasCJK ? '詞彙建議' : 'Vocabulary Suggestions', 50, y);
+    y = doc.y + 8;
     for (const v of analysis.vocabularySuggestions) {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(`${v.word} → ${v.suggestion} (${v.reason})`, margin, y);
-      y += 5;
+      checkPageBreak(16);
+      doc.font(font).fontSize(9).fillColor('#333333');
+      const vText = hasCJK
+        ? `• ${v.word} → ${v.suggestion} (${v.reason})`
+        : `- ${v.word} -> ${v.suggestion} (${v.reason})`;
+      doc.text(vText, 60, y, { width: contentWidth - 10 });
+      y = doc.y + 3;
     }
   }
 
   // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  const pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.text(`Page ${i}/${pageCount}  |  Generated by AI English Platform`, pageWidth / 2, 290, { align: 'center' });
+  const pageCount = doc.bufferedPageRange().count;
+  for (let i = 0; i < pageCount; i++) {
+    doc.switchToPage(i);
+    doc.font(font).fontSize(8).fillColor('#aaaaaa');
+    const footerText = hasCJK
+      ? `第 ${i + 1}/${pageCount} 頁 | AI English Platform 生成`
+      : `Page ${i + 1}/${pageCount} | Generated by AI English Platform`;
+    doc.text(footerText, 50, doc.page.height - 40, { width: contentWidth, align: 'center' });
   }
 
-  return Buffer.from(doc.output('arraybuffer'));
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.end();
+  });
 }
 
 /** 建立 DOCX 內容 */

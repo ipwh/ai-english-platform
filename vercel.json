@@ -9,6 +9,9 @@
     "src/app/api/admin/sync-sheets/**/*.ts": {
       "maxDuration": 30
     },
+    "src/app/api/admin/export-sheets/**/*.ts": {
+      "maxDuration": 30
+    },
     "src/app/api/admin/fix-classes/**/*.ts": {
       "maxDuration": 30
     },

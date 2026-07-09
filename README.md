@@ -297,7 +297,8 @@ npm run test:watch    # 持續監控模式
 | 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 管理員後台 5 頁 |
 | 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤、Google Sheets 同步、班級修復 |
 | 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
-| Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 |
+| Google 整合 | ✅ OAuth 登入 + Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 |
+| 隱私合規 | ✅ PDPO 去識別化（sanitizeForAI），傳送 AI 前自動移除身份證、電話、電郵 |
 | 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
 
 ## 部署
