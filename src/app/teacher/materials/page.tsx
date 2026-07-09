@@ -109,22 +109,59 @@ export default function TeacherMaterialsPage() {
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
-            // 文字檔直接讀取內容
+            const fileSizeKB = (file.size / 1024).toFixed(0);
+
             if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
               const text = await file.text();
               try {
-                const res = await fetch('/api/ai/analyze-material', {
+                const res = await fetch('/api/materials', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ title: file.name, content: text }),
+                  body: JSON.stringify({
+                    title: file.name.replace('.txt', ''),
+                    type: 'text',
+                    content: text.slice(0, 50000),
+                    fileSize: file.size,
+                  }),
                 });
                 if (res.ok) {
-                  const data = await res.json();
-                  alert(`教材「${file.name}」分析完成！`);
+                  // Refresh materials list
+                  const mRes = await fetch('/api/materials');
+                  const mData = await mRes.json();
+                  setMaterials(mData.materials || []);
                 }
-              } catch { alert('AI 分析失敗，請重試。'); }
+              } catch { /* silent */ }
+            } else if (file.type.startsWith('image/')) {
+              // OCR: 使用 Vision API 提取文字
+              const formData = new FormData();
+              formData.append('file', file);
+              try {
+                const res = await fetch('/api/ocr/essay', { method: 'POST', body: formData });
+                if (res.ok) {
+                  const data = await res.json();
+                  await fetch('/api/materials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      title: file.name, type: 'image',
+                      content: data.text || '', fileSize: file.size,
+                    }),
+                  });
+                  const mRes = await fetch('/api/materials');
+                  const mData = await mRes.json();
+                  setMaterials(mData.materials || []);
+                }
+              } catch { /* silent */ }
             } else {
-              alert(`已選取：${file.name}（${(file.size / 1024).toFixed(0)} KB）\n此檔案類型暫不支援自動分析，請使用文字檔。`);
+              // 其他檔案類型：建立記錄
+              await fetch('/api/materials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: file.name, type: file.name.split('.').pop() || 'other', fileSize: file.size }),
+              });
+              const mRes = await fetch('/api/materials');
+              const mData = await mRes.json();
+              setMaterials(mData.materials || []);
             }
             e.target.value = '';
           }}
