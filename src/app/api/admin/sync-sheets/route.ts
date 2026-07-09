@@ -130,14 +130,26 @@ async function fetchSheetData(
     throw new Error(`分頁「${targetSheet}」沒有資料（需要標題列 + 至少一筆學生資料）`);
   }
 
-  // 解析標題列
+  // 解析標題列（支援多種常見欄位名稱變體）
   const headers = values[0].map((h: string) => h.trim().toLowerCase());
-  const emailIdx = headers.findIndex((h: string) => h === 'email' || h === '電郵');
-  const classIdx = headers.findIndex((h: string) => h === 'class' || h === '班級' || h === 'classname');
-  const classNoIdx = headers.findIndex((h: string) => h === 'classnumber' || h === '班號');
-  const nameZhIdx = headers.findIndex((h: string) => h === 'namezh' || h === '中文姓名');
-  const nameEnIdx = headers.findIndex((h: string) => h === 'nameen' || h === '英文姓名');
-  const levelIdx = headers.findIndex((h: string) => h === 'level' || h === '年級');
+  const emailIdx = headers.findIndex((h: string) =>
+    h === 'email' || h === '電郵' || h === '電郵地址' || h === 'e-mail'
+  );
+  const classIdx = headers.findIndex((h: string) =>
+    h === 'class' || h === '班級' || h === 'classname' || h === 'classcode' || h === '班別'
+  );
+  const classNoIdx = headers.findIndex((h: string) =>
+    h === 'classnumber' || h === '班號' || h === 'classno' || h === '學號'
+  );
+  const nameZhIdx = headers.findIndex((h: string) =>
+    h === 'namezh' || h === '中文姓名' || h === 'chname' || h === '中文名' || h === '姓名'
+  );
+  const nameEnIdx = headers.findIndex((h: string) =>
+    h === 'nameen' || h === '英文姓名' || h === 'enname' || h === '英文名'
+  );
+  const levelIdx = headers.findIndex((h: string) =>
+    h === 'level' || h === '年級' || h === 'grade' || h === 'gradelevel'
+  );
 
   if (emailIdx === -1) {
     throw new Error(`找不到「Email」欄位。可用欄位：${headers.join(', ')}`);
