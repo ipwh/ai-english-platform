@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/hooks/use-i18n';
-import { GraduationCap, Users } from 'lucide-react';
+import { GraduationCap, Users, Shield } from 'lucide-react';
 
 export default function RoleSelectPage() {
   const { t } = useT();
@@ -50,7 +50,7 @@ export default function RoleSelectPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 學生 */}
           <form action="/api/auth/role" method="post">
             <input type="hidden" name="role" value="student" />
@@ -78,6 +78,21 @@ export default function RoleSelectPage() {
               </div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.teacher')}</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.teacherDesc')}</p>
+            </button>
+          </form>
+
+          {/* 管理員 */}
+          <form action="/api/auth/role" method="post">
+            <input type="hidden" name="role" value="admin" />
+            <button
+              type="submit"
+              className="group w-full bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border-2 border-transparent hover:border-purple-400 dark:hover:border-purple-500 transition-all text-center"
+            >
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <Shield className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t('role.admin')}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('role.adminDesc')}</p>
             </button>
           </form>
         </div>

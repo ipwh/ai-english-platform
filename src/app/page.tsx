@@ -24,11 +24,9 @@ export default async function Home() {
 
     console.log('[root:/] resolved role:', role);
 
-    if (role === 'admin') {
-      redirect('/admin');
-    }
-    if (role === 'teacher') {
-      redirect('/teacher/dashboard');
+    // Admin/教師 → 角色選擇頁面（可自由切換學生/教師/管理員）
+    if (role === 'admin' || role === 'teacher') {
+      redirect('/role-select');
     }
     if (role === 'student') {
       redirect('/student/dashboard');
