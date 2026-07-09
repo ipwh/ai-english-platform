@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
-import { mockQuestions, mockStudent } from '@/lib/mock-data';
+import type { PracticeQuestion } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 interface DiagnosticResult {
@@ -20,17 +20,7 @@ interface DiagnosticResult {
   suggestion: string;
 }
 
-// 從 mock 題庫挑選診斷題目（每技能 3 題）
-const diagnosticQuestions = [
-  ...mockQuestions.filter(q => q.grammarItem === 'tenses').slice(0, 1),
-  ...mockQuestions.filter(q => q.grammarItem === 'relative-clauses').slice(0, 1),
-  ...mockQuestions.filter(q => q.grammarItem === 'conditionals').slice(0, 1),
-  ...mockQuestions.filter(q => q.grammarItem === 'phrasal-verbs').slice(0, 2),
-  ...mockQuestions.filter(q => q.languageSkill === 'reading').slice(0, 2),
-  ...mockQuestions.filter(q => q.languageSkill === 'writing').slice(0, 1),
-  ...mockQuestions.filter(q => q.type === 'error-correction').slice(0, 1),
-  ...mockQuestions.filter(q => q.grammarItem === 'passive-voice').slice(0, 1),
-].slice(0, 12);
+const diagnosticQuestions: PracticeQuestion[] = [];
 
 export default function DiagnosticPage() {
   const { t } = useT();
@@ -121,7 +111,7 @@ export default function DiagnosticPage() {
           overallAccuracy: Math.round(computed.reduce((s, r) => s + r.score, 0) / computed.length),
           weakSkills: computed.filter(r => r.score < 60).map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score })),
           recentPerformance: [],
-          streakDays: mockStudent.streakDays,
+          streakDays: 0,
         }),
       });
       const json = await res.json();

@@ -11,7 +11,6 @@ import {
   ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
   BookMarked, Clock, Sparkles, Loader2, Flag,
 } from 'lucide-react';
-import { mockQuestions } from '@/lib/mock-data';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
@@ -48,10 +47,24 @@ export default function PracticeQuestionPage() {
   // 合併 mock 題目 + AI session 題目
   const allQuestions = useMemo(() => {
     const sessionQuestions = store.currentSession?.questions || [];
-    return [...sessionQuestions, ...mockQuestions];
+    return [...sessionQuestions];
   }, [store.currentSession]);
 
-  const question = allQuestions.find(q => q.id === params.id) || mockQuestions[0];
+  const question = allQuestions.find(q => q.id === params.id) || null;
+  
+  if (!question) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="text-center">
+          <p className="text-gray-500 mb-3">找不到此題目</p>
+          <Link href="/student/practice" className="text-blue-600 hover:underline">
+            ← 返回練習頁面
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [currentHint, setCurrentHint] = useState(0);
@@ -73,12 +86,6 @@ export default function PracticeQuestionPage() {
   const sessionTotal = sessionQuestions.length;
   const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
   const hasNextSession = sessionIndex < sessionTotal - 1;
-
-  // Mock 模式
-  const mockIndex = mockQuestions.findIndex(q => q.id === params.id);
-  const mockTotal = mockQuestions.length;
-  const mockProgress = ((mockIndex + 1) / mockTotal) * 100;
-  const hasNextMock = mockIndex < mockTotal - 1;
 
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
   const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type);
@@ -161,9 +168,6 @@ export default function PracticeQuestionPage() {
     if (isSessionMode && hasNextSession) {
       const nextQ = sessionQuestions[sessionIndex + 1];
       router.push(`/student/practice/${nextQ.id}`);
-    } else if (!isSessionMode && hasNextMock) {
-      const nextQ = mockQuestions[mockIndex + 1];
-      router.push(`/student/practice/${nextQ.id}`);
     } else {
       // 完成所有題目
       if (isSessionMode) store.completeSession();
@@ -201,13 +205,13 @@ export default function PracticeQuestionPage() {
 
       {/* 進度條 */}
       <ProgressBar
-        value={isSessionMode ? sessionIndex + 1 : mockIndex + 1}
-        max={isSessionMode ? sessionTotal : mockTotal}
+        value={isSessionMode ? sessionIndex + 1 : 0}
+        max={isSessionMode ? sessionTotal : 0}
         size="sm"
         showPercentage={false}
       />
       <div className="text-xs text-gray-400 text-right">
-        第 {isSessionMode ? sessionIndex + 1 : mockIndex + 1}/{isSessionMode ? sessionTotal : mockTotal} 題
+        第 {isSessionMode ? sessionIndex + 1 : 0}/{isSessionMode ? sessionTotal : 0} 題
         {isSessionMode && <span className="ml-2 text-purple-500">· AI 生成練習</span>}
       </div>
 
@@ -538,7 +542,7 @@ export default function PracticeQuestionPage() {
               onClick={handleNext}
               className="flex items-center gap-2 px-6 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl transition-colors"
             >
-              {(isSessionMode && !hasNextSession) || (!isSessionMode && !hasNextMock) ? (
+              {!hasNextSession ? (
                 <>完成練習 ✓</>
               ) : (
                 <>下一題 <ArrowRight className="w-4 h-4" /></>

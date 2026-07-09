@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
-import { mockMaterials } from '@/lib/mock-data';
+
 import { formatDate } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
 
@@ -55,10 +55,7 @@ export default function TeacherMaterialsPage() {
     finally { setAnalyzingId(null); }
   };
 
-  const filtered = mockMaterials.filter(m => {
-    if (search && !m.title.includes(search) && !m.tags.some(t => t.includes(search))) return false;
-    return true;
-  });
+  const filtered: any[] = [];
 
   const statusLabel: Record<string, { label: string; color: string }> = {
     'pending': { label: '待處理', color: 'bg-gray-100 text-gray-600' },
@@ -175,7 +172,7 @@ export default function TeacherMaterialsPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">{m.title}</h3>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {m.tags.map(tag => (
+                    {m.tags.map((tag: string) => (
                       <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 flex items-center gap-1">
                         <Tag className="w-2 h-2" /> {tag}
                       </span>

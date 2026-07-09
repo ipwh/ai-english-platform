@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { Check, X, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
-import { mockReviews } from '@/lib/mock-data';
+
 import { formatDate } from '@/lib/utils';
 import EmptyState from '@/components/shared/EmptyState';
 import type { ReviewStatus } from '@/lib/types';
@@ -14,8 +14,8 @@ import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReviewPage() {
   const { t } = useT();
-  const [reviews, setReviews] = useState(mockReviews);
-  const [selectedReview, setSelectedReview] = useState(reviews[0]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [selectedReview, setSelectedReview] = useState<any>(reviews[0]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');
   const [teacherScore, setTeacherScore] = useState<number | undefined>(selectedReview?.teacherScore);
   const [teacherFeedback, setTeacherFeedback] = useState(selectedReview?.teacherFeedback || '');
@@ -27,8 +27,8 @@ export default function TeacherReviewPage() {
   const filtered = reviews.filter(r => filter === 'all' ? true : r.status === filter);
 
   const updateReview = (id: string, updates: Partial<typeof selectedReview>) => {
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-    setSelectedReview(prev => prev.id === id ? { ...prev, ...updates } : prev);
+    setReviews((prev: any[]) => prev.map((r: any) => r.id === id ? { ...r, ...updates } : r));
+    setSelectedReview((prev: any) => prev.id === id ? { ...prev, ...updates } : prev);
   };
 
   const handleAccept = () => {

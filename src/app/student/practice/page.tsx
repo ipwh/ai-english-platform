@@ -11,7 +11,6 @@ import {
   Search, Sparkles, Zap, Clock, RotateCcw, BookOpen, ClipboardList,
   Loader2, Target, ChevronDown, Play, BarChart3,
 } from 'lucide-react';
-import { mockQuestions, mockStudent } from '@/lib/mock-data';
 import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
@@ -41,7 +40,7 @@ const defaultForm: GenerateForm = {
 };
 
 // 根據學生弱項推薦的技能
-const recommendedSkills = mockStudent.weakSkills;
+const recommendedSkills: any[] = [];
 
 export default function PracticeListPage() {
   const router = useRouter();
@@ -65,13 +64,7 @@ export default function PracticeListPage() {
   const masteryBySkill = store.getMasteryBySkill();
 
   // === 篩選預設題目 ===
-  const filtered = mockQuestions.filter((q) => {
-    if (search && !q.subSkill.includes(search) && !q.prompt.includes(search)) return false;
-    if (skillFilter !== 'all' && q.grammarItem !== skillFilter && q.languageSkill !== skillFilter) return false;
-    if (difficultyFilter !== 'all' && q.difficulty !== difficultyFilter) return false;
-    if (gradeFilter !== 'all' && q.gradeLevel !== gradeFilter) return false;
-    return true;
-  });
+  const filtered: any[] = [];
 
   // === AI 生成練習 ===
   const handleGenerate = useCallback(async () => {

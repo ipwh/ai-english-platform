@@ -10,7 +10,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line,
 } from 'recharts';
-import { mockMasteryList, mockPracticeTrend, mockSkillProgress, mockBadges } from '@/lib/mock-data';
 import KpiCard from '@/components/shared/KpiCard';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { useAppStore } from '@/store/appStore';
@@ -33,7 +32,7 @@ export default function StudentProgressPage() {
   // 合併技能掌握度（mock + 實際）
   const displayMastery = masteryBySkill.length > 0
     ? masteryBySkill.map(m => ({ subSkill: m.skillZh, percentage: m.accuracy }))
-    : mockMasteryList.slice(0, 8).map(m => ({ subSkill: m.subSkillZh || m.subSkill, percentage: m.percentage }));
+    : [];
 
   // 雷達圖資料
   const radarData = [
@@ -60,7 +59,7 @@ export default function StudentProgressPage() {
           {t('progress.trend')}
         </h2>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={mockPracticeTrend}>
+          <LineChart data={[]}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="#9ca3af" />
             <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
@@ -108,7 +107,7 @@ export default function StudentProgressPage() {
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('progress.monthly')}</h2>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={mockSkillProgress} layout="vertical">
+            <BarChart data={[]} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
               <YAxis dataKey="skill" type="category" tick={{ fontSize: 12 }} width={60} />
@@ -155,14 +154,7 @@ export default function StudentProgressPage() {
           {t('progress.badges')}
         </h2>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
-          {mockBadges.map((badge) => (
-            <div key={badge.id} className={`text-center p-3 rounded-xl ${badge.unlocked ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-gray-50 dark:bg-gray-700/50 opacity-50'}`}>
-              <div className="text-2xl mb-1">{badge.icon}</div>
-              <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{badge.name}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{badge.description}</p>
-              {badge.unlockedAt && <p className="text-[10px] text-teal-500 mt-1">{t('progress.unlocked')}</p>}
-            </div>
-          ))}
+          {null}
         </div>
       </section>
     </div>

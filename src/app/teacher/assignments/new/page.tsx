@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Sparkles, Loader2, Eye, Trash2 } from 'lucide-react';
-import { mockClasses } from '@/lib/mock-data';
+
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import Modal from '@/components/shared/Modal';
 import { useT } from '@/hooks/use-i18n';
@@ -119,7 +119,7 @@ export default function NewAssignmentPage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">班別</label>
                 <select value={form.classId} onChange={(e) => setForm({...form, classId: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" required>
                   <option value="">選擇班別</option>
-                  {mockClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {[]}
                 </select>
               </div>
               <div>

@@ -6,11 +6,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2 } from 'lucide-react';
-import { mockMistakes } from '@/lib/mock-data';
+
 import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels } from '@/lib/nav';
 import { formatDate } from '@/lib/utils';
 import type { GrammarItem, LanguageSkill, MistakeType } from '@/lib/types';
+import type { MistakeItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 const mistakeTypeLabels: Record<string, string> = {
@@ -26,7 +27,7 @@ export default function MistakesPage() {
   const [skillFilter, setSkillFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<MistakeType | 'all'>('all');
   const [search, setSearch] = useState('');
-  const [mistakes, setMistakes] = useState(mockMistakes);
+  const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
 
   useEffect(() => {
     fetch('/api/mistakes?studentId=student')
@@ -45,7 +46,7 @@ export default function MistakesPage() {
     relatedTopics: string[];
   } | null>>({});
 
-  const handleAIExplain = async (m: typeof mockMistakes[0]) => {
+  const handleAIExplain = async (m: MistakeItem) => {
     setExplainingId(m.id);
     try {
       const res = await fetch('/api/ai/explain-mistake', {

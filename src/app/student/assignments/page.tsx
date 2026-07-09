@@ -6,19 +6,20 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
-import { mockStudentAssignments } from '@/lib/mock-data';
+
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { formatDate, daysRemaining, getStatusColor } from '@/lib/utils';
 import { statusLabels } from '@/lib/nav';
 import type { AssignmentStatus } from '@/lib/types';
 import EmptyState from '@/components/shared/EmptyState';
+import type { AssignmentSummary } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function StudentAssignmentsPage() {
   const { t } = useT();
   const [filter, setFilter] = useState<AssignmentStatus | 'all'>('all');
-  const [assignments, setAssignments] = useState(mockStudentAssignments);
+  const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

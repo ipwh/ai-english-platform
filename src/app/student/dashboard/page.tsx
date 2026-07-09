@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Play, Sparkles, Loader2 } from 'lucide-react';
-import { mockStudentKpis } from '@/lib/mock-data';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
@@ -26,7 +25,7 @@ export default function StudentDashboardPage() {
         </Link>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {mockStudentKpis.map((kpi, i) => <KpiCard key={i} data={kpi} />)}
+        {null}
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-3">{t('student.dashboard.aiInsight')}</h2>

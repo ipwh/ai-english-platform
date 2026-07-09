@@ -6,16 +6,17 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Clock, Users, ChevronRight, Loader2 } from 'lucide-react';
-import { mockTeacherAssignments } from '@/lib/mock-data';
+
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { formatDate, daysRemaining } from '@/lib/utils';
 import { statusLabels } from '@/lib/nav';
+import type { Assignment } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherAssignmentsPage() {
   const { t } = useT();
-  const [assignments, setAssignments] = useState(mockTeacherAssignments);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

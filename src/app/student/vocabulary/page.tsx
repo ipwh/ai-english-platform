@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Sparkles, Loader2, BookMarked, TrendingUp } from 'lucide-react';
-import { mockVocab } from '@/lib/mock-data';
+
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import type { Familiarity, VocabItem } from '@/lib/types';
@@ -27,7 +27,7 @@ export default function VocabularyPage() {
 
   // === AI 例句生成 ===
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [vocab, setVocab] = useState<VocabItem[]>(mockVocab);
+  const [vocab, setVocab] = useState<VocabItem[]>([]);
 
   useEffect(() => {
     fetch('/api/vocabulary?studentId=student')
