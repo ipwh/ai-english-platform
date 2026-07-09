@@ -11,6 +11,22 @@ import { GRAMMAR_ITEM_LABELS } from '@/lib/types';
 import { gradeLabels } from '@/lib/nav';
 import { useT } from '@/hooks/use-i18n';
 
+const SETTINGS_KEY = 'teacher-settings';
+
+function loadLocalSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveLocalSettings(data: Record<string, unknown>) {
+  try {
+    const existing = loadLocalSettings();
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...existing, ...data }));
+  } catch { /* ignore */ }
+}
+
 export default function TeacherSettingsPage() {
   const { t, language } = useT();
   const lang = language || 'zh';
@@ -20,6 +36,14 @@ export default function TeacherSettingsPage() {
   const [classes, setClasses] = useState<{ id: string; name: string; gradeLevel: string }[]>([]);
   const [selectedGrades, setSelectedGrades] = useState<string[]>(['S4', 'S5']);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  // Local settings
+  const [grammarEnabled, setGrammarEnabled] = useState<Record<string, boolean>>({});
+  const [passScore, setPassScore] = useState(50);
+  const [masteryThreshold, setMasteryThreshold] = useState(80);
+  const [notifSubmission, setNotifSubmission] = useState(true);
+  const [notifLowCompletion, setNotifLowCompletion] = useState(true);
+  const [notifInactive, setNotifInactive] = useState(false);
+  const [notifMaintenance, setNotifMaintenance] = useState(false);
 
   useEffect(() => {
     fetch('/api/ai/status')
@@ -30,28 +54,59 @@ export default function TeacherSettingsPage() {
       .then(r => r.json())
       .then(d => setClasses(d.classes || []))
       .catch(() => {});
-    // Load current teacher settings
     fetch('/api/auth/settings')
       .then(r => r.json())
       .then(d => {
         if (d.settings?.classIds) setSelectedClassIds(d.settings.classIds);
-        if (d.settings?.classNames?.length) setSelectedGrades([]); // Don't override if classes are set
       })
       .catch(() => {});
+
+    // Load local settings
+    const local = loadLocalSettings();
+    if (local.selectedGrades) setSelectedGrades(local.selectedGrades);
+    if (local.grammarEnabled) setGrammarEnabled(local.grammarEnabled);
+    if (local.passScore) setPassScore(local.passScore);
+    if (local.masteryThreshold) setMasteryThreshold(local.masteryThreshold);
+    if (local.notifSubmission !== undefined) setNotifSubmission(local.notifSubmission);
+    if (local.notifLowCompletion !== undefined) setNotifLowCompletion(local.notifLowCompletion);
+    if (local.notifInactive !== undefined) setNotifInactive(local.notifInactive);
+    if (local.notifMaintenance !== undefined) setNotifMaintenance(local.notifMaintenance);
   }, []);
 
   const toggleClass = (id: string) => {
     setSelectedClassIds(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   };
 
+  const toggleGrammar = (key: string) => {
+    setGrammarEnabled(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      saveLocalSettings({ grammarEnabled: next });
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Save classIds to DB
       const res = await fetch('/api/auth/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classIds: selectedClassIds }),
       });
+
+      // Save other settings to localStorage
+      saveLocalSettings({
+        selectedGrades,
+        grammarEnabled,
+        passScore,
+        masteryThreshold,
+        notifSubmission,
+        notifLowCompletion,
+        notifInactive,
+        notifMaintenance,
+      });
+
       if (res.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -104,7 +159,7 @@ export default function TeacherSettingsPage() {
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(GRAMMAR_ITEM_LABELS).map(([key, val]) => (
             <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" defaultChecked className="rounded" /> {lang === 'en' ? val.en : val.zh}
+              <input type="checkbox" checked={grammarEnabled[key] !== false} onChange={() => toggleGrammar(key)} className="rounded" /> {lang === 'en' ? val.en : val.zh}
             </label>
           ))}
         </div>
@@ -118,11 +173,11 @@ export default function TeacherSettingsPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('teacher.settings.passScore')}</label>
-            <input type="number" defaultValue={50} className="w-24 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" />
+            <input type="number" value={passScore} onChange={e => setPassScore(Number(e.target.value))} className="w-24 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" />
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('teacher.settings.masteryThreshold')}</label>
-            <input type="number" defaultValue={80} className="w-24 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" />
+            <input type="number" value={masteryThreshold} onChange={e => setMasteryThreshold(Number(e.target.value))} className="w-24 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" />
           </div>
         </div>
       </section>
@@ -187,13 +242,13 @@ export default function TeacherSettingsPage() {
         </h2>
         <div className="space-y-2">
           {[
-            t('teacher.settings.notifSubmission'),
-            t('teacher.settings.notifLowCompletion'),
-            t('teacher.settings.notifInactive'),
-            t('teacher.settings.notifMaintenance'),
+            { label: t('teacher.settings.notifSubmission'), checked: notifSubmission, setter: setNotifSubmission },
+            { label: t('teacher.settings.notifLowCompletion'), checked: notifLowCompletion, setter: setNotifLowCompletion },
+            { label: t('teacher.settings.notifInactive'), checked: notifInactive, setter: setNotifInactive },
+            { label: t('teacher.settings.notifMaintenance'), checked: notifMaintenance, setter: setNotifMaintenance },
           ].map(n => (
-            <label key={n} className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" defaultChecked className="rounded" /> {n}
+            <label key={n.label} className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={n.checked} onChange={e => n.setter(e.target.checked)} className="rounded" /> {n.label}
             </label>
           ))}
         </div>

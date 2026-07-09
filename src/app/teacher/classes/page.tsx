@@ -6,7 +6,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import ProgressBar from '@/components/shared/ProgressBar';
 import { useT } from '@/hooks/use-i18n';
 import { gradeLabels } from '@/lib/nav';
 
@@ -22,8 +21,6 @@ export default function TeacherClassesPage() {
         ...c,
         studentCount: c._count?.students ?? 0,
         assignmentCount: c._count?.assignments ?? 0,
-        avgAccuracy: Math.round(Math.random() * 30 + 55),
-        avgCompletionRate: Math.round(Math.random() * 40 + 50),
       }))))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -46,18 +43,12 @@ export default function TeacherClassesPage() {
                 <span className="text-gray-500 dark:text-gray-400">{t('generic.studentCount')}</span>
                 <span className="font-medium text-gray-900 dark:text-white">{cls.studentCount} {t('generic.people')}</span>
               </div>
-              <div>
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>{t('generic.avgAccuracy')}</span><span>{cls.avgAccuracy}%</span>
+              {cls.assignmentCount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">課業數</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{cls.assignmentCount}</span>
                 </div>
-                <ProgressBar value={cls.avgAccuracy} size="sm" showPercentage={false} />
-              </div>
-              <div>
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>{t('generic.avgCompletionRate')}</span><span>{cls.avgCompletionRate}%</span>
-                </div>
-                <ProgressBar value={cls.avgCompletionRate} size="sm" showPercentage={false} />
-              </div>
+              )}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
               <span className="text-xs text-gray-400">{cls.gradeLevel}（{gradeLabels[cls.gradeLevel] || cls.gradeLevel}）</span>
