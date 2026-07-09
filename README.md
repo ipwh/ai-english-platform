@@ -244,7 +244,7 @@ src/
 
    | CLASSCODE | CLASSNO | CHNAME | ENNAME | EMAIL |
    |-----------|---------|--------|--------|-------|
-   | 4A | 15 | 陳大文 | Chan Tai Man | s2025001@pochiu.edu.hk |
+   | 4A | 15 | 陳大文 | Chan Tai Man | s2025001@xxx.edu.hk |
 
    > 亦支援 `Email / Class / ClassNumber / NameZh / NameEn / Level` 等欄位名稱。系統會自動辨識標題列。
 
