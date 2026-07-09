@@ -186,7 +186,7 @@ function inferGradeLevel(className: string): string {
 }
 
 // ============================================
-// POST Handler
+// POST Handler — 批量優化版（避免 Vercel 10s 超時）
 // ============================================
 
 export async function POST(request: NextRequest) {
@@ -244,160 +244,138 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ...result, message: 'Sheet 中沒有有效資料列' });
     }
 
-    // 預覽模式：只回傳將要做的變更
-    if (dryRun) {
-      for (const row of rows) {
-        const existing = await db.user.findUnique({
-          where: { email: row.email },
-          select: { id: true, nameZh: true, class: { select: { name: true } }, classNumber: true, level: true },
-        });
+    // === 批量查詢所有現有學生（1 次 DB 查詢取代 N 次）===
+    const allEmails = rows.map(r => r.email);
+    const existingUsers = await db.user.findMany({
+      where: { email: { in: allEmails } },
+      select: { id: true, email: true, nameZh: true, role: true, class: { select: { name: true } }, classNumber: true, level: true },
+    });
 
-        if (!existing) {
+    // 建立 email → user 的快速查找 Map
+    const existingMap = new Map(existingUsers.map(u => [u.email.toLowerCase(), u]));
+
+    // 確保所有需要的班級存在（批量 upsert）
+    const uniqueClasses = [...new Set(rows.map(r => r.class).filter(Boolean))];
+    const classMap = new Map<string, string>(); // className → classId
+    if (!dryRun && uniqueClasses.length > 0) {
+      for (const className of uniqueClasses) {
+        const cls = await db.class.upsert({
+          where: { name: className },
+          update: {},
+          create: { name: className, gradeLevel: inferGradeLevel(className) },
+        });
+        classMap.set(className, cls.id);
+      }
+    }
+
+    // 計算班別分布（快速）
+    const previewDist: Record<string, number> = {};
+    for (const row of rows) {
+      if (row.class) previewDist[row.class] = (previewDist[row.class] || 0) + 1;
+    }
+
+    // === 分析每筆資料（記憶體中比對，不查 DB）===
+    const toCreate: SheetRow[] = [];
+    const toUpdate: { row: SheetRow; oldClass: string }[] = [];
+
+    for (const row of rows) {
+      const existing = existingMap.get(row.email);
+      if (!existing) {
+        toCreate.push(row);
+      } else {
+        const oldClass = existing.class?.name || '';
+        toUpdate.push({ row, oldClass });
+      }
+    }
+
+    // === 預覽模式：直接回傳分析結果（超快，只有 1 次 DB 查詢）===
+    if (dryRun) {
+      for (const row of toCreate) {
+        result.details.push({
+          email: row.email,
+          nameZh: row.nameZh,
+          action: 'created',
+          newClass: row.class || '(無)',
+          reason: '新學生，將被建立',
+        });
+        result.created++;
+      }
+      for (const { row, oldClass } of toUpdate) {
+        const newClass = row.class || oldClass;
+        if (row.class && oldClass !== newClass) {
           result.details.push({
             email: row.email,
-            nameZh: row.nameZh,
-            action: 'created',
-            newClass: row.class || '(無)',
-            reason: '新學生，將被建立',
+            nameZh: existingMap.get(row.email)?.nameZh || row.nameZh,
+            action: 'class_fixed',
+            oldClass: oldClass || '(無)',
+            newClass,
+            reason: `班別將從 ${oldClass || '(無)'} 修正為 ${newClass}`,
           });
-          result.created++;
+          result.classFixed++;
         } else {
-          const oldClass = existing.class?.name || '(無)';
-          const newClass = row.class || oldClass;
-          if (row.class && oldClass !== newClass) {
-            result.details.push({
-              email: row.email,
-              nameZh: existing.nameZh || row.nameZh,
-              action: 'class_fixed',
-              oldClass,
-              newClass,
-              reason: `班別將從 ${oldClass} 修正為 ${newClass}`,
-            });
-            result.classFixed++;
-          } else {
-            result.details.push({
-              email: row.email,
-              nameZh: existing.nameZh || row.nameZh,
-              action: 'updated',
-              oldClass,
-              newClass,
-              reason: '資料將被更新',
-            });
-            result.updated++;
-          }
-        }
-      }
-
-      // 預覽模式也顯示預計的班別分布
-      const previewDist: Record<string, number> = {};
-      for (const row of rows) {
-        if (row.class) {
-          previewDist[row.class] = (previewDist[row.class] || 0) + 1;
+          result.updated++;
         }
       }
       result.classDistribution = previewDist;
-
       return NextResponse.json(result);
     }
 
     // === 實際同步模式 ===
 
-    // 先確保所有需要的班級存在
-    const uniqueClasses = [...new Set(rows.map(r => r.class).filter(Boolean))];
-    const classMap = new Map<string, string>(); // className → classId
-    for (const className of uniqueClasses) {
-      const cls = await db.class.upsert({
-        where: { name: className },
-        update: {},
-        create: {
-          name: className,
-          gradeLevel: inferGradeLevel(className),
-        },
-      });
-      classMap.set(className, cls.id);
+    // 批量建立新學生（使用 createMany 一次寫入）
+    if (toCreate.length > 0) {
+      try {
+        await db.user.createMany({
+          data: toCreate.map(row => ({
+            email: row.email,
+            nameZh: row.nameZh || row.email.split('@')[0],
+            nameEn: row.nameEn || row.nameZh || undefined,
+            role: 'student' as const,
+            classId: row.class ? classMap.get(row.class) : undefined,
+            classNumber: row.classNumber || undefined,
+            level: row.level || (row.class ? inferGradeLevel(row.class) : undefined),
+          })),
+          skipDuplicates: true,
+        });
+        result.created = toCreate.length;
+        console.log(`[sync-sheets] Bulk created ${toCreate.length} new students`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '未知錯誤';
+        result.errors.push(`批量建立失敗: ${msg}`);
+      }
     }
 
-    // 逐筆同步學生資料
-    for (const row of rows) {
-      try {
-        const classId = row.class ? classMap.get(row.class) : undefined;
-        const level = row.level || (row.class ? inferGradeLevel(row.class) : undefined);
-
-        const existing = await db.user.findUnique({
-          where: { email: row.email },
-          select: { id: true, nameZh: true, class: { select: { name: true } }, role: true },
-        });
-
-        if (!existing) {
-          // 新學生：自動建立
-          await db.user.create({
-            data: {
-              email: row.email,
-              nameZh: row.nameZh || row.email.split('@')[0],
-              nameEn: row.nameEn || row.nameZh || undefined,
-              role: 'student',
-              classId: classId || undefined,
-              classNumber: row.classNumber || undefined,
-              level: level || undefined,
-            },
-          });
-          result.created++;
-          result.details.push({
-            email: row.email,
-            nameZh: row.nameZh,
-            action: 'created',
-            newClass: row.class || '(無)',
-          });
-        } else {
-          // 現有學生：強制更新班別（Sheets 是真相來源）
-          const oldClass = existing.class?.name || '(無)';
+    // 批量更新現有學生（分批處理，每批 50 筆以避免 transaction 過大）
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+      const batch = toUpdate.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async ({ row, oldClass }) => {
+        try {
+          const classId = row.class ? classMap.get(row.class) : undefined;
+          const level = row.level || (row.class ? inferGradeLevel(row.class) : undefined);
           const isClassChanged = row.class && oldClass !== row.class;
 
           await db.user.update({
             where: { email: row.email },
             data: {
-              nameZh: row.nameZh || existing.nameZh || undefined,
+              nameZh: row.nameZh || undefined,
               nameEn: row.nameEn || undefined,
-              classId: classId || undefined,  // 若 Sheets 中 class 為空，則清除班別
+              classId: classId,
               classNumber: row.classNumber || undefined,
               level: level || undefined,
-              role: existing.role, // 保留原有角色（不把老師降級為學生）
             },
           });
 
-          if (isClassChanged) {
-            result.classFixed++;
-            result.details.push({
-              email: row.email,
-              nameZh: existing.nameZh || row.nameZh,
-              action: 'class_fixed',
-              oldClass,
-              newClass: row.class,
-              reason: `班別已從 ${oldClass} 修正為 ${row.class}`,
-            });
-          } else {
-            result.updated++;
-            result.details.push({
-              email: row.email,
-              nameZh: existing.nameZh || row.nameZh,
-              action: 'updated',
-              oldClass,
-              newClass: row.class || oldClass,
-              reason: '資料已更新',
-            });
-          }
+          if (isClassChanged) result.classFixed++;
+          else result.updated++;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : '未知錯誤';
+          result.errors.push(`${row.email}: ${msg}`);
         }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '未知錯誤';
-        result.errors.push(`${row.email}: ${msg}`);
-        result.details.push({
-          email: row.email,
-          nameZh: row.nameZh,
-          action: 'error',
-          reason: msg,
-        });
-      }
+      }));
     }
+
+    console.log(`[sync-sheets] Updated ${toUpdate.length} students`);
 
     // 計算最終班別分布
     const distribution = await db.user.groupBy({
