@@ -154,10 +154,3 @@ export default function ClassDetailPage() {
     </div>
   );
 }
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
