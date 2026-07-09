@@ -36,20 +36,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           if (!existing) {
             console.log('[auth] creating new user for', user.email);
+            // 檢查是否為已知教師/admin email
+            const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
             await db.user.create({
               data: {
                 email: user.email,
                 name: user.name || (profile as { name?: string } | null)?.name || null,
                 nameEn: user.name || (profile as { name?: string } | null)?.name || null,
                 image: user.image || (profile as { picture?: string } | null)?.picture || null,
-                role: 'student',
+                role: isAdmin ? 'admin' : 'student',
               },
             });
-            userRole = 'student';
+            userRole = isAdmin ? 'admin' : 'student';
           } else {
             userRole = existing.role;
             console.log('[auth] existing user found', existing.id, existing.role);
-            // 每次 Google 登入時更新名稱和頭像（確保與 Google Workspace 一致）
+            // 每次 Google 登入時更新名稱和頭像
             const googleName = user.name || (profile as { name?: string } | null)?.name;
             const googlePic = user.image || (profile as { picture?: string } | null)?.picture;
             if (googleName && googleName !== existing.name) {
@@ -69,49 +71,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       }
 
-      // 根據角色決定登入後導向
-      // 學生 → 直接進入學生主頁；教師/管理員 → 角色選擇頁
-      if (userRole === 'student') {
-        (user as { role?: string }).role = 'student';
-      } else if (userRole === 'teacher' || userRole === 'admin') {
-        (user as { role?: string }).role = userRole;
-      }
+      // 確保 role 正確寫入 user 物件（jwt callback 會讀取此值）
+      (user as { role?: string }).role = userRole || 'student';
 
       console.log('[auth] signIn callback complete, role:', userRole);
       return true;
     },
     async redirect({ url, baseUrl }) {
-      // 從 jwt token 中取得角色（由 jwt callback 寫入）
-      // 注意：redirect callback 無法直接讀取 user 物件，需透過其他機制
-      // 此處保持通用邏輯：對特定 callback URL 放行
+      // 允許相對 callback URLs
       if (url.startsWith('/')) {
         const resolved = `${baseUrl}${url}`;
+        // 如果最終目標是 baseUrl 根路徑，交給 root page 判斷角色導向
         if (resolved === `${baseUrl}/` || resolved === baseUrl) {
-          return `${baseUrl}/role-select`;
+          return `${baseUrl}/`;
         }
         return resolved;
       }
       try {
         if (new URL(url).origin === baseUrl) {
           if (url === baseUrl || url === `${baseUrl}/`) {
-            return `${baseUrl}/role-select`;
+            return `${baseUrl}/`;
           }
           return url;
         }
-      } catch {
-        // ignore invalid URLs
-      }
-      return `${baseUrl}/role-select`;
+      } catch { /* ignore invalid URLs */ }
+      return `${baseUrl}/`;
     },
     async jwt({ token, user, account }) {
       // 首次登入時 user 與 account 都有值
       if (user) {
         token.id = user.id;
+        token.email = user.email || '';
         token.role = (user as { role?: string }).role || 'student';
         token.provider = account?.provider;
       }
 
-      // 從 DB 同步最新角色（含錯誤保護，避免 DB 逾時中斷整個 callback）
+      // 從 DB 同步最新角色（確保 role 變更後即時生效）
       if (token.email) {
         try {
           const dbUser = await db.user.findUnique({
@@ -125,7 +120,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         } catch (err) {
           console.error('[auth] jwt callback: db lookup failed', err);
-          // 不中斷流程，沿用 token 中已有的值
         }
       }
 
