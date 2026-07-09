@@ -132,7 +132,7 @@ function LoginForm() {
           {/* Google OAuth 登入 */}
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
-              onClick={() => signIn('google', { callbackUrl: '/role-select', redirect: true })}
+              onClick={() => signIn('google', { callbackUrl: '/', redirect: true })}
               className="w-full py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">

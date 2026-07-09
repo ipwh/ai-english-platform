@@ -25,6 +25,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         timestamp: new Date().toISOString(),
       });
 
+      let userRole: string | null = null;
+
       if (account?.provider === 'google' && user.email) {
         try {
           const existing = await db.user.findUnique({
@@ -43,7 +45,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 role: 'student',
               },
             });
+            userRole = 'student';
           } else {
+            userRole = existing.role;
             console.log('[auth] existing user found', existing.id, existing.role);
             // 每次 Google 登入時更新名稱和頭像（確保與 Google Workspace 一致）
             const googleName = user.name || (profile as { name?: string } | null)?.name;
@@ -53,7 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 where: { id: existing.id },
                 data: {
                   name: googleName,
-                  nameEn: existing.nameEn || googleName, // 保留已有的 nameEn，沒有才設
+                  nameEn: existing.nameEn || googleName,
                   image: googlePic || existing.image,
                 },
               });
@@ -65,20 +69,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       }
 
-      console.log('[auth] signIn callback complete, returning true');
+      // 根據角色決定登入後導向
+      // 學生 → 直接進入學生主頁；教師/管理員 → 角色選擇頁
+      if (userRole === 'student') {
+        (user as { role?: string }).role = 'student';
+      } else if (userRole === 'teacher' || userRole === 'admin') {
+        (user as { role?: string }).role = userRole;
+      }
+
+      console.log('[auth] signIn callback complete, role:', userRole);
       return true;
     },
     async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs (e.g. /role-select from signIn options)
+      // 從 jwt token 中取得角色（由 jwt callback 寫入）
+      // 注意：redirect callback 無法直接讀取 user 物件，需透過其他機制
+      // 此處保持通用邏輯：對特定 callback URL 放行
       if (url.startsWith('/')) {
-        // If the resolved url is just baseUrl + '/', send to role-select
         const resolved = `${baseUrl}${url}`;
         if (resolved === `${baseUrl}/` || resolved === baseUrl) {
           return `${baseUrl}/role-select`;
         }
         return resolved;
       }
-      // Allows callback URLs on the same origin
       try {
         if (new URL(url).origin === baseUrl) {
           if (url === baseUrl || url === `${baseUrl}/`) {

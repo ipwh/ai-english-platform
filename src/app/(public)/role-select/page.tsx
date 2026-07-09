@@ -1,16 +1,40 @@
 // ============================================
-// 角色選擇頁面（Google OAuth 首次登入後使用）
-// 支援繁體中文 / English 切換
+// 角色選擇頁面（僅教師/管理員使用；學生會被自動導向）
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useT } from '@/hooks/use-i18n';
 import { GraduationCap, Users } from 'lucide-react';
 
 export default function RoleSelectPage() {
   const { t } = useT();
+  const router = useRouter();
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // 檢查當前 session 的角色：學生不應看到此頁
+    fetch('/api/auth/session')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.user?.role === 'student' || data?.role === 'student') {
+          router.replace('/student/dashboard');
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => setChecking(false));
+  }, [router]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4">
