@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     // 4. 刪除詞彙項目
     if (mockUserIds.length > 0) {
       const r = await db.vocabItem.deleteMany({
-        where: { userId: { in: mockUserIds } },
+        where: { studentId: { in: mockUserIds } },
       });
       result.deletedVocabItems = r.count;
     }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     // 5. 刪除錯題記錄
     if (mockUserIds.length > 0) {
       const r = await db.mistake.deleteMany({
-        where: { userId: { in: mockUserIds } },
+        where: { studentId: { in: mockUserIds } },
       });
       result.deletedMistakes = r.count;
     }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     // 6. 刪除練習記錄
     if (mockUserIds.length > 0) {
       const r = await db.practiceSession.deleteMany({
-        where: { userId: { in: mockUserIds } },
+        where: { studentId: { in: mockUserIds } },
       });
       result.deletedPracticeSessions = r.count;
     }
