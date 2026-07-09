@@ -36,18 +36,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           if (!existing) {
             console.log('[auth] creating new user for', user.email);
-            // 檢查是否為已知教師/admin email
+            // 自動判斷角色：學生 email = s + 數字；其餘為教師
+            const emailPrefix = user.email.split('@')[0];
+            const isStudent = /^s\d{7}$/i.test(emailPrefix);
             const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
+            const defaultRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
+
             await db.user.create({
               data: {
                 email: user.email,
                 name: user.name || (profile as { name?: string } | null)?.name || null,
                 nameEn: user.name || (profile as { name?: string } | null)?.name || null,
                 image: user.image || (profile as { picture?: string } | null)?.picture || null,
-                role: isAdmin ? 'admin' : 'student',
+                role: defaultRole,
               },
             });
-            userRole = isAdmin ? 'admin' : 'student';
+            userRole = defaultRole;
           } else {
             userRole = existing.role;
             console.log('[auth] existing user found', existing.id, existing.role);
