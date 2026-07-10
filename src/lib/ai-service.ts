@@ -1098,32 +1098,33 @@ export interface GenerateWritingOutlineInput {
  */
 export async function generateWritingPrompt(input: GenerateWritingPromptInput): Promise<string> {
   const lang = input.lang || 'en';
-  const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner and writing tutor.
-Your ONLY job is to create ONE engaging, specific writing prompt for a ${input.gradeLevel} student.
+  const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner.
+Create ONE complete, self-contained writing prompt. Return ONLY the prompt text.
 
-The prompt must:
-- Be a clear, focused writing task (1-3 sentences)
-- Include the context/situation, the writer's role, and the required text type
-- Match HKDSE Paper 2 style (e.g. "You are the editor of your school magazine. Write an article about...")
-- Be appropriate for ${input.gradeLevel} level (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — simpler topics, personal experience' : 'senior secondary — social issues, argumentative, DSE-level'})
-- Include a clear word limit instruction
+The prompt MUST include ALL of these elements in order:
+1. CONTEXT: A clear situation or background (1 sentence)
+2. ROLE: Who the writer is (e.g. "You are the editor of your school magazine")
+3. TASK: What to write, including the required text type (1 sentence)
+4. REQUIREMENTS: 2-3 specific content points or guiding questions
+5. WORD LIMIT: "Write about ${input.wordLimit} words."
 
-Text type required: ${input.textType}
-Word limit: ~${input.wordLimit} words
-${input.topicHint ? `Topic area to consider: ${input.topicHint}` : 'Choose an engaging, age-appropriate topic.'}
+Text type: ${input.textType}
+Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school, family, hobbies' : 'senior secondary — social issues, argumentative, DSE-level'})
+${input.topicHint ? `Topic area: ${input.topicHint}` : 'Pick an engaging topic.'}
 
-${lang === 'zh' ? 'Return ONLY the writing prompt text in English. Do NOT include any other text, explanation, or formatting.' : 'Return ONLY the writing prompt text. Do NOT include any other text, explanation, or formatting.'}
+Example format:
+"You are a member of your school's Environmental Protection Club. Your school has decided to go plastic-free starting next month. Write a letter to all students explaining the new policy, describing at least two benefits of reducing plastic use, and suggesting one practical way students can help. Write about 200 words."
 
-CRITICAL: Return ONLY the prompt itself. Do NOT include headings like "Writing Prompt:" or "Here is a prompt:". Do NOT wrap in quotes or JSON.`;
+CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a prompt:". Just the complete, ready-to-use prompt text.`.trim();
 
-  const userPrompt = `Generate one writing prompt for a ${input.gradeLevel} student. Text type: ${input.textType}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic area: ${input.topicHint}` : ''}`;
+  const userPrompt = `Create a complete writing prompt. Text type: ${input.textType}. Grade: ${input.gradeLevel}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic: ${input.topicHint}.` : ''}`;
 
   const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.8, maxTokens: 512, timeoutMs: 25000 }
+    { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000 }
   );
 
   return result.trim();
