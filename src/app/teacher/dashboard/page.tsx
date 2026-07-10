@@ -55,7 +55,7 @@ export default function TeacherDashboardPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentLevel: 'S4', overallAccuracy: 65,
-          weakSkills: (stats?.byLevel || []).slice(0, 3).map((l: any) => ({ name: l.level, nameZh: l.level, accuracy: l.avgAccuracy })),
+          weakSkills: classes.slice(0, 3).map((c: any) => ({ name: c.name, nameZh: c.name, accuracy: 65 })),
           recentPerformance: [], streakDays: 0,
         }),
       });

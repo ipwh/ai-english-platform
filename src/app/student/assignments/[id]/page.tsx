@@ -18,6 +18,7 @@ interface AssignmentQuestion {
   prompt: string;
   options: string[] | null;
   orderIndex: number;
+  explanation?: string | null;
 }
 
 interface AssignmentDetail {

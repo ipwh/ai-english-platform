@@ -5,7 +5,10 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import db from './db';
-import { getRequiredEnv } from './auth-env';
+
+function getRequiredEnv(name: string): string {
+  return process.env[name] || '';
+}
 
 const googleClientId = getRequiredEnv('AUTH_GOOGLE_ID');
 const googleClientSecret = getRequiredEnv('AUTH_GOOGLE_SECRET');
