@@ -68,24 +68,15 @@ export function wasFallbackUsed(): boolean { return lastAIProvider !== 'deepseek
 // 這是確保 Gemini fallback 品質與 DeepSeek 一致的關鍵機制
 // ============================================
 const GEMINI_JSON_INSTRUCTION = `
-
 ---
-CRITICAL OUTPUT FORMAT (MUST FOLLOW EXACTLY):
-- Output ONLY a valid JSON array (start with [, end with ]) or JSON object (start with {, end with }).
+CRITICAL OUTPUT FORMAT:
+- Output ONLY a valid JSON object (start with {, end with }) or JSON array (start with [, end with ]).
 - Do NOT wrap in markdown code blocks (no \`\`\`json).
 - Do NOT add any text, explanation, or notes before or after the JSON.
 - EVERY string field must contain meaningful, complete, substantive content.
 - NO empty strings "". NO placeholder values like "N/A", "todo", "TBD".
 - For Chinese text, use Traditional Chinese (繁體中文), NOT Simplified.
-- All JSON strings must be properly escaped (escape \" and \\ inside strings).
-- The response must be parseable by JSON.parse() directly.
-
-MCQ CHOICE RULES:
-- choices must be an array of EXACTLY 4 strings: ["A option", "B option", "C option", "D option"]
-- Each choice must be a MEANINGFUL phrase or sentence (3+ words), never single letters or random symbols
-- All 4 choices must be the same grammatical form and similar length
-- Distractors must be PLAUSIBLE — wrong but believable to a student at this level
-- answer must be a single letter: "A", "B", "C", or "D"`.trim();
+- The response must be parseable by JSON.parse() directly.`.trim();
 
 function adaptMessagesForGemini(messages: ChatMessage[], jsonMode: boolean): ChatMessage[] {
   if (!jsonMode) return messages;
