@@ -236,8 +236,6 @@ const translations: Record<string, { zh: string; en: string }> = {
   'progress.earlyMonth': { zh: '月初', en: 'Early Month' },
   'progress.now': { zh: '現在', en: 'Now' },
   'progress.recentSessions': { zh: '最近練習記錄', en: 'Recent Sessions' },
-  'progress.badges': { zh: '成就徽章', en: 'Badges' },
-  'progress.unlocked': { zh: '已解鎖', en: 'Unlocked' },
 
   // Student Assignments
   'assignments.title': { zh: '📋 我的作業', en: '📋 My Assignments' },
@@ -301,7 +299,6 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.dashboard.title': { zh: '教師主頁', en: 'Teacher Dashboard' },
   'teacher.greeting': { zh: '歡迎回來，{name}老師', en: 'Welcome back, {name}' },
   'teacher.classCompletion': { zh: '班級完成率', en: 'Class Completion' },
-  'teacher.skillHeatmap': { zh: '技能弱點熱圖', en: 'Skill Weakness Heatmap' },
   'teacher.skill': { zh: '技能', en: 'Skill' },
   'teacher.atRiskStudents': { zh: '需跟進學生', en: 'At-Risk Students' },
   'teacher.recentTasks': { zh: '最近任務', en: 'Recent Tasks' },
@@ -501,8 +498,6 @@ const translations: Record<string, { zh: string; en: string }> = {
   'practice.skillAny': { zh: '不限技能', en: 'Any Skill' },
   'practice.skillReading': { zh: '閱讀理解', en: 'Reading' },
   'practice.skillWriting': { zh: '寫作', en: 'Writing' },
-  'practice.skillListening': { zh: '聆聽', en: 'Listening' },
-  'practice.skillSpeaking': { zh: '說話', en: 'Speaking' },
   'practice.questionTypeMc': { zh: '選擇題', en: 'MC' },
   'practice.questionTypeFillBlank': { zh: '填充題', en: 'Fill in Blank' },
   'practice.questionTypeErrorCorr': { zh: '改錯題', en: 'Error Correction' },

@@ -52,7 +52,6 @@ model User {
   submissions   Submission[]
   reviews       Review[]
   notifications Notification[]
-  badges        UserBadge[]
   sessions      PracticeSession[]
   accounts      Account[]
   sessionsAuth  Session[]
@@ -289,34 +288,8 @@ model Review {
   aiFeedback      String?
   teacherScore    Float?
   teacherFeedback String?
-  status          String    @default("pending") // pending | reviewed | escalated
+  status          String    @default("pending") // pending | reviewed
   createdAt       DateTime  @default(now())
-}
-
-// ============================================
-// 十一、徽章
-// ============================================
-
-model Badge {
-  id          String    @id @default(cuid())
-  name        String
-  description String
-  icon        String
-  category    String    @default("achievement")
-  createdAt   DateTime  @default(now())
-
-  users       UserBadge[]
-}
-
-model UserBadge {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  badgeId   String
-  badge     Badge     @relation(fields: [badgeId], references: [id], onDelete: Cascade)
-  unlockedAt DateTime @default(now())
-
-  @@unique([userId, badgeId])
 }
 
 // ============================================

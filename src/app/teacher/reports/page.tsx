@@ -13,25 +13,28 @@ export default function TeacherReportsPage() {
   const [done, setDone] = useState<string | null>(null);
 
   const handleGenerate = async (type: string) => {
-    if (type === 'weekly') {
-      setGenerating('weekly');
-      try {
+    setGenerating(type);
+    try {
+      if (type === 'weekly') {
         await fetch('/api/admin/export-sheets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
         });
-        setDone('weekly');
-        setTimeout(() => setDone(null), 3000);
-      } catch (e) { console.error('Failed to generate weekly report:', e); }
-      finally { setGenerating(null); }
-    }
+      } else {
+        // individual / parent: export CSV via admin export endpoint
+        await fetch('/api/admin/export/students', { method: 'GET' });
+      }
+      setDone(type);
+      setTimeout(() => setDone(null), 3000);
+    } catch (e) { console.error('Failed to generate report:', e); }
+    finally { setGenerating(null); }
   };
 
   const reportTypes = [
     { id: 'weekly', label: t('teacher.reports.weekly'), icon: BarChart3, desc: t('teacher.reports.weeklyDesc'), available: true },
-    { id: 'individual', label: t('teacher.reports.individual'), icon: Users, desc: t('teacher.reports.individualDesc'), available: false },
-    { id: 'parent', label: t('teacher.reports.parent'), icon: FileText, desc: t('teacher.reports.parentDesc'), available: false },
+    { id: 'individual', label: t('teacher.reports.individual'), icon: Users, desc: t('teacher.reports.individualDesc'), available: true },
+    { id: 'parent', label: t('teacher.reports.parent'), icon: FileText, desc: t('teacher.reports.parentDesc'), available: true },
   ];
 
   return (
@@ -65,7 +68,9 @@ export default function TeacherReportsPage() {
 
       <section>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('teacher.reports.recentWeekly')}</h2>
-        <p className="text-sm text-gray-400">{t('teacher.reports.pdfSoon')}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          報告將以 CSV 格式匯出，可用 Excel / Google Sheets 開啟。學生個別摘要及家長面談摘要包含全班學生進度數據。
+        </p>
       </section>
     </div>
   );

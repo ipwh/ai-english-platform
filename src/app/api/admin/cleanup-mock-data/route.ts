@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     deletedWritingDrafts: 0,
     deletedTeacherClasses: 0,
     deletedNotifications: 0,
-    deletedUserBadges: 0,
     deletedDemoClass: false,
     errors: [] as string[],
   };
@@ -63,15 +62,7 @@ export async function POST(request: NextRequest) {
       result.deletedNotifications = r.count;
     }
 
-    // 2. 刪除徽章
-    if (mockUserIds.length > 0) {
-      const r = await db.userBadge.deleteMany({
-        where: { userId: { in: mockUserIds } },
-      });
-      result.deletedUserBadges = r.count;
-    }
-
-    // 3. 刪除寫作草稿
+    // 2. 刪除寫作草稿
     if (mockUserIds.length > 0) {
       const r = await db.writingDraft.deleteMany({
         where: { studentId: { in: mockUserIds } },
