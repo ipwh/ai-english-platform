@@ -790,55 +790,99 @@ export interface WritingAnalysis {
 }
 
 export async function analyzeWriting(input: AnalyzeWritingInput): Promise<WritingAnalysis> {
-  const systemPrompt = `你是一位香港中學英文科教師，專門批改學生英文作文。
-請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
-
-回覆必須是以下結構的 JSON 物件：
-{
-  "overallScore": 75,
-  "strengths": ["優點1（繁體中文）", "優點2"],
-  "weaknesses": ["弱點1（繁體中文）", "弱點2"],
-  "grammarErrors": [
-    { "original": "錯誤原文", "correction": "修正後", "explanation": "原因（繁體中文）" }
-  ],
-  "chinglishWarnings": [
-    { "original": "中式英文原文", "suggestion": "建議改法", "explanation": "為何是中式英文（繁體中文）" }
-  ],
-  "vocabularySuggestions": [
-    { "original": "原詞", "suggestion": "建議詞", "reason": "原因（繁體中文）" }
-  ],
-  "structureFeedback": "文章結構評語（繁體中文）",
-  "generalComment": "總體評語（繁體中文）"
-}
-
-注意：
-- revisedVersion 欄位可省略（太長會截斷 JSON）
-- 所有中文必須使用繁體中文
-- 文法錯誤和 Chinglish 是最重要的分析重點
-- 回覆必須是有效 JSON，不可包含任何 JSON 以外的文字`.trim();
-
-  const userPrompt = `作文題目：${input.title}
+  const essayContent = sanitizeForAI(input.studentDraft);
+  const context = `作文題目：${input.title}
 寫作要求：${input.prompt}
 ${input.textType ? `文本類型：${input.textType}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
 學生作文內容：
 """
-${sanitizeForAI(input.studentDraft)}
-"""
+${essayContent}
+"""`;
 
-請詳細批改這篇作文。`;
+  // === Call 1：文法 + Chinglish + 總分 + 總評（語言準確性） ===
+  const grammarPrompt = `你是一位香港中學英文科教師，專注批改語言準確性。
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
 
-  const result = await callLLM(
-    [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    { temperature: 0.4, maxTokens: 6144, jsonMode: true, timeoutMs: 50000 }
-  );
+{
+  "overallScore": 75,
+  "grammarErrors": [
+    { "original": "錯誤原文", "correction": "修正後", "explanation": "原因（繁體中文）" }
+  ],
+  "chinglishWarnings": [
+    { "original": "中式英文原文", "suggestion": "建議改法", "explanation": "為何是中式英文（繁體中文）" }
+  ],
+  "generalComment": "語言準確性總評（繁體中文，50-80字）"
+}
 
-  const writing = parseAIJSON<WritingAnalysis>(result);
-  const validated = validateAIResponse(WritingAnalysisSchema, writing);
+注意：只專注文法、拼字、中式英文、時態等語言問題。不需評論結構或詞彙。`.trim();
+
+  const grammarUserPrompt = `${context}\n\n請只分析語言準確性（文法錯誤+中式英文+總分+總評）。`;
+
+  // === Call 2：詞彙 + 結構 + 優缺點（寫作技巧） ===
+  const stylePrompt = `你是一位香港中學英文科教師，專注批改寫作技巧。
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
+
+{
+  "strengths": ["優點1（繁體中文）", "優點2"],
+  "weaknesses": ["弱點1（繁體中文）", "弱點2"],
+  "vocabularySuggestions": [
+    { "original": "原詞", "suggestion": "建議詞", "reason": "原因（繁體中文）" }
+  ],
+  "structureFeedback": "文章結構評語（繁體中文，50-100字）"
+}
+
+注意：只專注詞彙選擇、句子變化、段落結構、論點組織等寫作技巧。不需評論文法或 Chinglish。`.trim();
+
+  const styleUserPrompt = `${context}\n\n請只分析寫作技巧（詞彙建議+結構評語+優點+弱點）。`;
+
+  // 並行執行兩個分析
+  const [grammarResult, styleResult] = await Promise.all([
+    callLLM(
+      [
+        { role: 'system', content: grammarPrompt },
+        { role: 'user', content: grammarUserPrompt },
+      ],
+      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+    ),
+    callLLM(
+      [
+        { role: 'system', content: stylePrompt },
+        { role: 'user', content: styleUserPrompt },
+      ],
+      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+    ),
+  ]);
+
+  // 解析兩個回應
+  const grammarAnalysis = parseAIJSON<{
+    overallScore?: number;
+    grammarErrors?: { original: string; correction: string; explanation: string }[];
+    chinglishWarnings?: { original: string; suggestion: string; explanation: string }[];
+    generalComment?: string;
+  }>(grammarResult);
+
+  const styleAnalysis = parseAIJSON<{
+    strengths?: string[];
+    weaknesses?: string[];
+    vocabularySuggestions?: { original: string; suggestion: string; reason: string }[];
+    structureFeedback?: string;
+  }>(styleResult);
+
+  // 合併結果
+  const combined: WritingAnalysis = {
+    overallScore: grammarAnalysis.overallScore ?? 70,
+    strengths: styleAnalysis.strengths || [],
+    weaknesses: styleAnalysis.weaknesses || [],
+    grammarErrors: grammarAnalysis.grammarErrors || [],
+    chinglishWarnings: grammarAnalysis.chinglishWarnings || [],
+    vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
+    structureFeedback: styleAnalysis.structureFeedback || '結構評語暫時無法生成，請重試。',
+    generalComment: grammarAnalysis.generalComment || '總評暫時無法生成，請重試。',
+  };
+
+  const validated = validateAIResponse(WritingAnalysisSchema, combined);
   if (!validated.success) throw new Error(validated.error);
   return validated.data;
 }
