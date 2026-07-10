@@ -1,5 +1,8 @@
 {
   "functions": {
+    "src/app/api/ai/analyze-writing/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/ai/**/*.ts": {
       "maxDuration": 30
     },

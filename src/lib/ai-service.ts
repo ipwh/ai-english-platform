@@ -834,7 +834,7 @@ ${sanitizeForAI(input.studentDraft)}
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.4, maxTokens: 6144, jsonMode: true }
+    { temperature: 0.4, maxTokens: 6144, jsonMode: true, timeoutMs: 50000 }
   );
 
   const writing = parseAIJSON<WritingAnalysis>(result);
