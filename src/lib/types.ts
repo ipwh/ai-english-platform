@@ -275,6 +275,9 @@ export interface PracticeQuestion {
   /** 聆聽題：獨立聆聽內容（對話/段落），與 prompt（題目）分開 */
   listeningContent?: string;
   listeningContentZh?: string;
+  /** 閱讀題：獨立閱讀篇章，與 prompt（題目）分開 */
+  readingContent?: string;
+  readingContentZh?: string;
 }
 
 // ============================================

@@ -276,8 +276,8 @@ export default function DiagnosticPage() {
         const allQuestions: PracticeQuestion[] = [];
         let id = 0;
 
-        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
-          (res.questions || []).forEach((q: { prompt: string; choices?: string[]; answer: string; questionType?: string }) => {
+        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
+          (res.questions || []).forEach((q: { prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string }) => {
             allQuestions.push({
               id: `diag-${++id}`,
               type: (q.questionType || 'mc') as PracticeQuestion['type'],
@@ -296,6 +296,10 @@ export default function DiagnosticPage() {
               explanationEn: '',
               commonMistake: '',
               hintLevels: [],
+              listeningContent: q.listeningContent,
+              listeningContentZh: q.listeningContentZh,
+              readingContent: q.readingContent,
+              readingContentZh: q.readingContentZh,
             });
           });
         };
@@ -485,6 +489,16 @@ export default function DiagnosticPage() {
           <div className="flex items-center gap-2 mb-4">
             <SkillChip grammarItem={currentQ.grammarItem} languageSkill={currentQ.languageSkill} subSkill={currentQ.subSkill} />
           </div>
+
+          {/* 閱讀篇章 */}
+          {currentQ.languageSkill === 'reading' && currentQ.readingContent && (
+            <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700">
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">📖 閱讀篇章</p>
+              <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">{currentQ.readingContent}</p>
+              {currentQ.readingContentZh && <p className="text-xs text-indigo-500 mt-1 italic">{currentQ.readingContentZh}</p>}
+            </div>
+          )}
+
           <p className="text-lg text-gray-900 dark:text-white mb-6">{currentQ.prompt}</p>
           {currentQ.promptZh && <p className="text-sm text-gray-500 mb-4 italic">{currentQ.promptZh}</p>}
 

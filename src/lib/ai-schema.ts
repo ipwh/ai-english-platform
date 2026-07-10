@@ -21,6 +21,8 @@ export const GeneratedQuestionSchema = z.object({
   grammarPoint: z.string().optional(),
   listeningContent: z.string().optional(),
   listeningContentZh: z.string().optional(),
+  readingContent: z.string().optional(),
+  readingContentZh: z.string().optional(),
 });
 
 export const GeneratedQuestionsArraySchema = z.array(GeneratedQuestionSchema);

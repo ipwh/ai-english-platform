@@ -127,15 +127,33 @@ export async function POST(request: NextRequest) {
   return response;
 }
 
-// GET /api/auth/role — 獲取當前用戶資訊
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
+// GET /api/auth/role — 獲取當前用戶資訊（支援 JWT + NextAuth 雙驗證）
+export async function GET(request: NextRequest) {
+  let userId: string | null = null;
+
+  // 優先檢查 JWT session token（密碼登入）
+  const jwtToken = request.cookies.get('session_token')?.value;
+  if (jwtToken) {
+    const jwtPayload = await verifySessionToken(jwtToken);
+    if (jwtPayload) {
+      userId = jwtPayload.userId;
+    }
+  }
+
+  // Fallback: NextAuth session（Google OAuth 登入）
+  if (!userId) {
+    const session = await auth();
+    if (session?.user?.id) {
+      userId = session.user.id;
+    }
+  }
+
+  if (!userId) {
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
   const user = await db.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: { id: true, email: true, name: true, nameZh: true, role: true, image: true },
   });
 

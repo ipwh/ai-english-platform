@@ -242,6 +242,12 @@ export default function AssignmentDetailPage() {
                   {submitted && graded ? (graded.correct ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />) : i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
+                  {/* 閱讀/聆聽內容 */}
+                  {q.explanation && q.explanation.length > 50 && (
+                    <div className="mb-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-sm text-indigo-700 dark:text-indigo-300 leading-relaxed whitespace-pre-line">
+                      {q.explanation}
+                    </div>
+                  )}
                   <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">{q.prompt}</p>
 
                   {/* MC 選項 */}

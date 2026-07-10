@@ -438,6 +438,9 @@ export interface GeneratedQuestion {
   /** 聆聽題：獨立聆聽內容（對話/段落） */
   listeningContent?: string;
   listeningContentZh?: string;
+  /** 閱讀題：獨立閱讀篇章 */
+  readingContent?: string;
+  readingContentZh?: string;
 }
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
@@ -496,6 +499,8 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       grammarPoint: q.grammarPoint?.trim(),
       listeningContent: q.listeningContent?.trim(),
       listeningContentZh: q.listeningContentZh?.trim(),
+      readingContent: q.readingContent?.trim(),
+      readingContentZh: q.readingContentZh?.trim(),
       choices: Array.isArray(q.choices) ? q.choices.map(c => String(c)) : [],
     };
 
@@ -543,6 +548,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   const diffMap = { remedial: '補底', core: '核心', challenge: '挑戰' };
 
   const isListening = input.languageSkill === 'listening';
+  const isReading = input.languageSkill === 'reading';
   const systemPrompt = `你是一位香港中學英文科教師，熟悉 ELE KLACG 2017 課程指引及 HKDSE English Language Level Descriptors。
 請根據以下要求生成英語練習題目，題目必須對齊 HKDSE 各卷別（Reading / Writing / Listening / Speaking）的能力要求。
 請以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
@@ -575,12 +581,37 @@ ${isListening ? `
   例如："What does the man suggest?" 而非 "What does A suggest?"
 - listeningContentZh: 中文簡短情境說明
 - prompt: 針對聆聽內容的題目問題` : ''}
+${isReading ? `
+【閱讀理解題特別要求 — 極重要！】
+- readingContent: 一段完整的英文閱讀篇章（80-200字），必須在題目之前提供給學生閱讀
+- 所有題目必須基於此閱讀篇章，不可無中生有
+- 篇章類型根據年級調整：
+  - S1-S3：故事、書信、校園海報、簡單說明文
+  - S4-S6：新聞報導、議論文、社論、資訊性文章
+- 篇章必須有清晰的主旨、細節、隱含信息，以便出推論題
+- readingContentZh: 中文簡短篇章主題說明（例如：「一篇關於環保的新聞報導」）
+- prompt: 必須是針對閱讀篇章的題目（例如："According to the passage, what is the main reason..."）
+
+【閱讀題 JSON 輸出示例】
+{
+  "type": "mc",
+  "prompt": "According to the passage, what is the main cause of air pollution in the city?",
+  "promptZh": "根據文章，城市空氣污染的主要原因是什麼？",
+  "readingContent": "Air pollution has become a serious problem in many cities around the world. In Hong Kong, the main sources of air pollution include vehicle emissions, power plants, and marine vessels. According to a 2024 government report, vehicle emissions account for approximately 40% of the city's air pollutants. The government has introduced several measures to tackle this issue, including promoting electric vehicles and improving public transportation.",
+  "readingContentZh": "一篇關於香港空氣污染的短篇文章",
+  "choices": ["Vehicle emissions", "Factory smoke", "Volcanic activity", "Forest fires"],
+  "answer": "A",
+  "explanationZh": "文章明確指出車輛排放佔城市空氣污染物的約40%，是主要來源。",
+  "explanationEn": "The passage clearly states that vehicle emissions account for approximately 40% of the city's air pollutants.",
+  "commonMistake": "學生可能被干擾選項誤導，應訓練直接從文本中尋找證據。",
+  "grammarPoint": "Reading comprehension — identifying explicit information"
+}` : ''}
 
 每題必須包含以下欄位（全部為必填）：
 - type: 題型 ("mc" / "fill-blank" / "error-correction" / "short-writing")
-- prompt: 英文題目問題${isListening ? '（針對聆聽內容的提問）' : ''}
+- prompt: 英文題目問題${isListening ? '（針對聆聽內容的提問）' : isReading ? '（針對閱讀篇章的提問）' : ''}
 - promptZh: 中文輔助說明
-${isListening ? '- listeningContent: 英文聆聽材料（對話/獨白，50-100字）\n- listeningContentZh: 中文簡短情境說明\n' : ''}- choices: 選項陣列（MC題4個選項；其他題型給空陣列 []）
+${isListening ? '- listeningContent: 英文聆聽材料（對話/獨白，50-100字）\n- listeningContentZh: 中文簡短情境說明\n' : ''}${isReading ? '- readingContent: 英文閱讀篇章（80-200字）\n- readingContentZh: 中文簡短篇章主題說明\n' : ''}- choices: 選項陣列（MC題4個選項；其他題型給空陣列 []）
 - answer: 正確答案（MC題只能是 "A" / "B" / "C" / "D" 其中之一；填充題給單詞）
 - explanationZh: 繁體中文解釋（簡短）
 - explanationEn: 英文解釋（簡短）

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getBulkDb } from '@/lib/db';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 // ---- 簡易 CSV 解析（無需外部依賴） ----
 function parseCSV(text: string): Record<string, string>[] {
@@ -95,6 +96,12 @@ interface ImportResult {
 // ---- POST Handler ----
 
 export async function POST(request: NextRequest) {
+  // ---- 認證：僅 admin ----
+  const auth = await verifyAdmin(request);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.error }, { status: 403 });
+  }
+
   const results: ImportResult = {
     total: 0,
     success: 0,

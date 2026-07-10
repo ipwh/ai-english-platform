@@ -146,13 +146,17 @@ function PracticeListPageContent() {
         promptZh: q.promptZh as string | undefined,
         listeningContent: q.listeningContent as string | undefined,
         listeningContentZh: q.listeningContentZh as string | undefined,
+        readingContent: q.readingContent as string | undefined,
+        readingContentZh: q.readingContentZh as string | undefined,
         choices: q.choices as string[] | undefined,
         answer: q.answer as string,
         explanationZh: q.explanationZh as string,
         explanationEn: q.explanationEn as string,
         commonMistake: q.commonMistake as string,
         grammarPoint: q.grammarPoint as string | undefined,
-        hintLevels: ['提示1：請仔細閱讀題目。', '提示2：回想相關的文法規則。', '提示3：排除明顯錯誤的選項。', '提示4：選擇最符合語法和語境的答案。'],
+        hintLevels: activeForm.languageSkill === 'reading'
+          ? ['提示1：仔細閱讀篇章。', '提示2：在篇章中找出相關句子。', '提示3：排除篇章中沒有提及的選項。', '提示4：選擇最符合篇章內容的答案。']
+          : ['提示1：請仔細閱讀題目。', '提示2：回想相關的文法規則。', '提示3：排除明顯錯誤的選項。', '提示4：選擇最符合語法和語境的答案。'],
       }));
 
       // 建立練習 session

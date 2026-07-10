@@ -96,6 +96,7 @@ export default function PracticeQuestionPage() {
     );
   }
   const isListening = question.languageSkill === 'listening';
+  const isReading = question.languageSkill === 'reading';
 
   // === Session 進度 ===
   const isSessionMode = !!store.currentSession;
@@ -277,6 +278,24 @@ export default function PracticeQuestionPage() {
               >
                 我需要看文字版本
               </button>
+            )}
+          </div>
+        )}
+
+        {/* 閱讀理解題：顯示閱讀篇章 */}
+        {isReading && question.readingContent && (
+          <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border-2 border-indigo-300 dark:border-indigo-600">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">📖</span>
+              <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                閱讀篇章
+              </span>
+            </div>
+            <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">
+              {question.readingContent}
+            </p>
+            {question.readingContentZh && (
+              <p className="text-xs text-indigo-500 mt-2 italic">{question.readingContentZh}</p>
             )}
           </div>
         )}

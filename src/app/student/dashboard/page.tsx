@@ -14,10 +14,15 @@ export default function StudentDashboardPage() {
   const { t } = useT();
   const displayName = userDisplayName || 'Student';
   const [aiInsight, setAiInsight] = useState<any>(null);
+  const [studentLevel, setStudentLevel] = useState('S4');
 
   // 載入練習歷史（解決重整後數據歸零）
   useEffect(() => {
     loadPracticeHistory();
+    // 取得學生實際年級
+    fetch('/api/auth/profile').then(r => r.json()).then(d => {
+      if (d?.level) setStudentLevel(d.level);
+    }).catch(() => {});
   }, [loadPracticeHistory]);
 
   const weeklyStats = getWeeklyStats();
@@ -48,7 +53,7 @@ export default function StudentDashboardPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                studentLevel: 'S4',
+                studentLevel: studentLevel,
                 overallAccuracy: weeklyStats.accuracy || 0,
                 weakSkills: getMasteryBySkill().filter(m => m.accuracy < 60),
                 recentPerformance: [],
