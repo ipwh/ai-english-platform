@@ -25,7 +25,7 @@ export default function TeacherReviewPage() {
         setReviews(d.reviews || []);
         if (d.reviews?.length > 0) setSelectedReview(d.reviews[0]);
       })
-      .catch(() => {})
+      .catch((e) => { console.error('Failed to load reviews:', e); })
       .finally(() => setLoading(false));
   }, []);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');

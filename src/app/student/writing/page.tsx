@@ -181,7 +181,7 @@ export default function WritingPage() {
           ));
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Failed to fetch writing assistance:', e); }
     finally { setAssistLoading(false); }
   }, [draft, generatedPrompt, showSuggestions, showVocabHelp, lang]);
 

@@ -28,13 +28,17 @@ export default function MistakesPage() {
   const [typeFilter, setTypeFilter] = useState<MistakeType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadMistakes = () => {
+    setLoadError(false);
     fetch('/api/mistakes')
       .then(r => r.json())
       .then(d => { if (d.mistakes?.length) setMistakes(d.mistakes); })
-      .catch(() => {});
-  }, []);
+      .catch((e) => { console.error('Failed to load mistakes:', e); setLoadError(true); });
+  };
+
+  useEffect(() => { loadMistakes(); }, []);
 
   // === AI 解說狀態 ===
   const [explainingId, setExplainingId] = useState<string | null>(null);
@@ -63,7 +67,7 @@ export default function MistakesPage() {
       if (res.ok && json.explanation) {
         setExplanations(prev => ({ ...prev, [m.id]: json.explanation }));
       }
-    } catch { /* silent */ }
+    } catch (e) { console.error('Failed to fetch AI explanation:', e); }
     finally { setExplainingId(null); }
   };
 

@@ -28,13 +28,17 @@ export default function VocabularyPage() {
   // === AI 例句生成 ===
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [vocab, setVocab] = useState<VocabItem[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadVocab = () => {
+    setLoadError(false);
     fetch('/api/vocabulary')
       .then(r => r.json())
       .then(d => { if (d.vocab?.length) setVocab(d.vocab); })
-      .catch(() => {});
-  }, []);
+      .catch((e) => { console.error('Failed to load vocabulary:', e); setLoadError(true); });
+  };
+
+  useEffect(() => { loadVocab(); }, []);
 
   const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
 

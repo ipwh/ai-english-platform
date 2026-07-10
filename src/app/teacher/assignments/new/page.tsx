@@ -37,7 +37,7 @@ export default function NewAssignmentPage() {
     fetch('/api/classes')
       .then(r => r.json())
       .then(d => setClasses(d.classes || []))
-      .catch(() => {});
+      .catch((e) => { console.error('Failed to load classes:', e); });
   }, []);
 
   const handleGenerate = async () => {

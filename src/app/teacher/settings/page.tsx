@@ -53,13 +53,13 @@ export default function TeacherSettingsPage() {
     fetch('/api/classes')
       .then(r => r.json())
       .then(d => setClasses(d.classes || []))
-      .catch(() => {});
+      .catch((e) => { console.error('Failed to load classes for settings:', e); });
     fetch('/api/auth/settings')
       .then(r => r.json())
       .then(d => {
         if (d.settings?.classIds) setSelectedClassIds(d.settings.classIds);
       })
-      .catch(() => {});
+      .catch((e) => { console.error('Failed to load auth settings:', e); });
 
     // Load local settings
     const local = loadLocalSettings();

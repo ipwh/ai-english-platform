@@ -20,7 +20,7 @@ export default function StudentProfilePage() {
   useEffect(() => {
     fetch('/api/auth/profile').then(r => r.json()).then(d => {
       if (d.user) { setProfile(d.user); setForm({ nameZh: d.user.nameZh || '', nameEn: d.user.nameEn || '' }); }
-    }).catch(() => {});
+    }).catch((e) => { console.error('Failed to load student profile:', e); });
   }, []);
 
   const handleSave = async () => {

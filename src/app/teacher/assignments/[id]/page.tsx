@@ -85,7 +85,7 @@ export default function TeacherAssignmentDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherFeedback: feedback }),
       });
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Failed to save teacher feedback:', e); }
     finally { setSavingFeedback(null); }
   };
 

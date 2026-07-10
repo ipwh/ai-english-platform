@@ -95,7 +95,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: async () => {
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { console.error('Failed to call logout API:', e); }
     set({ isLoggedIn: false, currentRole: null, userId: null });
   },
 
@@ -260,7 +260,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }));
         set({ practiceSessions: sessions });
       }
-    } catch { /* 載入失敗時保留現有狀態 */ }
+    } catch (e) { console.error('Failed to load practice history:', e); }
   },
 
   // 取得各技能掌握度

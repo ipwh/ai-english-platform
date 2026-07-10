@@ -13,8 +13,10 @@ export default function TeacherClassesPage() {
   const { t } = useT();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadClasses = () => {
+    setLoading(true); setLoadError(false);
     fetch('/api/classes')
       .then(r => r.json())
       .then(d => setClasses((d.classes || []).map((c: any) => ({
@@ -22,9 +24,11 @@ export default function TeacherClassesPage() {
         studentCount: c._count?.students ?? 0,
         assignmentCount: c._count?.assignments ?? 0,
       }))))
-      .catch(() => {})
+      .catch((e) => { console.error('Failed to load classes:', e); setLoadError(true); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadClasses(); }, []);
 
   return (
     <div className="space-y-6">

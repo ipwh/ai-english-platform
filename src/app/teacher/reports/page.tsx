@@ -23,7 +23,7 @@ export default function TeacherReportsPage() {
         });
         setDone('weekly');
         setTimeout(() => setDone(null), 3000);
-      } catch { /* ignore */ }
+      } catch (e) { console.error('Failed to generate weekly report:', e); }
       finally { setGenerating(null); }
     }
   };

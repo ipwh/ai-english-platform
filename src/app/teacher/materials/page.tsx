@@ -72,14 +72,18 @@ export default function TeacherMaterialsPage() {
 
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadMaterials = () => {
+    setLoading(true); setLoadError(false);
     fetch('/api/materials')
       .then(r => r.json())
       .then(d => setMaterials(d.materials || []))
-      .catch(() => {})
+      .catch((e) => { console.error('Failed to load materials:', e); setLoadError(true); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadMaterials(); }, []);
 
   const filtered = materials.filter(m => {
     if (search && !m.title.includes(search)) return false;

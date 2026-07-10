@@ -418,7 +418,7 @@ export default function DiagnosticPage() {
       if (res.ok && json.analysis) {
         setAiReport(json.analysis.summary || '');
       }
-    } catch { /* silent */ }
+    } catch (e) { console.error('Failed to analyze diagnostic progress:', e); }
     finally { setAiLoading(false); }
   };
 

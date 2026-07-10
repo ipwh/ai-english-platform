@@ -38,13 +38,13 @@ export default async function Home() {
             await db.user.update({
               where: { email },
               data: { role: realRole },
-            }).catch(() => {});
+            }).catch((e) => { console.error('Failed to auto-fix DB role:', e); });
           }
           if (!selectedRole) {
             role = dbUser.role;
           }
         }
-      } catch { /* fallback */ }
+      } catch (e) { console.error('Failed to resolve JWT session role:', e); }
 
       console.log('[root:/] JWT resolved role:', role, 'realRole:', realRole);
 
