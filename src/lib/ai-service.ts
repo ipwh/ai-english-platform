@@ -1190,7 +1190,7 @@ ${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.7, maxTokens: 2048, timeoutMs: 25000 }
+    { temperature: 0.7, maxTokens: 4096, timeoutMs: 25000 }
   );
 
   return result.trim();
