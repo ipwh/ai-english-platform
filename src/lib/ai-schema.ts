@@ -12,15 +12,15 @@ import { z } from 'zod';
 export const GeneratedQuestionSchema = z.object({
   type: z.enum(['mc', 'fill-blank', 'error-correction', 'short-writing', 'matching']),
   prompt: z.string().min(1),
-  promptZh: z.string().nullish(),
+  promptZh: z.string().optional(),
   choices: z.array(z.string()).default([]),
   answer: z.string().min(1),
   explanationZh: z.string().min(1),
   explanationEn: z.string().min(1),
   commonMistake: z.string().min(1),
-  grammarPoint: z.string().nullish(),
-  listeningContent: z.string().nullish(),
-  listeningContentZh: z.string().nullish(),
+  grammarPoint: z.string().optional(),
+  listeningContent: z.string().optional(),
+  listeningContentZh: z.string().optional(),
 });
 
 export const GeneratedQuestionsArraySchema = z.array(GeneratedQuestionSchema);
@@ -40,7 +40,7 @@ export const AnswerAnalysisSchema = z.object({
   ]),
   explanation: z.string().min(1),
   improvementTip: z.string().min(1),
-  relatedGrammarPoint: z.string().nullish(),
+  relatedGrammarPoint: z.string().optional(),
 });
 
 // ============================================
@@ -67,7 +67,7 @@ export const WritingAnalysisSchema = z.object({
     reason: z.string(),
   })),
   structureFeedback: z.string(),
-  revisedVersion: z.string().nullish(),
+  revisedVersion: z.string().optional(),
   generalComment: z.string(),
 });
 
