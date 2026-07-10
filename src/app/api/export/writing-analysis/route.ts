@@ -37,28 +37,23 @@ interface WritingAnalysis {
 }
 
 /** 嘗試載入中文字型（支援 Windows 開發 + Vercel 部署） */
-async function loadCJKFont(): Promise<Buffer | null> {
+async function loadCJKFont(): Promise<Buffer> {
+  // 專案內嵌字型（部署用 — 優先使用）
+  const bundled = path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
+  if (fs.existsSync(bundled)) return fs.readFileSync(bundled);
+
   const candidates = [
-    // 專案內嵌字型（部署用）
-    path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf'),
-    path.join(process.cwd(), 'public', 'fonts', 'cjk-font.ttf'),
-    // Windows 系統字型（本地開發用）
     'C:\\Windows\\Fonts\\msjh.ttc',
     'C:\\Windows\\Fonts\\kaiu.ttf',
-    // macOS 系統字型
     '/System/Library/Fonts/PingFang.ttc',
-    '/System/Library/Fonts/STHeiti Light.ttc',
-    // Linux/Vercel 常見字型
     '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
   ];
   for (const fontPath of candidates) {
     try {
-      if (fs.existsSync(fontPath)) {
-        return fs.readFileSync(fontPath);
-      }
+      if (fs.existsSync(fontPath)) return fs.readFileSync(fontPath);
     } catch { /* continue */ }
   }
-  return null;
+  throw new Error('PDF 匯出需要字型檔。請執行 npx tsx scripts/download-font.ts 下載字型。');
 }
 
 /** 建立 PDF 內容（使用 pdfkit，支援繁體中文） */
@@ -66,20 +61,15 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
   const PDFDocument = (await import('pdfkit')).default;
 
   const fontData = await loadCJKFont();
-  const hasCJK = fontData !== null;
-
   const doc = new PDFDocument({
     size: 'A4',
     margin: 50,
     info: { Title: `Writing Analysis - ${analysis.topic || 'Report'}`, Author: 'AI English Platform' },
   });
 
-  // 註冊字型
-  if (hasCJK) {
-    doc.registerFont('CJK', fontData!);
-  }
-
-  const font = hasCJK ? 'CJK' : 'Helvetica';
+  // 一律使用內嵌字型，不依賴 PDFKit 內建 Helvetica（Vercel 上不存在）
+  doc.registerFont('CJK', fontData);
+  const font = 'CJK';
   const contentWidth = doc.page.width - 100;
   let y = 50;
 
