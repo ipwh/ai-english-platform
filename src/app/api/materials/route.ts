@@ -7,6 +7,32 @@ import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
 
+/** 伺服器端從 PDF/DOCX/TXT 檔案提取文字 */
+async function extractTextFromFile(file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  try {
+    if (ext === 'pdf') {
+      const pdfParseModule = await import('pdf-parse');
+      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+      const data = await pdfParse(buffer);
+      return data.text?.trim() || null;
+    }
+    if (ext === 'docx') {
+      const mammoth = await import('mammoth');
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value?.trim() || null;
+    }
+    if (ext === 'txt') {
+      return await file.text();
+    }
+  } catch {
+    // extraction failed, fall through to null
+  }
+  return null;
+}
+
 export async function GET() {
   try {
     const materials = await db.material.findMany({
@@ -54,6 +80,42 @@ export async function POST(request: NextRequest) {
       if (session?.user?.id) userId = session.user.id;
     }
 
+    const contentType = request.headers.get('content-type') || '';
+
+    // === 新：multipart file upload（PDF/DOCX/TXT 伺服器端文字提取）===
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      if (!file) {
+        return NextResponse.json({ error: '未提供檔案' }, { status: 400 });
+      }
+
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+      const content = await extractTextFromFile(file);
+
+      if (!content || content.length < 10) {
+        return NextResponse.json(
+          { error: `無法從 ${ext.toUpperCase()} 檔案提取文字，請確認檔案是否為文字型 PDF 或嘗試使用 OCR。` },
+          { status: 422 }
+        );
+      }
+
+      const material = await db.material.create({
+        data: {
+          title: file.name,
+          type: ext,
+          content: content.slice(0, 100000),
+          fileSize: file.size,
+          uploadedBy: userId,
+          ocrStatus: 'done',
+          ragStatus: 'none',
+        },
+      });
+
+      return NextResponse.json({ material }, { status: 201 });
+    }
+
+    // === 現有：JSON body（文字/圖片 OCR 結果）===
     const body = await request.json();
     const { title, description, type, gradeLevel, strand, content, tags, fileSize } = body;
 

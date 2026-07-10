@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, Award, Target, Flame, Sparkles, Loader2, Clock } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -18,6 +18,12 @@ import { useT } from '@/hooks/use-i18n';
 export default function StudentProgressPage() {
   const store = useAppStore();
   const { t } = useT();
+
+  // 載入練習歷史
+  useEffect(() => {
+    store.loadPracticeHistory();
+  }, [store.loadPracticeHistory]);
+
   const weeklyStats = store.getWeeklyStats();
   const masteryBySkill = store.getMasteryBySkill();
   const recentSessions = store.getRecentSessions(5);

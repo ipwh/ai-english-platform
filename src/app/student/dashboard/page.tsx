@@ -1,7 +1,7 @@
 // Student Dashboard
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Play, Sparkles, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
@@ -10,10 +10,15 @@ import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/lib/utils';
 
 export default function StudentDashboardPage() {
-  const { userDisplayName, getWeeklyStats } = useAppStore();
+  const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory } = useAppStore();
   const { t } = useT();
   const displayName = userDisplayName || 'Student';
   const [aiInsight, setAiInsight] = useState<any>(null);
+
+  // 載入練習歷史（解決重整後數據歸零）
+  useEffect(() => {
+    loadPracticeHistory();
+  }, [loadPracticeHistory]);
 
   const weeklyStats = getWeeklyStats();
   const kpis = [
@@ -42,7 +47,13 @@ export default function StudentDashboardPage() {
             const res = await fetch('/api/ai/analyze-progress', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ studentLevel: 'S4', overallAccuracy: 0, weakSkills: [], recentPerformance: [], streakDays: 0 }),
+              body: JSON.stringify({
+                studentLevel: 'S4',
+                overallAccuracy: weeklyStats.accuracy || 0,
+                weakSkills: getMasteryBySkill().filter(m => m.accuracy < 60),
+                recentPerformance: [],
+                streakDays: weeklyStats.streakDays || 0,
+              }),
             });
             const json = await res.json();
             if (res.ok && json.analysis) setAiInsight(json.analysis);

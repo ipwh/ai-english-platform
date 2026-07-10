@@ -67,6 +67,7 @@ interface AppState {
   submitAnswer: (questionId: string, answer: string, isCorrect: boolean) => void;
   completeSession: () => void;
   clearCurrentSession: () => void;
+  loadPracticeHistory: () => Promise<void>;
   getMasteryBySkill: () => { skill: string; skillZh: string; accuracy: number; total: number }[];
   getRecentSessions: (limit?: number) => PracticeSession[];
   getWeeklyStats: () => { questionsDone: number; accuracy: number; sessionsCount: number; streakDays: number };
@@ -207,6 +208,23 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...state.currentSession,
         completedAt: new Date().toISOString(),
       };
+      // 持久化到後端 API
+      const { userId } = get();
+      if (userId) {
+        fetch('/api/practice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: userId,
+            skill: completed.skill,
+            skillZh: completed.skillZh,
+            difficulty: completed.difficulty,
+            totalQuestions: completed.totalQuestions,
+            correctCount: completed.correctCount,
+            source: completed.source,
+          }),
+        }).catch(() => {});
+      }
       return {
         practiceSessions: [completed, ...state.practiceSessions].slice(0, 50),
         currentSession: null,
@@ -216,6 +234,33 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   clearCurrentSession: () => {
     set({ currentSession: null });
+  },
+
+  // 從後端載入練習歷史（解決重整後數據歸零的問題）
+  loadPracticeHistory: async () => {
+    const { userId } = get();
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/practice?studentId=${userId}`);
+      if (res.ok) {
+        const json = await res.json();
+        const sessions: PracticeSession[] = (json.sessions || []).map((s: any) => ({
+          id: s.id,
+          startedAt: s.startedAt,
+          completedAt: s.completedAt || undefined,
+          questions: [],
+          answers: {},
+          results: {},
+          skill: s.skill,
+          skillZh: s.skillZh,
+          difficulty: s.difficulty,
+          totalQuestions: s.totalQuestions,
+          correctCount: s.correctCount,
+          source: s.source,
+        }));
+        set({ practiceSessions: sessions });
+      }
+    } catch { /* 載入失敗時保留現有狀態 */ }
   },
 
   // 取得各技能掌握度

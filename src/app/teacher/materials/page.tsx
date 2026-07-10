@@ -1,6 +1,5 @@
 // ============================================
-// 教師端 — 教材中心
-// TODO: connect to API — 上傳、OCR、RAG 由後端處理
+// 教師端 — 教材中心（支援 PDF/DOCX/TXT 文字提取 + OCR + RAG）
 // ============================================
 'use client';
 
@@ -153,15 +152,20 @@ export default function TeacherMaterialsPage() {
                 }
               } catch { /* silent */ }
             } else {
-              // 其他檔案類型：建立記錄
-              await fetch('/api/materials', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: file.name, type: file.name.split('.').pop() || 'other', fileSize: file.size }),
-              });
-              const mRes = await fetch('/api/materials');
-              const mData = await mRes.json();
-              setMaterials(mData.materials || []);
+              // PDF、DOCX、PPTX：上傳檔案由伺服器端提取文字
+              const formData = new FormData();
+              formData.append('file', file);
+              try {
+                const res = await fetch('/api/materials', { method: 'POST', body: formData });
+                if (res.ok) {
+                  const mRes = await fetch('/api/materials');
+                  const mData = await mRes.json();
+                  setMaterials(mData.materials || []);
+                } else {
+                  const errData = await res.json().catch(() => ({}));
+                  alert(errData.error || '上傳失敗，請確認檔案格式正確');
+                }
+              } catch { /* silent */ }
             }
             e.target.value = '';
           }}
