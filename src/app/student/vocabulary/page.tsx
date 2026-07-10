@@ -77,11 +77,18 @@ export default function VocabularyPage() {
     finally { setGeneratingId(null); }
   };
 
-  // 切換熟悉度
+  // 切換熟悉度（更新本地狀態 + 持久化到 API）
   const toggleFamiliarity = (v: VocabItem) => {
+    const next = nextFamiliarity[v.familiarity];
     setVocab(prev => prev.map(item =>
-      item.id === v.id ? { ...item, familiarity: nextFamiliarity[v.familiarity] } : item
+      item.id === v.id ? { ...item, familiarity: next } : item
     ));
+    // 持久化到後端
+    fetch('/api/vocabulary', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: v.id, familiarity: next }),
+    }).catch(() => {});
   };
 
   const filtered = vocab.filter((v) => {
