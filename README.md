@@ -115,9 +115,9 @@ npm run dev
 
 | Email 格式 | 角色 | 登入後 |
 |-----------|------|--------|
-| `s` + 7 位數字（如 `s2025006@xxx.edu.hk`） | 學生 | → 直接進入學生主頁 |
-| 英文姓名縮寫（如 `chantm@xxx.edu.hk`） | 教師 | → 角色選擇頁（學生/教師/管理員） |
-| `ipwh@xxx.edu.hk` | 管理員 | → 角色選擇頁（學生/教師/管理員） |
+| `s` + 7 位數字（如 `abc@xxx.edu.hk`） | 學生 | → 直接進入學生主頁 |
+| 英文姓名縮寫（如 `abc@xxx.edu.hk`） | 教師 | → 角色選擇頁（學生/教師/管理員） |
+| `abc@xxx.edu.hk` | 管理員 | → 角色選擇頁（學生/教師/管理員） |
 
 > 新教師首次 Google OAuth 登入時會自動建立帳號並設為教師角色。學生需先透過 [Google Sheets 同步](#google-sheets-班別同步-🔄) 匯入。
 
@@ -249,7 +249,7 @@ src/
 
    | CLASSCODE | CLASSNO | CHNAME | ENNAME | EMAIL |
    |-----------|---------|--------|--------|-------|
-   | 4A | 15 | 陳大文 | Chan Tai Man | s2025001@xxx.edu.hk |
+   | 4A | 15 | 陳大文 | Chan Tai Man | abc@xxx.edu.hk |
 
    > 亦支援 `Email / Class / ClassNumber / NameZh / NameEn / Level` 等欄位名稱。系統會自動辨識標題列。
 

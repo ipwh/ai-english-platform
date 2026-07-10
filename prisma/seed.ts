@@ -143,12 +143,12 @@ async function main() {
   console.log(`✅ 已建立 ${studentCount} 名學生`);
 
   // ========== 4. 建立管理員（預設管理員 + 教師雙重身份） ==========
-  // ipwh@pochiu.edu.hk — 預設為教師及管理員
+  // abc@xxx.edu.hk — 預設為教師及管理員
   await db.user.upsert({
-    where: { email: 'ipwh@pochiu.edu.hk' },
+    where: { email: 'abc@xxx.edu.hk' },
     update: {},
     create: {
-      email: 'ipwh@pochiu.edu.hk',
+      email: 'abc@xxx.edu.hk',
       passwordHash: simpleHash('admin123'),
       nameZh: '系統管理員',
       nameEn: 'System Admin',
@@ -158,7 +158,7 @@ async function main() {
       streakDays: 0,
     },
   });
-  console.log('✅ 管理員: ipwh@pochiu.edu.hk (admin + teacher)');
+  console.log('✅ 管理員: abc@xxx.edu.hk (admin + teacher)');
 
   await db.user.upsert({
     where: { email: 'admin@school.hk' },

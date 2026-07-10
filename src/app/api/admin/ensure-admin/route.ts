@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function POST(_request?: NextRequest) {
   try {
-    const adminEmail = 'ipwh@pochiu.edu.hk';
+    const adminEmail = 'abc@xxx.edu.hk';
     const adminPassword = 'admin123';
 
     const existing = await db.user.findUnique({
