@@ -6,7 +6,7 @@ import db from '@/lib/db';
 
 /** 根據 email 判斷用戶的「真實最高角色」（不可被角色切換降級） */
 function getRealRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
-  if (email === 'abc@xxx.edu.hk') return 'admin';
+  if (email === 'ipwh@pochiu.edu.hk') return 'admin';
   const prefix = email.split('@')[0];
   if (/^s\d{7}$/i.test(prefix)) return 'student';
   return 'teacher';

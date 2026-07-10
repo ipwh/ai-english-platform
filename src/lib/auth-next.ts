@@ -39,7 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // 自動判斷角色：學生 email = s + 數字；其餘為教師
             const emailPrefix = user.email.split('@')[0];
             const isStudent = /^s\d{7}$/i.test(emailPrefix);
-            const isAdmin = user.email === 'abc@xxx.edu.hk';
+            const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
             const defaultRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
 
             await db.user.create({

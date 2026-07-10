@@ -11,7 +11,7 @@ import { GraduationCap, Users, Shield } from 'lucide-react';
 
 /** 根據 email 判斷用戶可選的最高角色 */
 function getMaxRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
-  if (email === 'abc@xxx.edu.hk') return 'admin';
+  if (email === 'ipwh@pochiu.edu.hk') return 'admin';
   const prefix = email.split('@')[0];
   if (/^s\d{7}$/i.test(prefix)) return 'student';
   return 'teacher';
@@ -123,7 +123,7 @@ export default function RoleSelectPage() {
             </button>
           </form>
 
-          {/* 管理員 — 僅 email 為 abc@xxx.edu.hk 的用戶可見 */}
+          {/* 管理員 — 僅 email 為 ipwh@pochiu.edu.hk 的用戶可見 */}
           {maxRole === 'admin' && (
             <form action="/api/auth/role" method="post">
               <input type="hidden" name="role" value="admin" />
