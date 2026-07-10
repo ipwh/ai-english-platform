@@ -80,8 +80,20 @@ export async function POST(request: NextRequest) {
 
     let content: string;
     if (meta.mimeType === 'application/pdf') {
-      // PDF 需透過 OCR（可在此整合 Google Cloud Vision）
-      content = `[PDF 檔案: ${meta.name}] — 請使用 OCR 功能提取文字`;
+      // 伺服器端 PDF 文字提取（使用 pdf-parse）
+      try {
+        const arrayBuffer = await downloadRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const pdfParseModule = await import('pdf-parse');
+        const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+        const data = await pdfParse(buffer);
+        content = data.text?.trim() || '';
+        if (!content) {
+          content = `[PDF 檔案: ${meta.name}] — 此 PDF 為掃描圖片，請使用 OCR 功能提取文字`;
+        }
+      } catch {
+        content = `[PDF 檔案: ${meta.name}] — 文字提取失敗，請嘗試使用 OCR`;
+      }
     } else {
       content = await downloadRes.text();
     }
