@@ -70,6 +70,7 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
   // 一律使用內嵌字型，不依賴 PDFKit 內建 Helvetica（Vercel 上不存在）
   doc.registerFont('CJK', fontData);
   const font = 'CJK';
+  const hasCJK = true;
   const contentWidth = doc.page.width - 100;
   let y = 50;
 
