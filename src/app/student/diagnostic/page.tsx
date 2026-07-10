@@ -12,6 +12,20 @@ import SkillChip from '@/components/shared/SkillChip';
 import type { PracticeQuestion } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
+const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
+
+function getMcqLetterByIndex(index: number): string {
+  return MCQ_LETTERS[index] || 'A';
+}
+
+function stripMcqPrefix(choice: string): string {
+  return choice
+    .trim()
+    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4]|T|F|True|False)\s*\)?\s*[\].:：)\-、]\s*/iu, '')
+    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '')
+    .trim();
+}
+
 interface DiagnosticResult {
   id: string;
   label: string;
@@ -476,12 +490,16 @@ export default function DiagnosticPage() {
 
           {currentQ.choices ? (
             <div className="space-y-3">
-              {currentQ.choices.map((choice) => (
-                <button key={choice.charAt(0)} onClick={() => handleAnswer(choice.charAt(0))}
-                  className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl hover:border-teal-400 transition-colors text-gray-700 dark:text-gray-300">
-                  <span className="font-bold mr-2">{choice.charAt(0)}.</span>{choice.slice(3)}
-                </button>
-              ))}
+              {currentQ.choices.map((choice, index) => {
+                const choiceLetter = getMcqLetterByIndex(index);
+                const choiceText = stripMcqPrefix(choice);
+                return (
+                  <button key={`${index}-${choice}`} onClick={() => handleAnswer(choiceLetter)}
+                    className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl hover:border-teal-400 transition-colors text-gray-700 dark:text-gray-300">
+                    <span className="font-bold mr-2">{choiceLetter}.</span>{choiceText}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div>

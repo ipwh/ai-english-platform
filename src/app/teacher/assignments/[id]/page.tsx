@@ -154,7 +154,7 @@ export default function TeacherAssignmentDetailPage() {
               {q.options && (
                 <div className="flex gap-2 mt-1 flex-wrap">
                   {q.options.map((opt, j) => (
-                    <span key={j} className={`text-xs px-2 py-0.5 rounded-full ${opt.startsWith(q.answer) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700'}`}>
+                    <span key={j} className={`text-xs px-2 py-0.5 rounded-full ${String.fromCharCode(65 + j) === q.answer.trim().toUpperCase() ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700'}`}>
                       {opt}
                     </span>
                   ))}

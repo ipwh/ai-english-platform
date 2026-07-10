@@ -1,6 +1,6 @@
 # AI English Platform 🇭🇰
 
-AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引設計，支援 DeepSeek API 生成 DSE 程度的練習題目、智能批改及個人化學習分析。
+AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors**（Subject / Reading / Writing / Listening / Speaking）設計，支援 DeepSeek API（主）及 Vertex Gemini / Gemini API（fallback）生成 DSE 程度的練習題目、HKDSE 等級對齊的智能批改及個人化學習分析。
 
 ## 功能
 
@@ -8,12 +8,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型
-- **即時批改回饋** — AI 分析答案，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 檢測文法錯誤、中式英文（Chinglish）、詞彙建議、結構評語
+- **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
+- **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish）、詞彙建議、結構評語，自動標示最接近的 HKDSE 等級
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
-- **進度分析** — 學習數據儀表板，AI 個人化學習建議及週計劃
+- **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
-- **AI 求助助手** — 讀取學生弱項、近期錯題與表現後，提供個人化英文學習建議
+- **AI 求助助手** — 讀取學生弱項、近期錯題與表現後，對照 HKDSE 各卷別等級描述提供個人化英文學習建議
 
 ### 👩‍🏫 教師端
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
@@ -49,6 +49,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 國際化 | 自訂 i18n（useT hook + Zustand language store，支援繁體中文/English，含變數插值） |
 | 圖表 | Recharts |
 | AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (optional fallback) + Vertex AI Embeddings |
+| 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
+| MCQ 正規化 | 後端自動清除 T/F/True/False 前綴、按索引標準化 A/B/C/D 答案字母，防止 Gemini fallback 輸出格式異常 |
 | 語音 | Web Speech API (TTS) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
 | 部署 | Vercel |
@@ -364,20 +366,22 @@ npm run test:watch    # 持續監控模式
 ```
 
 測試涵蓋：
-- AI JSON 解析（含 markdown 代碼塊移除、截斷修復）— 11 tests
+- AI JSON 解析（含 markdown 代碼塊移除、截斷修復、MCQ 選項正規化）— 11 tests
 - Zod Schema 驗證（題目、答案、寫作、錯題、進度、教材）— 10 tests
 - Rate Limiter（滑動窗口、隔離、超限）— 4 tests
 - `validateAIResponse` 安全包裝 — 2 tests
+- HKDSE prompt 對齊驗證 — 所有 6 個 AI prompt 已嵌入官方等級描述 rubric
 
 ## 目前狀態
 
 | 層級 | 狀態 |
 |------|------|
-| AI 服務層 | ✅ 完整（6 個函數 + Zod 驗證 + 限流） |
+| AI 服務層 | ✅ 完整（6 個函數 + Zod 驗證 + 限流 + HKDSE descriptor rubric 對齊 + MCQ 正規化 + Gemini prompt 適配） |
 | API 路由 | ✅ 完整（AI × 6 + CRUD × 5 + 認證 + Drive + 匯入 + RAG + 管理員 API × 8） |
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，自動切換） |
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 格式自動識別學生/教師角色，Middleware 路由保護 |
-| 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 診斷→弱項訓練流程 + 管理員後台 5 頁 |
+| 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 診斷→弱項訓練流程 + 管理員後台 5 頁 + MCQ 選項按索引渲染（防 T/F 全選 bug） |
+| HKDSE 對齊 | ✅ 全部 AI prompt 已嵌入官方 Level Descriptors（Subject / Reading / Writing / Listening / Speaking），作文批改嚴格依 Content / Language & Style / Organization 三向度評級 |
 | 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤、Google Sheets 同步、班級修復、管理工具一鍵執行 |
 | 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
 | Google 整合 | ✅ OAuth 登入（自動角色識別）+ Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 + RAG 語義索引 |

@@ -54,6 +54,9 @@ materials/_extracted/
 materials/*.pdf
 materials/**/*.pdf
 
+# Downloaded HKDSE reference materials (copyrighted)
+materials/_hkeaa_descriptors/
+
 # Database files
 *.db
 *.db-journal

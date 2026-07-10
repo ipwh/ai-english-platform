@@ -440,6 +440,102 @@ export interface GeneratedQuestion {
   listeningContentZh?: string;
 }
 
+const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
+
+function toMcqLetter(index: number): string {
+  return MCQ_LETTERS[index] || 'A';
+}
+
+function stripMcqPrefix(choice: string): string {
+  return choice
+    .trim()
+    // A. / (A) / A) / 1. / (1)
+    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s*[\].:：)\-、]\s*/u, '')
+    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '')
+    // T: / F) / True: / False.
+    .replace(/^\s*\(?\s*(?:T|F|True|False)\s*\)?\s*[\].:：)\-、]\s*/iu, '')
+    .replace(/^\s*\(?\s*(?:T|F|True|False)\s*\)?\s+/iu, '')
+    .trim();
+}
+
+function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): string {
+  const answer = answerRaw.trim();
+  if (!answer) return 'A';
+
+  const letterMatch = answer.match(/\b([A-D])\b/i);
+  if (letterMatch) return letterMatch[1].toUpperCase();
+
+  const numberMatch = answer.match(/\b([1-4])\b/);
+  if (numberMatch) return toMcqLetter(Number(numberMatch[1]) - 1);
+
+  const normalizedAnswerText = stripMcqPrefix(answer).toLowerCase();
+  const choiceIndex = normalizedChoices.findIndex(c => c.toLowerCase() === normalizedAnswerText);
+  if (choiceIndex >= 0) return toMcqLetter(choiceIndex);
+
+  const tfMatch = normalizedAnswerText.match(/^(true|false|t|f)$/i);
+  if (tfMatch) {
+    const target = tfMatch[1].toLowerCase().startsWith('t') ? 'true' : 'false';
+    const tfChoiceIndex = normalizedChoices.findIndex(c => c.trim().toLowerCase().startsWith(target));
+    if (tfChoiceIndex >= 0) return toMcqLetter(tfChoiceIndex);
+  }
+
+  return 'A';
+}
+
+function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQuestion[] {
+  return questions.map((q) => {
+    const base: GeneratedQuestion = {
+      ...q,
+      type: (q.type || 'mc').trim(),
+      prompt: (q.prompt || '').trim(),
+      promptZh: q.promptZh?.trim(),
+      answer: (q.answer || '').trim(),
+      explanationZh: (q.explanationZh || '').trim(),
+      explanationEn: (q.explanationEn || '').trim(),
+      commonMistake: (q.commonMistake || '').trim(),
+      grammarPoint: q.grammarPoint?.trim(),
+      listeningContent: q.listeningContent?.trim(),
+      listeningContentZh: q.listeningContentZh?.trim(),
+      choices: Array.isArray(q.choices) ? q.choices.map(c => String(c)) : [],
+    };
+
+    if (base.type !== 'mc') {
+      return { ...base, choices: [] };
+    }
+
+    const cleanedChoices = Array.from(new Set(
+      (base.choices || [])
+        .map(stripMcqPrefix)
+        .map(c => c.trim())
+        .filter(Boolean)
+    ));
+
+    const fallbackChoices = [
+      'All of the above.',
+      'None of the above.',
+      'Not mentioned in the question.',
+      'Cannot be determined from the given information.',
+    ];
+
+    const normalizedChoices: string[] = [...cleanedChoices];
+    for (const fallback of fallbackChoices) {
+      if (normalizedChoices.length >= 4) break;
+      if (!normalizedChoices.some(c => c.toLowerCase() === fallback.toLowerCase())) {
+        normalizedChoices.push(fallback);
+      }
+    }
+
+    const finalChoices = normalizedChoices.slice(0, 4);
+    const finalAnswer = normalizeMcqAnswer(base.answer, finalChoices);
+
+    return {
+      ...base,
+      choices: finalChoices,
+      answer: finalAnswer,
+    };
+  });
+}
+
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
   const count = input.count || 5;
   const skillDesc = input.grammarItemZh || input.languageSkillZh || input.grammarItem || input.languageSkill || '綜合';
@@ -447,8 +543,14 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   const diffMap = { remedial: '補底', core: '核心', challenge: '挑戰' };
 
   const isListening = input.languageSkill === 'listening';
-  const systemPrompt = `你是一位香港中學英文科教師，熟悉 ELE KLACG 2017 課程指引。
-請根據以下要求生成英語練習題目，並以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
+  const systemPrompt = `你是一位香港中學英文科教師，熟悉 ELE KLACG 2017 課程指引及 HKDSE English Language Level Descriptors。
+請根據以下要求生成英語練習題目，題目必須對齊 HKDSE 各卷別（Reading / Writing / Listening / Speaking）的能力要求。
+請以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
+
+HKDSE 等級對齊指引：
+- 補底(remedial) → 對應 HKDSE Level 1-2：基礎詞彙、簡單句型、明示信息提取、字面理解
+- 核心(core) → 對應 HKDSE Level 3：中級詞彙、複合句、直接推論、辨識明確觀點
+- 挑戰(challenge) → 對應 HKDSE Level 4-5：進階詞彙、複雜句型、深層推論、評價觀點態度、理解比喻語言
 
 要求：
 - 題目數量：${count} 題
@@ -479,7 +581,7 @@ ${isListening ? `
 - prompt: 英文題目問題${isListening ? '（針對聆聽內容的提問）' : ''}
 - promptZh: 中文輔助說明
 ${isListening ? '- listeningContent: 英文聆聽材料（對話/獨白，50-100字）\n- listeningContentZh: 中文簡短情境說明\n' : ''}- choices: 選項陣列（MC題4個選項；其他題型給空陣列 []）
-- answer: 正確答案（MC題給選項字母如 "A"；填充題給單詞）
+- answer: 正確答案（MC題只能是 "A" / "B" / "C" / "D" 其中之一；填充題給單詞）
 - explanationZh: 繁體中文解釋（簡短）
 - explanationEn: 英文解釋（簡短）
 - commonMistake: 常犯錯誤（繁體中文，簡短）
@@ -498,10 +600,12 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 - 題目必須貼近香港中學生的生活經驗
 - 全部中文使用繁體中文
 - MC題必須有恰好4個選項（A/B/C/D）
+- MC題 choices 只放「選項內容文字」，不要加上 "A."、"B."、"(C)"、"T/F" 之類前綴
 - 回覆必須是有效的 JSON 陣列，以 [ 開頭，以 ] 結尾
 
 【MCQ 選項品質要求（極重要）】
 - 每個選項必須是完整、有意義的英文句子或片語（至少3個單詞），不可只有單個單詞或字母
+- 嚴禁使用 True/False 題型格式（例如 "T: ..." / "F: ..." / "True ..." / "False ..."）
 - 所有選項必須屬於同一語法形式（如全部名詞片語、全部完整句子、全部動詞片語）
 - 干擾選項必須看起來合理（plausible distractor），不可明顯荒謬
 - 選項長度應大致相近，不可有某個選項明顯過長或過短
@@ -534,7 +638,8 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 
   const tryValidate = (rawText: string) => {
     const parsed = parseGeneratedQuestions(rawText);
-    const validated = validateAIResponse(GeneratedQuestionsArraySchema, parsed);
+    const normalized = normalizeGeneratedQuestions(parsed);
+    const validated = validateAIResponse(GeneratedQuestionsArraySchema, normalized);
     if (!validated.success) {
       throw new Error(validated.error);
     }
@@ -715,12 +820,27 @@ export interface AnswerAnalysis {
 }
 
 export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAnalysis> {
-  const systemPrompt = `你是一位香港中學英文科教師，負責批改學生的英文練習答案。
+  const systemPrompt = `你是一位香港中學英文科教師兼 HKDSE 評卷員。
+請嚴格依據以下官方 HKDSE Level Descriptors 進行批改。
 請以繁體中文提供詳細分析，並以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
+
+【HKDSE Reading Descriptors 參考】
+Level 5: 辨識複雜文本主旨/子題；評價觀點態度；追蹤論點發展並完全理解原因；在廣泛複雜文本中推論；理解隱含及比喻語言；解讀語調語氣。
+Level 4: 辨識較複雜文本主旨；辨識觀點態度、追蹤論點發展；在較複雜文本中做明顯推論；從上下文推斷詞義。
+Level 3: 辨識直接段落主旨；辨識明確表達的觀點；理解熟悉主題較複雜文本中的明示信息；做直接推論；從熟悉語境推斷詞義。
+Level 2: 理解簡單段落主旨（有明確信號時）；區分簡單文本中的事實與意見；理解簡單文本中的明示信息；從簡單熟悉語境推斷詞義。
+Level 1: 辨識簡單結構文本中的事件順序；理解含熟悉詞彙的簡單文本中的明示事實信息；能用標題等定位相關信息。
+
+【HKDSE Listening Descriptors 參考】
+Level 5: 辨識複雜口語文本主旨/子題；評價觀點態度；在近自然語速下推論；提取明示及隱含信息；理解比喻語言；從重音語調辨識態度意圖。
+Level 4: 辨識口語文本主旨；評價熟悉主題中較複雜文本的觀點；在中等語速下做明顯推論；提取明示及部分隱含信息。
+Level 3: 辨識直接口語文本主旨；辨識明確表達觀點；在中等語速熟悉情境下理解明示信息；從字面語言做直接推論。
+Level 2: 辨識簡單口語文本主旨（有明確信號時）；區分簡單文本中事實與意見；在中等語速下理解明示信息。
+Level 1: 理解簡短簡單口語文本中的簡單可預測事實信息；辨識線性結構口語文本中的事件順序。
 
 分析要點：
 1. 判斷答案是否正確（isCorrect: boolean）
-2. 給予分數 0-100（score: number）
+2. 給予分數 0-100（score: number），必須對照上方等級描述
 3. 提供繁體中文回饋（feedbackZh: string）
 4. 提供英文回饋（feedbackEn: string）
 5. 判斷錯誤類型（mistakeType: grammar/vocabulary/comprehension/careless/time-management/chinglish/none）
@@ -728,15 +848,30 @@ export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAn
 7. 改進建議（improvementTip: string，繁體中文）
 8. 相關文法點（relatedGrammarPoint: string，可選）
 
+HKDSE 對齊規則（務必執行）：
+- 若題型是 mc / fill-blank / error-correction（偏 Reading/Listening/Language use）：
+  - 以「理解準確度、語境判斷、語言知識運用」評分。
+  - 完全正確才可 85 分以上；部分理解但關鍵資訊錯誤不得高於 60。
+- 若題型是 short-writing（偏 Writing）：
+  - 以 HKDSE Writing Descriptors「內容與任務完成度、組織、語言」評分，不可只看文法。
+  - 若只寫一兩句、內容空泛、未回應題目要求，分數不得高於 40。
+- 若學生答案極短（少於 8 個英文詞）且題目需要解釋/發展內容，分數不得高於 35。
+- 若離題或答非所問，mistakeType 優先標為 comprehension，且分數不得高於 30。
+- 嚴禁「文法正確就高分」；需同時考慮任務完成度與內容相關性。
+- 請在 explanation 中指出學生表現最接近哪個 HKDSE Level。
+
 注意：
 - 對香港學生的常見中式英文錯誤要特別標註
 - 解釋要具體、易懂，適合中學生閱讀
 - 使用繁體中文，避免簡體字`;
 
+  const studentWordCount = (input.studentAnswer.match(/[A-Za-z0-9][A-Za-z0-9'\-]*/g) || []).length;
+
   const userPrompt = `題目：${input.question}
 題型：${input.questionType}
 正確答案：${input.correctAnswer}
 學生答案：${input.studentAnswer}
+學生答案詞數（系統計算）：${studentWordCount}
 ${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
@@ -782,10 +917,32 @@ export interface WritingAnalysis {
 
 export async function analyzeWriting(input: AnalyzeWritingInput): Promise<WritingAnalysis> {
   const essayContent = sanitizeForAI(input.studentDraft);
+  const countWords = (text: string): number => {
+    const tokens = text
+      .replace(/[\r\n]+/g, ' ')
+      .trim()
+      .match(/[A-Za-z0-9][A-Za-z0-9'\-]*/g);
+    return tokens?.length || 0;
+  };
+
+  const extractTargetWords = (...texts: string[]): number | null => {
+    for (const text of texts) {
+      if (!text) continue;
+      const m = text.match(/(?:about|around|approximately|at least)?\s*(\d{2,4})\s*words?/i);
+      if (m) return Number(m[1]);
+    }
+    return null;
+  };
+
+  const studentWordCount = countWords(essayContent);
+  const targetWords = extractTargetWords(input.prompt, input.title);
+
   const context = `作文題目：${input.title}
 寫作要求：${input.prompt}
 ${input.textType ? `文本類型：${input.textType}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
+${targetWords ? `建議字數：${targetWords} words` : ''}
+實際字數（系統計算）：${studentWordCount} words
 
 學生作文內容：
 """
@@ -793,11 +950,49 @@ ${essayContent}
 """`;
 
   // === Call 1：文法 + Chinglish + 總分 + 總評（語言準確性） ===
-  const grammarPrompt = `你是一位香港中學英文科教師，專注批改語言準確性。
+  const grammarPrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員。
+請嚴格依據以下官方 HKDSE Writing Level Descriptors 進行評分。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
 
+【HKDSE Writing 官方等級描述 — 必須以此為評分基準】
+
+Level 5:
+- Content: 內容相關且廣泛，展現目的意識，能引起讀者興趣；適當時展現創意與想像力。
+- Language & Style: 廣泛句式準確恰當；標點文法準確傳意；詞彙廣泛恰當且有較進階/精緻用語；語域、語調、風格與文體匹配。
+- Organization: 結構完全連貫、與文體匹配；分段有效；句段間銜接精緻。
+
+Level 4:
+- Content: 內容相關、部分詳細、能引起讀者興趣；大部分展現創意與想像力。
+- Language & Style: 多種句式準確恰當；標點文法足夠準確，錯誤不影響整體清晰度；詞彙適度廣泛恰當、大部分拼寫正確；語域語調風格大部分與文體匹配。
+- Organization: 大部分連貫、與文體匹配；分段足夠有效維持整體連貫；多數句段銜接成功。
+
+Level 3:
+- Content: 大部分內容相關；有數處創意與想像力。
+- Language & Style: 簡單句及部分複合句結構良好；基本標點及基本文法結構準確；常用詞彙恰當、拼寫正確；有部分語域語調風格與文體匹配的證據。
+- Organization: 部分段落連貫、與文體匹配；分段在部分有效；部分句段銜接成功。
+
+Level 2:
+- Content: 有部分相關內容；使用了熟悉文體的部分特徵。
+- Language & Style: 簡單句結構良好；大部分基本標點正確，文法準確度足以使部分句子可理解；簡單詞彙恰當、大部分拼寫正確。
+- Organization: 當文體簡單熟悉時可辨識結構；有部分分段證據；句段間有簡單連結。
+
+Level 1:
+- Content: 少數內容點相關。
+- Language: 有數句簡單可理解的句子；有數個簡單詞彙使用恰當。
+- Organization: 句子間有少量連結。
+
+【低於 Level 1 / 無法評級】
+- 內容與題目完全無關、只寫一兩句、或無法辨識為完整文章。
+- 此類文章 overallScore 不得高於 25。
+
 {
-  "overallScore": 75,
+  "overallScore": 52,
+  "contentTaskScore": 2,
+  "organizationScore": 2,
+  "languageScore": 3,
+  "taskCompletionScore": 2,
+  "lengthPenalty": -15,
+  "offTopicPenalty": -10,
   "grammarErrors": [
     { "original": "錯誤原文", "correction": "修正後", "explanation": "原因（繁體中文）" }
   ],
@@ -807,13 +1002,31 @@ ${essayContent}
   "generalComment": "語言準確性總評（繁體中文，50-80字）"
 }
 
-注意：只專注文法、拼字、中式英文、時態等語言問題。不需評論結構或詞彙。`.trim();
+評分規則（嚴格執行）：
+- 子分數定義：contentTaskScore / organizationScore / languageScore / taskCompletionScore 皆為 0-5 分（可用半分），必須對照上方官方等級描述給予。
+- overallScore 必須根據上述子分數換算為 0-100，並加上 lengthPenalty 與 offTopicPenalty。
+- 若明顯離題、只寫一兩句、未回應題目要求重點，taskCompletionScore 不可高於 2，overallScore 不可高於 40（對應 Level 1 或以下）。
+- 若字數少於建議字數 50%，lengthPenalty 至少 -15；少於 30% 時至少 -25。
+- 不可僅因文法正確而給高分；內容空泛、論點不足、未展開支持細節，contentTaskScore 必須偏低（最多 2，對應 Level 2）。
+- 請明確對照官方等級描述，在 generalComment 中指出學生文章最接近哪個 HKDSE Level，並說明原因。
+- 若學生文字極短（少於 30 詞），必須在 generalComment 清楚說明扣分原因，且 overallScore 不得高於 25。
+
+注意：本回合重點是「嚴格評分校準 + 語言準確性問題」，仍可簡述內容與任務完成度不足。`.trim();
 
   const grammarUserPrompt = `${context}\n\n請只分析語言準確性（文法錯誤+中式英文+總分+總評）。`;
 
   // === Call 2：詞彙 + 結構 + 優缺點 + 修改版（寫作技巧） ===
-  const stylePrompt = `你是一位香港中學英文科教師，專注批改寫作技巧並提供修改範例。
+  const stylePrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，專注批改寫作技巧並提供修改範例。
+請嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三大向度，Level 5 至 Level 1）進行判斷。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
+
+評分基準回顧：
+- Level 5: Content 廣泛相關有創意；Language 句式廣泛準確、詞彙進階、語域恰當；Organization 完全連貫、分段有效。
+- Level 4: Content 大部分詳細；Language 多種句式準確、錯誤不影響清晰；Organization 大部分連貫。
+- Level 3: Content 大部分相關、有創意；Language 簡單及部分複合句準確、常用詞彙恰當；Organization 部分連貫。
+- Level 2: Content 部分相關、使用熟悉文體特徵；Language 簡單句良好、基本標點正確；Organization 可辨識結構。
+- Level 1: Content 少數相關點；Language 數句簡單可理解句子；Organization 句間少量連結。
+- 低於 Level 1: 內容完全無關、只寫一兩句、無法辨識為完整文章。
 
 {
   "strengths": ["優點1（繁體中文）", "優點2"],
@@ -825,7 +1038,12 @@ ${essayContent}
   "revisedVersion": "修正後的完整文章（保留原意，修正文法錯誤及 Chinglish，優化詞彙與句型，不改變原文字數過多）"
 }
 
-注意：只專注詞彙選擇、句子變化、段落結構、論點組織等寫作技巧，並提供一個流暢的修改版本。不需評論文法或 Chinglish（已由另一分析處理）。`.trim();
+規則：
+- 若文章離題、欠缺內容重點、只列點無展開，weaknesses 必須明確指出「任務完成不足」，不可僅評「文法可改善」。
+- strengths 最多 3 點，且必須對照上方等級描述，不可虛高（例如 Level 1-2 文章不可稱「詞彙豐富」）。
+- revisedVersion 必須示範如何補足內容與細節以提升至更高 HKDSE Level，不可只做表面文法潤飾。
+
+注意：只專注詞彙選擇、句子變化、段落結構、論點組織等寫作技巧，並提供一個流暢的修改版本。不需重複文法錯誤清單（已由另一分析處理）。`.trim();
 
   const styleUserPrompt = `${context}\n\n請分析寫作技巧並提供修改版（詞彙建議+結構評語+優點+弱點+修改版全文）。`;
 
@@ -860,6 +1078,12 @@ ${essayContent}
   // 各自獨立解析，允許部分失敗
   let grammarAnalysis: {
     overallScore?: number;
+    contentTaskScore?: number;
+    organizationScore?: number;
+    languageScore?: number;
+    taskCompletionScore?: number;
+    lengthPenalty?: number;
+    offTopicPenalty?: number;
     grammarErrors?: { original: string; correction: string; explanation: string }[];
     chinglishWarnings?: { original: string; suggestion: string; explanation: string }[];
     generalComment?: string;
@@ -893,9 +1117,32 @@ ${essayContent}
     throw new Error('AI 回傳格式無法解析（文法分析與寫作技巧分析皆失敗）。請縮短文章後重試。');
   }
 
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const ratio = targetWords && targetWords > 0 ? studentWordCount / targetWords : null;
+  const deterministicLengthPenalty = ratio === null
+    ? 0
+    : ratio < 0.3
+      ? -25
+      : ratio < 0.5
+        ? -15
+        : ratio < 0.7
+          ? -8
+          : 0;
+
+  const llmBaseScore = typeof grammarAnalysis.overallScore === 'number' ? grammarAnalysis.overallScore : 70;
+  const llmLengthPenalty = typeof grammarAnalysis.lengthPenalty === 'number' ? grammarAnalysis.lengthPenalty : 0;
+  const llmOffTopicPenalty = typeof grammarAnalysis.offTopicPenalty === 'number' ? grammarAnalysis.offTopicPenalty : 0;
+  const taskCompletionScore = typeof grammarAnalysis.taskCompletionScore === 'number' ? grammarAnalysis.taskCompletionScore : 3;
+  const normalizedOverall = clamp(
+    Math.round(llmBaseScore + Math.min(llmLengthPenalty, deterministicLengthPenalty) + llmOffTopicPenalty),
+    0,
+    100
+  );
+  const cappedOverall = taskCompletionScore <= 2 ? Math.min(normalizedOverall, 40) : normalizedOverall;
+
   // 合併結果（失敗的部分用 fallback）
   const combined: WritingAnalysis = {
-    overallScore: grammarAnalysis.overallScore ?? 70,
+    overallScore: cappedOverall,
     strengths: styleAnalysis.strengths || [],
     weaknesses: styleAnalysis.weaknesses || [],
     grammarErrors: grammarAnalysis.grammarErrors || [],
@@ -943,10 +1190,17 @@ export interface MistakeExplanation {
 
 export async function explainMistake(input: ExplainMistakeInput): Promise<MistakeExplanation> {
   const systemPrompt = `你是一位香港中學英文科教師，專門為學生解釋錯題。
+請參考 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening）來判斷學生錯誤對應的能力水平。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 
+HKDSE 常見錯誤類型與對應等級：
+- 詞義推斷失敗 / 無法追蹤論點 → Reading Level 2-3 典型弱項
+- 未能辨識說話者態度意圖 / 不懂重音語調提示 → Listening Level 2-3 典型弱項
+- 中式英文 / 基本文法錯誤 → Writing Level 1-2 典型弱項
+- 理解錯誤 / 答非所問 → 跨卷別共通弱項（comprehension）
+
 回覆欄位：
-1. reasonZh: string 為什麼答錯（繁體中文，簡潔易懂）
+1. reasonZh: string 為什麼答錯（繁體中文，簡潔易懂，並指出對應 HKDSE 哪個等級能力不足）
 2. reasonEn: string 為什麼答錯（英文版）
 3. ruleExplanation: string 相關文法/語言規則的詳細說明（繁體中文）
 4. examples: { wrong: string, correct: string }[] 2-3組對比例句
@@ -998,13 +1252,19 @@ export interface ProgressAnalysis {
 }
 
 export async function analyzeProgress(input: AnalyzeProgressInput): Promise<ProgressAnalysis> {
-  const systemPrompt = `你是一位香港中學英文科的學習顧問。
-請根據學生的學習數據提供個人化分析與建議，以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
+  const systemPrompt = `你是一位香港中學英文科的學習顧問，熟悉 HKDSE English Language Level Descriptors。
+請根據學生的學習數據，對照 HKDSE 等級描述提供個人化分析與建議。
+以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
+
+HKDSE Subject Descriptors 參考：
+- Level 5: 理解近自然語速口語（含比喻）、評價觀點、從語調辨識態度；理解複雜文本、追蹤論點、推論詞義；寫作有趣相關有組織、廣泛句式準確、語域恰當；表達流暢準確、持續互動。
+- Level 3: 理解中等語速字面口語、辨識明確觀點；理解簡單文本、做直接推論；寫作相關有組織（熟悉語境）、部分複合句準確、基本語域；使用簡單常用表達、回應他人。
+- Level 1: 理解簡短簡單口語、提取可預測信息；理解部分簡單文本、辨識基本事實；寫作一兩個相關點、數句簡單可理解句子；使用少數簡短表達、在被提示時回應。
 
 回覆欄位：
-1. summary: string 整體學習狀況摘要
+1. summary: string 整體學習狀況摘要（對照 HKDSE Level）
 2. strengthsAreas: string[] 學生做得好的方面
-3. urgentAreas: string[] 急需改善的弱項
+3. urgentAreas: string[] 急需改善的弱項（標明對應 HKDSE 卷別與等級）
 4. recommendedFocus: { skill, reason, priority }[] 建議優先學習的技能
 5. studyPlan: string 未來一週學習計劃建議
 6. encouragementMessage: string 鼓勵訊息（正向、具體）
@@ -1072,12 +1332,12 @@ export async function answerStudyHelp(input: StudyHelpInput): Promise<StudyHelpR
     .map(p => `${p.date}: ${p.accuracy}% / ${p.questionsDone}題`)
     .join('\n');
 
-  const systemPrompt = `你是一位香港中學英文科私人學習顧問。
-請根據學生的個人背景、弱項與近期表現，回答學生的英文學習問題。
+  const systemPrompt = `你是一位香港中學英文科私人學習顧問，熟悉 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）。
+請根據學生的個人背景、弱項與近期表現，對照 HKDSE 等級描述回答學生的英文學習問題。
 請使用繁體中文，語氣清晰、具體、可執行。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），欄位如下：
-1. answer: string 直接回答學生問題
-2. followUpTips: string[] 2-4個後續學習建議
+1. answer: string 直接回答學生問題（包含對照 HKDSE Level 的具體建議）
+2. followUpTips: string[] 2-4個後續學習建議（對應 HKDSE 各卷別技能）
 3. recommendedFocus: string[] 1-3個建議優先聚焦的技能/主題`;
 
   const userPrompt = `學生年級：${input.studentLevel}

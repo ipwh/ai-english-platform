@@ -18,6 +18,20 @@ import { useAppStore } from '@/store/appStore';
 import type { AnswerAnalysis } from '@/lib/ai-service';
 import type { PracticeQuestion } from '@/lib/types';
 
+const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
+
+function getMcqLetterByIndex(index: number): string {
+  return MCQ_LETTERS[index] || 'A';
+}
+
+function stripMcqPrefix(choice: string): string {
+  return choice
+    .trim()
+    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4]|T|F|True|False)\s*\)?\s*[\].:：)\-、]\s*/iu, '')
+    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '')
+    .trim();
+}
+
 /** 智能答案比對：文字題忽略大小寫、多餘空白及標點 */
 function checkAnswer(student: string, correct: string, type: string): boolean {
   if (type === 'mc') {
@@ -31,10 +45,14 @@ function checkAnswer(student: string, correct: string, type: string): boolean {
 /** 取得完整答案文字（MC 題從選項中查找完整句子，非 MC 題直接回傳答案） */
 function getFullAnswerText(question: PracticeQuestion): string {
   if (question.choices && question.choices.length > 0) {
-    const fullChoice = question.choices.find(
-      c => c.charAt(0).toUpperCase() === question.answer.trim().toUpperCase()
-    );
-    return fullChoice || question.answer;
+    const answerLetter = question.answer.trim().toUpperCase();
+    const answerIndex = MCQ_LETTERS.indexOf(answerLetter as (typeof MCQ_LETTERS)[number]);
+    if (answerIndex >= 0 && question.choices[answerIndex]) {
+      return stripMcqPrefix(question.choices[answerIndex]);
+    }
+
+    const textMatch = question.choices.find(c => stripMcqPrefix(c).toLowerCase() === question.answer.trim().toLowerCase());
+    return textMatch ? stripMcqPrefix(textMatch) : question.answer;
   }
   return question.answer;
 }
@@ -282,13 +300,15 @@ export default function PracticeQuestionPage() {
         {/* 選項 */}
         {question.choices && (
           <div className="space-y-3">
-            {question.choices.map((choice) => {
-              const choiceLetter = choice.charAt(0);
+            {question.choices.map((choice, index) => {
+              const correctLetter = question.answer.trim().toUpperCase();
+              const choiceLetter = getMcqLetterByIndex(index);
+              const choiceText = stripMcqPrefix(choice);
               let choiceStyle = 'border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-500';
               if (submitted) {
-                if (choiceLetter === question.answer) {
+                if (choiceLetter === correctLetter) {
                   choiceStyle = 'border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600';
-                } else if (choiceLetter === selectedAnswer && selectedAnswer !== question.answer) {
+                } else if (choiceLetter === selectedAnswer && selectedAnswer !== correctLetter) {
                   choiceStyle = 'border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-600';
                 }
               } else if (selectedAnswer === choiceLetter) {
@@ -297,23 +317,23 @@ export default function PracticeQuestionPage() {
 
               return (
                 <button
-                  key={choice}
+                  key={`${index}-${choice}`}
                   onClick={() => !submitted && setSelectedAnswer(choiceLetter)}
                   disabled={submitted}
                   className={`w-full flex items-center gap-3 p-4 border-2 rounded-xl text-left transition-colors ${choiceStyle}`}
                 >
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                    submitted && choiceLetter === question.answer
+                    submitted && choiceLetter === correctLetter
                       ? 'bg-green-500 text-white'
-                      : submitted && choiceLetter === selectedAnswer && choiceLetter !== question.answer
+                      : submitted && choiceLetter === selectedAnswer && choiceLetter !== correctLetter
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}>
-                    {submitted && choiceLetter === question.answer ? <Check className="w-4 h-4" /> :
-                     submitted && choiceLetter === selectedAnswer && choiceLetter !== question.answer ? <X className="w-4 h-4" /> :
+                    {submitted && choiceLetter === correctLetter ? <Check className="w-4 h-4" /> :
+                     submitted && choiceLetter === selectedAnswer && choiceLetter !== correctLetter ? <X className="w-4 h-4" /> :
                      choiceLetter}
                   </span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{choice.slice(3)}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{choiceText}</span>
                 </button>
               );
             })}
