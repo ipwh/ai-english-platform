@@ -716,7 +716,7 @@ export interface AnswerAnalysis {
 
 export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAnalysis> {
   const systemPrompt = `你是一位香港中學英文科教師，負責批改學生的英文練習答案。
-請以繁體中文提供詳細分析，並以 JSON 格式回覆。
+請以繁體中文提供詳細分析，並以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
 
 分析要點：
 1. 判斷答案是否正確（isCorrect: boolean）
@@ -930,7 +930,7 @@ export interface MistakeExplanation {
 
 export async function explainMistake(input: ExplainMistakeInput): Promise<MistakeExplanation> {
   const systemPrompt = `你是一位香港中學英文科教師，專門為學生解釋錯題。
-請以 JSON 格式回覆，所有中文使用繁體中文。
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 
 回覆欄位：
 1. reasonZh: string 為什麼答錯（繁體中文，簡潔易懂）
@@ -986,7 +986,7 @@ export interface ProgressAnalysis {
 
 export async function analyzeProgress(input: AnalyzeProgressInput): Promise<ProgressAnalysis> {
   const systemPrompt = `你是一位香港中學英文科的學習顧問。
-請根據學生的學習數據提供個人化分析與建議，以 JSON 格式回覆，所有中文使用繁體中文。
+請根據學生的學習數據提供個人化分析與建議，以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 
 回覆欄位：
 1. summary: string 整體學習狀況摘要
@@ -1062,7 +1062,7 @@ export async function answerStudyHelp(input: StudyHelpInput): Promise<StudyHelpR
   const systemPrompt = `你是一位香港中學英文科私人學習顧問。
 請根據學生的個人背景、弱項與近期表現，回答學生的英文學習問題。
 請使用繁體中文，語氣清晰、具體、可執行。
-請以 JSON 格式回覆，欄位如下：
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），欄位如下：
 1. answer: string 直接回答學生問題
 2. followUpTips: string[] 2-4個後續學習建議
 3. recommendedFocus: string[] 1-3個建議優先聚焦的技能/主題`;
@@ -1112,7 +1112,7 @@ export interface MaterialAnalysis {
 
 export async function analyzeMaterial(input: AnalyzeMaterialInput): Promise<MaterialAnalysis> {
   const systemPrompt = `你是一位香港中學英文科教材分析專家。
-請分析以下教材內容，以 JSON 格式回覆，所有中文使用繁體中文。
+請分析以下教材內容，以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 
 回覆欄位：
 1. summary: string 教材內容摘要
