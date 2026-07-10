@@ -373,16 +373,20 @@ async function callLLM(
     throw new Error('AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。');
   }
 
+  const errors: string[] = [];
+
   if (hasDeepSeek) {
     try {
       const result = await callDeepSeek(messages, options);
       lastAIProvider = 'deepseek';
       return result;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`DeepSeek: ${msg}`);
       if (!hasVertexGemini && !hasGemini) {
-        throw err;
+        throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
-      console.warn('[ai-service] DeepSeek 失敗，切換 Gemini fallback:', err);
+      console.warn('[ai-service] DeepSeek 失敗，切換 Gemini fallback:', msg);
     }
   }
 
@@ -393,16 +397,25 @@ async function callLLM(
       console.log('[ai-service] 使用 Vertex Gemini (fallback)');
       return result;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`Vertex Gemini: ${msg}`);
       if (!hasGemini) {
-        throw err;
+        throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
-      console.warn('[ai-service] Vertex Gemini 失敗，切換 Gemini API key fallback:', err);
+      console.warn('[ai-service] Vertex Gemini 失敗，切換 Gemini API key fallback:', msg);
     }
   }
 
-  lastAIProvider = 'gemini-api';
-  console.log('[ai-service] 使用 Gemini API key (fallback)');
-  return callGemini(messages, options);
+  try {
+    const result = await callGemini(messages, options);
+    lastAIProvider = 'gemini-api';
+    console.log('[ai-service] 使用 Gemini API key (fallback)');
+    return result;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`Gemini API: ${msg}`);
+    throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
+  }
 }
 
 // ============================================

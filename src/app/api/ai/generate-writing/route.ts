@@ -91,7 +91,13 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('[generate-writing] Error:', message);
-    return NextResponse.json({ error: `AI 生成失敗：${message}` }, { status: 500 });
+    return NextResponse.json({
+      error: `AI 生成失敗：${message}`,
+      _meta: { provider: getLastAIProvider() },
+    }, {
+      status: 500,
+      headers: { 'X-AI-Provider': getLastAIProvider() },
+    });
   }
 }
 
