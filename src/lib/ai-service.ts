@@ -855,22 +855,42 @@ ${essayContent}
     ),
   ]);
 
-  // 解析兩個回應
-  const grammarAnalysis = parseAIJSON<{
+  // 各自獨立解析，允許部分失敗
+  let grammarAnalysis: {
     overallScore?: number;
     grammarErrors?: { original: string; correction: string; explanation: string }[];
     chinglishWarnings?: { original: string; suggestion: string; explanation: string }[];
     generalComment?: string;
-  }>(grammarResult);
-
-  const styleAnalysis = parseAIJSON<{
+  } = {};
+  let styleAnalysis: {
     strengths?: string[];
     weaknesses?: string[];
     vocabularySuggestions?: { original: string; suggestion: string; reason: string }[];
     structureFeedback?: string;
-  }>(styleResult);
+  } = {};
+  let grammarFailed = false;
+  let styleFailed = false;
 
-  // 合併結果
+  try {
+    grammarAnalysis = parseAIJSON<typeof grammarAnalysis>(grammarResult);
+  } catch (e) {
+    grammarFailed = true;
+    console.error('[analyzeWriting] Grammar call JSON parse failed:', e);
+  }
+
+  try {
+    styleAnalysis = parseAIJSON<typeof styleAnalysis>(styleResult);
+  } catch (e) {
+    styleFailed = true;
+    console.error('[analyzeWriting] Style call JSON parse failed:', e);
+  }
+
+  // 兩者都失敗才拋錯
+  if (grammarFailed && styleFailed) {
+    throw new Error('AI 回傳格式無法解析（文法分析與寫作技巧分析皆失敗）。請縮短文章後重試。');
+  }
+
+  // 合併結果（失敗的部分用 fallback）
   const combined: WritingAnalysis = {
     overallScore: grammarAnalysis.overallScore ?? 70,
     strengths: styleAnalysis.strengths || [],
@@ -878,9 +898,18 @@ ${essayContent}
     grammarErrors: grammarAnalysis.grammarErrors || [],
     chinglishWarnings: grammarAnalysis.chinglishWarnings || [],
     vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
-    structureFeedback: styleAnalysis.structureFeedback || '結構評語暫時無法生成，請重試。',
-    generalComment: grammarAnalysis.generalComment || '總評暫時無法生成，請重試。',
+    structureFeedback: styleAnalysis.structureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
+    generalComment: grammarAnalysis.generalComment || (grammarFailed ? '⚠️ 語言準確性分析暫時無法生成，請重試。' : ''),
   };
+
+  // 記錄部分失敗供前端顯示
+  if (grammarFailed || styleFailed) {
+    const failedParts = [
+      grammarFailed ? '文法分析' : '',
+      styleFailed ? '寫作技巧分析' : '',
+    ].filter(Boolean).join('、');
+    console.warn(`[analyzeWriting] 部分分析失敗: ${failedParts}`);
+  }
 
   const validated = validateAIResponse(WritingAnalysisSchema, combined);
   if (!validated.success) throw new Error(validated.error);
