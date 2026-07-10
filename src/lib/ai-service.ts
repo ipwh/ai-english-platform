@@ -811,8 +811,8 @@ ${essayContent}
 
   const grammarUserPrompt = `${context}\n\n請只分析語言準確性（文法錯誤+中式英文+總分+總評）。`;
 
-  // === Call 2：詞彙 + 結構 + 優缺點（寫作技巧） ===
-  const stylePrompt = `你是一位香港中學英文科教師，專注批改寫作技巧。
+  // === Call 2：詞彙 + 結構 + 優缺點 + 修改版（寫作技巧） ===
+  const stylePrompt = `你是一位香港中學英文科教師，專注批改寫作技巧並提供修改範例。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
 
 {
@@ -821,28 +821,39 @@ ${essayContent}
   "vocabularySuggestions": [
     { "original": "原詞", "suggestion": "建議詞", "reason": "原因（繁體中文）" }
   ],
-  "structureFeedback": "文章結構評語（繁體中文，50-100字）"
+  "structureFeedback": "文章結構評語（繁體中文，50-100字）",
+  "revisedVersion": "修正後的完整文章（保留原意，修正文法錯誤及 Chinglish，優化詞彙與句型，不改變原文字數過多）"
 }
 
-注意：只專注詞彙選擇、句子變化、段落結構、論點組織等寫作技巧。不需評論文法或 Chinglish。`.trim();
+注意：只專注詞彙選擇、句子變化、段落結構、論點組織等寫作技巧，並提供一個流暢的修改版本。不需評論文法或 Chinglish（已由另一分析處理）。`.trim();
 
-  const styleUserPrompt = `${context}\n\n請只分析寫作技巧（詞彙建議+結構評語+優點+弱點）。`;
+  const styleUserPrompt = `${context}\n\n請分析寫作技巧並提供修改版（詞彙建議+結構評語+優點+弱點+修改版全文）。`;
 
-  // 並行執行兩個分析
+  // 並行執行兩個分析（grammar call 加入重試以提升穩定性）
   const [grammarResult, styleResult] = await Promise.all([
-    callLLM(
-      [
-        { role: 'system', content: grammarPrompt },
-        { role: 'user', content: grammarUserPrompt },
-      ],
-      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
-    ),
+    (async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          return await callLLM(
+            [
+              { role: 'system', content: grammarPrompt },
+              { role: 'user', content: grammarUserPrompt },
+            ],
+            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 35000 }
+          );
+        } catch (e) {
+          if (attempt === 1) throw e;
+          console.warn('[analyzeWriting] Grammar call retry after failure:', e);
+        }
+      }
+      throw new Error('Grammar analysis failed after retry');
+    })(),
     callLLM(
       [
         { role: 'system', content: stylePrompt },
         { role: 'user', content: styleUserPrompt },
       ],
-      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+      { temperature: 0.3, maxTokens: 6144, jsonMode: true, timeoutMs: 35000 }
     ),
   ]);
 
@@ -858,6 +869,7 @@ ${essayContent}
     weaknesses?: string[];
     vocabularySuggestions?: { original: string; suggestion: string; reason: string }[];
     structureFeedback?: string;
+    revisedVersion?: string;
   } = {};
   let grammarFailed = false;
   let styleFailed = false;
@@ -890,6 +902,7 @@ ${essayContent}
     chinglishWarnings: grammarAnalysis.chinglishWarnings || [],
     vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
     structureFeedback: styleAnalysis.structureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
+    revisedVersion: styleAnalysis.revisedVersion || undefined,
     generalComment: grammarAnalysis.generalComment || (grammarFailed ? '⚠️ 語言準確性分析暫時無法生成，請重試。' : ''),
   };
 
