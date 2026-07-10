@@ -14,6 +14,9 @@ import {
   MaterialAnalysisSchema,
   validateAIResponse,
 } from './ai-schema';
+import { GoogleAuth } from 'google-auth-library';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // ============================================
 // PDPO 去識別化 — 傳送給 AI 前移除個人資料
@@ -44,6 +47,58 @@ const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
+const VERTEX_PROJECT_ID = process.env.GCP_PROJECT_ID || '';
+const VERTEX_LOCATION = process.env.VERTEX_AI_LOCATION || 'global';
+const VERTEX_GEMINI_MODEL = process.env.VERTEX_GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+// ============================================
+// Provider 追蹤 — 供 API routes 通知前端目前使用的 AI
+// ============================================
+let lastAIProvider: 'deepseek' | 'vertex-gemini' | 'gemini-api' | 'none' = 'none';
+export function getLastAIProvider(): string { return lastAIProvider; }
+export function wasFallbackUsed(): boolean { return lastAIProvider !== 'deepseek' && lastAIProvider !== 'none'; }
+
+// ============================================
+// Gemini prompt 適配 — Gemini 對 system prompt 的遵循方式與 DeepSeek 不同
+// 移除 responseMimeType 硬約束，改為在 prompt 中注入明確 JSON 格式指引
+// 這是確保 Gemini fallback 品質與 DeepSeek 一致的關鍵機制
+// ============================================
+const GEMINI_JSON_INSTRUCTION = `
+
+---
+CRITICAL OUTPUT FORMAT (MUST FOLLOW EXACTLY):
+- Output ONLY a valid JSON array (start with [, end with ]) or JSON object (start with {, end with }).
+- Do NOT wrap in markdown code blocks (no \`\`\`json).
+- Do NOT add any text, explanation, or notes before or after the JSON.
+- EVERY string field must contain meaningful, complete, substantive content.
+- NO empty strings "". NO placeholder values like "N/A", "todo", "TBD".
+- For Chinese text, use Traditional Chinese (繁體中文), NOT Simplified.
+- All JSON strings must be properly escaped (escape \" and \\ inside strings).
+- The response must be parseable by JSON.parse() directly.
+
+MCQ CHOICE RULES:
+- choices must be an array of EXACTLY 4 strings: ["A option", "B option", "C option", "D option"]
+- Each choice must be a MEANINGFUL phrase or sentence (3+ words), never single letters or random symbols
+- All 4 choices must be the same grammatical form and similar length
+- Distractors must be PLAUSIBLE — wrong but believable to a student at this level
+- answer must be a single letter: "A", "B", "C", or "D"`.trim();
+
+function adaptMessagesForGemini(messages: ChatMessage[], jsonMode: boolean): ChatMessage[] {
+  if (!jsonMode) return messages;
+  return messages.map(m => {
+    if (m.role === 'system') {
+      return { ...m, content: m.content + '\n' + GEMINI_JSON_INSTRUCTION };
+    }
+    return m;
+  });
+}
+
+type LLMCallOptions = { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number };
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -55,13 +110,59 @@ interface DeepSeekResponse {
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
+interface GeminiResponse {
+  candidates?: {
+    content?: {
+      parts?: { text?: string }[];
+    };
+  }[];
+  error?: {
+    message?: string;
+  };
+}
+
+let vertexAuth: GoogleAuth | null = null;
+
+function hasServiceAccountSource(): boolean {
+  if (process.env.GCP_SERVICE_ACCOUNT_JSON) return true;
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return true;
+  const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+  return fs.existsSync(localCredPath);
+}
+
+function getVertexAuth(): GoogleAuth {
+  if (vertexAuth) return vertexAuth;
+
+  const options: ConstructorParameters<typeof GoogleAuth>[0] = {
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  };
+
+  if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+    options.credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (!fs.existsSync(credPath)) {
+      throw new Error(`GOOGLE_APPLICATION_CREDENTIALS 指向的憑證檔案不存在：${credPath}`);
+    }
+    options.keyFile = credPath;
+  } else {
+    const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+    if (fs.existsSync(localCredPath)) {
+      options.keyFile = localCredPath;
+    }
+  }
+
+  vertexAuth = new GoogleAuth(options);
+  return vertexAuth;
+}
+
 // ============================================
 // 核心 API 調用
 // ============================================
 
 async function callDeepSeek(
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number }
+  options?: LLMCallOptions
 ): Promise<string> {
   if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
     throw new Error('AI 服務尚未設定。請在環境變數中設定 DEEPSEEK_API_KEY。');
@@ -103,6 +204,205 @@ async function callDeepSeek(
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function toGeminiPayload(messages: ChatMessage[]) {
+  const systemMessages = messages
+    .filter(m => m.role === 'system')
+    .map(m => m.content)
+    .join('\n\n');
+
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+  return { systemMessages, contents };
+}
+
+async function callGemini(
+  messages: ChatMessage[],
+  options?: LLMCallOptions
+): Promise<string> {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Gemini API 尚未設定。請在環境變數中設定 GEMINI_API_KEY。');
+  }
+
+  const timeoutMs = options?.timeoutMs || 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Gemini prompt 適配：jsonMode 時注入明確 JSON 格式指引，取代 responseMimeType 硬約束
+  const adaptedMessages = adaptMessagesForGemini(messages, options?.jsonMode ?? false);
+  const { systemMessages, contents } = toGeminiPayload(adaptedMessages);
+
+  // jsonMode 時使用較低 temperature + 較大 maxOutputTokens 以確保內容品質
+  const isJson = options?.jsonMode ?? false;
+
+  try {
+    const res = await fetch(`${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        systemInstruction: systemMessages
+          ? {
+            role: 'system',
+            parts: [{ text: systemMessages }],
+          }
+          : undefined,
+        contents,
+        generationConfig: {
+          temperature: isJson ? (options?.temperature ?? 0.3) : (options?.temperature ?? 0.7),
+          maxOutputTokens: isJson ? Math.max(options?.maxTokens ?? 1024, 4096) : (options?.maxTokens ?? 1024),
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini 服務錯誤 (${res.status}): ${errText.slice(0, 200)}`);
+    }
+
+    const data: GeminiResponse = await res.json();
+    const content = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim() || '';
+    if (!content) {
+      throw new Error(data.error?.message || 'Gemini 回傳為空');
+    }
+    return content;
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Gemini 回應超時。請稍後重試。');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function callGeminiViaVertex(
+  messages: ChatMessage[],
+  options?: LLMCallOptions
+): Promise<string> {
+  if (!VERTEX_PROJECT_ID) {
+    throw new Error('Vertex Gemini 尚未設定 GCP_PROJECT_ID。');
+  }
+  if (!hasServiceAccountSource()) {
+    throw new Error('Vertex Gemini 尚未設定 service account 憑證。');
+  }
+
+  const timeoutMs = options?.timeoutMs || 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Gemini prompt 適配：jsonMode 時注入明確 JSON 格式指引，取代 responseMimeType 硬約束
+  const adaptedMessages = adaptMessagesForGemini(messages, options?.jsonMode ?? false);
+  const { systemMessages, contents } = toGeminiPayload(adaptedMessages);
+
+  // jsonMode 時使用較低 temperature + 較大 maxOutputTokens 以確保內容品質
+  const isJson = options?.jsonMode ?? false;
+
+  try {
+    const auth = getVertexAuth();
+    const client = await auth.getClient();
+    const host = VERTEX_LOCATION === 'global'
+      ? 'aiplatform.googleapis.com'
+      : `${VERTEX_LOCATION}-aiplatform.googleapis.com`;
+    const url = `https://${host}/v1/projects/${VERTEX_PROJECT_ID}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_GEMINI_MODEL}:generateContent`;
+    const token = await client.getAccessToken();
+    if (!token?.token) {
+      throw new Error('無法取得 Vertex OAuth access token。請檢查 service account 憑證與 IAM 權限。');
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        systemInstruction: systemMessages
+          ? {
+            role: 'system',
+            parts: [{ text: systemMessages }],
+          }
+          : undefined,
+        contents,
+        generationConfig: {
+          temperature: isJson ? (options?.temperature ?? 0.3) : (options?.temperature ?? 0.7),
+          maxOutputTokens: isJson ? Math.max(options?.maxTokens ?? 1024, 4096) : (options?.maxTokens ?? 1024),
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Vertex Gemini 錯誤 (${res.status}): ${errText.slice(0, 260)}`);
+    }
+
+    const data: GeminiResponse = await res.json();
+    const content = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim() || '';
+    if (!content) {
+      throw new Error(data.error?.message || 'Vertex Gemini 回傳為空');
+    }
+    return content;
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Vertex Gemini 回應超時。請稍後重試。');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function callLLM(
+  messages: ChatMessage[],
+  options?: LLMCallOptions
+): Promise<string> {
+  const hasDeepSeek = !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here';
+  const hasVertexGemini = !!VERTEX_PROJECT_ID && hasServiceAccountSource();
+  const hasGemini = !!GEMINI_API_KEY;
+
+  if (!hasDeepSeek && !hasVertexGemini && !hasGemini) {
+    throw new Error('AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。');
+  }
+
+  if (hasDeepSeek) {
+    try {
+      const result = await callDeepSeek(messages, options);
+      lastAIProvider = 'deepseek';
+      return result;
+    } catch (err) {
+      if (!hasVertexGemini && !hasGemini) {
+        throw err;
+      }
+      console.warn('[ai-service] DeepSeek 失敗，切換 Gemini fallback:', err);
+    }
+  }
+
+  if (hasVertexGemini) {
+    try {
+      const result = await callGeminiViaVertex(messages, options);
+      lastAIProvider = 'vertex-gemini';
+      console.log('[ai-service] 使用 Vertex Gemini (fallback)');
+      return result;
+    } catch (err) {
+      if (!hasGemini) {
+        throw err;
+      }
+      console.warn('[ai-service] Vertex Gemini 失敗，切換 Gemini API key fallback:', err);
+    }
+  }
+
+  lastAIProvider = 'gemini-api';
+  console.log('[ai-service] 使用 Gemini API key (fallback)');
+  return callGemini(messages, options);
 }
 
 // ============================================
@@ -161,7 +461,12 @@ ${isListening ? `
   Woman: Excuse me, could you tell me where the nearest MTR station is?
   Man: Sure, just go straight and turn left at the second crossing.
   Woman: Thank you so much!
-- 可用角色標籤：Woman / Man / Boy / Girl / A / B
+- 角色標籤只可使用：Woman / Man / Boy / Girl
+- 嚴禁使用 A / B / Speaker A / Speaker B 等字母標籤！
+  原因：TTS 系統會根據 Woman/Man 自動分配女聲/男聲，但不會讀出標籤文字，
+  學生只聽到不同聲音，無法分辨誰是「A」誰是「B」。
+- 題目 prompt 及選項中如需引用說話者，必須用 "the woman" / "the man" / "the boy" / "the girl"
+  例如："What does the man suggest?" 而非 "What does A suggest?"
 - listeningContentZh: 中文簡短情境說明
 - prompt: 針對聆聽內容的題目問題` : ''}
 
@@ -189,11 +494,33 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 - 題目必須貼近香港中學生的生活經驗
 - 全部中文使用繁體中文
 - MC題必須有恰好4個選項（A/B/C/D）
-- 回覆必須是有效的 JSON 陣列，以 [ 開頭，以 ] 結尾`;
+- 回覆必須是有效的 JSON 陣列，以 [ 開頭，以 ] 結尾
+
+【MCQ 選項品質要求（極重要）】
+- 每個選項必須是完整、有意義的英文句子或片語（至少3個單詞），不可只有單個單詞或字母
+- 所有選項必須屬於同一語法形式（如全部名詞片語、全部完整句子、全部動詞片語）
+- 干擾選項必須看起來合理（plausible distractor），不可明顯荒謬
+- 選項長度應大致相近，不可有某個選項明顯過長或過短
+- 選項之間不可有重疊或包含關係
+
+【正確 JSON 輸出範例】
+[
+  {
+    "type": "mc",
+    "prompt": "Choose the correct word to complete the sentence: If I ___ rich, I would travel around the world.",
+    "promptZh": "選擇正確的詞語完成句子",
+    "choices": ["am", "was", "were", "will be"],
+    "answer": "C",
+    "explanationZh": "在第二類條件句中，if 子句使用過去式，be 動詞一律用 were。",
+    "explanationEn": "In Type 2 conditionals, we use past tense in the if-clause, and 'were' is used for all persons of 'be'.",
+    "commonMistake": "學生常誤用 was 代替 were，忽略了條件句中 were 的特殊用法。",
+    "grammarPoint": "Type 2 Conditional (Subjunctive)"
+  }
+]`;
 
   const userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${typeDesc === 'mc' ? '選擇題' : typeDesc === 'fill-blank' ? '填充題' : typeDesc === 'error-correction' ? '改錯題' : '寫作題'}。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -201,10 +528,44 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
     { temperature: 0.7, maxTokens: 2048, jsonMode: true, timeoutMs: 25000 }
   );
 
-  const questions = parseGeneratedQuestions(result);
-  const validated = validateAIResponse(GeneratedQuestionsArraySchema, questions);
-  if (!validated.success) throw new Error(validated.error);
-  return validated.data;
+  const tryValidate = (rawText: string) => {
+    const parsed = parseGeneratedQuestions(rawText);
+    const validated = validateAIResponse(GeneratedQuestionsArraySchema, parsed);
+    if (!validated.success) {
+      throw new Error(validated.error);
+    }
+    return validated.data;
+  };
+
+  try {
+    return tryValidate(result);
+  } catch (firstErr: unknown) {
+    const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+    if (!/AI 回傳格式無法解析|AI 回傳資料格式異常|JSON/i.test(firstMsg)) {
+      throw firstErr;
+    }
+
+    // 第二階段：請模型只做「格式修復」，避免偶發非 JSON 輸出導致 500
+    const repairSystemPrompt = `你是 JSON 格式修復器。請將輸入內容轉為有效 JSON 陣列。
+不要新增或刪除題目，只修正格式。
+回覆必須是純 JSON 陣列，不可包含任何其他文字。`;
+
+    const repairUserPrompt = `請把以下內容轉成有效 JSON 陣列，每題需包含：
+type, prompt, promptZh, choices, answer, explanationZh, explanationEn, commonMistake, grammarPoint
+
+原始內容：
+${result.slice(0, 12000)}`;
+
+    const repaired = await callLLM(
+      [
+        { role: 'system', content: repairSystemPrompt },
+        { role: 'user', content: repairUserPrompt },
+      ],
+      { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 15000 }
+    );
+
+    return tryValidate(repaired);
+  }
 }
 
 /**
@@ -237,6 +598,56 @@ export function repairTruncatedJSON(json: string): string | null {
   return null;
 }
 
+function extractBalancedJson(raw: string): string | null {
+  const startIndex = raw.search(/[\[{]/);
+  if (startIndex < 0) return null;
+
+  const openChar = raw[startIndex];
+  const closeChar = openChar === '{' ? '}' : ']';
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = startIndex; i < raw.length; i++) {
+    const char = raw[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '{' || char === '[') {
+      stack.push(char);
+      continue;
+    }
+
+    if (char === '}' || char === ']') {
+      const last = stack[stack.length - 1];
+      if (!last) return null;
+      if ((last === '{' && char !== '}') || (last === '[' && char !== ']')) {
+        return null;
+      }
+      stack.pop();
+      if (stack.length === 0 && char === closeChar) {
+        return raw.slice(startIndex, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
 /** 穩健解析 AI 回傳的 JSON，處理 markdown 代碼塊、截斷等常見問題 */
 export function parseAIJSON<T>(raw: string): T {
   let cleaned = raw
@@ -246,6 +657,12 @@ export function parseAIJSON<T>(raw: string): T {
 
   // 嘗試直接解析
   try { return JSON.parse(cleaned) as T; } catch { /* continue */ }
+
+  // 嘗試擷取第一段完整 JSON 區塊（可容忍前後雜訊）
+  const balanced = extractBalancedJson(cleaned);
+  if (balanced) {
+    try { return JSON.parse(balanced) as T; } catch { /* continue */ }
+  }
 
   // 嘗試提取 JSON 物件
   const objMatch = cleaned.match(/\{[\s\S]*\}/);
@@ -321,7 +738,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
 請分析學生的答案。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -388,7 +805,7 @@ ${sanitizeForAI(input.studentDraft)}
 
 請詳細批改這篇作文。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -443,7 +860,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
 請幫學生解釋為什麼答錯了，以及如何避免再犯。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -511,7 +928,7 @@ ${recentDesc}
 
 請提供個人化學習建議。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -572,7 +989,7 @@ ${recentDesc || '暫無'}
 
 請根據以上學生背景，提供個人化建議。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -627,7 +1044,7 @@ ${input.content.slice(0, 8000)}
 
 請分析這份教材。`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -688,7 +1105,7 @@ CRITICAL: Return ONLY the prompt itself. Do NOT include headings like "Writing P
 
   const userPrompt = `Generate one writing prompt for a ${input.gradeLevel} student. Text type: ${input.textType}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic area: ${input.topicHint}` : ''}`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -754,7 +1171,7 @@ ${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}`;
 
   const userPrompt = `Create a detailed bilingual (ZH+EN) paragraph-by-paragraph writing outline for this task. Use SHORT PHRASES for content points, NOT full sentences.\n\nPrompt: ${input.writingPrompt}\n\nText type: ${input.textType}\nGrade: ${input.gradeLevel}\nWords: ~${input.wordLimit}`;
 
-  const result = await callDeepSeek(
+  const result = await callLLM(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -771,5 +1188,27 @@ ${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}`;
 
 /** 檢查 DeepSeek API 是否已設定 */
 export function isDeepSeekConfigured(): boolean {
-  return !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here';
+  return isAIConfigured();
+}
+
+export function isAIConfigured(): boolean {
+  const deepSeekConfigured = !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here';
+  const vertexGeminiConfigured = !!VERTEX_PROJECT_ID && hasServiceAccountSource();
+  const geminiApiKeyConfigured = !!GEMINI_API_KEY;
+  return deepSeekConfigured || vertexGeminiConfigured || geminiApiKeyConfigured;
+}
+
+export function isVertexGeminiConfigured(): boolean {
+  return !!VERTEX_PROJECT_ID && hasServiceAccountSource();
+}
+
+export function getAIProviders() {
+  return {
+    deepseek: !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here',
+    vertexGemini: isVertexGeminiConfigured(),
+    geminiApiKey: !!GEMINI_API_KEY,
+    vertexProjectId: VERTEX_PROJECT_ID || null,
+    vertexLocation: VERTEX_LOCATION,
+    vertexModel: VERTEX_GEMINI_MODEL,
+  };
 }

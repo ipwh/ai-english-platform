@@ -12,15 +12,15 @@ import { z } from 'zod';
 export const GeneratedQuestionSchema = z.object({
   type: z.enum(['mc', 'fill-blank', 'error-correction', 'short-writing', 'matching']),
   prompt: z.string().min(1),
-  promptZh: z.string().optional(),
+  promptZh: z.string().nullish(),
   choices: z.array(z.string()).default([]),
   answer: z.string().min(1),
   explanationZh: z.string().min(1),
   explanationEn: z.string().min(1),
   commonMistake: z.string().min(1),
-  grammarPoint: z.string().optional(),
-  listeningContent: z.string().optional(),
-  listeningContentZh: z.string().optional(),
+  grammarPoint: z.string().nullish(),
+  listeningContent: z.string().nullish(),
+  listeningContentZh: z.string().nullish(),
 });
 
 export const GeneratedQuestionsArraySchema = z.array(GeneratedQuestionSchema);
@@ -40,7 +40,7 @@ export const AnswerAnalysisSchema = z.object({
   ]),
   explanation: z.string().min(1),
   improvementTip: z.string().min(1),
-  relatedGrammarPoint: z.string().optional(),
+  relatedGrammarPoint: z.string().nullish(),
 });
 
 // ============================================
@@ -67,7 +67,7 @@ export const WritingAnalysisSchema = z.object({
     reason: z.string(),
   })),
   structureFeedback: z.string(),
-  revisedVersion: z.string().optional(),
+  revisedVersion: z.string().nullish(),
   generalComment: z.string(),
 });
 
@@ -144,13 +144,35 @@ export type ValidationResult<T> =
   | { success: false; error: string };
 
 /**
+ * 遞迴移除物件中的 null 值，轉為 undefined。
+ * Gemini 傾向對 optional 欄位回傳 null，而 DeepSeek 會直接省略。
+ * 此函數統一處理，避免 Zod .optional() 因 null 而驗證失敗。
+ */
+function stripNulls(obj: unknown): unknown {
+  if (obj === null) return undefined;
+  if (Array.isArray(obj)) return obj.map(stripNulls);
+  if (typeof obj === 'object' && obj !== null) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const cleaned = stripNulls(value);
+      if (cleaned !== undefined) {
+        result[key] = cleaned;
+      }
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
  * 安全地驗證 AI 回傳資料，失敗時回傳人類可讀的錯誤訊息
  */
 export function validateAIResponse<T>(
   schema: z.ZodSchema<T>,
   data: unknown
 ): ValidationResult<T> {
-  const result = schema.safeParse(data);
+  const cleaned = stripNulls(data);
+  const result = schema.safeParse(cleaned);
   if (result.success) {
     return { success: true, data: result.data };
   }

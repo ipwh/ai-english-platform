@@ -28,8 +28,8 @@ const SPEED_LABELS: Record<number, string> = { 0.75: '0.75×', 1: '1×', 1.25: '
 const DEFAULT_SPEED = 0.9;
 const SPEED_STORAGE_KEY = 'audio-player-speed';
 
-/** 對話行模式：Woman: / Man: / A: / B: / Speaker 1: */
-const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl|Speaker\s*\d|[A-B])\s*[:：]\s*(.+)$/i;
+/** 對話行模式：Woman: / Man: / Boy: / Girl: （不使用 A/B，學生無法從聲音分辨字母） */
+const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl)\s*[:：]\s*(.+)$/i;
 
 /** 將文字解析成對話段落 */
 function parseDialogue(text: string): DialogueLine[] {

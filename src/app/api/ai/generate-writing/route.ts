@@ -1,10 +1,10 @@
-// ============================================
+﻿// ============================================
 // API Route: POST /api/ai/generate-writing
 // 生成寫作題目與大綱（獨立於練習題目生成）
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured } from '@/lib/ai-service';
+import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 
 export async function POST(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     if (!isDeepSeekConfigured()) {
       return NextResponse.json(
-        { error: 'DeepSeek API 尚未設定，請在 .env.local 中設定 DEEPSEEK_API_KEY。' },
+        { error: 'AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。' },
         { status: 503 }
       );
     }
@@ -45,7 +45,15 @@ export async function POST(request: NextRequest) {
         lang: lang || 'en',
       });
 
-      return NextResponse.json({ prompt });
+      return NextResponse.json({
+        prompt,
+        _meta: {
+          provider: getLastAIProvider(),
+          ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），生成品質可能略有差異。' } : {}),
+        },
+      }, {
+        headers: { 'X-AI-Provider': getLastAIProvider() },
+      });
     }
 
     if (action === 'outline') {
@@ -65,7 +73,15 @@ export async function POST(request: NextRequest) {
         lang: lang || 'en',
       });
 
-      return NextResponse.json({ outline });
+      return NextResponse.json({
+        outline,
+        _meta: {
+          provider: getLastAIProvider(),
+          ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），生成品質可能略有差異。' } : {}),
+        },
+      }, {
+        headers: { 'X-AI-Provider': getLastAIProvider() },
+      });
     }
 
     return NextResponse.json(
@@ -78,3 +94,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `AI 生成失敗：${message}` }, { status: 500 });
   }
 }
+
+

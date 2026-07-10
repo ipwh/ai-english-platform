@@ -44,6 +44,19 @@ export default function PracticeQuestionPage() {
   const router = useRouter();
   const store = useAppStore();
 
+  const [selectedAnswer, setSelectedAnswer] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [currentHint, setCurrentHint] = useState(0);
+  const [showZh, setShowZh] = useState(true);
+
+  // === AI 分析狀態 ===
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AnswerAnalysis | null>(null);
+  const [aiError, setAiError] = useState('');
+
+  // === 聆聽模式：隱藏文字 ===
+  const [listeningRevealed, setListeningRevealed] = useState(false);
+
   // 合併 mock 題目 + AI session 題目
   const allQuestions = useMemo(() => {
     const sessionQuestions = store.currentSession?.questions || [];
@@ -64,19 +77,6 @@ export default function PracticeQuestionPage() {
       </div>
     );
   }
-
-  const [selectedAnswer, setSelectedAnswer] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [currentHint, setCurrentHint] = useState(0);
-  const [showZh, setShowZh] = useState(true);
-
-  // === AI 分析狀態 ===
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<AnswerAnalysis | null>(null);
-  const [aiError, setAiError] = useState('');
-
-  // === 聆聽模式：隱藏文字 ===
-  const [listeningRevealed, setListeningRevealed] = useState(false);
   const isListening = question.languageSkill === 'listening';
 
   // === Session 進度 ===

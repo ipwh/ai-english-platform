@@ -1,11 +1,15 @@
-// ============================================
+﻿// ============================================
 // API Route: POST /api/ai/generate-questions
 // 生成練習題目
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateQuestions, isDeepSeekConfigured } from '@/lib/ai-service';
+import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
+
+function isRetryableGenerationError(message: string): boolean {
+  return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|JSON/i.test(message);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     if (!isDeepSeekConfigured()) {
       return NextResponse.json(
-        { error: 'DeepSeek API 尚未設定，請在 .env.local 中設定 DEEPSEEK_API_KEY。' },
+        { error: 'AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。' },
         { status: 503 }
       );
     }
@@ -36,22 +40,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const questions = await generateQuestions({
-      grammarItem,
-      grammarItemZh,
-      languageSkill,
-      languageSkillZh,
-      difficulty,
-      gradeLevel,
-      count: count || 5,
-      questionType,
-      topic,
-    });
+    let questions: Awaited<ReturnType<typeof generateQuestions>> | null = null;
+    let lastErr: unknown = null;
 
-    return NextResponse.json({ questions });
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        questions = await generateQuestions({
+          grammarItem,
+          grammarItemZh,
+          languageSkill,
+          languageSkillZh,
+          difficulty,
+          gradeLevel,
+          count: count || 5,
+          questionType,
+          topic,
+        });
+        break;
+      } catch (err) {
+        lastErr = err;
+        const message = err instanceof Error ? err.message : String(err);
+        if (attempt === 1 && isRetryableGenerationError(message)) {
+          console.warn('[generate-questions] transient AI output issue, retrying once:', message);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!questions) {
+      throw (lastErr instanceof Error ? lastErr : new Error('AI 題目生成失敗'));
+    }
+
+    return NextResponse.json({
+      questions,
+      _meta: {
+        provider: getLastAIProvider(),
+        ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），生成品質可能略有差異。' } : {}),
+      },
+    }, {
+      headers: { 'X-AI-Provider': getLastAIProvider() },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('[generate-questions] Error:', message);
     return NextResponse.json({ error: `AI 生成失敗：${message}` }, { status: 500 });
   }
 }
+
+

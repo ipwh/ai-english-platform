@@ -1,10 +1,10 @@
-// ============================================
+﻿// ============================================
 // API Route: POST /api/ai/analyze-material
 // 分析教材內容
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeMaterial, isDeepSeekConfigured } from '@/lib/ai-service';
+import { analyzeMaterial, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 
 export async function POST(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     if (!isDeepSeekConfigured()) {
       return NextResponse.json(
-        { error: 'DeepSeek API 尚未設定，請在 .env.local 中設定 DEEPSEEK_API_KEY。' },
+        { error: 'AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。' },
         { status: 503 }
       );
     }
@@ -42,10 +42,20 @@ export async function POST(request: NextRequest) {
       gradeLevel,
     });
 
-    return NextResponse.json({ analysis });
+    return NextResponse.json({
+      analysis,
+      _meta: {
+        provider: getLastAIProvider(),
+        ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），分析品質可能略有差異。' } : {}),
+      },
+    }, {
+      headers: { 'X-AI-Provider': getLastAIProvider() },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('analyze-material error:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+

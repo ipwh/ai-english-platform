@@ -48,7 +48,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 狀態管理 | Zustand |
 | 國際化 | 自訂 i18n（useT hook + Zustand language store，支援繁體中文/English，含變數插值） |
 | 圖表 | Recharts |
-| AI | DeepSeek API (chat/completions) + Vertex AI Embeddings |
+| AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (optional fallback) + Vertex AI Embeddings |
 | 語音 | Web Speech API (TTS) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
 | 部署 | Vercel |
@@ -127,12 +127,17 @@ npm run dev
 
 | 變數 | 說明 | 必填 |
 |------|------|------|
-| `DEEPSEEK_API_KEY` | DeepSeek API 金鑰 | ✅ |
+| `DEEPSEEK_API_KEY` | DeepSeek API 金鑰（主要供應商） | ❌ |
+| `GCP_PROJECT_ID` | Vertex/Gemini 所屬 GCP Project ID（service account 路徑必填） | ❌ |
+| `VERTEX_AI_LOCATION` | Vertex 區域（預設 `asia-east2`） | ❌ |
+| `VERTEX_GEMINI_MODEL` | Vertex Gemini 模型（預設 `gemini-2.5-flash`） | ❌ |
+| `GEMINI_API_KEY` | Gemini API 金鑰（可選，僅當 Vertex 不可用時備援） | ❌ |
 | `AUTH_GOOGLE_ID` | Google OAuth 用戶端 ID | ✅（Google 登入） |
 | `AUTH_GOOGLE_SECRET` | Google OAuth 用戶端密碼 | ✅（Google 登入） |
 | `AUTH_SECRET` | NextAuth 加密密鑰 | ✅（Google 登入） |
 | `DEEPSEEK_BASE_URL` | API 端點（預設 `https://api.deepseek.com/v1`） | ❌ |
 | `DEEPSEEK_MODEL` | 模型名稱（預設 `deepseek-chat`） | ❌ |
+| `GEMINI_MODEL` | Gemini 模型名稱（預設 `gemini-2.5-flash`） | ❌ |
 | `DATABASE_URL` | Prisma 連線字串（SQLite 或 PostgreSQL） | ❌ |
 | `JWT_SECRET` | JWT 簽署密鑰 | ❌ |
 | `GOOGLE_APPLICATION_CREDENTIALS` | GCP 服務帳號 JSON 路徑 | ❌ |
