@@ -74,3 +74,17 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+
+    await db.mistake.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知錯誤';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

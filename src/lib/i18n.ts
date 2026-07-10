@@ -545,9 +545,6 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.materials.aiAnalyzing': { zh: 'AI 分析中...', en: 'AI Analyzing...' },
 
   // Vocabulary additional
-  'vocab.strategyCollocations': { zh: '搭配記憶', en: 'Collocations' },
-  'vocab.strategyWordFormation': { zh: '構詞法', en: 'Word Formation' },
-  'vocab.strategyMnemonics': { zh: '記憶術', en: 'Mnemonics' },
   'vocab.toggleFamiliarity': { zh: '點擊切換熟悉度', en: 'Click to toggle familiarity' },
 
   // ============================================

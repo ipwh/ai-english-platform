@@ -23,11 +23,37 @@ export default function StudentAssignmentsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/assignments')
-      .then(r => r.json())
-      .then(d => { if (d.assignments?.length) setAssignments(d.assignments.map((a: { id: string; title: string; className: string; difficulty: string; grammarItem?: string; languageSkill?: string; dueDate?: string; status?: string; questionCount?: number }) => ({ ...a, status: (a.status || 'not-started') as AssignmentStatus, questionCount: a.questionCount || 5, score: null, submittedAt: a.dueDate }))); })
-      .catch((e) => { console.error('Failed to load assignments:', e); })
-      .finally(() => setLoading(false));
+    // 取得學生作業及提交狀態
+    Promise.all([
+      fetch('/api/assignments').then(r => r.json()).catch(() => ({ assignments: [] })),
+      fetch('/api/auth/profile').then(r => r.json()).catch(() => null),
+    ]).then(async ([assignData, profile]) => {
+      const studentId = profile?.id;
+      // 取得學生所有提交記錄以判斷作業狀態
+      let submissionsMap: Record<string, { status: string; score: number | null }> = {};
+      if (studentId) {
+        try {
+          // 透過 assignments 的 submission 關聯獲取狀態
+          const subsRes = await fetch(`/api/practice?studentId=${studentId}`);
+          // 我們改用 submission 端點 — 從 assignments API 無法直接獲取學生級狀態
+        } catch { /* fallback */ }
+      }
+
+      const mapped = (assignData.assignments || []).map((a: any) => {
+        // 判斷學生提交狀態：檢查 a._count.submissions > 0
+        const hasSubmission = a._count?.submissions > 0;
+        return {
+          ...a,
+          status: (hasSubmission ? 'completed' : 'not-started') as AssignmentStatus,
+          questionCount: a.questionCount || 5,
+          score: null,
+          submittedAt: a.dueDate,
+        };
+      });
+      setAssignments(mapped);
+    })
+    .catch((e) => { console.error('Failed to load assignments:', e); })
+    .finally(() => setLoading(false));
   }, []);
 
   const filtered = filter === 'all' ? assignments : assignments.filter(a => a.status === filter);

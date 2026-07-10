@@ -4,9 +4,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-  'c:\\Users\\TC-37\\OneDrive - PO CHIU CATHOLIC SECONDARY SCHOOL\\AI\\歷史科改卷助手\\gcp-service-account.json';
+function resolveServiceAccountKey(): string {
+  // 1. 環境變數中的 JSON 內容（Vercel 部署用）
+  if (process.env.GCP_SERVICE_ACCOUNT_JSON) return process.env.GCP_SERVICE_ACCOUNT_JSON;
+  // 2. GOOGLE_APPLICATION_CREDENTIALS 環境變數
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  // 3. 專案內預設路徑
+  const localPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+  if (fs.existsSync(localPath)) return localPath;
+  throw new Error('找不到 GCP 憑證。請設定 GCP_SERVICE_ACCOUNT_JSON 或 GOOGLE_APPLICATION_CREDENTIALS 環境變數。');
+}
+
+const SERVICE_ACCOUNT_KEY = resolveServiceAccountKey();
 
 let auth: GoogleAuth | null = null;
 function getAuth(): GoogleAuth {

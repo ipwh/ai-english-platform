@@ -45,3 +45,39 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ vocab });
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, familiarity } = body;
+    if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+
+    const updateData: Record<string, unknown> = {};
+    if (familiarity && ['new', 'learning', 'familiar', 'mastered'].includes(familiarity)) {
+      updateData.familiarity = familiarity;
+    }
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    const vocab = await db.vocabItem.update({ where: { id }, data: updateData });
+    return NextResponse.json({ vocab });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知錯誤';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+
+    await db.vocabItem.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知錯誤';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

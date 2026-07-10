@@ -40,7 +40,6 @@ interface AppState {
   isDarkMode: boolean;
   language: 'zh' | 'en';
   sidebarOpen: boolean;
-  mobileMenuOpen: boolean;
 
   // 通知
   notifications: Notification[];
@@ -54,19 +53,14 @@ interface AppState {
   login: (role: UserRole) => void;
   logout: () => Promise<void>;
   initSession: () => Promise<void>;
-  switchRole: (role: UserRole) => void;
   toggleDarkMode: () => void;
   toggleLanguage: () => void;
   toggleSidebar: () => void;
-  toggleMobileMenu: () => void;
-  markNotificationRead: (id: string) => void;
-  markAllNotificationsRead: () => void;
 
   // 動作 — 練習
   startSession: (session: PracticeSession) => void;
   submitAnswer: (questionId: string, answer: string, isCorrect: boolean) => void;
   completeSession: () => void;
-  clearCurrentSession: () => void;
   loadPracticeHistory: () => Promise<void>;
   getMasteryBySkill: () => { skill: string; skillZh: string; accuracy: number; total: number }[];
   getRecentSessions: (limit?: number) => PracticeSession[];
@@ -82,7 +76,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   isDarkMode: typeof window !== 'undefined' ? localStorage.getItem('darkMode') === 'true' : false,
   language: (typeof window !== 'undefined' ? localStorage.getItem('lang') : null) as 'zh' | 'en' | null || 'zh',
   sidebarOpen: true,
-  mobileMenuOpen: false,
   notifications: [],
   unreadCount: 0,
   practiceSessions: [],
@@ -136,9 +129,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch { /* 未登入 */ }
   },
 
-  // 角色切換由 /role-select 頁面 + /api/auth/role API 處理，此 action 保留供未來 UI 內嵌切換使用
-  switchRole: (role: UserRole) => {
-    set({ currentRole: role });
+  toggleLanguage: () => {
+    set((state) => {
+      const next = state.language === 'zh' ? 'en' : 'zh';
+      if (typeof window !== 'undefined') localStorage.setItem('lang', next);
+      return { language: next };
+    });
   },
 
   toggleDarkMode: () => {
@@ -152,36 +148,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  toggleLanguage: () => {
-    set((state) => {
-      const next = state.language === 'zh' ? 'en' : 'zh';
-      if (typeof window !== 'undefined') localStorage.setItem('lang', next);
-      return { language: next };
-    });
-  },
-
   toggleSidebar: () => {
     set((state) => ({ sidebarOpen: !state.sidebarOpen }));
-  },
-
-  toggleMobileMenu: () => {
-    set((state) => ({ mobileMenuOpen: !state.mobileMenuOpen }));
-  },
-
-  markNotificationRead: (id: string) => {
-    set((state) => {
-      const notifications = state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      );
-      return { notifications, unreadCount: notifications.filter((n) => !n.read).length };
-    });
-  },
-
-  markAllNotificationsRead: () => {
-    set((state) => {
-      const notifications = state.notifications.map((n) => ({ ...n, read: true }));
-      return { notifications, unreadCount: 0 };
-    });
   },
 
   // === 練習動作 ===
@@ -231,10 +199,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentSession: null,
       };
     });
-  },
-
-  clearCurrentSession: () => {
-    set({ currentSession: null });
   },
 
   // 從後端載入練習歷史（解決重整後數據歸零的問題）

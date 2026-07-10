@@ -39,6 +39,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'title, className, createdBy 為必填' }, { status: 400 });
     }
 
+    // 驗證教師是否任教該班級
+    const teacherClass = await db.teacherClass.findFirst({
+      where: { teacherId: createdBy, class: { name: className } },
+    });
+    if (!teacherClass) {
+      return NextResponse.json({ error: `您沒有任教 ${className} 班級的權限` }, { status: 403 });
+    }
+
     const assignment = await db.assignment.create({
       data: {
         title,

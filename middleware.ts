@@ -6,8 +6,30 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySessionToken } from '@/lib/jwt';
+import { jwtVerify } from 'jose';
 
 const publicPaths = ['/login', '/role-select', '/api/auth', '/style-guide'];
+
+/**
+ * 從 NextAuth session cookie 中提取並驗證 JWT，取得 user role
+ * NextAuth v5 的 session-token 本身就是一個 JWT
+ */
+async function getRoleFromNextAuthCookie(request: NextRequest): Promise<string | null> {
+  const cookieName =
+    request.cookies.get('__Secure-authjs.session-token')?.value ? '__Secure-authjs.session-token' :
+    request.cookies.get('authjs.session-token')?.value ? 'authjs.session-token' :
+    request.cookies.get('__Secure-next-auth.session-token')?.value ? '__Secure-next-auth.session-token' :
+    request.cookies.get('next-auth.session-token')?.value ? 'next-auth.session-token' :
+    null;
+  if (!cookieName) return null;
+  const token = request.cookies.get(cookieName)?.value;
+  if (!token) return null;
+  try {
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'default-secret-change-me');
+    const { payload } = await jwtVerify(token, secret);
+    return (payload as any)?.role || null;
+  } catch { return null; }
+}
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -49,6 +71,15 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (hasNextAuthCookie) {
+    // 檢查 NextAuth 使用者的 admin 路由權限
+    if (pathname.startsWith('/admin')) {
+      const role = await getRoleFromNextAuthCookie(request);
+      if (role !== 'admin') {
+        const forbiddenUrl = new URL('/login', request.url);
+        forbiddenUrl.searchParams.set('error', 'admin_only');
+        return NextResponse.redirect(forbiddenUrl);
+      }
+    }
     return NextResponse.next();
   }
 
