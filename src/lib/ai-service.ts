@@ -791,20 +791,31 @@ export interface WritingAnalysis {
 
 export async function analyzeWriting(input: AnalyzeWritingInput): Promise<WritingAnalysis> {
   const systemPrompt = `你是一位香港中學英文科教師，專門批改學生英文作文。
-請以 JSON 格式回覆詳細的寫作分析，所有中文內容使用繁體中文。
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
 
-分析要點：
-1. overallScore: 0-100 整體分數
-2. strengths: string[] 文章中做得好的地方（繁體中文）
-3. weaknesses: string[] 需要改善的地方（繁體中文）
-4. grammarErrors: { original, correction, explanation }[] 文法錯誤及修正
-5. chinglishWarnings: { original, suggestion, explanation }[] 中式英文問題（特別重要！）
-6. vocabularySuggestions: { original, suggestion, reason }[] 詞彙改進建議
-7. structureFeedback: string 文章結構整體評語
-8. revisedVersion: string 修正後的完整版本（可選）
-9. generalComment: string 總體評語（繁體中文）
+回覆必須是以下結構的 JSON 物件：
+{
+  "overallScore": 75,
+  "strengths": ["優點1（繁體中文）", "優點2"],
+  "weaknesses": ["弱點1（繁體中文）", "弱點2"],
+  "grammarErrors": [
+    { "original": "錯誤原文", "correction": "修正後", "explanation": "原因（繁體中文）" }
+  ],
+  "chinglishWarnings": [
+    { "original": "中式英文原文", "suggestion": "建議改法", "explanation": "為何是中式英文（繁體中文）" }
+  ],
+  "vocabularySuggestions": [
+    { "original": "原詞", "suggestion": "建議詞", "reason": "原因（繁體中文）" }
+  ],
+  "structureFeedback": "文章結構評語（繁體中文）",
+  "generalComment": "總體評語（繁體中文）"
+}
 
-重點：香港學生常見的中式英文（Chinglish）問題必須仔細標註。`;
+注意：
+- revisedVersion 欄位可省略（太長會截斷 JSON）
+- 所有中文必須使用繁體中文
+- 文法錯誤和 Chinglish 是最重要的分析重點
+- 回覆必須是有效 JSON，不可包含任何 JSON 以外的文字`.trim();
 
   const userPrompt = `作文題目：${input.title}
 寫作要求：${input.prompt}
@@ -823,7 +834,7 @@ ${sanitizeForAI(input.studentDraft)}
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.4, maxTokens: 4096, jsonMode: true }
+    { temperature: 0.4, maxTokens: 6144, jsonMode: true }
   );
 
   const writing = parseAIJSON<WritingAnalysis>(result);
