@@ -49,9 +49,30 @@ export async function PATCH(
     if (body.teacherFeedback || body.teacherScore !== undefined) {
       const submission = await db.submission.findUnique({
         where: { id },
-        select: { studentId: true, aiFeedback: true, score: true },
+        select: {
+          studentId: true,
+          aiFeedback: true,
+          score: true,
+          answers: true,
+          assignment: { select: { title: true, questions: { select: { prompt: true, answer: true } } } },
+        },
       });
       if (submission) {
+        // 從 submission answers JSON 提取學生答案，從 assignment questions 提取題目
+        let questionPrompt = '';
+        let studentAnswer = '';
+        try {
+          const answers = JSON.parse(submission.answers || '{}');
+          const qIds = Object.keys(answers);
+          if (qIds.length > 0 && submission.assignment?.questions?.length) {
+            const firstQ = submission.assignment.questions[0];
+            questionPrompt = firstQ.prompt || '';
+            studentAnswer = answers[qIds[0]] || '';
+          } else if (submission.assignment?.questions?.length) {
+            questionPrompt = submission.assignment.questions[0].prompt || '';
+          }
+        } catch { /* keep defaults */ }
+
         await db.review.create({
           data: {
             studentId: submission.studentId,
@@ -59,8 +80,8 @@ export async function PATCH(
             teacherScore: body.teacherScore ?? null,
             teacherFeedback: body.teacherFeedback || null,
             status: body.status === 'reviewed' ? 'reviewed' : 'pending',
-            questionPrompt: '',
-            studentAnswer: '',
+            questionPrompt,
+            studentAnswer,
           },
         });
       }

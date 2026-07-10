@@ -36,26 +36,55 @@ export async function GET(request: NextRequest) {
         score: true,
         aiFeedback: true,
         status: true,
+        answers: true,
         submittedAt: true,
         student: { select: { id: true, nameZh: true, nameEn: true, class: { select: { name: true } } } },
-        assignment: { select: { id: true, title: true } },
+        assignment: { select: { id: true, title: true, questions: { select: { id: true, prompt: true, answer: true, questionType: true } } } },
       },
       orderBy: { submittedAt: 'desc' },
       take: 50,
     });
 
-    const reviews = submissions.map(s => ({
-      id: s.id,
-      studentId: s.student.id,
-      studentName: s.student.nameZh,
-      studentNameEn: s.student.nameEn,
-      className: s.student.class?.name || '',
-      assignmentTitle: s.assignment?.title || '',
-      aiScore: s.score,
-      aiFeedback: s.aiFeedback,
-      status: s.status,
-      submittedAt: s.submittedAt,
-    }));
+    const reviews = submissions.map(s => {
+      // Parse submission answers to extract student answer for display
+      let questionPrompt = '';
+      let studentAnswer = '';
+      let correctAnswer = '';
+      const questions = (s.assignment as any)?.questions || [];
+      try {
+        const answers = JSON.parse((s as any).answers || '{}');
+        const qIds = Object.keys(answers);
+        if (qIds.length > 0) {
+          const firstQId = qIds[0];
+          studentAnswer = answers[firstQId] || '';
+          const matchedQ = questions.find((q: any) => q.id === firstQId);
+          if (matchedQ) {
+            questionPrompt = matchedQ.prompt || '';
+            correctAnswer = matchedQ.answer || '';
+          }
+        }
+        if (!questionPrompt && questions.length > 0) {
+          questionPrompt = questions[0].prompt || '';
+          correctAnswer = questions[0].answer || '';
+        }
+      } catch { /* keep defaults */ }
+
+      return {
+        id: s.id,
+        studentId: s.student.id,
+        studentName: s.student.nameZh,
+        studentNameEn: s.student.nameEn,
+        className: s.student.class?.name || '',
+        assignmentTitle: s.assignment?.title || '',
+        questionPrompt,
+        studentAnswer,
+        correctAnswer,
+        aiScore: s.score,
+        aiFeedback: s.aiFeedback,
+        status: s.status,
+        submittedAt: s.submittedAt,
+      };
+    });
 
     return NextResponse.json({ reviews });
   } catch (err: unknown) {

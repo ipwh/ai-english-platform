@@ -78,7 +78,7 @@ export default function TeacherReviewPage() {
         body: JSON.stringify({
           question: selectedReview.questionPrompt,
           questionType: 'mc',
-          correctAnswer: '', // would come from real data
+          correctAnswer: selectedReview.correctAnswer || '',
           studentAnswer: selectedReview.studentAnswer,
         }),
       });

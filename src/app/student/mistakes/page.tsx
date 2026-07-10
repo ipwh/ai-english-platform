@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2 } from 'lucide-react';
+import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels } from '@/lib/nav';
@@ -75,6 +75,29 @@ export default function MistakesPage() {
     setMistakes(prev =>
       prev.map(m => m.id === id ? { ...m, inReviewList: !m.inReviewList } : m)
     );
+    // Persist to API
+    const target = mistakes.find(m => m.id === id);
+    if (target) {
+      fetch('/api/mistakes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, inReviewList: !target.inReviewList }),
+      }).catch(() => {});
+    }
+  };
+
+  const toggleReviewed = (id: string) => {
+    setMistakes(prev =>
+      prev.map(m => m.id === id ? { ...m, reviewed: !m.reviewed } : m)
+    );
+    const target = mistakes.find(m => m.id === id);
+    if (target) {
+      fetch('/api/mistakes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, reviewed: !target.reviewed }),
+      }).catch(() => {});
+    }
   };
 
   const filtered = mistakes.filter((m) => {
@@ -208,6 +231,14 @@ export default function MistakesPage() {
                 </button>
                 <button onClick={() => toggleReviewList(m.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   <BookMarked className="w-3 h-3" /> {m.inReviewList ? '移出重溫' : '加入重溫'}
+                </button>
+                <button onClick={() => toggleReviewed(m.id)} className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  m.reviewed
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'
+                }`}>
+                  {m.reviewed ? <CheckCircle className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
+                  {m.reviewed ? '已溫習' : '標記已溫習'}
                 </button>
               </div>
             </div>

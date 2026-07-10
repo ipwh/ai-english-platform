@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Bell, Shield, BookOpen, Users, Sparkles, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Save, Bell, Shield, BookOpen, Users, Sparkles, Loader2, CheckCircle, XCircle, User } from 'lucide-react';
 import AdvancedSettings from '@/components/shared/AdvancedSettings';
 import { GRAMMAR_ITEM_LABELS } from '@/lib/types';
 import { gradeLabels } from '@/lib/nav';
@@ -36,6 +36,10 @@ export default function TeacherSettingsPage() {
   const [classes, setClasses] = useState<{ id: string; name: string; gradeLevel: string }[]>([]);
   const [selectedGrades, setSelectedGrades] = useState<string[]>(['S4', 'S5']);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  // Teacher profile info
+  const [teacherProfile, setTeacherProfile] = useState<{
+    subjects?: string; department?: string; formTeacherOf?: string; taughtClasses?: { name: string; isFormTeacher: boolean }[];
+  } | null>(null);
   // Local settings
   const [grammarEnabled, setGrammarEnabled] = useState<Record<string, boolean>>({});
   const [passScore, setPassScore] = useState(50);
@@ -58,6 +62,7 @@ export default function TeacherSettingsPage() {
       .then(r => r.json())
       .then(d => {
         if (d.settings?.classIds) setSelectedClassIds(d.settings.classIds);
+        if (d.profile) setTeacherProfile(d.profile);
       })
       .catch((e) => { console.error('Failed to load auth settings:', e); });
 
@@ -118,6 +123,49 @@ export default function TeacherSettingsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.settings.title')}</h1>
+
+      {/* 教師個人資料 */}
+      {teacherProfile && (
+        <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <User className="w-5 h-5 text-indigo-500" /> 個人資料
+          </h2>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {teacherProfile.department && (
+              <div>
+                <span className="text-xs text-gray-400 block">所屬部門</span>
+                <span className="text-gray-700 dark:text-gray-300">{teacherProfile.department}</span>
+              </div>
+            )}
+            {teacherProfile.subjects && (
+              <div>
+                <span className="text-xs text-gray-400 block">任教科目</span>
+                <span className="text-gray-700 dark:text-gray-300">
+                  {(() => { try { return JSON.parse(teacherProfile.subjects).join('、'); } catch { return teacherProfile.subjects; } })()}
+                </span>
+              </div>
+            )}
+            {teacherProfile.formTeacherOf && (
+              <div>
+                <span className="text-xs text-gray-400 block">班主任班別</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">{teacherProfile.formTeacherOf}</span>
+              </div>
+            )}
+            {teacherProfile.taughtClasses && teacherProfile.taughtClasses.length > 0 && (
+              <div className="col-span-2">
+                <span className="text-xs text-gray-400 block">任教班別</span>
+                <div className="flex gap-2 flex-wrap mt-1">
+                  {teacherProfile.taughtClasses.map((tc, i) => (
+                    <span key={i} className={`text-xs px-2 py-0.5 rounded-full ${tc.isFormTeacher ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                      {tc.name}{tc.isFormTeacher ? ' (班主任)' : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 年級與班別設定 */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">

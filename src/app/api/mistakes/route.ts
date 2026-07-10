@@ -45,3 +45,32 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ mistakes });
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, reviewed, inReviewList } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (typeof reviewed === 'boolean') updateData.reviewed = reviewed;
+    if (typeof inReviewList === 'boolean') updateData.inReviewList = inReviewList;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    const mistake = await db.mistake.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json({ mistake });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知錯誤';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

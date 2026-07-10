@@ -136,6 +136,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch { /* 未登入 */ }
   },
 
+  // 角色切換由 /role-select 頁面 + /api/auth/role API 處理，此 action 保留供未來 UI 內嵌切換使用
   switchRole: (role: UserRole) => {
     set({ currentRole: role });
   },
@@ -237,6 +238,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // 從後端載入練習歷史（解決重整後數據歸零的問題）
+  // 注意：目前僅載入匯總數據（totalQuestions/correctCount），不載入逐題明細。
+  // 逐題明細需新增 PracticeAnswer 資料表後方可實現。
   loadPracticeHistory: async () => {
     const { userId } = get();
     if (!userId) return;
@@ -300,6 +303,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     const correctTotal = weekSessions.reduce((sum, s) => sum + s.correctCount, 0);
     const accuracy = questionsDone > 0 ? Math.round((correctTotal / questionsDone) * 100) : 0;
 
-    return { questionsDone, accuracy, sessionsCount: weekSessions.length, streakDays: 0 };
+    // 計算連續練習天數（從今天往前推算）
+    const dates = practiceSessions
+      .map(s => new Date(s.startedAt).toISOString().slice(0, 10))
+      .filter((d, i, arr) => arr.indexOf(d) === i)
+      .sort()
+      .reverse();
+    let streakDays = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    if (dates[0] === today || dates[0] === yesterday) {
+      streakDays = 1;
+      for (let i = 1; i < dates.length; i++) {
+        const prev = new Date(dates[i - 1]);
+        const curr = new Date(dates[i]);
+        if ((prev.getTime() - curr.getTime()) / 86400000 <= 1.5) {
+          streakDays++;
+        } else break;
+      }
+    }
+
+    return { questionsDone, accuracy, sessionsCount: weekSessions.length, streakDays };
   },
 }));

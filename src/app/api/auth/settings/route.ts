@@ -27,16 +27,28 @@ export async function GET(request: NextRequest) {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {
-      id: true, subjects: true, level: true,
+      id: true, subjects: true, department: true, level: true,
       taughtClasses: { include: { class: { select: { id: true, name: true, gradeLevel: true } } } },
     },
   });
+
+  const taughtClasses = user?.taughtClasses?.map(tc => ({
+    name: tc.class.name,
+    isFormTeacher: tc.isFormTeacher,
+  })) || [];
+  const formTeacherOf = user?.taughtClasses?.find(tc => tc.isFormTeacher)?.class.name || undefined;
 
   return NextResponse.json({
     settings: {
       ...user,
       classIds: user?.taughtClasses?.map(tc => tc.class.id) || [],
       classNames: user?.taughtClasses?.map(tc => tc.class.name) || [],
+    },
+    profile: {
+      subjects: user?.subjects || undefined,
+      department: user?.department || undefined,
+      formTeacherOf,
+      taughtClasses,
     },
   });
 }
