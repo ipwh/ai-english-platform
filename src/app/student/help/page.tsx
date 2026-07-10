@@ -4,7 +4,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Lightbulb, BookOpen, MessageCircle, ChevronRight, ChevronDown, ThumbsUp, Sparkles, Send, Loader2, Target } from 'lucide-react';
+import { Lightbulb, BookOpen, MessageCircle, ChevronRight, ChevronDown, ThumbsUp, Sparkles, Send, Loader2, Target, Play, ArrowRight } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
 interface QAItem {
@@ -153,6 +153,59 @@ export default function StudentHelpPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
 
+  // === AI 生成練習 ===
+  const [genLoading, setGenLoading] = useState(false);
+  const [genQuestions, setGenQuestions] = useState<{ prompt: string; answer: string; explanationZh: string }[]>([]);
+  const [genError, setGenError] = useState('');
+  const [genTopic, setGenTopic] = useState('');
+  const [genSkill, setGenSkill] = useState('grammar');
+
+  const handleGeneratePractice = async () => {
+    if (!aiQuestion.trim()) return;
+    setGenLoading(true);
+    setGenError('');
+    setGenQuestions([]);
+    const topic = aiQuestion.trim();
+    setGenTopic(topic);
+
+    // 根據問題關鍵字判斷技能類型
+    const q = topic.toLowerCase();
+    const skill = q.includes('寫') || q.includes('write') || q.includes('essay') || q.includes('作文') ? 'writing'
+      : q.includes('讀') || q.includes('read') || q.includes('理解') || q.includes('comprehension') ? 'reading'
+      : q.includes('聽') || q.includes('listen') ? 'listening'
+      : 'grammar';
+    setGenSkill(skill);
+
+    try {
+      const res = await fetch('/api/ai/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          difficulty: 'core',
+          gradeLevel: getStudentLevel(studentProfile),
+          count: 3,
+          questionType: 'mc',
+          topic,
+          languageSkill: skill,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.questions?.length) {
+        setGenQuestions(data.questions.map((q: any) => ({
+          prompt: q.prompt,
+          answer: q.answer,
+          explanationZh: q.explanationZh || '',
+        })));
+      } else {
+        setGenError(data.error || '暫時無法生成練習題目');
+      }
+    } catch {
+      setGenError('網絡錯誤，請重試。');
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -300,6 +353,47 @@ export default function StudentHelpPage() {
               <span className="font-medium text-teal-700 dark:text-teal-400">AI 回答</span>
             </div>
             <p className="whitespace-pre-wrap">{aiAnswer}</p>
+
+            {/* 生成相關練習 */}
+            <div className="mt-4 pt-3 border-t border-teal-200 dark:border-teal-700">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleGeneratePractice}
+                  disabled={genLoading}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {genLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                  {genLoading ? '生成中...' : '生成相關練習題'}
+                </button>
+                {genQuestions.length > 0 && (
+                  <Link
+                    href={`/student/practice?mode=help&topic=${encodeURIComponent(genTopic)}&gradeLevel=${encodeURIComponent(getStudentLevel(studentProfile))}`}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-teal-600 dark:text-teal-400 hover:underline"
+                  >
+                    前往完整練習 <ArrowRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
+
+              {genError && <p className="text-xs text-red-500 mt-2">{genError}</p>}
+
+              {genQuestions.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-medium text-teal-600 dark:text-teal-400">📝 以下是根據你的問題生成的練習題：</p>
+                  {genQuestions.map((q, i) => (
+                    <details key={i} className="group">
+                      <summary className="cursor-pointer text-sm font-medium text-gray-800 dark:text-gray-200 hover:text-teal-600 py-1">
+                        {i + 1}. {q.prompt}
+                      </summary>
+                      <div className="pl-4 mt-1 space-y-1 text-xs">
+                        <p className="text-green-600 dark:text-green-400">✅ 答案：{q.answer}</p>
+                        <p className="text-gray-500 dark:text-gray-400">💡 {q.explanationZh}</p>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
