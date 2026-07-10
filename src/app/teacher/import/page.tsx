@@ -74,8 +74,8 @@ export default function ImportPage() {
       : 'nameZh,nameEn,email,password,classes,subjects,formTeacherOf';
 
     const examples = type === 'student'
-      ? '陳家明,Chan Ka Ming,student@school.hk,student123,4A,15,S4\n李志偉,Lee Chi Wai,student2@school.hk,student123,4A,20,S4'
-      : '黃淑儀,Wong Suk Yee,teacher@school.hk,teacher123,4A|4B|5C,English Language,4A';
+      ? '陳家明,Chan Ka Ming,student@xxx.edu.hk,student123,4A,15,S4\n李志偉,Lee Chi Wai,student2@xxx.edu.hk,student123,4A,20,S4'
+      : '黃淑儀,Wong Suk Yee,teacher@xxx.edu.hk,teacher123,4A|4B|5C,English Language,4A';
 
     const csv = `${headers}\n${examples}`;
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });

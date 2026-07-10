@@ -26,7 +26,7 @@ export default function StudentAssignmentsPage() {
     fetch('/api/assignments')
       .then(r => r.json())
       .then(d => { if (d.assignments?.length) setAssignments(d.assignments.map((a: { id: string; title: string; className: string; difficulty: string; grammarItem?: string; languageSkill?: string; dueDate?: string; status?: string; questionCount?: number }) => ({ ...a, status: (a.status || 'not-started') as AssignmentStatus, questionCount: a.questionCount || 5, score: null, submittedAt: a.dueDate }))); })
-      .catch(() => { /* fallback to mock */ })
+      .catch((e) => { console.error('Failed to load assignments:', e); })
       .finally(() => setLoading(false));
   }, []);
 

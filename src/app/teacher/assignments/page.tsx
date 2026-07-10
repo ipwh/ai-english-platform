@@ -23,7 +23,7 @@ export default function TeacherAssignmentsPage() {
     fetch('/api/assignments')
       .then(r => r.json())
       .then(d => { if (d.assignments?.length) setAssignments(d.assignments); })
-      .catch(() => { /* fallback to mock */ })
+      .catch((e) => { console.error('Failed to load assignments:', e); })
       .finally(() => setLoading(false));
   }, []);
 

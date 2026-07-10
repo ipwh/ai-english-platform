@@ -68,7 +68,7 @@ export default function VocabularyPage() {
           return;
         }
       }
-      // Fallback to mock example
+      // Use vocab item's own exampleSentence field
       setAiExamples(prev => ({
         ...prev,
         [v.id]: `📖 ${v.word}: ${v.exampleSentence}`,
