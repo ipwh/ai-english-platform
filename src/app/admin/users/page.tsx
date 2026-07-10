@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Search, Filter, ChevronLeft, ChevronRight,
   Edit3, Download, Users, GraduationCap, Shield,
-  X, Save, Loader2, RefreshCw,
+  X, Save, Loader2, RefreshCw, UserPlus,
 } from 'lucide-react';
 
 // ---- Types ----
@@ -267,6 +267,247 @@ function EditModal({
   );
 }
 
+// ---- Create User Modal ----
+function CreateUserModal({
+  classes,
+  onClose,
+  onCreated,
+}: {
+  classes: ClassInfo[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    nameZh: '',
+    nameEn: '',
+    role: 'student' as string,
+    level: '',
+    className: '',
+    classNumber: '',
+    academicYear: '',
+    subjects: '',
+    department: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const payload: Record<string, unknown> = {
+        email: form.email,
+        nameZh: form.nameZh,
+        nameEn: form.nameEn || undefined,
+        role: form.role,
+      };
+      if (form.password) payload.password = form.password;
+      if (form.role === 'student') {
+        if (form.level) payload.level = form.level;
+        if (form.className) payload.className = form.className;
+        if (form.classNumber) payload.classNumber = form.classNumber;
+        if (form.academicYear) payload.academicYear = form.academicYear;
+      }
+      if (form.role === 'teacher') {
+        if (form.subjects) payload.subjects = form.subjects.split(',').map((s: string) => s.trim()).filter(Boolean);
+        if (form.department) payload.department = form.department;
+      }
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '建立失敗');
+      onCreated();
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '建立失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            新增使用者
+          </h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">中文姓名 *</label>
+              <input
+                value={form.nameZh}
+                onChange={e => setForm({ ...form, nameZh: e.target.value })}
+                placeholder="陳大文"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">英文姓名</label>
+              <input
+                value={form.nameEn}
+                onChange={e => setForm({ ...form, nameEn: e.target.value })}
+                placeholder="Chan Tai Man"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Email *</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                placeholder="student@school.edu.hk"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">角色 *</label>
+              <select
+                value={form.role}
+                onChange={e => setForm({ ...form, role: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+              >
+                <option value="student">學生</option>
+                <option value="teacher">教師</option>
+                <option value="admin">管理員</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              登入密碼 <span className="text-gray-400">（留空則僅支援 Google OAuth 登入）</span>
+            </label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              placeholder="最少 6 個字元"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+            />
+          </div>
+
+          {form.role === 'student' && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">年級</label>
+                  <select
+                    value={form.level}
+                    onChange={e => setForm({ ...form, level: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                  >
+                    <option value="">—</option>
+                    {['S1', 'S2', 'S3', 'S4', 'S5', 'S6'].map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">班級</label>
+                  <select
+                    value={form.className}
+                    onChange={e => setForm({ ...form, className: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                  >
+                    <option value="">—</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">班號</label>
+                  <input
+                    value={form.classNumber}
+                    onChange={e => setForm({ ...form, classNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">學年</label>
+                  <input
+                    value={form.academicYear}
+                    onChange={e => setForm({ ...form, academicYear: e.target.value })}
+                    placeholder="2025-2026"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {form.role === 'teacher' && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">任教科目（逗號分隔）</label>
+                <input
+                  value={form.subjects}
+                  onChange={e => setForm({ ...form, subjects: e.target.value })}
+                  placeholder="English Language, English Literature"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">部門</label>
+                <input
+                  value={form.department}
+                  onChange={e => setForm({ ...form, department: e.target.value })}
+                  placeholder="English"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving || !form.email || !form.nameZh}
+            className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+            建立帳號
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- Role Badge ----
 function RoleBadge({ role }: { role: string }) {
   const config = {
@@ -304,6 +545,9 @@ export default function AdminUsersPage() {
 
   // Edit modal
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
+
+  // Create modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Export loading
   const [exporting, setExporting] = useState<'students' | 'teachers' | null>(null);
@@ -370,6 +614,13 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-xl hover:bg-teal-700 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            新增使用者
+          </button>
           <button
             onClick={() => handleExport('students')}
             disabled={exporting === 'students'}
@@ -606,6 +857,15 @@ export default function AdminUsersPage() {
           classes={data?.classes || []}
           onClose={() => setEditingUser(null)}
           onSaved={fetchUsers}
+        />
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <CreateUserModal
+          classes={data?.classes || []}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={fetchUsers}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 // ============================================
 // GET /api/admin/users — 分頁查詢所有使用者
+// POST /api/admin/users — 管理員手動新增使用者
 // 支援搜尋、篩選（role, level, className）
 // 僅 admin 可存取
 // ============================================
@@ -7,6 +8,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
+
+/** 簡易密碼雜湊（與 auth.ts 一致） */
+function simpleHash(password: string): string {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -102,6 +114,84 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
     console.error('[admin/users] Error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await verifyAdmin(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { email, nameZh, nameEn, role, password, level, className, classNumber, academicYear, subjects, department } = body;
+
+    // 驗證必填欄位
+    if (!email || !nameZh || !role) {
+      return NextResponse.json({ error: 'email、nameZh、role 為必填欄位' }, { status: 400 });
+    }
+
+    if (!['student', 'teacher', 'admin'].includes(role)) {
+      return NextResponse.json({ error: 'role 必須是 student、teacher 或 admin' }, { status: 400 });
+    }
+
+    // 檢查 email 是否已存在
+    const existing = await db.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json({ error: `Email ${email} 已被使用` }, { status: 409 });
+    }
+
+    // 處理班級關聯（學生）
+    let classConnect: { id: string } | undefined = undefined;
+    if (className && role === 'student') {
+      // Upsert class
+      const cls = await db.class.upsert({
+        where: { name: className },
+        update: {},
+        create: { name: className, gradeLevel: level || 'S4' },
+      });
+      classConnect = { id: cls.id };
+    }
+
+    // 建立使用者
+    const user = await db.user.create({
+      data: {
+        email,
+        nameZh,
+        nameEn: nameEn || undefined,
+        role,
+        passwordHash: password ? simpleHash(password) : null,
+        level: role === 'student' ? (level || undefined) : undefined,
+        classNumber: role === 'student' ? (classNumber || undefined) : undefined,
+        academicYear: academicYear || undefined,
+        subjects: subjects
+          ? (typeof subjects === 'string' ? subjects : JSON.stringify(subjects))
+          : undefined,
+        department: department || undefined,
+        ...(classConnect ? { classId: classConnect.id } : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        nameZh: true,
+        nameEn: true,
+        role: true,
+        level: true,
+        classNumber: true,
+        academicYear: true,
+        subjects: true,
+        department: true,
+        createdAt: true,
+        class: { select: { id: true, name: true } },
+      },
+    });
+
+    return NextResponse.json({ user }, { status: 201 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '伺服器錯誤';
+    console.error('[admin/users] POST Error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
