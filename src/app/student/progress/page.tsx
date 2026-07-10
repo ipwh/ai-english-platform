@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, Award, Target, Flame, Sparkles, Loader2, Clock } from 'lucide-react';
+import { TrendingUp, Target, Flame, Sparkles, Loader2, Clock } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line,
@@ -40,14 +40,27 @@ export default function StudentProgressPage() {
     ? masteryBySkill.map(m => ({ subSkill: m.skillZh, percentage: m.accuracy }))
     : [];
 
-  // 雷達圖資料
-  const radarData = [
-    { skill: '文法', value: displayMastery.filter(m => ['時態','關係子句','條件句','被動語態'].some(k => m.subSkill.includes(k))).reduce((a,b) => a + b.percentage, 0) / 4 || 60 },
-    { skill: '詞彙', value: displayMastery.filter(m => ['詞彙','片語動詞'].some(k => m.subSkill.includes(k))).reduce((a,b) => a + b.percentage, 0) / 2 || 53 },
-    { skill: '閱讀', value: displayMastery.filter(m => ['閱讀','主旨','推論'].some(k => m.subSkill.includes(k))).reduce((a,b) => a + b.percentage, 0) / 2 || 57 },
-    { skill: '寫作', value: displayMastery.filter(m => ['寫作','文章','書信'].some(k => m.subSkill.includes(k))).reduce((a,b) => a + b.percentage, 0) / 2 || 50 },
-    { skill: '改錯', value: displayMastery.filter(m => ['錯誤','辨析'].some(k => m.subSkill.includes(k))).reduce((a,b) => a + b.percentage, 0) / 1 || 60 },
-  ];
+  // 雷達圖資料 — 直接使用真實技能數據，無數據時為空
+  const radarData = displayMastery.length > 0
+    ? displayMastery.slice(0, 6).map(m => ({ skill: m.subSkill, value: m.percentage }))
+    : [];
+
+  // 練習趨勢圖 — 由最近練習記錄生成（按日期分組）
+  const trendData = (() => {
+    const dayMap = new Map<string, { questions: number; correct: number }>();
+    for (const s of recentSessions) {
+      const day = new Date(s.startedAt).toLocaleDateString('zh-HK', { month: 'numeric', day: 'numeric' });
+      const entry = dayMap.get(day) || { questions: 0, correct: 0 };
+      entry.questions += s.totalQuestions;
+      entry.correct += s.correctCount;
+      dayMap.set(day, entry);
+    }
+    return Array.from(dayMap.entries()).map(([day, d]) => ({
+      day,
+      '練習量': d.questions,
+      '正確率': d.questions > 0 ? Math.round((d.correct / d.questions) * 100) : 0,
+    }));
+  })();
 
   return (
     <div className="space-y-6">
@@ -65,9 +78,9 @@ export default function StudentProgressPage() {
           {t('progress.trend')}
         </h2>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={[]}>
+          <LineChart data={trendData.length > 0 ? trendData : [{ day: '', '練習量': 0, '正確率': 0 }]}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+            <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#9ca3af" />
             <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
             <Tooltip />
             <Line type="monotone" dataKey="練習量" stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
@@ -100,28 +113,39 @@ export default function StudentProgressPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('progress.radar')}</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis dataKey="skill" tick={{ fontSize: 12 }} />
-              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-              <Radar dataKey="value" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.2} />
-            </RadarChart>
-          </ResponsiveContainer>
+          {radarData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="#e5e7eb" />
+                <PolarAngleAxis dataKey="skill" tick={{ fontSize: 12 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                <Radar dataKey="value" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.2} />
+              </RadarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-sm text-gray-400">
+              完成更多練習後將顯示技能分析圖
+            </div>
+          )}
         </section>
 
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('progress.monthly')}</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={[]} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
-              <YAxis dataKey="skill" type="category" tick={{ fontSize: 12 }} width={60} />
-              <Tooltip />
-              <Bar dataKey="月初" fill="#d1d5db" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="現在" fill="#14b8a6" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {displayMastery.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={displayMastery.map(m => ({ skill: m.subSkill, '正確率': m.percentage }))} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                <YAxis dataKey="skill" type="category" tick={{ fontSize: 12 }} width={80} />
+                <Tooltip />
+                <Bar dataKey="正確率" fill="#14b8a6" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-sm text-gray-400">
+              完成練習後將顯示技能對比圖
+            </div>
+          )}
         </section>
       </div>
 
@@ -153,16 +177,6 @@ export default function StudentProgressPage() {
         </section>
       )}
 
-      {/* 成就徽章 */}
-      <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <Award className="w-5 h-5 text-yellow-500" />
-          {t('progress.badges')}
-        </h2>
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
-          {null}
-        </div>
-      </section>
     </div>
   );
 }
