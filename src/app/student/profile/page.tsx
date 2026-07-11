@@ -41,19 +41,19 @@ export default function StudentProfilePage() {
         const d = await res.json();
         setProfile((p: any) => ({ ...p, ...d.user }));
         setEditing(false);
-        setSaveMsg('已成功儲存！');
+        setSaveMsg(t('profile.saveSuccess'));
       } else {
-        const err = await res.json().catch(() => ({ error: '儲存失敗' }));
-        setSaveMsg(err.error || '儲存失敗，請重試。');
+        const err = await res.json().catch(() => ({ error: t('profile.saveFailed') }));
+        setSaveMsg(err.error || t('profile.saveFailed'));
       }
     } catch {
-      setSaveMsg('網絡錯誤，請檢查連線。');
+      setSaveMsg(t('profile.networkError'));
     }
     setSaving(false);
   };
 
   const handleLogout = () => { logout(); router.push('/login'); };
-  const displayName = profile?.nameZh || userDisplayName || 'Student';
+  const displayName = profile?.nameZh || userDisplayName || t('common.studentFallback');
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -65,37 +65,37 @@ export default function StudentProfilePage() {
         {editing ? (
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1 text-left">中文姓名</label>
-              <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })} placeholder="中文姓名" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+              <label className="block text-xs text-gray-500 mb-1 text-left">{t('profile.chineseName')}</label>
+              <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })} placeholder={t('profile.chineseName')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1 text-left">英文姓名</label>
+              <label className="block text-xs text-gray-500 mb-1 text-left">{t('profile.englishName')}</label>
               <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder="English Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1 text-left flex items-center gap-1"><GraduationCap className="w-3 h-3" /> 年級</label>
+              <label className="block text-xs text-gray-500 mb-1 text-left flex items-center gap-1"><GraduationCap className="w-3 h-3" /> {t('profile.grade')}</label>
               <select
                 value={form.level}
                 onChange={e => setForm({ ...form, level: e.target.value })}
                 className="w-48 px-3 py-2 border rounded-lg text-center text-sm bg-white dark:bg-gray-700"
               >
-                <option value="">未設定</option>
+                <option value="">{t('profile.notSet')}</option>
                 {Object.entries(gradeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            {saveMsg && <p className={`text-xs ${saveMsg.includes('成功') ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</p>}
+            {saveMsg && <p className={`text-xs ${saveMsg.includes('成功') || saveMsg.includes('success') ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</p>}
             <div className="flex justify-center gap-2">
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm flex items-center gap-1"><Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}</button>
-              <button onClick={() => { setEditing(false); setSaveMsg(''); }} className="px-4 py-2 bg-gray-200 rounded-lg text-sm flex items-center gap-1"><X className="w-4 h-4" /> Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm flex items-center gap-1"><Save className="w-4 h-4" /> {saving ? t('profile.saving') : t('profile.save')}</button>
+              <button onClick={() => { setEditing(false); setSaveMsg(''); }} className="px-4 py-2 bg-gray-200 rounded-lg text-sm flex items-center gap-1"><X className="w-4 h-4" /> {t('profile.cancel')}</button>
             </div>
           </div>
         ) : (
           <>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{displayName}</h2>
             <p className="text-sm text-gray-500 mt-1 flex items-center justify-center gap-1"><Mail className="w-4 h-4" /> {profile?.email || ''}</p>
-            <p className="text-xs text-gray-400 mt-1">Class: {profile?.class?.name || 'N/A'} | Level: {profile?.level || 'N/A'}</p>
-            <p className="text-xs text-gray-400">Joined: {profile?.joinedAt ? formatDate(profile.joinedAt) : ''}</p>
-            <button onClick={() => setEditing(true)} className="mt-4 px-4 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-lg text-sm">Edit Profile</button>
+            <p className="text-xs text-gray-400 mt-1">{t('profile.classAndLevelShort').replace('{class}', profile?.class?.name || t('generic.notAvailable')).replace('{level}', profile?.level || t('generic.notAvailable'))}</p>
+            <p className="text-xs text-gray-400">{t('profile.joinedOn').replace('{date}', profile?.joinedAt ? formatDate(profile.joinedAt) : '')}</p>
+            <button onClick={() => setEditing(true)} className="mt-4 px-4 py-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-lg text-sm">{t('profile.editProfile')}</button>
           </>
         )}
       </div>

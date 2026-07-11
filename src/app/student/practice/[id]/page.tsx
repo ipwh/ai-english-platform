@@ -15,6 +15,7 @@ import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 import type { AnswerAnalysis } from '@/lib/ai-service';
 import type { PracticeQuestion } from '@/lib/types';
 
@@ -61,6 +62,7 @@ export default function PracticeQuestionPage() {
   const params = useParams();
   const router = useRouter();
   const store = useAppStore();
+  const { t } = useT();
 
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -117,9 +119,9 @@ export default function PracticeQuestionPage() {
     return (
       <div className="flex items-center justify-center py-32">
         <div className="text-center">
-          <p className="text-gray-500 mb-3">找不到此題目</p>
+          <p className="text-gray-500 mb-3">{t('practice.question.notFound')}</p>
           <Link href="/student/practice" className="text-blue-600 hover:underline">
-            ← 返回練習頁面
+            {t('practice.question.backToPractice')}
           </Link>
         </div>
       </div>
@@ -236,12 +238,12 @@ export default function PracticeQuestionPage() {
       <div className="flex items-center justify-between">
         <Link href="/student/practice" className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700">
           <ArrowLeft className="w-4 h-4" />
-          返回練習中心
+          {t('practice.question.backToCenter')}
         </Link>
         <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> 02:35</span>
           {isSessionMode && (
-            <span className="text-purple-500 flex items-center gap-1"><Sparkles className="w-3 h-3" /> AI 練習</span>
+            <span className="text-purple-500 flex items-center gap-1"><Sparkles className="w-3 h-3" /> {t('practice.question.aiPractice')}</span>
           )}
         </div>
       </div>
@@ -254,8 +256,8 @@ export default function PracticeQuestionPage() {
         showPercentage={false}
       />
       <div className="text-xs text-gray-400 text-right">
-        第 {isSessionMode ? sessionIndex + 1 : 0}/{isSessionMode ? sessionTotal : 0} 題
-        {isSessionMode && <span className="ml-2 text-purple-500">· AI 生成練習</span>}
+        {t('practice.question.questionN').replace('{n}', String(isSessionMode ? sessionIndex + 1 : 0)).replace('{total}', String(isSessionMode ? sessionTotal : 0))}
+        {isSessionMode && <span className="ml-2 text-purple-500">· {t('practice.question.aiGenerated')}</span>}
       </div>
 
       {/* 題目標籤 */}
@@ -272,11 +274,11 @@ export default function PracticeQuestionPage() {
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">🎧</span>
               <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">
-                {!listeningRevealed && !submitted ? '聆聽理解練習 — 請先聆聽，不要看文字' : '聆聽內容'}
+                {!listeningRevealed && !submitted ? t('practice.question.listeningTitle') : t('practice.question.listeningContent')}
               </span>
               <AudioPlayer
                 text={question.listeningContent || question.prompt}
-                label={!listeningRevealed && !submitted ? '▶ 播放' : '重播'}
+                label={!listeningRevealed && !submitted ? t('practice.question.play') : t('practice.question.replay')}
                 size="sm"
               />
             </div>
@@ -285,7 +287,7 @@ export default function PracticeQuestionPage() {
             <div className={!listeningRevealed && !submitted ? 'hidden' : ''}>
               <p
                 className="text-sm text-teal-800 dark:text-teal-200 leading-relaxed whitespace-pre-line cursor-help"
-                title={question.listeningContentZh || '聆聽內容文字'}
+                title={question.listeningContentZh || t('practice.question.listeningContentText')}
               >
                 {question.listeningContent || question.prompt}
               </p>
@@ -300,7 +302,7 @@ export default function PracticeQuestionPage() {
                 onClick={() => setListeningRevealed(true)}
                 className="mt-2 text-xs text-teal-500 hover:text-teal-700 underline"
               >
-                我需要看文字版本
+                {t('practice.question.showText')}
               </button>
             )}
           </div>
@@ -312,7 +314,7 @@ export default function PracticeQuestionPage() {
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">📖</span>
               <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                閱讀篇章
+                {t('practice.question.readingPassage')}
               </span>
             </div>
             <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">
@@ -334,7 +336,7 @@ export default function PracticeQuestionPage() {
           </p>
           {question.promptZh && (
             <details className="mt-2">
-              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">顯示中文提示</summary>
+              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">{t('practice.question.showZhHint')}</summary>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">{question.promptZh}</p>
             </details>
           )}
@@ -391,7 +393,7 @@ export default function PracticeQuestionPage() {
               value={selectedAnswer}
               onChange={(e) => setSelectedAnswer(e.target.value)}
               disabled={submitted}
-              placeholder="請輸入答案..."
+              placeholder={t('practice.question.inputAnswer')}
               className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400"
             />
           </div>
@@ -404,12 +406,12 @@ export default function PracticeQuestionPage() {
               value={selectedAnswer}
               onChange={(e) => setSelectedAnswer(e.target.value)}
               disabled={submitted}
-              placeholder="請在此寫下你的答案..."
+              placeholder={t('practice.question.writeAnswer')}
               rows={4}
               className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-none"
             />
             <p className="text-xs text-gray-400 mt-1">
-              {selectedAnswer.length} 字元 / {selectedAnswer.trim() ? selectedAnswer.trim().split(/\s+/).length : 0} 字
+              {selectedAnswer.length} {t('practice.question.chars')} / {selectedAnswer.trim() ? selectedAnswer.trim().split(/\s+/).length : 0} {t('practice.question.words')}
             </p>
           </div>
         )}
@@ -421,7 +423,7 @@ export default function PracticeQuestionPage() {
               value={selectedAnswer}
               onChange={(e) => setSelectedAnswer(e.target.value)}
               disabled={submitted}
-              placeholder="請寫出改正後的句子..."
+              placeholder={t('practice.question.correctSentence')}
               rows={3}
               className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-none"
             />
@@ -434,7 +436,7 @@ export default function PracticeQuestionPage() {
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Lightbulb className="w-4 h-4 text-yellow-600" />
-            <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">提示 {currentHint}/4</span>
+            <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">{t('practice.question.hintLevel').replace('{n}', String(currentHint))}</span>
           </div>
           <p className="text-sm text-yellow-700 dark:text-yellow-300">{question.hintLevels[currentHint - 1]}</p>
         </div>
@@ -449,21 +451,21 @@ export default function PracticeQuestionPage() {
                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                   <Check className="w-5 h-5 text-white" />
                 </div>
-                <span className="font-semibold text-green-800 dark:text-green-200">回答正確！</span>
+                <span className="font-semibold text-green-800 dark:text-green-200">{t('practice.question.correct')}</span>
               </>
             ) : (
               <>
                 <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
                   <X className="w-5 h-5 text-white" />
                 </div>
-                <span className="font-semibold text-red-800 dark:text-red-200">回答錯誤</span>
+                <span className="font-semibold text-red-800 dark:text-red-200">{t('practice.question.wrong')}</span>
               </>
             )}
           </div>
 
           {!isCorrect && (
             <div className="text-sm mb-2 flex items-center gap-2">
-              <span className="text-gray-500 dark:text-gray-400">正確答案：</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('practice.question.correctAnswerLabel')}</span>
               <span className="font-bold text-green-700 dark:text-green-300">{question.answer}</span>
               <AudioPlayer
                 text={getFullAnswerText(question)}
@@ -480,13 +482,13 @@ export default function PracticeQuestionPage() {
                 onClick={() => setShowZh(true)}
                 className={`text-xs px-2 py-1 rounded ${showZh ? 'bg-teal-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}
               >
-                中文解釋
+                {t('practice.question.zhExplanation')}
               </button>
               <button
                 onClick={() => setShowZh(false)}
                 className={`text-xs px-2 py-1 rounded ${!showZh ? 'bg-teal-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600'}`}
               >
-                English
+                {t('practice.question.enExplanation')}
               </button>
               <AudioPlayer
                 text={showZh ? question.explanationZh : question.explanationEn}
@@ -500,7 +502,7 @@ export default function PracticeQuestionPage() {
 
           {/* 常犯錯誤 */}
           <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg">
-            <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">⚠️ 常犯錯誤</p>
+            <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">{t('practice.question.commonMistake')}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">{question.commonMistake}</p>
           </div>
 
@@ -525,7 +527,7 @@ export default function PracticeQuestionPage() {
             {aiError && (
               <div className="text-sm text-gray-400 dark:text-gray-500">
                 <Sparkles className="w-4 h-4 inline mr-1" />
-                {aiError}（已顯示預設解釋）
+                {aiError}{t('practice.question.aiFallback')}
               </div>
             )}
 

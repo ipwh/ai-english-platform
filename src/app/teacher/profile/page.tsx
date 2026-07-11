@@ -39,7 +39,7 @@ export default function TeacherProfilePage() {
   };
 
   const handleLogout = () => { logout(); router.push('/login'); };
-  const displayName = profile?.nameZh || userDisplayName || 'Teacher';
+  const displayName = profile?.nameZh || userDisplayName || t('common.teacherFallback');
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -52,16 +52,16 @@ export default function TeacherProfilePage() {
         {editing ? (
           <div className="space-y-3">
             <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })}
-              placeholder="Chinese Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+              placeholder={t('profile.chineseName')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
             <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })}
-              placeholder="English Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+              placeholder={t('profile.englishName')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
             <div className="flex justify-center gap-2">
               <button onClick={handleSave} disabled={saving}
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm flex items-center gap-1">
-                <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
+                <Save className="w-4 h-4" /> {saving ? t('profile.saving') : t('profile.save')}
               </button>
               <button onClick={() => setEditing(false)} className="px-4 py-2 bg-gray-200 rounded-lg text-sm flex items-center gap-1">
-                <X className="w-4 h-4" /> Cancel
+                <X className="w-4 h-4" /> {t('profile.cancel')}
               </button>
             </div>
           </div>
@@ -72,18 +72,18 @@ export default function TeacherProfilePage() {
             <p className="text-sm text-gray-500 mt-1 flex items-center justify-center gap-1">
               <Mail className="w-4 h-4" /> {profile?.email || ''}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Role: {profile?.role || 'teacher'}</p>
-            <p className="text-xs text-gray-400">Joined: {profile?.joinedAt ? formatDate(profile.joinedAt) : ''}</p>
+            <p className="text-xs text-gray-400 mt-1">{t('teacher.profile.role').replace('{role}', profile?.role || 'teacher')}</p>
+            <p className="text-xs text-gray-400">{t('teacher.profile.joined').replace('{date}', profile?.joinedAt ? formatDate(profile.joinedAt) : '')}</p>
             <button onClick={() => setEditing(true)}
               className="mt-4 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-lg text-sm">
-              Edit Profile
+              {t('profile.editProfile')}
             </button>
           </>
         )}
       </div>
 
       <button onClick={handleLogout} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
-        <LogOut className="w-4 h-4" /> Logout
+        <LogOut className="w-4 h-4" /> {t('profile.logout')}
       </button>
     </div>
   );
