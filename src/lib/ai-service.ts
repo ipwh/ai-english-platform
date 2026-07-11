@@ -364,7 +364,7 @@ function aiLog(event: string, data: Record<string, unknown>) {
   }));
 }
 
-async function callLLM(
+export async function callLLM(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {

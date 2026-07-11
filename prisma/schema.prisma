@@ -38,6 +38,8 @@ model User {
   level         String?   // GradeLevel: S1-S6
   overallAccuracy Float?  @default(0)
   academicYear  String?   // 學年追蹤 (e.g. "2025-2026")
+  xp            Int       @default(0)
+  badgeIds      String    @default("[]")  // JSON 陣列: ["streak-3", "accuracy-80"]
 
   // === 教師專屬欄位 ===
   subjects      String?   // JSON 陣列: '["English Language"]'
@@ -160,6 +162,10 @@ model Mistake {
   aiExplanation  String?
   reviewed       Boolean   @default(false)
   inReviewList   Boolean   @default(false)
+  nextReviewDate DateTime? // SRS: 下次複習日期
+  reviewInterval Int       @default(0)  // SRS: 複習間隔天數
+  easeFactor     Float     @default(2.5) // SRS: 簡化 EF
+  lastReviewedAt DateTime? // SRS: 上次複習時間
   createdAt      DateTime  @default(now())
 }
 
@@ -177,6 +183,9 @@ model VocabItem {
   exampleSentence String?
   familiarity     String    @default("new") // new | learning | familiar | mastered
   nextReviewDate  DateTime?
+  reviewInterval  Int       @default(0)  // SRS: 複習間隔天數
+  easeFactor      Float     @default(2.5) // SRS: 簡化 EF
+  lastReviewedAt  DateTime? // SRS: 上次複習時間
   createdAt       DateTime  @default(now())
 }
 

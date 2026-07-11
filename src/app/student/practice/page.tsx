@@ -15,6 +15,7 @@ import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import { PracticePageSkeleton } from '@/components/shared/Skeleton';
 import type { GrammarItem, LanguageSkill, DifficultyLevel, GradeLevel } from '@/lib/types';
 
 // ============================================
@@ -313,6 +314,10 @@ function PracticeListPageContent() {
       {/* ======================================== */}
       {tab === 'generate' && (
         <div className="space-y-4">
+          {generating ? (
+            <PracticePageSkeleton />
+          ) : (
+            <>
           {/* 根據弱項推薦 */}
           {recommendedSkills.length > 0 && (
             <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
@@ -459,6 +464,8 @@ function PracticeListPageContent() {
               )}
             </button>
           </div>
+            </>
+          )}
         </div>
       )}
 

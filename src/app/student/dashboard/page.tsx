@@ -3,11 +3,20 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Play, Sparkles, Loader2 } from 'lucide-react';
+import { Play, Sparkles, Loader2, Trophy, Flame, Star, TrendingUp } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/lib/utils';
+import { getLevelInfo, type BadgeDefinition } from '@/lib/gamification';
+import { GamificationSkeleton } from '@/components/shared/Skeleton';
+
+interface GamificationData {
+  xp: number;
+  level: { level: number; title: string; titleZh: string; xpRequired: number; xpToNext: number };
+  badges: (BadgeDefinition & { unlocked: boolean })[];
+  stats: Record<string, number>;
+}
 
 export default function StudentDashboardPage() {
   const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory } = useAppStore();
@@ -16,6 +25,8 @@ export default function StudentDashboardPage() {
   const [aiInsight, setAiInsight] = useState<any>(null);
   const [studentLevel, setStudentLevel] = useState('S4');
   const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
+  const [gamification, setGamification] = useState<GamificationData | null>(null);
+  const [gamificationLoading, setGamificationLoading] = useState(true);
 
   // 載入練習歷史（解決重整後數據歸零）
   useEffect(() => {
@@ -26,6 +37,15 @@ export default function StudentDashboardPage() {
       if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setStudentLevel(level);
       const userId = d?.user?.id || '';
       if (userId) {
+        // Load gamification data
+        fetch(`/api/gamification?studentId=${encodeURIComponent(userId)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data && !data.error) setGamification(data);
+          })
+          .catch(() => {})
+          .finally(() => setGamificationLoading(false));
+
         return fetch(`/api/practice?studentId=${encodeURIComponent(userId)}`).then(r => r.json());
       }
     }).then(data => {
@@ -47,6 +67,11 @@ export default function StudentDashboardPage() {
     { label: t('student.streak'), value: weeklyStats.streakDays || 0, unit: t('common.days'), trend: 'stable' as const, change: 0 },
   ];
 
+  const unlockedBadges = gamification?.badges?.filter(b => b.unlocked) || [];
+  const xpProgress = gamification?.level
+    ? Math.round((1 - gamification.level.xpToNext / (gamification.level.xpRequired + gamification.level.xpToNext || 1)) * 100)
+    : 0;
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-6 text-white">
@@ -56,6 +81,76 @@ export default function StudentDashboardPage() {
           <Play className="w-4 h-4 inline mr-1" /> {t('student.dashboard.practice')}
         </Link>
       </div>
+
+      {/* 🏆 Gamification Section */}
+      {gamificationLoading ? (
+        <GamificationSkeleton />
+      ) : gamification ? (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                {gamification.level.level}
+              </div>
+              <Trophy className="absolute -top-1 -right-1 w-5 h-5 text-yellow-400 drop-shadow" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {gamification.level.titleZh} (Lv.{gamification.level.level})
+                </span>
+                <span className="text-xs text-gray-500">
+                  {gamification.xp} XP
+                </span>
+              </div>
+              <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-500"
+                  style={{ width: `${xpProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                {gamification.level.xpToNext > 0
+                  ? `${gamification.level.xpToNext} XP to next level`
+                  : 'Max Level!'}
+              </p>
+            </div>
+          </div>
+
+          {/* Badges */}
+          {unlockedBadges.length > 0 && (
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+              <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                <Star className="w-3 h-3 text-yellow-500" /> 徽章 Badges
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {unlockedBadges.slice(0, 8).map(badge => (
+                  <div
+                    key={badge.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-full border border-yellow-200 dark:border-yellow-800 text-xs"
+                    title={`${badge.nameZh}: ${badge.descriptionZh}`}
+                  >
+                    <span className="text-sm">{badge.icon}</span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">{badge.nameZh}</span>
+                  </div>
+                ))}
+                {unlockedBadges.length > 8 && (
+                  <span className="text-xs text-gray-400 self-center">+{unlockedBadges.length - 8} more</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Streak Fire */}
+          {weeklyStats.streakDays >= 3 && (
+            <div className="flex items-center gap-1 mt-2 text-xs text-orange-500 font-medium">
+              <Flame className="w-4 h-4" />
+              {weeklyStats.streakDays} day streak! Keep going! 🔥
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {kpis.map((kpi, i) => <KpiCard key={i} data={kpi} />)}
       </div>

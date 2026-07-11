@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown } from 'lucide-react';
+import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import OcrUpload from '@/components/shared/OcrUpload';
 
@@ -59,6 +59,16 @@ export default function WritingPage() {
   const [aiError, setAiError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+
+  // === 互動改寫狀態 ===
+  const [rewriteLoading, setRewriteLoading] = useState(false);
+  const [rewrittenText, setRewrittenText] = useState('');
+  const [rewriteSummary, setRewriteSummary] = useState<string[]>([]);
+  const [showRewrite, setShowRewrite] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+
+  // === 分層反饋狀態 ===
+  const [feedbackLevel, setFeedbackLevel] = useState<'simple' | 'detailed'>('simple');
 
   // Computed values
   const realTopic = useCustomTopic && customTopic ? customTopic : generatedPrompt;
@@ -220,6 +230,71 @@ export default function WritingPage() {
     finally { setAiLoading(false); }
   };
 
+  // === AI 互動改寫 ===
+  const handleRewrite = async () => {
+    if (!draft.trim()) return;
+    setRewriteLoading(true);
+    setRewrittenText('');
+    setRewriteSummary([]);
+    try {
+      const feedbackText = aiResult
+        ? `Grammar errors: ${(aiResult.grammarErrors || []).map((e: any) => `${e.original} → ${e.correction}`).join('; ')}. Chinglish: ${(aiResult.chinglishWarnings || []).map((c: any) => c.original).join('; ')}`
+        : '';
+      const res = await fetch('/api/ai/rewrite-writing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originalDraft: draft,
+          aiFeedback: feedbackText,
+          gradeLevel,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.rewrite) {
+        setRewrittenText(json.rewrite.revisedText);
+        setRewriteSummary(json.rewrite.changesSummary || []);
+        setShowRewrite(true);
+        setShowDiff(true);
+      } else {
+        alert(json.error || t(lang, '改寫失敗，請重試。', 'Rewrite failed. Please try again.'));
+      }
+    } catch {
+      alert(t(lang, '改寫失敗，請檢查網絡。', 'Rewrite failed. Check connection.'));
+    } finally {
+      setRewriteLoading(false);
+    }
+  };
+
+  // 簡單 diff 比較：標記差異
+  const renderDiff = () => {
+    if (!showDiff || !rewrittenText) return null;
+    // Simple side-by-side comparison
+    return (
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-200 dark:border-red-800">
+          <p className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+            <EyeOff className="w-3 h-3" /> {t(lang, '原文', 'Original')}
+          </p>
+          <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{draft}</pre>
+        </div>
+        <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
+          <p className="text-xs font-medium text-green-600 mb-2 flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> {t(lang, 'AI 改寫版', 'AI Revised')}
+          </p>
+          <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{rewrittenText}</pre>
+          {rewriteSummary.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
+              <p className="text-xs font-medium text-green-600 mb-1">{t(lang, '主要改動：', 'Key Changes:')}</p>
+              <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
+                {rewriteSummary.map((s, i) => <li key={i}>{s}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t(lang, '✍️ 寫作支援', '✍️ Writing Support')}</h1>
@@ -341,13 +416,23 @@ export default function WritingPage() {
       {aiError && <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl text-sm text-red-600">⚠️ {aiError}</div>}
       {aiResult && (
         <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800 space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Sparkles className="w-5 h-5 text-purple-600" /><h3 className="font-semibold text-purple-800 dark:text-purple-200">{t(lang, 'AI 寫作分析', 'AI Writing Analysis')}</h3>
             <span className="ml-auto text-2xl font-bold text-purple-700">{aiResult.overallScore}/100</span>
+            {/* 分層反饋切換 */}
+            <button
+              onClick={() => setFeedbackLevel(feedbackLevel === 'simple' ? 'detailed' : 'simple')}
+              className="px-2.5 py-1 text-xs bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded-md font-medium flex items-center gap-1"
+            >
+              {feedbackLevel === 'simple'
+                ? <><ChevronDown className="w-3 h-3" /> {t(lang, '詳細', 'Detailed')}</>
+                : <><ChevronUp className="w-3 h-3" /> {t(lang, '簡潔', 'Simple')}</>
+              }
+            </button>
             <button
               onClick={() => handleExport('pdf')}
               disabled={exporting}
-              className="ml-3 px-2.5 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 rounded-md font-medium flex items-center gap-1 disabled:opacity-50"
+              className="px-2.5 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 rounded-md font-medium flex items-center gap-1 disabled:opacity-50"
             >
               <FileDown className="w-3 h-3" /> PDF
             </button>
@@ -359,32 +444,81 @@ export default function WritingPage() {
               <FileDown className="w-3 h-3" /> DOCX
             </button>
           </div>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{aiResult.generalComment}</p>
-          {aiResult.strengths?.length > 0 && (
-            <div><p className="text-xs font-medium text-green-600 mb-1">{t(lang, '優點：', 'Strengths:')}</p><ul className="list-disc list-inside text-sm text-gray-600 space-y-0.5">{aiResult.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}</ul></div>
+
+          {/* Simple Feedback Layer */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              {aiResult.generalComment}
+            </p>
+          </div>
+
+          {feedbackLevel === 'simple' && aiResult.structureFeedback && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">💡 {aiResult.structureFeedback}</p>
           )}
-          {aiResult.grammarErrors?.length > 0 && (
-            <div><p className="text-xs font-medium text-red-600 mb-1">{t(lang, '文法錯誤：', 'Grammar Errors:')}</p>
-              {aiResult.grammarErrors.map((e: { original: string; correction: string; explanation: string }, i: number) => (
-                <div key={i} className="text-sm text-red-700 ml-2"><span className="line-through">{e.original}</span> → <span className="font-medium">{e.correction}</span><span className="text-gray-500 ml-2">({e.explanation})</span></div>))}
-            </div>
+
+          {/* Detailed Feedback Layer */}
+          {feedbackLevel === 'detailed' && (
+            <>
+              {aiResult.strengths?.length > 0 && (
+                <div><p className="text-xs font-medium text-green-600 mb-1">{t(lang, '優點：', 'Strengths:')}</p><ul className="list-disc list-inside text-sm text-gray-600 space-y-0.5">{aiResult.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}</ul></div>
+              )}
+              {aiResult.grammarErrors?.length > 0 && (
+                <div><p className="text-xs font-medium text-red-600 mb-1">{t(lang, '文法錯誤：', 'Grammar Errors:')}</p>
+                  {aiResult.grammarErrors.map((e: { original: string; correction: string; explanation: string }, i: number) => (
+                    <div key={i} className="text-sm text-red-700 ml-2"><span className="line-through">{e.original}</span> → <span className="font-medium">{e.correction}</span><span className="text-gray-500 ml-2">({e.explanation})</span></div>))}
+                </div>
+              )}
+              {aiResult.chinglishWarnings?.length > 0 && (
+                <div><p className="text-xs font-medium text-amber-600 mb-1">{t(lang, '中式英文：', 'Chinglish:')}</p>
+                  {aiResult.chinglishWarnings.map((c: { original: string; suggestion: string }, i: number) => (
+                    <div key={i} className="text-sm text-amber-700 ml-2"><span className="line-through">{c.original}</span> → <span className="font-medium">{c.suggestion}</span></div>))}
+                </div>
+              )}
+              {aiResult.structureFeedback && <div><p className="text-xs font-medium text-blue-600 mb-1">{t(lang, '結構評語：', 'Structure:')}</p><p className="text-sm text-gray-600">{aiResult.structureFeedback}</p></div>}
+              {aiResult.vocabularySuggestions?.length > 0 && (
+                <div><p className="text-xs font-medium text-green-600 mb-1">{t(lang, '詞彙建議：', 'Vocabulary:')}</p>
+                  {aiResult.vocabularySuggestions.map((v: { original: string; suggestion: string; reason: string }, i: number) => (
+                    <div key={i} className="text-sm text-green-700 ml-2"><span className="line-through">{v.original}</span> → <span className="font-medium">{v.suggestion}</span><span className="text-gray-500 ml-2">({v.reason})</span></div>))}
+                </div>
+              )}
+              {aiResult.revisedVersion && (
+                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg"><p className="text-xs font-medium text-purple-600 mb-1">{t(lang, '修改版：', 'Revised:')}</p><p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p></div>
+              )}
+            </>
           )}
-          {aiResult.chinglishWarnings?.length > 0 && (
-            <div><p className="text-xs font-medium text-amber-600 mb-1">{t(lang, '中式英文：', 'Chinglish:')}</p>
-              {aiResult.chinglishWarnings.map((c: { original: string; suggestion: string }, i: number) => (
-                <div key={i} className="text-sm text-amber-700 ml-2"><span className="line-through">{c.original}</span> → <span className="font-medium">{c.suggestion}</span></div>))}
-            </div>
-          )}
-          {aiResult.structureFeedback && <div><p className="text-xs font-medium text-blue-600 mb-1">{t(lang, '結構評語：', 'Structure:')}</p><p className="text-sm text-gray-600">{aiResult.structureFeedback}</p></div>}
-          {aiResult.vocabularySuggestions?.length > 0 && (
-            <div><p className="text-xs font-medium text-green-600 mb-1">{t(lang, '詞彙建議：', 'Vocabulary:')}</p>
-              {aiResult.vocabularySuggestions.map((v: { original: string; suggestion: string; reason: string }, i: number) => (
-                <div key={i} className="text-sm text-green-700 ml-2"><span className="line-through">{v.original}</span> → <span className="font-medium">{v.suggestion}</span><span className="text-gray-500 ml-2">({v.reason})</span></div>))}
-            </div>
-          )}
-          {aiResult.revisedVersion && (
-            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg"><p className="text-xs font-medium text-purple-600 mb-1">{t(lang, '修改版：', 'Revised:')}</p><p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p></div>
-          )}
+
+          {/* 🆕 互動改寫按鈕 */}
+          <div className="flex items-center gap-3 pt-2 border-t border-purple-200 dark:border-purple-700">
+            <button
+              onClick={handleRewrite}
+              disabled={rewriteLoading || !draft.trim()}
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 flex items-center gap-2 shadow-sm"
+            >
+              {rewriteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {rewriteLoading ? t(lang, 'AI 改寫中...', 'Rewriting...') : t(lang, '一鍵 AI 改寫', 'Rewrite with AI')}
+            </button>
+            {rewrittenText && (
+              <button
+                onClick={() => setShowDiff(!showDiff)}
+                className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg flex items-center gap-1"
+              >
+                <Eye className="w-3 h-3" />
+                {showDiff ? t(lang, '隱藏對比', 'Hide Diff') : t(lang, '查看對比', 'Show Diff')}
+              </button>
+            )}
+            {rewrittenText && (
+              <button
+                onClick={() => { setDraft(rewrittenText); setShowDiff(false); }}
+                className="px-3 py-1.5 text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg flex items-center gap-1"
+              >
+                <CheckCircle className="w-3 h-3" />
+                {t(lang, '採用改寫', 'Apply Rewrite')}
+              </button>
+            )}
+          </div>
+
+          {/* Diff Comparison View */}
+          {renderDiff()}
         </div>
       )}
     </div>

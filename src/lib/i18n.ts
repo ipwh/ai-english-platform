@@ -296,6 +296,24 @@ const translations: Record<string, { zh: string; en: string }> = {
   'profile.switchRole': { zh: '切換身份', en: 'Switch Role' },
   'profile.saving': { zh: '儲存中...', en: 'Saving...' },
 
+  // Gamification
+  'gamification.level': { zh: '等級', en: 'Level' },
+  'gamification.xp': { zh: '經驗值', en: 'XP' },
+  'gamification.xpToNext': { zh: '距離下一級還需 {n} XP', en: '{n} XP to next level' },
+  'gamification.badges': { zh: '徽章', en: 'Badges' },
+  'gamification.noBadges': { zh: '尚無徽章，繼續練習解鎖更多！', en: 'No badges yet. Keep practicing!' },
+  'gamification.streakFire': { zh: '{n} 天連續學習！繼續保持！', en: '{n} day streak! Keep going!' },
+
+  // SRS / Spaced Repetition
+  'srs.dailyReview': { zh: '📅 每日複習', en: '📅 Daily Review' },
+  'srs.dueCards': { zh: '{n} 張待複習', en: '{n} cards due' },
+  'srs.startReview': { zh: '開始複習', en: 'Start Review' },
+  'srs.markEasy': { zh: '簡單', en: 'Easy' },
+  'srs.markHard': { zh: '困難', en: 'Hard' },
+  'srs.markAgain': { zh: '再來一次', en: 'Again' },
+  'srs.reviewComplete': { zh: '今日複習完成！', en: 'Daily review complete!' },
+  'srs.reviewProgress': { zh: '複習進度', en: 'Review Progress' },
+
   // Teacher Dashboard
   'teacher.dashboard.title': { zh: '教師主頁', en: 'Teacher Dashboard' },
   'teacher.greeting': { zh: '歡迎回來，{name}老師', en: 'Welcome back, {name}' },
