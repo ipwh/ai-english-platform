@@ -83,16 +83,47 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId');
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
-    const vocab = await db.vocabItem.findMany({
-      where: { studentId },
-      orderBy: { createdAt: 'desc' },
-      take: 500,
-    });
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '50')));
+    const skip = (page - 1) * limit;
+    const familiarity = searchParams.get('familiarity');
+    const pos = searchParams.get('pos');
+    const sort = searchParams.get('sort') || 'recent';
+    const search = searchParams.get('search');
 
-    return NextResponse.json({ vocab: vocab.map(serializeVocab) });
+    const where: Record<string, unknown> = { studentId };
+    if (familiarity && familiarity !== 'all') {
+      where.familiarity = familiarity;
+    }
+    if (pos) {
+      where.partOfSpeech = pos;
+    }
+    if (search) {
+      where.word = { contains: search, mode: 'insensitive' };
+    }
+
+    const orderBy: Record<string, string> =
+      sort === 'alpha' ? { word: 'asc' } :
+      sort === 'mastery' ? { masteryLevel: 'desc' } :
+      { createdAt: 'desc' };
+
+    const [vocab, total] = await Promise.all([
+      db.vocabItem.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      db.vocabItem.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      vocab: vocab.map(serializeVocab),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err: unknown) {
     console.error('[Vocabulary GET]', err);
-    return NextResponse.json({ error: 'Failed to load vocabulary', vocab: [] }, { status: 200 });
+    return NextResponse.json({ error: 'Failed to load vocabulary', vocab: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }, { status: 200 });
   }
 }
 

@@ -14,6 +14,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
 - **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化 AI 複習建議，掌握度 ★ 評級（0-5），自動去重
+- **📝 生字簿 2.1 強化** — API 分頁支援（`page`/`limit`/`search`/`familiarity`/`pos`/`sort`）、`/api/vocabulary/suggest` 練習自動建議生字、`/api/vocabulary/example` 專用例句生成、`/api/vocabulary/quiz` 互動式詞彙測驗（MCQ + 配對題）、VocabCard 策略提示根據掌握度動態推導
 - **AI 求助助手** — 讀取學生弱項、近期錯題與表現後，對照 HKDSE 各卷別等級描述提供個人化英文學習建議；回答後可一鍵生成相關練習題目，即時練習改進
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、12 款成就徽章（連續學習、正確率、練習量、寫作、詞彙）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
@@ -175,6 +176,14 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   - `vocabularyUpgrades[]` — 詞彙升級建議（basic→advanced）
   - 可根據學生當前草稿提供針對性建議
 - **Prompt 強化**：整合 AfterSchool 及 Defining Education 兩大 DSE Writing 教學專家的核心內容
+
+### 📝 生字簿 2.1 強化
+- **API 分頁支援**：`GET /api/vocabulary` 新增 `page`/`limit`/`search`/`familiarity`/`pos`/`sort` 參數，回傳 `pagination` 物件
+- **練習自動建議生字** (`POST /api/vocabulary/suggest`)：從練習內容、閱讀篇章、錯題文字中 AI 自動推薦值得加入生字簿的單字（自動跳過已有單字）
+- **專用例句生成** (`POST /api/vocabulary/example`)：取代舊有的 `generate-questions` hack，年級自適應例句生成（S1-S2 簡單、S3-S4 中等、S5-S6 DSE 程度）
+- **互動式詞彙測驗** (`POST /api/vocabulary/quiz`)：從學生生字簿生成 MCQ + 配對題，優先選取低掌握度單字
+- **VocabCard 策略提示動態化**：根據 `masteryLevel` + `familiarity` + `nextReviewDate` 自動推導學習策略（不再依賴未使用的 DB 欄位）
+- **TypeScript Schema 修復**：移除 `VocabItem` interface 中不存在於 DB 的 `topic`/`audioUrl` 欄位
 
 ## 近期更新 (2026-07-11)
 

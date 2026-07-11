@@ -364,12 +364,11 @@ export interface VocabItem {
   synonyms?: string[];            // 同義字
   antonyms?: string[];            // 反義字
   collocations?: string[];        // 常見搭配
-  strategy?: LanguageStrategy;
-  topic?: string;
+  /** 學習策略提示 — 由前端根據 familiarity + masteryLevel 推導，不存 DB */
+  strategy?: string;
   familiarity: Familiarity;
   masteryLevel: MasteryLevel;    // 0-5
   nextReviewDate: string;
-  audioUrl?: string;
   easeFactor?: number;
   reviewInterval?: number;
 }
