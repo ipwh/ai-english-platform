@@ -209,7 +209,7 @@ export default function PracticeQuestionPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            studentId: store.userId || 'student',
+            studentId: store.userId || '',
             skill: store.currentSession.skill || 'general',
             skillZh: store.currentSession.skillZh || '',
             difficulty: store.currentSession.difficulty || 'core',
