@@ -46,21 +46,21 @@ export async function GET(req: NextRequest) {
     }
 
     // Default: student stats + badges
-    const [student, sessionsAgg, vocabMastered, writingCount, sessionsCount] = await Promise.all([
+    const [student, practiceSessions, vocabMastered, writingCount, sessionsCount] = await Promise.all([
       db.user.findUnique({
         where: { id: studentId },
         select: { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true },
       }),
-      db.practiceSession.aggregate({
+      db.practiceSession.findMany({
         where: { studentId },
-        _sum: { totalQuestions: true },
+        select: { totalQuestions: true },
       }),
       db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
       db.writingDraft.count({ where: { studentId } }),
       db.practiceSession.count({ where: { studentId } }),
     ]);
 
-    const totalQuestions = sessionsAgg._sum.totalQuestions ?? 0;
+    const totalQuestions = practiceSessions.reduce((sum, s) => sum + s.totalQuestions, 0);
 
     const stats: BadgeCheckStats = {
       totalQuestions,

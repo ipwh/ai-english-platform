@@ -167,7 +167,7 @@ export default function VocabularyPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('vocab.title')}</h1>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <TrendingUp className="w-4 h-4" /> {t('vocab.masteryLabel').replace('{n}', String(stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0))}
+          <TrendingUp className="w-4 h-4" /> {t('vocab.mastery').replace('{n}', String(stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0))}
         </div>
       </div>
 

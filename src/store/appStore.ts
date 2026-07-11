@@ -57,6 +57,9 @@ interface AppState {
   toggleLanguage: () => void;
   toggleSidebar: () => void;
 
+  // 動作 — 偏好設定（hydration-safe）
+  hydrateStoredPrefs: () => void;
+
   // 動作 — 練習
   startSession: (session: PracticeSession) => void;
   submitAnswer: (questionId: string, answer: string, isCorrect: boolean) => void;
@@ -73,8 +76,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentRole: null,
   userId: null,
   userDisplayName: null as string | null,
-  isDarkMode: typeof window !== 'undefined' ? localStorage.getItem('darkMode') === 'true' : false,
-  language: (typeof window !== 'undefined' ? localStorage.getItem('lang') : null) as 'zh' | 'en' | null || 'zh',
+  // 初始值必須與伺服器端一致（避免 hydration mismatch）
+  // localStorage 值在 useEffect（hydrateStoredPrefs）中載入
+  isDarkMode: false,
+  language: 'zh' as 'zh' | 'en',
   sidebarOpen: true,
   notifications: [],
   unreadCount: 0,
@@ -150,6 +155,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleSidebar: () => {
     set((state) => ({ sidebarOpen: !state.sidebarOpen }));
+  },
+
+  /** 從 localStorage 載入偏好設定（僅在客戶端 mount 後呼叫，避免 hydration mismatch） */
+  hydrateStoredPrefs: () => {
+    if (typeof window === 'undefined') return;
+    const storedLang = localStorage.getItem('lang') as 'zh' | 'en' | null;
+    const storedDark = localStorage.getItem('darkMode');
+    const updates: Partial<AppState> = {};
+    if (storedLang === 'zh' || storedLang === 'en') updates.language = storedLang;
+    if (storedDark === 'true') {
+      updates.isDarkMode = true;
+      document.documentElement.classList.add('dark');
+    }
+    if (Object.keys(updates).length > 0) set(updates);
   },
 
   // === 練習動作 ===
