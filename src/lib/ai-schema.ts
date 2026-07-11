@@ -14,7 +14,7 @@ export const GeneratedQuestionSchema = z.object({
   prompt: z.string().min(1),
   promptZh: z.string().optional(),
   choices: z.array(z.string()).default([]),
-  answer: z.string().min(1),
+  answer: z.string().min(1).refine(ans => ans.trim().length > 0, { message: 'Answer cannot be empty' }),
   explanationZh: z.string().min(1),
   explanationEn: z.string().min(1),
   commonMistake: z.string().min(1),
