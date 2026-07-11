@@ -82,6 +82,36 @@ export default function PracticeQuestionPage() {
   }, [store.currentSession]);
 
   const question = allQuestions.find(q => q.id === params.id) || null;
+
+  // === Session 進度（必須在 early return 之前計算，供 useEffect 使用）===
+  const isSessionMode = !!store.currentSession;
+  const sessionQuestions = store.currentSession?.questions || [];
+  const sessionIndex = sessionQuestions.findIndex(q => q.id === params.id);
+  const sessionTotal = sessionQuestions.length;
+  const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
+  const hasNextSession = sessionIndex < sessionTotal - 1;
+
+  // 離開頁面時自動儲存 session 進度（防止導航遺失）
+  // ⚠️ 必須在 early return 之前，否則會觸發 React error #300 (hooks order)
+  useEffect(() => {
+    return () => {
+      if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
+        fetch('/api/practice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: store.userId || '',
+            skill: store.currentSession.skill || 'general',
+            skillZh: store.currentSession.skillZh || '',
+            difficulty: store.currentSession.difficulty || 'core',
+            totalQuestions: store.currentSession.totalQuestions,
+            correctCount: store.currentSession.correctCount,
+            source: store.currentSession.source || 'ai-generated',
+          }),
+        }).catch(() => {});
+      }
+    };
+  }, [isSessionMode, store.currentSession, store.userId]);
   
   if (!question) {
     return (
@@ -97,14 +127,6 @@ export default function PracticeQuestionPage() {
   }
   const isListening = question.languageSkill === 'listening';
   const isReading = question.languageSkill === 'reading';
-
-  // === Session 進度 ===
-  const isSessionMode = !!store.currentSession;
-  const sessionQuestions = store.currentSession?.questions || [];
-  const sessionIndex = sessionQuestions.findIndex(q => q.id === params.id);
-  const sessionTotal = sessionQuestions.length;
-  const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
-  const hasNextSession = sessionIndex < sessionTotal - 1;
 
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
   const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type);
@@ -200,27 +222,7 @@ export default function PracticeQuestionPage() {
     setListeningRevealed(false);
   };
 
-  // 離開頁面時自動儲存 session 進度（防止導航遺失）
-  useEffect(() => {
-    return () => {
-      if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
-        // 儲存進行中的 session 到後端
-        fetch('/api/practice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: store.userId || '',
-            skill: store.currentSession.skill || 'general',
-            skillZh: store.currentSession.skillZh || '',
-            difficulty: store.currentSession.difficulty || 'core',
-            totalQuestions: store.currentSession.totalQuestions,
-            correctCount: store.currentSession.correctCount,
-            source: store.currentSession.source || 'ai-generated',
-          }),
-        }).catch(() => {});
-      }
-    };
-  }, [isSessionMode, store.currentSession, store.userId]);
+  // === 已完成：useEffect 已移至上方（early return 之前）===
 
   const handleHint = () => {
     if (currentHint < question.hintLevels.length) {

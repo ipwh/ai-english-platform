@@ -54,7 +54,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (optional fallback) + Vertex AI Embeddings |
 | 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
 | MCQ 正規化 | 後端自動清除 T/F/True/False 前綴、按索引標準化 A/B/C/D 答案字母，防止 Gemini fallback 輸出格式異常 |
-| 語音 | Web Speech API (TTS) |
+| 語音 | Web Speech API (瀏覽器原生 TTS) |
 | 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
 | 部署 | Vercel |
@@ -84,7 +84,17 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新 (2026-07-11)
 
+### 🧹 LuvVoice/TTS 移除
+- **移除 `edge-tts` 依賴**：`edge-tts` 套件已在生產環境中持續回傳 500 錯誤，已從 `package.json` 完全移除
+- **移除 `/api/tts` API 路由**：TTS 端點已刪除，不再接受任何語音合成請求
+- **簡化 AudioPlayer 元件**：移除所有 LuvVoice API 呼叫邏輯（`tryLuvVoice`、`useLuvVoice` state、`audioRef`），現僅使用瀏覽器原生 Web Speech API 進行文字轉語音
+- 此變更消除了控制台中大量 `/api/tts 500` 錯誤訊息
+
 ### 🐛 重大錯誤修復
+- **React Error #300 修復**：修復 `/student/practice/[id]` 頁面中 `useEffect` hook 在 conditional early return 之後呼叫的問題（React hooks 必須在每次 render 中以相同順序呼叫）。將所有 hooks 及 session 進度計算移至 early return 之前，確保 hooks order 一致性
+- **移除所有 LuvVoice 相關程式碼**：`AudioPlayer` 不再嘗試呼叫 `/api/tts`，消除了因 TTS 服務不可用導致的連線錯誤
+
+### 🛡️ API 穩定性強化
 - **診斷頁面空白輸入框**：修復非選擇題（填充/寫作）無輸入框的 bug — 當 AI 回傳 `choices: []`（空陣列）時，JS 將其視為 truthy 而錯誤渲染 MC 佈局（零按鈕、無輸入框）；改為 `choices && choices.length > 0` 正確判斷
 - **診斷頁面全面 i18n**：所有硬編碼中文字串（載入提示、錯誤訊息、結果標籤、推薦練習區塊）改用 `t()` 函數，支援中英雙語
 - **React Hydration Error #418/#300**：修復 `getGreeting()` 使用 `getHours()`（本地時間）導致 Vercel UTC 伺服器與香港 UTC+8 客戶端產生不同問候語的文字不匹配；改為 `getUTCHours() + 8` 統一使用香港時區
