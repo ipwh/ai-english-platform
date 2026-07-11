@@ -73,7 +73,7 @@ export default function TeacherAssignmentDetailPage() {
           setAssignment(data.assignment);
         }
       })
-      .catch(() => setError('無法載入作業'))
+      .catch(() => setError(t('teacher.assignmentDetail.notFound')))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -100,8 +100,8 @@ export default function TeacherAssignmentDetailPage() {
   if (error || !assignment) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500">{error || '找不到此作業'}</p>
-        <button onClick={() => router.back()} className="mt-3 text-blue-600 hover:underline text-sm">← 返回</button>
+        <p className="text-gray-500">{error || t('teacher.assignmentDetail.notFound')}</p>
+        <button onClick={() => router.back()} className="mt-3 text-blue-600 hover:underline text-sm">{t('teacher.assignmentDetail.back')}</button>
       </div>
     );
   }
@@ -131,10 +131,10 @@ export default function TeacherAssignmentDetailPage() {
       {/* 統計卡片 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: '提交人數', value: `${submittedCount}/${assignment.submissions.length}`, icon: Users, color: 'text-blue-600' },
-          { label: '平均分', value: avgScore !== null ? `${avgScore}%` : 'N/A', icon: CheckCircle, color: 'text-green-600' },
-          { label: '題數', value: `${assignment.questionCount}`, icon: Sparkles, color: 'text-purple-600' },
-          { label: '截止日期', value: assignment.dueDate ? formatDate(assignment.dueDate) : '無限期', icon: Clock, color: 'text-orange-600' },
+          { label: t('teacher.assignmentDetail.submissions'), value: `${submittedCount}/${assignment.submissions.length}`, icon: Users, color: 'text-blue-600' },
+          { label: t('teacher.assignmentDetail.avgScore'), value: avgScore !== null ? `${avgScore}%` : 'N/A', icon: CheckCircle, color: 'text-green-600' },
+          { label: t('teacher.assignmentDetail.questionCount'), value: `${assignment.questionCount}`, icon: Sparkles, color: 'text-purple-600' },
+          { label: t('teacher.assignmentDetail.dueDate'), value: assignment.dueDate ? formatDate(assignment.dueDate) : t('teacher.assignmentDetail.noDeadline'), icon: Clock, color: 'text-orange-600' },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <stat.icon className={`w-5 h-5 ${stat.color} mb-2`} />
@@ -146,7 +146,7 @@ export default function TeacherAssignmentDetailPage() {
 
       {/* 題目列表 */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">題目與答案</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('teacher.assignmentDetail.questionsAndAnswers')}</h2>
         <div className="space-y-2">
           {assignment.questions.map((q, i) => (
             <div key={q.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -161,7 +161,7 @@ export default function TeacherAssignmentDetailPage() {
                 </div>
               )}
               {!q.options && (
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">答案：{q.answer}</p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('teacher.assignmentDetail.answerPrefix')}{q.answer}</p>
               )}
             </div>
           ))}
@@ -170,11 +170,11 @@ export default function TeacherAssignmentDetailPage() {
 
       {/* 學生提交列表 */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">學生提交</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('teacher.assignmentDetail.studentSubmissions')}</h2>
         {assignment.submissions.length === 0 ? (
           <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
             <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500 text-sm">暫無學生提交</p>
+            <p className="text-gray-500 text-sm">{t('teacher.assignmentDetail.noSubmissions')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -191,7 +191,7 @@ export default function TeacherAssignmentDetailPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{sub.studentName || sub.studentEmail}</p>
-                      <p className="text-xs text-gray-500">{sub.studentClass} · {sub.submittedAt ? formatDate(sub.submittedAt) : '未提交'}</p>
+                      <p className="text-xs text-gray-500">{sub.studentClass} · {sub.submittedAt ? formatDate(sub.submittedAt) : t('teacher.assignmentDetail.notSubmitted')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -203,7 +203,7 @@ export default function TeacherAssignmentDetailPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       sub.status === 'submitted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                     }`}>
-                      {sub.status === 'submitted' ? '已提交' : sub.status}
+                      {sub.status === 'submitted' ? t('teacher.assignmentDetail.submitted') : sub.status}
                     </span>
                     {expandedStudent === sub.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                   </div>
@@ -225,13 +225,13 @@ export default function TeacherAssignmentDetailPage() {
                           <p className="font-medium text-gray-900 dark:text-white mb-1">{i + 1}. {q.prompt}</p>
                           <div className="flex items-start gap-3">
                             <div className="flex-1">
-                              <p className="text-xs text-gray-400 mb-0.5">學生答案</p>
+                              <p className="text-xs text-gray-400 mb-0.5">{t('teacher.assignmentDetail.studentAnswer')}</p>
                               <p className={`text-sm ${isCorrect === true ? 'text-green-600' : isCorrect === false ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
-                                {studentAnswer || <span className="text-gray-400 italic">未作答</span>}
+                                {studentAnswer || <span className="text-gray-400 italic">{t('teacher.assignmentDetail.notAnswered')}</span>}
                               </p>
                             </div>
                             <div className="flex-1">
-                              <p className="text-xs text-gray-400 mb-0.5">正確答案</p>
+                              <p className="text-xs text-gray-400 mb-0.5">{t('teacher.assignmentDetail.correctAnswer')}</p>
                               <p className="text-sm text-green-600 dark:text-green-400">{q.answer}</p>
                             </div>
                             {isMcq && (

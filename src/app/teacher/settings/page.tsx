@@ -140,12 +140,12 @@ export default function TeacherSettingsPage() {
       {teacherProfile && (
         <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-indigo-500" /> 個人資料
+            <User className="w-5 h-5 text-indigo-500" /> {t('teacher.settings.profile')}
           </h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
             {teacherProfile.department && (
               <div>
-                <span className="text-xs text-gray-400 block">所屬部門</span>
+                <span className="text-xs text-gray-400 block">{t('teacher.settings.department')}</span>
                 <span className="text-gray-700 dark:text-gray-300">{teacherProfile.department}</span>
               </div>
             )}

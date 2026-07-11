@@ -68,13 +68,13 @@ export default function TeacherReportsPage() {
       {/* 班級選擇 */}
       {classes.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-          <label className="text-xs font-medium text-gray-500 mb-2 block">選擇班級</label>
+          <label className="text-xs font-medium text-gray-500 mb-2 block">{t('teacher.reports.selectClass')}</label>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedClass('')}
               className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${!selectedClass ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}
             >
-              全部班級
+              {t('teacher.reports.allClasses')}
             </button>
             {classes.map(c => (
               <button
@@ -104,7 +104,7 @@ export default function TeacherReportsPage() {
             >
               {generating === item.id ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
               {done === item.id ? <CheckCircle className="w-3 h-3 inline mr-1" /> : <Download className="w-3 h-3 inline mr-1" />}
-              {done === item.id ? '已匯出' : t('teacher.reports.generate')}
+              {done === item.id ? t('teacher.reports.exported') : t('teacher.reports.generate')}
             </button>
           </div>
         ))}
@@ -113,7 +113,7 @@ export default function TeacherReportsPage() {
       <section>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{t('teacher.reports.recentWeekly')}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          選擇上方班級後點擊「生成報告」，系統將匯出 CSV 格式的學生數據報告，可用 Excel / Google Sheets 開啟。
+          {t('teacher.reports.instruction')}
         </p>
       </section>
     </div>

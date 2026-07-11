@@ -48,12 +48,12 @@ export default function ImportPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || '導入失敗');
+        setError(json.error || t('teacher.import.failed'));
         return;
       }
       setResult(json);
     } catch {
-      setError('網絡錯誤，請重試。');
+      setError(t('common.networkError'));
     } finally {
       setLoading(false);
     }
@@ -108,8 +108,8 @@ export default function ImportPage() {
           }`}
         >
           <Users className={`w-6 h-6 mb-2 ${role === 'student' ? 'text-blue-600' : 'text-gray-400'}`} />
-          <div className="font-semibold">學生</div>
-          <div className="text-sm text-gray-500">導入學生帳號及班級資料</div>
+          <div className="font-semibold">{t('teacher.import.student')}</div>
+          <div className="text-sm text-gray-500">{t('teacher.import.studentDesc')}</div>
         </button>
         <button
           onClick={() => { setRole('teacher'); setResult(null); }}
@@ -120,8 +120,8 @@ export default function ImportPage() {
           }`}
         >
           <GraduationCap className={`w-6 h-6 mb-2 ${role === 'teacher' ? 'text-blue-600' : 'text-gray-400'}`} />
-          <div className="font-semibold">教師</div>
-          <div className="text-sm text-gray-500">導入教師帳號及任教班級</div>
+          <div className="font-semibold">{t('teacher.import.teacher')}</div>
+          <div className="text-sm text-gray-500">{t('teacher.import.teacherDesc')}</div>
         </button>
       </div>
 
