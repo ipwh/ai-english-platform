@@ -92,9 +92,9 @@ export default function RoleSelectPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="flex flex-wrap justify-center gap-4">
           {/* 學生 */}
-          <form action="/api/auth/role" method="post">
+          <form action="/api/auth/role" method="post" className="w-full sm:w-48">
             <input type="hidden" name="role" value="student" />
             <button
               type="submit"
@@ -109,7 +109,7 @@ export default function RoleSelectPage() {
           </form>
 
           {/* 教師 */}
-          <form action="/api/auth/role" method="post">
+          <form action="/api/auth/role" method="post" className="w-full sm:w-48">
             <input type="hidden" name="role" value="teacher" />
             <button
               type="submit"
@@ -125,7 +125,7 @@ export default function RoleSelectPage() {
 
           {/* 管理員 — 僅 email 為 ipwh@pochiu.edu.hk 的用戶可見 */}
           {maxRole === 'admin' && (
-            <form action="/api/auth/role" method="post">
+            <form action="/api/auth/role" method="post" className="w-full sm:w-48">
               <input type="hidden" name="role" value="admin" />
               <button
                 type="submit"

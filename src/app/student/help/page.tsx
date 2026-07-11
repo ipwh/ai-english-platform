@@ -368,6 +368,23 @@ export default function StudentHelpPage() {
             </div>
             <p className="whitespace-pre-wrap">{aiAnswer}</p>
 
+            {/* 若問題與寫作相關，引導前往寫作支援頁面 */}
+            {(['寫', '作文', 'essay', 'write', 'writing', 'article', 'letter', 'report', 'story'].some(kw =>
+              aiQuestion.toLowerCase().includes(kw.toLowerCase())
+            )) && (
+              <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                <p className="text-xs text-purple-600 dark:text-purple-400 mb-2">
+                  💡 你可以前往「✍️ 寫作支援」頁面，使用 AI 批改、大綱生成及改寫功能：
+                </p>
+                <Link
+                  href="/student/writing"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  ✍️ 前往寫作支援 <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            )}
+
             {/* 生成相關練習 */}
             <div className="mt-4 pt-3 border-t border-teal-200 dark:border-teal-700">
               <div className="flex items-center gap-2 flex-wrap">

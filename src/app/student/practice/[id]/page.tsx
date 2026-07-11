@@ -339,7 +339,7 @@ export default function PracticeQuestionPage() {
         </div>
 
         {/* 選項 */}
-        {question.choices && (
+        {question.choices && question.choices.length > 0 && (
           <div className="space-y-3">
             {question.choices.map((choice, index) => {
               const correctLetter = question.answer.trim().toUpperCase();
@@ -406,6 +406,9 @@ export default function PracticeQuestionPage() {
               rows={4}
               className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-none"
             />
+            <p className="text-xs text-gray-400 mt-1">
+              {selectedAnswer.length} 字元 / {selectedAnswer.trim() ? selectedAnswer.trim().split(/\s+/).length : 0} 字
+            </p>
           </div>
         )}
 
@@ -532,19 +535,23 @@ export default function PracticeQuestionPage() {
                 </div>
 
                 {/* AI 評分 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">AI 評分：</span>
-                  <span className={`text-sm font-bold ${aiAnalysis.score >= 60 ? 'text-green-600' : 'text-red-600'}`}>
-                    {aiAnalysis.score}/100
-                  </span>
-                </div>
+                {aiAnalysis.score != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">AI 評分：</span>
+                    <span className={`text-sm font-bold ${(aiAnalysis.score ?? 0) >= 60 ? 'text-green-600' : 'text-red-600'}`}>
+                      {aiAnalysis.score ?? '—'}/100
+                    </span>
+                  </div>
+                )}
 
                 {/* AI 回饋 */}
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <p className="text-sm text-purple-800 dark:text-purple-200">
-                    {showZh ? aiAnalysis.feedbackZh : aiAnalysis.feedbackEn}
-                  </p>
-                </div>
+                {(aiAnalysis.feedbackZh || aiAnalysis.feedbackEn) && (
+                  <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <p className="text-sm text-purple-800 dark:text-purple-200">
+                      {(showZh ? aiAnalysis.feedbackZh : aiAnalysis.feedbackEn) || ''}
+                    </p>
+                  </div>
+                )}
 
                 {/* AI 改進建議 */}
                 {!isCorrect && aiAnalysis.improvementTip && (
@@ -555,19 +562,20 @@ export default function PracticeQuestionPage() {
                 )}
 
                 {/* 錯誤類型標籤 */}
-                {aiAnalysis.mistakeType && aiAnalysis.mistakeType !== 'none' && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">錯誤類型：</span>
-                    <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
-                      {aiAnalysis.mistakeType === 'grammar' && '文法錯誤'}
-                      {aiAnalysis.mistakeType === 'vocabulary' && '詞彙錯誤'}
-                      {aiAnalysis.mistakeType === 'comprehension' && '理解錯誤'}
-                      {aiAnalysis.mistakeType === 'careless' && '粗心大意'}
-                      {aiAnalysis.mistakeType === 'time-management' && '時間管理'}
-                      {aiAnalysis.mistakeType === 'chinglish' && '中式英文'}
-                    </span>
-                  </div>
-                )}
+                {aiAnalysis.mistakeType && aiAnalysis.mistakeType !== 'none' && (() => {
+                  const labels: Record<string, string> = {
+                    grammar: '文法錯誤', vocabulary: '詞彙錯誤', comprehension: '理解錯誤',
+                    careless: '粗心大意', 'time-management': '時間管理', chinglish: '中式英文',
+                  };
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">錯誤類型：</span>
+                      <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
+                        {labels[aiAnalysis.mistakeType] || aiAnalysis.mistakeType}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

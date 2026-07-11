@@ -220,6 +220,7 @@ export default function DiagnosticPage() {
   const [results, setResults] = useState<DiagnosticResult[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
+  const [writingAnswer, setWritingAnswer] = useState('');
 
   // 🔥 載入時根據學生年級與弱項自動生成診斷題目
   useEffect(() => {
@@ -511,7 +512,12 @@ export default function DiagnosticPage() {
           )}
 
           <p className="text-lg text-gray-900 dark:text-white mb-6">{currentQ.prompt}</p>
-          {currentQ.promptZh && <p className="text-sm text-gray-500 mb-4 italic">{currentQ.promptZh}</p>}
+          {currentQ.promptZh && (
+            <details className="mb-4">
+              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">顯示中文提示</summary>
+              <p className="text-sm text-gray-500 mt-1 italic">{currentQ.promptZh}</p>
+            </details>
+          )}
 
           {currentQ.choices && currentQ.choices.length > 0 ? (
             <div className="space-y-3">
@@ -528,15 +534,34 @@ export default function DiagnosticPage() {
             </div>
           ) : (
             <div>
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder={t('diagnostic.inputAnswer')}
-                onKeyDown={(e) => { if (e.key === 'Enter' && inputRef.current) handleAnswer(inputRef.current.value); }}
-                className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400"
-              />
-              <button onClick={() => { if (inputRef.current) handleAnswer(inputRef.current.value); }}
-                className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
+              {currentQ.type === 'short-writing' ? (
+                <>
+                  <textarea
+                    value={writingAnswer}
+                    onChange={(e) => setWritingAnswer(e.target.value)}
+                    placeholder={t('diagnostic.inputAnswer')}
+                    rows={6}
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-y"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {writingAnswer.length} 字元 / {writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0} 字
+                  </p>
+                  <button onClick={() => handleAnswer(writingAnswer)}
+                    className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    placeholder={t('diagnostic.inputAnswer')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && inputRef.current) handleAnswer(inputRef.current.value); }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400"
+                  />
+                  <button onClick={() => { if (inputRef.current) handleAnswer(inputRef.current.value); }}
+                    className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
+                </>
+              )}
             </div>
           )}
         </div>
