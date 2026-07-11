@@ -2363,6 +2363,328 @@ export function generateWritingGuide(input: GenerateWritingGuideInput): WritingG
 }
 
 // ============================================
+// 七點六、Integrated Skills — DSE Paper 3 Part B 綜合能力訓練
+// ============================================
+
+export interface GenerateIntegratedSkillsInput {
+  gradeLevel: string;
+  difficulty: 'remedial' | 'core' | 'challenge';
+  taskType: 'summary' | 'email-reply' | 'short-article' | 'report';
+  topicHint?: string;
+}
+
+export interface IntegratedSkillsTask {
+  /** 聽力材料（對話/獨白格式，供 TTS 播放） */
+  listeningContent: string;
+  /** 聽力主題簡介（中文） */
+  listeningTopicZh: string;
+  /** Note-taking 指引（告訴學生要留意什麼） */
+  noteTakingGuide: { question: string; hint: string }[];
+  /** 寫作任務說明（DSE 風格） */
+  writingTask: string;
+  /** 寫作任務類型 */
+  taskType: string;
+  /** 建議字數 */
+  wordLimit: number;
+  /** 預期內容要點（供批改時參考） */
+  expectedContentPoints: string[];
+  /** 聽力原文參考答案（供批改比對） */
+  listeningAnswers: { question: string; answer: string }[];
+}
+
+export interface AnalyzeIntegratedSkillsInput {
+  /** 原始聽力材料 */
+  listeningContent: string;
+  /** Note-taking 指引 */
+  noteTakingGuide: { question: string; hint: string }[];
+  /** 預期內容要點 */
+  expectedContentPoints: string[];
+  /** 寫作任務 */
+  writingTask: string;
+  /** 任務類型 */
+  taskType: string;
+  /** 學生 note-taking 內容 */
+  studentNotes: string;
+  /** 學生完成的寫作 */
+  studentWriting: string;
+  /** 學生年級 */
+  gradeLevel?: string;
+}
+
+export interface IntegratedSkillsAnalysis {
+  /** 總分 0-100 */
+  overallScore: number;
+  /** Listening 提取準確度 0-100 */
+  listeningAccuracy: number;
+  /** 寫作品質 0-100 */
+  writingQuality: number;
+  /** 內容完整度 0-100 */
+  contentCompleteness: number;
+  /** 語言準確度 0-100 */
+  languageAccuracy: number;
+  /** 組織清晰度 0-100 */
+  organizationClarity: number;
+  /** 已提取的要點 */
+  capturedPoints: string[];
+  /** 遺漏的要點 */
+  missedPoints: string[];
+  /** 抄襲聽力原文的段落（過度抄襲） */
+  overCopyWarnings: { original: string; suggestion: string }[];
+  /** 文法錯誤 */
+  grammarErrors: { original: string; correction: string; explanation: string }[];
+  /** 詞彙升級建議 */
+  vocabularySuggestions: { original: string; suggestion: string; reason: string }[];
+  /** 結構評語（繁體中文） */
+  structureFeedback: string;
+  /** 總評（繁體中文） */
+  generalComment: string;
+  /** 改進建議（繁體中文） */
+  improvementTips: string[];
+  /** 對應 HKDSE Level */
+  estimatedLevel: string;
+}
+
+/**
+ * 🎧✍️ 生成 Integrated Skills 任務
+ * 先提供聆聽材料 → Note-taking 指引 → 寫作任務
+ * 模擬 DSE Paper 3 Part B 的真實考試流程
+ */
+export async function generateIntegratedSkills(
+  input: GenerateIntegratedSkillsInput
+): Promise<IntegratedSkillsTask> {
+  const diffMap: Record<string, { label: string; lines: string; traps: string; wordLimit: number }> = {
+    remedial: {
+      label: '補底 (Level 1-2)',
+      lines: '一段短對話，8-12 行，2 位說話者',
+      traps: '無需刻意加入陷阱',
+      wordLimit: 80,
+    },
+    core: {
+      label: '核心 (Level 3)',
+      lines: '一段中等對話，12-18 行，2-3 位說話者，含 1-2 個 distraction',
+      traps: '必須包含 1 個 distraction (說了又改) + 1 個 synonym replacement',
+      wordLimit: 120,
+    },
+    challenge: {
+      label: '挑戰 (Level 4-5)',
+      lines: '一段長對話或 2 段相關對話，18-30 行，2-3 位說話者',
+      traps: '必須包含 2+ 個陷阱：distraction + synonym + speaker attitude + numerical precision',
+      wordLimit: 180,
+    },
+  };
+
+  const diff = diffMap[input.difficulty];
+  const taskTypeMap: Record<string, { name: string; nameZh: string; formatHint: string }> = {
+    'summary': {
+      name: 'Summary',
+      nameZh: '摘要寫作',
+      formatHint: 'Write a concise summary. Use your own words — do NOT copy directly from the listening. Organize points logically.',
+    },
+    'email-reply': {
+      name: 'Email Reply',
+      nameZh: '電郵回覆',
+      formatHint: 'Write a proper email reply. Include: subject line, appropriate salutation, body paragraphs addressing all points from the listening, polite closing. Use semi-formal to formal tone.',
+    },
+    'short-article': {
+      name: 'Short Article',
+      nameZh: '短文撰寫',
+      formatHint: 'Write a short article. Include: catchy headline, engaging opening, body paragraphs with key points from the listening, and a concluding remark. Use an appropriate tone for the target audience.',
+    },
+    'report': {
+      name: 'Report',
+      nameZh: '報告撰寫',
+      formatHint: 'Write a report. Include: title ("Report on..."), introduction/background, findings (use sub-headings), and recommendations. Use objective tone and passive voice where appropriate.',
+    },
+  };
+
+  const taskInfo = taskTypeMap[input.taskType];
+
+  const systemPrompt = `你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
+請生成一個完整的 Integrated Skills 任務，模擬 DSE Paper 3 Part B 的真實考試體驗。
+
+任務結構：
+1. 提供一段聆聽對話/獨白（供學生聆聽並做 note-taking）
+2. 提供 Note-taking 指引（3-5 個引導問題，幫助學生聚焦重點）
+3. 提供寫作任務（要求學生根據聽力內容完成寫作）
+
+一、聆聽材料 (listeningContent) 設計規則：
+- 長度：${diff.lines}
+- 角色標籤：只使用 Woman: / Man: / Boy: / Girl:（TTS 相容格式，禁用 A/B/Speaker 標籤）
+- 內容必須包含足夠的具體資訊：數字、日期、名稱、原因、建議、例子
+- 陷阱設計：${diff.traps}
+- 題材：DSE 常見主題（校園活動、社區服務、環保倡議、文化交流、科技應用、社會議題）
+- 語境：自然口語（linking, reduction, hesitation）
+
+二、Note-taking 指引 (noteTakingGuide)：
+- 提供 3-5 個引導問題，幫助學生在聆聽時聚焦關鍵資訊
+- 問題格式：開放式問題（Who/What/When/Where/Why/How）
+- 每個問題附帶一個 hint（提示注意方向）
+
+三、寫作任務 (writingTask)：
+- 任務類型：${taskInfo.name} (${taskInfo.nameZh})
+- ${taskInfo.formatHint}
+- 必須清楚說明：寫作目的、目標讀者、需要涵蓋的要點
+- 字數要求：約 ${diff.wordLimit} words
+- 格式要求（若適用）：email 需 subject + salutation + closing；report 需 title + sub-headings
+
+四、預期內容要點 (expectedContentPoints)：
+- 列出 4-6 個學生應從聽力中提取並寫入文章的具體要點
+- 這些要點用於後續批改比對
+
+五、答案參考 (listeningAnswers)：
+- 為每個 note-taking 引導問題提供標準答案
+- 答案必須逐字 (verbatim) 出現在 listeningContent 中
+
+回覆格式（純 JSON，以 { 開頭以 } 結尾）：
+{
+  "listeningContent": "Woman: ...\\nMan: ...",
+  "listeningTopicZh": "繁體中文主題簡介",
+  "noteTakingGuide": [
+    { "question": "What is the main purpose of...?", "hint": "Listen for the opening remarks..." }
+  ],
+  "writingTask": "完整的寫作任務說明...",
+  "expectedContentPoints": ["要點1", "要點2", ...],
+  "listeningAnswers": [
+    { "question": "對應的引導問題", "answer": "verbatim 答案" }
+  ]
+}
+
+年級：${input.gradeLevel} | 難度：${diff.label}${input.topicHint ? ` | 主題：${input.topicHint}` : ''}
+所有中文使用繁體中文。`;
+
+  const userPrompt = `生成一個 DSE Paper 3 Part B Integrated Skills 練習：
+- 任務類型：${taskInfo.name}
+- 年級：${input.gradeLevel}
+- 難度：${input.difficulty}
+- 字數要求：約 ${diff.wordLimit} words${input.topicHint ? `\n- 主題：${input.topicHint}` : ''}`;
+
+  const result = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+  );
+
+  const task = parseAIJSON<IntegratedSkillsTask>(result);
+
+  // 驗證必要欄位
+  if (!task.listeningContent || !task.writingTask) {
+    throw new Error('AI 生成的 Integrated Skills 任務不完整');
+  }
+
+  return {
+    listeningContent: task.listeningContent,
+    listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務',
+    noteTakingGuide: task.noteTakingGuide || [],
+    writingTask: task.writingTask,
+    taskType: input.taskType,
+    wordLimit: diff.wordLimit,
+    expectedContentPoints: task.expectedContentPoints || [],
+    listeningAnswers: task.listeningAnswers || [],
+  };
+}
+
+/**
+ * 🎧✍️ 批改 Integrated Skills 答案
+ * 同時評估 Listening 提取準確度 + Writing 品質
+ */
+export async function analyzeIntegratedSkills(
+  input: AnalyzeIntegratedSkillsInput
+): Promise<IntegratedSkillsAnalysis> {
+  const sanitizedWriting = sanitizeForAI(input.studentWriting);
+
+  const systemPrompt = `你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
+請同時從「Listening 提取準確度」和「Writing 品質」兩個維度進行評估。
+
+DSE Paper 3 Integrated Skills 評分標準（HKDSE 官方）：
+- Listening 理解能力 (40%)：準確提取錄音中的內容要點、理解細節與隱含意思
+- Language 語言運用 (35%)：詞彙準確性與多樣性、文法正確性、Data manipulation 能力（非直接抄襲）
+- Organization 組織結構 (25%)：邏輯性與連貫性、適當分段、格式正確
+
+【批改重點】
+1. Content Completeness：是否涵蓋了所有 expected content points？
+   - 逐點比對：已提取 vs 遺漏
+2. Paraphrasing vs Over-copying：
+   - ✅ 好的 paraphrasing：換詞 + 改句式 + 保留原意
+   - ❌ 過度抄襲：直接照搬 listeningContent 的長句（>8 個連續詞）
+3. Writing Quality：
+   - 文法準確度、詞彙多樣性、句式變化
+   - 組織結構（PEEL、段落分明）
+   - 任務格式（email 要有 subject/salutation/closing；report 要有 title/sub-headings）
+4. Note-taking Quality：
+   - 學生 notes 是否抓住了關鍵資訊
+
+回覆格式（純 JSON，以 { 開頭 } 結尾）：
+{
+  "overallScore": 0-100,
+  "listeningAccuracy": 0-100,
+  "writingQuality": 0-100,
+  "contentCompleteness": 0-100,
+  "languageAccuracy": 0-100,
+  "organizationClarity": 0-100,
+  "capturedPoints": ["已提取的要點"],
+  "missedPoints": ["遺漏的要點"],
+  "overCopyWarnings": [{ "original": "抄襲原文", "suggestion": "建議改寫" }],
+  "grammarErrors": [{ "original": "錯誤", "correction": "修正", "explanation": "繁體中文解釋" }],
+  "vocabularySuggestions": [{ "original": "原詞", "suggestion": "建議", "reason": "繁體中文原因" }],
+  "structureFeedback": "文章結構評語（繁體中文）",
+  "generalComment": "總評（繁體中文，50-100字，指出最接近的 HKDSE Level）",
+  "improvementTips": ["改善建議1", "改善建議2", "改善建議3"],
+  "estimatedLevel": "Level 1-5 或 Below Level 1"
+}
+
+評分規則：
+- 內容完整度 70%+ → contentCompleteness >= 70
+- 若 writing 與 listening 內容完全無關 → overallScore <= 30
+- 若大量抄襲 listeningContent (>40% 連續文字) → writingQuality 扣 15-25 分
+- 若 note-taking 幾乎空白但 writing 尚可 → listeningAccuracy 扣分但 writingQuality 可保留
+- estimatedLevel 必須對照 HKDSE Level Descriptors 給出合理評級
+
+所有中文使用繁體中文。`;
+
+  const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');
+
+  const userPrompt = `【聆聽材料】
+${input.listeningContent.slice(0, 3000)}
+
+【Note-taking 指引】
+${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}
+
+【預期內容要點】
+${expectedPointsText}
+
+【寫作任務】
+${input.writingTask}
+
+【學生 Note-taking】
+${input.studentNotes || '(未填寫)'}
+
+【學生寫作】
+"""
+${sanitizedWriting}
+"""
+
+請批改此 Integrated Skills 答案。`;
+
+  const result = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+  );
+
+  const analysis = parseAIJSON<IntegratedSkillsAnalysis>(result);
+
+  if (!analysis.overallScore && analysis.overallScore !== 0) {
+    throw new Error('AI Integrated Skills 分析不完整');
+  }
+
+  return analysis;
+}
+
+// ============================================
 // 八、輔助函數
 // ============================================
 

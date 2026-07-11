@@ -8,6 +8,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
+- **🎧✍️ Integrated Skills 綜合訓練** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程：聆聽對話 → Note-taking 引導 → 寫作任務（Summary / Email Reply / Short Article / Report）；AI 雙維度批改（Listening 提取準確度 + Writing 品質），檢測過度抄襲、遺漏重點、文法錯誤、詞彙升級建議
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
@@ -191,6 +192,20 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **題型全面覆蓋**：MCQ（plausible distractor）+ Fill-in-blank（verbatim）+ Form-filling + Matching + Inference + Speaker attitude
 - **難度分層**：補底→簡單對話+基礎題型、核心→中等對話+1 陷阱、挑戰→長對話+2+陷阱+態度推論
 - **Prompt 強化**：整合 AfterSchool 及 Defining Education DSE Paper 3 教學精華（Repetition=答案、轉折詞後是重點、Grammar 轉換、Note-taking 技巧）
+
+### 🎧✍️ Integrated Skills 綜合訓練 (DSE Paper 3 Part B)
+- **任務生成** (`POST /api/ai/generate-integrated-skills`)：生成完整 Integrated Skills 任務
+  - 聆聽材料（對話/獨白，含 DSE 陷阱）+ Note-taking 引導問題 + 寫作任務說明
+  - 4 種寫作任務類型：Summary / Email Reply / Short Article / Report
+  - 依難度自動調節：補底 80 字 → 核心 120 字 → 挑戰 180 字
+  - 自動生成 expected content points + listening answers 供批改參考
+- **雙維度批改** (`POST /api/ai/analyze-integrated-skills`)：
+  - Listening 準確度（內容提取 vs 遺漏）+ Writing 品質（Content / Language / Organization）
+  - 過度抄襲檢測：標記 >8 連續詞直接照搬 listeningContent 的段落
+  - 逐點比對 capturedPoints / missedPoints
+  - 文法錯誤 + 詞彙升級建議 + 結構評語
+  - 自動估算 HKDSE Level（Level 1-5）
+- **Prompt 整合 DSE Paper 3 官方評分標準**：Listening 40% + Language 35% + Organization 25%
 
 ## 近期更新 (2026-07-11)
 
