@@ -6,15 +6,16 @@
 import SidebarLayout from './SidebarLayout';
 import { studentNavItems } from '@/lib/nav';
 import { useAppStore } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
-  const { language } = useAppStore();
+  const { t } = useT();
   return (
     <SidebarLayout
       role="student"
       navItems={studentNavItems}
       accentColor="teal"
-      subtitle={language === 'en' ? 'Student' : '學生版'}
+      subtitle={t('layout.studentSubtitle')}
     >
       {children}
     </SidebarLayout>

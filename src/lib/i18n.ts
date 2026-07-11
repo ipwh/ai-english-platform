@@ -162,6 +162,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'generic.avgAccuracy': { zh: '平均正確率', en: 'Avg Accuracy' },
   'generic.avgCompletionRate': { zh: '平均完成率', en: 'Avg Completion Rate' },
   'generic.studentCount': { zh: '學生人數', en: 'Students' },
+  'generic.students': { zh: '名學生', en: 'students' },
   'generic.export': { zh: '匯出', en: 'Export' },
   'generic.details': { zh: '詳情', en: 'Details' },
   'generic.viewAll': { zh: '查看全部', en: 'View All' },

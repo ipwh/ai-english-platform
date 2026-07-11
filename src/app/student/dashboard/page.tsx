@@ -121,7 +121,7 @@ export default function StudentDashboardPage() {
           {unlockedBadges.length > 0 && (
             <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
               <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
-                <Star className="w-3 h-3 text-yellow-500" /> 徽章 Badges
+                <Star className="w-3 h-3 text-yellow-500" /> {t('gamification.badges')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {unlockedBadges.slice(0, 8).map(badge => (

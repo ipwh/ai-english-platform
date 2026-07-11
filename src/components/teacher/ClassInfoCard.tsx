@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface ClassInfoCardProps {
   id: string;
@@ -15,6 +16,7 @@ interface ClassInfoCardProps {
 }
 
 export default function ClassInfoCard({ id, name, studentCount, gradeLevel, href }: ClassInfoCardProps) {
+  const { t } = useT();
   const link = href || `/teacher/classes/${id}`;
 
   return (
@@ -29,7 +31,7 @@ export default function ClassInfoCard({ id, name, studentCount, gradeLevel, href
         <span className="text-sm font-medium text-gray-900 dark:text-white">{name}</span>
         {(studentCount !== undefined || gradeLevel) && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {gradeLevel && `${gradeLevel} · `}{studentCount ?? 0} 名學生
+            {gradeLevel && `${gradeLevel} · `}{studentCount ?? 0} {t('generic.students')}
           </p>
         )}
       </div>

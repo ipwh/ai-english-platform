@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 import { getNavLabel, getSectionTitle, studentTabItems } from '@/lib/nav';
 import type { NavItem, NavSection } from '@/lib/nav';
 
@@ -177,6 +178,7 @@ export default function SidebarLayout({
     currentRole,
   } = store;
 
+  const { t } = useT();
   const displayName = userDisplayName || (role === 'student' ? 'Student' : 'Teacher');
   const lang = language || 'zh';
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -427,12 +429,12 @@ export default function SidebarLayout({
                   <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
                     <div className="p-3 border-b border-gray-100 dark:border-gray-700">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        通知
+                        {t('layout.notifications')}
                       </p>
                     </div>
                     {notifications.length === 0 ? (
                       <p className="p-4 text-sm text-gray-500 text-center">
-                        暫無通知
+                        {t('layout.noNotifications')}
                       </p>
                     ) : (
                       notifications.slice(0, 5).map(n => (

@@ -84,6 +84,20 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新 (2026-07-11)
 
+### 🐛 重大錯誤修復
+- **React Hydration Error #418/#300**：修復 `getGreeting()` 使用 `getHours()`（本地時間）導致 Vercel UTC 伺服器與香港 UTC+8 客戶端產生不同問候語的文字不匹配；改為 `getUTCHours() + 8` 統一使用香港時區
+- **Zustand Store Hydration**：修復 `language`/`darkMode` 初始化時直接讀取 `localStorage` 導致 SSR/CSR 不一致；改為固定初始值 + `hydrateStoredPrefs()` 在 useEffect 中延遲載入
+- **API 500 Errors**：修復 `gamification`、`mistakes`、`srs/review` API 因 Prisma schema 新增欄位未推送至 production DB 導致的 500 錯誤；每個查詢加入獨立 try-catch + 優雅降級
+- **Gamification API**：修復 `aggregate(_sum)` 在 Prisma 7 SQLite 上失敗的問題，改為 `findMany` + `reduce`
+- **Vercel 部署**：新增 `vercel-build` script 自動執行 `prisma db push` 確保 schema 同步
+
+### 🌐 國際化強化
+- 修復 Dashboard 硬編碼「徽章 Badges」→ `t('gamification.badges')`
+- 修復 StudentLayout/TeacherLayout 硬編碼 subtitle → `t('layout.studentSubtitle')` / `t('layout.teacherSubtitle')`
+- 修復 SidebarLayout 通知面板硬編碼「通知」「暫無通知」→ i18n keys
+- 修復 ClassInfoCard 硬編碼「名學生」→ `t('generic.students')`
+- `t()` 函數新增 `!key` 防護，避免 `undefined` 傳播導致 React Error #300
+
 ### � 全面國際化 (i18n) 強化
 - **新增 330+ i18n 翻譯鍵**：覆蓋所有學生端頁面（練習、錯題、寫作、診斷、求助、進度、作業、個人檔案）、教師端頁面（儀表板、班級、學生、作業、覆核、教材、匯入、報告、設定）、管理員後台、共用 UI 元件
 - **學生端全面雙語**：練習頁面（含逐題練習子頁面）、錯題頁面、個人檔案頁面、求助頁面、作業頁面 — 所有 placeholder、提示、按鈕、標籤、錯誤訊息均支援中英雙語
