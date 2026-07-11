@@ -356,11 +356,17 @@ export default function DiagnosticPage() {
 
   // 技能分類
   const skills = [
-    { id: 'grammar', label: '文法', icon: BookOpen, description: '時態、句型結構、詞性等' },
-    { id: 'vocabulary', label: '詞彙', icon: BookOpen, description: '學術詞彙、搭配詞、片語動詞' },
-    { id: 'reading', label: '閱讀', icon: FileText, description: '主旨理解、推論、詞義猜測' },
-    { id: 'writing', label: '寫作', icon: Pencil, description: '句子結構、段落組織、表達能力' },
+    { id: 'grammar', labelKey: 'diagnostic.skillGrammar', icon: BookOpen, descriptionKey: 'diagnostic.grammarDesc' },
+    { id: 'vocabulary', labelKey: 'diagnostic.skillVocab', icon: BookOpen, descriptionKey: 'diagnostic.vocabDesc' },
+    { id: 'reading', labelKey: 'diagnostic.skillReading', icon: FileText, descriptionKey: 'diagnostic.readingDesc' },
+    { id: 'writing', labelKey: 'diagnostic.skillWriting', icon: Pencil, descriptionKey: 'diagnostic.writingDesc' },
   ];
+
+  const diagnosticLevelLabels: Record<string, string> = {
+    '核心': 'diagnostic.levelCore',
+    '補底': 'diagnostic.levelRemedial',
+    '挑戰': 'diagnostic.levelChallenge',
+  };
 
   const handleAnswer = (answer: string) => {
     setAnswers(prev => ({ ...prev, [currentQ.id]: answer }));
@@ -396,27 +402,27 @@ export default function DiagnosticPage() {
 
     const computed: DiagnosticResult[] = [
       {
-        id: 'grammar', label: '文法',
+        id: 'grammar', label: t('diagnostic.skillGrammar'),
         score: skillScores.grammar ? Math.round((skillScores.grammar.correct / skillScores.grammar.total) * 100) : 0,
-        level: (skillScores.grammar?.correct || 0) >= 3 ? '核心' : '補底',
+        level: (skillScores.grammar?.correct || 0) >= 3 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
       {
-        id: 'vocabulary', label: '詞彙',
+        id: 'vocabulary', label: t('diagnostic.skillVocab'),
         score: skillScores.vocabulary ? Math.round((skillScores.vocabulary.correct / skillScores.vocabulary.total) * 100) : 0,
-        level: (skillScores.vocabulary?.correct || 0) >= 2 ? '核心' : '補底',
+        level: (skillScores.vocabulary?.correct || 0) >= 2 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
       {
-        id: 'reading', label: '閱讀',
+        id: 'reading', label: t('diagnostic.skillReading'),
         score: skillScores.reading ? Math.round((skillScores.reading.correct / skillScores.reading.total) * 100) : 0,
-        level: (skillScores.reading?.correct || 0) >= 2 ? '核心' : '補底',
+        level: (skillScores.reading?.correct || 0) >= 2 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
       {
-        id: 'writing', label: '寫作',
+        id: 'writing', label: t('diagnostic.skillWriting'),
         score: skillScores.writing ? Math.round((skillScores.writing.correct / skillScores.writing.total) * 100) : 0,
-        level: (skillScores.writing?.correct || 0) >= 1 ? '核心' : '補底',
+        level: (skillScores.writing?.correct || 0) >= 1 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
     ];
@@ -462,8 +468,8 @@ export default function DiagnosticPage() {
                   <s.icon className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">{s.label}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{s.description}</p>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{t(s.labelKey)}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t(s.descriptionKey)}</p>
                 </div>
               </div>
             ))}

@@ -16,11 +16,11 @@ import type { MistakeItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 const mistakeTypeLabels: Record<string, string> = {
-  'grammar': '文法錯誤',
-  'vocabulary': '詞彙錯誤',
-  'comprehension': '理解錯誤',
-  'careless': '粗心大意',
-  'time-management': '時間不足',
+  'grammar': 'mistake.grammar',
+  'vocabulary': 'mistake.vocabulary',
+  'comprehension': 'mistake.comprehension',
+  'careless': 'mistake.careless',
+  'time-management': 'mistake.timeManagement',
 };
 
 export default function MistakesPage() {
@@ -128,10 +128,10 @@ export default function MistakesPage() {
       {/* 統計摘要 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: '總錯題數', value: mistakes.length, unit: '題' },
-          { label: '已溫習', value: mistakes.filter(m => m.reviewed).length, unit: '題' },
-          { label: '重溫清單', value: mistakes.filter(m => m.inReviewList).length, unit: '題' },
-          { label: '待溫習', value: mistakes.filter(m => !m.reviewed).length, unit: '題' },
+          { label: t('mistakes.totalCount'), value: mistakes.length, unit: t('common.question') },
+          { label: t('mistakes.reviewed'), value: mistakes.filter(m => m.reviewed).length, unit: t('common.question') },
+          { label: t('mistakes.reviewList'), value: mistakes.filter(m => m.inReviewList).length, unit: t('common.question') },
+          { label: t('mistakes.pendingReview'), value: mistakes.filter(m => !m.reviewed).length, unit: t('common.question') },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
@@ -145,15 +145,15 @@ export default function MistakesPage() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜尋錯題..." className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('mistakes.search')} className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
           <select value={skillFilter} onChange={(e) => setSkillFilter(e.target.value)} className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-            <option value="all">全部技能</option>
+            <option value="all">{t('practice.filterAllSkills')}</option>
             {Object.entries(skillLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as MistakeType | 'all')} className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-            <option value="all">全部錯誤類型</option>
-            {Object.entries(mistakeTypeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <option value="all">{t('mistakes.filterAllTypes')}</option>
+            {Object.entries(mistakeTypeLabels).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
           </select>
         </div>
       </div>
@@ -163,7 +163,7 @@ export default function MistakesPage() {
         {filtered.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
             <Filter className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>沒有符合條件的錯題</p>
+            <p>{t('mistakes.noMatchingMistakes')}</p>
           </div>
         ) : (
           filtered.map((m) => (
@@ -173,7 +173,7 @@ export default function MistakesPage() {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <SkillChip grammarItem={m.grammarItem} languageSkill={m.languageSkill} subSkill={m.subSkill} />
                     <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
-                      {mistakeTypeLabels[m.mistakeType]}
+                      {t(mistakeTypeLabels[m.mistakeType] || 'mistake.grammar')}
                     </span>
                     {m.inReviewList && (
                       <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">重溫清單</span>

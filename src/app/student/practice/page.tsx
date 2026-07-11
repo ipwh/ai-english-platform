@@ -334,19 +334,19 @@ function PracticeListPageContent() {
           {/* AI 生成表單 */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
             <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-500" /> 自訂 AI 練習
+              <Sparkles className="w-5 h-5 text-purple-500" /> {t('practice.customPractice')}
             </h2>
 
             <div className="grid grid-cols-2 gap-3">
               {/* 文法項目 */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">文法項目</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.grammarItem')}</label>
                 <select
                   value={form.grammarItem}
                   onChange={(e) => setForm({ ...form, grammarItem: e.target.value, languageSkill: '' })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >
-                  <option value="">不限文法</option>
+                  <option value="">{t('practice.noGrammar')}</option>
                   {Object.entries(skillLabels).filter(([k]) =>
                     ['tenses','conditionals','passive-voice','reported-speech','relative-clauses','modals','prepositions','connectives','gerunds-infinitives','phrasal-verbs'].includes(k)
                   ).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -355,37 +355,37 @@ function PracticeListPageContent() {
 
               {/* 語言技能 */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">語言技能</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.languageSkill')}</label>
                 <select
                   value={form.languageSkill}
                   onChange={(e) => setForm({ ...form, languageSkill: e.target.value, grammarItem: '' })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >
-                  <option value="">不限技能</option>
-                  <option value="reading">閱讀理解</option>
-                  <option value="writing">寫作</option>
-                  <option value="listening">聆聽</option>
-                  <option value="speaking">說話</option>
+                  <option value="">{t('practice.noSkill')}</option>
+                  <option value="reading">{t('practice.skillReading')}</option>
+                  <option value="writing">{t('practice.skillWriting')}</option>
+                  <option value="listening">{t('practice.skillListening')}</option>
+                  <option value="speaking">{t('practice.skillSpeaking')}</option>
                 </select>
               </div>
 
               {/* 難度 */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">難度</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.difficulty')}</label>
                 <select
                   value={form.difficulty}
                   onChange={(e) => setForm({ ...form, difficulty: e.target.value as DifficultyLevel })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >
-                  <option value="remedial">🟢 補底</option>
-                  <option value="core">🔵 核心</option>
-                  <option value="challenge">🟣 挑戰</option>
+                  <option value="remedial">{t('practice.diffRemedial')}</option>
+                  <option value="core">{t('practice.diffCore')}</option>
+                  <option value="challenge">{t('practice.diffChallenge')}</option>
                 </select>
               </div>
 
               {/* 年級 */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">年級</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.gradeLevel')}</label>
                 <select
                   value={form.gradeLevel}
                   onChange={(e) => setForm({ ...form, gradeLevel: e.target.value as GradeLevel })}
@@ -402,35 +402,35 @@ function PracticeListPageContent() {
               className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
             >
               <ChevronDown className={`w-3 h-3 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-              進階設定
+              {t('practice.advanced')}
             </button>
 
             {showAdvanced && (
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">題型</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.questionType')}</label>
                   <select
                     value={form.questionType}
                     onChange={(e) => setForm({ ...form, questionType: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                   >
-                    <option value="mc">選擇題</option>
-                    <option value="fill-blank">填充題</option>
-                    <option value="error-correction">改錯題</option>
-                    <option value="short-writing">短文寫作</option>
-                    <option value="matching">配對題</option>
+                    <option value="mc">{t('practice.typeMc')}</option>
+                    <option value="fill-blank">{t('practice.typeFill')}</option>
+                    <option value="error-correction">{t('practice.typeError')}</option>
+                    <option value="short-writing">{t('practice.typeWriting')}</option>
+                    <option value="matching">{t('practice.typeMatching')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">題數</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.questionCount')}</label>
                   <select
                     value={form.questionCount}
                     onChange={(e) => setForm({ ...form, questionCount: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                   >
-                    <option value={3}>3 題（推薦）</option>
-                    <option value={5}>5 題（快速）</option>
-                    <option value={8}>8 題（標準）</option>
+                    <option value={3}>{t('practice.count3')}</option>
+                    <option value={5}>{t('practice.count5')}</option>
+                    <option value={8}>{t('practice.count8')}</option>
                   </select>
                 </div>
               </div>
@@ -453,9 +453,9 @@ function PracticeListPageContent() {
               className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors"
             >
               {generating ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> AI 正在生成題目...</>
+                <><Loader2 className="w-5 h-5 animate-spin" /> {t('practice.genProgress')}</>
               ) : (
-                <><Sparkles className="w-5 h-5" /> 生成 {form.questionCount} 題 AI 練習</>
+                <><Sparkles className="w-5 h-5" /> {t('practice.generateBtn', { n: String(form.questionCount) })}</>
               )}
             </button>
           </div>
@@ -472,7 +472,7 @@ function PracticeListPageContent() {
             {recentPracticeItems.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
                 <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>尚未有練習記錄，請先使用 AI 生成練習</p>
+                <p>{t('practice.noHistory')}</p>
               </div>
             ) : (
               recentPracticeItems.map((item) => (
@@ -506,7 +506,7 @@ function PracticeListPageContent() {
       {recentSessions.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-teal-500" /> 最近練習記錄
+            <Clock className="w-5 h-5 text-teal-500" /> {t('common.recentSessions')}
           </h2>
           <div className="space-y-2">
             {recentSessions.map((s) => (
@@ -541,7 +541,7 @@ function PracticeListPageContent() {
       {masteryBySkill.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <Target className="w-5 h-5 text-teal-500" /> 技能掌握度
+            <Target className="w-5 h-5 text-teal-500" /> {t('common.skillMastery')}
           </h2>
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-2">
             {masteryBySkill.map((m) => (
