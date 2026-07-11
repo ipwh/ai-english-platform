@@ -449,7 +449,6 @@ npm run test:watch    # 持續監控模式
 - DSE 歷屆試題（掃描 PDF）需透過 Google Cloud Vision OCR 提取文字（見 `scripts/ocr_past_papers.py`），大型 PDF 不適合直接存入 Git
 - Vercel 免費版有 10 秒函數執行限制，寫作批改等長請求可能逾時
 - Web Speech API 在不同瀏覽器的語音品質不一（建議使用 Chrome）
-- 教師端的學生進度圖表、班級報告仍使用 mock 數據作為 fallback
 
 ## License
 

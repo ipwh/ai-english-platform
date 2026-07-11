@@ -57,9 +57,9 @@ export default function ClassDetailPage() {
   if (!cls) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500">找不到此班級</p>
+        <p className="text-gray-500">{t('teacher.classDetail.notFound')}</p>
         <Link href="/teacher/classes" className="text-blue-600 hover:underline mt-2 inline-block">
-          <ArrowLeft className="w-4 h-4 inline mr-1" />返回班級列表
+          <ArrowLeft className="w-4 h-4 inline mr-1" />{t('teacher.classDetail.back')}
         </Link>
       </div>
     );
@@ -76,9 +76,9 @@ export default function ClassDetailPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{cls.name} 班級詳情</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.classDetail.classDetail', { name: cls.name })}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {cls.gradeLevel} · {students.length} 名學生
+            {cls.gradeLevel} · {students.length}{t('teacher.classDetail.studentsCount')}
           </p>
         </div>
       </div>
@@ -86,9 +86,9 @@ export default function ClassDetailPage() {
       {/* 班級摘要卡 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: '學生人數', value: students.length, unit: '人', icon: Users, color: 'text-blue-600' },
-          { label: '平均正確率', value: avgAccuracy, unit: '%', icon: ArrowLeft, color: 'text-green-600' },
-          { label: '練習總次數', value: students.reduce((s, stu) => s + (stu._count?.sessions || 0), 0), unit: '次', icon: ChevronRight, color: 'text-teal-600' },
+          { label: t('teacher.classDetail.studentCount'), value: students.length, unit: t('common.people'), icon: Users, color: 'text-blue-600' },
+          { label: t('teacher.classDetail.avgAccuracy'), value: avgAccuracy, unit: t('common.percent'), icon: ArrowLeft, color: 'text-green-600' },
+          { label: t('teacher.classDetail.totalSessions'), value: students.reduce((s, stu) => s + (stu._count?.sessions || 0), 0), unit: t('common.sessions'), icon: ChevronRight, color: 'text-teal-600' },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-2">
@@ -104,20 +104,20 @@ export default function ClassDetailPage() {
 
       {/* 學生列表 */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">學生列表（依班號排序）</h2>
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('teacher.classDetail.studentList')}</h2>
         {students.length === 0 ? (
-          <p className="text-gray-400 text-sm py-8 text-center">此班級暫無學生</p>
+          <p className="text-gray-400 text-sm py-8 text-center">{t('teacher.classDetail.noStudents')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <th className="text-left py-2 text-gray-500 font-medium w-12">班號</th>
-                  <th className="text-left py-2 text-gray-500 font-medium">中文姓名</th>
-                  <th className="text-left py-2 text-gray-500 font-medium hidden sm:table-cell">英文姓名</th>
-                  <th className="text-center py-2 text-gray-500 font-medium">正確率</th>
-                  <th className="text-center py-2 text-gray-500 font-medium hidden sm:table-cell">練習次數</th>
-                  <th className="text-right py-2 text-gray-500 font-medium">操作</th>
+                  <th className="text-left py-2 text-gray-500 font-medium w-12">{t('teacher.classDetail.colNumber')}</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">{t('teacher.classDetail.colNameZh')}</th>
+                  <th className="text-left py-2 text-gray-500 font-medium hidden sm:table-cell">{t('teacher.classDetail.colNameEn')}</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">{t('teacher.classDetail.colAccuracy')}</th>
+                  <th className="text-center py-2 text-gray-500 font-medium hidden sm:table-cell">{t('teacher.classDetail.colSessions')}</th>
+                  <th className="text-right py-2 text-gray-500 font-medium">{t('teacher.classDetail.colActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,7 +141,7 @@ export default function ClassDetailPage() {
                       <td className="text-right py-3">
                         <Link href={`/teacher/students/${s.id}`}
                           className="text-blue-600 text-xs hover:underline flex items-center justify-end gap-1">
-                          詳情 <ChevronRight className="w-3 h-3" />
+                          {t('teacher.classDetail.detail')} <ChevronRight className="w-3 h-3" />
                         </Link>
                       </td>
                     </tr>
