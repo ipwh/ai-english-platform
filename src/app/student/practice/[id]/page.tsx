@@ -33,14 +33,53 @@ function stripMcqPrefix(choice: string): string {
     .trim();
 }
 
-/** 智能答案比對：文字題忽略大小寫、多餘空白及標點 */
-function checkAnswer(student: string, correct: string, type: string): boolean {
+/** 正規化文字以進行精確比對 */
+function normalizeAnswer(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')           // 多空格 → 單空格
+    .replace(/['']/g, "'")          // 統一撇號
+    .replace(/[""]/g, '"')          // 統一引號
+    .replace(/[–—]/g, '-')          // 統一破折號
+    .replace(/[.!?,;:]$/, '');      // 移除尾部標點
+}
+
+/** 智能答案比對：
+ *  - MCQ: 比對字母 (A/B/C/D) 或完整選項文字
+ *  - 文字題: 正規化後比對，支援部分匹配（至少一個關鍵詞匹配） */
+function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
   if (type === 'mc') {
-    return student.trim().toUpperCase() === correct.trim().toUpperCase();
+    const studentUpper = student.trim().toUpperCase();
+    const correctUpper = correct.trim().toUpperCase();
+
+    // 字母比對
+    if (studentUpper === correctUpper) return true;
+
+    // 學生可能輸入了完整選項文字而非字母
+    const correctLetterIndex = MCQ_LETTERS.indexOf(correctUpper as typeof MCQ_LETTERS[number]);
+    if (choices && correctLetterIndex >= 0 && correctLetterIndex < choices.length) {
+      const correctText = normalizeAnswer(choices[correctLetterIndex]);
+      const normalizedStudent = normalizeAnswer(student);
+      if (normalizedStudent === correctText) return true;
+    }
+
+    return false;
   }
-  // 文字題：忽略大小寫、前後空白、多餘空格
-  const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:]$/, '');
-  return normalize(student) === normalize(correct);
+
+  // 文字題：正規化後比對
+  const normStudent = normalizeAnswer(student);
+  const normCorrect = normalizeAnswer(correct);
+
+  if (normStudent === normCorrect) return true;
+
+  // 部分匹配：若學生答案包含正確答案的主要詞彙
+  const correctWords = normCorrect.split(' ').filter(w => w.length > 2);
+  if (correctWords.length >= 2 && correctWords.every(w => normStudent.includes(w))) {
+    return true;
+  }
+
+  return false;
 }
 
 /** 取得完整答案文字（MC 題從選項中查找完整句子，非 MC 題直接回傳答案） */
@@ -131,13 +170,13 @@ export default function PracticeQuestionPage() {
   const isReading = question.languageSkill === 'reading';
 
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
-  const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type);
+  const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
 
   const handleSubmit = async () => {
     if (!selectedAnswer) return;
     setSubmitted(true);
 
-    const correct = checkAnswer(selectedAnswer, question.answer, question.type);
+    const correct = checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
 
     // 記錄到 store
     if (isSessionMode) {

@@ -502,6 +502,90 @@ function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): str
   return 'A';
 }
 
+// ============================================
+// 答案準確性保障規則（注入 system prompt 結尾）
+// ============================================
+const STRICT_ANSWER_RULES = `
+【答案準確性規則 — 必須嚴格遵守（CRITICAL）】
+1. MCQ 題型：answer 欄位必須是 "A" / "B" / "C" / "D" 其中一個字母。
+   該字母對應的 choices 選項內容必須是正確答案。
+   嚴禁 answer 指向不存在於 choices 中的內容。
+2. 聆聽題型 (listening)：answer 指向的正確答案必須逐字（verbatim）出現在 listeningContent 中。
+   例如：listeningContent 中有 "at 4 o'clock"，則正確答案必須是包含 "4 o'clock" 的選項。
+   嚴禁生成 listeningContent 中未出現的時間、數字、人名、地點作為正確答案。
+3. 閱讀題型 (reading)：answer 指向的正確答案必須可從 readingContent 中直接推斷或引用。
+   不可生成篇章中完全未提及的資訊作為正確答案。
+4. 時間表達一致性：全題使用統一格式。
+   若 listeningContent 用 "4 o'clock"，則 choices 中也用 "4 o'clock"，不可混用 "four o'clock" 或 "4:00"。
+5. 數字一致性：若 listeningContent 提及 "15 dollars"，答案選項必須是 "15 dollars"，
+   不可變成 "fifteen dollars" 或 "$15"。
+6. 輸出前自我檢查（Self-Check）：生成每題後，確認 answer 對應的選項文字確實存在於 listeningContent/readingContent 中。
+   如不一致，必須修正後再輸出。`;
+
+function normalizeForComparison(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')           // 多空格 → 單空格
+    .replace(/['']/g, "'")          // 統一撇號
+    .replace(/[""]/g, '"')          // 統一引號
+    .replace(/[–—]/g, '-')          // 統一破折號
+    .replace(/[.!?,;:]$/, '');      // 移除尾部標點
+}
+
+/** 驗證生成題目的答案一致性，發現不一致時記錄警告 */
+function validateAnswerConsistency(q: GeneratedQuestion, index: number): string[] {
+  const warnings: string[] = [];
+
+  // MCQ: answer 必須對應 choices 中的某個選項
+  if (q.type === 'mc' && q.choices && q.choices.length > 0) {
+    const answerLetter = (q.answer || '').trim().toUpperCase();
+    const letterIndex = MCQ_LETTERS.indexOf(answerLetter as typeof MCQ_LETTERS[number]);
+    if (letterIndex < 0 || letterIndex >= q.choices.length) {
+      warnings.push(`Q${index}: answer "${q.answer}" 不指向任何選項 (choices count=${q.choices.length})`);
+    }
+  }
+
+  // 聆聽題: answer 對應的選項文字必須出現在 listeningContent 中
+  if (q.listeningContent && q.answer && q.choices && q.choices.length > 0) {
+    const answerLetter = q.answer.trim().toUpperCase();
+    const letterIndex = MCQ_LETTERS.indexOf(answerLetter as typeof MCQ_LETTERS[number]);
+    if (letterIndex >= 0 && letterIndex < q.choices.length) {
+      const answerText = q.choices[letterIndex];
+      const normalizedListening = normalizeForComparison(q.listeningContent);
+      const normalizedAnswer = normalizeForComparison(answerText);
+      if (!normalizedListening.includes(normalizedAnswer)) {
+        // 嘗試部分匹配（針對時間/數字表達）
+        const words = normalizedAnswer.split(' ');
+        const lastTwoWords = words.slice(-2).join(' ');
+        const lastThreeWords = words.slice(-3).join(' ');
+        if (!normalizedListening.includes(lastThreeWords) && !normalizedListening.includes(lastTwoWords)) {
+          warnings.push(`Q${index} (LISTENING): answer text "${answerText}" not found verbatim in listeningContent`);
+        }
+      }
+    }
+  }
+
+  // 閱讀題: answer 對應的選項文字應可從 readingContent 推斷
+  if (q.readingContent && q.answer && q.choices && q.choices.length > 0) {
+    const answerLetter = q.answer.trim().toUpperCase();
+    const letterIndex = MCQ_LETTERS.indexOf(answerLetter as typeof MCQ_LETTERS[number]);
+    if (letterIndex >= 0 && letterIndex < q.choices.length) {
+      const answerText = q.choices[letterIndex];
+      const normalizedReading = normalizeForComparison(q.readingContent);
+      const normalizedAnswer = normalizeForComparison(answerText);
+      // 對於 reading 題，答案不一定要逐字出現，但要檢查關鍵詞
+      const keyWords = normalizedAnswer.split(' ').filter(w => w.length > 3);
+      const missingKeywords = keyWords.filter(kw => !normalizedReading.includes(kw));
+      if (missingKeywords.length === keyWords.length && keyWords.length > 0) {
+        warnings.push(`Q${index} (READING): no keywords from answer "${answerText}" found in readingContent`);
+      }
+    }
+  }
+
+  return warnings;
+}
+
 function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQuestion[] {
   return questions.map((q) => {
     const base: GeneratedQuestion = {
@@ -550,6 +634,17 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     const finalChoices = normalizedChoices.slice(0, 4);
     const finalAnswer = normalizeMcqAnswer(base.answer, finalChoices);
 
+    // 驗證答案一致性並記錄警告
+    const tempQuestion: GeneratedQuestion = {
+      ...base,
+      choices: finalChoices,
+      answer: finalAnswer,
+    };
+    const warnings = validateAnswerConsistency(tempQuestion, 0);
+    if (warnings.length > 0) {
+      console.warn('[ai-service] Answer consistency warnings:', warnings);
+    }
+
     return {
       ...base,
       choices: finalChoices,
@@ -566,6 +661,11 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 
   const isListening = input.languageSkill === 'listening';
   const isReading = input.languageSkill === 'reading';
+  const isMcq = typeDesc === 'mc';
+
+  // 聽力/閱讀題使用較低 temperature 提高準確性
+  const qTemperature = (isListening || isReading) ? 0.3 : 0.7;
+
   const systemPrompt = `你是一位香港中學英文科教師，熟悉 ELE KLACG 2017 課程指引及 HKDSE English Language Level Descriptors。
 請根據以下要求生成英語練習題目，題目必須對齊 HKDSE 各卷別（Reading / Writing / Listening / Speaking）的能力要求。
 請以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
@@ -659,6 +759,8 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 - 選項長度應大致相近，不可有某個選項明顯過長或過短
 - 選項之間不可有重疊或包含關係
 
+${STRICT_ANSWER_RULES}
+
 【正確 JSON 輸出範例】
 [
   {
@@ -681,7 +783,7 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.7, maxTokens: 2048, jsonMode: true, timeoutMs: 25000 }
+    { temperature: qTemperature, maxTokens: 2048, jsonMode: true, timeoutMs: 25000 }
   );
 
   const tryValidate = (rawText: string) => {
@@ -695,7 +797,16 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
   };
 
   try {
-    return tryValidate(result);
+    const questions = tryValidate(result);
+    // 後驗證：檢查所有題目的答案一致性
+    const allWarnings: string[] = [];
+    questions.forEach((q, i) => {
+      allWarnings.push(...validateAnswerConsistency(q, i + 1));
+    });
+    if (allWarnings.length > 0) {
+      console.warn('[ai-service] Generated questions have answer consistency issues:', allWarnings);
+    }
+    return questions;
   } catch (firstErr: unknown) {
     const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
     if (!/AI 回傳格式無法解析|AI 回傳資料格式異常|JSON/i.test(firstMsg)) {

@@ -414,8 +414,16 @@ export default function StudentHelpPage() {
                   {genQuestions.map((q, i) => {
                     const revealed = revealedAnswers[i];
                     const userAnswer = userAnswers[i];
-                    const isCorrect = userAnswer?.toUpperCase() === q.answer?.toUpperCase();
                     const isMcq = q.type === 'mc' && q.choices && q.choices.length > 0;
+
+                    // 智能答案比對
+                    let isCorrect = false;
+                    if (isMcq) {
+                      isCorrect = (userAnswer || '').trim().toUpperCase() === (q.answer || '').trim().toUpperCase();
+                    } else if (userAnswer && q.answer) {
+                      const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:]$/, '');
+                      isCorrect = norm(userAnswer) === norm(q.answer);
+                    }
 
                     return (
                       <div key={i} className="border border-teal-200 dark:border-teal-700 rounded-lg p-3 bg-white/50 dark:bg-gray-800/50">
