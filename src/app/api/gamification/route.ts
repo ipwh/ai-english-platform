@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       const leaderboard = buildLeaderboard(
         students.map(s => ({
           ...s,
-          xp: s.xp ?? 0,
+          xp: (s as any).xp ?? 0,
           overallAccuracy: s.overallAccuracy ?? undefined,
         }))
       );
@@ -45,20 +45,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ leaderboard });
     }
 
-    // Default: student stats + badges
-    const [student, practiceSessions, vocabMastered, writingCount, sessionsCount] = await Promise.all([
-      db.user.findUnique({
+    // Default: student stats + badges — each query isolated to survive partial schema
+    let student: any = null;
+    let practiceSessions: { totalQuestions: number }[] = [];
+    let vocabMastered = 0;
+    let writingCount = 0;
+    let sessionsCount = 0;
+
+    try {
+      student = await db.user.findUnique({
         where: { id: studentId },
         select: { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true },
-      }),
-      db.practiceSession.findMany({
+      });
+    } catch {
+      // Fallback: try without new columns
+      student = await db.user.findUnique({
+        where: { id: studentId },
+        select: { streakDays: true, overallAccuracy: true },
+      }).catch(() => null);
+    }
+
+    try {
+      practiceSessions = await db.practiceSession.findMany({
         where: { studentId },
         select: { totalQuestions: true },
-      }),
-      db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
-      db.writingDraft.count({ where: { studentId } }),
-      db.practiceSession.count({ where: { studentId } }),
-    ]);
+      });
+    } catch { /* ignore */ }
+
+    try { vocabMastered = await db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }); } catch { /* ignore */ }
+    try { writingCount = await db.writingDraft.count({ where: { studentId } }); } catch { /* ignore */ }
+    try { sessionsCount = await db.practiceSession.count({ where: { studentId } }); } catch { /* ignore */ }
 
     const totalQuestions = practiceSessions.reduce((sum, s) => sum + s.totalQuestions, 0);
 
@@ -73,7 +89,7 @@ export async function GET(req: NextRequest) {
       skillAccuracy: {},
     };
 
-    const xp = student?.xp ?? 0;
+    const xp = (student as any)?.xp ?? 0;
     const levelInfo = getLevelInfo(xp);
 
     // Parse already-unlocked badge IDs
@@ -84,14 +100,16 @@ export async function GET(req: NextRequest) {
 
     const allBadges = getAllBadges(stats, alreadyUnlocked);
 
-    // Auto-award newly earned badges and update user
+    // Auto-award newly earned badges
     const newBadges = checkNewBadges(stats, alreadyUnlocked);
     if (newBadges.length > 0) {
-      const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map(b => b.id)];
-      await db.user.update({
-        where: { id: studentId },
-        data: { badgeIds: JSON.stringify(updatedBadgeIds) },
-      }).catch(() => {}); // Silently fail — badges are cosmetic
+      try {
+        const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map(b => b.id)];
+        await db.user.update({
+          where: { id: studentId },
+          data: { badgeIds: JSON.stringify(updatedBadgeIds) },
+        });
+      } catch { /* Silently fail — badges are cosmetic, column may not exist yet */ }
     }
 
     return NextResponse.json({
@@ -103,7 +121,13 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('[Gamification GET]', error);
-    return NextResponse.json({ error: '無法載入遊戲化數據' }, { status: 500 });
+    // Return a graceful fallback instead of 500
+    return NextResponse.json({
+      xp: 0,
+      level: getLevelInfo(0),
+      badges: [],
+      stats: { totalQuestions: 0, overallAccuracy: 0, streakDays: 0, sessionsCompleted: 0, wordsMastered: 0, writingSubmissions: 0, diagnosticCompleted: false, skillAccuracy: {} },
+    });
   }
 }
 

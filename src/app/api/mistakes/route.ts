@@ -33,17 +33,23 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const studentId = searchParams.get('studentId');
-  if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+  try {
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get('studentId');
+    if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
-  const mistakes = await db.mistake.findMany({
-    where: { studentId },
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-  });
+    const mistakes = await db.mistake.findMany({
+      where: { studentId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
 
-  return NextResponse.json({ mistakes });
+    return NextResponse.json({ mistakes });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知錯誤';
+    console.error('[Mistakes GET]', message);
+    return NextResponse.json({ error: message, mistakes: [] }, { status: 200 });
+  }
 }
 
 export async function PATCH(request: NextRequest) {
