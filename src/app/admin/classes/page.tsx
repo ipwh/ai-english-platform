@@ -1,9 +1,10 @@
-// ============================================
+﻿// ============================================
 // 管理員班級管理頁面 — /admin/classes
 // ============================================
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useT } from '@/hooks/use-i18n';
 import { Plus, Trash2, Save, Loader2, RefreshCw, Users, BookOpen } from 'lucide-react';
 
 interface ClassRecord {
@@ -17,6 +18,7 @@ interface ClassRecord {
 }
 
 export default function AdminClassesPage() {
+  const { t } = useT();
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

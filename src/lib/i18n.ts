@@ -655,6 +655,26 @@ const translations: Record<string, { zh: string; en: string }> = {
   'admin.import.importFailed': { zh: '匯入失敗', en: 'Import failed' },
   'admin.import.fieldReference': { zh: '欄位說明', en: 'Field Reference' },
 
+  // Admin Classes
+  'admin.classes.title': { zh: '班級管理', en: 'Class Management' },
+  'admin.classes.classCount': { zh: '個班級', en: 'classes' },
+  'admin.classes.studentCount': { zh: '名學生', en: 'students' },
+  'admin.classes.retry': { zh: '重試', en: 'Retry' },
+  'admin.classes.addClass': { zh: '新增班級', en: 'Add Class' },
+  'admin.classes.className': { zh: '班級名稱', en: 'Class Name' },
+  'admin.classes.gradeLevel': { zh: '年級', en: 'Grade' },
+  'admin.classes.academicYear': { zh: '學年', en: 'Academic Year' },
+  'admin.classes.classUnit': { zh: '班', en: 'class' },
+  'admin.classes.studentUnit': { zh: '人', en: '' },
+  'admin.classes.classLabel': { zh: '班級', en: 'Class' },
+  'admin.classes.assignmentCount': { zh: '作業數', en: 'Assignments' },
+  'admin.classes.actions': { zh: '操作', en: 'Actions' },
+  'admin.classes.create': { zh: '建立', en: 'Create' },
+  'admin.classes.cancel': { zh: '取消', en: 'Cancel' },
+  'admin.classes.edit': { zh: '編輯', en: 'Edit' },
+  'admin.classes.delete': { zh: '刪除', en: 'Delete' },
+  'admin.classes.noClasses': { zh: '尚無班級', en: 'No classes yet' },
+
   // Admin Users
   'admin.users.title': { zh: '使用者管理', en: 'User Management' },
   'admin.users.totalUsers': { zh: '共 {n} 位使用者', en: '{n} total users' },

@@ -160,7 +160,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <button
                 onClick={() => logout().then(() => router.push('/login'))}
                 className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                title="登出"
+                title={t('profile.logout')}
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -193,10 +193,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   href="/role-select"
                   className="p-1.5 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"
-                  title="切換身份"
+                  title={t('profile.switchRole')}
                 >
                   <Shuffle className="w-4 h-4" />
-                  <span className="text-xs">切換身份</span>
+                  <span className="text-xs">{t('profile.switchRole')}</span>
                 </Link>
               </div>
             </div>

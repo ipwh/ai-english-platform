@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // 管理員數據儀表板 — /admin/reports
 // 使用 Recharts 顯示全校統計圖表
 // ============================================
@@ -13,6 +13,8 @@ import {
   TrendingUp, Users, BookOpen, AlertTriangle,
   RefreshCw, GraduationCap, Target,
 } from 'lucide-react';
+
+import { useT } from '@/hooks/use-i18n';
 
 // ---- Types ----
 interface StatsData {
@@ -61,7 +63,7 @@ function CustomTooltip({ active, payload, label }: any) {
         <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
         {payload.map((p: any, i: number) => (
           <p key={i} className="text-gray-600 dark:text-gray-400">
-            {p.name}: <span className="font-semibold">{p.value}{p.name.includes('準確率') || p.name.includes('Accuracy') ? '%' : ''}</span>
+            {p.name}: <span className="font-semibold">{p.value}{p.name.includes('Accuracy') || p.name.includes('準確率') || p.name.includes('準確') ? '%' : ''}</span>
           </p>
         ))}
       </div>
@@ -75,6 +77,7 @@ function CustomTooltip({ active, payload, label }: any) {
 // ============================================
 
 export default function AdminReportsPage() {
+  const { t } = useT();
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,10 +88,10 @@ export default function AdminReportsPage() {
     try {
       const res = await fetch('/api/admin/stats');
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || '載入失敗');
+      if (!res.ok) throw new Error(json.error || t('admin.reports.loadFailed'));
       setStats(json);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '載入失敗');
+      setError(err instanceof Error ? err.message : t('admin.reports.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -109,7 +112,7 @@ export default function AdminReportsPage() {
       <div className="max-w-7xl mx-auto">
         <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-center">
           <p className="text-red-600 dark:text-red-400 mb-3">{error}</p>
-          <button onClick={fetchStats} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">重試</button>
+          <button onClick={fetchStats} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">{t('admin.reports.retry')}</button>
         </div>
       </div>
     );
@@ -121,18 +124,18 @@ export default function AdminReportsPage() {
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">全校數據分析</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">即時統計與學習趨勢</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('admin.reports.title')}</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">{t('admin.reports.subtitle')}</p>
       </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard label="學生總數" value={stats.overview.totalStudents} icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" />
-        <StatCard label="教師總數" value={stats.overview.totalTeachers} icon={GraduationCap} color="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" />
-        <StatCard label="練習總次數" value={stats.overview.totalSessions} icon={Target} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" />
-        <StatCard label="錯題總數" value={stats.overview.totalMistakes} icon={AlertTriangle} color="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" />
-        <StatCard label="作業總數" value={stats.overview.totalAssignments} icon={BookOpen} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
-        <StatCard label="管理員" value={stats.overview.totalAdmins} icon={TrendingUp} color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" />
+        <StatCard label={t('admin.reports.totalStudents')} value={stats.overview.totalStudents} icon={Users} color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" />
+        <StatCard label={t('admin.reports.totalTeachers')} value={stats.overview.totalTeachers} icon={GraduationCap} color="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" />
+        <StatCard label={t('admin.reports.totalSessions')} value={stats.overview.totalSessions} icon={Target} color="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" />
+        <StatCard label={t('admin.reports.totalMistakes')} value={stats.overview.totalMistakes} icon={AlertTriangle} color="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" />
+        <StatCard label={t('admin.reports.totalAssignments')} value={stats.overview.totalAssignments} icon={BookOpen} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" />
+        <StatCard label={t('admin.reports.totalAdmins')} value={stats.overview.totalAdmins} icon={TrendingUp} color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" />
       </div>
 
       {/* Charts Grid */}
@@ -140,7 +143,7 @@ export default function AdminReportsPage() {
         {/* Bar Chart: Accuracy by Level */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            各年級平均準確率
+            {t('admin.reports.accuracyByLevel')}
           </h3>
           {stats.byLevel.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -149,7 +152,7 @@ export default function AdminReportsPage() {
                 <XAxis dataKey="level" stroke="#9ca3af" fontSize={12} />
                 <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="avgAccuracy" name="平均準確率" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="avgAccuracy" name={t('admin.reports.avgAccuracy')} radius={[6, 6, 0, 0]}>
                   {stats.byLevel.map((_, i) => (
                     <Cell key={i} fill={LEVEL_COLORS[i % LEVEL_COLORS.length]} />
                   ))}
@@ -157,14 +160,14 @@ export default function AdminReportsPage() {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-gray-400 text-center py-16">暫無數據</p>
+            <p className="text-gray-400 text-center py-16">{t('admin.reports.noData')}</p>
           )}
         </div>
 
         {/* Bar Chart: Accuracy by Class */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            各班級平均準確率
+            {t('admin.reports.accuracyByClass')}
           </h3>
           {stats.byClass.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -173,18 +176,18 @@ export default function AdminReportsPage() {
                 <XAxis dataKey="className" stroke="#9ca3af" fontSize={11} />
                 <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="avgAccuracy" name="平均準確率" fill="#8884d8" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="avgAccuracy" name={t('admin.reports.avgAccuracy')} fill="#8884d8" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-gray-400 text-center py-16">暫無數據</p>
+            <p className="text-gray-400 text-center py-16">{t('admin.reports.noData')}</p>
           )}
         </div>
 
         {/* Line Chart: Monthly Trend */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            練習趨勢（近6個月）
+            {t('admin.reports.monthlyTrend')}
           </h3>
           {stats.monthlyTrend.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -195,19 +198,19 @@ export default function AdminReportsPage() {
                 <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="sessions" name="練習次數" stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
-                <Line yAxisId="right" type="monotone" dataKey="accuracy" name="準確率" stroke="#82ca9d" strokeWidth={2} dot={{ r: 4 }} />
+                <Line yAxisId="left" type="monotone" dataKey="sessions" name={t('admin.reports.sessionCount')} stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
+                <Line yAxisId="right" type="monotone" dataKey="accuracy" name={t('admin.reports.accuracy')} stroke="#82ca9d" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-gray-400 text-center py-16">暫無數據</p>
+            <p className="text-gray-400 text-center py-16">{t('admin.reports.noData')}</p>
           )}
         </div>
 
         {/* Pie Chart: Accuracy Distribution */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            學生準確率分佈
+            {t('admin.reports.accuracyDistribution')}
           </h3>
           {stats.accuracyDistribution.some(d => d.count > 0) ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -234,7 +237,7 @@ export default function AdminReportsPage() {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-gray-400 text-center py-16">暫無數據</p>
+            <p className="text-gray-400 text-center py-16">{t('admin.reports.noData')}</p>
           )}
         </div>
       </div>
@@ -242,16 +245,16 @@ export default function AdminReportsPage() {
       {/* Level Detail Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">各年級詳細數據</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('admin.reports.levelDetail')}</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">年級</th>
-                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">學生人數</th>
-                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">平均準確率</th>
-                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">進度條</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t('admin.reports.level')}</th>
+                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t('admin.reports.studentCount')}</th>
+                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t('admin.reports.avgAccuracy')}</th>
+                <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t('admin.reports.progressBar')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -276,7 +279,7 @@ export default function AdminReportsPage() {
               ))}
               {stats.byLevel.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">暫無數據</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">{t('admin.reports.noData')}</td>
                 </tr>
               )}
             </tbody>
