@@ -7,9 +7,11 @@
 import { defineConfig } from 'prisma/config';
 
 const dbUrl = process.env.DATABASE_URL || `file:${process.cwd()}/prisma/dev.db`;
+const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://');
 
 export default defineConfig({
   datasource: {
     url: dbUrl,
+    provider: isPostgres ? 'postgresql' : 'sqlite',
   },
 });

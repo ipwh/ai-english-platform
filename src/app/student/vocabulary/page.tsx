@@ -1,16 +1,18 @@
 // ============================================
-// 學生端 — 生字簿
-// 支援：手動新增生字、AI 例句生成、間隔重溫、熟悉度標記、發音
+// 學生端 — 生字簿 (重構版)
+// 新功能：AI 智能分析、快速加入、擴展詞彙卡、進階過濾、匯出
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Sparkles, Loader2, BookMarked, TrendingUp, Brain, Plus, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
 
-import ProgressBar from '@/components/shared/ProgressBar';
-import AudioPlayer from '@/components/shared/AudioPlayer';
+import VocabCard from '@/components/vocabulary/VocabCard';
+import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
+import VocabFilterBar from '@/components/vocabulary/VocabFilterBar';
+import BatchImportVocab from '@/components/vocabulary/BatchImportVocab';
 import { useAppStore } from '@/store/appStore';
-import type { Familiarity, VocabItem } from '@/lib/types';
+import type { Familiarity, VocabItem, MasteryLevel } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 import { getFamiliarityLabel, getFamiliarityColor } from '@/lib/utils';
 import { familiarityToQuality, calculateNextReview } from '@/lib/srs';
@@ -18,56 +20,39 @@ import { familiarityToQuality, calculateNextReview } from '@/lib/srs';
 const nextFamiliarity: Record<Familiarity, Familiarity> = {
   'new': 'learning', 'learning': 'familiar', 'familiar': 'mastered', 'mastered': 'mastered',
 };
-const familiarityProgress: Record<Familiarity, number> = {
-  'new': 10, 'learning': 40, 'familiar': 75, 'mastered': 100,
-};
-
-const POS_OPTIONS = [
-  { value: 'noun', zh: '名詞', en: 'noun' },
-  { value: 'verb', zh: '動詞', en: 'verb' },
-  { value: 'adjective', zh: '形容詞', en: 'adjective' },
-  { value: 'adverb', zh: '副詞', en: 'adverb' },
-  { value: 'preposition', zh: '介詞', en: 'preposition' },
-  { value: 'conjunction', zh: '連接詞', en: 'conjunction' },
-  { value: 'pronoun', zh: '代名詞', en: 'pronoun' },
-  { value: 'phrase', zh: '片語', en: 'phrase' },
-  { value: 'other', zh: '其他', en: 'other' },
-];
 
 export default function VocabularyPage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const store = useAppStore();
-  const language = store.language || 'zh';
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Familiarity | 'all'>('all');
 
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  // Data state
   const [vocab, setVocab] = useState<VocabItem[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState('');
   const [gradeLevel, setGradeLevel] = useState('S4');
 
+  // SRS
   const [srsDue, setSrsDue] = useState<any[]>([]);
   const [srsProgress, setSrsProgress] = useState<{ percentage: number; label: string } | null>(null);
 
-  // Add Word Modal
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ word: '', partOfSpeech: 'noun', meaning: '', example: '', exampleZh: '' });
-  const [addLoading, setAddLoading] = useState(false);
-  const [addError, setAddError] = useState('');
+  // Filters
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Familiarity | 'all'>('all');
+  const [posFilter, setPosFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'alphabetical' | 'mastery'>('recent');
 
-  const loadSrsReview = () => {
-    if (!studentId) return;
-    fetch(`/api/srs/review?studentId=${encodeURIComponent(studentId)}&type=vocab`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.reviewCards?.vocab) {
-          setSrsDue(d.reviewCards.vocab);
-          setSrsProgress(d.progress?.vocab || null);
-        }
-      })
-      .catch(() => {});
-  };
+  // AI
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
+
+  // Batch import & Review suggestions
+  const [showBatchImport, setShowBatchImport] = useState(false);
+  const [reviewSuggestions, setReviewSuggestions] = useState<any>(null);
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
+
+  // ============================================
+  // Data Loading
+  // ============================================
 
   useEffect(() => {
     fetch('/api/auth/profile')
@@ -81,19 +66,102 @@ export default function VocabularyPage() {
       .catch(() => {});
   }, [store.userId]);
 
-  const loadVocab = () => {
+  const loadVocab = useCallback(() => {
     if (!studentId) return;
     setLoadError(false);
     fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
-      .then(d => { if (d.vocab?.length) setVocab(d.vocab); })
+      .then(d => {
+        if (d.vocab?.length) {
+          setVocab(d.vocab.map((v: any) => ({
+            ...v,
+            masteryLevel: (v.masteryLevel ?? 0) as MasteryLevel,
+          })));
+        }
+      })
       .catch((e) => { console.error('Failed to load vocabulary:', e); setLoadError(true); });
+  }, [studentId]);
+
+  const loadSrsReview = useCallback(() => {
+    if (!studentId) return;
+    fetch(`/api/srs/review?studentId=${encodeURIComponent(studentId)}&type=vocab`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.reviewCards?.vocab) {
+          setSrsDue(d.reviewCards.vocab);
+          setSrsProgress(d.progress?.vocab || null);
+        }
+      })
+      .catch(() => {});
+  }, [studentId]);
+
+  useEffect(() => { loadVocab(); }, [loadVocab]);
+  useEffect(() => { if (studentId) loadSrsReview(); }, [loadSrsReview, studentId]);
+
+  // Load AI review suggestions
+  const loadReviewSuggestions = useCallback(() => {
+    if (!studentId) return;
+    fetch(`/api/vocabulary/review-suggestions?studentId=${encodeURIComponent(studentId)}`)
+      .then(r => r.json())
+      .then(d => { if (!d.error) setReviewSuggestions(d); })
+      .catch(() => {});
+  }, [studentId]);
+
+  useEffect(() => { if (studentId) loadReviewSuggestions(); }, [studentId, loadReviewSuggestions]);
+
+  // ============================================
+  // Actions
+  // ============================================
+
+  const handleToggleFamiliarity = (v: VocabItem) => {
+    const next = nextFamiliarity[v.familiarity];
+    const quality = familiarityToQuality(next);
+    const srsUpdate = calculateNextReview(quality, {
+      easeFactor: v.easeFactor ?? 2.5,
+      interval: v.reviewInterval ?? 0,
+      repetitions: 0,
+      lastReviewedAt: undefined,
+    });
+
+    setVocab(prev => prev.map(item =>
+      item.id === v.id
+        ? { ...item, familiarity: next, nextReviewDate: srsUpdate.nextReviewDate }
+        : item
+    ));
+
+    fetch('/api/vocabulary', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: v.id,
+        familiarity: next,
+        masteryLevel: next === 'mastered' ? 5 : next === 'familiar' ? 3 : next === 'learning' ? 1 : 0,
+        nextReviewDate: srsUpdate.nextReviewDate,
+        reviewInterval: srsUpdate.interval,
+        easeFactor: srsUpdate.easeFactor,
+        lastReviewedAt: srsUpdate.lastReviewedAt,
+      }),
+    }).catch(() => {});
   };
 
-  useEffect(() => { loadVocab(); }, [studentId]);
-  useEffect(() => { if (studentId) loadSrsReview(); }, [studentId]);
+  const handleSetMasteryLevel = (id: string, level: MasteryLevel) => {
+    setVocab(prev => prev.map(item =>
+      item.id === id ? { ...item, masteryLevel: level } : item
+    ));
+    fetch('/api/vocabulary', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, masteryLevel: level }),
+    }).catch(() => {});
+  };
 
-  const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
+  const handleDelete = async (id: string) => {
+    if (!confirm(t('vocab.deleteConfirm'))) return;
+    try {
+      await fetch(`/api/vocabulary?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setVocab(prev => prev.filter(v => v.id !== id));
+    } catch { /* silent */ }
+  };
 
   const handleAIExample = async (v: VocabItem) => {
     setGeneratingId(v.id);
@@ -120,117 +188,166 @@ export default function VocabularyPage() {
           return;
         }
       }
-      setAiExamples(prev => ({
-        ...prev,
-        [v.id]: `📖 ${v.word}: ${v.exampleSentence}`,
-      }));
+      setAiExamples(prev => ({ ...prev, [v.id]: `📖 ${v.word}: ${v.exampleSentence}` }));
     } catch { /* silent */ }
     finally { setGeneratingId(null); }
   };
 
-  const toggleFamiliarity = (v: VocabItem) => {
-    const next = nextFamiliarity[v.familiarity];
-    const quality = familiarityToQuality(next);
-    const srsUpdate = calculateNextReview(quality, {
-      easeFactor: (v as any).easeFactor ?? 2.5,
-      interval: (v as any).reviewInterval ?? 0,
-      repetitions: 0,
-      lastReviewedAt: (v as any).lastReviewedAt ?? undefined,
-    });
+  const handleVocabAdded = (newVocab: any) => {
+    if (newVocab) {
+      setVocab(prev => [{
+        ...newVocab,
+        masteryLevel: (newVocab.masteryLevel ?? 0) as MasteryLevel,
+      } as VocabItem, ...prev]);
+    } else {
+      loadVocab();
+    }
+  };
 
-    setVocab(prev => prev.map(item =>
-      item.id === v.id
-        ? { ...item, familiarity: next, nextReviewDate: srsUpdate.nextReviewDate }
-        : item
-    ));
-    fetch('/api/vocabulary', {
-      method: 'PATCH',
+  // ============================================
+  // Export
+  // ============================================
+
+  const handleExportCSV = () => {
+    const headers = ['word', 'partOfSpeech', 'meaningZh', 'exampleSentence', 'exampleZh', 'synonyms', 'antonyms', 'collocations', 'familiarity', 'masteryLevel'];
+    const rows = filtered.map(v => [
+      v.word,
+      v.partOfSpeech,
+      v.meaningZh,
+      v.exampleSentence || '',
+      v.exampleZh || '',
+      (v.synonyms || []).join('; '),
+      (v.antonyms || []).join('; '),
+      (v.collocations || []).join('; '),
+      v.familiarity,
+      String(v.masteryLevel ?? 0),
+    ]);
+
+    const csv = [
+      '\uFEFF' + headers.join(','),
+      ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vocabulary-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportAnki = () => {
+    const lines: string[] = [];
+    for (const v of filtered) {
+      const backParts = [
+        v.meaningZh,
+        v.partOfSpeech ? `[${v.partOfSpeech}]` : '',
+        v.exampleSentence ? `<br><i>${v.exampleSentence}</i>` : '',
+        v.exampleZh ? `<br>${v.exampleZh}` : '',
+        v.synonyms?.length ? `<br><b>Synonyms:</b> ${v.synonyms.join(', ')}` : '',
+        v.antonyms?.length ? `<br><b>Antonyms:</b> ${v.antonyms.join(', ')}` : '',
+        v.collocations?.length ? `<br><b>Collocations:</b> ${v.collocations.join(', ')}` : '',
+      ].filter(Boolean).join('');
+      lines.push(`${v.word}\t${backParts}`);
+    }
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/tab-separated-values;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vocabulary-anki-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    const ids = sorted.map(v => v.id);
+    fetch('/api/vocabulary/export-pdf', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: v.id,
-        familiarity: next,
-        nextReviewDate: srsUpdate.nextReviewDate,
-        reviewInterval: srsUpdate.interval,
-        easeFactor: srsUpdate.easeFactor,
-        lastReviewedAt: srsUpdate.lastReviewedAt,
-      }),
-    }).catch(() => {});
+      body: JSON.stringify({ studentId, wordIds: ids }),
+    })
+      .then(r => r.text())
+      .then(html => {
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(html);
+          win.document.close();
+          setTimeout(() => win.print(), 500);
+        }
+      })
+      .catch(() => {});
   };
 
-  const handleAddWord = async () => {
-    if (!addForm.word.trim() || !addForm.meaning.trim()) {
-      setAddError(language === 'en' ? 'Word and meaning are required.' : '生字和中文意思為必填。');
-      return;
-    }
-    if (!studentId) {
-      setAddError(language === 'en' ? 'Please log in first.' : '請先登入。');
-      return;
-    }
-    setAddLoading(true);
-    setAddError('');
-    try {
-      const res = await fetch('/api/vocabulary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          word: addForm.word.trim(),
-          partOfSpeech: addForm.partOfSpeech,
-          meaningZh: addForm.meaning.trim(),
-          exampleSentence: addForm.example.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.vocab) {
-        setVocab(prev => [data.vocab, ...prev]);
-        setShowAddModal(false);
-        setAddForm({ word: '', partOfSpeech: 'noun', meaning: '', example: '', exampleZh: '' });
-      } else {
-        setAddError(data.error || t('vocab.addFailed'));
-      }
-    } catch {
-      setAddError(t('vocab.addFailed'));
-    } finally {
-      setAddLoading(false);
-    }
-  };
+  // ============================================
+  // Filtering & Sorting
+  // ============================================
 
   const filtered = vocab.filter((v) => {
-    if (search && !v.word.includes(search) && !v.meaningZh.includes(search)) return false;
+    if (search && !v.word.toLowerCase().includes(search.toLowerCase()) && !v.meaningZh.includes(search)) return false;
     if (filter !== 'all' && v.familiarity !== filter) return false;
+    if (posFilter && v.partOfSpeech !== posFilter) return false;
     return true;
   });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'alphabetical') return a.word.localeCompare(b.word);
+    if (sortBy === 'mastery') return (b.masteryLevel ?? 0) - (a.masteryLevel ?? 0);
+    return 0; // recent = keep original order
+  });
+
+  // ============================================
+  // Stats
+  // ============================================
 
   const stats = {
     total: vocab.length,
     mastered: vocab.filter(v => v.familiarity === 'mastered').length,
     learning: vocab.filter(v => v.familiarity === 'learning' || v.familiarity === 'new').length,
+    avgMastery: vocab.length > 0
+      ? Math.round(vocab.reduce((sum, v) => sum + (v.masteryLevel ?? 0), 0) / vocab.length * 10) / 10
+      : 0,
   };
+
+  // ============================================
+  // Render
+  // ============================================
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('vocab.title')}</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-gray-500">
-            <TrendingUp className="w-4 h-4" /> {t('vocab.mastery').replace('{n}', String(stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0))}
+            <TrendingUp className="w-4 h-4" />
+            {t('vocab.mastery').replace('{n}', String(stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0))}
           </div>
           <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors"
+            onClick={() => setShowBatchImport(true)}
+            className="flex items-center gap-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            {t('vocab.addWord')}
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">{language === 'en' ? 'Batch Import' : '批量匯入'}</span>
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={vocab.length === 0}
+            className="flex items-center gap-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 transition-colors"
+          >
+            <FileDown className="w-4 h-4" />
+            <span className="hidden sm:inline">PDF</span>
           </button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {[
           { label: t('vocab.total'), value: stats.total, color: 'text-teal-600' },
           { label: t('vocab.mastered'), value: stats.mastered, color: 'text-green-600' },
           { label: t('vocab.learning'), value: stats.learning, color: 'text-orange-600' },
+          { label: language === 'en' ? 'Avg Mastery' : '平均掌握', value: stats.avgMastery, color: 'text-purple-600' },
         ].map((s, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm text-center border border-gray-100 dark:border-gray-700">
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -266,192 +383,132 @@ export default function VocabularyPage() {
               </div>
             ))}
             {srsDue.length > 5 && (
-              <p className="text-xs text-gray-400 text-center">{t('vocab.srsMore').replace('{n}', String(srsDue.length - 5))}</p>
+              <p className="text-xs text-gray-400 text-center">
+                {language === 'en'
+                  ? `+${srsDue.length - 5} more cards due`
+                  : `還有 ${srsDue.length - 5} 張待複習`}
+              </p>
             )}
           </div>
         </div>
       )}
 
-      {/* Search & Filter */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('vocab.search')} className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
-        </div>
-        <select value={filter} onChange={(e) => setFilter(e.target.value as Familiarity | 'all')} className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-          <option value="all">{t('vocab.filterAll')}</option>
-          <option value="new">{t('vocab.filterNew')}</option>
-          <option value="learning">{t('vocab.filterLearning')}</option>
-          <option value="familiar">{t('vocab.filterFamiliar')}</option>
-          <option value="mastered">{t('vocab.filterMastered')}</option>
-        </select>
-      </div>
+      {/* Filter Bar */}
+      <VocabFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filter={filter}
+        onFilterChange={setFilter}
+        posFilter={posFilter}
+        onPosFilterChange={setPosFilter}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        onExportCSV={handleExportCSV}
+        onExportAnki={handleExportAnki}
+        language={language as 'zh' | 'en'}
+        totalCount={filtered.length}
+      />
 
       {/* Empty State */}
       {!loadError && vocab.length === 0 && (
         <div className="text-center py-16">
           <BookMarked className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">{t('vocab.empty')}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {language === 'en'
+              ? 'Click the + button to add your first word!'
+              : '點擊右下角的 + 按鈕加入第一個生字！'}
+          </p>
         </div>
       )}
 
       {/* Word Cards */}
       <div className="space-y-3">
-        {filtered.map((v) => (
-          <div key={v.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-teal-200 transition-colors">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{v.word}</h3>
-                  <span className="text-xs text-gray-400">{v.partOfSpeech}</span>
-                  <AudioPlayer text={v.word} label="" size="sm" />
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{v.meaningZh}</p>
-                {v.exampleSentence && (
-                  <p className="text-xs text-gray-500 mt-1 italic">&ldquo;{v.exampleSentence}&rdquo;</p>
-                )}
-                {v.exampleZh && <p className="text-xs text-gray-400">{v.exampleZh}</p>}
-
-                {v.strategy && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    <span className="text-[10px] px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-full">
-                      🧠 {v.strategy === 'collocations' ? t('vocab.strategyCollocations') : v.strategy === 'word-formation' ? t('vocab.strategyWordFormation') : v.strategy === 'mnemonics' ? t('vocab.strategyMnemonics') : v.strategy}
-                    </span>
-                    {v.topic && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-full">
-                        📂 {v.topic}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {aiExamples[v.id] && (
-                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-2 bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg">
-                    <Sparkles className="w-3 h-3 inline mr-1" />{aiExamples[v.id]}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => toggleFamiliarity(v)}
-                className={`text-xs px-2 py-1 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity ${getFamiliarityColor(v.familiarity)}`}
-                title={t('vocab.clickToToggle')}
-              >
-                {getFamiliarityLabel(v.familiarity, language)}
-              </button>
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex-1 mr-4">
-                <ProgressBar value={familiarityProgress[v.familiarity]} size="sm" showPercentage={false} />
-              </div>
-              <div className="flex items-center gap-2">
-                {v.nextReviewDate && (
-                  <span className="text-xs text-gray-400">{t('vocab.nextReviewLabel').replace('{date}', new Date(v.nextReviewDate).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-HK'))}</span>
-                )}
-                <button
-                  onClick={() => handleAIExample(v)}
-                  disabled={generatingId === v.id}
-                  className="text-xs text-purple-500 hover:text-purple-700 disabled:opacity-50"
-                >
-                  {generatingId === v.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : <Sparkles className="w-3 h-3 inline" />}
-                  {' '}{t('vocab.aiExample')}
-                </button>
-              </div>
-            </div>
-          </div>
+        {sorted.map((v) => (
+          <VocabCard
+            key={v.id}
+            vocab={v}
+            language={language as 'zh' | 'en'}
+            aiExample={aiExamples[v.id]}
+            generatingAi={generatingId === v.id}
+            onToggleFamiliarity={handleToggleFamiliarity}
+            onGenerateAiExample={handleAIExample}
+            onDelete={handleDelete}
+            onSetMasteryLevel={handleSetMasteryLevel}
+          />
         ))}
       </div>
 
-      {/* Add Word Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddModal(false)} />
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6 z-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('vocab.addWordTitle')}</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
+      {/* Quick Add Floating Button */}
+      {studentId && (
+        <QuickAddVocab
+          studentId={studentId}
+          gradeLevel={gradeLevel}
+          onAdded={handleVocabAdded}
+        />
+      )}
+
+      {/* Batch Import Modal */}
+      {showBatchImport && studentId && (
+        <BatchImportVocab
+          studentId={studentId}
+          gradeLevel={gradeLevel}
+          onClose={() => setShowBatchImport(false)}
+          onImported={(count) => { if (count > 0) loadVocab(); }}
+        />
+      )}
+
+      {/* AI Review Suggestions Panel */}
+      {reviewSuggestions && stats.total > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-2xl p-5 border border-amber-200 dark:border-amber-800">
+          <button
+            onClick={() => setShowReviewPanel(!showReviewPanel)}
+            className="w-full flex items-center justify-between"
+          >
+            <h2 className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+              <Lightbulb className="w-5 h-5" />
+              {language === 'en' ? 'AI Review Suggestions' : 'AI 個人化複習建議'}
+            </h2>
+            {showReviewPanel ? <ChevronUp className="w-4 h-4 text-amber-500" /> : <ChevronDown className="w-4 h-4 text-amber-500" />}
+          </button>
+
+          {showReviewPanel && (
+            <div className="mt-4 space-y-3">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {reviewSuggestions.stats?.streakRecommendation || ''}
+              </p>
+
+              {reviewSuggestions.priorities?.urgent?.length > 0 && (
+                <div>
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+                    🔴 {language === 'en' ? 'URGENT' : '緊急'} ({reviewSuggestions.priorities.urgent.length})
+                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {reviewSuggestions.priorities.urgent.map((w: any) => (
+                      <span key={w.id} className="text-[10px] px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
+                        {w.word} <span className="opacity-60">{w.meaningZh}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {reviewSuggestions.priorities?.high?.length > 0 && (
+                <div>
+                  <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                    🟠 {language === 'en' ? 'HIGH' : '高優先'} ({reviewSuggestions.priorities.high.length})
+                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {reviewSuggestions.priorities.high.map((w: any) => (
+                      <span key={w.id} className="text-[10px] px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
+                        {w.word}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vocab.word')}</label>
-                <input
-                  type="text"
-                  value={addForm.word}
-                  onChange={(e) => setAddForm(p => ({ ...p, word: e.target.value }))}
-                  placeholder={t('vocab.wordPlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vocab.partOfSpeech')}</label>
-                <select
-                  value={addForm.partOfSpeech}
-                  onChange={(e) => setAddForm(p => ({ ...p, partOfSpeech: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
-                >
-                  {POS_OPTIONS.map(pos => (
-                    <option key={pos.value} value={pos.value}>{language === 'en' ? pos.en : pos.zh}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vocab.meaning')}</label>
-                <input
-                  type="text"
-                  value={addForm.meaning}
-                  onChange={(e) => setAddForm(p => ({ ...p, meaning: e.target.value }))}
-                  placeholder={t('vocab.meaningPlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vocab.exampleSentence')}</label>
-                <input
-                  type="text"
-                  value={addForm.example}
-                  onChange={(e) => setAddForm(p => ({ ...p, example: e.target.value }))}
-                  placeholder={t('vocab.examplePlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('vocab.exampleZh')}</label>
-                <input
-                  type="text"
-                  value={addForm.exampleZh}
-                  onChange={(e) => setAddForm(p => ({ ...p, exampleZh: e.target.value }))}
-                  placeholder={t('vocab.exampleZhPlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              {addError && <p className="text-sm text-red-500">{addError}</p>}
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  {t('generic.cancel')}
-                </button>
-                <button
-                  onClick={handleAddWord}
-                  disabled={addLoading}
-                  className="flex-1 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
-                >
-                  {addLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {t('vocab.addWord')}
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>

@@ -5,9 +5,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain } from 'lucide-react';
+import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
+import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
 import { skillLabels } from '@/lib/nav';
 import { formatDate } from '@/lib/utils';
 import { useAppStore } from '@/store/appStore';
@@ -32,6 +33,7 @@ export default function MistakesPage() {
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState<string>('');
+  const [gradeLevel, setGradeLevel] = useState('S4');
 
   // === SRS 每日錯題複習 ===
   const [srsMistakesDue, setSrsMistakesDue] = useState(0);
@@ -54,6 +56,8 @@ export default function MistakesPage() {
       .then(d => {
         const id = d?.user?.id || store.userId || '';
         if (id) setStudentId(id);
+        const level = d?.user?.level || d?.user?.class?.gradeLevel;
+        if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
       .catch(() => {});
   }, [store.userId]);
@@ -127,6 +131,14 @@ export default function MistakesPage() {
         body: JSON.stringify({ id, reviewed: !target.reviewed }),
       }).catch(() => {});
     }
+  };
+
+  // Add to vocab from mistake
+  const [vocabWord, setVocabWord] = useState('');
+  const [showVocabAdd, setShowVocabAdd] = useState(false);
+  const handleAddToVocab = (word: string) => {
+    setVocabWord(word);
+    setShowVocabAdd(true);
   };
 
   const filtered = mistakes.filter((m) => {
@@ -285,6 +297,14 @@ export default function MistakesPage() {
                 <button onClick={() => toggleReviewList(m.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   <BookMarked className="w-3 h-3" /> {m.inReviewList ? t('mistakes.removeFromReview') : t('mistakes.addToReview')}
                 </button>
+                {m.mistakeType === 'vocabulary' && (
+                  <button
+                    onClick={() => handleAddToVocab(m.correctAnswer)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-lg hover:bg-teal-100 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> {t('vocab.addWord')}
+                  </button>
+                )}
                 <button onClick={() => toggleReviewed(m.id)} className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   m.reviewed
                     ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100'
@@ -298,6 +318,16 @@ export default function MistakesPage() {
           ))
         )}
       </div>
+
+      {/* Quick Add Vocab Modal */}
+      {showVocabAdd && studentId && (
+        <QuickAddVocab
+          studentId={studentId}
+          gradeLevel={gradeLevel}
+          initialWord={vocabWord}
+          onAdded={() => setShowVocabAdd(false)}
+        />
+      )}
     </div>
   );
 }

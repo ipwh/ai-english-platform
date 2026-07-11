@@ -349,18 +349,29 @@ export interface MistakeItem {
 
 export type Familiarity = 'new' | 'learning' | 'familiar' | 'mastered';
 
+/** 0-5 SRS 掌握度評級 */
+export type MasteryLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
 export interface VocabItem {
   id: string;
   word: string;
   partOfSpeech: string;
+  allPartOfSpeech?: string[];     // 所有常見詞性
   meaningZh: string;
+  secondaryMeaningZh?: string;    // 次要中文意思
   exampleSentence: string;
   exampleZh: string;
+  synonyms?: string[];            // 同義字
+  antonyms?: string[];            // 反義字
+  collocations?: string[];        // 常見搭配
   strategy?: LanguageStrategy;
   topic?: string;
   familiarity: Familiarity;
+  masteryLevel: MasteryLevel;    // 0-5
   nextReviewDate: string;
   audioUrl?: string;
+  easeFactor?: number;
+  reviewInterval?: number;
 }
 
 // ============================================

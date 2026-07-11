@@ -138,6 +138,25 @@ export const MaterialAnalysisSchema = z.object({
 });
 
 // ============================================
+// 七、單字 AI 分析 — 生字簿快速加入 / 自動擴充
+// ============================================
+
+export const WordAnalysisSchema = z.object({
+  word: z.string().min(1),
+  partOfSpeech: z.string().min(1),              // 主要詞性
+  allPartOfSpeech: z.array(z.string()).default([]), // 所有常見詞性
+  meaningZh: z.string().min(1),                 // 主要中文意思
+  secondaryMeaningZh: z.string().optional(),    // 次要中文意思
+  exampleSentence: z.string().min(1),           // 英文例句
+  exampleZh: z.string().min(1),                 // 例句中文翻譯
+  synonyms: z.array(z.string()).default([]),    // 同義字
+  antonyms: z.array(z.string()).default([]),    // 反義字
+  collocations: z.array(z.string()).default([]),// 常見搭配
+});
+
+export type WordAnalysis = z.infer<typeof WordAnalysisSchema>;
+
+// ============================================
 // 輔助：安全驗證（不回傳完整 error details 給 client）
 // ============================================
 

@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"  // 開發: SQLite; 生產: prisma.config.ts 動態切換為 postgresql
 }
 
 // ============================================
@@ -174,19 +174,28 @@ model Mistake {
 // ============================================
 
 model VocabItem {
-  id              String    @id @default(cuid())
-  studentId       String
-  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  word            String
-  partOfSpeech    String
-  meaningZh       String
-  exampleSentence String?
-  familiarity     String    @default("new") // new | learning | familiar | mastered
-  nextReviewDate  DateTime?
-  reviewInterval  Int       @default(0)  // SRS: 複習間隔天數
-  easeFactor      Float     @default(2.5) // SRS: 簡化 EF
-  lastReviewedAt  DateTime? // SRS: 上次複習時間
-  createdAt       DateTime  @default(now())
+  id                String    @id @default(cuid())
+  studentId         String
+  student           User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  word              String
+  partOfSpeech      String
+  allPartOfSpeech   String?   // JSON 陣列: ["noun","verb","adjective"]
+  meaningZh         String
+  secondaryMeaningZh String?  // 次要中文意思
+  exampleSentence   String?
+  exampleZh         String?   // 例句中文翻譯
+  synonyms          String?   // JSON 陣列: ["happy","joyful","content"]
+  antonyms          String?   // JSON 陣列: ["sad","unhappy"]
+  collocations      String?   // JSON 陣列: ["make a decision","take a risk"]
+  familiarity       String    @default("new") // new | learning | familiar | mastered
+  masteryLevel      Int       @default(0)    // 0-5 掌握度評級
+  nextReviewDate    DateTime?
+  reviewInterval    Int       @default(0)    // SRS: 複習間隔天數
+  easeFactor        Float     @default(2.5)  // SRS: 簡化 EF
+  lastReviewedAt    DateTime? // SRS: 上次複習時間
+  createdAt         DateTime  @default(now())
+
+  @@unique([word, studentId])  // 同一學生不能重複加入相同單字
 }
 
 // ============================================
