@@ -18,11 +18,18 @@ import { useT } from '@/hooks/use-i18n';
 export default function StudentProgressPage() {
   const store = useAppStore();
   const { t } = useT();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  // 載入練習歷史
+  // 載入練習歷史（先確保 session 就緒）
   useEffect(() => {
-    store.loadPracticeHistory();
-  }, [store.loadPracticeHistory]);
+    setLoading(true);
+    setLoadError(false);
+    store.initSession()
+      .then(() => store.loadPracticeHistory())
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
+  }, []);
 
   const weeklyStats = store.getWeeklyStats();
   const masteryBySkill = store.getMasteryBySkill();
@@ -66,6 +73,22 @@ export default function StudentProgressPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('progress.title')}</h1>
 
+      {/* 載入中 */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+        </div>
+      )}
+
+      {/* 載入失敗 */}
+      {!loading && loadError && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center shadow-sm border">
+          <p className="text-gray-500 mb-3">無法載入進度數據</p>
+          <button onClick={() => { setLoading(true); setLoadError(false); store.initSession().then(() => store.loadPracticeHistory()).finally(() => setLoading(false)); }} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">重試</button>
+        </div>
+      )}
+
+      {!loading && !loadError && (<>
       {/* KPI 卡片 */}
       <div className="grid grid-cols-3 gap-3">
         {kpis.map((kpi, i) => <KpiCard key={i} data={kpi} />)}
@@ -77,16 +100,22 @@ export default function StudentProgressPage() {
           <TrendingUp className="w-5 h-5 text-teal-500" />
           {t('progress.trend')}
         </h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={trendData.length > 0 ? trendData : [{ day: '', '練習量': 0, '正確率': 0 }]}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#9ca3af" />
-            <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
-            <Tooltip />
-            <Line type="monotone" dataKey="練習量" stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
-            <Line type="monotone" dataKey="正確率" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b' }} />
-          </LineChart>
-        </ResponsiveContainer>
+        {trendData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+              <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
+              <Tooltip />
+              <Line type="monotone" dataKey="練習量" stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
+              <Line type="monotone" dataKey="正確率" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-[220px] text-sm text-gray-400">
+            完成更多練習後將顯示練習趨勢圖
+          </div>
+        )}
       </section>
 
       {/* 技能掌握度 */}
@@ -177,6 +206,7 @@ export default function StudentProgressPage() {
         </section>
       )}
 
+      </>)}
     </div>
   );
 }

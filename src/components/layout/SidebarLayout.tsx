@@ -492,7 +492,7 @@ export default function SidebarLayout({
               const activeColor =
                 accentColor === 'teal'
                   ? 'text-teal-600 dark:text-teal-400'
-                  : 'text-teal-600 dark:text-teal-400';
+                  : 'text-blue-600 dark:text-blue-400';
               return (
                 <Link
                   key={item.href}
