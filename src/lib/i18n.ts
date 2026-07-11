@@ -306,6 +306,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.getAiAdvice': { zh: '獲取 AI 教學建議', en: 'Get AI Teaching Advice' },
   'teacher.reanalyze': { zh: '🔄 重新分析', en: '🔄 Re-analyze' },
   'teacher.analyzing': { zh: '分析中...', en: 'Analyzing...' },
+  'teacher.loadAssignmentsFailed': { zh: '無法載入任務列表', en: 'Failed to load assignments' },
+  'teacher.noAssignments': { zh: '尚未建立任何任務', en: 'No assignments created' },
+  'teacher.createFirst': { zh: '建立第一個任務', en: 'Create First Assignment' },
   'teacher.aiUnavailable': { zh: '無法獲取 AI 建議', en: 'AI advice unavailable' },
   'teacher.aiConnectionFailed': { zh: 'AI 服務連線失敗', en: 'AI service connection failed' },
 

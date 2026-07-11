@@ -99,6 +99,8 @@ export default function TeacherStudentsPage() {
                       <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300">{(s.nameZh || '?').charAt(0)}</div>
                       <div>
                         <span className="font-medium text-gray-900 dark:text-white">{s.nameZh || s.nameEn}</span>
+                        {s.nameEn && s.nameZh && <span className="text-xs text-gray-400 ml-1">({s.nameEn})</span>}
+                        {!s.nameZh && s.nameEn && <span className="text-xs text-gray-400 ml-1">{s.nameEn}</span>}
                         <p className="text-[10px] text-gray-400">{s.email}</p>
                       </div>
                     </div>

@@ -5,14 +5,16 @@
 
 import SidebarLayout from './SidebarLayout';
 import { teacherNavSections } from '@/lib/nav';
+import { useAppStore } from '@/store/appStore';
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
+  const { language } = useAppStore();
   return (
     <SidebarLayout
       role="teacher"
       navSections={teacherNavSections}
       accentColor="blue"
-      subtitle="教師版"
+      subtitle={language === 'en' ? 'Teacher' : '教師版'}
     >
       {children}
     </SidebarLayout>

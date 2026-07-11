@@ -105,9 +105,9 @@ export default function TeacherReviewPage() {
 
       <div className="flex gap-2">
         {[
-          { key: 'all', label: '全部' },
-          { key: 'pending', label: '待覆核' },
-          { key: 'reviewed', label: '已覆核' },
+          { key: 'all', label: t('teacher.review.all') },
+          { key: 'pending', label: t('teacher.review.pending') },
+          { key: 'reviewed', label: t('teacher.review.reviewed') },
         ].map((f) => (
           <button
             key={f.key}
@@ -138,7 +138,7 @@ export default function TeacherReviewPage() {
                   r.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                   r.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                 }`}>
-                  {r.status === 'pending' ? '待覆核' : r.status === 'reviewed' ? '已覆核' : '已退回'}
+                  {r.status === 'pending' ? t('teacher.review.pending') : r.status === 'reviewed' ? t('teacher.review.reviewed') : t('teacher.review.returned')}
                 </span>
               </div>
               <p className="text-xs text-gray-500 truncate">{r.assignmentTitle}</p>
@@ -150,7 +150,7 @@ export default function TeacherReviewPage() {
         {/* 右：詳情 + 教師修正 */}
         <div className="lg:col-span-2 space-y-4">
           {!selectedReview ? (
-            <EmptyState title="請選擇一份作業進行覆核" icon={<MessageSquare className="w-8 h-8" />} />
+            <EmptyState title={t('teacher.review.selectPrompt')} icon={<MessageSquare className="w-8 h-8" />} />
           ) : (
             <>
               {/* 題目與學生答案 */}
@@ -158,11 +158,11 @@ export default function TeacherReviewPage() {
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-3">{selectedReview.assignmentTitle}</h3>
                 <div className="space-y-3">
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">題目</p>
+                    <p className="text-xs text-gray-400 mb-1">{t('teacher.review.question')}</p>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{selectedReview.questionPrompt}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">學生答案</p>
+                    <p className="text-xs text-gray-400 mb-1">{t('teacher.review.studentAnswer')}</p>
                     <p className="text-sm text-gray-900 dark:text-white">{selectedReview.studentAnswer}</p>
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export default function TeacherReviewPage() {
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">🤖 AI 批改</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{t('teacher.review.aiGrading')}</span>
                     <span className={`text-sm font-bold ${selectedReview.aiScore >= 50 ? 'text-green-600' : 'text-red-600'}`}>
                       {selectedReview.aiScore} 分
                     </span>
@@ -183,7 +183,7 @@ export default function TeacherReviewPage() {
                     className="flex items-center gap-1 px-3 py-1.5 text-xs text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 disabled:opacity-50"
                   >
                     {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    {aiLoading ? '分析中...' : 'AI 重新批改'}
+                    {aiLoading ? t('teacher.analyzing') : t('teacher.review.reanalyze')}
                   </button>
                 </div>
                 {aiError && <p className="text-xs text-red-500 mb-2">{aiError}</p>}
@@ -197,7 +197,7 @@ export default function TeacherReviewPage() {
 
               {/* 教師修正區 */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-3">✏️ 教師修正</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-3">{t('teacher.review.teacherCorrection')}</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">分數修正</label>

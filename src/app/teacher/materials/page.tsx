@@ -107,8 +107,8 @@ export default function TeacherMaterialsPage() {
       {/* 上傳區 */}
       <label className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer block">
         <Upload className="w-10 h-10 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">拖放檔案至此，或點擊上傳</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">支援 PDF、DOCX、PPT、圖片（最大 20MB）</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('teacher.materials.dropzone')}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('teacher.materials.dropzoneHint')}</p>
         <input
           type="file"
           accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg,.txt"

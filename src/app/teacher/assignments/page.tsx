@@ -40,7 +40,7 @@ export default function TeacherAssignmentsPage() {
           href="/teacher/assignments/new"
           className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
         >
-          <Plus className="w-4 h-4" /> 建立新任務
+          <Plus className="w-4 h-4" /> {t('teacher.assignments.new')}
         </Link>
       </div>
 
@@ -52,15 +52,15 @@ export default function TeacherAssignmentsPage() {
 
       {!loading && loadError && (
         <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border">
-          <p className="text-gray-500 mb-3">無法載入任務列表</p>
-          <button onClick={loadAssignments} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">重試</button>
+          <p className="text-gray-500 mb-3">{t('teacher.loadAssignmentsFailed')}</p>
+          <button onClick={loadAssignments} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">{t('common.retry')}</button>
         </div>
       )}
 
       {!loading && !loadError && assignments.length === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border">
-          <p className="text-gray-400">尚未建立任何任務</p>
-          <Link href="/teacher/assignments/new" className="mt-3 inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">建立第一個任務</Link>
+          <p className="text-gray-400">{t('teacher.noAssignments')}</p>
+          <Link href="/teacher/assignments/new" className="mt-3 inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">{t('teacher.createFirst')}</Link>
         </div>
       )}
 
