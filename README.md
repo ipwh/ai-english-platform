@@ -186,12 +186,14 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **VocabCard 策略提示動態化**：根據 `masteryLevel` + `familiarity` + `nextReviewDate` 自動推導學習策略（不再依賴未使用的 DB 欄位）
 - **TypeScript Schema 修復**：移除 `VocabItem` interface 中不存在於 DB 的 `topic`/`audioUrl` 欄位
 
-### 🎧 DSE Paper 3 Listening 聆聽題全面升級
-- **真實 DSE 風格對話生成**：依難度自動調節長度（短對話 6 行 → 長對話 24 行），支援 2-3 位說話者，自然口語特徵
-- **DSE 常見陷阱自動注入**：Distraction（說了又改）、Synonym replacement（同義詞替換）、Speaker attitude（態度推論）、Numerical/time precision、Name spelling
-- **題型全面覆蓋**：MCQ（plausible distractor）+ Fill-in-blank（verbatim）+ Form-filling + Matching + Inference + Speaker attitude
-- **難度分層**：補底→簡單對話+基礎題型、核心→中等對話+1 陷阱、挑戰→長對話+2+陷阱+態度推論
-- **Prompt 強化**：整合 AfterSchool 及 Defining Education DSE Paper 3 教學精華（Repetition=答案、轉折詞後是重點、Grammar 轉換、Note-taking 技巧）
+### 🎧 DSE Paper 3 Listening 聆聽題 v3.0 — 自然語速 + Intonation 強化
+- **自然語速與 Intonation 控制系統**：6 大因素（情緒波動、語境正式度、重點強調、語調標記、linking/reduction、情感表達）在 prompt 中完整建模
+- **Intonation 文本標記系統**：【↑】上升、【↓】下降、【—】停頓、*斜體*重音、CAPS 強烈重音
+- **難度分層強化**：補底 ~70% 語速+線性結構 → 核心 ~85%+1-2 陷阱 → 挑戰 ~100% 自然語速+3 陷阱+多情緒層次
+- **6 種自然口語特徵強制嵌入**：linking ("gonna")、reduction ("whatcha")、hesitation ("Um...")、repetition+self-correction、fillers、emotion cues
+- **6 種 DSE 陷阱規範**：Distraction / Synonym / Attitude / Numerical / Spelling / Inference — 每種有具體設計範例
+- **7 種題型**：MCQ / Fill-blank / Form-filling / Matching / Inference / Speaker Attitude / Summary Completion
+- **⚠️ 原創性保障**：Prompt 明確禁止複製真實 DSE 試題，只能模仿風格與難度水平
 
 ### 🎧✍️ Integrated Skills 綜合訓練 (DSE Paper 3 Part B)
 - **任務生成** (`POST /api/ai/generate-integrated-skills`)：生成完整 Integrated Skills 任務

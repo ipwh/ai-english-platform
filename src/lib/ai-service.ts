@@ -755,82 +755,177 @@ HKDSE 等級對齊指引：
 - 題型：${typeDesc}
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
-【DSE Paper 3 Listening 聆聽題 — 全面升級要求】
+【DSE Paper 3 Listening 聆聽題 — v3.0 自然語速 + Intonation 強化版】
 
-DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷。請按以下真實 DSE 標準生成聆聽材料與題目。
+⚠️ 原創性強制要求：你必須生成 100% 原創的聽力材料。嚴禁複製、改寫、或參照任何真實 HKDSE 歷屆試題內容（含原文、答案、結構）。只能模仿 DSE 的題型風格、難度水平、語言要求。
 
-一、聆聽材料 (listeningContent) 設計規則：
+DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷。
 
-1. 長度與結構（依難度）：
-   - remedial (Level 1-2)：1 段短對話，6-10 行，2 位說話者
-   - core (Level 3)：1 段中等對話，10-16 行，2-3 位說話者，含 1 個 distraction
-   - challenge (Level 4-5)：1 段長對話或 2 段相關短對話，16-24 行，2-3 位說話者，含 2+ 個陷阱
+═══════════════════════════════════════
+一、自然語速與 Intonation 控制
+═══════════════════════════════════════
 
-2. 角色標籤格式（CRITICAL — TTS 相容）：
-   - 只可使用：Woman: / Man: / Boy: / Girl: （每行一個發言）
-   - 嚴禁 A/B/Speaker A/Speaker B 等字母標籤
-   - 題目中引用說話者用 "the woman" / "the man"
+真實口語的語速與 intonation 受以下因素控制，你必須在 listeningContent 中自然體現：
 
-3. 必須包含 DSE 常見陷阱（挑戰模式必須至少 2 項）：
-   ✅ Distraction (說了又改)：
-      Woman: The meeting is at 3pm.
-      Man: Actually, no — they've moved it to 4pm.
-   ✅ Synonym replacement (同義詞替換)：
-      錄音說 "postponed"，題目用 "delayed"
-   ✅ Speaker attitude (說話者態度)：
-      Woman: Well, I suppose that's one way to look at it... (暗示不贊同)
-   ✅ Numerical/time precision (數字/時間精準)：
-      明確說出日期、時間、數量、價格
-   ✅ Name spelling (名字串法)：
-      在對話中清楚串出：M-A-R-G-A-R-E-T
+【語速變化的觸發因素】
+1. 情緒波動 → 語速變化：
+   - 興奮/急切 → 加快："Wait, wait — I just remembered! The deadline is actually this Friday, not next Monday!"
+   - 猶豫/不確定 → 放慢 + hesitation："Um... I'm not entirely sure, but I think it was... around 200 dollars?"
+   - 緊張/壓力 → 破碎短句："Look. We need to act. Now. If we don't submit by 5pm..."
+2. 語境正式度 → 整體語速：
+   - 正式場合 (會議/訪問) → 清晰、中等語速、完整發音
+   - 非正式場合 (朋友聊天) → 較快、多 linking/reduction
+3. 重點強調 → 刻意放慢：
+   - "And this is the KEY point — we MUST arrive before eight."
+   - "Let me repeat: forty. Four-zero. Not fourteen."
 
-4. 語境真實性：
-   - 使用自然口語特徵：linking ("gonna", "wanna")、reduction、hesitation ("um, well...")
-   - 題材貼近 DSE：校園活動、社區服務、旅行計劃、社會議題、工作情境
-   - 對話應有自然的起承轉合，而非生硬的問答
+【Intonation 的文本標記方式】
+在 listeningContent 中使用以下系統來暗示語調變化：
+- 【↑】語調上升 (疑問/驚訝): "You're going to the conference?↑"
+- 【↓】語調下降 (確定/總結): "That settles it then.↓"
+- 【—】停頓強調: "The winner is【—】Team Alpha."
+- 使用斜體標記詞彙重音: "I said *three* o'clock, not *free* o'clock."
+- 使用 CAPS 標記強烈重音: "That is NOT what I meant!"
 
-二、題目設計規則：
+【自然口語特徵 — 必須嵌入】
+1. Linking (連音)：
+   - "gonna" (going to), "wanna" (want to), "gotta" (got to)
+   - "kinda" (kind of), "sorta" (sort of), "lemme" (let me)
+   - 僅在非正式對話中適度使用（挑戰模式可用，補底模式減少）
+2. Reduction (弱化)：
+   - "d'you" (do you), "whatcha" (what are you), "don'tcha" (don't you)
+   - 挑戰模式可適度使用，模擬真實自然語速
+3. Hesitation (停頓/猶豫)：
+   - "Um..." / "Er..." / "Well..." / "You know..." / "I mean..."
+   - "Let me think... Actually, wait — it was..."
+4. 重複與自我修正 (Repetition + Self-correction)：
+   - "The meeting is at three — no, wait, actually at four. They changed it."
+   - "It was really, really important. Like, the most important thing."
+5. 填充詞 (Fillers)：
+   - "like", "you know", "I mean", "sort of", "kind of", "basically", "right?"
+   - 適度使用使對話自然，但不可過度
+6. 情感表達 (Emotion cues)：
+   - 驚喜："Oh wow! That's... that's amazing! I didn't expect that at all."
+   - 失望："Oh. Right. Yeah, no, I understand. That's... that's fine."
+   - 不耐煩："Look, I've told you three times already — it's on the second floor."
 
-1. 題型組合（依難度）：
-   - remedial: 2 MCQ + 2 fill-blank + 1 short answer
-   - core: 2 MCQ + 1 fill-blank + 1 matching + 1 form-filling
-   - challenge: 1 MCQ + 1 fill-blank + 1 inference + 1 speaker attitude + 1 summary
+═══════════════════════════════════════
+二、難度分層系統 (依 difficulty + gradeLevel)
+═══════════════════════════════════════
 
-2. MCQ 設計（DSE 風格）：
-   - 4 個選項，干擾選項必須 plausible
-   - 選項中可包含錄音中出現過但非正確答案的內容（測試 distraction 識別）
-   - 挑戰模式：選項使用與錄音不同的詞彙表達相同概念（測試 synonym recognition）
+【補底 (remedial) — Level 1-2】
+- 語速: 偏慢 (~70% 自然語速的感覺)
+- Intonation: 平穩、清晰，一個句子一個語調輪廓
+- 詞彙: ~1000 詞水平，高頻詞為主，極少 idiom/phrasal verb
+- 句型: 簡單句 + 少量 and/but 複合句
+- 陷阱: 0-1 個（僅簡單 distraction — 說了立刻更正）
+- 對話結構: 線性、可預測、單一主題
+- 口語特徵: 極少 linking/reduction，不用 fillers
+- 長度: 1 段短對話 (6-10 行)，2 位說話者
+- S1-S3: 校園生活、家庭、興趣
+- S4-S6: 簡單社會話題、基礎工作情境
 
-3. Fill-in-blank 設計：
-   - 答案必須是錄音中逐字出現的內容（verbatim）
-   - 答案可能是：數字、日期、人名、地名、價格、活動名稱
-   - 題目句子與錄音用詞可有語法變化（singular→plural, tense change）
+【核心 (core) — Level 3】
+- 語速: 中等 (~85% 自然語速的感覺)
+- Intonation: 有變化，含疑問/確定/驚訝的語調對比
+- 詞彙: ~2000 詞水平，含常見 phrasal verb、collocation
+- 句型: 複合句 (if/when/although/because)、被動語態
+- 陷阱: 1-2 個 (distraction + synonym replacement)
+- 對話結構: 有轉折、短暫離題後回正軌
+- 口語特徵: 適度 linking ("gonna", "wanna")，少量 hesitation
+- 長度: 1 段中等對話 (10-16 行)，2-3 位說話者
+- 題材: 校園活動、社區服務、文化交流、兼職工作
 
-4. Speaker attitude / Inference 題（挑戰模式）：
-   - 問題形式："How does the woman feel about...?" / "What does the man imply when he says...?"
-   - 答案不能從單一句子直接提取，需要綜合語氣、上下文判斷
+【挑戰 (challenge) — Level 4-5】
+- 語速: 自然語速 (~100%)
+- Intonation: 豐富多變，含 sarcasm、含蓄反對、enthusiasm、disappointment 等情緒層次
+- 詞彙: ~3000+ 詞水平，含 idiom、進階 phrasal verb、formal/informal register 切換
+- 句型: 複雜句 (倒裝、強調、分裂句)、條件句混合型
+- 陷阱: 2-3 個 (distraction + synonym + speaker attitude + numerical/spelling)
+- 對話結構: 多主題交錯、自然打斷、插話、修正
+- 口語特徵: 自然 linking/reduction/hesitation/fillers，母語人士真實對話感
+- 長度: 1 段長對話 (16-24 行) 或 2 段相關短對話，2-3 位說話者
+- 題材: 社會議題、科技發展、環境保護、職業規劃、全球化
 
-5. 答案規則（STRICT — 必須 100% 遵守）：
-   - MCQ answer = "A"/"B"/"C"/"D" 之一
-   - fill-blank / short-answer 的 answer 必須逐字 (verbatim) 出現在 listeningContent 中
-   - 生成後自我檢查 (Self-Check)：逐一確認每個 answer 的對應文字確實存在於 listeningContent
+═══════════════════════════════════════
+三、DSE 常見陷阱設計規範
+═══════════════════════════════════════
 
-三、DSE Listening 高分技巧（注入 prompt 以協助出題）：
+1. Distraction (說了又改) — 必備：
+   "It's at 3pm. No, sorry — 4pm. They moved it."
+   題目陷阱: question asks for final time, 3pm appears as a choice
 
-- Repetition = answer：重要資訊在對話中重複出現
-- 轉折詞後是重點：but, however, actually, in fact, the thing is...
-- 強調詞引導答案：importantly, notably, especially, the key point is...
-- 數字/時間/名字必須精準捕捉
-- Grammar 轉換：題目可能要求將 singular 轉 plural，present 轉 past
+2. Synonym Replacement (同義詞替換) — 必備：
+   對話說: "The project was postponed."
+   題目問: "What happened to the project?" → 正確答案含 "delayed"
+   選項中同時出現 "postponed" 和 "delayed" 測試學生是否理解同義關係
 
-四、聆聽材料難度調節：
-- 補底: 語速偏慢、用詞簡單（~1000 詞水平）、單一主題、少陷阱
-- 核心: 中等語速、中級詞彙（~2000 詞水平）、1 個 distraction
-- 挑戰: 自然語速、DSE 程度詞彙、2+ 陷阱、需推論說話者態度
+3. Speaker Attitude (說話者態度) — 挑戰必備：
+   Woman: "Well, that's certainly... one approach. Have you considered other options?"
+   → 暗示不認同但不直接說 (含蓄反對)
+   題目: "How does the woman feel about the man's suggestion?"
+   答案不從單句提取，需綜合語氣判斷
 
-- listeningContentZh: 繁體中文簡短情境說明（例如：「一段關於學校活動安排的對話」）
-- prompt: 針對聆聽內容的具體題目
-- 所有中文使用繁體中文` : ''}
+4. Numerical Precision (數字精準) — 必備：
+   - 相似數字: thirteen vs thirty, 14 vs 40
+   - 時間變化: 3:15 → "quarter past three" vs "three fifteen"
+   - 價格格式: "$2.50" vs "two dollars fifty" vs "two fifty"
+
+5. Name/Spelling (名字串法) — 可選：
+   對話中清晰串出名字: "It's T-A-N-G, Tang."
+
+6. Inference (推論) — 挑戰必備：
+   不直接給答案，學生需從上下文推論
+   "I've been hitting the books every night this week." → 推論此人正在準備考試
+
+═══════════════════════════════════════
+四、題型設計規範
+═══════════════════════════════════════
+
+依難度自動組合題型：
+- remedial:  2 MCQ + 2 fill-blank + 1 short answer
+- core:      2 MCQ + 1 fill-blank + 1 form-filling + 1 matching
+- challenge: 1 MCQ + 1 fill-blank + 1 inference + 1 speaker attitude + 1 summary completion
+
+每種題型的設計要點：
+1. MCQ: 4 個 plausible options，distractor 必須看似合理。挑戰模式選項用 synonym 測試同義理解。
+2. Fill-blank: 答案 verbatim 來自 listeningContent。可能是數字/日期/名稱/關鍵詞。
+3. Form-filling: 模擬表格填寫，提供欄位標題，答案從對話中提取。
+4. Matching: 提供 4-5 個選項配對到 3-4 個問題。
+5. Inference: "What can we infer about...?" / "What does X imply when saying...?"
+6. Speaker Attitude: "How does the woman feel about...?" / "What is the man's attitude towards...?"
+7. Summary Completion: 提供一段有缺漏的摘要，學生從聽力中補全。
+
+═══════════════════════════════════════
+五、答案精準度規則 (STRICT)
+═══════════════════════════════════════
+
+1. MCQ answer = "A"/"B"/"C"/"D" 之一
+2. 所有非 MC 答案必須 100% verbatim 出現在 listeningContent 中
+3. 生成完成後必須 Self-Check：逐一核對每個 answer 是否能在 listeningContent 逐字找到
+4. 若 answer 是數字或日期，確保 listeningContent 中該數字/日期的形式與答案一致
+5. 若題目要求語法轉換 (singular→plural)，答案仍用 listeningContent 原形
+
+═══════════════════════════════════════
+六、DSE Listening 應試策略注入
+═══════════════════════════════════════
+
+以下策略既是給學生的技巧，也是你出題時應體現的設計原則：
+- 重複即答案：重要資訊在對話中至少出現 2 次
+- 轉折詞後是重點：but, however, actually, in fact, the thing is, the real issue is
+- 強調詞引導答案：importantly, notably, the key point, above all, most critically
+- 語氣轉變處有考點：當說話者語調明顯改變時，通常有題目
+- 數字/時間/名字必須精準捕捉，這些是最常見的得分點
+
+═══════════════════════════════════════
+七、輸出格式
+═══════════════════════════════════════
+
+- listeningContent: 完整對話，每行 Woman:/Man:/Boy:/Girl: 格式 (TTS 相容)
+- listeningContentZh: 繁體中文情境說明
+- 所有題目的 prompt 針對 listeningContent 內容
+- 所有中文使用繁體中文
+- 嚴禁使用 A/B/Speaker A/Speaker B 等字母標籤 — 只用性別+年齡角色標籤` : ''}
 ${isReading ? `
 【閱讀理解題特別要求 — 極重要！】
 - readingContent: 一段完整的英文閱讀篇章（80-200字），必須在題目之前提供給學生閱讀
