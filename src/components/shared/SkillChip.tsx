@@ -2,7 +2,8 @@
 // 技能標籤晶片元件
 // 支援 ELE KLACG 2017 課程文法項目及語言技能
 // ============================================
-import { skillLabels, difficultyLabels } from '@/lib/nav';
+import { skillLabels, skillLabelsEn, difficultyLabels } from '@/lib/nav';
+import { useAppStore } from '@/store/appStore';
 import type { SkillCategory, DifficultyLevel, GrammarItem, LanguageSkill } from '@/lib/types';
 
 interface SkillChipProps {
@@ -20,6 +21,7 @@ interface SkillChipProps {
 }
 
 export default function SkillChip({ skill, grammarItem, languageSkill, subSkill, subSkillZh, difficulty, size = 'sm', className = '' }: SkillChipProps) {
+  const language = useAppStore(s => s.language);
   const sizeClass = size === 'sm' ? 'text-xs px-2 py-0.5' : 'text-sm px-3 py-1';
 
   const diffColorMap: Record<string, string> = {
@@ -28,14 +30,18 @@ export default function SkillChip({ skill, grammarItem, languageSkill, subSkill,
     challenge: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
   };
 
-  // 取得技能標籤文字 — 優先使用課程對應欄位
+  const diffLabelsEn: Record<string, string> = { remedial: 'Remedial', core: 'Core', challenge: 'Challenge' };
+
+  // 取得技能標籤文字 — 根據語言選擇
   const skillKey = grammarItem || languageSkill || skill;
-  const skillLabel = subSkillZh || subSkill || (skillKey ? skillLabels[skillKey] || skillKey : '');
+  const labels = language === 'en' ? skillLabelsEn : skillLabels;
+  const skillLabel = subSkillZh || subSkill || (skillKey ? labels[skillKey] || skillKey : '');
 
   if (difficulty) {
+    const diffLabel = language === 'en' ? (diffLabelsEn[difficulty] || difficulty) : (difficultyLabels[difficulty] || difficulty);
     return (
       <span className={`inline-block rounded-full font-medium ${sizeClass} ${diffColorMap[difficulty] || 'bg-gray-100 text-gray-600'} ${className}`}>
-        {difficultyLabels[difficulty] || difficulty}
+        {diffLabel}
       </span>
     );
   }

@@ -4,6 +4,8 @@ import "./globals.css";
 import { ToastProvider } from "@/components/shared/Toast";
 import AuthProvider from "@/components/shared/AuthProvider";
 import { HydrateStore } from "@/components/shared/HydrateStore";
+import { headers } from "next/headers";
+import { cookies } from "next/headers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,18 +18,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI 英語學習平台 — 香港中學英語適應性學習",
+  title: {
+    default: "AI 英語學習平台 — 香港中學英語適應性學習",
+    template: "%s | AI English Platform",
+  },
   description: "AI 驅動香港中學英語適應性學習平台，支援中一至中六學生文法、詞彙、閱讀、寫作及改錯練習，教師可派發任務、查看班級進度及覆核 AI 批改。",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Dynamically set html lang based on user's language cookie
+  const cookieStore = await cookies();
+  const langCookie = cookieStore.get('lang')?.value;
+  const htmlLang = langCookie === 'en' ? 'en' : 'zh-HK';
+
   return (
     <html
-      lang="zh-HK"
+      lang={htmlLang}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
