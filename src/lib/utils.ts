@@ -96,11 +96,13 @@ export function truncate(text: string, max: number): string {
 }
 
 /**
- * 打招呼語（根據時段）
+ * 打招呼語（根據香港時段 UTC+8，確保 SSR/CSR 一致）
  */
 export function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return '早晨';
-  if (hour < 18) return '午安';
+  // 使用 UTC 時間 +8 小時模擬香港時區，避免伺服器/客戶端時區差異導致 hydration mismatch
+  const now = new Date();
+  const hkHour = (now.getUTCHours() + 8) % 24;
+  if (hkHour < 12) return '早晨';
+  if (hkHour < 18) return '午安';
   return '晚安';
 }

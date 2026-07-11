@@ -14,6 +14,7 @@ export function useT() {
   const language = useAppStore((s) => s.language);
   return {
     t: (key: string, vars?: Record<string, string | number>) => {
+      if (!key) return '';
       let text = t(key, language);
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {

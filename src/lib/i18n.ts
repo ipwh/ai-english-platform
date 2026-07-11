@@ -998,6 +998,7 @@ const translations: Record<string, { zh: string; en: string }> = {
  * @returns 翻譯後的文字
  */
 export function t(key: string, lang?: string): string {
+  if (!key) return '';
   const entry = translations[key];
   if (!entry) return key;
   return lang === 'en' ? entry.en : entry.zh;
