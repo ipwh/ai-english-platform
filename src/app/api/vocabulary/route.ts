@@ -49,13 +49,19 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, familiarity } = body;
+    const { id, familiarity, nextReviewDate, reviewInterval, easeFactor, lastReviewedAt } = body;
     if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
 
     const updateData: Record<string, unknown> = {};
     if (familiarity && ['new', 'learning', 'familiar', 'mastered'].includes(familiarity)) {
       updateData.familiarity = familiarity;
     }
+    // SRS 欄位
+    if (nextReviewDate) updateData.nextReviewDate = new Date(nextReviewDate);
+    if (reviewInterval !== undefined) updateData.reviewInterval = reviewInterval;
+    if (easeFactor !== undefined) updateData.easeFactor = easeFactor;
+    if (lastReviewedAt) updateData.lastReviewedAt = new Date(lastReviewedAt);
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }

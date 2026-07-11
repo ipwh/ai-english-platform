@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle } from 'lucide-react';
+import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels } from '@/lib/nav';
@@ -32,6 +32,21 @@ export default function MistakesPage() {
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState<string>('');
+
+  // === SRS 每日錯題複習 ===
+  const [srsMistakesDue, setSrsMistakesDue] = useState(0);
+
+  useEffect(() => {
+    if (!studentId) return;
+    fetch(`/api/srs/review?studentId=${encodeURIComponent(studentId)}&type=mistakes`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.reviewCards?.mistakes) {
+          setSrsMistakesDue(d.reviewCards.mistakes.length);
+        }
+      })
+      .catch(() => {});
+  }, [studentId]);
 
   useEffect(() => {
     fetch('/api/auth/profile')
@@ -124,6 +139,30 @@ export default function MistakesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('mistakes.title')}</h1>
+
+      {/* 🧠 SRS 每日錯題複習提示 */}
+      {srsMistakesDue > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Brain className="w-5 h-5 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">{t('srs.dailyReview')}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{srsMistakesDue} {t('srs.dueCards').replace('{n}', String(srsMistakesDue))}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              // Filter to show only review-list items
+              setSkillFilter('all');
+              setTypeFilter('all');
+              setSearch('');
+            }}
+            className="px-3 py-1.5 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+          >
+            {t('srs.startReview')}
+          </button>
+        </div>
+      )}
 
       {/* 統計摘要 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

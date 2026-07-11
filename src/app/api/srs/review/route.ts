@@ -109,10 +109,13 @@ export async function POST(req: NextRequest) {
         const vocab = await db.vocabItem.findUnique({ where: { id: r.id } });
         if (!vocab || vocab.studentId !== studentId) continue;
 
-        // 根據 familiarity 推算當前 SRS 狀態
+        // 使用 vocab 現有的 SRS 狀態（easeFactor, reviewInterval, lastReviewedAt）
         const quality = r.quality;
         const srsResult = calculateNextReview(quality, {
-          lastReviewedAt: vocab.nextReviewDate?.toISOString(),
+          easeFactor: vocab.easeFactor ?? 2.5,
+          interval: vocab.reviewInterval ?? 0,
+          repetitions: 0,
+          lastReviewedAt: vocab.lastReviewedAt?.toISOString() ?? vocab.nextReviewDate?.toISOString(),
         });
 
         // 根據 quality 更新 familiarity
@@ -129,6 +132,9 @@ export async function POST(req: NextRequest) {
             data: {
               familiarity: newFamiliarity,
               nextReviewDate: new Date(srsResult.nextReviewDate),
+              reviewInterval: srsResult.interval,
+              easeFactor: srsResult.easeFactor,
+              lastReviewedAt: new Date(srsResult.lastReviewedAt),
             },
           })
         );

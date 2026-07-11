@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Sparkles, Loader2, BookMarked, TrendingUp } from 'lucide-react';
+import { Search, Sparkles, Loader2, BookMarked, TrendingUp, CalendarCheck, Brain } from 'lucide-react';
 
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
@@ -13,6 +13,7 @@ import { useAppStore } from '@/store/appStore';
 import type { Familiarity, VocabItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 import { getFamiliarityLabel, getFamiliarityColor } from '@/lib/utils';
+import { familiarityToQuality, calculateNextReview } from '@/lib/srs';
 
 const nextFamiliarity: Record<Familiarity, Familiarity> = {
   'new': 'learning', 'learning': 'familiar', 'familiar': 'mastered', 'mastered': 'mastered',
@@ -34,6 +35,26 @@ export default function VocabularyPage() {
   const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState('');
   const [gradeLevel, setGradeLevel] = useState('S4');
+
+  // === SRS Daily Review ===
+  const [srsDue, setSrsDue] = useState<any[]>([]);
+  const [srsLoading, setSrsLoading] = useState(false);
+  const [srsProgress, setSrsProgress] = useState<{ percentage: number; label: string } | null>(null);
+
+  const loadSrsReview = () => {
+    if (!studentId) return;
+    setSrsLoading(true);
+    fetch(`/api/srs/review?studentId=${encodeURIComponent(studentId)}&type=vocab`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.reviewCards?.vocab) {
+          setSrsDue(d.reviewCards.vocab);
+          setSrsProgress(d.progress?.vocab || null);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setSrsLoading(false));
+  };
 
   useEffect(() => {
     fetch('/api/auth/profile')
@@ -57,6 +78,7 @@ export default function VocabularyPage() {
   };
 
   useEffect(() => { loadVocab(); }, [studentId]);
+  useEffect(() => { if (studentId) loadSrsReview(); }, [studentId]);
 
   const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
 
@@ -95,17 +117,36 @@ export default function VocabularyPage() {
     finally { setGeneratingId(null); }
   };
 
-  // 切換熟悉度（更新本地狀態 + 持久化到 API）
+  // 切換熟悉度（更新本地狀態 + 持久化到 API，含 SRS 排程）
   const toggleFamiliarity = (v: VocabItem) => {
     const next = nextFamiliarity[v.familiarity];
+    // 根據新熟悉度計算 SRS quality
+    const quality = familiarityToQuality(next);
+    // 用現有 SRS 狀態計算下一次複習日期
+    const srsUpdate = calculateNextReview(quality, {
+      easeFactor: (v as any).easeFactor ?? 2.5,
+      interval: (v as any).reviewInterval ?? 0,
+      repetitions: 0,
+      lastReviewedAt: (v as any).lastReviewedAt ?? undefined,
+    });
+
     setVocab(prev => prev.map(item =>
-      item.id === v.id ? { ...item, familiarity: next } : item
+      item.id === v.id
+        ? { ...item, familiarity: next, nextReviewDate: srsUpdate.nextReviewDate }
+        : item
     ));
-    // 持久化到後端
+    // 持久化到後端（含 SRS 欄位）
     fetch('/api/vocabulary', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: v.id, familiarity: next }),
+      body: JSON.stringify({
+        id: v.id,
+        familiarity: next,
+        nextReviewDate: srsUpdate.nextReviewDate,
+        reviewInterval: srsUpdate.interval,
+        easeFactor: srsUpdate.easeFactor,
+        lastReviewedAt: srsUpdate.lastReviewedAt,
+      }),
     }).catch(() => {});
   };
 
@@ -143,6 +184,39 @@ export default function VocabularyPage() {
           </div>
         ))}
       </div>
+
+      {/* 🧠 SRS 每日複習 */} 
+      {srsDue.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-5 border border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-indigo-800 dark:text-indigo-200 flex items-center gap-2">
+              <Brain className="w-5 h-5" /> {t('srs.dailyReview')}
+            </h2>
+            {srsProgress && (
+              <span className="text-xs text-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 px-2.5 py-1 rounded-full">
+                {srsProgress.label} ({srsProgress.percentage}%)
+              </span>
+            )}
+          </div>
+          <div className="space-y-2">
+            {srsDue.slice(0, 5).map((card: any) => (
+              <div key={card.id} className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
+                <div>
+                  <span className="font-bold text-gray-900 dark:text-white">{card.word}</span>
+                  <span className="text-xs text-gray-400 ml-2">{card.partOfSpeech}</span>
+                  <p className="text-xs text-gray-500">{card.meaningZh}</p>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full ${getFamiliarityColor(card.familiarity)}`}>
+                  {getFamiliarityLabel(card.familiarity)}
+                </span>
+              </div>
+            ))}
+            {srsDue.length > 5 && (
+              <p className="text-xs text-gray-400 text-center">+{srsDue.length - 5} more due today</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 搜尋與篩選 */}
       <div className="flex gap-3">

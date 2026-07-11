@@ -30,13 +30,14 @@ export async function GET(req: NextRequest) {
           nameEn: true,
           streakDays: true,
           overallAccuracy: true,
+          xp: true,
         },
       });
 
       const leaderboard = buildLeaderboard(
         students.map(s => ({
           ...s,
-          xp: 0, // XP not stored yet
+          xp: s.xp ?? 0,
           overallAccuracy: s.overallAccuracy ?? undefined,
         }))
       );
@@ -45,16 +46,21 @@ export async function GET(req: NextRequest) {
     }
 
     // Default: student stats + badges
-    const [student, totalQuestions, vocabMastered, writingCount, sessionsCount] = await Promise.all([
+    const [student, sessionsAgg, vocabMastered, writingCount, sessionsCount] = await Promise.all([
       db.user.findUnique({
         where: { id: studentId },
-        select: { streakDays: true, overallAccuracy: true },
+        select: { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true },
       }),
-      db.practiceSession.count({ where: { studentId } }),
+      db.practiceSession.aggregate({
+        where: { studentId },
+        _sum: { totalQuestions: true },
+      }),
       db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
       db.writingDraft.count({ where: { studentId } }),
       db.practiceSession.count({ where: { studentId } }),
     ]);
+
+    const totalQuestions = sessionsAgg._sum.totalQuestions ?? 0;
 
     const stats: BadgeCheckStats = {
       totalQuestions,
@@ -67,15 +73,33 @@ export async function GET(req: NextRequest) {
       skillAccuracy: {},
     };
 
-    const xp = totalQuestions * 5; // simple XP calculation
+    const xp = student?.xp ?? 0;
     const levelInfo = getLevelInfo(xp);
-    const allBadges = getAllBadges(stats, []);
+
+    // Parse already-unlocked badge IDs
+    let alreadyUnlocked: string[] = [];
+    try {
+      alreadyUnlocked = student?.badgeIds ? JSON.parse(student.badgeIds) : [];
+    } catch { alreadyUnlocked = []; }
+
+    const allBadges = getAllBadges(stats, alreadyUnlocked);
+
+    // Auto-award newly earned badges and update user
+    const newBadges = checkNewBadges(stats, alreadyUnlocked);
+    if (newBadges.length > 0) {
+      const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map(b => b.id)];
+      await db.user.update({
+        where: { id: studentId },
+        data: { badgeIds: JSON.stringify(updatedBadgeIds) },
+      }).catch(() => {}); // Silently fail — badges are cosmetic
+    }
 
     return NextResponse.json({
       xp,
       level: levelInfo,
       badges: allBadges,
       stats,
+      newBadges: newBadges.length > 0 ? newBadges : undefined,
     });
   } catch (error) {
     console.error('[Gamification GET]', error);
