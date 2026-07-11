@@ -36,10 +36,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 限制草稿長度，防止 token 超限
+    const MAX_DRAFT_LENGTH = 5000;
+    const safeDraft = typeof studentDraft === 'string' && studentDraft.length > MAX_DRAFT_LENGTH
+      ? studentDraft.slice(0, MAX_DRAFT_LENGTH)
+      : studentDraft;
+
     const analysis = await analyzeWriting({
       title,
       prompt: prompt || '',
-      studentDraft,
+      studentDraft: safeDraft,
       studentLevel,
       textType,
     });

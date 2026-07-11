@@ -18,14 +18,19 @@ export default function TeacherAssignmentsPage() {
   const { t } = useT();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadAssignments = () => {
+    setLoading(true);
+    setLoadError(false);
     fetch('/api/assignments')
       .then(r => r.json())
       .then(d => { if (d.assignments?.length) setAssignments(d.assignments); })
-      .catch((e) => { console.error('Failed to load assignments:', e); })
+      .catch((e) => { console.error('Failed to load assignments:', e); setLoadError(true); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadAssignments(); }, []);
 
   return (
     <div className="space-y-6">
@@ -39,6 +44,27 @@ export default function TeacherAssignmentsPage() {
         </Link>
       </div>
 
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      )}
+
+      {!loading && loadError && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border">
+          <p className="text-gray-500 mb-3">無法載入任務列表</p>
+          <button onClick={loadAssignments} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">重試</button>
+        </div>
+      )}
+
+      {!loading && !loadError && assignments.length === 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border">
+          <p className="text-gray-400">尚未建立任何任務</p>
+          <Link href="/teacher/assignments/new" className="mt-3 inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">建立第一個任務</Link>
+        </div>
+      )}
+
+      {!loading && !loadError && assignments.length > 0 && (
       <div className="space-y-3">
         {assignments.map((a) => {
           const remaining = daysRemaining(a.dueDate);
@@ -79,6 +105,7 @@ export default function TeacherAssignmentsPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

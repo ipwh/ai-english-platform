@@ -9,20 +9,26 @@ import { verifySessionToken } from '@/lib/auth';
 
 // GET /api/assignments — 列出課業
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const classId = searchParams.get('classId');
-  const teacherId = searchParams.get('teacherId');
+  try {
+    const { searchParams } = new URL(request.url);
+    const classId = searchParams.get('classId');
+    const teacherId = searchParams.get('teacherId');
 
-  const assignments = await db.assignment.findMany({
-    where: {
-      ...(classId ? { className: classId } : {}),
-      ...(teacherId ? { createdBy: teacherId } : {}),
-    },
-    include: { _count: { select: { submissions: true } } },
-    orderBy: { createdAt: 'desc' },
-  });
+    const assignments = await db.assignment.findMany({
+      where: {
+        ...(classId ? { className: classId } : {}),
+        ...(teacherId ? { createdBy: teacherId } : {}),
+      },
+      include: { _count: { select: { submissions: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return NextResponse.json({ assignments });
+    return NextResponse.json({ assignments });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Server error';
+    console.error('[assignments GET]', msg);
+    return NextResponse.json({ error: msg, assignments: [] }, { status: 500 });
+  }
 }
 
 // POST /api/assignments — 建立課業

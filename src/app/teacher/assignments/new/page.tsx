@@ -32,12 +32,18 @@ export default function NewAssignmentPage() {
   const [genError, setGenError] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState<{ prompt: string; choices?: string[]; answer: string }[]>([]);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
+  const [teacherId, setTeacherId] = useState('');
 
   useEffect(() => {
-    fetch('/api/classes')
-      .then(r => r.json())
-      .then(d => setClasses(d.classes || []))
-      .catch((e) => { console.error('Failed to load classes:', e); });
+    Promise.all([
+      fetch('/api/classes').then(r => r.json()),
+      fetch('/api/auth/profile').then(r => r.json()),
+    ])
+      .then(([classData, profileData]) => {
+        setClasses(classData.classes || []);
+        if (profileData?.user?.id) setTeacherId(profileData.user.id);
+      })
+      .catch((e) => { console.error('Failed to load data:', e); });
   }, []);
 
   const handleGenerate = async () => {
@@ -83,7 +89,7 @@ export default function NewAssignmentPage() {
           grammarItem: form.skill,
           difficulty: form.difficulty,
           questionCount: generatedQuestions.length,
-          createdBy: 'teacher',
+          createdBy: teacherId || 'teacher',
           questions: generatedQuestions.map((q, i) => ({
             questionType: form.questionType,
             prompt: q.prompt,

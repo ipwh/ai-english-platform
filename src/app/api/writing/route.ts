@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH — 更新寫作草稿（儲存新版本、送出覆核等）
+// PATCH — 更新寫作草稿（自動 upsert：無 id 時以 studentId 尋找上次草稿）
 export async function PATCH(request: NextRequest) {
   try {
     const userId = await getUserId(request);
@@ -98,11 +98,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, draft, revisedVersion, aiSuggestions, chinglishWarnings, status } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
-    }
+    const { id, draft, revisedVersion, aiSuggestions, chinglishWarnings, status, title } = body;
 
     const data: Record<string, unknown> = {};
     if (draft !== undefined) data.draft = draft;
@@ -111,14 +107,46 @@ export async function PATCH(request: NextRequest) {
     if (chinglishWarnings !== undefined) data.chinglishWarnings = JSON.stringify(chinglishWarnings);
     if (status !== undefined) data.status = status;
 
-    const updated = await db.writingDraft.update({
-      where: { id, studentId: userId },
-      data,
+    // If id is provided and is a real UUID, update that specific draft
+    if (id && id !== 'current' && /^[a-zA-Z0-9_-]{10,}$/.test(id)) {
+      const updated = await db.writingDraft.update({
+        where: { id, studentId: userId },
+        data,
+      });
+      return NextResponse.json({ draft: updated });
+    }
+
+    // Upsert: find most recent draft for this student, or create new
+    const existing = await db.writingDraft.findFirst({
+      where: { studentId: userId },
+      orderBy: { updatedAt: 'desc' },
     });
 
-    return NextResponse.json({ draft: updated });
+    if (existing) {
+      const updated = await db.writingDraft.update({
+        where: { id: existing.id },
+        data,
+      });
+      return NextResponse.json({ draft: updated });
+    }
+
+    // Create new draft
+    const created = await db.writingDraft.create({
+      data: {
+        studentId: userId,
+        title: title || 'Untitled Draft',
+        prompt: '',
+        draft: draft || '',
+        aiSuggestions: aiSuggestions ? JSON.stringify(aiSuggestions) : null,
+        chinglishWarnings: chinglishWarnings ? JSON.stringify(chinglishWarnings) : null,
+        status: 'draft',
+        ...data,
+      },
+    });
+    return NextResponse.json({ draft: created }, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
+    console.error('[writing PATCH]', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

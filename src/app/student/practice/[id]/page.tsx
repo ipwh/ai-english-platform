@@ -200,6 +200,28 @@ export default function PracticeQuestionPage() {
     setListeningRevealed(false);
   };
 
+  // 離開頁面時自動儲存 session 進度（防止導航遺失）
+  useEffect(() => {
+    return () => {
+      if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
+        // 儲存進行中的 session 到後端
+        fetch('/api/practice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: store.userId || 'student',
+            skill: store.currentSession.skill || 'general',
+            skillZh: store.currentSession.skillZh || '',
+            difficulty: store.currentSession.difficulty || 'core',
+            totalQuestions: store.currentSession.totalQuestions,
+            correctCount: store.currentSession.correctCount,
+            source: store.currentSession.source || 'ai-generated',
+          }),
+        }).catch(() => {});
+      }
+    };
+  }, [isSessionMode, store.currentSession, store.userId]);
+
   const handleHint = () => {
     if (currentHint < question.hintLevels.length) {
       setCurrentHint(currentHint + 1);

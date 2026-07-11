@@ -60,6 +60,9 @@ export default function WritingPage() {
   const [exporting, setExporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
+  // Computed values
+  const realTopic = useCustomTopic && customTopic ? customTopic : generatedPrompt;
+
   // Auto-save draft every 10 seconds
   useEffect(() => {
     if (!draft.trim()) return;
@@ -216,8 +219,6 @@ export default function WritingPage() {
     } catch { setAiError(t(lang, '連線失敗', 'Connection failed')); }
     finally { setAiLoading(false); }
   };
-
-  const realTopic = useCustomTopic && customTopic ? customTopic : generatedPrompt;
 
   return (
     <div className="space-y-6">
