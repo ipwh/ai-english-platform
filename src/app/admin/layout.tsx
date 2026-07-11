@@ -12,13 +12,14 @@ import {
   Shuffle,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
+import { useT } from '@/hooks/use-i18n';
 
 // ---- Error Boundary ----
 class AdminErrorBoundary extends Component<
-  { children: ReactNode; fallback?: ReactNode },
+  { children: ReactNode; t: (key: string) => string },
   { hasError: boolean; error: Error | null }
 > {
-  constructor(props: { children: ReactNode }) {
+  constructor(props: { children: ReactNode; t: (key: string) => string }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -27,14 +28,15 @@ class AdminErrorBoundary extends Component<
   }
   render() {
     if (this.state.hasError) {
+      const { t } = this.props;
       return (
         <div className="max-w-lg mx-auto mt-20 p-8 bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-800 text-center">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            頁面發生錯誤
+            {t('admin.error.title')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {this.state.error?.message || '未知錯誤'}
+            {this.state.error?.message || t('admin.error.unknown')}
           </p>
           <button
             onClick={() => {
@@ -44,7 +46,7 @@ class AdminErrorBoundary extends Component<
             className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            重新載入
+            {t('admin.error.reload')}
           </button>
         </div>
       );
@@ -65,6 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const { isLoggedIn, currentRole, initSession, userDisplayName, logout } = useAppStore();
+  const { t } = useT();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -111,7 +114,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <p className="font-semibold text-gray-900 dark:text-white text-sm">
                 AI English Platform
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">管理員後台</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin.layout.title')}</p>
             </div>
           )}
         </div>
@@ -202,7 +205,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Page content */}
         <main className="p-4 lg:p-6">
-          <AdminErrorBoundary>{children}</AdminErrorBoundary>
+          <AdminErrorBoundary t={t}>{children}</AdminErrorBoundary>
         </main>
       </div>
     </div>

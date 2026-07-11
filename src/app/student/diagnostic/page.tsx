@@ -313,11 +313,11 @@ export default function DiagnosticPage() {
         if (allQuestions.length > 0) {
           setQuestions(allQuestions);
         } else {
-          setGenError('AI 題目生成失敗，請稍後再試。');
+          setGenError(t('diagnostic.loadFailed'));
         }
       })
       .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : 'AI 服務連線失敗，請檢查網絡後重試。';
+        const message = err instanceof Error ? err.message : t('diagnostic.connectionFailed');
         setGenError(message);
       })
       .finally(() => setLoadingQuestions(false));
