@@ -48,6 +48,8 @@ export default function TeacherSettingsPage() {
   const [notifLowCompletion, setNotifLowCompletion] = useState(true);
   const [notifInactive, setNotifInactive] = useState(false);
   const [notifMaintenance, setNotifMaintenance] = useState(false);
+  const [adaptiveDifficulty, setAdaptiveDifficulty] = useState('on');
+  const [hintLevelCap, setHintLevelCap] = useState('4');
 
   useEffect(() => {
     fetch('/api/ai/status')
@@ -261,17 +263,17 @@ export default function TeacherSettingsPage() {
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('teacher.settings.adaptiveDifficulty')}</label>
-            <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-              <option>{t('teacher.settings.adaptiveOn')}</option>
-              <option>{t('teacher.settings.adaptiveOff')}</option>
+            <select value={adaptiveDifficulty} onChange={e => setAdaptiveDifficulty(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
+              <option value="on">{t('teacher.settings.adaptiveOn')}</option>
+              <option value="off">{t('teacher.settings.adaptiveOff')}</option>
             </select>
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('teacher.settings.hintLevelCap')}</label>
-            <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-              <option>{t('teacher.settings.hint4')}</option>
-              <option>{t('teacher.settings.hint3')}</option>
-              <option>{t('teacher.settings.hint2')}</option>
+            <select value={hintLevelCap} onChange={e => setHintLevelCap(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
+              <option value="4">{t('teacher.settings.hint4')}</option>
+              <option value="3">{t('teacher.settings.hint3')}</option>
+              <option value="2">{t('teacher.settings.hint2')}</option>
             </select>
           </div>
           <div>
