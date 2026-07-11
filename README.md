@@ -98,6 +98,11 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - 修復 ClassInfoCard 硬編碼「名學生」→ `t('generic.students')`
 - `t()` 函數新增 `!key` 防護，避免 `undefined` 傳播導致 React Error #300
 
+### 🛡️ API 穩定性強化
+- **8 個 API 端點新增 try-catch**：`practice/GET`、`vocabulary/GET`、`classes/GET`、`auth/settings` (GET+PATCH)、`auth/profile/GET` — DB 故障時優雅降級，回傳空資料而非 crash
+- **AI 改寫 API**：`JSON.parse` 加入獨立 try-catch，AI 格式異常時回傳 HTTP 422（而非混亂的 SyntaxError）
+- **auth/profile**：移除重複 `if (!user)` 死碼
+
 ### � 全面國際化 (i18n) 強化
 - **新增 330+ i18n 翻譯鍵**：覆蓋所有學生端頁面（練習、錯題、寫作、診斷、求助、進度、作業、個人檔案）、教師端頁面（儀表板、班級、學生、作業、覆核、教材、匯入、報告、設定）、管理員後台、共用 UI 元件
 - **學生端全面雙語**：練習頁面（含逐題練習子頁面）、錯題頁面、個人檔案頁面、求助頁面、作業頁面 — 所有 placeholder、提示、按鈕、標籤、錯誤訊息均支援中英雙語

@@ -60,7 +60,15 @@ Return ONLY a JSON object:
       .replace(/```\s*/g, '')
       .trim();
 
-    const parsed = JSON.parse(cleaned);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      return NextResponse.json({
+        error: 'AI returned invalid format. Please try again.',
+        rewrite: null,
+      }, { status: 422 });
+    }
 
     return NextResponse.json({
       rewrite: {

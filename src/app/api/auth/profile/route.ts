@@ -39,13 +39,14 @@ async function resolveCurrentUser(request?: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await resolveCurrentUser(request);
-  if (!user) {
-    return NextResponse.json({ error: '未登入' }, { status: 401 });
+  try {
+    const user = await resolveCurrentUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ user });
+  } catch (err: unknown) {
+    console.error('[Auth Profile GET]', err);
+    return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 });
   }
-
-  if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 });
-  return NextResponse.json({ user });
 }
 
 export async function PATCH(request: NextRequest) {

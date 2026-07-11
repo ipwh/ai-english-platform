@@ -33,17 +33,22 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const studentId = searchParams.get('studentId');
-  if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+  try {
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get('studentId');
+    if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
-  const vocab = await db.vocabItem.findMany({
-    where: { studentId },
-    orderBy: { createdAt: 'desc' },
-    take: 200,
-  });
+    const vocab = await db.vocabItem.findMany({
+      where: { studentId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
 
-  return NextResponse.json({ vocab });
+    return NextResponse.json({ vocab });
+  } catch (err: unknown) {
+    console.error('[Vocabulary GET]', err);
+    return NextResponse.json({ error: 'Failed to load vocabulary', vocab: [] }, { status: 200 });
+  }
 }
 
 export async function PATCH(request: NextRequest) {

@@ -21,10 +21,11 @@ async function getUserId(request: NextRequest): Promise<string | null> {
 }
 
 export async function GET(request: NextRequest) {
-  const userId = await getUserId(request);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const userId = await getUserId(request);
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const user = await db.user.findUnique({
+    const user = await db.user.findUnique({
     where: { id: userId },
     select: {
       id: true, subjects: true, department: true, level: true,
@@ -38,24 +39,29 @@ export async function GET(request: NextRequest) {
   })) || [];
   const formTeacherOf = user?.taughtClasses?.find(tc => tc.isFormTeacher)?.class.name || undefined;
 
-  return NextResponse.json({
-    settings: {
-      ...user,
-      classIds: user?.taughtClasses?.map(tc => tc.class.id) || [],
-      classNames: user?.taughtClasses?.map(tc => tc.class.name) || [],
-    },
-    profile: {
-      subjects: user?.subjects || undefined,
-      department: user?.department || undefined,
-      formTeacherOf,
-      taughtClasses,
-    },
-  });
+    return NextResponse.json({
+      settings: {
+        ...user,
+        classIds: user?.taughtClasses?.map(tc => tc.class.id) || [],
+        classNames: user?.taughtClasses?.map(tc => tc.class.name) || [],
+      },
+      profile: {
+        subjects: user?.subjects || undefined,
+        department: user?.department || undefined,
+        formTeacherOf,
+        taughtClasses,
+      },
+    });
+  } catch (err: unknown) {
+    console.error('[Auth Settings GET]', err);
+    return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: NextRequest) {
-  const userId = await getUserId(request);
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const userId = await getUserId(request);
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
 
@@ -80,5 +86,9 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    console.error('[Auth Settings PATCH]', err);
+    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+  }
 }

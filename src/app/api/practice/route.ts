@@ -36,15 +36,20 @@ export async function POST(request: NextRequest) {
 
 // GET /api/practice?studentId=...
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const studentId = searchParams.get('studentId');
-  if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+  try {
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get('studentId');
+    if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
-  const sessions = await db.practiceSession.findMany({
-    where: { studentId },
-    orderBy: { startedAt: 'desc' },
-    take: 50,
-  });
+    const sessions = await db.practiceSession.findMany({
+      where: { studentId },
+      orderBy: { startedAt: 'desc' },
+      take: 50,
+    });
 
-  return NextResponse.json({ sessions });
+    return NextResponse.json({ sessions });
+  } catch (err: unknown) {
+    console.error('[Practice GET]', err);
+    return NextResponse.json({ error: 'Failed to load practice history', sessions: [] }, { status: 200 });
+  }
 }

@@ -7,21 +7,26 @@ import db from '@/lib/db';
 
 // GET /api/classes
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const teacherId = searchParams.get('teacherId');
+  try {
+    const { searchParams } = new URL(request.url);
+    const teacherId = searchParams.get('teacherId');
 
-  const classes = await db.class.findMany({
-    where: {
-      name: { not: 'Demo' },
-      ...(teacherId ? { teachers: { some: { teacherId } } } : {}),
-    },
-    include: {
-      _count: { select: { students: true, assignments: true } },
-    },
-    orderBy: { name: 'asc' },
-  });
+    const classes = await db.class.findMany({
+      where: {
+        name: { not: 'Demo' },
+        ...(teacherId ? { teachers: { some: { teacherId } } } : {}),
+      },
+      include: {
+        _count: { select: { students: true, assignments: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
 
-  return NextResponse.json({ classes });
+    return NextResponse.json({ classes });
+  } catch (err: unknown) {
+    console.error('[Classes GET]', err);
+    return NextResponse.json({ error: 'Failed to load classes', classes: [] }, { status: 200 });
+  }
 }
 
 // POST /api/classes
