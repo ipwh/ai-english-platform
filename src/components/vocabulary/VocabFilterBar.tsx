@@ -69,9 +69,9 @@ export default function VocabFilterBar({
           onChange={(e) => onSortByChange(e.target.value as typeof sortBy)}
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
         >
-          <option value="recent">{language === 'en' ? 'Recent' : '最近新增'}</option>
-          <option value="alphabetical">{language === 'en' ? 'A-Z' : '字母排序'}</option>
-          <option value="mastery">{language === 'en' ? 'Mastery' : '掌握度'}</option>
+          <option value="recent">{t('vocab.sortRecent')}</option>
+          <option value="alphabetical">{t('vocab.sortAlpha')}</option>
+          <option value="mastery">{t('vocab.sortMastery')}</option>
         </select>
 
         {/* Export dropdown */}

@@ -107,7 +107,7 @@ function PracticeListPageContent() {
   const handleGenerate = useCallback(async (inputForm?: GenerateForm, note?: string) => {
     const activeForm = inputForm || form;
     if (!activeForm.grammarItem && !activeForm.languageSkill) {
-      setGenError('請選擇至少一項文法項目或語言技能');
+      setGenError(t('practice.validationSelectSkill'));
       return;
     }
     setGenerating(true);
@@ -137,15 +137,15 @@ function PracticeListPageContent() {
         }),
       });
 
-      const json = await res.json().catch(() => ({ error: 'AI 服務暫時無法使用，請稍後重試' }));
+      const json = await res.json().catch(() => ({ error: t('practice.aiUnavailable') }));
 
       if (!res.ok) {
-        setGenError(json.error || `伺服器錯誤 (${res.status})，請稍後重試`);
+        setGenError(json.error || t('practice.serverError', { status: String(res.status) }));
         return;
       }
 
       if (!json.questions || json.questions.length === 0) {
-        setGenError('AI 未能生成題目，請更換文法項目或調整設定後重試');
+        setGenError(t('practice.aiEmptyResult'));
         return;
       }
 
@@ -199,7 +199,7 @@ function PracticeListPageContent() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '連線失敗';
       console.error('AI generate error:', msg);
-      setGenError(`AI 服務連線失敗：${msg}。請檢查網絡後重試。`);
+      setGenError(t('practice.aiConnectionFailed', { msg }));
     } finally {
       setGenerating(false);
     }

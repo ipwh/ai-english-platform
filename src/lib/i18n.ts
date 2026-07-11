@@ -244,6 +244,12 @@ const translations: Record<string, { zh: string; en: string }> = {
   'vocab.exportCsv': { zh: '匯出 CSV', en: 'Export CSV' },
   'vocab.exportAnki': { zh: '匯出 Anki', en: 'Export Anki' },
   'vocab.starMastery': { zh: '掌握度評級 {n}/5', en: 'Mastery {n}/5' },
+  'vocab.posVariations': { zh: '詞性變化', en: 'POS Variations' },
+  'vocab.sortRecent': { zh: '最近新增', en: 'Recent' },
+  'vocab.sortAlpha': { zh: '字母排序', en: 'A-Z' },
+  'vocab.sortMastery': { zh: '掌握度', en: 'Mastery' },
+  'vocab.analyzing': { zh: '正在分析', en: 'Analyzing' },
+  'vocab.analyzingDesc': { zh: '查詢詞性、意思、例句、同反義字、搭配詞', en: 'Looking up POS, meaning, examples, synonyms, antonyms, collocations' },
 
   // Student Progress
   'progress.title': { zh: '📊 我的進度', en: '📊 My Progress' },
@@ -312,7 +318,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'profile.joined': { zh: '加入日期', en: 'Joined' },
   'profile.edit': { zh: '編輯個人檔案', en: 'Edit Profile' },
   'profile.logout': { zh: '登出', en: 'Logout' },
+  'profile.logoutBtn': { zh: '登出', en: 'Logout' },
   'profile.switchRole': { zh: '切換身份', en: 'Switch Role' },
+  'profile.switchRoleBtn': { zh: '切換身份', en: 'Switch Role' },
   'profile.saving': { zh: '儲存中...', en: 'Saving...' },
 
   // Gamification
@@ -1181,14 +1189,21 @@ const translations: Record<string, { zh: string; en: string }> = {
 };
 
 /**
- * 獲取翻譯文字
+ * 獲取翻譯文字，支援變數插值 {key}
  * @param key 翻譯鍵
- * @param lang 語言代碼
+ * @param lang 語言代碼（可選）
+ * @param params 可選：變數替換 {key} → value
  * @returns 翻譯後的文字
  */
-export function t(key: string, lang?: string): string {
+export function t(key: string, lang?: string, params?: Record<string, string | number>): string {
   if (!key) return '';
   const entry = translations[key];
   if (!entry) return key;
-  return lang === 'en' ? entry.en : entry.zh;
+  let text = lang === 'en' ? entry.en : entry.zh;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+  }
+  return text;
 }

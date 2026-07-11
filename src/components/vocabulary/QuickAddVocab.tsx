@@ -233,8 +233,8 @@ export default function QuickAddVocab({
             {stage === 'analyzing' && (
               <div className="flex flex-col items-center py-8">
                 <Loader2 className="w-10 h-10 text-teal-500 animate-spin mb-3" />
-                <p className="text-sm text-gray-500">正在分析 「{word}」...</p>
-                <p className="text-xs text-gray-400 mt-1">查詢詞性、意思、例句、同反義字、搭配詞</p>
+                <p className="text-sm text-gray-500">{language === 'en' ? `Analyzing "${word}"...` : `正在分析 「${word}」...`}</p>
+                <p className="text-xs text-gray-400 mt-1">{language === 'en' ? 'Looking up POS, meaning, examples, synonyms, antonyms, collocations' : '查詢詞性、意思、例句、同反義字、搭配詞'}</p>
               </div>
             )}
 
@@ -269,21 +269,21 @@ export default function QuickAddVocab({
 
                   {analysis.synonyms.length > 0 && (
                     <div>
-                      <span className="text-[10px] font-semibold text-green-600">同義字</span>
+                      <span className="text-[10px] font-semibold text-green-600">{t('vocab.synonyms')}</span>
                       <p className="text-xs text-gray-600">{analysis.synonyms.join(' · ')}</p>
                     </div>
                   )}
 
                   {analysis.antonyms.length > 0 && (
                     <div>
-                      <span className="text-[10px] font-semibold text-red-500">反義字</span>
+                      <span className="text-[10px] font-semibold text-red-500">{t('vocab.antonyms')}</span>
                       <p className="text-xs text-gray-600">{analysis.antonyms.join(' · ')}</p>
                     </div>
                   )}
 
                   {analysis.collocations.length > 0 && (
                     <div>
-                      <span className="text-[10px] font-semibold text-blue-600">常見搭配</span>
+                      <span className="text-[10px] font-semibold text-blue-600">{t('vocab.collocations')}</span>
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {analysis.collocations.map((c, i) => (
                           <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-full">{c}</span>
@@ -321,7 +321,7 @@ export default function QuickAddVocab({
                   <CheckCircle className="w-8 h-8 text-green-500" />
                 </div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  「{word}」已加入生字簿！
+                  {language === 'en' ? `"${word}" added to vocabulary!` : `「${word}」已加入生字簿！`}
                 </p>
               </div>
             )}
@@ -333,14 +333,14 @@ export default function QuickAddVocab({
                   <AlertCircle className="w-8 h-8 text-amber-500" />
                 </div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  「{word}」已在生字簿中
+                  {language === 'en' ? `"${word}" is already in your vocabulary` : `「${word}」已在生字簿中`}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">無需重複加入</p>
+                <p className="text-xs text-gray-500 mt-1">{language === 'en' ? 'No need to add again' : '無需重複加入'}</p>
                 <button
                   onClick={handleClose}
                   className="mt-4 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm"
                 >
-                  知道了
+                  {language === 'en' ? 'Got it' : '知道了'}
                 </button>
               </div>
             )}
@@ -353,7 +353,7 @@ export default function QuickAddVocab({
                   onClick={() => setStage('input')}
                   className="w-full px-4 py-2 bg-teal-500 text-white rounded-lg text-sm"
                 >
-                  重試
+                  {language === 'en' ? 'Retry' : '重試'}
                 </button>
               </div>
             )}

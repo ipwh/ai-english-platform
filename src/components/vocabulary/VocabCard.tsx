@@ -105,7 +105,7 @@ export default function VocabCard({
             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
               {vocab.allPartOfSpeech && vocab.allPartOfSpeech.length > 1 && (
                 <div>
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase">詞性變化</span>
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase">{t('vocab.posVariations')}</span>
                   <div className="flex flex-wrap gap-1 mt-0.5">
                     {vocab.allPartOfSpeech.map((pos, i) => (
                       <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
@@ -117,7 +117,7 @@ export default function VocabCard({
               )}
               {vocab.synonyms && vocab.synonyms.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold text-green-600 dark:text-green-400 uppercase">同義字 Synonyms</span>
+                  <span className="text-[10px] font-semibold text-green-600 dark:text-green-400 uppercase">{t('vocab.synonyms')}</span>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                     {vocab.synonyms.join(' · ')}
                   </p>
@@ -125,7 +125,7 @@ export default function VocabCard({
               )}
               {vocab.antonyms && vocab.antonyms.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold text-red-500 dark:text-red-400 uppercase">反義字 Antonyms</span>
+                  <span className="text-[10px] font-semibold text-red-500 dark:text-red-400 uppercase">{t('vocab.antonyms')}</span>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                     {vocab.antonyms.join(' · ')}
                   </p>
@@ -133,7 +133,7 @@ export default function VocabCard({
               )}
               {vocab.collocations && vocab.collocations.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase">常見搭配 Collocations</span>
+                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase">{t('vocab.collocations')}</span>
                   <div className="flex flex-wrap gap-1 mt-0.5">
                     {vocab.collocations.map((c, i) => (
                       <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full">
@@ -208,7 +208,7 @@ export default function VocabCard({
               className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5"
             >
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              {expanded ? '收起' : '詳情'}
+              {expanded ? t('vocab.collapseDetails') : t('vocab.expandDetails')}
             </button>
           )}
         </div>
