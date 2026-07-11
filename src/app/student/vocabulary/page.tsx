@@ -24,6 +24,7 @@ const familiarityProgress: Record<Familiarity, number> = {
 export default function VocabularyPage() {
   const { t } = useT();
   const store = useAppStore();
+  const language = store.language || 'zh';
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Familiarity | 'all'>('all');
 
@@ -125,16 +126,16 @@ export default function VocabularyPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('vocab.title')}</h1>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <TrendingUp className="w-4 h-4" /> 掌握率 {stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0}%
+          <TrendingUp className="w-4 h-4" /> {t('vocab.masteryLabel').replace('{n}', String(stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0))}
         </div>
       </div>
 
       {/* 統計列 */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: '總生字', value: stats.total, color: 'text-teal-600' },
-          { label: '已掌握', value: stats.mastered, color: 'text-green-600' },
-          { label: '學習中', value: stats.learning, color: 'text-orange-600' },
+          { label: t('vocab.total'), value: stats.total, color: 'text-teal-600' },
+          { label: t('vocab.mastered'), value: stats.mastered, color: 'text-green-600' },
+          { label: t('vocab.learning'), value: stats.learning, color: 'text-orange-600' },
         ].map((s, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm text-center border border-gray-100 dark:border-gray-700">
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -147,14 +148,14 @@ export default function VocabularyPage() {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜尋生字..." className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('vocab.search')} className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-teal-500" />
         </div>
         <select value={filter} onChange={(e) => setFilter(e.target.value as Familiarity | 'all')} className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-          <option value="all">全部</option>
-          <option value="new">新學</option>
-          <option value="learning">學習中</option>
-          <option value="familiar">已熟悉</option>
-          <option value="mastered">已掌握</option>
+          <option value="all">{t('vocab.filterAll')}</option>
+          <option value="new">{t('vocab.filterNew')}</option>
+          <option value="learning">{t('vocab.filterLearning')}</option>
+          <option value="familiar">{t('vocab.filterFamiliar')}</option>
+          <option value="mastered">{t('vocab.filterMastered')}</option>
         </select>
       </div>
 
@@ -177,7 +178,7 @@ export default function VocabularyPage() {
                 {v.strategy && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     <span className="text-[10px] px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-full">
-                      🧠 {v.strategy === 'collocations' ? '搭配記憶' : v.strategy === 'word-formation' ? '構詞法' : v.strategy === 'mnemonics' ? '記憶術' : v.strategy}
+                      🧠 {t(v.strategy === 'collocations' ? 'vocab.strategyCollocations' : v.strategy === 'word-formation' ? 'vocab.strategyWordFormation' : v.strategy === 'mnemonics' ? 'vocab.strategyMnemonics' : v.strategy)}
                     </span>
                     {v.topic && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-full">
@@ -198,7 +199,7 @@ export default function VocabularyPage() {
               <button
                 onClick={() => toggleFamiliarity(v)}
                 className={`text-xs px-2 py-1 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity ${getFamiliarityColor(v.familiarity)}`}
-                title="點擊切換熟悉度"
+                title={t('vocab.clickToToggle')}
               >
                 {getFamiliarityLabel(v.familiarity)}
               </button>
@@ -208,14 +209,14 @@ export default function VocabularyPage() {
                 <ProgressBar value={familiarityProgress[v.familiarity]} size="sm" showPercentage={false} />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">下次溫習：{new Date(v.nextReviewDate).toLocaleDateString('zh-HK')}</span>
+                <span className="text-xs text-gray-400">{t('vocab.nextReviewLabel').replace('{date}', new Date(v.nextReviewDate).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-HK'))}</span>
                 <button
                   onClick={() => handleAIExample(v)}
                   disabled={generatingId === v.id}
                   className="text-xs text-purple-500 hover:text-purple-700 disabled:opacity-50"
                 >
                   {generatingId === v.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : <Sparkles className="w-3 h-3 inline" />}
-                  {' '}AI 例句
+                  {' '}{t('vocab.aiExample')}
                 </button>
               </div>
             </div>
