@@ -41,10 +41,10 @@ export default function StudentDashboardPage() {
 
   const weeklyStats = getWeeklyStats();
   const kpis = [
-    { label: '本週練習', value: weeklyStats.questionsDone || 0, unit: '題', trend: 'up' as const, change: 0 },
-    { label: '正確率', value: weeklyStats.accuracy || 0, unit: '%', trend: 'stable' as const, change: 0 },
-    { label: '練習次數', value: weeklyStats.sessionsCount || 0, unit: '次', trend: 'up' as const, change: 0 },
-    { label: '連續天數', value: weeklyStats.streakDays || 0, unit: '天', trend: 'stable' as const, change: 0 },
+    { label: t('progress.weeklyLabel'), value: weeklyStats.questionsDone || 0, unit: t('common.question'), trend: 'up' as const, change: 0 },
+    { label: t('progress.accuracyLabel'), value: weeklyStats.accuracy || 0, unit: t('common.percent'), trend: 'stable' as const, change: 0 },
+    { label: t('progress.sessionsLabel'), value: weeklyStats.sessionsCount || 0, unit: t('common.sessions'), trend: 'up' as const, change: 0 },
+    { label: t('student.streak'), value: weeklyStats.streakDays || 0, unit: t('common.days'), trend: 'stable' as const, change: 0 },
   ];
 
   return (

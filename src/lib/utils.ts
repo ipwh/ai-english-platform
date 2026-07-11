@@ -3,10 +3,14 @@
 // ============================================
 
 /**
- * 格式化日期為繁體中文格式
+ * 格式化日期（支援中英雙語 + 無效日期保護）
  */
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string, lang: string = 'zh'): string {
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  if (lang === 'en') {
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
@@ -15,6 +19,7 @@ export function formatDate(dateStr: string): string {
  */
 export function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 

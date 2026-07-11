@@ -316,7 +316,7 @@ function PracticeListPageContent() {
           {/* 根據弱項推薦 */}
           {recommendedSkills.length > 0 && (
             <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
-              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-2">💡 根據你的弱項，建議練習：</p>
+              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-2">{t('practice.recommendHint')}</p>
               <div className="flex flex-wrap gap-2">
                 {recommendedSkills.map((s, i) => (
                   <button
@@ -324,7 +324,7 @@ function PracticeListPageContent() {
                     onClick={() => handleQuickGenerate(s.key, s.label)}
                     className="text-xs px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full text-orange-700 dark:text-orange-300 hover:bg-orange-100 transition-colors border border-orange-200"
                   >
-                    {s.label}（正確率 {s.accuracy}%）
+                    {s.label} ({t('progress.accuracyLabel')} {s.accuracy}%)
                   </button>
                 ))}
               </div>
@@ -521,8 +521,8 @@ function PracticeListPageContent() {
                       <SkillChip difficulty={s.difficulty} />
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {s.totalQuestions} 題 · 正確 {s.correctCount}/{s.totalQuestions}
-                      {s.completedAt ? ` · ${new Date(s.completedAt).toLocaleDateString('zh-HK')}` : ' · 進行中'}
+                      {s.totalQuestions} {t('common.question')} · {t('common.correctCount', { correct: String(s.correctCount), total: String(s.totalQuestions) })}
+                      {s.completedAt ? ` · ${new Date(s.completedAt).toLocaleDateString('zh-HK')}` : ` · ${t('common.inProgress')}`}
                     </p>
                   </div>
                   <div className="text-right">

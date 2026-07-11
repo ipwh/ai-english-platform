@@ -181,7 +181,7 @@ export default function MistakesPage() {
                   </div>
                   <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{m.questionSummary}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                    <span>你的答案：<span className="text-red-500 line-through">{m.studentAnswer}</span></span>
+                    <span>{t('mistakes.yourAnswer')}<span className="text-red-500 line-through">{m.studentAnswer}</span></span>
                     <span>→</span>
                     <span>正確：<span className="text-green-500 font-medium">{m.correctAnswer}</span></span>
                     <span>·</span>

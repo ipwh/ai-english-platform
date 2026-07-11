@@ -86,6 +86,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'student.wrongAnswer': { zh: '回答錯誤', en: 'Incorrect' },
   'student.correct': { zh: '回答正確！', en: 'Correct!' },
   'student.accuracy': { zh: '正確率', en: 'Accuracy' },
+  'student.streak': { zh: '連續天數', en: 'Streak' },
   'student.sessions': { zh: '練習次數', en: 'Sessions' },
   'student.vocabCount': { zh: '詞彙數', en: 'Vocabulary' },
 
@@ -722,6 +723,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'practice.count3': { zh: '3 題（推薦）', en: '3 (Recommended)' },
   'practice.count5': { zh: '5 題（快速）', en: '5 (Quick)' },
   'practice.count8': { zh: '8 題（標準）', en: '8 (Standard)' },
+  'practice.recommendHint': { zh: '💡 根據你的弱項，建議練習：', en: '💡 Based on your weak areas, try:' },
   'practice.generateBtn': { zh: '生成 {n} 題 AI 練習', en: 'Generate {n} AI questions' },
   'practice.genProgress': { zh: 'AI 正在生成題目...', en: 'AI generating questions...' },
 
