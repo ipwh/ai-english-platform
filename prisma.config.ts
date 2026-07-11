@@ -6,7 +6,7 @@
 
 import { defineConfig } from 'prisma/config';
 
-const dbUrl = process.env.DATABASE_URL || 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';
+const dbUrl = process.env.DATABASE_URL || `file:${process.cwd()}/prisma/dev.db`;
 
 export default defineConfig({
   datasource: {

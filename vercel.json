@@ -1,7 +1,8 @@
 {
   "functions": {
     "src/app/api/ai/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     },
     "src/app/api/import/**/*.ts": {
       "maxDuration": 30
@@ -16,10 +17,33 @@
       "maxDuration": 30
     },
     "src/app/api/ocr/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     },
     "src/app/api/export/**/*.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/rag/**/*.ts": {
+      "maxDuration": 30,
+      "memory": 1024
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "${VERCEL_URL}" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
+      ]
+    }
+  ]
 }

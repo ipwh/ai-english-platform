@@ -25,7 +25,7 @@ function getDbUrl(): string {
   }
 
   // 開發環境預設 SQLite
-  return 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';
+  return `file:${process.cwd()}/prisma/dev.db`;
 }
 
 function createPrismaClient(): PrismaClient {

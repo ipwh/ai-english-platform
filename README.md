@@ -82,6 +82,56 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - AI 回答會附帶後續建議（follow-up tips）與建議聚焦主題（recommended focus）
 - **🆕 即時練習生成**：AI 回答後，點擊「生成相關練習題」按鈕，系統根據學生問題自動生成 3 道相關練習題（MCQ），包含答案與解釋；亦可一鍵跳轉至完整練習模式
 
+## 🚀 生產部署 Checklist
+
+### 環境變數（Vercel Dashboard → Settings → Environment Variables）
+
+| 變數 | 說明 | 必填 |
+|------|------|------|
+| `DEEPSEEK_API_KEY` | DeepSeek API key (`sk-...`) | ✅ |
+| `AUTH_SECRET` | NextAuth JWT secret (`openssl rand -base64 32`) | ✅ |
+| `AUTH_GOOGLE_ID` | Google OAuth Client ID | ✅ |
+| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret | ✅ |
+| `DATABASE_URL` | PostgreSQL 連線字串 (`postgresql://...`) | ✅ |
+| `GCP_PROJECT_ID` | Google Cloud Project ID | ⬜ |
+| `GCP_SERVICE_ACCOUNT_JSON` | GCP Service Account JSON (Base64) | ⬜ |
+| `GEMINI_API_KEY` | Gemini API key (fallback) | ⬜ |
+| `VERTEX_AI_LOCATION` | Vertex AI region (預設 `global`) | ⬜ |
+| `DEEPSEEK_BASE_URL` | DeepSeek base URL (預設 `https://api.deepseek.com/v1`) | ⬜ |
+| `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |
+| `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
+| `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
+
+### 部署步驟
+
+1. **資料庫**: 在 [Neon](https://neon.tech) / [Supabase](https://supabase.com) 建立免費 PostgreSQL，複製 `DATABASE_URL`
+2. **Google OAuth**: [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID
+   - Authorized redirect URIs: `https://你的網域.vercel.app/api/auth/callback/google`
+3. **DeepSeek API**: [platform.deepseek.com](https://platform.deepseek.com) → API Keys
+4. **Vercel 環境變數**: 在專案 Settings → Environment Variables 設定上述變數，標記為 **Secret**（Production + Preview）
+5. **Prisma 遷移**: `npx prisma db push`（或 `npx prisma migrate deploy`）
+6. **首次部署**: 在 Vercel Dashboard 手動觸發 Deploy
+7. **驗證**: 
+   - 訪問 `/login` → Google 登入 → 角色選擇 → Dashboard
+   - 測試 AI 練習生成（至少 3 題）
+   - 檢查 `/api/ai/status` 回傳 `{ configured: true }`
+
+### Smoke Tests
+- [ ] Google OAuth 登入成功
+- [ ] AI 生成練習題（MCQ + 聽力）
+- [ ] 寫作批改與改寫
+- [ ] 診斷測試 → 弱項訓練一鍵流程
+- [ ] 中英語言切換（所有頁面）
+- [ ] 教師建立任務 → 學生提交 → AI 批改
+- [ ] 管理員 CSV 批量匯入
+- [ ] Vercel Logs 中無 `[ai-service]` 錯誤
+
+### Vercel 配置要點
+- **AI 函數**: maxDuration 30s + memory 1024MB（`vercel.json`）
+- **Pro 方案建議**: 60s maxDuration 更適合長寫作批改
+- **Log Drain**: 建議設定 → Logs → External Log Draining（Datadog / Axiom）
+- **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
+
 ## 近期更新 (2026-07-11)
 
 ### 🔧 AI 答案準確性強化
