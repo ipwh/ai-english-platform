@@ -430,6 +430,18 @@ export default function DiagnosticPage() {
 
     setResults(computed);
 
+    // 🎮 記錄診斷完成 XP
+    if (studentProfile?.id) {
+      fetch('/api/gamification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: studentProfile.id,
+          event: { type: 'completeDiagnostic' },
+        }),
+      }).catch(() => {});
+    }
+
     // AI 分析報告
     setAiLoading(true);
     try {

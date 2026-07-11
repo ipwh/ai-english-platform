@@ -183,6 +183,18 @@ export default function PracticeQuestionPage() {
       store.submitAnswer(question.id, selectedAnswer, correct);
     }
 
+    // 🎮 記錄 XP（gamification）
+    if (store.userId) {
+      fetch('/api/gamification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: store.userId,
+          event: { type: correct ? 'answerCorrect' : 'answerIncorrect', difficulty: question.difficulty },
+        }),
+      }).catch(() => {});
+    }
+
     // 呼叫 AI 分析答案
     setAiLoading(true);
     setAiError('');
@@ -252,7 +264,21 @@ export default function PracticeQuestionPage() {
       router.push(`/student/practice/${nextQ.id}`);
     } else {
       // 完成所有題目
-      if (isSessionMode) store.completeSession();
+      if (isSessionMode) {
+        store.completeSession();
+        // 🎮 記錄 session 完成 XP
+        if (store.userId) {
+          const session = store.currentSession;
+          fetch('/api/gamification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: store.userId,
+              event: { type: 'completeSession', difficulty: session?.difficulty },
+            }),
+          }).catch(() => {});
+        }
+      }
       router.push('/student/practice');
     }
     setSelectedAnswer('');
