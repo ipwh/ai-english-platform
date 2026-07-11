@@ -9,7 +9,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish）、詞彙建議、結構評語，自動標示最接近的 HKDSE 等級
+- **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
@@ -18,6 +18,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、12 款成就徽章（連續學習、正確率、練習量、寫作、詞彙）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
+- **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes，確保題目風格、難度、評分標準貼近真實 HKDSE 考試（Feature Flag: `DSE_RAG_ENABLED=true`）
 
 ### 👩‍🏫 教師端
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
@@ -61,6 +62,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 部署 | Vercel |
 | OCR | Google Cloud Vision API |
 | 雲端 | Google Drive API（教材匯入）、Vertex AI（語義搜尋） |
+| DSE RAG | DeepSeek Embedding + 向量相似度檢索 + 歷屆試題注入（Feature Flag: `DSE_RAG_ENABLED`） |
 
 ## 個人化學習流程
 
@@ -105,6 +107,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
+| `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`/`false`，預設 `false`） | ⬜ |
 
 ### 部署步驟
 
@@ -135,6 +138,43 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Pro 方案建議**: 60s maxDuration 更適合長寫作批改
 - **Log Drain**: 建議設定 → Logs → External Log Draining（Datadog / Axiom）
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
+
+## 近期更新 (2026-07-12)
+
+### 🔍 歷屆試題 RAG 整合 (DSE RAG)
+- **歷屆試題匯入 Script** (`scripts/import-past-papers.ts`)：一鍵將 `materials/_extracted/` 中 20 份 OCR 提取的 DSE 歷屆試題及 Marking Schemes 匯入資料庫，自動分 chunk 並建立 DeepSeek Embedding 向量索引
+- **強化 RAG 檢索** (`rag-service.ts`)：
+  - `retrieveDSERelevantChunks()` — 支援按卷別（Paper 1-4）、技能（Reading/Writing/Listening/Speaking）、類別（passage/QA/marking_scheme）過濾
+  - `retrieveMarkingScheme()` — 自動檢索對應卷別的官方 Marking Scheme
+  - `retrievePastPaperContent()` — 根據難度、年級智能檢索相關歷屆試題段落
+  - `buildDSEContextPrompt()` — 將檢索結果整理為結構化 DSE context prompt，根據用途（出題/批改/解說/求助）提供不同指引
+- **核心 AI 流程接入** (`ai-service.ts`)：
+  - `generateQuestions` — 出題時檢索相關歷屆試題，確保題型、難度、選項設計模仿真實 DSE
+  - `analyzeAnswer` — 批改時參考對應卷別的 Marking Scheme Acceptable Answers
+  - `analyzeWriting` — 寫作批改時參考 Paper 2 Writing Marking Scheme 的 band descriptors
+  - `explainMistake` — 錯題解說時引用 marking scheme model answer 對比
+  - `answerStudyHelp` — 學習建議時指出弱項在 DSE 中的對應題型與評分重點
+- **Feature Flag**: `DSE_RAG_ENABLED=true` 啟用，預設 `false`（向後相容）
+- **Fallback 機制**: RAG 失敗時自動回退純 prompt 模式，不影響服務可用性
+
+### ✍️ DSE Writing 寫作功能全面升級
+- **作文出題強化** (`generateWritingPrompt`)：
+  - 整合 **DSE Text Type 知識庫** — 6 大文體（Argumentative Essay / Formal Letter / Informal Letter / Speech / Article / Report / Proposal）的完整結構指引、必備元素、常見錯誤
+  - 產出 **真實 DSE 風格題目**：含情境背景、寫作角色、具體任務、3 項可檢查要求、字數限制
+  - 支援 `weakSkills` 參數，根據學生弱項針對性設計題目（e.g. 弱項為 organization → 出結構要求嚴謹的文體）
+- **寫作批改強化** (`analyzeWriting`)：
+  - **Grammar Prompt** 注入 DSE 十大常見錯誤檢查清單（審題/格式/例子/文法/詞彙/句式/段落/過渡/開頭結尾/Chinglish）
+  - **Chinglish 特別檢查**：10 項高頻中式英文自動檢測（although...but...、because...so...、I very like、discuss about 等）
+  - **Style Prompt** 注入 8 大高分策略（PEEL / Show Don't Tell / Concession+Rebuttal / 詞彙多樣化 / 句式變化 / 連接詞豐富化 / 首尾呼應 / 強力結論）
+  - **文體特定格式檢查**：依 Formal Letter / Speech / Article / Report / Proposal / Argumentative Essay 自動驗證格式要素
+  - **詞彙升級建議清單**：10 組 basic→advanced 對照（important→crucial, good→beneficial 等）
+- **新增即時寫作輔助** (`generateWritingGuide`)：
+  - `structureGuide[]` — 逐段結構指引（中英雙語），依文體自動生成
+  - `usefulPhrases[]` — 實用開首/結尾句式（含用途標籤）
+  - `commonMistakes[]` — 文體特定常見錯誤 + 修正方法
+  - `vocabularyUpgrades[]` — 詞彙升級建議（basic→advanced）
+  - 可根據學生當前草稿提供針對性建議
+- **Prompt 強化**：整合 AfterSchool 及 Defining Education 兩大 DSE Writing 教學專家的核心內容
 
 ## 近期更新 (2026-07-11)
 
@@ -620,6 +660,7 @@ npm run test:watch    # 持續監控模式
 | Google 整合 | ✅ OAuth 登入（自動角色識別）+ Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 + RAG 語義索引 |
 | 隱私合規 | ✅ PDPO 去識別化（sanitizeForAI），傳送 AI 前自動移除身份證、電話、電郵 |
 | 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
+| DSE RAG | ✅ 歷屆試題已匯入 + RAG 索引完成 + 5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`） |
 
 ## 部署
 
@@ -631,6 +672,67 @@ npm run test:watch    # 持續監控模式
 4. 部署
 
 > **注意：** Vercel 免費版有 10 秒函數執行限制。若 AI 回應較慢，建議將 `ai-service.ts` 中的 `timeoutMs` 調低至 8000，或升級至 Pro 方案。
+
+## 歷屆試題 RAG 設定 🔍
+
+> **DSE RAG** 讓 AI 在出題、批改、解說時自動參考真實 DSE 歷屆試題與官方 Marking Schemes，大幅提升題目品質與評分準確度。
+
+### 啟用步驟
+
+```bash
+# 1. 匯入歷屆試題到資料庫（含自動 RAG 向量索引）
+npx tsx scripts/import-past-papers.ts
+
+# 預覽模式（不寫入，先檢查）
+npx tsx scripts/import-past-papers.ts --dry-run
+
+# 只匯入特定檔案
+npx tsx scripts/import-past-papers.ts --file "Paper 1_Part A"
+
+# 只建立 Material 不索引（之後再手動索引）
+npx tsx scripts/import-past-papers.ts --skip-rag
+```
+
+```bash
+# 2. 設定環境變數（.env.local 或 Vercel Environment Variables）
+DSE_RAG_ENABLED=true
+```
+
+```bash
+# 3. 驗證 RAG 狀態
+curl http://localhost:3000/api/rag?action=stats
+# 預期回傳: { "totalMaterials": 20, "indexedMaterials": 20, "totalChunks": 150+ }
+```
+
+### 涵蓋的 AI 流程
+
+| AI 功能 | RAG 注入內容 | 效果 |
+|---------|-------------|------|
+| **題目生成** `generateQuestions` | 相關歷屆試題段落 + Marking Scheme | 題型、難度、選項設計模仿真實 DSE |
+| **答案批改** `analyzeAnswer` | 對應卷別 Marking Scheme | 參考 Acceptable Answers 評分 |
+| **寫作批改** `analyzeWriting` | Paper 2 Writing Marking Scheme | 依 band descriptors 三向度評級 |
+| **錯題解說** `explainMistake` | 相關 Marking Scheme | 引用 model answer 對比說明 |
+| **學習求助** `answerStudyHelp` | 弱項對應歷屆試題 + MS | 指出 DSE 對應題型與評分重點 |
+
+### 架構
+
+```
+materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + MaterialChunk (DB)
+                                                              ↓
+學生出題/批改請求  →  ai-service.ts  →  retrievePastPaperContent()  →  Cosine Similarity
+                                        retrieveMarkingScheme()         ↓
+                                            ↓                    DeepSeek Embedding
+                                     buildDSEContextPrompt()
+                                            ↓
+                                    注入 System Prompt  →  DeepSeek / Gemini
+```
+
+### 注意事項
+- **Feature Flag**: 預設關閉（`DSE_RAG_ENABLED=false`），不影響現有功能
+- **Fallback**: RAG 檢索失敗時自動回退純 prompt 模式，不中斷服務
+- **DeepSeek Embedding API**: 需要有效的 `DEEPSEEK_API_KEY`
+- 匯入約 20 份文件預計產生 150-300 個向量 chunks，每次 API 呼叫約需 1-3 秒
+- 首次匯入後建議在 Vercel 重新部署以確保環境變數生效
 
 ## Known Limitations
 

@@ -19,6 +19,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // ============================================
+// DSE RAG 整合 (Feature Flag: DSE_RAG_ENABLED)
+// ============================================
+import {
+  isDSERAGEnabled,
+  retrievePastPaperContent,
+  retrieveMarkingScheme,
+  buildDSEContextPrompt,
+} from './rag-service';
+import type { DSESkill } from './rag-service';
+
+// ============================================
 // PDPO 去識別化 — 傳送給 AI 前移除個人資料
 // ============================================
 
@@ -687,6 +698,46 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   // 聽力/閱讀題使用較低 temperature 提高準確性
   const qTemperature = (isListening || isReading) ? 0.3 : 0.7;
 
+  // ============================================
+  // DSE RAG 整合：檢索相關歷屆試題與 Marking Scheme
+  // ============================================
+  const skillMap: Record<string, DSESkill> = {
+    reading: 'Reading',
+    writing: 'Writing',
+    listening: 'Listening',
+    speaking: 'Speaking',
+    integrated: 'Integrated',
+  };
+  const dseSkill: DSESkill = (input.languageSkill && skillMap[input.languageSkill]) || 'General';
+
+  let dseContextPrompt = '';
+  try {
+    if (isDSERAGEnabled()) {
+      console.log('[DSE-RAG] 檢索歷屆試題內容...', { dseSkill, topic: input.topic, difficulty: input.difficulty });
+
+      const [pastPaperChunks, markingSchemeChunks] = await Promise.all([
+        retrievePastPaperContent(dseSkill, input.topic, input.difficulty, input.gradeLevel, 3),
+        retrieveMarkingScheme(dseSkill, 2),
+      ]);
+
+      dseContextPrompt = buildDSEContextPrompt(
+        pastPaperChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        markingSchemeChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'generate_questions'
+      );
+
+      if (dseContextPrompt) {
+        console.log(`[DSE-RAG] 已擷取 ${pastPaperChunks.length} 個歷屆試題段落 + ${markingSchemeChunks.length} 個 MS 段落`);
+      } else {
+        console.log('[DSE-RAG] 無相關歷屆試題，使用純 prompt 模式');
+      }
+    }
+  } catch (err) {
+    // RAG 失敗不應中斷出題流程，fallback 到純 prompt
+    console.warn('[DSE-RAG] 檢索失敗，fallback 純 prompt:', err instanceof Error ? err.message : String(err));
+    dseContextPrompt = '';
+  }
+
   const systemPrompt = `你是一位香港中學英文科教師，熟悉 ELE KLACG 2017 課程指引及 HKDSE English Language Level Descriptors。
 請根據以下要求生成英語練習題目，題目必須對齊 HKDSE 各卷別（Reading / Writing / Listening / Speaking）的能力要求。
 請以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
@@ -799,9 +850,12 @@ ${STRICT_ANSWER_RULES}
 
   const userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${typeDesc === 'mc' ? '選擇題' : typeDesc === 'fill-blank' ? '填充題' : typeDesc === 'error-correction' ? '改錯題' : '寫作題'}。`;
 
+  // 注入 DSE RAG context（若有）
+  const finalSystemPrompt = systemPrompt + dseContextPrompt;
+
   const result = await callLLM(
     [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: finalSystemPrompt },
       { role: 'user', content: userPrompt },
     ],
     { temperature: qTemperature, maxTokens: 2048, jsonMode: true, timeoutMs: 25000 }
@@ -1002,6 +1056,32 @@ export interface AnswerAnalysis {
 }
 
 export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAnalysis> {
+  // ============================================
+  // DSE RAG：檢索對應 Marking Scheme
+  // ============================================
+  let msContextPrompt = '';
+  try {
+    if (isDSERAGEnabled()) {
+      const dseSkill: DSESkill =
+        input.questionType === 'short-writing' ? 'Writing' : 'Reading';
+
+      const msChunks = await retrieveMarkingScheme(dseSkill, 2);
+
+      msContextPrompt = buildDSEContextPrompt(
+        [],
+        msChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'analyze_answer'
+      );
+
+      if (msContextPrompt) {
+        console.log(`[DSE-RAG] analyzeAnswer: 已擷取 ${msChunks.length} 個 MS 段落`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DSE-RAG] analyzeAnswer MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    msContextPrompt = '';
+  }
+
   const systemPrompt = `你是一位香港中學英文科教師兼 HKDSE 評卷員。
 請嚴格依據以下官方 HKDSE Level Descriptors 進行批改。
 請以繁體中文提供詳細分析，並以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
@@ -1061,7 +1141,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
   const result = await callLLM(
     [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
     { temperature: 0.3, maxTokens: 2048, jsonMode: true }
@@ -1107,6 +1187,27 @@ export async function analyzeWriting(input: AnalyzeWritingInput): Promise<Writin
     return tokens?.length || 0;
   };
 
+  // ============================================
+  // DSE RAG：檢索 Paper 2 Writing Marking Scheme
+  // ============================================
+  let writingMSContext = '';
+  try {
+    if (isDSERAGEnabled()) {
+      const msChunks = await retrieveMarkingScheme('Writing', 3);
+      writingMSContext = buildDSEContextPrompt(
+        [],
+        msChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'analyze_writing'
+      );
+      if (writingMSContext) {
+        console.log(`[DSE-RAG] analyzeWriting: 已擷取 ${msChunks.length} 個 Writing MS 段落`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DSE-RAG] analyzeWriting MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    writingMSContext = '';
+  }
+
   const extractTargetWords = (...texts: string[]): number | null => {
     for (const text of texts) {
       if (!text) continue;
@@ -1132,9 +1233,9 @@ ${essayContent}
 """`;
 
   // === Call 1：文法 + Chinglish + 總分 + 總評（語言準確性） ===
-  const grammarPrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員。
-請嚴格依據以下官方 HKDSE Writing Level Descriptors 進行評分。
-請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
+  const grammarPrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，擁有多年 DSE 評卷經驗。
+請嚴格依據以下官方 HKDSE Writing Level Descriptors（Content / Language / Organization，簡稱 CLO）進行評分。
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。${writingMSContext}
 
 【HKDSE Writing 官方等級描述 — 必須以此為評分基準】
 
@@ -1166,6 +1267,38 @@ Level 1:
 【低於 Level 1 / 無法評級】
 - 內容與題目完全無關、只寫一兩句、或無法辨識為完整文章。
 - 此類文章 overallScore 不得高於 25。
+
+【DSE Writing 十大常見錯誤 — 請逐項檢查學生文章】
+1. 審題不清/離題 → check if the essay addresses ALL parts of the writing prompt
+2. 文體格式混淆 → check if the essay follows the correct text type conventions (letter format, speech structure, etc.)
+3. 內容空洞，缺乏具體例子 → check if each argument has at least one specific example
+4. 文法錯誤（主謂不一致、時態混亂、冠詞錯誤）
+5. 用詞重複，詞彙貧乏 → check for repeated words; suggest vocabulary upgrades
+6. 句式單調，全是簡單句 → check sentence variety; suggest complex structures
+7. 段落結構混亂 → check if each paragraph has ONE clear topic and follows PEEL
+8. 缺乏過渡詞 → check for connectors between sentences and paragraphs
+9. 開頭結尾公式化 → check if intro has a hook; check if conclusion is more than "In conclusion, I have discussed..."
+10. 中式英文 (Chinglish) → specific checks below
+
+【中式英文 (Chinglish) 特別檢查清單】
+- ❌ "Although... but..." → 英文中 although 和 but 不可並用
+- ❌ "Because... so..." → 英文中 because 和 so 不可並用
+- ❌ "I very like it" → 應為 "I really like it" 或 "I like it very much"
+- ❌ "There have many people" → 應為 "There are many people"
+- ❌ "I am agree" → 應為 "I agree"
+- ❌ "Discuss about" → 應為 "discuss"（及物動詞，不需要 about）
+- ❌ "According to my opinion" → 應為 "In my opinion"
+- ❌ "Every coin has two sides" → cliché！用更有創意的表達
+- ❌ "Last but not least" → cliché！改用 "Finally" 或 "Most importantly"
+- ❌ "More and more important" → 改為 "increasingly important"
+
+【高分技巧檢查 — 學生文章是否具備】
+- ✅ Show, Don't Tell: 用具體描寫代替抽象陳述
+- ✅ PEEL 結構: Point → Explain → Example → Link
+- ✅ 讓步反駁 (Concession + Rebuttal): 先承認對方論點再反駁
+- ✅ 詞彙多樣化: 避免重複基本詞彙（important → crucial/vital/paramount）
+- ✅ 句式變化: 混合簡單句/複合句/倒裝句/強調句
+- ✅ 首尾呼應: 結論與引言互相呼應但用詞有變化
 
 {
   "overallScore": 52,
@@ -1200,7 +1333,7 @@ Level 1:
   // === Call 2：詞彙 + 結構 + 優缺點 + 修改版（寫作技巧） ===
   const stylePrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，專注批改寫作技巧並提供修改範例。
 請嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三大向度，Level 5 至 Level 1）進行判斷。
-請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。${writingMSContext}
 
 評分基準回顧：
 - Level 5: Content 廣泛相關有創意；Language 句式廣泛準確、詞彙進階、語域恰當；Organization 完全連貫、分段有效。
@@ -1209,6 +1342,40 @@ Level 1:
 - Level 2: Content 部分相關、使用熟悉文體特徵；Language 簡單句良好、基本標點正確；Organization 可辨識結構。
 - Level 1: Content 少數相關點；Language 數句簡單可理解句子；Organization 句間少量連結。
 - 低於 Level 1: 內容完全無關、只寫一兩句、無法辨識為完整文章。
+
+【DSE Writing 高分寫作策略 — 請在分析時參照】
+1. PEEL 結構: 每段應有 Point（論點）→ Explain（解釋）→ Example（例子）→ Link（連結下一段）
+2. Show, Don't Tell: 用具體描寫代替抽象陳述（❌"He was nervous" → ✅"His palms were sweaty and his heart raced"）
+3. 讓步反駁 (Concession + Rebuttal): 先承認反方觀點再反駁（"Admittedly... However..."），展現批判思維
+4. 詞彙多樣化: 避免重複 basic words，使用精確的進階詞彙
+5. 句式變化: 混合簡單句/複合句/倒裝句/強調句/分裂句
+   - 倒裝句: "Not only does this benefit students, but it also..."
+   - 強調句: "It is precisely because of this that..."
+   - 分裂句: "What concerns me most is..."
+6. 連接詞豐富化: Furthermore / Moreover / Nevertheless / Consequently / In stark contrast
+7. 首尾呼應: 開頭的 hook 與結尾互相呼應，但用詞有變化
+8. 強而有力的結論: 總結 → 擴展視野至更廣泛含義 → 留下深刻印象的最後一句
+
+【詞彙升級建議清單 — 請檢查學生是否使用了 basic words，並提供進階替代】
+Important → crucial / vital / essential / paramount
+Good → beneficial / advantageous / favorable / commendable
+Bad → detrimental / harmful / adverse / undesirable
+Show → demonstrate / illustrate / reveal / indicate
+Many → numerous / a multitude of / a plethora of
+Big → substantial / considerable / significant / immense
+Because → due to / owing to / as a result of
+But → however / nevertheless / nonetheless
+So → consequently / therefore / thus / hence
+Very → exceedingly / remarkably / exceptionally
+
+【文本類型特定檢查 — 請根據文體檢查格式要求】
+- Formal Letter: 稱呼與結尾敬語配對？無縮寫？地址格式？
+- Informal Letter: 語氣親切？有個人經歷分享？
+- Speech: 有開場問候？有修辭問句？有 audience engagement？有感謝聽眾？
+- Article: 有吸引標題？段落簡短？有個人風格？
+- Report: 有 sub-headings？用被動語態？數據具體？客觀語氣？
+- Proposal: 有 SMART 目標？時間表？預算？預期成果？
+- Argumentative Essay: 有 thesis statement？3 reasons + counter-argument + rebuttal？PEEL？
 
 {
   "strengths": ["優點1（繁體中文）", "優點2"],
@@ -1236,7 +1403,7 @@ Level 1:
         try {
           return await callLLM(
             [
-              { role: 'system', content: grammarPrompt },
+              { role: 'system', content: grammarPrompt + writingMSContext },
               { role: 'user', content: grammarUserPrompt },
             ],
             { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 35000 }
@@ -1250,7 +1417,7 @@ Level 1:
     })(),
     callLLM(
       [
-        { role: 'system', content: stylePrompt },
+        { role: 'system', content: stylePrompt + writingMSContext },
         { role: 'user', content: styleUserPrompt },
       ],
       { temperature: 0.3, maxTokens: 6144, jsonMode: true, timeoutMs: 35000 }
@@ -1371,6 +1538,29 @@ export interface MistakeExplanation {
 }
 
 export async function explainMistake(input: ExplainMistakeInput): Promise<MistakeExplanation> {
+  // ============================================
+  // DSE RAG：檢索相關 Marking Scheme 以解釋錯題
+  // ============================================
+  let msContextPrompt = '';
+  try {
+    if (isDSERAGEnabled()) {
+      // 根據題型判斷技能範疇
+      const skillForMS: DSESkill =
+        input.questionType === 'short-writing' ? 'Writing' : 'Reading';
+      const msChunks = await retrieveMarkingScheme(skillForMS, 2);
+      msContextPrompt = buildDSEContextPrompt(
+        [],
+        msChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'explain_mistake'
+      );
+      if (msContextPrompt) {
+        console.log(`[DSE-RAG] explainMistake: 已擷取 ${msChunks.length} 個 MS 段落`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DSE-RAG] explainMistake MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    msContextPrompt = '';
+  }
   const systemPrompt = `你是一位香港中學英文科教師，專門為學生解釋錯題。
 請參考 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening）來判斷學生錯誤對應的能力水平。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
@@ -1399,7 +1589,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
   const result = await callLLM(
     [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
     { temperature: 0.5, maxTokens: 2048, jsonMode: true }
@@ -1514,6 +1704,40 @@ export async function answerStudyHelp(input: StudyHelpInput): Promise<StudyHelpR
     .map(p => `${p.date}: ${p.accuracy}% / ${p.questionsDone}題`)
     .join('\n');
 
+  // ============================================
+  // DSE RAG：檢索相關歷屆試題與 Marking Scheme
+  // ============================================
+  let dseContextPrompt = '';
+  try {
+    if (isDSERAGEnabled()) {
+      // 根據弱項推斷主要技能
+      const firstWeakSkill = (input.weakSkills || [])[0];
+      const dseSkill: DSESkill = firstWeakSkill?.name
+        ? (['reading', 'writing', 'listening', 'speaking'].includes(firstWeakSkill.name.toLowerCase())
+            ? (firstWeakSkill.name.toLowerCase() as DSESkill)
+            : 'General')
+        : 'General';
+
+      const [pastPaperChunks, msChunks] = await Promise.all([
+        retrievePastPaperContent(dseSkill, input.question, undefined, input.studentLevel, 2),
+        retrieveMarkingScheme(dseSkill === 'General' ? 'Reading' : dseSkill, 2),
+      ]);
+
+      dseContextPrompt = buildDSEContextPrompt(
+        pastPaperChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        msChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'study_help'
+      );
+
+      if (dseContextPrompt) {
+        console.log(`[DSE-RAG] studyHelp: 已擷取 ${pastPaperChunks.length} 歷屆試題 + ${msChunks.length} MS 段落`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DSE-RAG] studyHelp RAG 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    dseContextPrompt = '';
+  }
+
   const systemPrompt = `你是一位香港中學英文科私人學習顧問，熟悉 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）。
 請根據學生的個人背景、弱項與近期表現，對照 HKDSE 等級描述回答學生的英文學習問題。
 請使用繁體中文，語氣清晰、具體、可執行。
@@ -1534,7 +1758,7 @@ ${recentDesc || '暫無'}
 
   const result = await callLLM(
     [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: systemPrompt + dseContextPrompt },
       { role: 'user', content: userPrompt },
     ],
     { temperature: 0.5, maxTokens: 2048, jsonMode: true }
@@ -1611,6 +1835,8 @@ export interface GenerateWritingPromptInput {
   wordLimit: number;
   topicHint?: string;
   lang?: 'zh' | 'en';
+  /** 學生弱項技能，用於針對性出題 */
+  weakSkills?: string[];
 }
 
 export interface GenerateWritingOutlineInput {
@@ -1620,34 +1846,318 @@ export interface GenerateWritingOutlineInput {
   writingPrompt: string;
   topicHint?: string;
   lang?: 'zh' | 'en';
+  /** 學生弱項技能 */
+  weakSkills?: string[];
+}
+
+export interface GenerateWritingGuideInput {
+  textType: string;
+  gradeLevel: string;
+  writingPrompt: string;
+  studentDraft?: string; // 可選：學生當前草稿，提供針對性建議
+  lang?: 'zh' | 'en';
+}
+
+export interface WritingGuide {
+  /** 段落結構指南 */
+  structureGuide: { paragraph: number; role: string; roleZh: string; tips: string; tipsZh: string }[];
+  /** 實用句式 */
+  usefulPhrases: { english: string; chinese: string; purpose: string }[];
+  /** 常見錯誤提醒 */
+  commonMistakes: { mistake: string; mistakeZh: string; correction: string; correctionZh: string }[];
+  /** 詞彙升級建議 */
+  vocabularyUpgrades: { basic: string; advanced: string; context: string }[];
 }
 
 /**
- * 生成寫作題目 — 產出一個具體、有啟發性的作文題目
- * 與 generateQuestions 完全分離，有獨立的 system prompt
+ * ✍️ DSE Writing 文體結構知識庫
+ * 整合自 DSE Writing 教學專家的文體結構指引
+ */
+const DSE_TEXT_TYPE_GUIDE: Record<string, {
+  name: string;
+  nameZh: string;
+  requiredElements: string[];
+  structure: { paragraph: number; role: string; roleZh: string; keyContent: string }[];
+  commonErrors: { error: string; errorZh: string; fix: string }[];
+  usefulOpeners: string[];
+  usefulClosers: string[];
+}> = {
+  'argumentative-essay': {
+    name: 'Argumentative Essay',
+    nameZh: '議論文',
+    requiredElements: ['Thesis statement', '3 supporting arguments', '1 counter-argument', '1 rebuttal', 'PEEL structure per paragraph'],
+    structure: [
+      { paragraph: 1, role: 'Introduction', roleZh: '引言', keyContent: 'Hook + Background + Clear thesis statement (your stance)' },
+      { paragraph: 2, role: 'Body — Reason 1', roleZh: '主體 — 理由一', keyContent: 'PEEL: Point → Explain → Example → Link. Use "Firstly / To begin with"' },
+      { paragraph: 3, role: 'Body — Reason 2', roleZh: '主體 — 理由二', keyContent: 'PEEL. Use "Secondly / Furthermore / Moreover". Provide specific real-world example.' },
+      { paragraph: 4, role: 'Body — Reason 3', roleZh: '主體 — 理由三', keyContent: 'PEEL. Use "Most importantly / Thirdly". This should be your STRONGEST argument.' },
+      { paragraph: 5, role: 'Counter-argument', roleZh: '反方論點', keyContent: '"Admittedly / Some may argue that..." Present the opposing view fairly.' },
+      { paragraph: 6, role: 'Rebuttal', roleZh: '駁論', keyContent: '"However / Nevertheless..." Dismantle the counter-argument. This is the HIGHEST-SCORING part.' },
+      { paragraph: 7, role: 'Conclusion', roleZh: '結論', keyContent: 'Restate thesis (using different words) + Summarize main points + Call to action or future outlook' },
+    ],
+    commonErrors: [
+      { error: 'Thesis statement unclear or absent', errorZh: '論點陳述模糊或缺失', fix: 'Write ONE clear sentence stating your position at the end of the introduction' },
+      { error: 'No counter-argument and rebuttal', errorZh: '缺乏反方論點與駁論', fix: 'Always include at least 1 counter-argument + rebuttal — this is what separates Level 3 from Level 5' },
+      { error: 'Arguments are repetitive (saying the same thing 3 ways)', errorZh: '三個論點實質重複', fix: 'Ensure each reason addresses a DIFFERENT angle (e.g., economic, social, environmental)' },
+      { error: 'New argument introduced in conclusion', errorZh: '結論段引入新論點', fix: 'Conclusion should ONLY summarize, never introduce new ideas' },
+      { error: 'Overuse of "I think / I believe"', errorZh: '過度使用 I think / I believe', fix: 'Replace with objective phrasing: "It is evident that...", "Research demonstrates that..."' },
+    ],
+    usefulOpeners: [
+      'In today\'s society, the debate over [topic] has become increasingly prominent.',
+      'Few issues are as contentious as [topic]. While some argue that..., I firmly believe that...',
+      'As [topic] continues to dominate headlines, it is time we examined this issue critically.',
+    ],
+    usefulClosers: [
+      'In conclusion, while [counter-view] has its merits, the evidence overwhelmingly supports [your view].',
+      'Ultimately, the path forward is clear: [your main recommendation]. The time to act is now.',
+      'Let us not be paralyzed by indecision. By [action], we can ensure a brighter future for all.',
+    ],
+  },
+  'letter-formal': {
+    name: 'Formal Letter',
+    nameZh: '正式書信',
+    requiredElements: ['Sender\'s address', 'Date', 'Recipient\'s name and address', 'Appropriate salutation (Dear Mr./Ms./Dr. X or Dear Sir/Madam)', 'Matching closing (Yours sincerely / Yours faithfully)', 'No contractions', 'Formal tone'],
+    structure: [
+      { paragraph: 1, role: 'Sender Info + Salutation', roleZh: '寄件人資料 + 稱呼', keyContent: 'Address (top-right) → Date → Recipient address (left) → Dear [Title] [Surname],' },
+      { paragraph: 2, role: 'Opening — Purpose', roleZh: '開首 — 目的', keyContent: '"I am writing to express my concern regarding..." / "I am writing to apply for..." — State purpose clearly in the FIRST sentence' },
+      { paragraph: 3, role: 'Body — Point 1', roleZh: '主體 — 要點一', keyContent: 'Elaborate first reason/concern with specific examples. Use formal connecting phrases: "Furthermore / Moreover / In addition"' },
+      { paragraph: 4, role: 'Body — Point 2', roleZh: '主體 — 要點二', keyContent: 'Second point with evidence. "It is also worth noting that..." / "Another pressing concern is..."' },
+      { paragraph: 5, role: 'Closing — Call to Action', roleZh: '結尾 — 行動呼籲', keyContent: '"I would be grateful if you could..." / "I urge you to consider..." — Be polite but firm' },
+      { paragraph: 6, role: 'Sign-off', roleZh: '結尾敬語', keyContent: 'Yours sincerely, (if you know the name) OR Yours faithfully, (if Dear Sir/Madam) → Signature → Printed Name' },
+    ],
+    commonErrors: [
+      { error: 'Wrong salutation-closing pairing', errorZh: '稱呼與結尾敬語配對錯誤', fix: 'Dear Mr. Chan → Yours sincerely / Dear Sir/Madam → Yours faithfully (記憶法：不知對方名字 = "非"親"非"故 → faith-fully)' },
+      { error: 'Using contractions in formal letter', errorZh: '正式信中使用縮寫', fix: 'don\'t → do not, can\'t → cannot, I\'m → I am — NEVER use contractions in formal letters' },
+      { error: 'Missing address or date', errorZh: '遺漏地址或日期', fix: 'Always include your address (top-right) and the date below it' },
+      { error: 'Tone too casual or aggressive', errorZh: '語氣過於隨便或激進', fix: 'Use polite, measured language: "I would appreciate it if..." NOT "You should..."' },
+    ],
+    usefulOpeners: [
+      'I am writing to express my concern regarding...',
+      'I am writing to apply for the position of...',
+      'I am writing on behalf of [organization] to bring to your attention...',
+    ],
+    usefulClosers: [
+      'I would be grateful if you could address this matter at your earliest convenience.',
+      'I look forward to hearing from you.',
+      'Thank you for your time and consideration.',
+    ],
+  },
+  'letter-informal': {
+    name: 'Informal Letter / Letter of Advice',
+    nameZh: '非正式書信 / 建議信',
+    requiredElements: ['Date', 'Dear [First Name],', 'Friendly, conversational tone', 'Contractions allowed', 'Personal anecdotes welcome', 'Appropriate closing (Best wishes / Love / Take care)'],
+    structure: [
+      { paragraph: 1, role: 'Opening — Greeting & Context', roleZh: '開首 — 問候與背景', keyContent: '"How have you been?" / "I hope this letter finds you well." / "I heard about [situation] and wanted to share some thoughts."' },
+      { paragraph: 2, role: 'Body — Advice Point 1', roleZh: '主體 — 建議一', keyContent: '"First of all, I think you should..." — Use empathetic language: "I understand how you feel..."' },
+      { paragraph: 3, role: 'Body — Advice Point 2', roleZh: '主體 — 建議二', keyContent: '"Another thing you could try is..." — Share personal experience if relevant: "When I was in a similar situation..."' },
+      { paragraph: 4, role: 'Closing — Encouragement', roleZh: '結尾 — 鼓勵', keyContent: '"I\'m always here if you need to talk." / "Don\'t worry — things will get better!" — End on a positive, supportive note' },
+    ],
+    commonErrors: [
+      { error: 'Tone too formal for a friend', errorZh: '對朋友語氣過於正式', fix: 'Use contractions, casual expressions, and personal anecdotes' },
+      { error: 'Advice too vague ("just be positive")', errorZh: '建議太空泛', fix: 'Give CONCRETE, actionable suggestions with specific steps' },
+      { error: 'Forgetting to show empathy', errorZh: '缺乏同理心表達', fix: 'Start with "I understand how difficult this must be..." before giving advice' },
+    ],
+    usefulOpeners: [
+      'How have you been? I was so happy to receive your letter!',
+      'I heard about what happened and I wanted to reach out.',
+      'It\'s been ages since we last caught up! I hope everything is going well.',
+    ],
+    usefulClosers: [
+      'Take care and write back soon!',
+      'I\'m always just a phone call away if you need anything.',
+      'Best wishes and stay strong!',
+    ],
+  },
+  'speech': {
+    name: 'Speech',
+    nameZh: '演講辭',
+    requiredElements: ['Greeting to audience', 'Self-introduction (if needed)', 'Clear topic statement', 'Rhetorical devices (rhetorical questions, repetition, tripling)', 'Audience engagement', 'Call to action', 'Thank you'],
+    structure: [
+      { paragraph: 1, role: 'Opening — Greeting + Hook', roleZh: '開場 — 問候 + 引入', keyContent: '"Good morning, fellow students and teachers." / "Have you ever wondered why...?" — Start with a rhetorical question, anecdote, or shocking statistic' },
+      { paragraph: 2, role: 'Body — Point 1 with Example', roleZh: '主體 — 要點一 + 例子', keyContent: 'Use personal stories or vivid examples. "Let me share a story..." / "Imagine a world where..."' },
+      { paragraph: 3, role: 'Body — Point 2 with Example', roleZh: '主體 — 要點二 + 例子', keyContent: 'Use rhetorical devices: repetition ("We must act. We must change. We must..."), tripling, emotive language' },
+      { paragraph: 4, role: 'Closing — Call to Action + Thanks', roleZh: '結尾 — 行動呼籲 + 致謝', keyContent: '"Let us work together to..." / "The time to act is now!" / "Thank you for your attention."' },
+    ],
+    commonErrors: [
+      { error: 'Forgetting the greeting', errorZh: '忘記開場問候', fix: 'Always start with "Good morning/afternoon, [audience]" — this is a basic format requirement' },
+      { error: 'Tone too written/formal — reads like an essay', errorZh: '語氣太書面化，不像演講', fix: 'Use contractions, direct address ("you"), rhetorical questions, and shorter sentences' },
+      { error: 'No audience engagement', errorZh: '缺乏與聽眾的互動', fix: 'Use "As we all know...", "You may have experienced...", "Raise your hand if..."' },
+      { error: 'Weak ending', errorZh: '結尾平淡無力', fix: 'End with a powerful call to action and thank the audience. Make the last sentence MEMORABLE.' },
+    ],
+    usefulOpeners: [
+      'Good morning, fellow students and teachers. Have you ever stopped to think about [topic]?',
+      'Good afternoon, everyone. Today, I want to talk about something that affects every single one of us: [topic].',
+      'Good morning. Imagine waking up one day to find that [scenario]. This is not a distant fantasy — it is a reality that...',
+    ],
+    usefulClosers: [
+      'Let us not wait until it is too late. The time to act is now — together, we can make a difference. Thank you.',
+      'So I leave you with this question: what kind of future do you want to create? Thank you for your attention.',
+      'Remember, change begins with each and every one of us. Let\'s start today. Thank you.',
+    ],
+  },
+  'article': {
+    name: 'Article',
+    nameZh: '文章',
+    requiredElements: ['Catchy headline/title', 'Engaging lead paragraph', 'Clear sub-topics (may use sub-headings)', 'Personal voice and style', 'Short paragraphs for readability', 'Memorable conclusion'],
+    structure: [
+      { paragraph: 1, role: 'Headline + Lead', roleZh: '標題 + 導言', keyContent: 'Write a catchy title (can be a question). Lead paragraph: hook the reader — use a surprising fact, anecdote, or provocative question' },
+      { paragraph: 2, role: 'Body — Angle 1', roleZh: '主體 — 角度一', keyContent: 'Develop the first angle with examples, quotes, or data. Keep paragraphs SHORT (3-4 sentences max for readability)' },
+      { paragraph: 3, role: 'Body — Angle 2', roleZh: '主體 — 角度二', keyContent: 'Contrasting or complementary angle. Use sub-headings if appropriate. Maintain an engaging, personal tone' },
+      { paragraph: 4, role: 'Conclusion — Takeaway', roleZh: '結論 — 要點', keyContent: 'Leave the reader with something to think about. End with a powerful statement or question.' },
+    ],
+    commonErrors: [
+      { error: 'Boring or generic title', errorZh: '標題平淡無奇', fix: 'Use a question: "Is Social Media Destroying Our Society?" or a provocative statement' },
+      { error: 'Paragraphs too long (wall of text)', errorZh: '段落過長，不易閱讀', fix: 'Keep paragraphs to 3-4 sentences. Use short sentences for impact. Vary paragraph length.' },
+      { error: 'Lack of personal voice — reads like a textbook', errorZh: '缺乏個人風格', fix: 'Inject your personality — use vivid descriptions, personal observations, and unique perspectives' },
+    ],
+    usefulOpeners: [
+      'Did you know that [shocking statistic]? This little-known fact reveals a much larger problem: [topic].',
+      'It was 7:30 am on a Monday when I first realized that [topic] was about to change my life.',
+      'Walk down any street in Hong Kong and you\'ll see it — [observation]. But what does this mean for us?',
+    ],
+    usefulClosers: [
+      'So the next time you [action], remember: [takeaway message].',
+      'The question is no longer whether we should act, but how soon we can start.',
+      'Perhaps it\'s time we all asked ourselves: [provocative question]?',
+    ],
+  },
+  'report': {
+    name: 'Report',
+    nameZh: '報告',
+    requiredElements: ['Title', 'Introduction (purpose + scope)', 'Findings (with sub-headings)', 'Data presentation', 'Recommendations (if applicable)', 'Conclusion', 'Objective, impersonal tone'],
+    structure: [
+      { paragraph: 1, role: 'Title + Introduction', roleZh: '標題 + 引言', keyContent: 'Title: "Report on [Topic]". Introduction: state purpose, scope, and methodology. "This report aims to..."' },
+      { paragraph: 2, role: 'Findings — Sub-heading 1', roleZh: '調查結果 — 副標題一', keyContent: 'Use sub-headings. Present data clearly. "According to the survey..." / "The data shows that..." Use passive voice for objectivity.' },
+      { paragraph: 3, role: 'Findings — Sub-heading 2', roleZh: '調查結果 — 副標題二', keyContent: 'Second finding. Use specific numbers: "65% of respondents indicated..." NOT "Most people think..."' },
+      { paragraph: 4, role: 'Recommendations', roleZh: '建議', keyContent: '"Based on the findings, the following recommendations are proposed:..." Use bullet points if appropriate. Each recommendation should link to findings.' },
+      { paragraph: 5, role: 'Conclusion', roleZh: '結論', keyContent: 'Summarize key findings and reiterate main recommendation. Keep it concise and professional.' },
+    ],
+    commonErrors: [
+      { error: 'Using first person (I, we) too much', errorZh: '過度使用第一人稱', fix: 'Use passive voice: "It was found that..." / "It is recommended that..." NOT "I found that..."' },
+      { error: 'Vague data ("many people", "a lot")', errorZh: '數據含糊', fix: 'Use specific numbers: "65% of respondents", "three out of five students"' },
+      { error: 'No sub-headings — wall of text', errorZh: '缺乏副標題，結構混亂', fix: 'Use clear sub-headings to organize findings. Each sub-section should address ONE topic.' },
+      { error: 'Recommendations not linked to findings', errorZh: '建議與調查結果脫節', fix: 'Each recommendation should directly follow from a finding. Reference the data.' },
+    ],
+    usefulOpeners: [
+      'This report aims to investigate [topic] and provide recommendations based on the findings.',
+      'The purpose of this report is to examine [topic] following [context/event].',
+      'This report presents the findings of a survey conducted among [group] regarding [topic].',
+    ],
+    usefulClosers: [
+      'In conclusion, the findings indicate that [summary]. It is recommended that [action] be implemented.',
+      'Based on the evidence presented, it is clear that [conclusion]. The proposed recommendations should be considered for immediate action.',
+    ],
+  },
+  'proposal': {
+    name: 'Proposal',
+    nameZh: '計劃書',
+    requiredElements: ['Title', 'Introduction (background + problem)', 'Objectives (SMART)', 'Proposed Activities/Methods', 'Timeline and resources', 'Expected outcomes', 'Conclusion'],
+    structure: [
+      { paragraph: 1, role: 'Title + Introduction', roleZh: '標題 + 引言', keyContent: 'Title: "A Proposal for [Project]". Introduction: describe the background, current situation, and the problem you aim to solve.' },
+      { paragraph: 2, role: 'Objectives', roleZh: '目標', keyContent: 'List 2-3 SMART objectives (Specific, Measurable, Achievable, Relevant, Time-bound). "The objectives of this proposal are: 1)..."' },
+      { paragraph: 3, role: 'Proposed Activities', roleZh: '建議活動', keyContent: 'Describe activities in detail. Include timeline, venue, resources needed. "The campaign will run for 3 weeks, from [date] to [date]..."' },
+      { paragraph: 4, role: 'Budget & Resources', roleZh: '預算與資源', keyContent: 'Estimated costs, personnel needed (Person-In-Charge), equipment. Be realistic and detailed.' },
+      { paragraph: 5, role: 'Expected Outcomes', roleZh: '預期成果', keyContent: 'What will success look like? "It is expected that..." / "This initiative will result in..." Be specific and measurable.' },
+      { paragraph: 6, role: 'Conclusion', roleZh: '結論', keyContent: 'Summarize why this proposal should be accepted. End with a persuasive call to approve.' },
+    ],
+    commonErrors: [
+      { error: 'Objectives too vague and unmeasurable', errorZh: '目標空泛，缺乏可衡量性', fix: 'Make objectives SMART: "Increase participation by 30%" NOT "Get more people involved"' },
+      { error: 'No timeline or resource plan', errorZh: '缺乏時間表和資源規劃', fix: 'Always include specific dates, duration, venue, and estimated budget' },
+      { error: 'Ignoring potential challenges', errorZh: '忽略潛在困難', fix: 'Address 1-2 potential challenges and how you plan to overcome them — shows critical thinking' },
+      { error: 'Expected outcomes unrealistic', errorZh: '預期成效過於理想化', fix: 'Be realistic. "Raise awareness among 200 students" is better than "Solve the problem entirely"' },
+    ],
+    usefulOpeners: [
+      'This proposal outlines a plan to address [problem] at [context/school/organization].',
+      'In response to [situation], this proposal presents a comprehensive plan for [solution].',
+    ],
+    usefulClosers: [
+      'I believe this proposal represents a practical and effective solution. I look forward to your approval.',
+      'With the support of [stakeholders], this initiative has the potential to create lasting positive change.',
+    ],
+  },
+};
+
+/**
+ * ✍️ DSE Writing 詞彙升級對照表
+ */
+const VOCAB_UPGRADES: { basic: string; advanced: string; context: string }[] = [
+  { basic: 'important', advanced: 'crucial / vital / essential / paramount', context: '強調重要性' },
+  { basic: 'good', advanced: 'beneficial / advantageous / favorable / commendable', context: '正面評價' },
+  { basic: 'bad', advanced: 'detrimental / harmful / adverse / undesirable', context: '負面評價' },
+  { basic: 'show', advanced: 'demonstrate / illustrate / reveal / indicate', context: '呈現/展示' },
+  { basic: 'think', advanced: 'believe / contend / argue / assert / maintain', context: '表達觀點' },
+  { basic: 'many', advanced: 'numerous / a multitude of / a plethora of / countless', context: '數量多' },
+  { basic: 'big', advanced: 'substantial / considerable / significant / immense', context: '形容大小/程度' },
+  { basic: 'get', advanced: 'obtain / acquire / attain / secure', context: '獲得' },
+  { basic: 'say', advanced: 'claim / assert / contend / emphasize / highlight', context: '表達/說話' },
+  { basic: 'because', advanced: 'due to / owing to / as a result of / on account of', context: '因果關係' },
+  { basic: 'but', advanced: 'however / nevertheless / nonetheless / on the contrary', context: '對比轉折' },
+  { basic: 'so', advanced: 'consequently / therefore / thus / hence / as a result', context: '因果結論' },
+  { basic: 'very', advanced: 'exceedingly / remarkably / exceptionally / profoundly', context: '程度加強' },
+  { basic: 'problem', advanced: 'issue / concern / challenge / dilemma / predicament', context: '問題/困境' },
+  { basic: 'solve', advanced: 'resolve / address / tackle / remedy / alleviate', context: '解決' },
+];
+
+/**
+ * ✍️ DSE Writing 常見中式英文修正
+ */
+const CHINGLISH_FIXES: { chinglish: string; correct: string; explanationZh: string }[] = [
+  { chinglish: 'According to my opinion', correct: 'In my opinion / From my perspective', explanationZh: '"According to" 後接客觀來源（如研究、報告），不可接個人意見。' },
+  { chinglish: 'Although... but...', correct: 'Although... (no "but")...', explanationZh: '英文中 although 和 but 不可並用，選其一即可。' },
+  { chinglish: 'Because... so...', correct: 'Because... (no "so")...', explanationZh: '英文中 because 和 so 不可並用，如同 although 和 but。' },
+  { chinglish: 'I very like it', correct: 'I really like it / I like it very much', explanationZh: '"Very" 修飾形容詞/副詞，不可直接修飾動詞。' },
+  { chinglish: 'There have many people', correct: 'There are many people', explanationZh: '"There have" 是中式直譯，應用 "There is/are"。' },
+  { chinglish: 'I am agree', correct: 'I agree', explanationZh: '"Agree" 是動詞，前面不需要 be 動詞。' },
+  { chinglish: 'Discuss about', correct: 'Discuss (no "about")', explanationZh: '"Discuss" 是及物動詞，直接接賓語，不需要 about。' },
+  { chinglish: 'More and more + adjective', correct: 'increasingly + adjective', explanationZh: '"More and more important" → "increasingly important" 更正式、更地道。' },
+  { chinglish: 'Every coin has two sides', correct: 'There are two sides to every issue / The issue is double-edged', explanationZh: '"Every coin has two sides" 是中式英語 cliché，評卷員已看膩。' },
+  { chinglish: 'Last but not least', correct: 'Finally / Most importantly', explanationZh: '"Last but not least" 過度使用已成為 cliché，用更簡潔的替代。' },
+];
+
+/**
+ * ✍️ 生成寫作題目 — 產出一個具體、符合 DSE 標準的作文題目
+ * 整合 DSE 教學專家指引：包含情境、角色、任務、具體要求、字數
  */
 export async function generateWritingPrompt(input: GenerateWritingPromptInput): Promise<string> {
   const lang = input.lang || 'en';
-  const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner.
-Create ONE complete, self-contained writing prompt. Return ONLY the prompt text.
+  const guide = DSE_TEXT_TYPE_GUIDE[input.textType];
+
+  const structureHint = guide
+    ? `\nThis text type (${guide.name}) should include: ${guide.requiredElements.join(', ')}.\nRecommended structure: ${guide.structure.map(s => `${s.role} → ${s.keyContent}`).join(' | ')}`
+    : '';
+
+  const weakSkillHint = input.weakSkills?.length
+    ? `\nThe student struggles with: ${input.weakSkills.join(', ')}. Design the prompt to specifically challenge and develop these weak areas.`
+    : '';
+
+  const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner who has marked thousands of DSE scripts.
+
+Create ONE complete, self-contained writing prompt that mirrors the style, complexity, and expectations of the REAL HKDSE English Paper 2 Part B.
 
 The prompt MUST include ALL of these elements in order:
-1. CONTEXT: A clear situation or background (1 sentence)
-2. ROLE: Who the writer is (e.g. "You are the editor of your school magazine")
-3. TASK: What to write, including the required text type (1 sentence)
-4. REQUIREMENTS: 2-3 specific content points or guiding questions
+1. CONTEXT: A clear, realistic situation or background (1-2 sentences) that a Hong Kong secondary school student would relate to
+2. ROLE: Who the writer is (e.g. "You are the chairperson of the Student Council", "You are the editor of your school magazine")
+3. TASK: What to write, CLEARLY stating the required text type (e.g. "Write a letter to the editor...", "Write an article for your school magazine...")
+4. REQUIREMENTS: 3 specific content points or guiding questions that the student MUST address. These should be concrete and checkable.
 5. WORD LIMIT: "Write about ${input.wordLimit} words."
 
-Text type: ${input.textType}
-Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school, family, hobbies' : 'senior secondary — social issues, argumentative, DSE-level'})
-${input.topicHint ? `Topic area: ${input.topicHint}` : 'Pick an engaging topic.'}
+Text type: ${guide?.name || input.textType}${structureHint}
+Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school life, family, hobbies, personal experiences' : 'senior secondary — social issues, argumentative topics, DSE-level complexity'})
+${input.topicHint ? `Topic area: ${input.topicHint}` : 'Pick an engaging, DSE-relevant topic (education, technology, environment, social issues, youth culture).'}${weakSkillHint}
 
-Example format:
-"You are a member of your school's Environmental Protection Club. Your school has decided to go plastic-free starting next month. Write a letter to all students explaining the new policy, describing at least two benefits of reducing plastic use, and suggesting one practical way students can help. Write about 200 words."
+DSE QUALITY STANDARDS:
+- The prompt must be SPECIFIC and ACTIONABLE — not vague. Students should know exactly what to write.
+- Include 3 checkable requirements (not just "express your views")
+- The context must feel REAL and RELEVANT to HK students
+- The task must match the text type's genre conventions (e.g., a speech needs audience awareness; a proposal needs measurable objectives)
+- Use DSE-style phrasing: "Write a letter to...", "You are...", "In your [text type], you should..."
+
+Example of a HIGH-QUALITY DSE prompt:
+"You are the chairperson of your school's Environmental Protection Club. Your school has recently conducted a waste audit and found that 40% of campus waste comes from single-use plastics. Write a proposal to the school principal outlining a plan to make the campus plastic-free by the end of the academic year. In your proposal, you should (1) describe at least three concrete measures, (2) explain the expected benefits for the school community, and (3) address one potential challenge and how to overcome it. Write about 400 words."
 
 CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a prompt:". Just the complete, ready-to-use prompt text.`.trim();
 
-  const userPrompt = `Create a complete writing prompt. Text type: ${input.textType}. Grade: ${input.gradeLevel}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic: ${input.topicHint}.` : ''}`;
+  const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic: ${input.topicHint}.` : ''}${input.weakSkills?.length ? ` Target weak skills: ${input.weakSkills.join(', ')}.` : ''}`;
 
   const result = await callLLM(
     [
@@ -1724,6 +2234,71 @@ ${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}`;
   );
 
   return result.trim();
+}
+
+// ============================================
+// 七點五、寫作即時輔助 — 結構指南 + 實用句式 + 常見錯誤
+// ============================================
+
+/**
+ * ✍️ generateWritingGuide
+ * 為學生提供即時寫作輔助：段落結構指南、實用句式、常見錯誤提醒、詞彙升級建議
+ * 可基於學生當前草稿提供針對性建議
+ */
+export function generateWritingGuide(input: GenerateWritingGuideInput): WritingGuide {
+  const guide = DSE_TEXT_TYPE_GUIDE[input.textType];
+
+  // === 1. 段落結構指南 ===
+  const structureGuide: WritingGuide['structureGuide'] = guide
+    ? guide.structure.map(s => ({
+        paragraph: s.paragraph,
+        role: s.role,
+        roleZh: s.roleZh,
+        tips: s.keyContent,
+        tipsZh: s.keyContent, // keyContent 已混合中英
+      }))
+    : [
+        { paragraph: 1, role: 'Introduction', roleZh: '引言', tips: 'Hook + Background + Thesis/Context', tipsZh: '開首語 + 背景 + 論點/情境' },
+        { paragraph: 2, role: 'Body Paragraph 1', roleZh: '主體段落一', tips: 'Topic sentence + Example + Explanation', tipsZh: '主題句 + 例子 + 解釋' },
+        { paragraph: 3, role: 'Body Paragraph 2', roleZh: '主體段落二', tips: 'Topic sentence + Example + Explanation', tipsZh: '主題句 + 例子 + 解釋' },
+        { paragraph: 4, role: 'Conclusion', roleZh: '結論', tips: 'Summary + Final thought + Call to action', tipsZh: '總結 + 最終觀點 + 行動呼籲' },
+      ];
+
+  // === 2. 實用句式 ===
+  const usefulPhrases: WritingGuide['usefulPhrases'] = guide
+    ? [
+        ...guide.usefulOpeners.map(o => ({ english: o, chinese: '開首句式', purpose: 'opening' })),
+        ...guide.usefulClosers.map(c => ({ english: c, chinese: '結尾句式', purpose: 'closing' })),
+      ]
+    : [
+        { english: 'In recent years, [topic] has become a subject of considerable debate.', chinese: '近年來，[主題] 已成為廣受討論的議題。', purpose: 'opening' },
+        { english: 'It is widely believed that... However, I would argue that...', chinese: '普遍認為...但我想指出...', purpose: 'opening' },
+        { english: 'In conclusion, it is clear that...', chinese: '總括而言，顯然...', purpose: 'closing' },
+      ];
+
+  // === 3. 常見錯誤提醒 ===
+  const commonMistakes: WritingGuide['commonMistakes'] = guide
+    ? guide.commonErrors.map(e => ({
+        mistake: e.error,
+        mistakeZh: e.errorZh,
+        correction: e.fix,
+        correctionZh: e.fix,
+      }))
+    : [
+        { mistake: 'Off-topic or not addressing all parts of the prompt', mistakeZh: '離題或未回應所有題目要求', correction: 'Circle keywords in the prompt and check off each one as you write.', correctionZh: '圈出題目關鍵詞，每寫一段就檢查是否有回應。' },
+        { mistake: 'No specific examples to support arguments', mistakeZh: '缺乏具體例子支持論點', correction: 'For each argument, add at least one concrete example (data, news, personal experience).', correctionZh: '每個論點至少配一個具體例子（數據、新聞、個人經歷）。' },
+        { mistake: 'Repetitive vocabulary and simple sentences only', mistakeZh: '詞彙重複、句式單調', correction: 'Use the vocabulary upgrade suggestions below. Vary sentence starters (adverbs, participle phrases, subordinate clauses).', correctionZh: '參考下方詞彙升級建議。變換句子開頭方式（副詞、分詞片語、從屬子句）。' },
+      ];
+
+  // === 4. 詞彙升級建議 ===
+  const vocabularyUpgrades: WritingGuide['vocabularyUpgrades'] = VOCAB_UPGRADES.slice(0, 10);
+
+  return {
+    structureGuide,
+    usefulPhrases,
+    commonMistakes,
+    vocabularyUpgrades,
+  };
 }
 
 // ============================================
