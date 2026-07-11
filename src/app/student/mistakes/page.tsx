@@ -10,6 +10,7 @@ import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, Ch
 import SkillChip from '@/components/shared/SkillChip';
 import { skillLabels } from '@/lib/nav';
 import { formatDate } from '@/lib/utils';
+import { useAppStore } from '@/store/appStore';
 import type { GrammarItem, LanguageSkill, MistakeType } from '@/lib/types';
 import type { MistakeItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
@@ -24,21 +25,34 @@ const mistakeTypeLabels: Record<string, string> = {
 
 export default function MistakesPage() {
   const { t } = useT();
+  const store = useAppStore();
   const [skillFilter, setSkillFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<MistakeType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [loadError, setLoadError] = useState(false);
+  const [studentId, setStudentId] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/auth/profile')
+      .then(r => r.json())
+      .then(d => {
+        const id = d?.user?.id || store.userId || '';
+        if (id) setStudentId(id);
+      })
+      .catch(() => {});
+  }, [store.userId]);
 
   const loadMistakes = () => {
+    if (!studentId) return;
     setLoadError(false);
-    fetch('/api/mistakes')
+    fetch(`/api/mistakes?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
       .then(d => { if (d.mistakes?.length) setMistakes(d.mistakes); })
       .catch((e) => { console.error('Failed to load mistakes:', e); setLoadError(true); });
   };
 
-  useEffect(() => { loadMistakes(); }, []);
+  useEffect(() => { loadMistakes(); }, [studentId]);
 
   // === AI 解說狀態 ===
   const [explainingId, setExplainingId] = useState<string | null>(null);
@@ -218,7 +232,7 @@ export default function MistakesPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                <Link href={`/student/practice/${m.questionId}`} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
+                <Link href={`/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(m.grammarItem || '')}&languageSkill=${encodeURIComponent(m.languageSkill || '')}&difficulty=remedial&questionType=mc&questionCount=5&gradeLevel=S4&weakLabel=${encodeURIComponent(m.subSkillZh || m.subSkill || '錯題')}`} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
                   <RotateCcw className="w-3 h-3" /> 重做
                 </Link>
                 <button

@@ -9,6 +9,7 @@ import { Search, Sparkles, Loader2, BookMarked, TrendingUp } from 'lucide-react'
 
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer from '@/components/shared/AudioPlayer';
+import { useAppStore } from '@/store/appStore';
 import type { Familiarity, VocabItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 import { getFamiliarityLabel, getFamiliarityColor } from '@/lib/utils';
@@ -22,6 +23,7 @@ const familiarityProgress: Record<Familiarity, number> = {
 
 export default function VocabularyPage() {
   const { t } = useT();
+  const store = useAppStore();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Familiarity | 'all'>('all');
 
@@ -29,16 +31,31 @@ export default function VocabularyPage() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [vocab, setVocab] = useState<VocabItem[]>([]);
   const [loadError, setLoadError] = useState(false);
+  const [studentId, setStudentId] = useState('');
+  const [gradeLevel, setGradeLevel] = useState('S4');
+
+  useEffect(() => {
+    fetch('/api/auth/profile')
+      .then(r => r.json())
+      .then(d => {
+        const id = d?.user?.id || store.userId || '';
+        if (id) setStudentId(id);
+        const level = d?.user?.level || d?.user?.class?.gradeLevel;
+        if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
+      })
+      .catch(() => {});
+  }, [store.userId]);
 
   const loadVocab = () => {
+    if (!studentId) return;
     setLoadError(false);
-    fetch('/api/vocabulary')
+    fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
       .then(d => { if (d.vocab?.length) setVocab(d.vocab); })
       .catch((e) => { console.error('Failed to load vocabulary:', e); setLoadError(true); });
   };
 
-  useEffect(() => { loadVocab(); }, []);
+  useEffect(() => { loadVocab(); }, [studentId]);
 
   const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
 
@@ -51,7 +68,7 @@ export default function VocabularyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           difficulty: 'core',
-          gradeLevel: 'S4',
+          gradeLevel,
           count: 1,
           questionType: 'short-writing',
           topic: `Write an example sentence using the word "${v.word}" (meaning: ${v.meaningZh})`,

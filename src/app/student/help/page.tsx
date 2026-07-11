@@ -156,7 +156,7 @@ export default function StudentHelpPage() {
 
   // === AI 生成練習 ===
   const [genLoading, setGenLoading] = useState(false);
-  const [genQuestions, setGenQuestions] = useState<{ prompt: string; answer: string; explanationZh: string }[]>([]);
+  const [genQuestions, setGenQuestions] = useState<{ prompt: string; answer: string; explanationZh: string; type?: string; choices?: string[] }[]>([]);
   const [genError, setGenError] = useState('');
   const [genTopic, setGenTopic] = useState('');
   const [genSkill, setGenSkill] = useState('grammar');
@@ -196,6 +196,8 @@ export default function StudentHelpPage() {
           prompt: q.prompt,
           answer: q.answer,
           explanationZh: q.explanationZh || '',
+          type: q.type,
+          choices: q.choices || [],
         })));
       } else {
         setGenError(data.error || '暫時無法生成練習題目');
@@ -387,6 +389,21 @@ export default function StudentHelpPage() {
                         {i + 1}. {q.prompt}
                       </summary>
                       <div className="pl-4 mt-1 space-y-1 text-xs">
+                        {/* MCQ 選項 */}
+                        {q.type === 'mc' && q.choices && q.choices.length > 0 && (
+                          <div className="space-y-0.5 mb-1.5">
+                            {q.choices.map((choice: string, ci: number) => {
+                              const letter = String.fromCharCode(65 + ci); // A, B, C, D
+                              const cleanChoice = choice.replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s*[\].:：)\-、]\s*/u, '').replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '').trim();
+                              const isAnswer = q.answer?.trim().toUpperCase() === letter;
+                              return (
+                                <p key={ci} className={isAnswer ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-600 dark:text-gray-400'}>
+                                  <span className="font-semibold">{letter}.</span> {cleanChoice}{isAnswer ? ' ✓' : ''}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        )}
                         <p className="text-green-600 dark:text-green-400">✅ 答案：{q.answer}</p>
                         <p className="text-gray-500 dark:text-gray-400">💡 {q.explanationZh}</p>
                       </div>

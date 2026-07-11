@@ -22,6 +22,17 @@ export default function WritingPage() {
   const lang = language || 'zh';
 
   const [gradeLevel, setGradeLevel] = useState('S4');
+
+  // 載入學生年級
+  useEffect(() => {
+    fetch('/api/auth/profile')
+      .then(r => r.json())
+      .then(d => {
+        const level = d?.user?.level || d?.user?.class?.gradeLevel;
+        if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
+      })
+      .catch(() => {});
+  }, []);
   const [textType, setTextType] = useState('essay');
   const [wordLimit, setWordLimit] = useState(200);
   const [topicHint, setTopicHint] = useState('');

@@ -55,6 +55,7 @@ function PracticeListPageContent() {
   const store = useAppStore();
   const { t } = useT();
   const autoStartedRef = useRef(false);
+  const profileLoadedRef = useRef(false);
   const [tab, setTab] = useState<'generate' | 'browse'>('generate');
   const [search, setSearch] = useState('');
   const [skillFilter, setSkillFilter] = useState<string>('all');
@@ -67,6 +68,22 @@ function PracticeListPageContent() {
   const [genError, setGenError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [recommendationNote, setRecommendationNote] = useState('');
+
+  // === 載入學生年級設定 ===
+  useEffect(() => {
+    if (profileLoadedRef.current) return;
+    profileLoadedRef.current = true;
+    fetch('/api/auth/profile')
+      .then(r => r.json())
+      .then(data => {
+        const profile = data?.user;
+        const studentLevel = profile?.level || profile?.class?.gradeLevel;
+        if (studentLevel && ['S1','S2','S3','S4','S5','S6'].includes(studentLevel)) {
+          setForm(prev => ({ ...prev, gradeLevel: studentLevel as GradeLevel }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // === 練習記錄 ===
   const recentSessions = store.getRecentSessions(5);
@@ -186,6 +203,7 @@ function PracticeListPageContent() {
     }
   }, [form, store, router]);
 
+  // === 從診斷頁跳轉：自動生成針對性練習 ===
   useEffect(() => {
     if (autoStartedRef.current) return;
     if (searchParams.get('mode') !== 'diagnostic') return;
@@ -213,6 +231,38 @@ function PracticeListPageContent() {
     setTab('generate');
     setForm(nextForm);
     void handleGenerate(nextForm, `已根據診斷結果，為你推薦 ${weakLabel} 的針對性練習。`);
+  }, [handleGenerate, searchParams]);
+
+  // === 從求助頁跳轉：根據學生問題自動生成練習 ===
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (searchParams.get('mode') !== 'help') return;
+
+    const topic = searchParams.get('topic') || '';
+    const gradeLevel = (searchParams.get('gradeLevel') as GradeLevel | null) || 'S4';
+
+    if (!topic) return;
+
+    // 根據問題關鍵字判斷技能類型
+    const q = topic.toLowerCase();
+    const languageSkill = q.includes('寫') || q.includes('write') || q.includes('essay') || q.includes('作文') ? 'writing'
+      : q.includes('讀') || q.includes('read') || q.includes('理解') || q.includes('comprehension') ? 'reading'
+      : q.includes('聽') || q.includes('listen') ? 'listening'
+      : '';
+
+    autoStartedRef.current = true;
+    const nextForm: GenerateForm = {
+      grammarItem: '',
+      languageSkill,
+      difficulty: 'core',
+      questionType: 'mc',
+      questionCount: 5,
+      gradeLevel,
+    };
+
+    setTab('generate');
+    setForm(nextForm);
+    void handleGenerate(nextForm, `已根據你在「求助與建議」中的問題「${topic}」為你生成相關練習。`);
   }, [handleGenerate, searchParams]);
 
   // === 從推薦弱項快速生成 ===

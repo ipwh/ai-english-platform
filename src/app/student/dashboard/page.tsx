@@ -15,13 +15,27 @@ export default function StudentDashboardPage() {
   const displayName = userDisplayName || 'Student';
   const [aiInsight, setAiInsight] = useState<any>(null);
   const [studentLevel, setStudentLevel] = useState('S4');
+  const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
 
   // 載入練習歷史（解決重整後數據歸零）
   useEffect(() => {
     loadPracticeHistory();
-    // 取得學生實際年級
+    // 取得學生實際年級 + 近期練習記錄
     fetch('/api/auth/profile').then(r => r.json()).then(d => {
-      if (d?.level) setStudentLevel(d.level);
+      const level = d?.user?.level || d?.user?.class?.gradeLevel;
+      if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setStudentLevel(level);
+      const userId = d?.user?.id || '';
+      if (userId) {
+        return fetch(`/api/practice?studentId=${encodeURIComponent(userId)}`).then(r => r.json());
+      }
+    }).then(data => {
+      if (data?.sessions) {
+        setRecentPerformance(data.sessions.slice(0, 5).map((s: any) => ({
+          date: new Date(s.startedAt).toLocaleDateString('zh-HK'),
+          accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100),
+          questionsDone: s.totalQuestions,
+        })));
+      }
     }).catch(() => {});
   }, [loadPracticeHistory]);
 
@@ -56,7 +70,7 @@ export default function StudentDashboardPage() {
                 studentLevel: studentLevel,
                 overallAccuracy: weeklyStats.accuracy || 0,
                 weakSkills: getMasteryBySkill().filter(m => m.accuracy < 60),
-                recentPerformance: [],
+                recentPerformance,
                 streakDays: weeklyStats.streakDays || 0,
               }),
             });

@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -205,6 +205,7 @@ function buildPracticeRecommendation(results: DiagnosticResult[], level: string)
 
 export default function DiagnosticPage() {
   const { t } = useT();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
@@ -384,8 +385,12 @@ export default function DiagnosticPage() {
       const userAnswer = finalAnswers[q.id] || '';
       if (q.type === 'mc' && userAnswer.toUpperCase() === q.answer.toUpperCase()) {
         skillScores[key].correct++;
-      } else if (q.type !== 'mc' && userAnswer.trim().toLowerCase() === q.answer.trim().toLowerCase()) {
-        skillScores[key].correct++;
+      } else if (q.type !== 'mc') {
+        // 非MC題：忽略大小寫、前後空白、標點符號
+        const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:]$/g, '');
+        if (normalize(userAnswer) === normalize(q.answer)) {
+          skillScores[key].correct++;
+        }
       }
     }
 
@@ -517,9 +522,14 @@ export default function DiagnosticPage() {
             </div>
           ) : (
             <div>
-              <input type="text" placeholder={t('diagnostic.inputAnswer')} onKeyDown={(e) => { if (e.key === 'Enter') handleAnswer((e.target as HTMLInputElement).value); }}
-                className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400" />
-              <button onClick={() => { const el = document.querySelector('input') as HTMLInputElement; if (el) handleAnswer(el.value); }}
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={t('diagnostic.inputAnswer')}
+                onKeyDown={(e) => { if (e.key === 'Enter' && inputRef.current) handleAnswer(inputRef.current.value); }}
+                className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400"
+              />
+              <button onClick={() => { if (inputRef.current) handleAnswer(inputRef.current.value); }}
                 className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
             </div>
           )}

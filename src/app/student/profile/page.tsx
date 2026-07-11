@@ -3,10 +3,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Mail, Save, X } from 'lucide-react';
+import { LogOut, Mail, Save, X, GraduationCap } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { formatDate } from '@/lib/utils';
+import { gradeLabels } from '@/lib/nav';
 
 export default function StudentProfilePage() {
   const router = useRouter();
@@ -14,19 +15,40 @@ export default function StudentProfilePage() {
   const { logout, userDisplayName } = useAppStore();
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ nameZh: '', nameEn: '' });
+  const [form, setForm] = useState({ nameZh: '', nameEn: '', level: '' });
   const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
 
   useEffect(() => {
     fetch('/api/auth/profile').then(r => r.json()).then(d => {
-      if (d.user) { setProfile(d.user); setForm({ nameZh: d.user.nameZh || '', nameEn: d.user.nameEn || '' }); }
+      if (d.user) {
+        setProfile(d.user);
+        setForm({
+          nameZh: d.user.nameZh || '',
+          nameEn: d.user.nameEn || '',
+          level: d.user.level || d.user.class?.gradeLevel || '',
+        });
+      }
     }).catch((e) => { console.error('Failed to load student profile:', e); });
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
-    const res = await fetch('/api/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    if (res.ok) { const d = await res.json(); setProfile((p: any) => ({ ...p, ...d.user })); setEditing(false); }
+    setSaveMsg('');
+    try {
+      const res = await fetch('/api/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      if (res.ok) {
+        const d = await res.json();
+        setProfile((p: any) => ({ ...p, ...d.user }));
+        setEditing(false);
+        setSaveMsg('已成功儲存！');
+      } else {
+        const err = await res.json().catch(() => ({ error: '儲存失敗' }));
+        setSaveMsg(err.error || '儲存失敗，請重試。');
+      }
+    } catch {
+      setSaveMsg('網絡錯誤，請檢查連線。');
+    }
     setSaving(false);
   };
 
@@ -42,11 +64,29 @@ export default function StudentProfilePage() {
         </div>
         {editing ? (
           <div className="space-y-3">
-            <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })} placeholder="Chinese Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
-            <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder="English Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+            <div>
+              <label className="block text-xs text-gray-500 mb-1 text-left">中文姓名</label>
+              <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })} placeholder="中文姓名" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1 text-left">英文姓名</label>
+              <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder="English Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1 text-left flex items-center gap-1"><GraduationCap className="w-3 h-3" /> 年級</label>
+              <select
+                value={form.level}
+                onChange={e => setForm({ ...form, level: e.target.value })}
+                className="w-48 px-3 py-2 border rounded-lg text-center text-sm bg-white dark:bg-gray-700"
+              >
+                <option value="">未設定</option>
+                {Object.entries(gradeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            {saveMsg && <p className={`text-xs ${saveMsg.includes('成功') ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</p>}
             <div className="flex justify-center gap-2">
               <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm flex items-center gap-1"><Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}</button>
-              <button onClick={() => setEditing(false)} className="px-4 py-2 bg-gray-200 rounded-lg text-sm flex items-center gap-1"><X className="w-4 h-4" /> Cancel</button>
+              <button onClick={() => { setEditing(false); setSaveMsg(''); }} className="px-4 py-2 bg-gray-200 rounded-lg text-sm flex items-center gap-1"><X className="w-4 h-4" /> Cancel</button>
             </div>
           </div>
         ) : (
