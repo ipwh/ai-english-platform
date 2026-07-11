@@ -8,7 +8,7 @@ import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallback
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 
 function isRetryableGenerationError(message: string): boolean {
-  return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|JSON/i.test(message);
+  return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|is not valid JSON/i.test(message);
 }
 
 export async function POST(request: NextRequest) {
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Guard against excessive question counts
+    const maxCount = 20;
+    const safeCount = Math.min(Math.max(1, count || 5), maxCount);
+
     let questions: Awaited<ReturnType<typeof generateQuestions>> | null = null;
     let lastErr: unknown = null;
 
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
           languageSkillZh,
           difficulty,
           gradeLevel,
-          count: count || 5,
+          count: safeCount,
           questionType,
           topic,
         });

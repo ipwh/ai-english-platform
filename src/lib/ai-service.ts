@@ -499,6 +499,8 @@ function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): str
     if (tfChoiceIndex >= 0) return toMcqLetter(tfChoiceIndex);
   }
 
+  // Failed all matching attempts — log warning before defaulting
+  console.warn('[ai-service] normalizeMcqAnswer: could not match answer to any choice, defaulting to A. answerRaw:', answerRaw.slice(0, 80), 'choices:', normalizedChoices.join('|').slice(0, 120));
   return 'A';
 }
 
@@ -556,39 +558,43 @@ function validateAndFixQuestion(q: GeneratedQuestion, index: number): { fixed: G
     }
   }
 
-  // 2. 聆聽題：答案文字必須出現在 listeningContent 中
-  if (fixed.listeningContent && fixed.answer && fixed.choices && fixed.choices.length > 0) {
-    const answerLetter = fixed.answer.trim().toUpperCase();
-    const letterIndex = MCQ_LETTERS.indexOf(answerLetter as typeof MCQ_LETTERS[number]);
-    if (letterIndex >= 0 && letterIndex < fixed.choices.length) {
-      const answerText = fixed.choices[letterIndex];
-      const normListening = normalizeAnswer(fixed.listeningContent);
-      const normAnswer = normalizeAnswer(answerText);
+  // 2. 聆聽題：答案文字必須出現在 listeningContent 中（MC 和非 MC 皆檢查）
+  if (fixed.listeningContent && fixed.answer) {
+    const answerToCheck = fixed.choices && fixed.choices.length > 0
+      ? (() => {
+          const letterIndex = MCQ_LETTERS.indexOf(fixed.answer.trim().toUpperCase() as typeof MCQ_LETTERS[number]);
+          return letterIndex >= 0 && letterIndex < fixed.choices.length ? fixed.choices[letterIndex] : fixed.answer;
+        })()
+      : fixed.answer;
 
-      if (!normListening.includes(normAnswer)) {
-        const words = normAnswer.split(' ');
-        const lastTwo = words.slice(-2).join(' ');
-        const lastThree = words.slice(-3).join(' ');
-        if (!normListening.includes(lastThree) && !normListening.includes(lastTwo)) {
-          console.warn(`[Listening Consistency] Q${index}: answer "${answerText}" not found in listeningContent`);
-        }
+    const normListening = normalizeAnswer(fixed.listeningContent);
+    const normAnswer = normalizeAnswer(answerToCheck);
+
+    if (!normListening.includes(normAnswer)) {
+      const words = normAnswer.split(' ');
+      const lastTwo = words.slice(-2).join(' ');
+      const lastThree = words.slice(-3).join(' ');
+      if (!normListening.includes(lastThree) && !normListening.includes(lastTwo)) {
+        console.warn(`[Listening Consistency] Q${index}: answer "${answerToCheck}" not found verbatim in listeningContent`);
       }
     }
   }
 
-  // 3. 閱讀題：關鍵詞檢查
-  if (fixed.readingContent && fixed.answer && fixed.choices && fixed.choices.length > 0) {
-    const answerLetter = fixed.answer.trim().toUpperCase();
-    const letterIndex = MCQ_LETTERS.indexOf(answerLetter as typeof MCQ_LETTERS[number]);
-    if (letterIndex >= 0 && letterIndex < fixed.choices.length) {
-      const answerText = fixed.choices[letterIndex];
-      const normReading = normalizeAnswer(fixed.readingContent);
-      const normAnswer = normalizeAnswer(answerText);
-      const keyWords = normAnswer.split(' ').filter(w => w.length > 3);
-      const missing = keyWords.filter(kw => !normReading.includes(kw));
-      if (missing.length === keyWords.length && keyWords.length > 0) {
-        console.warn(`[Reading Consistency] Q${index}: no keywords from "${answerText}" in readingContent`);
-      }
+  // 3. 閱讀題：關鍵詞檢查（MC 和非 MC 皆檢查）
+  if (fixed.readingContent && fixed.answer) {
+    const answerToCheck = fixed.choices && fixed.choices.length > 0
+      ? (() => {
+          const letterIndex = MCQ_LETTERS.indexOf(fixed.answer.trim().toUpperCase() as typeof MCQ_LETTERS[number]);
+          return letterIndex >= 0 && letterIndex < fixed.choices.length ? fixed.choices[letterIndex] : fixed.answer;
+        })()
+      : fixed.answer;
+
+    const normReading = normalizeAnswer(fixed.readingContent);
+    const normAnswer = normalizeAnswer(answerToCheck);
+    const keyWords = normAnswer.split(' ').filter(w => w.length > 3);
+    const missing = keyWords.filter(kw => !normReading.includes(kw));
+    if (missing.length === keyWords.length && keyWords.length > 0) {
+      console.warn(`[Reading Consistency] Q${index}: no keywords from "${answerToCheck}" in readingContent`);
     }
   }
 
@@ -615,6 +621,11 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     };
 
     if (base.type !== 'mc') {
+      // 非MC題也要驗證聆聽/閱讀一致性
+      const { warnings } = validateAndFixQuestion(base, 0);
+      if (warnings.length > 0) {
+        console.warn('[ai-service] Non-MC answer consistency:', warnings);
+      }
       return { ...base, choices: [] };
     }
 
