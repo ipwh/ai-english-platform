@@ -195,19 +195,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **7 種題型**：MCQ / Fill-blank / Form-filling / Matching / Inference / Speaker Attitude / Summary Completion
 - **⚠️ 原創性保障**：Prompt 明確禁止複製真實 DSE 試題，只能模仿風格與難度水平
 
-### 🎧✍️ Integrated Skills 綜合訓練 (DSE Paper 3 Part B)
-- **任務生成** (`POST /api/ai/generate-integrated-skills`)：生成完整 Integrated Skills 任務
-  - 聆聽材料（對話/獨白，含 DSE 陷阱）+ Note-taking 引導問題 + 寫作任務說明
-  - 4 種寫作任務類型：Summary / Email Reply / Short Article / Report
-  - 依難度自動調節：補底 80 字 → 核心 120 字 → 挑戰 180 字
-  - 自動生成 expected content points + listening answers 供批改參考
-- **雙維度批改** (`POST /api/ai/analyze-integrated-skills`)：
-  - Listening 準確度（內容提取 vs 遺漏）+ Writing 品質（Content / Language / Organization）
-  - 過度抄襲檢測：標記 >8 連續詞直接照搬 listeningContent 的段落
-  - 逐點比對 capturedPoints / missedPoints
-  - 文法錯誤 + 詞彙升級建議 + 結構評語
-  - 自動估算 HKDSE Level（Level 1-5）
-- **Prompt 整合 DSE Paper 3 官方評分標準**：Listening 40% + Language 35% + Organization 25%
+### 🎧✍️ Integrated Skills v2.0 — Note-taking 符號系統 + Data Manipulation 三層次
+- **DSE Note-taking 符號系統**：+優點/−缺點/→因果/∵理由/$預算/#數字/!重點/?不確定/@時間/Δ變化（共 10 個符號，注入 prompt 引導學生使用）
+- **Content Point 信號詞系統**：數據型（statistics show）、觀點型（experts argue）、建議型（it is recommended）、問題型（the main challenge）、對比型（on the other hand）
+- **Data Manipulation 三層次評估**：L1 直接引用（可接受）→ L2 語法轉換（加分）→ L3 語境適應（高分）
+- **寫作任務強化**：每題含 CONTEXT + ROLE + AUDIENCE + TASK + 3-4 REQUIREMENTS + WORD LIMIT + FORMAT NOTES
+- **批改 prompt 升級**：PEEL 結構檢查、Audience Awareness、Note-taking 品質評估、>30% 抄襲自動扣分
 
 ## 近期更新 (2026-07-11)
 

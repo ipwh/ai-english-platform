@@ -2595,47 +2595,95 @@ export async function generateIntegratedSkills(
   const taskInfo = taskTypeMap[input.taskType];
 
   const systemPrompt = `你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
-請生成一個完整的 Integrated Skills 任務，模擬 DSE Paper 3 Part B 的真實考試體驗。
+⚠️ 原創性要求：必須生成 100% 原創內容，嚴禁複製或改寫任何真實 HKDSE 試題。
 
-任務結構：
-1. 提供一段聆聽對話/獨白（供學生聆聽並做 note-taking）
-2. 提供 Note-taking 指引（3-5 個引導問題，幫助學生聚焦重點）
-3. 提供寫作任務（要求學生根據聽力內容完成寫作）
+請生成一個完整的 Integrated Skills 任務，模擬 DSE Paper 3 Part B「聽 → 記 → 寫」的真實考試流程。
 
-一、聆聽材料 (listeningContent) 設計規則：
-- 長度：${diff.lines}
-- 角色標籤：只使用 Woman: / Man: / Boy: / Girl:（TTS 相容格式，禁用 A/B/Speaker 標籤）
-- 內容必須包含足夠的具體資訊：數字、日期、名稱、原因、建議、例子
-- 陷阱設計：${diff.traps}
-- 題材：DSE 常見主題（校園活動、社區服務、環保倡議、文化交流、科技應用、社會議題）
-- 語境：自然口語（linking, reduction, hesitation）
+═══════════════════════════════════════
+一、聆聽材料 (listeningContent) 設計規則
+═══════════════════════════════════════
 
-二、Note-taking 指引 (noteTakingGuide)：
-- 提供 3-5 個引導問題，幫助學生在聆聽時聚焦關鍵資訊
-- 問題格式：開放式問題（Who/What/When/Where/Why/How）
-- 每個問題附帶一個 hint（提示注意方向）
+1. 結構與長度：${diff.lines}
+2. 角色標籤：Woman:/Man:/Boy/Girl:（TTS 相容，禁用 A/B/Speaker 標籤）
+3. 內容密度：每 3-4 行必須包含一個可提取的 Content Point
+4. 陷阱設計：${diff.traps}
+5. 自然口語：linking (gonna/wanna)、reduction、hesitation (Um.../Well...)、self-correction
+6. 題材：校園活動、社區服務、環保倡議、文化交流、科技應用、社會議題
 
-三、寫作任務 (writingTask)：
-- 任務類型：${taskInfo.name} (${taskInfo.nameZh})
-- ${taskInfo.formatHint}
-- 必須清楚說明：寫作目的、目標讀者、需要涵蓋的要點
-- 字數要求：約 ${diff.wordLimit} words
-- 格式要求（若適用）：email 需 subject + salutation + closing；report 需 title + sub-headings
+═══════════════════════════════════════
+二、Note-taking 指引 (noteTakingGuide) — DSE 實戰技巧
+═══════════════════════════════════════
 
-四、預期內容要點 (expectedContentPoints)：
-- 列出 4-6 個學生應從聽力中提取並寫入文章的具體要點
-- 這些要點用於後續批改比對
+提供 4-5 個引導問題，融入以下 DSE Note-taking 教學技巧：
 
-五、答案參考 (listeningAnswers)：
-- 為每個 note-taking 引導問題提供標準答案
-- 答案必須逐字 (verbatim) 出現在 listeningContent 中
+【Note-taking 符號系統 — 請在 hint 中引導學生使用】
++ / ✓ = 優點/正面資訊
+− / ✗ = 缺點/負面資訊  
+→ = 導致/結果/因果
+∵ = 原因/理由
+∴ = 因此/所以
+$ = 金錢/成本/預算
+# = 數字/統計/數量
+! = 重要/關鍵/必須記住
+? = 不確定/需要確認
+@ = 時間/日期/地點
+Δ = 變化/改變/趨勢
 
-回覆格式（純 JSON，以 { 開頭以 } 結尾）：
+【Content Point 信號詞 — 請在 listeningContent 中自然地使用這些信號】
+- 數據型 CP: "statistics show", "research indicates", "surveys reveal", "according to"
+- 觀點型 CP: "experts argue", "critics claim", "supporters believe", "many students feel"
+- 建議型 CP: "we should", "it is recommended", "one solution is", "they propose"
+- 問題型 CP: "the main challenge", "a key concern", "difficulties include", "issues arise"
+- 對比型 CP: "on the other hand", "in contrast", "however", "compared to"
+
+每個引導問題格式：
+- question: 開放式問題 (Who/What/When/Where/Why/How/How many/How much)
+- hint: 包含建議使用的符號 + 信號詞提示 (e.g. "用 $ 標記預算數字，注意 'the budget is' 之後的內容")
+
+═══════════════════════════════════════
+三、寫作任務 (writingTask) — DSE Paper 3 Part B 標準
+═══════════════════════════════════════
+
+任務類型：${taskInfo.name} (${taskInfo.nameZh})
+
+寫作任務說明必須包含以下全部元素：
+1. CONTEXT: 清楚的情境背景（1-2 句）
+2. ROLE: 寫作者身份（e.g. "You are the secretary of the Student Council"）
+3. AUDIENCE: 目標讀者是誰（影響 tone 和 formality）
+4. TASK: 具體寫作任務（含文體格式要求）
+5. REQUIREMENTS: 3-4 個具體要求（必須可檢查、可評分）
+6. WORD LIMIT: "Write about ${diff.wordLimit} words."
+7. FORMAT NOTES: ${taskInfo.formatHint}
+
+${input.taskType === 'email-reply' ? 'Email 格式必須要求：subject line + salutation (Dear X) + body + closing + signature + role' : ''}
+${input.taskType === 'report' ? 'Report 格式必須要求：title + introduction/background + findings (sub-headings) + recommendations + conclusion' : ''}
+${input.taskType === 'summary' ? 'Summary 要求：用自己文字概括，不可直接抄襲聆聽原文。組織邏輯清晰。' : ''}
+
+═══════════════════════════════════════
+四、預期內容要點 (expectedContentPoints)
+═══════════════════════════════════════
+
+列出 5-7 個學生必須從聽力中提取並寫入文章的具體要點。
+每個要點應：
+- 對應 listeningContent 中的一個具體 Content Point
+- 可用於逐點比對批改
+- 包含關鍵資訊類型標記（數字/觀點/建議/問題等）
+
+═══════════════════════════════════════
+五、答案參考 (listeningAnswers)
+═══════════════════════════════════════
+
+為每個 note-taking 引導問題提供標準答案，答案必須 verbatim 出現在 listeningContent 中。
+
+═══════════════════════════════════════
+輸出格式（純 JSON）
+═══════════════════════════════════════
+
 {
   "listeningContent": "Woman: ...\\nMan: ...",
   "listeningTopicZh": "繁體中文主題簡介",
   "noteTakingGuide": [
-    { "question": "What is the main purpose of...?", "hint": "Listen for the opening remarks..." }
+    { "question": "...?", "hint": "用 $ 標記預算，注意 'the budget is' 之後..." }
   ],
   "writingTask": "完整的寫作任務說明...",
   "expectedContentPoints": ["要點1", "要點2", ...],
@@ -2692,25 +2740,45 @@ export async function analyzeIntegratedSkills(
   const systemPrompt = `你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
 請同時從「Listening 提取準確度」和「Writing 品質」兩個維度進行評估。
 
-DSE Paper 3 Integrated Skills 評分標準（HKDSE 官方）：
-- Listening 理解能力 (40%)：準確提取錄音中的內容要點、理解細節與隱含意思
-- Language 語言運用 (35%)：詞彙準確性與多樣性、文法正確性、Data manipulation 能力（非直接抄襲）
-- Organization 組織結構 (25%)：邏輯性與連貫性、適當分段、格式正確
+═══════════════════════════════════════
+DSE Paper 3 官方評分標準
+═══════════════════════════════════════
 
-【批改重點】
-1. Content Completeness：是否涵蓋了所有 expected content points？
-   - 逐點比對：已提取 vs 遺漏
-2. Paraphrasing vs Over-copying：
-   - ✅ 好的 paraphrasing：換詞 + 改句式 + 保留原意
-   - ❌ 過度抄襲：直接照搬 listeningContent 的長句（>8 個連續詞）
-3. Writing Quality：
-   - 文法準確度、詞彙多樣性、句式變化
-   - 組織結構（PEEL、段落分明）
-   - 任務格式（email 要有 subject/salutation/closing；report 要有 title/sub-headings）
-4. Note-taking Quality：
-   - 學生 notes 是否抓住了關鍵資訊
+- Listening 理解能力 (40%)：準確提取 Content Points、理解細節與隱含意思、識別說話者態度
+- Language 語言運用 (35%)：詞彙準確性與多樣性、文法正確性、Data manipulation（非直接抄襲）、Tone 與語境匹配
+- Organization 組織結構 (25%)：邏輯性與連貫性、PEEL 結構、分段合理、格式正確
 
-回覆格式（純 JSON，以 { 開頭 } 結尾）：
+═══════════════════════════════════════
+批改維度一：Listening 提取準確度
+═══════════════════════════════════════
+
+1. 逐點比對 expectedContentPoints：
+   - capturedPoints: 已成功提取的要點
+   - missedPoints: 完全遺漏的要點
+
+2. Note-taking 品質評估：
+   - 是否使用了有效的縮寫/符號系統
+   - 是否抓住了關鍵資訊（數字、名稱、日期、原因、建議）
+   - 在 generalComment 中給予具體的 note-taking 改善建議
+
+3. 資訊準確度：檢查數字/名稱/日期是否精確
+
+═══════════════════════════════════════
+批改維度二：Writing 品質
+═══════════════════════════════════════
+
+1. Paraphrasing vs 過度抄襲檢測（CRITICAL）：
+   ✅ 好的 paraphrasing: 換詞 + 改句式 + 保留原意
+   ❌ 過度抄襲: >8 個連續詞直接照搬 listeningContent
+   Data Manipulation 三層次：
+   - L1 直接引用（可接受）→ L2 語法轉換（加分）→ L3 語境適應（高分）
+   ⚠️ 黃金法則: 不要 paraphrase 關鍵數據！準確保留數字和專有名詞。
+
+2. 寫作結構：PEEL、清晰分段、邏輯連接、字數達標
+3. Audience Awareness：Tone 是否符合目標讀者、格式是否正確
+4. 語言品質：文法錯誤 + 詞彙豐富度 + 句式變化
+
+回覆格式（純 JSON）：
 {
   "overallScore": 0-100,
   "listeningAccuracy": 0-100,
@@ -2718,23 +2786,22 @@ DSE Paper 3 Integrated Skills 評分標準（HKDSE 官方）：
   "contentCompleteness": 0-100,
   "languageAccuracy": 0-100,
   "organizationClarity": 0-100,
-  "capturedPoints": ["已提取的要點"],
-  "missedPoints": ["遺漏的要點"],
-  "overCopyWarnings": [{ "original": "抄襲原文", "suggestion": "建議改寫" }],
-  "grammarErrors": [{ "original": "錯誤", "correction": "修正", "explanation": "繁體中文解釋" }],
-  "vocabularySuggestions": [{ "original": "原詞", "suggestion": "建議", "reason": "繁體中文原因" }],
-  "structureFeedback": "文章結構評語（繁體中文）",
-  "generalComment": "總評（繁體中文，50-100字，指出最接近的 HKDSE Level）",
-  "improvementTips": ["改善建議1", "改善建議2", "改善建議3"],
+  "capturedPoints": ["..."],
+  "missedPoints": ["..."],
+  "overCopyWarnings": [{ "original": "...", "suggestion": "..." }],
+  "grammarErrors": [{ "original": "...", "correction": "...", "explanation": "..." }],
+  "vocabularySuggestions": [{ "original": "...", "suggestion": "...", "reason": "..." }],
+  "structureFeedback": "文章結構評語（繁體中文，含 PEEL 建議）",
+  "generalComment": "總評（繁體中文，80-120字，指出最接近的 HKDSE Level + Note-taking 改善建議）",
+  "improvementTips": ["至少包含1條 Note-taking 改善建議", "...", "..."],
   "estimatedLevel": "Level 1-5 或 Below Level 1"
 }
 
 評分規則：
-- 內容完整度 70%+ → contentCompleteness >= 70
-- 若 writing 與 listening 內容完全無關 → overallScore <= 30
-- 若大量抄襲 listeningContent (>40% 連續文字) → writingQuality 扣 15-25 分
-- 若 note-taking 幾乎空白但 writing 尚可 → listeningAccuracy 扣分但 writingQuality 可保留
-- estimatedLevel 必須對照 HKDSE Level Descriptors 給出合理評級
+- contentCompleteness 基於 capturedPoints/expectedContentPoints 的比例
+- 若超過 30% 文字來自 listeningContent 直接抄襲 → writingQuality 扣 15-25 分
+- 若 writing 與 listening content 完全無關 → overallScore <= 30
+- improvementTips 中至少包含 1 條 Note-taking 改善建議
 
 所有中文使用繁體中文。`;
 
