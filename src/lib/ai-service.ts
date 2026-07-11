@@ -531,7 +531,7 @@ function normalizeAnswer(text: string): string {
 }
 
 /** 答案一致性自動修正：不只看警告，更主動修復常見不匹配問題 */
-function validateAndFixQuestion(q: GeneratedQuestion, index: number): { fixed: GeneratedQuestion; warnings: string[] } {
+export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { fixed: GeneratedQuestion; warnings: string[] } {
   const warnings: string[] = [];
   let fixed = { ...q };
 

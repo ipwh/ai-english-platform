@@ -84,6 +84,9 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 🚀 生產部署 Checklist
 
+> 📋 完整長期維護與監控策略請見 [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md)
+> 🔍 Prompt 驗證腳本：`npx tsx scripts/validate-prompts.ts`
+
 ### 環境變數（Vercel Dashboard → Settings → Environment Variables）
 
 | 變數 | 說明 | 必填 |
