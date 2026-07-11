@@ -32,6 +32,9 @@ export async function PATCH(
     // 更新 submission 的教師覆核
     const updateData: Record<string, unknown> = {};
     if (body.teacherScore !== undefined) updateData.score = body.teacherScore;
+    if (body.aiScore !== undefined) updateData.score = body.aiScore;
+    if (body.aiFeedback !== undefined) updateData.aiFeedback = body.aiFeedback;
+    if (body.aiMistakeType !== undefined) updateData.aiMistakeType = body.aiMistakeType;
     if (body.status !== undefined) {
       updateData.status = body.status === 'reviewed' ? 'graded' : body.status;
     }

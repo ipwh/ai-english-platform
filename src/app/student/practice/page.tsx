@@ -296,7 +296,7 @@ function PracticeListPageContent() {
             tab === 'generate' ? 'bg-white dark:bg-gray-700 text-teal-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          <Sparkles className="w-4 h-4 inline mr-1" /> AI 生成練習
+          <Sparkles className="w-4 h-4 inline mr-1" /> {t('practice.aiGenerate')}
         </button>
         <button
           onClick={() => setTab('browse')}
@@ -304,7 +304,7 @@ function PracticeListPageContent() {
             tab === 'browse' ? 'bg-white dark:bg-gray-700 text-teal-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          <BookOpen className="w-4 h-4 inline mr-1" /> 瀏覽題目庫
+          <BookOpen className="w-4 h-4 inline mr-1" /> {t('practice.browse')}
         </button>
       </div>
 

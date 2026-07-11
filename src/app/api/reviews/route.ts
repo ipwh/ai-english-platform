@@ -45,11 +45,19 @@ export async function GET(request: NextRequest) {
       take: 50,
     });
 
+    // Also fetch Review records for teacher feedback
+    const reviewRecords = await db.review.findMany({
+      where: { submissionId: { in: submissions.map(s => s.id) } },
+      select: { submissionId: true, teacherScore: true, teacherFeedback: true, status: true },
+    });
+    const reviewMap = new Map(reviewRecords.map(r => [r.submissionId, r]));
+
     const reviews = submissions.map(s => {
       // Parse submission answers to extract student answer for display
       let questionPrompt = '';
       let studentAnswer = '';
       let correctAnswer = '';
+      let questionType = 'mc';
       const questions = (s.assignment as any)?.questions || [];
       try {
         const answers = JSON.parse((s as any).answers || '{}');
@@ -61,13 +69,17 @@ export async function GET(request: NextRequest) {
           if (matchedQ) {
             questionPrompt = matchedQ.prompt || '';
             correctAnswer = matchedQ.answer || '';
+            questionType = matchedQ.questionType || 'mc';
           }
         }
         if (!questionPrompt && questions.length > 0) {
           questionPrompt = questions[0].prompt || '';
           correctAnswer = questions[0].answer || '';
+          questionType = questions[0].questionType || 'mc';
         }
       } catch { /* keep defaults */ }
+
+      const reviewRecord = reviewMap.get(s.id);
 
       return {
         id: s.id,
@@ -79,8 +91,11 @@ export async function GET(request: NextRequest) {
         questionPrompt,
         studentAnswer,
         correctAnswer,
+        questionType,
         aiScore: s.score,
         aiFeedback: s.aiFeedback,
+        teacherScore: reviewRecord?.teacherScore ?? null,
+        teacherFeedback: reviewRecord?.teacherFeedback ?? null,
         status: s.status,
         submittedAt: s.submittedAt,
       };

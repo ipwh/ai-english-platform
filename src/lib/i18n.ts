@@ -678,6 +678,117 @@ const translations: Record<string, { zh: string; en: string }> = {
   'layout.teacherSubtitle': { zh: '教師版', en: 'Teacher' },
   'layout.closeMenu': { zh: '關閉選單', en: 'Close Menu' },
   'layout.aiPlatform': { zh: 'AI English Platform', en: 'AI English Platform' },
+
+  // === Critical missing keys for student-facing pages ===
+
+  // Common labels
+  'common.question': { zh: '題', en: 'q' },
+  'common.people': { zh: '人', en: '' },
+  'common.sessions': { zh: '次', en: '' },
+  'common.days': { zh: '天', en: 'd' },
+  'common.percent': { zh: '%', en: '%' },
+  'common.retry': { zh: '重試', en: 'Retry' },
+  'common.notFound': { zh: '找不到', en: 'Not found' },
+  'common.backToList': { zh: '返回列表', en: 'Back to list' },
+  'common.loadFailed': { zh: '載入失敗', en: 'Load failed' },
+  'common.networkError': { zh: '網絡錯誤，請檢查連線。', en: 'Network error. Check connection.' },
+  'common.selectAtLeastOne': { zh: '請選擇至少一項', en: 'Please select at least one' },
+  'common.noRecords': { zh: '尚無記錄', en: 'No records yet' },
+  'common.inProgress': { zh: '進行中', en: 'In Progress' },
+  'common.correctCount': { zh: '正確 {correct}/{total}', en: '{correct}/{total} correct' },
+  'common.skillMastery': { zh: '技能掌握度', en: 'Skill Mastery' },
+  'common.recentSessions': { zh: '最近練習記錄', en: 'Recent Sessions' },
+
+  // Practice page (additional — only keys not already in the file)
+  'practice.aiGenerate': { zh: 'AI 生成練習', en: 'AI Generate' },
+  'practice.grammarItem': { zh: '文法項目', en: 'Grammar Item' },
+  'practice.gradeLevel': { zh: '年級', en: 'Grade' },
+
+  // Diagnostic page
+  'diagnostic.skillGrammar': { zh: '文法', en: 'Grammar' },
+  'diagnostic.skillVocab': { zh: '詞彙', en: 'Vocabulary' },
+  'diagnostic.skillReading': { zh: '閱讀', en: 'Reading' },
+  'diagnostic.skillWriting': { zh: '寫作', en: 'Writing' },
+  'diagnostic.grammarDesc': { zh: '時態、句型結構、詞性等', en: 'Tenses, sentence structures, parts of speech' },
+  'diagnostic.vocabDesc': { zh: '學術詞彙、搭配詞、片語動詞', en: 'Academic vocabulary, collocations, phrasal verbs' },
+  'diagnostic.readingDesc': { zh: '主旨理解、推論、詞義猜測', en: 'Main ideas, inference, guessing meaning' },
+  'diagnostic.writingDesc': { zh: '句子結構、段落組織、表達能力', en: 'Sentence structure, paragraph organization, expression' },
+  'diagnostic.levelCore': { zh: '核心', en: 'Core' },
+  'diagnostic.levelRemedial': { zh: '補底', en: 'Remedial' },
+  'diagnostic.aiGenerating': { zh: 'AI 正在為你生成診斷題目...', en: 'AI generating diagnostic questions...' },
+  'diagnostic.reload': { zh: '重新載入', en: 'Reload' },
+  'diagnostic.cannotGenerate': { zh: '暫無法生成診斷題目，請稍後再試。', en: 'Cannot generate diagnostic questions right now. Try again later.' },
+
+  // Help page (additional — only truly new keys)
+  'help.aiHint': { zh: '有任何英文學習問題？直接問 AI', en: 'Have an English question? Ask AI directly' },
+  'help.placeholder': { zh: '輸入你的英文學習問題...', en: 'Enter your English learning question...' },
+  'help.ask': { zh: '提問', en: 'Ask' },
+  'help.thinking': { zh: '思考中...', en: 'Thinking...' },
+  'help.aiAnswer': { zh: 'AI 回答', en: 'AI Answer' },
+  'help.genPractice': { zh: '生成相關練習題', en: 'Generate Practice' },
+  'help.generating': { zh: '生成中...', en: 'Generating...' },
+  'help.goPractice': { zh: '前往完整練習', en: 'Go to Full Practice' },
+  'help.generatedLabel': { zh: '📝 以下是根據你的問題生成的練習題：', en: '📝 Practice questions based on your question:' },
+  'help.aiAdvice': { zh: 'AI 學習建議', en: 'AI Learning Advice' },
+  'help.personalized': { zh: '個人化分析', en: 'Personalized Analysis' },
+  'help.urgentFocus': { zh: '目前優先改善：{items}', en: 'Priority focus: {items}' },
+  'help.commonQuestions': { zh: '常見學習困難', en: 'Common Questions' },
+  'help.encouragement': { zh: '你已經做得很好了！', en: 'You are doing great!' },
+  'help.encouragementDesc': { zh: '學習英語是一場馬拉松，不是短跑。每次小小的進步，都會累積成大大的成就。繼續加油！💪', en: 'Learning English is a marathon, not a sprint. Every small step adds up. Keep going! 💪' },
+
+  // Teacher pages critical
+  'teacher.classDetail': { zh: '{name} 班級詳情', en: '{name} Class Detail' },
+  'teacher.classSubtitle': { zh: '{grade} · {count} 名學生', en: '{grade} · {count} students' },
+  'teacher.studentCount': { zh: '學生人數', en: 'Students' },
+  'teacher.avgAccuracyPercent': { zh: '平均正確率', en: 'Avg Accuracy' },
+  'teacher.totalSessions': { zh: '練習總次數', en: 'Total Sessions' },
+  'teacher.studentList': { zh: '學生列表（依班號排序）', en: 'Student List (by class number)' },
+  'teacher.noStudents': { zh: '此班級暫無學生', en: 'No students in this class' },
+  'teacher.tableNumber': { zh: '班號', en: 'No.' },
+  'teacher.tableNameZh': { zh: '中文姓名', en: 'Name (ZH)' },
+  'teacher.tableNameEn': { zh: '英文姓名', en: 'Name (EN)' },
+  'teacher.tableAccuracy': { zh: '正確率', en: 'Accuracy' },
+  'teacher.tableSessions': { zh: '練習次數', en: 'Sessions' },
+  'teacher.tableActions': { zh: '操作', en: 'Actions' },
+  'teacher.detail': { zh: '詳情', en: 'Detail' },
+  'teacher.notFound': { zh: '找不到此班級', en: 'Class not found' },
+  'teacher.backToClasses': { zh: '返回班級列表', en: 'Back to Classes' },
+
+  // Student detail (teacher view)
+  'teacher.studentClass': { zh: '班級', en: 'Class' },
+  'teacher.studentGrade': { zh: '年級', en: 'Grade' },
+  'teacher.studentNumber': { zh: '學號', en: 'Student No.' },
+  'teacher.studentAccuracy': { zh: '準確率', en: 'Accuracy' },
+  'teacher.practiceCount': { zh: '練習次數', en: 'Practices' },
+  'teacher.totalAnswered': { zh: '總答題數', en: 'Total Answered' },
+  'teacher.practiceAccuracy': { zh: '練習準確率', en: 'Practice Accuracy' },
+  'teacher.mistakeCount': { zh: '錯題數', en: 'Mistakes' },
+  'teacher.recentPractice': { zh: '最近練習', en: 'Recent Practice' },
+  'teacher.noPractice': { zh: '尚無練習記錄', en: 'No practice records' },
+  'teacher.studentNotFound': { zh: '找不到此學生', en: 'Student not found' },
+  'teacher.back': { zh: '← 返回', en: '← Back' },
+
+  // Review page (additional)
+  'teacher.review.all': { zh: '全部', en: 'All' },
+
+  // Help categories
+  'help.catGrammar': { zh: '文法問題', en: 'Grammar' },
+  'help.catVocab': { zh: '詞彙問題', en: 'Vocabulary' },
+  'help.catWriting': { zh: '寫作問題', en: 'Writing' },
+  'help.catReading': { zh: '閱讀問題', en: 'Reading' },
+
+  // Mistake types
+  'mistake.grammar': { zh: '文法錯誤', en: 'Grammar Error' },
+  'mistake.vocabulary': { zh: '詞彙錯誤', en: 'Vocabulary Error' },
+  'mistake.comprehension': { zh: '理解錯誤', en: 'Comprehension Error' },
+  'mistake.careless': { zh: '粗心大意', en: 'Careless' },
+  'mistake.timeManagement': { zh: '時間不足', en: 'Time Management' },
+  'mistake.chinglish': { zh: '中式英文', en: 'Chinglish' },
+
+  // Vocabulary strategy labels
+  'vocab.strategyCollocations': { zh: '搭配記憶', en: 'Collocations' },
+  'vocab.strategyWordFormation': { zh: '構詞法', en: 'Word Formation' },
+  'vocab.strategyMnemonics': { zh: '記憶術', en: 'Mnemonics' },
 };
 
 /**
