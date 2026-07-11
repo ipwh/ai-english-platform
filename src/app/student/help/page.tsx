@@ -167,12 +167,16 @@ export default function StudentHelpPage() {
   const [genError, setGenError] = useState('');
   const [genTopic, setGenTopic] = useState('');
   const [genSkill, setGenSkill] = useState('grammar');
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
 
   const handleGeneratePractice = async () => {
     if (!aiQuestion.trim()) return;
     setGenLoading(true);
     setGenError('');
     setGenQuestions([]);
+    setUserAnswers({});
+    setRevealedAnswers({});
     const topic = aiQuestion.trim();
     setGenTopic(topic);
 
@@ -388,34 +392,102 @@ export default function StudentHelpPage() {
               {genError && <p className="text-xs text-red-500 mt-2">{genError}</p>}
 
               {genQuestions.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs font-medium text-teal-600 dark:text-teal-400">📝 以下是根據你的問題生成的練習題：</p>
-                  {genQuestions.map((q, i) => (
-                    <details key={i} className="group">
-                      <summary className="cursor-pointer text-sm font-medium text-gray-800 dark:text-gray-200 hover:text-teal-600 py-1">
-                        {i + 1}. {q.prompt}
-                      </summary>
-                      <div className="pl-4 mt-1 space-y-1 text-xs">
-                        {/* MCQ 選項 */}
-                        {q.type === 'mc' && q.choices && q.choices.length > 0 && (
-                          <div className="space-y-0.5 mb-1.5">
-                            {q.choices.map((choice: string, ci: number) => {
-                              const letter = String.fromCharCode(65 + ci); // A, B, C, D
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs font-medium text-teal-600 dark:text-teal-400">{t('help.generatedLabel')}</p>
+                  {genQuestions.map((q, i) => {
+                    const revealed = revealedAnswers[i];
+                    const userAnswer = userAnswers[i];
+                    const isCorrect = userAnswer?.toUpperCase() === q.answer?.toUpperCase();
+                    const isMcq = q.type === 'mc' && q.choices && q.choices.length > 0;
+
+                    return (
+                      <div key={i} className="border border-teal-200 dark:border-teal-700 rounded-lg p-3 bg-white/50 dark:bg-gray-800/50">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+                          {i + 1}. {q.prompt}
+                        </p>
+
+                        {/* MCQ 選項 — 可點擊作答 */}
+                        {isMcq && !revealed && (
+                          <div className="space-y-1.5">
+                            {q.choices!.map((choice: string, ci: number) => {
+                              const letter = String.fromCharCode(65 + ci);
                               const cleanChoice = choice.replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s*[\].:：)\-、]\s*/u, '').replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '').trim();
-                              const isAnswer = q.answer?.trim().toUpperCase() === letter;
+                              const selected = userAnswer === letter;
                               return (
-                                <p key={ci} className={isAnswer ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-600 dark:text-gray-400'}>
-                                  <span className="font-semibold">{letter}.</span> {cleanChoice}{isAnswer ? ' ✓' : ''}
+                                <button
+                                  key={ci}
+                                  onClick={() => setUserAnswers(prev => ({ ...prev, [i]: letter }))}
+                                  className={`w-full text-left p-2 rounded-lg text-xs border transition-colors ${
+                                    selected
+                                      ? 'border-teal-400 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300'
+                                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-teal-200'
+                                  }`}
+                                >
+                                  <span className="font-semibold mr-1">{letter}.</span> {cleanChoice}
+                                </button>
+                              );
+                            })}
+                            {userAnswer && (
+                              <button
+                                onClick={() => setRevealedAnswers(prev => ({ ...prev, [i]: true }))}
+                                className="mt-2 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-white text-xs rounded-lg font-medium"
+                              >
+                                {t('common.submit')}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 非 MCQ 題 — 文字輸入 */}
+                        {!isMcq && !revealed && (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={userAnswer || ''}
+                              onChange={e => setUserAnswers(prev => ({ ...prev, [i]: e.target.value }))}
+                              placeholder={t('assignment.inputAnswer')}
+                              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-xs outline-none focus:ring-1 focus:ring-teal-500"
+                            />
+                            {userAnswer && userAnswer.trim() && (
+                              <button
+                                onClick={() => setRevealedAnswers(prev => ({ ...prev, [i]: true }))}
+                                className="px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-white text-xs rounded-lg font-medium"
+                              >
+                                {t('common.submit')}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 已揭曉結果 */}
+                        {revealed && (
+                          <div className="space-y-1 text-xs">
+                            {isMcq && q.choices!.map((choice: string, ci: number) => {
+                              const letter = String.fromCharCode(65 + ci);
+                              const cleanChoice = choice.replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s*[\].:：)\-、]\s*/u, '').replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '').trim();
+                              const isCorrectChoice = q.answer?.trim().toUpperCase() === letter;
+                              const isUserChoice = userAnswer?.toUpperCase() === letter;
+                              return (
+                                <p key={ci} className={`${isCorrectChoice ? 'text-green-600 dark:text-green-400 font-medium' : isUserChoice && !isCorrectChoice ? 'text-red-500 line-through' : 'text-gray-500'}`}>
+                                  <span className="font-semibold">{letter}.</span> {cleanChoice}
+                                  {isCorrectChoice && ' ✓'}
+                                  {isUserChoice && !isCorrectChoice && ' ✗'}
                                 </p>
                               );
                             })}
+                            {!isMcq && (
+                              <p className={isCorrect ? 'text-green-600' : 'text-red-500'}>
+                                {t('mistakes.yourAnswer')}<span className={isCorrect ? '' : 'line-through'}>{userAnswer}</span>
+                                {!isCorrect && <span className="text-green-600 ml-1">→ {q.answer}</span>}
+                              </p>
+                            )}
+                            <p className="text-green-600 dark:text-green-400 mt-1">✅ {t('student.correctAnswer')}: {q.answer}</p>
+                            <p className="text-gray-500 dark:text-gray-400">💡 {q.explanationZh}</p>
                           </div>
                         )}
-                        <p className="text-green-600 dark:text-green-400">✅ 答案：{q.answer}</p>
-                        <p className="text-gray-500 dark:text-gray-400">💡 {q.explanationZh}</p>
                       </div>
-                    </details>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
