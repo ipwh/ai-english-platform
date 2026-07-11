@@ -7,7 +7,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 🧑‍🎓 學生端
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
-- **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型
+- **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
@@ -184,6 +184,13 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **互動式詞彙測驗** (`POST /api/vocabulary/quiz`)：從學生生字簿生成 MCQ + 配對題，優先選取低掌握度單字
 - **VocabCard 策略提示動態化**：根據 `masteryLevel` + `familiarity` + `nextReviewDate` 自動推導學習策略（不再依賴未使用的 DB 欄位）
 - **TypeScript Schema 修復**：移除 `VocabItem` interface 中不存在於 DB 的 `topic`/`audioUrl` 欄位
+
+### 🎧 DSE Paper 3 Listening 聆聽題全面升級
+- **真實 DSE 風格對話生成**：依難度自動調節長度（短對話 6 行 → 長對話 24 行），支援 2-3 位說話者，自然口語特徵
+- **DSE 常見陷阱自動注入**：Distraction（說了又改）、Synonym replacement（同義詞替換）、Speaker attitude（態度推論）、Numerical/time precision、Name spelling
+- **題型全面覆蓋**：MCQ（plausible distractor）+ Fill-in-blank（verbatim）+ Form-filling + Matching + Inference + Speaker attitude
+- **難度分層**：補底→簡單對話+基礎題型、核心→中等對話+1 陷阱、挑戰→長對話+2+陷阱+態度推論
+- **Prompt 強化**：整合 AfterSchool 及 Defining Education DSE Paper 3 教學精華（Repetition=答案、轉折詞後是重點、Grammar 轉換、Note-taking 技巧）
 
 ## 近期更新 (2026-07-11)
 

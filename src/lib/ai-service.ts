@@ -755,21 +755,82 @@ HKDSE 等級對齊指引：
 - 題型：${typeDesc}
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
-【聆聽題特別要求】
-- listeningContent: 一段完整的英文對話（50-100字），作為學生的聆聽材料
-- 對話必須使用角色標籤格式，每行一個角色發言，以便 TTS 系統用不同聲音朗讀
-- 正確格式示例：
-  Woman: Excuse me, could you tell me where the nearest MTR station is?
-  Man: Sure, just go straight and turn left at the second crossing.
-  Woman: Thank you so much!
-- 角色標籤只可使用：Woman / Man / Boy / Girl
-- 嚴禁使用 A / B / Speaker A / Speaker B 等字母標籤！
-  原因：TTS 系統會根據 Woman/Man 自動分配女聲/男聲，但不會讀出標籤文字，
-  學生只聽到不同聲音，無法分辨誰是「A」誰是「B」。
-- 題目 prompt 及選項中如需引用說話者，必須用 "the woman" / "the man" / "the boy" / "the girl"
-  例如："What does the man suggest?" 而非 "What does A suggest?"
-- listeningContentZh: 中文簡短情境說明
-- prompt: 針對聆聽內容的題目問題` : ''}
+【DSE Paper 3 Listening 聆聽題 — 全面升級要求】
+
+DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷。請按以下真實 DSE 標準生成聆聽材料與題目。
+
+一、聆聽材料 (listeningContent) 設計規則：
+
+1. 長度與結構（依難度）：
+   - remedial (Level 1-2)：1 段短對話，6-10 行，2 位說話者
+   - core (Level 3)：1 段中等對話，10-16 行，2-3 位說話者，含 1 個 distraction
+   - challenge (Level 4-5)：1 段長對話或 2 段相關短對話，16-24 行，2-3 位說話者，含 2+ 個陷阱
+
+2. 角色標籤格式（CRITICAL — TTS 相容）：
+   - 只可使用：Woman: / Man: / Boy: / Girl: （每行一個發言）
+   - 嚴禁 A/B/Speaker A/Speaker B 等字母標籤
+   - 題目中引用說話者用 "the woman" / "the man"
+
+3. 必須包含 DSE 常見陷阱（挑戰模式必須至少 2 項）：
+   ✅ Distraction (說了又改)：
+      Woman: The meeting is at 3pm.
+      Man: Actually, no — they've moved it to 4pm.
+   ✅ Synonym replacement (同義詞替換)：
+      錄音說 "postponed"，題目用 "delayed"
+   ✅ Speaker attitude (說話者態度)：
+      Woman: Well, I suppose that's one way to look at it... (暗示不贊同)
+   ✅ Numerical/time precision (數字/時間精準)：
+      明確說出日期、時間、數量、價格
+   ✅ Name spelling (名字串法)：
+      在對話中清楚串出：M-A-R-G-A-R-E-T
+
+4. 語境真實性：
+   - 使用自然口語特徵：linking ("gonna", "wanna")、reduction、hesitation ("um, well...")
+   - 題材貼近 DSE：校園活動、社區服務、旅行計劃、社會議題、工作情境
+   - 對話應有自然的起承轉合，而非生硬的問答
+
+二、題目設計規則：
+
+1. 題型組合（依難度）：
+   - remedial: 2 MCQ + 2 fill-blank + 1 short answer
+   - core: 2 MCQ + 1 fill-blank + 1 matching + 1 form-filling
+   - challenge: 1 MCQ + 1 fill-blank + 1 inference + 1 speaker attitude + 1 summary
+
+2. MCQ 設計（DSE 風格）：
+   - 4 個選項，干擾選項必須 plausible
+   - 選項中可包含錄音中出現過但非正確答案的內容（測試 distraction 識別）
+   - 挑戰模式：選項使用與錄音不同的詞彙表達相同概念（測試 synonym recognition）
+
+3. Fill-in-blank 設計：
+   - 答案必須是錄音中逐字出現的內容（verbatim）
+   - 答案可能是：數字、日期、人名、地名、價格、活動名稱
+   - 題目句子與錄音用詞可有語法變化（singular→plural, tense change）
+
+4. Speaker attitude / Inference 題（挑戰模式）：
+   - 問題形式："How does the woman feel about...?" / "What does the man imply when he says...?"
+   - 答案不能從單一句子直接提取，需要綜合語氣、上下文判斷
+
+5. 答案規則（STRICT — 必須 100% 遵守）：
+   - MCQ answer = "A"/"B"/"C"/"D" 之一
+   - fill-blank / short-answer 的 answer 必須逐字 (verbatim) 出現在 listeningContent 中
+   - 生成後自我檢查 (Self-Check)：逐一確認每個 answer 的對應文字確實存在於 listeningContent
+
+三、DSE Listening 高分技巧（注入 prompt 以協助出題）：
+
+- Repetition = answer：重要資訊在對話中重複出現
+- 轉折詞後是重點：but, however, actually, in fact, the thing is...
+- 強調詞引導答案：importantly, notably, especially, the key point is...
+- 數字/時間/名字必須精準捕捉
+- Grammar 轉換：題目可能要求將 singular 轉 plural，present 轉 past
+
+四、聆聽材料難度調節：
+- 補底: 語速偏慢、用詞簡單（~1000 詞水平）、單一主題、少陷阱
+- 核心: 中等語速、中級詞彙（~2000 詞水平）、1 個 distraction
+- 挑戰: 自然語速、DSE 程度詞彙、2+ 陷阱、需推論說話者態度
+
+- listeningContentZh: 繁體中文簡短情境說明（例如：「一段關於學校活動安排的對話」）
+- prompt: 針對聆聽內容的具體題目
+- 所有中文使用繁體中文` : ''}
 ${isReading ? `
 【閱讀理解題特別要求 — 極重要！】
 - readingContent: 一段完整的英文閱讀篇章（80-200字），必須在題目之前提供給學生閱讀
