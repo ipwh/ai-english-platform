@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"  // 開發: SQLite; 生產: prisma.config.ts 動態切換為 postgresql
+  provider = "postgresql"
 }
 
 // ============================================

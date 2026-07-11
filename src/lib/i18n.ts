@@ -1010,23 +1010,12 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.classes.assignmentCount': { zh: '課業數', en: 'Assignments' },
 
   // ============================================
-  // Vocabulary — 生字簿 Add Form
+  // Vocabulary — 生字簿 Add Form (legacy, new keys added in main vocab section above)
   // ============================================
-  'vocab.addWord': { zh: '新增生字', en: 'Add Word' },
   'vocab.addWordTitle': { zh: '新增生字到生字簿', en: 'Add Word to Vocabulary' },
-  'vocab.word': { zh: '英文生字', en: 'English Word' },
-  'vocab.wordPlaceholder': { zh: '輸入英文生字...', en: 'Enter English word...' },
-  'vocab.partOfSpeech': { zh: '詞性', en: 'Part of Speech' },
   'vocab.selectPos': { zh: '選擇詞性', en: 'Select POS' },
-  'vocab.meaning': { zh: '中文意思', en: 'Chinese Meaning' },
   'vocab.meaningPlaceholder': { zh: '輸入中文意思...', en: 'Enter Chinese meaning...' },
-  'vocab.exampleSentence': { zh: '例句（可選）', en: 'Example Sentence (optional)' },
   'vocab.examplePlaceholder': { zh: '輸入例句...', en: 'Enter example sentence...' },
-  'vocab.exampleZh': { zh: '例句中文翻譯（可選）', en: 'Chinese Translation (optional)' },
-  'vocab.exampleZhPlaceholder': { zh: '輸入例句中文翻譯...', en: 'Enter Chinese translation...' },
-  'vocab.addSuccess': { zh: '✅ 已新增「{word}」到生字簿！', en: '✅ "{word}" added to vocabulary!' },
-  'vocab.addFailed': { zh: '新增失敗，請重試。', en: 'Add failed. Please try again.' },
-  'vocab.empty': { zh: '暫無生字，點擊右上角「新增生字」開始建立你的生字簿！', en: 'No vocabulary yet. Click "Add Word" to start building your vocabulary!' },
   'vocab.srsMore': { zh: '還有 {n} 個生字今日待溫習', en: '{n} more due today' },
   'vocab.aiGenerating': { zh: 'AI 例句生成中...', en: 'AI generating example...' },
 

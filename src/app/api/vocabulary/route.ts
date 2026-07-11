@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     if (collocations) data.collocations = JSON.stringify(collocations);
     if (allPartOfSpeech) data.allPartOfSpeech = JSON.stringify(allPartOfSpeech);
 
-    const vocab = await db.vocabItem.create({ data });
+    const vocab = await db.vocabItem.create({ data: data as any });
 
     return NextResponse.json({ vocab: serializeVocab(vocab) }, { status: 201 });
   } catch (err: unknown) {
@@ -119,7 +119,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    const vocab = await db.vocabItem.update({ where: { id }, data: updateData });
+    const vocab = await db.vocabItem.update({ where: { id }, data: updateData as any });
     return NextResponse.json({ vocab: serializeVocab(vocab) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';

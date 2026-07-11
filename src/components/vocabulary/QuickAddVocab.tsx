@@ -304,10 +304,10 @@ export default function QuickAddVocab({
                   </button>
                   <button
                     onClick={handleAdd}
-                    disabled={stage === 'adding'}
+                    disabled={stage === ('adding' as Stage)}
                     className="flex-1 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1.5"
                   >
-                    {stage === 'adding' ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
+                    {stage === ('adding' as Stage) ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
                     {t('vocab.addToVocabBook')}
                   </button>
                 </div>
