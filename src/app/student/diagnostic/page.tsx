@@ -116,10 +116,10 @@ function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: MistakeLite[
   }));
 
   const defaults = [
-    { name: 'grammar', nameZh: '文法', accuracy: 65 },
-    { name: 'vocabulary', nameZh: '詞彙', accuracy: 65 },
-    { name: 'reading', nameZh: '閱讀', accuracy: 65 },
-    { name: 'writing', nameZh: '寫作', accuracy: 65 },
+    { name: 'grammar', nameZh: '文法', accuracy: 0 },
+    { name: 'vocabulary', nameZh: '詞彙', accuracy: 0 },
+    { name: 'reading', nameZh: '閱讀', accuracy: 0 },
+    { name: 'writing', nameZh: '寫作', accuracy: 0 },
   ];
 
   for (const item of defaults) {

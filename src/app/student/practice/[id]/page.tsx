@@ -155,7 +155,7 @@ export default function PracticeQuestionPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: store.userId || 'student',
+          studentId: store.userId || '',
           skill: question.grammarItem || question.languageSkill || 'general',
           skillZh: question.subSkillZh || '',
           difficulty: question.difficulty || 'core',
@@ -172,7 +172,7 @@ export default function PracticeQuestionPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: store.userId || 'student',
+          studentId: store.userId || '',
           questionId: question.id,
           studentAnswer: selectedAnswer,
           correctAnswer: question.answer,

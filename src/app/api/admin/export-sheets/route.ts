@@ -162,15 +162,95 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    // === 寫入個別學生成績分頁 ===
+    const studentSheetName = '學生個人成績';
+    const existingAfterDashboard = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`,
+      { headers: { Authorization: `Bearer ${accessToken.token}` } },
+    );
+    const metaAfter = await existingAfterDashboard.json() as { sheets: { properties: { title: string } }[] };
+    const sheetsAfter = metaAfter.sheets.map(s => s.properties.title);
+
+    if (!sheetsAfter.includes(studentSheetName)) {
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requests: [{ addSheet: { properties: { title: studentSheetName } } }],
+          }),
+        },
+      );
+    }
+
+    // Fetch individual student data
+    const students = await db.user.findMany({
+      where: { role: 'student', overallAccuracy: { not: null } },
+      select: {
+        id: true, email: true, nameZh: true, nameEn: true, level: true,
+        overallAccuracy: true, streakDays: true,
+        class: { select: { name: true, gradeLevel: true } },
+        classNumber: true,
+        _count: { select: { sessions: true, mistakes: true, vocabItems: true } },
+      },
+      orderBy: [{ class: { name: 'asc' } }, { classNumber: 'asc' }],
+    });
+
+    const studentRows = [
+      [`=== 學生個人成績 ===`],
+      [`更新時間：${now}`],
+      [''],
+      ['班級', '班號', '中文姓名', '英文姓名', '年級', '整體準確率 (%)', '練習次數', '錯題數', '詞彙數', '連續天數'],
+      ...students.map(s => [
+        s.class?.name || '',
+        s.classNumber || '',
+        s.nameZh || '',
+        s.nameEn || '',
+        s.level || '',
+        s.overallAccuracy ? String(Math.round(s.overallAccuracy)) : '-',
+        String(s._count.sessions),
+        String(s._count.mistakes),
+        String(s._count.vocabItems),
+        String(s.streakDays || 0),
+      ]),
+    ];
+
+    const studentRange = encodeURIComponent(`'${studentSheetName}'!A1`);
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${studentRange}:clear`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken.token}` },
+      },
+    );
+
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${studentRange}?valueInputOption=USER_ENTERED`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ values: studentRows }),
+      },
+    );
+
     return NextResponse.json({
       success: true,
       sheetName,
+      studentSheetName,
       updatedAt: now,
       stats: {
         totalStudents,
         recentSubmissions,
         levelsReported: levelStats.length,
         classesReported: classStats.length,
+        studentsReported: students.length,
       },
     });
   } catch (err: unknown) {

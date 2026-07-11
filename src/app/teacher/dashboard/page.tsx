@@ -74,9 +74,9 @@ export default function TeacherDashboardPage() {
       const res = await fetch('/api/ai/analyze-progress', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentLevel: 'S4', overallAccuracy: overallAvgAccuracy || 65,
-          weakSkills: classes.slice(0, 3).map((c: any) => ({ name: c.name, nameZh: c.name, accuracy: c.avgAccuracy || 50 })),
-          recentPerformance: [], streakDays: 0,
+          studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy || 0,
+          weakSkills: classes.slice(0, 3).map((c: any) => ({ name: c.name, nameZh: c.name, accuracy: c.avgAccuracy || 0 })),
+          recentPerformance: classes.slice(0, 5).map((c: any) => ({ date: c.name, accuracy: c.avgAccuracy || 0, questionsDone: c.studentCount || 0 })), streakDays: 0,
         }),
       });
       const json = await res.json();

@@ -49,7 +49,7 @@ export default function TeacherMaterialsPage() {
         body: JSON.stringify({
           title,
           content,
-          gradeLevel: 'S4',
+          gradeLevel: 'S4', // Material analysis uses a reference level; teachers can adjust after analysis
         }),
       });
       const json = await res.json();

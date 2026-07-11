@@ -83,7 +83,7 @@ export default function NewAssignmentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title || `${skillLabels[form.skill] || form.skill} — ${form.gradeLevel}`,
-          className: form.classId || '4A',
+          className: form.classId || classes[0]?.name || '',
           gradeLevel: form.gradeLevel,
           strand: 'knowledge',
           grammarItem: form.skill,
