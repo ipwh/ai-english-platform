@@ -85,6 +85,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ## 近期更新 (2026-07-11)
 
 ### 🐛 重大錯誤修復
+- **診斷頁面空白輸入框**：修復非選擇題（填充/寫作）無輸入框的 bug — 當 AI 回傳 `choices: []`（空陣列）時，JS 將其視為 truthy 而錯誤渲染 MC 佈局（零按鈕、無輸入框）；改為 `choices && choices.length > 0` 正確判斷
+- **診斷頁面全面 i18n**：所有硬編碼中文字串（載入提示、錯誤訊息、結果標籤、推薦練習區塊）改用 `t()` 函數，支援中英雙語
 - **React Hydration Error #418/#300**：修復 `getGreeting()` 使用 `getHours()`（本地時間）導致 Vercel UTC 伺服器與香港 UTC+8 客戶端產生不同問候語的文字不匹配；改為 `getUTCHours() + 8` 統一使用香港時區
 - **Zustand Store Hydration**：修復 `language`/`darkMode` 初始化時直接讀取 `localStorage` 導致 SSR/CSR 不一致；改為固定初始值 + `hydrateStoredPrefs()` 在 useEffect 中延遲載入
 - **API 500 Errors**：修復 `gamification`、`mistakes`、`srs/review` API 因 Prisma schema 新增欄位未推送至 production DB 導致的 500 錯誤；每個查詢加入獨立 try-catch + 優雅降級

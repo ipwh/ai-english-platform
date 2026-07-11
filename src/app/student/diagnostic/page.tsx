@@ -328,7 +328,7 @@ export default function DiagnosticPage() {
       <div className="text-center py-20">
         <Loader2 className="w-10 h-10 animate-spin text-teal-500 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('diagnostic.title')}</h2>
-        <p className="text-gray-500 dark:text-gray-400">AI 正在為你生成診斷題目...</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('diagnostic.aiGenerating')}</p>
       </div>
     );
   }
@@ -342,10 +342,10 @@ export default function DiagnosticPage() {
         </div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('diagnostic.title')}</h2>
         <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-4">
-          {genError || '暫無法生成診斷題目，請稍後再試。'}
+          {genError || t('diagnostic.cannotGenerate')}
         </p>
         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">
-          重新載入
+          {t('diagnostic.reload')}
         </button>
       </div>
     );
@@ -504,7 +504,7 @@ export default function DiagnosticPage() {
           {/* 閱讀篇章 */}
           {currentQ.languageSkill === 'reading' && currentQ.readingContent && (
             <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700">
-              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">📖 閱讀篇章</p>
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">📖 {t('diagnostic.skillReading')}</p>
               <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">{currentQ.readingContent}</p>
               {currentQ.readingContentZh && <p className="text-xs text-indigo-500 mt-1 italic">{currentQ.readingContentZh}</p>}
             </div>
@@ -513,7 +513,7 @@ export default function DiagnosticPage() {
           <p className="text-lg text-gray-900 dark:text-white mb-6">{currentQ.prompt}</p>
           {currentQ.promptZh && <p className="text-sm text-gray-500 mb-4 italic">{currentQ.promptZh}</p>}
 
-          {currentQ.choices ? (
+          {currentQ.choices && currentQ.choices.length > 0 ? (
             <div className="space-y-3">
               {currentQ.choices.map((choice, index) => {
                 const choiceLetter = getMcqLetterByIndex(index);
@@ -577,7 +577,7 @@ export default function DiagnosticPage() {
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-medium text-gray-900 dark:text-white">{r.label}</h3>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.score >= 60 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                {r.score >= 70 ? '挑戰' : r.score >= 50 ? '核心' : '補底'}
+                {r.score >= 70 ? t('diagnostic.challenge') : r.score >= 50 ? t('diagnostic.core') : t('diagnostic.remedial')}
               </span>
             </div>
             <ProgressBar value={r.score} size="sm" showPercentage={true} />
@@ -608,14 +608,14 @@ export default function DiagnosticPage() {
 
       <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-5 border border-orange-200 dark:border-orange-800">
         <div className="flex items-center gap-2 mb-2 text-orange-700 dark:text-orange-300 font-semibold">
-          <Target className="w-5 h-5" /> 推薦下一步練習
+          <Target className="w-5 h-5" /> {t('diagnostic.goDashboard')}
         </div>
         <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
-          系統判斷你目前最需要加強的是「{recommendation.weakLabel}」，已為你準備一組 {recommendation.difficulty === 'remedial' ? '補底' : recommendation.difficulty === 'core' ? '核心' : '挑戰'} 練習。
+          {t('diagnostic.remedialAdvice')}
         </p>
         <Link href={practiceHref}
           className="block w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl text-center transition-colors">
-          立即開始弱項訓練 <ArrowRight className="w-4 h-4 inline ml-1" />
+          {t('diagnostic.start')} <ArrowRight className="w-4 h-4 inline ml-1" />
         </Link>
       </div>
 
