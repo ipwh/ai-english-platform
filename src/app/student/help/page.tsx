@@ -211,10 +211,10 @@ export default function StudentHelpPage() {
           choices: q.choices || [],
         })));
       } else {
-        setGenError(data.error || '暫時無法生成練習題目');
+        setGenError(data.error || t('help.genFailedShort'));
       }
     } catch {
-      setGenError('網絡錯誤，請重試。');
+      setGenError(t('help.networkError'));
     } finally {
       setGenLoading(false);
     }
@@ -318,10 +318,10 @@ export default function StudentHelpPage() {
         ].join('\n');
         setAiAnswer(`${data.answer}${extra}`.trim());
       } else {
-        setAiError('AI 暫時無法回答，請稍後再試。');
+        setAiError(t('help.aiUnavailable'));
       }
     } catch {
-      setAiError('網絡錯誤，請檢查連線。');
+      setAiError(t('help.networkCheck'));
     } finally {
       setAiLoading(false);
     }
@@ -334,10 +334,10 @@ export default function StudentHelpPage() {
       {/* 🤖 AI 智能問答 */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-teal-500" /> AI 學習助手
+          <Sparkles className="w-5 h-5 text-teal-500" /> {t('help.aiAssistant')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-          有任何英文學習問題？直接問 AI，例如：「如何用過去完成式？」、「recommend 和 suggest 有什麼分別？」
+          {t('help.aiIntro')}
         </p>
         <div className="flex gap-2">
           <input
@@ -345,7 +345,7 @@ export default function StudentHelpPage() {
             value={aiQuestion}
             onChange={(e) => setAiQuestion(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAskAI(); }}
-            placeholder="輸入你的英文學習問題..."
+            placeholder={t('help.placeholder')}
             className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-teal-500"
           />
           <button
@@ -354,7 +354,7 @@ export default function StudentHelpPage() {
             className="px-4 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white font-medium rounded-xl flex items-center gap-2 transition-colors"
           >
             {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {aiLoading ? '思考中...' : '提問'}
+            {aiLoading ? t('help.aiQuestionLoading') : t('help.aiQuestionBtn')}
           </button>
         </div>
         {aiError && (
@@ -364,7 +364,7 @@ export default function StudentHelpPage() {
           <div className="mt-3 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
             <div className="flex items-center gap-1.5 mb-2">
               <Sparkles className="w-4 h-4 text-teal-500" />
-              <span className="font-medium text-teal-700 dark:text-teal-400">AI 回答</span>
+              <span className="font-medium text-teal-700 dark:text-teal-400">{t('help.aiAnswerLabel')}</span>
             </div>
             <p className="whitespace-pre-wrap">{aiAnswer}</p>
 
@@ -374,13 +374,13 @@ export default function StudentHelpPage() {
             )) && (
               <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
                 <p className="text-xs text-purple-600 dark:text-purple-400 mb-2">
-                  💡 你可以前往「✍️ 寫作支援」頁面，使用 AI 批改、大綱生成及改寫功能：
+                  {t('help.writingRedirect')}
                 </p>
                 <Link
                   href="/student/writing"
                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-lg transition-colors"
                 >
-                  ✍️ 前往寫作支援 <ArrowRight className="w-3 h-3" />
+                  {t('help.goToWriting')} <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
             )}
@@ -394,14 +394,14 @@ export default function StudentHelpPage() {
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {genLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                  {genLoading ? '生成中...' : '生成相關練習題'}
+                  {genLoading ? t('help.genPracticeLoading') : t('help.genPracticeBtn')}
                 </button>
                 {genQuestions.length > 0 && (
                   <Link
                     href={`/student/practice?mode=help&topic=${encodeURIComponent(genTopic)}&gradeLevel=${encodeURIComponent(getStudentLevel(studentProfile))}`}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-teal-600 dark:text-teal-400 hover:underline"
                   >
-                    前往完整練習 <ArrowRight className="w-3 h-3" />
+                    {t('help.goPractice')} <ArrowRight className="w-3 h-3" />
                   </Link>
                 )}
               </div>

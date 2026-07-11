@@ -990,6 +990,171 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.classDetail.colActions': { zh: '操作', en: 'Actions' },
   'teacher.classDetail.detail': { zh: '詳情', en: 'Detail' },
   'teacher.classes.assignmentCount': { zh: '課業數', en: 'Assignments' },
+
+  // ============================================
+  // Vocabulary — 生字簿 Add Form
+  // ============================================
+  'vocab.addWord': { zh: '新增生字', en: 'Add Word' },
+  'vocab.addWordTitle': { zh: '新增生字到生字簿', en: 'Add Word to Vocabulary' },
+  'vocab.word': { zh: '英文生字', en: 'English Word' },
+  'vocab.wordPlaceholder': { zh: '輸入英文生字...', en: 'Enter English word...' },
+  'vocab.partOfSpeech': { zh: '詞性', en: 'Part of Speech' },
+  'vocab.selectPos': { zh: '選擇詞性', en: 'Select POS' },
+  'vocab.meaning': { zh: '中文意思', en: 'Chinese Meaning' },
+  'vocab.meaningPlaceholder': { zh: '輸入中文意思...', en: 'Enter Chinese meaning...' },
+  'vocab.exampleSentence': { zh: '例句（可選）', en: 'Example Sentence (optional)' },
+  'vocab.examplePlaceholder': { zh: '輸入例句...', en: 'Enter example sentence...' },
+  'vocab.exampleZh': { zh: '例句中文翻譯（可選）', en: 'Chinese Translation (optional)' },
+  'vocab.exampleZhPlaceholder': { zh: '輸入例句中文翻譯...', en: 'Enter Chinese translation...' },
+  'vocab.addSuccess': { zh: '✅ 已新增「{word}」到生字簿！', en: '✅ "{word}" added to vocabulary!' },
+  'vocab.addFailed': { zh: '新增失敗，請重試。', en: 'Add failed. Please try again.' },
+  'vocab.empty': { zh: '暫無生字，點擊右上角「新增生字」開始建立你的生字簿！', en: 'No vocabulary yet. Click "Add Word" to start building your vocabulary!' },
+  'vocab.srsMore': { zh: '還有 {n} 個生字今日待溫習', en: '{n} more due today' },
+  'vocab.aiGenerating': { zh: 'AI 例句生成中...', en: 'AI generating example...' },
+
+  // Pos labels
+  'pos.noun': { zh: '名詞', en: 'noun' },
+  'pos.verb': { zh: '動詞', en: 'verb' },
+  'pos.adjective': { zh: '形容詞', en: 'adjective' },
+  'pos.adverb': { zh: '副詞', en: 'adverb' },
+  'pos.preposition': { zh: '介詞', en: 'preposition' },
+  'pos.conjunction': { zh: '連接詞', en: 'conjunction' },
+  'pos.pronoun': { zh: '代名詞', en: 'pronoun' },
+  'pos.phrase': { zh: '片語', en: 'phrase' },
+  'pos.other': { zh: '其他', en: 'other' },
+
+  // Familiarity labels (i18n)
+  'familiarity.new': { zh: '新學', en: 'New' },
+  'familiarity.learning': { zh: '學習中', en: 'Learning' },
+  'familiarity.familiar': { zh: '已熟悉', en: 'Familiar' },
+  'familiarity.mastered': { zh: '已掌握', en: 'Mastered' },
+
+  // Practice single question page
+  'practice.question.notFound': { zh: '找不到此題目', en: 'Question not found' },
+  'practice.question.backToPractice': { zh: '← 返回練習頁面', en: '← Back to Practice' },
+  'practice.question.backToCenter': { zh: '返回練習中心', en: 'Back to Practice Center' },
+  'practice.question.aiPractice': { zh: 'AI 練習', en: 'AI Practice' },
+  'practice.question.aiGenerated': { zh: 'AI 生成練習', en: 'AI Generated' },
+  'practice.question.questionN': { zh: '第 {n}/{total} 題', en: 'Q {n}/{total}' },
+  'practice.question.listeningTitle': { zh: '聆聽理解練習 — 請先聆聽，不要看文字', en: 'Listening Practice — Listen first, don\'t look at the text' },
+  'practice.question.listeningContent': { zh: '聆聽內容', en: 'Listening Content' },
+  'practice.question.play': { zh: '▶ 播放', en: '▶ Play' },
+  'practice.question.replay': { zh: '重播', en: 'Replay' },
+  'practice.question.showText': { zh: '我需要看文字版本', en: 'Show text version' },
+  'practice.question.listeningContentText': { zh: '聆聽內容文字', en: 'Listening content text' },
+  'practice.question.readingPassage': { zh: '閱讀篇章', en: 'Reading Passage' },
+  'practice.question.showZhHint': { zh: '顯示中文提示', en: 'Show Chinese hint' },
+  'practice.question.inputAnswer': { zh: '請輸入答案...', en: 'Enter your answer...' },
+  'practice.question.writeAnswer': { zh: '請在此寫下你的答案...', en: 'Write your answer here...' },
+  'practice.question.correctSentence': { zh: '請寫出改正後的句子...', en: 'Write the corrected sentence...' },
+  'practice.question.chars': { zh: '字元', en: 'chars' },
+  'practice.question.words': { zh: '字', en: 'words' },
+  'practice.question.hintLevel': { zh: '提示 {n}/4', en: 'Hint {n}/4' },
+  'practice.question.correct': { zh: '回答正確！', en: 'Correct!' },
+  'practice.question.wrong': { zh: '回答錯誤', en: 'Incorrect' },
+  'practice.question.correctAnswerLabel': { zh: '正確答案：', en: 'Correct answer: ' },
+  'practice.question.zhExplanation': { zh: '中文解釋', en: 'Chinese' },
+  'practice.question.enExplanation': { zh: 'English', en: 'English' },
+  'practice.question.commonMistake': { zh: '⚠️ 常犯錯誤', en: '⚠️ Common Mistake' },
+  'practice.question.aiAnalyzing': { zh: 'AI 正在分析你的答案...', en: 'AI is analyzing your answer...' },
+  'practice.question.aiUnavailable': { zh: 'AI 分析暫時無法使用', en: 'AI analysis unavailable' },
+  'practice.question.aiConnectionFailed': { zh: 'AI 服務連線失敗', en: 'AI connection failed' },
+  'practice.question.aiFallback': { zh: '（已顯示預設解釋）', en: ' (default explanation shown)' },
+
+  // Help page
+  'help.aiAssistant': { zh: 'AI 學習助手', en: 'AI Learning Assistant' },
+  'help.aiIntro': { zh: '有任何英文學習問題？直接問 AI，例如：「如何用過去完成式？」、「recommend 和 suggest 有什麼分別？」', en: 'Have an English question? Ask AI directly, e.g. "How to use past perfect?" or "What\'s the difference between recommend and suggest?"' },
+  'help.writingRedirect': { zh: '💡 你可以前往「✍️ 寫作支援」頁面，使用 AI 批改、大綱生成及改寫功能：', en: '💡 Go to ✍️ Writing Support for AI grading, outline generation & rewriting:' },
+  'help.goToWriting': { zh: '✍️ 前往寫作支援', en: '✍️ Go to Writing Support' },
+  'help.aiQuestionLoading': { zh: '思考中...', en: 'Thinking...' },
+  'help.aiQuestionBtn': { zh: '提問', en: 'Ask' },
+  'help.aiAnswerLabel': { zh: 'AI 回答', en: 'AI Answer' },
+  'help.genPracticeBtn': { zh: '生成相關練習題', en: 'Generate Practice' },
+  'help.genPracticeLoading': { zh: '生成中...', en: 'Generating...' },
+  'help.genFailedShort': { zh: '暫時無法生成練習題目', en: 'Cannot generate practice now' },
+
+  // Student Profile (additional — no duplicates with earlier keys)
+  'profile.save': { zh: '儲存', en: 'Save' },
+  'profile.cancel': { zh: '取消', en: 'Cancel' },
+  'profile.editProfile': { zh: '編輯個人檔案', en: 'Edit Profile' },
+  'profile.classAndLevelShort': { zh: '班級：{class} | 年級：{level}', en: 'Class: {class} | Level: {level}' },
+  'profile.joinedOn': { zh: '加入日期：{date}', en: 'Joined: {date}' },
+  'profile.roleLabel': { zh: '身份：{role}', en: 'Role: {role}' },
+
+  // Student Dashboard
+  'student.dashboard.xpToNext': { zh: '距離下一級還需 {n} XP', en: '{n} XP to next level' },
+  'student.dashboard.maxLevel': { zh: '最高等級！', en: 'Max Level!' },
+  'student.dashboard.streak': { zh: '{n} 天連續學習！繼續保持！🔥', en: '{n} day streak! Keep going! 🔥' },
+  'student.dashboard.moreBadges': { zh: '還有 {n} 個徽章', en: '+{n} more' },
+  'student.dashboard.fallbackName': { zh: '同學', en: 'Student' },
+
+  // Gamification (additional)
+  'gamification.xpToNextShort': { zh: '距離下一級還需 {n} XP', en: '{n} XP to next level' },
+  'gamification.maxLevel': { zh: '最高等級！', en: 'Max Level!' },
+
+  // Common fallback names
+  'common.teacherFallback': { zh: '老師', en: 'Teacher' },
+  'common.studentFallback': { zh: '同學', en: 'Student' },
+
+  // Admin layout (for ErrorBoundary)
+  'admin.error.unknown': { zh: '未知錯誤', en: 'Unknown error' },
+
+  // Teacher Reports
+  'teacher.reports.selectClass': { zh: '選擇班級', en: 'Select Class' },
+  'teacher.reports.allClasses': { zh: '全部班級', en: 'All Classes' },
+  'teacher.reports.exported': { zh: '已匯出', en: 'Exported' },
+  'teacher.reports.instruction': { zh: '選擇上方班級後點擊「生成報告」，系統將匯出 CSV 格式的學生數據報告，可用 Excel / Google Sheets 開啟。', en: 'Select a class above then click "Generate Report". The system will export student data in CSV format, openable with Excel / Google Sheets.' },
+
+  // Teacher Settings
+  'teacher.settings.profile': { zh: '個人資料', en: 'Profile' },
+  'teacher.settings.department': { zh: '所屬部門', en: 'Department' },
+  'teacher.settings.subjects': { zh: '任教科目', en: 'Subjects' },
+  'teacher.settings.formClass': { zh: '班主任班別', en: 'Form Class' },
+  'teacher.settings.teachingClassList': { zh: '任教班別', en: 'Teaching Classes' },
+  'teacher.settings.formTeacherSuffix': { zh: ' (班主任)', en: ' (Form Teacher)' },
+
+  // Teacher Profile
+  'teacher.profile.role': { zh: '身份：{role}', en: 'Role: {role}' },
+  'teacher.profile.joined': { zh: '加入日期：{date}', en: 'Joined: {date}' },
+
+  // Teacher Student Detail
+  'teacher.studentDetail.fallback': { zh: '學生', en: 'Student' },
+  'teacher.studentDetail.recentPractice': { zh: '最近練習', en: 'Recent Practice' },
+  'teacher.studentDetail.noPractice': { zh: '尚無練習記錄', en: 'No practice records' },
+  'teacher.studentDetail.practiceLabel': { zh: '練習', en: 'Practice' },
+  'teacher.studentDetail.questionsUnit': { zh: '題', en: 'q' },
+  'teacher.studentDetail.sessionsUnit': { zh: '次', en: '' },
+  'teacher.studentDetail.loadFailed': { zh: '載入失敗', en: 'Load failed' },
+
+  // Teacher Assignments Detail
+  'teacher.assignmentDetail.notFound': { zh: '找不到此作業', en: 'Assignment not found' },
+  'teacher.assignmentDetail.back': { zh: '← 返回', en: '← Back' },
+  'teacher.assignmentDetail.submissions': { zh: '提交人數', en: 'Submissions' },
+  'teacher.assignmentDetail.avgScore': { zh: '平均分', en: 'Avg Score' },
+  'teacher.assignmentDetail.questionCount': { zh: '題數', en: 'Questions' },
+  'teacher.assignmentDetail.dueDate': { zh: '截止日期', en: 'Due Date' },
+  'teacher.assignmentDetail.noDeadline': { zh: '無限期', en: 'No deadline' },
+  'teacher.assignmentDetail.questionsAndAnswers': { zh: '題目與答案', en: 'Questions & Answers' },
+  'teacher.assignmentDetail.studentSubmissions': { zh: '學生提交', en: 'Student Submissions' },
+  'teacher.assignmentDetail.noSubmissions': { zh: '暫無學生提交', en: 'No submissions yet' },
+  'teacher.assignmentDetail.notSubmitted': { zh: '未提交', en: 'Not submitted' },
+  'teacher.assignmentDetail.submitted': { zh: '已提交', en: 'Submitted' },
+  'teacher.assignmentDetail.studentAnswer': { zh: '學生答案', en: 'Student Answer' },
+  'teacher.assignmentDetail.notAnswered': { zh: '未作答', en: 'Not answered' },
+  'teacher.assignmentDetail.correctAnswer': { zh: '正確答案', en: 'Correct Answer' },
+  'teacher.assignmentDetail.aiFeedback': { zh: 'AI 批改反饋', en: 'AI Feedback' },
+  'teacher.assignmentDetail.answerPrefix': { zh: '答案：', en: 'Answer: ' },
+
+  // Score/points units
+  'unit.score': { zh: ' 分', en: ' pts' },
+  'unit.questions': { zh: ' 題', en: ' q' },
+  'unit.percent': { zh: '%', en: '%' },
+
+  // Diagnostic additional
+  'diagnostic.loadFailed': { zh: 'AI 題目生成失敗，請稍後再試。', en: 'AI question generation failed. Please try again.' },
+  'diagnostic.connectionFailed': { zh: 'AI 服務連線失敗，請檢查網絡後重試。', en: 'AI service connection failed. Check network.' },
+  'diagnostic.profileFailed': { zh: '未能取得學生資料', en: 'Failed to get student profile' },
+  'diagnostic.analysisFailed': { zh: '無法取得個人化建議', en: 'Failed to get personalized advice' },
 };
 
 /**

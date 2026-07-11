@@ -75,16 +75,18 @@ export function getFamiliarityColor(familiarity: string): string {
 }
 
 /**
- * 取得熟悉度中文標籤
+ * 取得熟悉度標籤（支援中英雙語）
  */
-export function getFamiliarityLabel(familiarity: string): string {
-  const map: Record<string, string> = {
-    'new': '新學',
-    'learning': '學習中',
-    'familiar': '已熟悉',
-    'mastered': '已掌握',
+export function getFamiliarityLabel(familiarity: string, lang: string = 'zh'): string {
+  const map: Record<string, { zh: string; en: string }> = {
+    'new': { zh: '新學', en: 'New' },
+    'learning': { zh: '學習中', en: 'Learning' },
+    'familiar': { zh: '已熟悉', en: 'Familiar' },
+    'mastered': { zh: '已掌握', en: 'Mastered' },
   };
-  return map[familiarity] || familiarity;
+  const entry = map[familiarity];
+  if (!entry) return familiarity;
+  return lang === 'en' ? entry.en : entry.zh;
 }
 
 /**

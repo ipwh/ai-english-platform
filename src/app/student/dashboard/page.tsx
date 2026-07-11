@@ -111,8 +111,8 @@ export default function StudentDashboardPage() {
               </div>
               <p className="text-xs text-gray-400 mt-1">
                 {gamification.level.xpToNext > 0
-                  ? `${gamification.level.xpToNext} XP to next level`
-                  : 'Max Level!'}
+                  ? t('gamification.xpToNextShort').replace('{n}', String(gamification.level.xpToNext))
+                  : t('gamification.maxLevel')}
               </p>
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function StudentDashboardPage() {
                   </div>
                 ))}
                 {unlockedBadges.length > 8 && (
-                  <span className="text-xs text-gray-400 self-center">+{unlockedBadges.length - 8} more</span>
+                  <span className="text-xs text-gray-400 self-center">{t('student.dashboard.moreBadges').replace('{n}', String(unlockedBadges.length - 8))}</span>
                 )}
               </div>
             </div>
@@ -145,7 +145,7 @@ export default function StudentDashboardPage() {
           {weeklyStats.streakDays >= 3 && (
             <div className="flex items-center gap-1 mt-2 text-xs text-orange-500 font-medium">
               <Flame className="w-4 h-4" />
-              {weeklyStats.streakDays} day streak! Keep going! 🔥
+              {t('student.dashboard.streak').replace('{n}', String(weeklyStats.streakDays))}
             </div>
           )}
         </div>
