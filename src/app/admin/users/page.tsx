@@ -1,10 +1,11 @@
-// ============================================
-// 管理員使用者管理頁面 — /admin/users
+﻿// ============================================
+// 管理員t("admin.users.title")頁面 — /admin/users
 // 分頁、搜尋、篩選、編輯、匯出
 // ============================================
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useT } from '@/hooks/use-i18n';
 import {
   Search, Filter, ChevronLeft, ChevronRight,
   Edit3, Download, Users, GraduationCap, Shield,
@@ -64,6 +65,7 @@ function EditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useT();
   const [form, setForm] = useState({
     nameZh: user.nameZh || '',
     nameEn: user.nameEn || '',
@@ -96,11 +98,11 @@ function EditModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '儲存失敗');
+      if (!res.ok) throw new Error(data.error || t('admin.users.saveFailed'));
       onSaved();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '儲存失敗');
+      setError(err instanceof Error ? err.message : t('admin.users.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -114,7 +116,7 @@ function EditModal({
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            編輯使用者
+            t("admin.users.editUser")
           </h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
             <X className="w-5 h-5" />
@@ -130,7 +132,7 @@ function EditModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">中文姓名</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameZh")</label>
               <input
                 value={form.nameZh}
                 onChange={e => setForm({ ...form, nameZh: e.target.value })}
@@ -138,7 +140,7 @@ function EditModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">英文姓名</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameEn")</label>
               <input
                 value={form.nameEn}
                 onChange={e => setForm({ ...form, nameEn: e.target.value })}
@@ -149,7 +151,7 @@ function EditModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.email")}</label>
               <input
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
@@ -157,15 +159,15 @@ function EditModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">角色</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.role")}</label>
               <select
                 value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
               >
-                <option value="student">學生</option>
-                <option value="teacher">教師</option>
-                <option value="admin">管理員</option>
+                <option value="student">{t('admin.users.roleStudent')}</option>
+                <option value="teacher">{t('admin.users.roleTeacher')}</option>
+                <option value="admin">{t('admin.users.roleAdmin')}</option>
               </select>
             </div>
           </div>
@@ -174,7 +176,7 @@ function EditModal({
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">年級</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.level")}</label>
                   <select
                     value={form.level}
                     onChange={e => setForm({ ...form, level: e.target.value })}
@@ -187,7 +189,7 @@ function EditModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">班級</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.class")}</label>
                   <select
                     value={form.className}
                     onChange={e => setForm({ ...form, className: e.target.value })}
@@ -202,7 +204,7 @@ function EditModal({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">班號</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.classNumber")}</label>
                   <input
                     value={form.classNumber}
                     onChange={e => setForm({ ...form, classNumber: e.target.value })}
@@ -210,7 +212,7 @@ function EditModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">學年</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.academicYear")}</label>
                   <input
                     value={form.academicYear}
                     onChange={e => setForm({ ...form, academicYear: e.target.value })}
@@ -225,7 +227,7 @@ function EditModal({
           {form.role === 'teacher' && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">任教科目（逗號分隔）</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.subjects")</label>
                 <input
                   value={form.subjects}
                   onChange={e => setForm({ ...form, subjects: e.target.value })}
@@ -234,7 +236,7 @@ function EditModal({
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">部門</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.department")}</label>
                 <input
                   value={form.department}
                   onChange={e => setForm({ ...form, department: e.target.value })}
@@ -277,6 +279,7 @@ function CreateUserModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useT();
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -320,11 +323,11 @@ function CreateUserModal({
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '建立失敗');
+      if (!res.ok) throw new Error(data.error || t('admin.users.createFailed'));
       onCreated();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '建立失敗');
+      setError(err instanceof Error ? err.message : t('admin.users.createFailed'));
     } finally {
       setSaving(false);
     }
@@ -338,7 +341,7 @@ function CreateUserModal({
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            新增使用者
+            t("admin.users.addUser")
           </h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
             <X className="w-5 h-5" />
@@ -354,16 +357,16 @@ function CreateUserModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">中文姓名 *</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameZh") *</label>
               <input
                 value={form.nameZh}
                 onChange={e => setForm({ ...form, nameZh: e.target.value })}
-                placeholder="陳大文"
+                placeholder="Chan Tai Man"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">英文姓名</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameEn")</label>
               <input
                 value={form.nameEn}
                 onChange={e => setForm({ ...form, nameEn: e.target.value })}
@@ -385,22 +388,22 @@ function CreateUserModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">角色 *</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.role")+" *"</label>
               <select
                 value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
               >
-                <option value="student">學生</option>
-                <option value="teacher">教師</option>
-                <option value="admin">管理員</option>
+                <option value="student">{t('admin.users.roleStudent')}</option>
+                <option value="teacher">{t('admin.users.roleTeacher')}</option>
+                <option value="admin">{t('admin.users.roleAdmin')}</option>
               </select>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
-              登入密碼 <span className="text-gray-400">（留空則僅支援 Google OAuth 登入）</span>
+              t("admin.users.password") <span className="text-gray-400"></span>
             </label>
             <input
               type="password"
@@ -415,7 +418,7 @@ function CreateUserModal({
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">年級</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.level")}</label>
                   <select
                     value={form.level}
                     onChange={e => setForm({ ...form, level: e.target.value })}
@@ -428,7 +431,7 @@ function CreateUserModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">班級</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.class")}</label>
                   <select
                     value={form.className}
                     onChange={e => setForm({ ...form, className: e.target.value })}
@@ -443,7 +446,7 @@ function CreateUserModal({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">班號</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.classNumber")}</label>
                   <input
                     value={form.classNumber}
                     onChange={e => setForm({ ...form, classNumber: e.target.value })}
@@ -451,7 +454,7 @@ function CreateUserModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">學年</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.academicYear")}</label>
                   <input
                     value={form.academicYear}
                     onChange={e => setForm({ ...form, academicYear: e.target.value })}
@@ -466,7 +469,7 @@ function CreateUserModal({
           {form.role === 'teacher' && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">任教科目（逗號分隔）</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.subjects")</label>
                 <input
                   value={form.subjects}
                   onChange={e => setForm({ ...form, subjects: e.target.value })}
@@ -475,7 +478,7 @@ function CreateUserModal({
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">部門</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.department")}</label>
                 <input
                   value={form.department}
                   onChange={e => setForm({ ...form, department: e.target.value })}
@@ -530,6 +533,7 @@ function RoleBadge({ role }: { role: string }) {
 // ============================================
 
 export default function AdminUsersPage() {
+  const { t } = useT();
   const [data, setData] = useState<UsersResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -566,10 +570,10 @@ export default function AdminUsersPage() {
 
       const res = await fetch(`/api/admin/users?${params}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || '載入失敗');
+      if (!res.ok) throw new Error(json.error || t('admin.users.loadFailed'));
       setData(json);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '載入失敗');
+      setError(err instanceof Error ? err.message : t('admin.users.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -608,7 +612,7 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">使用者管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">t("admin.users.title")</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             {data ? `共 ${data.total} 位使用者` : '載入中...'}
           </p>
@@ -619,7 +623,7 @@ export default function AdminUsersPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-xl hover:bg-teal-700 transition-colors"
           >
             <UserPlus className="w-4 h-4" />
-            新增使用者
+            t("admin.users.addUser")
           </button>
           <button
             onClick={() => handleExport('students')}
@@ -645,7 +649,7 @@ export default function AdminUsersPage() {
         <div className="flex flex-wrap gap-3 items-end">
           {/* Search */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">搜尋</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.search")}</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -660,28 +664,28 @@ export default function AdminUsersPage() {
 
           {/* Role filter */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">角色</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.role")}</label>
             <select
               value={roleFilter}
               onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
             >
-              <option value="">全部</option>
-              <option value="student">學生</option>
-              <option value="teacher">教師</option>
-              <option value="admin">管理員</option>
+              <option value="">{t("admin.users.all")}</option>
+              <option value="student">{t('admin.users.roleStudent')}</option>
+              <option value="teacher">{t('admin.users.roleTeacher')}</option>
+              <option value="admin">{t('admin.users.roleAdmin')}</option>
             </select>
           </div>
 
           {/* Level filter */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">年級</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.level")}</label>
             <select
               value={levelFilter}
               onChange={e => { setLevelFilter(e.target.value); setPage(1); }}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
             >
-              <option value="">全部</option>
+              <option value="">{t("admin.users.all")}</option>
               {['S1', 'S2', 'S3', 'S4', 'S5', 'S6'].map(l => (
                 <option key={l} value={l}>{l}</option>
               ))}
@@ -690,13 +694,13 @@ export default function AdminUsersPage() {
 
           {/* Class filter */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">班級</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.class")}</label>
             <select
               value={classFilter}
               onChange={e => { setClassFilter(e.target.value); setPage(1); }}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
             >
-              <option value="">全部</option>
+              <option value="">{t("admin.users.all")}</option>
               {data?.classes.map(c => (
                 <option key={c.id} value={c.name}>{c.name}</option>
               ))}
@@ -717,7 +721,7 @@ export default function AdminUsersPage() {
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-600 dark:text-red-400">
           {error}
-          <button onClick={fetchUsers} className="ml-3 underline">重試</button>
+          <button onClick={fetchUsers} className="ml-3 underline">{t("admin.users.retry")}</button>
         </div>
       )}
 
@@ -733,13 +737,13 @@ export default function AdminUsersPage() {
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">使用者</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">角色</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">班級</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">準確率</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">練習次數</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">學年</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600 dark:text-gray-300">操作</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.email")}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.role")}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.class")}</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.accuracy")}</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">t("admin.users.sessions")</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.academicYear")}</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
