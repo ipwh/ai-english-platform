@@ -16,6 +16,7 @@ import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { PracticePageSkeleton } from '@/components/shared/Skeleton';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import type { GrammarItem, LanguageSkill, DifficultyLevel, GradeLevel } from '@/lib/types';
 
 // ============================================
@@ -491,8 +492,8 @@ function PracticeListPageContent() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs px-2 py-0.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">{item.skillZh || item.skill}</span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">{difficultyLabels[item.difficulty] || item.difficulty}</span>
+                        <span className="text-xs px-2 py-0.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">{item.skillZh || item.skill || ''}</span>
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">{difficultyLabels[item.difficulty] || item.difficulty || ''}</span>
                       </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{item.label}</p>
                     </div>
@@ -521,7 +522,7 @@ function PracticeListPageContent() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{s.skillZh}</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{s.skillZh || s.skill || ''}</span>
                       {s.source === 'ai-generated' && (
                         <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">AI 生成</span>
                       )}
@@ -553,7 +554,7 @@ function PracticeListPageContent() {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-2">
             {masteryBySkill.map((m) => (
               <div key={m.skill} className="flex items-center gap-3">
-                <span className="text-xs text-gray-600 dark:text-gray-400 w-24 truncate">{m.skillZh}</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400 w-24 truncate">{m.skillZh || ''}</span>
                 <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all ${m.accuracy >= 70 ? 'bg-green-500' : m.accuracy >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
@@ -578,7 +579,9 @@ export default function PracticeListPage() {
         <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
       </div>
     }>
-      <PracticeListPageContent />
+      <ErrorBoundary>
+        <PracticeListPageContent />
+      </ErrorBoundary>
     </Suspense>
   );
 }
