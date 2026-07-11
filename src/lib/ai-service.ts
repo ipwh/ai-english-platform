@@ -471,8 +471,9 @@ function stripMcqPrefix(choice: string): string {
     .trim()
     // A. / (A) / A) / 1. / (1)
     .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s*[\].:：)\-、]\s*/u, '')
-    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '')
-    // T: / F) / True: / False.
+    // A followed by space (looser, only for letter prefixes, NEVER number prefixes)
+    .replace(/^\s*\(?\s*(?:[A-Da-d])\s*\)?\s+/u, '')
+    // T: / F) / True: / False. — only when followed by punctuation
     .replace(/^\s*\(?\s*(?:T|F|True|False)\s*\)?\s*[\].:：)\-、]\s*/iu, '')
     .replace(/^\s*\(?\s*(?:T|F|True|False)\s*\)?\s+/iu, '')
     .trim();
@@ -523,9 +524,9 @@ function normalizeAnswer(text: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
-    .replace(/['']/g, "'")
+    .replace(/[\u2018\u2019\u201C\u201D]/g, "'")
     .replace(/[""]/g, '"')
-    .replace(/[–—]/g, '-')
+    .replace(/[\u2013\u2014]/g, '-')
     .replace(/[.!?,;:]$/, '');
 }
 

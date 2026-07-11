@@ -1161,6 +1161,16 @@ const translations: Record<string, { zh: string; en: string }> = {
   // ============================================
   'practice.question.aiUnavailableMsg': { zh: 'AI 分析暫時無法使用', en: 'AI analysis unavailable' },
   'practice.question.aiConnectionMsg': { zh: 'AI 服務連線失敗', en: 'AI connection failed' },
+
+  // ============================================
+  // Assignment Detail & Teacher Assignment pages (used in UI)
+  // ============================================
+  'assignment.scoreLabel': { zh: '得分', en: 'Score' },
+  'assignment.questionCountLabel': { zh: '題數', en: 'Questions' },
+  'assignment.dueDateLabel': { zh: '截止日期', en: 'Due Date' },
+  'assignment.timeLimitLabel': { zh: '限時', en: 'Time Limit' },
+  'assignment.submissionCountLabel': { zh: '提交人數', en: 'Submissions' },
+  'assignment.questionsLabel': { zh: '題目 ({n})', en: 'Questions ({n})' },
 };
 
 /**
