@@ -352,6 +352,18 @@ async function callGeminiViaVertex(
   }
 }
 
+// ============================================
+// 結構化 AI 日誌 — 供 Vercel Logs / 監控使用
+// ============================================
+function aiLog(event: string, data: Record<string, unknown>) {
+  console.log(JSON.stringify({
+    service: 'ai-service',
+    event,
+    timestamp: new Date().toISOString(),
+    ...data,
+  }));
+}
+
 async function callLLM(
   messages: ChatMessage[],
   options?: LLMCallOptions
@@ -365,16 +377,19 @@ async function callLLM(
   }
 
   const errors: string[] = [];
+  const startTime = Date.now();
 
   if (hasDeepSeek) {
     try {
       const result = await callDeepSeek(messages, options);
       lastAIProvider = 'deepseek';
+      aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime });
       return result;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`DeepSeek: ${msg}`);
       if (!hasVertexGemini && !hasGemini) {
+        aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
       console.warn('[ai-service] DeepSeek 失敗，切換 Gemini fallback:', msg);
@@ -385,12 +400,13 @@ async function callLLM(
     try {
       const result = await callGeminiViaVertex(messages, options);
       lastAIProvider = 'vertex-gemini';
-      console.log('[ai-service] 使用 Vertex Gemini (fallback)');
+      aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true });
       return result;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`Vertex Gemini: ${msg}`);
       if (!hasGemini) {
+        aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
       console.warn('[ai-service] Vertex Gemini 失敗，切換 Gemini API key fallback:', msg);
@@ -400,11 +416,12 @@ async function callLLM(
   try {
     const result = await callGemini(messages, options);
     lastAIProvider = 'gemini-api';
-    console.log('[ai-service] 使用 Gemini API key (fallback)');
+    aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true });
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`Gemini API: ${msg}`);
+    aiLog('call_failed', { provider: 'gemini-api', error: msg, latencyMs: Date.now() - startTime });
     throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
   }
 }

@@ -93,14 +93,24 @@ export default function TeacherSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Save classIds to DB
+      // Save all settings to DB
       const res = await fetch('/api/auth/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classIds: selectedClassIds }),
+        body: JSON.stringify({
+          classIds: selectedClassIds,
+          selectedGrades,
+          grammarEnabled,
+          passScore,
+          masteryThreshold,
+          notifSubmission,
+          notifLowCompletion,
+          notifInactive,
+          notifMaintenance,
+        }),
       });
 
-      // Save other settings to localStorage
+      // Also persist to localStorage as fallback
       saveLocalSettings({
         selectedGrades,
         grammarEnabled,

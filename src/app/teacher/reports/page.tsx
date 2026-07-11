@@ -28,8 +28,10 @@ export default function TeacherReportsPage() {
   const handleGenerate = async (type: string) => {
     setGenerating(type);
     try {
+      const classParam = selectedClass ? `&className=${encodeURIComponent(selectedClass)}` : '';
       if (type === 'weekly') {
-        const res = await fetch('/api/admin/export/students?format=csv' + (selectedClass ? `&className=${encodeURIComponent(selectedClass)}` : ''));
+        // Weekly report: aggregate class summary
+        const res = await fetch(`/api/admin/export/students?format=csv&type=weekly${classParam}`);
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -38,7 +40,8 @@ export default function TeacherReportsPage() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        const res = await fetch('/api/admin/export/students?format=csv' + (selectedClass ? `&className=${encodeURIComponent(selectedClass)}` : ''));
+        // Individual report: per-student detailed progress
+        const res = await fetch(`/api/admin/export/students?format=csv&type=individual${classParam}`);
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

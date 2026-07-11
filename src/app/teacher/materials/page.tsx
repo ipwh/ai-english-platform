@@ -37,15 +37,18 @@ export default function TeacherMaterialsPage() {
     suggestedGrade: string;
   } | null>>({});
 
-  const handleAIAnalyze = async (materialId: string, title: string) => {
+  const handleAIAnalyze = async (materialId: string, title: string, extractedText?: string, fileType?: string) => {
     setAnalyzingId(materialId);
     try {
+      const content = extractedText && extractedText.length > 50
+        ? extractedText
+        : `教材名稱：${title}\n類型：${fileType || '未知'}\n請根據教材名稱與類型推測可能的教學內容，並提供相關的詞彙、文法點及建議題目。`;
       const res = await fetch('/api/ai/analyze-material', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          content: `教材名稱：${title}\n這是一份香港中學英文科教材，內容涵蓋相關文法、詞彙及語言技能訓練。`,
+          content,
           gradeLevel: 'S4',
         }),
       });
@@ -281,7 +284,7 @@ export default function TeacherMaterialsPage() {
                       <Sparkles className="w-6 h-6 text-purple-300 mx-auto mb-2" />
                       <p className="text-xs text-gray-500 mb-3">使用 AI 分析教材內容，提取關鍵詞彙及文法點</p>
                       <button
-                        onClick={() => handleAIAnalyze(m.id, m.title)}
+                        onClick={() => handleAIAnalyze(m.id, m.title, m.extractedText, m.fileType)}
                         disabled={analyzingId === m.id}
                         className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium inline-flex items-center gap-2"
                       >

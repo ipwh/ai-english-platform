@@ -96,8 +96,21 @@ interface ImportResult {
 // ---- POST Handler ----
 
 export async function POST(request: NextRequest) {
-  // ---- 認證：僅 admin ----
+  // ---- 認證：admin 或 teacher ----
   const auth = await verifyAdmin(request);
+  if (!auth.authorized) {
+    // Fallback: allow teacher via JWT
+    const jwtToken = request.cookies.get('session_token')?.value || '';
+    if (jwtToken) {
+      const { verifySessionToken } = await import('@/lib/jwt');
+      const payload = await verifySessionToken(jwtToken);
+      if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
+        return NextResponse.json({ error: '權限不足：僅教師或管理員可匯入' }, { status: 403 });
+      }
+    } else {
+      return NextResponse.json({ error: auth.error }, { status: 403 });
+    }
+  }
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }

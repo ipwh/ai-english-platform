@@ -2,29 +2,63 @@
 // GET /api/admin/export/students
 // 匯出完整學生資料（含進度、準確率、練習次數）
 // 支援 ?academicYear=2025-2026 跨學年查詢
+// 支援 ?type=weekly|individual 報告類型
+// 支援 ?className=4A 班級篩選
+// 教師與管理員均可存取
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
+import { verifySessionToken } from '@/lib/jwt';
+import { auth } from '@/lib/auth-next';
+
+async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized: boolean; userId?: string; error?: string }> {
+  // Try admin first
+  const adminResult = await verifyAdmin(request);
+  if (adminResult.authorized) return adminResult;
+
+  // Try teacher via JWT
+  const jwtToken = request.cookies.get('session_token')?.value || '';
+  if (jwtToken) {
+    const payload = await verifySessionToken(jwtToken);
+    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) {
+      return { authorized: true, userId: payload.userId };
+    }
+  }
+
+  // Try teacher via NextAuth
+  try {
+    const session = await auth();
+    if (session?.user?.id) {
+      const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+      if (user && (user.role === 'teacher' || user.role === 'admin')) {
+        return { authorized: true, userId: session.user.id };
+      }
+    }
+  } catch { /* ignore */ }
+
+  return { authorized: false, error: '請先登入教師或管理員帳號' };
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // ---- 認證：僅 admin（JWT + NextAuth 雙重支援）----
-    const auth = await verifyAdmin(request);
-    if (!auth.authorized) {
-      return NextResponse.json({ error: auth.error }, { status: 403 });
+    // ---- 認證：admin 或 teacher ----
+    const authResult = await verifyTeacherOrAdmin(request);
+    if (!authResult.authorized) {
+      return NextResponse.json({ error: authResult.error }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const academicYear = searchParams.get('academicYear') || '';
-    const format = searchParams.get('format') || 'json'; // 'json' | 'csv'
+    const format = searchParams.get('format') || 'json';
+    const reportType = searchParams.get('type') || 'individual';
+    const className = searchParams.get('className') || '';
 
     // ---- 查詢所有學生 ----
     const where: Record<string, unknown> = { role: 'student' };
-    if (academicYear) {
-      where.academicYear = academicYear;
-    }
+    if (academicYear) where.academicYear = academicYear;
+    if (className) where.class = { name: className };
 
     const students = await db.user.findMany({
       where: where as any,
@@ -80,23 +114,49 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // CSV 匯出
+    // CSV 匯出 — 根據類型區分格式
     if (format === 'csv') {
-      const headers = [
-        'studentId', 'email', 'nameZh', 'nameEn', 'level', 'className',
-        'classNumber', 'overallAccuracy', 'sessionAccuracy', 'practiceSessions',
-        'totalQuestionsAnswered', 'totalCorrectAnswers', 'mistakes', 'vocabItems',
-        'submissions', 'academicYear', 'streakDays', 'joinedAt',
-      ];
-      const csvRows = [headers.join(',')];
-      for (const s of enriched) {
-        csvRows.push([
-          s.studentId, s.email, `"${s.nameZh || ''}"`, `"${s.nameEn || ''}"`,
-          s.level, s.className, s.classNumber, s.overallAccuracy ?? '',
-          s.sessionAccuracy ?? '', s.practiceSessions, s.totalQuestionsAnswered,
-          s.totalCorrectAnswers, s.mistakes, s.vocabItems, s.submissions,
-          s.academicYear, s.streakDays, s.joinedAt,
-        ].join(','));
+      let csvRows: string[];
+      if (reportType === 'weekly') {
+        // Weekly report: aggregated class/level summary
+        const headers = ['年級', '班級', '學生數', '平均準確率 (%)', '總練習題數', '總錯題數', '平均連續天數'];
+        csvRows = [headers.join(',')];
+        // Group by class
+        const classGroups = new Map<string, typeof enriched>();
+        for (const s of enriched) {
+          const key = `${s.level || 'N/A'}_${s.className || 'N/A'}`;
+          if (!classGroups.has(key)) classGroups.set(key, []);
+          classGroups.get(key)!.push(s);
+        }
+        for (const [, group] of classGroups) {
+          const accuracies = group.map(s => s.overallAccuracy).filter(a => a != null) as number[];
+          const avgAcc = accuracies.length > 0 ? Math.round(accuracies.reduce((a, b) => a + b, 0) / accuracies.length) : 0;
+          const totalQ = group.reduce((sum, s) => sum + s.totalQuestionsAnswered, 0);
+          const totalM = group.reduce((sum, s) => sum + s.mistakes, 0);
+          const avgStreak = Math.round(group.reduce((sum, s) => sum + (s.streakDays || 0), 0) / group.length);
+          csvRows.push([
+            group[0].level || '', `"${group[0].className || ''}"`,
+            group.length, avgAcc, totalQ, totalM, avgStreak,
+          ].join(','));
+        }
+      } else {
+        // Individual report: per-student detailed data
+        const headers = [
+          'studentId', 'email', 'nameZh', 'nameEn', 'level', 'className',
+          'classNumber', 'overallAccuracy', 'sessionAccuracy', 'practiceSessions',
+          'totalQuestionsAnswered', 'totalCorrectAnswers', 'mistakes', 'vocabItems',
+          'submissions', 'academicYear', 'streakDays', 'joinedAt',
+        ];
+        csvRows = [headers.join(',')];
+        for (const s of enriched) {
+          csvRows.push([
+            s.studentId, s.email, `"${s.nameZh || ''}"`, `"${s.nameEn || ''}"`,
+            s.level, s.className, s.classNumber, s.overallAccuracy ?? '',
+            s.sessionAccuracy ?? '', s.practiceSessions, s.totalQuestionsAnswered,
+            s.totalCorrectAnswers, s.mistakes, s.vocabItems, s.submissions,
+            s.academicYear, s.streakDays, s.joinedAt,
+          ].join(','));
+        }
       }
       return new NextResponse(csvRows.join('\n'), {
         status: 200,

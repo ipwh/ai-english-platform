@@ -20,27 +20,47 @@ export default function TeacherDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/classes')
-      .then(r => r.json())
-      .then(d => setClasses(d.classes || []))
+    Promise.all([
+      fetch('/api/classes').then(r => r.json()),
+      fetch('/api/teacher/students').then(r => r.json().catch(() => ({ students: [] }))),
+    ])
+      .then(([classData, studentData]) => {
+        const classList = classData.classes || [];
+        const students = studentData.students || [];
+        // Enrich classes with accuracy data from students
+        const enriched = classList.map((c: any) => {
+          const classStudents = students.filter((s: any) => s.class?.name === c.name);
+          const accuracies = classStudents
+            .map((s: any) => s.overallAccuracy)
+            .filter((a: any) => a != null) as number[];
+          const avgAcc = accuracies.length > 0
+            ? Math.round(accuracies.reduce((sum: number, a: number) => sum + a, 0) / accuracies.length)
+            : 0;
+          return { ...c, avgAccuracy: avgAcc };
+        });
+        setClasses(enriched);
+      })
       .catch(() => setClasses([]))
       .finally(() => setLoading(false));
   }, []);
 
-  // Build KPI cards from class data
+  // Build KPI cards from real class data
   const totalStudents = classes.reduce((sum: number, c: any) => sum + (c.studentCount || 0), 0);
+  const overallAvgAccuracy = classes.length > 0
+    ? Math.round(classes.reduce((sum: number, c: any) => sum + (c.avgAccuracy || 0), 0) / classes.length)
+    : 0;
   const kpis = [
     { label: t('teacher.classCount'), value: totalStudents, unit: t('generic.people'), trend: 'up' as const, change: 0 },
-    { label: t('teacher.avgAccuracy'), value: '—', trend: 'stable' as const },
-    { label: t('generic.sessions'), value: '—', unit: t('generic.sessions'), trend: 'up' as const },
+    { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy || '—', unit: '%', trend: 'stable' as const },
+    { label: t('generic.sessions'), value: classes.length, unit: t('teacher.assignments.title'), trend: 'up' as const },
     { label: t('teacher.completionRate'), value: `${classes.length || 0}`, unit: t('teacher.assignments.title'), trend: 'stable' as const },
   ];
 
-  // Class chart data from real classes
+  // Class chart data from real classes with accuracy
   const classChartData = classes.slice(0, 8).map((c: any) => ({
     name: c.name,
     [t('teacher.completionRate')]: c.studentCount || 0,
-    [t('teacher.avgAccuracy')]: 0,
+    [t('teacher.avgAccuracy')]: c.avgAccuracy || 0,
   }));
 
   // AI advice
@@ -54,8 +74,8 @@ export default function TeacherDashboardPage() {
       const res = await fetch('/api/ai/analyze-progress', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentLevel: 'S4', overallAccuracy: 65,
-          weakSkills: classes.slice(0, 3).map((c: any) => ({ name: c.name, nameZh: c.name, accuracy: 65 })),
+          studentLevel: 'S4', overallAccuracy: overallAvgAccuracy || 65,
+          weakSkills: classes.slice(0, 3).map((c: any) => ({ name: c.name, nameZh: c.name, accuracy: c.avgAccuracy || 50 })),
           recentPerformance: [], streakDays: 0,
         }),
       });
