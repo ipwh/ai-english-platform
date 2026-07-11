@@ -14,7 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function TeacherDashboardPage() {
   const { t } = useT();
   const { userDisplayName } = useAppStore();
-  const displayName = userDisplayName || 'Teacher';
+  const displayName = userDisplayName || t('common.teacherFallback');
 
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

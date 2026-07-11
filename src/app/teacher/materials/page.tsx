@@ -170,7 +170,7 @@ export default function TeacherMaterialsPage() {
                   setMaterials(mData.materials || []);
                 } else {
                   const errData = await res.json().catch(() => ({}));
-                  alert(errData.error || '上傳失敗，請確認檔案格式正確');
+                  alert(errData.error || t('teacher.materials.uploadFailed'));
                 }
               } catch { /* silent */ }
             }
@@ -184,14 +184,14 @@ export default function TeacherMaterialsPage() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-2 mb-2">
           <Link2 className="w-4 h-4 text-blue-500" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">從 Google Drive 匯入</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('teacher.materials.driveImport')}</span>
         </div>
         <div className="flex gap-2">
           <input
             type="text"
             value={driveUrl}
             onChange={(e) => setDriveUrl(e.target.value)}
-            placeholder="貼上 Google Drive 分享連結..."
+            placeholder={t('teacher.materials.drivePlaceholder')}
             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
@@ -206,22 +206,22 @@ export default function TeacherMaterialsPage() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                  alert(`已匯入：${data.file.name}（${data.file.contentLength} 字元）`);
+                  alert(t('teacher.materials.imported', { name: data.file.name, length: String(data.file.contentLength) }));
                   setDriveUrl('');
                 } else {
-                  alert(data.error || '匯入失敗');
+                  alert(data.error || t('teacher.materials.importFailed'));
                 }
-              } catch { alert('連線失敗'); }
+              } catch { alert(t('teacher.materials.connectionFailed')); }
               finally { setDriveLoading(false); }
             }}
             disabled={driveLoading || !driveUrl}
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium flex items-center gap-1"
           >
             {driveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-            匯入
+            {t('teacher.materials.importBtn')}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">支援 .txt、.csv、.md 檔案。請先將檔案分享給服務帳號。</p>
+        <p className="text-xs text-gray-400 mt-1">{t('teacher.materials.driveHint')}</p>
       </div>
 
       {/* 搜尋 */}
@@ -231,7 +231,7 @@ export default function TeacherMaterialsPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜尋教材..."
+          placeholder={t('teacher.materials.searchPlaceholder')}
           className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>

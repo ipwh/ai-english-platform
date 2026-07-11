@@ -90,10 +90,10 @@ export default function TeacherReviewPage() {
           aiMistakeType: json.analysis.mistakeType,
         });
       } else {
-        setAiError(json.error || 'AI 分析失敗');
+        setAiError(json.error || t('teacher.review.aiFailed'));
       }
     } catch {
-      setAiError('AI 服務連線失敗');
+      setAiError(t('teacher.review.aiConnectionFailed'));
     } finally {
       setAiLoading(false);
     }
@@ -174,7 +174,7 @@ export default function TeacherReviewPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{t('teacher.review.aiGrading')}</span>
                     <span className={`text-sm font-bold ${selectedReview.aiScore >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                      {selectedReview.aiScore} 分
+                      {selectedReview.aiScore}{t('teacher.review.scoreUnit')}
                     </span>
                   </div>
                   <button
@@ -200,7 +200,7 @@ export default function TeacherReviewPage() {
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-3">{t('teacher.review.teacherCorrection')}</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">分數修正</label>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('teacher.review.scoreCorrection')}</label>
                     <input
                       type="number"
                       value={teacherScore ?? ''}
@@ -212,12 +212,12 @@ export default function TeacherReviewPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">評語修正</label>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('teacher.review.commentCorrection')}</label>
                     <textarea
                       value={teacherFeedback}
                       onChange={(e) => setTeacherFeedback(e.target.value)}
                       rows={3}
-                      placeholder="輸入教師評語..."
+                      placeholder={t('teacher.review.commentPlaceholder')}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                   </div>
@@ -226,10 +226,10 @@ export default function TeacherReviewPage() {
                 {/* 操作按鈕 */}
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                   <button onClick={handleAccept} className="flex items-center gap-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg font-medium">
-                    <Check className="w-4 h-4" /> 接受 AI 批改
+                    <Check className="w-4 h-4" /> {t('teacher.review.accept')}
                   </button>
                   <button onClick={handleReturn} className="flex items-center gap-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg font-medium">
-                    <RotateCcw className="w-4 h-4" /> 退回重做
+                    <RotateCcw className="w-4 h-4" /> {t('teacher.review.return')}
                   </button>
                 </div>
               </div>

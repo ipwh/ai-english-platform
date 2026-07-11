@@ -14,6 +14,7 @@ import KpiCard from '@/components/shared/KpiCard';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import { getDifficultyLabel } from '@/lib/nav';
 
 export default function StudentProgressPage() {
   const store = useAppStore();
@@ -56,7 +57,10 @@ export default function StudentProgressPage() {
   const trendData = (() => {
     const dayMap = new Map<string, { questions: number; correct: number }>();
     for (const s of recentSessions) {
-      const day = new Date(s.startedAt).toLocaleDateString('zh-HK', { month: 'numeric', day: 'numeric' });
+      const day = new Date(s.startedAt).toLocaleDateString(
+        store.language === 'en' ? 'en-US' : 'zh-HK',
+        { month: 'numeric', day: 'numeric' }
+      );
       const entry = dayMap.get(day) || { questions: 0, correct: 0 };
       entry.questions += s.totalQuestions;
       entry.correct += s.correctCount;
@@ -64,8 +68,8 @@ export default function StudentProgressPage() {
     }
     return Array.from(dayMap.entries()).map(([day, d]) => ({
       day,
-      '練習量': d.questions,
-      '正確率': d.questions > 0 ? Math.round((d.correct / d.questions) * 100) : 0,
+      [t('progress.volumeChart')]: d.questions,
+      [t('progress.accuracyChart')]: d.questions > 0 ? Math.round((d.correct / d.questions) * 100) : 0,
     }));
   })();
 
@@ -83,8 +87,8 @@ export default function StudentProgressPage() {
       {/* 載入失敗 */}
       {!loading && loadError && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center shadow-sm border">
-          <p className="text-gray-500 mb-3">無法載入進度數據</p>
-          <button onClick={() => { setLoading(true); setLoadError(false); store.initSession().then(() => store.loadPracticeHistory()).finally(() => setLoading(false)); }} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">重試</button>
+          <p className="text-gray-500 mb-3">{t('progress.loadFailed')}</p>
+          <button onClick={() => { setLoading(true); setLoadError(false); store.initSession().then(() => store.loadPracticeHistory()).finally(() => setLoading(false)); }} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('progress.retry')}</button>
         </div>
       )}
 
@@ -107,13 +111,13 @@ export default function StudentProgressPage() {
               <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#9ca3af" />
               <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
               <Tooltip />
-              <Line type="monotone" dataKey="練習量" stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
-              <Line type="monotone" dataKey="正確率" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b' }} />
+              <Line type="monotone" dataKey={t('progress.volumeChart')} stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
+              <Line type="monotone" dataKey={t('progress.accuracyChart')} stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b' }} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
           <div className="flex items-center justify-center h-[220px] text-sm text-gray-400">
-            完成更多練習後將顯示練習趨勢圖
+            {t('progress.emptyTrend')}
           </div>
         )}
       </section>
@@ -153,7 +157,7 @@ export default function StudentProgressPage() {
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[250px] text-sm text-gray-400">
-              完成更多練習後將顯示技能分析圖
+              {t('progress.emptyRadar')}
             </div>
           )}
         </section>
@@ -162,17 +166,17 @@ export default function StudentProgressPage() {
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t('progress.monthly')}</h2>
           {displayMastery.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={displayMastery.map(m => ({ skill: m.subSkill, '正確率': m.percentage }))} layout="vertical">
+              <BarChart data={displayMastery.map(m => ({ skill: m.subSkill, [t('progress.accuracyChart')]: m.percentage }))} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
                 <YAxis dataKey="skill" type="category" tick={{ fontSize: 12 }} width={80} />
                 <Tooltip />
-                <Bar dataKey="正確率" fill="#14b8a6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey={t('progress.accuracyChart')} fill="#14b8a6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[250px] text-sm text-gray-400">
-              完成練習後將顯示技能對比圖
+              {t('progress.emptyBar')}
             </div>
           )}
         </section>
@@ -195,7 +199,7 @@ export default function StudentProgressPage() {
                       <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">AI</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400">{s.totalQuestions} 題 · {s.difficulty === 'remedial' ? '補底' : s.difficulty === 'core' ? '核心' : '挑戰'}</p>
+                  <p className="text-xs text-gray-400">{s.totalQuestions} {t('progress.questionsSuffix')}{getDifficultyLabel(s.difficulty, store.language)}</p>
                 </div>
                 <span className="text-lg font-bold text-teal-600">
                   {Math.round((s.correctCount / s.totalQuestions) * 100)}%

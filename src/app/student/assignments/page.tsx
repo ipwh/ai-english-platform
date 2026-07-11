@@ -10,13 +10,15 @@ import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { formatDate, daysRemaining, getStatusColor } from '@/lib/utils';
-import { statusLabels } from '@/lib/nav';
+import { statusLabels, getStatusLabel } from '@/lib/nav';
 import type { AssignmentStatus } from '@/lib/types';
 import EmptyState from '@/components/shared/EmptyState';
 import type { AssignmentSummary } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
+import { useAppStore } from '@/store/appStore';
 
 export default function StudentAssignmentsPage() {
+  const store = useAppStore();
   const { t } = useT();
   const [filter, setFilter] = useState<AssignmentStatus | 'all'>('all');
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
@@ -65,10 +67,10 @@ export default function StudentAssignmentsPage() {
       {/* 統計摘要 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: '全部', value: assignments.length, status: 'all' as const, color: 'text-gray-600' },
-          { label: '未開始', value: assignments.filter(a => a.status === 'not-started').length, status: 'not-started' as const, color: 'text-gray-600' },
-          { label: '進行中', value: assignments.filter(a => a.status === 'in-progress').length, status: 'in-progress' as const, color: 'text-blue-600' },
-          { label: '已完成', value: assignments.filter(a => a.status === 'completed').length, status: 'completed' as const, color: 'text-green-600' },
+          { label: t('assignments.all'), value: assignments.length, status: 'all' as const, color: 'text-gray-600' },
+          { label: t('assignments.notStarted'), value: assignments.filter(a => a.status === 'not-started').length, status: 'not-started' as const, color: 'text-gray-600' },
+          { label: t('assignments.inProgress'), value: assignments.filter(a => a.status === 'in-progress').length, status: 'in-progress' as const, color: 'text-blue-600' },
+          { label: t('assignments.completed'), value: assignments.filter(a => a.status === 'completed').length, status: 'completed' as const, color: 'text-green-600' },
         ].map((stat, i) => (
           <button
             key={i}
@@ -93,7 +95,7 @@ export default function StudentAssignmentsPage() {
               filter === s ? 'bg-teal-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
             }`}
           >
-            {s === 'all' ? '全部' : statusLabels[s]}
+            {s === 'all' ? t('assignments.all') : getStatusLabel(s, store.language)}
           </button>
         ))}
       </div>
@@ -101,7 +103,7 @@ export default function StudentAssignmentsPage() {
       {/* 作業列表 */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <EmptyState title="暫無作業" description="目前沒有相關的作業。" icon={<FileText className="w-8 h-8" />} />
+          <EmptyState title={t('assignments.noData')} description={t('assignments.noDataDesc')} icon={<FileText className="w-8 h-8" />} />
         ) : (
           filtered.map((a) => {
             const remaining = daysRemaining(a.dueDate);
@@ -118,32 +120,32 @@ export default function StudentAssignmentsPage() {
                     <div className="flex items-center gap-2 mt-1">
                       <SkillChip grammarItem={a.grammarItem} languageSkill={a.languageSkill} />
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusColor(a.status)}`}>
-                        {statusLabels[a.status]}
+                        {getStatusLabel(a.status, store.language)}
                       </span>
                     </div>
                   </div>
                   {a.score !== undefined && (
-                    <span className="text-lg font-bold text-teal-600">{a.score} 分</span>
+                    <span className="text-lg font-bold text-teal-600">{a.score} {t('assignments.scoreUnit')}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-2">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    截止：{formatDate(a.dueDate)}
+                    {t('assignments.duePrefix')}{formatDate(a.dueDate)}
                   </span>
                   {isOverdue ? (
                     <span className="flex items-center gap-1 text-red-500 font-medium">
-                      <AlertCircle className="w-3 h-3" /> 已逾期
+                      <AlertCircle className="w-3 h-3" /> {t('assignments.overdueLabel')}
                     </span>
                   ) : remaining <= 3 && a.status !== 'completed' ? (
                     <span className="flex items-center gap-1 text-orange-500 font-medium">
-                      <AlertCircle className="w-3 h-3" /> 尚餘 {remaining} 天
+                      <AlertCircle className="w-3 h-3" /> {t('assignments.daysRemaining').replace('{n}', String(remaining))}
                     </span>
                   ) : null}
                 </div>
                 {a.teacherFeedback && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
-                    💬 教師評語：{a.teacherFeedback}
+                    {t('assignments.teacherFeedback')}{a.teacherFeedback}
                   </p>
                 )}
               </Link>

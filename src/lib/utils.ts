@@ -98,13 +98,14 @@ export function truncate(text: string, max: number): string {
 }
 
 /**
- * 打招呼語（根據香港時段 UTC+8，確保 SSR/CSR 一致）
+ * 打招呼語（根據香港時段 UTC+8，確保 SSR/CSR 一致），支援中英雙語
  */
-export function getGreeting(): string {
+export function getGreeting(lang?: string): string {
   // 使用 UTC 時間 +8 小時模擬香港時區，避免伺服器/客戶端時區差異導致 hydration mismatch
   const now = new Date();
   const hkHour = (now.getUTCHours() + 8) % 24;
-  if (hkHour < 12) return '早晨';
-  if (hkHour < 18) return '午安';
-  return '晚安';
+  const isEn = lang === 'en';
+  if (hkHour < 12) return isEn ? 'Good morning' : '早晨';
+  if (hkHour < 18) return isEn ? 'Good afternoon' : '午安';
+  return isEn ? 'Good evening' : '晚安';
 }

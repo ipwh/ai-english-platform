@@ -79,7 +79,7 @@ export default function AssignmentDetailPage() {
           }
         }
       })
-      .catch(() => setError('無法載入作業'))
+      .catch(() => setError(t('assignment.loadFailed')))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -92,7 +92,7 @@ export default function AssignmentDetailPage() {
     // 檢查是否所有題目都已作答
     const unanswered = assignment.questions.filter(q => !answers[q.id]?.trim());
     if (unanswered.length > 0) {
-      setError(`還有 ${unanswered.length} 題未作答，請完成所有題目後再提交。`);
+      setError(t('assignment.unanswered', { n: unanswered.length }));
       return;
     }
 
@@ -108,7 +108,7 @@ export default function AssignmentDetailPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || '提交失敗');
+        setError(data.error || t('assignment.submitFailed'));
         return;
       }
 
@@ -119,7 +119,7 @@ export default function AssignmentDetailPage() {
       setCorrectCount(data.submission.correctCount);
       setTotalQuestions(data.submission.totalQuestions);
     } catch {
-      setError('網絡錯誤，請重試');
+      setError(t('assignment.networkError'));
     } finally {
       setSubmitting(false);
     }
@@ -139,7 +139,7 @@ export default function AssignmentDetailPage() {
         <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
         <p className="text-gray-500">{error}</p>
         <button onClick={() => router.back()} className="mt-3 text-teal-600 hover:underline text-sm">
-          ← 返回作業列表
+          {t('assignment.backToList')}
         </button>
       </div>
     );
@@ -171,7 +171,7 @@ export default function AssignmentDetailPage() {
         {submitted && score !== null && (
           <div className={`text-center px-4 py-2 rounded-xl ${score >= 60 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
             <p className={`text-2xl font-bold ${score >= 60 ? 'text-green-600' : 'text-red-500'}`}>{score}%</p>
-            <p className="text-xs text-gray-500">得分</p>
+            <p className="text-xs text-gray-500">{t('assignment.scoreLabel')}</p>
           </div>
         )}
       </div>
@@ -180,24 +180,24 @@ export default function AssignmentDetailPage() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
-            <p className="text-gray-400 text-xs">題數</p>
-            <p className="font-medium text-gray-900 dark:text-white">{assignment.questionCount} 題</p>
+            <p className="text-gray-400 text-xs">{t('assignment.questionCountLabel')}</p>
+            <p className="font-medium text-gray-900 dark:text-white">{assignment.questionCount} {t('unit.questions')}</p>
           </div>
           <div>
-            <p className="text-gray-400 text-xs">截止日期</p>
+            <p className="text-gray-400 text-xs">{t('assignment.dueDateLabel')}</p>
             <p className={`font-medium flex items-center gap-1 ${isOverdue ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
               {isOverdue && <AlertCircle className="w-3 h-3" />}
-              {assignment.dueDate ? formatDate(assignment.dueDate) : '無限期'}
+              {assignment.dueDate ? formatDate(assignment.dueDate) : t('assignment.noDeadline')}
             </p>
           </div>
           <div>
-            <p className="text-gray-400 text-xs">限時</p>
+            <p className="text-gray-400 text-xs">{t('assignment.timeLimitLabel')}</p>
             <p className="font-medium text-gray-900 dark:text-white">
-              {assignment.timeLimit ? `${assignment.timeLimit} 分鐘` : '無限制'}
+              {assignment.timeLimit ? `${assignment.timeLimit} ${t('assignment.minutes')}` : t('assignment.noLimit')}
             </p>
           </div>
           <div>
-            <p className="text-gray-400 text-xs">提交人數</p>
+            <p className="text-gray-400 text-xs">{t('assignment.submissionCountLabel')}</p>
             <p className="font-medium text-gray-900 dark:text-white">{assignment.submissionCount}</p>
           </div>
         </div>
@@ -211,7 +211,7 @@ export default function AssignmentDetailPage() {
       {/* 題目列表 */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          題目 ({assignment.questions.length})
+          {t('assignment.questionsLabel', { n: assignment.questions.length })}
         </h2>
 
         {assignment.questions.map((q, i) => {

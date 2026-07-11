@@ -70,7 +70,7 @@ export default function StudentProfilePage() {
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1 text-left">{t('profile.englishName')}</label>
-              <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder="English Name" className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+              <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder={t('profile.englishNamePlaceholder')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1 text-left flex items-center gap-1"><GraduationCap className="w-3 h-3" /> {t('profile.grade')}</label>
@@ -83,7 +83,7 @@ export default function StudentProfilePage() {
                 {Object.entries(gradeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            {saveMsg && <p className={`text-xs ${saveMsg.includes('成功') || saveMsg.includes('success') ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</p>}
+            {saveMsg && <p className={`text-xs ${saveMsg === t('profile.saveSuccess') ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</p>}
             <div className="flex justify-center gap-2">
               <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm flex items-center gap-1"><Save className="w-4 h-4" /> {saving ? t('profile.saving') : t('profile.save')}</button>
               <button onClick={() => { setEditing(false); setSaveMsg(''); }} className="px-4 py-2 bg-gray-200 rounded-lg text-sm flex items-center gap-1"><X className="w-4 h-4" /> {t('profile.cancel')}</button>
@@ -99,8 +99,8 @@ export default function StudentProfilePage() {
           </>
         )}
       </div>
-      <button onClick={handleLogout} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Logout</button>
-      <button onClick={() => router.push('/role-select')} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 rounded-xl font-medium">Switch Role</button>
+      <button onClick={handleLogout} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> {t('profile.logoutBtn')}</button>
+      <button onClick={() => router.push('/role-select')} className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 rounded-xl font-medium">{t('profile.switchRoleBtn')}</button>
     </div>
   );
 }

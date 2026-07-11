@@ -215,14 +215,14 @@ export default function MistakesPage() {
                       {t(mistakeTypeLabels[m.mistakeType] || 'mistake.grammar')}
                     </span>
                     {m.inReviewList && (
-                      <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">重溫清單</span>
+                      <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">{t('mistakes.reviewListBadge')}</span>
                     )}
                   </div>
                   <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{m.questionSummary}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                     <span>{t('mistakes.yourAnswer')}<span className="text-red-500 line-through">{m.studentAnswer}</span></span>
                     <span>→</span>
-                    <span>正確：<span className="text-green-500 font-medium">{m.correctAnswer}</span></span>
+                    <span>{t('mistakes.correctPrefix')}<span className="text-green-500 font-medium">{m.correctAnswer}</span></span>
                     <span>·</span>
                     <span>{formatDate(m.date)}</span>
                   </div>
@@ -237,18 +237,18 @@ export default function MistakesPage() {
                     <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg space-y-2 text-sm">
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-purple-500" />
-                        <span className="font-medium text-purple-700 dark:text-purple-300">AI 錯因分析</span>
+                        <span className="font-medium text-purple-700 dark:text-purple-300">{t('mistakes.aiErrorTitle')}</span>
                       </div>
                       <p className="text-gray-700 dark:text-gray-300">{explanations[m.id]!.reasonZh}</p>
                       {explanations[m.id]!.ruleExplanation && (
                         <div className="p-2 bg-white dark:bg-gray-800 rounded">
-                          <p className="text-xs font-medium text-gray-500 mb-1">📘 文法規則</p>
+                          <p className="text-xs font-medium text-gray-500 mb-1">{t('mistakes.grammarRule')}</p>
                           <p className="text-xs text-gray-600 dark:text-gray-400">{explanations[m.id]!.ruleExplanation}</p>
                         </div>
                       )}
                       {explanations[m.id]!.examples.length > 0 && (
                         <div className="p-2 bg-white dark:bg-gray-800 rounded">
-                          <p className="text-xs font-medium text-gray-500 mb-1">🔁 對比例句</p>
+                          <p className="text-xs font-medium text-gray-500 mb-1">{t('mistakes.comparisonExamples')}</p>
                           {explanations[m.id]!.examples.map((ex, i) => (
                             <p key={i} className="text-xs text-gray-600 dark:text-gray-400">
                               ❌ {ex.wrong} → ✅ {ex.correct}
@@ -272,7 +272,7 @@ export default function MistakesPage() {
               </div>
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                 <Link href={`/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(m.grammarItem || '')}&languageSkill=${encodeURIComponent(m.languageSkill || '')}&difficulty=remedial&questionType=mc&questionCount=5&weakLabel=${encodeURIComponent(m.subSkillZh || m.subSkill || '錯題')}`} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
-                  <RotateCcw className="w-3 h-3" /> 重做
+                  <RotateCcw className="w-3 h-3" /> {t('mistakes.redo')}
                 </Link>
                 <button
                   onClick={() => handleAIExplain(m)}
@@ -280,10 +280,10 @@ export default function MistakesPage() {
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-50"
                 >
                   {explainingId === m.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                  {explainingId === m.id ? '分析中...' : (explanations[m.id] ? '重新解說' : 'AI 解說')}
+                  {explainingId === m.id ? t('mistakes.analyzing') : (explanations[m.id] ? t('mistakes.reExplain') : t('mistakes.aiExplainBtn'))}
                 </button>
                 <button onClick={() => toggleReviewList(m.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                  <BookMarked className="w-3 h-3" /> {m.inReviewList ? '移出重溫' : '加入重溫'}
+                  <BookMarked className="w-3 h-3" /> {m.inReviewList ? t('mistakes.removeFromReview') : t('mistakes.addToReview')}
                 </button>
                 <button onClick={() => toggleReviewed(m.id)} className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   m.reviewed
@@ -291,7 +291,7 @@ export default function MistakesPage() {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'
                 }`}>
                   {m.reviewed ? <CheckCircle className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
-                  {m.reviewed ? '已溫習' : '標記已溫習'}
+                  {m.reviewed ? t('mistakes.reviewedLabel') : t('mistakes.markReviewed')}
                 </button>
               </div>
             </div>

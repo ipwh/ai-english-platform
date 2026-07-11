@@ -179,7 +179,7 @@ export default function SidebarLayout({
   } = store;
 
   const { t } = useT();
-  const displayName = userDisplayName || (role === 'student' ? 'Student' : 'Teacher');
+  const displayName = userDisplayName || t(role === 'student' ? 'common.studentFallback' : 'common.teacherFallback');
   const lang = language || 'zh';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);

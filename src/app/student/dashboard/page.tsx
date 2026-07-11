@@ -19,9 +19,9 @@ interface GamificationData {
 }
 
 export default function StudentDashboardPage() {
-  const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory } = useAppStore();
+  const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory, language } = useAppStore();
   const { t } = useT();
-  const displayName = userDisplayName || 'Student';
+  const displayName = userDisplayName || t('common.studentFallback');
   const [aiInsight, setAiInsight] = useState<any>(null);
   const [studentLevel, setStudentLevel] = useState('S4');
   const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
@@ -51,13 +51,13 @@ export default function StudentDashboardPage() {
     }).then(data => {
       if (data?.sessions) {
         setRecentPerformance(data.sessions.slice(0, 5).map((s: any) => ({
-          date: new Date(s.startedAt).toLocaleDateString('zh-HK'),
+          date: new Date(s.startedAt).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-HK'),
           accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100),
           questionsDone: s.totalQuestions,
         })));
       }
     }).catch(() => {});
-  }, [loadPracticeHistory]);
+  }, [loadPracticeHistory, language]);
 
   const weeklyStats = getWeeklyStats();
   const kpis = [
@@ -75,7 +75,7 @@ export default function StudentDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-6 text-white">
-        <p className="text-teal-100 text-sm">{getGreeting()}, {displayName}!</p>
+        <p className="text-teal-100 text-sm">{getGreeting(language)}, {displayName}!</p>
         <h1 className="text-2xl font-bold mt-1">{t('student.dashboard.title')}</h1>
         <Link href="/student/practice" className="mt-3 inline-block px-4 py-2 bg-white text-teal-600 rounded-xl font-medium text-sm">
           <Play className="w-4 h-4 inline mr-1" /> {t('student.dashboard.practice')}

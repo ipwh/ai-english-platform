@@ -49,7 +49,7 @@ export default function TeacherClassesPage() {
               </div>
               {cls.assignmentCount > 0 && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">課業數</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('teacher.classes.assignmentCount')}</span>
                   <span className="font-medium text-gray-900 dark:text-white">{cls.assignmentCount}</span>
                 </div>
               )}

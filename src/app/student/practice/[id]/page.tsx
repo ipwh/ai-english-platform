@@ -165,10 +165,10 @@ export default function PracticeQuestionPage() {
       if (res.ok && json.analysis) {
         setAiAnalysis(json.analysis);
       } else {
-        setAiError(json.error || 'AI 分析暫時無法使用');
+        setAiError(json.error || t('practice.question.aiUnavailableMsg'));
       }
     } catch {
-      setAiError('AI 服務連線失敗');
+      setAiError(t('practice.question.aiConnectionMsg'));
     } finally {
       setAiLoading(false);
     }

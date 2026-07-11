@@ -27,21 +27,7 @@ export interface NavSection {
 
 // Helper: 根據語言獲取標籤
 export function getNavLabel(item: NavItem, lang: string): string {
-  if (lang === 'en') {
-    const enLabels: Record<string, string> = {
-      'nav.dashboard': 'Dashboard', 'nav.practice': 'AI Practice', 'nav.mistakes': 'My Mistakes',
-      'nav.vocabulary': 'Vocabulary', 'nav.progress': 'My Progress', 'nav.writing': 'Writing Support',
-      'nav.assignments': 'Assignments', 'nav.diagnostic': 'Diagnostic Test', 'nav.help': 'Help',
-      'nav.profile': 'Profile', 'nav.home': 'Home', 'nav.practice_short': 'Practice',
-      'nav.mistakes_short': 'Mistakes', 'nav.progress_short': 'Progress', 'nav.more': 'More',
-      'teacher.overview': 'Overview', 'teacher.dashboard': 'Dashboard', 'teacher.assignments': 'Assignments',
-      'teacher.classes': 'Class Progress', 'teacher.students': 'Student List', 'teacher.review': 'Review',
-      'teacher.materials': 'Materials', 'teacher.import': 'Import', 'teacher.reports': 'Reports',
-      'teacher.settings': 'Settings', 'teacher.management': 'Management',
-    };
-    return enLabels[item.i18nKey] || item.label;
-  }
-  return item.label;
+  return t(item.i18nKey, lang);
 }
 
 export function getSectionTitle(section: NavSection, lang: string): string | undefined {
@@ -109,7 +95,7 @@ export const teacherQuickLinks: NavItem[] = [];
 
 
 // ========================================
-// 技能中文標籤
+// 技能標籤（支援中英雙語）
 // ========================================
 export const skillLabels: Record<string, string> = {
   'grammar': '文法',
@@ -149,11 +135,55 @@ export const skillLabels: Record<string, string> = {
   'experience': '經驗',
 };
 
+export const skillLabelsEn: Record<string, string> = {
+  'grammar': 'Grammar',
+  'vocabulary': 'Vocabulary',
+  'reading': 'Reading',
+  'writing': 'Writing',
+  'error-correction': 'Error Correction',
+  'tenses': 'Tenses',
+  'conditionals': 'Conditionals',
+  'passive-voice': 'Passive Voice',
+  'reported-speech': 'Reported Speech',
+  'relative-clauses': 'Relative Clauses',
+  'modals': 'Modals',
+  'articles': 'Articles',
+  'prepositions': 'Prepositions',
+  'connectives': 'Connectives',
+  'gerunds-infinitives': 'Gerunds & Infinitives',
+  'subject-verb-agreement': 'Subject-Verb Agreement',
+  'comparatives-superlatives': 'Comparatives & Superlatives',
+  'question-forms': 'Question Forms',
+  'negation': 'Negation',
+  'phrasal-verbs': 'Phrasal Verbs',
+  'adjectives-adverbs': 'Adjectives & Adverbs',
+  'pronouns': 'Pronouns',
+  'quantifiers': 'Quantifiers',
+  'participles': 'Participles',
+  'inversion': 'Inversion',
+  'noun-clauses': 'Noun Clauses',
+  'participle-phrases': 'Participle Phrases',
+  'listening': 'Listening',
+  'speaking': 'Speaking',
+  'interpersonal': 'Interpersonal',
+  'knowledge': 'Knowledge',
+  'experience': 'Experience',
+};
+
+export function getSkillLabel(key: string, lang?: string): string {
+  return lang === 'en' ? (skillLabelsEn[key] || key) : (skillLabels[key] || key);
+}
+
 export const difficultyLabels: Record<string, string> = {
   'remedial': '補底',
   'core': '核心',
   'challenge': '挑戰',
 };
+
+export function getDifficultyLabel(key: string, lang?: string): string {
+  const en: Record<string, string> = { 'remedial': 'Remedial', 'core': 'Core', 'challenge': 'Challenge' };
+  return lang === 'en' ? (en[key] || key) : (difficultyLabels[key] || key);
+}
 
 export const gradeLabels: Record<string, string> = {
   'S1': '中一',
@@ -164,6 +194,11 @@ export const gradeLabels: Record<string, string> = {
   'S6': '中六',
 };
 
+export function getGradeLabel(key: string, lang?: string): string {
+  const en: Record<string, string> = { 'S1': 'S1', 'S2': 'S2', 'S3': 'S3', 'S4': 'S4', 'S5': 'S5', 'S6': 'S6' };
+  return lang === 'en' ? (en[key] || key) : (gradeLabels[key] || key);
+}
+
 export const statusLabels: Record<string, string> = {
   'not-started': '未開始',
   'in-progress': '進行中',
@@ -173,3 +208,11 @@ export const statusLabels: Record<string, string> = {
   'reviewed': '已覆核',
   'returned': '已退回',
 };
+
+export function getStatusLabel(key: string, lang?: string): string {
+  const en: Record<string, string> = {
+    'not-started': 'Not Started', 'in-progress': 'In Progress', 'completed': 'Completed',
+    'overdue': 'Overdue', 'pending': 'Pending Review', 'reviewed': 'Reviewed', 'returned': 'Returned',
+  };
+  return lang === 'en' ? (en[key] || key) : (statusLabels[key] || key);
+}

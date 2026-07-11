@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { formatDate } from '@/lib/utils';
-import { gradeLabels } from '@/lib/nav';
+import { gradeLabels, getGradeLabel } from '@/lib/nav';
 import { useT } from '@/hooks/use-i18n';
+import { useAppStore } from '@/store/appStore';
 
 export default function StudentDetailPage() {
   const { t } = useT();
+  const store = useAppStore();
   const params = useParams();
   const router = useRouter();
   const studentId = params.studentId as string;
@@ -43,12 +45,12 @@ export default function StudentDetailPage() {
         if (found) {
           setStudent(found);
         } else {
-          setLoadError('找不到此學生');
+          setLoadError(t('teacher.studentDetail.notFound'));
         }
         setPracticeSessions(practiceData.sessions || []);
         setMistakes(mistakesData.mistakes || []);
       })
-      .catch(() => setLoadError('載入失敗'))
+      .catch(() => setLoadError(t('teacher.studentDetail.loadFailed')))
       .finally(() => setLoading(false));
   }, [studentId]);
 
@@ -64,9 +66,9 @@ export default function StudentDetailPage() {
     return (
       <div className="text-center py-20">
         <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">{loadError || '找不到此學生'}</p>
+        <p className="text-gray-500">{loadError || t('teacher.studentDetail.notFound')}</p>
         <button onClick={() => router.back()} className="mt-3 text-blue-600 hover:underline text-sm">
-          ← 返回
+          {t('teacher.studentDetail.back')}
         </button>
       </div>
     );
@@ -83,7 +85,7 @@ export default function StudentDetailPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-          {student.nameZh || student.nameEn || 'Student'}
+          {student.nameZh || student.nameEn || t('teacher.studentDetail.fallback')}
         </h1>
       </div>
 
@@ -103,19 +105,19 @@ export default function StudentDetailPage() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-500">班級</p>
+            <p className="text-xs text-gray-500">{t('teacher.studentDetail.class')}</p>
             <p className="font-semibold text-gray-900 dark:text-white">{student.class?.name || '—'}</p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-500">年級</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{gradeLabels[student.level] || student.level || '—'}</p>
+            <p className="text-xs text-gray-500">{t('teacher.studentDetail.grade')}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{getGradeLabel(student.level, store.language) || student.level || '—'}</p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-500">學號</p>
+            <p className="text-xs text-gray-500">{t('teacher.studentDetail.studentNo')}</p>
             <p className="font-semibold text-gray-900 dark:text-white">{student.classNumber || '—'}</p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
-            <p className="text-xs text-gray-500">準確率</p>
+            <p className="text-xs text-gray-500">{t('teacher.studentDetail.accuracy')}</p>
             <p className="font-semibold text-teal-600">{student.overallAccuracy ? Math.round(student.overallAccuracy) + '%' : '—'}</p>
           </div>
         </div>
@@ -124,10 +126,10 @@ export default function StudentDetailPage() {
       {/* 練習統計 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: '練習次數', value: practiceSessions.length, unit: '次', icon: Hash },
-          { label: '總答題數', value: totalQuestions, unit: '題', icon: BookOpen },
-          { label: '練習準確率', value: sessionAccuracy, unit: '%', icon: Target },
-          { label: '錯題數', value: mistakes.length, unit: '題', icon: AlertCircle },
+          { label: t('teacher.studentDetail.practiceCount'), value: practiceSessions.length, unit: t('teacher.studentDetail.sessionsUnit'), icon: Hash },
+          { label: t('teacher.studentDetail.totalAnswered'), value: totalQuestions, unit: t('teacher.studentDetail.questionsUnit'), icon: BookOpen },
+          { label: t('teacher.studentDetail.practiceAccuracy'), value: sessionAccuracy, unit: '%', icon: Target },
+          { label: t('teacher.studentDetail.mistakeCount'), value: mistakes.length, unit: t('teacher.studentDetail.questionsUnit'), icon: AlertCircle },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <stat.icon className="w-4 h-4 text-gray-400 mb-2" />
@@ -140,17 +142,17 @@ export default function StudentDetailPage() {
       {/* 最近練習 */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-blue-500" /> 最近練習
+          <Clock className="w-5 h-5 text-blue-500" /> {t('teacher.studentDetail.recentPractice')}
         </h3>
         {practiceSessions.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">尚無練習記錄</p>
+          <p className="text-sm text-gray-400 text-center py-4">{t('teacher.studentDetail.noPractice')}</p>
         ) : (
           <div className="space-y-2">
             {practiceSessions.slice(0, 10).map((s: any, i: number) => (
               <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
-                  <p className="text-xs text-gray-400">{s.totalQuestions || 0} 題 · {formatDate(s.startedAt)}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || t('teacher.studentDetail.practiceLabel')}</p>
+                  <p className="text-xs text-gray-400">{s.totalQuestions || 0} {t('teacher.studentDetail.questionsUnit')} · {formatDate(s.startedAt)}</p>
                 </div>
                 <span className="text-sm font-bold text-teal-600">
                   {s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0}%
