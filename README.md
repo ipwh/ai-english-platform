@@ -60,7 +60,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (optional fallback) + Vertex AI Embeddings |
 | 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
 | MCQ 正規化 | 後端自動清除 T/F/True/False 前綴、按索引標準化 A/B/C/D 答案字母，防止 Gemini fallback 輸出格式異常 |
-| 語音 | Web Speech API (瀏覽器原生 TTS) |
+| 語音 | Google Cloud Text-to-Speech（多人對話分段合成）+ Web Speech API（fallback） |
 | 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
 | 部署 | Vercel |
@@ -144,6 +144,23 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新
+
+### ☁️ Google Cloud Text-to-Speech 整合 (2026-07-12)
+
+#### 🎙️ Server-Side TTS 引擎
+- **Google Cloud TTS**：新增 `@google-cloud/text-to-speech`，使用 GCP service account 進行 server-side 語音合成
+- **多人對話分段合成**：完全捨棄 SSML `<voice>` 切換（不可靠），改為逐段獨立合成 + MP3 `Buffer.concat()` 拼接
+  - 每段用正確語音合成（Man→`en-US-Standard-D` 男聲、Woman→`en-US-Standard-H` 女聲）
+  - 角色標籤在 `parseDialogueForTTS()` 階段被剝離，確保 TTS 不朗讀角色名稱
+  - 段間自動插入短暫靜音作為停頓
+- **雙模式 AudioPlayer**：新增 `useCloudTTS` prop，聆聽題自動使用 Cloud TTS（自然 intonation），詞彙播放維持 Web Speech API
+- **自動 Fallback**：Cloud TTS 失敗（503/網路錯誤）→ 自動降級到瀏覽器 Web Speech API，不影響使用
+- **費用**：每月 100 萬字 Standard 語音免費（GCP Free Tier），DSE 聆聽練習綽綽有餘
+
+#### 🛡️ AI Prompt 角色標籤白名單
+- **TTS 相容性強化**：AI prompt 明確限制聆聽題角色標籤只能用 `Boy / Girl / Man / Woman` 四種
+- 嚴禁任何職業/身份標籤（Librarian、Student、Teacher 等），避免 TTS 無法識別
+- `AudioPlayer.tsx` 防護層升級：`stripSpeakerLabels()` 改為通用 regex，可剝離任何 `單詞: ` 格式的角色標籤
 
 ### 🎧 Integrated Skills 前端 + TTS 語音強化 + 資料架構全面升級 (2026-07-12)
 

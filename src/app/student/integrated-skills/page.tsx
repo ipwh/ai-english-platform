@@ -227,7 +227,7 @@ export default function IntegratedSkillsPage() {
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xl">🎧</span>
             <h2 className="font-semibold text-gray-900 dark:text-white">聆聽內容</h2>
-            <AudioPlayer text={task.listeningContent} label="播放對話" size="sm" />
+            <AudioPlayer text={task.listeningContent} label="播放對話" size="sm" useCloudTTS />
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{task.listeningContent}</p>
         </div>

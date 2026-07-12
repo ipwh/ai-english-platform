@@ -443,6 +443,7 @@ export default function PracticeQuestionPage() {
                 text={sharedListeningContent || question.listeningContent || question.prompt}
                 label={!listeningRevealed && !submitted ? t('practice.question.play') : t('practice.question.replay')}
                 size="sm"
+                useCloudTTS
               />
             </div>
 

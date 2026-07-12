@@ -952,7 +952,12 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
   - 若某題的答案在 listeningContent 中找不到 → 該題必須重出，不可輸出無關題目
   - 嚴禁出現「對話內容是講電影時間，題目卻問放學去哪裡」這類不相關題目
 - 所有中文使用繁體中文
-- 嚴禁使用 A/B/Speaker A/Speaker B 等字母標籤 — 只用性別+年齡角色標籤` : ''}
+- 嚴禁使用 A/B/Speaker A/Speaker B 等字母標籤 — 只用性別+年齡角色標籤
+- ⚠️ 角色標籤白名單（TTS 朗讀相容性 — 只可使用以下四種，其他一律禁止）：
+  - 只允許：Boy / Girl / Man / Woman
+  - 嚴禁：Librarian、Student、Teacher、Customer、Waiter、Doctor、Nurse、Interviewer、Host、Presenter、Announcer、Operator 等任何職業/身份標籤
+  - 原因：TTS 引擎只認得 Boy/Girl/Man/Woman 四種角色標籤來選擇不同語音。使用其他標籤（如 Librarian、Student）會被 TTS 當作台詞朗讀出來，嚴重影響聆聽體驗。
+  - 請根據對話情境，將所有角色映射到 Boy/Girl（青少年/學生）或 Man/Woman（成人）` : ''}
 ${isReading ? `
 【閱讀理解題特別要求 — 極重要！】
 - readingContent: 一段完整的英文閱讀篇章（80-200字），必須在題目之前提供給學生閱讀

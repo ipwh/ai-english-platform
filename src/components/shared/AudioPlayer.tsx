@@ -1,6 +1,10 @@
 // ============================================
 // AudioPlayer — 文字轉語音元件（支援多人對話）
-// 使用瀏覽器 Web Speech API，無需外部錄音檔
+//
+// 雙模式：
+//   1. Google Cloud TTS（useCloudTTS=true）→ 高品質神經語音 + 自然 intonation
+//   2. 瀏覽器 Web Speech API（預設）→ 離線可用
+//
 // 自動解析對話角色標籤（Woman:/Man: 等），用不同語音朗讀
 // ============================================
 'use client';
@@ -15,6 +19,8 @@ interface AudioPlayerProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   onPlayEnd?: () => void;
+  /** 啟用 Google Cloud TTS（server-side 神經語音，intonation 自然） */
+  useCloudTTS?: boolean;
 }
 
 interface DialogueLine {
@@ -36,10 +42,10 @@ function splitMultiSpeakerLine(text: string): string {
   return text.replace(/([^\n])(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]/gi, '$1\n$2:');
 }
 
-/** 備用清理：移除所有角色標籤（避免 TTS 直接朗讀 "Man:" "Woman:" 等文字） */
+/** 備用清理：移除所有角色標籤（避免 TTS 直接朗讀 "Librarian:" "Man:" "Woman:" 等文字） */
 function stripSpeakerLabels(text: string): string {
   return text
-    .replace(/^(?:Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]\s*/gim, '')
+    .replace(/^[A-Za-z]+(?:\s+[A-Za-z]+)?\s*[:：\-–—]\s*/gm, '')
     .trim();
 }
 
@@ -123,9 +129,18 @@ export default function AudioPlayer({
   size = 'md',
   className = '',
   onPlayEnd,
+  useCloudTTS = false,
 }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Cloud TTS 狀態
+  const [cloudAudioUrl, setCloudAudioUrl] = useState<string | null>(null);
+  const [cloudFetching, setCloudFetching] = useState(false);
+  const cloudAudioRef = useRef<HTMLAudioElement | null>(null);
+  const cloudAbortRef = useRef<AbortController | null>(null);
+  // 緩存：用 ref 避免 stale closure
+  const cachedTextRef = useRef<string>('');
+  const cachedUrlRef = useRef<string | null>(null);
   const [speed, setSpeed] = useState<number>(() => {
     if (typeof window === 'undefined') return DEFAULT_SPEED;
     const saved = localStorage.getItem(SPEED_STORAGE_KEY);
@@ -143,6 +158,16 @@ export default function AudioPlayer({
     }
   }, [speed]);
 
+  // 清理 blob URL（避免記憶體洩漏）
+  useEffect(() => {
+    return () => {
+      if (cachedUrlRef.current) {
+        URL.revokeObjectURL(cachedUrlRef.current);
+        cachedUrlRef.current = null;
+      }
+    };
+  }, []);
+
   if (typeof window === 'undefined') {
     return <span className="text-xs text-gray-400">TTS</span>;
   }
@@ -152,11 +177,127 @@ export default function AudioPlayer({
   const handleStop = useCallback(() => {
     cancelled.current = true;
     if (synth) synth.cancel();
+    // 停止 Cloud TTS audio
+    if (cloudAudioRef.current) {
+      cloudAudioRef.current.pause();
+      cloudAudioRef.current.currentTime = 0;
+    }
+    // 取消進行中的 fetch
+    if (cloudAbortRef.current) {
+      cloudAbortRef.current.abort();
+      cloudAbortRef.current = null;
+    }
     setPlaying(false);
     setLoading(false);
+    setCloudFetching(false);
   }, [synth]);
 
-  const handlePlay = useCallback(() => {
+  // ============================================
+  // Google Cloud TTS 播放
+  // ============================================
+  const playCloudTTS = useCallback(async () => {
+    if (!text) return;
+
+    // 已有緩存的 audio → 直接播放
+    if (cachedUrlRef.current && cachedTextRef.current === text) {
+      if (cloudAudioRef.current) {
+        cloudAudioRef.current.currentTime = 0;
+        await cloudAudioRef.current.play();
+        setPlaying(true);
+      }
+      return;
+    }
+
+    // 釋放舊的 blob URL
+    if (cachedUrlRef.current) {
+      URL.revokeObjectURL(cachedUrlRef.current);
+      cachedUrlRef.current = null;
+    }
+
+    setCloudFetching(true);
+    setLoading(true);
+
+    const controller = new AbortController();
+    cloudAbortRef.current = controller;
+
+    // 多人對話模式需要多段合成，給 60 秒 timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    try {
+      // 聆聽內容用較慢語速 (0.9)，模擬 DSE 考試語速
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          multiSpeaker: true,
+          voiceTier: 'default',
+          speakingRate: 0.9,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        if (res.status === 503) {
+          console.warn('[TTS] Cloud TTS unavailable, falling back to Web Speech API');
+        } else {
+          console.error('[TTS] Cloud TTS error:', res.status);
+        }
+        setCloudFetching(false);
+        setLoading(false);
+        handlePlayWebSpeech();
+        return;
+      }
+
+      const blob = await res.blob();
+      clearTimeout(timeoutId);
+      const url = URL.createObjectURL(blob);
+      setCloudAudioUrl(url);
+      cachedUrlRef.current = url;
+      cachedTextRef.current = text;
+
+      const audio = new Audio(url);
+      cloudAudioRef.current = audio;
+
+      audio.onplay = () => {
+        setLoading(false);
+        setCloudFetching(false);
+        setPlaying(true);
+      };
+      audio.onended = () => {
+        setPlaying(false);
+        onPlayEnd?.();
+      };
+      audio.onerror = () => {
+        console.error('[TTS] Audio playback error');
+        setPlaying(false);
+        setCloudFetching(false);
+        setLoading(false);
+        handlePlayWebSpeech();
+      };
+
+      await audio.play();
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // 用戶取消或 timeout，正常
+      } else {
+        console.error('[TTS] Cloud TTS fetch failed:', err);
+      }
+      setCloudFetching(false);
+      setLoading(false);
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        handlePlayWebSpeech();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, onPlayEnd]);
+
+  // ============================================
+  // Web Speech API 播放（原有邏輯）
+  // ============================================
+
+  const handlePlayWebSpeech = useCallback(() => {
     if (!text) return;
 
     if (playing) {
@@ -249,6 +390,8 @@ export default function AudioPlayer({
     trySpeak();
   }, [text, playing, synth, handleStop, onPlayEnd, speed]);
 
+  const isBusy = loading || cloudFetching;
+
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs gap-1',
     md: 'px-3 py-1.5 text-sm gap-1.5',
@@ -260,8 +403,8 @@ export default function AudioPlayer({
   return (
     <div className={`inline-flex items-center gap-1 ${className}`}>
       <button
-        onClick={handlePlay}
-        disabled={loading}
+        onClick={useCloudTTS ? (playing ? handleStop : playCloudTTS) : handlePlayWebSpeech}
+        disabled={isBusy}
         className={`inline-flex items-center rounded-lg font-medium transition-colors disabled:opacity-50 ${
           playing
             ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300'
@@ -269,7 +412,7 @@ export default function AudioPlayer({
         } ${sizeClasses[size]}`}
         title={playing ? '停止' : label}
       >
-        {loading ? (
+        {isBusy ? (
           <Loader2 className={`${iconSize[size]} animate-spin`} />
         ) : playing ? (
           <Pause className={iconSize[size]} />
@@ -279,8 +422,8 @@ export default function AudioPlayer({
         {playing ? '停止' : label}
       </button>
 
-      {/* Speed selector */}
-      {!playing && (
+      {/* Speed selector — only for Web Speech API (cloud TTS uses fixed server-side rate) */}
+      {!playing && !useCloudTTS && (
         <div className="flex items-center gap-0.5">
           {SPEEDS.map(s => (
             <button
