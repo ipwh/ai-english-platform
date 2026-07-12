@@ -267,6 +267,10 @@ export default function PracticeQuestionPage() {
     if (!selectedAnswer) return;
     setSubmitted(true);
 
+    // 🛑 停止所有正在播放的音訊（Web Speech + Cloud TTS audio）
+    window.speechSynthesis?.cancel();
+    window.dispatchEvent(new CustomEvent('stop-all-audio'));
+
     const correct = checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
 
     // 記錄到 store

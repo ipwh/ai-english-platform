@@ -168,6 +168,27 @@ export default function AudioPlayer({
     };
   }, []);
 
+  // 監聽全域停止事件（例如提交答案時停止所有音訊）
+  useEffect(() => {
+    const handleGlobalStop = () => {
+      cancelled.current = true;
+      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+      if (cloudAudioRef.current) {
+        cloudAudioRef.current.pause();
+        cloudAudioRef.current.currentTime = 0;
+      }
+      if (cloudAbortRef.current) {
+        cloudAbortRef.current.abort();
+        cloudAbortRef.current = null;
+      }
+      setPlaying(false);
+      setLoading(false);
+      setCloudFetching(false);
+    };
+    window.addEventListener('stop-all-audio', handleGlobalStop);
+    return () => window.removeEventListener('stop-all-audio', handleGlobalStop);
+  }, []);
+
   if (typeof window === 'undefined') {
     return <span className="text-xs text-gray-400">TTS</span>;
   }
