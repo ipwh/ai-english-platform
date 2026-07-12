@@ -118,7 +118,18 @@ export default function PracticeQuestionPage() {
 
   // === XP 即時通知 ===
   const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
+  const [wrongEncouragement, setWrongEncouragement] = useState('');
   const hasSavedRef = useRef(false); // 防止重複 savePractice
+
+  // 失敗鼓勵語（DSE 正向引導）
+  const ENCOURAGEMENTS = [
+    '💪 錯誤是學習的一部分！看看解釋再試一次。',
+    '🌟 每次犯錯都是進步的機會！',
+    '📚 DSE 狀元也是從錯誤中學習的！',
+    '🎯 了解錯處比答對更重要！',
+    '🔥 犯錯代表你在挑戰自己，繼續加油！',
+    '✨ 錯誤讓你知道哪裡需要加強，這是好事！',
+  ];
 
   /** 傳送練習記錄（僅儲存，不發 XP） */
   const savePractice = useCallback(async (payload: Record<string, unknown>) => {
@@ -145,7 +156,10 @@ export default function PracticeQuestionPage() {
       });
       const data = await res.json();
       if (data.xpGained > 0) {
-        setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle });
+        const badgeMsg = data.newBadges?.length
+          ? ` 🏅 ${data.newBadges[0].icon} ${data.newBadges[0].nameZh} 解鎖！`
+          : '';
+        setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle + badgeMsg });
         setTimeout(() => setXpToast(null), 4000);
       }
     } catch { /* silent */ }
@@ -215,6 +229,11 @@ export default function PracticeQuestionPage() {
 
     // 🎮 答題 XP
     awardXp(correct ? 'answerCorrect' : 'answerIncorrect', question.difficulty);
+
+    // 💪 答錯時顯示鼓勵語
+    if (!correct) {
+      setWrongEncouragement(ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]);
+    }
 
     // 呼叫 AI 分析答案
     setAiLoading(true);
@@ -549,7 +568,13 @@ export default function PracticeQuestionPage() {
           </div>
 
           {!isCorrect && (
-            <div className="text-sm mb-2 flex items-center gap-2">
+            <>
+              {wrongEncouragement && (
+                <p className="text-sm text-orange-600 dark:text-orange-400 mb-2 font-medium animate-fadeIn">
+                  {wrongEncouragement}
+                </p>
+              )}
+              <div className="text-sm mb-2 flex items-center gap-2">
               <span className="text-gray-500 dark:text-gray-400">{t('practice.question.correctAnswerLabel')}</span>
               <span className="font-bold text-green-700 dark:text-green-300">{question.answer}</span>
               <AudioPlayer
@@ -558,6 +583,7 @@ export default function PracticeQuestionPage() {
                 size="sm"
               />
             </div>
+            </>
           )}
 
           {/* AI 解釋（中/英切換） */}

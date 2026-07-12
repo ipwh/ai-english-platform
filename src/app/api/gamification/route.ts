@@ -146,17 +146,34 @@ export async function POST(req: NextRequest) {
 
     const xpGained = calculateXp(event);
 
-    // 持久化 XP 到資料庫
+    // 持久化 XP + streakDays（每日登入時遞增）
+    const updateData: Record<string, unknown> = { xp: { increment: xpGained } };
+    if (event.type === 'dailyLogin') {
+      updateData.streakDays = { increment: 1 };
+    }
     await db.user.update({
       where: { id: studentId },
-      data: { xp: { increment: xpGained } },
+      data: updateData as any,
     });
 
     const updated = await db.user.findUnique({
       where: { id: studentId },
-      select: { xp: true },
+      select: { xp: true, streakDays: true },
     });
     const levelInfo = getLevelInfo(updated?.xp ?? xpGained);
+
+    // 檢查新徽章
+    let newBadges: { id: string; nameZh: string; icon: string }[] | undefined;
+    try {
+      const alreadyUnlocked: string[] = [];
+      newBadges = checkNewBadges({
+        totalQuestions: 0, overallAccuracy: 0,
+        streakDays: updated?.streakDays ?? 0,
+        sessionsCompleted: 0, wordsMastered: 0,
+        writingSubmissions: 0, diagnosticCompleted: false,
+        skillAccuracy: {},
+      }, alreadyUnlocked);
+    } catch { /* ignore */ }
 
     return NextResponse.json({
       success: true,
@@ -165,6 +182,8 @@ export async function POST(req: NextRequest) {
       level: levelInfo.level,
       levelTitle: levelInfo.title,
       xpToNext: levelInfo.xpToNext,
+      streakDays: updated?.streakDays ?? 0,
+      newBadges: newBadges?.length ? newBadges : undefined,
       event: event.type,
     });
   } catch (error) {
