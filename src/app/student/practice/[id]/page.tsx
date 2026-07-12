@@ -208,6 +208,22 @@ export default function PracticeQuestionPage() {
       }
     };
   }, [isSessionMode, store.currentSession, store.userId, savePractice]);
+
+  // 聆聽題共用錄音：若本題無 listeningContent，取 session 中第一題的
+  // ⚠️ 必須在 if (!question) early return 之前（React hooks 順序規則）
+  const isListening = question?.languageSkill === 'listening';
+  const sharedListeningContent = useMemo(() => {
+    if (!isListening || !question) return undefined;
+    if (question.listeningContent) return question.listeningContent;
+    const firstWithContent = sessionQuestions.find(q => q.listeningContent);
+    return firstWithContent?.listeningContent;
+  }, [isListening, question?.listeningContent, sessionQuestions]);
+  const sharedListeningContentZh = useMemo(() => {
+    if (!isListening || !question) return undefined;
+    if (question.listeningContentZh) return question.listeningContentZh;
+    const firstWithZh = sessionQuestions.find(q => q.listeningContentZh);
+    return firstWithZh?.listeningContentZh;
+  }, [isListening, question?.listeningContentZh, sessionQuestions]);
   
   if (!question) {
     return (
@@ -221,23 +237,7 @@ export default function PracticeQuestionPage() {
       </div>
     );
   }
-  const isListening = question.languageSkill === 'listening';
   const isReading = question.languageSkill === 'reading';
-
-  // 聆聽題共用錄音：若本題無 listeningContent，取 session 中第一題的
-  const sharedListeningContent = useMemo(() => {
-    if (!isListening) return undefined;
-    if (question.listeningContent) return question.listeningContent;
-    // 找 session 中第一個有 listeningContent 的題目
-    const firstWithContent = sessionQuestions.find(q => q.listeningContent);
-    return firstWithContent?.listeningContent;
-  }, [isListening, question.listeningContent, sessionQuestions]);
-  const sharedListeningContentZh = useMemo(() => {
-    if (!isListening) return undefined;
-    if (question.listeningContentZh) return question.listeningContentZh;
-    const firstWithZh = sessionQuestions.find(q => q.listeningContentZh);
-    return firstWithZh?.listeningContentZh;
-  }, [isListening, question.listeningContentZh, sessionQuestions]);
 
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
   const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
