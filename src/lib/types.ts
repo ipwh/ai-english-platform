@@ -408,6 +408,7 @@ export interface ReviewItem {
   assignmentId: string;
   assignmentTitle: string;
   questionPrompt: string;
+  questionType?: string;
   studentAnswer: string;
   aiScore: number;
   aiFeedback: string;

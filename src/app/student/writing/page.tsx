@@ -227,7 +227,20 @@ export default function WritingPage() {
         body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft }),
       });
       const json = await res.json();
-      if (res.ok && json.analysis) setAiResult(json.analysis);
+      if (res.ok && json.analysis) {
+        setAiResult(json.analysis);
+        // 持久化 AI 分析結果到 DB
+        try {
+          await fetch('/api/writing', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              aiSuggestions: json.analysis,
+              status: 'submitted',
+            }),
+          });
+        } catch { /* 持久化非致命 */ }
+      }
       else setAiError(json.error || t('writing.aiUnavailable'));
     } catch { setAiError(t('writing.connectionFailed')); }
     finally { setAiLoading(false); }

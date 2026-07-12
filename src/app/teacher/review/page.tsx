@@ -82,7 +82,7 @@ export default function TeacherReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: selectedReview.questionPrompt,
-          questionType: 'mc',
+          questionType: selectedReview.questionType || 'mc',
           studentAnswer: selectedReview.studentAnswer,
         }),
       });
