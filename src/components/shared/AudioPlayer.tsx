@@ -28,23 +28,37 @@ const SPEED_LABELS: Record<number, string> = { 0.75: '0.75×', 1: '1×', 1.25: '
 const DEFAULT_SPEED = 0.9;
 const SPEED_STORAGE_KEY = 'audio-player-speed';
 
-const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl)\s*[:：]\s*(.+)$/i;
+const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]\s*(.+)$/i;
+
+/** 備用清理：移除所有角色標籤（避免 TTS 直接朗讀 "Man:" "Woman:" 等文字） */
+function stripSpeakerLabels(text: string): string {
+  return text
+    .replace(/^(?:Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]\s*/gim, '')
+    .trim();
+}
 
 function parseDialogue(text: string): DialogueLine[] {
-  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  // 先做一次全文字級的角色標籤清理作為保險
+  const cleaned = stripSpeakerLabels(text);
+  const lines = cleaned.split(/\n/).map(l => l.trim()).filter(Boolean);
   const dialogue: DialogueLine[] = [];
 
-  for (const line of lines) {
-    const match = line.match(SPEAKER_LINE_RE);
+  // 嘗試從原始文字中提取角色資訊（在清理之前）
+  const rawLines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  for (let i = 0; i < Math.max(rawLines.length, lines.length); i++) {
+    const rawLine = rawLines[i] || '';
+    const cleanLine = lines[i] || rawLine;
+    const match = rawLine.match(SPEAKER_LINE_RE);
     if (match) {
-      dialogue.push({ speaker: match[1].toLowerCase(), text: match[2] });
+      const speaker = match[1].toLowerCase().replace(/\s+/g, '');
+      dialogue.push({ speaker, text: match[2].trim() || cleanLine });
     } else {
-      dialogue.push({ speaker: null, text: line });
+      dialogue.push({ speaker: null, text: cleanLine });
     }
   }
 
   if (dialogue.length === 0) {
-    dialogue.push({ speaker: null, text });
+    dialogue.push({ speaker: null, text: cleaned });
   }
 
   return dialogue;

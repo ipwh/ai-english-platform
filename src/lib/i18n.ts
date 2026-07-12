@@ -647,7 +647,11 @@ const translations: Record<string, { zh: string; en: string }> = {
   // Assignments additional
   'assignments.notStarted': { zh: '未開始', en: 'Not Started' },
   'assignments.inProgress': { zh: '進行中', en: 'In Progress' },
+  'assignments.completed': { zh: '已完成', en: 'Completed' },
+  'assignments.all': { zh: '全部', en: 'All' },
   'assignments.overdue': { zh: '已逾期', en: 'Overdue' },
+  'assignments.overdueLabel': { zh: '已逾期', en: 'Overdue' },
+  'assignments.duePrefix': { zh: '截止：', en: 'Due: ' },
   'assignments.daysRemaining': { zh: '尚餘 {n} 天', en: '{n} days left' },
   'assignments.teacherFeedback': { zh: '💬 教師評語：', en: '💬 Teacher Feedback: ' },
 
