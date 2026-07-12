@@ -12,16 +12,7 @@ import {
 } from '@/lib/import-utils';
 import type { ImportResult } from '@/lib/import-utils';
 import { verifyAdmin } from '@/lib/admin-auth';
-
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
-}
+import { simpleHash } from '@/lib/crypto';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();

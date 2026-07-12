@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getBulkDb } from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
+import { simpleHash } from '@/lib/crypto';
 
 // ---- 簡易 CSV 解析（無需外部依賴） ----
 function parseCSV(text: string): Record<string, string>[] {
@@ -46,16 +47,6 @@ function parseCSVLine(line: string): string[] {
   }
   result.push(current);
   return result;
-}
-
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
 }
 
 // ---- CSV 格式定義 ----

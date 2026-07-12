@@ -14,17 +14,7 @@ import {
 } from '@/lib/import-utils';
 import type { ImportResult, ImportDetail } from '@/lib/import-utils';
 import { verifyAdmin } from '@/lib/admin-auth';
-
-/** 簡易密碼雜湊（與 seed.ts 一致） */
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
-}
+import { simpleHash } from '@/lib/crypto';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();

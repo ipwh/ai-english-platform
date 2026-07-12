@@ -12,23 +12,10 @@ import { createSessionToken } from './jwt';
 export { verifySessionToken, type SessionPayload } from './jwt';
 
 // ============================================
-// 密碼工具
+// 密碼工具 — 已移至 @/lib/crypto.ts
 // ============================================
 
-/** 簡易密碼雜湊（與 prisma/seed.ts 一致） */
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
-}
-
-function verifyPassword(password: string, hash: string): boolean {
-  return simpleHash(password) === hash;
-}
+import { simpleHash, verifyPassword } from '@/lib/crypto';
 
 // ============================================
 // 認證邏輯（Prisma DB）
