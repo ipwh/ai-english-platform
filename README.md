@@ -9,6 +9,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程：聆聽對話 → Note-taking 引導 → 寫作任務（Summary / Email Reply / Short Article / Report）；AI 雙維度批改（Listening 提取準確度 + Writing 品質），檢測過度抄襲、遺漏重點、文法錯誤、詞彙升級建議
+- **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
@@ -26,6 +27,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
 - **教材上載** — 匯入文字教材，AI 自動分析關鍵詞彙、文法點及建議題目
 - **班級管理** — 建立班級、查看學生進度
+- **學生詳情** — 個別學生完整學習數據：XP/徽章/技能準確率/錯題分布/每週趨勢/逐題答案/CSV 匯出
 - **課業管理** — 指派練習、查看完成狀況
 - **成績報告** — 班級及個別學生成績分析
 
@@ -141,7 +143,47 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Log Drain**: 建議設定 → Logs → External Log Draining（Datadog / Axiom）
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
-## 近期更新 (2026-07-12)
+## 近期更新
+
+### 🎧 Integrated Skills 前端 + TTS 語音強化 + 資料架構全面升級 (2026-07-12)
+
+#### 🆕 Integrated Skills 前端頁面
+- **全新頁面** `/student/integrated-skills` — DSE Paper 3 Part B「聽→記→寫」完整四階段流程：
+  1. **Config**：年級 S1-S6、難度 remedial/core/challenge、4 種任務類型（Summary / Email Reply / Short Article / Report）
+  2. **Listening + Notes**：AudioPlayer 播放對話 + 筆記指引 + 學生筆記區
+  3. **Writing**：任務複習 + 筆記參考 + 寫作區（含字數統計）
+  4. **Result**：總分 + 三維度評分（內容覆蓋 / 語言質素 / 組織結構）+ 已涵蓋/遺漏內容點 + 文法錯誤修正 + 改善建議
+- 已加入學生側欄導航 🎧
+
+#### 🔊 TTS 角色語音分離
+- **男女聲分離**：`pickVoice()` 擴充至 26 個跨平台語音名稱特徵（Windows/macOS/Linux）
+- **Pitch 補償**：當系統只有一個語音時，男聲 pitch=0.85、女聲 pitch=1.15，模擬對話差異
+- **多角色行拆分**：AI 有時將多角色對話擠在一行（`Boy: ... Girl: ...`），`splitMultiSpeakerLine()` 自動在角色標籤前插入換行，確保每個角色獨立解析
+- **雙層防護**：regex 提取角色 + `stripSpeakerLabels()` 備用清理，絕不朗讀 "Man:" "Woman:" 等標籤
+
+#### 🗄️ 資料架構全面強化
+- **逐題答案儲存**：新增 `PracticeAnswer` 模型（questionIndex / studentAnswer / correctAnswer / isCorrect / timeSpent），練習 API 支援完整逐題記錄
+- **XP 審計追蹤**：新增 `XpTransaction` 模型（userId / event / xpAmount / metadata），每次 XP 變動完整記錄
+- **詞彙掌握度歷史**：新增 `VocabMasteryLog` 模型，記錄每次 familiarity / masteryLevel 變更
+- **錯題複習歷史**：新增 `MistakeReviewLog` 模型，記錄每次複習動作與結果
+- **診斷結果持久化**：新增 `DiagnosticResult` 模型 + `/api/diagnostic` API，診斷測驗結果自動儲存到 DB
+- **聆聽練習模型**：新增 `ListeningSession` + `ListeningAnswer` 模型，為未來真實音檔支援做準備
+- **每週快照**：新增 `WeeklySnapshot` 模型，每週自動彙總學生練習數據
+
+#### 👩‍🏫 教師端強化
+- **學生詳情頁完整升級** `/teacher/students/[studentId]`：XP/徽章/技能準確率長條圖/錯題類型分布/每週進度趨勢/可展開逐題答案/一鍵 CSV 匯出
+- **專屬 API** `/api/teacher/students/[id]`：一次查詢返回學生完整數據（基本資料 + 練習 + 錯題 + 詞彙 + 寫作 + XP 記錄 + 每週快照）
+- **覆核頁修正**：AI 重新分析不再寫死 `questionType: 'mc'`，改為使用實際題型
+
+#### 🐛 關鍵修復
+- **React Error #300**：`useMemo` hooks 移至 `if (!question) return` 之前，修正 hooks 順序違規
+- **登出 HTTP 405**：`/api/auth/logout` 加入 GET handler + 清除全部 6 個 auth cookies
+- **聆聽題共用錄音**：AI prompt 改為第 1 題填 `listeningContent`，第 2-N 題留空；前端自動 fallback 到第一題內容
+- **AI prompt 強化**：聆聽題必須 `\n` 換行（不可一行多角色）+ 題目答案必須存在於對話中
+- **寫作分析持久化**：submit 後 AI 分析結果自動 PATCH 到 `/api/writing`（status → submitted）
+- **`analyze-progress` DB 讀取**：API 改為從 `User` + `PracticeSession` + `Mistake` + `VocabItem` 查詢真實歷史數據
+- **作業頁 i18n**：補上 `assignments.all` / `assignments.completed` / `assignments.duePrefix` / `assignments.overdueLabel`
+
 ### ⚡ XP 即時通知 + 遊戲化系統強化
 - **即時 XP 獲得通知**：完成練習後頁面頂部彈出動畫 toast（"+15 XP! Lv.1 Beginner"），bounce 動畫 + 4 秒自動消失
 - **XP 完整閉環**：練習 → POST /api/practice → `calculateXp()` → `db.user.update({xp: {increment}})` → Dashboard 讀取累積 XP → 等級進度條
