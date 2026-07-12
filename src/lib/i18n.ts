@@ -1192,6 +1192,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'practice.question.play': { zh: '▶ 播放', en: '▶ Play' },
   'practice.question.replay': { zh: '重播', en: 'Replay' },
   'practice.question.showText': { zh: '我需要看文字版本', en: 'Show text version' },
+  'practice.question.hideText': { zh: '隱藏文字版本', en: 'Hide text version' },
   'practice.question.listeningContentText': { zh: '聆聽內容文字', en: 'Listening content text' },
   'practice.question.readingPassage': { zh: '閱讀篇章', en: 'Reading Passage' },
   'practice.question.showZhHint': { zh: '顯示中文提示', en: 'Show Chinese hint' },

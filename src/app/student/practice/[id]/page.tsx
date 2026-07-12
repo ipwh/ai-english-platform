@@ -460,13 +460,13 @@ export default function PracticeQuestionPage() {
               )}
             </div>
 
-            {/* 揭示按鈕（只在上方文字隱藏時顯示） */}
-            {!listeningRevealed && !submitted && (
+            {/* 揭示/隱藏按鈕（提交前可切換） */}
+            {!submitted && (
               <button
-                onClick={() => setListeningRevealed(true)}
+                onClick={() => setListeningRevealed(prev => !prev)}
                 className="mt-2 text-xs text-teal-500 hover:text-teal-700 underline"
               >
-                {t('practice.question.showText')}
+                {listeningRevealed ? t('practice.question.hideText') : t('practice.question.showText')}
               </button>
             )}
           </div>

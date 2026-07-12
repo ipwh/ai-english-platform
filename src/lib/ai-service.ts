@@ -802,6 +802,27 @@ ${isListening ? `
 DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷。
 
 ═══════════════════════════════════════
+零、內容多樣性規則（CRITICAL — 防止千篇一律）
+═══════════════════════════════════════
+
+⚠️ 嚴禁反覆使用電影/3:30/4:00 這類場景。以下是各年級題材對照表，你必須從中選取多樣化主題：
+
+【題材對照表 — 每題必須從不同類別選取】
+- S1-S3：校園生活（學會選舉、校隊選拔、課外活動報名、功課討論）、家庭（週末計劃、家庭聚會、購物）、興趣（運動、音樂、閱讀）
+- S4-S6：兼職面試、社區服務計劃、大學開放日、文化交流活動、職場實習、環保項目、科技新聞討論、旅行計劃、選科諮詢
+
+【時間/數字以外的資訊點類型 — 必須包含至少 3 種】
+1. 地點變更（例：原本在 Room 201，改到 Hall）
+2. 人物/身份（例：新老師的名字、負責人是誰）
+3. 原因/理由（例：為什麼活動延期）
+4. 條件/限制（例：只有 S4 以上可參加、需家長同意）
+5. 順序/步驟（例：先報名再繳費、先做 A 再做 B）
+6. 對比/選擇（例：方案 A vs 方案 B 的優缺點）
+7. 情感/態度轉變（例：從抗拒到接受、從興奮到失望）
+
+⚠️ 若你的 listeningContent 只包含時間和數字資訊，請重新設計對話加入上述資訊點。
+
+═══════════════════════════════════════
 一、自然語速與 Intonation 控制
 ═══════════════════════════════════════
 
@@ -1033,7 +1054,24 @@ ${isReading ? `
   "explanationEn": "The passage clearly states that vehicle emissions account for approximately 40% of the city's air pollutants.",
   "commonMistake": "學生可能被干擾選項誤導，應訓練直接從文本中尋找證據。",
   "grammarPoint": "Reading comprehension — identifying explicit information"
-}` : ''}
+}
+
+【聆聽題 JSON 輸出示例 — 時間選項正確格式】
+{
+  "type": "mc",
+  "prompt": "What time does the meeting start?",
+  "promptZh": "會議幾點開始？",
+  "listeningContent": "Boy: Do you know when the meeting starts?\nGirl: It's at 2 o'clock in the afternoon.\nBoy: Are you sure? I thought it was at 3.\nGirl: No, they changed it to 2 o'clock. I got the email this morning.",
+  "listeningContentZh": "兩個學生討論會議時間。",
+  "choices": ["2 o'clock in the afternoon", "3 o'clock in the afternoon", "2:30 in the afternoon", "The speaker did not say"],
+  "answer": "A",
+  "explanationZh": "女孩明確說會議改為2點，並收到電郵確認。",
+  "explanationEn": "The girl clearly states the meeting was changed to 2 o'clock.",
+  "commonMistake": "學生可能只聽到第一次提到的3點，忽略了後來的更正。",
+  "grammarPoint": "Listening — identifying corrected information"
+}
+⚠️ 注意上述 choices 格式：每個時間選項都是完整的片語（如 "2 o'clock in the afternoon"），
+不是碎片（"00 PM"、"30 PM"、"2:00" 無 AM/PM）。若你的 choices 包含碎片，輸出前修正。` : ''}
 
 每題必須包含以下欄位（全部為必填）：
 - type: 題型 ("mc" / "fill-blank" / "error-correction" / "short-writing")

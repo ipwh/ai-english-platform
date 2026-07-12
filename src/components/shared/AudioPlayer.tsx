@@ -224,7 +224,8 @@ export default function AudioPlayer({
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
-      // 聆聽內容用較慢語速 (0.9)，模擬 DSE 考試語速
+      // 使用用戶選擇的語速；Web Speech default=0.9, Cloud TTS 可調
+      const ttsRate = useCloudTTS ? speed : 0.9;
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +233,7 @@ export default function AudioPlayer({
           text,
           multiSpeaker: true,
           voiceTier: 'default',
-          speakingRate: 0.9,
+          speakingRate: ttsRate,
         }),
         signal: controller.signal,
       });
@@ -422,13 +423,13 @@ export default function AudioPlayer({
         {playing ? '停止' : label}
       </button>
 
-      {/* Speed selector — only for Web Speech API (cloud TTS uses fixed server-side rate) */}
-      {!playing && !useCloudTTS && (
+      {/* Speed selector — adjusts server-side speakingRate for cloud TTS, client-side rate for Web Speech */}
+      {!playing && (
         <div className="flex items-center gap-0.5">
           {SPEEDS.map(s => (
             <button
               key={s}
-              onClick={(e) => { e.stopPropagation(); setSpeed(s); }}
+              onClick={(e) => { e.stopPropagation(); if (useCloudTTS) { cachedTextRef.current = ''; cachedUrlRef.current = null; } setSpeed(s); }}
               className={`px-1.5 py-0.5 text-xs rounded-md font-medium transition-colors ${
                 speed === s
                   ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
