@@ -9,13 +9,13 @@ import { Check, X, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-re
 
 import { formatDate } from '@/lib/utils';
 import EmptyState from '@/components/shared/EmptyState';
-import type { ReviewStatus } from '@/lib/types';
+import type { ReviewStatus, ReviewItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReviewPage() {
   const { t } = useT();
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [selectedReview, setSelectedReview] = useState<any>(null);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [selectedReview, setSelectedReview] = useState<ReviewItem | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,9 +38,11 @@ export default function TeacherReviewPage() {
 
   const filtered = reviews.filter(r => filter === 'all' ? true : r.status === filter);
 
-  const updateReview = (id: string, updates: Partial<typeof selectedReview>) => {
-    setReviews((prev: any[]) => prev.map((r: any) => r.id === id ? { ...r, ...updates } : r));
-    setSelectedReview((prev: any) => prev.id === id ? { ...prev, ...updates } : prev);
+  const updateReview = (id: string, updates: Partial<ReviewItem>) => {
+    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, ...updates } : r));
+    if (selectedReview?.id === id) {
+      setSelectedReview((prev) => prev ? { ...prev, ...updates } : prev);
+    }
     // Persist to API
     fetch(`/api/reviews/${id}`, {
       method: 'PATCH',

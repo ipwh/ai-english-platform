@@ -5,8 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { serializeVocab } from '@/lib/utils';
-
-// serializeVocab 已移至 @/lib/utils.ts 供 vocabulary/quiz 等共用
+import type { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (collocations) data.collocations = JSON.stringify(collocations);
     if (allPartOfSpeech) data.allPartOfSpeech = JSON.stringify(allPartOfSpeech);
 
-    const vocab = await db.vocabItem.create({ data: data as any });
+    const vocab = await db.vocabItem.create({ data: data as unknown as Prisma.VocabItemCreateInput });
 
     return NextResponse.json({ vocab: serializeVocab(vocab) }, { status: 201 });
   } catch (err: unknown) {
@@ -142,7 +141,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    const vocab = await db.vocabItem.update({ where: { id }, data: updateData as any });
+    const vocab = await db.vocabItem.update({ where: { id }, data: updateData as unknown as Prisma.VocabItemUpdateInput });
     return NextResponse.json({ vocab: serializeVocab(vocab) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';

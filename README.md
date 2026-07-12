@@ -159,7 +159,25 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 #### Medium 修復
 - **`serializeVocab()` 去重**：從 `vocabulary/route.ts` 及 `quiz/route.ts` 提取至 `@/lib/utils.ts` 統一共享，消除重複程式碼
 - **RAG 第二處 `findMany` 加 LIMIT**：`retrieveDSERelevantChunks()` 同樣新增 `take: 500`
+### 🔧 型別安全強化 (2026-07-12)
 
+消除程式碼中 48 處 `: any` / `as any`：
+
+- **`teacher/dashboard/page.tsx`** (14 處) — 匯入 `ClassInfo`，定義 `StudentBrief` interface
+- **`teacher/review/page.tsx`** (3 處) — 使用 `ReviewItem` type，移除所有 `any` 泛型
+- **`teacher/students/[studentId]`** (4 處) — 定義 `StudentData` + `PracticeSessionData` interfaces
+- **`student/vocabulary/page.tsx`** (6 處) — 使用 `VocabItem` type，定義 SRS card 型別
+- **`vocabulary/quiz/route.ts`** (6 處) — 使用 inline 型別推斷
+- **`admin/users/route.ts`** + **`admin/export/students/route.ts`** (3 處) — `Record<string,unknown>` → `Prisma.UserWhereInput`
+
+### 🧪 測試擴充 (2026-07-12)
+
+從 29 → 123 tests（+94 tests），覆蓋率大幅提升：
+
+- **SRS 演算法** (`srs.test.ts`, +27 tests)：`calculateNextReview`（10 種情境）、`familiarityToQuality`、`getDueCards`、`getDailyReviewTarget`
+- **`serializeVocab` 工具函數** (+4 tests)：JSON 解析、空值處理、invalid JSON 降級
+- **詞彙 Schema + SRS** (`vocabulary.test.ts`, +22 tests)：`WordAnalysisSchema` 驗證、SRS 整合、UI helpers
+- **答案一致性** (`answer-consistency.test.ts`, +41 tests)：MCQ 正規化、聆聽題答案驗證、i18n keys 完整性
 ### �🔍 歷屆試題 RAG 整合 (DSE RAG)
 - **歷屆試題匯入 Script** (`scripts/import-past-papers.ts`)：一鍵將 `materials/_extracted/` 中 20 份 OCR 提取的 DSE 歷屆試題及 Marking Schemes 匯入資料庫，自動分 chunk 並建立 DeepSeek Embedding 向量索引
 - **強化 RAG 檢索** (`rag-service.ts`)：
@@ -675,7 +693,7 @@ npm run db:reset      # 重置資料庫
 ## 測試
 
 ```bash
-npm test              # 執行全部測試（29 tests）
+npm test              # 執行全部測試（123 tests）
 npm run test:watch    # 持續監控模式
 ```
 
@@ -683,8 +701,12 @@ npm run test:watch    # 持續監控模式
 - AI JSON 解析（含 markdown 代碼塊移除、截斷修復、MCQ 選項正規化）— 11 tests
 - Zod Schema 驗證（題目、答案、寫作、錯題、進度、教材）— 10 tests
 - Rate Limiter（滑動窗口、隔離、超限）— 4 tests
+- SRS SM-2 演算法（複習排程、熟悉度映射、到期卡片、每日目標）— 27 tests
+- 詞彙 Schema + SRS 整合（分析驗證、序列化、去重、UI helpers）— 22 tests
+- 答案一致性（MCQ 正規化、聆聽驗證、i18n 完整性）— 41 tests
 - `validateAIResponse` 安全包裝 — 2 tests
-- HKDSE prompt 對齊驗證 — 所有 6 個 AI prompt 已嵌入官方等級描述 rubric
+- 其他輔助工具 — 6 tests
+- HKDSE prompt 對齊驗證 — 所有 AI prompt 已嵌入官方等級描述 rubric
 
 ## 目前狀態
 
@@ -700,7 +722,7 @@ npm run test:watch    # 持續監控模式
 | 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
 | Google 整合 | ✅ OAuth 登入（自動角色識別）+ Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 + RAG 語義索引 |
 | 隱私合規 | ✅ PDPO 去識別化（sanitizeForAI），傳送 AI 前自動移除身份證、電話、電郵 |
-| 測試 | ✅ 29 tests，覆蓋 AI 解析 + Schema + 限流 |
+| 測試 | ✅ 123 tests，覆蓋 AI 解析 + Schema + 限流 + SRS + 詞彙 + 答案一致性 |
 | DSE RAG | ✅ 歷屆試題已匯入 + RAG 索引完成 + 5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`） |
 
 ## 部署

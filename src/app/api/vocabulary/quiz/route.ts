@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
     // === 模式 1：AI 生成選擇題（從生字中出題） ===
     if (quizType === 'mc' || quizType === 'mixed') {
       const wordsForMc = deserialized
-        .filter((v: any) => v.meaningZh)
+        .filter((v): v is Record<string, unknown> & { meaningZh: string; word: string; partOfSpeech: string } => !!v.meaningZh)
         .slice(0, 10)
-        .map((v: any) => ({ word: v.word, pos: v.partOfSpeech, meaning: v.meaningZh }));
+        .map((v) => ({ word: v.word as string, pos: v.partOfSpeech as string, meaning: v.meaningZh as string }));
 
       if (wordsForMc.length >= 3) {
         const systemPrompt = `你是一位香港中學英文教師，正在為學生準備詞彙測驗。
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 ]`;
 
-        const wordList = wordsForMc.map((w: any) => `${w.word} (${w.pos}) — ${w.meaning}`).join('\n');
+        const wordList = wordsForMc.map((w) => `${w.word} (${w.pos}) — ${w.meaning}`).join('\n');
 
         const userPrompt = `學生單字清單：\n${wordList}\n\n請生成 ${Math.min(quizCount, 5)} 道詞彙選擇題。`;
 
@@ -87,16 +87,16 @@ export async function POST(request: NextRequest) {
 
     // === 模式 2：配對題（fallback：不依賴 AI） ===
     const selected = deserialized.slice(0, Math.min(quizCount, 10));
-    const quiz = selected.map((v: any, i: number) => ({
-      type: 'match',
-      id: v.id,
-      word: v.word,
-      meaningZh: v.meaningZh,
-      partOfSpeech: v.partOfSpeech,
+    const quiz = selected.map((v, i) => ({
+      type: 'match' as const,
+      id: v.id as string,
+      word: v.word as string,
+      meaningZh: v.meaningZh as string,
+      partOfSpeech: v.partOfSpeech as string,
       distractorMeanings: deserialized
-        .filter((_: any, j: number) => j !== i)
+        .filter((_, j) => j !== i)
         .slice(0, 3)
-        .map((d: any) => d.meaningZh),
+        .map((d) => d.meaningZh as string),
     }));
 
     return NextResponse.json({

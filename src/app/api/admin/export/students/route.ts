@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { verifyAdmin } from '@/lib/admin-auth';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
@@ -56,12 +57,12 @@ export async function GET(request: NextRequest) {
     const className = searchParams.get('className') || '';
 
     // ---- 查詢所有學生 ----
-    const where: Record<string, unknown> = { role: 'student' };
+    const where: Prisma.UserWhereInput = { role: 'student' };
     if (academicYear) where.academicYear = academicYear;
     if (className) where.class = { name: className };
 
     const students = await db.user.findMany({
-      where: where as any,
+      where,
       select: {
         id: true,
         email: true,

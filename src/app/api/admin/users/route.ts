@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
+import type { Prisma } from '@prisma/client';
 
 /** 簡易密碼雜湊（與 auth.ts 一致） */
 function simpleHash(password: string): string {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     const className = searchParams.get('className') || '';
 
     // ---- 構建查詢條件 ----
-    const where: Record<string, unknown> = {};
+    const where: Prisma.UserWhereInput = {};
 
     if (role) {
       where.role = role;
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
     // ---- 查詢 ----
     const [users, total] = await Promise.all([
       db.user.findMany({
-        where: where as any,
+        where,
         select: {
           id: true,
           email: true,
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      db.user.count({ where: where as any }),
+      db.user.count({ where }),
     ]);
 
     // 取得所有班級清單（供前端篩選）

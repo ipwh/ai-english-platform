@@ -73,7 +73,7 @@ export default function VocabularyPage() {
       .then(r => r.json())
       .then(d => {
         if (d.vocab?.length) {
-          setVocab(d.vocab.map((v: any) => ({
+          setVocab(d.vocab.map((v: VocabItem) => ({
             ...v,
             masteryLevel: (v.masteryLevel ?? 0) as MasteryLevel,
           })));
@@ -193,7 +193,7 @@ export default function VocabularyPage() {
     finally { setGeneratingId(null); }
   };
 
-  const handleVocabAdded = (newVocab: any) => {
+  const handleVocabAdded = (newVocab: VocabItem | null) => {
     if (newVocab) {
       setVocab(prev => [{
         ...newVocab,
@@ -370,7 +370,7 @@ export default function VocabularyPage() {
             )}
           </div>
           <div className="space-y-2">
-            {srsDue.slice(0, 5).map((card: any) => (
+            {srsDue.slice(0, 5).map((card) => (
               <div key={card.id} className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm">
                 <div>
                   <span className="font-bold text-gray-900 dark:text-white">{card.word}</span>
@@ -484,7 +484,7 @@ export default function VocabularyPage() {
                     🔴 {language === 'en' ? 'URGENT' : '緊急'} ({reviewSuggestions.priorities.urgent.length})
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {reviewSuggestions.priorities.urgent.map((w: any) => (
+                    {reviewSuggestions.priorities.urgent.map((w: { id: string; word: string; meaningZh?: string }) => (
                       <span key={w.id} className="text-[10px] px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
                         {w.word} <span className="opacity-60">{w.meaningZh}</span>
                       </span>
@@ -499,7 +499,7 @@ export default function VocabularyPage() {
                     🟠 {language === 'en' ? 'HIGH' : '高優先'} ({reviewSuggestions.priorities.high.length})
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {reviewSuggestions.priorities.high.map((w: any) => (
+                    {reviewSuggestions.priorities.high.map((w: { id: string; word: string }) => (
                       <span key={w.id} className="text-[10px] px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
                         {w.word}
                       </span>

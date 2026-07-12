@@ -16,6 +16,25 @@ import { gradeLabels, getGradeLabel } from '@/lib/nav';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
 
+interface StudentData {
+  id: string;
+  nameZh?: string;
+  nameEn?: string;
+  email: string;
+  level?: string;
+  classNumber?: number;
+  overallAccuracy?: number;
+  class?: { name: string } | null;
+}
+
+interface PracticeSessionData {
+  skillZh?: string;
+  skill?: string;
+  totalQuestions: number;
+  correctCount: number;
+  startedAt: string;
+}
+
 export default function StudentDetailPage() {
   const { t } = useT();
   const store = useAppStore();
@@ -23,9 +42,9 @@ export default function StudentDetailPage() {
   const router = useRouter();
   const studentId = params.studentId as string;
 
-  const [student, setStudent] = useState<any>(null);
-  const [practiceSessions, setPracticeSessions] = useState<any[]>([]);
-  const [mistakes, setMistakes] = useState<any[]>([]);
+  const [student, setStudent] = useState<StudentData | null>(null);
+  const [practiceSessions, setPracticeSessions] = useState<PracticeSessionData[]>([]);
+  const [mistakes, setMistakes] = useState<{ id: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -41,7 +60,7 @@ export default function StudentDetailPage() {
     ])
       .then(([studentsData, practiceData, mistakesData]) => {
         const allStudents = studentsData.students || [];
-        const found = allStudents.find((s: any) => s.id === studentId);
+        const found = allStudents.find((s) => s.id === studentId);
         if (found) {
           setStudent(found);
         } else {
@@ -74,8 +93,8 @@ export default function StudentDetailPage() {
     );
   }
 
-  const totalQuestions = practiceSessions.reduce((sum: number, s: any) => sum + (s.totalQuestions || 0), 0);
-  const totalCorrect = practiceSessions.reduce((sum: number, s: any) => sum + (s.correctCount || 0), 0);
+  const totalQuestions = practiceSessions.reduce((sum, s) => sum + (s.totalQuestions || 0), 0);
+  const totalCorrect = practiceSessions.reduce((sum, s) => sum + (s.correctCount || 0), 0);
   const sessionAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
   return (
@@ -148,7 +167,7 @@ export default function StudentDetailPage() {
           <p className="text-sm text-gray-400 text-center py-4">{t('teacher.studentDetail.noPractice')}</p>
         ) : (
           <div className="space-y-2">
-            {practiceSessions.slice(0, 10).map((s: any, i: number) => (
+            {practiceSessions.slice(0, 10).map((s, i) => (
               <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || t('teacher.studentDetail.practiceLabel')}</p>

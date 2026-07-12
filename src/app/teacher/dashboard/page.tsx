@@ -10,31 +10,40 @@ import { useAppStore } from '@/store/appStore';
 import KpiCard from '@/components/shared/KpiCard';
 import { useT } from '@/hooks/use-i18n';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { ClassInfo } from '@/lib/types';
+
+interface StudentBrief {
+  id: string;
+  nameZh?: string;
+  nameEn?: string;
+  overallAccuracy?: number | null;
+  class?: { name: string } | null;
+}
 
 export default function TeacherDashboardPage() {
   const { t } = useT();
   const { userDisplayName } = useAppStore();
   const displayName = userDisplayName || t('common.teacherFallback');
 
-  const [classes, setClasses] = useState<any[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/classes').then(r => r.json()),
-      fetch('/api/teacher/students').then(r => r.json().catch(() => ({ students: [] }))),
+      fetch('/api/teacher/students').then(r => r.json().catch(() => ({ students: [] as StudentBrief[] }))),
     ])
       .then(([classData, studentData]) => {
-        const classList = classData.classes || [];
-        const students = studentData.students || [];
+        const classList: ClassInfo[] = classData.classes || [];
+        const students: StudentBrief[] = studentData.students || [];
         // Enrich classes with accuracy data from students
-        const enriched = classList.map((c: any) => {
-          const classStudents = students.filter((s: any) => s.class?.name === c.name);
+        const enriched: ClassInfo[] = classList.map((c) => {
+          const classStudents = students.filter((s) => s.class?.name === c.name);
           const accuracies = classStudents
-            .map((s: any) => s.overallAccuracy)
-            .filter((a: any) => a != null) as number[];
+            .map((s) => s.overallAccuracy)
+            .filter((a): a is number => a != null);
           const avgAcc = accuracies.length > 0
-            ? Math.round(accuracies.reduce((sum: number, a: number) => sum + a, 0) / accuracies.length)
+            ? Math.round(accuracies.reduce((sum, a) => sum + a, 0) / accuracies.length)
             : 0;
           return { ...c, avgAccuracy: avgAcc };
         });
@@ -45,9 +54,9 @@ export default function TeacherDashboardPage() {
   }, []);
 
   // Build KPI cards from real class data
-  const totalStudents = classes.reduce((sum: number, c: any) => sum + (c.studentCount || 0), 0);
+  const totalStudents = classes.reduce((sum, c) => sum + (c.studentCount || 0), 0);
   const overallAvgAccuracy = classes.length > 0
-    ? Math.round(classes.reduce((sum: number, c: any) => sum + (c.avgAccuracy || 0), 0) / classes.length)
+    ? Math.round(classes.reduce((sum, c) => sum + (c.avgAccuracy || 0), 0) / classes.length)
     : 0;
   const kpis = [
     { label: t('teacher.classCount'), value: totalStudents, unit: t('generic.people'), trend: 'up' as const, change: 0 },
@@ -57,7 +66,7 @@ export default function TeacherDashboardPage() {
   ];
 
   // Class chart data from real classes with accuracy
-  const classChartData = classes.slice(0, 8).map((c: any) => ({
+  const classChartData = classes.slice(0, 8).map((c) => ({
     name: c.name,
     [t('teacher.completionRate')]: c.studentCount || 0,
     [t('teacher.avgAccuracy')]: c.avgAccuracy || 0,
@@ -75,8 +84,8 @@ export default function TeacherDashboardPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy || 0,
-          weakSkills: classes.slice(0, 3).map((c: any) => ({ name: c.name, nameZh: c.name, accuracy: c.avgAccuracy || 0 })),
-          recentPerformance: classes.slice(0, 5).map((c: any) => ({ date: c.name, accuracy: c.avgAccuracy || 0, questionsDone: c.studentCount || 0 })), streakDays: 0,
+          weakSkills: classes.slice(0, 3).map((c) => ({ name: c.name, nameZh: c.name, accuracy: c.avgAccuracy || 0 })),
+          recentPerformance: classes.slice(0, 5).map((c) => ({ date: c.name, accuracy: c.avgAccuracy || 0, questionsDone: c.studentCount || 0 })), streakDays: 0,
         }),
       });
       const json = await res.json();
@@ -171,7 +180,7 @@ export default function TeacherDashboardPage() {
             </Link>
           </div>
           <div className="space-y-3">
-            {classes.slice(0, 4).map((c: any) => (
+            {classes.slice(0, 4).map((c) => (
               <Link key={c.id} href={`/teacher/classes/${c.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
                   {c.name.charAt(0)}
