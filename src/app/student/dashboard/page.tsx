@@ -47,15 +47,17 @@ export default function StudentDashboardPage() {
           .finally(() => setGamificationLoading(false));
 
         // 🎮 每日登入 XP（同一天只觸發一次）
-        const today = new Date().toDateString();
-        const lastLogin = localStorage.getItem('lastLoginDate');
-        if (lastLogin !== today && userId) {
-          localStorage.setItem('lastLoginDate', today);
-          fetch('/api/gamification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: userId, event: { type: 'dailyLogin' } }),
-          }).catch(() => {});
+        if (typeof window !== 'undefined') {
+          const today = new Date().toDateString();
+          const lastLogin = localStorage.getItem('lastLoginDate');
+          if (lastLogin !== today && userId) {
+            localStorage.setItem('lastLoginDate', today);
+            fetch('/api/gamification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ studentId: userId, event: { type: 'dailyLogin' } }),
+            }).catch(() => {});
+          }
         }
 
         return fetch(`/api/practice?studentId=${encodeURIComponent(userId)}`).then(r => r.json());

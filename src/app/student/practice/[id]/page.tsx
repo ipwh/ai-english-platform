@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -118,6 +118,7 @@ export default function PracticeQuestionPage() {
 
   // === XP 即時通知 ===
   const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
+  const hasSavedRef = useRef(false); // 防止重複 savePractice
 
   /** 傳送練習記錄（僅儲存，不發 XP） */
   const savePractice = useCallback(async (payload: Record<string, unknown>) => {
@@ -144,7 +145,7 @@ export default function PracticeQuestionPage() {
       });
       const data = await res.json();
       if (data.xpGained > 0) {
-        setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle || data.title });
+        setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle });
         setTimeout(() => setXpToast(null), 4000);
       }
     } catch { /* silent */ }
@@ -166,11 +167,10 @@ export default function PracticeQuestionPage() {
   const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
   const hasNextSession = sessionIndex < sessionTotal - 1;
 
-  // 離開頁面時自動儲存 session 進度（防止導航遺失）
-  // ⚠️ 必須在 early return 之前，否則會觸發 React error #300 (hooks order)
+  // 離開頁面時自動儲存 session 進度（僅在未透過 handleSubmit 儲存時）
   useEffect(() => {
     return () => {
-      if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
+        if (isSessionMode && store.currentSession && !store.currentSession.completedAt && !hasSavedRef.current) {
         savePractice({
           studentId: store.userId || '',
           skill: store.currentSession.skill || 'general',
@@ -246,13 +246,14 @@ export default function PracticeQuestionPage() {
     }
 
     // 儲存練習記錄到後端
-    if (isSessionMode) {
+    if (isSessionMode && !hasSavedRef.current) {
+      hasSavedRef.current = true;
       savePractice({
         studentId: store.userId || '',
         skill: question.grammarItem || question.languageSkill || 'general',
         skillZh: question.subSkillZh || '',
         difficulty: question.difficulty || 'core',
-        totalQuestions: sessionQuestions.length,
+        totalQuestions: 1,
         correctCount: correct ? 1 : 0,
         source: 'ai-generated',
       });
