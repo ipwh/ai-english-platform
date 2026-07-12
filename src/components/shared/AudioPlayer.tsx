@@ -30,6 +30,12 @@ const SPEED_STORAGE_KEY = 'audio-player-speed';
 
 const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]\s*(.+)$/i;
 
+/** 將一行內多個角色對話拆成多行 */
+function splitMultiSpeakerLine(text: string): string {
+  // 在每個角色標籤前插入換行（若該行已有內容）
+  return text.replace(/([^\n])(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]/gi, '$1\n$2:');
+}
+
 /** 備用清理：移除所有角色標籤（避免 TTS 直接朗讀 "Man:" "Woman:" 等文字） */
 function stripSpeakerLabels(text: string): string {
   return text
@@ -38,20 +44,23 @@ function stripSpeakerLabels(text: string): string {
 }
 
 function parseDialogue(text: string): DialogueLine[] {
-  // 先做一次全文字級的角色標籤清理作為保險
-  const cleaned = stripSpeakerLabels(text);
+  // 第一步：將一行多角色拆成多行
+  const normalized = splitMultiSpeakerLine(text);
+  // 第二步：清理角色標籤作為保險
+  const cleaned = stripSpeakerLabels(normalized);
   const lines = cleaned.split(/\n/).map(l => l.trim()).filter(Boolean);
   const dialogue: DialogueLine[] = [];
 
-  // 嘗試從原始文字中提取角色資訊（在清理之前）
-  const rawLines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  // 從原始（已正規化）文字中提取角色資訊
+  const rawLines = normalized.split(/\n/).map(l => l.trim()).filter(Boolean);
   for (let i = 0; i < Math.max(rawLines.length, lines.length); i++) {
     const rawLine = rawLines[i] || '';
     const cleanLine = lines[i] || rawLine;
     const match = rawLine.match(SPEAKER_LINE_RE);
     if (match) {
       const speaker = match[1].toLowerCase().replace(/\s+/g, '');
-      dialogue.push({ speaker, text: match[2].trim() || cleanLine });
+      const spokenText = match[2].trim() || cleanLine;
+      dialogue.push({ speaker, text: spokenText });
     } else {
       dialogue.push({ speaker: null, text: cleanLine });
     }

@@ -913,13 +913,21 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 七、輸出格式（聆聽題特別重要！）
 ═══════════════════════════════════════
 
-- listeningContent: 完整對話，每行 Woman:/Man:/Boy:/Girl: 格式 (TTS 相容)
+- listeningContent: 完整對話，每個角色一行，用真實換行 \n 分隔
+  - 格式範例（每行獨立，不可擠在同一行）：
+    "Boy: What time does the movie start?\nGirl: It's at 3 o'clock.\nBoy: Are you sure?\nGirl: Yes, I checked."
+  - ⚠️ 嚴禁將多個角色對話擠在一行（如 "Boy: ... Girl: ... Boy: ..."），這會導致 TTS 無法區分角色
+  - 每個對話行格式：角色標籤 + 半形冒號 + 空格 + 台詞
 - listeningContentZh: 繁體中文情境說明
 - ⚠️ 聆聽題關鍵規則：同一組聆聽題目必須共用同一段 listeningContent！
   - 只有第 1 題的 listeningContent 欄位填寫完整對話
   - 第 2 題及之後的 listeningContent 必須設為空字串 ""
   - 所有題目的 prompt 必須針對同一段 listeningContent 出題
   - 這樣模擬真實 DSE Paper 3：一段錄音對應多條問題
+- ⚠️ 題目相關性規則：所有 prompt 必須能從 listeningContent 中找到答案
+  - 不可出與對話內容無關的題目
+  - 每個 prompt 的正確答案必須在 listeningContent 中有明確依據
+  - 出題前先確認：這條題目的答案真的在對話裡嗎？
 - 所有中文使用繁體中文
 - 嚴禁使用 A/B/Speaker A/Speaker B 等字母標籤 — 只用性別+年齡角色標籤` : ''}
 ${isReading ? `
