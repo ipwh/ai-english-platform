@@ -910,12 +910,16 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 - 數字/時間/名字必須精準捕捉，這些是最常見的得分點
 
 ═══════════════════════════════════════
-七、輸出格式
+七、輸出格式（聆聽題特別重要！）
 ═══════════════════════════════════════
 
 - listeningContent: 完整對話，每行 Woman:/Man:/Boy:/Girl: 格式 (TTS 相容)
 - listeningContentZh: 繁體中文情境說明
-- 所有題目的 prompt 針對 listeningContent 內容
+- ⚠️ 聆聽題關鍵規則：同一組聆聽題目必須共用同一段 listeningContent！
+  - 只有第 1 題的 listeningContent 欄位填寫完整對話
+  - 第 2 題及之後的 listeningContent 必須設為空字串 ""
+  - 所有題目的 prompt 必須針對同一段 listeningContent 出題
+  - 這樣模擬真實 DSE Paper 3：一段錄音對應多條問題
 - 所有中文使用繁體中文
 - 嚴禁使用 A/B/Speaker A/Speaker B 等字母標籤 — 只用性別+年齡角色標籤` : ''}
 ${isReading ? `

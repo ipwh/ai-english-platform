@@ -430,6 +430,23 @@ export default function DiagnosticPage() {
 
     setResults(computed);
 
+    // 持久化診斷結果到 DB
+    if (studentProfile?.id) {
+      fetch('/api/diagnostic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: studentProfile.id,
+          results: computed.map(r => ({
+            skill: r.id, skillZh: r.label, accuracy: r.score,
+            weakAreas: r.score < 60 ? [r.id] : [],
+            recommendedGrammar: r.id === 'grammar' ? (r.score < 60 ? 'tenses' : undefined) : undefined,
+            recommendedSkill: r.id === 'reading' ? 'reading' : r.id === 'writing' ? 'writing' : undefined,
+          })),
+        }),
+      }).catch(() => {});
+    }
+
     // 🎮 記錄診斷完成 XP
     if (studentProfile?.id) {
       fetch('/api/gamification', {

@@ -411,6 +411,25 @@ model WeeklySnapshot {
 }
 
 // ============================================
+// 診斷測驗結果
+// ============================================
+
+model DiagnosticResult {
+  id            String   @id @default(cuid())
+  studentId     String
+  skill         String   // grammar | reading | writing | listening | integrated
+  skillZh       String
+  accuracy      Float    @default(0)
+  weakAreas     String   // JSON: ["conditionals", "relative clauses"]
+  recommendedGrammar String?  // 建議練習的文法項目
+  recommendedSkill    String?  // 建議練習的語言技能
+  completedAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@index([completedAt])
+}
+
+// ============================================
 // 十二、XP 交易記錄
 // ============================================
 

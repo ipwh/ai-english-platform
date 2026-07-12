@@ -224,6 +224,21 @@ export default function PracticeQuestionPage() {
   const isListening = question.languageSkill === 'listening';
   const isReading = question.languageSkill === 'reading';
 
+  // 聆聽題共用錄音：若本題無 listeningContent，取 session 中第一題的
+  const sharedListeningContent = useMemo(() => {
+    if (!isListening) return undefined;
+    if (question.listeningContent) return question.listeningContent;
+    // 找 session 中第一個有 listeningContent 的題目
+    const firstWithContent = sessionQuestions.find(q => q.listeningContent);
+    return firstWithContent?.listeningContent;
+  }, [isListening, question.listeningContent, sessionQuestions]);
+  const sharedListeningContentZh = useMemo(() => {
+    if (!isListening) return undefined;
+    if (question.listeningContentZh) return question.listeningContentZh;
+    const firstWithZh = sessionQuestions.find(q => q.listeningContentZh);
+    return firstWithZh?.listeningContentZh;
+  }, [isListening, question.listeningContentZh, sessionQuestions]);
+
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
   const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
 
@@ -402,7 +417,7 @@ export default function PracticeQuestionPage() {
                 {!listeningRevealed && !submitted ? t('practice.question.listeningTitle') : t('practice.question.listeningContent')}
               </span>
               <AudioPlayer
-                text={question.listeningContent || question.prompt}
+                text={sharedListeningContent || question.listeningContent || question.prompt}
                 label={!listeningRevealed && !submitted ? t('practice.question.play') : t('practice.question.replay')}
                 size="sm"
               />
@@ -412,12 +427,12 @@ export default function PracticeQuestionPage() {
             <div className={!listeningRevealed && !submitted ? 'hidden' : ''}>
               <p
                 className="text-sm text-teal-800 dark:text-teal-200 leading-relaxed whitespace-pre-line cursor-help"
-                title={question.listeningContentZh || t('practice.question.listeningContentText')}
+                title={sharedListeningContentZh || question.listeningContentZh || t('practice.question.listeningContentText')}
               >
-                {question.listeningContent || question.prompt}
+                {sharedListeningContent || question.listeningContent || question.prompt}
               </p>
-              {question.listeningContentZh && (
-                <p className="text-xs text-teal-500 mt-1">{question.listeningContentZh}</p>
+              {(sharedListeningContentZh || question.listeningContentZh) && (
+                <p className="text-xs text-teal-500 mt-1">{sharedListeningContentZh || question.listeningContentZh}</p>
               )}
             </div>
 
