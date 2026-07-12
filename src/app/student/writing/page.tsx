@@ -20,6 +20,7 @@ const wordLimits = [100, 150, 200, 300, 400, 500, 800];
 
 export default function WritingPage() {
   const { t, language } = useT();
+  const store = useAppStore();
   const lang = language || 'zh';
   
 
@@ -230,6 +231,15 @@ export default function WritingPage() {
       else setAiError(json.error || t('writing.aiUnavailable'));
     } catch { setAiError(t('writing.connectionFailed')); }
     finally { setAiLoading(false); }
+
+    // 🎮 提交寫作 XP
+    if (store.userId) {
+      fetch('/api/gamification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: store.userId, event: { type: 'submitWriting' } }),
+      }).catch(() => {});
+    }
   };
 
   // === AI 互動改寫 ===

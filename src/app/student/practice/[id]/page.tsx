@@ -119,21 +119,36 @@ export default function PracticeQuestionPage() {
   // === XP 即時通知 ===
   const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
 
-  /** 傳送練習記錄並取得 XP 獎勵 */
-  const savePracticeAndGetXp = useCallback(async (payload: Record<string, unknown>) => {
+  /** 傳送練習記錄（僅儲存，不發 XP） */
+  const savePractice = useCallback(async (payload: Record<string, unknown>) => {
     try {
-      const res = await fetch('/api/practice', {
+      await fetch('/api/practice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+    } catch { /* silent */ }
+  }, []);
+
+  /** 發放 XP 並顯示 toast */
+  const awardXp = useCallback(async (type: string, difficulty?: string) => {
+    if (!store.userId) return;
+    try {
+      const res = await fetch('/api/gamification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: store.userId,
+          event: { type, difficulty },
+        }),
+      });
       const data = await res.json();
       if (data.xpGained > 0) {
-        setXpToast({ xp: data.xpGained, level: data.level, title: data.title });
+        setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle || data.title });
         setTimeout(() => setXpToast(null), 4000);
       }
     } catch { /* silent */ }
-  }, []);
+  }, [store.userId]);
 
   // 合併 mock 題目 + AI session 題目
   const allQuestions = useMemo(() => {
@@ -156,7 +171,7 @@ export default function PracticeQuestionPage() {
   useEffect(() => {
     return () => {
       if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
-        savePracticeAndGetXp({
+        savePractice({
           studentId: store.userId || '',
           skill: store.currentSession.skill || 'general',
           skillZh: store.currentSession.skillZh || '',
@@ -167,7 +182,7 @@ export default function PracticeQuestionPage() {
         });
       }
     };
-  }, [isSessionMode, store.currentSession, store.userId, savePracticeAndGetXp]);
+  }, [isSessionMode, store.currentSession, store.userId, savePractice]);
   
   if (!question) {
     return (
@@ -198,17 +213,8 @@ export default function PracticeQuestionPage() {
       store.submitAnswer(question.id, selectedAnswer, correct);
     }
 
-    // 🎮 記錄 XP（gamification）
-    if (store.userId) {
-      fetch('/api/gamification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: store.userId,
-          event: { type: correct ? 'answerCorrect' : 'answerIncorrect', difficulty: question.difficulty },
-        }),
-      }).catch(() => {});
-    }
+    // 🎮 答題 XP
+    awardXp(correct ? 'answerCorrect' : 'answerIncorrect', question.difficulty);
 
     // 呼叫 AI 分析答案
     setAiLoading(true);
@@ -239,9 +245,9 @@ export default function PracticeQuestionPage() {
       setAiLoading(false);
     }
 
-    // 儲存練習記錄到後端 + 取得 XP
+    // 儲存練習記錄到後端
     if (isSessionMode) {
-      savePracticeAndGetXp({
+      savePractice({
         studentId: store.userId || '',
         skill: question.grammarItem || question.languageSkill || 'general',
         skillZh: question.subSkillZh || '',
@@ -277,18 +283,7 @@ export default function PracticeQuestionPage() {
       // 完成所有題目
       if (isSessionMode) {
         store.completeSession();
-        // 🎮 記錄 session 完成 XP
-        if (store.userId) {
-          const session = store.currentSession;
-          fetch('/api/gamification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              studentId: store.userId,
-              event: { type: 'completeSession', difficulty: session?.difficulty },
-            }),
-          }).catch(() => {});
-        }
+        awardXp('completeSession', store.currentSession?.difficulty);
       }
       router.push('/student/practice');
     }

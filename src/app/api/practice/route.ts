@@ -1,10 +1,9 @@
 // ============================================
-// API: /api/practice — 練習記錄
+// API: /api/practice — 練習記錄（僅儲存，XP 由 gamification API 控制）
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { calculateXp, getLevelInfo, checkNewBadges } from '@/lib/gamification';
 
 // POST /api/practice — 儲存練習記錄
 export async function POST(request: NextRequest) {
@@ -28,23 +27,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 計算並發放 XP
-    let xpGained = 0;
-    let levelInfo = { level: 1, title: '初學者', xpToNext: 100 };
-    try {
-      xpGained = calculateXp({ type: 'completeSession', difficulty: difficulty || 'core' });
-      await db.user.update({
-        where: { id: studentId },
-        data: { xp: { increment: xpGained } },
-      });
-      const updated = await db.user.findUnique({
-        where: { id: studentId },
-        select: { xp: true },
-      });
-      if (updated?.xp) levelInfo = getLevelInfo(updated.xp);
-    } catch { /* XP 發放失敗不影響練習記錄 */ }
-
-    return NextResponse.json({ session, xpGained, ...levelInfo }, { status: 201 });
+    return NextResponse.json({ session }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     return NextResponse.json({ error: message }, { status: 500 });

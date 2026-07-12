@@ -142,6 +142,15 @@ export default function VocabularyPage() {
         lastReviewedAt: srsUpdate.lastReviewedAt,
       }),
     }).catch(() => {});
+
+    // 🎮 掌握單字 XP
+    if (next === 'mastered' && store.userId) {
+      fetch('/api/gamification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: store.userId, event: { type: 'masterWord' } }),
+      }).catch(() => {});
+    }
   };
 
   const handleSetMasteryLevel = (id: string, level: MasteryLevel) => {
@@ -199,6 +208,14 @@ export default function VocabularyPage() {
         ...newVocab,
         masteryLevel: (newVocab.masteryLevel ?? 0) as MasteryLevel,
       } as VocabItem, ...prev]);
+      // 🎮 學習新單字 XP
+      if (store.userId) {
+        fetch('/api/gamification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId: store.userId, event: { type: 'learnWord' } }),
+        }).catch(() => {});
+      }
     } else {
       loadVocab();
     }

@@ -125,11 +125,20 @@ export default function MistakesPage() {
     );
     const target = mistakes.find(m => m.id === id);
     if (target) {
+      const newReviewed = !target.reviewed;
       fetch('/api/mistakes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, reviewed: !target.reviewed }),
+        body: JSON.stringify({ id, reviewed: newReviewed }),
       }).catch(() => {});
+      // 🎮 重溫錯題 XP（僅標記已溫習時）
+      if (newReviewed && store.userId) {
+        fetch('/api/gamification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId: store.userId, event: { type: 'reviewMistake' } }),
+        }).catch(() => {});
+      }
     }
   };
 
