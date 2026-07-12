@@ -5,6 +5,7 @@
 // ============================================
 
 import { Component, type ReactNode } from 'react';
+import { t } from '@/lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -14,6 +15,14 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+}
+
+function getLang(): string {
+  if (typeof window === 'undefined') return 'zh';
+  try {
+    const stored = localStorage.getItem('language');
+    return stored === 'en' ? 'en' : 'zh';
+  } catch { return 'zh'; }
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -28,10 +37,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const lang = getLang();
       return this.props.fallback || (
         <div className="flex items-center justify-center min-h-[200px]">
           <div className="text-center p-8">
-            <p className="text-gray-500 mb-3">Something went wrong</p>
+            <p className="text-gray-500 mb-3">{t('common.somethingWrong', lang)}</p>
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });
@@ -39,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
               }}
               className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm"
             >
-              Reload Page
+              {t('common.reloadPage', lang)}
             </button>
           </div>
         </div>

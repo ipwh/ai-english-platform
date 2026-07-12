@@ -109,3 +109,18 @@ export function getGreeting(lang?: string): string {
   if (hkHour < 18) return isEn ? 'Good afternoon' : '午安';
   return isEn ? 'Good evening' : '晚安';
 }
+
+/**
+ * 將 Prisma 回傳的 JSON 字串欄位轉為陣列，確保前端拿到一致的格式。
+ * 詞彙 API 與 quiz API 共用此函數，避免重複定義。
+ */
+export function serializeVocab(v: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...v };
+  for (const field of ['synonyms', 'antonyms', 'collocations', 'allPartOfSpeech']) {
+    if (typeof result[field] === 'string') {
+      try { result[field] = JSON.parse(result[field] as string); } catch { result[field] = []; }
+    }
+    if (!result[field]) result[field] = [];
+  }
+  return result;
+}

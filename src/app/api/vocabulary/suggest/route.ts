@@ -72,6 +72,6 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('[vocab-suggest] Error:', message);
-    return NextResponse.json({ suggestions: [], error: message }, { status: 200 });
+    return NextResponse.json({ suggestions: [], error: message }, { status: 500 });
   }
 }

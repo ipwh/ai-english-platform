@@ -44,6 +44,8 @@ const translations: Record<string, { zh: string; en: string }> = {
   'common.loading': { zh: '載入中...', en: 'Loading...' },
   'common.error': { zh: '錯誤', en: 'Error' },
   'common.success': { zh: '成功', en: 'Success' },
+  'common.somethingWrong': { zh: '發生錯誤，請重新載入頁面', en: 'Something went wrong' },
+  'common.reloadPage': { zh: '重新載入', en: 'Reload Page' },
   'common.viewAll': { zh: '查看全部', en: 'View All' },
   'common.search': { zh: '搜尋', en: 'Search' },
   'common.submit': { zh: '提交', en: 'Submit' },
@@ -965,6 +967,19 @@ const translations: Record<string, { zh: string; en: string }> = {
   'vocab.strategyCollocations': { zh: '搭配記憶', en: 'Collocations' },
   'vocab.strategyWordFormation': { zh: '構詞法', en: 'Word Formation' },
   'vocab.strategyMnemonics': { zh: '記憶術', en: 'Mnemonics' },
+
+  // Vocabulary strategy badges (derived from mastery + familiarity)
+  'vocab.strategyMastered': { zh: '🎯 已掌握：嘗試在寫作中使用', en: '🎯 Mastered: Try using in writing' },
+  'vocab.strategyDue': { zh: '⏰ 到期複習：立即重溫', en: '⏰ Due: Review now' },
+  'vocab.strategyNew': { zh: '🆕 新字：先記意思再學例句', en: '🆕 New: Learn meaning first' },
+  'vocab.strategyLearning': { zh: '📖 學習中：多造句加深印象', en: '📖 Learning: Use in sentences' },
+  'vocab.strategyWeak': { zh: '🔁 弱項：增加複習頻率', en: '🔁 Weak: Review more often' },
+
+  // Batch import
+  'vocab.batchMaxWords': { zh: '每次最多 30 個單字。', en: 'Maximum 30 words per batch.' },
+
+  // Mistake type label
+  'mistake.typeLabel': { zh: '錯誤類型：', en: 'Mistake type: ' },
 
   // === Final batch: remaining page i18n keys ===
 

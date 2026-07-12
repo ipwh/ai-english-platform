@@ -632,15 +632,14 @@ export default function PracticeQuestionPage() {
 
                 {/* 錯誤類型標籤 */}
                 {aiAnalysis.mistakeType && aiAnalysis.mistakeType !== 'none' && (() => {
-                  const labels: Record<string, string> = {
-                    grammar: '文法錯誤', vocabulary: '詞彙錯誤', comprehension: '理解錯誤',
-                    careless: '粗心大意', 'time-management': '時間管理', chinglish: '中式英文',
-                  };
+                  const mistakeKey = aiAnalysis.mistakeType === 'time-management'
+                    ? 'mistake.timeManagement' : `mistake.${aiAnalysis.mistakeType}`;
+                  const label = t(mistakeKey);
                   return (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">錯誤類型：</span>
+                      <span className="text-xs text-gray-500">{t('mistake.typeLabel')}</span>
                       <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
-                        {labels[aiAnalysis.mistakeType] || aiAnalysis.mistakeType}
+                        {label !== mistakeKey ? label : aiAnalysis.mistakeType}
                       </span>
                     </div>
                   );

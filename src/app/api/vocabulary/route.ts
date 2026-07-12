@@ -4,18 +4,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { serializeVocab } from '@/lib/utils';
 
-/** 將 Prisma 回傳的 JSON 字串欄位轉為陣列，確保前端拿到一致的格式 */
-function serializeVocab(v: Record<string, unknown>): Record<string, unknown> {
-  const result = { ...v };
-  for (const field of ['synonyms', 'antonyms', 'collocations', 'allPartOfSpeech']) {
-    if (typeof result[field] === 'string') {
-      try { result[field] = JSON.parse(result[field] as string); } catch { result[field] = []; }
-    }
-    if (!result[field]) result[field] = [];
-  }
-  return result;
-}
+// serializeVocab 已移至 @/lib/utils.ts 供 vocabulary/quiz 等共用
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,8 +113,9 @@ export async function GET(request: NextRequest) {
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load vocabulary';
     console.error('[Vocabulary GET]', err);
-    return NextResponse.json({ error: 'Failed to load vocabulary', vocab: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }, { status: 200 });
+    return NextResponse.json({ error: message, vocab: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }, { status: 500 });
   }
 }
 

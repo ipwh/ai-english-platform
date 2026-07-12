@@ -95,17 +95,18 @@ export default function VocabCard({
 
           {/* Strategy badge — derived from familiarity + mastery */}
           {(() => {
-            const strategy = vocab.masteryLevel >= 4 && vocab.familiarity === 'mastered'
-              ? '🎯 已掌握：嘗試在寫作中使用'
+            const strategyKey = vocab.masteryLevel >= 4 && vocab.familiarity === 'mastered'
+              ? 'vocab.strategyMastered'
               : vocab.nextReviewDate && new Date(vocab.nextReviewDate) <= new Date()
-                ? '⏰ 到期複習：立即重溫'
+                ? 'vocab.strategyDue'
                 : vocab.familiarity === 'new'
-                  ? '🆕 新字：先記意思再學例句'
+                  ? 'vocab.strategyNew'
                   : vocab.familiarity === 'learning'
-                    ? '📖 學習中：多造句加深印象'
+                    ? 'vocab.strategyLearning'
                     : vocab.masteryLevel <= 2
-                      ? '🔁 弱項：增加複習頻率'
+                      ? 'vocab.strategyWeak'
                       : '';
+            const strategy = strategyKey ? t(strategyKey) : '';
             return strategy ? (
               <span className="inline-block mt-2 text-[10px] px-1.5 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-full">
                 🧠 {strategy}

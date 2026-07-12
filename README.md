@@ -143,7 +143,24 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新 (2026-07-12)
 
-### 🔍 歷屆試題 RAG 整合 (DSE RAG)
+### � 程式碼審查與穩定性修復 (2026-07-12 第二次審查)
+
+基於全面程式碼審查（50 項發現：5 Critical / 16 High / 17 Medium / 12 Low），已完成以下關鍵修復：
+
+#### Critical 修復
+- **詞彙 API 錯誤碼修正**：`GET /api/vocabulary` 及 `POST /api/vocabulary/suggest` 的 catch 區塊原先回傳 HTTP 200 偽裝成空資料，改為 HTTP 500 讓前端可正確區分「無資料」vs「伺服器錯誤」
+- **RAG 向量檢索記憶體保護**：`retrieveRelevantChunks()` 及 `retrieveDSERelevantChunks()` 新增 `take: 500` + `orderBy` 限制，防止 chunks 無限增長導致 OOM
+- **`isDeepSeekConfigured()` 驗證**：確認函數實際呼叫 `isAIConfigured()` 檢查全部三種 AI 提供者（DeepSeek / Vertex Gemini / Gemini API），命名誤導但功能正確
+
+#### High 修復
+- **生字簿 i18n 全面化**：`BatchImportVocab` alert()、`VocabCard` 策略提示、`practice/[id]` 錯誤類型標籤全部改用 `t()` 系統，新增 8 個 i18n keys
+- **ErrorBoundary i18n**：移除硬編碼 "Something went wrong" / "Reload Page"，改用 i18n keys
+
+#### Medium 修復
+- **`serializeVocab()` 去重**：從 `vocabulary/route.ts` 及 `quiz/route.ts` 提取至 `@/lib/utils.ts` 統一共享，消除重複程式碼
+- **RAG 第二處 `findMany` 加 LIMIT**：`retrieveDSERelevantChunks()` 同樣新增 `take: 500`
+
+### �🔍 歷屆試題 RAG 整合 (DSE RAG)
 - **歷屆試題匯入 Script** (`scripts/import-past-papers.ts`)：一鍵將 `materials/_extracted/` 中 20 份 OCR 提取的 DSE 歷屆試題及 Marking Schemes 匯入資料庫，自動分 chunk 並建立 DeepSeek Embedding 向量索引
 - **強化 RAG 檢索** (`rag-service.ts`)：
   - `retrieveDSERelevantChunks()` — 支援按卷別（Paper 1-4）、技能（Reading/Writing/Listening/Speaking）、類別（passage/QA/marking_scheme）過濾

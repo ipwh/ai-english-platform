@@ -6,18 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { callLLM } from '@/lib/ai-service';
-
-/** 將 Prisma 回傳的 JSON 字串欄位轉為陣列 */
-function deserializeVocab(v: Record<string, unknown>): Record<string, unknown> {
-  const result = { ...v };
-  for (const field of ['synonyms', 'antonyms', 'collocations', 'allPartOfSpeech']) {
-    if (typeof result[field] === 'string') {
-      try { result[field] = JSON.parse(result[field] as string); } catch { result[field] = []; }
-    }
-    if (!result[field]) result[field] = [];
-  }
-  return result;
-}
+import { serializeVocab } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ quiz: [], message: '你的生字簿還沒有單字，先加入一些吧！' });
     }
 
-    const deserialized = vocabItems.map(deserializeVocab);
+    const deserialized = vocabItems.map(serializeVocab);
     const quizType = type || 'mixed';
     const quizCount = Math.min(count || 5, deserialized.length);
 

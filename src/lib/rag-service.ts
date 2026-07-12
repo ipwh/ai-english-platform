@@ -176,10 +176,13 @@ export async function retrieveRelevantChunks(
   // 1. 取得查詢向量
   const queryEmbedding = await getEmbedding(query);
 
-  // 2. 獲取所有已嵌入的區塊
+  // 2. 獲取已嵌入的區塊（限制最大數量防止 OOM）
+  const MAX_CHUNKS = 500;
   const chunks = await db.materialChunk.findMany({
     where: { embedding: { not: null } },
     include: { material: { select: { title: true } } },
+    take: MAX_CHUNKS,
+    orderBy: { createdAt: 'desc' },
   });
 
   if (chunks.length === 0) return [];
@@ -376,6 +379,8 @@ export async function retrieveDSERelevantChunks(
   const chunks = await db.materialChunk.findMany({
     where,
     include: { material: { select: { title: true, tags: true, strand: true } } },
+    take: 500,
+    orderBy: { createdAt: 'desc' },
   });
 
   if (chunks.length === 0) return [];

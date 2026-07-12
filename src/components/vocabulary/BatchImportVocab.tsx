@@ -51,7 +51,7 @@ export default function BatchImportVocab({
     const words = parseWords(textInput);
     if (words.length === 0) return;
     if (words.length > 30) {
-      alert(language === 'en' ? 'Maximum 30 words per batch.' : '每次最多 30 個單字。');
+      alert(t('vocab.batchMaxWords'));
       return;
     }
 
