@@ -568,6 +568,19 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
         warnings.push(`Q${index}: answer "${answerRaw}" does not match any choice`);
       }
     }
+
+    // MCQ 選項品質檢查：拒絕碎片化選項（如 "30"、"00"）和無效格式
+    for (let ci = 0; ci < fixed.choices.length; ci++) {
+      const choice = stripMcqPrefix(fixed.choices[ci] || '');
+      // 檢查是否為裸數字碎片（少於 3 字元的純數字或含冒號碎片）
+      if (/^[\d:.\s]{1,3}$/.test(choice) && !/^\d{1,2}:\d{2}/.test(choice)) {
+        warnings.push(`Q${index}: choice ${MCQ_LETTERS[ci]} "${choice}" looks like a number fragment — likely AI generation error`);
+      }
+      // 檢查 "All of the above"（非 DSE 格式）
+      if (/all\s*of\s*the\s*above/i.test(choice)) {
+        warnings.push(`Q${index}: choice ${MCQ_LETTERS[ci]} "All of the above" is not DSE-compatible`);
+      }
+    }
   }
 
   // 2. 聆聽題：答案文字必須出現在 listeningContent 中（MC 和非 MC 皆檢查）
@@ -881,6 +894,12 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 
 每種題型的設計要點：
 1. MCQ: 4 個 plausible options，distractor 必須看似合理。挑戰模式選項用 synonym 測試同義理解。
+   - ⚠️ MCQ 選項格式強制規則：
+     - 時間答案必須是完整時間格式（如 "4:00 PM"、"4 o'clock"、"four o'clock"），嚴禁只輸出 "00" 或 "30" 等碎片
+     - 數字答案必須帶單位或上下文（如 "$50"、"15 minutes"、"3 times"），嚴禁裸數字
+     - 每個選項必須是完整的、可直接理解的答案，學生看到就能判斷對錯
+     - 禁止使用 "All of the above" 作為選項（DSE 不採用此格式）
+     - distractor 必須與正確答案屬同一語義類別（時間題的 distractor 必須是其他時間，不可混入不相關內容）
 2. Fill-blank: 答案 verbatim 來自 listeningContent。可能是數字/日期/名稱/關鍵詞。
 3. Form-filling: 模擬表格填寫，提供欄位標題，答案從對話中提取。
 4. Matching: 提供 4-5 個選項配對到 3-4 個問題。
@@ -990,6 +1009,9 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 - 干擾選項必須看起來合理（plausible distractor），不可明顯荒謬
 - 選項長度應大致相近，不可有某個選項明顯過長或過短
 - 選項之間不可有重疊或包含關係
+- ⚠️ 時間/數字答案：必須是完整格式（如 "4:00 PM"、"4 o'clock"、"$50"、"15 minutes"），嚴禁碎片如 "00"、"30"、"5:00" 無 AM/PM
+- ⚠️ 禁止 "All of the above" / "None of the above" — DSE 不使用此格式
+- ⚠️ distractor 必須與正確答案屬同一類別（時間題全部是時間、地點題全部是地點）
 
 ${STRICT_ANSWER_RULES}
 
