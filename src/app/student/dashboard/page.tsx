@@ -8,7 +8,7 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/lib/utils';
-import { getLevelInfo, type BadgeDefinition } from '@/lib/gamification';
+import { getLevelInfo, getDailyGoal, type BadgeDefinition } from '@/lib/gamification';
 import { GamificationSkeleton } from '@/components/shared/Skeleton';
 
 interface GamificationData {
@@ -94,6 +94,16 @@ export default function StudentDashboardPage() {
         <Link href="/student/practice" className="mt-3 inline-block px-4 py-2 bg-white text-teal-600 rounded-xl font-medium text-sm">
           <Play className="w-4 h-4 inline mr-1" /> {t('student.dashboard.practice')}
         </Link>
+        {/* 🔥 Streak + 每日目標 */}
+        <div className="flex items-center gap-4 mt-3 text-teal-100 text-xs">
+          {weeklyStats.streakDays > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="text-base">{weeklyStats.streakDays >= 7 ? '🔥' : weeklyStats.streakDays >= 3 ? '✨' : '💪'}</span>
+              {t('student.dashboard.streak', { n: weeklyStats.streakDays })}
+            </span>
+          )}
+          <span>🎯 {t('student.dashboard.dailyGoal')}: {weeklyStats.questionsDone || 0} / {getDailyGoal(studentLevel).questions} {t('common.question')}</span>
+        </div>
       </div>
 
       {/* 🏆 Gamification Section */}

@@ -47,6 +47,28 @@ export function calculateXp(event: XpEvent): number {
 }
 
 // ============================================
+// 年級自適應（S1-S3 較低門檻，S4-S6 標準門檻）
+// ============================================
+
+export function getGradeMultiplier(gradeLevel?: string): number {
+  if (!gradeLevel) return 1.0;
+  const level = parseInt(gradeLevel.replace('S', ''));
+  if (level <= 3) return 1.2; // 初中：較容易升級，鼓勵動機
+  return 1.0; // 高中：標準
+}
+
+// ============================================
+// 每日目標（根據年級自適應）
+// ============================================
+
+export function getDailyGoal(gradeLevel?: string): { questions: number; xpTarget: number } {
+  const level = gradeLevel ? parseInt(gradeLevel.replace('S', '')) : 4;
+  if (level <= 2) return { questions: 10, xpTarget: 50 };
+  if (level <= 4) return { questions: 15, xpTarget: 80 };
+  return { questions: 20, xpTarget: 120 }; // S5-S6 DSE 衝刺
+}
+
+// ============================================
 // 等級系統
 // ============================================
 

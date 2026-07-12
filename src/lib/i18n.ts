@@ -1221,6 +1221,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'student.dashboard.xpToNext': { zh: '距離下一級還需 {n} XP', en: '{n} XP to next level' },
   'student.dashboard.maxLevel': { zh: '最高等級！', en: 'Max Level!' },
   'student.dashboard.streak': { zh: '{n} 天連續學習！繼續保持！🔥', en: '{n} day streak! Keep going! 🔥' },
+  'student.dashboard.dailyGoal': { zh: '今日目標', en: 'Daily Goal' },
   'student.dashboard.moreBadges': { zh: '還有 {n} 個徽章', en: '+{n} more' },
   'student.dashboard.fallbackName': { zh: '同學', en: 'Student' },
 
