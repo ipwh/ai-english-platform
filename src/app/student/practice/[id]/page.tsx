@@ -9,7 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
-  BookMarked, Clock, Sparkles, Loader2, Flag, Zap,
+  BookMarked, Clock, Sparkles, Loader2, Flag, Zap, RotateCcw, Home,
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -120,6 +120,7 @@ export default function PracticeQuestionPage() {
   const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
   const [wrongEncouragement, setWrongEncouragement] = useState('');
   const hasSavedRef = useRef(false); // 防止重複 savePractice
+  const [sessionComplete, setSessionComplete] = useState(false);
 
   // 失敗鼓勵語（DSE 正向引導）
   const ENCOURAGEMENTS = [
@@ -237,6 +238,26 @@ export default function PracticeQuestionPage() {
       </div>
     );
   }
+
+  if (sessionComplete && store.currentSession) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <SessionCompleteSummary
+          session={store.currentSession}
+          onBackToPractice={() => router.push('/student/practice')}
+          onReviewMistakes={() => router.push('/student/mistakes')}
+          onDashboard={() => router.push('/student/dashboard')}
+          onRetry={() => {
+            setSessionComplete(false);
+            setSelectedAnswer('');
+            setSubmitted(false);
+            const firstQ = sessionQuestions[0];
+            if (firstQ) router.push(`/student/practice/${firstQ.id}`);
+          }}
+        />
+      </div>
+    );
+  }
   const isReading = question.languageSkill === 'reading';
 
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
@@ -336,10 +357,12 @@ export default function PracticeQuestionPage() {
       const nextQ = sessionQuestions[sessionIndex + 1];
       router.push(`/student/practice/${nextQ.id}`);
     } else {
-      // 完成所有題目
+      // 完成所有題目 → 留在頁面顯示摘要
       if (isSessionMode) {
         store.completeSession();
         awardXp('completeSession', store.currentSession?.difficulty);
+        setSessionComplete(true);
+        return;
       }
       router.push('/student/practice');
     }
@@ -769,6 +792,83 @@ export default function PracticeQuestionPage() {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 練習完成摘要元件
+// ============================================
+function SessionCompleteSummary({
+  session,
+  onBackToPractice,
+  onReviewMistakes,
+  onDashboard,
+  onRetry,
+}: {
+  session: { questions: PracticeQuestion[]; answers: Record<string, string>; results: Record<string, boolean>; totalQuestions: number; correctCount: number; skillZh: string; difficulty: string };
+  onBackToPractice: () => void;
+  onReviewMistakes: () => void;
+  onDashboard: () => void;
+  onRetry: () => void;
+}) {
+  const acc = session.totalQuestions > 0 ? Math.round((session.correctCount / session.totalQuestions) * 100) : 0;
+  const emoji = acc >= 90 ? '🏆' : acc >= 70 ? '🌟' : acc >= 50 ? '💪' : '📚';
+  const color = acc >= 90 ? 'text-amber-600' : acc >= 70 ? 'text-teal-600' : acc >= 50 ? 'text-orange-500' : 'text-red-500';
+  const incorrectCount = session.questions.filter(q => !session.results[q.id]).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center py-8">
+        <div className="text-5xl mb-3">{emoji}</div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">練習完成！</h1>
+        <div className={`text-5xl font-extrabold ${color}`}>
+          {session.correctCount}<span className="text-2xl text-gray-400">/{session.totalQuestions}</span>
+        </div>
+        <p className="text-sm text-gray-500 mt-2">正確率 {acc}%</p>
+        <p className="text-xs text-gray-400 mt-1">{session.skillZh} · {session.difficulty === 'remedial' ? '補底' : session.difficulty === 'challenge' ? '挑戰' : '核心'}</p>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">答題摘要</h3>
+        <div className="space-y-2">
+          {session.questions.map((q, i) => {
+            const correct = session.results[q.id] ?? false;
+            const answer = session.answers[q.id] || '（未作答）';
+            return (
+              <div key={q.id} className={`flex items-start gap-3 p-3 rounded-lg ${correct ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'}`}>
+                <span className={`mt-0.5 shrink-0 ${correct ? 'text-green-500' : 'text-red-500'}`}>
+                  {correct ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">Q{i + 1}. {q.prompt}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    你的答案：<span className={correct ? 'text-green-600 font-medium' : 'text-red-500 line-through'}>{answer}</span>
+                    {!correct && <span className="text-green-600 ml-2">✓ {q.answer}</span>}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={onRetry} className="py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+          <RotateCcw className="w-4 h-4" /> 再做一次
+        </button>
+        {incorrectCount > 0 && (
+          <button onClick={onReviewMistakes} className="py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+            <Flag className="w-4 h-4" /> 查看錯題 ({incorrectCount})
+          </button>
+        )}
+        <button onClick={onBackToPractice} className="py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          繼續練習
+        </button>
+        <button onClick={onDashboard} className="py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2">
+          <Home className="w-4 h-4" /> 返回主頁
+        </button>
       </div>
     </div>
   );
