@@ -9,7 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
-  BookMarked, Clock, Sparkles, Loader2, Flag,
+  BookMarked, Clock, Sparkles, Loader2, Flag, Zap,
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -116,6 +116,25 @@ export default function PracticeQuestionPage() {
   // === 聆聽模式：隱藏文字 ===
   const [listeningRevealed, setListeningRevealed] = useState(false);
 
+  // === XP 即時通知 ===
+  const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
+
+  /** 傳送練習記錄並取得 XP 獎勵 */
+  const savePracticeAndGetXp = async (payload: Record<string, unknown>) => {
+    try {
+      const res = await fetch('/api/practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.xpGained > 0) {
+        setXpToast({ xp: data.xpGained, level: data.level, title: data.title });
+        setTimeout(() => setXpToast(null), 4000);
+      }
+    } catch { /* silent */ }
+  };
+
   // 合併 mock 題目 + AI session 題目
   const allQuestions = useMemo(() => {
     const sessionQuestions = store.currentSession?.questions || [];
@@ -137,22 +156,18 @@ export default function PracticeQuestionPage() {
   useEffect(() => {
     return () => {
       if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
-        fetch('/api/practice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: store.userId || '',
-            skill: store.currentSession.skill || 'general',
-            skillZh: store.currentSession.skillZh || '',
-            difficulty: store.currentSession.difficulty || 'core',
-            totalQuestions: store.currentSession.totalQuestions,
-            correctCount: store.currentSession.correctCount,
-            source: store.currentSession.source || 'ai-generated',
-          }),
-        }).catch(() => {});
+        savePracticeAndGetXp({
+          studentId: store.userId || '',
+          skill: store.currentSession.skill || 'general',
+          skillZh: store.currentSession.skillZh || '',
+          difficulty: store.currentSession.difficulty || 'core',
+          totalQuestions: store.currentSession.totalQuestions,
+          correctCount: store.currentSession.correctCount,
+          source: store.currentSession.source || 'ai-generated',
+        });
       }
     };
-  }, [isSessionMode, store.currentSession, store.userId]);
+  }, [isSessionMode, store.currentSession, store.userId, savePracticeAndGetXp]);
   
   if (!question) {
     return (
@@ -224,21 +239,17 @@ export default function PracticeQuestionPage() {
       setAiLoading(false);
     }
 
-    // 儲存練習記錄到後端
+    // 儲存練習記錄到後端 + 取得 XP
     if (isSessionMode) {
-      fetch('/api/practice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: store.userId || '',
-          skill: question.grammarItem || question.languageSkill || 'general',
-          skillZh: question.subSkillZh || '',
-          difficulty: question.difficulty || 'core',
-          totalQuestions: sessionQuestions.length,
-          correctCount: correct ? 1 : 0,
-          source: 'ai-generated',
-        }),
-      }).catch(() => {});
+      savePracticeAndGetXp({
+        studentId: store.userId || '',
+        skill: question.grammarItem || question.languageSkill || 'general',
+        skillZh: question.subSkillZh || '',
+        difficulty: question.difficulty || 'core',
+        totalQuestions: sessionQuestions.length,
+        correctCount: correct ? 1 : 0,
+        source: 'ai-generated',
+      });
     }
 
     // 答錯時儲存錯題
@@ -299,6 +310,19 @@ export default function PracticeQuestionPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* XP 獲得即時通知 */}
+      {xpToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+            <Zap className="w-6 h-6" />
+            <div>
+              <p className="text-lg font-bold">+{xpToast.xp} XP!</p>
+              <p className="text-xs text-amber-100">Lv.{xpToast.level} {xpToast.title}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 頂部導航 */}
       <div className="flex items-center justify-between">
         <Link href="/student/practice" className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700">
