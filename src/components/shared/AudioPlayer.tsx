@@ -69,20 +69,42 @@ function pickVoice(
   lang: 'en' | 'zh',
   gender: 'female' | 'male' | 'any' = 'any',
 ): SpeechSynthesisVoice | null {
-  const candidates = voices.filter(v => v.lang.startsWith(lang === 'zh' ? 'zh' : 'en'));
+  const langPrefix = lang === 'zh' ? 'zh' : 'en';
+  const candidates = voices.filter(v => v.lang.startsWith(langPrefix));
   if (candidates.length === 0) return null;
 
+  // 已知語音名稱特徵庫（跨平台）
+  const FEMALE_PATTERNS = /female|samantha|karen|zira|victoria|hazel|susan|eva|catherine|linda|amy|emma|sarah|fiona|google.*female/i;
+  const MALE_PATTERNS = /male|daniel|tom|david|alex|mark|george|james|paul|michael|peter|robert|google.*male/i;
+
   if (gender === 'female') {
-    return candidates.find(v => /female|samantha|karen|zira|victoria/i.test(v.name))
-      || candidates[candidates.length - 1]
-      || candidates[0];
+    const found = candidates.find(v => FEMALE_PATTERNS.test(v.name));
+    if (found) return found;
+    // 啟發式：取候選列表的最後一個（多數系統將女聲排在後方）
+    // 同時排除已知的男聲名稱
+    const nonMale = candidates.filter(v => !MALE_PATTERNS.test(v.name));
+    if (nonMale.length > 0) return nonMale[nonMale.length - 1];
+    return candidates[candidates.length - 1] || candidates[0];
   }
   if (gender === 'male') {
-    return candidates.find(v => /male|daniel|tom|david|alex/i.test(v.name))
-      || candidates[0]
-      || null;
+    const found = candidates.find(v => MALE_PATTERNS.test(v.name));
+    if (found) return found;
+    // 啟發式：取候選列表的第一個（多數系統將男聲排在前方）
+    const nonFemale = candidates.filter(v => !FEMALE_PATTERNS.test(v.name));
+    if (nonFemale.length > 0) return nonFemale[0];
+    return candidates[0];
   }
   return candidates[0];
+}
+
+/** 若無法區分男女聲，用 pitch 模擬差異 */
+function getSpeakerPitch(speaker: string | null): number {
+  if (!speaker) return 1.0;
+  switch (speaker) {
+    case 'man': case 'boy': return 0.85;   // 男聲：略低
+    case 'woman': case 'girl': return 1.15; // 女聲：略高
+    default: return 1.0;
+  }
 }
 
 export default function AudioPlayer({
@@ -158,6 +180,9 @@ export default function AudioPlayer({
       const maleVoice = pickVoice(voices, lang, 'male') || pickVoice(voices, lang, 'any');
       const defaultVoice = pickVoice(voices, lang, 'any');
 
+      // 若男女聲相同（只有一個語音），用 pitch 差異補償
+      const sameVoice = femaleVoice && maleVoice && femaleVoice.name === maleVoice.name;
+
       const map = new Map<string, SpeechSynthesisVoice | null>();
       map.set('woman', femaleVoice);
       map.set('girl', femaleVoice);
@@ -186,7 +211,10 @@ export default function AudioPlayer({
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
         utterance.rate = speed;
-        utterance.pitch = 1;
+        // 有角色標籤時：若男女聲相同則用 pitch 區分，否則用預設 pitch
+        utterance.pitch = (line.speaker && sameVoice)
+          ? getSpeakerPitch(line.speaker)
+          : (line.speaker ? getSpeakerPitch(line.speaker) : 1.0);
 
         if (line.speaker) {
           const voice = map.get(line.speaker);
