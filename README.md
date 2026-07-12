@@ -142,7 +142,10 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新 (2026-07-12)
-
+### ⚡ XP 即時通知 + 遊戲化系統強化
+- **即時 XP 獲得通知**：完成練習後頁面頂部彈出動畫 toast（"+15 XP! Lv.1 Beginner"），bounce 動畫 + 4 秒自動消失
+- **XP 完整閉環**：練習 → POST /api/practice → `calculateXp()` → `db.user.update({xp: {increment}})` → Dashboard 讀取累積 XP → 等級進度條
+- **雙重觸發**：答案提交時及離開頁面儲存時皆會發放 XP
 ### � 程式碼審查與穩定性修復 (2026-07-12 第二次審查)
 
 基於全面程式碼審查（50 項發現：5 Critical / 16 High / 17 Medium / 12 Low），已完成以下關鍵修復：
