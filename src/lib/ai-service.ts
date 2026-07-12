@@ -779,14 +779,6 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
    - "And this is the KEY point — we MUST arrive before eight."
    - "Let me repeat: forty. Four-zero. Not fourteen."
 
-【Intonation 的文本標記方式】
-在 listeningContent 中使用以下系統來暗示語調變化：
-- 【↑】語調上升 (疑問/驚訝): "You're going to the conference?↑"
-- 【↓】語調下降 (確定/總結): "That settles it then.↓"
-- 【—】停頓強調: "The winner is【—】Team Alpha."
-- 使用斜體標記詞彙重音: "I said *three* o'clock, not *free* o'clock."
-- 使用 CAPS 標記強烈重音: "That is NOT what I meant!"
-
 【自然口語特徵 — 必須嵌入】
 1. Linking (連音)：
    - "gonna" (going to), "wanna" (want to), "gotta" (got to)

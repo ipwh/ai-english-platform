@@ -803,7 +803,6 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 ## Known Limitations
 
 - **新用戶尚無學習記錄**：首次登入的用戶（包括 Google OAuth）尚無練習/錯題/詞彙數據，部分頁面會顯示 empty state 或引導提示。開始練習後會自動累積真實數據。
-- DSE 歷屆試題（掃描 PDF）需透過 Google Cloud Vision OCR 提取文字（見 `scripts/ocr_past_papers.py`），大型 PDF 不適合直接存入 Git
 - Vercel 免費版有 10 秒函數執行限制，寫作批改等長請求可能逾時
 - Web Speech API 在不同瀏覽器的語音品質不一（建議使用 Chrome）
 

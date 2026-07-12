@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -28,8 +28,8 @@ function getMcqLetterByIndex(index: number): string {
 function stripMcqPrefix(choice: string): string {
   return choice
     .trim()
-    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4]|T|F|True|False)\s*\)?\s*[\].:：)\-、]\s*/iu, '')
-    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '')
+    // 只移除明確的字母前置（A/B/C/D）、數字前綴（1./2./3./4.）、或 T/F/True/False 前置
+    .replace(/^\s*\(?\s*(?:[A-Da-d]\s*[\).:：\-、]\s*|(?:True|False)\s*[\).:：\-、]\s*)\s*/iu, '')
     .trim();
 }
 
@@ -120,7 +120,7 @@ export default function PracticeQuestionPage() {
   const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
 
   /** 傳送練習記錄並取得 XP 獎勵 */
-  const savePracticeAndGetXp = async (payload: Record<string, unknown>) => {
+  const savePracticeAndGetXp = useCallback(async (payload: Record<string, unknown>) => {
     try {
       const res = await fetch('/api/practice', {
         method: 'POST',
@@ -133,7 +133,7 @@ export default function PracticeQuestionPage() {
         setTimeout(() => setXpToast(null), 4000);
       }
     } catch { /* silent */ }
-  };
+  }, []);
 
   // 合併 mock 題目 + AI session 題目
   const allQuestions = useMemo(() => {
