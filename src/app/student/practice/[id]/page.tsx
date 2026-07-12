@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
-import AudioPlayer from '@/components/shared/AudioPlayer';
+import AudioPlayer, { prefetchTTSAudio } from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import type { AnswerAnalysis } from '@/lib/ai-service';
@@ -210,21 +210,21 @@ export default function PracticeQuestionPage() {
     };
   }, [isSessionMode, store.currentSession, store.userId, savePractice]);
 
-  // 聆聽題共用錄音：若本題無 listeningContent，取 session 中第一題的
-  // ⚠️ 必須在 if (!question) early return 之前（React hooks 順序規則）
+  // 聆聽題：每題獨立錄音（v2.0 — 不再共用長錄音）
   const isListening = question?.languageSkill === 'listening';
-  const sharedListeningContent = useMemo(() => {
-    if (!isListening || !question) return undefined;
-    if (question.listeningContent) return question.listeningContent;
-    const firstWithContent = sessionQuestions.find(q => q.listeningContent);
-    return firstWithContent?.listeningContent;
-  }, [isListening, question?.listeningContent, sessionQuestions]);
-  const sharedListeningContentZh = useMemo(() => {
-    if (!isListening || !question) return undefined;
-    if (question.listeningContentZh) return question.listeningContentZh;
-    const firstWithZh = sessionQuestions.find(q => q.listeningContentZh);
-    return firstWithZh?.listeningContentZh;
-  }, [isListening, question?.listeningContentZh, sessionQuestions]);
+
+  // 預載入下一題聆聽音訊（減少等待時間）
+  useEffect(() => {
+    if (!isSessionMode || !hasNextSession || !question) return;
+    const nextQ = sessionQuestions[sessionIndex + 1];
+    if (nextQ?.listeningContent && nextQ.languageSkill === 'listening') {
+      // 延遲 1 秒載入，避免影響當前頁面渲染
+      const timer = setTimeout(() => {
+        prefetchTTSAudio(nextQ.listeningContent!).catch(() => {});
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSessionMode, hasNextSession, sessionIndex, sessionQuestions, question]);
   
   if (!question) {
     return (
@@ -435,7 +435,7 @@ export default function PracticeQuestionPage() {
 
       {/* ====== 題目卡 ====== */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        {/* 聆聽題：隱藏聆聽內容文字，只顯示播放器 */}
+        {/* 聆聽題：隱藏聆聽內容文字，只顯示播放器（v2.0：每題獨立錄音） */}
         {isListening && (
           <div className="mb-4 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl border-2 border-teal-300 dark:border-teal-600">
             <div className="flex items-center gap-2 mb-2">
@@ -444,10 +444,20 @@ export default function PracticeQuestionPage() {
                 {!listeningRevealed && !submitted ? t('practice.question.listeningTitle') : t('practice.question.listeningContent')}
               </span>
               <AudioPlayer
-                text={sharedListeningContent || question.listeningContent || question.prompt}
+                text={question.listeningContent || question.prompt}
                 label={!listeningRevealed && !submitted ? t('practice.question.play') : t('practice.question.replay')}
                 size="sm"
                 useCloudTTS
+                onPrefetchReady={(prefetchFn) => {
+                  // 預載入下一題音訊
+                  if (isSessionMode && hasNextSession) {
+                    const nextQ = sessionQuestions[sessionIndex + 1];
+                    if (nextQ?.listeningContent && nextQ.languageSkill === 'listening') {
+                      // 在組件掛載後 500ms 觸發預載入
+                      setTimeout(() => prefetchFn?.(), 500);
+                    }
+                  }
+                }}
               />
             </div>
 
@@ -455,12 +465,12 @@ export default function PracticeQuestionPage() {
             <div className={!listeningRevealed && !submitted ? 'hidden' : ''}>
               <p
                 className="text-sm text-teal-800 dark:text-teal-200 leading-relaxed whitespace-pre-line cursor-help"
-                title={sharedListeningContentZh || question.listeningContentZh || t('practice.question.listeningContentText')}
+                title={question.listeningContentZh || t('practice.question.listeningContentText')}
               >
-                {sharedListeningContent || question.listeningContent || question.prompt}
+                {question.listeningContent || question.prompt}
               </p>
-              {(sharedListeningContentZh || question.listeningContentZh) && (
-                <p className="text-xs text-teal-500 mt-1">{sharedListeningContentZh || question.listeningContentZh}</p>
+              {question.listeningContentZh && (
+                <p className="text-xs text-teal-500 mt-1">{question.listeningContentZh}</p>
               )}
             </div>
 

@@ -6,11 +6,12 @@
 //   2. 瀏覽器 Web Speech API（預設）→ 離線可用
 //
 // 自動解析對話角色標籤（Woman:/Man: 等），用不同語音朗讀
+// v2.0: 全域快取、預載入、進度提示、強化標籤剝離
 // ============================================
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Volume2, Pause, Loader2 } from 'lucide-react';
+import { Volume2, Pause, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface AudioPlayerProps {
   text: string;
@@ -21,11 +22,94 @@ interface AudioPlayerProps {
   onPlayEnd?: () => void;
   /** 啟用 Google Cloud TTS（server-side 神經語音，intonation 自然） */
   useCloudTTS?: boolean;
+  /** 預載入 callback — 父元件可呼叫此函式提前生成音訊 */
+  onPrefetchReady?: (prefetch: () => void) => void;
 }
 
 interface DialogueLine {
   speaker: string | null;
   text: string;
+}
+
+// ============================================
+// 全域 Cloud TTS 快取（跨 AudioPlayer 實例共用）
+// ============================================
+interface CacheEntry {
+  url: string;
+  addedAt: number;
+}
+const TTS_CACHE = new Map<string, CacheEntry>();
+const CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 分鐘 TTL
+const CACHE_MAX_SIZE = 30; // 最多 30 個項目
+
+function getCacheKey(text: string, speakingRate: number): string {
+  // 用文字內容 + 語速作為快取鍵
+  return `${speakingRate.toFixed(2)}::${text}`;
+}
+
+function cleanExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of TTS_CACHE) {
+    if (now - entry.addedAt > CACHE_MAX_AGE_MS) {
+      URL.revokeObjectURL(entry.url);
+      TTS_CACHE.delete(key);
+    }
+  }
+}
+
+function evictOldestIfNeeded(): void {
+  if (TTS_CACHE.size <= CACHE_MAX_SIZE) return;
+  let oldestKey = '';
+  let oldestTime = Infinity;
+  for (const [key, entry] of TTS_CACHE) {
+    if (entry.addedAt < oldestTime) {
+      oldestTime = entry.addedAt;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey) {
+    const entry = TTS_CACHE.get(oldestKey);
+    if (entry) URL.revokeObjectURL(entry.url);
+    TTS_CACHE.delete(oldestKey);
+  }
+}
+
+/**
+ * 預載入 TTS 音訊到全域快取（可在 AudioPlayer 外部呼叫）
+ * 用於提前載入下一題的錄音，減少等待時間
+ */
+export async function prefetchTTSAudio(text: string, speakingRate = 0.9): Promise<void> {
+  if (!text) return;
+
+  const cacheKey = getCacheKey(text, speakingRate);
+  if (TTS_CACHE.has(cacheKey)) return; // 已快取
+
+  try {
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        multiSpeaker: true,
+        voiceTier: 'default',
+        speakingRate,
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn('[TTS Prefetch] Failed:', res.status);
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    cleanExpiredCache();
+    evictOldestIfNeeded();
+    TTS_CACHE.set(cacheKey, { url, addedAt: Date.now() });
+  } catch {
+    // silent fail for prefetch
+  }
 }
 
 /** Available playback speeds */
@@ -38,26 +122,28 @@ const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—
 
 /** 將一行內多個角色對話拆成多行 */
 function splitMultiSpeakerLine(text: string): string {
-  // 在每個角色標籤前插入換行（若該行已有內容）
   return text.replace(/([^\n])(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]/gi, '$1\n$2:');
 }
 
-/** 備用清理：移除所有角色標籤（避免 TTS 直接朗讀 "Librarian:" "Man:" "Woman:" 等文字） */
+/** 剝離所有角色標籤（確保 TTS 不會直接朗讀 "Librarian:" "Man:" 等） */
 function stripSpeakerLabels(text: string): string {
   return text
     .replace(/^[A-Za-z]+(?:\s+[A-Za-z]+)?\s*[:：\-–—]\s*/gm, '')
     .trim();
 }
 
-function parseDialogue(text: string): DialogueLine[] {
-  // 第一步：將一行多角色拆成多行
+/** 為 TTS 準備文字：先正規化多角色行，再剝離標籤，保留乾淨對話 */
+function prepareTextForTTS(text: string): string {
   const normalized = splitMultiSpeakerLine(text);
-  // 第二步：清理角色標籤作為保險
+  return stripSpeakerLabels(normalized);
+}
+
+function parseDialogue(text: string): DialogueLine[] {
+  const normalized = splitMultiSpeakerLine(text);
   const cleaned = stripSpeakerLabels(normalized);
   const lines = cleaned.split(/\n/).map(l => l.trim()).filter(Boolean);
   const dialogue: DialogueLine[] = [];
 
-  // 從原始（已正規化）文字中提取角色資訊
   const rawLines = normalized.split(/\n/).map(l => l.trim()).filter(Boolean);
   for (let i = 0; i < Math.max(rawLines.length, lines.length); i++) {
     const rawLine = rawLines[i] || '';
@@ -130,17 +216,18 @@ export default function AudioPlayer({
   className = '',
   onPlayEnd,
   useCloudTTS = false,
+  onPrefetchReady,
 }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   // Cloud TTS 狀態
-  const [cloudAudioUrl, setCloudAudioUrl] = useState<string | null>(null);
   const [cloudFetching, setCloudFetching] = useState(false);
+  const [cloudError, setCloudError] = useState('');
   const cloudAudioRef = useRef<HTMLAudioElement | null>(null);
   const cloudAbortRef = useRef<AbortController | null>(null);
-  // 緩存：用 ref 避免 stale closure
-  const cachedTextRef = useRef<string>('');
+  // 快取：用 ref 記錄當前已快取的 text → url
   const cachedUrlRef = useRef<string | null>(null);
+  const cachedKeyRef = useRef<string>('');
   const [speed, setSpeed] = useState<number>(() => {
     if (typeof window === 'undefined') return DEFAULT_SPEED;
     const saved = localStorage.getItem(SPEED_STORAGE_KEY);
@@ -158,17 +245,24 @@ export default function AudioPlayer({
     }
   }, [speed]);
 
-  // 清理 blob URL（避免記憶體洩漏）
+  // 清理全域快取中過期項目
+  useEffect(() => {
+    cleanExpiredCache();
+    const interval = setInterval(cleanExpiredCache, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 清理自身 blob URL（避免記憶體洩漏）
   useEffect(() => {
     return () => {
       if (cachedUrlRef.current) {
-        URL.revokeObjectURL(cachedUrlRef.current);
+        // 不 revoke，因為 URL 存在全域快取中
         cachedUrlRef.current = null;
       }
     };
   }, []);
 
-  // 監聽全域停止事件（例如提交答案時停止所有音訊）
+  // 監聽全域停止事件
   useEffect(() => {
     const handleGlobalStop = () => {
       cancelled.current = true;
@@ -198,12 +292,10 @@ export default function AudioPlayer({
   const handleStop = useCallback(() => {
     cancelled.current = true;
     if (synth) synth.cancel();
-    // 停止 Cloud TTS audio
     if (cloudAudioRef.current) {
       cloudAudioRef.current.pause();
       cloudAudioRef.current.currentTime = 0;
     }
-    // 取消進行中的 fetch
     if (cloudAbortRef.current) {
       cloudAbortRef.current.abort();
       cloudAbortRef.current = null;
@@ -214,13 +306,84 @@ export default function AudioPlayer({
   }, [synth]);
 
   // ============================================
-  // Google Cloud TTS 播放
+  // 預載入音訊（供父元件在 hover / page load 時呼叫）
+  // ============================================
+  const prefetchAudio = useCallback(async () => {
+    if (!text || !useCloudTTS) return;
+
+    const cacheKey = getCacheKey(text, speed);
+    // 已在快取中 → 跳過
+    if (TTS_CACHE.has(cacheKey)) {
+      cachedKeyRef.current = cacheKey;
+      cachedUrlRef.current = TTS_CACHE.get(cacheKey)!.url;
+      return;
+    }
+
+    // 已在載入中 → 跳過
+    if (cloudAbortRef.current) return;
+
+    const controller = new AbortController();
+    cloudAbortRef.current = controller;
+
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text, // 傳原始文字（含角色標籤），由 tts-service.ts 解析
+          multiSpeaker: true,
+          voiceTier: 'default',
+          speakingRate: speed,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        console.warn('[TTS Prefetch] Failed:', res.status);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      // 存入全域快取
+      cleanExpiredCache();
+      evictOldestIfNeeded();
+      TTS_CACHE.set(cacheKey, { url, addedAt: Date.now() });
+
+      cachedKeyRef.current = cacheKey;
+      cachedUrlRef.current = url;
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.warn('[TTS Prefetch] Error:', err);
+    } finally {
+      if (cloudAbortRef.current === controller) {
+        cloudAbortRef.current = null;
+      }
+    }
+  }, [text, speed, useCloudTTS]);
+
+  // 向父元件暴露 prefetch 方法
+  useEffect(() => {
+    if (onPrefetchReady) {
+      onPrefetchReady(prefetchAudio);
+    }
+  }, [onPrefetchReady, prefetchAudio]);
+
+  // ============================================
+  // Google Cloud TTS 播放（v2.0: 全域快取 + 進度 + 重試）
   // ============================================
   const playCloudTTS = useCallback(async () => {
     if (!text) return;
+    setCloudError('');
 
-    // 已有緩存的 audio → 直接播放
-    if (cachedUrlRef.current && cachedTextRef.current === text) {
+    const cacheKey = getCacheKey(text, speed);
+
+    // 檢查全域快取
+    const cached = TTS_CACHE.get(cacheKey);
+    if (cached) {
+      cachedKeyRef.current = cacheKey;
+      cachedUrlRef.current = cached.url;
       if (cloudAudioRef.current) {
         cloudAudioRef.current.currentTime = 0;
         await cloudAudioRef.current.play();
@@ -229,42 +392,38 @@ export default function AudioPlayer({
       return;
     }
 
-    // 釋放舊的 blob URL
-    if (cachedUrlRef.current) {
-      URL.revokeObjectURL(cachedUrlRef.current);
-      cachedUrlRef.current = null;
-    }
-
     setCloudFetching(true);
     setLoading(true);
 
     const controller = new AbortController();
     cloudAbortRef.current = controller;
 
-    // 多人對話模式需要多段合成，給 60 秒 timeout
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
 
     try {
-      // 使用用戶選擇的語速；Web Speech default=0.9, Cloud TTS 可調
-      const ttsRate = useCloudTTS ? speed : 0.9;
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
+          text, // 原始文字，server 端會解析角色標籤
           multiSpeaker: true,
           voiceTier: 'default',
-          speakingRate: ttsRate,
+          speakingRate: speed,
         }),
         signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
-        if (res.status === 503) {
-          console.warn('[TTS] Cloud TTS unavailable, falling back to Web Speech API');
-        } else {
-          console.error('[TTS] Cloud TTS error:', res.status);
-        }
+        const errorText = await res.text().catch(() => '');
+        const errMsg = res.status === 503
+          ? 'TTS 服務未設定'
+          : res.status === 504
+            ? 'TTS 合成超時，請縮短文本後重試'
+            : `TTS 服務錯誤 (${res.status})`;
+        console.error('[TTS] Cloud TTS error:', res.status, errorText);
+        setCloudError(errMsg);
         setCloudFetching(false);
         setLoading(false);
         handlePlayWebSpeech();
@@ -272,11 +431,14 @@ export default function AudioPlayer({
       }
 
       const blob = await res.blob();
-      clearTimeout(timeoutId);
       const url = URL.createObjectURL(blob);
-      setCloudAudioUrl(url);
+
+      // 存入全域快取
+      cleanExpiredCache();
+      evictOldestIfNeeded();
+      TTS_CACHE.set(cacheKey, { url, addedAt: Date.now() });
+      cachedKeyRef.current = cacheKey;
       cachedUrlRef.current = url;
-      cachedTextRef.current = text;
 
       const audio = new Audio(url);
       cloudAudioRef.current = audio;
@@ -302,9 +464,11 @@ export default function AudioPlayer({
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // 用戶取消或 timeout，正常
+        // 用戶取消或 timeout
+        setCloudError('TTS 請求逾時，請重試');
       } else {
         console.error('[TTS] Cloud TTS fetch failed:', err);
+        setCloudError('網絡連線失敗');
       }
       setCloudFetching(false);
       setLoading(false);
@@ -313,7 +477,7 @@ export default function AudioPlayer({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, onPlayEnd]);
+  }, [text, speed, onPlayEnd]);
 
   // ============================================
   // Web Speech API 播放（原有邏輯）
@@ -422,8 +586,44 @@ export default function AudioPlayer({
 
   const iconSize = { sm: 'w-3 h-3', md: 'w-4 h-4', lg: 'w-5 h-5' };
 
+  // 有錯誤且未在播放中 → 顯示重試按鈕
+  if (cloudError && !playing && !isBusy) {
+    return (
+      <div className={`inline-flex items-center gap-1 ${className}`}>
+        <button
+          onClick={playCloudTTS}
+          className={`inline-flex items-center rounded-lg font-medium transition-colors bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 ${sizeClasses[size]}`}
+          title={`${cloudError} — 點擊重試`}
+        >
+          <AlertCircle className={iconSize[size]} />
+          重試
+        </button>
+        {!playing && (
+          <div className="flex items-center gap-0.5">
+            {SPEEDS.map(s => (
+              <button
+                key={s}
+                onClick={(e) => { e.stopPropagation(); cachedUrlRef.current = null; cachedKeyRef.current = ''; setCloudError(''); setSpeed(s); }}
+                className={`px-1.5 py-0.5 text-xs rounded-md font-medium transition-colors ${
+                  speed === s
+                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                }`}
+                title={SPEED_LABELS[s]}
+              >
+                {SPEED_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className={`inline-flex items-center gap-1 ${className}`}>
+    <div className={`inline-flex items-center gap-1 ${className}`}
+      onMouseEnter={() => { if (useCloudTTS && !isBusy) prefetchAudio(); }}
+    >
       <button
         onClick={useCloudTTS ? (playing ? handleStop : playCloudTTS) : handlePlayWebSpeech}
         disabled={isBusy}
@@ -432,7 +632,7 @@ export default function AudioPlayer({
             ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
         } ${sizeClasses[size]}`}
-        title={playing ? '停止' : label}
+        title={playing ? '停止' : (cloudFetching ? '生成音訊中...' : label)}
       >
         {isBusy ? (
           <Loader2 className={`${iconSize[size]} animate-spin`} />
@@ -441,16 +641,16 @@ export default function AudioPlayer({
         ) : (
           <Volume2 className={iconSize[size]} />
         )}
-        {playing ? '停止' : label}
+        {isBusy ? (cloudFetching ? '生成中...' : '載入中') : playing ? '停止' : label}
       </button>
 
-      {/* Speed selector — adjusts server-side speakingRate for cloud TTS, client-side rate for Web Speech */}
+      {/* Speed selector */}
       {!playing && (
         <div className="flex items-center gap-0.5">
           {SPEEDS.map(s => (
             <button
               key={s}
-              onClick={(e) => { e.stopPropagation(); if (useCloudTTS) { cachedTextRef.current = ''; cachedUrlRef.current = null; } setSpeed(s); }}
+              onClick={(e) => { e.stopPropagation(); cachedUrlRef.current = null; cachedKeyRef.current = ''; setCloudError(''); setSpeed(s); }}
               className={`px-1.5 py-0.5 text-xs rounded-md font-medium transition-colors ${
                 speed === s
                   ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'

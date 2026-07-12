@@ -522,8 +522,8 @@ function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): str
 const STRICT_ANSWER_RULES = `
 【嚴格答案一致性規則 — 必須 100% 遵守 (CRITICAL)】
 - MCQ：'answer' 必須是 "A"/"B"/"C"/"D" 之一，且完整對應 choices 陣列中對應選項的文字內容。
-- Listening：'answer' 指向的選項文字必須逐字 (verbatim) 出現在 listeningContent 中。
-  先生成 listeningContent，再據此產生問題和答案。禁止 hallucinate。
+- Listening：'answer' 指向的選項文字必須逐字 (verbatim) 出現在該題的 listeningContent 中。
+  每題獨立生成 listeningContent，再據此產生問題和答案。禁止 hallucinate。
 - Reading：'answer' 指向的選項文字必須可從 readingContent 直接推斷或引用。
 - 時間、金錢、數字、專有名詞必須完全一致（包括標點和空格）。
   若用 "4 o'clock" 則全題統一用 "4 o'clock"，不可混用 "four o'clock" 或 "4:00"。
@@ -531,7 +531,7 @@ const STRICT_ANSWER_RULES = `
   ❌ "00 PM"、"30 PM"、"5:00"（無 AM/PM）、"00"、"30"、裸數字
   ✅ "4:00 PM"、"4 o'clock"、"four o'clock"、"3:30 PM"、"half past three"
 - ⚠️ choices 陣列必須恰好 4 個元素。少於 4 個會被系統自動補位；被補位的選項可能不是 DSE 格式。
-- 輸出前自我檢查 (Self-Check)：確認 answer 對應的選項文字確實存在於 listeningContent/readingContent 中。
+- 輸出前自我檢查 (Self-Check)：確認 answer 對應的選項文字確實存在於該題的 listeningContent/readingContent 中。
   如不一致，必須修正後再輸出。`;
 
 function normalizeAnswer(text: string): string {
@@ -989,24 +989,21 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
   - ⚠️ 嚴禁將多個角色對話擠在一行（如 "Boy: ... Girl: ... Boy: ..."），這會導致 TTS 無法區分角色
   - 每個對話行格式：角色標籤 + 半形冒號 + 空格 + 台詞
 - listeningContentZh: 繁體中文情境說明
-- ⚠️ 聆聽題關鍵規則：同一組聆聽題目必須共用同一段 listeningContent！
-  - 只有第 1 題的 listeningContent 欄位填寫完整對話
-  - 第 2 題及之後的 listeningContent 必須設為空字串 ""
-  - 所有題目的 prompt 必須針對同一段 listeningContent 出題
-  - 這樣模擬真實 DSE Paper 3：一段錄音對應多條問題
-- ⚠️ 對話長度與內容點規則（CRITICAL — 防止選項不足）：
-  - 每道題目需要對話中有 1-2 個獨立內容點支撐其答案
-  - 例：若要出 5 題，對話必須至少包含 5-8 個獨立資訊點（數字、時間、地點、原因、人名、決定、轉折等）
-  - 對話太短（如只有 6 行）→ 無法支撐 5 道高品質題目 → 選項會變成碎片
+- ⚠️ 聆聽題關鍵規則（v4.0 — 每題獨立錄音）：
+  - **每道題目必須有自己獨立的 listeningContent**（不再共用長錄音）
+  - 每題的 listeningContent 是一段簡短獨立對話（4-8 行），只包含該題所需的資訊
+  - 這種設計的好處：TTS 合成更快、更穩定、學生可針對單題重聽
+  - 每題 listeningContent 必須是自給自足（self-contained）的迷你對話
+  - 同一批題目可使用相似主題/角色，但每題的對話內容獨立
+- ⚠️ 對話長度控制（CRITICAL — 確保 TTS 穩定）：
+  - 每題獨立 listeningContent：4-8 行（含 1-3 個獨立資訊點）
+  - 每行 5-20 個單詞，總對話長度控制在 40-120 詞
+  - 這樣確保 Google Cloud TTS 合成快速（<3 秒）且不會觸發長文本錯誤
+  - 太短的對話（<4 行）無法提供足夠上下文 → 加長
+  - 太長的對話（>8 行）導致 TTS 延遲過長 → 精簡
   - 最低行數：remedial ≥12 行 / core ≥16 行 / challenge ≥20 行
   - 自我檢查：生成 listeningContent 後，數一下有多少個可出題的資訊點。若不夠 → 加長對話
-- ⚠️ 多段錄音規則（當題目數量 > 一段錄音可支撐時）：
-  - 若生成 8-10 題：使用 2 段獨立對話（每段各 5 題）
-  - 第 1 段：Q1-Q5 共用第一段 listeningContent（Q1 填內容，Q2-Q5 留空）
-  - 第 2 段：Q6 填第二段 listeningContent（Q7-Q10 留空），新對話、新主題、新角色
-  - 兩段對話的主題應相關但各自獨立（如：第一段講看電影、第二段講餐廳訂位）
-  - 這樣確保每段錄音有足夠內容支撐其對應題目，避免選項碎片化
-- ⚠️ 題目相關性規則：所有 prompt 必須能從 listeningContent 中找到答案
+- ⚠️ 題目相關性規則：每個 prompt 必須能從其對應的 listeningContent 中找到答案
   - 不可出與對話內容無關的題目
   - 每個 prompt 的正確答案必須在 listeningContent 中有明確依據
   - ⚠️ 推論題（Inference）特別規範：
@@ -1056,22 +1053,40 @@ ${isReading ? `
   "grammarPoint": "Reading comprehension — identifying explicit information"
 }
 
-【聆聽題 JSON 輸出示例 — 時間選項正確格式】
-{
-  "type": "mc",
-  "prompt": "What time does the meeting start?",
-  "promptZh": "會議幾點開始？",
-  "listeningContent": "Boy: Do you know when the meeting starts?\nGirl: It's at 2 o'clock in the afternoon.\nBoy: Are you sure? I thought it was at 3.\nGirl: No, they changed it to 2 o'clock. I got the email this morning.",
-  "listeningContentZh": "兩個學生討論會議時間。",
-  "choices": ["2 o'clock in the afternoon", "3 o'clock in the afternoon", "2:30 in the afternoon", "The speaker did not say"],
-  "answer": "A",
-  "explanationZh": "女孩明確說會議改為2點，並收到電郵確認。",
-  "explanationEn": "The girl clearly states the meeting was changed to 2 o'clock.",
-  "commonMistake": "學生可能只聽到第一次提到的3點，忽略了後來的更正。",
-  "grammarPoint": "Listening — identifying corrected information"
-}
-⚠️ 注意上述 choices 格式：每個時間選項都是完整的片語（如 "2 o'clock in the afternoon"），
-不是碎片（"00 PM"、"30 PM"、"2:00" 無 AM/PM）。若你的 choices 包含碎片，輸出前修正。` : ''}
+【聆聽題 JSON 輸出示例 — v4.0 每題獨立短對話 + 完整選項格式】
+⚠️ 每題都有自己獨立的 listeningContent！以下展示 2 題的輸出結構：
+[
+  {
+    "type": "mc",
+    "prompt": "What time does the meeting start?",
+    "promptZh": "會議幾點開始？",
+    "listeningContent": "Boy: Do you know when the meeting starts?\nGirl: It's at 2 o'clock in the afternoon.\nBoy: Are you sure? I thought it was at 3.\nGirl: No, they changed it to 2 o'clock. I got the email this morning.",
+    "listeningContentZh": "兩個學生討論會議時間。",
+    "choices": ["2 o'clock in the afternoon", "3 o'clock in the afternoon", "2:30 in the afternoon", "The speaker did not say"],
+    "answer": "A",
+    "explanationZh": "女孩明確說會議改為2點，並收到電郵確認。",
+    "explanationEn": "The girl clearly states the meeting was changed to 2 o'clock.",
+    "commonMistake": "學生可能只聽到第一次提到的3點，忽略了後來的更正。",
+    "grammarPoint": "Listening — identifying corrected information"
+  },
+  {
+    "type": "mc",
+    "prompt": "Where will the meeting take place?",
+    "promptZh": "會議在哪裡舉行？",
+    "listeningContent": "Girl: Do you remember which room we're using?\nBoy: I think it's in Room 301.\nGirl: Are you sure? Last time it was in the hall.\nBoy: Actually, they moved it to Room 401. Check the notice board.",
+    "listeningContentZh": "兩個學生討論會議地點。",
+    "choices": ["Room 401", "Room 301", "The hall", "The library"],
+    "answer": "A",
+    "explanationZh": "男孩最後更正說會議改到Room 401。",
+    "explanationEn": "The boy corrected himself and confirmed Room 401.",
+    "commonMistake": "學生可能記住第一次提到的Room 301，忽略了後來的更正。",
+    "grammarPoint": "Listening — identifying corrected information"
+  }
+]
+⚠️ 注意上述格式要點：
+- 每題都有獨立 listeningContent（不再共用）
+- 每個時間選項都是完整片語（如 "2 o'clock in the afternoon"），不是碎片
+- 若你的 choices 包含碎片（"00 PM"、"30 PM"），輸出前修正。` : ''}
 
 每題必須包含以下欄位（全部為必填）：
 - type: 題型 ("mc" / "fill-blank" / "error-correction" / "short-writing")

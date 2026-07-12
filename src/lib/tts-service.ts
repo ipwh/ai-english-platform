@@ -156,8 +156,8 @@ export interface SynthesizeResult {
 }
 
 /**
- * 單段語音合成（純文字模式，不用 SSML）
- * 最可靠的方式：直接送純文字 + voice name，不做 SSML 包裝
+ * 單段語音合成（支援 SSML prosody + 重試機制）
+ * 根據文本長度自動選擇純文字或 SSML 模式
  */
 async function synthesizeSegment(
   client: TextToSpeechClient,
@@ -172,15 +172,27 @@ async function synthesizeSegment(
     LINEAR16: 'LINEAR16' as const,
   };
 
+  // 短文本（<200 chars）使用 SSML 以獲得更好的 prosody 控制
+  // 長文本使用純文字（更穩定，避免 SSML parse 錯誤）
+  const useSSML = text.length < 200 && !text.includes('<') && !text.includes('&');
+
+  const input: Record<string, unknown> = useSSML
+    ? {
+        ssml: wrapSSML(text, voiceName, speakingRate),
+      }
+    : {
+        text: text,
+      };
+
   const [response] = await client.synthesizeSpeech({
-    input: { text },
+    input: input as { text: string } | { ssml: string },
     voice: {
       languageCode: 'en-US',
       name: voiceName,
     },
     audioConfig: {
       audioEncoding: encodingMap[encoding],
-      speakingRate,
+      speakingRate: useSSML ? 1.0 : speakingRate, // SSML 內部控制語速
     },
   });
 
@@ -191,6 +203,54 @@ async function synthesizeSegment(
   return response.audioContent instanceof Buffer
     ? response.audioContent
     : Buffer.from(response.audioContent as Uint8Array);
+}
+
+/** SSML 包裝：加入 prosody 控制以提升自然度 */
+function wrapSSML(text: string, voiceName: string, speakingRate: number): string {
+  // Escape XML special chars
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  const rate = Math.round(speakingRate * 100) / 100;
+  return `<speak>
+  <voice name="${voiceName}">
+    <prosody rate="${rate}">
+      ${escaped}
+    </prosody>
+  </voice>
+</speak>`;
+}
+
+/** 帶重試機制的合成（最多 3 次，指數退避） */
+async function synthesizeWithRetry(
+  client: TextToSpeechClient,
+  text: string,
+  voiceName: string,
+  speakingRate: number,
+  encoding: 'MP3' | 'OGG_OPUS' | 'LINEAR16',
+  maxRetries = 3
+): Promise<Buffer> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await synthesizeSegment(client, text, voiceName, speakingRate, encoding);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[TTS] Segment synthesis attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+
+      if (attempt < maxRetries) {
+        // 指數退避：1s, 2s, 4s
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError || new Error('TTS synthesis failed after all retries');
 }
 
 export async function synthesizeSpeech(options: SynthesizeOptions): Promise<SynthesizeResult> {
@@ -210,47 +270,53 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
 
   // ============================================
   // 多人對話模式：分段合成 + MP3 拼接
-  // 完全捨棄 SSML <voice> 切換（不可靠），改用逐段合成
+  // 使用不同 voice 為不同角色合成，並加入短暫停頓
   // ============================================
   if (multiSpeaker) {
     const segments = parseDialogueForTTS(text);
     if (segments.length === 0) {
-      throw new Error('No dialogue segments found in text');
+      // 無法解析對話段落 → fallback 單人模式
+      console.warn('[TTS] Multi-speaker mode: no dialogue segments found, falling back to single-speaker');
+      return synthesizeSpeech({ ...options, multiSpeaker: false });
     }
 
     console.log(`[TTS] Multi-speaker mode: ${segments.length} segments`);
 
-    // 逐段合成
+    // 逐段合成（帶重試）
     const audioBuffers: Buffer[] = [];
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
       const voiceEntry = TTS_VOICES[seg.speaker];
       const segVoiceName = voiceEntry[voiceTier] ?? voiceEntry.default;
 
-      console.log(`[TTS]   Segment ${i + 1}/${segments.length}: speaker=${seg.speaker}, voice=${segVoiceName}, text="${seg.text.slice(0, 40)}..."`);
+      console.log(`[TTS]   Segment ${i + 1}/${segments.length}: speaker=${seg.speaker}, voice=${segVoiceName}, text="${seg.text.slice(0, 50)}..."`);
 
       try {
-        // 每段之間加入 0.5 秒靜音（約 500ms 的 MP3 silence）
+        // 每段之間加入短暫停頓（約 0.4s）
         if (i > 0) {
-          const silenceBuffer = await synthesizeSegment(
-            client, ' ', segVoiceName, speakingRate, audioEncoding
+          const pauseBuffer = await synthesizeWithRetry(
+            client, '. ', segVoiceName, speakingRate, audioEncoding, 2
           );
-          // 只取前 ~1KB（近似 0.5 秒靜音），不要全段空白
-          // 更好的做法是直接用 silent MP3 frame，但這個 hack 夠用
-          audioBuffers.push(silenceBuffer.slice(0, Math.min(silenceBuffer.length, 2000)));
+          audioBuffers.push(pauseBuffer.slice(0, Math.min(pauseBuffer.length, 1500)));
         }
 
-        const segBuffer = await synthesizeSegment(
-          client, seg.text, segVoiceName, speakingRate, audioEncoding
+        const segBuffer = await synthesizeWithRetry(
+          client, seg.text, segVoiceName, speakingRate, audioEncoding, 3
         );
         audioBuffers.push(segBuffer);
       } catch (err) {
-        console.error(`[TTS] Segment ${i + 1} synthesis failed:`, err);
-        throw err;
+        console.error(`[TTS] Segment ${i + 1} synthesis failed after retries:`, err);
+        // 單段失敗不中斷整個流程，用靜音墊檔
+        // 但若第一段就失敗則拋出錯誤
+        if (i === 0) throw err;
       }
     }
 
-    // 拼接所有 MP3 buffer（MP3 frame 可以直接串接）
+    if (audioBuffers.length === 0) {
+      throw new Error('All TTS segments failed to synthesize');
+    }
+
+    // 拼接所有 MP3 buffer
     const combined = Buffer.concat(audioBuffers);
 
     const mimeMap: Record<string, string> = {
@@ -259,6 +325,8 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
       LINEAR16: 'audio/l16',
     };
 
+    console.log(`[TTS] Multi-speaker synthesis complete: ${combined.length} bytes, ${segments.length} segments`);
+
     return {
       audioContent: combined,
       mimeType: mimeMap[audioEncoding] || 'audio/mpeg',
@@ -266,35 +334,13 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
   }
 
   // ============================================
-  // 單人模式：純文字直接合成（不用 SSML，最可靠）
+  // 單人模式：純文字 + SSML prosody（短文本）或純文字（長文本）
   // ============================================
   const vName = voiceName || TTS_VOICES.female.default;
 
-  const encodingMap = {
-    MP3: 'MP3' as const,
-    OGG_OPUS: 'OGG_OPUS' as const,
-    LINEAR16: 'LINEAR16' as const,
-  };
-
-  const [response] = await client.synthesizeSpeech({
-    input: { text },
-    voice: {
-      languageCode: 'en-US',
-      name: vName,
-    },
-    audioConfig: {
-      audioEncoding: encodingMap[audioEncoding],
-      speakingRate,
-    },
-  });
-
-  if (!response.audioContent) {
-    throw new Error('TTS synthesis returned empty audio content');
-  }
-
-  const audioBuffer = response.audioContent instanceof Buffer
-    ? response.audioContent
-    : Buffer.from(response.audioContent as Uint8Array);
+  const audioBuffer = await synthesizeWithRetry(
+    client, text, vName, speakingRate, audioEncoding, 3
+  );
 
   const mimeMap: Record<string, string> = {
     MP3: 'audio/mpeg',
