@@ -8,7 +8,7 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/lib/utils';
-import { getLevelInfo, getDailyGoal, type BadgeDefinition } from '@/lib/gamification';
+import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats } from '@/lib/gamification';
 import { GamificationSkeleton } from '@/components/shared/Skeleton';
 
 interface GamificationData {
@@ -172,6 +172,19 @@ export default function StudentDashboardPage() {
               {t('student.dashboard.streak').replace('{n}', String(weeklyStats.streakDays))}
             </div>
           )}
+
+          {/* 🤖 AI 學習推薦 */}
+          {gamification?.stats && (() => {
+            const rec = getStudyRecommendation(gamification.stats as unknown as BadgeCheckStats);
+            return (
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-3">
+                <p className="text-xs font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                  💡 {language === 'en' ? 'Today\'s Focus' : '今日推薦'}：{language === 'en' ? rec.focus : rec.focusZh}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">{language === 'en' ? rec.reason : rec.reasonZh}</p>
+              </div>
+            );
+          })()}
         </div>
       ) : null}
 

@@ -271,6 +271,37 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     category: 'special',
     condition: (s) => s.sessionsCompleted >= 1,
   },
+  // Hidden Achievements（隱藏成就 — 解鎖時才顯示）
+  {
+    id: 'hidden-night-owl',
+    name: 'Night Owl',
+    nameZh: '夜貓子',
+    description: 'Practice after 11 PM',
+    descriptionZh: '在晚上 11 點後練習（隱藏成就）',
+    icon: '🦉',
+    category: 'special',
+    condition: () => false, // triggered manually via API
+  },
+  {
+    id: 'hidden-perfect-week',
+    name: 'Perfect Week',
+    nameZh: '完美一週',
+    description: '7-day streak with >80% accuracy',
+    descriptionZh: '連續 7 天練習且正確率 >80%（隱藏成就）',
+    icon: '👑',
+    category: 'special',
+    condition: (s) => s.streakDays >= 7 && s.overallAccuracy >= 80,
+  },
+  {
+    id: 'hidden-vocab-100',
+    name: 'Dictionary',
+    nameZh: '活字典',
+    description: 'Master 100 vocabulary words',
+    descriptionZh: '掌握 100 個詞彙（隱藏成就）',
+    icon: '📚',
+    category: 'special',
+    condition: (s) => s.wordsMastered >= 100,
+  },
 ];
 
 /**
@@ -283,6 +314,28 @@ export function checkNewBadges(
   return BADGE_DEFINITIONS.filter(
     (badge) => !alreadyUnlocked.includes(badge.id) && badge.condition(stats)
   );
+}
+
+/**
+ * AI 學習推薦 — 根據 gamification 數據建議今日練習重點
+ */
+export function getStudyRecommendation(stats: BadgeCheckStats): { focus: string; focusZh: string; reason: string; reasonZh: string } {
+  if (stats.streakDays < 3) {
+    return { focus: 'Daily Practice', focusZh: '每日練習', reason: 'Build a learning habit first', reasonZh: '先建立每日學習習慣' };
+  }
+  if (stats.overallAccuracy < 60 && stats.totalQuestions > 20) {
+    return { focus: 'Grammar Review', focusZh: '文法重溫', reason: 'Accuracy below 60% — focus on fundamentals', reasonZh: '正確率低於 60%，建議重溫基礎文法' };
+  }
+  if (stats.wordsMastered < 20) {
+    return { focus: 'Vocabulary Building', focusZh: '詞彙積累', reason: 'Expand your word bank for better comprehension', reasonZh: '擴充詞彙庫以提升閱讀理解' };
+  }
+  if (stats.writingSubmissions < 3) {
+    return { focus: 'Writing Practice', focusZh: '寫作練習', reason: 'Practice writing to improve expression', reasonZh: '多練習寫作以提升表達能力' };
+  }
+  if (stats.totalQuestions > 500 && stats.overallAccuracy > 80) {
+    return { focus: 'Challenge Mode', focusZh: '挑戰模式', reason: 'You\'re ready for harder content!', reasonZh: '你已經準備好挑戰更難的內容！' };
+  }
+  return { focus: 'Balanced Practice', focusZh: '均衡練習', reason: 'Keep up the good work across all skills', reasonZh: '在各技能上保持均衡練習' };
 }
 
 /**
