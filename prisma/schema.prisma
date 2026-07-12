@@ -55,6 +55,7 @@ model User {
   reviews       Review[]
   notifications Notification[]
   sessions      PracticeSession[]
+  listeningSessions ListeningSession[]
   accounts      Account[]
   sessionsAuth  Session[]
 
@@ -271,6 +272,25 @@ model PracticeSession {
   source         String    // ai-generated | mock | assignment
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
+
+  answers        PracticeAnswer[]
+}
+
+// 逐題答案記錄
+model PracticeAnswer {
+  id             String    @id @default(cuid())
+  sessionId      String
+  session        PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionIndex  Int       // 題號 (0-based)
+  questionType   String    // mc | fill-blank | matching | ordering | short-answer
+  questionPrompt String    // 題目文字
+  correctAnswer  String    // 正確答案
+  studentAnswer  String    // 學生答案
+  isCorrect      Boolean
+  timeSpent      Int?      // 作答秒數
+  createdAt      DateTime  @default(now())
+
+  @@index([sessionId])
 }
 
 // ============================================
@@ -388,4 +408,89 @@ model WeeklySnapshot {
 
   @@unique([userId, weekStart])
   @@index([userId])
+}
+
+// ============================================
+// 十二、XP 交易記錄
+// ============================================
+
+model XpTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  event     String   // dailyLogin | answerCorrect | completeSession | submitWriting | learnWord | masterWord | reviewMistake | streakBonus | achievementBonus
+  xpAmount  Int
+  metadata  String?  // JSON: { sessionId, questionIndex, wordId, badgeId, ... }
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================
+// 十三、詞彙掌握度變更記錄
+// ============================================
+
+model VocabMasteryLog {
+  id             String   @id @default(cuid())
+  vocabId        String
+  studentId      String
+  fromLevel      String   // new | learning | familiar | mastered
+  toLevel        String
+  fromMastery    Int      // 0-5
+  toMastery      Int
+  changedAt      DateTime @default(now())
+
+  @@index([vocabId])
+  @@index([studentId])
+}
+
+// ============================================
+// 十四、錯題複習記錄
+// ============================================
+
+model MistakeReviewLog {
+  id         String   @id @default(cuid())
+  mistakeId  String
+  studentId  String
+  action     String   // reviewed | addToReviewList | removeFromReviewList | srsReview
+  outcome    String?  // correct | incorrect | skipped
+  reviewedAt DateTime @default(now())
+
+  @@index([mistakeId])
+  @@index([studentId])
+}
+
+// ============================================
+// 十五、聆聽練習記錄
+// ============================================
+
+model ListeningSession {
+  id             String    @id @default(cuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title          String
+  audioUrl       String?
+  totalQuestions Int
+  correctCount   Int       @default(0)
+  noteTaking     String?   // 學生筆記
+  source         String    @default("ai-generated") // ai-generated | past-paper | assignment
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  answers        ListeningAnswer[]
+}
+
+model ListeningAnswer {
+  id             String    @id @default(cuid())
+  sessionId      String
+  session        ListeningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionIndex  Int
+  questionPrompt String
+  correctAnswer  String
+  studentAnswer  String
+  isCorrect      Boolean
+  timeSpent      Int?
+  createdAt      DateTime  @default(now())
+
+  @@index([sessionId])
 }

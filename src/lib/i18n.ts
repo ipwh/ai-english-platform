@@ -1267,6 +1267,16 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.studentDetail.questionsUnit': { zh: '題', en: 'q' },
   'teacher.studentDetail.sessionsUnit': { zh: '次', en: '' },
   'teacher.studentDetail.loadFailed': { zh: '載入失敗', en: 'Load failed' },
+  'teacher.studentDetail.notFound': { zh: '找不到學生', en: 'Student not found' },
+  'teacher.studentDetail.back': { zh: '← 返回', en: '← Back' },
+  'teacher.studentDetail.class': { zh: '班級', en: 'Class' },
+  'teacher.studentDetail.grade': { zh: '年級', en: 'Grade' },
+  'teacher.studentDetail.studentNo': { zh: '班號', en: 'Class No.' },
+  'teacher.studentDetail.accuracy': { zh: '準確率', en: 'Accuracy' },
+  'teacher.studentDetail.practiceCount': { zh: '練習次數', en: 'Sessions' },
+  'teacher.studentDetail.totalAnswered': { zh: '總答題數', en: 'Total Answered' },
+  'teacher.studentDetail.practiceAccuracy': { zh: '練習準確率', en: 'Accuracy' },
+  'teacher.studentDetail.mistakeCount': { zh: '錯題數', en: 'Mistakes' },
 
   // Teacher Assignments Detail
   'teacher.assignmentDetail.notFound': { zh: '找不到此作業', en: 'Assignment not found' },

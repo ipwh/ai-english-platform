@@ -185,14 +185,25 @@ export default function PracticeQuestionPage() {
   useEffect(() => {
     return () => {
         if (isSessionMode && store.currentSession && !store.currentSession.completedAt && !hasSavedRef.current) {
+        const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = store.currentSession;
+        // 構建逐題答案陣列
+        const answerRecords = questions.map((q, idx) => ({
+          questionIndex: idx,
+          questionType: q.type || 'mc',
+          questionPrompt: q.prompt || '',
+          correctAnswer: q.answer || '',
+          studentAnswer: answers[q.id] || '',
+          isCorrect: results[q.id] ?? false,
+        }));
         savePractice({
           studentId: store.userId || '',
-          skill: store.currentSession.skill || 'general',
-          skillZh: store.currentSession.skillZh || '',
-          difficulty: store.currentSession.difficulty || 'core',
-          totalQuestions: store.currentSession.totalQuestions,
-          correctCount: store.currentSession.correctCount,
-          source: store.currentSession.source || 'ai-generated',
+          skill: skill || 'general',
+          skillZh: skillZh || '',
+          difficulty: difficulty || 'core',
+          totalQuestions,
+          correctCount,
+          source: source || 'ai-generated',
+          answers: answerRecords,
         });
       }
     };
@@ -264,17 +275,27 @@ export default function PracticeQuestionPage() {
       setAiLoading(false);
     }
 
-    // 儲存練習記錄到後端
+    // 儲存練習記錄到後端（含逐題答案）
     if (isSessionMode && !hasSavedRef.current) {
       hasSavedRef.current = true;
+      const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = store.currentSession!;
+      const answerRecords = questions.map((q, idx) => ({
+        questionIndex: idx,
+        questionType: q.type || 'mc',
+        questionPrompt: q.prompt || '',
+        correctAnswer: q.answer || '',
+        studentAnswer: answers[q.id] || '',
+        isCorrect: results[q.id] ?? false,
+      }));
       savePractice({
         studentId: store.userId || '',
-        skill: question.grammarItem || question.languageSkill || 'general',
-        skillZh: question.subSkillZh || '',
-        difficulty: question.difficulty || 'core',
-        totalQuestions: 1,
-        correctCount: correct ? 1 : 0,
-        source: 'ai-generated',
+        skill: skill || question.grammarItem || question.languageSkill || 'general',
+        skillZh: skillZh || question.subSkillZh || '',
+        difficulty: difficulty || question.difficulty || 'core',
+        totalQuestions,
+        correctCount,
+        source: source || 'ai-generated',
+        answers: answerRecords,
       });
     }
 

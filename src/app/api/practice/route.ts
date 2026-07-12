@@ -9,7 +9,7 @@ import db from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { studentId, skill, skillZh, difficulty, totalQuestions, correctCount, source } = body;
+    const { studentId, skill, skillZh, difficulty, totalQuestions, correctCount, source, answers } = body;
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
@@ -26,6 +26,27 @@ export async function POST(request: NextRequest) {
         source: source || 'ai-generated',
       },
     });
+
+    // 逐題答案儲存（即使 AI/RAG 失敗也要儲存學生答案）
+    if (answers && Array.isArray(answers) && answers.length > 0) {
+      try {
+        await db.practiceAnswer.createMany({
+          data: answers.map((a: {
+            questionIndex: number; questionType?: string; questionPrompt?: string;
+            correctAnswer: string; studentAnswer: string; isCorrect: boolean; timeSpent?: number;
+          }, idx: number) => ({
+            sessionId: session.id,
+            questionIndex: a.questionIndex ?? idx,
+            questionType: a.questionType || 'mc',
+            questionPrompt: a.questionPrompt || '',
+            correctAnswer: a.correctAnswer || '',
+            studentAnswer: a.studentAnswer || '',
+            isCorrect: a.isCorrect,
+            timeSpent: a.timeSpent ?? null,
+          })),
+        });
+      } catch { /* 答案儲存非致命錯誤，session 已儲存 */ }
+    }
 
     // 更新學生整體正確率（從所有練習紀錄計算）
     try {
@@ -92,6 +113,7 @@ export async function GET(request: NextRequest) {
       where: { studentId },
       orderBy: { startedAt: 'desc' },
       take: 50,
+      include: { answers: { orderBy: { questionIndex: 'asc' } } },
     });
 
     return NextResponse.json({ sessions });

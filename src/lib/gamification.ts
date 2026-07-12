@@ -33,6 +33,7 @@ export interface XpEvent {
   type: keyof typeof XP_VALUES;
   difficulty?: string;
   streakDays?: number;
+  metadata?: Record<string, unknown>;  // sessionId, questionIndex, wordId, badgeId, ...
 }
 
 export function calculateXp(event: XpEvent): number {

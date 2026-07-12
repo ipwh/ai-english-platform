@@ -74,6 +74,21 @@ export async function PATCH(request: NextRequest) {
       data: updateData,
     });
 
+    // 記錄複習歷史
+    try {
+      const action = inReviewList === true ? 'addToReviewList'
+        : inReviewList === false ? 'removeFromReviewList'
+        : 'reviewed';
+      await db.mistakeReviewLog.create({
+        data: {
+          mistakeId: id,
+          studentId: mistake.studentId,
+          action,
+          outcome: reviewed ? 'correct' : undefined,
+        },
+      });
+    } catch { /* 歷史記錄非致命 */ }
+
     return NextResponse.json({ mistake });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';

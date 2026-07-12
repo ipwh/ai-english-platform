@@ -156,6 +156,18 @@ export async function POST(req: NextRequest) {
       data: updateData as any,
     });
 
+    // XP 交易記錄（完整審計追蹤）
+    try {
+      await db.xpTransaction.create({
+        data: {
+          userId: studentId,
+          event: event.type,
+          xpAmount: xpGained,
+          metadata: event.metadata ? JSON.stringify(event.metadata) : null,
+        },
+      });
+    } catch { /* XP 記錄非致命 — 不影響使用者體驗 */ }
+
     const updated = await db.user.findUnique({
       where: { id: studentId },
       select: { xp: true, streakDays: true },

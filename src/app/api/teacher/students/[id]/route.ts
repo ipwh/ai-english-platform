@@ -1,0 +1,108 @@
+// ============================================
+// GET /api/teacher/students/[id] — 教師查看個別學生完整詳情
+// ============================================
+
+import { NextRequest, NextResponse } from 'next/server';
+import db from '@/lib/db';
+import { verifySessionToken } from '@/lib/jwt';
+import { auth } from '@/lib/auth-next';
+
+async function getTeacherId(request: NextRequest): Promise<string | null> {
+  const token = request.cookies.get('session_token')?.value;
+  if (token) {
+    const payload = await verifySessionToken(token);
+    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) return payload.userId;
+  }
+  const session = await auth();
+  if (session?.user?.id) {
+    const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+    if (user && (user.role === 'teacher' || user.role === 'admin')) return session.user.id;
+  }
+  return null;
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const teacherId = await getTeacherId(request);
+    if (!teacherId) {
+      return NextResponse.json({ error: '請先登入教師帳號' }, { status: 403 });
+    }
+
+    const { id: studentId } = await params;
+    if (!studentId) {
+      return NextResponse.json({ error: '缺少學生 ID' }, { status: 400 });
+    }
+
+    // 學生基本資料
+    const student = await db.user.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true, email: true, nameZh: true, nameEn: true,
+        level: true, overallAccuracy: true, classNumber: true,
+        xp: true, badgeIds: true, streakDays: true, academicYear: true,
+        class: { select: { id: true, name: true, gradeLevel: true } },
+      },
+    });
+
+    if (!student) {
+      return NextResponse.json({ error: '找不到學生' }, { status: 404 });
+    }
+
+    // 並行載入所有關聯數據
+    const [
+      practiceSessions,
+      mistakes,
+      vocabCount,
+      vocabMastered,
+      writingDrafts,
+      xpTransactions,
+      weeklySnapshots,
+    ] = await Promise.all([
+      db.practiceSession.findMany({
+        where: { studentId },
+        orderBy: { startedAt: 'desc' },
+        take: 50,
+        include: { answers: { orderBy: { questionIndex: 'asc' } } },
+      }),
+      db.mistake.findMany({
+        where: { studentId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+      db.vocabItem.count({ where: { studentId } }),
+      db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
+      db.writingDraft.findMany({
+        where: { studentId },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+        select: { id: true, title: true, prompt: true, status: true, aiSuggestions: true, teacherComment: true, createdAt: true, updatedAt: true },
+      }),
+      db.xpTransaction.findMany({
+        where: { userId: studentId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+      db.weeklySnapshot.findMany({
+        where: { userId: studentId },
+        orderBy: { weekStart: 'desc' },
+        take: 12,
+      }),
+    ]);
+
+    return NextResponse.json({
+      student,
+      practiceSessions,
+      mistakes,
+      vocab: { total: vocabCount, mastered: vocabMastered },
+      writingDrafts,
+      xpTransactions,
+      weeklySnapshots,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '伺服器錯誤';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

@@ -141,7 +141,32 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
+    // 記錄變更前的狀態（用於 mastery 歷史記錄）
+    const prev = (familiarity || masteryLevel !== undefined)
+      ? await db.vocabItem.findUnique({ where: { id }, select: { studentId: true, familiarity: true, masteryLevel: true } })
+      : null;
+
     const vocab = await db.vocabItem.update({ where: { id }, data: updateData as unknown as Prisma.VocabItemUpdateInput });
+
+    // 記錄 mastery 變更歷史
+    if (prev && (familiarity || masteryLevel !== undefined)) {
+      const newFamiliarity = familiarity || prev.familiarity;
+      const newMastery = masteryLevel !== undefined ? masteryLevel : prev.masteryLevel;
+      if (prev.familiarity !== newFamiliarity || prev.masteryLevel !== newMastery) {
+        try {
+          await db.vocabMasteryLog.create({
+            data: {
+              vocabId: id,
+              studentId: prev.studentId,
+              fromLevel: prev.familiarity,
+              toLevel: newFamiliarity,
+              fromMastery: prev.masteryLevel,
+              toMastery: newMastery,
+            },
+          });
+        } catch { /* 歷史記錄非致命 */ }
+      }
+    }
     return NextResponse.json({ vocab: serializeVocab(vocab) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
