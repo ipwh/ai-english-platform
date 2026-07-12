@@ -121,6 +121,7 @@ export default function PracticeQuestionPage() {
   const [wrongEncouragement, setWrongEncouragement] = useState('');
   const hasSavedRef = useRef(false); // 防止重複 savePractice
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [completedSession, setCompletedSession] = useState<typeof store.currentSession>(null);
 
   // 失敗鼓勵語（DSE 正向引導）
   const ENCOURAGEMENTS = [
@@ -239,11 +240,11 @@ export default function PracticeQuestionPage() {
     );
   }
 
-  if (sessionComplete && store.currentSession) {
+  if (sessionComplete && completedSession) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <SessionCompleteSummary
-          session={store.currentSession}
+          session={completedSession}
           onBackToPractice={() => router.push('/student/practice')}
           onReviewMistakes={() => router.push('/student/mistakes')}
           onDashboard={() => router.push('/student/dashboard')}
@@ -359,6 +360,8 @@ export default function PracticeQuestionPage() {
     } else {
       // 完成所有題目 → 留在頁面顯示摘要
       if (isSessionMode) {
+        // ⚠️ 必須在 completeSession() 前保存快照（completeSession 會設 currentSession = null）
+        setCompletedSession({ ...store.currentSession! });
         store.completeSession();
         awardXp('completeSession', store.currentSession?.difficulty);
         setSessionComplete(true);
