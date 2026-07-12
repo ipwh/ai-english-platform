@@ -43,7 +43,7 @@ function TemplateCard({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert('模板下載失敗，請稍後再試。');
+      alert(t('admin.import.downloadFailed'));
     } finally {
       setDownloading(false);
     }

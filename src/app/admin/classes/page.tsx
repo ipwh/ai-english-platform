@@ -62,7 +62,7 @@ export default function AdminClassesPage() {
       setShowAdd(false);
       fetchClasses();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '新增失敗');
+      alert(err instanceof Error ? err.message : t('admin.users.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -75,7 +75,8 @@ export default function AdminClassesPage() {
       if (!res.ok) throw new Error('刪除失敗');
       fetchClasses();
     } catch {
-      alert('刪除失敗');
+      const msg = t('admin.users.saveFailed');
+      alert(msg);
     }
   };
 
