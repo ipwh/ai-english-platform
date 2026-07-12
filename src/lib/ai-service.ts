@@ -527,6 +527,10 @@ const STRICT_ANSWER_RULES = `
 - Reading：'answer' 指向的選項文字必須可從 readingContent 直接推斷或引用。
 - 時間、金錢、數字、專有名詞必須完全一致（包括標點和空格）。
   若用 "4 o'clock" 則全題統一用 "4 o'clock"，不可混用 "four o'clock" 或 "4:00"。
+- ⚠️ 時間選項反例（這些格式會被系統過濾，導致題目廢棄）：
+  ❌ "00 PM"、"30 PM"、"5:00"（無 AM/PM）、"00"、"30"、裸數字
+  ✅ "4:00 PM"、"4 o'clock"、"four o'clock"、"3:30 PM"、"half past three"
+- ⚠️ choices 陣列必須恰好 4 個元素。少於 4 個會被系統自動補位；被補位的選項可能不是 DSE 格式。
 - 輸出前自我檢查 (Self-Check)：確認 answer 對應的選項文字確實存在於 listeningContent/readingContent 中。
   如不一致，必須修正後再輸出。`;
 
@@ -661,22 +665,45 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
         .filter(Boolean)
     ));
 
-    const fallbackChoices = [
-      'All of the above.',
-      'None of the above.',
-      'Not mentioned in the question.',
-      'Cannot be determined from the given information.',
+    // 過濾掉 DSE 不相容的選項（All/None of the above、碎片數字等）
+    const BANNED_PATTERNS = [
+      /^all\s*of\s*the\s*above\.?\s*$/i,
+      /^none\s*of\s*the\s*above\.?\s*$/i,
+      /^all\s*the\s*above\.?\s*$/i,
+      /^not\s*mentioned/i,
+      /^cannot\s*be\s*determined/i,
     ];
+    const validChoices = cleanedChoices.filter(c => {
+      if (c.length < 3) return false; // 太短→碎片
+      if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false; // 純數字碎片（如 "00 PM"）
+      if (BANNED_PATTERNS.some(p => p.test(c))) {
+        console.warn(`[ai-service] Filtered banned choice: "${c}"`);
+        return false;
+      }
+      return true;
+    });
 
-    const normalizedChoices: string[] = [...cleanedChoices];
-    for (const fallback of fallbackChoices) {
-      if (normalizedChoices.length >= 4) break;
-      if (!normalizedChoices.some(c => c.toLowerCase() === fallback.toLowerCase())) {
-        normalizedChoices.push(fallback);
+    // 若過濾後不足 2 個有效選項，標記為需重試
+    if (validChoices.length < 2) {
+      console.error(`[ai-service] Q has only ${validChoices.length} valid choices after filtering:`, validChoices);
+      // 回退：至少保留 2 個選項讓題目可用
+      const fallbackFillers = [
+        'The information is not provided in the listening.',
+        'The speaker changed the time.',
+        'The exact time is mentioned only once.',
+        'More details are needed to answer.',
+      ];
+      while (validChoices.length < 4) {
+        const filler = fallbackFillers[validChoices.length] || `Option ${validChoices.length + 1}`;
+        if (!validChoices.some(c => c.toLowerCase() === filler.toLowerCase())) {
+          validChoices.push(filler);
+        } else {
+          break;
+        }
       }
     }
 
-    const finalChoices = normalizedChoices.slice(0, 4);
+    const finalChoices = validChoices.slice(0, 4);
     const finalAnswer = normalizeMcqAnswer(base.answer, finalChoices);
 
     // 答案一致性自動修正
@@ -826,7 +853,7 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 - 陷阱: 0-1 個（僅簡單 distraction — 說了立刻更正）
 - 對話結構: 線性、可預測、單一主題
 - 口語特徵: 極少 linking/reduction，不用 fillers
-- 長度: 1 段短對話 (6-10 行)，2 位說話者
+- 長度: 1 段對話 (至少 12 行，確保足夠內容點支撐所有題目)，2-3 位說話者
 - S1-S3: 校園生活、家庭、興趣
 - S4-S6: 簡單社會話題、基礎工作情境
 
@@ -838,7 +865,7 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 - 陷阱: 1-2 個 (distraction + synonym replacement)
 - 對話結構: 有轉折、短暫離題後回正軌
 - 口語特徵: 適度 linking ("gonna", "wanna")，少量 hesitation
-- 長度: 1 段中等對話 (10-16 行)，2-3 位說話者
+- 長度: 1 段對話 (至少 16 行，含 5+ 個可出題的內容點)，2-3 位說話者
 - 題材: 校園活動、社區服務、文化交流、兼職工作
 
 【挑戰 (challenge) — Level 4-5】
@@ -849,7 +876,7 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 - 陷阱: 2-3 個 (distraction + synonym + speaker attitude + numerical/spelling)
 - 對話結構: 多主題交錯、自然打斷、插話、修正
 - 口語特徵: 自然 linking/reduction/hesitation/fillers，母語人士真實對話感
-- 長度: 1 段長對話 (16-24 行) 或 2 段相關短對話，2-3 位說話者
+- 長度: 1 段長對話 (至少 20 行，含 6+ 個可出題的內容點) 或 2 段相關短對話（各至少 10 行），2-3 位說話者
 - 題材: 社會議題、科技發展、環境保護、職業規劃、全球化
 
 ═══════════════════════════════════════
@@ -880,8 +907,11 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
    對話中清晰串出名字: "It's T-A-N-G, Tang."
 
 6. Inference (推論) — 挑戰必備：
-   不直接給答案，學生需從上下文推論
+   不直接給答案，學生需從上下文推論。
    "I've been hitting the books every night this week." → 推論此人正在準備考試
+   ⚠️ 推論題關鍵規則：對話必須提供足夠線索使正確答案成為唯一合理推論。
+   若對話中沒有線索能排除其他選項（例如對話只說 "Let's meet at 3:30" 就問原因），
+   這種題目不可出 — 改為事實提取題。
 
 ═══════════════════════════════════════
 四、題型設計規範
@@ -943,9 +973,30 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
   - 第 2 題及之後的 listeningContent 必須設為空字串 ""
   - 所有題目的 prompt 必須針對同一段 listeningContent 出題
   - 這樣模擬真實 DSE Paper 3：一段錄音對應多條問題
+- ⚠️ 對話長度與內容點規則（CRITICAL — 防止選項不足）：
+  - 每道題目需要對話中有 1-2 個獨立內容點支撐其答案
+  - 例：若要出 5 題，對話必須至少包含 5-8 個獨立資訊點（數字、時間、地點、原因、人名、決定、轉折等）
+  - 對話太短（如只有 6 行）→ 無法支撐 5 道高品質題目 → 選項會變成碎片
+  - 最低行數：remedial ≥12 行 / core ≥16 行 / challenge ≥20 行
+  - 自我檢查：生成 listeningContent 後，數一下有多少個可出題的資訊點。若不夠 → 加長對話
+- ⚠️ 多段錄音規則（當題目數量 > 一段錄音可支撐時）：
+  - 若生成 8-10 題：使用 2 段獨立對話（每段各 5 題）
+  - 第 1 段：Q1-Q5 共用第一段 listeningContent（Q1 填內容，Q2-Q5 留空）
+  - 第 2 段：Q6 填第二段 listeningContent（Q7-Q10 留空），新對話、新主題、新角色
+  - 兩段對話的主題應相關但各自獨立（如：第一段講看電影、第二段講餐廳訂位）
+  - 這樣確保每段錄音有足夠內容支撐其對應題目，避免選項碎片化
 - ⚠️ 題目相關性規則：所有 prompt 必須能從 listeningContent 中找到答案
   - 不可出與對話內容無關的題目
   - 每個 prompt 的正確答案必須在 listeningContent 中有明確依據
+  - ⚠️ 推論題（Inference）特別規範：
+    - 推論題僅限挑戰（challenge）難度使用
+    - 對話中必須有足夠的上下文線索，使正確答案是唯一合理的推論
+    - 反例（BAD）：對話只說 "Let's meet at 3:30"，就問 "Why does she suggest 3:30?" 
+      → 對話沒有給出原因，任何推論都是猜測，這種題目不可出
+    - 正例（GOOD）：對話說 "The movie starts at 4. It takes about 30 minutes to get there."
+      女孩說 "Let's meet at 3:30 then." → 可以合理推論原因是 "To have enough time"
+    - 驗證方法：出完推論題後自問：「對話中是否有線索能排除其他所有選項？」
+      若答案為否 → 該題必須改為事實提取題（答案直接在對話中明示）
   - 出題前先確認：這條題目的答案真的在對話裡嗎？
 - ⚠️ 聆聽題 Self-Check（輸出前逐題驗證）：
   - Q1 出完後，Q2-Q5 的每個 prompt 必須重新對照 listeningContent 確認答案確實存在
@@ -1018,9 +1069,17 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 - 干擾選項必須看起來合理（plausible distractor），不可明顯荒謬
 - 選項長度應大致相近，不可有某個選項明顯過長或過短
 - 選項之間不可有重疊或包含關係
-- ⚠️ 時間/數字答案：必須是完整格式（如 "4:00 PM"、"4 o'clock"、"$50"、"15 minutes"），嚴禁碎片如 "00"、"30"、"5:00" 無 AM/PM
-- ⚠️ 禁止 "All of the above" / "None of the above" — DSE 不使用此格式
+- ⚠️ 時間/數字答案 — 完整格式強制規則（CRITICAL）：
+  - 時間：必須是 "4:00 PM" / "4 o'clock" / "four o'clock" / "4 o'clock in the afternoon" 這種完整格式
+  - 數字：必須帶單位或上下文，如 "$50" / "15 minutes" / "3 times"
+  - ❌ 嚴禁碎片： "00" / "30" / "00 PM" / "30 PM" / "5:00"（無 AM/PM）/ 任何裸數字
+  - ❌ 嚴禁輸出片段時間文字如 "30 PM"（這種文字沒有意義，會被系統過濾掉導致題目失效）
+  - 每個時間選項必須能獨立閱讀理解（例如學生看到 "4:00 PM" 就能判斷對錯，不需要看其他選項補全）
+- ⚠️ 禁止 "All of the above" / "None of the above" / "Not mentioned" — DSE 不使用此格式
+  - 若 AI 輸出包含這些文字，整個選項會被系統自動過濾，可能導致題目無法使用
 - ⚠️ distractor 必須與正確答案屬同一類別（時間題全部是時間、地點題全部是地點）
+- ⚠️ MC 題 choices 陣列必須恰好 4 個選項，不可多也不可少
+  - 生成後請自我檢查：choices.length === 4?
 
 ${STRICT_ANSWER_RULES}
 
