@@ -209,7 +209,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   - 靜態模式：`structureGuide[]` + `usefulPhrases[]` + `commonMistakes[]` + `vocabularyUpgrades[]`（即時查表，零 API 成本）
   - AI 自適應模式：根據學生當前草稿提供 `personalizedTips[]` + `structureIssues[]` + `suggestedNextParagraph` + `missingElements[]`
 - **`generateWritingOutline` 強化**：注入文體特定結構指引 + 8 大高分策略 + 常見錯誤清單，產出 PEEL + Counter-argument + Concession/Rebuttal 完整大綱
-- **Prompt 強化**：整合 AfterSchool 及 Defining Education 兩大 DSE Writing 教學專家的核心內容
+- **Prompt 強化**：整合 DSE Writing 教學專家的核心內容
 
 ### 📝 生字簿 2.1 強化
 - **API 分頁支援**：`GET /api/vocabulary` 新增 `page`/`limit`/`search`/`familiarity`/`pos`/`sort` 參數，回傳 `pagination` 物件

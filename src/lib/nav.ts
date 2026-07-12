@@ -90,10 +90,6 @@ export const teacherNavSections: NavSection[] = [
   },
 ];
 
-// 教師端 header 導航（快捷）
-export const teacherQuickLinks: NavItem[] = [];
-
-
 // ========================================
 // 技能標籤（支援中英雙語）
 // ========================================
