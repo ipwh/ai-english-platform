@@ -69,7 +69,7 @@ export default function AdminClassesPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`確定要刪除班級「${name}」嗎？`)) return;
+    if (!confirm(t('admin.classes.confirmDelete', { name }))) return;
     try {
       const res = await fetch(`/api/admin/classes?id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('刪除失敗');

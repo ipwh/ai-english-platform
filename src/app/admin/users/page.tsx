@@ -601,7 +601,7 @@ export default function AdminUsersPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert('匯出失敗，請稍後再試。');
+      alert(t('admin.import.downloadFailed'));
     } finally {
       setExporting(null);
     }

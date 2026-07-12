@@ -655,6 +655,17 @@ const translations: Record<string, { zh: string; en: string }> = {
   'admin.import.downloading': { zh: '下載中...', en: 'Downloading...' },
   'admin.import.downloadBtn': { zh: '下載 {file}', en: 'Download {file}' },
   'admin.import.downloadFailed': { zh: '模板下載失敗，請稍後再試。', en: 'Template download failed. Please try again.' },
+  // Admin quick links
+  'admin.quickLinks.import.label': { zh: '批量匯入', en: 'Batch Import' },
+  'admin.quickLinks.import.description': { zh: '使用 CSV 批量匯入學生與教師資料', en: 'Batch import students and teachers via CSV' },
+  'admin.quickLinks.users.label': { zh: '使用者管理', en: 'User Management' },
+  'admin.quickLinks.users.description': { zh: '查看與管理所有使用者帳號', en: 'View and manage all user accounts' },
+  'admin.quickLinks.classes.label': { zh: '班級管理', en: 'Class Management' },
+  'admin.quickLinks.classes.description': { zh: '管理班級、年級與學年設定', en: 'Manage classes, grades and academic years' },
+  'admin.quickLinks.reports.label': { zh: '數據分析', en: 'Analytics' },
+  'admin.quickLinks.reports.description': { zh: '查看平台使用數據與學習報表', en: 'View platform usage data and reports' },
+  // Admin classes
+  'admin.classes.confirmDelete': { zh: '確定要刪除班級「{name}」嗎？', en: 'Are you sure you want to delete class "{name}"?' },
   'admin.import.importType': { zh: '匯入類型', en: 'Import Type' },
   'admin.import.students': { zh: '學生', en: 'Students' },
   'admin.import.teachers': { zh: '教師', en: 'Teachers' },

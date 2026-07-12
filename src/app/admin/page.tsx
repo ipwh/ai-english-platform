@@ -7,40 +7,17 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2, CheckCircle } from 'lucide-react';
 
-const quickLinks = [
-  {
-    label: '批量匯入',
-    description: '使用 CSV 批量匯入學生與教師資料',
-    href: '/admin/import',
-    icon: Upload,
-    color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
-  },
-  {
-    label: '使用者管理',
-    description: '查看與管理所有使用者帳號',
-    href: '/admin/users',
-    icon: Users,
-    color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-  },
-  {
-    label: '班級管理',
-    description: '管理班級、年級與學年設定',
-    href: '/admin/classes',
-    icon: BookOpen,
-    color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
-  },
-  {
-    label: '數據分析',
-    description: '查看平台使用數據與學習報表',
-    href: '/admin/reports',
-    icon: BarChart3,
-    color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
-  },
+import { useT } from '@/lib/i18n';
+
+const quickLinkKeys = [
+  { key: 'admin.quickLinks.import', href: '/admin/import', icon: Upload, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
+  { key: 'admin.quickLinks.users', href: '/admin/users', icon: Users, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+  { key: 'admin.quickLinks.classes', href: '/admin/classes', icon: BookOpen, color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+  { key: 'admin.quickLinks.reports', href: '/admin/reports', icon: BarChart3, color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
 ];
 
 export default function AdminDashboard() {
-  const [toolRunning, setToolRunning] = useState<string | null>(null);
-  const [toolResult, setToolResult] = useState<string>('');
+  const t = useT();
 
   const runTool = async (endpoint: string, name: string) => {
     setToolRunning(name);
@@ -73,7 +50,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {quickLinks.map((link) => (
+        {quickLinkKeys.map((link) => (
           <Link
             key={link.href}
             href={link.href}
@@ -87,10 +64,10 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  {link.label}
+                  {t(link.key + '.label')}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {link.description}
+                  {t(link.key + '.description')}
                 </p>
               </div>
             </div>
