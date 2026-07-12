@@ -37,6 +37,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'common.welcome': { zh: '歡迎回來', en: 'Welcome back' },
   'common.practice': { zh: '開始練習', en: 'Start Practice' },
   'common.logout': { zh: '登出', en: 'Logout' },
+  'common.confirmLogout': { zh: '確定要登出嗎？', en: 'Are you sure you want to logout?' },
   'common.switchRole': { zh: '切換身份', en: 'Switch Role' },
   'common.save': { zh: '儲存', en: 'Save' },
   'common.cancel': { zh: '取消', en: 'Cancel' },
@@ -419,7 +420,38 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.assignments.unnamed': { zh: '未命名任務', en: 'Unnamed task' },
   'teacher.assignments.publishFailed': { zh: '發布失敗', en: 'Publish failed' },
 
-  // Teacher Classes
+  // Teacher Assignment New (個別頁面使用的 key 別名)
+  'teacher.assignmentNew.title': { zh: '📋 建立新任務', en: '📋 Create Assignment' },
+  'teacher.assignmentNew.basicSettings': { zh: '📌 基本設定', en: '📌 Basic Settings' },
+  'teacher.assignmentNew.taskName': { zh: '任務名稱', en: 'Task Name' },
+  'teacher.assignmentNew.taskNamePlaceholder': { zh: '例如：文法練習：條件句', en: 'e.g. Grammar: Conditionals' },
+  'teacher.assignmentNew.class': { zh: '班別', en: 'Class' },
+  'teacher.assignmentNew.selectClass': { zh: '選擇班別', en: 'Select class' },
+  'teacher.assignmentNew.dueDate': { zh: '截止日期', en: 'Due Date' },
+  'teacher.assignmentNew.practiceSettings': { zh: '📝 練習設定', en: '📝 Practice Settings' },
+  'teacher.assignmentNew.grade': { zh: '年級', en: 'Grade' },
+  'teacher.assignmentNew.skill': { zh: '技能', en: 'Skill' },
+  'teacher.assignmentNew.level': { zh: '程度', en: 'Level' },
+  'teacher.assignmentNew.type': { zh: '題型', en: 'Type' },
+  'teacher.assignmentNew.typeMc': { zh: '選擇題', en: 'MCQ' },
+  'teacher.assignmentNew.typeFill': { zh: '填充題', en: 'Fill-blank' },
+  'teacher.assignmentNew.typeError': { zh: '改錯題', en: 'Error Correction' },
+  'teacher.assignmentNew.typeWriting': { zh: '寫作題', en: 'Writing' },
+  'teacher.assignmentNew.count': { zh: '題數', en: 'Questions' },
+  'teacher.assignmentNew.generateBtn': { zh: 'AI 生成題目', en: 'AI Generate' },
+  'teacher.assignmentNew.generating': { zh: 'AI 正在生成題目...', en: 'AI is generating questions...' },
+  'teacher.assignmentNew.preview': { zh: '📋 題目預覽', en: '📋 Preview' },
+  'teacher.assignmentNew.answer': { zh: '答案', en: 'Answer' },
+  'teacher.assignmentNew.back': { zh: '返回修改', en: 'Back to Edit' },
+  'teacher.assignmentNew.confirm': { zh: '確認派發', en: 'Confirm Assign' },
+  'teacher.assignmentNew.success': { zh: '✅ 任務已派發', en: '✅ Assignment Assigned' },
+  'teacher.assignmentNew.successMsg': { zh: '任務已成功派發至所選班別。', en: 'Assignment assigned to selected class.' },
+  'teacher.assignmentNew.notifyMsg': { zh: '學生將在下次登入時收到通知。', en: 'Students will be notified on next login.' },
+  'teacher.assignmentNew.publishFailed': { zh: '發布失敗', en: 'Publish failed' },
+  'teacher.assignmentNew.genFailed': { zh: '題目生成失敗', en: 'Generation failed' },
+  'teacher.assignmentNew.aiFailed': { zh: 'AI 服務暫時無法使用', en: 'AI service unavailable' },
+
+  // Teacher Materials (補充)
   'teacher.classes.title': { zh: '📊 班級進度', en: '📊 Class Progress' },
   'teacher.classes.classDetail': { zh: '{name} 班級詳情', en: '{name} Class Details' },
   'teacher.classes.classSubtitle': { zh: '{grade}（中{gradeNum}）· {n} 名學生', en: '{grade} (S{gradeNum}) · {n} students' },
@@ -475,6 +507,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.materials.analysisFailed': { zh: 'AI 分析失敗，請重試。', en: 'AI analysis failed. Please try again.' },
   'teacher.materials.imported': { zh: '已匯入：{name}（{length} 字元）', en: 'Imported: {name} ({length} chars)' },
   'teacher.materials.importFailed': { zh: '匯入失敗', en: 'Import failed' },
+  'teacher.materials.uploadFailed': { zh: '上傳失敗', en: 'Upload failed' },
+  'teacher.materials.importBtn': { zh: '匯入', en: 'Import' },
+  'teacher.materials.searchPlaceholder': { zh: '搜尋教材...', en: 'Search materials...' },
   'teacher.materials.connectionFailed': { zh: '連線失敗', en: 'Connection failed' },
   'teacher.materials.statusPending': { zh: '待處理', en: 'Pending' },
   'teacher.materials.statusProcessing': { zh: '處理中', en: 'Processing' },
@@ -1272,6 +1307,24 @@ const translations: Record<string, { zh: string; en: string }> = {
   'assignment.timeLimitLabel': { zh: '限時', en: 'Time Limit' },
   'assignment.submissionCountLabel': { zh: '提交人數', en: 'Submissions' },
   'assignment.questionsLabel': { zh: '題目 ({n})', en: 'Questions ({n})' },
+
+  // ============================================
+  // OCR 拍照上傳
+  // ============================================
+  'ocr.uploadPhoto': { zh: '拍照上傳作文', en: 'Photo Upload' },
+  'ocr.scanning': { zh: '辨識中...', en: 'Scanning...' },
+  'ocr.done': { zh: '已辨識', en: 'Done' },
+  'ocr.invalidType': { zh: '請上傳 JPG、PNG、WebP 或 BMP 圖片', en: 'Please upload JPG, PNG, WebP or BMP images' },
+  'ocr.fileTooLarge': { zh: '圖片不能超過 10MB', en: 'Image must be under 10MB' },
+  'ocr.processingFailed': { zh: 'OCR 處理失敗', en: 'OCR processing failed' },
+  'ocr.failed': { zh: 'OCR 失敗', en: 'OCR failed' },
+  'ocr.charsRecognized': { zh: '{n} 字元已辨識', en: '{n} characters recognized' },
+
+  // ============================================
+  // Help page (additional)
+  // ============================================
+  'help.personalizedAnalysis': { zh: '個人化分析', en: 'Personalized Analysis' },
+  'help.priorityImprove': { zh: '目前優先改善：', en: 'Priority: ' },
 };
 
 /**

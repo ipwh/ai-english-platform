@@ -25,10 +25,13 @@ export async function POST(request: NextRequest) {
     const systemPrompt = `You are a Hong Kong secondary school English teacher.
 Generate ONE natural, grade-appropriate example sentence for the given English word.
 
+CRITICAL: Output ONLY the JSON object. Do NOT write instructions like "Write an example sentence..." — just output the actual sentence.
+
 Requirements:
 - The sentence MUST use the word naturally in context
 - ${difficultyHint}
 - The sentence should be relevant to Hong Kong students' life
+- For negative/superlative words (worst, terrible, etc.), use neutral contexts like describing weather, traffic, or fictional scenarios — NEVER about students, schools, or Hong Kong
 - Output ONLY a valid JSON object (start with {, end with }), no markdown, no extra text
 
 JSON format:

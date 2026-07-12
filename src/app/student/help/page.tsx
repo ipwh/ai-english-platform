@@ -523,17 +523,17 @@ export default function StudentHelpPage() {
       {/* AI 學習建議卡片 */}
       <section>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-yellow-500" /> AI 學習建議
+          <Lightbulb className="w-5 h-5 text-yellow-500" /> {t('help.aiAdvice')}
         </h2>
         {adviceSummary && (
           <div className="mb-3 bg-teal-50 dark:bg-teal-900/20 rounded-xl p-4 text-sm text-gray-700 dark:text-gray-300">
             <div className="flex items-center gap-2 font-medium text-teal-700 dark:text-teal-400 mb-1">
-              <Target className="w-4 h-4" /> 個人化分析
+              <Target className="w-4 h-4" /> {t('help.personalizedAnalysis')}
             </div>
             <p>{adviceSummary}</p>
             {adviceUrgent.length > 0 && (
               <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                目前優先改善：{adviceUrgent.join('、')}
+                {t('help.priorityImprove')}{adviceUrgent.join('、')}
               </div>
             )}
           </div>

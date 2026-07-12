@@ -349,3 +349,22 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+// ============================================
+// 登入記錄
+// ============================================
+
+model LoginLog {
+  id        String   @id @default(cuid())
+  userId    String
+  userEmail String
+  userName  String?
+  role      String
+  ipAddress String?
+  userAgent String?
+  loginAt   DateTime @default(now())
+  duration  Int?     // 登入時長（分鐘），登出時更新
+
+  @@index([userId])
+  @@index([loginAt])
+}

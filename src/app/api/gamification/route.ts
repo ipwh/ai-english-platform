@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     const newBadges = checkNewBadges(stats, alreadyUnlocked);
     if (newBadges.length > 0) {
       try {
-        const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map(b => b.id)];
+        const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map((b: { id: string }) => b.id)];
         await db.user.update({
           where: { id: studentId },
           data: { badgeIds: JSON.stringify(updatedBadgeIds) },
@@ -146,9 +146,25 @@ export async function POST(req: NextRequest) {
 
     const xpGained = calculateXp(event);
 
+    // 持久化 XP 到資料庫
+    await db.user.update({
+      where: { id: studentId },
+      data: { xp: { increment: xpGained } },
+    });
+
+    const updated = await db.user.findUnique({
+      where: { id: studentId },
+      select: { xp: true },
+    });
+    const levelInfo = getLevelInfo(updated?.xp ?? xpGained);
+
     return NextResponse.json({
       success: true,
       xpGained,
+      totalXp: updated?.xp ?? xpGained,
+      level: levelInfo.level,
+      levelTitle: levelInfo.title,
+      xpToNext: levelInfo.xpToNext,
       event: event.type,
     });
   } catch (error) {

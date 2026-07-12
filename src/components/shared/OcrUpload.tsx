@@ -6,6 +6,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Camera, Loader2, X, ImagePlus, Check } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface OcrUploadProps {
   onTextExtracted: (text: string) => void;
@@ -14,6 +15,7 @@ interface OcrUploadProps {
 }
 
 export default function OcrUpload({ onTextExtracted, disabled = false, className = '' }: OcrUploadProps) {
+  const { t } = useT();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'error'>('idle');
@@ -25,12 +27,12 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
     // 驗證
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp'];
     if (!validTypes.includes(file.type)) {
-      setError('請上傳 JPG、PNG、WebP 或 BMP 圖片');
+      setError(t('ocr.invalidType'));
       setStatus('error');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError('圖片不能超過 10MB');
+      setError(t('ocr.fileTooLarge'));
       setStatus('error');
       return;
     }
@@ -50,7 +52,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'OCR 處理失敗');
+        throw new Error(data.error || t('ocr.processingFailed'));
       }
 
       if (data.text) {
@@ -62,7 +64,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
         setStatus('error');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'OCR 失敗';
+      const msg = err instanceof Error ? err.message : t('ocr.failed');
       setError(msg);
       setStatus('error');
     } finally {
@@ -98,7 +100,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
         ) : (
           <Camera className="w-3.5 h-3.5" />
         )}
-        {uploading ? '辨識中...' : status === 'done' ? '已辨識' : '拍照上傳作文'}
+        {uploading ? t('ocr.scanning') : status === 'done' ? t('ocr.done') : t('ocr.uploadPhoto')}
         <input
           ref={fileInputRef}
           type="file"
@@ -140,7 +142,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
       {/* Extracted text summary */}
       {status === 'done' && extractedText && (
         <span className="text-xs text-green-600 dark:text-green-400">
-          {extractedText.length} 字元已辨識
+          {t('ocr.charsRecognized', { n: extractedText.length })}
         </span>
       )}
     </div>

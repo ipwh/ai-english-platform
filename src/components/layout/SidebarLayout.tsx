@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle } from 'lucide-react';
+import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle, LogOut } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { getNavLabel, getSectionTitle, studentTabItems } from '@/lib/nav';
@@ -484,6 +484,14 @@ export default function SidebarLayout({
                 ) : (
                   <Moon className="w-5 h-5" />
                 )}
+              </button>
+              {/* Logout */}
+              <button
+                onClick={() => { if (confirm(t('common.confirmLogout'))) window.location.href = '/api/auth/logout'; }}
+                className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={t('common.logout')}
+              >
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>

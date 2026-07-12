@@ -73,7 +73,11 @@ export default async function middleware(request: NextRequest) {
   if (hasNextAuthCookie) {
     // 檢查 NextAuth 使用者的 admin 路由權限
     if (pathname.startsWith('/admin')) {
-      const role = await getRoleFromNextAuthCookie(request);
+      let role = await getRoleFromNextAuthCookie(request);
+      // Fallback: 若 JWT 解碼失敗，檢查 selected_role cookie
+      if (!role) {
+        role = request.cookies.get('selected_role')?.value || null;
+      }
       if (role !== 'admin') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'admin_only');
