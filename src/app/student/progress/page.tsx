@@ -232,6 +232,7 @@ export default function StudentProgressPage() {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
+                    studentId: store.userId,  // 讓伺服器從 DB 讀取真實數據
                     studentLevel: 'S4',
                     overallAccuracy: weeklyStats.accuracy || 0,
                     weakSkills: weakSkills.length > 0 ? weakSkills : [{ name: 'general', nameZh: '綜合', accuracy: weeklyStats.accuracy || 50 }],
