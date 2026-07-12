@@ -21,6 +21,10 @@ export default function StudentProgressPage() {
   const { t } = useT();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    summary: string; urgentAreas: string[]; studyPlan: string; encouragementMessage: string;
+  } | null>(null);
 
   // 載入練習歷史（先確保 session 就緒）
   useEffect(() => {
@@ -209,6 +213,70 @@ export default function StudentProgressPage() {
           </div>
         </section>
       )}
+
+      {/* AI 個人化分析 */}
+      <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-purple-500" />
+          {t('progress.aiAnalysis')}
+        </h2>
+        {!aiAnalysis ? (
+          <button
+            onClick={async () => {
+              setAiLoading(true);
+              try {
+                const weakSkills = masteryBySkill
+                  .filter(m => m.accuracy < 70)
+                  .map(m => ({ name: m.skillZh, nameZh: m.skillZh, accuracy: m.accuracy }));
+                const res = await fetch('/api/ai/analyze-progress', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    studentLevel: 'S4',
+                    overallAccuracy: weeklyStats.accuracy || 0,
+                    weakSkills: weakSkills.length > 0 ? weakSkills : [{ name: 'general', nameZh: '綜合', accuracy: weeklyStats.accuracy || 50 }],
+                    recentPerformance: recentSessions.slice(0, 7).map(s => ({
+                      date: new Date(s.startedAt).toLocaleDateString(),
+                      accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100),
+                      questionsDone: s.totalQuestions,
+                    })),
+                    streakDays: weeklyStats.streakDays || 0,
+                  }),
+                });
+                const data = await res.json();
+                if (data.analysis) setAiAnalysis(data.analysis);
+              } catch { /* silent */ }
+              finally { setAiLoading(false); }
+            }}
+            disabled={aiLoading}
+            className="w-full py-3 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-xl text-sm font-medium hover:bg-purple-100 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {aiLoading ? t('progress.analyzing') : t('progress.generateAnalysis')}
+          </button>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <p className="text-gray-700 dark:text-gray-300">{aiAnalysis.summary}</p>
+            {aiAnalysis.urgentAreas?.length > 0 && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <p className="font-medium text-red-700 dark:text-red-400 text-xs mb-1">{t('progress.urgentAreas')}</p>
+                <ul className="list-disc list-inside text-xs text-red-600 dark:text-red-300 space-y-0.5">
+                  {aiAnalysis.urgentAreas.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            )}
+            {aiAnalysis.studyPlan && (
+              <div className="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg">
+                <p className="font-medium text-teal-700 dark:text-teal-400 text-xs mb-1">{t('progress.studyPlan')}</p>
+                <p className="text-xs text-teal-600 dark:text-teal-300 whitespace-pre-wrap">{aiAnalysis.studyPlan}</p>
+              </div>
+            )}
+            {aiAnalysis.encouragementMessage && (
+              <p className="text-purple-600 dark:text-purple-400 font-medium">💜 {aiAnalysis.encouragementMessage}</p>
+            )}
+          </div>
+        )}
+      </section>
 
       </>)}
     </div>

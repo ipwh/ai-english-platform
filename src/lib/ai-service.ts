@@ -1773,7 +1773,44 @@ export interface ProgressAnalysis {
 }
 
 export async function analyzeProgress(input: AnalyzeProgressInput): Promise<ProgressAnalysis> {
-  const systemPrompt = `你是一位香港中學英文科的學習顧問，熟悉 HKDSE English Language Level Descriptors。
+  // ============================================
+  // DSE RAG：檢索相關歷屆試題與 Marking Scheme
+  // ============================================
+  let dseContextPrompt = '';
+  try {
+    if (isDSERAGEnabled()) {
+      // 根據弱項技能判斷需要檢索的 DSE 卷別
+      const weakSkillNames = input.weakSkills.map(s => s.nameZh);
+      const needsWriting = weakSkillNames.some(s => s.includes('寫作') || s.includes('Writing'));
+      const needsReading = weakSkillNames.some(s => s.includes('閱讀') || s.includes('Reading'));
+      const needsListening = weakSkillNames.some(s => s.includes('聆聽') || s.includes('Listening'));
+
+      const skills: DSESkill[] = [];
+      if (needsWriting) skills.push('Writing');
+      if (needsReading) skills.push('Reading');
+      if (needsListening) skills.push('Listening');
+      if (skills.length === 0) skills.push('Reading', 'Writing'); // default
+
+      const [pastPaperChunks, msChunks] = await Promise.all([
+        retrievePastPaperContent(skills[0], undefined, input.overallAccuracy < 60 ? 'remedial' : 'core', undefined, 3),
+        retrieveMarkingScheme(skills[0], 2),
+      ]);
+
+      dseContextPrompt = buildDSEContextPrompt(
+        pastPaperChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        msChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'study_help'
+      );
+
+      if (dseContextPrompt) {
+        console.log(`[DSE-RAG] analyzeProgress: 已擷取 ${pastPaperChunks.length} 試題 + ${msChunks.length} MS`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DSE-RAG] analyzeProgress RAG 失敗，fallback:', err instanceof Error ? err.message : String(err));
+  }
+
+  const systemPrompt = `${dseContextPrompt}你是一位香港中學英文科的學習顧問，熟悉 HKDSE English Language Level Descriptors。
 請根據學生的學習數據，對照 HKDSE 等級描述提供個人化分析與建議。
 以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 

@@ -1038,6 +1038,11 @@ const translations: Record<string, { zh: string; en: string }> = {
   'progress.emptyTrend': { zh: '完成更多練習後將顯示練習趨勢圖', en: 'Complete more practice to see trend chart' },
   'progress.emptyRadar': { zh: '完成更多練習後將顯示技能分析圖', en: 'Complete more practice to see skill radar' },
   'progress.emptyBar': { zh: '完成練習後將顯示技能對比圖', en: 'Complete practice to see skill comparison' },
+  'progress.aiAnalysis': { zh: '🤖 AI 個人化分析', en: '🤖 AI Analysis' },
+  'progress.generateAnalysis': { zh: '生成 AI 分析報告', en: 'Generate AI Analysis' },
+  'progress.analyzing': { zh: 'AI 分析中...', en: 'Analyzing...' },
+  'progress.urgentAreas': { zh: '🔴 急需改善', en: '🔴 Urgent Areas' },
+  'progress.studyPlan': { zh: '📋 學習計劃', en: '📋 Study Plan' },
 
   // Assignments page
   'assignments.filterAll': { zh: '全部', en: 'All' },

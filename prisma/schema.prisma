@@ -368,3 +368,24 @@ model LoginLog {
   @@index([userId])
   @@index([loginAt])
 }
+
+// ============================================
+// 每週進度快照
+// ============================================
+
+model WeeklySnapshot {
+  id            String   @id @default(cuid())
+  userId        String
+  weekStart     String   // e.g. "2026-07-07" (Monday)
+  totalQuestions Int     @default(0)
+  correctCount  Int      @default(0)
+  accuracy      Float    @default(0)
+  sessionsCount Int      @default(0)
+  xpGained      Int      @default(0)
+  streakDays    Int      @default(0)
+  wordsLearned  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+}
