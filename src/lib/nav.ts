@@ -6,7 +6,7 @@ import {
   LayoutDashboard, BookOpen, AlertTriangle, BookMarked,
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
   User, Users, GraduationCap, FileText, Upload,
-  ClipboardCheck, BarChart3, Settings, Search,
+  ClipboardCheck, BarChart3, Settings, Search, Headphones,
   type LucideIcon
 } from 'lucide-react';
 import { t } from '@/lib/i18n';
@@ -45,6 +45,7 @@ export const studentNavItems: NavItem[] = [
   { label: '生字簿', i18nKey: 'nav.vocabulary', href: '/student/vocabulary', icon: BookMarked },
   { label: '我的進度', i18nKey: 'nav.progress', href: '/student/progress', icon: TrendingUp },
   { label: '寫作支援', i18nKey: 'nav.writing', href: '/student/writing', icon: PencilLine },
+  { label: 'Integrated Skills', i18nKey: 'nav.integratedSkills', href: '/student/integrated-skills', icon: Headphones },
   { label: '我的作業', i18nKey: 'nav.assignments', href: '/student/assignments', icon: ClipboardList },
   { label: '診斷測驗', i18nKey: 'nav.diagnostic', href: '/student/diagnostic', icon: Search },
   { label: '求助建議', i18nKey: 'nav.help', href: '/student/help', icon: HelpCircle },

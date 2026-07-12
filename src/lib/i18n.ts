@@ -12,6 +12,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'nav.vocabulary': { zh: '生字簿', en: 'Vocabulary' },
   'nav.progress': { zh: '我的進度', en: 'My Progress' },
   'nav.writing': { zh: '寫作支援', en: 'Writing Support' },
+  'nav.integratedSkills': { zh: 'Integrated Skills', en: 'Integrated Skills' },
   'nav.assignments': { zh: '我的作業', en: 'Assignments' },
   'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },
   'nav.help': { zh: '求助建議', en: 'Help' },
