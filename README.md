@@ -170,12 +170,10 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   - **Style Prompt** 注入 8 大高分策略（PEEL / Show Don't Tell / Concession+Rebuttal / 詞彙多樣化 / 句式變化 / 連接詞豐富化 / 首尾呼應 / 強力結論）
   - **文體特定格式檢查**：依 Formal Letter / Speech / Article / Report / Proposal / Argumentative Essay 自動驗證格式要素
   - **詞彙升級建議清單**：10 組 basic→advanced 對照（important→crucial, good→beneficial 等）
-- **新增即時寫作輔助** (`generateWritingGuide`)：
-  - `structureGuide[]` — 逐段結構指引（中英雙語），依文體自動生成
-  - `usefulPhrases[]` — 實用開首/結尾句式（含用途標籤）
-  - `commonMistakes[]` — 文體特定常見錯誤 + 修正方法
-  - `vocabularyUpgrades[]` — 詞彙升級建議（basic→advanced）
-  - 可根據學生當前草稿提供針對性建議
+- **新增即時寫作輔助** (`generateWritingGuide` + `generateAdaptiveWritingGuide`)：
+  - 靜態模式：`structureGuide[]` + `usefulPhrases[]` + `commonMistakes[]` + `vocabularyUpgrades[]`（即時查表，零 API 成本）
+  - AI 自適應模式：根據學生當前草稿提供 `personalizedTips[]` + `structureIssues[]` + `suggestedNextParagraph` + `missingElements[]`
+- **`generateWritingOutline` 強化**：注入文體特定結構指引 + 8 大高分策略 + 常見錯誤清單，產出 PEEL + Counter-argument + Concession/Rebuttal 完整大綱
 - **Prompt 強化**：整合 AfterSchool 及 Defining Education 兩大 DSE Writing 教學專家的核心內容
 
 ### 📝 生字簿 2.1 強化

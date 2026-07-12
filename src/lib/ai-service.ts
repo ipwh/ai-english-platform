@@ -2332,11 +2332,53 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a 
  */
 export async function generateWritingOutline(input: GenerateWritingOutlineInput): Promise<string> {
   const lang = input.lang || 'en';
-  const systemPrompt = `You are an experienced HKDSE English writing tutor. Your job is to create a DETAILED, STRUCTURED, BILINGUAL (Chinese + English) writing outline that helps a ${input.gradeLevel} student plan their essay.
+  const guide = DSE_TEXT_TYPE_GUIDE[input.textType];
 
-THE OUTLINE MUST BE COMPLETELY DIFFERENT FROM THE WRITING PROMPT. The prompt tells the student WHAT to write. The outline tells them HOW to write it — paragraph by paragraph, with concrete content ideas.
+  // 提取文體特定的結構指引
+  const structureGuide = guide
+    ? guide.structure.map(s => `- Paragraph ${s.paragraph}: ${s.role} (${s.roleZh}) — ${s.keyContent}`).join('\n')
+    : '';
 
-FORMAT: Every section MUST be in BOTH Chinese (繁體中文) AND English, using this exact format:
+  const commonErrors = guide
+    ? guide.commonErrors.map(e => `- ❌ ${e.error} (${e.errorZh}) → ✅ ${e.fix}`).join('\n')
+    : '';
+
+  const weakSkillHint = input.weakSkills?.length
+    ? `\nStudent weaknesses: ${input.weakSkills.join(', ')}. Emphasize these areas in the outline.`
+    : '';
+
+  const systemPrompt = `You are an experienced HKDSE English writing tutor who has trained hundreds of DSE students. Your job is to create a DETAILED, STRUCTURED, BILINGUAL (Chinese + English) writing outline that helps a ${input.gradeLevel} student plan their essay to DSE Paper 2 standards.
+
+⚠️ THE OUTLINE MUST BE COMPLETELY DIFFERENT FROM THE WRITING PROMPT. The prompt tells WHAT to write. The outline tells HOW to write — paragraph by paragraph, with concrete, specific content ideas.
+
+═══════════════════════════════════════
+DSE WRITING STRUCTURE KNOWLEDGE
+═══════════════════════════════════════
+
+Target text type structure:
+${structureGuide || '- Introduction (Hook + Background + Thesis), Body × 2-3 (PEEL), Counter-argument + Rebuttal (if argumentative), Conclusion'}
+
+Common mistakes to avoid for this text type:
+${commonErrors || '- Off-topic, no specific examples, weak thesis, no counter-argument, formulaic conclusion'}
+
+═══════════════════════════════════════
+DSE HIGH-SCORE TECHNIQUES TO EMBED
+═══════════════════════════════════════
+
+1. PEEL per paragraph: Point → Explain (elaborate) → Example (concrete) → Link (to next paragraph)
+2. Show Don't Tell: "His palms were sweaty" NOT "He was nervous"
+3. Concession + Rebuttal (argumentative): "Admittedly, some may argue... However..."
+4. Vocab variety: Replace basic words with advanced (important→crucial/vital/paramount)
+5. Sentence variety: Mix simple + compound + complex; use inversions ("Not only does this...")
+6. Connector richness: Furthermore / Moreover / Nevertheless / Consequently / In stark contrast
+7. Opening-closing echo: Conclusion echoes introduction but with different wording
+8. Powerful conclusion: Summary → broader implications → memorable final line
+
+═══════════════════════════════════════
+OUTPUT FORMAT (STRICT)
+═══════════════════════════════════════
+
+Every section MUST be in BOTH Chinese (繁體中文) AND English:
 
 ---
 ## Paragraph N — [Paragraph Role] / [中文角色]
@@ -2344,42 +2386,32 @@ FORMAT: Every section MUST be in BOTH Chinese (繁體中文) AND English, using 
 - EN: [one clear topic sentence]
 - ZH: [對應中文]
 
-**Content points / 內容要點** (use SHORT PHRASES only, NOT full sentences):
-- EN: [short phrase 1] / ZH: [對應中文短語]
-- EN: [short phrase 2] / ZH: [對應中文短語]
-- EN: [short phrase 3] / ZH: [對應中文短語]
+**Content points / 內容要點** (SHORT PHRASES only, 3-8 words English, NOT full sentences):
+- EN: [short phrase] / ZH: [中文短語]
 
 **Useful phrases / 實用句式**:
-- EN: [linking phrase or sentence starter] / ZH: [對應中文]
+- EN: [linking phrase or sentence starter] / ZH: [中文]
 ---
 
 CRITICAL RULES:
-1. ALL content points MUST be SHORT PHRASES (3-8 words in English, 4-10 characters in Chinese) — NOT complete sentences. For example: "plastic bag levy scheme" NOT "The government introduced a plastic bag levy scheme in 2009."
-2. Every section MUST have BOTH Chinese and English — always side by side.
-3. Every paragraph MUST have COMPLETELY DIFFERENT content — do not repeat ideas.
-4. Be CONCRETE and TOPIC-SPECIFIC — mention real facts, places, policies, or examples relevant to the topic.
-5. The outline must be immediately usable — a student should be able to write each paragraph by following your points.
-6. Return ONLY the outline. No introductory phrases like "Here is an outline". No concluding remarks. No JSON.
+1. Content points MUST be SHORT PHRASES (3-8 English words, 4-10 Chinese characters) — NOT complete sentences.
+2. Every section MUST have BOTH Chinese and English side by side.
+3. Every paragraph MUST have COMPLETELY DIFFERENT content — no repetition.
+4. Be CONCRETE and TOPIC-SPECIFIC — use real facts, places, policies, examples relevant to the topic.
+5. Useful phrases should include DSE-level connectors appropriate to the paragraph's function.
+6. Return ONLY the outline. No introductory/concluding remarks. No JSON. No "Here is an outline".
 
-Structure:
-- **Paragraph 1 — Introduction / 導論**
-  - Hook / 開首語
-  - Background context / 背景
-  - Thesis statement / 論點陳述
-${input.wordLimit >= 300 ? '- **Paragraph 2 — Body 1 / 主體段落一**: First main argument\n- **Paragraph 3 — Body 2 / 主體段落二**: Second main argument\n- **Paragraph 4 — Counter-argument / 反論駁斥**: Opposing view + rebuttal' : '- **Paragraph 2 — Body 1 / 主體段落一**: First main argument\n- **Paragraph 3 — Body 2 / 主體段落二**: Second main argument'}
-- **Final Paragraph — Conclusion / 結論**
-  - Restate thesis / 重申論點
-  - Summarise key points / 總結要點
-  - Final thought / 結語
+Text type: ${guide?.name || input.textType}
+Grade: ${input.gradeLevel}
+Word limit: ~${input.wordLimit} words${weakSkillHint}
+Prompt: ${input.writingPrompt}
+${input.topicHint ? `Topic context: ${input.topicHint}` : ''}`;
 
-Writing task details:
-- Text type: ${input.textType}
-- Grade: ${input.gradeLevel}
-- Word limit: ~${input.wordLimit} words
-- Prompt: ${input.writingPrompt}
-${input.topicHint ? `- Topic context: ${input.topicHint}` : ''}`;
-
-  const userPrompt = `Create a detailed bilingual (ZH+EN) paragraph-by-paragraph writing outline for this task. Use SHORT PHRASES for content points, NOT full sentences.\n\nPrompt: ${input.writingPrompt}\n\nText type: ${input.textType}\nGrade: ${input.gradeLevel}\nWords: ~${input.wordLimit}`;
+  const userPrompt = `Create a detailed bilingual (ZH+EN) paragraph-by-paragraph DSE writing outline.
+Text type: ${guide?.name || input.textType}
+Grade: ${input.gradeLevel}
+Words: ~${input.wordLimit}
+Prompt: ${input.writingPrompt}`;
 
   const result = await callLLM(
     [
@@ -2455,6 +2487,76 @@ export function generateWritingGuide(input: GenerateWritingGuideInput): WritingG
     commonMistakes,
     vocabularyUpgrades,
   };
+}
+
+/**
+ * ✍️ generateAdaptiveWritingGuide
+ * AI 驅動的自適應寫作輔助：根據學生當前草稿提供個人化指引
+ * 與 generateWritingGuide（靜態查表）互補
+ */
+export async function generateAdaptiveWritingGuide(
+  input: GenerateWritingGuideInput
+): Promise<{
+  personalizedTips: string[];
+  structureIssues: string[];
+  suggestedNextParagraph: string;
+  missingElements: string[];
+}> {
+  if (!input.studentDraft || input.studentDraft.trim().length < 20) {
+    return {
+      personalizedTips: ['開始寫作後，AI 會根據你的草稿提供個人化建議。'],
+      structureIssues: [],
+      suggestedNextParagraph: '先寫出你的 Introduction（Hook + Background + Thesis），然後回來查看 AI 建議。',
+      missingElements: [],
+    };
+  }
+
+  const guide = DSE_TEXT_TYPE_GUIDE[input.textType];
+  const draftSnippet = input.studentDraft.slice(0, 2000);
+
+  const systemPrompt = `你是一位香港 DSE English Paper 2 寫作導師，正在幫助學生即時改善他們的作文。
+請根據學生的當前草稿提供簡潔、具體、可執行的建議。
+
+文體類型：${guide?.name || input.textType}
+年級：${input.gradeLevel}
+${guide ? `必備元素：${guide.requiredElements.join(', ')}` : ''}
+
+回覆純 JSON（以 { 開頭 } 結尾）：
+{
+  "personalizedTips": ["具體建議1", "具體建議2", "具體建議3"],
+  "structureIssues": ["結構問題1", "結構問題2"],
+  "suggestedNextParagraph": "建議下一段寫什麼（繁體中文，30-50字）",
+  "missingElements": ["缺少的元素1", "缺少的元素2"]
+}
+
+所有中文使用繁體中文。`;
+
+  const userPrompt = `寫作任務：${input.writingPrompt}\n\n學生當前草稿：\n"""\n${draftSnippet}\n"""\n\n請提供個人化寫作建議。`;
+
+  try {
+    const result = await callLLM(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { temperature: 0.4, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 }
+    );
+
+    return parseAIJSON<{
+      personalizedTips: string[];
+      structureIssues: string[];
+      suggestedNextParagraph: string;
+      missingElements: string[];
+    }>(result);
+  } catch {
+    // Fallback: return generic guidance
+    return {
+      personalizedTips: ['繼續寫作，完成後可以使用 AI 批改獲得詳細分析。'],
+      structureIssues: [],
+      suggestedNextParagraph: '繼續發展你的下一個論點，記得使用 PEEL 結構。',
+      missingElements: [],
+    };
+  }
 }
 
 // ============================================
