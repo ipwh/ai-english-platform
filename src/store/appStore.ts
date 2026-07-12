@@ -215,7 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       return {
         practiceSessions: [completed, ...state.practiceSessions].slice(0, 50),
-        currentSession: null,
+        currentSession: completed, // 保留完整 session 供完成摘要使用（completedAt 已設）
       };
     });
   },
