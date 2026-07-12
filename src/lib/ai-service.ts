@@ -947,6 +947,10 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
   - 不可出與對話內容無關的題目
   - 每個 prompt 的正確答案必須在 listeningContent 中有明確依據
   - 出題前先確認：這條題目的答案真的在對話裡嗎？
+- ⚠️ 聆聽題 Self-Check（輸出前逐題驗證）：
+  - Q1 出完後，Q2-Q5 的每個 prompt 必須重新對照 listeningContent 確認答案確實存在
+  - 若某題的答案在 listeningContent 中找不到 → 該題必須重出，不可輸出無關題目
+  - 嚴禁出現「對話內容是講電影時間，題目卻問放學去哪裡」這類不相關題目
 - 所有中文使用繁體中文
 - 嚴禁使用 A/B/Speaker A/Speaker B 等字母標籤 — 只用性別+年齡角色標籤` : ''}
 ${isReading ? `
