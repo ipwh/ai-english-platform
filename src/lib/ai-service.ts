@@ -1682,6 +1682,7 @@ export interface ExplainMistakeInput {
   studentAnswer: string;
   grammarItemZh?: string;
   studentLevel?: string;
+  questionType?: string;
 }
 
 export interface MistakeExplanation {

@@ -59,15 +59,15 @@ export default function StudentDetailPage() {
       fetch(`/api/mistakes?studentId=${encodeURIComponent(studentId)}`).then(r => r.json().catch(() => ({ mistakes: [] }))),
     ])
       .then(([studentsData, practiceData, mistakesData]) => {
-        const allStudents = studentsData.students || [];
+        const allStudents: StudentData[] = (studentsData as { students?: StudentData[] }).students || [];
         const found = allStudents.find((s) => s.id === studentId);
         if (found) {
           setStudent(found);
         } else {
           setLoadError(t('teacher.studentDetail.notFound'));
         }
-        setPracticeSessions(practiceData.sessions || []);
-        setMistakes(mistakesData.mistakes || []);
+        setPracticeSessions((practiceData as { sessions?: PracticeSessionData[] }).sessions || []);
+        setMistakes((mistakesData as { mistakes?: { id: string }[] }).mistakes || []);
       })
       .catch(() => setLoadError(t('teacher.studentDetail.loadFailed')))
       .finally(() => setLoading(false));
@@ -129,7 +129,7 @@ export default function StudentDetailPage() {
           </div>
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
             <p className="text-xs text-gray-500">{t('teacher.studentDetail.grade')}</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{getGradeLabel(student.level, store.language) || student.level || '—'}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{getGradeLabel(student.level || '', store.language) || student.level || '—'}</p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
             <p className="text-xs text-gray-500">{t('teacher.studentDetail.studentNo')}</p>

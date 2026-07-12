@@ -7,7 +7,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2, CheckCircle } from 'lucide-react';
 
-import { useT } from '@/lib/i18n';
+import { useT } from '@/hooks/use-i18n';
 
 const quickLinkKeys = [
   { key: 'admin.quickLinks.import', href: '/admin/import', icon: Upload, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
@@ -17,7 +17,9 @@ const quickLinkKeys = [
 ];
 
 export default function AdminDashboard() {
-  const t = useT();
+  const { t } = useT();
+  const [toolRunning, setToolRunning] = useState<string | null>(null);
+  const [toolResult, setToolResult] = useState('');
 
   const runTool = async (endpoint: string, name: string) => {
     setToolRunning(name);

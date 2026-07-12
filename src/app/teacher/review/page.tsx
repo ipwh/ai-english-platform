@@ -52,6 +52,7 @@ export default function TeacherReviewPage() {
   };
 
   const handleAccept = () => {
+    if (!selectedReview) return;
     const updated = {
       ...selectedReview,
       status: 'reviewed' as ReviewStatus,
@@ -62,6 +63,7 @@ export default function TeacherReviewPage() {
   };
 
   const handleReturn = () => {
+    if (!selectedReview) return;
     updateReview(selectedReview.id, {
       status: 'returned' as ReviewStatus,
       teacherScore,
@@ -71,6 +73,7 @@ export default function TeacherReviewPage() {
 
   // === AI 重新批改 ===
   const handleAIReAnalyze = async () => {
+    if (!selectedReview) return;
     setAiLoading(true);
     setAiError('');
     try {
@@ -79,8 +82,7 @@ export default function TeacherReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: selectedReview.questionPrompt,
-          questionType: selectedReview.questionType || 'mc',
-          correctAnswer: selectedReview.correctAnswer || '',
+          questionType: 'mc',
           studentAnswer: selectedReview.studentAnswer,
         }),
       });
@@ -131,7 +133,7 @@ export default function TeacherReviewPage() {
               key={r.id}
               onClick={() => { setSelectedReview(r); setTeacherScore(r.teacherScore); setTeacherFeedback(r.teacherFeedback || ''); }}
               className={`w-full text-left p-3 rounded-xl transition-colors ${
-                selectedReview.id === r.id ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-gray-300'
+                selectedReview?.id === r.id ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-gray-300'
               }`}
             >
               <div className="flex items-center justify-between mb-1">

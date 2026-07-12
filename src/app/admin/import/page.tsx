@@ -8,6 +8,7 @@ import {
   Upload, Download, FileText, CheckCircle, XCircle,
   AlertTriangle, RefreshCw, Users, GraduationCap,
 } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 import type { ImportResult, ImportDetail } from '@/lib/import-utils';
 
 // ============================================
@@ -28,6 +29,7 @@ function TemplateCard({
   downloadUrl: string;
   fileName: string;
 }) {
+  const { t } = useT();
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -331,6 +333,7 @@ function SummaryCard({
 // ============================================
 
 export default function AdminImportPage() {
+  const { t } = useT();
   const [importType, setImportType] = useState<'students' | 'teachers'>('students');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dryRun, setDryRun] = useState(false);

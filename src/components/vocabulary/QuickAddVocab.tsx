@@ -15,6 +15,7 @@ import {
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useT } from '@/hooks/use-i18n';
 import type { WordAnalysis } from '@/lib/ai-schema';
+import type { VocabItem } from '@/lib/types';
 
 interface QuickAddVocabProps {
   studentId: string;
@@ -22,7 +23,7 @@ interface QuickAddVocabProps {
   /** 預填單字（從外部傳入，如練習頁 highlight） */
   initialWord?: string;
   /** 加入成功後的回呼 */
-  onAdded?: (vocab: unknown) => void;
+  onAdded?: (vocab: VocabItem | null) => void;
   /** 浮動按鈕樣式覆蓋 */
   className?: string;
 }
