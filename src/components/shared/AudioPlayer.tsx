@@ -81,11 +81,11 @@ function evictOldestIfNeeded(): void {
 export async function prefetchTTSAudio(text: string, speakingRate = 0.9): Promise<void> {
   if (!text) return;
 
-  // 與元件內部邏輯一致：先清理角色標籤再送 TTS
-  const cleanText = prepareTextForTTS(text);
-  if (!cleanText) return;
+  // 正規化格式但保留 speaker 標籤（讓 server multiSpeaker 解析角色）
+  const normalizedText = cleanListeningContent(text);
+  if (!normalizedText) return;
 
-  const cacheKey = getCacheKey(cleanText, speakingRate);
+  const cacheKey = getCacheKey(normalizedText, speakingRate);
   if (TTS_CACHE.has(cacheKey)) return; // 已快取
 
   try {
@@ -93,8 +93,8 @@ export async function prefetchTTSAudio(text: string, speakingRate = 0.9): Promis
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text: cleanText,
-        multiSpeaker: false,
+        text: normalizedText,
+        multiSpeaker: true,
         voiceTier: 'default',
         speakingRate,
       }),
@@ -400,9 +400,9 @@ export default function AudioPlayer({
   const prefetchAudio = useCallback(async () => {
     if (!text || !useCloudTTS) return;
 
-    const cleanText = prepareTextForTTS(text);
-    if (!cleanText) return;
-    const cacheKey = getCacheKey(cleanText, speed);
+    const normalizedText = cleanListeningContent(text);
+    if (!normalizedText) return;
+    const cacheKey = getCacheKey(normalizedText, speed);
     // 已在快取中 → 跳過
     if (TTS_CACHE.has(cacheKey)) {
       cachedKeyRef.current = cacheKey;
@@ -421,8 +421,8 @@ export default function AudioPlayer({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: cleanText, // 已清理角色標籤
-          multiSpeaker: false,
+          text: normalizedText,
+          multiSpeaker: true,
           voiceTier: 'default',
           speakingRate: speed,
         }),
@@ -488,15 +488,15 @@ export default function AudioPlayer({
     }
     setPlaying(false);
 
-    // 預處理：剝離角色標籤，確保 TTS 只讀乾淨對話
-    const cleanText = prepareTextForTTS(text);
-    if (!cleanText) {
+    // 正規化文字格式（保留 speaker 標籤，讓 server 端 multiSpeaker 模式解析角色）
+    const normalizedText = cleanListeningContent(text);
+    if (!normalizedText) {
       setCloudError('無有效文字');
       setLoading(false);
       return;
     }
 
-    const cacheKey = getCacheKey(cleanText, speed);
+    const cacheKey = getCacheKey(normalizedText, speed);
 
     // 檢查全域快取
     const cached = TTS_CACHE.get(cacheKey);
@@ -533,8 +533,8 @@ export default function AudioPlayer({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: cleanText,  // 已清理角色標籤的文字
-            multiSpeaker: false,  // server 端不需再次解析
+            text: normalizedText,  // 保留 speaker 標籤，server 端 parseDialogueForTTS 解析
+            multiSpeaker: true,    // 啟用多人對話模式（男/女聲分段合成+拼接）
             voiceTier: 'default',
             speakingRate: speed,
           }),
