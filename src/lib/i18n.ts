@@ -771,6 +771,11 @@ const translations: Record<string, { zh: string; en: string }> = {
   'admin.classes.edit': { zh: '編輯', en: 'Edit' },
   'admin.classes.delete': { zh: '刪除', en: 'Delete' },
   'admin.classes.noClasses': { zh: '尚無班級', en: 'No classes yet' },
+  'admin.classes.save': { zh: '儲存', en: 'Save' },
+  'admin.classes.loadFailed': { zh: '載入失敗', en: 'Load failed' },
+  'admin.classes.addFailed': { zh: '新增失敗', en: 'Add failed' },
+  'admin.classes.deleteFailed': { zh: '刪除失敗', en: 'Delete failed' },
+  'admin.classes.cannotDelete': { zh: '無法刪除：仍有學生在此班級', en: 'Cannot delete: students still in this class' },
 
   // Admin Users
   'admin.users.title': { zh: '使用者管理', en: 'User Management' },

@@ -36,10 +36,10 @@ export default function AdminClassesPage() {
     try {
       const res = await fetch('/api/admin/classes');
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || '載入失敗');
+      if (!res.ok) throw new Error(json.error || t("admin.classes.loadFailed"));
       setClasses(json.classes || []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '載入失敗');
+      setError(err instanceof Error ? err.message : t("admin.classes.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function AdminClassesPage() {
         body: JSON.stringify({ name: newName.trim(), gradeLevel: newGrade, academicYear: newYear }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || '新增失敗');
+      if (!res.ok) throw new Error(json.error || t("admin.classes.addFailed"));
       setNewName('');
       setShowAdd(false);
       fetchClasses();
@@ -72,7 +72,7 @@ export default function AdminClassesPage() {
     if (!confirm(t('admin.classes.confirmDelete', { name }))) return;
     try {
       const res = await fetch(`/api/admin/classes?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('刪除失敗');
+      if (!res.ok) throw new Error(t("admin.classes.deleteFailed"));
       fetchClasses();
     } catch {
       const msg = t('admin.users.saveFailed');
@@ -87,9 +87,9 @@ export default function AdminClassesPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">班級管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('admin.classes.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {classes.length} 個班級 · {totalStudents} 名學生
+            {classes.length} {t('admin.classes.classCount')} · {totalStudents} {t('admin.classes.studentCount')}
           </p>
         </div>
         <button
@@ -97,24 +97,24 @@ export default function AdminClassesPage() {
           className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          新增班級
+          {t('admin.classes.addClass')}
         </button>
       </div>
 
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-600 dark:text-red-400">
           {error}
-          <button onClick={fetchClasses} className="ml-3 underline">重試</button>
+          <button onClick={fetchClasses} className="ml-3 underline">{t("admin.classes.retry")}</button>
         </div>
       )}
 
       {/* Add form */}
       {showAdd && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">新增班級</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{t("admin.classes.addClass")}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">班級名稱</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.classes.className")}</label>
               <input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
@@ -123,7 +123,7 @@ export default function AdminClassesPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">年級</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.classes.gradeLevel")}</label>
               <select
                 value={newGrade}
                 onChange={e => setNewGrade(e.target.value)}
@@ -135,7 +135,7 @@ export default function AdminClassesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">學年</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.classes.academicYear")}</label>
               <input
                 value={newYear}
                 onChange={e => setNewYear(e.target.value)}
@@ -182,12 +182,12 @@ export default function AdminClassesPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">班級</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">年級</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">學年</th>
-                  <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">學生人數</th>
-                  <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">作業數</th>
-                  <th className="text-right px-6 py-3 font-medium text-gray-600 dark:text-gray-300">操作</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.classes.className")}</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.classes.gradeLevel")}</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.classes.academicYear")}</th>
+                  <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.classes.studentCount")}</th>
+                  <th className="text-center px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.classes.assignmentCount")}</th>
+                  <th className="text-right px-6 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.classes.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -213,7 +213,7 @@ export default function AdminClassesPage() {
                         onClick={() => handleDelete(c.id, c.name)}
                         disabled={c.studentCount > 0}
                         className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title={c.studentCount > 0 ? '無法刪除：仍有學生在此班級' : '刪除班級'}
+                        title={c.studentCount > 0 ? t("admin.classes.cannotDelete") : t("admin.classes.delete")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

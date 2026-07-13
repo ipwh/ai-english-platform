@@ -61,6 +61,8 @@ model User {
 
   // === RAG 關聯 ===
   uploadedMaterials Material[]
+
+  @@index([classId])
 }
 
 // ============================================
@@ -146,6 +148,9 @@ model Submission {
   gradedAt      DateTime?
   status        String    @default("pending") // pending | submitted | graded
   createdAt     DateTime  @default(now())
+
+  @@index([studentId])
+  @@index([assignmentId])
 }
 
 // ============================================
@@ -168,6 +173,8 @@ model Mistake {
   easeFactor     Float     @default(2.5) // SRS: 簡化 EF
   lastReviewedAt DateTime? // SRS: 上次複習時間
   createdAt      DateTime  @default(now())
+
+  @@index([studentId])
 }
 
 // ============================================
@@ -274,6 +281,8 @@ model PracticeSession {
   completedAt    DateTime?
 
   answers        PracticeAnswer[]
+
+  @@index([studentId])
 }
 
 // 逐題答案記錄
@@ -307,6 +316,8 @@ model Notification {
   link      String?
   read      Boolean   @default(false)
   createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // ============================================

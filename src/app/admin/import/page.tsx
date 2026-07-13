@@ -36,7 +36,7 @@ function TemplateCard({
     setDownloading(true);
     try {
       const res = await fetch(downloadUrl);
-      if (!res.ok) throw new Error('下載失敗');
+      if (!res.ok) throw new Error(t('admin.import.downloadFailed'));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -74,7 +74,7 @@ function TemplateCard({
         ) : (
           <Download className="w-4 h-4" />
         )}
-        {downloading ? '下載中...' : `下載 ${fileName}`}
+        {downloading ? t('admin.import.downloading') : t("admin.import.downloadBtn").replace("{file}", fileName)}
       </button>
     </div>
   );
@@ -90,6 +90,7 @@ function UploadZone({
   uploading: boolean;
   acceptType: string;
 }) {
+  const { t } = useT();
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -149,16 +150,16 @@ function UploadZone({
             {(selectedFile.size / 1024).toFixed(1)} KB
           </p>
           <span className="text-xs text-purple-600 dark:text-purple-400">
-            點擊更換檔案
+            {t('admin.import.clickToChange')}
           </span>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
           <Upload className="w-10 h-10 text-gray-400" />
           <p className="font-medium text-gray-700 dark:text-gray-300">
-            拖放 CSV 檔案至此，或點擊選取
+            {t('admin.import.dropCSV')}
           </p>
-          <p className="text-sm text-gray-500">支援 .csv 格式</p>
+          <p className="text-sm text-gray-500">{t('admin.import.csvOnly')}</p>
         </div>
       )}
     </div>
@@ -167,6 +168,7 @@ function UploadZone({
 
 /** 匯入結果面板 */
 function ResultPanel({ result }: { result: ImportResult | null }) {
+  const { t } = useT();
   if (!result) return null;
 
   const getStatusIcon = (status: ImportDetail['status']) => {
@@ -185,13 +187,13 @@ function ResultPanel({ result }: { result: ImportResult | null }) {
   const getStatusLabel = (status: ImportDetail['status']) => {
     switch (status) {
       case 'created':
-        return '新增';
+        return t('admin.import.statusCreated');
       case 'updated':
-        return '更新';
+        return t('admin.import.statusUpdated');
       case 'skipped':
-        return '跳過';
+        return t('admin.import.statusSkipped');
       case 'error':
-        return '失敗';
+        return t('admin.import.statusFailed');
     }
   };
 
@@ -200,22 +202,22 @@ function ResultPanel({ result }: { result: ImportResult | null }) {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-6 border-b border-gray-100 dark:border-gray-700">
         <SummaryCard
-          label="總筆數"
+          label={t('admin.import.totalRows')}
           value={result.total}
           color="text-gray-700 dark:text-gray-300"
         />
         <SummaryCard
-          label="成功新增"
+          label={t('admin.import.successCreated')}
           value={result.success}
           color="text-green-600"
         />
         <SummaryCard
-          label="已更新"
+          label={t('admin.import.successUpdated')}
           value={result.updated}
           color="text-blue-600"
         />
         <SummaryCard
-          label="失敗"
+          label={t('admin.import.failed')}
           value={result.failed}
           color="text-red-600"
         />
@@ -226,7 +228,7 @@ function ResultPanel({ result }: { result: ImportResult | null }) {
         <div className="p-6 border-b border-gray-100 dark:border-gray-700">
           <h4 className="font-semibold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
-            錯誤詳情（{result.errors.length} 項）
+            {t('admin.import.errorsDetail').replace('{n}', String(result.errors.length))}
           </h4>
           <ul className="space-y-1 max-h-48 overflow-y-auto">
             {result.errors.map((err, i) => (
@@ -248,7 +250,7 @@ function ResultPanel({ result }: { result: ImportResult | null }) {
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">
-                  列
+                  {t('admin.import.row')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">
                   ID
@@ -257,13 +259,13 @@ function ResultPanel({ result }: { result: ImportResult | null }) {
                   Email
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">
-                  姓名
+                  {t('admin.import.name')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">
-                  狀態
+                  {t('admin.import.status')}
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">
-                  原因
+                  {t('admin.import.reason')}
                 </th>
               </tr>
             </thead>
