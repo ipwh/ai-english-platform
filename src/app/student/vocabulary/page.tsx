@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw } from 'lucide-react';
 
 import VocabCard from '@/components/vocabulary/VocabCard';
 import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
@@ -49,6 +49,13 @@ export default function VocabularyPage() {
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [reviewSuggestions, setReviewSuggestions] = useState<any>(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
+
+  // Quiz
+  const [quizQuestions, setQuizQuestions] = useState<any[] | null>(null);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState<{ correct: number; total: number } | null>(null);
 
   // ============================================
   // Data Loading
@@ -425,6 +432,135 @@ export default function VocabularyPage() {
         language={language as 'zh' | 'en'}
         totalCount={filtered.length}
       />
+
+      {/* Quiz Section */}
+      {vocab.length >= 3 && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-500" />
+              {language === 'en' ? 'Vocabulary Quiz' : '生字測驗'}
+            </h2>
+            {!quizQuestions ? (
+              <button
+                onClick={async () => {
+                  setQuizLoading(true);
+                  try {
+                    const res = await fetch('/api/vocabulary/quiz', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ studentId, type: 'mixed', count: 5 }),
+                    });
+                    const data = await res.json();
+                    if (data.quiz?.length) {
+                      setQuizQuestions(data.quiz);
+                      setQuizAnswers({});
+                      setQuizSubmitted(false);
+                      setQuizScore(null);
+                    }
+                  } catch { /* silent */ }
+                  finally { setQuizLoading(false); }
+                }}
+                disabled={quizLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                {quizLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                {quizLoading ? (language === 'en' ? 'Generating...' : '生成中...') : (language === 'en' ? 'Start Quiz' : '開始測驗')}
+              </button>
+            ) : (
+              <button
+                onClick={() => { setQuizQuestions(null); setQuizSubmitted(false); setQuizScore(null); }}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                {language === 'en' ? 'New Quiz' : '重新出題'}
+              </button>
+            )}
+          </div>
+
+          {quizQuestions && (
+            <div className="space-y-4">
+              {quizQuestions.map((q, qi) => {
+                const isCorrect = quizSubmitted && quizAnswers[qi] === q.answer;
+                const isWrong = quizSubmitted && quizAnswers[qi] && quizAnswers[qi] !== q.answer;
+                return (
+                  <div key={qi} className={`p-4 rounded-xl border transition-colors ${
+                    isCorrect ? 'border-green-300 bg-green-50 dark:bg-green-900/10 dark:border-green-700' :
+                    isWrong ? 'border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-700' :
+                    'border-gray-200 dark:border-gray-700'
+                  }`}>
+                    <div className="flex items-start gap-2 mb-3">
+                      <span className="text-xs font-bold text-gray-400 mt-0.5">{qi + 1}.</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {q.type === 'mc' ? q.promptZh : `${q.word} — ${language === 'en' ? 'Match the meaning' : '配對中文意思'}`}
+                      </span>
+                    </div>
+                    {q.type === 'mc' && q.choices ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {q.choices.map((choice: string, ci: number) => {
+                          const letter = String.fromCharCode(65 + ci);
+                          const selected = quizAnswers[qi] === letter;
+                          const showCorrect = quizSubmitted && letter === q.answer;
+                          const showWrong = quizSubmitted && selected && letter !== q.answer;
+                          return (
+                            <button
+                              key={ci}
+                              onClick={() => {
+                                if (quizSubmitted) return;
+                                setQuizAnswers(prev => ({ ...prev, [qi]: letter }));
+                              }}
+                              className={`p-2.5 text-sm rounded-lg text-left transition-colors ${
+                                showCorrect ? 'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 font-medium' :
+                                showWrong ? 'bg-red-200 dark:bg-red-800 text-red-900 dark:text-red-100' :
+                                selected ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 ring-2 ring-purple-400' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              <span className="font-medium mr-1.5">{letter}.</span>
+                              {choice}
+                              {showCorrect && <Check className="w-3.5 h-3.5 inline ml-1 text-green-600" />}
+                              {showWrong && <X className="w-3.5 h-3.5 inline ml-1 text-red-600" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        {language === 'en' ? `Answer: ${q.meaningZh}` : `答案：${q.meaningZh}`}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="flex items-center justify-between pt-2">
+                {!quizSubmitted ? (
+                  <button
+                    onClick={() => {
+                      const correct = quizQuestions.filter((q, qi) => quizAnswers[qi] === q.answer).length;
+                      setQuizScore({ correct, total: quizQuestions.length });
+                      setQuizSubmitted(true);
+                    }}
+                    disabled={Object.keys(quizAnswers).length < quizQuestions.length}
+                    className="px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 text-white text-sm font-medium rounded-xl transition-colors"
+                  >
+                    {language === 'en' ? 'Submit Answers' : '提交答案'}
+                  </button>
+                ) : quizScore && (
+                  <div className="flex items-center gap-3">
+                    <span className={`text-lg font-bold ${quizScore.correct === quizScore.total ? 'text-green-600' : quizScore.correct >= quizScore.total / 2 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {quizScore.correct} / {quizScore.total}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      ({Math.round((quizScore.correct / quizScore.total) * 100)}%)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Empty State */}
       {!loadError && vocab.length === 0 && (
