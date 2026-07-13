@@ -545,10 +545,12 @@ function normalizeAnswer(text: string): string {
     .replace(/[.!?,;:]$/, '');
 }
 
-/** 答案一致性自動修正：不只看警告，更主動修復常見不匹配問題 */
-export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { fixed: GeneratedQuestion; warnings: string[] } {
+/** 答案一致性自動修正：不只看警告，更主動修復常見不匹配問題。
+ *  v2.0: 新增 `rejected` 旗標 — 聆聽/閱讀題答案完全無法在內容中找到時拒絕該題。 */
+export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { fixed: GeneratedQuestion; warnings: string[]; rejected: boolean } {
   const warnings: string[] = [];
   let fixed = { ...q };
+  let rejected = false;
 
   // 1. MCQ：答案必須指向 choices 中的某個選項
   if (fixed.type === 'mc' && fixed.choices && fixed.choices.length > 0) {
@@ -604,7 +606,10 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
       const lastTwo = words.slice(-2).join(' ');
       const lastThree = words.slice(-3).join(' ');
       if (!normListening.includes(lastThree) && !normListening.includes(lastTwo)) {
-        console.warn(`[Listening Consistency] Q${index}: answer "${answerToCheck}" not found verbatim in listeningContent`);
+        const warnMsg = `[Listening Consistency] Q${index}: answer "${answerToCheck}" not found verbatim in listeningContent — REJECTED`;
+        console.warn(warnMsg);
+        warnings.push(warnMsg);
+        rejected = true;
       }
     }
   }
@@ -627,11 +632,14 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
     }
   }
 
-  return { fixed, warnings };
+  return { fixed, warnings, rejected };
 }
 
 function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQuestion[] {
-  return questions.map((q) => {
+  const results: GeneratedQuestion[] = [];
+  let rejectedCount = 0;
+
+  for (const q of questions) {
     const base: GeneratedQuestion = {
       ...q,
       type: (q.type || 'mc').trim(),
@@ -650,12 +658,11 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     };
 
     if (base.type !== 'mc') {
-      // 非MC題也要驗證聆聽/閱讀一致性
-      const { warnings } = validateAndFixQuestion(base, 0);
-      if (warnings.length > 0) {
-        console.warn('[ai-service] Non-MC answer consistency:', warnings);
-      }
-      return { ...base, choices: [] };
+      const { warnings, rejected } = validateAndFixQuestion(base, results.length);
+      if (rejected) { rejectedCount++; continue; }
+      if (warnings.length > 0) console.warn('[ai-service] Non-MC answer consistency:', warnings);
+      results.push({ ...base, choices: [] });
+      continue;
     }
 
     const cleanedChoices = Array.from(new Set(
@@ -723,17 +730,26 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       choices: finalChoices,
       answer: finalAnswer,
     };
-    const { fixed, warnings } = validateAndFixQuestion(tempQuestion, 0);
-    if (warnings.length > 0) {
-      console.warn('[ai-service] Answer auto-fix:', warnings);
+    const { fixed, warnings, rejected } = validateAndFixQuestion(tempQuestion, results.length);
+    if (rejected) {
+      rejectedCount++;
+      console.warn(`[ai-service] Q${results.length} rejected — answer not found in listeningContent`);
+      continue;
     }
+    if (warnings.length > 0) console.warn('[ai-service] Answer auto-fix:', warnings);
 
-    return {
+    results.push({
       ...base,
       choices: finalChoices,
       answer: fixed.answer,
-    };
-  });
+    });
+  }
+
+  if (rejectedCount > 0) {
+    console.warn(`[ai-service] ${rejectedCount}/${questions.length} listening/reading questions rejected due to answer-content mismatch`);
+  }
+
+  return results;
 }
 
 // ============================================
@@ -796,8 +812,8 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   const isReading = input.languageSkill === 'reading';
   const isMcq = typeDesc === 'mc';
 
-  // 聽力/閱讀題使用較低 temperature 提高準確性
-  const qTemperature = (isListening || isReading) ? 0.3 : 0.7;
+  // 聽力/閱讀題使用較低 temperature 提高準確性，但不能過低導致重複
+  const qTemperature = (isListening || isReading) ? 0.45 : 0.7;
 
   // ============================================
   // DSE RAG 整合：檢索相關歷屆試題與 Marking Scheme

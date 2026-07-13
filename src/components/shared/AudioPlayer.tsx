@@ -125,13 +125,20 @@ function splitMultiSpeakerLine(text: string): string {
   return text.replace(/([^\n])(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]/gi, '$1\n$2:');
 }
 
-/** 剝離所有角色標籤（確保 TTS 不會直接朗讀 "Librarian:" "Man:" 等），並清除殘餘標點 */
+/** 剝離所有角色標籤（確保 TTS 不朗讀 "Boy:" "Man:" 等），清除引號、多餘空白 */
 function stripSpeakerLabels(text: string): string {
   return text
-    .replace(/^[A-Za-z]+(?:\s+[A-Za-z]+)?\s*[:：\-–—]\s*/gm, '')
-    // 清除 TTS 容易朗讀出來的殘餘特殊字元
+    // 移除行首角色標籤（含冒號/破折號後的所有變體）
+    .replace(/^[A-Za-z]+(?:\s+[A-Za-z0-9]+)?\s*[:：\-–—]\s*/gm, '')
+    // 移除行中角色標籤（緊接換行後的標籤，splitMultiSpeakerLine 產生）
+    .replace(/\n[A-Za-z]+(?:\s+[A-Za-z0-9]+)?\s*[:：\-–—]\s*/g, '\n')
+    // 移除所有引號（單雙、彎直）
     .replace(/[""'']/g, '')
-    .replace(/\s{2,}/g, ' ')
+    // 移除殘餘孤立冒號/破折號
+    .replace(/^\s*[:：\-–—]\s*/gm, '')
+    // 壓縮多餘空白
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -329,7 +336,9 @@ export default function AudioPlayer({
   const prefetchAudio = useCallback(async () => {
     if (!text || !useCloudTTS) return;
 
-    const cacheKey = getCacheKey(text, speed);
+    const cleanText = prepareTextForTTS(text);
+    if (!cleanText) return;
+    const cacheKey = getCacheKey(cleanText, speed);
     // 已在快取中 → 跳過
     if (TTS_CACHE.has(cacheKey)) {
       cachedKeyRef.current = cacheKey;
@@ -348,8 +357,8 @@ export default function AudioPlayer({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text, // 傳原始文字（含角色標籤），由 tts-service.ts 解析
-          multiSpeaker: true,
+          text: cleanText, // 已清理角色標籤
+          multiSpeaker: false,
           voiceTier: 'default',
           speakingRate: speed,
         }),
@@ -389,108 +398,136 @@ export default function AudioPlayer({
   }, [onPrefetchReady, prefetchAudio]);
 
   // ============================================
-  // Google Cloud TTS 播放（v2.0: 全域快取 + 進度 + 重試）
+  // Google Cloud TTS 播放（v3.0: 預處理文字 + 重試機制 + 完整 cleanup）
   // ============================================
   const playCloudTTS = useCallback(async () => {
     if (!text) return;
     setCloudError('');
+    setLoading(true);
 
-    const cacheKey = getCacheKey(text, speed);
+    // 預處理：剝離角色標籤，確保 TTS 只讀乾淨對話
+    const cleanText = prepareTextForTTS(text);
+    if (!cleanText) {
+      setCloudError('無有效文字');
+      setLoading(false);
+      return;
+    }
+
+    const cacheKey = getCacheKey(cleanText, speed);
 
     // 檢查全域快取
     const cached = TTS_CACHE.get(cacheKey);
     if (cached) {
       cachedKeyRef.current = cacheKey;
       cachedUrlRef.current = cached.url;
+      const audio = new Audio(cached.url);
+      // 先清理舊 audio 實例
       if (cloudAudioRef.current) {
-        cloudAudioRef.current.currentTime = 0;
-        await cloudAudioRef.current.play();
-        setPlaying(true);
+        cloudAudioRef.current.pause();
+        cloudAudioRef.current.src = '';
+        cloudAudioRef.current = null;
       }
+      cloudAudioRef.current = audio;
+      audio.onplay = () => { setPlaying(true); setLoading(false); setCloudFetching(false); };
+      audio.onended = () => { setPlaying(false); onPlayEnd?.(); };
+      audio.onerror = () => {
+        console.error('[TTS] Cached audio playback error');
+        TTS_CACHE.delete(cacheKey);
+        setPlaying(false); setLoading(false);
+        handlePlayWebSpeech();
+      };
+      try { await audio.play(); } catch { handlePlayWebSpeech(); }
       return;
     }
 
-    setCloudFetching(true);
-    setLoading(true);
+    // 嘗試 fetch + 1 次重試
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      setCloudFetching(true);
+      const controller = new AbortController();
+      cloudAbortRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      let shouldRetry = false;
 
-    const controller = new AbortController();
-    cloudAbortRef.current = controller;
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: cleanText,  // 已清理角色標籤的文字
+            multiSpeaker: false,  // server 端不需再次解析
+            voiceTier: 'default',
+            speakingRate: speed,
+          }),
+          signal: controller.signal,
+        });
 
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
+        clearTimeout(timeoutId);
 
-    try {
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text, // 原始文字，server 端會解析角色標籤
-          multiSpeaker: true,
-          voiceTier: 'default',
-          speakingRate: speed,
-        }),
-        signal: controller.signal,
-      });
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => '');
+          if (attempt === 2) {
+            console.error('[TTS] Cloud TTS error (attempt', attempt, '):', res.status, errorText);
+            setCloudError(res.status === 503 ? 'TTS 服務未設定' : `TTS 錯誤 (${res.status})`);
+            setCloudFetching(false); setLoading(false);
+            handlePlayWebSpeech();
+            return;
+          }
+          console.warn('[TTS] Retrying after error:', res.status);
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
 
-      clearTimeout(timeoutId);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
 
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '');
-        const errMsg = res.status === 503
-          ? 'TTS 服務未設定'
-          : res.status === 504
-            ? 'TTS 合成超時，請縮短文本後重試'
-            : `TTS 服務錯誤 (${res.status})`;
-        console.error('[TTS] Cloud TTS error:', res.status, errorText);
-        setCloudError(errMsg);
-        setCloudFetching(false);
-        setLoading(false);
-        handlePlayWebSpeech();
-        return;
-      }
+        cleanExpiredCache();
+        evictOldestIfNeeded();
+        TTS_CACHE.set(cacheKey, { url, addedAt: Date.now() });
+        cachedKeyRef.current = cacheKey;
+        cachedUrlRef.current = url;
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        // 先清理舊 audio 實例（確保切換題目時不殘留）
+        if (cloudAudioRef.current) {
+          cloudAudioRef.current.pause();
+          cloudAudioRef.current.src = '';
+          cloudAudioRef.current = null;
+        }
+        cloudAudioRef.current = audio;
 
-      // 存入全域快取
-      cleanExpiredCache();
-      evictOldestIfNeeded();
-      TTS_CACHE.set(cacheKey, { url, addedAt: Date.now() });
-      cachedKeyRef.current = cacheKey;
-      cachedUrlRef.current = url;
+        audio.onplay = () => { setLoading(false); setCloudFetching(false); setPlaying(true); };
+        audio.onended = () => { setPlaying(false); onPlayEnd?.(); };
+        audio.onerror = () => {
+          console.error('[TTS] Audio playback error');
+          if (attempt === 1) {
+            TTS_CACHE.delete(cacheKey);
+            URL.revokeObjectURL(url);
+            setCloudFetching(false);
+            shouldRetry = true;
+            return;
+          }
+          setPlaying(false); setCloudFetching(false); setLoading(false);
+          handlePlayWebSpeech();
+        };
 
-      const audio = new Audio(url);
-      cloudAudioRef.current = audio;
-
-      audio.onplay = () => {
-        setLoading(false);
-        setCloudFetching(false);
-        setPlaying(true);
-      };
-      audio.onended = () => {
-        setPlaying(false);
-        onPlayEnd?.();
-      };
-      audio.onerror = () => {
-        console.error('[TTS] Audio playback error');
-        setPlaying(false);
-        setCloudFetching(false);
-        setLoading(false);
-        handlePlayWebSpeech();
-      };
-
-      await audio.play();
-    } catch (err: unknown) {
-      clearTimeout(timeoutId);
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        // 用戶取消或 timeout
-        setCloudError('TTS 請求逾時，請重試');
-      } else {
+        await audio.play();
+        if (shouldRetry) { await new Promise(r => setTimeout(r, 1000)); continue; }
+        return; // success
+      } catch (err: unknown) {
+        clearTimeout(timeoutId);
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setCloudError('TTS 請求逾時，請重試');
+          setCloudFetching(false); setLoading(false);
+          return;
+        }
+        if (attempt === 1) {
+          console.warn('[TTS] Fetch failed, retrying:', err);
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
         console.error('[TTS] Cloud TTS fetch failed:', err);
         setCloudError('網絡連線失敗');
-      }
-      setCloudFetching(false);
-      setLoading(false);
-      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setCloudFetching(false); setLoading(false);
         handlePlayWebSpeech();
       }
     }
