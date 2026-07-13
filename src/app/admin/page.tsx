@@ -27,27 +27,27 @@ export default function AdminDashboard() {
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
-      setToolResult(`${name} 完成：${JSON.stringify(data).slice(0, 200)}`);
+      setToolResult(`${name} ${t('common.success')}：${JSON.stringify(data).slice(0, 200)}`);
     } catch {
-      setToolResult(`${name} 失敗`);
+      setToolResult(`${name} ${t('common.error')}`);
     }
     finally { setToolRunning(null); }
   };
 
   const tools = [
-    { name: '同步班別', desc: '從 Google Sheets 同步學生班別名單', endpoint: '/api/admin/sync-sheets', icon: RefreshCw, color: 'text-teal-500' },
-    { name: '匯出 Dashboard', desc: '將統計數據寫入 Google Sheets', endpoint: '/api/admin/export-sheets', icon: FileSpreadsheet, color: 'text-green-500' },
-    { name: '修復班級', desc: '重新分配未編班學生', endpoint: '/api/admin/fix-classes', icon: Wrench, color: 'text-orange-500' },
-    { name: '清理 Mock', desc: '刪除所有示範數據（@school.hk）', endpoint: '/api/admin/cleanup-mock-data', icon: Trash2, color: 'text-red-500' },
+    { name: t('admin.tools.syncSheets'), desc: t('admin.tools.syncSheets.desc'), endpoint: '/api/admin/sync-sheets', icon: RefreshCw, color: 'text-teal-500' },
+    { name: t('admin.tools.exportDashboard'), desc: t('admin.tools.exportDashboard.desc'), endpoint: '/api/admin/export-sheets', icon: FileSpreadsheet, color: 'text-green-500' },
+    { name: t('admin.tools.fixClasses'), desc: t('admin.tools.fixClasses.desc'), endpoint: '/api/admin/fix-classes', icon: Wrench, color: 'text-orange-500' },
+    { name: t('admin.tools.cleanupMock'), desc: t('admin.tools.cleanupMock.desc'), endpoint: '/api/admin/cleanup-mock-data', icon: Trash2, color: 'text-red-500' },
   ];
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          管理員後台
+          {t('admin.dashboard.title')}
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          歡迎使用 AI 英語學習平台管理後台。
+          {t('admin.dashboard.welcome')}
         </p>
       </div>
 
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
       {/* 管理工具 */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-          <Wrench className="w-5 h-5 text-gray-500" /> 管理工具
+          <Wrench className="w-5 h-5 text-gray-500" /> {t('admin.tools.title')}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {tools.map((tool) => (

@@ -39,7 +39,7 @@ interface WritingAnalysis {
 /** 嘗試載入中文字型（支援 Windows 開發 + Vercel 部署） */
 async function loadCJKFont(): Promise<Buffer> {
   // 專案內嵌字型（部署用 — 優先使用）
-  const bundled = path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
+  const bundled = path.join(/* turbopackIgnore: true */ process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
   if (fs.existsSync(bundled)) return fs.readFileSync(bundled);
 
   const candidates = [
