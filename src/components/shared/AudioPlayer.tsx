@@ -213,32 +213,30 @@ function getSpeakerPitch(speaker: string | null): number {
 }
 
 /**
- * 清理 AI 生成的 listeningContent 中不規範的角色標籤
- * ⚠️ 安全網：只修正格式錯誤，保留正確標籤以支援 Web Speech 男女聲分離
- * - 移除引號/括號 → Woman: / Man: / Boy: / Girl:
- * - 職業標籤 → 映射為 Man:/Woman:
- * - 全大寫/空格異常 → 正規化
+ * 清理 AI 生成的 listeningContent 格式（只做格式修正，不改 speaker 身分）
+ * - 正規化標籤格式：MAN: → Man:、Woman : → Woman:、"Man": → Man:
+ * - 保留原始 speaker：Man 永遠是 Man，Woman 永遠是 Woman
+ * - 不移除正確 speaker 標籤（Web Speech 角色分離需要）
  */
 export function cleanListeningContent(text: string): string {
   if (!text) return '';
   return text
-    // Step 1: 移除角色標籤周圍的引號/括號：["Woman"]: → Woman:
+    // Step 1: 正規化角色標籤格式（保留 speaker 身分，只修正格式）
+    // 移除引號/括號/全形冒號/多餘空白 → 統一為 "Speaker: text"
     .replace(/^["'\[]?\s*(Woman|Man|Boy|Girl)\s*["'\]]?\s*[:：]\s*/gim, '$1: ')
     .replace(/\n["'\[]?\s*(Woman|Man|Boy|Girl)\s*["'\]]?\s*[:：]\s*/gi, '\n$1: ')
-    // Step 2: 映射職業標籤 → 標準角色
-    .replace(/^(?:Librarian|Student|Teacher|Customer|Waiter|Doctor|Nurse|Interviewer|Host|Presenter|Announcer|Operator)\s*[:：]\s*/gim, 'Man: ')
-    // Step 3: 正規化全大寫角色標籤
+    // Step 2: 修正全大寫角色標籤（WOMAN → Woman）
     .replace(/^(WOMAN)\s*[:：]\s*/gim, 'Woman: ')
     .replace(/^(MAN)\s*[:：]\s*/gim, 'Man: ')
     .replace(/^(BOY)\s*[:：]\s*/gim, 'Boy: ')
     .replace(/^(GIRL)\s*[:：]\s*/gim, 'Girl: ')
-    // Step 4: 修正冒號前多餘空格：Woman : → Woman:
+    // Step 3: 修正冒號前多餘空格（Woman : → Woman:）
     .replace(/^(Woman|Man|Boy|Girl)\s+[:：]\s*/gim, '$1: ')
-    // Step 5: 移除獨立標籤行（僅有標籤+冒號，無台詞內容）
+    // Step 4: 移除獨立空標籤行（僅有標籤+冒號，無台詞內容）
     .replace(/^(Woman|Man|Boy|Girl)\s*[:：]\s*$/gim, '')
-    // Step 6: 移除對話內容中的引號字元
+    // Step 5: 移除對話內容中的引號字元（不影響 speaker 標籤）
     .replace(/["""''']/g, '')
-    // Step 7: 壓縮多餘空白
+    // Step 6: 壓縮多餘空白
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -713,16 +711,24 @@ export default function AudioPlayer({
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
         utterance.rate = speed;
-        // 有角色標籤時：若男女聲相同則用 pitch 區分
-        utterance.pitch = (line.speaker && sameVoice)
-          ? getSpeakerPitch(line.speaker)
-          : (line.speaker ? getSpeakerPitch(line.speaker) : 1.0);
 
+        // Voice selection: 用 speaker-specific voice，null 時 fallback 到 defaultVoice + pitch
         if (line.speaker) {
           const voice = map.get(line.speaker);
-          if (voice) utterance.voice = voice;
+          if (voice) {
+            utterance.voice = voice;
+          } else if (defaultVoice) {
+            // 找不到對應 voice 時用 default + pitch 模擬性別差異
+            utterance.voice = defaultVoice;
+            utterance.pitch = getSpeakerPitch(line.speaker);
+          }
         } else if (defaultVoice) {
           utterance.voice = defaultVoice;
+        }
+
+        // 若男女聲相同（sameVoice），用 pitch 補償
+        if (sameVoice && line.speaker && !utterance.pitch) {
+          utterance.pitch = getSpeakerPitch(line.speaker);
         }
 
         utterance.onstart = () => { setLoading(false); setPlaying(true); };

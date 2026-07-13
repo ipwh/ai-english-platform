@@ -812,46 +812,26 @@ const VALID_SPEAKERS = ['Woman', 'Man', 'Boy', 'Girl'] as const;
 const VALID_SPEAKER_SET = new Set<string>(VALID_SPEAKERS);
 const SPEAKER_LINE_RE_STRICT = /^(Woman|Man|Boy|Girl)\s*:\s*(.+)$/i;
 
-/** 修正單行 speaker label 格式 */
+/** 修正單行 speaker label 格式（只做格式正規化，不改 speaker 身分） */
 function sanitizeListeningLine(line: string): string {
   if (!line.trim()) return '';
 
-  // 移除行首/行尾空白和引號
+  // 移除行首/行尾空白和包裹引號
   let cleaned = line.trim().replace(/^["'「『\[]+|["'」』\]]+$/g, '');
 
-  // 嘗試匹配各種 speaker 格式
+  // 嘗試匹配 speaker label 格式
   const looseMatch = cleaned.match(/^["'\[]?\s*([A-Za-z]+(?:\s+[A-Za-z0-9]+)?)\s*["'\]]?\s*[:：\-–—]\s*/);
   if (!looseMatch) return cleaned; // 無 speaker label，保留原文
 
   const rawSpeaker = looseMatch[1];
   const rest = cleaned.slice(looseMatch[0].length);
 
-  // 映射職業/身份標籤 → 標準角色
-  const OCCUPATION_MAP: Record<string, string> = {
-    student: 'Boy', teacher: 'Man', librarian: 'Woman',
-    customer: 'Man', waiter: 'Man', waitress: 'Woman',
-    doctor: 'Man', nurse: 'Woman', interviewer: 'Man',
-    host: 'Man', presenter: 'Woman', announcer: 'Man',
-    operator: 'Woman', speaker: 'Man', assistant: 'Woman',
-    parent: 'Woman', mother: 'Woman', father: 'Man',
-    brother: 'Boy', sister: 'Girl', friend: 'Boy',
-    'speaker a': 'Woman', 'speaker b': 'Man',
-    'speaker 1': 'Woman', 'speaker 2': 'Man',
-  };
+  // 只標準化格式，保留原始 speaker 身分
+  // 正規化大小寫：Man/man/MAN → Man
+  const normalized = rawSpeaker.charAt(0).toUpperCase() + rawSpeaker.slice(1).toLowerCase();
 
-  const lower = rawSpeaker.toLowerCase().replace(/[^a-z]/g, '');
-  const mapped = OCCUPATION_MAP[lower] || (
-    // 啟發式：女性名字特徵 → Woman，其他 → Man
-    /(woman|girl|female|she|her|ms|mrs|miss|lady|aunt|niece)/i.test(rawSpeaker) ? 'Woman' :
-    /(man|boy|male|he|him|mr|sir|gentleman|uncle|nephew)/i.test(rawSpeaker) ? 'Man' :
-    (lower.startsWith('woman') || lower.startsWith('girl')) ? 'Girl' :
-    (lower.startsWith('man') || lower.startsWith('boy')) ? 'Boy' :
-    'Man' // default fallback
-  );
-
-  // 重建標準格式行
   if (!rest.trim()) return ''; // 空台詞 → 移除該行
-  return `${mapped}: ${rest.trim()}`;
+  return `${normalized}: ${rest.trim()}`;
 }
 
 /**
