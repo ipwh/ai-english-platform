@@ -5,10 +5,11 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Loader2, Play, Pause, FileText, PenLine, Send, Sparkles, RefreshCw, CheckCircle2, XCircle, Lightbulb, Target, BookOpen } from 'lucide-react';
+import { Loader2, FileText, PenLine, Send, Sparkles, RefreshCw, CheckCircle2, XCircle, Lightbulb, Target, BookOpen, TrendingUp, AlertTriangle, Award } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import type { IntegratedSkillsAnalysis } from '@/lib/ai-service';
 
 type Stage = 'config' | 'listening' | 'writing' | 'result';
 
@@ -37,14 +38,6 @@ interface IntegratedTask {
   wordLimit?: number;
 }
 
-interface AnalysisResult {
-  contentCoverage: { covered: string[]; missed: string[]; score: number };
-  languageQuality: { grammarErrors: { original: string; correction: string }[]; styleFeedback: string; score: number };
-  organization: { feedback: string; score: number };
-  overallScore: number;
-  suggestions: string[];
-}
-
 export default function IntegratedSkillsPage() {
   const { t } = useT();
   const store = useAppStore();
@@ -63,7 +56,7 @@ export default function IntegratedSkillsPage() {
   const [studentWriting, setStudentWriting] = useState('');
 
   const [aiLoading, setAiLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<IntegratedSkillsAnalysis | null>(null);
 
   // 生成 Integrated Skills 任務
   const handleGenerate = async () => {
@@ -356,43 +349,70 @@ export default function IntegratedSkillsPage() {
           </button>
         </div>
 
-        {/* 總分 */}
+        {/* 總分 + HKDSE Level */}
         <div className="bg-gradient-to-r from-purple-500 to-teal-500 rounded-2xl p-6 text-white text-center">
           <p className="text-sm opacity-80">Overall Score</p>
           <p className="text-4xl font-bold">{analysis.overallScore}<span className="text-lg font-normal opacity-80">/100</span></p>
+          {analysis.estimatedLevel && (
+            <p className="text-sm mt-2 opacity-90 flex items-center justify-center gap-1">
+              <Award className="w-4 h-4" /> 估計 HKDSE Level：{analysis.estimatedLevel}
+            </p>
+          )}
+        </div>
+
+        {/* 雙維度總分 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-500">🎧 Listening 提取準確度</p>
+            <p className="text-2xl font-bold text-amber-600">{analysis.listeningAccuracy}<span className="text-sm font-normal">/100</span></p>
+          </div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-500">✍️ Writing 品質</p>
+            <p className="text-2xl font-bold text-blue-600">{analysis.writingQuality}<span className="text-sm font-normal">/100</span></p>
+          </div>
         </div>
 
         {/* 三維度評分 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { label: '內容覆蓋', score: analysis.contentCoverage?.score ?? 0, icon: Target, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: '語言質素', score: analysis.languageQuality?.score ?? 0, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-            { label: '組織結構', score: analysis.organization?.score ?? 0, icon: FileText, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
+            { label: '內容完整度', score: analysis.contentCompleteness, icon: Target, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+            { label: '語言準確度', score: analysis.languageAccuracy, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+            { label: '組織清晰度', score: analysis.organizationClarity, icon: FileText, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
           ].map((dim, i) => (
             <div key={i} className={`${dim.bg} rounded-xl p-4 text-center`}>
               <dim.icon className={`w-5 h-5 ${dim.color} mx-auto mb-1`} />
               <p className="text-xs text-gray-500">{dim.label}</p>
-              <p className={`text-2xl font-bold ${dim.color}`}>{dim.score}<span className="text-sm font-normal">/10</span></p>
+              <p className={`text-2xl font-bold ${dim.color}`}>{dim.score}<span className="text-sm font-normal">/100</span></p>
             </div>
           ))}
         </div>
 
-        {/* 內容覆蓋詳情 */}
+        {/* 總評 */}
+        {analysis.generalComment && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-500" /> 總評
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{analysis.generalComment}</p>
+          </div>
+        )}
+
+        {/* 內容要點：已提取 vs 遺漏 */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <Target className="w-5 h-5 text-amber-500" /> 內容覆蓋
+            <Target className="w-5 h-5 text-amber-500" /> 內容要點分析
           </h3>
           <div className="space-y-2">
-            <p className="text-sm font-medium text-green-600">✅ 已涵蓋：</p>
-            {(analysis.contentCoverage?.covered ?? []).map((pt, i) => (
+            <p className="text-sm font-medium text-green-600">✅ 已提取的要點：</p>
+            {(analysis.capturedPoints ?? []).map((pt, i) => (
               <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> {pt}
               </div>
             ))}
-            {(analysis.contentCoverage?.missed?.length ?? 0) > 0 && (
+            {(analysis.missedPoints?.length ?? 0) > 0 && (
               <>
-                <p className="text-sm font-medium text-red-500 mt-3">❌ 遺漏：</p>
-                {(analysis.contentCoverage?.missed ?? []).map((pt, i) => (
+                <p className="text-sm font-medium text-red-500 mt-3">❌ 遺漏的要點：</p>
+                {(analysis.missedPoints ?? []).map((pt, i) => (
                   <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> {pt}
                   </div>
@@ -402,49 +422,90 @@ export default function IntegratedSkillsPage() {
           </div>
         </div>
 
-        {/* 語言質素 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-blue-500" /> 語言質素
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{analysis.languageQuality?.styleFeedback ?? ''}</p>
-          {(analysis.languageQuality?.grammarErrors?.length ?? 0) > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-500">文法錯誤：</p>
-              {(analysis.languageQuality?.grammarErrors ?? []).map((err, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
-                  <span className="text-red-500 line-through">{err.original}</span>
-                  <span className="text-gray-400">→</span>
-                  <span className="text-green-600 font-medium">{err.correction}</span>
+        {/* 過度抄襲警告 */}
+        {(analysis.overCopyWarnings?.length ?? 0) > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-red-200 dark:border-red-800">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" /> 過度抄襲警告
+            </h3>
+            <div className="space-y-3">
+              {(analysis.overCopyWarnings ?? []).map((w, i) => (
+                <div key={i} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg text-sm">
+                  <p className="text-red-600 dark:text-red-400 line-through mb-1">{w.original}</p>
+                  <p className="text-green-600 dark:text-green-400">💡 {w.suggestion}</p>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* 組織結構 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-green-500" /> 組織結構
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.organization?.feedback ?? ''}</p>
-        </div>
-
-        {/* 改善建議 */}
-        {(analysis.suggestions?.length ?? 0) > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-amber-500" /> 改善建議
-            </h3>
-            <ul className="space-y-2">
-              {(analysis.suggestions ?? []).map((s, i) => (
-                <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                  <span className="text-amber-500 mt-0.5">💡</span> {s}
-                </li>
-              ))}
-            </ul>
           </div>
         )}
+
+        {/* 文法錯誤 */}
+        {(analysis.grammarErrors?.length ?? 0) > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-blue-500" /> 文法錯誤
+            </h3>
+            <div className="space-y-3">
+              {(analysis.grammarErrors ?? []).map((err, i) => (
+                <div key={i} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg text-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-red-500 line-through">{err.original}</span>
+                    <span className="text-gray-400">→</span>
+                    <span className="text-green-600 font-medium">{err.correction}</span>
+                  </div>
+                  {err.explanation && (
+                    <p className="text-xs text-gray-500 mt-1">📝 {err.explanation}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 詞彙升級建議 */}
+        {(analysis.vocabularySuggestions?.length ?? 0) > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-500" /> 詞彙升級建議
+            </h3>
+            <div className="space-y-2">
+              {(analysis.vocabularySuggestions ?? []).map((v, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg">
+                  <span className="text-gray-500 line-through">{v.original}</span>
+                  <span className="text-gray-400">→</span>
+                  <span className="text-purple-600 font-medium">{v.suggestion}</span>
+                  {v.reason && <span className="text-xs text-gray-400 ml-auto">{v.reason}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 結構評語 + 改善建議 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {analysis.structureFeedback && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-green-500" /> 結構評語
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.structureFeedback}</p>
+            </div>
+          )}
+          {(analysis.improvementTips?.length ?? 0) > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-amber-500" /> 改善建議
+              </h3>
+              <ul className="space-y-2">
+                {(analysis.improvementTips ?? []).map((tip, i) => (
+                  <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                    <span className="text-amber-500 mt-0.5">💡</span> {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
 
         {/* 原始答案參考 */}
         <details className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">

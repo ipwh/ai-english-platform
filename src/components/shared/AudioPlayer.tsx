@@ -11,7 +11,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Volume2, Pause, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Volume2, Pause, Play, Square, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface AudioPlayerProps {
   text: string;
@@ -253,6 +253,7 @@ export default function AudioPlayer({
   onPrefetchReady,
 }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
   // Cloud TTS 狀態
   const [cloudFetching, setCloudFetching] = useState(false);
@@ -313,6 +314,7 @@ export default function AudioPlayer({
 
     // UI state
     setPlaying(false);
+    setPaused(false);
     setLoading(false);
     setCloudFetching(false);
     setCloudError('');
@@ -392,7 +394,49 @@ export default function AudioPlayer({
 
   const handleStop = useCallback(() => {
     cleanupAllPlayback();
+    setPaused(false);
   }, [cleanupAllPlayback]);
+
+  // ============================================
+  // 暫停播放（保留進度，可繼續）
+  // ============================================
+  const handlePause = useCallback(() => {
+    // Cloud TTS: pause HTML audio element
+    if (cloudAudioRef.current && !cloudAudioRef.current.paused) {
+      cloudAudioRef.current.pause();
+      setPlaying(false);
+      setPaused(true);
+      return;
+    }
+    // Web Speech API: pause synthesis
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.pause();
+      setPlaying(false);
+      setPaused(true);
+    }
+  }, []);
+
+  // ============================================
+  // 繼續播放（從暫停處恢復）
+  // ============================================
+  const handleResume = useCallback(() => {
+    // Cloud TTS: resume HTML audio element
+    if (cloudAudioRef.current && cloudAudioRef.current.paused) {
+      cloudAudioRef.current.play().then(() => {
+        setPlaying(true);
+        setPaused(false);
+      }).catch(() => {
+        setPaused(false);
+      });
+      return;
+    }
+    // Web Speech API: resume synthesis
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.resume();
+      setPlaying(true);
+      setPaused(false);
+    }
+  }, []);
 
   // ============================================
   // 預載入音訊（供父元件在 hover / page load 時呼叫）
@@ -794,30 +838,55 @@ export default function AudioPlayer({
 
   return (
     <div className={`inline-flex items-center gap-1 ${className}`}
-      onMouseEnter={() => { if (useCloudTTS && !isBusy) prefetchAudio(); }}
+      onMouseEnter={() => { if (useCloudTTS && !isBusy && !paused) prefetchAudio(); }}
     >
+      {/* 播放 / 暫停 / 繼續 按鈕 */}
       <button
-        onClick={useCloudTTS ? (playing ? handleStop : playCloudTTS) : handlePlayWebSpeech}
+        onClick={
+          isBusy ? undefined
+          : playing ? handlePause
+          : paused ? handleResume
+          : useCloudTTS ? playCloudTTS
+          : handlePlayWebSpeech
+        }
         disabled={isBusy}
         className={`inline-flex items-center rounded-lg font-medium transition-colors disabled:opacity-50 ${
-          playing
+          playing || paused
             ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
         } ${sizeClasses[size]}`}
-        title={playing ? '停止' : (cloudFetching ? '生成音訊中...' : label)}
+        title={
+          isBusy ? (cloudFetching ? '生成音訊中...' : '載入中')
+          : playing ? '暫停'
+          : paused ? '繼續'
+          : label
+        }
       >
         {isBusy ? (
           <Loader2 className={`${iconSize[size]} animate-spin`} />
         ) : playing ? (
           <Pause className={iconSize[size]} />
+        ) : paused ? (
+          <Play className={iconSize[size]} />
         ) : (
           <Volume2 className={iconSize[size]} />
         )}
-        {isBusy ? (cloudFetching ? '生成中...' : '載入中') : playing ? '停止' : label}
+        {isBusy ? (cloudFetching ? '生成中...' : '載入中') : playing ? '暫停' : paused ? '繼續' : label}
       </button>
 
+      {/* 停止按鈕（播放中或暫停中顯示） */}
+      {(playing || paused) && (
+        <button
+          onClick={handleStop}
+          className={`inline-flex items-center rounded-lg font-medium transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 ${sizeClasses[size]}`}
+          title="停止"
+        >
+          <Square className={iconSize[size]} />
+        </button>
+      )}
+
       {/* Speed selector */}
-      {!playing && (
+      {!playing && !paused && (
         <div className="flex items-center gap-0.5">
           {SPEEDS.map(s => (
             <button
