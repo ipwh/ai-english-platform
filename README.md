@@ -8,7 +8,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
-- **🎧✍️ Integrated Skills 綜合訓練** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程：聆聽對話 → Note-taking 引導 → 寫作任務（Summary / Email Reply / Short Article / Report）；AI 雙維度批改（Listening 提取準確度 + Writing 品質），檢測過度抄襲、遺漏重點、文法錯誤、詞彙升級建議
+- **🎧✍️ Integrated Skills 綜合訓練** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程：聆聽對話（支援暫停/繼續/停止）→ Note-taking 引導 → 寫作任務（Summary / Email Reply / Short Article / Report）；AI 雙維度批改（Listening 提取準確度 + Writing 品質），含內容要點分析、過度抄襲檢測、文法錯誤詳解（附解釋）、詞彙升級建議、結構評語、改善建議、HKDSE 等級估算
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
@@ -145,6 +145,24 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新
+
+### 🎧 AudioPlayer 暫停/繼續/停止 + Integrated Skills 批改修復 + 聆聽體驗優化 — 2026-07-13
+
+#### ⏯️ AudioPlayer 播放控制強化
+- **暫停/繼續**：新增 `handlePause()` / `handleResume()`，Cloud TTS 使用 `Audio.pause()` / `Audio.play()` 保留播放進度，Web Speech API 使用 `speechSynthesis.pause()` / `speechSynthesis.resume()`
+- **停止按鈕**：播放中或暫停中顯示獨立 ■ 停止按鈕，點擊後完整清理音頻資源
+- **三態 UI**：Idle（▶️ 播放 + 語速選擇）→ Playing（⏸️ 暫停 + ■ 停止）→ Paused（▶️ 繼續 + ■ 停止）
+- 所有使用 `AudioPlayer` 的頁面自動獲得此功能（Integrated Skills、練習題、詞彙卡）
+
+#### 🔧 Integrated Skills 修復
+- **React Error #31 修復**：`noteTakingGuide` 型別從 `string[]` 修正為 `{ question: string; hint: string }[]`，正確渲染物件屬性而非原始物件
+- **"Wo Man" 文字分割修復**：`normalizeListeningContent()` regex 新增 `\b` word boundary，防止 `Man` 匹配在 `Woman` 內
+- **聆聽文字預設收起**：新增 `showListeningText` toggle，學生先聽後看，避免偷看答案
+- **批改結果重寫**：UI 改用 `IntegratedSkillsAnalysis` 實際 AI 回應欄位（`contentCompleteness` / `languageAccuracy` / `organizationClarity` / `capturedPoints` / `missedPoints` / `overCopyWarnings` / `vocabularySuggestions` / `grammarErrors` / `structureFeedback` / `generalComment` / `improvementTips` / `estimatedLevel`），解決所有維度顯示 0/10 的問題
+
+#### 📝 寫作支援 + 手機導航修正
+- **字數上限**：從下拉式選單改為直接數字輸入（50-2000），附快速預設按鈕（100/150/200/300/400/500/800）
+- **手機底部導航**：補回遺漏的 i18n keys（`nav.practice_short`、`nav.mistakes_short`、`nav.progress_short`），修正顯示原始 key 名稱的問題
 
 ### 🎧 Listening 音頻穩定性全面修復 (Round 1-3) — 2026-07-13
 
