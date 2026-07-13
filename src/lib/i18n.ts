@@ -19,6 +19,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'nav.profile': { zh: '個人檔案', en: 'Profile' },
   'nav.more': { zh: '更多', en: 'More' },
   'nav.home': { zh: '主頁', en: 'Home' },
+  'nav.practice_short': { zh: '練習', en: 'Practice' },
+  'nav.mistakes_short': { zh: '錯題', en: 'Mistakes' },
+  'nav.progress_short': { zh: '進度', en: 'Progress' },
 
   // Teacher Navigation
   'teacher.overview': { zh: '總覽', en: 'Overview' },
