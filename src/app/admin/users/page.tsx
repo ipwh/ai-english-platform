@@ -132,7 +132,7 @@ function EditModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameZh")</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.nameZh")}</label>
               <input
                 value={form.nameZh}
                 onChange={e => setForm({ ...form, nameZh: e.target.value })}
@@ -140,7 +140,7 @@ function EditModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameEn")</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.nameEn")}</label>
               <input
                 value={form.nameEn}
                 onChange={e => setForm({ ...form, nameEn: e.target.value })}
@@ -227,7 +227,7 @@ function EditModal({
           {form.role === 'teacher' && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.subjects")</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.subjects")}</label>
                 <input
                   value={form.subjects}
                   onChange={e => setForm({ ...form, subjects: e.target.value })}
@@ -357,7 +357,7 @@ function CreateUserModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameZh") *</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.nameZh")} *</label>
               <input
                 value={form.nameZh}
                 onChange={e => setForm({ ...form, nameZh: e.target.value })}
@@ -366,7 +366,7 @@ function CreateUserModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.nameEn")</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.nameEn")}</label>
               <input
                 value={form.nameEn}
                 onChange={e => setForm({ ...form, nameEn: e.target.value })}
@@ -388,7 +388,7 @@ function CreateUserModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.role")+" *"</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.role")}+" *"</label>
               <select
                 value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}
@@ -469,7 +469,7 @@ function CreateUserModal({
           {form.role === 'teacher' && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">t("admin.users.subjects")</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.subjects")}</label>
                 <input
                   value={form.subjects}
                   onChange={e => setForm({ ...form, subjects: e.target.value })}
@@ -612,7 +612,7 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">t("admin.users.title")</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("admin.users.title")}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             {data ? `共 ${data.total} 位使用者` : '載入中...'}
           </p>
@@ -741,7 +741,7 @@ export default function AdminUsersPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.role")}</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.class")}</th>
                   <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.accuracy")}</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">t("admin.users.sessions")</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.sessions")}</th>
                   <th className="text-center px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.academicYear")}</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.actions")}</th>
                 </tr>
