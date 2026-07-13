@@ -34,7 +34,7 @@ export default function WritingPage() {
         const level = d?.user?.level || d?.user?.class?.gradeLevel;
         if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, []);
   const [textType, setTextType] = useState('essay');
   const [wordLimit, setWordLimit] = useState(200);
@@ -251,7 +251,7 @@ export default function WritingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: store.userId, event: { type: 'submitWriting' } }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
     }
   };
 

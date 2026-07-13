@@ -84,7 +84,7 @@ function PracticeListPageContent() {
           setForm(prev => ({ ...prev, gradeLevel: studentLevel as GradeLevel }));
         }
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, []);
 
   // === 練習記錄 ===
@@ -285,8 +285,8 @@ function PracticeListPageContent() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('practice.title')}</h1>
         {/* 本週統計 */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-gray-500">
-          <span className="flex items-center gap-1"><BarChart3 className="w-4 h-4" /> 本週 {weeklyStats.questionsDone} 題</span>
-          <span className="flex items-center gap-1"><Target className="w-4 h-4" /> 正確率 {weeklyStats.accuracy}%</span>
+          <span className="flex items-center gap-1"><BarChart3 className="w-4 h-4" /> {t('practice.weeklyQuestions', { n: weeklyStats.questionsDone })}</span>
+          <span className="flex items-center gap-1"><Target className="w-4 h-4" /> {t('practice.weeklyAccuracy', { n: weeklyStats.accuracy })}</span>
         </div>
       </div>
 

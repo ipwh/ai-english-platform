@@ -120,7 +120,7 @@ export default function IntegratedSkillsPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ studentId: store.userId, event: { type: 'submitWriting', difficulty } }),
-          }).catch(() => {});
+          }).catch((e) => { console.error("[page] fetch failed", e) });
         }
       } else {
         setError(json.error || 'AI 批改失敗');

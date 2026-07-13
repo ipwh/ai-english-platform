@@ -43,7 +43,7 @@ export default function StudentDashboardPage() {
           .then(data => {
             if (data && !data.error) setGamification(data);
           })
-          .catch(() => {})
+          .catch((e) => { console.error("[page] fetch failed", e) })
           .finally(() => setGamificationLoading(false));
 
         // 🎮 每日登入 XP（同一天只觸發一次）
@@ -56,7 +56,7 @@ export default function StudentDashboardPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ studentId: userId, event: { type: 'dailyLogin' } }),
-            }).catch(() => {});
+            }).catch((e) => { console.error("[page] fetch failed", e) });
           }
         }
 
@@ -70,7 +70,7 @@ export default function StudentDashboardPage() {
           questionsDone: s.totalQuestions,
         })));
       }
-    }).catch(() => {});
+    }).catch((e) => { console.error("[page] fetch failed", e) });
   }, [loadPracticeHistory, language]);
 
   const weeklyStats = getWeeklyStats();

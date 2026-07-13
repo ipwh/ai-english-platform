@@ -150,7 +150,7 @@ export default function AdminClassesPage() {
                 className="w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                儲存
+                {t('admin.classes.save')}
               </button>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function AdminClassesPage() {
           return (
             <div key={level} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
               <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{level}</p>
-              <p className="text-xs text-gray-500">{levelClasses.length} 班 · {levelStudents} 人</p>
+              <p className="text-xs text-gray-500">{levelClasses.length} {t('admin.classes.classUnit')} · {levelStudents} {t('admin.classes.studentUnit')}</p>
             </div>
           );
         })}

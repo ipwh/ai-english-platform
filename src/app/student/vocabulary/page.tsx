@@ -70,7 +70,7 @@ export default function VocabularyPage() {
         const level = d?.user?.level || d?.user?.class?.gradeLevel;
         if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, [store.userId]);
 
   const loadVocab = useCallback(() => {
@@ -99,7 +99,7 @@ export default function VocabularyPage() {
           setSrsProgress(d.progress?.vocab || null);
         }
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, [studentId]);
 
   useEffect(() => { loadVocab(); }, [loadVocab]);
@@ -111,7 +111,7 @@ export default function VocabularyPage() {
     fetch(`/api/vocabulary/review-suggestions?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
       .then(d => { if (!d.error) setReviewSuggestions(d); })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, [studentId]);
 
   useEffect(() => { if (studentId) loadReviewSuggestions(); }, [studentId, loadReviewSuggestions]);
@@ -148,7 +148,7 @@ export default function VocabularyPage() {
         easeFactor: srsUpdate.easeFactor,
         lastReviewedAt: srsUpdate.lastReviewedAt,
       }),
-    }).catch(() => {});
+    }).catch((e) => { console.error("[page] fetch failed", e) });
 
     // 🎮 掌握單字 XP
     if (next === 'mastered' && store.userId) {
@@ -156,7 +156,7 @@ export default function VocabularyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: store.userId, event: { type: 'masterWord' } }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
     }
   };
 
@@ -168,7 +168,7 @@ export default function VocabularyPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, masteryLevel: level }),
-    }).catch(() => {});
+    }).catch((e) => { console.error("[page] fetch failed", e) });
   };
 
   const handleDelete = async (id: string) => {
@@ -221,7 +221,7 @@ export default function VocabularyPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId: store.userId, event: { type: 'learnWord' } }),
-        }).catch(() => {});
+        }).catch((e) => { console.error("[page] fetch failed", e) });
       }
     } else {
       loadVocab();
@@ -300,7 +300,7 @@ export default function VocabularyPage() {
           setTimeout(() => win.print(), 500);
         }
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   };
 
   // ============================================

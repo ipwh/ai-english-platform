@@ -63,7 +63,7 @@ function CustomTooltip({ active, payload, label }: any) {
         <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
         {payload.map((p: any, i: number) => (
           <p key={i} className="text-gray-600 dark:text-gray-400">
-            {p.name}: <span className="font-semibold">{p.value}{p.name.includes('Accuracy') || p.name.includes('準確率') || p.name.includes('準確') ? '%' : ''}</span>
+            {p.name}: <span className="font-semibold">{p.value}{p.dataKey === 'avgAccuracy' || p.dataKey === 'accuracy' || p.dataKey === 'avgScore' ? '%' : ''}</span>
           </p>
         ))}
       </div>

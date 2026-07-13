@@ -47,7 +47,7 @@ export default function MistakesPage() {
           setSrsMistakesDue(d.reviewCards.mistakes.length);
         }
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, [studentId]);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function MistakesPage() {
         const level = d?.user?.level || d?.user?.class?.gradeLevel;
         if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
-      .catch(() => {});
+      .catch((e) => { console.error("[page] fetch failed", e) });
   }, [store.userId]);
 
   const loadMistakes = () => {
@@ -115,7 +115,7 @@ export default function MistakesPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, inReviewList: !target.inReviewList }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
     }
   };
 
@@ -130,14 +130,14 @@ export default function MistakesPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, reviewed: newReviewed }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
       // 🎮 重溫錯題 XP（僅標記已溫習時）
       if (newReviewed && store.userId) {
         fetch('/api/gamification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId: store.userId, event: { type: 'reviewMistake' } }),
-        }).catch(() => {});
+        }).catch((e) => { console.error("[page] fetch failed", e) });
       }
     }
   };

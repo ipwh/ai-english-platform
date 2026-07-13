@@ -381,7 +381,7 @@ export default function DiagnosticPage() {
             recommendedSkill: r.id === 'reading' ? 'reading' : r.id === 'writing' ? 'writing' : undefined,
           })),
         }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
     }
 
     // 🎮 記錄診斷完成 XP
@@ -393,7 +393,7 @@ export default function DiagnosticPage() {
           studentId: studentProfile.id,
           event: { type: 'completeDiagnostic' },
         }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
     }
 
     // AI 分析報告

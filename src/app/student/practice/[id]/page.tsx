@@ -220,7 +220,7 @@ export default function PracticeQuestionPage() {
     if (nextQ?.listeningContent && nextQ.languageSkill === 'listening') {
       // 延遲 1 秒載入，避免影響當前頁面渲染
       const timer = setTimeout(() => {
-        prefetchTTSAudio(nextQ.listeningContent!).catch(() => {});
+        prefetchTTSAudio(nextQ.listeningContent!).catch((e) => { console.error("[page] fetch failed", e) });
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -352,7 +352,7 @@ export default function PracticeQuestionPage() {
           mistakeType: 'grammar',
           aiExplanation: '',
         }),
-      }).catch(() => {});
+      }).catch((e) => { console.error("[page] fetch failed", e) });
     }
   };
 

@@ -184,6 +184,8 @@ const translations: Record<string, { zh: string; en: string }> = {
   'practice.search': { zh: '搜尋題目...', en: 'Search questions...' },
   'practice.aiError': { zh: 'AI 生成失敗', en: 'AI generation failed' },
   'practice.networkError': { zh: '網絡錯誤，請重試。', en: 'Network error, please try again.' },
+  'practice.weeklyQuestions': { zh: '本週 {n} 題', en: '{n} questions this week' },
+  'practice.weeklyAccuracy': { zh: '正確率 {n}%', en: 'Accuracy {n}%' },
 
   // Generic
   'generic.startPractice': { zh: '開始練習', en: 'Start Practice' },
