@@ -459,10 +459,11 @@ export default function SidebarLayout({
               {(currentRole === 'admin' || currentRole === 'teacher') && (
                 <Link
                   href="/role-select"
-                  className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"
+                  className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg flex items-center gap-1.5 transition-colors"
                   title={t('common.switchRole')}
                 >
-                  <Shuffle className="w-5 h-5" />
+                  <Shuffle className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('common.switchRole')}</span>
                 </Link>
               )}
 

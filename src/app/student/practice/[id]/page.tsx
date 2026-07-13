@@ -9,7 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
-  BookMarked, Clock, Sparkles, Loader2, Flag, Zap, RotateCcw, Home,
+  BookMarked, Sparkles, Loader2, Flag, Zap, RotateCcw, Home,
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -408,7 +408,6 @@ export default function PracticeQuestionPage() {
           {t('practice.question.backToCenter')}
         </Link>
         <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-          <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> 02:35</span>
           {isSessionMode && (
             <span className="text-purple-500 flex items-center gap-1"><Sparkles className="w-3 h-3" /> {t('practice.question.aiPractice')}</span>
           )}
