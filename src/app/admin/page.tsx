@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2, CheckCircle } from 'lucide-react';
+import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2 } from 'lucide-react';
 
 import { useT } from '@/hooks/use-i18n';
 

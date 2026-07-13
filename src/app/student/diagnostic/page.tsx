@@ -11,6 +11,8 @@ import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import type { PracticeQuestion } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
+import { normalizeSkillName, buildWeakSkills } from '@/lib/utils';
+import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/lib/utils';
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -50,25 +52,6 @@ interface StudentProfile {
   class?: { gradeLevel?: string | null } | null;
 }
 
-interface PracticeSessionLite {
-  skill: string;
-  skillZh: string;
-  totalQuestions: number;
-  correctCount: number;
-  startedAt: string;
-}
-
-interface MistakeLite {
-  mistakeType: string;
-  createdAt: string;
-}
-
-interface WeakSkill {
-  name: string;
-  nameZh: string;
-  accuracy: number;
-}
-
 interface DiagnosticPlan {
   grammarItem?: string;
   grammarItemZh?: string;
@@ -81,52 +64,6 @@ interface DiagnosticPlan {
 
 function getStudentLevel(profile: StudentProfile | null): string {
   return profile?.level || profile?.class?.gradeLevel || 'S4';
-}
-
-function normalizeSkillName(skill: string) {
-  const key = skill.toLowerCase();
-  if (key.includes('read')) return { name: 'reading', nameZh: '閱讀' };
-  if (key.includes('writ')) return { name: 'writing', nameZh: '寫作' };
-  if (key.includes('vocab') || key.includes('phrasal')) return { name: 'vocabulary', nameZh: '詞彙' };
-  return { name: 'grammar', nameZh: '文法' };
-}
-
-function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: MistakeLite[]): WeakSkill[] {
-  const accuracyMap = new Map<string, { nameZh: string; correct: number; total: number }>();
-
-  for (const session of sessions) {
-    const normalized = normalizeSkillName(session.skill || session.skillZh || 'grammar');
-    const current = accuracyMap.get(normalized.name) || { nameZh: normalized.nameZh, correct: 0, total: 0 };
-    current.correct += session.correctCount || 0;
-    current.total += session.totalQuestions || 0;
-    accuracyMap.set(normalized.name, current);
-  }
-
-  const penaltyMap: Record<string, number> = { grammar: 0, vocabulary: 0, reading: 0, writing: 0 };
-  for (const mistake of mistakes) {
-    if (mistake.mistakeType === 'grammar' || mistake.mistakeType === 'chinglish') penaltyMap.grammar += 10;
-    else if (mistake.mistakeType === 'vocabulary') penaltyMap.vocabulary += 10;
-    else if (mistake.mistakeType === 'comprehension') penaltyMap.reading += 10;
-  }
-
-  const base = Array.from(accuracyMap.entries()).map(([name, value]) => ({
-    name,
-    nameZh: value.nameZh,
-    accuracy: Math.max(0, Math.round((value.correct / Math.max(1, value.total)) * 100) - (penaltyMap[name] || 0)),
-  }));
-
-  const defaults = [
-    { name: 'grammar', nameZh: '文法', accuracy: 0 },
-    { name: 'vocabulary', nameZh: '詞彙', accuracy: 0 },
-    { name: 'reading', nameZh: '閱讀', accuracy: 0 },
-    { name: 'writing', nameZh: '寫作', accuracy: 0 },
-  ];
-
-  for (const item of defaults) {
-    if (!base.some(b => b.name === item.name)) base.push(item);
-  }
-
-  return base.sort((a, b) => a.accuracy - b.accuracy);
 }
 
 function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): DiagnosticPlan[] {

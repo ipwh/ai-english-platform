@@ -29,8 +29,14 @@ export default function TeacherReviewPage() {
       .finally(() => setLoading(false));
   }, []);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');
-  const [teacherScore, setTeacherScore] = useState<number | undefined>(selectedReview?.teacherScore);
-  const [teacherFeedback, setTeacherFeedback] = useState(selectedReview?.teacherFeedback || '');
+  const [teacherScore, setTeacherScore] = useState<number | undefined>(undefined);
+  const [teacherFeedback, setTeacherFeedback] = useState('');
+
+  // Sync teacherScore/teacherFeedback when selectedReview changes
+  useEffect(() => {
+    setTeacherScore(selectedReview?.teacherScore);
+    setTeacherFeedback(selectedReview?.teacherFeedback || '');
+  }, [selectedReview?.id]);
 
   // === AI 重新分析 ===
   const [aiLoading, setAiLoading] = useState(false);

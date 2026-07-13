@@ -7,7 +7,11 @@
 // 5. Assign any remaining unassigned students via round-robin
 // ============================================
 
-import { db } from '../src/lib/db';
+import { loadEnvConfig } from '@next/env';
+loadEnvConfig(process.cwd());
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { db } = require('../src/lib/db');
 
 const STANDARD_CLASSES = [
   { name: '1A', gradeLevel: 'S1' }, { name: '1B', gradeLevel: 'S1' },
@@ -31,7 +35,7 @@ async function main() {
 
   // ── Phase 0: Ensure all standard classes exist ──
   const existingClasses = await db.class.findMany();
-  const existingNames = new Set(existingClasses.map(c => c.name));
+  const existingNames = new Set(existingClasses.map((c: { name: string }) => c.name));
   let created = 0;
   for (const cls of STANDARD_CLASSES) {
     if (!existingNames.has(cls.name)) {

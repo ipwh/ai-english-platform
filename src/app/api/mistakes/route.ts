@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('[Mistakes GET]', message);
-    return NextResponse.json({ error: message, mistakes: [] }, { status: 200 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

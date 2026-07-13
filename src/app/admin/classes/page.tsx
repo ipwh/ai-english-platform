@@ -45,7 +45,7 @@ export default function AdminClassesPage() {
     }
   }, []);
 
-  useEffect(() => { fetchClasses(); }, [fetchClasses]);
+  useEffect(() => { fetchClasses(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAdd = async () => {
     if (!newName.trim()) return;

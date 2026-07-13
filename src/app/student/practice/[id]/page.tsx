@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -167,7 +167,7 @@ export default function PracticeQuestionPage() {
   }, [store.userId]);
 
   // 合併 mock 題目 + AI session 題目
-  const allQuestions = useMemo(() => {
+  const allQuestions: PracticeQuestion[] = useMemo(() => {
     const sessionQuestions = store.currentSession?.questions || [];
     return [...sessionQuestions];
   }, [store.currentSession]);
@@ -523,7 +523,7 @@ export default function PracticeQuestionPage() {
         {/* 選項 */}
         {question.choices && question.choices.length > 0 && (
           <div className="space-y-3">
-            {question.choices.map((choice, index) => {
+            {question.choices.map((choice: string, index: number) => {
               const correctLetter = question.answer.trim().toUpperCase();
               const choiceLetter = getMcqLetterByIndex(index);
               const choiceText = stripMcqPrefix(choice);

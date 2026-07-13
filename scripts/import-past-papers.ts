@@ -9,10 +9,18 @@
 //   npx tsx scripts/import-past-papers.ts --file "Paper 1_Part A"  (只匯入指定檔案)
 // ============================================
 
+import { loadEnvConfig } from '@next/env';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db } from '../src/lib/db';
-import { indexMaterial } from '../src/lib/rag-service';
+
+// 載入 .env.local（必須在 DB import 之前）
+loadEnvConfig(process.cwd());
+
+// 使用 require() 動態載入，避免 ESM hoist 在 env 載入前初始化 DB
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { db } = require('../src/lib/db');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { indexMaterial } = require('../src/lib/rag-service');
 
 // ============================================
 // 檔案分類規則

@@ -1,15 +1,25 @@
 // ============================================
 // Vertex AI Embeddings Service
 // 使用 Google Vertex AI textembedding-gecko 模型
-// 取代自建的 cosine similarity RAG
 // ============================================
 
 import { GoogleAuth } from 'google-auth-library';
+import path from 'node:path';
+import fs from 'node:fs';
 
-const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-  'c:\\Users\\TC-37\\OneDrive - PO CHIU CATHOLIC SECONDARY SCHOOL\\AI\\歷史科改卷助手\\gcp-service-account.json';
+function resolveServiceAccountKey(): string | undefined {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
+  // 本地開發：自動尋找 materials/ 下的 service account JSON
+  const localPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+  if (fs.existsSync(localPath)) return localPath;
+  return undefined;
+}
 
-const PROJECT_ID = process.env.GCP_PROJECT_ID || 'amiable-nirvana-500300-a0';
+const SERVICE_ACCOUNT_KEY = resolveServiceAccountKey();
+
+const PROJECT_ID = process.env.GCP_PROJECT_ID || '';
 const LOCATION = process.env.VERTEX_AI_LOCATION || 'us-central1';
 const MODEL = 'textembedding-gecko@003';
 
@@ -21,6 +31,12 @@ let auth: GoogleAuth | null = null;
 
 function getAuth(): GoogleAuth {
   if (!auth) {
+    if (!SERVICE_ACCOUNT_KEY) {
+      throw new Error('Vertex AI Embeddings 未設定憑證。請設定 GOOGLE_APPLICATION_CREDENTIALS 環境變數，或將 gcp-service-account.json 放在 materials/ 目錄。');
+    }
+    if (!PROJECT_ID) {
+      throw new Error('Vertex AI Embeddings 未設定 GCP_PROJECT_ID。');
+    }
     auth = new GoogleAuth({
       keyFile: SERVICE_ACCOUNT_KEY,
       scopes: ['https://www.googleapis.com/auth/cloud-platform'],

@@ -20,7 +20,7 @@ function getMaxRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
 export default function RoleSelectPage() {
   const { t } = useT();
   const router = useRouter();
-  const [error, setError] = useState('');
+  const [error] = useState('');
   const [checking, setChecking] = useState(true);
   const [maxRole, setMaxRole] = useState<'admin' | 'teacher' | 'student'>('teacher');
 

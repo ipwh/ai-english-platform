@@ -15,7 +15,7 @@ export { verifySessionToken, type SessionPayload } from './jwt';
 // 密碼工具 — 已移至 @/lib/crypto.ts
 // ============================================
 
-import { simpleHash, verifyPassword } from '@/lib/crypto';
+import { hashPasswordSync, verifyPassword } from '@/lib/crypto';
 
 // ============================================
 // 認證邏輯（Prisma DB）
@@ -40,7 +40,12 @@ export async function authenticateUser(email: string, password: string): Promise
     return { success: false, error: '電郵地址或密碼不正確。' };
   }
 
-  if (!user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+  if (!user.passwordHash) {
+    return { success: false, error: '電郵地址或密碼不正確。' };
+  }
+
+  const verifyResult = await verifyPassword(password, user.passwordHash);
+  if (verifyResult === 'invalid') {
     return { success: false, error: '電郵地址或密碼不正確。' };
   }
 
@@ -54,6 +59,12 @@ export async function authenticateUser(email: string, password: string): Promise
   };
 
   const token = await createSessionToken(sessionPayload);
+
+  // 若密碼是舊版 simpleHash，背景重新雜湊為 bcrypt（不阻塞登入）
+  if (verifyResult === 'needs_rehash') {
+    const newHash = hashPasswordSync(password);
+    db.user.update({ where: { id: user.id }, data: { passwordHash: newHash } }).catch(() => {});
+  }
 
   return { success: true, token, user: sessionPayload };
 }

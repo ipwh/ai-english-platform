@@ -1,7 +1,13 @@
 // ============================================
 // Rate Limiter — 滑動窗口限流
 // 保護 AI API 端點免受濫用
-// 開發環境使用記憶體內存，生產環境建議改用 Redis
+//
+// ⚠️ Vercel 注意：此實作使用 in-memory Map，在 serverless 多實例
+//    環境下各 instance 獨立計數，無法做到全局精確限流。
+//    對生產環境嚴格限流需求，建議升級為：
+//    - Vercel KV (@vercel/kv): 適合 Hobby/Pro plan
+//    - Upstash Redis: 適合大規模部署
+//    目前 in-memory 版本仍可防止單一 instance 的瞬時濫用。
 // ============================================
 
 interface RateLimitEntry {

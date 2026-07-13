@@ -6,6 +6,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { hashPasswordSync } from '../src/lib/crypto';
 
 function getDbUrl(): string {
   const url = process.env.DATABASE_URL;
@@ -34,16 +35,6 @@ if (isPostgres) {
   // SQLite: 使用 libsql adapter
   const adapter = new PrismaLibSql({ url: dbUrl });
   db = new PrismaClient({ adapter });
-}
-
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
 }
 
 async function main() {
@@ -81,7 +72,7 @@ async function main() {
     update: {},
     create: {
       email: 'teacher@school.hk',
-      passwordHash: simpleHash('teacher123'),
+      passwordHash: hashPasswordSync('teacher123'),
       nameZh: '黃淑儀',
       nameEn: 'Wong Suk Yee',
       role: 'teacher',
@@ -127,7 +118,7 @@ async function main() {
       update: {},
       create: {
         email: s.email,
-        passwordHash: simpleHash('student123'),
+        passwordHash: hashPasswordSync('student123'),
         nameZh: s.nameZh,
         nameEn: s.nameEn,
         role: 'student',
@@ -149,7 +140,7 @@ async function main() {
     update: {},
     create: {
       email: 'ipwh@pochiu.edu.hk',
-      passwordHash: simpleHash('admin123'),
+      passwordHash: hashPasswordSync('admin123'),
       nameZh: '系統管理員',
       nameEn: 'System Admin',
       role: 'admin',
@@ -165,7 +156,7 @@ async function main() {
     update: {},
     create: {
       email: 'admin@school.hk',
-      passwordHash: simpleHash('admin123'),
+      passwordHash: hashPasswordSync('admin123'),
       nameZh: '備用管理員',
       nameEn: 'Backup Admin',
       role: 'admin',

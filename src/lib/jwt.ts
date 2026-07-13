@@ -6,9 +6,16 @@
 import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from './types';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'english-platform-secret-key-change-in-production-2026'
-);
+function getJWTSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      'JWT_SECRET 環境變數未設定。請在 .env.local 或 Vercel Environment Variables 中設定。\n' +
+      '生產環境必須使用至少 32 字元的隨機字串。'
+    );
+  }
+  return new TextEncoder().encode(secret);
+}
 
 const JWT_EXPIRY = '7d';
 
@@ -26,12 +33,12 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(JWT_EXPIRY)
-    .sign(JWT_SECRET);
+    .sign(getJWTSecret());
 }
 
 export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJWTSecret());
     return payload as unknown as SessionPayload;
   } catch {
     return null;
