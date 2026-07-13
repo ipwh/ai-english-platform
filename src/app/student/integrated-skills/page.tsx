@@ -30,7 +30,7 @@ const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
 interface IntegratedTask {
   listeningContent: string;
   listeningContentZh?: string;
-  noteTakingGuide: string[];
+  noteTakingGuide: { question: string; hint: string }[];
   writingTask: string;
   writingTaskZh?: string;
   expectedContentPoints: string[];
@@ -238,9 +238,13 @@ export default function IntegratedSkillsPage() {
             <Target className="w-4 h-4 text-amber-500" /> 筆記指引
           </h3>
           <ul className="space-y-1.5">
-            {task.noteTakingGuide.map((hint, i) => (
+            {task.noteTakingGuide.map((item, i) => (
               <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                <span className="text-amber-500 mt-0.5">•</span> {hint}
+                <span className="text-amber-500 mt-0.5">•</span>
+                <span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{item.question}</span>
+                  <span className="text-gray-400 dark:text-gray-500 ml-1">— {item.hint}</span>
+                </span>
               </li>
             ))}
           </ul>
