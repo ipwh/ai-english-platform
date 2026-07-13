@@ -12,6 +12,7 @@ import {
   Loader2, Target, ChevronDown, Play, BarChart3,
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
+import { cleanListeningContent } from '@/components/shared/AudioPlayer';
 import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -149,7 +150,7 @@ function PracticeListPageContent() {
         return;
       }
 
-      // 將 AI 生成的題目轉換為 PracticeQuestion 格式
+      // 將 AI 生成的題目轉換為 PracticeQuestion 格式（並清理 listeningContent）
       const questions = json.questions.map((q: Record<string, unknown>, i: number) => ({
         id: `ai-${Date.now()}-${i}`,
         type: q.type || activeForm.questionType,
@@ -163,7 +164,9 @@ function PracticeListPageContent() {
         keyStage: 'KS4' as const,
         prompt: q.prompt as string,
         promptZh: q.promptZh as string | undefined,
-        listeningContent: q.listeningContent as string | undefined,
+        listeningContent: q.listeningContent
+          ? cleanListeningContent(q.listeningContent as string)
+          : undefined,
         listeningContentZh: q.listeningContentZh as string | undefined,
         readingContent: q.readingContent as string | undefined,
         readingContentZh: q.readingContentZh as string | undefined,

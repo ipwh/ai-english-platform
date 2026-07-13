@@ -695,7 +695,7 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       explanationEn: (q.explanationEn || '').trim(),
       commonMistake: (q.commonMistake || '').trim(),
       grammarPoint: q.grammarPoint?.trim(),
-      listeningContent: q.listeningContent?.trim(),
+      listeningContent: normalizeListeningContent(q.listeningContent?.trim() || ''),
       listeningContentZh: q.listeningContentZh?.trim(),
       readingContent: q.readingContent?.trim(),
       readingContentZh: q.readingContentZh?.trim(),
@@ -801,6 +801,142 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
   }
 
   return results;
+}
+
+// ============================================
+// Listening Content 正規化（生成端安全網）
+// ============================================
+
+/** 角色標籤白名單 */
+const VALID_SPEAKERS = ['Woman', 'Man', 'Boy', 'Girl'] as const;
+const VALID_SPEAKER_SET = new Set<string>(VALID_SPEAKERS);
+const SPEAKER_LINE_RE_STRICT = /^(Woman|Man|Boy|Girl)\s*:\s*(.+)$/i;
+
+/** 修正單行 speaker label 格式 */
+function sanitizeListeningLine(line: string): string {
+  if (!line.trim()) return '';
+
+  // 移除行首/行尾空白和引號
+  let cleaned = line.trim().replace(/^["'「『\[]+|["'」』\]]+$/g, '');
+
+  // 嘗試匹配各種 speaker 格式
+  const looseMatch = cleaned.match(/^["'\[]?\s*([A-Za-z]+(?:\s+[A-Za-z0-9]+)?)\s*["'\]]?\s*[:：\-–—]\s*/);
+  if (!looseMatch) return cleaned; // 無 speaker label，保留原文
+
+  const rawSpeaker = looseMatch[1];
+  const rest = cleaned.slice(looseMatch[0].length);
+
+  // 映射職業/身份標籤 → 標準角色
+  const OCCUPATION_MAP: Record<string, string> = {
+    student: 'Boy', teacher: 'Man', librarian: 'Woman',
+    customer: 'Man', waiter: 'Man', waitress: 'Woman',
+    doctor: 'Man', nurse: 'Woman', interviewer: 'Man',
+    host: 'Man', presenter: 'Woman', announcer: 'Man',
+    operator: 'Woman', speaker: 'Man', assistant: 'Woman',
+    parent: 'Woman', mother: 'Woman', father: 'Man',
+    brother: 'Boy', sister: 'Girl', friend: 'Boy',
+    'speaker a': 'Woman', 'speaker b': 'Man',
+    'speaker 1': 'Woman', 'speaker 2': 'Man',
+  };
+
+  const lower = rawSpeaker.toLowerCase().replace(/[^a-z]/g, '');
+  const mapped = OCCUPATION_MAP[lower] || (
+    // 啟發式：女性名字特徵 → Woman，其他 → Man
+    /(woman|girl|female|she|her|ms|mrs|miss|lady|aunt|niece)/i.test(rawSpeaker) ? 'Woman' :
+    /(man|boy|male|he|him|mr|sir|gentleman|uncle|nephew)/i.test(rawSpeaker) ? 'Man' :
+    (lower.startsWith('woman') || lower.startsWith('girl')) ? 'Girl' :
+    (lower.startsWith('man') || lower.startsWith('boy')) ? 'Boy' :
+    'Man' // default fallback
+  );
+
+  // 重建標準格式行
+  if (!rest.trim()) return ''; // 空台詞 → 移除該行
+  return `${mapped}: ${rest.trim()}`;
+}
+
+/**
+ * 驗證 listeningContent 格式
+ * @returns { valid: boolean; errors: string[] }
+ */
+function validateListeningContent(content: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (!content || !content.trim()) {
+    return { valid: false, errors: ['listeningContent is empty'] };
+  }
+
+  const lines = content.split(/\n/).filter(l => l.trim());
+  if (lines.length < 2) {
+    errors.push('對話行數過少 (<2)，無法構成有效對話');
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // 檢查是否以有效 speaker 開頭
+    const match = line.match(SPEAKER_LINE_RE_STRICT);
+    if (!match) {
+      errors.push(`第 ${i + 1} 行格式不符：必須以 Woman:/Man:/Boy:/Girl: 開頭 → "${line.slice(0, 40)}"`);
+      continue;
+    }
+    const speaker = match[1];
+    if (!VALID_SPEAKER_SET.has(speaker)) {
+      errors.push(`第 ${i + 1} 行角色標籤無效：「${speaker}」，僅允許 Woman/Man/Boy/Girl`);
+    }
+    // 檢查引號
+    if (/[""'']/.test(line)) {
+      errors.push(`第 ${i + 1} 行含引號字元：${line.slice(0, 40)}`);
+    }
+    // 檢查冒號後是否有內容
+    if (!match[2].trim()) {
+      errors.push(`第 ${i + 1} 行角色 "${speaker}" 後無台詞內容`);
+    }
+  }
+
+  // 檢查是否有過多空白行
+  const blankCount = content.split(/\n/).filter(l => !l.trim()).length;
+  if (blankCount > lines.length) {
+    errors.push(`空白行過多 (${blankCount})，可能格式異常`);
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * 正規化 AI 生成的 listeningContent（增強版）
+ * - sanitizeListeningLine: 逐行修正 speaker 格式
+ * - validateListeningContent: 輸出前驗證
+ * - 記錄 warning log 供開發調試
+ */
+function normalizeListeningContent(raw: string): string {
+  if (!raw) return '';
+
+  // Step 1: 拆分一行內的多角色
+  let content = raw
+    .replace(/([^\n])(Woman|Man|Boy|Girl)\s*:/gi, '$1\n$2:')
+    .replace(/([^\n])(Speaker\s*[AB12]?)\s*:/gi, '$1\n$2:');
+
+  // Step 2: 逐行 sanitize
+  const lines = content.split(/\n/);
+  const sanitized = lines
+    .map(sanitizeListeningLine)
+    .filter(l => l.trim());
+
+  // Step 3: 去除重複連續空白行
+  content = sanitized.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+  // Step 4: 開發模式驗證
+  if (process.env.NODE_ENV === 'development') {
+    const validation = validateListeningContent(content);
+    if (!validation.valid) {
+      console.warn('[ai-service] listeningContent validation warnings:', validation.errors);
+    }
+    console.log('[ai-service] listeningContent normalized:', {
+      lines: sanitized.length,
+      chars: content.length,
+      preview: content.slice(0, 80),
+    });
+  }
+
+  return content;
 }
 
 // ============================================
@@ -1121,18 +1257,14 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 - listeningContentZh: 繁體中文情境說明
 - ⚠️ 聆聽題關鍵規則（v4.0 — 每題獨立錄音）：
   - **每道題目必須有自己獨立的 listeningContent**（不再共用長錄音）
-  - 每題的 listeningContent 是一段簡短獨立對話（4-8 行），只包含該題所需的資訊
+  - 每題的 listeningContent 是一段簡短獨立對話，只包含該題所需的資訊
   - 這種設計的好處：TTS 合成更快、更穩定、學生可針對單題重聽
   - 每題 listeningContent 必須是自給自足（self-contained）的迷你對話
   - 同一批題目可使用相似主題/角色，但每題的對話內容獨立
 - ⚠️ 對話長度控制（CRITICAL — 確保 TTS 穩定）：
-  - 每題獨立 listeningContent：4-8 行（含 1-3 個獨立資訊點）
+  - 每題獨立 listeningContent，含 1-3 個獨立資訊點
   - 每行 5-20 個單詞，總對話長度控制在 40-120 詞
   - 這樣確保 Google Cloud TTS 合成快速（<3 秒）且不會觸發長文本錯誤
-  - 太短的對話（<4 行）無法提供足夠上下文 → 加長
-  - 太長的對話（>8 行）導致 TTS 延遲過長 → 精簡
-  - 最低行數：remedial ≥12 行 / core ≥16 行 / challenge ≥20 行
-  - 自我檢查：生成 listeningContent 後，數一下有多少個可出題的資訊點。若不夠 → 加長對話
 - ⚠️ 題目相關性規則：每個 prompt 必須能從其對應的 listeningContent 中找到答案
   - 不可出與對話內容無關的題目
   - 每個 prompt 的正確答案必須在 listeningContent 中有明確依據
@@ -1156,7 +1288,33 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
   - 只允許：Boy / Girl / Man / Woman
   - 嚴禁：Librarian、Student、Teacher、Customer、Waiter、Doctor、Nurse、Interviewer、Host、Presenter、Announcer、Operator 等任何職業/身份標籤
   - 原因：TTS 引擎只認得 Boy/Girl/Man/Woman 四種角色標籤來選擇不同語音。使用其他標籤（如 Librarian、Student）會被 TTS 當作台詞朗讀出來，嚴重影響聆聽體驗。
-  - 請根據對話情境，將所有角色映射到 Boy/Girl（青少年/學生）或 Man/Woman（成人）` : ''}
+  - 請根據對話情境，將所有角色映射到 Boy/Girl（青少年/學生）或 Man/Woman（成人）
+
+【對話長度統一規範 — 每題獨立 listeningContent】
+每題 listeningContent 是一段獨立自足的對話，不與其他題共用。
+行數要求（按難度）：
+- 補底 (remedial)：6-8 行（答案明示，角色清晰）
+- 核心 (core)：8-12 行（含 1 個干擾資訊點）
+- 挑戰 (challenge)：12-16 行（需推論，多個資訊點）
+
+⚠️ 角色標籤格式（TTS CRITICAL — 必須 100% 符合）：
+每行必須嚴格符合以下格式，否則 TTS 會朗讀出標籤文字：
+  ✅ Woman: This is the correct format.
+  ✅ Man: Only these four roles are allowed.
+  ✅ Boy: No quotes, no brackets, no full-width colon.
+  ✅ Girl: One space after the colon.
+  ❌ "Woman": ...     （有引號）
+  ❌ Woman : ...      （冒號前有空格）
+  ❌ WOMAN: ...       （全大寫）
+  ❌ [Woman]: ...     （有括號）
+  ❌ Librarian: ...   （職業標籤）
+  ❌ Student: ...     （身份標籤）
+
+生成後自我檢查（輸出前必做）：
+1. 每行是否以 Woman/Man/Boy/Girl 開頭？
+2. 冒號後是否只有一個空格，無引號無括號？
+3. 每題行數是否符合難度要求？
+若有不符 → 立即修正再輸出。` : ''}
 ${isReading ? `
 【閱讀理解題特別要求 — 極重要！】
 - readingContent: 一段完整的英文閱讀篇章（80-200字），必須在題目之前提供給學生閱讀
@@ -3134,7 +3292,7 @@ ${input.taskType === 'summary' ? 'Summary 要求：用自己文字概括，不�
   }
 
   return {
-    listeningContent: task.listeningContent,
+    listeningContent: normalizeListeningContent(task.listeningContent),
     listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務',
     noteTakingGuide: task.noteTakingGuide || [],
     writingTask: task.writingTask,

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       voiceName,
       voiceTier = 'default',
       speakingRate = 1.0,
-      multiSpeaker = true,
+      multiSpeaker = false,  // 預設純文字模式：前端已預處理 text，server 不自行解析 speaker
       audioEncoding = 'MP3',
     } = body;
 
@@ -39,6 +39,16 @@ export async function POST(request: NextRequest) {
     // 限制文字長度（避免濫用）
     const MAX_CHARS = 5000;
     const trimmedText = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[TTS API] Request:', {
+        textLen: trimmedText.length,
+        textPreview: trimmedText.slice(0, 60),
+        multiSpeaker,
+        voiceTier,
+        speakingRate,
+      });
+    }
 
     const result = await synthesizeSpeech({
       text: trimmedText,

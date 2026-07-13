@@ -81,7 +81,11 @@ function evictOldestIfNeeded(): void {
 export async function prefetchTTSAudio(text: string, speakingRate = 0.9): Promise<void> {
   if (!text) return;
 
-  const cacheKey = getCacheKey(text, speakingRate);
+  // 與元件內部邏輯一致：先清理角色標籤再送 TTS
+  const cleanText = prepareTextForTTS(text);
+  if (!cleanText) return;
+
+  const cacheKey = getCacheKey(cleanText, speakingRate);
   if (TTS_CACHE.has(cacheKey)) return; // 已快取
 
   try {
@@ -89,8 +93,8 @@ export async function prefetchTTSAudio(text: string, speakingRate = 0.9): Promis
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text,
-        multiSpeaker: true,
+        text: cleanText,
+        multiSpeaker: false,
         voiceTier: 'default',
         speakingRate,
       }),
@@ -150,29 +154,19 @@ function prepareTextForTTS(text: string): string {
 
 function parseDialogue(text: string): DialogueLine[] {
   const normalized = splitMultiSpeakerLine(text);
-  const cleaned = stripSpeakerLabels(normalized);
-  const lines = cleaned.split(/\n/).map(l => l.trim()).filter(Boolean);
-  const dialogue: DialogueLine[] = [];
+  const lines = normalized.split(/\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [{ speaker: null, text: text.trim() }];
 
-  const rawLines = normalized.split(/\n/).map(l => l.trim()).filter(Boolean);
-  for (let i = 0; i < Math.max(rawLines.length, lines.length); i++) {
-    const rawLine = rawLines[i] || '';
-    const cleanLine = lines[i] || rawLine;
-    const match = rawLine.match(SPEAKER_LINE_RE);
+  return lines.map(line => {
+    const match = line.match(SPEAKER_LINE_RE);
     if (match) {
-      const speaker = match[1].toLowerCase().replace(/\s+/g, '');
-      const spokenText = match[2].trim() || cleanLine;
-      dialogue.push({ speaker, text: spokenText });
-    } else {
-      dialogue.push({ speaker: null, text: cleanLine });
+      return {
+        speaker: match[1].toLowerCase().replace(/\s+/g, ''),
+        text: match[2].trim(),
+      };
     }
-  }
-
-  if (dialogue.length === 0) {
-    dialogue.push({ speaker: null, text: cleaned });
-  }
-
-  return dialogue;
+    return { speaker: null, text: line };
+  });
 }
 
 function pickVoice(
@@ -218,6 +212,38 @@ function getSpeakerPitch(speaker: string | null): number {
   }
 }
 
+/**
+ * 清理 AI 生成的 listeningContent 中不規範的角色標籤
+ * ⚠️ 安全網：只修正格式錯誤，保留正確標籤以支援 Web Speech 男女聲分離
+ * - 移除引號/括號 → Woman: / Man: / Boy: / Girl:
+ * - 職業標籤 → 映射為 Man:/Woman:
+ * - 全大寫/空格異常 → 正規化
+ */
+export function cleanListeningContent(text: string): string {
+  if (!text) return '';
+  return text
+    // Step 1: 移除角色標籤周圍的引號/括號：["Woman"]: → Woman:
+    .replace(/^["'\[]?\s*(Woman|Man|Boy|Girl)\s*["'\]]?\s*[:：]\s*/gim, '$1: ')
+    .replace(/\n["'\[]?\s*(Woman|Man|Boy|Girl)\s*["'\]]?\s*[:：]\s*/gi, '\n$1: ')
+    // Step 2: 映射職業標籤 → 標準角色
+    .replace(/^(?:Librarian|Student|Teacher|Customer|Waiter|Doctor|Nurse|Interviewer|Host|Presenter|Announcer|Operator)\s*[:：]\s*/gim, 'Man: ')
+    // Step 3: 正規化全大寫角色標籤
+    .replace(/^(WOMAN)\s*[:：]\s*/gim, 'Woman: ')
+    .replace(/^(MAN)\s*[:：]\s*/gim, 'Man: ')
+    .replace(/^(BOY)\s*[:：]\s*/gim, 'Boy: ')
+    .replace(/^(GIRL)\s*[:：]\s*/gim, 'Girl: ')
+    // Step 4: 修正冒號前多餘空格：Woman : → Woman:
+    .replace(/^(Woman|Man|Boy|Girl)\s+[:：]\s*/gim, '$1: ')
+    // Step 5: 移除獨立標籤行（僅有標籤+冒號，無台詞內容）
+    .replace(/^(Woman|Man|Boy|Girl)\s*[:：]\s*$/gim, '')
+    // Step 6: 移除對話內容中的引號字元
+    .replace(/["""''']/g, '')
+    // Step 7: 壓縮多餘空白
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export default function AudioPlayer({
   text,
   label = '播放',
@@ -248,12 +274,85 @@ export default function AudioPlayer({
     return DEFAULT_SPEED;
   });
   const cancelled = useRef(false);
+  // Session ID: 每次新播放開始時遞增，防止 stale callback 觸發 onPlayEnd
+  const sessionIdRef = useRef(0);
+  // 快取 Web Speech API voices（避免 2nd+ playback 時 getVoices() 返回空陣列）
+  const voicesRef = useRef<{
+    female: SpeechSynthesisVoice | null;
+    male: SpeechSynthesisVoice | null;
+    default: SpeechSynthesisVoice | null;
+    sameVoice: boolean;
+  } | null>(null);
+
+  // ============================================
+  // 統一 Cleanup Helper — 停止所有播放來源
+  // ============================================
+  const cleanupAllPlayback = useCallback(() => {
+    cancelled.current = true;
+    sessionIdRef.current += 1; // invalidate all in-flight sessions
+
+    // Web Speech
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Cloud TTS audio element
+    if (cloudAudioRef.current) {
+      cloudAudioRef.current.pause();
+      cloudAudioRef.current.onplay = null;
+      cloudAudioRef.current.onended = null;
+      cloudAudioRef.current.onerror = null;
+      cloudAudioRef.current.src = '';
+      cloudAudioRef.current.load();
+      cloudAudioRef.current = null;
+    }
+
+    // Cloud TTS fetch
+    if (cloudAbortRef.current) {
+      cloudAbortRef.current.abort();
+      cloudAbortRef.current = null;
+    }
+
+    // UI state
+    setPlaying(false);
+    setLoading(false);
+    setCloudFetching(false);
+    setCloudError('');
+    cachedKeyRef.current = '';
+    cachedUrlRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(SPEED_STORAGE_KEY, String(speed));
     }
   }, [speed]);
+
+  // 快取 Web Speech API voices（Fix: Chrome getVoices() 異步載入，2nd+ playback 可能返回空陣列）
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const loadVoices = () => {
+      const all = window.speechSynthesis.getVoices();
+      if (all.length === 0) return; // 等待下一次 onvoiceschanged
+      const female = pickVoice(all, 'en', 'female');
+      const male = pickVoice(all, 'en', 'male');
+      const def = pickVoice(all, 'en', 'any');
+      voicesRef.current = {
+        female,
+        male,
+        default: def,
+        sameVoice: !!(female && male && female.name === male.name),
+      };
+      console.log('[AudioPlayer] Voices cached:', {
+        female: female?.name ?? 'none',
+        male: male?.name ?? 'none',
+        sameVoice: female?.name === male?.name,
+      });
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
   // 清理全域快取中過期項目
   useEffect(() => {
@@ -265,63 +364,25 @@ export default function AudioPlayer({
   // 清理自身 audio 資源（避免記憶體洩漏 + 殘餘語音）
   useEffect(() => {
     return () => {
-      // 停止並清理 Cloud TTS audio
-      if (cloudAudioRef.current) {
-        cloudAudioRef.current.pause();
-        cloudAudioRef.current.currentTime = 0;
-        cloudAudioRef.current.src = '';
-        cloudAudioRef.current.load();
-        cloudAudioRef.current = null;
-      }
-      // 中斷進行中的 fetch
-      if (cloudAbortRef.current) {
-        cloudAbortRef.current.abort();
-        cloudAbortRef.current = null;
-      }
-      // 清理 Web Speech
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-      cancelled.current = true;
-      cachedUrlRef.current = null;
+      cleanupAllPlayback();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fix: text prop 變化（切換題目）時徹底清理前一題的 audio 資源
+  useEffect(() => {
+    cleanupAllPlayback();
+  }, [text, cleanupAllPlayback]);
 
   // 監聽全域停止事件
   useEffect(() => {
-    const handleGlobalStop = () => {
-      cancelled.current = true;
-      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
-      if (cloudAudioRef.current) {
-        cloudAudioRef.current.pause();
-        cloudAudioRef.current.currentTime = 0;
-      }
-      if (cloudAbortRef.current) {
-        cloudAbortRef.current.abort();
-        cloudAbortRef.current = null;
-      }
-      setPlaying(false);
-      setLoading(false);
-      setCloudFetching(false);
-    };
-    window.addEventListener('stop-all-audio', handleGlobalStop);
-    return () => window.removeEventListener('stop-all-audio', handleGlobalStop);
-  }, []);
+    window.addEventListener('stop-all-audio', cleanupAllPlayback);
+    return () => window.removeEventListener('stop-all-audio', cleanupAllPlayback);
+  }, [cleanupAllPlayback]);
 
   // 語速變更時停止現有播放（防止疊聲）
   useEffect(() => {
-    if (cloudAudioRef.current) {
-      cloudAudioRef.current.pause();
-      cloudAudioRef.current.src = '';
-      cloudAudioRef.current = null;
-    }
-    if (cloudAbortRef.current) {
-      cloudAbortRef.current.abort();
-      cloudAbortRef.current = null;
-    }
-    setPlaying(false);
-    setCloudFetching(false);
-    setLoading(false);
+    cleanupAllPlayback();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speed]);
 
@@ -332,20 +393,8 @@ export default function AudioPlayer({
   const synth = window.speechSynthesis;
 
   const handleStop = useCallback(() => {
-    cancelled.current = true;
-    if (synth) synth.cancel();
-    if (cloudAudioRef.current) {
-      cloudAudioRef.current.pause();
-      cloudAudioRef.current.currentTime = 0;
-    }
-    if (cloudAbortRef.current) {
-      cloudAbortRef.current.abort();
-      cloudAbortRef.current = null;
-    }
-    setPlaying(false);
-    setLoading(false);
-    setCloudFetching(false);
-  }, [synth]);
+    cleanupAllPlayback();
+  }, [cleanupAllPlayback]);
 
   // ============================================
   // 預載入音訊（供父元件在 hover / page load 時呼叫）
@@ -426,6 +475,9 @@ export default function AudioPlayer({
     const old = cloudAudioRef.current;
     if (old) {
       old.pause();
+      old.onplay = null;
+      old.onended = null;
+      old.onerror = null;
       old.src = '';
     }
     if (cloudAbortRef.current) {
@@ -569,7 +621,8 @@ export default function AudioPlayer({
     if (!text) return;
 
     if (playing) {
-      handleStop();
+      // Already playing → stop instead
+      cleanupAllPlayback();
       return;
     }
 
@@ -578,28 +631,55 @@ export default function AudioPlayer({
       return;
     }
 
+    // 開始新播放 session：先完整清理，再初始化
+    cleanupAllPlayback();
+    const currentSessionId = ++sessionIdRef.current;
     setLoading(true);
     cancelled.current = false;
-    synth.cancel();
 
     const cjkCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
     const lang: 'en' | 'zh' = cjkCount / Math.max(text.length, 1) > 0.3 ? 'zh' : 'en';
 
     const dialogue = parseDialogue(text);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AudioPlayer] WebSpeech session', currentSessionId, {
+        lang,
+        lines: dialogue.length,
+        speakers: [...new Set(dialogue.filter(d => d.speaker).map(d => d.speaker))],
+      });
+    }
 
     const trySpeak = () => {
+      // Guard: stale session or cancelled
+      if (sessionIdRef.current !== currentSessionId || cancelled.current) return;
+
       const voices = synth.getVoices();
       if (voices.length === 0) {
-        setTimeout(trySpeak, 100);
+        setTimeout(trySpeak, 150);
         return;
       }
 
-      const femaleVoice = pickVoice(voices, lang, 'female') || pickVoice(voices, lang, 'any');
-      const maleVoice = pickVoice(voices, lang, 'male') || pickVoice(voices, lang, 'any');
-      const defaultVoice = pickVoice(voices, lang, 'any');
+      // 使用快取的 voices；若 ref 尚未填充則立即挑選
+      if (!voicesRef.current) {
+        const female = pickVoice(voices, lang, 'female');
+        const male = pickVoice(voices, lang, 'male');
+        voicesRef.current = {
+          female, male,
+          default: pickVoice(voices, lang, 'any'),
+          sameVoice: !!(female && male && female.name === male.name),
+        };
+      }
+      const { female: femaleVoice, male: maleVoice, default: defaultVoice, sameVoice } = voicesRef.current;
 
-      // 若男女聲相同（只有一個語音），用 pitch 差異補償
-      const sameVoice = femaleVoice && maleVoice && femaleVoice.name === maleVoice.name;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AudioPlayer] Voice mapping:', {
+          female: femaleVoice?.name ?? 'none',
+          male: maleVoice?.name ?? 'none',
+          default: defaultVoice?.name ?? 'none',
+          sameVoice,
+          lang,
+        });
+      }
 
       const map = new Map<string, SpeechSynthesisVoice | null>();
       map.set('woman', femaleVoice);
@@ -610,7 +690,8 @@ export default function AudioPlayer({
       let idx = 0;
 
       const speakNext = () => {
-        if (cancelled.current) {
+        // Guard: stale session, cancelled, or component gone
+        if (sessionIdRef.current !== currentSessionId || cancelled.current) {
           setPlaying(false);
           setLoading(false);
           return;
@@ -621,7 +702,10 @@ export default function AudioPlayer({
         if (idx >= dialogue.length) {
           setPlaying(false);
           setLoading(false);
-          onPlayEnd?.();
+          // Only fire onPlayEnd if this is still the current session
+          if (sessionIdRef.current === currentSessionId) {
+            onPlayEnd?.();
+          }
           return;
         }
 
@@ -629,7 +713,7 @@ export default function AudioPlayer({
         const utterance = new SpeechSynthesisUtterance(line.text);
         utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
         utterance.rate = speed;
-        // 有角色標籤時：若男女聲相同則用 pitch 區分，否則用預設 pitch
+        // 有角色標籤時：若男女聲相同則用 pitch 區分
         utterance.pitch = (line.speaker && sameVoice)
           ? getSpeakerPitch(line.speaker)
           : (line.speaker ? getSpeakerPitch(line.speaker) : 1.0);
@@ -656,7 +740,7 @@ export default function AudioPlayer({
     };
 
     trySpeak();
-  }, [text, playing, synth, handleStop, onPlayEnd, speed]);
+  }, [text, playing, synth, onPlayEnd, speed, cleanupAllPlayback]);
 
   const isBusy = loading || cloudFetching;
 

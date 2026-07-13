@@ -146,6 +146,33 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新
 
+### 🎧 Listening 音頻穩定性全面修復 (Round 1-3) — 2026-07-13
+
+經過三輪全面稽核與重構，徹底解決聆聽音頻播放不穩定問題：
+
+#### 播放狀態機重構 (`AudioPlayer.tsx`)
+- **統一 Cleanup Helper** `cleanupAllPlayback()`：unmount / text-change / speed-change / handleStop / global-stop 全部共用同一 cleanup 邏輯
+- **Session ID 防護** `sessionIdRef`：每次新播放遞增 ID，`speakNext()` 檢查 session ID 防止 stale callback 誤觸發 `onPlayEnd`
+- **`parseDialogue()` 重構**：不再依賴 `stripSpeakerLabels` 後的雙陣列對位，直接用 regex 逐行提取 speaker + text
+- **Voice Cache 強化** `voicesRef`：mount 時快取 female/male/default voice，replay 不再重新呼叫不穩定的 `getVoices()`
+- **完整 Event Listener 清理**：所有 cleanup 位置統一清除 `onplay/onended/onerror`
+
+#### 前後端一致性 (`/api/tts`)
+- **`multiSpeaker` 預設值修正**：`true` → `false`，與前端實際傳值一致（前端已預處理 text）
+- **Dev Debug Log**：開發模式輸出 textLen / textPreview / multiSpeaker / voiceTier / speakingRate
+
+#### AI 生成端安全網 (`ai-service.ts`)
+- **`sanitizeListeningLine()`**：逐行修正 speaker label（移除引號、映射職業標籤 → 標準角色、重建標準格式）
+- **`validateListeningContent()`**：輸出前驗證（行數檢查、speaker 格式、引號檢測、空台詞、空白行過多）
+- **`normalizeListeningContent()` 增強版**：三步驟 pipeline（拆分多角色 → 逐行 sanitize → 開發模式驗證）
+- **`cleanListeningContent()` 安全網**（前端）：只修正格式錯誤標籤，保留正確標籤以支援 Web Speech 男女聲分離
+- **Client-side safety net**：`practice/page.tsx` 在 `setQuestions` 前呼叫 `cleanListeningContent()`
+
+#### 測試覆蓋
+- 同題重播 5 次、連續 5 題、快速切題、Cloud TTS → Web Speech fallback
+- speaker label 不被 TTS 朗讀、男女聲分離穩定（含 pitch 補償）
+- Chrome / Edge 跨瀏覽器測試
+
 ### 🚀 生產部署就緒 (Production Readiness) — 2026-07-13
 
 #### 安全性強化
