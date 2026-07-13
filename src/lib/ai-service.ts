@@ -651,10 +651,14 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
       const lastTwo = words.slice(-2).join(' ');
       const lastThree = words.slice(-3).join(' ');
       if (!normListening.includes(lastThree) && !normListening.includes(lastTwo)) {
-        const warnMsg = `[Listening Consistency] Q${index}: answer "${answerToCheck}" not found verbatim in listeningContent — REJECTED`;
+        // v2.1: 聆聽題不再因 exact text match 失敗而拒絕題目。
+        // 自然對話中答案可能以同義詞/改寫方式呈現，exact match 過於嚴格。
+        // AI prompt 中已有 Self-Check 指令確保答案存在於 listeningContent，
+        // 此處降級為 warning 而非 rejection。
+        const warnMsg = `[Listening Consistency] Q${index}: answer "${answerToCheck}" not found verbatim in listeningContent — kept with warning (synonyms/paraphrase may be used)`;
         console.warn(warnMsg);
         warnings.push(warnMsg);
-        rejected = true;
+        // rejected = true;  // v2.1: 不再因 listening exact match 失敗而拒絕
       }
     }
   }
@@ -738,6 +742,10 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       /^\d{1,2}\s*o'?clock$/i,              // "4 oclock", "4 o'clock"
       /^(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:AM|PM|in the (?:morning|afternoon|evening))$/i, // "at 4 PM"
     ];
+    // v2.1: 聆聽題中時間是常見答案（如 "4:00 PM", "at 3:30"），不應過濾
+    const isListening = !!base.listeningContent;
+    const isReading = !!base.readingContent;
+
     const validChoices = cleanedChoices.filter(c => {
       if (c.length < 3) return false; // 太短→碎片
       if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false; // 純數字碎片
@@ -745,7 +753,8 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
         console.warn(`[ai-service] Filtered banned choice: "${c}"`);
         return false;
       }
-      if (TIME_FRAGMENT_PATTERNS.some(p => p.test(c))) {
+      // 聆聽題不過濾時間格式選項（對話中時間是常見答案）
+      if (!isListening && TIME_FRAGMENT_PATTERNS.some(p => p.test(c))) {
         console.warn(`[ai-service] Filtered time fragment choice: "${c}"`);
         return false;
       }
@@ -755,8 +764,6 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     // 若過濾後不足 2 個有效選項，使用 context-aware fallback fillers
     if (validChoices.length < 2) {
       console.error(`[ai-service] Q has only ${validChoices.length} valid choices after filtering:`, validChoices);
-      const isListening = !!base.listeningContent;
-      const isReading = !!base.readingContent;
       const fallbackFillers = isListening
         ? ['The information is not provided in the recording.', 'The speaker did not mention this.', 'This detail was changed during the conversation.', 'Listen carefully to the exact words used.']
         : isReading
@@ -1429,7 +1436,7 @@ ${STRICT_ANSWER_RULES}
       { role: 'system', content: finalSystemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: qTemperature, maxTokens: 2048, jsonMode: true, timeoutMs: 25000 }
+    { temperature: qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 25000 }
   );
 
   const tryValidate = (rawText: string) => {
