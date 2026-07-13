@@ -99,6 +99,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 變數 | 說明 | 必填 |
 |------|------|------|
 | `DEEPSEEK_API_KEY` | DeepSeek API key (`sk-...`) | ✅ |
+| `JWT_SECRET` | JWT signing secret（32+ 字元隨機字串） | ✅ |
 | `AUTH_SECRET` | NextAuth JWT secret (`openssl rand -base64 32`) | ✅ |
 | `AUTH_GOOGLE_ID` | Google OAuth Client ID | ✅ |
 | `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret | ✅ |
@@ -111,7 +112,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
-| `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`/`false`，預設 `false`） | ⬜ |
+| `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
 
 ### 部署步驟
 
@@ -144,6 +145,34 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新
+
+### 🚀 生產部署就緒 (Production Readiness) — 2026-07-13
+
+#### 安全性強化
+- **密碼雜湊升級**：從 `simpleHash` → `bcryptjs`（10 rounds），舊密碼自動遷移
+- **JWT Secret**：移除硬編碼 fallback，改為延遲檢查
+- **PDPO 合規**：`sanitizeForAI()` 傳送 AI 前移除 HKID/電話/電郵
+
+#### AI 品質強化
+- **Listening v3.1**：`stripSpeakerLabels` 強化，TTS clean text，2 次重試，答案不匹配→拒絕，語速變更防疊聲
+- **MCQ 選項過濾**：`TIME_FRAGMENT_PATTERNS` + context-aware fillers
+- **Non-MC 驗證**：空答案直接 reject
+- **題材多樣化**：`getRandomTopic()` 16+16 主題池，temperature 0.45
+- **Rule-based Chinglish**：`detectChinglish()` 12 條規則
+- **Writing 版本歷史**：`revisions` JSON 欄位，保留最近 10 版
+
+#### 平台穩定性
+- **24 silent catch**：全部加入 `console.error`
+- **Vercel Build**：容錯腳本 `scripts/vercel-build.js`
+- **DB 效能**：6 個 `@@index`
+- **Integrated Skills RAG**：Paper 3 MS 接入
+- **DiagnosticResult.completedAt**：正確設定
+- **buildWeakSkills**：chinglish 獨立追蹤
+
+#### 體驗優化
+- **Admin 全面 i18n** + Practice hints i18n
+- **行動裝置**：viewport + 44px touch targets + safe-area + overscroll
+- **寫作頁**：手動輸入字數（50-2000）
 
 ### ☁️ Google Cloud Text-to-Speech 整合 (2026-07-12)
 
