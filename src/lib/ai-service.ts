@@ -51,6 +51,51 @@ export function sanitizeForAI(text: string): string {
 }
 
 // ============================================
+// Rule-based Chinglish 前置檢測（補充 AI 批改）
+// 在傳送 AI 批改前先掃描常見中式英文錯誤
+// ============================================
+
+export interface ChinglishWarning {
+  pattern: string;
+  found: string;
+  suggestion: string;
+}
+
+const CHINGLISH_RULES: { regex: RegExp; suggestion: string; label: string }[] = [
+  { regex: /\b(?:A|a)lthough\b[^.]*\bbut\b/i, suggestion: 'Remove "but" — "Although" already implies contrast. Use: "Although X, Y."', label: 'although...but' },
+  { regex: /\b(?:B|b)ecause\b[^.]*\bso\b/i, suggestion: 'Remove "so" — "Because" already implies cause. Use: "Because X, Y."', label: 'because...so' },
+  { regex: /\bI very (like|love|enjoy|hate)\b/i, suggestion: 'Use "I really $1" or "I $1 very much"', label: 'I very like' },
+  { regex: /\bThere have (many|a lot|some|several)\b/i, suggestion: 'Use "There are $1" instead of "There have"', label: 'There have' },
+  { regex: /\bI am agree\b/i, suggestion: 'Use "I agree" (no "am")', label: 'I am agree' },
+  { regex: /\bdiscuss about\b/i, suggestion: 'Remove "about" — "discuss" is transitive. Use: "discuss X"', label: 'discuss about' },
+  { regex: /\b(?:A|a)ccording to my opinion\b/i, suggestion: 'Use "In my opinion" instead of "According to my opinion"', label: 'according to my opinion' },
+  { regex: /\b(?:E|e)very coin has two sides\b/i, suggestion: 'Cliché — use a more original expression or state both perspectives directly', label: 'every coin has two sides' },
+  { regex: /\b(?:L|l)ast but not least\b/i, suggestion: 'Cliché — use "Finally" or "Most importantly" instead', label: 'last but not least' },
+  { regex: /\bmore and more (better|worse|stronger|weaker)\b/i, suggestion: 'Use "increasingly $1" or just "$1" (comparative already implies change)', label: 'more and more + comparative' },
+  { regex: /\b(?:R|r)eturn back\b/i, suggestion: 'Use "return" (no "back" needed)', label: 'return back' },
+  { regex: /\b(?:C|c)an be able to\b/i, suggestion: 'Use "can" OR "be able to" (not both)', label: 'can be able to' },
+];
+
+/**
+ * 對學生寫作進行 rule-based Chinglish 前置檢測。
+ * 回傳檢測到的警告清單，可在 AI 批改前或後補充使用。
+ */
+export function detectChinglish(text: string): ChinglishWarning[] {
+  const warnings: ChinglishWarning[] = [];
+  for (const rule of CHINGLISH_RULES) {
+    const match = text.match(rule.regex);
+    if (match) {
+      warnings.push({
+        pattern: rule.label,
+        found: match[0],
+        suggestion: rule.suggestion,
+      });
+    }
+  }
+  return warnings;
+}
+
+// ============================================
 // 設定
 // ============================================
 
@@ -661,6 +706,12 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       const { warnings, rejected } = validateAndFixQuestion(base, results.length);
       if (rejected) { rejectedCount++; continue; }
       if (warnings.length > 0) console.warn('[ai-service] Non-MC answer consistency:', warnings);
+      // Non-MC 題型答案也做基本驗證：answer 不能為空
+      if (!base.answer || base.answer.trim().length === 0) {
+        console.warn(`[ai-service] Non-MC Q${results.length} has empty answer — rejected`);
+        rejectedCount++;
+        continue;
+      }
       results.push({ ...base, choices: [] });
       continue;
     }
@@ -701,16 +752,16 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       return true;
     });
 
-    // 若過濾後不足 2 個有效選項，標記為需重試
+    // 若過濾後不足 2 個有效選項，使用 context-aware fallback fillers
     if (validChoices.length < 2) {
       console.error(`[ai-service] Q has only ${validChoices.length} valid choices after filtering:`, validChoices);
-      // 回退：至少保留 2 個選項讓題目可用
-      const fallbackFillers = [
-        'The information is not provided in the listening.',
-        'The speaker changed the time.',
-        'The exact time is mentioned only once.',
-        'More details are needed to answer.',
-      ];
+      const isListening = !!base.listeningContent;
+      const isReading = !!base.readingContent;
+      const fallbackFillers = isListening
+        ? ['The information is not provided in the recording.', 'The speaker did not mention this.', 'This detail was changed during the conversation.', 'Listen carefully to the exact words used.']
+        : isReading
+          ? ['The passage does not mention this detail.', 'This idea is not supported by the text.', 'The author does not discuss this point.', 'Re-read the relevant paragraph carefully.']
+          : ['The correct answer depends on the grammar rule.', 'Check the sentence structure carefully.', 'Eliminate obviously incorrect options first.', 'Review the key concept before answering.'];
       while (validChoices.length < 4) {
         const filler = fallbackFillers[validChoices.length] || `Option ${validChoices.length + 1}`;
         if (!validChoices.some(c => c.toLowerCase() === filler.toLowerCase())) {
@@ -3103,8 +3154,30 @@ export async function analyzeIntegratedSkills(
 ): Promise<IntegratedSkillsAnalysis> {
   const sanitizedWriting = sanitizeForAI(input.studentWriting);
 
+  // ============================================
+  // DSE RAG：檢索 Paper 3 Listening & Integrated Skills Marking Scheme
+  // ============================================
+  let paper3MSContext = '';
+  try {
+    if (isDSERAGEnabled()) {
+      const msChunks = await retrieveMarkingScheme('Listening', 3);
+      paper3MSContext = buildDSEContextPrompt(
+        [],
+        msChunks.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'analyze_integrated'
+      );
+      if (paper3MSContext) {
+        console.log(`[DSE-RAG] analyzeIntegratedSkills: 已擷取 ${msChunks.length} 個 Listening MS 段落`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DSE-RAG] analyzeIntegratedSkills MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    paper3MSContext = '';
+  }
+
   const systemPrompt = `你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
 請同時從「Listening 提取準確度」和「Writing 品質」兩個維度進行評估。
+${paper3MSContext}
 
 ═══════════════════════════════════════
 DSE Paper 3 官方評分標準

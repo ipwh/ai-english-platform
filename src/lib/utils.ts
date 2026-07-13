@@ -169,9 +169,10 @@ export function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: Mista
     accuracyMap.set(normalized.name, current);
   }
 
-  const penaltyMap: Record<string, number> = { grammar: 0, vocabulary: 0, reading: 0, writing: 0 };
+  const penaltyMap: Record<string, number> = { grammar: 0, vocabulary: 0, reading: 0, writing: 0, chinglish: 0 };
   for (const mistake of mistakes) {
-    if (mistake.mistakeType === 'grammar' || mistake.mistakeType === 'chinglish') penaltyMap.grammar += 10;
+    if (mistake.mistakeType === 'grammar') penaltyMap.grammar += 10;
+    else if (mistake.mistakeType === 'chinglish') penaltyMap.chinglish += 10;
     else if (mistake.mistakeType === 'vocabulary') penaltyMap.vocabulary += 10;
     else if (mistake.mistakeType === 'comprehension') penaltyMap.reading += 10;
   }
@@ -181,6 +182,14 @@ export function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: Mista
     nameZh: value.nameZh,
     accuracy: Math.max(0, Math.round((value.correct / Math.max(1, value.total)) * 100) - (penaltyMap[name] || 0)),
   }));
+
+  // 將 chinglish penalty 分散到 grammar 和 writing（中式英文影響兩個範疇）
+  if (penaltyMap.chinglish > 0) {
+    const existingGrammar = base.find(b => b.name === 'grammar');
+    const existingWriting = base.find(b => b.name === 'writing');
+    if (existingGrammar) existingGrammar.accuracy = Math.max(0, existingGrammar.accuracy - Math.round(penaltyMap.chinglish / 2));
+    if (existingWriting) existingWriting.accuracy = Math.max(0, existingWriting.accuracy - Math.round(penaltyMap.chinglish / 2));
+  }
 
   const defaults = [
     { name: 'grammar', nameZh: '文法', accuracy: 0 },

@@ -540,7 +540,7 @@ export async function retrievePastPaperContent(
 export function buildDSEContextPrompt(
   pastPaperChunks: { content: string; title: string; score: number }[],
   markingSchemeChunks: { content: string; title: string; score: number }[],
-  purpose: 'generate_questions' | 'analyze_answer' | 'analyze_writing' | 'explain_mistake' | 'study_help'
+  purpose: 'generate_questions' | 'analyze_answer' | 'analyze_writing' | 'explain_mistake' | 'study_help' | 'analyze_integrated'
 ): string {
   const sections: string[] = [];
 

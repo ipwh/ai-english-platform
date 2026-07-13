@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
             weakAreas: JSON.stringify(r.weakAreas || []),
             recommendedGrammar: r.recommendedGrammar || null,
             recommendedSkill: r.recommendedSkill || null,
+            completedAt: new Date(),
           },
         })
       )
