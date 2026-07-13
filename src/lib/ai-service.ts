@@ -673,11 +673,22 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       /^not\s*mentioned/i,
       /^cannot\s*be\s*determined/i,
     ];
+    // 時間碎片模式 — AI 常生成不完整的時間選項（如 "00 PM", "30 PM", "4:00"）
+    const TIME_FRAGMENT_PATTERNS = [
+      /^\d{1,2}:\d{2}\s*(?:AM|PM)?$/i,     // "4:00", "4:00 PM" 等時間格式（無上下文過於狹窄）
+      /^\d{1,2}\s*(?:AM|PM)$/i,             // "4 PM", "00 PM", "30 PM" 等破碎時間
+      /^\d{1,2}\s*o'?clock$/i,              // "4 oclock", "4 o'clock"
+      /^(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:AM|PM|in the (?:morning|afternoon|evening))$/i, // "at 4 PM"
+    ];
     const validChoices = cleanedChoices.filter(c => {
       if (c.length < 3) return false; // 太短→碎片
-      if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false; // 純數字碎片（如 "00 PM"）
+      if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false; // 純數字碎片
       if (BANNED_PATTERNS.some(p => p.test(c))) {
         console.warn(`[ai-service] Filtered banned choice: "${c}"`);
+        return false;
+      }
+      if (TIME_FRAGMENT_PATTERNS.some(p => p.test(c))) {
+        console.warn(`[ai-service] Filtered time fragment choice: "${c}"`);
         return false;
       }
       return true;
@@ -723,6 +734,56 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       answer: fixed.answer,
     };
   });
+}
+
+// ============================================
+// 隨機題材選擇器 — 確保 AI 出題主題多元化
+// ============================================
+
+const LISTENING_TOPICS = [
+  'school club recruitment fair（學會招募博覽）',
+  'part-time job interview at a bookstore（書店兼職面試）',
+  'planning a charity fundraising event（慈善籌款活動策劃）',
+  'discussing a science fair project（科學展項目討論）',
+  'booking a school field trip（學校戶外考察預訂）',
+  'ordering food at a café with dietary restrictions（咖啡店點餐含飲食限制）',
+  'asking for directions to a museum exhibition（問路去博物館展覽）',
+  'reporting a lost item to the school office（向校務處報失物品）',
+  'discussing a movie review for English class（討論英文課電影評論）',
+  'making a doctor\'s appointment（預約看醫生）',
+  'planning a surprise birthday party（策劃驚喜生日派對）',
+  'debating which university to apply to（辯論申請哪所大學）',
+  'calling customer service about a faulty product（致電客服關於瑕疵產品）',
+  'discussing weekend hiking trip plans（討論週末行山計劃）',
+  'registering for a sports competition（報名體育比賽）',
+  'asking a librarian for book recommendations（向圖書館員詢問書籍推薦）',
+];
+
+const READING_TOPICS = [
+  'marine life conservation and coral reefs（海洋生物保育與珊瑚礁）',
+  'the history of the Olympic Games（奧運會歷史）',
+  'how social media affects teenage mental health（社交媒體對青少年心理健康的影響）',
+  'renewable energy solutions in Hong Kong（香港可再生能源方案）',
+  'famous inventors and their accidental discoveries（著名發明家與意外發現）',
+  'cultural festivals around the world（世界各地的文化節日）',
+  'the science behind cooking and food chemistry（烹飪科學與食物化學）',
+  'space exploration and Mars colonization（太空探索與火星殖民）',
+  'the impact of fast fashion on the environment（快時尚對環境的影響）',
+  'endangered species and wildlife protection（瀕危物種與野生動物保護）',
+  'how artificial intelligence is changing education（人工智能如何改變教育）',
+  'traditional crafts and their modern revival（傳統工藝與現代復興）',
+  'the psychology of color in marketing（營銷中的色彩心理學）',
+  'volunteer tourism and its pros and cons（義工旅遊的利弊）',
+  'urban farming and green cities（都市農業與綠色城市）',
+  'the evolution of the English language（英語的演變）',
+];
+
+function getRandomTopic(isListening: boolean, isReading: boolean, gradeLevel: string): string {
+  const pool = isListening ? LISTENING_TOPICS : isReading ? READING_TOPICS : LISTENING_TOPICS;
+  // Use a deterministic seed based on timestamp to ensure variety across calls
+  const seed = Date.now();
+  const index = (seed % 9973) % pool.length; // prime modulus for better distribution
+  return pool[index];
 }
 
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
@@ -793,6 +854,8 @@ HKDSE 等級對齊指引：
 - 難度：${diffMap[input.difficulty]}
 - 年級：${input.gradeLevel}
 - 題型：${typeDesc}
+- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${getRandomTopic(isListening, isReading, input.gradeLevel)}"
+  禁止使用你慣用的預設主題（如籃球選拔/蜜蜂/電影時間）。每題需有不同的對話場景。
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
 【DSE Paper 3 Listening 聆聽題 — v3.0 自然語速 + Intonation 強化版】

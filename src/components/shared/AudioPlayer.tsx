@@ -125,10 +125,13 @@ function splitMultiSpeakerLine(text: string): string {
   return text.replace(/([^\n])(Woman|Man|Boy|Girl|Speaker\s*[AB12]?)\s*[:：\-–—]/gi, '$1\n$2:');
 }
 
-/** 剝離所有角色標籤（確保 TTS 不會直接朗讀 "Librarian:" "Man:" 等） */
+/** 剝離所有角色標籤（確保 TTS 不會直接朗讀 "Librarian:" "Man:" 等），並清除殘餘標點 */
 function stripSpeakerLabels(text: string): string {
   return text
     .replace(/^[A-Za-z]+(?:\s+[A-Za-z]+)?\s*[:：\-–—]\s*/gm, '')
+    // 清除 TTS 容易朗讀出來的殘餘特殊字元
+    .replace(/[""'']/g, '')
+    .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
@@ -252,13 +255,28 @@ export default function AudioPlayer({
     return () => clearInterval(interval);
   }, []);
 
-  // 清理自身 blob URL（避免記憶體洩漏）
+  // 清理自身 audio 資源（避免記憶體洩漏 + 殘餘語音）
   useEffect(() => {
     return () => {
-      if (cachedUrlRef.current) {
-        // 不 revoke，因為 URL 存在全域快取中
-        cachedUrlRef.current = null;
+      // 停止並清理 Cloud TTS audio
+      if (cloudAudioRef.current) {
+        cloudAudioRef.current.pause();
+        cloudAudioRef.current.currentTime = 0;
+        cloudAudioRef.current.src = '';
+        cloudAudioRef.current.load();
+        cloudAudioRef.current = null;
       }
+      // 中斷進行中的 fetch
+      if (cloudAbortRef.current) {
+        cloudAbortRef.current.abort();
+        cloudAbortRef.current = null;
+      }
+      // 清理 Web Speech
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      cancelled.current = true;
+      cachedUrlRef.current = null;
     };
   }, []);
 
