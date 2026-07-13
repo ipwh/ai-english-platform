@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH — 更新寫作草稿（自動 upsert：無 id 時以 studentId 尋找上次草稿）
+// PATCH — 更新寫作草稿（自動 upsert + 版本歷史）
 export async function PATCH(request: NextRequest) {
   try {
     const userId = await getUserId(request);
@@ -105,13 +105,34 @@ export async function PATCH(request: NextRequest) {
 
     const data: Record<string, unknown> = {};
     if (draft !== undefined) data.draft = draft;
-    if (revisedVersion !== undefined) data.revisedVersion = revisedVersion;
     if (aiSuggestions !== undefined) data.aiSuggestions = JSON.stringify(aiSuggestions);
     if (chinglishWarnings !== undefined) data.chinglishWarnings = JSON.stringify(chinglishWarnings);
     if (status !== undefined) data.status = status;
 
+    // Version history: append to revisions when revisedVersion is provided
+    if (revisedVersion !== undefined) {
+      data.revisedVersion = revisedVersion;
+    }
+
+    // Helper: append revision entry to existing revisions array
+    const appendRevision = (existingRevisions: string | null): string => {
+      const prev = existingRevisions ? JSON.parse(existingRevisions) : [];
+      prev.push({
+        draft: draft || '',
+        revisedVersion: revisedVersion || '',
+        aiSuggestions: aiSuggestions || null,
+        createdAt: new Date().toISOString(),
+      });
+      // Keep last 10 versions max
+      return JSON.stringify(prev.slice(-10));
+    };
+
     // If id is provided and is a real UUID, update that specific draft
     if (id && id !== 'current' && /^[a-zA-Z0-9_-]{10,}$/.test(id)) {
+      const existing = await db.writingDraft.findUnique({ where: { id, studentId: userId }, select: { revisions: true, draft: true } });
+      if (revisedVersion !== undefined && existing) {
+        data.revisions = appendRevision(existing.revisions);
+      }
       const updated = await db.writingDraft.update({
         where: { id, studentId: userId },
         data,
@@ -126,6 +147,9 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (existing) {
+      if (revisedVersion !== undefined) {
+        data.revisions = appendRevision(existing.revisions);
+      }
       const updated = await db.writingDraft.update({
         where: { id: existing.id },
         data,

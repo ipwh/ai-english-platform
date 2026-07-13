@@ -543,7 +543,7 @@ export default function PracticeQuestionPage() {
                   key={`${index}-${choice}`}
                   onClick={() => !submitted && setSelectedAnswer(choiceLetter)}
                   disabled={submitted}
-                  className={`w-full flex items-center gap-3 p-4 border-2 rounded-xl text-left transition-colors ${choiceStyle}`}
+                  className={`w-full flex items-center gap-3 p-4 border-2 rounded-xl text-left transition-colors min-h-[48px] ${choiceStyle}`}
                 >
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                     submitted && choiceLetter === correctLetter

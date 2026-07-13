@@ -28,6 +28,32 @@
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+/* Mobile: prevent pull-to-refresh on interactive pages */
+.mobile-no-overscroll {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile: ensure touch targets are at least 44px */
+@media (max-width: 640px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Larger textarea for mobile writing */
+  .mobile-textarea {
+    min-height: 50vh;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  /* Mobile sidebar padding for notch */
+  .mobile-sidebar {
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
 /* 自訂滾動條 */
 ::-webkit-scrollbar {
   width: 6px;

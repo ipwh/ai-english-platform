@@ -218,6 +218,7 @@ model WritingDraft {
   prompt           String
   draft            String
   revisedVersion   String?
+  revisions        String?   // JSON: [{ draft, revisedVersion, aiSuggestions, createdAt }] — version history
   aiSuggestions    String?   // JSON
   chinglishWarnings String?  // JSON
   teacherComment   String?

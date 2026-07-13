@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/shared/Toast";
@@ -23,6 +23,14 @@ export const metadata: Metadata = {
     template: "%s | AI English Platform",
   },
   description: "AI 驅動香港中學英語適應性學習平台，支援中一至中六學生文法、詞彙、閱讀、寫作及改錯練習，教師可派發任務、查看班級進度及覆核 AI 批改。",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({

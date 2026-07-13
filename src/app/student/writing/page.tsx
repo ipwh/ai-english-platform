@@ -398,10 +398,10 @@ export default function WritingPage() {
         </div>
         <textarea value={draft} onChange={e => setDraft(e.target.value)}
           placeholder={realTopic ? t('writing.enterTopicPlaceholder', { topic: realTopic }) : t('writing.writePlaceholder')}
-          rows={8} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[200px]" />
-        <div className="flex items-center gap-4 mt-3 flex-wrap">
+          rows={8} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[200px] sm:min-h-[300px]" />
+        <div className="flex items-center gap-3 sm:gap-4 mt-3 flex-wrap">
           <button onClick={handleSubmit} disabled={aiLoading || !draft.trim()}
-            className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 disabled:opacity-50 flex items-center gap-2">
+            className="px-4 py-2.5 sm:py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 disabled:opacity-50 flex items-center gap-2 min-h-[44px]">
             {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {aiLoading ? t('writing.analyzing') : t('writing.aiAnalyze')}
           </button>
