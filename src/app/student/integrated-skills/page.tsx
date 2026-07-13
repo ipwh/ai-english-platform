@@ -58,6 +58,7 @@ export default function IntegratedSkillsPage() {
   const [error, setError] = useState('');
   const [task, setTask] = useState<IntegratedTask | null>(null);
 
+  const [showListeningText, setShowListeningText] = useState(false);
   const [studentNotes, setStudentNotes] = useState('');
   const [studentWriting, setStudentWriting] = useState('');
 
@@ -228,8 +229,16 @@ export default function IntegratedSkillsPage() {
             <span className="text-xl">🎧</span>
             <h2 className="font-semibold text-gray-900 dark:text-white">聆聽內容</h2>
             <AudioPlayer text={task.listeningContent} label="播放對話" size="sm" useCloudTTS />
+            <button
+              onClick={() => setShowListeningText(!showListeningText)}
+              className="ml-auto text-xs text-teal-600 hover:underline"
+            >
+              {showListeningText ? '收起文字 ▲' : '顯示文字 ▼'}
+            </button>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{task.listeningContent}</p>
+          {showListeningText && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{task.listeningContent}</p>
+          )}
         </div>
 
         {/* 筆記指引 */}
@@ -356,9 +365,9 @@ export default function IntegratedSkillsPage() {
         {/* 三維度評分 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { label: '內容覆蓋', score: analysis.contentCoverage.score, icon: Target, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: '語言質素', score: analysis.languageQuality.score, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-            { label: '組織結構', score: analysis.organization.score, icon: FileText, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
+            { label: '內容覆蓋', score: analysis.contentCoverage?.score ?? 0, icon: Target, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+            { label: '語言質素', score: analysis.languageQuality?.score ?? 0, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+            { label: '組織結構', score: analysis.organization?.score ?? 0, icon: FileText, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
           ].map((dim, i) => (
             <div key={i} className={`${dim.bg} rounded-xl p-4 text-center`}>
               <dim.icon className={`w-5 h-5 ${dim.color} mx-auto mb-1`} />
@@ -375,15 +384,15 @@ export default function IntegratedSkillsPage() {
           </h3>
           <div className="space-y-2">
             <p className="text-sm font-medium text-green-600">✅ 已涵蓋：</p>
-            {analysis.contentCoverage.covered.map((pt, i) => (
+            {(analysis.contentCoverage?.covered ?? []).map((pt, i) => (
               <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> {pt}
               </div>
             ))}
-            {analysis.contentCoverage.missed.length > 0 && (
+            {(analysis.contentCoverage?.missed?.length ?? 0) > 0 && (
               <>
                 <p className="text-sm font-medium text-red-500 mt-3">❌ 遺漏：</p>
-                {analysis.contentCoverage.missed.map((pt, i) => (
+                {(analysis.contentCoverage?.missed ?? []).map((pt, i) => (
                   <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> {pt}
                   </div>
@@ -398,11 +407,11 @@ export default function IntegratedSkillsPage() {
           <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-blue-500" /> 語言質素
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{analysis.languageQuality.styleFeedback}</p>
-          {analysis.languageQuality.grammarErrors.length > 0 && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{analysis.languageQuality?.styleFeedback ?? ''}</p>
+          {(analysis.languageQuality?.grammarErrors?.length ?? 0) > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-gray-500">文法錯誤：</p>
-              {analysis.languageQuality.grammarErrors.map((err, i) => (
+              {(analysis.languageQuality?.grammarErrors ?? []).map((err, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
                   <span className="text-red-500 line-through">{err.original}</span>
                   <span className="text-gray-400">→</span>
@@ -418,17 +427,17 @@ export default function IntegratedSkillsPage() {
           <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
             <FileText className="w-5 h-5 text-green-500" /> 組織結構
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.organization.feedback}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.organization?.feedback ?? ''}</p>
         </div>
 
         {/* 改善建議 */}
-        {analysis.suggestions.length > 0 && (
+        {(analysis.suggestions?.length ?? 0) > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-amber-500" /> 改善建議
             </h3>
             <ul className="space-y-2">
-              {analysis.suggestions.map((s, i) => (
+              {(analysis.suggestions ?? []).map((s, i) => (
                 <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5">💡</span> {s}
                 </li>

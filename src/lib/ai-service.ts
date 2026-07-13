@@ -891,7 +891,7 @@ function normalizeListeningContent(raw: string): string {
 
   // Step 1: 拆分一行內的多角色
   let content = raw
-    .replace(/([^\n])(Woman|Man|Boy|Girl)\s*:/gi, '$1\n$2:')
+    .replace(/([^\n])\b(Woman|Man|Boy|Girl)\s*:/gi, '$1\n$2:')
     .replace(/([^\n])(Speaker\s*[AB12]?)\s*:/gi, '$1\n$2:');
 
   // Step 2: 逐行 sanitize
