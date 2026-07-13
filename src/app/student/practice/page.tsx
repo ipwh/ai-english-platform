@@ -174,8 +174,8 @@ function PracticeListPageContent() {
         commonMistake: q.commonMistake as string,
         grammarPoint: q.grammarPoint as string | undefined,
         hintLevels: activeForm.languageSkill === 'reading'
-          ? ['提示1：仔細閱讀篇章。', '提示2：在篇章中找出相關句子。', '提示3：排除篇章中沒有提及的選項。', '提示4：選擇最符合篇章內容的答案。']
-          : ['提示1：請仔細閱讀題目。', '提示2：回想相關的文法規則。', '提示3：排除明顯錯誤的選項。', '提示4：選擇最符合語法和語境的答案。'],
+          ? [t('practice.hints.reading.1'), t('practice.hints.reading.2'), t('practice.hints.reading.3'), t('practice.hints.reading.4')]
+          : [t('practice.hints.default.1'), t('practice.hints.default.2'), t('practice.hints.default.3'), t('practice.hints.default.4')],
       }));
 
       // 建立練習 session
@@ -197,7 +197,7 @@ function PracticeListPageContent() {
       // 導向第一題
       router.push(`/student/practice/${questions[0].id}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '連線失敗';
+      const msg = err instanceof Error ? err.message : t('practice.networkError');
       console.error('AI generate error:', msg);
       setGenError(t('practice.aiConnectionFailed', { msg }));
     } finally {
@@ -216,7 +216,7 @@ function PracticeListPageContent() {
     const questionType = searchParams.get('questionType') || (languageSkill === 'writing' ? 'short-writing' : 'mc');
     const questionCount = Number(searchParams.get('questionCount') || '5');
     const gradeLevel = (searchParams.get('gradeLevel') as GradeLevel | null) || 'S4';
-    const weakLabel = searchParams.get('weakLabel') || '弱項';
+    const weakLabel = searchParams.get('weakLabel') || t('practice.weakSkillDefault');
 
     if (!grammarItem && !languageSkill) return;
 
@@ -232,7 +232,7 @@ function PracticeListPageContent() {
 
     setTab('generate');
     setForm(nextForm);
-    void handleGenerate(nextForm, `已根據診斷結果，為你推薦 ${weakLabel} 的針對性練習。`);
+    void handleGenerate(nextForm, t('practice.generatedFromDiagnostic', { label: weakLabel }));
   }, [handleGenerate, searchParams]);
 
   // === 從求助頁跳轉：根據學生問題自動生成練習 ===
@@ -264,7 +264,7 @@ function PracticeListPageContent() {
 
     setTab('generate');
     setForm(nextForm);
-    void handleGenerate(nextForm, `已根據你在「求助與建議」中的問題「${topic}」為你生成相關練習。`);
+    void handleGenerate(nextForm, t('practice.generatedFromHelp', { topic }));
   }, [handleGenerate, searchParams]);
 
   // === 從推薦弱項快速生成 ===

@@ -186,6 +186,17 @@ const translations: Record<string, { zh: string; en: string }> = {
   'practice.networkError': { zh: '網絡錯誤，請重試。', en: 'Network error, please try again.' },
   'practice.weeklyQuestions': { zh: '本週 {n} 題', en: '{n} questions this week' },
   'practice.weeklyAccuracy': { zh: '正確率 {n}%', en: 'Accuracy {n}%' },
+  'practice.hints.reading.1': { zh: '提示1：仔細閱讀篇章。', en: 'Hint 1: Read the passage carefully.' },
+  'practice.hints.reading.2': { zh: '提示2：在篇章中找出相關句子。', en: 'Hint 2: Find relevant sentences in the passage.' },
+  'practice.hints.reading.3': { zh: '提示3：排除篇章中沒有提及的選項。', en: 'Hint 3: Eliminate options not mentioned in the passage.' },
+  'practice.hints.reading.4': { zh: '提示4：選擇最符合篇章內容的答案。', en: 'Hint 4: Choose the answer that best matches the passage.' },
+  'practice.hints.default.1': { zh: '提示1：請仔細閱讀題目。', en: 'Hint 1: Read the question carefully.' },
+  'practice.hints.default.2': { zh: '提示2：回想相關的文法規則。', en: 'Hint 2: Recall relevant grammar rules.' },
+  'practice.hints.default.3': { zh: '提示3：排除明顯錯誤的選項。', en: 'Hint 3: Eliminate obviously wrong options.' },
+  'practice.hints.default.4': { zh: '提示4：選擇最符合語法和語境的答案。', en: 'Hint 4: Choose the answer that fits grammar and context.' },
+  'practice.weakSkillDefault': { zh: '弱項', en: 'weak area' },
+  'practice.generatedFromDiagnostic': { zh: '已根據診斷結果，為你推薦 {label} 的針對性練習。', en: 'Based on diagnostic results, targeted practice for {label} has been generated.' },
+  'practice.generatedFromHelp': { zh: '已根據你在「求助與建議」中的問題「{topic}」為你生成相關練習。', en: 'Generated relevant practice based on your question: "{topic}".' },
 
   // Generic
   'generic.startPractice': { zh: '開始練習', en: 'Start Practice' },
