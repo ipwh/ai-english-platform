@@ -37,13 +37,7 @@ export async function GET() {
   try {
     const materials = await db.material.findMany({
       where: {
-        NOT: [
-          { title: { contains: 'HKDSE' } },
-          { title: { contains: 'DSE' } },
-          { title: { contains: 'ELE KLACG' } },
-          { title: { contains: 'Curriculum' } },
-          { description: { contains: 'HKDSE' } },
-        ],
+        isSystem: false,
       },
       select: {
         id: true,

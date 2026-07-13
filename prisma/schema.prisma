@@ -241,6 +241,7 @@ model Material {
   tags        String?   // JSON 陣列
   gradeLevel  String?
   strand      String?
+  isSystem    Boolean   @default(false) // 系統參考教材（HKDSE past papers 等），不顯示在教材中心
   ocrStatus   String    @default("none") // none | processing | done | failed
   ragStatus   String    @default("none") // none | chunking | embedding | done
   fileSize    Int?
