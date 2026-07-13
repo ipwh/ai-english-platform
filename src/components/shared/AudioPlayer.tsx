@@ -308,6 +308,23 @@ export default function AudioPlayer({
     return () => window.removeEventListener('stop-all-audio', handleGlobalStop);
   }, []);
 
+  // 語速變更時停止現有播放（防止疊聲）
+  useEffect(() => {
+    if (cloudAudioRef.current) {
+      cloudAudioRef.current.pause();
+      cloudAudioRef.current.src = '';
+      cloudAudioRef.current = null;
+    }
+    if (cloudAbortRef.current) {
+      cloudAbortRef.current.abort();
+      cloudAbortRef.current = null;
+    }
+    setPlaying(false);
+    setCloudFetching(false);
+    setLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speed]);
+
   if (typeof window === 'undefined') {
     return <span className="text-xs text-gray-400">TTS</span>;
   }
@@ -398,12 +415,28 @@ export default function AudioPlayer({
   }, [onPrefetchReady, prefetchAudio]);
 
   // ============================================
-  // Google Cloud TTS 播放（v3.0: 預處理文字 + 重試機制 + 完整 cleanup）
+  // Google Cloud TTS 播放（v3.1: 預處理文字 + 重試 + 完整 cleanup + 防止疊聲）
   // ============================================
   const playCloudTTS = useCallback(async () => {
     if (!text) return;
     setCloudError('');
     setLoading(true);
+
+    // ⚠️ 防止疊聲：先徹底停止任何現有播放（不設為 null 避免 TS narrowing）
+    const old = cloudAudioRef.current;
+    if (old) {
+      old.pause();
+      old.src = '';
+    }
+    if (cloudAbortRef.current) {
+      cloudAbortRef.current.abort();
+      cloudAbortRef.current = null;
+    }
+    // Cancel Web Speech too (in case it was playing)
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setPlaying(false);
 
     // 預處理：剝離角色標籤，確保 TTS 只讀乾淨對話
     const cleanText = prepareTextForTTS(text);
@@ -422,11 +455,8 @@ export default function AudioPlayer({
       cachedUrlRef.current = cached.url;
       const audio = new Audio(cached.url);
       // 先清理舊 audio 實例
-      if (cloudAudioRef.current) {
-        cloudAudioRef.current.pause();
-        cloudAudioRef.current.src = '';
-        cloudAudioRef.current = null;
-      }
+      const oldCached = cloudAudioRef.current;
+      if (oldCached) { oldCached.pause(); oldCached.src = ''; }
       cloudAudioRef.current = audio;
       audio.onplay = () => { setPlaying(true); setLoading(false); setCloudFetching(false); };
       audio.onended = () => { setPlaying(false); onPlayEnd?.(); };
@@ -488,11 +518,8 @@ export default function AudioPlayer({
 
         const audio = new Audio(url);
         // 先清理舊 audio 實例（確保切換題目時不殘留）
-        if (cloudAudioRef.current) {
-          cloudAudioRef.current.pause();
-          cloudAudioRef.current.src = '';
-          cloudAudioRef.current = null;
-        }
+        const oldFetched = cloudAudioRef.current;
+        if (oldFetched) { oldFetched.pause(); oldFetched.src = ''; }
         cloudAudioRef.current = audio;
 
         audio.onplay = () => { setLoading(false); setCloudFetching(false); setPlaying(true); };

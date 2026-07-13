@@ -38,6 +38,8 @@ export default function WritingPage() {
   }, []);
   const [textType, setTextType] = useState('essay');
   const [wordLimit, setWordLimit] = useState(200);
+  const [useCustomWordLimit, setUseCustomWordLimit] = useState(false);
+  const [customWordLimit, setCustomWordLimit] = useState('');
   const [topicHint, setTopicHint] = useState('');
   const [customTopic, setCustomTopic] = useState('');
   const [useCustomTopic, setUseCustomTopic] = useState(false);
@@ -49,7 +51,8 @@ export default function WritingPage() {
   const [draft, setDraft] = useState('');
   const wordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0;
   const charCount = draft.length;
-  const wordProgress = Math.min(100, Math.round((wordCount / wordLimit) * 100));
+  const effectiveWordLimit = useCustomWordLimit && customWordLimit ? Number(customWordLimit) || wordLimit : wordLimit;
+  const wordProgress = Math.min(100, Math.round((wordCount / effectiveWordLimit) * 100));
 
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showVocabHelp, setShowVocabHelp] = useState(true);
@@ -341,9 +344,24 @@ export default function WritingPage() {
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('writing.wordLimit')}</label>
-            <select value={wordLimit} onChange={e => setWordLimit(Number(e.target.value))} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
-              {wordLimits.map(w => <option key={w} value={w}>{w} {t('writing.wordsUnit')}</option>)}
-            </select>
+            {useCustomWordLimit ? (
+              <div className="flex gap-1">
+                <input type="number" value={customWordLimit} onChange={e => setCustomWordLimit(e.target.value)}
+                  placeholder="e.g. 250" min={50} max={2000} step={10}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white" />
+                <button onClick={() => setUseCustomWordLimit(false)}
+                  className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600" title={t('common.back')}>✕</button>
+              </div>
+            ) : (
+              <div className="flex gap-1">
+                <select value={wordLimit} onChange={e => setWordLimit(Number(e.target.value))}
+                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+                  {wordLimits.map(w => <option key={w} value={w}>{w} {t('writing.wordsUnit')}</option>)}
+                </select>
+                <button onClick={() => { setCustomWordLimit(String(wordLimit)); setUseCustomWordLimit(true); }}
+                  className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600" title={t('writing.customWordCount')}>⋯</button>
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('writing.topicHint')}</label>
@@ -370,7 +388,7 @@ export default function WritingPage() {
           <div className="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
             <p className="text-sm font-medium text-purple-800 dark:text-purple-200">{t('writing.yourPrompt')}</p>
             <p className="text-lg text-gray-900 dark:text-white mt-1">{realTopic}</p>
-            <p className="text-xs text-gray-500 mt-2">{t('writing.wordCount')}：{wordLimit} | {t('writing.type')}：{lang === 'zh' ? textTypes[textType].zh : textTypes[textType].en} | {t('writing.level')}：{gradeLevel}</p>
+            <p className="text-xs text-gray-500 mt-2">{t('writing.wordCount')}：{effectiveWordLimit} | {t('writing.type')}：{lang === 'zh' ? textTypes[textType].zh : textTypes[textType].en} | {t('writing.level')}：{gradeLevel}</p>
           </div>
         )}
         {generatedOutline && (
@@ -387,14 +405,14 @@ export default function WritingPage() {
             <PencilLine className="w-5 h-5 text-teal-500" /> {t('writing.yourWriting')}
           </h2>
           <div className="flex items-center gap-4 text-sm">
-            <span className={`flex items-center gap-1 font-bold ${wordCount > wordLimit ? 'text-red-500' : wordCount >= wordLimit * 0.8 ? 'text-amber-500' : 'text-gray-500'}`}>
-              <Hash className="w-4 h-4" />{wordCount} / {wordLimit} {t('writing.wordsUnit')}
+            <span className={`flex items-center gap-1 font-bold ${wordCount > effectiveWordLimit ? 'text-red-500' : wordCount >= effectiveWordLimit * 0.8 ? 'text-amber-500' : 'text-gray-500'}`}>
+              <Hash className="w-4 h-4" />{wordCount} / {effectiveWordLimit} {t('writing.wordsUnit')}
             </span>
             <span className="text-gray-400">{charCount} {t('writing.chars')}</span>
           </div>
         </div>
         <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
-          <div className={`h-full rounded-full transition-all ${wordCount > wordLimit ? 'bg-red-500' : wordCount >= wordLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'}`} style={{ width: `${wordProgress}%` }} />
+          <div className={`h-full rounded-full transition-all ${wordCount > effectiveWordLimit ? 'bg-red-500' : wordCount >= effectiveWordLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'}`} style={{ width: `${wordProgress}%` }} />
         </div>
         <textarea value={draft} onChange={e => setDraft(e.target.value)}
           placeholder={realTopic ? t('writing.enterTopicPlaceholder', { topic: realTopic }) : t('writing.writePlaceholder')}
