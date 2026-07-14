@@ -64,6 +64,7 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
     margin: 50,
+    font: '', // 跳過 PDFKit 內建 Helvetica 載入（Vercel serverless 上 __dirname 路徑不正確）
     info: { Title: `Writing Analysis - ${analysis.topic || 'Report'}`, Author: 'AI English Platform' },
   });
 
