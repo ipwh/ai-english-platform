@@ -933,9 +933,50 @@ function normalizeListeningContent(raw: string): string {
 // ============================================
 
 // ============================================
-// 主題多樣性系統 v2.0 — 涵蓋 DSE 全部常考主題
-// 支援：按年級分層 + 類別標籤 + 黑名單防重複 + 學生偏好
+// DSE Empirical Topic Database — 基於真實歷屆試題歸納
+// 來源：2012-2024 HKDSE English Language Past Papers
 // ============================================
+
+const DSE_EMPIRICAL_TOPICS = {
+  // Paper 2 寫作真實題材（2012-2024）
+  writing: {
+    food: ['restaurant review (Dim Sum / local cuisine)', 'food culture and dining trends', 'healthy eating and food labeling', 'school canteen menu reform'],
+    culture: ['Hong Kong housing estates Instagram culture', 'Chinese Opera / Xiqu Centre experience', 'cultural heritage preservation', 'festivals and traditions (Mid-Autumn, CNY, Dragon Boat)', 'pop culture and music industry', 'film and movie reviews'],
+    social: ['independent shops vs chain stores', 'small business survival in HK', 'social media impact on youth', 'cyberbullying and online ethics', 'ageing population and elderly care', 'income inequality and poverty'],
+    technology: ['AI in education and workplace', 'social media and privacy', 'e-learning vs traditional classroom', 'technology addiction among teens', 'smart city development in HK'],
+    environment: ['plastic waste and recycling', 'renewable energy adoption', 'green living and sustainability', 'wildlife conservation', 'carbon footprint and climate action'],
+    education: ['exam pressure and mental health', 'school uniform policies', 'vocational vs academic education', 'lifelong learning', 'university admission criteria'],
+    career: ['job interviews and workplace communication', 'work transfer and career development', 'internship and work experience', 'entrepreneurship and startups', 'gig economy and freelancing'],
+    sports: ['Olympic sports inclusion debate', 'Dragon Boat Racing as international sport', 'e-sports as legitimate competition', 'sportsmanship and doping', 'extreme sports and risk-taking'],
+    arts: ['music and songwriting inspiration', 'film and television influence', 'street art and public spaces', 'literature and creative writing', 'performing arts and theatre'],
+    travel: ['study tour and exchange programmes', 'eco-tourism and responsible travel', 'working holiday experiences', 'cultural immersion travel', 'HK as travel destination'],
+    health: ['mental health awareness among youth', 'sleep deprivation and academic performance', 'exercise and physical wellbeing', 'traditional vs modern medicine', 'pandemic preparedness'],
+    hkLocal: ['HK identity and cultural uniqueness', 'Cantonese language preservation', 'urban development vs heritage', 'public housing and living space', 'HK food culture (dai pai dong, cha chaan teng)'],
+  },
+  
+  // Paper 1 & Paper 3 閱讀/聆聽常見主題
+  reading: {
+    science: ['marine biology and ocean conservation', 'astronomy and space exploration', 'neuroscience and brain plasticity', 'genetics and bioethics', 'robotics and automation', 'climate science and meteorology'],
+    history: ['Olympic Games history and evolution', 'ancient civilizations and archaeology', 'industrial revolution impact', 'HK colonial history and handover', 'World War stories and memoirs'],
+    nature: ['endangered species protection', 'urban wildlife and biodiversity', 'natural disasters and resilience', 'national parks and conservation', 'ocean pollution and microplastics'],
+    society: ['volunteerism and community service', 'philanthropy and charity work', 'urbanization and city planning', 'migration and diaspora', 'gender equality movements'],
+    psychology: ['procrastination science', 'color psychology in marketing', 'decision-making biases', 'child development theories', 'social conformity experiments'],
+    technology: ['AI transformation of industries', '3D printing revolution', 'autonomous vehicles future', 'blockchain beyond cryptocurrency', 'biotechnology breakthroughs'],
+    health: ['music therapy benefits', 'sleep science and learning', 'nutrition myths debunked', 'exercise and brain function', 'mindfulness and meditation'],
+    hkLocal: ['HK wetland and Mai Po reserve', 'HK hiking trails and country parks', 'HK film industry golden age', 'HK public transport efficiency', 'HK street food culture'],
+    global: ['UN sustainable development goals', 'globalization pros and cons', 'international trade and fair trade', 'refugee crises and humanitarian aid', 'pandemic global response'],
+  },
+  
+  // Paper 3 聆聽場景
+  listening: {
+    school: ['club fair and society recruitment', 'debate competition preparation', 'school talent show planning', 'student council election campaign', 'graduation ceremony planning', 'parent-teacher conference', 'school open day organization', 'peer mentoring programme'],
+    community: ['charity fundraising walkathon', 'beach cleanup volunteer day', 'elderly home visit programme', 'community garden project', 'neighbourhood festival', 'blood donation drive', 'food bank collection'],
+    workplace: ['summer internship application', 'part-time job orientation', 'business meeting and presentation', 'customer complaint handling', 'team building activity planning', 'conference call with overseas office', 'product launch preparation'],
+    services: ['doctor appointment booking', 'hotel reservation changes', 'flight booking and itinerary', 'restaurant group booking', 'bank account opening', 'library membership registration', 'gym membership inquiry'],
+    hkLife: ['MTR route planning', 'Octopus card top-up issue', 'typhoon day arrangements', 'wet market shopping', 'temple visit and fortune telling', 'junk trip boat booking', 'dim sum ordering etiquette'],
+    social: ['environmental campaign launch', 'social media detox challenge', 'mental health awareness week', 'cultural diversity celebration', 'anti-bullying workshop', 'digital literacy seminar', 'entrepreneurship bootcamp'],
+  },
+} as const;
 
 type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life';
 
@@ -1064,6 +1105,35 @@ const READING_TOPICS_V2: TopicEntry[] = [
 ];
 
 const READING_TOPICS = READING_TOPICS_V2.map(t => t.text);
+
+// ============================================
+// DSE Empirical Topic Helper — 從實證資料庫抽取主題建議
+// ============================================
+
+/**
+ * Get real DSE exam-style topic suggestions for prompt enrichment.
+ * Draws from the empirical topic database built from 2012-2024 past papers.
+ */
+export function getDSEEmpiricalTopics(
+  skill: 'writing' | 'reading' | 'listening',
+  category?: string,
+  count = 3,
+): string[] {
+  const pool = DSE_EMPIRICAL_TOPICS[skill];
+  if (!pool) return [];
+  
+  const allTopics: string[] = [];
+  if (category && (pool as any)[category]) {
+    allTopics.push(...((pool as any)[category] as string[]));
+  } else {
+    for (const cat of Object.values(pool)) {
+      allTopics.push(...(cat as string[]));
+    }
+  }
+  
+  const shuffled = [...allTopics].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 // ============================================
 // 主題選擇引擎 v2.0
