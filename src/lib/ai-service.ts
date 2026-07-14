@@ -932,106 +932,220 @@ function normalizeListeningContent(raw: string): string {
 // 隨機題材選擇器 — 確保 AI 出題主題多元化
 // ============================================
 
-const LISTENING_TOPICS = [
-  'school club recruitment fair（學會招募博覽）',
-  'part-time job interview at a bookstore（書店兼職面試）',
-  'planning a charity fundraising event（慈善籌款活動策劃）',
-  'discussing a science fair project（科學展項目討論）',
-  'booking a school field trip（學校戶外考察預訂）',
-  'ordering food at a café with dietary restrictions（咖啡店點餐含飲食限制）',
-  'asking for directions to a museum exhibition（問路去博物館展覽）',
-  'reporting a lost item to the school office（向校務處報失物品）',
-  'discussing a movie review for English class（討論英文課電影評論）',
-  'making a doctor\'s appointment（預約看醫生）',
-  'planning a surprise birthday party（策劃驚喜生日派對）',
-  'debating which university to apply to（辯論申請哪所大學）',
-  'calling customer service about a faulty product（致電客服關於瑕疵產品）',
-  'discussing weekend hiking trip plans（討論週末行山計劃）',
-  'registering for a sports competition（報名體育比賽）',
-  'asking a librarian for book recommendations（向圖書館員詢問書籍推薦）',
-  // v1.1: Expanded topics for diversity
-  'negotiating a group project deadline with classmates（與同學協商小組項目截止日期）',
-  'discussing environmental protection initiatives at school（討論學校環保倡議）',
-  'interviewing a guest speaker about their career（訪問嘉賓講者關於職業生涯）',
-  'planning an overseas exchange programme（策劃海外交流計劃）',
-  'debating the pros and cons of social media（辯論社交媒體的利弊）',
-  'making a complaint about noise pollution to the housing estate（向屋苑投訴噪音污染）',
-  'discussing mental health awareness week activities（討論心理健康關注週活動）',
-  'planning a cultural diversity day at school（策劃學校多元文化日）',
-  'calling to reschedule a dentist appointment（致電改期牙醫預約）',
-  'discussing volunteer work at an elderly home（討論老人院義工服務）',
-  'ordering custom T-shirts for a school event（為學校活動訂製 T 恤）',
-  'planning a STEM competition logistics meeting（策劃 STEM 比賽物流會議）',
-  'debating whether AI should be used in classrooms（辯論課室應否使用 AI）',
-  'discussing internship opportunities during summer break（討論暑期實習機會）',
-  'reporting a cyberbullying incident to a teacher（向老師舉報網絡欺凌事件）',
-  'planning a farewell party for an exchange student（為交流生策劃歡送派對）',
-];
+// ============================================
+// 主題多樣性系統 v2.0 — 涵蓋 DSE 全部常考主題
+// 支援：按年級分層 + 類別標籤 + 黑名單防重複 + 學生偏好
+// ============================================
 
-const READING_TOPICS = [
-  'marine life conservation and coral reefs（海洋生物保育與珊瑚礁）',
-  'the history of the Olympic Games（奧運會歷史）',
-  'how social media affects teenage mental health（社交媒體對青少年心理健康的影響）',
-  'renewable energy solutions in Hong Kong（香港可再生能源方案）',
-  'famous inventors and their accidental discoveries（著名發明家與意外發現）',
-  'cultural festivals around the world（世界各地的文化節日）',
-  'the science behind cooking and food chemistry（烹飪科學與食物化學）',
-  'space exploration and Mars colonization（太空探索與火星殖民）',
-  'the impact of fast fashion on the environment（快時尚對環境的影響）',
-  'endangered species and wildlife protection（瀕危物種與野生動物保護）',
-  'how artificial intelligence is changing education（人工智能如何改變教育）',
-  'traditional crafts and their modern revival（傳統工藝與現代復興）',
-  'the psychology of color in marketing（營銷中的色彩心理學）',
-  'volunteer tourism and its pros and cons（義工旅遊的利弊）',
-  'urban farming and green cities（都市農業與綠色城市）',
-  'the evolution of the English language（英語的演變）',
-  // v1.1: Expanded topics
-  'the rise of e-sports and competitive gaming（電子競技與競技遊戲的興起）',
-  'how music therapy benefits mental health（音樂治療如何有益心理健康）',
-  'the future of electric and autonomous vehicles（電動車與自動駕駛的未來）',
-  'the history and cultural significance of tea（茶的歷史與文化意義）',
-  'deep-sea exploration and undiscovered species（深海探索與未發現物種）',
-  'the gig economy and its impact on young workers（零工經濟對年輕工作者的影響）',
-  'how 3D printing is revolutionizing medicine（3D 打印如何革新醫學）',
-  'the psychology behind procrastination（拖延背後的心理學）',
-  'ancient civilizations and their engineering marvels（古代文明及其工程奇蹟）',
-  'the science of sleep and its effect on learning（睡眠科學及其對學習的影響）',
-  'food sustainability and the future of meat alternatives（糧食可持續性與肉類替代品的未來）',
-  'the role of public libraries in the digital age（公共圖書館在數碼時代的角色）',
-  'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）',
-  'the philosophy of happiness across different cultures（不同文化中的幸福哲學）',
-  'microplastics in the ocean and their effects on the food chain（海洋微塑膠及其對食物鏈的影響）',
-  'the history and future of space telescopes（太空望遠鏡的歷史與未來）',
-];
+type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life';
 
-// Track recently used topics per request to avoid repetition
-const recentTopics: Map<string, number[]> = new Map();
+interface TopicEntry {
+  text: string;
+  category: TopicCategory;
+  grades: string[]; // S1-S6
+}
 
-function getRandomTopic(isListening: boolean, isReading: boolean, gradeLevel: string): string {
-  const pool = isListening ? LISTENING_TOPICS : isReading ? READING_TOPICS : LISTENING_TOPICS;
+const LISTENING_TOPICS_V2: TopicEntry[] = [
+  // === 校園生活 (school) ===
+  { text: 'school club recruitment fair（學會招募博覽）', category: 'school', grades: ['S1','S2','S3','S4'] },
+  { text: 'planning a school field trip to a museum（策劃學校博物館考察）', category: 'school', grades: ['S1','S2','S3','S4'] },
+  { text: 'discussing a group project presentation（討論小組項目簡報）', category: 'school', grades: ['S3','S4','S5'] },
+  { text: 'negotiating a project deadline extension with a teacher（與老師協商項目延期）', category: 'school', grades: ['S4','S5','S6'] },
+  { text: 'debating school uniform policy changes（辯論校服政策修改）', category: 'school', grades: ['S4','S5','S6'] },
+  { text: 'planning a school talent show（策劃學校才藝表演）', category: 'school', grades: ['S1','S2','S3'] },
   
-  // Generate a session key based on grade level and topic type to avoid cross-contamination
+  // === 社會議題 (society) ===
+  { text: 'debating the pros and cons of social media（辯論社交媒體的利弊）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'discussing cyberbullying prevention（討論網絡欺凌預防）', category: 'society', grades: ['S3','S4','S5','S6'] },
+  { text: 'planning a charity fundraising event for underprivileged children（策劃弱勢兒童慈善籌款）', category: 'society', grades: ['S3','S4','S5','S6'] },
+  { text: 'discussing mental health awareness in schools（討論校園心理健康關注）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'debating whether AI should replace human jobs（辯論 AI 應否取代人類工作）', category: 'society', grades: ['S5','S6'] },
+  { text: 'discussing volunteer work at an elderly home（討論老人院義工服務）', category: 'society', grades: ['S3','S4','S5','S6'] },
+  
+  // === 科技 (technology) ===
+  { text: 'discussing the impact of smartphones on student life（討論智能手機對學生生活的影響）', category: 'technology', grades: ['S3','S4','S5'] },
+  { text: 'debating whether AI should be used in classrooms（辯論課室應否使用 AI）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'planning a STEM competition logistics meeting（策劃 STEM 比賽物流會議）', category: 'technology', grades: ['S3','S4','S5'] },
+  { text: 'calling tech support about a malfunctioning laptop（致電技術支援關於故障筆電）', category: 'technology', grades: ['S3','S4','S5','S6'] },
+  { text: 'discussing online learning vs traditional classroom（討論網上學習 vs 傳統課堂）', category: 'technology', grades: ['S4','S5','S6'] },
+  
+  // === 環境 (environment) ===
+  { text: 'discussing environmental protection initiatives at school（討論學校環保倡議）', category: 'environment', grades: ['S2','S3','S4','S5'] },
+  { text: 'planning a beach cleanup activity（策劃沙灘清潔活動）', category: 'environment', grades: ['S1','S2','S3','S4'] },
+  { text: 'making a complaint about noise pollution to the housing estate（向屋苑投訴噪音污染）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'debating plastic ban policies in Hong Kong（辯論香港塑膠禁令政策）', category: 'environment', grades: ['S5','S6'] },
+  
+  // === 文化 (culture) ===
+  { text: 'planning a cultural diversity day at school（策劃學校多元文化日）', category: 'culture', grades: ['S3','S4','S5'] },
+  { text: 'discussing Mid-Autumn Festival celebration ideas（討論中秋節慶祝活動）', category: 'culture', grades: ['S1','S2','S3'] },
+  { text: 'planning an overseas exchange programme（策劃海外交流計劃）', category: 'culture', grades: ['S4','S5','S6'] },
+  { text: 'interviewing a guest speaker about their career abroad（訪問嘉賓講者關於海外職業生涯）', category: 'culture', grades: ['S5','S6'] },
+  
+  // === 健康 (health) ===
+  { text: "making a doctor's appointment（預約看醫生）", category: 'health', grades: ['S1','S2','S3','S4'] },
+  { text: 'discussing healthy eating habits at school canteen（討論學校飯堂健康飲食習慣）', category: 'health', grades: ['S2','S3','S4'] },
+  { text: 'calling to reschedule a dentist appointment（致電改期牙醫預約）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'discussing sleep deprivation among students（討論學生睡眠不足問題）', category: 'health', grades: ['S5','S6'] },
+  
+  // === 就業 (career) ===
+  { text: 'part-time job interview at a bookstore（書店兼職面試）', category: 'career', grades: ['S4','S5','S6'] },
+  { text: 'discussing internship opportunities during summer break（討論暑期實習機會）', category: 'career', grades: ['S5','S6'] },
+  { text: 'career guidance session about university choices（大學選科職業輔導）', category: 'career', grades: ['S5','S6'] },
+  { text: 'discussing gap year options and working holidays（討論空檔年與工作假期）', category: 'career', grades: ['S6'] },
+  
+  // === 科學 (science) ===
+  { text: 'discussing a science fair project（科學展項目討論）', category: 'science', grades: ['S2','S3','S4'] },
+  { text: 'debating genetic engineering ethics（辯論基因工程倫理）', category: 'science', grades: ['S5','S6'] },
+  { text: 'discussing space exploration and its benefits（討論太空探索及其益處）', category: 'science', grades: ['S4','S5'] },
+  
+  // === 香港本地 (hk-local) ===
+  { text: 'discussing weekend hiking trip to Sai Kung（討論週末西貢行山）', category: 'hk-local', grades: ['S2','S3','S4','S5'] },
+  { text: 'planning a visit to Hong Kong Palace Museum（策劃參觀香港故宮文化博物館）', category: 'hk-local', grades: ['S1','S2','S3'] },
+  { text: 'discussing Hong Kong food culture and dai pai dong（討論香港飲食文化與大排檔）', category: 'hk-local', grades: ['S3','S4','S5'] },
+  { text: 'debating the future of Cantonese in Hong Kong（辯論粵語在香港的未來）', category: 'hk-local', grades: ['S5','S6'] },
+  
+  // === 日常生活 (daily-life) ===
+  { text: 'ordering food at a café with dietary restrictions（咖啡店點餐含飲食限制）', category: 'daily-life', grades: ['S1','S2','S3','S4'] },
+  { text: 'booking a badminton court at a sports centre（預訂體育中心羽毛球場）', category: 'daily-life', grades: ['S1','S2','S3'] },
+  { text: 'planning a surprise birthday party（策劃驚喜生日派對）', category: 'daily-life', grades: ['S1','S2','S3','S4'] },
+  { text: 'calling customer service about a faulty product（致電客服關於瑕疵產品）', category: 'daily-life', grades: ['S4','S5','S6'] },
+  { text: 'ordering custom T-shirts for a school event（為學校活動訂製 T 恤）', category: 'daily-life', grades: ['S3','S4','S5'] },
+];
+
+// Legacy topics for backward compatibility (map to V2 entries)
+const LISTENING_TOPICS = LISTENING_TOPICS_V2.map(t => t.text);
+
+const READING_TOPICS_V2: TopicEntry[] = [
+  // === 科學 (science) ===
+  { text: 'the science behind cooking and food chemistry（烹飪科學與食物化學）', category: 'science', grades: ['S3','S4','S5'] },
+  { text: 'space exploration and Mars colonization（太空探索與火星殖民）', category: 'science', grades: ['S4','S5','S6'] },
+  { text: 'deep-sea exploration and undiscovered species（深海探索與未發現物種）', category: 'science', grades: ['S4','S5'] },
+  { text: 'the science of sleep and its effect on learning（睡眠科學及其對學習的影響）', category: 'science', grades: ['S4','S5','S6'] },
+  { text: 'the history and future of space telescopes（太空望遠鏡的歷史與未來）', category: 'science', grades: ['S5','S6'] },
+  
+  // === 科技 (technology) ===
+  { text: 'how artificial intelligence is changing education（人工智能如何改變教育）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'how 3D printing is revolutionizing medicine（3D 打印如何革新醫學）', category: 'technology', grades: ['S5','S6'] },
+  { text: 'the future of electric and autonomous vehicles（電動車與自動駕駛的未來）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'the rise of e-sports and competitive gaming（電子競技與競技遊戲的興起）', category: 'technology', grades: ['S3','S4','S5'] },
+  
+  // === 環境 (environment) ===
+  { text: 'marine life conservation and coral reefs（海洋生物保育與珊瑚礁）', category: 'environment', grades: ['S2','S3','S4','S5'] },
+  { text: 'renewable energy solutions in Hong Kong（香港可再生能源方案）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'the impact of fast fashion on the environment（快時尚對環境的影響）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'endangered species and wildlife protection（瀕危物種與野生動物保護）', category: 'environment', grades: ['S3','S4','S5'] },
+  { text: 'urban farming and green cities（都市農業與綠色城市）', category: 'environment', grades: ['S4','S5'] },
+  { text: 'food sustainability and the future of meat alternatives（糧食可持續性與肉類替代品的未來）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'microplastics in the ocean and their effects on the food chain（海洋微塑膠及其對食物鏈的影響）', category: 'environment', grades: ['S5','S6'] },
+  
+  // === 社會 (society) ===
+  { text: 'how social media affects teenage mental health（社交媒體對青少年心理健康的影響）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'the gig economy and its impact on young workers（零工經濟對年輕工作者的影響）', category: 'society', grades: ['S5','S6'] },
+  { text: 'the role of public libraries in the digital age（公共圖書館在數碼時代的角色）', category: 'society', grades: ['S3','S4','S5'] },
+  { text: 'volunteer tourism and its pros and cons（義工旅遊的利弊）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'the psychology behind procrastination（拖延背後的心理學）', category: 'society', grades: ['S4','S5','S6'] },
+  
+  // === 文化/歷史 (culture) ===
+  { text: 'the history of the Olympic Games（奧運會歷史）', category: 'culture', grades: ['S2','S3','S4'] },
+  { text: 'cultural festivals around the world（世界各地的文化節日）', category: 'culture', grades: ['S1','S2','S3','S4'] },
+  { text: 'traditional crafts and their modern revival（傳統工藝與現代復興）', category: 'culture', grades: ['S3','S4','S5'] },
+  { text: 'the history and cultural significance of tea（茶的歷史與文化意義）', category: 'culture', grades: ['S3','S4'] },
+  { text: 'ancient civilizations and their engineering marvels（古代文明及其工程奇蹟）', category: 'culture', grades: ['S4','S5'] },
+  { text: 'the evolution of the English language（英語的演變）', category: 'culture', grades: ['S4','S5','S6'] },
+  { text: 'the philosophy of happiness across different cultures（不同文化中的幸福哲學）', category: 'culture', grades: ['S5','S6'] },
+  
+  // === 健康/心理 (health) ===
+  { text: 'how music therapy benefits mental health（音樂治療如何有益心理健康）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'famous inventors and their accidental discoveries（著名發明家與意外發現）', category: 'science', grades: ['S2','S3','S4'] },
+  
+  // === 香港本地 (hk-local) ===
+  { text: 'the psychology of color in marketing（營銷中的色彩心理學）', category: 'hk-local', grades: ['S5','S6'] },
+  { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'hk-local', grades: ['S4','S5'] },
+];
+
+const READING_TOPICS = READING_TOPICS_V2.map(t => t.text);
+
+// ============================================
+// 主題選擇引擎 v2.0
+// ============================================
+
+const topicBlacklist: Map<string, Set<string>> = new Map(); // sessionKey → Set<topic text>
+const recentTopicsByCategory: Map<string, string[]> = new Map(); // category → [recent topics]
+
+/**
+ * Get a diverse random topic with:
+ * - Grade-level filtering (S3→life-oriented, S5-S6→social issues)
+ * - Category rotation (avoid consecutive same-category topics)
+ * - Blacklist mechanism (avoid repetition within session)
+ * - Student topic preference support
+ */
+function getRandomTopicV2(
+  isListening: boolean,
+  isReading: boolean,
+  gradeLevel: string,
+  preferredCategories?: TopicCategory[],
+): string {
+  const pool = isListening ? LISTENING_TOPICS_V2 : isReading ? READING_TOPICS_V2 : LISTENING_TOPICS_V2;
+  
+  // Filter by grade level
+  const gradeEligible = pool.filter(t => t.grades.includes(gradeLevel));
+  const candidates = gradeEligible.length > 0 ? gradeEligible : pool;
+  
+  // Session key for blacklist
   const sessionKey = `${gradeLevel}-${isListening ? 'listen' : isReading ? 'read' : 'default'}`;
-  const usedIndices = recentTopics.get(sessionKey) || [];
+  const blacklist = topicBlacklist.get(sessionKey) || new Set();
   
-  // Filter out recently used topics (last 5) to improve diversity
-  const availableIndices = pool
-    .map((_, i) => i)
-    .filter(i => !usedIndices.includes(i));
+  // Filter out blacklisted topics
+  let available = candidates.filter(t => !blacklist.has(t.text));
   
-  // If all topics are recently used, reset
-  const candidatePool = availableIndices.length > 0 ? availableIndices : pool.map((_, i) => i);
+  // Reset blacklist if all topics are used
+  if (available.length === 0) {
+    topicBlacklist.delete(sessionKey);
+    available = candidates;
+  }
   
-  // Use deterministic but varied selection
-  const seed = Date.now();
-  const index = candidatePool[(seed % 9973) % candidatePool.length];
+  // Category rotation: avoid the last 3 categories used
+  const recentCats = recentTopicsByCategory.get(sessionKey) || [];
+  const nonRecent = available.filter(t => !recentCats.includes(t.category));
+  const poolToUse = nonRecent.length >= 3 ? nonRecent : available;
   
-  // Track usage (keep last 5)
-  usedIndices.push(index);
-  if (usedIndices.length > 5) usedIndices.shift();
-  recentTopics.set(sessionKey, usedIndices);
+  // Student preference boost: if preferredCategories specified, prioritize those
+  if (preferredCategories && preferredCategories.length > 0) {
+    const preferred = poolToUse.filter(t => preferredCategories.includes(t.category));
+    if (preferred.length > 0 && Math.random() > 0.4) {
+      // 60% chance to use preferred category
+      const pick = preferred[Math.floor(Math.random() * preferred.length)];
+      updateTopicTracking(sessionKey, pick);
+      return pick.text;
+    }
+  }
   
-  return pool[index];
+  // Select random topic
+  const pick = poolToUse[Math.floor(Math.random() * poolToUse.length)];
+  updateTopicTracking(sessionKey, pick);
+  return pick.text;
+}
+
+function updateTopicTracking(sessionKey: string, topic: TopicEntry) {
+  // Blacklist (keep last 10)
+  const blacklist = topicBlacklist.get(sessionKey) || new Set();
+  blacklist.add(topic.text);
+  if (blacklist.size > 10) {
+    const first = blacklist.values().next().value;
+    if (first) blacklist.delete(first);
+  }
+  topicBlacklist.set(sessionKey, blacklist);
+  
+  // Category tracking (keep last 3)
+  const cats = recentTopicsByCategory.get(sessionKey) || [];
+  cats.push(topic.category);
+  if (cats.length > 3) cats.shift();
+  recentTopicsByCategory.set(sessionKey, cats);
+}
+
+// Legacy wrapper for backward compatibility
+function getRandomTopic(isListening: boolean, isReading: boolean, gradeLevel: string): string {
+  return getRandomTopicV2(isListening, isReading, gradeLevel);
 }
 
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
@@ -1119,8 +1233,28 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 ⚠️ 嚴禁反覆使用電影/3:30/4:00 這類場景。以下是各年級題材對照表，你必須從中選取多樣化主題：
 
 【題材對照表 — 每題必須從不同類別選取】
-- S1-S3：校園生活（學會選舉、校隊選拔、課外活動報名、功課討論）、家庭（週末計劃、家庭聚會、購物）、興趣（運動、音樂、閱讀）
-- S4-S6：兼職面試、社區服務計劃、大學開放日、文化交流活動、職場實習、環保項目、科技新聞討論、旅行計劃、選科諮詢
+- S1-S3（生活化）：校園生活（學會選舉、校隊選拔、課外活動報名、功課討論）、家庭（週末計劃、家庭聚會、購物）、興趣（運動、音樂、閱讀）、日常（餐廳點餐、問路、失物報失）
+- S4-S6（社會化）：兼職面試、社區服務計劃、大學開放日、文化交流活動、職場實習、環保項目、科技新聞討論、旅行計劃、選科諮詢、社會議題辯論、香港本地文化
+
+【主題多樣性強制規則 v2.0 — CRITICAL】
+1. 每道聆聽題必須使用「題材強制多樣化」參數指定的情境主題，嚴禁使用你自己的預設主題
+2. 禁止連續使用相同類別的主題（校園→校園→校園），必須輪換
+3. 主題必須涵蓋以下領域（輪流使用）：
+   - 校園生活 (school): 學會招募、小組項目、校隊選拔、功課討論
+   - 社會議題 (society): 社交媒體、網絡欺凌、心理健康、慈善籌款
+   - 科技 (technology): AI 應用、智能手機、STEM 比賽、線上學習
+   - 環境 (environment): 環保倡議、塑膠禁令、沙灘清潔、噪音污染
+   - 文化 (culture): 節日慶祝、海外交流、多元文化日、傳統工藝
+   - 健康 (health): 飲食習慣、睡眠問題、看醫生、心理健康
+   - 就業 (career): 兼職面試、暑期實習、大學選科、工作假期
+   - 科學 (science): 科學展、基因工程、太空探索、睡眠科學
+   - 香港本地 (hk-local): 行山、博物館、飲食文化、粵語保育
+   - 日常生活 (daily-life): 餐廳點餐、運動場地預訂、生日派對、客服投訴
+4. 聆聽內容必須嵌入至少 3 個「內容信號詞」以提高出題品質：
+   - 數據型: "statistics show", "research indicates", "according to"
+   - 觀點型: "experts argue", "critics claim", "many students feel"
+   - 建議型: "we should", "it is recommended", "one solution is"
+   - 對比型: "on the other hand", "in contrast", "compared to"
 
 【時間/數字以外的資訊點類型 — 必須包含至少 3 種】
 1. 地點變更（例：原本在 Room 201，改到 Hall）
@@ -2826,7 +2960,14 @@ The prompt MUST include ALL of these elements in order:
 
 Text type: ${guide?.name || input.textType}${structureHint}
 Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school life, family, hobbies, personal experiences' : 'senior secondary — social issues, argumentative topics, DSE-level complexity'})
-${input.topicHint ? `Topic area: ${input.topicHint}` : 'Pick an engaging, DSE-relevant topic (education, technology, environment, social issues, youth culture).'}${weakSkillHint}
+${input.topicHint ? `Topic area: ${input.topicHint}` : `Pick an engaging, DSE-relevant topic. Rotate among these categories (avoid repeating the last used category):
+- Technology & Society: AI in education, social media impact, digital privacy, e-learning
+- Environment: climate change, plastic waste, renewable energy, urban sustainability
+- Education: exam pressure, school policies, lifelong learning, vocational training
+- Youth Culture: gaming, K-pop, social activism, mental health awareness
+- Hong Kong Local: cultural heritage, food culture, urban development, language preservation
+- Global Issues: globalization, migration, public health, space exploration
+For ${input.gradeLevel}${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? ' (junior), prefer topics related to school life, family, hobbies, personal experiences — avoid complex social/abstract topics' : ' (senior), prefer social issues, argumentative topics, abstract concepts at DSE complexity level'}.`}${weakSkillHint}
 
 DSE QUALITY STANDARDS:
 - The prompt must be SPECIFIC and ACTIONABLE — not vague. Students should know exactly what to write.
@@ -3237,7 +3378,15 @@ export async function generateIntegratedSkills(
 3. 內容密度：每 3-4 行必須包含一個可提取的 Content Point
 4. 陷阱設計：${diff.traps}
 5. 自然口語：linking (gonna/wanna)、reduction、hesitation (Um.../Well...)、self-correction
-6. 題材：校園活動、社區服務、環保倡議、文化交流、科技應用、社會議題
+6. 題材多樣性（v2.0 — 每次使用不同類別）：
+   🏫 校園: 學會招募、小組項目、校隊選拔
+   🌍 社會: 社區服務、網絡欺凌、心理健康
+   💻 科技: AI 應用、STEM 比賽、線上學習
+   🌱 環境: 環保倡議、塑膠禁令、可再生能源
+   🎭 文化: 節日慶祝、海外交流、多元文化
+   🇭🇰 香港: 行山計劃、博物館參觀、本地飲食文化
+   💼 就業: 兼職面試、暑期實習、大學選科
+7. 必須使用「題材強制多樣化」機制指定的情境，嚴禁重複上一題的主題類別
 
 ═══════════════════════════════════════
 二、Note-taking 指引 (noteTakingGuide) — DSE 實戰技巧
