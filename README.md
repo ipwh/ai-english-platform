@@ -8,7 +8,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
-- **🎧✍️ Integrated Skills 綜合訓練** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程：聆聽對話（支援暫停/繼續/停止）→ Note-taking 引導 → 寫作任務（Summary / Email Reply / Short Article / Report）；AI 雙維度批改（Listening 提取準確度 + Writing 品質），含內容要點分析、過度抄襲檢測、文法錯誤詳解（附解釋）、詞彙升級建議、結構評語、改善建議、HKDSE 等級估算
+- **🎧✍️ Integrated Skills 綜合訓練 v4** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程。**步驟鎖定**（聆聽完成→解鎖筆記→解鎖寫作）、StepIndicator 環型進度指示器、AudioPlayer 播放控制（暫停/繼續/停止/語速）、Note-taking 引導問題、寫作任務（Summary / Email Reply / Short Article / Report）、**AI 雙維度批改**（Listening Recall + Writing Quality）、內容要點分析（Captured/Missed Points）、過度抄襲檢測、文法錯誤詳解、HKDSE 等級估算、**桌面 Sidebar + 行動裝置 Bottom Tabs**、返回修改重新提交、15 秒自動儲存草稿
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
@@ -145,6 +145,48 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新
+
+### 🔒 部署前安全性全面加固 + Integrated Skills v4 + E2E 測試計劃 — 2026-07-14
+
+#### 🔐 安全性 Must-Fix（部署前已修復）
+
+- **`/api/admin/ensure-admin`**：加入 production guard（`NODE_ENV === 'production'` → 404），防止公開建立 admin 帳號
+- **`/api/auth/debug`**：加入 production guard，生產環境回傳 404
+- **`/api/admin/login-logs` POST**：加入雙重認證（JWT `verifySessionToken` + NextAuth `auth()` fallback）
+- **`/api/auth/login`**：加入 rate limiting（5 次/60秒/IP），回傳 429 + `Retry-After` header
+- **敏感 API 全面認證**：`diagnostic` / `mistakes` (GET/POST/PATCH/DELETE) / `vocabulary` (GET/POST) / `practice` (GET/POST) / `gamification` (GET/POST) / `srs/review` (GET/POST) / `classes` (GET) — 全部加入 `verifyApiAuth()` 統一認證檢查
+- 新增 **`src/lib/api-auth.ts`**：統一的 API 認證 helper，支援 JWT + NextAuth 雙重驗證及 `allowedRoles` 參數
+
+#### 🛠️ 穩定性 Should-Fix
+
+- **HTTP 200→500 修正**：`GET /api/practice` 及 `GET /api/classes` 錯誤時回傳 500 而非 200
+- **Teacher Dashboard**：新增 error banner + `AlertTriangle` icon + reload 按鈕
+- **Teacher Classes**：新增 loading spinner + error state + empty state (`GraduationCap` icon)
+- **Teacher Assignment 回饋儲存**：失敗時顯示 error toast（5 秒自動消失）
+- **Writing 自動儲存指示器**：textarea 上方顯示綠/黃/紅三色儲存狀態（`writing.saved` / `writing.saving` / `writing.unsaved` i18n keys）
+- **Diagnostic 無數據狀態**：新學生顯示專屬提示「尚無足夠練習數據」而非泛型錯誤
+- **Vocabulary export-pdf**：修正文檔註解，明確標示為 printable HTML 頁面
+
+#### 🎧✍️ Integrated Skills v4 — 全面重構
+
+- **步驟鎖定系統**：Step 2 需聆聽完成才解鎖；Step 3 需有筆記才解鎖；未解鎖步驟顯示 `opacity-60` + disabled cursor + 鎖定提示
+- **StepIndicator 元件**：三步驟環型指示器（active / done / disabled 三態），連線式進度條
+- **自動跳轉提示**：聆聽完成後顯示「開始筆記」CTA；筆記完成後顯示「開始寫作」CTA
+- **自動儲存升級**：從 5 秒 → 15 秒 interval，2.5 秒 visual feedback
+- **ResultView 重寫**：雙維度分數（Listening Recall + Writing Quality）+ 3 維度進度條（Content / Language / Organization）+ Captured/Missed Points + Over-copy Warnings + AI Feedback
+- **返回修改**：批改結果頁可一鍵返回 writing stage 修改後重新提交
+- **行動裝置 Bottom Tabs**：`lg:hidden` 三按鈕（Task / Points / Notes）替代桌面 Sidebar
+- **桌面 Sidebar**：寫作任務快速檢視 + Expected Points toggle + 即時筆記預覽 + Progress checklist
+- **Zustand Store v4**：新增 `listeningCompleted` / `activeStep` / `playbackProgress` / `playbackSpeed` / `autoSaveTimerId` 狀態及 6 個新 actions
+
+#### 🧪 E2E 測試計劃
+
+- **完整測試計劃文檔**：`e2e/README.md` 全面重寫（65 項測試：40 自動化 + 25 人工）
+- **新增 3 個 Playwright spec 檔案**：
+  - `e2e/auth-security.spec.ts`（12 tests）：未授權 API 401/404 驗證、rate limiting、middleware redirect
+  - `e2e/integrated-skills.spec.ts`（4 tests）：步驟鎖定、雙維度批改、返回修改、auto-save
+  - `e2e/data-persistence.spec.ts`（4 tests）：練習記錄持久化、生字簿持久化、Draft 恢復、Dashboard KPI
+- **GitHub Actions CI/CD**：含 PostgreSQL service container 的完整 E2E pipeline
 
 ### 🎧 AudioPlayer 暫停/繼續/停止 + Integrated Skills 批改修復 + 聆聽體驗優化 — 2026-07-13
 
