@@ -198,8 +198,8 @@ export default function AdminReportsPage() {
                 <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="#9ca3af" fontSize={12} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="sessions" name={t('admin.reports.sessionCount')} stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
-                <Line yAxisId="right" type="monotone" dataKey="accuracy" name={t('admin.reports.accuracy')} stroke="#82ca9d" strokeWidth={2} dot={{ r: 4 }} />
+                <Line yAxisId="left" type="monotone" dataKey="sessions" name={t('admin.reports.sessionsLabel')} stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
+                <Line yAxisId="right" type="monotone" dataKey="accuracy" name={t('admin.reports.accuracyLabel')} stroke="#82ca9d" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (

@@ -75,7 +75,7 @@ export default function AdminClassesPage() {
       if (!res.ok) throw new Error(t("admin.classes.deleteFailed"));
       fetchClasses();
     } catch {
-      const msg = t('admin.users.saveFailed');
+      const msg = t('admin.classes.deleteFailed');
       alert(msg);
     }
   };
@@ -223,7 +223,7 @@ export default function AdminClassesPage() {
                 {classes.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                      暫無班級資料
+                      {t("admin.classes.noClasses")}
                     </td>
                   </tr>
                 )}

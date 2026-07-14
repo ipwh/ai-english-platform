@@ -9,7 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Upload, Users, BookOpen, LogOut,
   Menu, ChevronLeft, BarChart3, AlertTriangle, RefreshCw,
-  Shuffle,
+  Shuffle, Languages,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -56,17 +56,17 @@ class AdminErrorBoundary extends Component<
 }
 
 const adminNavItems = [
-  { label: '總覽', href: '/admin', icon: LayoutDashboard },
-  { label: '匯入資料', href: '/admin/import', icon: Upload },
-  { label: '使用者管理', href: '/admin/users', icon: Users },
-  { label: '數據分析', href: '/admin/reports', icon: BarChart3 },
-  { label: '班級管理', href: '/admin/classes', icon: BookOpen },
+  { i18nKey: 'admin.nav.overview', href: '/admin', icon: LayoutDashboard },
+  { i18nKey: 'admin.nav.import', href: '/admin/import', icon: Upload },
+  { i18nKey: 'admin.nav.users', href: '/admin/users', icon: Users },
+  { i18nKey: 'admin.nav.reports', href: '/admin/reports', icon: BarChart3 },
+  { i18nKey: 'admin.nav.classes', href: '/admin/classes', icon: BookOpen },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn, currentRole, initSession, userDisplayName, logout } = useAppStore();
+  const { isLoggedIn, currentRole, initSession, userDisplayName, logout, toggleLanguage, language } = useAppStore();
   const { t } = useT();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
@@ -123,6 +123,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav className="flex-1 px-3 py-4 space-y-1">
           {adminNavItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const label = t(item.i18nKey);
             return (
               <Link
                 key={item.href}
@@ -132,10 +133,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 } ${!sidebarOpen && 'justify-center'}`}
-                title={!sidebarOpen ? item.label : undefined}
+                title={!sidebarOpen ? label : undefined}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
+                {sidebarOpen && <span>{label}</span>}
               </Link>
             );
           })}
@@ -190,6 +191,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
             <div className="text-sm text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleLanguage}
+                  className="p-1.5 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"
+                  title={language === 'zh' ? 'Switch to English' : '切換至中文'}
+                >
+                  <Languages className="w-4 h-4" />
+                  <span className="text-xs font-bold hidden sm:inline">
+                    {language === 'zh' ? '中' : 'EN'}
+                  </span>
+                </button>
                 <Link
                   href="/role-select"
                   className="p-1.5 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"

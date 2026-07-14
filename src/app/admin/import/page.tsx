@@ -193,7 +193,7 @@ function ResultPanel({ result }: { result: ImportResult | null }) {
       case 'skipped':
         return t('admin.import.statusSkipped');
       case 'error':
-        return t('admin.import.statusFailed');
+        return t('admin.import.statusError');
     }
   };
 
@@ -371,7 +371,7 @@ export default function AdminImportPage() {
           success: 0,
           updated: 0,
           failed: 1,
-          errors: [data.error || '匯入失敗'],
+          errors: [data.error || t('admin.import.importFailed')],
           details: [],
         });
         return;
@@ -379,7 +379,7 @@ export default function AdminImportPage() {
 
       setResult(data);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '連線錯誤';
+      const msg = err instanceof Error ? err.message : t('admin.import.connectionError');
       setResult({
         total: 0,
         success: 0,

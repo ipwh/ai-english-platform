@@ -879,6 +879,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'admin.reports.progressBar': { zh: '進度條', en: 'Progress' },
   'admin.reports.sessionsLabel': { zh: '練習次數', en: 'Sessions' },
   'admin.reports.accuracyLabel': { zh: '準確率', en: 'Accuracy' },
+  'admin.reports.level': { zh: '年級', en: 'Level' },
 
   // SidebarLayout & Common UI
   'layout.notifications': { zh: '通知', en: 'Notifications' },

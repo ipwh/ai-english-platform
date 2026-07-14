@@ -1,6 +1,6 @@
 ﻿// ============================================
-// 管理員t("admin.users.title")頁面 — /admin/users
-// 分頁、搜尋、篩選、編輯、匯出
+// Admin Users Page — /admin/users
+// Pagination, search, filter, edit, export
 // ============================================
 'use client';
 
@@ -116,7 +116,7 @@ function EditModal({
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            t("admin.users.editUser")
+            {t("admin.users.editUser")}
           </h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
             <X className="w-5 h-5" />
@@ -253,7 +253,7 @@ function EditModal({
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >
-            取消
+            {t("admin.users.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -261,7 +261,7 @@ function EditModal({
             className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            儲存
+            {t("admin.users.save")}
           </button>
         </div>
       </div>
@@ -341,7 +341,7 @@ function CreateUserModal({
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            t("admin.users.addUser")
+            {t("admin.users.addUser")}
           </h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
             <X className="w-5 h-5" />
@@ -388,7 +388,7 @@ function CreateUserModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.role")}+" *"</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t("admin.users.role")} *</label>
               <select
                 value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}
@@ -403,13 +403,13 @@ function CreateUserModal({
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
-              t("admin.users.password") <span className="text-gray-400"></span>
+              {t("admin.users.password")}
             </label>
             <input
               type="password"
               value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
-              placeholder="最少 6 個字元"
+              placeholder={t("admin.users.passwordHint")}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
             />
           </div>
@@ -495,7 +495,7 @@ function CreateUserModal({
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >
-            取消
+            {t("admin.users.cancel")}
           </button>
           <button
             onClick={handleCreate}
@@ -503,7 +503,7 @@ function CreateUserModal({
             className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-            建立帳號
+            {t("admin.users.create")}
           </button>
         </div>
       </div>
@@ -513,10 +513,11 @@ function CreateUserModal({
 
 // ---- Role Badge ----
 function RoleBadge({ role }: { role: string }) {
+  const { t } = useT();
   const config = {
-    student: { icon: Users, label: '學生', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-    teacher: { icon: GraduationCap, label: '教師', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-    admin: { icon: Shield, label: '管理員', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+    student: { icon: Users, label: t('admin.users.roleStudent'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    teacher: { icon: GraduationCap, label: t('admin.users.roleTeacher'), color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+    admin: { icon: Shield, label: t('admin.users.roleAdmin'), color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
   };
   const c = config[role as keyof typeof config] || config.student;
   const Icon = c.icon;
@@ -592,7 +593,7 @@ export default function AdminUsersPage() {
     setExporting(type);
     try {
       const res = await fetch(`/api/admin/export/${type}?format=csv`);
-      if (!res.ok) throw new Error('匯出失敗');
+      if (!res.ok) throw new Error(t('admin.users.exportFailed'));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -601,7 +602,7 @@ export default function AdminUsersPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert(t('admin.import.downloadFailed'));
+      alert(t('admin.users.exportFailed'));
     } finally {
       setExporting(null);
     }
@@ -614,7 +615,7 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("admin.users.title")}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {data ? `共 ${data.total} 位使用者` : '載入中...'}
+            {data ? t("admin.users.totalUsers", { n: data.total }) : t("admin.users.loading")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -623,7 +624,7 @@ export default function AdminUsersPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-xl hover:bg-teal-700 transition-colors"
           >
             <UserPlus className="w-4 h-4" />
-            t("admin.users.addUser")
+            {t("admin.users.addUser")}
           </button>
           <button
             onClick={() => handleExport('students')}
@@ -631,7 +632,7 @@ export default function AdminUsersPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {exporting === 'students' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            匯出學生數據
+            {t("admin.users.exportStudents")}
           </button>
           <button
             onClick={() => handleExport('teachers')}
@@ -639,7 +640,7 @@ export default function AdminUsersPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
             {exporting === 'teachers' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            匯出教師數據
+            {t("admin.users.exportTeachers")}
           </button>
         </div>
       </div>
@@ -656,7 +657,7 @@ export default function AdminUsersPage() {
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="姓名或 email..."
+                placeholder={t("admin.users.searchPlaceholder")}
                 className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
               />
             </div>
@@ -712,7 +713,7 @@ export default function AdminUsersPage() {
             className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 flex items-center gap-2"
           >
             <Filter className="w-4 h-4" />
-            篩選
+            {t("admin.users.filter")}
           </button>
         </div>
       </div>
@@ -736,7 +737,7 @@ export default function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">使用者</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.name")}</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.email")}</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.role")}</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{t("admin.users.class")}</th>
@@ -784,7 +785,7 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => setEditingUser(user)}
                         className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                        title="編輯"
+                        title={t("admin.users.edit")}
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
@@ -794,7 +795,7 @@ export default function AdminUsersPage() {
                 {data?.users.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
-                      沒有符合條件的使用者
+                      {t("admin.users.noUsers")}
                     </td>
                   </tr>
                 )}
@@ -807,7 +808,7 @@ export default function AdminUsersPage() {
         {data && data.totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
             <span className="text-sm text-gray-500">
-              第 {data.page} / {data.totalPages} 頁
+              {t("admin.users.pageInfo", { page: data.page, total: data.totalPages })}
             </span>
             <div className="flex gap-1">
               <button
