@@ -215,7 +215,7 @@ export default function SidebarLayout({
         .catch(() => { /* 靜默失敗 — 通知非關鍵功能 */ });
     };
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30_000);
+    const interval = setInterval(fetchNotifications, 60_000);
     return () => clearInterval(interval);
   }, [store]);
 

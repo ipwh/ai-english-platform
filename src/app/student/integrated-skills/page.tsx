@@ -1,11 +1,12 @@
 // ============================================
 // 學生端 — Integrated Skills (DSE Paper 3 Part B)
-// 流程：設定 → 聆聽 + 筆記 → 寫作 → AI 雙維度批改
+// 流程：設定 → 聆聽+筆記 → 寫作 → AI 雙維度批改
+// v2.0: 步驟指示器 + 自動儲存草稿 + 行動裝置優化
 // ============================================
 'use client';
 
-import { useState, useRef } from 'react';
-import { Loader2, FileText, PenLine, Send, Sparkles, RefreshCw, CheckCircle2, XCircle, Lightbulb, Target, BookOpen, TrendingUp, AlertTriangle, Award } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Loader2, FileText, PenLine, Send, Sparkles, RefreshCw, CheckCircle2, XCircle, Lightbulb, Target, BookOpen, AlertTriangle, Award, ChevronRight, ChevronLeft, Save, Headphones, Edit3 } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -28,6 +29,13 @@ const DIFFICULTIES = [
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
 
+const STEPS = [
+  { key: 'config' as const, label: '設定', labelEn: 'Setup', icon: Sparkles },
+  { key: 'listening' as const, label: '聆聽+筆記', labelEn: 'Listen & Note', icon: Headphones },
+  { key: 'writing' as const, label: '寫作', labelEn: 'Write', icon: Edit3 },
+  { key: 'result' as const, label: '結果', labelEn: 'Result', icon: Award },
+];
+
 interface IntegratedTask {
   listeningContent: string;
   listeningContentZh?: string;
@@ -38,8 +46,10 @@ interface IntegratedTask {
   wordLimit?: number;
 }
 
+const DRAFT_KEY = 'integrated-skills-draft';
+
 export default function IntegratedSkillsPage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const store = useAppStore();
 
   const [stage, setStage] = useState<Stage>('config');
@@ -54,466 +64,190 @@ export default function IntegratedSkillsPage() {
   const [showListeningText, setShowListeningText] = useState(false);
   const [studentNotes, setStudentNotes] = useState('');
   const [studentWriting, setStudentWriting] = useState('');
+  const [draftSaved, setDraftSaved] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [analysis, setAnalysis] = useState<IntegratedSkillsAnalysis | null>(null);
 
-  // 生成 Integrated Skills 任務
+  // === Auto-save draft (every 5s while in listening/writing) ===
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveDraft = useCallback(() => {
+    if (task && (studentNotes || studentWriting)) {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          gradeLevel, difficulty, taskType, studentNotes, studentWriting,
+          savedAt: Date.now(),
+        }));
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 2000);
+      } catch { /* localStorage full */ }
+    }
+  }, [task, studentNotes, studentWriting, gradeLevel, difficulty, taskType]);
+
+  useEffect(() => {
+    if (stage === 'listening' || stage === 'writing') {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(saveDraft, 5000);
+      return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+    }
+  }, [studentNotes, studentWriting, stage, saveDraft]);
+
+  // === Load draft on mount ===
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.savedAt && Date.now() - draft.savedAt < 24 * 60 * 60 * 1000) {
+          setGradeLevel(draft.gradeLevel || 'S4');
+          setDifficulty(draft.difficulty || 'core');
+          setTaskType(draft.taskType || 'summary');
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const handleGenerate = async () => {
     setLoading(true); setError('');
     try {
       const res = await fetch('/api/ai/generate-integrated-skills', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gradeLevel, difficulty, taskType }),
       });
       const json = await res.json();
       if (res.ok && json.task) {
-        setTask(json.task);
-        setStage('listening');
-        setStudentNotes('');
-        setStudentWriting('');
-        setAnalysis(null);
-      } else {
-        setError(json.error || 'AI 生成失敗');
-      }
-    } catch {
-      setError('網絡連線失敗，請重試');
-    } finally {
-      setLoading(false);
-    }
+        setTask(json.task); setStage('listening');
+        setStudentNotes(''); setStudentWriting(''); setAnalysis(null);
+        try {
+          const raw = localStorage.getItem(DRAFT_KEY);
+          if (raw) { const draft = JSON.parse(raw); if (draft.studentNotes) setStudentNotes(draft.studentNotes); if (draft.studentWriting) setStudentWriting(draft.studentWriting); }
+        } catch { /* ignore */ }
+      } else { setError(json.error || 'AI 生成失敗'); }
+    } catch { setError('網絡連線失敗，請重試'); }
+    finally { setLoading(false); }
   };
 
-  // 提交寫作進行 AI 批改
   const handleSubmit = async () => {
     if (!studentWriting.trim() || !task) return;
     setAiLoading(true); setError('');
     try {
       const res = await fetch('/api/ai/analyze-integrated-skills', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listeningContent: task.listeningContent,
-          noteTakingGuide: task.noteTakingGuide,
-          expectedContentPoints: task.expectedContentPoints,
-          writingTask: task.writingTask,
-          taskType,
-          studentNotes,
-          studentWriting,
-          gradeLevel,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listeningContent: task.listeningContent, noteTakingGuide: task.noteTakingGuide, expectedContentPoints: task.expectedContentPoints, writingTask: task.writingTask, taskType, studentNotes, studentWriting, gradeLevel }),
       });
       const json = await res.json();
       if (res.ok && json.analysis) {
-        setAnalysis(json.analysis);
-        setStage('result');
-
-        // XP
-        if (store.userId) {
-          fetch('/api/gamification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: store.userId, event: { type: 'submitWriting', difficulty } }),
-          }).catch((e) => { console.error("[page] fetch failed", e) });
-        }
-      } else {
-        setError(json.error || 'AI 批改失敗');
-      }
-    } catch {
-      setError('網絡連線失敗，請重試');
-    } finally {
-      setAiLoading(false);
-    }
+        setAnalysis(json.analysis); setStage('result');
+        localStorage.removeItem(DRAFT_KEY);
+        if (store.userId) { fetch('/api/gamification', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: store.userId, event: { type: 'submitWriting', difficulty } }) }).catch(() => {}); }
+      } else { setError(json.error || 'AI 批改失敗'); }
+    } catch { setError('網絡連線失敗，請重試'); }
+    finally { setAiLoading(false); }
   };
 
-  const handleReset = () => {
-    setStage('config');
-    setTask(null);
-    setStudentNotes('');
-    setStudentWriting('');
-    setAnalysis(null);
-    setError('');
+  const handleReset = () => { setStage('config'); setTask(null); setStudentNotes(''); setStudentWriting(''); setAnalysis(null); setError(''); };
+
+  const StepIndicator = () => {
+    const currentIdx = STEPS.findIndex(s => s.key === stage);
+    return (
+      <div className="flex items-center gap-1 sm:gap-2 mb-6 overflow-x-auto pb-1">
+        {STEPS.map((s, i) => { const Icon = s.icon; const isActive = i === currentIdx; const isDone = i < currentIdx;
+          return (<div key={s.key} className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors ${isActive ? 'bg-teal-500 text-white shadow' : isDone ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
+              <Icon className="w-3.5 h-3.5" /><span className="hidden sm:inline">{language === 'en' ? s.labelEn : s.label}</span>
+            </div>
+            {i < STEPS.length - 1 && <ChevronRight className={`w-3 h-3 ${i < currentIdx ? 'text-teal-400' : 'text-gray-300'}`} />}
+          </div>);
+        })}
+      </div>
+    );
   };
 
   // ====== Stage: Config ======
   if (stage === 'config') {
-    return (
-      <div className="max-w-xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Integrated Skills</h1>
-          <p className="text-sm text-gray-500 mt-1">DSE Paper 3 Part B 模擬 — 聆聽 → 筆記 → 寫作</p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
-          {/* 年級 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">年級</label>
-            <div className="flex gap-2 flex-wrap">
-              {GRADES.map(g => (
-                <button key={g} onClick={() => setGradeLevel(g)}
-                  className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${gradeLevel === g ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 難度 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">難度</label>
-            <div className="flex gap-2 flex-wrap">
-              {DIFFICULTIES.map(d => (
-                <button key={d.value} onClick={() => setDifficulty(d.value)}
-                  className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${difficulty === d.value ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
-                  {d.zh}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 任務類型 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">任務類型</label>
-            <div className="space-y-2">
-              {TASK_TYPES.map(tt => (
-                <button key={tt.value} onClick={() => setTaskType(tt.value)}
-                  className={`w-full text-left px-3 py-2 text-sm rounded-lg font-medium transition-colors ${taskType === tt.value ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
-                  {tt.zh}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 text-sm rounded-lg">{error}</div>
-          )}
-
-          <button onClick={handleGenerate} disabled={loading}
-            className="w-full py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-            {loading ? 'AI 生成中...' : 'AI 生成 Integrated Skills 任務'}
-          </button>
-        </div>
+    return (<div className="max-w-xl mx-auto space-y-6">
+      <div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Integrated Skills</h1><p className="text-sm text-gray-500 mt-1">DSE Paper 3 Part B 模擬 — 聆聽 → 筆記 → 寫作</p></div>
+      <StepIndicator />
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">年級</label><div className="flex gap-2 flex-wrap">{GRADES.map(g => (<button key={g} onClick={() => setGradeLevel(g)} className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${gradeLevel === g ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>{g}</button>))}</div></div>
+        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">難度</label><div className="flex gap-2 flex-wrap">{DIFFICULTIES.map(d => (<button key={d.value} onClick={() => setDifficulty(d.value)} className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${difficulty === d.value ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>{d.zh}</button>))}</div></div>
+        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">任務類型</label><div className="space-y-2">{TASK_TYPES.map(tt => (<button key={tt.value} onClick={() => setTaskType(tt.value)} className={`w-full text-left px-3 py-2 text-sm rounded-lg font-medium transition-colors ${taskType === tt.value ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>{tt.zh}</button>))}</div></div>
+        {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 text-sm rounded-lg">{error}</div>}
+        <button onClick={handleGenerate} disabled={loading} className="w-full py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">{loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}{loading ? 'AI 生成中...' : '✨ AI 生成 Integrated Skills 任務'}</button>
       </div>
-    );
+    </div>);
   }
 
   if (!task) return null;
 
   // ====== Stage: Listening + Note-taking ======
   if (stage === 'listening') {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">📝 聆聽 + 筆記</h1>
-          <span className="text-xs px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">{TASK_TYPES.find(t => t.value === taskType)?.zh}</span>
-        </div>
-
-        {/* 情境說明 */}
-        {task.listeningContentZh && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-            💡 {task.listeningContentZh}
+    return (<div className="max-w-4xl mx-auto space-y-6">
+      <StepIndicator />
+      {task.listeningContentZh && (<div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2"><Lightbulb className="w-4 h-4 mt-0.5 shrink-0" /><span>{task.listeningContentZh}</span></div>)}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-3"><span className="text-xl">🎧</span><h2 className="font-semibold text-gray-900 dark:text-white">聆聽內容</h2><div className="ml-auto">{draftSaved && <span className="text-xs text-green-500 flex items-center gap-0.5"><Save className="w-3 h-3" />已儲存</span>}</div></div>
+            <AudioPlayer text={task.listeningContent} label="播放對話" size="md" useCloudTTS />
+            <button onClick={() => setShowListeningText(!showListeningText)} className="mt-3 text-xs text-teal-600 hover:underline">{showListeningText ? '▲ 收起文字' : '▼ 顯示聆聽文字'}</button>
+            {showListeningText && (<p className="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line max-h-48 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">{task.listeningContent}</p>)}
           </div>
-        )}
-
-        {/* 聆聽播放器 + 文字 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">🎧</span>
-            <h2 className="font-semibold text-gray-900 dark:text-white">聆聽內容</h2>
-            <AudioPlayer text={task.listeningContent} label="播放對話" size="sm" useCloudTTS />
-            <button
-              onClick={() => setShowListeningText(!showListeningText)}
-              className="ml-auto text-xs text-teal-600 hover:underline"
-            >
-              {showListeningText ? '收起文字 ▲' : '顯示文字 ▼'}
-            </button>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><PenLine className="w-4 h-4 text-blue-500" />你的筆記</h3>
+            <textarea value={studentNotes} onChange={e => setStudentNotes(e.target.value)} placeholder="邊聽邊記下關鍵資訊..." className="w-full min-h-[220px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+            <div className="flex items-center justify-between mt-2"><span className="text-xs text-gray-400">{studentNotes.length} 字</span><button onClick={saveDraft} className="text-xs text-teal-600 hover:underline flex items-center gap-1"><Save className="w-3 h-3" />手動儲存</button></div>
           </div>
-          {showListeningText && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{task.listeningContent}</p>
-          )}
         </div>
-
-        {/* 筆記指引 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <Target className="w-4 h-4 text-amber-500" /> 筆記指引
-          </h3>
-          <ul className="space-y-1.5">
-            {task.noteTakingGuide.map((item, i) => (
-              <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                <span className="text-amber-500 mt-0.5">•</span>
-                <span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{item.question}</span>
-                  <span className="text-gray-400 dark:text-gray-500 ml-1">— {item.hint}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="space-y-4">
+          <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl p-5 border border-amber-200 dark:border-amber-800"><h3 className="font-semibold text-amber-800 dark:text-amber-300 mb-3 flex items-center gap-2 text-sm"><Target className="w-4 h-4" />筆記指引</h3><ul className="space-y-2">{task.noteTakingGuide.map((item, i) => (<li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2"><span className="text-amber-500 mt-0.5 font-bold">{i + 1}.</span><span><span className="font-medium">{item.question}</span><span className="text-amber-500/70 ml-1 text-xs">— {item.hint}</span></span></li>))}</ul></div>
+          <div className="bg-purple-50 dark:bg-purple-900/10 rounded-2xl p-5 border border-purple-200 dark:border-purple-800"><h3 className="font-semibold text-purple-800 dark:text-purple-300 mb-2 flex items-center gap-2 text-sm"><FileText className="w-4 h-4" />寫作任務</h3><p className="text-sm text-purple-700 dark:text-purple-400 leading-relaxed">{task.writingTask}</p>{task.wordLimit && <p className="text-xs text-purple-500 mt-2">📏 建議 {task.wordLimit} 字</p>}</div>
+          <button onClick={() => setStage('writing')} className="w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">開始寫作 <ChevronRight className="w-4 h-4" /></button>
         </div>
-
-        {/* 學生筆記區 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <PenLine className="w-4 h-4 text-blue-500" /> 你的筆記
-          </h3>
-          <textarea
-            value={studentNotes}
-            onChange={e => setStudentNotes(e.target.value)}
-            placeholder="邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）..."
-            className="w-full min-h-[200px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-          />
-        </div>
-
-        {/* 寫作任務預覽 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-purple-500" /> 寫作任務預覽
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{task.writingTask}</p>
-          {task.writingTaskZh && (
-            <p className="text-xs text-gray-400 mt-1">{task.writingTaskZh}</p>
-          )}
-          {task.wordLimit && (
-            <p className="text-xs text-gray-400 mt-2">建議字數：{task.wordLimit} 字</p>
-          )}
-        </div>
-
-        <button onClick={() => setStage('writing')}
-          className="w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors">
-          開始寫作 →
-        </button>
       </div>
-    );
+    </div>);
   }
 
   // ====== Stage: Writing ======
   if (stage === 'writing') {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">✍️ 根據筆記寫作</h1>
-          <button onClick={() => setStage('listening')} className="text-sm text-teal-600 hover:underline">← 返回聆聽</button>
-        </div>
-
-        {/* 任務 + 筆記複習 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="text-xs font-semibold text-gray-500 mb-2">📋 寫作任務</h3>
-            <p className="text-sm text-gray-700 dark:text-gray-300">{task.writingTask}</p>
-            {task.wordLimit && <p className="text-xs text-gray-400 mt-1">字數：{task.wordLimit}</p>}
+    const wordCount = (studentWriting.match(/[A-Za-z0-9][A-Za-z0-9'\-]*/g) || []).length;
+    return (<div className="max-w-4xl mx-auto space-y-6">
+      <StepIndicator />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-3"><h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><Edit3 className="w-4 h-4 text-blue-500" />你的寫作</h3><div className="flex items-center gap-2"><button onClick={() => setStage('listening')} className="text-xs text-teal-600 hover:underline flex items-center gap-1"><ChevronLeft className="w-3 h-3" />返回重聽</button>{draftSaved && <span className="text-xs text-green-500 flex items-center gap-0.5"><Save className="w-3 h-3" />已儲存</span>}</div></div>
+            <textarea value={studentWriting} onChange={e => setStudentWriting(e.target.value)} placeholder="根據你的筆記和寫作任務，在此撰寫你的答案..." className="w-full min-h-[350px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+            <div className="flex items-center justify-between mt-2"><span className={`text-xs ${task.wordLimit && wordCount > task.wordLimit ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{wordCount} 詞 {task.wordLimit ? `/ ${task.wordLimit} (建議)` : ''}{task.wordLimit && wordCount > task.wordLimit && ' ⚠️ 超出建議字數'}</span><button onClick={saveDraft} className="text-xs text-teal-600 hover:underline flex items-center gap-1"><Save className="w-3 h-3" />儲存草稿</button></div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="text-xs font-semibold text-gray-500 mb-2">📝 你的筆記</h3>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{studentNotes || '（未有筆記）'}</p>
-          </div>
+          {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 text-sm rounded-lg">{error}</div>}
+          <button onClick={handleSubmit} disabled={aiLoading || !studentWriting.trim()} className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">{aiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}{aiLoading ? 'AI 批改中...' : '提交 AI 批改'}</button>
         </div>
-
-        {/* 寫作區 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <PenLine className="w-4 h-4 text-blue-500" /> 你的寫作
-          </h3>
-          <textarea
-            value={studentWriting}
-            onChange={e => setStudentWriting(e.target.value)}
-            placeholder="根據你的筆記和寫作任務，在此撰寫你的答案..."
-            className="w-full min-h-[300px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-          />
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-gray-400">{studentWriting.length} 字</span>
-          </div>
+        <div className="space-y-4">
+          <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl p-5 border border-amber-200 dark:border-amber-800"><h3 className="font-semibold text-amber-800 dark:text-amber-300 mb-2 text-sm flex items-center gap-2"><PenLine className="w-4 h-4" />你的筆記</h3><p className="text-sm text-amber-700 dark:text-amber-400 whitespace-pre-line max-h-48 overflow-y-auto">{studentNotes || <span className="text-gray-400 italic">（未有筆記）</span>}</p></div>
+          <div className="bg-purple-50 dark:bg-purple-900/10 rounded-2xl p-5 border border-purple-200 dark:border-purple-800"><h3 className="font-semibold text-purple-800 dark:text-purple-300 mb-2 text-sm flex items-center gap-2"><FileText className="w-4 h-4" />寫作任務</h3><p className="text-sm text-purple-700 dark:text-purple-400 leading-relaxed">{task.writingTask}</p></div>
+          <div className="bg-green-50 dark:bg-green-900/10 rounded-2xl p-5 border border-green-200 dark:border-green-800"><h3 className="font-semibold text-green-800 dark:text-green-300 mb-2 text-sm flex items-center gap-2"><Target className="w-4 h-4" />預期要點</h3><ul className="space-y-1">{task.expectedContentPoints.map((pt, i) => (<li key={i} className="text-xs text-green-700 dark:text-green-400 flex items-start gap-1.5"><span className="text-green-500 mt-0.5">•</span>{pt}</li>))}</ul></div>
         </div>
-
-        {error && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 text-sm rounded-lg">{error}</div>
-        )}
-
-        <button onClick={handleSubmit} disabled={aiLoading || !studentWriting.trim()}
-          className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-          {aiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-          {aiLoading ? 'AI 批改中...' : '提交 AI 批改'}
-        </button>
       </div>
-    );
+    </div>);
   }
 
   // ====== Stage: Result ======
   if (stage === 'result' && analysis) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">📊 批改結果</h1>
-          <button onClick={handleReset} className="flex items-center gap-1 text-sm text-teal-600 hover:underline">
-            <RefreshCw className="w-4 h-4" /> 再做一次
-          </button>
-        </div>
-
-        {/* 總分 + HKDSE Level */}
-        <div className="bg-gradient-to-r from-purple-500 to-teal-500 rounded-2xl p-6 text-white text-center">
-          <p className="text-sm opacity-80">Overall Score</p>
-          <p className="text-4xl font-bold">{analysis.overallScore}<span className="text-lg font-normal opacity-80">/100</span></p>
-          {analysis.estimatedLevel && (
-            <p className="text-sm mt-2 opacity-90 flex items-center justify-center gap-1">
-              <Award className="w-4 h-4" /> 估計 HKDSE Level：{analysis.estimatedLevel}
-            </p>
-          )}
-        </div>
-
-        {/* 雙維度總分 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 text-center">
-            <p className="text-xs text-gray-500">🎧 Listening 提取準確度</p>
-            <p className="text-2xl font-bold text-amber-600">{analysis.listeningAccuracy}<span className="text-sm font-normal">/100</span></p>
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center">
-            <p className="text-xs text-gray-500">✍️ Writing 品質</p>
-            <p className="text-2xl font-bold text-blue-600">{analysis.writingQuality}<span className="text-sm font-normal">/100</span></p>
-          </div>
-        </div>
-
-        {/* 三維度評分 */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { label: '內容完整度', score: analysis.contentCompleteness, icon: Target, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: '語言準確度', score: analysis.languageAccuracy, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-            { label: '組織清晰度', score: analysis.organizationClarity, icon: FileText, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
-          ].map((dim, i) => (
-            <div key={i} className={`${dim.bg} rounded-xl p-4 text-center`}>
-              <dim.icon className={`w-5 h-5 ${dim.color} mx-auto mb-1`} />
-              <p className="text-xs text-gray-500">{dim.label}</p>
-              <p className={`text-2xl font-bold ${dim.color}`}>{dim.score}<span className="text-sm font-normal">/100</span></p>
-            </div>
-          ))}
-        </div>
-
-        {/* 總評 */}
-        {analysis.generalComment && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-500" /> 總評
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{analysis.generalComment}</p>
-          </div>
-        )}
-
-        {/* 內容要點：已提取 vs 遺漏 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-            <Target className="w-5 h-5 text-amber-500" /> 內容要點分析
-          </h3>
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-green-600">✅ 已提取的要點：</p>
-            {(analysis.capturedPoints ?? []).map((pt, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> {pt}
-              </div>
-            ))}
-            {(analysis.missedPoints?.length ?? 0) > 0 && (
-              <>
-                <p className="text-sm font-medium text-red-500 mt-3">❌ 遺漏的要點：</p>
-                {(analysis.missedPoints ?? []).map((pt, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /> {pt}
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* 過度抄襲警告 */}
-        {(analysis.overCopyWarnings?.length ?? 0) > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-red-200 dark:border-red-800">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" /> 過度抄襲警告
-            </h3>
-            <div className="space-y-3">
-              {(analysis.overCopyWarnings ?? []).map((w, i) => (
-                <div key={i} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg text-sm">
-                  <p className="text-red-600 dark:text-red-400 line-through mb-1">{w.original}</p>
-                  <p className="text-green-600 dark:text-green-400">💡 {w.suggestion}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 文法錯誤 */}
-        {(analysis.grammarErrors?.length ?? 0) > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-blue-500" /> 文法錯誤
-            </h3>
-            <div className="space-y-3">
-              {(analysis.grammarErrors ?? []).map((err, i) => (
-                <div key={i} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg text-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-red-500 line-through">{err.original}</span>
-                    <span className="text-gray-400">→</span>
-                    <span className="text-green-600 font-medium">{err.correction}</span>
-                  </div>
-                  {err.explanation && (
-                    <p className="text-xs text-gray-500 mt-1">📝 {err.explanation}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 詞彙升級建議 */}
-        {(analysis.vocabularySuggestions?.length ?? 0) > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-500" /> 詞彙升級建議
-            </h3>
-            <div className="space-y-2">
-              {(analysis.vocabularySuggestions ?? []).map((v, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg">
-                  <span className="text-gray-500 line-through">{v.original}</span>
-                  <span className="text-gray-400">→</span>
-                  <span className="text-purple-600 font-medium">{v.suggestion}</span>
-                  {v.reason && <span className="text-xs text-gray-400 ml-auto">{v.reason}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 結構評語 + 改善建議 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {analysis.structureFeedback && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-green-500" /> 結構評語
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.structureFeedback}</p>
-            </div>
-          )}
-          {(analysis.improvementTips?.length ?? 0) > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-amber-500" /> 改善建議
-              </h3>
-              <ul className="space-y-2">
-                {(analysis.improvementTips ?? []).map((tip, i) => (
-                  <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                    <span className="text-amber-500 mt-0.5">💡</span> {tip}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* 原始答案參考 */}
-        <details className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-          <summary className="text-sm font-medium text-gray-500 cursor-pointer">查看你的原文</summary>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 whitespace-pre-line">{studentWriting}</p>
-        </details>
+    return (<div className="max-w-3xl mx-auto space-y-6">
+      <StepIndicator />
+      <div className="flex items-center justify-between"><h1 className="text-xl font-bold text-gray-900 dark:text-white">📊 批改結果</h1><button onClick={handleReset} className="flex items-center gap-1 text-sm text-teal-600 hover:underline"><RefreshCw className="w-4 h-4" />再做一次</button></div>
+      <div className="bg-gradient-to-r from-purple-500 to-teal-500 rounded-2xl p-6 text-white text-center"><p className="text-sm opacity-80">Overall Score</p><p className="text-4xl font-bold">{analysis.overallScore}<span className="text-lg font-normal opacity-80">/100</span></p>{analysis.estimatedLevel && <p className="text-sm mt-2 opacity-90 flex items-center justify-center gap-1"><Award className="w-4 h-4" />估計 HKDSE Level：{analysis.estimatedLevel}</p>}</div>
+      <div className="grid grid-cols-2 gap-3"><div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 text-center"><p className="text-xs text-gray-500">🎧 Listening 提取準確度</p><p className="text-2xl font-bold text-amber-600">{analysis.listeningAccuracy}<span className="text-sm font-normal">/100</span></p></div><div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center"><p className="text-xs text-gray-500">✍️ Writing 品質</p><p className="text-2xl font-bold text-blue-600">{analysis.writingQuality}<span className="text-sm font-normal">/100</span></p></div></div>
+      <div className="grid grid-cols-3 gap-3">
+        {[{ label: '內容完整度', score: analysis.contentCompleteness, icon: Target, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },{ label: '語言準確度', score: analysis.languageAccuracy, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },{ label: '組織清晰度', score: analysis.organizationClarity, icon: FileText, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' }].map((dim, i) => (<div key={i} className={`${dim.bg} rounded-xl p-4 text-center`}><dim.icon className={`w-5 h-5 ${dim.color} mx-auto mb-1`} /><p className="text-xs text-gray-500">{dim.label}</p><p className={`text-2xl font-bold ${dim.color}`}>{dim.score}<span className="text-sm font-normal">/100</span></p></div>))}
       </div>
-    );
+      {analysis.generalComment && (<div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700"><h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500" />總評</h3><p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{analysis.generalComment}</p></div>)}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700"><h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><Target className="w-5 h-5 text-amber-500" />內容要點分析</h3><div className="space-y-2"><p className="text-sm font-medium text-green-600">✅ 已提取的要點：</p>{(analysis.capturedPoints ?? []).map((pt, i) => (<div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"><CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />{pt}</div>))}{(analysis.missedPoints?.length ?? 0) > 0 && (<><p className="text-sm font-medium text-red-500 mt-3">❌ 遺漏的要點：</p>{(analysis.missedPoints ?? []).map((pt, i) => (<div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"><XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />{pt}</div>))}</>)}</div></div>
+      {(analysis.overCopyWarnings?.length ?? 0) > 0 && (<div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-red-200 dark:border-red-800"><h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-500" />過度抄襲警告</h3>{(analysis.overCopyWarnings ?? []).map((w, i) => (<div key={i} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg text-sm"><p className="text-red-600 dark:text-red-400 line-through mb-1">{w.original}</p><p className="text-green-600 dark:text-green-400">💡 {w.suggestion}</p></div>))}</div>)}
+      <button onClick={handleReset} className="w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4" />再做一次</button>
+    </div>);
   }
 
   return null;
