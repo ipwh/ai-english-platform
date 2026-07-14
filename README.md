@@ -1,4 +1,4 @@
-# AI English Platform 🇭🇰
+﻿# AI English Platform 🇭🇰
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors**（Subject / Reading / Writing / Listening / Speaking）設計，支援 DeepSeek API（主）及 Vertex Gemini / Gemini API（fallback）生成 DSE 程度的練習題目、HKDSE 等級對齊的智能批改及個人化學習分析。
 
@@ -153,7 +153,39 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新
 
-### � 部署前終極檢查 + Must-Fix / Should-Fix / Nice-to-Have 全面修復 — 2026-07-14
+### 🎯 題材多樣性 v2.1 + DSE 實證主題資料庫 — 2026-07-14
+
+#### DSE Empirical Topic Database（基於 2012-2024 真實歷屆試題歸納）
+
+- **Writing (Paper 2)**：12 類別 × 48+ 主題（food, culture, social, technology, environment, education, career, sports, arts, travel, health, hkLocal）
+- **Reading (Paper 1)**：9 類別 × 45+ 主題（science, history, nature, society, psychology, technology, health, hkLocal, global）
+- **Listening (Paper 3)**：6 類別 × 42+ 主題（school, community, workplace, services, hkLife, social）
+- 所有主題源自真實 DSE 歷屆試題（2012-2024），包括 2020 Paper 2 全部 8 題
+- 新增 getDSEEmpiricalTopics(skill, category, count) helper 函數
+
+#### 三個生成函數 Prompt 強制引用
+
+- **generateQuestions**：每次生成前自動注入 5 個真實 DSE 主題範例 + MANDATORY REFERENCE 標記
+- **generateWritingPrompt**：強制使用實證主題資料庫取代泛型類別列表
+- **generateIntegratedSkills**：聆聽規則前注入 6 個 Paper 3 實證主題
+
+#### 主題多樣性引擎 v2.0
+
+- **44+ Listening 主題**（10 類別 × 年級標籤）+ **33+ Reading 主題**（7 類別）
+- 類別輪換機制 + 黑名單防重複 + 年級分層 + 學生偏好支援
+
+#### 新增功能（6 項）
+
+| 功能 | API |
+|------|-----|
+| Grammar 專項診斷（40 文法點雷達圖） | GET/POST /api/diagnostic/grammar |
+| Daily Challenge 每日挑戰（streak bonus + XP） | GET/POST /api/daily-challenge |
+| Reading Comprehension（Literal→Inferential→Evaluative） | POST /api/reading |
+| AI Writing Model Essays（L3/L4/L5 三級範文） | POST /api/writing/model-essays |
+| Student Topic Preferences（10 類別雙語） | GET /api/preferences/topics |
+| Vocabulary Real PDF Export（pdfkit） | POST /api/vocabulary/export-pdf?format=pdf |
+
+### 部署前終極檢查 + Must-Fix / Should-Fix / Nice-to-Have 全面修復 — 2026-07-14
 
 #### 🔴 Must-Fix（12 項，部署前全部修復）
 
