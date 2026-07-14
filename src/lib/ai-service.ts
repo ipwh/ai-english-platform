@@ -949,6 +949,23 @@ const LISTENING_TOPICS = [
   'discussing weekend hiking trip plans（討論週末行山計劃）',
   'registering for a sports competition（報名體育比賽）',
   'asking a librarian for book recommendations（向圖書館員詢問書籍推薦）',
+  // v1.1: Expanded topics for diversity
+  'negotiating a group project deadline with classmates（與同學協商小組項目截止日期）',
+  'discussing environmental protection initiatives at school（討論學校環保倡議）',
+  'interviewing a guest speaker about their career（訪問嘉賓講者關於職業生涯）',
+  'planning an overseas exchange programme（策劃海外交流計劃）',
+  'debating the pros and cons of social media（辯論社交媒體的利弊）',
+  'making a complaint about noise pollution to the housing estate（向屋苑投訴噪音污染）',
+  'discussing mental health awareness week activities（討論心理健康關注週活動）',
+  'planning a cultural diversity day at school（策劃學校多元文化日）',
+  'calling to reschedule a dentist appointment（致電改期牙醫預約）',
+  'discussing volunteer work at an elderly home（討論老人院義工服務）',
+  'ordering custom T-shirts for a school event（為學校活動訂製 T 恤）',
+  'planning a STEM competition logistics meeting（策劃 STEM 比賽物流會議）',
+  'debating whether AI should be used in classrooms（辯論課室應否使用 AI）',
+  'discussing internship opportunities during summer break（討論暑期實習機會）',
+  'reporting a cyberbullying incident to a teacher（向老師舉報網絡欺凌事件）',
+  'planning a farewell party for an exchange student（為交流生策劃歡送派對）',
 ];
 
 const READING_TOPICS = [
@@ -968,13 +985,52 @@ const READING_TOPICS = [
   'volunteer tourism and its pros and cons（義工旅遊的利弊）',
   'urban farming and green cities（都市農業與綠色城市）',
   'the evolution of the English language（英語的演變）',
+  // v1.1: Expanded topics
+  'the rise of e-sports and competitive gaming（電子競技與競技遊戲的興起）',
+  'how music therapy benefits mental health（音樂治療如何有益心理健康）',
+  'the future of electric and autonomous vehicles（電動車與自動駕駛的未來）',
+  'the history and cultural significance of tea（茶的歷史與文化意義）',
+  'deep-sea exploration and undiscovered species（深海探索與未發現物種）',
+  'the gig economy and its impact on young workers（零工經濟對年輕工作者的影響）',
+  'how 3D printing is revolutionizing medicine（3D 打印如何革新醫學）',
+  'the psychology behind procrastination（拖延背後的心理學）',
+  'ancient civilizations and their engineering marvels（古代文明及其工程奇蹟）',
+  'the science of sleep and its effect on learning（睡眠科學及其對學習的影響）',
+  'food sustainability and the future of meat alternatives（糧食可持續性與肉類替代品的未來）',
+  'the role of public libraries in the digital age（公共圖書館在數碼時代的角色）',
+  'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）',
+  'the philosophy of happiness across different cultures（不同文化中的幸福哲學）',
+  'microplastics in the ocean and their effects on the food chain（海洋微塑膠及其對食物鏈的影響）',
+  'the history and future of space telescopes（太空望遠鏡的歷史與未來）',
 ];
+
+// Track recently used topics per request to avoid repetition
+const recentTopics: Map<string, number[]> = new Map();
 
 function getRandomTopic(isListening: boolean, isReading: boolean, gradeLevel: string): string {
   const pool = isListening ? LISTENING_TOPICS : isReading ? READING_TOPICS : LISTENING_TOPICS;
-  // Use a deterministic seed based on timestamp to ensure variety across calls
+  
+  // Generate a session key based on grade level and topic type to avoid cross-contamination
+  const sessionKey = `${gradeLevel}-${isListening ? 'listen' : isReading ? 'read' : 'default'}`;
+  const usedIndices = recentTopics.get(sessionKey) || [];
+  
+  // Filter out recently used topics (last 5) to improve diversity
+  const availableIndices = pool
+    .map((_, i) => i)
+    .filter(i => !usedIndices.includes(i));
+  
+  // If all topics are recently used, reset
+  const candidatePool = availableIndices.length > 0 ? availableIndices : pool.map((_, i) => i);
+  
+  // Use deterministic but varied selection
   const seed = Date.now();
-  const index = (seed % 9973) % pool.length; // prime modulus for better distribution
+  const index = candidatePool[(seed % 9973) % candidatePool.length];
+  
+  // Track usage (keep last 5)
+  usedIndices.push(index);
+  if (usedIndices.length > 5) usedIndices.shift();
+  recentTopics.set(sessionKey, usedIndices);
+  
   return pool[index];
 }
 

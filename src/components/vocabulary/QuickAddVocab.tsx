@@ -219,14 +219,23 @@ export default function QuickAddVocab({
                   <Lightbulb className="w-3 h-3" />
                   輸入英文單字後點擊「AI 分析」，自動填入詞性、意思、例句等。
                 </p>
-                <button
-                  onClick={handleAnalyze}
-                  disabled={!word.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  AI 分析
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleClose}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    aria-label={language === 'en' ? 'Close' : '關閉'}
+                  >
+                    {language === 'en' ? 'Close' : '關閉'}
+                  </button>
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={!word.trim()}
+                    className="flex-[2] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    AI 分析
+                  </button>
+                </div>
               </div>
             )}
 

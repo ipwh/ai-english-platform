@@ -1,18 +1,22 @@
 // ============================================
 // API: POST /api/vocabulary/export-pdf
-// 匯出生字簿為可列印 HTML 頁面（可透過瀏覽器「另存為 PDF」）
-// ⚠️ 注意：此端點回傳 HTML 而非真正的 PDF 二進位檔。
-//    前端應以 window.open() 打開或嵌入 iframe 讓使用者列印。
-//    如需真正的 PDF 生成，請使用 /api/export/writing-analysis 的 pdfkit 模式。
+// 匯出生字簿 — 支援真實 PDF（pdfkit）或 HTML printable 格式
+// 預設: HTML printable page（無依賴）；?format=pdf 生成真正 PDF
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    const { studentId, wordIds } = body as { studentId: string; wordIds?: string[] };
+    const { studentId, wordIds, format } = body as { studentId: string; wordIds?: string[]; format?: 'pdf' | 'html' };
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId required' }, { status: 400 });
@@ -36,7 +40,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No vocabulary items to export' }, { status: 404 });
     }
 
-    // Generate a simple printable HTML page (works as PDF via browser print)
+    // Real PDF via pdfkit (when format=pdf)
+    if (format === 'pdf') {
+      try {
+        const PDFDocument = (await import('pdfkit')).default;
+        const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        const chunks: Buffer[] = [];
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        const pdfPromise = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
+
+        doc.fontSize(20).font('Helvetica-Bold').text('Vocabulary Book');
+        doc.fontSize(10).font('Helvetica').fillColor('#6b7280')
+          .text(`${vocab.length} words · ${new Date().toLocaleDateString('zh-HK')}`);
+        doc.moveDown(0.5);
+        doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke('#0d9488').moveDown(0.5);
+
+        for (let i = 0; i < vocab.length; i++) {
+          const v = vocab[i];
+          const synonyms = tryParse(v.synonyms);
+          const collocations = tryParse(v.collocations);
+          const stars = '★'.repeat(v.masteryLevel ?? 0) + '☆'.repeat(5 - (v.masteryLevel ?? 0));
+          if (doc.y > 720) doc.addPage();
+          doc.fontSize(14).font('Helvetica-Bold').fillColor('#111827')
+            .text(`${i + 1}. ${v.word}`, { continued: true });
+          doc.fontSize(9).font('Helvetica').fillColor('#6b7280')
+            .text(`  ${v.partOfSpeech}  ${stars}`);
+          doc.fontSize(11).font('Helvetica').fillColor('#374151')
+            .text(v.meaningZh + (v.secondaryMeaningZh ? ' · ' + v.secondaryMeaningZh : ''));
+          if (v.exampleSentence) {
+            doc.fontSize(9).font('Helvetica-Oblique').fillColor('#6b7280')
+              .text(`"${v.exampleSentence}"${v.exampleZh ? ` (${v.exampleZh})` : ''}`);
+          }
+          doc.moveDown(0.3);
+        }
+        doc.end();
+        const pdfBuffer = await pdfPromise;
+        return new NextResponse(new Uint8Array(pdfBuffer), {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="vocabulary-${new Date().toISOString().slice(0, 10)}.pdf"`,
+          },
+        });
+      } catch (pdfErr) {
+        console.warn('[export-pdf] pdfkit failed, falling back to HTML:', pdfErr);
+      }
+    }
+
+    // Default: HTML printable page (works as PDF via browser print)
     const rows = vocab.map((v, i) => {
       const synonyms = tryParse(v.synonyms);
       const antonyms = tryParse(v.antonyms);
