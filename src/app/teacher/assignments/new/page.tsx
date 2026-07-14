@@ -29,6 +29,7 @@ export default function NewAssignmentPage() {
 
   // === AI 生成狀態 ===
   const [generating, setGenerating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [genError, setGenError] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState<{ prompt: string; choices?: string[]; answer: string }[]>([]);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
@@ -75,7 +76,8 @@ export default function NewAssignmentPage() {
   };
 
   const handlePublish = async () => {
-    if (!generatedQuestions.length) return;
+    if (!generatedQuestions.length || publishing) return;
+    setPublishing(true);
     setGenError('');
     try {
       const res = await fetch('/api/assignments', {
@@ -107,7 +109,7 @@ export default function NewAssignmentPage() {
       setShowSuccess(true);
     } catch (err: unknown) {
       setGenError(err instanceof Error ? err.message : t('teacher.assignmentNew.publishFailed'));
-    }
+    } finally { setPublishing(false); }
   };
 
   return (
@@ -215,8 +217,9 @@ export default function NewAssignmentPage() {
         </div>
         <div className="flex gap-3">
           <button onClick={() => setStep('config')} className="flex-1 py-2 text-sm text-gray-600 border rounded-lg">{t('teacher.assignmentNew.back')}</button>
-          <button onClick={handlePublish} className="flex-1 py-2 bg-blue-500 text-white text-sm rounded-lg font-medium flex items-center justify-center gap-2">
-            <Send className="w-4 h-4" /> {t('teacher.assignmentNew.confirm')}
+          <button onClick={handlePublish} disabled={publishing} className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium flex items-center justify-center gap-2">
+            {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {publishing ? t('teacher.assignmentNew.publishing') : t('teacher.assignmentNew.confirm')}
           </button>
         </div>
       </Modal>

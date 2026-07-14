@@ -16,6 +16,8 @@ export default function TeacherProfilePage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ nameZh: '', nameEn: '' });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/profile').then(r => r.json()).then(d => {
@@ -25,17 +27,29 @@ export default function TeacherProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
-    const res = await fetch('/api/auth/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    if (res.ok) {
-      const d = await res.json();
-      setProfile((p: any) => ({ ...p, ...d.user }));
-      setEditing(false);
+    setSaveError('');
+    setSaveSuccess(false);
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setProfile((p: any) => ({ ...p, ...d.user }));
+        setEditing(false);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        const err = await res.json();
+        setSaveError(err.error || t('profile.saveFailed'));
+      }
+    } catch {
+      setSaveError(t('profile.saveFailed'));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleLogout = () => { logout(); router.push('/login'); };
@@ -51,6 +65,8 @@ export default function TeacherProfilePage() {
         </div>
         {editing ? (
           <div className="space-y-3">
+            {saveError && <p className="text-xs text-red-500">{saveError}</p>}
+            {saveSuccess && <p className="text-xs text-green-500">{t('profile.saveSuccess')}</p>}
             <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })}
               placeholder={t('profile.chineseName')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
             <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })}

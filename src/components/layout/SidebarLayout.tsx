@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle, LogOut } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -163,6 +163,7 @@ export default function SidebarLayout({
   subtitle = '',
 }: SidebarLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const store = useAppStore();
   const {
     isDarkMode,
@@ -488,7 +489,7 @@ export default function SidebarLayout({
               </button>
               {/* Logout */}
               <button
-                onClick={() => { if (confirm(t('common.confirmLogout'))) window.location.href = '/api/auth/logout'; }}
+                onClick={() => { if (confirm(t('common.confirmLogout'))) router.push('/api/auth/logout'); }}
                 className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title={t('common.logout')}
               >

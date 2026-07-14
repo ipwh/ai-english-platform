@@ -62,6 +62,7 @@ export default function TeacherAssignmentDetailPage() {
   const [error, setError] = useState('');
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
   const [savingFeedback, setSavingFeedback] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch(`/api/assignments/${id}?teacher=true`)
@@ -254,6 +255,26 @@ export default function TeacherAssignmentDetailPage() {
                         <p className="whitespace-pre-wrap">{sub.aiFeedback}</p>
                       </div>
                     )}
+
+                    {/* 教師回饋 */}
+                    <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                      <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1.5">{t('teacher.assignmentDetail.teacherFeedback')}</p>
+                      <textarea
+                        value={feedbackText[sub.id] || ''}
+                        onChange={(e) => setFeedbackText(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                        placeholder={t('teacher.assignmentDetail.feedbackPlaceholder')}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                      />
+                      <button
+                        onClick={() => handleTeacherFeedback(sub.id, feedbackText[sub.id] || '')}
+                        disabled={savingFeedback === sub.id || !feedbackText[sub.id]?.trim()}
+                        className="mt-2 px-3 py-1.5 text-xs font-medium bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg flex items-center gap-1"
+                      >
+                        {savingFeedback === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                        {savingFeedback === sub.id ? t('common.saving') : t('teacher.assignmentDetail.saveFeedback')}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

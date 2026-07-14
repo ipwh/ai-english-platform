@@ -5,7 +5,7 @@
 // ============================================
 
 import { useState, useCallback } from 'react';
-import { Upload, Download, CheckCircle, XCircle, AlertTriangle, FileText, Users, GraduationCap } from 'lucide-react';
+import { Upload, Download, CheckCircle, XCircle, AlertTriangle, FileText, Users, GraduationCap, Loader2 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
 interface ImportDetail {
@@ -224,7 +224,7 @@ export default function ImportPage() {
           className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
         >
           {loading ? (
-            <span className="animate-spin">⏳</span>
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Upload className="w-4 h-4" />
           )}

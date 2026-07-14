@@ -187,7 +187,7 @@ export default function VocabCard({
 
           {onDelete && (
             <button
-              onClick={() => onDelete(vocab.id)}
+              onClick={() => { if (window.confirm('確定要刪除此生字？This will permanently delete this word.')) onDelete(vocab.id); }}
               className="text-gray-300 hover:text-red-500 transition-colors"
               title="Delete"
             >

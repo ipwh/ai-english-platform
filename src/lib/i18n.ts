@@ -47,6 +47,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'common.cancel': { zh: '取消', en: 'Cancel' },
   'common.edit': { zh: '編輯', en: 'Edit' },
   'common.loading': { zh: '載入中...', en: 'Loading...' },
+  'common.saving': { zh: '儲存中...', en: 'Saving...' },
   'common.error': { zh: '錯誤', en: 'Error' },
   'common.success': { zh: '成功', en: 'Success' },
   'common.somethingWrong': { zh: '發生錯誤，請重新載入頁面', en: 'Something went wrong' },
@@ -466,6 +467,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.assignmentNew.answer': { zh: '答案', en: 'Answer' },
   'teacher.assignmentNew.back': { zh: '返回修改', en: 'Back to Edit' },
   'teacher.assignmentNew.confirm': { zh: '確認派發', en: 'Confirm Assign' },
+  'teacher.assignmentNew.publishing': { zh: '派發中...', en: 'Publishing...' },
   'teacher.assignmentNew.success': { zh: '✅ 任務已派發', en: '✅ Assignment Assigned' },
   'teacher.assignmentNew.successMsg': { zh: '任務已成功派發至所選班別。', en: 'Assignment assigned to selected class.' },
   'teacher.assignmentNew.notifyMsg': { zh: '學生將在下次登入時收到通知。', en: 'Students will be notified on next login.' },
@@ -530,6 +532,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.materials.imported': { zh: '已匯入：{name}（{length} 字元）', en: 'Imported: {name} ({length} chars)' },
   'teacher.materials.importFailed': { zh: '匯入失敗', en: 'Import failed' },
   'teacher.materials.uploadFailed': { zh: '上傳失敗', en: 'Upload failed' },
+  'teacher.materials.uploading': { zh: '正在上傳及處理...', en: 'Uploading & processing...' },
   'teacher.materials.importBtn': { zh: '匯入', en: 'Import' },
   'teacher.materials.searchPlaceholder': { zh: '搜尋教材...', en: 'Search materials...' },
   'teacher.materials.connectionFailed': { zh: '連線失敗', en: 'Connection failed' },
@@ -1345,6 +1348,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.assignmentDetail.correctAnswer': { zh: '正確答案', en: 'Correct Answer' },
   'teacher.assignmentDetail.aiFeedback': { zh: 'AI 批改反饋', en: 'AI Feedback' },
   'teacher.assignmentDetail.answerPrefix': { zh: '答案：', en: 'Answer: ' },
+  'teacher.assignmentDetail.teacherFeedback': { zh: '教師回饋', en: 'Teacher Feedback' },
+  'teacher.assignmentDetail.feedbackPlaceholder': { zh: '輸入你的回饋意見...', en: 'Enter your feedback...' },
+  'teacher.assignmentDetail.saveFeedback': { zh: '儲存回饋', en: 'Save Feedback' },
 
   // Score/points units
   'unit.score': { zh: ' 分', en: ' pts' },

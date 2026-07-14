@@ -26,6 +26,8 @@ export default function TeacherMaterialsPage() {
   // === AI 教材分析 ===
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [indexingId, setIndexingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<Record<string, string>>({});
   const [driveUrl, setDriveUrl] = useState('');
   const [driveLoading, setDriveLoading] = useState(false);
   const [aiResults, setAiResults] = useState<Record<string, {
@@ -39,6 +41,7 @@ export default function TeacherMaterialsPage() {
 
   const handleAIAnalyze = async (materialId: string, title: string, extractedText?: string, fileType?: string) => {
     setAnalyzingId(materialId);
+    setAnalyzeError(prev => ({ ...prev, [materialId]: '' }));
     try {
       const content = extractedText && extractedText.length > 50
         ? extractedText
@@ -49,27 +52,34 @@ export default function TeacherMaterialsPage() {
         body: JSON.stringify({
           title,
           content,
-          gradeLevel: 'S4', // Material analysis uses a reference level; teachers can adjust after analysis
+          gradeLevel: 'S4',
         }),
       });
       const json = await res.json();
       if (res.ok && json.analysis) {
         setAiResults(prev => ({ ...prev, [materialId]: json.analysis }));
+      } else {
+        setAnalyzeError(prev => ({ ...prev, [materialId]: json.error || 'AI 分析失敗' }));
       }
-    } catch { /* silent fail */ }
+    } catch {
+      setAnalyzeError(prev => ({ ...prev, [materialId]: 'AI 分析連接失敗，請稍後再試' }));
+    }
     finally { setAnalyzingId(null); }
   };
 
   // RAG 索引
   const handleRagIndex = async (materialId: string) => {
     setIndexingId(materialId);
+    setAnalyzeError(prev => ({ ...prev, [materialId]: '' }));
     try {
       await fetch('/api/rag?action=index', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ materialId }),
       });
-    } catch { /* silent */ }
+    } catch {
+      setAnalyzeError(prev => ({ ...prev, [materialId]: 'RAG 索引建立失敗' }));
+    }
     finally { setIndexingId(null); }
   };
 
@@ -105,16 +115,26 @@ export default function TeacherMaterialsPage() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.materials.title')}</h1>
 
       {/* 上傳區 */}
-      <label className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer block">
-        <Upload className="w-10 h-10 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t('teacher.materials.dropzone')}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('teacher.materials.dropzoneHint')}</p>
+      <label className={`border-2 border-dashed rounded-2xl p-8 text-center transition-colors cursor-pointer block ${uploading ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/10 opacity-70' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}>
+        {uploading ? (
+          <>
+            <Loader2 className="w-10 h-10 text-blue-500 mx-auto mb-3 animate-spin" />
+            <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">{t('teacher.materials.uploading')}</p>
+          </>
+        ) : (
+          <>
+            <Upload className="w-10 h-10 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('teacher.materials.dropzone')}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('teacher.materials.dropzoneHint')}</p>
+          </>
+        )}
         <input
           type="file"
           accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg,.txt"
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
+            setUploading(true);
             const fileSizeKB = (file.size / 1024).toFixed(0);
 
             if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
@@ -175,6 +195,7 @@ export default function TeacherMaterialsPage() {
               } catch { /* silent */ }
             }
             e.target.value = '';
+            setUploading(false);
           }}
           className="hidden"
         />
@@ -283,6 +304,7 @@ export default function TeacherMaterialsPage() {
                     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
                       <Sparkles className="w-6 h-6 text-purple-300 mx-auto mb-2" />
                       <p className="text-xs text-gray-500 mb-3">使用 AI 分析教材內容，提取關鍵詞彙及文法點</p>
+                      {analyzeError[m.id] && <p className="text-xs text-red-500 mb-2">{analyzeError[m.id]}</p>}
                       <button
                         onClick={() => handleAIAnalyze(m.id, m.title, m.extractedText, m.fileType)}
                         disabled={analyzingId === m.id}

@@ -41,6 +41,7 @@ export default function TeacherReviewPage() {
   // === AI 重新分析 ===
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [actionLoading, setActionLoading] = useState<'accept' | 'return' | null>(null);
 
   const filtered = reviews.filter(r => filter === 'all' ? true : r.status === filter);
 
@@ -58,7 +59,8 @@ export default function TeacherReviewPage() {
   };
 
   const handleAccept = () => {
-    if (!selectedReview) return;
+    if (!selectedReview || actionLoading) return;
+    setActionLoading('accept');
     const updated = {
       ...selectedReview,
       status: 'reviewed' as ReviewStatus,
@@ -66,15 +68,18 @@ export default function TeacherReviewPage() {
       teacherFeedback: teacherFeedback || selectedReview.aiFeedback,
     };
     updateReview(selectedReview.id, updated);
+    setActionLoading(null);
   };
 
   const handleReturn = () => {
-    if (!selectedReview) return;
+    if (!selectedReview || actionLoading) return;
+    setActionLoading('return');
     updateReview(selectedReview.id, {
       status: 'returned' as ReviewStatus,
       teacherScore,
       teacherFeedback,
     });
+    setActionLoading(null);
   };
 
   // === AI 重新批改 ===
@@ -235,11 +240,11 @@ export default function TeacherReviewPage() {
 
                 {/* 操作按鈕 */}
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <button onClick={handleAccept} className="flex items-center gap-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg font-medium">
-                    <Check className="w-4 h-4" /> {t('teacher.review.accept')}
+                  <button onClick={handleAccept} disabled={actionLoading !== null} className="flex items-center gap-1 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+                    {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t('teacher.review.accept')}
                   </button>
-                  <button onClick={handleReturn} className="flex items-center gap-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg font-medium">
-                    <RotateCcw className="w-4 h-4" /> {t('teacher.review.return')}
+                  <button onClick={handleReturn} disabled={actionLoading !== null} className="flex items-center gap-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+                    {actionLoading === 'return' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {t('teacher.review.return')}
                   </button>
                 </div>
               </div>

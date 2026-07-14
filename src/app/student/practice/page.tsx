@@ -272,15 +272,18 @@ function PracticeListPageContent() {
 
   // === 從推薦弱項快速生成 ===
   const handleQuickGenerate = useCallback((grammarItem: string, grammarZh: string) => {
-    setForm({
+    const nextForm = {
       ...defaultForm,
       grammarItem,
       languageSkill: '',
-      difficulty: 'remedial',
+      difficulty: 'remedial' as const,
       questionCount: 5,
-    });
+    };
+    setForm(nextForm);
     setTab('generate');
-  }, []);
+    // Auto-trigger generation for quick workflow
+    void handleGenerate(nextForm, `${grammarZh} (${t('practice.recommendHint')})`);
+  }, [handleGenerate, defaultForm, t]);
 
   return (
     <div className="space-y-6">
