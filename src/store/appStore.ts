@@ -198,9 +198,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...state.currentSession,
         completedAt: new Date().toISOString(),
       };
-      // 持久化到後端 API
+      // 持久化到後端 API（含逐題答案）
       const { userId } = get();
       if (userId) {
+        const answers = Object.entries(completed.answers).map(([qId, studentAnswer], idx) => {
+          const question = completed.questions.find(q => q.id === qId);
+          return {
+            questionIndex: idx,
+            questionType: question?.type || 'mc',
+            questionPrompt: question?.prompt || '',
+            correctAnswer: question?.answer || '',
+            studentAnswer: studentAnswer || '',
+            isCorrect: completed.results[qId] ?? false,
+          };
+        });
         fetch('/api/practice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -212,8 +223,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             totalQuestions: completed.totalQuestions,
             correctCount: completed.correctCount,
             source: completed.source,
+            answers,
           }),
-        }).catch(() => {});
+        }).then(r => {
+          if (!r.ok) console.warn('[appStore] Practice session may not be persisted:', r.status);
+        }).catch((e) => {
+          console.error('[appStore] Failed to persist practice session:', e);
+        });
       }
       return {
         practiceSessions: [completed, ...state.practiceSessions].slice(0, 50),

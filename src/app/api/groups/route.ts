@@ -1,7 +1,9 @@
 // ============================================
 // API: /api/groups — 教師自訂組別 CRUD
-// GET:  列出教師建立的組別（含成員人數）
-// POST: 建立新組別
+// GET:   列出教師建立的組別（含成員人數）
+// POST:  建立新組別
+// PATCH: 編輯組別名稱/描述
+// DELETE: 刪除組別
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -93,6 +95,73 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
     console.error('[groups POST]', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const teacherId = await getTeacherId(request);
+    if (!teacherId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { id, name, description } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
+    }
+
+    // 驗證所有權
+    const existing = await db.group.findUnique({ where: { id }, select: { createdBy: true } });
+    if (!existing || existing.createdBy !== teacherId) {
+      return NextResponse.json({ error: '無權編輯此組別' }, { status: 403 });
+    }
+
+    const group = await db.group.update({
+      where: { id },
+      data: {
+        ...(name?.trim() ? { name: name.trim() } : {}),
+        ...(description !== undefined ? { description: description?.trim() || null } : {}),
+      },
+    });
+
+    return NextResponse.json({ group });
+  } catch (err) {
+    console.error('[groups PATCH]', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const teacherId = await getTeacherId(request);
+    if (!teacherId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
+    }
+
+    // 驗證所有權
+    const existing = await db.group.findUnique({ where: { id }, select: { createdBy: true } });
+    if (!existing || existing.createdBy !== teacherId) {
+      return NextResponse.json({ error: '無權刪除此組別' }, { status: 403 });
+    }
+
+    // 先移除關聯的 assignments，再刪除 group
+    await db.assignmentGroup.deleteMany({ where: { groupId: id } });
+    await db.groupMember.deleteMany({ where: { groupId: id } });
+    await db.group.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('[groups DELETE]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

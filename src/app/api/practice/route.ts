@@ -4,9 +4,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 // POST /api/practice — 儲存練習記錄
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { studentId, skill, skillZh, difficulty, totalQuestions, correctCount, source, answers } = body;
@@ -104,6 +111,12 @@ export async function POST(request: NextRequest) {
 
 // GET /api/practice?studentId=...
 export async function GET(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
@@ -119,6 +132,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sessions });
   } catch (err: unknown) {
     console.error('[Practice GET]', err);
-    return NextResponse.json({ error: 'Failed to load practice history', sessions: [] }, { status: 200 });
+    return NextResponse.json({ error: 'Failed to load practice history', sessions: [] }, { status: 500 });
   }
 }

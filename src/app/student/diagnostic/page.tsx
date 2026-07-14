@@ -183,14 +183,21 @@ export default function DiagnosticPage() {
 
         setWeakSkills(derivedWeakSkills);
         setRecentPerformance(
-          sessions.slice(0, 5).map(session => ({
-            date: new Date(session.startedAt).toLocaleDateString('zh-HK'),
-            accuracy: Math.round((session.correctCount / Math.max(1, session.totalQuestions)) * 100),
-            questionsDone: session.totalQuestions,
+          sessions.slice(0, 10).map(s => ({
+            date: new Date(s.startedAt).toISOString().split('T')[0],
+            accuracy: s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0,
+            questionsDone: s.totalQuestions,
           }))
         );
 
-        return Promise.all(
+        // 🔥 If no weak skills found (new student or insufficient data), show dedicated message
+        if (plans.length === 0) {
+          setGenError(t('diagnostic.notEnoughData'));
+          setLoadingQuestions(false);
+          return;
+        }
+
+        const aiResponses = await Promise.all(
           plans.map(plan =>
             fetch('/api/ai/generate-questions', {
               method: 'POST',
@@ -210,15 +217,14 @@ export default function DiagnosticPage() {
               .then(data => ({ ...data, __skill: plan.languageSkill, __grammar: plan.grammarItem, __grammarZh: plan.grammarItemZh }))
           )
         );
-      })
-      .then((responses: Array<{ questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string }>; __skill?: string; __grammar?: string; __grammarZh?: string }>) => {
+
         const allQuestions: PracticeQuestion[] = [];
-        let id = 0;
+        let questionId = 0;
 
         const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
-          (res.questions || []).forEach((q: { prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string }) => {
+          (res.questions || []).forEach((q) => {
             allQuestions.push({
-              id: `diag-${++id}`,
+              id: `diag-${++questionId}`,
               type: (q.questionType || 'mc') as PracticeQuestion['type'],
               strand: 'knowledge',
               prompt: q.prompt,
@@ -243,7 +249,7 @@ export default function DiagnosticPage() {
           });
         };
 
-        for (const response of responses) {
+        for (const response of aiResponses) {
           addQuestions(response, response.__skill, response.__grammar, response.__grammarZh);
         }
 

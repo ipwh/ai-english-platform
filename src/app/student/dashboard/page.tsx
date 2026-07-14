@@ -48,18 +48,13 @@ export default function StudentDashboardPage() {
           .catch((e) => { console.error("[page] fetch failed", e) })
           .finally(() => setGamificationLoading(false));
 
-        // 🎮 每日登入 XP（同一天只觸發一次）
-        if (typeof window !== 'undefined') {
-          const today = new Date().toDateString();
-          const lastLogin = localStorage.getItem('lastLoginDate');
-          if (lastLogin !== today && userId) {
-            localStorage.setItem('lastLoginDate', today);
-            fetch('/api/gamification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ studentId: userId, event: { type: 'dailyLogin' } }),
-            }).catch((e) => { console.error("[page] fetch failed", e) });
-          }
+        // 🎮 每日登入 XP（DB-based streak，取代 localStorage）
+        if (userId) {
+          fetch('/api/streak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: userId }),
+          }).catch((e) => { console.error("[page] fetch failed", e) });
         }
 
         return fetch(`/api/practice?studentId=${encodeURIComponent(userId)}`).then(r => r.json());

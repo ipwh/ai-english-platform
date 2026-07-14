@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rateLimit = checkRateLimit({ ...AI_RATE_LIMIT, identifier: `ai-writing:${ip}` });
+    const rateLimit = await checkRateLimit({ ...AI_RATE_LIMIT, identifier: `ai-writing:${ip}` });
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: rateLimit.message }, {
         status: 429,

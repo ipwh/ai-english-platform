@@ -1,10 +1,14 @@
 // ============================================
-// Zustand Store — Integrated Skills Task State
-// 管理「聽→記→寫」全流程狀態
+// Zustand Store — Integrated Skills Task State (v4)
+// 管理「聽 → 記 → 寫」全流程狀態
+// 新功能：步驟鎖定、聆聽進度、自動儲存計時器
 // ============================================
 import { create } from 'zustand';
 
 export type TaskStage = 'config' | 'listening' | 'writing' | 'result';
+
+/** 任務步驟（用於 UI 步驟指示器） */
+export type TaskStep = 1 | 2 | 3;
 
 export interface NoteGuideItem {
   question: string;
@@ -36,20 +40,15 @@ export interface IntegratedSkillsResult {
 }
 
 interface IntegratedSkillsState {
-  // 設定
   stage: TaskStage;
   gradeLevel: string;
   difficulty: string;
   taskType: string;
-
-  // 任務資料
   task: IntegratedTaskData | null;
-
-  // 使用者輸入
   studentNotes: string;
   studentWriting: string;
 
-  // 狀態
+  // UI 狀態
   loading: boolean;
   error: string;
   aiLoading: boolean;
@@ -59,7 +58,12 @@ interface IntegratedSkillsState {
   draftSaved: boolean;
   showNotesWarning: boolean;
 
-  // 結果
+  // v4: 步驟鎖定
+  listeningCompleted: boolean;
+  activeStep: TaskStep;
+  playbackProgress: number;
+  playbackSpeed: number;
+
   analysis: IntegratedSkillsResult | null;
 
   // 動作
@@ -76,6 +80,11 @@ interface IntegratedSkillsState {
   toggleContentPoints: () => void;
   setDraftSaved: (v: boolean) => void;
   setShowNotesWarning: (v: boolean) => void;
+  setListeningCompleted: (v: boolean) => void;
+  setActiveStep: (step: TaskStep) => void;
+  setPlaybackProgress: (p: number) => void;
+  setPlaybackSpeed: (speed: number) => void;
+  setAutoSaveTimerId: (id: ReturnType<typeof setTimeout> | null) => void;
   setAnalysis: (a: IntegratedSkillsResult | null) => void;
   reset: () => void;
 }
@@ -91,11 +100,15 @@ const initialState = {
   loading: false,
   error: '',
   aiLoading: false,
-  showListeningText: false,
+  showListeningText: true,
   showNotesGuide: true,
-  showContentPoints: true,
+  showContentPoints: false,
   draftSaved: false,
   showNotesWarning: false,
+  listeningCompleted: false,
+  activeStep: 1 as TaskStep,
+  playbackProgress: 0,
+  playbackSpeed: 1.0,
   analysis: null as IntegratedSkillsResult | null,
 };
 
@@ -104,7 +117,12 @@ export const useIntegratedSkillsStore = create<IntegratedSkillsState>((set) => (
 
   setStage: (stage) => set({ stage }),
   setConfig: (gradeLevel, difficulty, taskType) => set({ gradeLevel, difficulty, taskType }),
-  setTask: (task) => set({ task }),
+  setTask: (task) => set({
+    task,
+    listeningCompleted: false,
+    activeStep: 1,
+    playbackProgress: 0,
+  }),
   setStudentNotes: (studentNotes) => set({ studentNotes }),
   setStudentWriting: (studentWriting) => set({ studentWriting }),
   setLoading: (loading) => set({ loading }),
@@ -115,6 +133,10 @@ export const useIntegratedSkillsStore = create<IntegratedSkillsState>((set) => (
   toggleContentPoints: () => set(s => ({ showContentPoints: !s.showContentPoints })),
   setDraftSaved: (draftSaved) => set({ draftSaved }),
   setShowNotesWarning: (showNotesWarning) => set({ showNotesWarning }),
+  setListeningCompleted: (listeningCompleted) => set({ listeningCompleted }),
+  setActiveStep: (activeStep) => set({ activeStep }),
+  setPlaybackProgress: (playbackProgress) => set({ playbackProgress }),
+  setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
   setAnalysis: (analysis) => set({ analysis }),
   reset: () => set(initialState),
 }));

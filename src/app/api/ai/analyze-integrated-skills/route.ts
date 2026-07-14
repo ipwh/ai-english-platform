@@ -10,7 +10,7 @@ import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rateLimit = checkRateLimit({ ...AI_RATE_LIMIT, identifier: `ai-intsk-analyze:${ip}` });
+    const rateLimit = await checkRateLimit({ ...AI_RATE_LIMIT, identifier: `ai-intsk-analyze:${ip}` });
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: rateLimit.message }, {
         status: 429,

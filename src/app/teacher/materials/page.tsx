@@ -30,6 +30,8 @@ export default function TeacherMaterialsPage() {
   const [analyzeError, setAnalyzeError] = useState<Record<string, string>>({});
   const [driveUrl, setDriveUrl] = useState('');
   const [driveLoading, setDriveLoading] = useState(false);
+  const [driveMessage, setDriveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [uploadError, setUploadError] = useState('');
   const [aiResults, setAiResults] = useState<Record<string, {
     summary: string;
     keyVocabulary: { word: string; meaningZh: string }[];
@@ -114,6 +116,14 @@ export default function TeacherMaterialsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.materials.title')}</h1>
 
+      {/* 上傳錯誤提示 */}
+      {uploadError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 flex items-center gap-2">
+          <p className="text-sm text-red-600 dark:text-red-400 flex-1">{uploadError}</p>
+          <button onClick={() => setUploadError('')} className="text-red-400 hover:text-red-600">&times;</button>
+        </div>
+      )}
+
       {/* 上傳區 */}
       <label className={`border-2 border-dashed rounded-2xl p-8 text-center transition-colors cursor-pointer block ${uploading ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/10 opacity-70' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}>
         {uploading ? (
@@ -190,9 +200,11 @@ export default function TeacherMaterialsPage() {
                   setMaterials(mData.materials || []);
                 } else {
                   const errData = await res.json().catch(() => ({}));
-                  alert(errData.error || t('teacher.materials.uploadFailed'));
+                  setUploadError(errData.error || t('teacher.materials.uploadFailed'));
                 }
-              } catch { /* silent */ }
+              } catch {
+                setUploadError(t('teacher.materials.connectionFailed'));
+              }
             }
             e.target.value = '';
             setUploading(false);
@@ -219,6 +231,7 @@ export default function TeacherMaterialsPage() {
             onClick={async () => {
               if (!driveUrl) return;
               setDriveLoading(true);
+              setDriveMessage(null);
               try {
                 const res = await fetch('/api/drive/download', {
                   method: 'POST',
@@ -227,12 +240,15 @@ export default function TeacherMaterialsPage() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                  alert(t('teacher.materials.imported', { name: data.file.name, length: String(data.file.contentLength) }));
+                  setDriveMessage({ type: 'success', text: t('teacher.materials.imported', { name: data.file.name, length: String(data.file.contentLength) }) });
                   setDriveUrl('');
+                  loadMaterials();
                 } else {
-                  alert(data.error || t('teacher.materials.importFailed'));
+                  setDriveMessage({ type: 'error', text: data.error || t('teacher.materials.importFailed') });
                 }
-              } catch { alert(t('teacher.materials.connectionFailed')); }
+              } catch {
+                setDriveMessage({ type: 'error', text: t('teacher.materials.connectionFailed') });
+              }
               finally { setDriveLoading(false); }
             }}
             disabled={driveLoading || !driveUrl}
@@ -243,6 +259,16 @@ export default function TeacherMaterialsPage() {
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-1">{t('teacher.materials.driveHint')}</p>
+        {driveMessage && (
+          <div className={`mt-2 p-2 rounded-lg text-xs flex items-center gap-2 ${
+            driveMessage.type === 'success'
+              ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
+              : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+          }`}>
+            <span className="flex-1">{driveMessage.text}</span>
+            <button onClick={() => setDriveMessage(null)} className="opacity-50 hover:opacity-100">&times;</button>
+          </div>
+        )}
       </div>
 
       {/* 搜尋 */}

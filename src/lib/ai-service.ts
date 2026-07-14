@@ -215,7 +215,7 @@ async function callDeepSeek(
     throw new Error('AI 服務尚未設定。請在環境變數中設定 DEEPSEEK_API_KEY。');
   }
 
-  const timeoutMs = options?.timeoutMs || 30000; // 30 秒預設（本地開發；Vercel 部署時建議設為 8000）
+  const timeoutMs = options?.timeoutMs || (process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : 8000); // Vercel 預設 10s，設 8s 留緩衝；本地開發可設 AI_TIMEOUT_MS=30000
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -277,7 +277,8 @@ async function callGemini(
     throw new Error('Gemini API 尚未設定。請在環境變數中設定 GEMINI_API_KEY。');
   }
 
-  const timeoutMs = options?.timeoutMs || 30000;
+  const defaultTimeout = process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : 8000;
+  const timeoutMs = options?.timeoutMs || defaultTimeout;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -342,7 +343,8 @@ async function callGeminiViaVertex(
     throw new Error('Vertex Gemini 尚未設定 service account 憑證。');
   }
 
-  const timeoutMs = options?.timeoutMs || 30000;
+  const defaultTimeout = process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : 8000;
+  const timeoutMs = options?.timeoutMs || defaultTimeout;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 

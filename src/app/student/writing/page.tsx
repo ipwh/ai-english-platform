@@ -411,6 +411,23 @@ export default function WritingPage() {
         <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
           <div className={`h-full rounded-full transition-all ${wordCount > wordLimit ? 'bg-red-500' : wordCount >= wordLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'}`} style={{ width: `${wordProgress}%` }} />
         </div>
+        {/* Auto-save status indicator */}
+        <div className="flex items-center gap-2 mb-2 text-xs">
+          <span className={`inline-block w-2 h-2 rounded-full ${
+            saveStatus === 'saved' ? 'bg-green-500' :
+            saveStatus === 'saving' ? 'bg-amber-400 animate-pulse' :
+            'bg-red-500'
+          }`} />
+          <span className={`${
+            saveStatus === 'saved' ? 'text-green-600 dark:text-green-400' :
+            saveStatus === 'saving' ? 'text-amber-600 dark:text-amber-400' :
+            'text-red-600 dark:text-red-400'
+          }`}>
+            {saveStatus === 'saved' ? t('writing.saved') :
+             saveStatus === 'saving' ? t('writing.saving') :
+             t('writing.unsaved')}
+          </span>
+        </div>
         <textarea value={draft} onChange={e => setDraft(e.target.value)}
           placeholder={realTopic ? t('writing.enterTopicPlaceholder', { topic: realTopic }) : t('writing.writePlaceholder')}
           rows={8} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[200px] sm:min-h-[300px]" />

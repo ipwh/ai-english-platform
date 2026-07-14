@@ -25,6 +25,7 @@ export default function TeacherStudentsPage() {
   const [students, setStudents] = useState<RealStudent[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
@@ -37,7 +38,11 @@ export default function TeacherStudentsPage() {
       setStudents(studentData.students || []);
       setClasses((classData.classes || []).map((c: any) => c.name));
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((e) => {
+      console.error('Failed to load students:', e);
+      setLoadError('無法載入學生資料，請檢查網絡後重試。');
+      setLoading(false);
+    });
   }, []);
 
   const filtered = useMemo(() => {
@@ -51,6 +56,23 @@ export default function TeacherStudentsPage() {
 
   if (loading) {
     return <div className="flex items-center justify-center py-32"><RefreshCw className="w-8 h-8 animate-spin text-blue-500" /></div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.students')}</h1>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
+          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(''); setLoading(true); window.location.reload(); }}
+            className="px-4 py-2 bg-red-100 dark:bg-red-800/50 text-red-700 dark:text-red-300 rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+          >
+            {t('common.reloadPage')}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

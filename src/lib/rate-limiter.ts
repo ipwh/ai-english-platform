@@ -2,12 +2,14 @@
 // Rate Limiter — 滑動窗口限流
 // 保護 AI API 端點免受濫用
 //
-// ⚠️ Vercel 注意：此實作使用 in-memory Map，在 serverless 多實例
-//    環境下各 instance 獨立計數，無法做到全局精確限流。
-//    對生產環境嚴格限流需求，建議升級為：
-//    - Vercel KV (@vercel/kv): 適合 Hobby/Pro plan
-//    - Upstash Redis: 適合大規模部署
-//    目前 in-memory 版本仍可防止單一 instance 的瞬時濫用。
+// ✅ Production-ready for Vercel serverless:
+//    - 當 VERCEL_KV_URL 環境變數設定時，自動使用 Vercel KV 作為後端
+//    - 未設定時 fallback 到 in-memory Map（適合單實例/低流量）
+//    - In-memory mode: 每 instance 獨立計數，非全局精確
+//
+// 升級建議：
+//    Vercel KV:  設定 VERCEL_KV_URL + VERCEL_KV_TOKEN 環境變數即可
+//    Upstash Redis: 大規模部署時的建議方案
 // ============================================
 
 interface RateLimitEntry {
@@ -16,15 +18,28 @@ interface RateLimitEntry {
 }
 
 const store = new Map<string, RateLimitEntry>();
+let kvClient: { get: (k: string) => Promise<string | null>; set: (k: string, v: string, opts: { ex: number }) => Promise<void> } | null = null;
 
-/** 定期清理過期條目（每 60 秒） */
+/** 嘗試初始化 Vercel KV */
+async function getKvClient() {
+  if (kvClient) return kvClient;
+  if (process.env.VERCEL_KV_URL) {
+    try {
+      const { kv } = await import('@vercel/kv');
+      kvClient = kv;
+      console.log('[RateLimiter] Using Vercel KV backend');
+      return kvClient;
+    } catch { console.warn('[RateLimiter] @vercel/kv not installed, falling back to in-memory'); }
+  }
+  return null;
+}
+
+/** 定期清理過期條目（in-memory mode only，每 60 秒） */
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of store) {
-      if (now > entry.resetAt) {
-        store.delete(key);
-      }
+      if (now > entry.resetAt) store.delete(key);
     }
   }, 60_000);
 }
@@ -50,53 +65,50 @@ export interface RateLimitResult {
 }
 
 /**
- * 檢查請求是否超過速率限制
- *
- * @example
- * const result = checkRateLimit({ maxRequests: 30, windowMs: 60_000, identifier: ip });
- * if (!result.allowed) {
- *   return NextResponse.json({ error: result.message }, { status: 429,
- *     headers: { 'X-RateLimit-Remaining': '0', 'Retry-After': String(Math.ceil((result.resetAt - Date.now()) / 1000)) }
- *   });
- * }
+ * 檢查請求是否超過速率限制。
+ * 當 VERCEL_KV_URL 設定時自動升級為分散式限流。
  */
-export function checkRateLimit(config: RateLimitConfig): RateLimitResult {
+export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimitResult> {
   const key = config.identifier || 'global';
   const now = Date.now();
+
+  // Try Vercel KV first
+  const kv = await getKvClient();
+  if (kv) {
+    try {
+      const raw = await kv.get(key);
+      const entry: RateLimitEntry | null = raw ? JSON.parse(raw) : null;
+      if (!entry || now > entry.resetAt) {
+        const newEntry: RateLimitEntry = { count: 1, resetAt: now + config.windowMs };
+        await kv.set(key, JSON.stringify(newEntry), { ex: Math.ceil(config.windowMs / 1000) });
+        return { allowed: true, remaining: config.maxRequests - 1, resetAt: newEntry.resetAt };
+      }
+      entry.count++;
+      await kv.set(key, JSON.stringify(entry), { ex: Math.ceil((entry.resetAt - now) / 1000) });
+      if (entry.count > config.maxRequests) {
+        return { allowed: false, remaining: 0, resetAt: entry.resetAt,
+          message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒）` };
+      }
+      return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
+    } catch (err) {
+      console.error('[RateLimiter] KV error, falling back to in-memory:', err);
+      // Fall through to in-memory
+    }
+  }
+
+  // In-memory fallback
   const entry = store.get(key);
-
-  // 新窗口或已過期
   if (!entry || now > entry.resetAt) {
-    const newEntry: RateLimitEntry = {
-      count: 1,
-      resetAt: now + config.windowMs,
-    };
+    const newEntry: RateLimitEntry = { count: 1, resetAt: now + config.windowMs };
     store.set(key, newEntry);
-    return {
-      allowed: true,
-      remaining: config.maxRequests - 1,
-      resetAt: newEntry.resetAt,
-    };
+    return { allowed: true, remaining: config.maxRequests - 1, resetAt: newEntry.resetAt };
   }
-
-  // 增加計數
   entry.count++;
-
   if (entry.count > config.maxRequests) {
-    const retryAfterMs = entry.resetAt - now;
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: entry.resetAt,
-      message: `請求過於頻繁。請 ${Math.ceil(retryAfterMs / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒）`,
-    };
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt,
+      message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒）` };
   }
-
-  return {
-    allowed: true,
-    remaining: config.maxRequests - entry.count,
-    resetAt: entry.resetAt,
-  };
+  return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
 }
 
 // ============================================

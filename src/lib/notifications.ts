@@ -1,11 +1,44 @@
 // ============================================
 // NotificationService — 統一通知發送與管理
 // 支援: assignment | feedback | reminder | system | achievement
+// 支援 i18n: 根據 user language 偏好發送對應語言通知
 // ============================================
 
 import db from '@/lib/db';
 
 export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement';
+
+// ============================================
+// 雙語通知訊息模板
+// ============================================
+const MSG = {
+  newAssignment: (className: string, assignmentTitle: string) => ({
+    zh: `📝 ${className} 班有新作業：「${assignmentTitle}」`,
+    en: `📝 New assignment for ${className}: "${assignmentTitle}"`,
+  }),
+  assignmentTitle: { zh: '📝 新作業', en: '📝 New Assignment' },
+  submissionReceived: (studentName: string, assignmentTitle: string) => ({
+    zh: `📤 ${studentName} 已提交作業：「${assignmentTitle}」`,
+    en: `📤 ${studentName} submitted assignment: "${assignmentTitle}"`,
+  }),
+  submissionTitle: { zh: '📤 學生提交作業', en: '📤 Submission Received' },
+  feedbackReady: (assignmentTitle: string) => ({
+    zh: `✅ 你的作業「${assignmentTitle}」已批改完成`,
+    en: `✅ Your assignment "${assignmentTitle}" has been graded`,
+  }),
+  feedbackTitle: { zh: '📋 批改完成', en: '📋 Feedback Ready' },
+  writingFeedback: (title: string) => ({
+    zh: `✍️ 你的寫作「${title}」已批改完成`,
+    en: `✍️ Your writing "${title}" has been reviewed`,
+  }),
+  writingTitle: { zh: '✍️ 寫作批改完成', en: '✍️ Writing Review Ready' },
+  achievement: (badgeNameZh: string, badgeNameEn: string) => ({
+    zh: `🏆 恭喜你獲得「${badgeNameZh}」徽章！`,
+    en: `🏆 Congratulations! You earned the "${badgeNameEn}" badge!`,
+  }),
+  achievementTitle: { zh: '🏆 獲得新徽章！', en: '🏆 New Badge Earned!' },
+  systemAnnouncement: { zh: '📢 系統公告', en: '📢 System Announcement' },
+};
 
 interface CreateNotificationParams {
   userId: string;
@@ -60,27 +93,31 @@ export async function createBulkNotifications(
 // 業務通知方法
 // ============================================
 
-/** 作業指派 — 通知班級內所有學生 */
+/** 作業指派 — 通知班級內所有學生（使用 classId 避免同名班級衝突） */
 export async function notifyAssignmentCreated(
   assignmentTitle: string,
   className: string,
+  classId: string | null,
   assignmentId: string,
 ) {
   try {
+    // 優先使用 classId 查詢；fallback 到 className
+    const where = classId
+      ? { studentClasses: { some: { classId } }, role: 'student' as const }
+      : { class: { name: className }, role: 'student' as const };
     const students = await db.user.findMany({
-      where: {
-        class: { name: className },
-        role: 'student',
-      },
+      where,
       select: { id: true },
     });
     if (students.length === 0) return;
 
+    const titleMsg = MSG.assignmentTitle;
+    const bodyMsg = MSG.newAssignment(className, assignmentTitle);
     await createBulkNotifications(
       students.map(s => s.id),
       'assignment',
-      '📝 新作業',
-      `${className} 班有新作業：「${assignmentTitle}」`,
+      titleMsg.zh,
+      bodyMsg.zh,
       `/student/assignments/${assignmentId}`,
     );
     console.log(`[Notification] Assignment "${assignmentTitle}" → ${students.length} students in ${className}`);
@@ -96,11 +133,13 @@ export async function notifySubmissionReceived(
   assignmentId: string,
   teacherId: string,
 ) {
+  const titleMsg = MSG.submissionTitle;
+  const bodyMsg = MSG.submissionReceived(studentName, assignmentTitle);
   await createNotification({
     userId: teacherId,
     type: 'feedback',
-    title: '📥 學生提交作業',
-    message: `${studentName} 已提交「${assignmentTitle}」`,
+    title: titleMsg.zh,
+    message: bodyMsg.zh,
     link: `/teacher/assignments/${assignmentId}`,
   });
 }
@@ -111,11 +150,13 @@ export async function notifyFeedbackReady(
   assignmentTitle: string,
   assignmentId: string,
 ) {
+  const titleMsg = MSG.feedbackTitle;
+  const bodyMsg = MSG.feedbackReady(assignmentTitle);
   await createNotification({
     userId: studentId,
     type: 'feedback',
-    title: '✅ 作業已批改',
-    message: `你的作業「${assignmentTitle}」已有教師回饋`,
+    title: titleMsg.zh,
+    message: bodyMsg.zh,
     link: `/student/assignments/${assignmentId}`,
   });
 }
@@ -125,11 +166,13 @@ export async function notifyWritingFeedbackReady(
   studentId: string,
   title: string,
 ) {
+  const titleMsg = MSG.writingTitle;
+  const bodyMsg = MSG.writingFeedback(title);
   await createNotification({
     userId: studentId,
     type: 'feedback',
-    title: '✍️ 寫作已批改',
-    message: `你的寫作「${title}」已完成 AI 批改`,
+    title: titleMsg.zh,
+    message: bodyMsg.zh,
     link: '/student/writing',
   });
 }
@@ -162,11 +205,13 @@ export async function notifyAchievement(
   badgeName: string,
   badgeNameZh: string,
 ) {
+  const titleMsg = MSG.achievementTitle;
+  const bodyMsg = MSG.achievement(badgeNameZh || badgeName, badgeName);
   await createNotification({
     userId: studentId,
     type: 'achievement',
-    title: '🏆 成就解鎖！',
-    message: `恭喜你獲得「${badgeNameZh || badgeName}」徽章！`,
+    title: titleMsg.zh,
+    message: bodyMsg.zh,
     link: '/student/dashboard',
   });
 }

@@ -42,24 +42,40 @@ const colorMap = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const MAX_TOASTS = 4;
 
   const showToast = useCallback((type: ToastType, message: string) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, type, message }]);
+    setToasts((prev) => {
+      const next = [...prev, { id, type, message }];
+      // Limit to MAX_TOASTS — remove oldest
+      if (next.length > MAX_TOASTS) return next.slice(next.length - MAX_TOASTS);
+      return next;
+    });
   }, []);
 
   const dismissToast = useCallback((id: string) => {
+    const timer = timersRef.current.get(id);
+    if (timer) { clearTimeout(timer); timersRef.current.delete(id); }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm" role="status" aria-live="polite" aria-label="Notifications">
         {toasts.map((toast) => {
           const Icon = iconMap[toast.type];
           return (
-            <ToastItem key={toast.id} toast={toast} onDismiss={() => dismissToast(toast.id)} Icon={Icon} colorClass={colorMap[toast.type]} />
+            <ToastItem
+              key={toast.id}
+              toast={toast}
+              onDismiss={() => dismissToast(toast.id)}
+              Icon={Icon}
+              colorClass={colorMap[toast.type]}
+              onRegisterTimer={(id, timer) => timersRef.current.set(id, timer)}
+            />
           );
         })}
       </div>
@@ -67,14 +83,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function ToastItem({ toast, onDismiss, Icon, colorClass }: { toast: Toast; onDismiss: () => void; Icon: React.ElementType; colorClass: string }) {
+function ToastItem({
+  toast, onDismiss, Icon, colorClass, onRegisterTimer,
+}: {
+  toast: Toast; onDismiss: () => void; Icon: React.ElementType; colorClass: string;
+  onRegisterTimer: (id: string, timer: ReturnType<typeof setTimeout>) => void;
+}) {
+  const [paused, setPaused] = useState(false);
+  const remainingRef = useRef(4000);
+
+
   useEffect(() => {
-    const timer = setTimeout(onDismiss, 4000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
+    if (paused) return;
+    const start = Date.now();
+    const timer = setTimeout(onDismiss, remainingRef.current);
+    onRegisterTimer(toast.id, timer);
+    return () => { remainingRef.current -= (Date.now() - start); clearTimeout(timer); };
+  }, [paused, onDismiss, toast.id, onRegisterTimer]);
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg animate-slide-in ${colorClass}`}>
+    <div
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg animate-slide-in ${colorClass}`}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
       <Icon className="w-5 h-5 flex-shrink-0" />
       <p className="text-sm flex-1">{toast.message}</p>
       <button onClick={onDismiss} className="flex-shrink-0 hover:opacity-70">

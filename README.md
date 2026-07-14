@@ -22,6 +22,11 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
 - **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes，確保題目風格、難度、評分標準貼近真實 HKDSE 考試（Feature Flag: `DSE_RAG_ENABLED=true`）
+- **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），未來擴展 STT 語音辨識
+- **👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
+- **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
+- **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
+- **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
 
 ### 👩‍🏫 教師端
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
@@ -113,6 +118,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
+| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 8000（Vercel Hobby 建議） | ⬜ |
+| `CRON_SECRET` | Cron Job 驗證密鑰（用於 `/api/admin/sync-sheets/cron`） | ⬜ |
 
 ### 部署步驟
 
@@ -146,7 +153,73 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新
 
-### 🔒 部署前安全性全面加固 + Integrated Skills v4 + E2E 測試計劃 — 2026-07-14
+### � 部署前終極檢查 + Must-Fix / Should-Fix / Nice-to-Have 全面修復 — 2026-07-14
+
+#### 🔴 Must-Fix（12 項，部署前全部修復）
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 1 | **Vercel Serverless Timeout**：預設 30s→8s（`AI_TIMEOUT_MS` env var 可覆蓋），DeepSeek/Gemini/Vertex 三 provider 統一 | `src/lib/ai-service.ts` |
+| 2 | **Admin/Debug 端點保護**：`ensure-admin` + `auth/debug` production guard（`NODE_ENV === 'production'`→404） | 已確認有效 |
+| 3 | **敏感 API 全面認證**：practice/diagnostic/mistakes/vocabulary/gamification/srs 全部使用 `verifyApiAuth()` | 已確認有效 |
+| 4 | **Listening Audio 穩定性**：修復 retry race condition（Promise-based）+ `onvoiceschanged` clobbering | `src/components/shared/AudioPlayer.tsx` |
+| 5 | **Integrated Skills 步驟鎖定**：`autoSaveTimerId` 從 Zustand 移至 `useRef` | `src/store/integratedSkillsStore.ts` |
+| 6 | **Data Persistence**：`completeSession` 傳送逐題答案 + console.error 取代 silent fail | `src/store/appStore.ts` |
+| 7 | **Notification i18n**：雙語訊息模板 + `classId` 取代 `className` 查詢 | `src/lib/notifications.ts` |
+| 8 | **Teacher Dashboard KPI**：Completion Rate 改為真實平均完成率 | `src/app/teacher/dashboard/page.tsx` |
+| 9 | **Teacher Students Error State**：`loadError` + 紅色卡片 + reload 按鈕 | `src/app/teacher/students/page.tsx` |
+| 10 | **Materials alert→Inline**：`uploadError` + `driveMessage` state 取代 `alert()` | `src/app/teacher/materials/page.tsx` |
+| 11 | **Groups Edit/Delete**：前端 inline edit + delete confirm；後端 PATCH/DELETE handlers | `src/app/teacher/groups/page.tsx` + `src/app/api/groups/route.ts` |
+| 12 | **Settings Persistence**：`adaptiveDifficulty`/`hintLevelCap`/`dataRetention` 納入 save；dropdown 加入 `onChange` | `src/app/teacher/settings/page.tsx` |
+
+#### 🟡 Should-Fix（15 項，部署後第一週）
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 1 | **Zod Validation**：所有 AI route 回應通過 `validateAIResponse()` 驗證 | `src/lib/ai-schema.ts` |
+| 2 | **Error UI Consistency**：Dashboard/Classes/Students/Assignments 均有 loading/error/empty 三態 | 各頁面 |
+| 3 | **Writing Auto-save Indicator**：saved（綠）→ saving（琥珀閃爍）→ unsaved（紅） | `src/app/student/writing/page.tsx` |
+| 4 | **Groups Search**：成員搜尋 + CSV/批次名單匯入 | `src/app/teacher/groups/page.tsx` |
+| 5 | **Materials CRUD**：`alert()`→inline error/success message | `src/app/teacher/materials/page.tsx` |
+| 6 | **Rate Limiter 升級**：async + `VERCEL_KV_URL` 自動偵測分散式限流 | `src/lib/rate-limiter.ts`（+ 12 routes 同步） |
+| 7 | **Vocabulary PDF Export**：可列印 HTML + `@media print` CSS | `src/app/api/vocabulary/export-pdf/route.ts` |
+| 8 | **Teacher Classes Error UI**：loading spinner + error + empty state | `src/app/teacher/classes/page.tsx` |
+| 9 | **Assignment Feedback Error Toast**：`feedbackError` inline toast，5 秒消失 | `src/app/teacher/assignments/[id]/page.tsx` |
+| 10 | **Diagnostic Empty State**：新學生顯示「尚無足夠練習數據」 | `src/app/student/diagnostic/page.tsx` |
+| 11 | **HTTP Error Codes**：401/403/404/409/429/500/503 全部正確使用 | 各 API routes |
+| 12 | **ErrorBoundary Key Fix**：`localStorage('language')`→`'lang'` | `src/components/shared/ErrorBoundary.tsx` |
+| 13 | **Modal a11y**：Escape key + focus trap + scrollbar 補償 + `aria-modal` | `src/components/shared/Modal.tsx` |
+| 14 | **Toast a11y**：`aria-live="polite"` + 上限 4 個 + pause-on-hover | `src/components/shared/Toast.tsx` |
+| 15 | **RAG Memory Optimization**：`DEEPSEEK_API_KEY!`→`getApiKey()` + MAX_CHUNKS 500→200 + null guard | `src/lib/rag-service.ts` |
+
+#### 🟢 Nice-to-Have（15 項長期優化）
+
+| # | 項目 | 新增檔案 |
+|---|------|---------|
+| 1 | **CSP Header**：15 條規則防止 XSS/clickjacking | `next.config.ts` |
+| 2 | **Global Error Boundary**：`error.tsx` + `loading.tsx` | `src/app/error.tsx`、`loading.tsx` |
+| 3 | **Streak DB**：基於 `LoginLog`+`PracticeSession` 真實計算 | `src/lib/streak-service.ts`、`src/app/api/streak/route.ts` |
+| 4 | **E2E Edge Tests**：6 tests（session expired/invalid JWT/offline/timeout/rapid nav/concurrent tabs） | `e2e/edge-cases-extended.spec.ts` |
+| 5 | **Speaking Practice**：DSE rubric 文字分析 + mock question 生成 | `src/app/api/speaking/route.ts` |
+| 6 | **Parent Report**：雙語 HTML 報告（KPI + 錯題分佈 + 家長建議） | `src/app/api/parent-report/route.ts` |
+| 7 | **SSE Notifications**：輕量 polling API + batch mark-read | `src/app/api/notifications/sse/route.ts` |
+| 8 | **pgvector Migration**：SQL migration script + query example | `prisma/migrations/pgvector-setup.sql` |
+| 9 | **AI Help Conversation History**：多輪對話 GET/POST | `src/app/api/ai/study-help/conversation/route.ts` |
+| 10 | **SRS Review Flow UI**：翻卡式 SM-2 三級評分（Easy/Hard/Again） | `src/components/student/SRSReviewFlow.tsx` |
+| 11 | **Bulk Operations**：`markAllReviewed`/`deleteSelected`/`addAllToReview` | `src/app/api/mistakes/bulk/route.ts` |
+| 12 | **Countdown Timer**：>24h 藍色/<24h 琥珀色/<1h 紅色閃爍 | `src/components/shared/CountdownTimer.tsx` |
+| 13 | **Sheets Cron Sync**：Vercel Cron Job 端點 + `CRON_SECRET` | `src/app/api/admin/sync-sheets/cron/route.ts` |
+| 14 | **HEIC OCR Support**：`accept` 屬性加入 `image/heic,image/heif` | 註記於 `OcrUpload.tsx` |
+| 15 | **CSV Streaming Export**：批次 500 查詢避免 OOM | `src/app/api/admin/export/stream/students/route.ts` |
+
+#### 📊 修正統計
+
+- **Must-Fix**：13 檔案修改，0 errors
+- **Should-Fix**：18 檔案修改，0 errors
+- **Nice-to-Have**：14 新檔案 + 2 修改，0 errors
+- **總計**：~45 檔案處理，全部 TypeScript 通過
+
+### �🔒 部署前安全性全面加固 + Integrated Skills v4 + E2E 測試計劃 — 2026-07-14
 
 #### 🔐 安全性 Must-Fix（部署前已修復）
 

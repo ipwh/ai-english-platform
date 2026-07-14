@@ -1,7 +1,5 @@
 // ============================================
-// API: GET /api/auth/debug — 診斷端點
-// 回傳當前 session、cookies、DB role（僅供除錯）
-// 部署後請從 Vercel Logs 查看對應輸出
+// API: GET /api/auth/debug — 診斷端點（僅開發環境可用）
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,6 +7,10 @@ import { auth } from '@/lib/auth-next';
 import db from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  // 🔒 Production guard — never expose session data in production
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
   const cookieMap: Record<string, string> = {};
   request.cookies.getAll().forEach(c => {
     cookieMap[c.name] = c.value.substring(0, 12) + '…';

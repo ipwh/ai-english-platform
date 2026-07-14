@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = checkRateLimit({ ...AI_RATE_LIMIT, identifier: `assign:${ip}` });
+    const rl = await checkRateLimit({ ...AI_RATE_LIMIT, identifier: `assign:${ip}` });
     if (!rl.allowed) return NextResponse.json({ error: rl.message }, { status: 429 });
 
     const body = await request.json();
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     // 🔔 發送通知
     if (resolvedTargetType === 'class' && resolvedClassName) {
-      notifyAssignmentCreated(title, resolvedClassName, assignment.id);
+      notifyAssignmentCreated(title, resolvedClassName, classId || null, assignment.id);
     } else if (resolvedTargetType === 'group' && groupIds?.length) {
       // 通知組別內所有學生
       const groupMembers = await db.groupMember.findMany({

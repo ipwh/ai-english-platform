@@ -4,8 +4,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { studentId, questionId, studentAnswer, correctAnswer, mistakeType, aiExplanation } = body;
@@ -33,6 +40,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
@@ -53,6 +66,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { id, reviewed, inReviewList } = body;
@@ -97,6 +116,12 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

@@ -5,9 +5,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 export async function POST(request: NextRequest) {
   try {
+    // 🔒 Rate limiting — prevent brute force (5 attempts per minute per IP)
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
+    const rateLimit = await checkRateLimit({
+      maxRequests: 5,
+      windowMs: 60_000,
+      identifier: `login:${ip}`,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: rateLimit.message || '請求過於頻繁，請稍後重試。' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const { email, password } = body;
 

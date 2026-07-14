@@ -50,6 +50,7 @@ export default function TeacherSettingsPage() {
   const [notifMaintenance, setNotifMaintenance] = useState(false);
   const [adaptiveDifficulty, setAdaptiveDifficulty] = useState('on');
   const [hintLevelCap, setHintLevelCap] = useState('4');
+  const [dataRetention, setDataRetention] = useState('forever');
 
   useEffect(() => {
     fetch('/api/ai/status')
@@ -109,6 +110,9 @@ export default function TeacherSettingsPage() {
           notifLowCompletion,
           notifInactive,
           notifMaintenance,
+          adaptiveDifficulty,
+          hintLevelCap,
+          dataRetention,
         }),
       });
 
@@ -322,10 +326,14 @@ export default function TeacherSettingsPage() {
         <div className="space-y-3 text-sm">
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">{t('teacher.settings.dataRetention')}</span>
-            <select className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-xs outline-none">
-              <option>{t('teacher.settings.retentionForever')}</option>
-              <option>{t('teacher.settings.retention3Years')}</option>
-              <option>{t('teacher.settings.retention1Year')}</option>
+            <select
+              value={dataRetention}
+              onChange={e => setDataRetention(e.target.value)}
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-xs outline-none"
+            >
+              <option value="forever">{t('teacher.settings.retentionForever')}</option>
+              <option value="3years">{t('teacher.settings.retention3Years')}</option>
+              <option value="1year">{t('teacher.settings.retention1Year')}</option>
             </select>
           </div>
           <p className="text-xs text-gray-400">{t('teacher.settings.privacyNote')}</p>

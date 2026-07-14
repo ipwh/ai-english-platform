@@ -1,6 +1,6 @@
 // ============================================
 // POST /api/admin/ensure-admin — 確保管理員帳號存在
-// 一次性使用：在生產環境建立 admin 帳號
+// ⚠️ 僅供開發/初始化使用，生產環境自動禁用
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,6 +12,11 @@ export async function GET() {
 }
 
 export async function POST(_request?: NextRequest) {
+  // 🔒 Production guard — this endpoint must never be accessible in production
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
   try {
     const adminEmail = 'ipwh@pochiu.edu.hk';
     const adminPassword = 'admin123';

@@ -5,8 +5,16 @@
 
 import db from '@/lib/db';
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
+// Fix: safe fallback instead of non-null assertion
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
+
+function getApiKey(): string {
+  if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
+    throw new Error('DEEPSEEK_API_KEY not configured. RAG features unavailable.');
+  }
+  return DEEPSEEK_API_KEY;
+}
 
 // ============================================
 // 一、向量嵌入 (Embedding)
@@ -20,7 +28,7 @@ async function getEmbedding(text: string): Promise<number[]> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      'Authorization': `Bearer ${getApiKey()}`,
     },
     body: JSON.stringify({
       model: 'deepseek-embedding',
@@ -176,8 +184,8 @@ export async function retrieveRelevantChunks(
   // 1. 取得查詢向量
   const queryEmbedding = await getEmbedding(query);
 
-  // 2. 獲取已嵌入的區塊（限制最大數量防止 OOM）
-  const MAX_CHUNKS = 500;
+  // 2. 獲取已嵌入的區塊（限制最大數量防止 OOM；優先取最近建立的）
+  const MAX_CHUNKS = 200; // 降低上限以減輕記憶體壓力
   const chunks = await db.materialChunk.findMany({
     where: { embedding: { not: null } },
     include: { material: { select: { title: true } } },
@@ -189,6 +197,7 @@ export async function retrieveRelevantChunks(
 
   // 3. 計算相似度並排序
   const scored = chunks
+    .filter(chunk => chunk.embedding) // 防止 null embedding
     .map(chunk => ({
       chunk: {
         id: chunk.id,

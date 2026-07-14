@@ -4,11 +4,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/lib/gamification';
 import type { XpEvent } from '@/lib/gamification';
 
 // GET — 取得學生 gamification 狀態
 export async function GET(req: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(req);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get('studentId');
@@ -133,6 +140,12 @@ export async function GET(req: NextRequest) {
 
 // POST — 記錄 XP 事件
 export async function POST(req: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(req);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { studentId, event } = body as {

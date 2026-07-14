@@ -263,8 +263,8 @@ describe('validateAIResponse', () => {
 import { checkRateLimit } from '@/lib/rate-limiter';
 
 describe('checkRateLimit', () => {
-  it('should allow first request', () => {
-    const result = checkRateLimit({
+  it('should allow first request', async () => {
+    const result = await checkRateLimit({
       maxRequests: 5,
       windowMs: 60_000,
       identifier: 'test-first-' + Date.now(),
@@ -273,39 +273,39 @@ describe('checkRateLimit', () => {
     expect(result.remaining).toBe(4);
   });
 
-  it('should allow requests within limit', () => {
+  it('should allow requests within limit', async () => {
     const id = 'test-within-' + Date.now();
     for (let i = 0; i < 5; i++) {
-      const result = checkRateLimit({ maxRequests: 5, windowMs: 60_000, identifier: id });
+      const result = await checkRateLimit({ maxRequests: 5, windowMs: 60_000, identifier: id });
       expect(result.allowed).toBe(true);
     }
   });
 
-  it('should block requests exceeding limit', () => {
+  it('should block requests exceeding limit', async () => {
     const id = 'test-exceed-' + Date.now();
     // Exhaust the limit
     for (let i = 0; i < 5; i++) {
-      checkRateLimit({ maxRequests: 5, windowMs: 60_000, identifier: id });
+      await checkRateLimit({ maxRequests: 5, windowMs: 60_000, identifier: id });
     }
     // 6th request should be blocked
-    const result = checkRateLimit({ maxRequests: 5, windowMs: 60_000, identifier: id });
+    const result = await checkRateLimit({ maxRequests: 5, windowMs: 60_000, identifier: id });
     expect(result.allowed).toBe(false);
     expect(result.remaining).toBe(0);
     expect(result.message).toBeDefined();
     expect(result.message).toContain('請求過於頻繁');
   });
 
-  it('should isolate rate limits per identifier', () => {
+  it('should isolate rate limits per identifier', async () => {
     const idA = 'test-iso-a-' + Date.now();
     const idB = 'test-iso-b-' + Date.now();
 
     // Exhaust A
     for (let i = 0; i < 3; i++) {
-      checkRateLimit({ maxRequests: 3, windowMs: 60_000, identifier: idA });
+      await checkRateLimit({ maxRequests: 3, windowMs: 60_000, identifier: idA });
     }
-    expect(checkRateLimit({ maxRequests: 3, windowMs: 60_000, identifier: idA }).allowed).toBe(false);
+    expect((await checkRateLimit({ maxRequests: 3, windowMs: 60_000, identifier: idA })).allowed).toBe(false);
 
     // B should still work
-    expect(checkRateLimit({ maxRequests: 3, windowMs: 60_000, identifier: idB }).allowed).toBe(true);
+    expect((await checkRateLimit({ maxRequests: 3, windowMs: 60_000, identifier: idB })).allowed).toBe(true);
   });
 });

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Loader2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Loader2, Sparkles, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { formatDate } from '@/lib/utils';
@@ -63,6 +63,7 @@ export default function TeacherAssignmentDetailPage() {
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
   const [savingFeedback, setSavingFeedback] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState<Record<string, string>>({});
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/assignments/${id}?teacher=true`)
@@ -80,13 +81,23 @@ export default function TeacherAssignmentDetailPage() {
 
   const handleTeacherFeedback = async (submissionId: string, feedback: string) => {
     setSavingFeedback(submissionId);
+    setFeedbackError(null);
     try {
-      await fetch(`/api/reviews/${submissionId}`, {
+      const res = await fetch(`/api/reviews/${submissionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherFeedback: feedback }),
       });
-    } catch (e) { console.error('Failed to save teacher feedback:', e); }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: '儲存失敗' }));
+        throw new Error(data.error || '儲存失敗');
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '儲存失敗，請重試';
+      setFeedbackError(msg);
+      setTimeout(() => setFeedbackError(null), 5000);
+      console.error('Failed to save teacher feedback:', e);
+    }
     finally { setSavingFeedback(null); }
   };
 
@@ -114,6 +125,14 @@ export default function TeacherAssignmentDetailPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Feedback error toast */}
+      {feedbackError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3 flex items-center gap-2 animate-in fade-in">
+          <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300">{feedbackError}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600">

@@ -21,9 +21,13 @@ export default function TeacherGroupsPage() {
   const [groups, setGroups] = useState<GroupData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [students, setStudents] = useState<{ id: string; name: string; className: string }[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -101,6 +105,51 @@ export default function TeacherGroupsPage() {
     } catch {
       setError('連線失敗');
     } finally { setCreating(false); }
+  };
+
+  // === Edit group ===
+  const handleEdit = async (groupId: string) => {
+    if (!editName.trim()) return;
+    setError('');
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: groupId, name: editName.trim(), description: editDesc.trim() || null }),
+      });
+      if (res.ok) {
+        setEditingId(null);
+        fetchGroups();
+      } else {
+        const d = await res.json();
+        setError(d.error || '編輯失敗');
+      }
+    } catch {
+      setError('連線失敗');
+    }
+  };
+
+  // === Delete group ===
+  const handleDelete = async (groupId: string) => {
+    if (!confirm('確定要刪除此組別嗎？此操作無法復原。')) return;
+    setDeletingId(groupId);
+    setError('');
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: groupId }),
+      });
+      if (res.ok) {
+        setExpandedId(null);
+        fetchGroups();
+      } else {
+        const d = await res.json();
+        setError(d.error || '刪除失敗');
+      }
+    } catch {
+      setError('連線失敗');
+    } finally { setDeletingId(null); }
   };
 
   if (loading) {
@@ -218,13 +267,61 @@ export default function TeacherGroupsPage() {
                 onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
                 className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-left"
               >
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{g.name}</p>
-                  {g.description && <p className="text-xs text-gray-500 mt-0.5">{g.description}</p>}
+                <div className="flex-1">
+                  {editingId === g.id ? (
+                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                      <input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        placeholder="組別名稱"
+                        className="px-2 py-1 border rounded text-sm flex-1"
+                        autoFocus
+                      />
+                      <input
+                        value={editDesc}
+                        onChange={e => setEditDesc(e.target.value)}
+                        placeholder="描述（可選）"
+                        className="px-2 py-1 border rounded text-sm flex-1"
+                      />
+                      <button onClick={() => handleEdit(g.id)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs">儲存</button>
+                      <button onClick={() => setEditingId(null)} className="px-2 py-1 border rounded text-xs">取消</button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-medium text-gray-900 dark:text-white">{g.name}</p>
+                      {g.description && <p className="text-xs text-gray-500 mt-0.5">{g.description}</p>}
+                    </>
+                  )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400">
+                <div className="flex items-center gap-2 text-xs text-gray-400 ml-2">
                   <span>{g.memberCount} 人</span>
                   <span>{g.assignmentCount} 作業</span>
+                  {editingId !== g.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(g.id);
+                        setEditName(g.name);
+                        setEditDesc(g.description || '');
+                      }}
+                      className="text-blue-500 hover:underline"
+                      title="編輯"
+                    >
+                      編輯
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(g.id);
+                    }}
+                    disabled={deletingId === g.id}
+                    className="text-red-500 hover:underline disabled:opacity-50 flex items-center gap-1"
+                    title="刪除"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {deletingId === g.id ? '刪除中...' : '刪除'}
+                  </button>
                 </div>
               </button>
               {expandedId === g.id && (

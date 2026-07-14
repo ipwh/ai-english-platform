@@ -4,9 +4,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 // GET /api/classes
 export async function GET(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const teacherId = searchParams.get('teacherId');
@@ -25,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ classes });
   } catch (err: unknown) {
     console.error('[Classes GET]', err);
-    return NextResponse.json({ error: 'Failed to load classes', classes: [] }, { status: 200 });
+    return NextResponse.json({ error: 'Failed to load classes', classes: [] }, { status: 500 });
   }
 }
 

@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Users, BarChart3, ChevronRight, BookOpen, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+import { Users, BarChart3, ChevronRight, BookOpen, Sparkles, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import KpiCard from '@/components/shared/KpiCard';
 import { useT } from '@/hooks/use-i18n';
@@ -27,6 +27,7 @@ export default function TeacherDashboardPage() {
 
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -49,7 +50,10 @@ export default function TeacherDashboardPage() {
         });
         setClasses(enriched);
       })
-      .catch(() => setClasses([]))
+      .catch(() => {
+        setClasses([]);
+        setLoadError(t('common.somethingWrong'));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -58,11 +62,15 @@ export default function TeacherDashboardPage() {
   const overallAvgAccuracy = classes.length > 0
     ? Math.round(classes.reduce((sum, c) => sum + (c.avgAccuracy || 0), 0) / classes.length)
     : 0;
+  // 計算真實的平均完成率（從班級數據中獲取）
+  const avgCompletionRate = classes.length > 0
+    ? Math.round(classes.reduce((sum, c) => sum + ((c as any).completionRate || 0), 0) / classes.length)
+    : 0;
   const kpis = [
     { label: t('teacher.classCount'), value: totalStudents, unit: t('generic.people'), trend: 'up' as const, change: 0 },
     { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy || '—', unit: '%', trend: 'stable' as const },
-    { label: t('generic.sessions'), value: classes.length, unit: t('teacher.assignments.title'), trend: 'up' as const },
-    { label: t('teacher.completionRate'), value: `${classes.length || 0}`, unit: t('teacher.assignments.title'), trend: 'stable' as const },
+    { label: t('generic.sessions'), value: classes.reduce((sum, c) => sum + ((c as any).sessionCount || 0), 0), unit: t('teacher.assignments.title'), trend: 'up' as const },
+    { label: t('teacher.completionRate'), value: `${avgCompletionRate || 0}`, unit: '%', trend: 'stable' as const },
   ];
 
   // Class chart data from real classes with accuracy
@@ -105,6 +113,22 @@ export default function TeacherDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Error banner */}
+      {loadError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-red-700 dark:text-red-300">{loadError}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-sm text-red-600 dark:text-red-400 underline hover:no-underline shrink-0"
+          >
+            {t('common.reloadPage')}
+          </button>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.dashboard.title')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">{t('teacher.greeting', { name: displayName })}</p>

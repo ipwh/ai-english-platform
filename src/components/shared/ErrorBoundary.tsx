@@ -20,7 +20,8 @@ interface State {
 function getLang(): string {
   if (typeof window === 'undefined') return 'zh';
   try {
-    const stored = localStorage.getItem('language');
+    // Fix: use 'lang' key (matching appStore/i18n), not 'language'
+    const stored = localStorage.getItem('lang');
     return stored === 'en' ? 'en' : 'zh';
   } catch { return 'zh'; }
 }

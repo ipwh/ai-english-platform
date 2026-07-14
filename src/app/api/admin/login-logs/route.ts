@@ -5,10 +5,34 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifySessionToken } from '@/lib/jwt';
+import { auth } from '@/lib/auth-next';
 
 // POST — 記錄登入（由前端在登入/role-select 後呼叫）
 export async function POST(request: NextRequest) {
   try {
+    // 🔒 Auth check — require at least one valid session
+    const jwtToken =
+      request.cookies.get('session_token')?.value ||
+      request.headers.get('authorization')?.replace('Bearer ', '') ||
+      '';
+    let isAuthenticated = false;
+
+    if (jwtToken) {
+      const payload = await verifySessionToken(jwtToken);
+      if (payload) isAuthenticated = true;
+    }
+
+    if (!isAuthenticated) {
+      try {
+        const session = await auth();
+        if (session?.user?.id) isAuthenticated = true;
+      } catch { /* NextAuth fallback */ }
+    }
+
+    if (!isAuthenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const body = await request.json();
     const { userId, userEmail, userName, role } = body;
 

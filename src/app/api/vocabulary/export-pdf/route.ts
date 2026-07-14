@@ -1,6 +1,9 @@
 // ============================================
 // API: POST /api/vocabulary/export-pdf
-// 匯出生字簿為 PDF（含 QR code 連結到線上發音）
+// 匯出生字簿為可列印 HTML 頁面（可透過瀏覽器「另存為 PDF」）
+// ⚠️ 注意：此端點回傳 HTML 而非真正的 PDF 二進位檔。
+//    前端應以 window.open() 打開或嵌入 iframe 讓使用者列印。
+//    如需真正的 PDF 生成，請使用 /api/export/writing-analysis 的 pdfkit 模式。
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

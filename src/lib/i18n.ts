@@ -137,6 +137,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'writing.yourWriting': { zh: '你的寫作', en: 'Your Writing' },
   'writing.chars': { zh: '字元', en: 'chars' },
   'writing.writePlaceholder': { zh: '請先生成或輸入題目，然後在此寫作...', en: 'Generate or enter a topic first, then write here...' },
+  'writing.saved': { zh: '已自動儲存', en: 'Auto-saved' },
+  'writing.saving': { zh: '儲存中...', en: 'Saving...' },
+  'writing.unsaved': { zh: '尚未儲存', en: 'Unsaved' },
   'writing.aiAnalyze': { zh: '提交 AI 批改', en: 'Submit for AI Analysis' },
   'writing.analyzing': { zh: 'AI 批改中...', en: 'Analyzing...' },
   'writing.writingTips': { zh: '寫作提示', en: 'Writing Tips' },
@@ -1363,6 +1366,7 @@ const translations: Record<string, { zh: string; en: string }> = {
 
   // Diagnostic additional
   'diagnostic.loadFailed': { zh: 'AI 題目生成失敗，請稍後再試。', en: 'AI question generation failed. Please try again.' },
+  'diagnostic.notEnoughData': { zh: '你尚未有足夠的練習數據。請先完成一些日常練習，系統會根據你的表現生成診斷測驗。', en: 'Not enough practice data yet. Complete some daily practice first so the system can analyze your performance.' },
   'diagnostic.connectionFailed': { zh: 'AI 服務連線失敗，請檢查網絡後重試。', en: 'AI service connection failed. Check network.' },
   'diagnostic.profileFailed': { zh: '未能取得學生資料', en: 'Failed to get student profile' },
   'diagnostic.analysisFailed': { zh: '無法取得個人化建議', en: 'Failed to get personalized advice' },

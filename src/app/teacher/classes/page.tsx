@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2, AlertTriangle, GraduationCap } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { gradeLabels } from '@/lib/nav';
 
@@ -13,10 +13,10 @@ export default function TeacherClassesPage() {
   const { t } = useT();
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const loadClasses = () => {
-    setLoading(true); setLoadError(false);
+    setLoading(true); setLoadError('');
     fetch('/api/classes')
       .then(r => r.json())
       .then(d => setClasses((d.classes || []).map((c: any) => ({
@@ -24,7 +24,7 @@ export default function TeacherClassesPage() {
         studentCount: c._count?.students ?? 0,
         assignmentCount: c._count?.assignments ?? 0,
       }))))
-      .catch((e) => { console.error('Failed to load classes:', e); setLoadError(true); })
+      .catch((e) => { console.error('Failed to load classes:', e); setLoadError(t('common.somethingWrong')); })
       .finally(() => setLoading(false));
   };
 
@@ -34,6 +34,34 @@ export default function TeacherClassesPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.classes.title')}</h1>
 
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      )}
+
+      {/* Error */}
+      {!loading && loadError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300 flex-1">{loadError}</p>
+          <button onClick={loadClasses} className="text-sm text-red-600 dark:text-red-400 underline hover:no-underline">
+            {t('common.reloadPage')}
+          </button>
+        </div>
+      )}
+
+      {/* Empty */}
+      {!loading && !loadError && classes.length === 0 && (
+        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+          <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p className="text-sm">{t('teacher.classes.noClasses')}</p>
+        </div>
+      )}
+
+      {/* Class cards */}
+      {!loading && !loadError && classes.length > 0 && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {classes.map((cls) => (
           <Link key={cls.id} href={`/teacher/classes/${cls.id}`}
@@ -60,6 +88,7 @@ export default function TeacherClassesPage() {
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }

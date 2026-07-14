@@ -380,8 +380,12 @@ export default function AudioPlayer({
       });
     };
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
+    const prevOnVoicesChanged = window.speechSynthesis.onvoiceschanged;
+    window.speechSynthesis.onvoiceschanged = () => {
+      if (prevOnVoicesChanged) prevOnVoicesChanged;
+      loadVoices();
+    };
+    return () => { window.speechSynthesis.onvoiceschanged = prevOnVoicesChanged; };
   }, []);
 
   // 清理全域快取中過期項目
@@ -600,7 +604,6 @@ export default function AudioPlayer({
       const controller = new AbortController();
       cloudAbortRef.current = controller;
       const timeoutId = setTimeout(() => controller.abort(), 45000);
-      let shouldRetry = false;
 
       try {
         const res = await fetch('/api/tts', {
@@ -648,21 +651,39 @@ export default function AudioPlayer({
 
         audio.onplay = () => { setLoading(false); setCloudFetching(false); setPlaying(true); startProgress(); };
         audio.onended = () => { setPlaying(false); setProgress(100); onPlayEnd?.(); };
-        audio.onerror = () => {
-          console.error('[TTS] Audio playback error');
-          if (attempt === 1) {
-            TTS_CACHE.delete(cacheKey);
-            URL.revokeObjectURL(url);
-            setCloudFetching(false);
-            shouldRetry = true;
-            return;
-          }
+
+        // Wrap audio playback in a promise to properly catch errors and handle retry
+        const audioPlayResult = await new Promise<'ok' | 'retry' | 'error'>((resolve) => {
+          audio.onerror = () => {
+            console.error('[TTS] Audio playback error');
+            if (attempt === 1) {
+              TTS_CACHE.delete(cacheKey);
+              URL.revokeObjectURL(url);
+              resolve('retry');
+            } else {
+              resolve('error');
+            }
+          };
+          audio.play().then(() => {
+            // Playback started successfully — wait for it to end or error
+            // The onended/onerror handlers above will handle completion
+            resolve('ok');
+          }).catch(() => {
+            if (attempt === 1) resolve('retry');
+            else resolve('error');
+          });
+        });
+
+        if (audioPlayResult === 'retry') {
+          setCloudFetching(false);
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+        if (audioPlayResult === 'error') {
           setPlaying(false); setCloudFetching(false); setLoading(false);
           handlePlayWebSpeech();
-        };
-
-        await audio.play();
-        if (shouldRetry) { await new Promise(r => setTimeout(r, 1000)); continue; }
+          return;
+        }
         return; // success
       } catch (err: unknown) {
         clearTimeout(timeoutId);

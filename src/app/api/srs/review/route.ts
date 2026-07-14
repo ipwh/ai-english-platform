@@ -4,10 +4,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/lib/srs';
 
 // GET — 取得今日待複習的詞彙 + 錯題
 export async function GET(req: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(req);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get('studentId');
@@ -101,6 +108,12 @@ export async function GET(req: NextRequest) {
 
 // POST — 提交複習結果
 export async function POST(req: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(req);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { studentId, results } = body as {
