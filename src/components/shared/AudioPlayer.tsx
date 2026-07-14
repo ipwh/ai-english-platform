@@ -260,9 +260,13 @@ export default function AudioPlayer({
   const [cloudError, setCloudError] = useState('');
   const cloudAudioRef = useRef<HTMLAudioElement | null>(null);
   const cloudAbortRef = useRef<AbortController | null>(null);
-  // 快取：用 ref 記錄當前已快取的 text → url
+  // 快取
   const cachedUrlRef = useRef<string | null>(null);
   const cachedKeyRef = useRef<string>('');
+  // 進度條
+  const [progress, setProgress] = useState(0);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const estimatedDurationRef = useRef(0);
   const [speed, setSpeed] = useState<number>(() => {
     if (typeof window === 'undefined') return DEFAULT_SPEED;
     const saved = localStorage.getItem(SPEED_STORAGE_KEY);
@@ -318,9 +322,35 @@ export default function AudioPlayer({
     setLoading(false);
     setCloudFetching(false);
     setCloudError('');
+    setProgress(0);
+    if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null; }
     cachedKeyRef.current = '';
     cachedUrlRef.current = null;
   }, []);
+
+  // 估算播放時長（字數 / 每秒 2.5 詞 × 語速修正）
+  const estimateDuration = useCallback(() => {
+    const words = (text || '').split(/\s+/).filter(Boolean).length;
+    return Math.max(3, Math.round(words / (2.5 * speed)));
+  }, [text, speed]);
+
+  // 開始進度追蹤
+  const startProgress = useCallback(() => {
+    setProgress(0);
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    const duration = estimateDuration();
+    estimatedDurationRef.current = duration;
+    const stepMs = 200;
+    let elapsed = 0;
+    progressTimerRef.current = setInterval(() => {
+      elapsed += stepMs;
+      const pct = Math.min(100, Math.round((elapsed / (duration * 1000)) * 100));
+      setProgress(pct);
+      if (pct >= 100) {
+        if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      }
+    }, stepMs);
+  }, [estimateDuration]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -552,8 +582,8 @@ export default function AudioPlayer({
       const oldCached = cloudAudioRef.current;
       if (oldCached) { oldCached.pause(); oldCached.src = ''; }
       cloudAudioRef.current = audio;
-      audio.onplay = () => { setPlaying(true); setLoading(false); setCloudFetching(false); };
-      audio.onended = () => { setPlaying(false); onPlayEnd?.(); };
+      audio.onplay = () => { setPlaying(true); setLoading(false); setCloudFetching(false); startProgress(); };
+        audio.onended = () => { setPlaying(false); setProgress(100); onPlayEnd?.(); };
       audio.onerror = () => {
         console.error('[TTS] Cached audio playback error');
         TTS_CACHE.delete(cacheKey);
@@ -616,8 +646,8 @@ export default function AudioPlayer({
         if (oldFetched) { oldFetched.pause(); oldFetched.src = ''; }
         cloudAudioRef.current = audio;
 
-        audio.onplay = () => { setLoading(false); setCloudFetching(false); setPlaying(true); };
-        audio.onended = () => { setPlaying(false); onPlayEnd?.(); };
+        audio.onplay = () => { setLoading(false); setCloudFetching(false); setPlaying(true); startProgress(); };
+        audio.onended = () => { setPlaying(false); setProgress(100); onPlayEnd?.(); };
         audio.onerror = () => {
           console.error('[TTS] Audio playback error');
           if (attempt === 1) {
@@ -837,9 +867,10 @@ export default function AudioPlayer({
   }
 
   return (
-    <div className={`inline-flex items-center gap-1 ${className}`}
+    <div className={`flex flex-col gap-1 ${className}`}
       onMouseEnter={() => { if (useCloudTTS && !isBusy && !paused) prefetchAudio(); }}
     >
+      <div className="inline-flex items-center gap-1">
       {/* 播放 / 暫停 / 繼續 按鈕 */}
       <button
         onClick={
@@ -902,6 +933,16 @@ export default function AudioPlayer({
               {SPEED_LABELS[s]}
             </button>
           ))}
+        </div>
+      )}
+      </div>
+      {/* 進度條 */}
+      {(playing || paused) && (
+        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-full bg-teal-500 rounded-full transition-all duration-200 ease-linear"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       )}
     </div>
