@@ -1275,6 +1275,21 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 請根據以下要求生成英語練習題目，題目必須對齊 HKDSE 各卷別（Reading / Writing / Listening / Speaking）的能力要求。
 請以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
 
+═══════════════════════════════════════
+DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE
+═══════════════════════════════════════
+
+⚠️ CRITICAL: Strictly base your topics on the DSE Empirical Topic Database derived from 2012-2024 real past papers (Paper 1/2/3).
+DO NOT invent new topics not found in real DSE exams. Mimic actual DSE format, language difficulty, and task requirements.
+
+${isListening ? `Listening reference topics (from real DSE Paper 3 past papers):
+${getDSEEmpiricalTopics('listening', undefined, 5).map(t => `  • ${t}`).join('\n')}
+` : ''}${isReading ? `Reading reference topics (from real DSE Paper 1 past papers):
+${getDSEEmpiricalTopics('reading', undefined, 5).map(t => `  • ${t}`).join('\n')}
+` : ''}${!isListening && !isReading ? `Writing reference topics (from real DSE Paper 2 past papers):
+${getDSEEmpiricalTopics('writing', undefined, 3).map(t => `  • ${t}`).join('\n')}
+` : ''}
+
 HKDSE 等級對齊指引：
 - 補底(remedial) → 對應 HKDSE Level 1-2：基礎詞彙、簡單句型、明示信息提取、字面理解
 - 核心(core) → 對應 HKDSE Level 3：中級詞彙、複合句、直接推論、辨識明確觀點
@@ -3030,14 +3045,18 @@ The prompt MUST include ALL of these elements in order:
 
 Text type: ${guide?.name || input.textType}${structureHint}
 Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school life, family, hobbies, personal experiences' : 'senior secondary — social issues, argumentative topics, DSE-level complexity'})
-${input.topicHint ? `Topic area: ${input.topicHint}` : `Pick an engaging, DSE-relevant topic. Rotate among these categories (avoid repeating the last used category):
-- Technology & Society: AI in education, social media impact, digital privacy, e-learning
-- Environment: climate change, plastic waste, renewable energy, urban sustainability
-- Education: exam pressure, school policies, lifelong learning, vocational training
-- Youth Culture: gaming, K-pop, social activism, mental health awareness
-- Hong Kong Local: cultural heritage, food culture, urban development, language preservation
-- Global Issues: globalization, migration, public health, space exploration
-For ${input.gradeLevel}${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? ' (junior), prefer topics related to school life, family, hobbies, personal experiences — avoid complex social/abstract topics' : ' (senior), prefer social issues, argumentative topics, abstract concepts at DSE complexity level'}.`}${weakSkillHint}
+
+═══════════════════════════════════════
+DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE
+═══════════════════════════════════════
+⚠️ CRITICAL: Strictly base the topic on real DSE Paper 2 themes from 2012-2024 past papers.
+Mimic actual DSE format: situation → role → task → specific requirements → word limit.
+DO NOT invent topics not found in real DSE exams.
+
+Real DSE Paper 2 reference topics (use one as inspiration):
+${getDSEEmpiricalTopics('writing', undefined, 5).map(t => `  • ${t}`).join('\n')}
+${input.topicHint ? `\nTopic area: ${input.topicHint}` : ''}
+For ${input.gradeLevel}${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? ' (junior), prefer topics related to school life, family, hobbies, personal experiences — avoid complex social/abstract topics' : ' (senior), prefer social issues, argumentative topics, abstract concepts at DSE complexity level'}.${weakSkillHint}
 
 DSE QUALITY STANDARDS:
 - The prompt must be SPECIFIC and ACTIONABLE — not vague. Students should know exactly what to write.
@@ -3046,7 +3065,7 @@ DSE QUALITY STANDARDS:
 - The task must match the text type's genre conventions (e.g., a speech needs audience awareness; a proposal needs measurable objectives)
 - Use DSE-style phrasing: "Write a letter to...", "You are...", "In your [text type], you should..."
 
-Example of a HIGH-QUALITY DSE prompt:
+Example of a HIGH-QUALITY DSE prompt (from real DSE 2020):
 "You are the chairperson of your school's Environmental Protection Club. Your school has recently conducted a waste audit and found that 40% of campus waste comes from single-use plastics. Write a proposal to the school principal outlining a plan to make the campus plastic-free by the end of the academic year. In your proposal, you should (1) describe at least three concrete measures, (2) explain the expected benefits for the school community, and (3) address one potential challenge and how to overcome it. Write about 400 words."
 
 CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a prompt:". Just the complete, ready-to-use prompt text.`.trim();
@@ -3440,6 +3459,17 @@ export async function generateIntegratedSkills(
 請生成一個完整的 Integrated Skills 任務，模擬 DSE Paper 3 Part B「聽 → 記 → 寫」的真實考試流程。
 
 ═══════════════════════════════════════
+零、DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE
+═══════════════════════════════════════
+
+⚠️ CRITICAL: Strictly base the listening scenario and writing task on the DSE Empirical Topic Database derived from 2012-2024 real DSE Paper 3 past papers.
+Mimic actual DSE Paper 3 Part B format: listening conversation → note-taking → extended writing task.
+DO NOT invent topics not found in real DSE exams.
+
+Real DSE Paper 3 reference topics (use as inspiration for the scenario):
+${getDSEEmpiricalTopics('listening', undefined, 6).map(t => `  • ${t}`).join('\n')}
+
+═══════════════════════════════════════
 一、聆聽材料 (listeningContent) 設計規則
 ═══════════════════════════════════════
 
@@ -3448,7 +3478,7 @@ export async function generateIntegratedSkills(
 3. 內容密度：每 3-4 行必須包含一個可提取的 Content Point
 4. 陷阱設計：${diff.traps}
 5. 自然口語：linking (gonna/wanna)、reduction、hesitation (Um.../Well...)、self-correction
-6. 題材多樣性（v2.0 — 每次使用不同類別）：
+6. 題材多樣性（v2.1 — 每次使用不同類別，必須參考上方 Empirical Topic Database）：
    🏫 校園: 學會招募、小組項目、校隊選拔
    🌍 社會: 社區服務、網絡欺凌、心理健康
    💻 科技: AI 應用、STEM 比賽、線上學習
@@ -3456,7 +3486,7 @@ export async function generateIntegratedSkills(
    🎭 文化: 節日慶祝、海外交流、多元文化
    🇭🇰 香港: 行山計劃、博物館參觀、本地飲食文化
    💼 就業: 兼職面試、暑期實習、大學選科
-7. 必須使用「題材強制多樣化」機制指定的情境，嚴禁重複上一題的主題類別
+7. 必須使用上方 Empirical Topic Database 中的真實主題，嚴禁重複上一題的主題類別
 
 ═══════════════════════════════════════
 二、Note-taking 指引 (noteTakingGuide) — DSE 實戰技巧
