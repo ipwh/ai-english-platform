@@ -450,6 +450,9 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.assignmentNew.taskNamePlaceholder': { zh: '例如：文法練習：條件句', en: 'e.g. Grammar: Conditionals' },
   'teacher.assignmentNew.class': { zh: '班別', en: 'Class' },
   'teacher.assignmentNew.selectClass': { zh: '選擇班別', en: 'Select class' },
+  'teacher.assignmentNew.targetType': { zh: '指派對象', en: 'Target' },
+  'teacher.assignmentNew.selectGroups': { zh: '選擇組別', en: 'Select Groups' },
+  'teacher.assignmentNew.selectStudents': { zh: '選擇學生', en: 'Select Students' },
   'teacher.assignmentNew.dueDate': { zh: '截止日期', en: 'Due Date' },
   'teacher.assignmentNew.practiceSettings': { zh: '📝 練習設定', en: '📝 Practice Settings' },
   'teacher.assignmentNew.grade': { zh: '年級', en: 'Grade' },
@@ -877,6 +880,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   // SidebarLayout & Common UI
   'layout.notifications': { zh: '通知', en: 'Notifications' },
   'layout.noNotifications': { zh: '暫無通知', en: 'No notifications' },
+  'layout.markAllRead': { zh: '全部已讀', en: 'Mark all read' },
   'layout.languageZh': { zh: '中', en: 'ZH' },
   'layout.languageEn': { zh: 'EN', en: 'EN' },
   'layout.sidebarTitle': { zh: 'AI English Platform', en: 'AI English Platform' },

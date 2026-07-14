@@ -202,6 +202,23 @@ export default function SidebarLayout({
     initSession();
   }, [initSession]);
 
+  // 🔔 定時拉取通知（每 30 秒 + 初次掛載）
+  useEffect(() => {
+    const fetchNotifications = () => {
+      fetch('/api/notifications')
+        .then(r => r.json())
+        .then(data => {
+          if (data.notifications) {
+            store.setNotifications(data.notifications, data.unreadCount);
+          }
+        })
+        .catch(() => { /* 靜默失敗 — 通知非關鍵功能 */ });
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30_000);
+    return () => clearInterval(interval);
+  }, [store]);
+
   // 切換路由時自動關閉 mobile 側欄
   useEffect(() => {
     setMobileOpen(false);
@@ -428,10 +445,28 @@ export default function SidebarLayout({
                 </button>
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
-                    <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+                    <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         {t('layout.notifications')}
                       </p>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={async () => {
+                            await fetch('/api/notifications', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ markAllRead: true }),
+                            });
+                            store.setNotifications(
+                              store.notifications.map(n => ({ ...n, read: true })),
+                              0,
+                            );
+                          }}
+                          className="text-xs text-blue-500 hover:underline"
+                        >
+                          {t('layout.markAllRead')}
+                        </button>
+                      )}
                     </div>
                     {notifications.length === 0 ? (
                       <p className="p-4 text-sm text-gray-500 text-center">
@@ -441,9 +476,27 @@ export default function SidebarLayout({
                       notifications.slice(0, 5).map(n => (
                         <div
                           key={n.id}
-                          className="p-3 border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          onClick={async () => {
+                            if (!n.read) {
+                              await fetch('/api/notifications', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ notificationId: n.id }),
+                              });
+                              store.setNotifications(
+                                store.notifications.map(item =>
+                                  item.id === n.id ? { ...item, read: true } : item
+                                ),
+                                Math.max(0, store.unreadCount - 1),
+                              );
+                            }
+                            if (n.link) router.push(n.link);
+                            setShowNotifications(false);
+                          }}
+                          className={`p-3 border-b border-gray-50 dark:border-gray-700 cursor-pointer transition-colors ${n.read ? 'opacity-60' : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
                         >
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {!n.read && <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1.5" />}
                             {n.title}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">

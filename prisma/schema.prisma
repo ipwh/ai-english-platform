@@ -46,6 +46,12 @@ model User {
   department    String?   // 所屬部門
   taughtClasses TeacherClass[]
 
+  // === 多班級關聯（混合上課支援）===
+  studentClasses StudentClass[]
+  groupMemberships GroupMember[]
+  createdGroups   Group[]
+  targetAssignments AssignmentStudent[]
+
   // === 關聯 ===
   assignments   Assignment[]
   mistakes      Mistake[]
@@ -80,6 +86,7 @@ model Class {
   students      User[]
   teachers      TeacherClass[]
   assignments   Assignment[]
+  studentClasses StudentClass[]
 }
 
 // 教師 ↔ 班級 (多對多)
@@ -94,6 +101,42 @@ model TeacherClass {
   @@unique([teacherId, classId])
 }
 
+// 學生 ↔ 班級 (多對多 — 混合上課)
+model StudentClass {
+  id        String   @id @default(cuid())
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([studentId, classId])
+}
+
+// 自訂組別（教師可建立跨班級組別，如「補底組」、「拔尖組」）
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdBy   String   // teacherId
+  teacher     User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+
+  members     GroupMember[]
+  assignments AssignmentGroup[]
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([groupId, studentId])
+}
+
 // ============================================
 // 三、學習任務 (Assignment)
 // ============================================
@@ -102,7 +145,9 @@ model Assignment {
   id              String    @id @default(cuid())
   title           String
   description     String?
-  className       String
+  className       String?
+  classId         String?
+  targetType      String    @default("class") // class | group | students
   gradeLevel      String
   strand          String    // CurriculumStrand
   grammarItem     String?
@@ -114,12 +159,36 @@ model Assignment {
   completionRate  Float     @default(0)
   createdBy       String    // teacherId
   teacher         User      @relation(fields: [createdBy], references: [id])
-  class           Class     @relation(fields: [className], references: [name])
+  class           Class?    @relation(fields: [classId], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   questions       AssignmentQuestion[]
   submissions     Submission[]
+
+  // 組別與個別學生指派
+  targetGroups    AssignmentGroup[]
+  targetStudents  AssignmentStudent[]
+}
+
+model AssignmentGroup {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  groupId      String
+  group        Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, groupId])
+}
+
+model AssignmentStudent {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
 }
 
 model AssignmentQuestion {

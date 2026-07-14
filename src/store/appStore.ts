@@ -44,6 +44,7 @@ interface AppState {
   // 通知
   notifications: Notification[];
   unreadCount: number;
+  setNotifications: (notifications: Notification[], unreadCount: number) => void;
 
   // === 練習進度追蹤 ===
   practiceSessions: PracticeSession[];
@@ -83,6 +84,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
   notifications: [],
   unreadCount: 0,
+  setNotifications: (notifications, unreadCount) => set({ notifications, unreadCount }),
   practiceSessions: [],
   currentSession: null,
 

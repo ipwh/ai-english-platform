@@ -19,6 +19,7 @@ export default function NewAssignmentPage() {
   const [form, setForm] = useState({
     title: '',
     classId: '',
+    targetType: 'class' as 'class' | 'group' | 'students',
     gradeLevel: 'S4' as string,
     skill: 'tenses' as string,
     difficulty: 'core' as string,
@@ -33,6 +34,10 @@ export default function NewAssignmentPage() {
   const [genError, setGenError] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState<{ prompt: string; choices?: string[]; answer: string }[]>([]);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
+  const [groups, setGroups] = useState<{ id: string; name: string; memberCount: number }[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [students, setStudents] = useState<{ id: string; name: string; className: string }[]>([]);
   const [teacherId, setTeacherId] = useState('');
 
   useEffect(() => {
@@ -46,6 +51,19 @@ export default function NewAssignmentPage() {
       })
       .catch((e) => { console.error('Failed to load data:', e); });
   }, []);
+
+  // 當 targetType 變更時載入對應選項
+  useEffect(() => {
+    if (form.targetType === 'group') {
+      fetch('/api/groups').then(r => r.json()).then(d => setGroups(d.groups || [])).catch(() => {});
+    } else if (form.targetType === 'students') {
+      fetch('/api/teacher/students').then(r => r.json()).then(d =>
+        setStudents((d.students || []).map((s: any) => ({
+          id: s.id, name: s.nameZh || s.name || s.email, className: s.className || '',
+        })))
+      ).catch(() => {});
+    }
+  }, [form.targetType]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -85,13 +103,17 @@ export default function NewAssignmentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title || `${skillLabels[form.skill] || form.skill} — ${form.gradeLevel}`,
-          className: form.classId || classes[0]?.name || '',
+          className: form.targetType === 'class' ? (form.classId || classes[0]?.name || '') : '',
+          classId: form.targetType === 'class' ? (form.classId || classes[0]?.id || '') : undefined,
+          targetType: form.targetType,
           gradeLevel: form.gradeLevel,
           strand: 'knowledge',
           grammarItem: form.skill,
           difficulty: form.difficulty,
           questionCount: generatedQuestions.length,
           createdBy: teacherId || 'teacher',
+          groupIds: form.targetType === 'group' ? selectedGroupIds : undefined,
+          studentIds: form.targetType === 'students' ? selectedStudentIds : undefined,
           questions: generatedQuestions.map((q, i) => ({
             questionType: form.questionType,
             prompt: q.prompt,
@@ -132,10 +154,11 @@ export default function NewAssignmentPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.class')}</label>
-                <select value={form.classId} onChange={(e) => setForm({...form, classId: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" required>
-                  <option value="">{t('teacher.assignmentNew.selectClass')}</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.targetType')}</label>
+                <select value={form.targetType} onChange={(e) => setForm({...form, targetType: e.target.value as typeof form.targetType})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
+                  <option value="class">📚 班級</option>
+                  <option value="group">👥 組別</option>
+                  <option value="students">👤 個別學生</option>
                 </select>
               </div>
               <div>
@@ -143,6 +166,73 @@ export default function NewAssignmentPage() {
                 <input type="date" value={form.dueDate} onChange={(e) => setForm({...form, dueDate: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" required />
               </div>
             </div>
+
+            {/* 班級選擇 */}
+            {form.targetType === 'class' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.class')}</label>
+                <select value={form.classId} onChange={(e) => setForm({...form, classId: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" required>
+                  <option value="">{t('teacher.assignmentNew.selectClass')}</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* 組別選擇 */}
+            {form.targetType === 'group' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.selectGroups')}</label>
+                {groups.length === 0 ? (
+                  <p className="text-xs text-gray-400">暫無組別，請先在「組別管理」中建立。</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {groups.map(g => (
+                      <label key={g.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedGroupIds.includes(g.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedGroupIds([...selectedGroupIds, g.id]);
+                            else setSelectedGroupIds(selectedGroupIds.filter(id => id !== g.id));
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{g.name}</span>
+                        <span className="text-xs text-gray-400">({g.memberCount} 人)</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 個別學生選擇 */}
+            {form.targetType === 'students' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.selectStudents')}</label>
+                {students.length === 0 ? (
+                  <p className="text-xs text-gray-400">載入中...</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {students.map(s => (
+                      <label key={s.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.includes(s.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedStudentIds([...selectedStudentIds, s.id]);
+                            else setSelectedStudentIds(selectedStudentIds.filter(id => id !== s.id));
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{s.name}</span>
+                        <span className="text-xs text-gray-400">{s.className}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

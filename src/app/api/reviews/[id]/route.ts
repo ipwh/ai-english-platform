@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
+import { notifyFeedbackReady } from '@/lib/notifications';
 
 export async function PATCH(
   request: NextRequest,
@@ -87,6 +88,15 @@ export async function PATCH(
             studentAnswer,
           },
         });
+
+        // 🔔 通知學生：教師已批改
+        if (body.status === 'reviewed' || body.teacherFeedback) {
+          notifyFeedbackReady(
+            submission.studentId,
+            submission.assignment?.title || '作業',
+            submission.assignment?.title ? '' : '',
+          );
+        }
       }
     }
 

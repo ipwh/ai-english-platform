@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifySessionToken } from '@/lib/jwt';
 import { analyzeAnswer } from '@/lib/ai-service';
+import { notifySubmissionReceived } from '@/lib/notifications';
 
 // GET /api/assignments/[id]
 // ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）
@@ -230,6 +231,14 @@ export async function POST(
             submittedAt: new Date(),
           },
         });
+
+    // 🔔 通知教師：學生已提交作業
+    const student = await db.user.findUnique({
+      where: { id: payload.userId },
+      select: { name: true, nameZh: true },
+    });
+    const studentDisplayName = student?.nameZh || student?.name || payload.userId;
+    notifySubmissionReceived(studentDisplayName, assignment.title, id, assignment.createdBy);
 
     return NextResponse.json({
       submission: {
