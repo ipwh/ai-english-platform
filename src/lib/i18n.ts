@@ -112,6 +112,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'student.dashboard.practice': { zh: '練習', en: 'Practice' },
   'student.dashboard.aiInsight': { zh: 'AI 學習洞察', en: 'AI Learning Insights' },
   'student.dashboard.aiAnalysis': { zh: 'AI 分析', en: 'AI Analysis' },
+  'student.dashboard.aiError': { zh: 'AI 分析暫時無法使用，請稍後再試。', en: 'AI analysis is temporarily unavailable. Please try again later.' },
 
   // Writing Page
   'writing.title': { zh: '✍️ 寫作支援', en: '✍️ Writing Support' },
@@ -256,6 +257,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   // Student Mistakes
   'mistakes.title': { zh: '📝 我的錯題', en: '📝 My Mistakes' },
   'mistakes.reviewList': { zh: '溫習清單', en: 'Review List' },
+  'mistakes.reviewListBadge': { zh: '溫習清單', en: 'Review List' },
   'mistakes.search': { zh: '搜尋錯題...', en: 'Search mistakes...' },
   'mistakes.type': { zh: '錯題類型', en: 'Type' },
   'mistakes.addToReview': { zh: '加入溫習', en: 'Add to review' },
@@ -384,6 +386,8 @@ const translations: Record<string, { zh: string; en: string }> = {
 
   // SRS / Spaced Repetition
   'srs.dailyReview': { zh: '📅 每日複習', en: '📅 Daily Review' },
+  'srs.reviewMode': { zh: '溫習模式', en: 'Review Mode' },
+  'srs.showAll': { zh: '顯示全部', en: 'Show All' },
   'srs.dueCards': { zh: '{n} 張待複習', en: '{n} cards due' },
   'srs.startReview': { zh: '開始複習', en: 'Start Review' },
   'srs.markEasy': { zh: '簡單', en: 'Easy' },
@@ -660,6 +664,8 @@ const translations: Record<string, { zh: string; en: string }> = {
   'mistakes.redo': { zh: '重做', en: 'Redo' },
   'mistakes.reExplain': { zh: '重新解說', en: 'Re-explain' },
   'mistakes.aiExplainBtn': { zh: 'AI 解說', en: 'AI Explain' },
+  'mistakes.aiExplainError': { zh: 'AI 解說暫時無法使用，請稍後再試。', en: 'AI explanation is temporarily unavailable. Please try again later.' },
+  'mistakes.aiErrorTitle': { zh: 'AI 錯誤分析', en: 'AI Error Analysis' },
   'mistakes.analyzing': { zh: '分析中...', en: 'Analyzing...' },
   'mistakes.markReviewed': { zh: '標記已溫習', en: 'Mark Reviewed' },
   'mistakes.reviewedLabel': { zh: '已溫習', en: 'Reviewed' },
@@ -1081,6 +1087,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'progress.emptyBar': { zh: '完成練習後將顯示技能對比圖', en: 'Complete practice to see skill comparison' },
   'progress.aiAnalysis': { zh: '🤖 AI 個人化分析', en: '🤖 AI Analysis' },
   'progress.generateAnalysis': { zh: '生成 AI 分析報告', en: 'Generate AI Analysis' },
+  'progress.aiError': { zh: 'AI 分析暫時無法使用，請稍後再試。', en: 'AI analysis is temporarily unavailable. Please try again later.' },
   'progress.analyzing': { zh: 'AI 分析中...', en: 'Analyzing...' },
   'progress.urgentAreas': { zh: '🔴 急需改善', en: '🔴 Urgent Areas' },
   'progress.studyPlan': { zh: '📋 學習計劃', en: '📋 Study Plan' },

@@ -19,10 +19,12 @@ interface GamificationData {
 }
 
 export default function StudentDashboardPage() {
-  const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory, language } = useAppStore();
+  const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory, language, userId } = useAppStore();
   const { t } = useT();
   const displayName = userDisplayName || t('common.studentFallback');
   const [aiInsight, setAiInsight] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [studentLevel, setStudentLevel] = useState('S4');
   const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
   const [gamification, setGamification] = useState<GamificationData | null>(null);
@@ -193,25 +195,41 @@ export default function StudentDashboardPage() {
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-3">{t('student.dashboard.aiInsight')}</h2>
+        {aiError && <p className="text-xs text-red-500 mb-2">{aiError}</p>}
         <button
           onClick={async () => {
-            const res = await fetch('/api/ai/analyze-progress', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                studentLevel: studentLevel,
-                overallAccuracy: weeklyStats.accuracy || 0,
-                weakSkills: getMasteryBySkill().filter(m => m.accuracy < 60),
-                recentPerformance,
-                streakDays: weeklyStats.streakDays || 0,
-              }),
-            });
-            const json = await res.json();
-            if (res.ok && json.analysis) setAiInsight(json.analysis);
+            setAiLoading(true);
+            setAiError('');
+            try {
+              const res = await fetch('/api/ai/analyze-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  studentId: userId || undefined,
+                  studentLevel: studentLevel,
+                  overallAccuracy: weeklyStats.accuracy || 0,
+                  weakSkills: getMasteryBySkill().filter(m => m.accuracy < 60),
+                  recentPerformance,
+                  streakDays: weeklyStats.streakDays || 0,
+                }),
+              });
+              const json = await res.json();
+              if (res.ok && json.analysis) {
+                setAiInsight(json.analysis);
+              } else {
+                setAiError(json.error || t('student.dashboard.aiError'));
+              }
+            } catch {
+              setAiError(t('student.dashboard.aiError'));
+            } finally {
+              setAiLoading(false);
+            }
           }}
-          className="px-3 py-1.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 rounded-lg"
+          disabled={aiLoading}
+          className="px-3 py-1.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 rounded-lg disabled:opacity-50 flex items-center gap-1"
         >
-          <Sparkles className="w-3 h-3 inline mr-1" /> {t('student.dashboard.aiAnalysis')}
+          {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+          {aiLoading ? t('progress.analyzing') : t('student.dashboard.aiAnalysis')}
         </button>
         {aiInsight && <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">{aiInsight.summary}</p>}
       </div>

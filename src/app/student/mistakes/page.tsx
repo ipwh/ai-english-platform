@@ -30,6 +30,7 @@ export default function MistakesPage() {
   const [skillFilter, setSkillFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<MistakeType | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [reviewOnly, setReviewOnly] = useState(false);
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState<string>('');
@@ -75,6 +76,7 @@ export default function MistakesPage() {
 
   // === AI 解說狀態 ===
   const [explainingId, setExplainingId] = useState<string | null>(null);
+  const [explainError, setExplainError] = useState<Record<string, string>>({});
   const [explanations, setExplanations] = useState<Record<string, {
     reasonZh: string;
     ruleExplanation: string;
@@ -85,6 +87,7 @@ export default function MistakesPage() {
 
   const handleAIExplain = async (m: MistakeItem) => {
     setExplainingId(m.id);
+    setExplainError(prev => ({ ...prev, [m.id]: '' }));
     try {
       const res = await fetch('/api/ai/explain-mistake', {
         method: 'POST',
@@ -99,8 +102,13 @@ export default function MistakesPage() {
       const json = await res.json();
       if (res.ok && json.explanation) {
         setExplanations(prev => ({ ...prev, [m.id]: json.explanation }));
+      } else {
+        setExplainError(prev => ({ ...prev, [m.id]: json.error || t('mistakes.aiExplainError') }));
       }
-    } catch (e) { console.error('Failed to fetch AI explanation:', e); }
+    } catch (e) {
+      console.error('Failed to fetch AI explanation:', e);
+      setExplainError(prev => ({ ...prev, [m.id]: t('mistakes.aiExplainError') }));
+    }
     finally { setExplainingId(null); }
   };
 
@@ -151,6 +159,7 @@ export default function MistakesPage() {
   };
 
   const filtered = mistakes.filter((m) => {
+    if (reviewOnly && !m.inReviewList) return false;
     if (skillFilter !== 'all' && m.grammarItem !== skillFilter && m.languageSkill !== skillFilter) return false;
     if (typeFilter !== 'all' && m.mistakeType !== typeFilter) return false;
     if (search && !m.questionSummary.includes(search)) return false;
@@ -173,10 +182,14 @@ export default function MistakesPage() {
           </div>
           <button
             onClick={() => {
-              // Filter to show only review-list items
+              setReviewOnly(true);
               setSkillFilter('all');
               setTypeFilter('all');
               setSearch('');
+              setTimeout(() => {
+                const listEl = document.getElementById('mistakes-list');
+                if (listEl) listEl.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
             }}
             className="px-3 py-1.5 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
           >
@@ -199,6 +212,19 @@ export default function MistakesPage() {
           </div>
         ))}
       </div>
+
+      {/* 🧠 溫習模式提示 */}
+      {reviewOnly && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Brain className="w-4 h-4 text-amber-600" />
+            <span className="text-sm text-amber-700 dark:text-amber-300">{t('srs.reviewMode')} — {filtered.length} {t('common.question')}</span>
+          </div>
+          <button onClick={() => setReviewOnly(false)} className="text-xs text-amber-600 dark:text-amber-400 underline">
+            {t('srs.showAll')}
+          </button>
+        </div>
+      )}
 
       {/* 篩選列 */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -303,6 +329,7 @@ export default function MistakesPage() {
                   {explainingId === m.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   {explainingId === m.id ? t('mistakes.analyzing') : (explanations[m.id] ? t('mistakes.reExplain') : t('mistakes.aiExplainBtn'))}
                 </button>
+                {explainError[m.id] && <p className="text-xs text-red-500 mt-1">{explainError[m.id]}</p>}
                 <button onClick={() => toggleReviewList(m.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   <BookMarked className="w-3 h-3" /> {m.inReviewList ? t('mistakes.removeFromReview') : t('mistakes.addToReview')}
                 </button>
