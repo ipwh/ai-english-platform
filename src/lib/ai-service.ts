@@ -1689,7 +1689,10 @@ Level 1: 理解簡短簡單口語文本中的簡單可預測事實信息；辨�
 8. 相關文法點（relatedGrammarPoint: string，可選）
 
 HKDSE 對齊規則（務必執行）：
-- 若題型是 mc / fill-blank / error-correction（偏 Reading/Listening/Language use）：
+- 若題型是 mc：
+  - 選擇題只有對與錯，score 必須是 100（正確）或 0（錯誤），絕不允許任何中間分數。
+  - isCorrect 為 true 時 score 必須 = 100；isCorrect 為 false 時 score 必須 = 0。
+- 若題型是 fill-blank / error-correction（偏 Reading/Listening/Language use）：
   - 以「理解準確度、語境判斷、語言知識運用」評分。
   - 完全正確才可 85 分以上；部分理解但關鍵資訊錯誤不得高於 60。
 - 若題型是 short-writing（偏 Writing）：
@@ -1728,6 +1731,12 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
   const analysis = parseAIJSON<AnswerAnalysis>(result);
   const validated = validateAIResponse(AnswerAnalysisSchema, analysis);
   if (!validated.success) throw new Error(validated.error);
+
+  // MC 題強制二元分數：只有 100（正確）或 0（錯誤），AI 不可給予中間分數
+  if (input.questionType === 'mc') {
+    validated.data.score = validated.data.isCorrect ? 100 : 0;
+  }
+
   return validated.data;
 }
 
