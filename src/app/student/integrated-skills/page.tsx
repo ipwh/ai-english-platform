@@ -65,6 +65,7 @@ export default function IntegratedSkillsPage() {
   const [studentNotes, setStudentNotes] = useState('');
   const [studentWriting, setStudentWriting] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
+  const [showNotesWarning, setShowNotesWarning] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [analysis, setAnalysis] = useState<IntegratedSkillsAnalysis | null>(null);
@@ -130,6 +131,12 @@ export default function IntegratedSkillsPage() {
 
   const handleSubmit = async () => {
     if (!studentWriting.trim() || !task) return;
+    // 驗證：筆記不可空白
+    if (!studentNotes.trim()) {
+      setShowNotesWarning(true);
+      return;
+    }
+    setShowNotesWarning(false);
     setAiLoading(true); setError('');
     try {
       const res = await fetch('/api/ai/analyze-integrated-skills', {
@@ -221,6 +228,7 @@ export default function IntegratedSkillsPage() {
             <textarea value={studentWriting} onChange={e => setStudentWriting(e.target.value)} placeholder="根據你的筆記和寫作任務，在此撰寫你的答案..." className="w-full min-h-[350px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
             <div className="flex items-center justify-between mt-2"><span className={`text-xs ${task.wordLimit && wordCount > task.wordLimit ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{wordCount} 詞 {task.wordLimit ? `/ ${task.wordLimit} (建議)` : ''}{task.wordLimit && wordCount > task.wordLimit && ' ⚠️ 超出建議字數'}</span><button onClick={saveDraft} className="text-xs text-teal-600 hover:underline flex items-center gap-1"><Save className="w-3 h-3" />儲存草稿</button></div>
           </div>
+          {showNotesWarning && (<div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg text-sm text-amber-700 flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><span>請先在聆聽階段完成筆記再提交。良好的筆記是寫作的基礎。</span></div>)}
           {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 text-sm rounded-lg">{error}</div>}
           <button onClick={handleSubmit} disabled={aiLoading || !studentWriting.trim()} className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">{aiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}{aiLoading ? 'AI 批改中...' : '提交 AI 批改'}</button>
         </div>

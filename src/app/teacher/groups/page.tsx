@@ -3,8 +3,8 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Users, Loader2, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Users, Loader2, Sparkles, Upload, FileText } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
 interface GroupData {
@@ -28,6 +28,9 @@ export default function TeacherGroupsPage() {
   const [students, setStudents] = useState<{ id: string; name: string; className: string }[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [showBatchImport, setShowBatchImport] = useState(false);
+  const [batchText, setBatchText] = useState('');
+  const batchFileRef = useRef<HTMLInputElement>(null);
 
   const fetchGroups = () => {
     fetch('/api/groups')
@@ -38,6 +41,38 @@ export default function TeacherGroupsPage() {
   };
 
   useEffect(() => { fetchGroups(); }, []);
+
+  // === 批量加入：透過 CSV 或貼上名單 ===
+  const handleBatchImport = () => {
+    const lines = batchText.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
+    const toAdd: string[] = [];
+    for (const line of lines) {
+      const s = students.find(s =>
+        s.id === line || s.name === line || s.name.toLowerCase().includes(line.toLowerCase())
+      );
+      if (s && !selectedStudents.includes(s.id)) toAdd.push(s.id);
+    }
+    if (toAdd.length > 0) {
+      setSelectedStudents([...selectedStudents, ...toAdd]);
+      setBatchText('');
+      setShowBatchImport(false);
+    } else {
+      setError('找不到匹配的學生。請使用學生姓名或電郵。');
+    }
+  };
+
+  const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setBatchText(text);
+      setShowBatchImport(true);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -113,7 +148,29 @@ export default function TeacherGroupsPage() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
           />
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">選擇學生（可選，稍後可再添加）</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-gray-500">選擇學生（可選，稍後可再添加）</p>
+              <div className="flex gap-2">
+                <input ref={batchFileRef} type="file" accept=".csv,.txt" onChange={handleCsvFile} className="hidden" />
+                <button onClick={() => batchFileRef.current?.click()} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
+                  <FileText className="w-3 h-3" /> CSV
+                </button>
+                <button onClick={() => setShowBatchImport(true)} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
+                  <Upload className="w-3 h-3" /> 貼上
+                </button>
+              </div>
+            </div>
+            {showBatchImport && (
+              <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
+                <p className="text-xs text-blue-600">貼上學生姓名/電郵（每行一個，或逗號/分號分隔）</p>
+                <textarea value={batchText} onChange={e => setBatchText(e.target.value)}
+                  rows={3} className="w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-gray-700" placeholder="陳大文, 李小明, mary@school.edu.hk" />
+                <div className="flex gap-2">
+                  <button onClick={handleBatchImport} className="px-3 py-1 text-xs bg-blue-500 text-white rounded-lg">加入</button>
+                  <button onClick={() => setShowBatchImport(false)} className="px-3 py-1 text-xs border rounded-lg">取消</button>
+                </div>
+              </div>
+            )}
             <div className="max-h-48 overflow-y-auto space-y-1">
               {students.map(s => (
                 <label key={s.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">

@@ -202,7 +202,7 @@ export default function SidebarLayout({
     initSession();
   }, [initSession]);
 
-  // 🔔 定時拉取通知（每 30 秒 + 初次掛載）
+  // 🔔 智慧輪詢：有未讀通知時 15s，否則 60s
   useEffect(() => {
     const fetchNotifications = () => {
       fetch('/api/notifications')
@@ -212,12 +212,14 @@ export default function SidebarLayout({
             store.setNotifications(data.notifications, data.unreadCount);
           }
         })
-        .catch(() => { /* 靜默失敗 — 通知非關鍵功能 */ });
+        .catch(() => { /* 靜默失敗 */ });
     };
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60_000);
+
+    const intervalMs = unreadCount > 0 ? 15_000 : 60_000;
+    const interval = setInterval(fetchNotifications, intervalMs);
     return () => clearInterval(interval);
-  }, [store]);
+  }, [store, unreadCount]);
 
   // 切換路由時自動關閉 mobile 側欄
   useEffect(() => {
