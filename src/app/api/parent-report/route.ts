@@ -5,11 +5,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import auth0 from '@/lib/api-auth';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   // Auth check: only teachers/admins can generate parent reports
-  const authResult = await auth0.verifyApiAuth(request, ['teacher', 'admin']);
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }

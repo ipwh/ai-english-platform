@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, createContext, useContext, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback, useRef, type ReactNode } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';

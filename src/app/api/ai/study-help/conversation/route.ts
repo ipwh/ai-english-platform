@@ -5,37 +5,15 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
 import { verifyApiAuth } from '@/lib/api-auth';
 import { answerStudyHelp } from '@/lib/ai-service';
+import type { StudyHelpInput } from '@/lib/ai-service';
 
-// GET — Retrieve conversation history
-export async function GET(request: NextRequest) {
-  const authResult = await verifyApiAuth(request);
-  if (!authResult.authenticated) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const studentId = searchParams.get('studentId') || authResult.userId;
-
-  try {
-    // Use a simple JSON field on User or a dedicated table
-    // For now, store in localStorage-compatible format via API
-    const conversations = await db.$queryRawUnsafe<{ id: string; messages: string }[]>(
-      `SELECT id, messages FROM "Conversation" WHERE "userId" = $1 ORDER BY "updatedAt" DESC LIMIT 1`,
-      studentId
-    ).catch(() => []);
-
-    return NextResponse.json({
-      conversations: conversations.map(c => ({
-        id: c.id,
-        messages: JSON.parse(c.messages || '[]'),
-      })),
-    });
-  } catch {
-    return NextResponse.json({ conversations: [] });
-  }
+// GET — Retrieve conversation history (client-side managed via localStorage)
+export async function GET(_request: NextRequest) {
+  // Conversation history is managed client-side via localStorage.
+  // Server provides this endpoint for future DB-backed conversation storage.
+  return NextResponse.json({ conversations: [] });
 }
 
 // POST — Send message & get AI response with conversation context
@@ -64,14 +42,21 @@ export async function POST(request: NextRequest) {
       content: m.content,
     }));
 
+    // Build StudyHelpInput with conversation context in the question
+    const contextStr = contextMessages.length > 0
+      ? '\n\n--- Previous conversation ---\n' + contextMessages.map(m => `${m.role}: ${m.content}`).join('\n')
+      : '';
+
+    const input: StudyHelpInput = {
+      question: question + contextStr,
+      studentLevel: studentProfile?.level || 'S4',
+      weakSkills: (studentProfile?.weakSkills || []).map(w => ({
+        name: w, nameZh: w, accuracy: 50,
+      })),
+    };
+
     // Generate AI response with full context
-    const result = await answerStudyHelp(
-      question,
-      studentProfile?.level || 'S4',
-      studentProfile?.weakSkills || [],
-      studentProfile?.recentTopics || [],
-      contextMessages,
-    );
+    const result = await answerStudyHelp(input);
 
     return NextResponse.json({
       answer: result.answer,

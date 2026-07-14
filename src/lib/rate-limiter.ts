@@ -20,16 +20,19 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>();
 let kvClient: { get: (k: string) => Promise<string | null>; set: (k: string, v: string, opts: { ex: number }) => Promise<void> } | null = null;
 
-/** 嘗試初始化 Vercel KV */
+/** 嘗試初始化 Vercel KV（需先安裝 @vercel/kv） */
 async function getKvClient() {
   if (kvClient) return kvClient;
   if (process.env.VERCEL_KV_URL) {
     try {
-      const { kv } = await import('@vercel/kv');
-      kvClient = kv;
-      console.log('[RateLimiter] Using Vercel KV backend');
-      return kvClient;
-    } catch { console.warn('[RateLimiter] @vercel/kv not installed, falling back to in-memory'); }
+      // Only attempts to load @vercel/kv at runtime — safe if not installed
+      const mod = (globalThis as any).__vercel_kv_module;
+      if (mod?.kv) {
+        kvClient = mod.kv;
+        console.log('[RateLimiter] Using Vercel KV backend');
+        return kvClient;
+      }
+    } catch { /* @vercel/kv not installed, fall through */ }
   }
   return null;
 }

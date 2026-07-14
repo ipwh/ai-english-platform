@@ -84,7 +84,6 @@ interface IntegratedSkillsState {
   setActiveStep: (step: TaskStep) => void;
   setPlaybackProgress: (p: number) => void;
   setPlaybackSpeed: (speed: number) => void;
-  setAutoSaveTimerId: (id: ReturnType<typeof setTimeout> | null) => void;
   setAnalysis: (a: IntegratedSkillsResult | null) => void;
   reset: () => void;
 }
