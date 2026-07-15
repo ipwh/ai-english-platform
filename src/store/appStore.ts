@@ -60,6 +60,10 @@ interface AppState {
 
   // 動作 — 偏好設定（hydration-safe）
   hydrateStoredPrefs: () => void;
+  /** 從後端拉取偏好設定（跨裝置同步） */
+  syncPreferencesFromServer: () => Promise<void>;
+  /** 將當前偏好設定推送至後端 */
+  syncPreferencesToServer: () => Promise<void>;
 
   // 動作 — 練習
   startSession: (session: PracticeSession) => void;
@@ -140,6 +144,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const next = state.language === 'zh' ? 'en' : 'zh';
       if (typeof window !== 'undefined') localStorage.setItem('lang', next);
+      // Sync to server
+      setTimeout(() => get().syncPreferencesToServer(), 0);
       return { language: next };
     });
   },
@@ -151,6 +157,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         localStorage.setItem('darkMode', String(next));
         document.documentElement.classList.toggle('dark', next);
       }
+      // Sync to server
+      setTimeout(() => get().syncPreferencesToServer(), 0);
       return { isDarkMode: next };
     });
   },
@@ -171,6 +179,74 @@ export const useAppStore = create<AppState>((set, get) => ({
       document.documentElement.classList.add('dark');
     }
     if (Object.keys(updates).length > 0) set(updates);
+    // After hydrating from localStorage, pull remote preferences
+    get().syncPreferencesFromServer();
+  },
+
+  /** 從後端同步偏好設定（跨裝置一致性） */
+  syncPreferencesFromServer: async () => {
+    const { userId, isLoggedIn } = get();
+    if (!isLoggedIn || !userId) return;
+    try {
+      const res = await fetch('/api/user/preferences');
+      if (!res.ok) return;
+      const data = await res.json();
+      const prefs = data.preferences;
+      if (!prefs) return;
+
+      // Merge remote preferences (remote wins for conflict resolution)
+      const updates: Partial<AppState> = {};
+      if (prefs.language === 'zh' || prefs.language === 'en') {
+        updates.language = prefs.language;
+        localStorage.setItem('lang', prefs.language);
+      }
+      if (typeof prefs.darkMode === 'boolean') {
+        updates.isDarkMode = prefs.darkMode;
+        localStorage.setItem('darkMode', String(prefs.darkMode));
+        if (prefs.darkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+      // Sync notification prefs to localStorage
+      const notifSettings: Record<string, boolean> = {};
+      if (typeof prefs.notifAssignment === 'boolean') notifSettings.assignment = prefs.notifAssignment;
+      if (typeof prefs.notifFeedback === 'boolean') notifSettings.feedback = prefs.notifFeedback;
+      if (typeof prefs.notifAchievement === 'boolean') notifSettings.achievement = prefs.notifAchievement;
+      if (typeof prefs.notifSystem === 'boolean') notifSettings.system = prefs.notifSystem;
+      if (Object.keys(notifSettings).length > 0) {
+        localStorage.setItem('notif-settings', JSON.stringify(notifSettings));
+      }
+
+      if (Object.keys(updates).length > 0) set(updates);
+    } catch { /* non-critical; localStorage fallback is sufficient */ }
+  },
+
+  /** 將當前偏好推送至後端（在用戶手動變更時呼叫） */
+  syncPreferencesToServer: async () => {
+    const { userId, isLoggedIn, language, isDarkMode } = get();
+    if (!isLoggedIn || !userId) return;
+    try {
+      let notifPrefs: Record<string, boolean> = {};
+      try {
+        const raw = localStorage.getItem('notif-settings');
+        if (raw) notifPrefs = JSON.parse(raw);
+      } catch { /* ignore */ }
+
+      await fetch('/api/user/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language,
+          darkMode: isDarkMode,
+          notifAssignment: notifPrefs.assignment ?? true,
+          notifFeedback: notifPrefs.feedback ?? true,
+          notifAchievement: notifPrefs.achievement ?? true,
+          notifSystem: notifPrefs.system ?? true,
+        }),
+      });
+    } catch { /* non-critical; saves locally */ }
   },
 
   // === 練習動作 ===

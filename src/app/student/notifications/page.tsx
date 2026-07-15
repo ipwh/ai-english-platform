@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, BookOpen, MessageSquare, Trophy, Megaphone, Loader2, Check } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
+import { useAppStore } from '@/store/appStore';
 
 const NOTIF_TYPES = [
   { key: 'assignment', icon: BookOpen, zh: '作業通知', en: 'Assignments', descZh: '新作業指派與截止提醒', descEn: 'New assignments and due reminders' },
@@ -18,6 +19,7 @@ const STORAGE_KEY = 'notif-settings';
 
 export default function NotificationSettingsPage() {
   const { t, language } = useT();
+  const syncToServer = useAppStore(s => s.syncPreferencesToServer);
   const [settings, setSettings] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
 
@@ -27,7 +29,6 @@ export default function NotificationSettingsPage() {
       if (raw) {
         setSettings(JSON.parse(raw));
       } else {
-        // Default: all enabled
         setSettings({ assignment: true, feedback: true, achievement: true, system: true });
       }
     } catch {
@@ -41,6 +42,8 @@ export default function NotificationSettingsPage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    // Sync to backend for cross-device consistency
+    setTimeout(() => syncToServer(), 0);
   };
 
   return (

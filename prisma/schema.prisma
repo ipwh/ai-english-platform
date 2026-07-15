@@ -68,8 +68,26 @@ model User {
 
   // === RAG 關聯 ===
   uploadedMaterials Material[]
+  preferences     UserPreferences?
 
   @@index([classId])
+}
+
+// ============================================
+// 一之五、用戶偏好設定（跨裝置同步）
+// ============================================
+
+model UserPreferences {
+  userId               String    @id
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language             String    @default("zh")    // "zh" | "en"
+  darkMode             Boolean   @default(false)
+  sidebarOpen          Boolean   @default(true)
+  notifAssignment      Boolean   @default(true)
+  notifFeedback        Boolean   @default(true)
+  notifAchievement     Boolean   @default(true)
+  notifSystem          Boolean   @default(true)
+  updatedAt            DateTime  @updatedAt
 }
 
 // ============================================
