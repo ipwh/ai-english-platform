@@ -122,7 +122,15 @@ export default function ClassDetailPage() {
               </thead>
               <tbody>
                 {students
-                  .sort((a, b) => (a.classNumber || '99').localeCompare(b.classNumber || '99'))
+                  .sort((a, b) => {
+                    const na = parseInt(a.classNumber || '999', 10);
+                    const nb = parseInt(b.classNumber || '999', 10);
+                    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                    // fallback: numeric first, then string
+                    if (!isNaN(na)) return -1;
+                    if (!isNaN(nb)) return 1;
+                    return (a.classNumber || '').localeCompare(b.classNumber || '');
+                  })
                   .map((s) => (
                     <tr key={s.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
                       <td className="py-3 text-gray-500 text-xs">{s.classNumber || '-'}</td>

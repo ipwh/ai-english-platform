@@ -106,6 +106,7 @@ export default function TeacherStudentsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left py-3 px-4 text-gray-500 font-medium w-12">{t('teacher.classDetail.colNumber')}</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">{t('teacher.classes.name')}</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">{t('admin.users.class')}</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">{t('admin.users.level')}</th>
@@ -114,8 +115,33 @@ export default function TeacherStudentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(s => (
+              {filtered
+                .sort((a, b) => {
+                  // Sort by class name first, then by student number (numeric)
+                  const classCmp = (a.class?.name || '').localeCompare(b.class?.name || '');
+                  if (classCmp !== 0) return classCmp;
+                  const na = parseInt(a.classNumber || '999', 10);
+                  const nb = parseInt(b.classNumber || '999', 10);
+                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                  if (!isNaN(na)) return -1;
+                  if (!isNaN(nb)) return 1;
+                  return (a.classNumber || '').localeCompare(b.classNumber || '');
+                })
+                
+                .sort((a, b) => {
+                  // Sort by class name first, then by student number (numeric)
+                  const classCmp = (a.class?.name || '').localeCompare(b.class?.name || '');
+                  if (classCmp !== 0) return classCmp;
+                  const na = parseInt(a.classNumber || '999', 10);
+                  const nb = parseInt(b.classNumber || '999', 10);
+                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                  if (!isNaN(na)) return -1;
+                  if (!isNaN(nb)) return 1;
+                  return (a.classNumber || '').localeCompare(b.classNumber || '');
+                })
+                .map(s => (
                 <tr key={s.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                  <td className="py-3 px-4 text-gray-500 text-xs">{s.classNumber || '-'}</td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300">{(s.nameZh || '?').charAt(0)}</div>

@@ -11,7 +11,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **🎧✍️ Integrated Skills 綜合訓練 v4** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程。**步驟鎖定**（聆聽完成→解鎖筆記→解鎖寫作）、StepIndicator 環型進度指示器、AudioPlayer 播放控制（暫停/繼續/停止/語速）、Note-taking 引導問題、寫作任務（Summary / Email Reply / Short Article / Report）、**AI 雙維度批改**（Listening Recall + Writing Quality）、內容要點分析（Captured/Missed Points）、過度抄襲檢測、文法錯誤詳解、HKDSE 等級估算、**桌面 Sidebar + 行動裝置 Bottom Tabs**、返回修改重新提交、15 秒自動儲存草稿
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 嚴格依據 HKDSE Writing Level Descriptors（Content / Language & Style / Organization 三向度，L5→L1）評分，檢測文法錯誤、中式英文（Chinglish，含 10 項高頻檢測）、詞彙建議（含 basic→advanced 升級）、結構評語、文體格式驗證，自動標示最接近的 HKDSE 等級
+- **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分，含五大鋪墊法（現況切入→他人意見→表達立場→理據→讓步）、評卷員雙關卡流程（Layout & Clarity → CLO 三維評分）、中式英文 10 項高頻檢測、詞彙升級建議、結構評語、文體格式驗證、HKDSE Level 對應（1→5**）及 100 分制換算，前端顯示 CLO 三維評分卡片及 DSE Level 徽章
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
@@ -31,7 +31,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 👩‍🏫 教師端
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
 - **教材上載** — 匯入文字教材，AI 自動分析關鍵詞彙、文法點及建議題目
-- **班級管理** — 建立班級、查看學生進度
+- **班級管理** — 建立班級、查看學生進度（按班號數字排序）、學生名單（含學號欄位，按班別→學號排序）
 - **學生詳情** — 個別學生完整學習數據：XP/徽章/技能準確率/錯題分布/每週趨勢/逐題答案/CSV 匯出
 - **課業管理** — 指派練習、查看完成狀況
 - **成績報告** — 班級及個別學生成績分析
