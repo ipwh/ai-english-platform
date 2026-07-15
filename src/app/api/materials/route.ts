@@ -166,26 +166,45 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, description, tags } = body;
+    const { id, title, description, tags, gradeLevel, strand } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    const existing = await db.material.findUnique({ where: { id } });
+    // Auth: only allow teachers/admins or the original uploader
+    const existing = await db.material.findUnique({ where: { id }, select: { uploadedBy: true } });
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
+    if (userId === 'system' || (existing.uploadedBy && existing.uploadedBy !== userId)) {
+      // Fall back to role check via JWT
+      const jwtToken = request.cookies.get('session_token')?.value;
+      if (jwtToken) {
+        const payload = await verifySessionToken(jwtToken);
+        if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+      } else {
+        const session = await auth();
+        if (!session?.user?.id) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+      }
+    }
 
-    const material = await db.material.update({
-      where: { id },
-      data: {
-        ...(title?.trim() ? { title: title.trim() } : {}),
-        ...(description !== undefined ? { description: description?.trim() || null } : {}),
-        ...(tags !== undefined ? { tags: JSON.stringify(tags) } : {}),
-      },
-    });
+    const updateData: Record<string, unknown> = {};
+    if (title?.trim()) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description?.trim() || null;
+    if (tags !== undefined) updateData.tags = JSON.stringify(tags);
+    if (gradeLevel) updateData.gradeLevel = gradeLevel;
+    if (strand) updateData.strand = strand;
 
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    const material = await db.material.update({ where: { id }, data: updateData });
     return NextResponse.json({ material });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
@@ -216,11 +235,32 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    // Clean up associated RAG chunks first
-    await db.materialChunk.deleteMany({ where: { materialId: id } });
+    // Auth check: require teacher/admin
+    const existing = await db.material.findUnique({ where: { id }, select: { uploadedBy: true } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+    if (userId === 'system') {
+      const jwtToken = request.cookies.get('session_token')?.value;
+      if (jwtToken) {
+        const payload = await verifySessionToken(jwtToken);
+        if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+      } else {
+        const session = await auth();
+        if (!session?.user?.id) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+      }
+    }
+
+    // Clean up RAG chunks + the material itself
+    const deletedChunks = await db.materialChunk.deleteMany({ where: { materialId: id } });
     await db.material.delete({ where: { id } });
 
-    return NextResponse.json({ success: true });
+    console.log(`[Materials] Deleted material ${id} with ${deletedChunks.count} RAG chunks`);
+    return NextResponse.json({ success: true, deletedChunks: deletedChunks.count });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });

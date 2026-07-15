@@ -44,35 +44,53 @@ export default function TeacherMaterialsPage() {
   // === Edit/Delete state ===
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const [editTags, setEditTags] = useState('');
+  const [editGrade, setEditGrade] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleEdit = (m: any) => {
     setEditingId(m.id);
     setEditTitle(m.title);
+    setEditDesc(m.description || '');
     setEditTags((m.tags || []).join(', '));
+    setEditGrade(m.gradeLevel || '');
+    setSuccessMsg('');
   };
 
   const handleSaveEdit = async () => {
     if (!editingId || !editTitle.trim()) return;
+    setEditLoading(true);
+    setUploadError('');
     try {
       const tagList = editTags.split(/[,，]/).map(t => t.trim()).filter(Boolean);
+      const body: Record<string, unknown> = { id: editingId, title: editTitle.trim(), tags: tagList };
+      if (editDesc) body.description = editDesc.trim();
+      if (editGrade) body.gradeLevel = editGrade;
+
       await fetch('/api/materials', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId, title: editTitle.trim(), tags: tagList }),
+        body: JSON.stringify(body),
       });
       setEditingId(null);
+      setSuccessMsg(t('common.success'));
+      setTimeout(() => setSuccessMsg(''), 3000);
       loadMaterials();
     } catch (e) {
       console.error('[Materials] Edit failed:', e);
       setUploadError(t('teacher.materials.saveFailed'));
+    } finally {
+      setEditLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
+    setUploadError('');
     try {
       await fetch('/api/materials', {
         method: 'DELETE',
@@ -81,6 +99,8 @@ export default function TeacherMaterialsPage() {
       });
       setDeleteConfirm(null);
       setExpandedId(null);
+      setSuccessMsg(t('common.success'));
+      setTimeout(() => setSuccessMsg(''), 3000);
       loadMaterials();
     } catch (e) {
       console.error('[Materials] Delete failed:', e);
@@ -464,28 +484,53 @@ export default function TeacherMaterialsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setEditingId(null)} />
           <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6 z-10 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">編輯教材</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('common.edit')} {t('teacher.materials.title')}</h2>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">標題</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common.edit')} {t('teacher.review.scoreCorrection')}</label>
               <input
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">標籤（逗號分隔）</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('teacher.review.commentCorrection')}</label>
+              <input
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder={t('groups.descPlaceholder')}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('admin.users.level')}</label>
+              <select
+                value={editGrade}
+                onChange={(e) => setEditGrade(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">—</option>
+                {['S1','S2','S3','S4','S5','S6'].map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('teacher.review.commentCorrection')} ({t('common.edit')})</label>
               <input
                 value={editTags}
                 onChange={(e) => setEditTags(e.target.value)}
                 placeholder="e.g. reading, S4, science"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditingId(null)} className="px-4 py-2 border rounded-lg text-sm">取消</button>
-              <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg flex items-center gap-1">
-                <Check className="w-4 h-4" /> 儲存
+              <button onClick={() => setEditingId(null)} className="px-4 py-2 border rounded-lg text-sm">{t('groups.cancel')}</button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={editLoading || !editTitle.trim()}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm rounded-lg flex items-center gap-1"
+              >
+                {editLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {editLoading ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -502,22 +547,29 @@ export default function TeacherMaterialsPage() {
                 <Trash2 className="w-5 h-5 text-red-500" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900 dark:text-white">刪除教材</h2>
-                <p className="text-sm text-gray-500">此操作無法復原，確定要刪除此教材嗎？</p>
+                <h2 className="font-semibold text-gray-900 dark:text-white">{t('groups.delete')} {t('teacher.materials.title')}</h2>
+                <p className="text-sm text-gray-500">{t('groups.deleteConfirm')}</p>
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border rounded-lg text-sm">取消</button>
+              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border rounded-lg text-sm">{t('groups.cancel')}</button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deletingId === deleteConfirm}
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm rounded-lg flex items-center gap-1"
               >
                 {deletingId === deleteConfirm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                確認刪除
+                {deletingId === deleteConfirm ? t('groups.deleting') : t('groups.delete')}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      {successMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-bottom-2">
+          <Check className="w-4 h-4 inline mr-1" /> {successMsg}
         </div>
       )}
     </div>
