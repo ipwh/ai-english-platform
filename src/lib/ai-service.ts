@@ -749,6 +749,30 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
         .filter(Boolean)
     ));
 
+    // === Fix: ensure sentence-length choices have proper ending punctuation ===
+    const punctuatedChoices = cleanedChoices.map(c => {
+      // Only add punctuation if the choice looks like a complete sentence
+      // (starts with capital letter, has a subject+verb, >20 chars)
+      const isLikelySentence =
+        /^[A-Z]/.test(c) &&                     // starts with capital
+        c.length > 20 &&                         // long enough to be a sentence
+        /\s+(is|are|was|were|has|have|had|will|would|can|could|should|may|might|do|does|did)\s+/i.test(c) && // contains a verb
+        !/[.!?]$/.test(c) &&                     // doesn't already have ending punctuation
+        !/^(?:Yes|No|True|False)$/i.test(c);     // not a one-word answer
+
+      // Don't add periods to short phrases, dates, names, etc.
+      const isFragment =
+        c.length < 20 ||
+        /^(?:The |A |An )?\d/.test(c) ||         // starts with number
+        /^\d{1,2}[:\s]/.test(c) ||               // time expression
+        /^[A-Z][a-z]+(?:\s+[a-z]+){0,2}$/.test(c); // short phrase (1-3 words)
+
+      if (isLikelySentence && !isFragment) {
+        return c + '.';
+      }
+      return c;
+    });
+
     // 過濾掉 DSE 不相容的選項（All/None of the above、碎片數字等）
     const BANNED_PATTERNS = [
       /^all\s*of\s*the\s*above\.?\s*$/i,
@@ -768,7 +792,7 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     const isListening = !!base.listeningContent;
     const isReading = !!base.readingContent;
 
-    const validChoices = cleanedChoices.filter(c => {
+    const validChoices = punctuatedChoices.filter(c => {
       if (c.length < 3) return false; // 太短→碎片
       if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false; // 純數字碎片
       if (BANNED_PATTERNS.some(p => p.test(c))) {
@@ -2163,49 +2187,44 @@ export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAn
 請嚴格依據以下官方 HKDSE Level Descriptors 進行批改。
 請以繁體中文提供詳細分析，並以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
 
-【HKDSE Reading Descriptors 參考】
+⚠️ 解釋品質強制要求 (CRITICAL — 嚴禁敷衍)：
+- 嚴禁只說「答案係 X 而你揀咗 Y 所以你錯」這種廢話。這類解釋 0 分。
+- 必須具體解釋：正確答案 X 為什麼正確（語法規則、文意脈絡、推理過程）。
+- 必須具體解釋：學生選的 Y 為什麼錯誤（犯了什麼具體錯誤、誤解了什麼）。
+- 必須引用題目中的具體文字或情境來佐證你的解釋。
+- 對於 MC 題，必須逐一分析每個選項為什麼對或錯（至少解釋正確答案 + 學生選的錯誤答案）。
+- 解釋長度至少 80 字，不可用一句話敷衍。
+- 錯誤類型 (mistakeType) 必須精準判斷，不可一律標為 "none" 或 "careless"。
+  若學生真的理解錯誤，標為 "comprehension"；若語法錯誤，標為 "grammar"。
+
+HKDSE Reading Descriptors 參考：
 Level 5: 辨識複雜文本主旨/子題；評價觀點態度；追蹤論點發展並完全理解原因；在廣泛複雜文本中推論；理解隱含及比喻語言；解讀語調語氣。
 Level 4: 辨識較複雜文本主旨；辨識觀點態度、追蹤論點發展；在較複雜文本中做明顯推論；從上下文推斷詞義。
 Level 3: 辨識直接段落主旨；辨識明確表達的觀點；理解熟悉主題較複雜文本中的明示信息；做直接推論；從熟悉語境推斷詞義。
 Level 2: 理解簡單段落主旨（有明確信號時）；區分簡單文本中的事實與意見；理解簡單文本中的明示信息；從簡單熟悉語境推斷詞義。
-Level 1: 辨識簡單結構文本中的事件順序；理解含熟悉詞彙的簡單文本中的明示事實信息；能用標題等定位相關信息。
 
-【HKDSE Listening Descriptors 參考】
+HKDSE Listening Descriptors 參考：
 Level 5: 辨識複雜口語文本主旨/子題；評價觀點態度；在近自然語速下推論；提取明示及隱含信息；理解比喻語言；從重音語調辨識態度意圖。
 Level 4: 辨識口語文本主旨；評價熟悉主題中較複雜文本的觀點；在中等語速下做明顯推論；提取明示及部分隱含信息。
 Level 3: 辨識直接口語文本主旨；辨識明確表達觀點；在中等語速熟悉情境下理解明示信息；從字面語言做直接推論。
-Level 2: 辨識簡單口語文本主旨（有明確信號時）；區分簡單文本中事實與意見；在中等語速下理解明示信息。
-Level 1: 理解簡短簡單口語文本中的簡單可預測事實信息；辨識線性結構口語文本中的事件順序。
 
 分析要點：
-1. 判斷答案是否正確（isCorrect: boolean）
-2. 給予分數 0-100（score: number），必須對照上方等級描述
-3. 提供繁體中文回饋（feedbackZh: string）
-4. 提供英文回饋（feedbackEn: string）
-5. 判斷錯誤類型（mistakeType: grammar/vocabulary/comprehension/careless/time-management/chinglish/none）
-6. 詳細解釋（explanation: string，繁體中文）
-7. 改進建議（improvementTip: string，繁體中文）
-8. 相關文法點（relatedGrammarPoint: string，可選）
+1. isCorrect: boolean
+2. score: number (MC: 100/0; short-writing: 0-100 含任務完成度)
+3. feedbackZh: string — 詳細繁體中文回饋（至少 80 字，含正確答案解釋 + 錯誤分析）
+4. feedbackEn: string — 英文回饋
+5. mistakeType: grammar/vocabulary/comprehension/careless/time-management/chinglish/none
+6. explanation: string — 為什麼對/錯的教學說明（繁體中文，至少 80 字）
+7. improvementTip: string — 具體改進建議
+8. relatedGrammarPoint: string (optional)
 
-HKDSE 對齊規則（務必執行）：
-- 若題型是 mc：
-  - 選擇題只有對與錯，score 必須是 100（正確）或 0（錯誤），絕不允許任何中間分數。
-  - isCorrect 為 true 時 score 必須 = 100；isCorrect 為 false 時 score 必須 = 0。
-- 若題型是 fill-blank / error-correction（偏 Reading/Listening/Language use）：
-  - 以「理解準確度、語境判斷、語言知識運用」評分。
-  - 完全正確才可 85 分以上；部分理解但關鍵資訊錯誤不得高於 60。
-- 若題型是 short-writing（偏 Writing）：
-  - 以 HKDSE Writing Descriptors「內容與任務完成度、組織、語言」評分，不可只看文法。
-  - 若只寫一兩句、內容空泛、未回應題目要求，分數不得高於 40。
-- 若學生答案極短（少於 8 個英文詞）且題目需要解釋/發展內容，分數不得高於 35。
-- 若離題或答非所問，mistakeType 優先標為 comprehension，且分數不得高於 30。
-- 嚴禁「文法正確就高分」；需同時考慮任務完成度與內容相關性。
-- 請在 explanation 中指出學生表現最接近哪個 HKDSE Level。
+HKDSE 對齊規則：
+- MC: score 必須 100 或 0，無中間分數。
+- fill-blank/error-correction: 完全正確 ≥85，部分理解 ≤60。
+- short-writing: 需同時考慮內容、組織、語言，不可只看文法。少於 8 詞且未回應題目者 ≤35。
+- 離題或答非所問 → mistakeType=comprehension，分數 ≤30。
 
-注意：
-- 對香港學生的常見中式英文錯誤要特別標註
-- 解釋要具體、易懂，適合中學生閱讀
-- 使用繁體中文，避免簡體字`;
+注意：使用繁體中文，避免簡體字。解釋要具體、適合中學生閱讀。`;
 
   const studentWordCount = (input.studentAnswer.match(/[A-Za-z0-9][A-Za-z0-9'\-]*/g) || []).length;
 
