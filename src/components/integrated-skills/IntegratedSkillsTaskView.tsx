@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Loader2, Send, Sparkles, CheckCircle2, XCircle, Lightbulb,
   Target, BookOpen, AlertTriangle, Award, ChevronDown, ChevronUp,
@@ -212,19 +212,31 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
   const canAccessNotes = s.listeningCompleted; // 必須先聽過
   const canAccessWriting = hasNotes;             // 必須有筆記
 
-  // === 自動儲存 (15 秒) ===
-  const saveDraft = useCallback(() => {
-    if (s.studentNotes || s.studentWriting) {
-      try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({
-          gradeLevel: s.gradeLevel, difficulty: s.difficulty, taskType: s.taskType,
-          studentNotes: s.studentNotes, studentWriting: s.studentWriting, savedAt: Date.now(),
-        }));
-        s.setDraftSaved(true);
-        setTimeout(() => s.setDraftSaved(false), 2500);
-      } catch { /* ignore */ }
+  // === 自動儲存 (15 秒) + beforeunload 保護 ===
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const lastSavedRef = useRef<string>('');
+
+  const currentContent = s.studentNotes + '|' + s.studentWriting;
+  const hasUnsavedChanges = currentContent !== lastSavedRef.current && (s.studentNotes || s.studentWriting);
+
+  // Save to localStorage + backend API
+  const saveDraft = useCallback(async () => {
+    if (!s.studentNotes && !s.studentWriting) return;
+    setSaveState('saving');
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        gradeLevel: s.gradeLevel, difficulty: s.difficulty, taskType: s.taskType,
+        studentNotes: s.studentNotes, studentWriting: s.studentWriting, savedAt: Date.now(),
+      }));
+      // Also save to backend if logged in
+      try { await s.saveDraft(); } catch { /* backend optional */ }
+      lastSavedRef.current = currentContent;
+      setSaveState('saved');
+      setTimeout(() => setSaveState('idle'), 3000);
+    } catch {
+      setSaveState('idle');
     }
-  }, [s.studentNotes, s.studentWriting, s.gradeLevel, s.difficulty, s.taskType]);
+  }, [s.studentNotes, s.studentWriting, s.gradeLevel, s.difficulty, s.taskType, currentContent]);
 
   useEffect(() => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -233,6 +245,17 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
   }, [s.studentNotes, s.studentWriting, saveDraft]);
+
+  // === 離開頁面保護（未儲存時提示） ===
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
 
   // === 提交 ===
   const handleSubmit = async () => {
@@ -318,9 +341,19 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         </div>
         {/* Save indicator */}
         <div className="flex items-center gap-2 shrink-0">
-          {s.draftSaved && (
+          {saveState === 'saving' && (
+            <span className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1 animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+            </span>
+          )}
+          {saveState === 'saved' && (
             <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 animate-in fade-in">
-              <CheckCircle2 className="w-3 h-3" /> Draft saved
+              <CheckCircle2 className="w-3 h-3" /> Saved
+            </span>
+          )}
+          {saveState === 'idle' && hasUnsavedChanges && (
+            <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              ○ Unsaved changes
             </span>
           )}
         </div>
