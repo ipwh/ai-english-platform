@@ -144,7 +144,7 @@ export default function StudentDetailPage() {
   });
 
   // 徽章解析
-  let badges: { id: string; nameZh: string; icon: string }[] = [];
+  let badges: { id: string; name: string; nameZh: string; icon: string }[] = [];
   try {
     const unlocked: string[] = student.badgeIds ? JSON.parse(student.badgeIds) : [];
     badges = getAllBadges({ totalQuestions, overallAccuracy: student.overallAccuracy ?? 0, streakDays: student.streakDays ?? 0, sessionsCompleted: practiceSessions.length, wordsMastered: vocab.mastered, writingSubmissions: writingDrafts.length, diagnosticCompleted: false, skillAccuracy: {} }, unlocked)
@@ -233,8 +233,8 @@ export default function StudentDetailPage() {
           ) : (
             <div className="flex flex-wrap gap-2">
               {badges.map(b => (
-                <span key={b.id} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-full" title={b.nameZh}>
-                  {b.icon} {b.nameZh}
+                <span key={b.id} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-full" title={store.language === 'en' ? b.name : b.nameZh}>
+                  {b.icon} {store.language === 'en' ? b.name : b.nameZh}
                 </span>
               ))}
             </div>

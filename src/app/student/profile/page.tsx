@@ -7,12 +7,12 @@ import { LogOut, Mail, Save, X, GraduationCap } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { formatDate } from '@/lib/utils';
-import { gradeLabels } from '@/lib/nav';
+import { gradeLabels, getGradeLabel } from '@/lib/nav';
 
 export default function StudentProfilePage() {
   const router = useRouter();
   const { t } = useT();
-  const { logout, userDisplayName } = useAppStore();
+  const { logout, userDisplayName, language } = useAppStore();
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ nameZh: '', nameEn: '', level: '' });
@@ -80,7 +80,7 @@ export default function StudentProfilePage() {
                 className="w-48 px-3 py-2 border rounded-lg text-center text-sm bg-white dark:bg-gray-700"
               >
                 <option value="">{t('profile.notSet')}</option>
-                {Object.entries(gradeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {Object.keys(gradeLabels).map(k => <option key={k} value={k}>{getGradeLabel(k, language)}</option>)}
               </select>
             </div>
             {saveMsg && <p className={`text-xs ${saveMsg === t('profile.saveSuccess') ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</p>}

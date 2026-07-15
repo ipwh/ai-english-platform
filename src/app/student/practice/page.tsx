@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
-import { skillLabels, difficultyLabels, gradeLabels } from '@/lib/nav';
+import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel } from '@/lib/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { PracticePageSkeleton } from '@/components/shared/Skeleton';
@@ -403,7 +403,7 @@ function PracticeListPageContent() {
                   onChange={(e) => setForm({ ...form, gradeLevel: e.target.value as GradeLevel })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >
-                  {Object.entries(gradeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {Object.keys(gradeLabels).map(k => <option key={k} value={k}>{getGradeLabel(k, store.language)}</option>)}
                 </select>
               </div>
             </div>

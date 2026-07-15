@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
     const levelInfo = getLevelInfo(updated?.xp ?? xpGained);
 
     // 檢查新徽章
-    let newBadges: { id: string; nameZh: string; icon: string }[] | undefined;
+    let newBadges: { id: string; name: string; nameZh: string; icon: string }[] | undefined;
     try {
       const alreadyUnlocked: string[] = [];
       newBadges = checkNewBadges({

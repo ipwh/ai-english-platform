@@ -149,10 +149,10 @@ export default function StudentDashboardPage() {
                   <div
                     key={badge.id}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-full border border-yellow-200 dark:border-yellow-800 text-xs"
-                    title={`${badge.nameZh}: ${badge.descriptionZh}`}
+                    title={`${language === 'en' ? badge.name : badge.nameZh}: ${language === 'en' ? badge.description : badge.descriptionZh}`}
                   >
                     <span className="text-sm">{badge.icon}</span>
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">{badge.nameZh}</span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">{language === 'en' ? badge.name : badge.nameZh}</span>
                   </div>
                 ))}
                 {unlockedBadges.length > 8 && (

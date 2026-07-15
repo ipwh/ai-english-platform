@@ -158,7 +158,7 @@ export default function PracticeQuestionPage() {
       const data = await res.json();
       if (data.xpGained > 0) {
         const badgeMsg = data.newBadges?.length
-          ? ` 🏅 ${data.newBadges[0].icon} ${data.newBadges[0].nameZh} 解鎖！`
+          ? ` 🏅 ${data.newBadges[0].icon} ${store.language === 'en' ? (data.newBadges[0].name || data.newBadges[0].nameZh) : data.newBadges[0].nameZh} ${store.language === 'en' ? 'Unlocked!' : '解鎖！'}`
           : '';
         setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle + badgeMsg });
         setTimeout(() => setXpToast(null), 4000);
