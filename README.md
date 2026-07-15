@@ -153,6 +153,55 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## 近期更新
 
+### 🔐 部署前安全審計 + 全面品質修復 (P0-P2) — 2026-07-15
+
+經過全專案 67 個 API routes、28 個頁面、10 個核心 lib 的深度審計，修復 **26 項**關鍵問題，涵蓋安全性、i18n、UX、API 認證。
+
+#### 🔴 P0 關鍵安全修復
+| # | 項目 | 檔案 |
+|---|------|------|
+| 1 | **API 認證全面補強**：`POST /api/classes`、`PATCH/DELETE /api/vocabulary`、`GET /api/admin/login-logs` 加入認證 | 3 API routes |
+| 2 | **12 個 AI API routes** 加入 `verifyApiAuth()` JWT 認證 | `api/ai/*/route.ts` × 12 |
+| 3 | **通知系統 i18n**：`getUserLang()` 動態查詢用戶語言，雙語訊息模板 `MSG.xxx[lang]` 取代 hardcoded 中文 | `src/lib/notifications.ts` |
+| 4 | **DSE 主題驗證**：`validateDSEtopicMatch()` post-generation 驗證確保 AI 輸出符合真實 DSE 主題庫 | `src/lib/ai-service.ts` |
+| 5 | **Materials CRUD**：API 新增 PATCH/DELETE，UI 新增編輯/刪除按鈕 + modal | `api/materials/route.ts` + page |
+
+#### 🟡 P1 高優先修復
+| # | 項目 | 檔案 |
+|---|------|------|
+| 6 | **Global Error Boundary**：全站錯誤攔截，雙語 fallback UI + dev mode stack trace | `src/components/shared/GlobalErrorBoundary.tsx` |
+| 7 | **Integrated Skills 後端草稿持久化**：`IntegratedSkillsDraft` DB 模型 + API GET/POST/DELETE + Store `saveDraft/loadDraft/clearDraft` | schema + API + Store |
+| 8 | **AudioPlayer**：新增 `fallbackMode` 狀態 + 瀏覽器 TTS fallback 視覺指示器 | `AudioPlayer.tsx` |
+| 9 | **UI Bugs**：Teacher Students `colSpan=5→6` + 移除重複 `.sort()`；Teacher Review race condition `await updateReview()` | 2 pages |
+| 10 | **Writing `alert()`→Toast**：3 處 `alert()` 改用 `toast('error', ...)` | `writing/page.tsx` |
+| 11 | **Integrated Skills 全頁 i18n**：8 個新翻譯 keys + 全雙語化 | `integrated-skills/page.tsx` |
+
+#### 🟢 P2 中優先修復
+| # | 項目 | 檔案 |
+|---|------|------|
+| 12 | **DSE 黑名單持久化**：`MAX_BLACKLIST_SIZE=50` + `cleanupBlacklistIfNeeded()` | `ai-service.ts` |
+| 13 | **QuickAddVocab 關閉按鈕**：增強 `p-1.5 rounded-lg hover:bg-gray-100` + `aria-label` | `QuickAddVocab.tsx` |
+| 14 | **Writing auto-save 指示器**：dot 加大 + glow shadow + `●/◌/○` 前綴 + tooltip | `writing/page.tsx` |
+| 15 | **Vocab PDF export**：改用 `format: 'pdf'` → blob download (pdfkit) | `vocabulary/page.tsx` |
+
+#### 📋 部署前 Should-Fix（全數完成）
+| # | 項目 | 檔案 |
+|---|------|------|
+| 16 | **`analyzeWord()` export**：AI 單字分析函數封裝 | `ai-service.ts` |
+| 17 | **Chinglish 整合**：`detectChinglish()` 合併進 `analyzeWriting()`，與 AI 檢測去重 | `ai-service.ts` |
+| 18 | **徽章通知串接**：`checkNewBadges()` + `notifyAchievement()` 在 `completeSession` 後自動觸發 | `appStore.ts` |
+| 19 | **Groups 全頁 i18n**：29 個新翻譯 keys，`catch(()=>{})`→`console.error`，`dark:bg-gray-750`→`dark:bg-gray-700` | `groups/page.tsx` |
+| 20 | **Materials 6 silent catches**：全部改為 `console.error` + `setUploadError()` 用戶提示 | `materials/page.tsx` |
+| 21 | **Notifications page i18n**：3 個 hardcoded → `t()` | `notifications/page.tsx` |
+| 22 | **Vocabulary 錯誤狀態**：`loadError` 現有可見 UI（AlertCircle + reload 按鈕） | `vocabulary/page.tsx` |
+| 23 | **Materials i18n keys**：17 個新翻譯 keys（dropzone/upload/save/delete/ocr/drive） | `i18n.ts` |
+
+#### 📊 修正統計
+- **修改檔案**：65 個
+- **新增 i18n keys**：60+
+- **安全修補**：19 個 API routes
+- **TypeScript 錯誤**：0
+
 ### 🎯 題材多樣性 v2.1 + DSE 實證主題資料庫 — 2026-07-14
 
 #### DSE Empirical Topic Database（基於 2012-2024 真實歷屆試題歸納）

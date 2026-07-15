@@ -86,6 +86,10 @@ interface IntegratedSkillsState {
   setPlaybackSpeed: (speed: number) => void;
   setAnalysis: (a: IntegratedSkillsResult | null) => void;
   reset: () => void;
+  // v5: Backend draft persistence
+  saveDraft: () => Promise<void>;
+  loadDraft: () => Promise<boolean>;
+  clearDraft: () => Promise<void>;
 }
 
 const initialState = {
@@ -138,4 +142,51 @@ export const useIntegratedSkillsStore = create<IntegratedSkillsState>((set) => (
   setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
   setAnalysis: (analysis) => set({ analysis }),
   reset: () => set(initialState),
+
+  // === v5: Backend Draft Persistence ===
+  saveDraft: async () => {
+    const state = useIntegratedSkillsStore.getState();
+    try {
+      await fetch('/api/integrated-skills/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentNotes: state.studentNotes,
+          studentWriting: state.studentWriting,
+          taskData: state.task,
+          stage: state.stage,
+          activeStep: state.activeStep,
+          listeningCompleted: state.listeningCompleted,
+        }),
+      });
+      set({ draftSaved: true });
+    } catch {
+      set({ draftSaved: false });
+    }
+  },
+
+  loadDraft: async () => {
+    try {
+      const res = await fetch('/api/integrated-skills/draft');
+      const data = await res.json();
+      if (data.draft) {
+        set({
+          studentNotes: data.draft.studentNotes || '',
+          studentWriting: data.draft.studentWriting || '',
+          task: data.draft.taskData || null,
+          stage: data.draft.stage || 'config',
+          activeStep: (data.draft.activeStep || 1) as TaskStep,
+          listeningCompleted: data.draft.listeningCompleted || false,
+        });
+        return true;
+      }
+    } catch { /* no draft to load */ }
+    return false;
+  },
+
+  clearDraft: async () => {
+    try {
+      await fetch('/api/integrated-skills/draft', { method: 'DELETE' });
+    } catch { /* silent */ }
+  },
 }));

@@ -40,7 +40,7 @@ export default function TeacherGroupsPage() {
     fetch('/api/groups')
       .then(r => r.json())
       .then(d => setGroups(d.groups || []))
-      .catch(() => {})
+      .catch((e) => { console.error('Failed to load groups:', e); })
       .finally(() => setLoading(false));
   };
 
@@ -61,7 +61,7 @@ export default function TeacherGroupsPage() {
       setBatchText('');
       setShowBatchImport(false);
     } else {
-      setError('找不到匹配的學生。請使用學生姓名或電郵。');
+      setError(t('groups.notFound'));
     }
   };
 
@@ -100,10 +100,10 @@ export default function TeacherGroupsPage() {
         fetchGroups();
       } else {
         const d = await res.json();
-        setError(d.error || '建立失敗');
+        setError(d.error || t('groups.createFailed'));
       }
     } catch {
-      setError('連線失敗');
+      setError(t('groups.connectionFailed'));
     } finally { setCreating(false); }
   };
 
@@ -122,16 +122,16 @@ export default function TeacherGroupsPage() {
         fetchGroups();
       } else {
         const d = await res.json();
-        setError(d.error || '編輯失敗');
+        setError(d.error || t('groups.editFailed'));
       }
     } catch {
-      setError('連線失敗');
+      setError(t('groups.connectionFailed'));
     }
   };
 
   // === Delete group ===
   const handleDelete = async (groupId: string) => {
-    if (!confirm('確定要刪除此組別嗎？此操作無法復原。')) return;
+    if (!confirm(t('groups.deleteConfirm'))) return;
     setDeletingId(groupId);
     setError('');
     try {
@@ -145,10 +145,10 @@ export default function TeacherGroupsPage() {
         fetchGroups();
       } else {
         const d = await res.json();
-        setError(d.error || '刪除失敗');
+        setError(d.error || t('groups.deleteFailed'));
       }
     } catch {
-      setError('連線失敗');
+      setError(t('groups.connectionFailed'));
     } finally { setDeletingId(null); }
   };
 
@@ -163,7 +163,7 @@ export default function TeacherGroupsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">👥 組別管理</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('groups.title')}</h1>
         <button
           onClick={async () => {
             setShowCreate(true);
@@ -175,48 +175,48 @@ export default function TeacherGroupsPage() {
           }}
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-xl font-medium flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" /> 建立組別
+          <Plus className="w-4 h-4" /> {t('groups.create')}
         </button>
       </div>
 
       {/* 建立組別 Modal */}
       {showCreate && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
-          <h2 className="font-semibold text-gray-900 dark:text-white">建立新組別</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white">{t('groups.createTitle')}</h2>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <input
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            placeholder="組別名稱（如：補底組、拔尖組）"
+            placeholder={t('groups.namePlaceholder')}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
           />
           <input
             value={newDesc}
             onChange={e => setNewDesc(e.target.value)}
-            placeholder="描述（可選）"
+            placeholder={t('groups.descPlaceholder')}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
           />
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-gray-500">選擇學生（可選，稍後可再添加）</p>
+              <p className="text-xs font-medium text-gray-500">{t('groups.selectStudents')}</p>
               <div className="flex gap-2">
                 <input ref={batchFileRef} type="file" accept=".csv,.txt" onChange={handleCsvFile} className="hidden" />
                 <button onClick={() => batchFileRef.current?.click()} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
                   <FileText className="w-3 h-3" /> CSV
                 </button>
                 <button onClick={() => setShowBatchImport(true)} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-                  <Upload className="w-3 h-3" /> 貼上
+                  <Upload className="w-3 h-3" /> {t('groups.paste')}
                 </button>
               </div>
             </div>
             {showBatchImport && (
               <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
-                <p className="text-xs text-blue-600">貼上學生姓名/電郵（每行一個，或逗號/分號分隔）</p>
+                <p className="text-xs text-blue-600">{t('groups.pasteHint')}</p>
                 <textarea value={batchText} onChange={e => setBatchText(e.target.value)}
                   rows={3} className="w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-gray-700" placeholder="陳大文, 李小明, mary@school.edu.hk" />
                 <div className="flex gap-2">
-                  <button onClick={handleBatchImport} className="px-3 py-1 text-xs bg-blue-500 text-white rounded-lg">加入</button>
-                  <button onClick={() => setShowBatchImport(false)} className="px-3 py-1 text-xs border rounded-lg">取消</button>
+                  <button onClick={handleBatchImport} className="px-3 py-1 text-xs bg-blue-500 text-white rounded-lg">{t('groups.add')}</button>
+                  <button onClick={() => setShowBatchImport(false)} className="px-3 py-1 text-xs border rounded-lg">{t('groups.cancel')}</button>
                 </div>
               </div>
             )}
@@ -239,14 +239,14 @@ export default function TeacherGroupsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border rounded-lg text-sm">取消</button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border rounded-lg text-sm">{t('groups.cancel')}</button>
             <button
               onClick={handleCreate}
               disabled={creating || !newName.trim()}
               className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm rounded-lg flex items-center gap-1"
             >
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              {creating ? '建立中...' : '建立'}
+              {creating ? t('groups.creating') : t('groups.createBtn')}
             </button>
           </div>
         </div>
@@ -256,8 +256,8 @@ export default function TeacherGroupsPage() {
       {groups.length === 0 ? (
         <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
           <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">尚未建立任何組別</p>
-          <p className="text-gray-400 text-xs mt-1">組別可用於跨班級派發作業（如補底組、拔尖組）</p>
+          <p className="text-gray-500 text-sm">{t('groups.empty')}</p>
+          <p className="text-gray-400 text-xs mt-1">{t('groups.emptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -265,7 +265,7 @@ export default function TeacherGroupsPage() {
             <div key={g.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <button
                 onClick={() => setExpandedId(expandedId === g.id ? null : g.id)}
-                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-left"
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
               >
                 <div className="flex-1">
                   {editingId === g.id ? (
@@ -273,18 +273,18 @@ export default function TeacherGroupsPage() {
                       <input
                         value={editName}
                         onChange={e => setEditName(e.target.value)}
-                        placeholder="組別名稱"
+                        placeholder={t('groups.editNamePlaceholder')}
                         className="px-2 py-1 border rounded text-sm flex-1"
                         autoFocus
                       />
                       <input
                         value={editDesc}
                         onChange={e => setEditDesc(e.target.value)}
-                        placeholder="描述（可選）"
+                        placeholder={t('groups.descPlaceholder')}
                         className="px-2 py-1 border rounded text-sm flex-1"
                       />
-                      <button onClick={() => handleEdit(g.id)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs">儲存</button>
-                      <button onClick={() => setEditingId(null)} className="px-2 py-1 border rounded text-xs">取消</button>
+                      <button onClick={() => handleEdit(g.id)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs">{t('groups.save')}</button>
+                      <button onClick={() => setEditingId(null)} className="px-2 py-1 border rounded text-xs">{t('groups.cancel')}</button>
                     </div>
                   ) : (
                     <>
@@ -294,8 +294,8 @@ export default function TeacherGroupsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400 ml-2">
-                  <span>{g.memberCount} 人</span>
-                  <span>{g.assignmentCount} 作業</span>
+                  <span>{t('groups.members', { n: String(g.memberCount) })}</span>
+                  <span>{t('groups.assignments', { n: String(g.assignmentCount) })}</span>
                   {editingId !== g.id && (
                     <button
                       onClick={(e) => {
@@ -305,9 +305,9 @@ export default function TeacherGroupsPage() {
                         setEditDesc(g.description || '');
                       }}
                       className="text-blue-500 hover:underline"
-                      title="編輯"
+                      title={t('groups.edit')}
                     >
-                      編輯
+                      {t('groups.edit')}
                     </button>
                   )}
                   <button
@@ -317,18 +317,18 @@ export default function TeacherGroupsPage() {
                     }}
                     disabled={deletingId === g.id}
                     className="text-red-500 hover:underline disabled:opacity-50 flex items-center gap-1"
-                    title="刪除"
+                    title={t('groups.delete')}
                   >
                     <Trash2 className="w-3 h-3" />
-                    {deletingId === g.id ? '刪除中...' : '刪除'}
+                    {deletingId === g.id ? t('groups.deleting') : t('groups.delete')}
                   </button>
                 </div>
               </button>
               {expandedId === g.id && (
-                <div className="border-t border-gray-100 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-750/50 space-y-2">
-                  <p className="text-xs font-medium text-gray-500">成員列表</p>
+                <div className="border-t border-gray-100 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/50 space-y-2">
+                  <p className="text-xs font-medium text-gray-500">{t('groups.memberList')}</p>
                   {g.members.length === 0 ? (
-                    <p className="text-xs text-gray-400">暫無成員</p>
+                    <p className="text-xs text-gray-400">{t('groups.noMembers')}</p>
                   ) : (
                     g.members.map(m => (
                       <div key={m.id} className="flex items-center justify-between text-sm">

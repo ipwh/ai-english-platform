@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import { useToast } from '@/components/shared/Toast';
 import OcrUpload from '@/components/shared/OcrUpload';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
@@ -20,6 +21,7 @@ const wordLimits = [100, 150, 200, 300, 400, 500, 800];
 
 export default function WritingPage() {
   const { t, language } = useT();
+  const { toast } = useToast();
   const store = useAppStore();
   const lang = language || 'zh';
   
@@ -116,7 +118,7 @@ export default function WritingPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '匯出失敗');
+      toast('error', err instanceof Error ? err.message : t('writing.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -281,10 +283,10 @@ export default function WritingPage() {
         setShowRewrite(true);
         setShowDiff(true);
       } else {
-        alert(json.error || t('writing.rewriteFailed'));
+        toast('error', json.error || t('writing.rewriteFailed'));
       }
     } catch {
-      alert(t('writing.rewriteError'));
+      toast('error', t('writing.rewriteError'));
     } finally {
       setRewriteLoading(false);
     }
@@ -423,20 +425,22 @@ export default function WritingPage() {
           <div className={`h-full rounded-full transition-all ${wordCount > wordLimit ? 'bg-red-500' : wordCount >= wordLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'}`} style={{ width: `${wordProgress}%` }} />
         </div>
         {/* Auto-save status indicator */}
-        <div className="flex items-center gap-2 mb-2 text-xs">
-          <span className={`inline-block w-2 h-2 rounded-full ${
-            saveStatus === 'saved' ? 'bg-green-500' :
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`inline-block w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
+            saveStatus === 'saved' ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]' :
             saveStatus === 'saving' ? 'bg-amber-400 animate-pulse' :
-            'bg-red-500'
+            'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]'
           }`} />
-          <span className={`${
+          <span className={`text-xs font-medium transition-colors duration-300 ${
             saveStatus === 'saved' ? 'text-green-600 dark:text-green-400' :
             saveStatus === 'saving' ? 'text-amber-600 dark:text-amber-400' :
             'text-red-600 dark:text-red-400'
-          }`}>
-            {saveStatus === 'saved' ? t('writing.saved') :
-             saveStatus === 'saving' ? t('writing.saving') :
-             t('writing.unsaved')}
+          }`}
+            title={saveStatus === 'saved' ? t('writing.autoSaveHint') : saveStatus === 'saving' ? '' : t('writing.unsavedHint')}
+          >
+            {saveStatus === 'saved' ? `● ${t('writing.saved')}` :
+             saveStatus === 'saving' ? `◌ ${t('writing.saving')}...` :
+             `○ ${t('writing.unsaved')}`}
           </span>
         </div>
         <textarea value={draft} onChange={e => setDraft(e.target.value)}

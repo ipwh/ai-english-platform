@@ -148,3 +148,81 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+// ============================================
+// PATCH /api/materials — 編輯教材標題/描述/標籤
+// ============================================
+export async function PATCH(request: NextRequest) {
+  try {
+    let userId = 'system';
+    const jwtToken = request.cookies.get('session_token')?.value;
+    if (jwtToken) {
+      const payload = await verifySessionToken(jwtToken);
+      if (payload) userId = payload.userId;
+    }
+    if (userId === 'system') {
+      const session = await auth();
+      if (session?.user?.id) userId = session.user.id;
+    }
+
+    const body = await request.json();
+    const { id, title, description, tags } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
+    }
+
+    const existing = await db.material.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
+    const material = await db.material.update({
+      where: { id },
+      data: {
+        ...(title?.trim() ? { title: title.trim() } : {}),
+        ...(description !== undefined ? { description: description?.trim() || null } : {}),
+        ...(tags !== undefined ? { tags: JSON.stringify(tags) } : {}),
+      },
+    });
+
+    return NextResponse.json({ material });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Server error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// ============================================
+// DELETE /api/materials — 刪除教材
+// ============================================
+export async function DELETE(request: NextRequest) {
+  try {
+    let userId = 'system';
+    const jwtToken = request.cookies.get('session_token')?.value;
+    if (jwtToken) {
+      const payload = await verifySessionToken(jwtToken);
+      if (payload) userId = payload.userId;
+    }
+    if (userId === 'system') {
+      const session = await auth();
+      if (session?.user?.id) userId = session.user.id;
+    }
+
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
+    }
+
+    // Clean up associated RAG chunks first
+    await db.ragChunk.deleteMany({ where: { materialId: id } });
+    await db.material.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Server error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

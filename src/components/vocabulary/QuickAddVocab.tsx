@@ -188,7 +188,11 @@ export default function QuickAddVocab({
                   ? t('vocab.duplicateTitle')
                   : t('vocab.quickAddTitle')}
               </h2>
-              <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={handleClose}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label={language === 'en' ? 'Close' : '關閉'}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>

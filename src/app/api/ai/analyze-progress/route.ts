@@ -6,9 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
+import { verifyApiAuth } from '@/lib/api-auth';
 import db from '@/lib/db';
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) return NextResponse.json({ error: authResult.error }, { status: 401 });
   try {
     // Rate limiting
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';

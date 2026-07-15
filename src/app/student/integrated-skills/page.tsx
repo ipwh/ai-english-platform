@@ -28,7 +28,7 @@ const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
 const DRAFT_KEY = 'integrated-skills-draft-v4';
 
 export default function IntegratedSkillsPage() {
-  const { language } = useT();
+  const { t, language } = useT();
   const s = useIntegratedSkillsStore();
 
   useEffect(() => {
@@ -66,10 +66,10 @@ export default function IntegratedSkillsPage() {
           }
         } catch { /* ignore */ }
       } else {
-        s.setError(json.error || 'AI 生成失敗，請稍後重試');
+        s.setError(json.error || t('is.generateFailed'));
       }
     } catch {
-      s.setError('網絡連線失敗，請檢查連線後重試');
+      s.setError(t('is.networkFailed'));
     } finally {
       s.setLoading(false);
     }
@@ -80,11 +80,11 @@ export default function IntegratedSkillsPage() {
       <div className="max-w-xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Integrated Skills</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">DSE Paper 3 Part B — 聆聽 → 筆記 → 寫作</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('is.description')}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">📚 年級</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('is.grade')}</label>
             <div className="flex gap-2 flex-wrap">
               {GRADES.map(g => (
                 <button key={g} onClick={() => s.setConfig(g, s.difficulty, s.taskType)}
@@ -95,25 +95,25 @@ export default function IntegratedSkillsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">🎯 難度</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('is.difficulty')}</label>
             <div className="flex gap-2 flex-wrap">
               {DIFFICULTIES.map(d => (
                 <button key={d.value} onClick={() => s.setConfig(s.gradeLevel, d.value, s.taskType)}
                   className={`px-3.5 py-2 text-sm rounded-lg font-medium transition-all ${
                     s.difficulty === d.value ? 'bg-teal-500 text-white shadow shadow-teal-200 dark:shadow-teal-900/30'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{d.zh}</button>
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{language === 'en' ? d.en : d.zh}</button>
               ))}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">📝 任務類型</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('is.taskType')}</label>
             <div className="space-y-2">
               {TASK_TYPES.map(tt => (
                 <button key={tt.value} onClick={() => s.setConfig(s.gradeLevel, s.difficulty, tt.value)}
                   className={`w-full text-left px-4 py-3 text-sm rounded-xl font-medium transition-all ${
                     s.taskType === tt.value ? 'bg-teal-500 text-white shadow shadow-teal-200 dark:shadow-teal-900/30'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-                  {tt.zh}<span className="text-xs opacity-70 ml-2">({tt.en})</span></button>
+                  {language === 'en' ? tt.en : tt.zh}<span className="text-xs opacity-70 ml-2">({language === 'en' ? tt.zh : tt.en})</span></button>
               ))}
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function IntegratedSkillsPage() {
           )}
           <button onClick={handleGenerate} disabled={s.loading}
             className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 disabled:from-gray-300 disabled:to-gray-300 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md shadow-teal-200 dark:shadow-teal-900/20 disabled:shadow-none">
-            {s.loading ? <><Loader2 className="w-5 h-5 animate-spin" /> AI 生成中...</> : <><Sparkles className="w-5 h-5" /> AI 生成 Integrated Skills 任務</>}
+            {s.loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {t('is.generating')}</> : <><Sparkles className="w-5 h-5" /> {t('is.generate')}</>}
           </button>
         </div>
       </div>

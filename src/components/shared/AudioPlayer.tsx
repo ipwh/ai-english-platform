@@ -258,6 +258,7 @@ export default function AudioPlayer({
   // Cloud TTS 狀態
   const [cloudFetching, setCloudFetching] = useState(false);
   const [cloudError, setCloudError] = useState('');
+  const [fallbackMode, setFallbackMode] = useState(false); // TTS fallback indicator
   const cloudAudioRef = useRef<HTMLAudioElement | null>(null);
   const cloudAbortRef = useRef<AbortController | null>(null);
   // 快取
@@ -323,6 +324,7 @@ export default function AudioPlayer({
     setCloudFetching(false);
     setCloudError('');
     setProgress(0);
+    setFallbackMode(false);
     if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null; }
     cachedKeyRef.current = '';
     cachedUrlRef.current = null;
@@ -726,6 +728,7 @@ export default function AudioPlayer({
 
     // 開始新播放 session：先完整清理，再初始化
     cleanupAllPlayback();
+    setFallbackMode(true); // Indicate browser TTS fallback
     const currentSessionId = ++sessionIdRef.current;
     setLoading(true);
     cancelled.current = false;

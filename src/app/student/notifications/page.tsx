@@ -47,12 +47,12 @@ export default function NotificationSettingsPage() {
     <div className="max-w-xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Bell className="w-6 h-6 text-purple-500" /> 通知設定
+          <Bell className="w-6 h-6 text-purple-500" /> {t('notifications.title')}
         </h1>
-        {saved && <span className="text-xs text-green-500 flex items-center gap-1"><Check className="w-3 h-3" />已儲存</span>}
+        {saved && <span className="text-xs text-green-500 flex items-center gap-1"><Check className="w-3 h-3" />{t('notifications.saved')}</span>}
       </div>
 
-      <p className="text-sm text-gray-500">選擇你想接收的通知類型。設定會自動儲存。</p>
+      <p className="text-sm text-gray-500">{t('notifications.description')}</p>
 
       <div className="space-y-3">
         {NOTIF_TYPES.map(nt => {

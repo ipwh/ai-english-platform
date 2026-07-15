@@ -225,8 +225,37 @@ export const useAppStore = create<AppState>((set, get) => ({
             source: completed.source,
             answers,
           }),
-        }).then(r => {
+        }).then(async (r) => {
           if (!r.ok) console.warn('[appStore] Practice session may not be persisted:', r.status);
+          // === Badge check & notification ===
+          if (userId) {
+            try {
+              const { checkNewBadges } = await import('@/lib/gamification');
+              const { notifyAchievement } = await import('@/lib/notifications');
+              const stats = get().getWeeklyStats();
+              const allStats = {
+                totalQuestions: stats.questionsDone + (state.practiceSessions.reduce((s, p) => s + p.totalQuestions, 0)),
+                overallAccuracy: stats.accuracy,
+                streakDays: stats.streakDays,
+                wordsMastered: 0,
+                writingSubmissions: 0,
+                listeningSessions: 0,
+              };
+              const currentBadges: string[] = [];
+              try {
+                const parsed = JSON.parse(localStorage.getItem('unlockedBadges') || '[]');
+                if (Array.isArray(parsed)) currentBadges.push(...parsed);
+              } catch { /* ignore */ }
+              const newBadges = checkNewBadges(allStats, currentBadges);
+              if (newBadges.length > 0) {
+                const newIds = newBadges.map(b => b.id);
+                localStorage.setItem('unlockedBadges', JSON.stringify([...currentBadges, ...newIds]));
+                for (const badge of newBadges) {
+                  notifyAchievement(userId, badge.id, badge.descriptionZh || badge.id).catch(() => {});
+                }
+              }
+            } catch { /* non-critical */ }
+          }
         }).catch((e) => {
           console.error('[appStore] Failed to persist practice session:', e);
         });

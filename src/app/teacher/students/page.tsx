@@ -117,19 +117,6 @@ export default function TeacherStudentsPage() {
             <tbody>
               {filtered
                 .sort((a, b) => {
-                  // Sort by class name first, then by student number (numeric)
-                  const classCmp = (a.class?.name || '').localeCompare(b.class?.name || '');
-                  if (classCmp !== 0) return classCmp;
-                  const na = parseInt(a.classNumber || '999', 10);
-                  const nb = parseInt(b.classNumber || '999', 10);
-                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
-                  if (!isNaN(na)) return -1;
-                  if (!isNaN(nb)) return 1;
-                  return (a.classNumber || '').localeCompare(b.classNumber || '');
-                })
-                
-                .sort((a, b) => {
-                  // Sort by class name first, then by student number (numeric)
                   const classCmp = (a.class?.name || '').localeCompare(b.class?.name || '');
                   if (classCmp !== 0) return classCmp;
                   const na = parseInt(a.classNumber || '999', 10);
@@ -168,7 +155,7 @@ export default function TeacherStudentsPage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="py-10 text-center text-gray-400">{t('generic.noData')}</td></tr>
+                <tr><td colSpan={6} className="py-10 text-center text-gray-400">{t('generic.noData')}</td></tr>
               )}
             </tbody>
           </table>

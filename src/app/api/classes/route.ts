@@ -38,6 +38,12 @@ export async function GET(request: NextRequest) {
 
 // POST /api/classes
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { name, gradeLevel, academicYear } = body;

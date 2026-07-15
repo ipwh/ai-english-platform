@@ -4,8 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM, sanitizeForAI } from '@/lib/ai-service';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 export async function POST(req: NextRequest) {
+  const authResult = await verifyApiAuth(req);
+  if (!authResult.authenticated) return NextResponse.json({ error: authResult.error }, { status: 401 });
+
   try {
     const body = await req.json();
     const { originalDraft, aiFeedback, gradeLevel } = body as {

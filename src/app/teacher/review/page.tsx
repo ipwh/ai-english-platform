@@ -45,20 +45,22 @@ export default function TeacherReviewPage() {
 
   const filtered = reviews.filter(r => filter === 'all' ? true : r.status === filter);
 
-  const updateReview = (id: string, updates: Partial<ReviewItem>) => {
+  const updateReview = async (id: string, updates: Partial<ReviewItem>) => {
     setReviews((prev) => prev.map((r) => r.id === id ? { ...r, ...updates } : r));
     if (selectedReview?.id === id) {
       setSelectedReview((prev) => prev ? { ...prev, ...updates } : prev);
     }
-    // Persist to API
-    fetch(`/api/reviews/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    }).catch(() => {});
+    // Persist to API (await to ensure completion before resetting loading state)
+    try {
+      await fetch(`/api/reviews/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+    } catch { /* non-blocking */ }
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!selectedReview || actionLoading) return;
     setActionLoading('accept');
     const updated = {
@@ -67,14 +69,14 @@ export default function TeacherReviewPage() {
       teacherScore: teacherScore ?? selectedReview.aiScore,
       teacherFeedback: teacherFeedback || selectedReview.aiFeedback,
     };
-    updateReview(selectedReview.id, updated);
+    await updateReview(selectedReview.id, updated);
     setActionLoading(null);
   };
 
-  const handleReturn = () => {
+  const handleReturn = async () => {
     if (!selectedReview || actionLoading) return;
     setActionLoading('return');
-    updateReview(selectedReview.id, {
+    await updateReview(selectedReview.id, {
       status: 'returned' as ReviewStatus,
       teacherScore,
       teacherFeedback,

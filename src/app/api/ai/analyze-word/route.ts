@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM, sanitizeForAI } from '@/lib/ai-service';
 import { WordAnalysisSchema, validateAIResponse } from '@/lib/ai-schema';
+import { verifyApiAuth } from '@/lib/api-auth';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
@@ -14,6 +15,9 @@ const RequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) return NextResponse.json({ error: authResult.error }, { status: 401 });
+
   try {
     const body = await request.json();
     const parsed = RequestSchema.safeParse(body);

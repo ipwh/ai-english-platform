@@ -7,6 +7,17 @@
 import db from '@/lib/db';
 
 export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement';
+export type NotificationLang = 'zh' | 'en';
+
+/** Resolve user language from DB */
+export async function getUserLang(userId: string): Promise<NotificationLang> {
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { language: true } });
+    return user?.language === 'en' ? 'en' : 'zh';
+  } catch {
+    return 'zh';
+  }
+}
 
 // ============================================
 // 雙語通知訊息模板
@@ -107,19 +118,23 @@ export async function notifyAssignmentCreated(
       : { class: { name: className }, role: 'student' as const };
     const students = await db.user.findMany({
       where,
-      select: { id: true },
+      select: { id: true, language: true },
     });
     if (students.length === 0) return;
 
     const titleMsg = MSG.assignmentTitle;
     const bodyMsg = MSG.newAssignment(className, assignmentTitle);
-    await createBulkNotifications(
-      students.map(s => s.id),
-      'assignment',
-      titleMsg.zh,
-      bodyMsg.zh,
-      `/student/assignments/${assignmentId}`,
-    );
+    // Send per-student language
+    for (const student of students) {
+      const lang: NotificationLang = student.language === 'en' ? 'en' : 'zh';
+      await createNotification({
+        userId: student.id,
+        type: 'assignment',
+        title: titleMsg[lang],
+        message: bodyMsg[lang],
+        link: `/student/assignments/${assignmentId}`,
+      });
+    }
     console.log(`[Notification] Assignment "${assignmentTitle}" → ${students.length} students in ${className}`);
   } catch (err) {
     console.error('[NotificationService] notifyAssignmentCreated failed:', err);
@@ -133,13 +148,14 @@ export async function notifySubmissionReceived(
   assignmentId: string,
   teacherId: string,
 ) {
+  const lang = await getUserLang(teacherId);
   const titleMsg = MSG.submissionTitle;
   const bodyMsg = MSG.submissionReceived(studentName, assignmentTitle);
   await createNotification({
     userId: teacherId,
     type: 'feedback',
-    title: titleMsg.zh,
-    message: bodyMsg.zh,
+    title: titleMsg[lang],
+    message: bodyMsg[lang],
     link: `/teacher/assignments/${assignmentId}`,
   });
 }
@@ -150,13 +166,14 @@ export async function notifyFeedbackReady(
   assignmentTitle: string,
   assignmentId: string,
 ) {
+  const lang = await getUserLang(studentId);
   const titleMsg = MSG.feedbackTitle;
   const bodyMsg = MSG.feedbackReady(assignmentTitle);
   await createNotification({
     userId: studentId,
     type: 'feedback',
-    title: titleMsg.zh,
-    message: bodyMsg.zh,
+    title: titleMsg[lang],
+    message: bodyMsg[lang],
     link: `/student/assignments/${assignmentId}`,
   });
 }
@@ -166,13 +183,14 @@ export async function notifyWritingFeedbackReady(
   studentId: string,
   title: string,
 ) {
+  const lang = await getUserLang(studentId);
   const titleMsg = MSG.writingTitle;
   const bodyMsg = MSG.writingFeedback(title);
   await createNotification({
     userId: studentId,
     type: 'feedback',
-    title: titleMsg.zh,
-    message: bodyMsg.zh,
+    title: titleMsg[lang],
+    message: bodyMsg[lang],
     link: '/student/writing',
   });
 }
@@ -205,13 +223,14 @@ export async function notifyAchievement(
   badgeName: string,
   badgeNameZh: string,
 ) {
+  const lang = await getUserLang(studentId);
   const titleMsg = MSG.achievementTitle;
   const bodyMsg = MSG.achievement(badgeNameZh || badgeName, badgeName);
   await createNotification({
     userId: studentId,
     type: 'achievement',
-    title: titleMsg.zh,
-    message: bodyMsg.zh,
+    title: titleMsg[lang],
+    message: bodyMsg[lang],
     link: '/student/dashboard',
   });
 }

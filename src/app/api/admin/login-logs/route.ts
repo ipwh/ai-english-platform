@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 // POST — 記錄登入（由前端在登入/role-select 後呼叫）
 export async function POST(request: NextRequest) {
@@ -64,6 +65,12 @@ export async function POST(request: NextRequest) {
 
 // GET — 查詢登入記錄（管理員用）
 export async function GET(request: NextRequest) {
+  // 🔒 Admin-only access
+  const adminResult = await verifyAdmin(request);
+  if (!adminResult.authenticated) {
+    return NextResponse.json({ error: adminResult.error || 'Unauthorized' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));

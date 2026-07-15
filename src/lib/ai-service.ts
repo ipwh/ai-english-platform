@@ -1136,11 +1136,82 @@ export function getDSEEmpiricalTopics(
 }
 
 // ============================================
+// DSE 主題驗證器 v1.0 — post-generation topic match check
+// ============================================
+
+/** Extract all DSE topic keywords into a flat set for substring matching */
+function buildDSEKeywordSet(skill: 'writing' | 'reading' | 'listening'): Set<string> {
+  const pool = DSE_EMPIRICAL_TOPICS[skill];
+  const keywords = new Set<string>();
+  for (const cat of Object.values(pool)) {
+    for (const topic of cat as string[]) {
+      // Extract meaningful keywords: split by common separators, lowercase
+      const parts = topic.toLowerCase().split(/[\/\-,()（）:：\s]+/);
+      for (const p of parts) {
+        const trimmed = p.trim();
+        if (trimmed.length >= 3 && !['and', 'the', 'for', 'its', 'how', 'why', 'what', 'pros', 'cons'].includes(trimmed)) {
+          keywords.add(trimmed);
+        }
+      }
+    }
+  }
+  return keywords;
+}
+
+// Pre-built keyword sets (lazy init)
+const _dseKeywordCache: Map<string, Set<string>> = new Map();
+function getDSEKeywords(skill: 'writing' | 'reading' | 'listening'): Set<string> {
+  if (!_dseKeywordCache.has(skill)) {
+    _dseKeywordCache.set(skill, buildDSEKeywordSet(skill));
+  }
+  return _dseKeywordCache.get(skill)!;
+}
+
+/**
+ * Validate that generated content references topics from the DSE empirical database.
+ * Returns a match score (0-1) indicating how many DSE keywords were found.
+ * Score >= 0.05 means at least some DSE topic alignment was detected.
+ */
+export function validateDSEtopicMatch(
+  generatedText: string,
+  skill: 'writing' | 'reading' | 'listening',
+): { matched: boolean; score: number; matchedKeywords: string[] } {
+  const keywords = getDSEKeywords(skill);
+  const lower = generatedText.toLowerCase();
+  const matched: string[] = [];
+
+  for (const kw of keywords) {
+    if (lower.includes(kw)) {
+      matched.push(kw);
+    }
+  }
+
+  // Require at least 2 keyword matches for a confident match (avoid false positives)
+  const score = keywords.size > 0 ? matched.length / Math.min(keywords.size, 100) : 0;
+  return { matched: matched.length >= 2, score, matchedKeywords: matched };
+}
+
+// ============================================
 // 主題選擇引擎 v2.0
 // ============================================
 
 const topicBlacklist: Map<string, Set<string>> = new Map(); // sessionKey → Set<topic text>
 const recentTopicsByCategory: Map<string, string[]> = new Map(); // category → [recent topics]
+const MAX_BLACKLIST_SIZE = 50; // Prevent unbounded memory growth
+const MAX_RECENT_CATEGORIES = 10;
+
+/** Periodic cleanup to prevent memory leaks in long-running processes */
+function cleanupBlacklistIfNeeded(): void {
+  if (topicBlacklist.size > MAX_BLACKLIST_SIZE) {
+    // Remove oldest entries (first 20)
+    const keys = [...topicBlacklist.keys()].slice(0, 20);
+    for (const key of keys) {
+      topicBlacklist.delete(key);
+      recentTopicsByCategory.delete(key);
+    }
+    console.log('[DSE Topics] Blacklist cleanup: removed', keys.length, 'old sessions');
+  }
+}
 
 /**
  * Get a diverse random topic with:
@@ -1211,6 +1282,9 @@ function updateTopicTracking(sessionKey: string, topic: TopicEntry) {
   cats.push(topic.category);
   if (cats.length > 3) cats.shift();
   recentTopicsByCategory.set(sessionKey, cats);
+
+  // Periodic global cleanup
+  cleanupBlacklistIfNeeded();
 }
 
 // Legacy wrapper for backward compatibility
@@ -1738,6 +1812,22 @@ ${STRICT_ANSWER_RULES}
     if (allWarnings.length > 0) {
       console.warn('[ai-service] Generated questions had consistency issues (auto-fixed):', allWarnings);
     }
+
+    // === DSE Topic Validation (post-generation) ===
+    const skillForValidation: 'writing' | 'reading' | 'listening' =
+      isListening ? 'listening' : isReading ? 'reading' : 'writing';
+    const topicCheck = validateDSEtopicMatch(
+      fixedQuestions.map(q => (q.prompt || '') + ' ' + (q.explanationEn || '')).join(' '),
+      skillForValidation,
+    );
+    if (!topicCheck.matched) {
+      console.warn('[ai-service] ⚠️ DSE topic match LOW — generated content may not align with real DSE topics.',
+        { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords });
+    } else {
+      console.log('[ai-service] ✅ DSE topic validation passed',
+        { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords.slice(0, 5) });
+    }
+
     return fixedQuestions;
   } catch (firstErr: unknown) {
     const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
@@ -2576,6 +2666,22 @@ Very → exceedingly / remarkably / exceptionally
   );
 
   // 合併結果（失敗的部分用 fallback）
+  // === Rule-based Chinglish detection (supplements AI detection) ===
+  const ruleChinglish = detectChinglish(essayContent);
+  const ruleChinglishWarnings = ruleChinglish.map(c => ({
+    original: c.found,
+    suggestion: c.suggestion,
+    explanation: c.pattern,
+  }));
+  const mergedChinglish = [
+    ...(grammarAnalysis.chinglishWarnings || []),
+    ...ruleChinglishWarnings.filter(
+      rw => !(grammarAnalysis.chinglishWarnings || []).some(
+        gw => gw.original?.toLowerCase() === rw.original?.toLowerCase()
+      )
+    ),
+  ];
+
   const combined: WritingAnalysis = {
     overallScore: normalizedOverall,
     contentScore,
@@ -2586,7 +2692,7 @@ Very → exceedingly / remarkably / exceptionally
     strengths: styleAnalysis.strengths || [],
     weaknesses: styleAnalysis.weaknesses || [],
     grammarErrors: grammarAnalysis.grammarErrors || [],
-    chinglishWarnings: grammarAnalysis.chinglishWarnings || [],
+    chinglishWarnings: mergedChinglish,
     vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
     structureFeedback: styleAnalysis.structureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
     revisedVersion: styleAnalysis.revisedVersion || undefined,
@@ -2689,6 +2795,65 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 
   const explanation = parseAIJSON<MistakeExplanation>(result);
   const validated = validateAIResponse(MistakeExplanationSchema, explanation);
+  if (!validated.success) throw new Error(validated.error);
+  return validated.data;
+}
+
+// ============================================
+// 四點五、AI 單字分析
+// ============================================
+
+export interface AnalyzeWordInput {
+  word: string;
+  gradeLevel?: string;
+}
+
+/**
+ * Analyze an English word and return comprehensive vocabulary data.
+ * Used by the QuickAddVocab component for automatic word analysis.
+ */
+export async function analyzeWord(input: AnalyzeWordInput): Promise<import('@/lib/ai-schema').WordAnalysis> {
+  const { WordAnalysisSchema } = await import('@/lib/ai-schema');
+  const word = sanitizeForAI(input.word.trim());
+  const gradeLevel = input.gradeLevel || 'S4';
+
+  const systemPrompt = `你是香港中學英語教學專家，專門幫助 S1-S6 學生建立個人化生字簿。
+
+分析英文單字，以 JSON 格式回傳完整詞彙資料。
+
+## 輸出格式
+{
+  "word": "單字",
+  "partOfSpeech": "主要詞性 (noun/verb/adjective/adverb/preposition/conjunction/pronoun/phrase)",
+  "allPartOfSpeech": ["所有常見詞性"],
+  "meaningZh": "主要中文意思（繁體中文）",
+  "secondaryMeaningZh": "次要中文意思（如有，否則 null）",
+  "exampleSentence": "英文例句",
+  "exampleZh": "例句中文翻譯（繁體中文）",
+  "synonyms": ["同義字"],
+  "antonyms": ["反義字"],
+  "collocations": ["搭配詞，格式如 make a decision"]
+}
+
+## 規則
+- meaningZh 使用繁體中文
+- 例句難度適應 ${gradeLevel} 年級：
+  S1-S2: 簡單句、基礎詞彙
+  S3-S4: 中等複雜度、加入從句
+  S5-S6: DSE 程度、複雜句式
+- collocations 格式: "動詞 + 名詞" 或常見片語
+- 不要輸出 markdown，只輸出純 JSON`;
+
+  const result = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `請分析以下英文單字：${word}\n學生年級：${gradeLevel}` },
+    ],
+    { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 }
+  );
+
+  const data = parseAIJSON(result);
+  const validated = validateAIResponse(WordAnalysisSchema, data);
   if (!validated.success) throw new Error(validated.error);
   return validated.data;
 }
@@ -3307,7 +3472,19 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a 
     { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000 }
   );
 
-  return result.trim();
+  const prompt = result.trim();
+
+  // === DSE Topic Validation (post-generation) ===
+  const topicCheck = validateDSEtopicMatch(prompt, 'writing');
+  if (!topicCheck.matched) {
+    console.warn('[ai-service] ⚠️ Writing prompt DSE topic match LOW — may not align with real DSE Paper 2 themes.',
+      { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords });
+  } else {
+    console.log('[ai-service] ✅ Writing prompt DSE validation passed',
+      { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords.slice(0, 5) });
+  }
+
+  return prompt;
 }
 
 /**

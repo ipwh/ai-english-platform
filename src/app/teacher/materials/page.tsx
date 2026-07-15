@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2 } from 'lucide-react';
+import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2, Pencil, Trash2, Check, X } from 'lucide-react';
 
 import { formatDate } from '@/lib/utils';
 import { useT } from '@/hooks/use-i18n';
@@ -40,6 +40,54 @@ export default function TeacherMaterialsPage() {
     difficultyLevel: string;
     suggestedGrade: string;
   } | null>>({});
+
+  // === Edit/Delete state ===
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTags, setEditTags] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const handleEdit = (m: any) => {
+    setEditingId(m.id);
+    setEditTitle(m.title);
+    setEditTags((m.tags || []).join(', '));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editTitle.trim()) return;
+    try {
+      const tagList = editTags.split(/[,，]/).map(t => t.trim()).filter(Boolean);
+      await fetch('/api/materials', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, title: editTitle.trim(), tags: tagList }),
+      });
+      setEditingId(null);
+      loadMaterials();
+    } catch (e) {
+      console.error('[Materials] Edit failed:', e);
+      setUploadError(t('teacher.materials.saveFailed'));
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await fetch('/api/materials', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      setDeleteConfirm(null);
+      setExpandedId(null);
+      loadMaterials();
+    } catch (e) {
+      console.error('[Materials] Delete failed:', e);
+      setUploadError(t('teacher.materials.deleteFailed'));
+    }
+    finally { setDeletingId(null); }
+  };
 
   const handleAIAnalyze = async (materialId: string, title: string, extractedText?: string, fileType?: string) => {
     setAnalyzingId(materialId);
@@ -165,8 +213,13 @@ export default function TeacherMaterialsPage() {
                   const mRes = await fetch('/api/materials');
                   const mData = await mRes.json();
                   setMaterials(mData.materials || []);
+                } else {
+                  setUploadError(t('teacher.materials.uploadFailed'));
                 }
-              } catch { /* silent */ }
+              } catch (e) {
+                console.error('[Materials] Text upload failed:', e);
+                setUploadError(t('teacher.materials.uploadFailed'));
+              }
             } else if (file.type.startsWith('image/')) {
               // OCR: 使用 Vision API 提取文字
               const formData = new FormData();
@@ -186,8 +239,13 @@ export default function TeacherMaterialsPage() {
                   const mRes = await fetch('/api/materials');
                   const mData = await mRes.json();
                   setMaterials(mData.materials || []);
+                } else {
+                  setUploadError(t('teacher.materials.ocrFailed'));
                 }
-              } catch { /* silent */ }
+              } catch (e) {
+                console.error('[Materials] OCR upload failed:', e);
+                setUploadError(t('teacher.materials.uploadFailed'));
+              }
             } else {
               // PDF、DOCX、PPTX：上傳檔案由伺服器端提取文字
               const formData = new FormData();
@@ -305,6 +363,22 @@ export default function TeacherMaterialsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0">
+                  {/* Edit button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleEdit(m); }}
+                    className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 hover:text-blue-500 transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(m.id); }}
+                    className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <span>{m.fileSize}</span>
                   <span>{formatDate(m.uploadedAt)}</span>
                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -384,6 +458,68 @@ export default function TeacherMaterialsPage() {
           );
         })}
       </div>
+
+      {/* Edit Modal */}
+      {editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setEditingId(null)} />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6 z-10 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">編輯教材</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">標題</label>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">標籤（逗號分隔）</label>
+              <input
+                value={editTags}
+                onChange={(e) => setEditTags(e.target.value)}
+                placeholder="e.g. reading, S4, science"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditingId(null)} className="px-4 py-2 border rounded-lg text-sm">取消</button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg flex items-center gap-1">
+                <Check className="w-4 h-4" /> 儲存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirm(null)} />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 z-10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900 dark:text-white">刪除教材</h2>
+                <p className="text-sm text-gray-500">此操作無法復原，確定要刪除此教材嗎？</p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border rounded-lg text-sm">取消</button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={deletingId === deleteConfirm}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm rounded-lg flex items-center gap-1"
+              >
+                {deletingId === deleteConfirm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                確認刪除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/shared/Toast";
 import AuthProvider from "@/components/shared/AuthProvider";
 import { HydrateStore } from "@/components/shared/HydrateStore";
+import { GlobalErrorBoundary } from "@/components/shared/GlobalErrorBoundary";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
 
@@ -53,7 +54,9 @@ export default async function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <HydrateStore />
-            {children}
+            <GlobalErrorBoundary>
+              {children}
+            </GlobalErrorBoundary>
           </ToastProvider>
         </AuthProvider>
       </body>

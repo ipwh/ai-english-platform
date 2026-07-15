@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw } from 'lucide-react';
+import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle } from 'lucide-react';
 
 import VocabCard from '@/components/vocabulary/VocabCard';
 import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
@@ -289,18 +289,23 @@ export default function VocabularyPage() {
     fetch('/api/vocabulary/export-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId, wordIds: ids }),
+      body: JSON.stringify({ studentId, wordIds: ids, format: 'pdf' }),
     })
-      .then(r => r.text())
-      .then(html => {
-        const win = window.open('', '_blank');
-        if (win) {
-          win.document.write(html);
-          win.document.close();
-          setTimeout(() => win.print(), 500);
-        }
+      .then(r => {
+        if (!r.ok) throw new Error('Export failed');
+        return r.blob();
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `vocabulary-${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => { console.error("[page] PDF export failed", e); });
   };
 
   // ============================================
@@ -559,6 +564,20 @@ export default function VocabularyPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Error State */}
+      {loadError && (
+        <div className="text-center py-16">
+          <AlertCircle className="w-12 h-12 mx-auto text-red-300 dark:text-red-600 mb-3" />
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{t('vocab.loadFailed')}</p>
+          <button
+            onClick={() => { setLoadError(false); window.location.reload(); }}
+            className="mt-3 px-4 py-2 bg-red-100 dark:bg-red-800/50 text-red-700 dark:text-red-300 rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+          >
+            {t('common.reloadPage')}
+          </button>
         </div>
       )}
 

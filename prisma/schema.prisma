@@ -57,6 +57,7 @@ model User {
   mistakes      Mistake[]
   vocabItems    VocabItem[]
   writingDrafts WritingDraft[]
+  integratedSkillsDraft IntegratedSkillsDraft?
   submissions   Submission[]
   reviews       Review[]
   notifications Notification[]
@@ -294,6 +295,23 @@ model WritingDraft {
   status           String    @default("draft") // draft | revised | reviewed
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+// ============================================
+// 六點五、Integrated Skills 草稿持久化
+// ============================================
+
+model IntegratedSkillsDraft {
+  userId             String    @id
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentNotes       String    @default("")
+  studentWriting     String    @default("")
+  taskData           String?   // JSON: IntegratedTaskData
+  stage              String    @default("config") // config | listening | writing | result
+  activeStep         Int       @default(1)        // 1 | 2 | 3
+  listeningCompleted Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 // ============================================
