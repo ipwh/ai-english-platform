@@ -262,15 +262,6 @@ ${rows}
   }
 }
 
-function tryParse(val: unknown): string[] {
-  if (!val) return [];
-  if (Array.isArray(val)) return val;
-  if (typeof val === 'string') {
-    try { return JSON.parse(val); } catch { return []; }
-  }
-  return [];
-}
-
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
