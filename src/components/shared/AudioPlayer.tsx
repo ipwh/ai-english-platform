@@ -317,6 +317,13 @@ export default function AudioPlayer({
       cloudAbortRef.current = null;
     }
 
+    // Release cached blob URL to prevent memory leak
+    if (cachedUrlRef.current) {
+      try { URL.revokeObjectURL(cachedUrlRef.current); } catch { /* ignore */ }
+      cachedUrlRef.current = null;
+    }
+    cachedKeyRef.current = '';
+
     // UI state
     setPlaying(false);
     setPaused(false);
@@ -326,8 +333,6 @@ export default function AudioPlayer({
     setProgress(0);
     setFallbackMode(false);
     if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null; }
-    cachedKeyRef.current = '';
-    cachedUrlRef.current = null;
   }, []);
 
   // 估算播放時長（字數 / 每秒 2.5 詞 × 語速修正）
@@ -397,10 +402,14 @@ export default function AudioPlayer({
     return () => clearInterval(interval);
   }, []);
 
-  // 清理自身 audio 資源（避免記憶體洩漏 + 殘餘語音）
+  // 清理自身 audio 資源（避免記憶體洩漏 + 殘餘語音 + 快取 URL）
   useEffect(() => {
     return () => {
       cleanupAllPlayback();
+      // Clean up any cached blob URLs that may still be referenced
+      if (cachedUrlRef.current) {
+        try { URL.revokeObjectURL(cachedUrlRef.current); } catch { /* ignore */ }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

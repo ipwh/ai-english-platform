@@ -571,12 +571,32 @@ const STRICT_ANSWER_RULES = `
 - MCQ：'answer' 必須是 "A"/"B"/"C"/"D" 之一，且完整對應 choices 陣列中對應選項的文字內容。
 - Listening：'answer' 指向的選項文字必須逐字 (verbatim) 出現在該題的 listeningContent 中。
   每題獨立生成 listeningContent，再據此產生問題和答案。禁止 hallucinate。
+
+⚠️ 聆聽題時間表達強制規範 (CRITICAL for Listening Questions)：
+- 對話中所有時間必須使用標準英文**文字**表達，嚴禁使用數字格式。
+  ✅ 正確："three o'clock", "half past two", "a quarter to four", "two thirty", "five forty-five"
+  ✅ 正確："at noon", "in the afternoon", "ten minutes past three"
+  ❌ 錯誤："3:00", "2:30 PM", "4:00", "2:45"（這些數字格式會造成 TTS 朗讀混亂）
+  ❌ 錯誤："3 o'clock"（數字+文字混雜）、"2:45 PM"（數字格式）
+- 若答案涉及時間，listeningContent 中該時間必須以文字形式精確出現，
+  且 choices 陣列中的對應選項也必須使用相同文字表達。
+  例：對話說 "half past two in the afternoon" → 選項為 "A. half past two"、"B. two o'clock"、"C. three o'clock"、"D. two thirty"
+  嚴禁選項出現 "A. 2:30 PM" 或 "A30 PM" 等數字/縮寫混雜格式。
+
+⚠️ 聆聽題選項格式強制規範：
+- 選項必須是完整、可讀的英文短語，不得為數字碎片。
+  ✅ 正確：選項陣列為 ["two o'clock", "half past two", "three o'clock", "two thirty"]
+  ❌ 錯誤：["00", "30", "o'clock"]、["A30 PM"]、["2:00"]、["PM"]
+- 每個選項至少 5 個字元。
+- 若答案為數字資訊（價格、電話號碼、門牌號碼），選項必須以完整格式呈現：
+  ✅ ["fifty dollars", "sixty-five dollars", "forty dollars", "eighty dollars"]
+  ❌ ["50", "65", "40"]
+
 - Reading：'answer' 指向的選項文字必須可從 readingContent 直接推斷或引用。
 - 時間、金錢、數字、專有名詞必須完全一致（包括標點和空格）。
-  若用 "4 o'clock" 則全題統一用 "4 o'clock"，不可混用 "four o'clock" 或 "4:00"。
-- ⚠️ 時間選項反例（這些格式會被系統過濾，導致題目廢棄）：
+  ⚠️ 時間選項反例（這些格式會被系統過濾，導致題目廢棄）：
   ❌ "00 PM"、"30 PM"、"5:00"（無 AM/PM）、"00"、"30"、裸數字
-  ✅ "4:00 PM"、"4 o'clock"、"four o'clock"、"3:30 PM"、"half past three"
+  ✅ "two o'clock"、"half past three"、"four o'clock"
 - ⚠️ choices 陣列必須恰好 4 個元素。少於 4 個會被系統自動補位；被補位的選項可能不是 DSE 格式。
 - 輸出前自我檢查 (Self-Check)：確認 answer 對應的選項文字確實存在於該題的 listeningContent/readingContent 中。
   如不一致，必須修正後再輸出。`;
@@ -1189,6 +1209,99 @@ export function validateDSEtopicMatch(
   // Require at least 2 keyword matches for a confident match (avoid false positives)
   const score = keywords.size > 0 ? matched.length / Math.min(keywords.size, 100) : 0;
   return { matched: matched.length >= 2, score, matchedKeywords: matched };
+}
+
+// ============================================
+// Listening 一致性驗證器 v2.0 — post-generation QA
+// ============================================
+
+/**
+ * Validate that listening questions have consistent answers, proper time formats,
+ * and DSE-compliant choices. Returns a detailed report for retry decisions.
+ */
+export function validateListeningConsistency(questions: GeneratedQuestion[]): {
+  passed: boolean;
+  errors: string[];
+  warnings: string[];
+  questionIndices: number[]; // indices of questions that need regeneration
+} {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const retryIndices: number[] = [];
+
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    if (!q.listeningContent) continue;
+
+    const prefix = `[L-Listening Q${i + 1}]`;
+
+    // 1. Check listeningContent has valid dialogue structure
+    const lines = q.listeningContent.split('\n').filter(l => l.trim());
+    if (lines.length < 2) {
+      errors.push(`${prefix} dialogue too short (<2 lines)`);
+      retryIndices.push(i);
+      continue;
+    }
+
+    // 2. Check answer is verbatim in listeningContent
+    if (q.choices && q.choices.length > 0 && q.type === 'mc') {
+      const letterMatch = q.answer.trim().match(/^[A-D]$/i);
+      if (letterMatch) {
+        const idx = letterMatch[0].toUpperCase().charCodeAt(0) - 65;
+        const answerText = q.choices[idx] || '';
+        const normContent = q.listeningContent.toLowerCase().replace(/\s+/g, ' ');
+        const normAnswer = answerText.toLowerCase().replace(/\s+/g, ' ').replace(/^[a-d][.)]\s*/i, '');
+
+        if (!normContent.includes(normAnswer)) {
+          errors.push(`${prefix} answer "${answerText}" NOT found verbatim in listeningContent`);
+          retryIndices.push(i);
+        }
+      }
+    }
+
+    // 3. Check for numeric time formats in listeningContent (banned)
+    const timeFragPattern = /\b\d{1,2}:\d{2}\b/g;
+    const timeMatches = q.listeningContent.match(timeFragPattern);
+    if (timeMatches && timeMatches.length > 0) {
+      errors.push(`${prefix} numeric time format found: ${timeMatches.join(', ')} — must use words`);
+      retryIndices.push(i);
+    }
+
+    // 4. Check choices for DSE format
+    if (q.choices && q.choices.length > 0) {
+      for (let ci = 0; ci < q.choices.length; ci++) {
+        const choice = stripMcqPrefix(q.choices[ci] || '');
+        // Check for numeric time fragments in choices
+        if (/^\d{1,2}:\d{2}\s*(?:AM|PM)?$/i.test(choice)) {
+          errors.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" is numeric time format`);
+          retryIndices.push(i);
+        }
+        // Check for very short fragments
+        if (choice.length < 3) {
+          errors.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" too short (<3 chars)`);
+          retryIndices.push(i);
+        }
+        // Check for "o'clock" without leading word
+        if (/^o'?clock$/i.test(choice)) {
+          errors.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" bare clock word`);
+          retryIndices.push(i);
+        }
+      }
+    }
+
+    // 5. Check for mixed digit+word time in listeningContent
+    const mixedTimePattern = /\b\d+\s+o'?clock\b/i;
+    if (mixedTimePattern.test(q.listeningContent)) {
+      warnings.push(`${prefix} mixed digit+word time detected (e.g. "3 o'clock")`);
+    }
+  }
+
+  return {
+    passed: errors.length === 0,
+    errors,
+    warnings,
+    questionIndices: [...new Set(retryIndices)],
+  };
 }
 
 // ============================================
@@ -1826,6 +1939,25 @@ ${STRICT_ANSWER_RULES}
     } else {
       console.log('[ai-service] ✅ DSE topic validation passed',
         { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords.slice(0, 5) });
+    }
+
+    // === Listening Consistency Validation (post-generation QA) ===
+    if (isListening) {
+      const listenCheck = validateListeningConsistency(fixedQuestions);
+      if (!listenCheck.passed) {
+        console.warn('[ai-service] ⚠️ Listening consistency FAILED:',
+          { errors: listenCheck.errors, warnings: listenCheck.warnings });
+        // Filter out questions that failed consistency
+        const validQuestions = fixedQuestions.filter((_, i) => !listenCheck.questionIndices.includes(i));
+        if (validQuestions.length === 0) {
+          console.warn('[ai-service] All listening questions failed consistency — returning original set with warnings');
+          // Don't return empty; return originals so user at least sees something
+          return fixedQuestions;
+        }
+        console.log(`[ai-service] Listening consistency: ${validQuestions.length}/${fixedQuestions.length} questions passed`);
+        return validQuestions;
+      }
+      console.log('[ai-service] ✅ Listening consistency validation passed');
     }
 
     return fixedQuestions;
