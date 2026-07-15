@@ -63,6 +63,7 @@ model User {
   notifications Notification[]
   sessions      PracticeSession[]
   listeningSessions ListeningSession[]
+  spellingSessions  SpellingSession[]
   accounts      Account[]
   sessionsAuth  Session[]
 
@@ -630,4 +631,40 @@ model ListeningAnswer {
   createdAt      DateTime  @default(now())
 
   @@index([sessionId])
+}
+
+// ============================================
+// 十六、串字練習記錄 (Spelling Practice)
+// ============================================
+
+model SpellingSession {
+  id             String    @id @default(cuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  totalWords     Int
+  correctCount   Int       @default(0)
+  status         String    @default("in-progress") // in-progress | completed
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  attempts       SpellingAttempt[]
+
+  @@index([studentId])
+}
+
+model SpellingAttempt {
+  id             String    @id @default(cuid())
+  sessionId      String
+  session        SpellingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  vocabId        String?
+  word           String
+  meaningZh      String
+  explanationEn  String?   // 英文解釋提示
+  studentInput   String    // 學生輸入
+  isCorrect      Boolean
+  attempts       Int       @default(1)  // 第幾次嘗試
+  createdAt      DateTime  @default(now())
+
+  @@index([sessionId])
+  @@index([vocabId])
 }

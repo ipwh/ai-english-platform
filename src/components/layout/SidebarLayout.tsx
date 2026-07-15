@@ -374,7 +374,7 @@ export default function SidebarLayout({
         />
       )}
       <aside
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-[min(288px,85vw)] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transform transition-transform duration-300 ease-in-out ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -409,7 +409,7 @@ export default function SidebarLayout({
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileOpen(true)}
-                className="lg:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="lg:hidden p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 min-w-[40px] min-h-[40px] flex items-center justify-center"
               >
                 <Menu className="w-5 h-5" />
               </button>
@@ -446,7 +446,7 @@ export default function SidebarLayout({
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
+                  <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
                     <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         {t('layout.notifications')}

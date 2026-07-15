@@ -7,6 +7,8 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { useToast } from '@/components/shared/Toast';
 import OcrUpload from '@/components/shared/OcrUpload';
+import { InlineWordBadge } from '@/components/vocabulary/InlineAddVocabButton';
+import VocabEnabledText from '@/components/vocabulary/VocabEnabledText';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {
@@ -538,7 +540,7 @@ export default function WritingPage() {
 
           {/* CLO Score Breakdown */}
           {(aiResult.contentScore != null || aiResult.languageScore != null || aiResult.organizationScore != null) && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-3 text-center border border-red-200 dark:border-red-800">
                 <p className="text-xs font-medium text-red-600 dark:text-red-400">Content 內容</p>
                 <p className="text-2xl font-bold text-red-700 dark:text-red-300">{aiResult.contentScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
@@ -599,11 +601,34 @@ export default function WritingPage() {
               {aiResult.vocabularySuggestions?.length > 0 && (
                 <div><p className="text-xs font-medium text-green-600 mb-1">{t('writing.vocabulary')}</p>
                   {aiResult.vocabularySuggestions.map((v: { original: string; suggestion: string; reason: string }, i: number) => (
-                    <div key={i} className="text-sm text-green-700 ml-2"><span className="line-through">{v.original}</span> → <span className="font-medium">{v.suggestion}</span><span className="text-gray-500 ml-2">({v.reason})</span></div>))}
+                    <div key={i} className="text-sm text-green-700 ml-2 flex items-center gap-1 flex-wrap">
+                      <span className="line-through">{v.original}</span>
+                      <span>→</span>
+                      {store.userId ? (
+                        <InlineWordBadge
+                          word={v.suggestion}
+                          studentId={store.userId}
+                          gradeLevel={gradeLevel}
+                          isSuggestion
+                        />
+                      ) : (
+                        <span className="font-medium">{v.suggestion}</span>
+                      )}
+                      <span className="text-gray-500 ml-2">({v.reason})</span>
+                    </div>))}
                 </div>
               )}
               {aiResult.revisedVersion && (
-                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg"><p className="text-xs font-medium text-purple-600 mb-1">{t('writing.revised')}</p><p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p></div>
+                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg">
+                  <p className="text-xs font-medium text-purple-600 mb-1">{t('writing.revised')}</p>
+                  {store.userId ? (
+                    <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
+                    </VocabEnabledText>
+                  ) : (
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
+                  )}
+                </div>
               )}
             </>
           )}

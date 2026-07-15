@@ -78,7 +78,7 @@ export default function VocabCard({
 
           {/* Example sentence */}
           {vocab.exampleSentence && (
-            <p className="text-xs text-gray-500 mt-1 italic leading-relaxed">
+            <p className="text-xs text-gray-500 mt-1 italic leading-relaxed break-words">
               &ldquo;{vocab.exampleSentence}&rdquo;
               {vocab.exampleZh && (
                 <span className="text-gray-400 not-italic ml-1">({vocab.exampleZh})</span>
@@ -188,10 +188,11 @@ export default function VocabCard({
           {onDelete && (
             <button
               onClick={() => { if (window.confirm('確定要刪除此生字？This will permanently delete this word.')) onDelete(vocab.id); }}
-              className="text-gray-300 hover:text-red-500 transition-colors"
+              className="text-gray-300 hover:text-red-500 transition-colors p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
               title="Delete"
+              aria-label="Delete word"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>

@@ -15,6 +15,7 @@ import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';
 import { useIntegratedSkillsStore, type IntegratedTaskData, type TaskStep } from '@/store/integratedSkillsStore';
 import { useT } from '@/hooks/use-i18n';
+import VocabEnabledText from '@/components/vocabulary/VocabEnabledText';
 
 const DRAFT_KEY = 'integrated-skills-draft-v4';
 const AUTO_SAVE_INTERVAL = 15_000; // 15 秒
@@ -80,7 +81,7 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
 // ============================================
 // 子元件：雙維度結果卡片
 // ============================================
-function ResultView() {
+function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: string }) {
   const a = useIntegratedSkillsStore(s => s.analysis);
   if (!a) return null;
 
@@ -187,7 +188,13 @@ function ResultView() {
           <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1.5">
             <Lightbulb className="w-4 h-4" /> AI Feedback
           </h4>
-          <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{a.generalComment}</p>
+          {studentId ? (
+            <VocabEnabledText studentId={studentId} gradeLevel={gradeLevel}>
+              <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{a.generalComment}</p>
+            </VocabEnabledText>
+          ) : (
+            <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{a.generalComment}</p>
+          )}
         </div>
       )}
     </div>
@@ -308,7 +315,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
             <ArrowLeft className="w-4 h-4" /> 返回修改
           </button>
         </div>
-        <ResultView />
+        <ResultView studentId={appStore.userId || ''} gradeLevel={s.gradeLevel || 'S4'} />
         <div className="flex gap-3 pt-2">
           <button
             onClick={() => { s.reset(); }}
@@ -515,7 +522,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   value={s.studentNotes}
                   onChange={e => s.setStudentNotes(e.target.value)}
                   placeholder="邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）..."
-                  className="w-full min-h-[200px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                  className="w-full min-h-[200px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
                 />
 
                 {/* Actions row */}
@@ -596,7 +603,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   value={s.studentWriting}
                   onChange={e => s.setStudentWriting(e.target.value)}
                   placeholder="根據你的筆記和寫作任務，在此撰寫你的答案..."
-                  className="w-full min-h-[300px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full min-h-[300px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 />
 
                 {/* Word count bar */}

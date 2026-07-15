@@ -85,7 +85,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-4 sm:p-6 text-white">
         <p className="text-teal-100 text-sm">{getGreeting(language)}, {displayName}!</p>
         <h1 className="text-2xl font-bold mt-1">{t('student.dashboard.title')}</h1>
         <Link href="/student/practice" className="mt-3 inline-block px-4 py-2 bg-white text-teal-600 rounded-xl font-medium text-sm">

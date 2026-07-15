@@ -160,7 +160,7 @@ export default function QuickAddVocab({
       {/* Floating Action Button */}
       <button
         onClick={() => setStage('input')}
-        className={`fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 ${stage !== 'idle' ? 'hidden' : ''} ${className}`}
+        className={`fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 safe-bottom ${stage !== 'idle' ? 'hidden' : ''} ${className}`}
         aria-label={t('vocab.quickAdd')}
       >
         <Plus className="w-5 h-5" />

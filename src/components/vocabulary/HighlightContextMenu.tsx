@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { BookMarked, Sparkles } from 'lucide-react';
 
 interface HighlightContextMenuProps {
@@ -29,22 +29,52 @@ export function useHighlightAddVocab(
   const [selectedWord, setSelectedWord] = useState('');
   const [menuPos, setMenuPos] = useState<Position | null>(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTouchPos = useRef<Position | null>(null);
 
-  const handleContextMenu = useCallback((e: MouseEvent) => {
+  const showMenuForSelection = useCallback((x: number, y: number) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
 
     const text = selection.toString().trim();
-    // Only handle single words or short phrases (up to 3 words)
     const wordCount = text.split(/\s+/).length;
     if (wordCount > 3) return;
-
-    // Only handle alphabetic text (English words)
     if (!/^[a-zA-Z\s'-]+$/.test(text)) return;
 
-    e.preventDefault();
     setSelectedWord(text);
-    setMenuPos({ x: e.clientX, y: e.clientY });
+    setMenuPos({ x, y });
+  }, []);
+
+  const handleContextMenu = useCallback((e: MouseEvent) => {
+    e.preventDefault();
+    showMenuForSelection(e.clientX, e.clientY);
+  }, [showMenuForSelection]);
+
+  // Long-press handler for touch devices
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    const touch = e.touches[0];
+    lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+    longPressTimer.current = setTimeout(() => {
+      // Only show on long press if there's a text selection
+      const pos = lastTouchPos.current;
+      if (pos) showMenuForSelection(pos.x, pos.y);
+    }, 600); // 600ms long press
+  }, [showMenuForSelection]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    // Cancel long press if finger moves
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
   }, []);
 
   const handleAddToVocab = useCallback(() => {
@@ -66,11 +96,17 @@ export function useHighlightAddVocab(
   useEffect(() => {
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('click', handleCloseMenu);
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchmove', handleTouchMove);
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('click', handleCloseMenu);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
     };
-  }, [handleContextMenu, handleCloseMenu]);
+  }, [handleContextMenu, handleCloseMenu, handleTouchStart, handleTouchEnd, handleTouchMove]);
 
   return {
     menuPos,
@@ -103,7 +139,7 @@ export function HighlightContextMenu({
 
       {/* Menu */}
       <div
-        className="fixed z-[101] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[200px]"
+        className="fixed z-[101] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] max-w-[calc(100vw-16px)]"
         style={{
           left: Math.min(menuPos.x, window.innerWidth - 220),
           top: Math.min(menuPos.y, window.innerHeight - 120),

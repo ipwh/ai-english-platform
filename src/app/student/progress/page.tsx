@@ -99,7 +99,7 @@ export default function StudentProgressPage() {
 
       {!loading && !loadError && (<>
       {/* KPI 卡片 */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {kpis.map((kpi, i) => <KpiCard key={i} data={kpi} />)}
       </div>
 

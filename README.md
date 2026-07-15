@@ -17,6 +17,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **詞彙庫** — 生字學習及語音播放
 - **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化 AI 複習建議，掌握度 ★ 評級（0-5），自動去重
 - **📝 生字簿 2.1 強化** — API 分頁支援（`page`/`limit`/`search`/`familiarity`/`pos`/`sort`）、`/api/vocabulary/suggest` 練習自動建議生字、`/api/vocabulary/example` 專用例句生成、`/api/vocabulary/quiz` 互動式詞彙測驗（MCQ + 配對題）、VocabCard 策略提示根據掌握度動態推導
+- **✏️ 串字練習 (Spelling Practice)** — 看中文意思及英文例句提示，自行輸入正確英文單詞；支援 4 種選字模式（最新/隨機/最弱/到期）、即時批改、錯誤重試、SRS 掌握度自動更新；完成後顯示成績及逐字結果回顧（`SpellingSession` + `SpellingAttempt` DB 模型）
+- **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕
 - **AI 求助助手** — 讀取學生弱項、近期錯題與表現後，對照 HKDSE 各卷別等級描述提供個人化英文學習建議；回答後可一鍵生成相關練習題目，即時練習改進
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、12 款成就徽章（連續學習、正確率、練習量、寫作、詞彙）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
@@ -49,6 +51,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 📱 行動裝置支援
 - **統一側欄佈局**（`SidebarLayout`）：教師端與學生端共用，桌面可收合為圖標模式，手機為抽屜式滑入 + 遮罩
 - **學生手機底部快捷列**：5 個常用功能快速切換（主頁、練習、錯題、進度、更多）
+- **全平台觸控優化**：所有按鈕 ≥ 36px 觸控面積、長按支援（HighlightContextMenu 600ms long-press）、文字選取彈出加入（`mouseup` + `touchend`）、模態框 `max-w-[calc(100vw-2rem)]`、iPhone safe-area（`safe-bottom`）、iOS 鍵盤縮放防護（`text-base`）
+- **響應式網格系統**：全站網格已適配 `grid-cols-1 sm:grid-cols-N` 模式（統計、CLO 評分、KPI、過濾列等）
 - 所有功能在手機與桌面完全一致，無功能缺漏
 
 ## Tech Stack
@@ -152,6 +156,26 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新
+
+### 📚 生字簿 3.0 — 串字練習 + 無縫添加 + 全平台流動裝置審計 — 2026-07-15
+
+#### ✏️ 串字練習 (Spelling Practice)
+- **DB 模型**：`SpellingSession` + `SpellingAttempt`（PostgreSQL）
+- **API**：`GET /api/vocabulary/spelling`（4 種選字模式：new/random/weakest/due）+ `POST /api/vocabulary/spelling`（提交答案 + SRS 自動更新）
+- **UI**：`SpellingPractice` 元件 — 顯示中英解釋 → 輸入英文單詞 → 即時批改 → 錯誤重試 → 成績回顧；已整合至 `/student/vocabulary`
+
+#### ➕ 無縫添加生字（Inline Add-to-Vocab）
+- **`InlineWordBadge`**：AI 建議單字旁的 `+` 按鈕（hover/觸控雙模式）
+- **`TextSelectionPopup`**：選取文字後浮動加入按鈕（支援 `mouseup` + `touchend`）
+- **`VocabEnabledText`**：包裝任何文字區域支援選取加入
+- **`AddToVocabButton`**：通用按鈕（icon/text/pill 三種樣式，≥ 36px 觸控面積）
+- **已整合**：寫作頁詞彙建議、改寫版本；Integrated Skills AI 評語
+
+#### 📱 全平台流動裝置審計（26 檔案 / 20 項修復）
+- **🔴 CRITICAL**：錯題按鈕列 `flex-wrap`、長按選字（600ms）、選取彈出 `touchend` 支援
+- **🟠 HIGH**：Modal `max-w-[calc(100vw-2rem)]`、FAB `safe-bottom`、網格 `grid-cols-1 sm:grid-cols-N`
+- **🟡 MEDIUM**：iOS 鍵盤防縮放 `text-base`、`break-words`、`flex-col sm:flex-row`
+- **🔵 LOW**：觸控面積 36-40px、`px-4 sm:px-6` 內邊距適配
 
 ### 🏗️ 基礎架構重構 — 集中式設定 + 安全性強化 + 輸入驗證 — 2026-07-15
 

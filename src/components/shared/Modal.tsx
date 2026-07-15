@@ -80,21 +80,21 @@ export default function Modal({ open, onClose, title, children, size = 'md', foo
       {/* 背景遮罩 */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       {/* 對話框 */}
-      <div ref={dialogRef} className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full ${sizeMap[size]} max-h-[85vh] overflow-y-auto`}>
+      <div ref={dialogRef} className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full ${sizeMap[size]} max-w-[calc(100vw-2rem)] max-h-[85vh] overflow-y-auto`}>
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-            <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 min-w-[36px] min-h-[36px] flex items-center justify-center">
               <X className="w-5 h-5" />
             </button>
           </div>
         )}
         {/* Body */}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-4 sm:px-6 py-4">{children}</div>
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
+          <div className="px-4 sm:px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex flex-wrap justify-end gap-3">
             {footer}
           </div>
         )}

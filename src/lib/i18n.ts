@@ -357,6 +357,38 @@ const translations: Record<string, { zh: string; en: string }> = {
   'vocab.analyzing': { zh: '正在分析', en: 'Analyzing' },
   'vocab.analyzingDesc': { zh: '查詢詞性、意思、例句、同反義字、搭配詞', en: 'Looking up POS, meaning, examples, synonyms, antonyms, collocations' },
 
+  // Vocab Spelling Practice
+  'vocab.spellingTitle': { zh: '串字練習', en: 'Spelling Practice' },
+  'vocab.spellingDesc': { zh: '看中英解釋，輸入正確英文單詞', en: 'See meaning & hint, type the correct word' },
+  'vocab.spellingStart': { zh: '開始串字練習', en: 'Start Spelling Practice' },
+  'vocab.spellingCheck': { zh: '檢查答案', en: 'Check Answer' },
+  'vocab.spellingNext': { zh: '下一個', en: 'Next Word' },
+  'vocab.spellingFinish': { zh: '完成', en: 'Finish' },
+  'vocab.spellingRetry': { zh: '重試', en: 'Retry' },
+  'vocab.spellingCorrect': { zh: '正確！🎉', en: 'Correct! 🎉' },
+  'vocab.spellingIncorrect': { zh: '不太對，正確答案是：', en: 'Not quite right. Answer:' },
+  'vocab.spellingComplete': { zh: '練習完成！', en: 'Practice Complete!' },
+  'vocab.spellingAccuracy': { zh: '正確率', en: 'accuracy' },
+  'vocab.spellingNewRound': { zh: '再練一次', en: 'New Practice' },
+  'vocab.spellingAnotherRound': { zh: '換一批單字', en: 'Another Round' },
+  'vocab.spellingShowHint': { zh: '顯示提示（例句）', en: 'Show hint (example)' },
+  'vocab.spellingModeNew': { zh: '最新加入', en: 'Newest' },
+  'vocab.spellingModeRandom': { zh: '隨機選取', en: 'Random' },
+  'vocab.spellingModeWeakest': { zh: '最弱優先', en: 'Weakest' },
+  'vocab.spellingModeDue': { zh: '到期複習', en: 'Due Review' },
+  'vocab.spellingWordCount': { zh: '練習數量', en: 'Number of Words' },
+  'vocab.spellingLetters': { zh: '個字母', en: 'letters' },
+  'vocab.spellingPhrase': { zh: '片語', en: 'phrase' },
+  'vocab.spellingTypeWord': { zh: '輸入正確的英文單詞...', en: 'Type the English word...' },
+  'vocab.spellingAttempts': { zh: '嘗試 {n} 次', en: '{n} attempt(s)' },
+  'vocab.spellingLoadFailed': { zh: '載入失敗', en: 'Load failed' },
+
+  // Inline Add Vocab
+  'vocab.inlineAdd': { zh: '加入生字簿', en: 'Add to Vocab' },
+  'vocab.inlineAdded': { zh: '已加入！', en: 'Added!' },
+  'vocab.inlineExists': { zh: '已在生字簿', en: 'In Vocab Book' },
+  'vocab.inlineAdding': { zh: '加入中...', en: 'Adding...' },
+
   // Student Progress
   'progress.title': { zh: '📊 我的進度', en: '📊 My Progress' },
   'progress.weekly': { zh: '本週練習量', en: 'Weekly Practice' },

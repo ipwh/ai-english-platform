@@ -66,18 +66,18 @@ export default function StudentProfilePage() {
           <div className="space-y-3">
             <div>
               <label className="block text-xs text-gray-500 mb-1 text-left">{t('profile.chineseName')}</label>
-              <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })} placeholder={t('profile.chineseName')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+              <input value={form.nameZh} onChange={e => setForm({ ...form, nameZh: e.target.value })} placeholder={t('profile.chineseName')} className="w-full max-w-[12rem] px-3 py-2 border rounded-lg text-center text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1 text-left">{t('profile.englishName')}</label>
-              <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder={t('profile.englishNamePlaceholder')} className="w-48 px-3 py-2 border rounded-lg text-center text-sm" />
+              <input value={form.nameEn} onChange={e => setForm({ ...form, nameEn: e.target.value })} placeholder={t('profile.englishNamePlaceholder')} className="w-full max-w-[12rem] px-3 py-2 border rounded-lg text-center text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1 text-left flex items-center gap-1"><GraduationCap className="w-3 h-3" /> {t('profile.grade')}</label>
               <select
                 value={form.level}
                 onChange={e => setForm({ ...form, level: e.target.value })}
-                className="w-48 px-3 py-2 border rounded-lg text-center text-sm bg-white dark:bg-gray-700"
+                className="w-full max-w-[12rem] px-3 py-2 border rounded-lg text-center text-sm bg-white dark:bg-gray-700"
               >
                 <option value="">{t('profile.notSet')}</option>
                 {Object.keys(gradeLabels).map(k => <option key={k} value={k}>{getGradeLabel(k, language)}</option>)}

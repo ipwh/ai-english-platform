@@ -5,12 +5,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle, PencilLine } from 'lucide-react';
 
 import VocabCard from '@/components/vocabulary/VocabCard';
 import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
 import VocabFilterBar from '@/components/vocabulary/VocabFilterBar';
 import BatchImportVocab from '@/components/vocabulary/BatchImportVocab';
+import SpellingPractice from '@/components/vocabulary/SpellingPractice';
 import { useAppStore } from '@/store/appStore';
 import type { Familiarity, VocabItem, MasteryLevel } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
@@ -49,6 +50,9 @@ export default function VocabularyPage() {
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [reviewSuggestions, setReviewSuggestions] = useState<any>(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
+
+  // Spelling Practice
+  const [showSpelling, setShowSpelling] = useState(false);
 
   // Quiz
   const [quizQuestions, setQuizQuestions] = useState<any[] | null>(null);
@@ -371,7 +375,7 @@ export default function VocabularyPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: t('vocab.total'), value: stats.total, color: 'text-teal-600' },
           { label: t('vocab.mastered'), value: stats.mastered, color: 'text-green-600' },
@@ -563,6 +567,54 @@ export default function VocabularyPage() {
                 )}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Spelling Practice Section */}
+      {vocab.length >= 3 && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <PencilLine className="w-5 h-5 text-purple-500" />
+              {language === 'en' ? 'Spelling Practice' : '串字練習'}
+              <span className="text-xs font-normal text-gray-400 ml-1">
+                {language === 'en' ? '(See meaning → Type the word)' : '（看解釋 → 輸入單詞）'}
+              </span>
+            </h2>
+            <button
+              onClick={() => setShowSpelling(!showSpelling)}
+              className="flex items-center gap-1 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition-colors"
+            >
+              {showSpelling
+                ? (language === 'en' ? 'Hide Practice' : '收起練習')
+                : (language === 'en' ? 'Start Spelling' : '開始串字')}
+            </button>
+          </div>
+
+          {showSpelling && studentId && (
+            <SpellingPractice
+              studentId={studentId}
+              embedded
+              onComplete={(result) => {
+                // 🎮 XP for completing spelling
+                if (store.userId && result.correct > 0) {
+                  fetch('/api/gamification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentId: store.userId, event: { type: 'completeSession', metadata: { type: 'spelling', correct: result.correct } } }),
+                  }).catch(() => {});
+                }
+              }}
+            />
+          )}
+
+          {!showSpelling && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              {language === 'en'
+                ? 'Practice spelling by seeing the Chinese meaning and English hint, then typing the correct word. Great for exam preparation!'
+                : '看到中文意思及英文提示後，輸入正確的英文單詞。有效強化記憶，適合準備考試！'}
+            </p>
           )}
         </div>
       )}
