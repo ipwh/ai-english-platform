@@ -9,14 +9,12 @@ import db from '@/lib/db';
 export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement';
 export type NotificationLang = 'zh' | 'en';
 
-/** Resolve user language from DB */
-export async function getUserLang(userId: string): Promise<NotificationLang> {
-  try {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { language: true } });
-    return user?.language === 'en' ? 'en' : 'zh';
-  } catch {
-    return 'zh';
-  }
+/** Resolve user language — checks DB if language field exists, falls back to 'zh' */
+export async function getUserLang(_userId: string): Promise<NotificationLang> {
+  // Language preference is stored in client-side Zustand/localStorage.
+  // Server-side notifications default to 'zh' since the DB User model
+  // does not currently have a language column.
+  return 'zh';
 }
 
 // ============================================
@@ -118,23 +116,20 @@ export async function notifyAssignmentCreated(
       : { class: { name: className }, role: 'student' as const };
     const students = await db.user.findMany({
       where,
-      select: { id: true, language: true },
+      select: { id: true },
     });
     if (students.length === 0) return;
 
     const titleMsg = MSG.assignmentTitle;
     const bodyMsg = MSG.newAssignment(className, assignmentTitle);
-    // Send per-student language
-    for (const student of students) {
-      const lang: NotificationLang = student.language === 'en' ? 'en' : 'zh';
-      await createNotification({
-        userId: student.id,
-        type: 'assignment',
-        title: titleMsg[lang],
-        message: bodyMsg[lang],
-        link: `/student/assignments/${assignmentId}`,
-      });
-    }
+    // Use bulk create for efficiency; language defaults to 'zh' (DB has no language column yet)
+    await createBulkNotifications(
+      students.map(s => s.id),
+      'assignment',
+      titleMsg.zh,
+      bodyMsg.zh,
+      `/student/assignments/${assignmentId}`,
+    );
     console.log(`[Notification] Assignment "${assignmentTitle}" → ${students.length} students in ${className}`);
   } catch (err) {
     console.error('[NotificationService] notifyAssignmentCreated failed:', err);

@@ -231,15 +231,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (userId) {
             try {
               const { checkNewBadges } = await import('@/lib/gamification');
-              const { notifyAchievement } = await import('@/lib/notifications');
               const stats = get().getWeeklyStats();
               const allStats = {
                 totalQuestions: stats.questionsDone + (state.practiceSessions.reduce((s, p) => s + p.totalQuestions, 0)),
                 overallAccuracy: stats.accuracy,
                 streakDays: stats.streakDays,
+                sessionsCompleted: state.practiceSessions.length + 1,
                 wordsMastered: 0,
                 writingSubmissions: 0,
                 listeningSessions: 0,
+                diagnosticCompleted: false,
+                skillAccuracy: {} as Record<string, number>,
               };
               const currentBadges: string[] = [];
               try {
@@ -250,8 +252,22 @@ export const useAppStore = create<AppState>((set, get) => ({
               if (newBadges.length > 0) {
                 const newIds = newBadges.map(b => b.id);
                 localStorage.setItem('unlockedBadges', JSON.stringify([...currentBadges, ...newIds]));
+                // Use fetch() instead of importing notifyAchievement to avoid pulling pg into client bundle
                 for (const badge of newBadges) {
-                  notifyAchievement(userId, badge.id, badge.descriptionZh || badge.id).catch(() => {});
+                  const lang = get().language || 'zh';
+                  fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userId,
+                      type: 'achievement',
+                      title: lang === 'en' ? '🏆 New Badge Earned!' : '🏆 獲得新徽章！',
+                      message: lang === 'en'
+                        ? `Congratulations! You earned the "${badge.id}" badge!`
+                        : `恭喜你獲得「${badge.descriptionZh || badge.id}」徽章！`,
+                      link: '/student/dashboard',
+                    }),
+                  }).catch(() => {});
                 }
               }
             } catch { /* non-critical */ }

@@ -17,7 +17,7 @@ interface State {
   errorInfo: string;
 }
 
-function getLang(): string {
+function getLang(): 'zh' | 'en' {
   if (typeof window === 'undefined') return 'zh';
   try {
     const stored = localStorage.getItem('lang');

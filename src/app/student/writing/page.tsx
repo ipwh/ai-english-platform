@@ -21,7 +21,7 @@ const wordLimits = [100, 150, 200, 300, 400, 500, 800];
 
 export default function WritingPage() {
   const { t, language } = useT();
-  const { toast } = useToast();
+  const { showToast } = useToast();
   const store = useAppStore();
   const lang = language || 'zh';
   
@@ -118,7 +118,7 @@ export default function WritingPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
-      toast('error', err instanceof Error ? err.message : t('writing.exportFailed'));
+      showToast('error', err instanceof Error ? err.message : t('writing.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -283,10 +283,10 @@ export default function WritingPage() {
         setShowRewrite(true);
         setShowDiff(true);
       } else {
-        toast('error', json.error || t('writing.rewriteFailed'));
+        showToast('error', json.error || t('writing.rewriteFailed'));
       }
     } catch {
-      toast('error', t('writing.rewriteError'));
+      showToast('error', t('writing.rewriteError'));
     } finally {
       setRewriteLoading(false);
     }

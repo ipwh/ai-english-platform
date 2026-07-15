@@ -217,7 +217,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Clean up associated RAG chunks first
-    await db.ragChunk.deleteMany({ where: { materialId: id } });
+    await db.materialChunk.deleteMany({ where: { materialId: id } });
     await db.material.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

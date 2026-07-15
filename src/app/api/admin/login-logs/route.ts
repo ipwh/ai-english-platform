@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   // 🔒 Admin-only access
   const adminResult = await verifyAdmin(request);
-  if (!adminResult.authenticated) {
+  if (!adminResult.authorized) {
     return NextResponse.json({ error: adminResult.error || 'Unauthorized' }, { status: 403 });
   }
 

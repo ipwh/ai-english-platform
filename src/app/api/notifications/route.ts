@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST — 標記通知為已讀
+// POST — 建立通知 或 標記通知為已讀
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId(request);
@@ -76,7 +76,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: '請提供 markAllRead 或 notificationId' }, { status: 400 });
+    // 建立新通知（由前端直接呼叫，如成就解鎖）
+    if (body.type && body.title && body.message) {
+      const notification = await db.notification.create({
+        data: {
+          userId: body.userId || userId,
+          type: body.type,
+          title: body.title,
+          message: body.message,
+          link: body.link || null,
+        },
+      });
+      return NextResponse.json({ success: true, id: notification.id }, { status: 201 });
+    }
+
+    return NextResponse.json({ error: '請提供 markAllRead、notificationId 或 type/title/message' }, { status: 400 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
