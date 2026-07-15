@@ -1236,6 +1236,66 @@ export function validateDSEtopicMatch(
 }
 
 // ============================================
+// DSE Validation Retry Engine + Stats
+// ============================================
+
+const MAX_DSE_RETRIES = 2;
+
+interface RetryStats {
+  totalAttempts: number;
+  retryCount: number;
+  retrySuccesses: number;
+  failedTopics: string[];
+  lastReset: number;
+}
+
+const _retryStats: RetryStats = {
+  totalAttempts: 0,
+  retryCount: 0,
+  retrySuccesses: 0,
+  failedTopics: [],
+  lastReset: Date.now(),
+};
+
+/** Reset stats (called periodically or via API) */
+export function resetRetryStats(): RetryStats {
+  const prev = { ..._retryStats };
+  _retryStats.totalAttempts = 0;
+  _retryStats.retryCount = 0;
+  _retryStats.retrySuccesses = 0;
+  _retryStats.failedTopics = [];
+  _retryStats.lastReset = Date.now();
+  return prev;
+}
+
+/** Get current retry statistics for monitoring */
+export function getRetryStats(): RetryStats & { retryRate: number } {
+  return {
+    ..._retryStats,
+    retryRate: _retryStats.totalAttempts > 0
+      ? _retryStats.retryCount / _retryStats.totalAttempts
+      : 0,
+  };
+}
+
+/** Structured logging for validation failures */
+function logValidationFailure(
+  event: string,
+  skill: string,
+  data: { score?: number; attempts?: number; errors?: string[]; topic?: string; grade?: string }
+): void {
+  console.log(JSON.stringify({
+    service: 'ai-validation',
+    event,
+    skill,
+    timestamp: new Date().toISOString(),
+    ...data,
+  }));
+  // Optional: send to Sentry
+  // if (process.env.SENTRY_DSN) { Sentry.captureMessage(...) }
+}
+
+// ============================================
 // Listening 一致性驗證器 v2.0 — post-generation QA
 // ============================================
 
