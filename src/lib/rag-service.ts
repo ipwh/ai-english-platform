@@ -21,28 +21,46 @@ function getApiKey(): string {
 // ============================================
 
 /**
- * 呼叫 DeepSeek Embedding API 生成向量
+ * 呼叫 Embedding API 生成向量
+ * 優先 DeepSeek，失敗時自動 fallback 到 Vertex AI
  */
 async function getEmbedding(text: string): Promise<number[]> {
-  const res = await fetch(`${DEEPSEEK_BASE_URL}/embeddings`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getApiKey()}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-embedding',
-      input: text,
-    }),
-  });
+  // Try DeepSeek embedding first
+  if (DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here') {
+    try {
+      const res = await fetch(`${DEEPSEEK_BASE_URL}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getApiKey()}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek-embedding',
+          input: text,
+        }),
+      });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Embedding API 錯誤: ${res.status} — ${err}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.[0]?.embedding) {
+          return json.data[0].embedding;
+        }
+      }
+      console.warn(`[RAG] DeepSeek embedding returned ${res.status}, falling back to Vertex AI`);
+    } catch (e) {
+      console.warn('[RAG] DeepSeek embedding failed, falling back to Vertex AI:', (e as Error).message);
+    }
   }
 
-  const json = await res.json();
-  return json.data[0].embedding;
+  // Fallback: Vertex AI embeddings (textembedding-gecko)
+  try {
+    const { getEmbedding: getVertexEmbedding } = await import('@/lib/vertex-embeddings');
+    const embedding = await getVertexEmbedding(text);
+    if (embedding && embedding.length > 0) return embedding;
+    throw new Error('Vertex AI returned empty embedding');
+  } catch (e) {
+    throw new Error(`Embedding API failed (both DeepSeek and Vertex AI): ${(e as Error).message}`);
+  }
 }
 
 // ============================================

@@ -20,8 +20,9 @@ function resolveServiceAccountKey(): string | undefined {
 const SERVICE_ACCOUNT_KEY = resolveServiceAccountKey();
 
 const PROJECT_ID = process.env.GCP_PROJECT_ID || '';
-const LOCATION = process.env.VERTEX_AI_LOCATION || 'us-central1';
-const MODEL = 'textembedding-gecko@003';
+// Embeddings require a regional endpoint (e.g. us-central1), NOT 'global'
+const LOCATION = process.env.VERTEX_AI_EMBEDDINGS_LOCATION || 'us-central1';
+const MODEL = 'text-embedding-004'; // Latest stable, replaces textembedding-gecko@003
 
 interface EmbeddingResponse {
   predictions: { embeddings: { values: number[] } }[];
