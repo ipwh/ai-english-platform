@@ -4,13 +4,13 @@
 // ============================================
 
 import db from '@/lib/db';
+import { config } from '@/lib/config';
 
-// Fix: safe fallback instead of non-null assertion
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
+const DEEPSEEK_API_KEY = config.deepseek.apiKey;
+const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
 
 function getApiKey(): string {
-  if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
+  if (!config.deepseek.isConfigured) {
     throw new Error('DEEPSEEK_API_KEY not configured. RAG features unavailable.');
   }
   return DEEPSEEK_API_KEY;
@@ -26,7 +26,7 @@ function getApiKey(): string {
  */
 async function getEmbedding(text: string): Promise<number[]> {
   // Try DeepSeek embedding first
-  if (DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here') {
+  if (config.deepseek.isConfigured) {
     try {
       const res = await fetch(`${DEEPSEEK_BASE_URL}/embeddings`, {
         method: 'POST',

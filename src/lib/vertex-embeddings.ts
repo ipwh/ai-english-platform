@@ -1,9 +1,11 @@
 // ============================================
 // Vertex AI Embeddings Service
-// 使用 Google Vertex AI textembedding-gecko 模型
+// 使用 Google Vertex AI text-embedding-004 模型
+// 設定統一從 config.ts 讀取
 // ============================================
 
 import { GoogleAuth } from 'google-auth-library';
+import { config } from '@/lib/config';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -18,11 +20,9 @@ function resolveServiceAccountKey(): string | undefined {
 }
 
 const SERVICE_ACCOUNT_KEY = resolveServiceAccountKey();
-
-const PROJECT_ID = process.env.GCP_PROJECT_ID || '';
-// Embeddings require a regional endpoint (e.g. us-central1), NOT 'global'
-const LOCATION = process.env.VERTEX_AI_EMBEDDINGS_LOCATION || 'us-central1';
-const MODEL = 'text-embedding-004'; // Latest stable, replaces textembedding-gecko@003
+const PROJECT_ID = config.vertex.projectId;
+const LOCATION = config.vertex.embeddingsLocation;
+const MODEL = config.vertex.embeddingsModel;
 
 interface EmbeddingResponse {
   predictions: { embeddings: { values: number[] } }[];

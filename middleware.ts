@@ -10,6 +10,23 @@ import { jwtVerify } from 'jose';
 
 const publicPaths = ['/login', '/role-select', '/api/auth', '/style-guide'];
 
+/** 安全取得 AUTH_SECRET（Edge Runtime 無法匯入 config.ts 含 fs 依賴的模組） */
+function getAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    // 生產環境強制要求設定 AUTH_SECRET
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+      throw new Error(
+        '[middleware] 生產環境必須設定 AUTH_SECRET 環境變數。'
+      );
+    }
+    // 開發環境使用 fallback（不會用於真實安全場景）
+    console.warn('[middleware] ⚠️ AUTH_SECRET 未設定，使用開發環境預設值。生產環境必須設定！');
+    return 'dev-secret-change-me-in-production';
+  }
+  return secret;
+}
+
 /**
  * 從 NextAuth session cookie 中提取並驗證 JWT，取得 user role
  * NextAuth v5 的 session-token 本身就是一個 JWT
@@ -25,9 +42,11 @@ async function getRoleFromNextAuthCookie(request: NextRequest): Promise<string |
   const token = request.cookies.get(cookieName)?.value;
   if (!token) return null;
   try {
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'default-secret-change-me');
+    const secret = new TextEncoder().encode(getAuthSecret());
     const { payload } = await jwtVerify(token, secret);
-    return (payload as any)?.role || null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const role = (payload as Record<string, unknown>)?.role;
+    return typeof role === 'string' ? role : null;
   } catch { return null; }
 }
 

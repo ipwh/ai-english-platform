@@ -46,7 +46,8 @@ export async function verifyApiAuth(
   try {
     const session = await auth();
     if (session?.user?.id) {
-      const role = (session.user as any)?.role as UserRole | undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const role = (session.user as Record<string, unknown>)?.role as UserRole | undefined;
       if (allowedRoles && role && !allowedRoles.includes(role)) {
         return { authenticated: false, error: '權限不足' };
       }

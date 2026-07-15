@@ -29,9 +29,10 @@ export async function verifyPassword(password: string, hash: string): Promise<'v
     return match ? 'valid' : 'invalid';
   }
 
-  // 2. 嘗試舊版 simpleHash（遷移期）
+  // 2. 嘗試舊版 simpleHash（遷移期 — 每次比對成功記錄警告以追蹤遷移進度）
   if (hash.startsWith('hash_')) {
     const legacyMatch = legacySimpleHash(password) === hash;
+    if (legacyMatch) trackLegacyUsage();
     return legacyMatch ? 'needs_rehash' : 'invalid';
   }
 
@@ -47,6 +48,7 @@ export function verifyPasswordSync(password: string, hash: string): 'valid' | 'n
   }
   if (hash.startsWith('hash_')) {
     const legacyMatch = legacySimpleHash(password) === hash;
+    if (legacyMatch) trackLegacyUsage();
     return legacyMatch ? 'needs_rehash' : 'invalid';
   }
   return 'invalid';
@@ -55,6 +57,11 @@ export function verifyPasswordSync(password: string, hash: string): 'valid' | 'n
 // ============================================
 // 舊版 simpleHash — 僅保留供遷移用，新密碼一律使用 bcrypt
 // ============================================
+
+/** 舊版雜湊使用計數器（用於監控遷移進度） */
+let legacyHashUsageCount = 0;
+const MAX_LEGACY_WARNINGS = 5;
+
 function legacySimpleHash(password: string): string {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
@@ -65,9 +72,30 @@ function legacySimpleHash(password: string): string {
   return `hash_${Math.abs(hash).toString(16)}_${password.length}`;
 }
 
+/** 檢查是否仍有使用舊版雜湊的密碼 */
+export function getLegacyHashStats(): { count: number; needsMigration: boolean } {
+  return { count: legacyHashUsageCount, needsMigration: legacyHashUsageCount > 0 };
+}
+
+function trackLegacyUsage(): void {
+  legacyHashUsageCount++;
+  if (legacyHashUsageCount <= MAX_LEGACY_WARNINGS) {
+    console.warn(
+      `[crypto] ⚠️ 偵測到第 ${legacyHashUsageCount} 個使用舊版 simpleHash 的密碼。` +
+      '使用者登入時將自動升級為 bcrypt。建議執行一次性遷移腳本：npx tsx scripts/migrate-legacy-hashes.ts'
+    );
+  } else if (legacyHashUsageCount === MAX_LEGACY_WARNINGS + 1) {
+    console.warn(
+      `[crypto] ⚠️ 已超過 ${MAX_LEGACY_WARNINGS} 次舊版雜湊警告，後續將不再顯示。` +
+      `目前累計 ${legacyHashUsageCount} 次。請盡快完成遷移。`
+    );
+  }
+}
+
 // ============================================
 // 向後相容：simpleHash 別名（供 seed.ts / import scripts 使用）
 // ⚠️ DEPRECATED: 新程式碼應使用 hashPassword / hashPasswordSync
+// 此別名將於 2026-09-01 後移除
 // ============================================
-/** @deprecated 使用 hashPasswordSync 取代 */
+/** @deprecated 使用 hashPasswordSync 取代。將於 2026-09-01 移除。 */
 export const simpleHash = hashPasswordSync;

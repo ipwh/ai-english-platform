@@ -64,7 +64,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 圖表 | Recharts |
 | AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (optional fallback) + Vertex AI Embeddings |
 | 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
-| MCQ 正規化 | 後端自動清除 T/F/True/False 前綴、按索引標準化 A/B/C/D 答案字母，防止 Gemini fallback 輸出格式異常 |
+| 驗證 | Zod（API 輸入驗證） + `ai-schema.ts`（AI 輸出驗證） |
 | 語音 | Google Cloud Text-to-Speech（多人對話分段合成）+ Web Speech API（fallback） |
 | 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
@@ -152,6 +152,43 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ## 近期更新
+
+### 🏗️ 基礎架構重構 — 集中式設定 + 安全性強化 + 輸入驗證 — 2026-07-15
+
+經過深度程式碼分析後，針對 8 項關鍵問題進行全面改善：
+
+#### 🔴 高優先級修復
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 1 | **集中式環境變數管理**：新增 `src/lib/config.ts`，統一 DeepSeek/Gemini/Vertex/JWT/RateLimit/Upload/DB/Cache 設定，終結分散在 5+ 模組中重複讀取 `process.env` 的模式 | `config.ts` (new) |
+| 2 | **Middleware AUTH_SECRET 安全修復**：移除 `'default-secret-change-me'` 硬編碼 fallback；生產環境強制拋出錯誤，開發環境顯示明確警告 | `middleware.ts` |
+| 3 | **legacySimpleHash 遷移追蹤**：新增 `trackLegacyUsage()` 計數器 + `getLegacyHashStats()` 監控 API；前 5 次舊版雜湊比對顯示遷移警告，之後抑制；`simpleHash` 別名加入 2026-09-01 移除期限 | `crypto.ts` |
+
+#### 🟡 中優先級修復
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 4 | **Body Size 驗證**：`materials/route.ts` POST 加入檔案大小上限 (10MB)、副檔名白名單 (pdf/docx/txt)、JSON body 大小檢查；回傳正確 HTTP status (413/415) | `api/materials/route.ts` |
+| 5 | **Zod 輸入驗證**：`materials/route.ts` 新增 `materialBodySchema` 完整驗證（title/type/gradeLevel/strand/content/tags/fileSize 全欄位）| `api/materials/route.ts` |
+| 6 | **API Cache Headers**：`GET /api/materials` 加入 `ETag` + `Cache-Control: public, max-age=30, must-revalidate` | `api/materials/route.ts` |
+
+#### 🟢 低優先級修復
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 7 | **getDemoUsers() 生產環境防護**：加入 `NODE_ENV === 'production'` guard，生產環境回傳空陣列 | `auth.ts` |
+| 8 | **移除 `as any` 型別斷言**：`ai-service.ts` 改用 `keyof typeof pool`；`api-auth.ts` 改用 `Record<string, unknown>`；`tts-service.ts` 加入原因註解 | 3 files |
+
+#### 📦 重構至集中式 config 的模組（6 個）
+
+`ai-service.ts`, `rag-service.ts`, `rate-limiter.ts`, `vertex-embeddings.ts`, `db.ts`, `api/materials/route.ts`
+
+#### 📊 修正統計
+- **新增檔案**：1 (`src/lib/config.ts`)
+- **修改檔案**：11
+- **測試**：123 passed / 0 failed
+- **TypeScript 錯誤**：0
 
 ### 🔐 部署前安全審計 + 全面品質修復 (P0-P2) — 2026-07-15
 

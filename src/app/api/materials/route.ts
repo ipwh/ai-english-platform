@@ -6,6 +6,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
+import { config } from '@/lib/config';
+import { z } from 'zod';
+
+// ============================================
+// 上傳限制常數
+// ============================================
+
+const MAX_FILE_SIZE = config.upload.maxFileSize; // 10MB
+const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'txt'];
+const MAX_CONTENT_LENGTH = config.upload.maxContentLength;
+
+// ============================================
+// JSON body Zod schema（POST/PATCH 共用）
+// ============================================
+
+const materialBodySchema = z.object({
+  title: z.string().min(1, 'title 為必填').max(200),
+  description: z.string().max(2000).optional().nullable(),
+  type: z.enum(['pdf', 'docx', 'txt', 'text', 'image']).default('text'),
+  gradeLevel: z.enum(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']).optional().nullable(),
+  strand: z.enum(['interpersonal', 'knowledge', 'experience']).optional().nullable(),
+  content: z.string().max(MAX_CONTENT_LENGTH).optional().nullable(),
+  tags: z.array(z.string().max(50)).max(20).optional().nullable(),
+  fileSize: z.number().max(MAX_FILE_SIZE).optional().nullable(),
+});
 
 /** 伺服器端從 PDF/DOCX/TXT 檔案提取文字 */
 async function extractTextFromFile(file: File): Promise<string | null> {
@@ -15,6 +40,7 @@ async function extractTextFromFile(file: File): Promise<string | null> {
   try {
     if (ext === 'pdf') {
       const pdfParseModule = await import('pdf-parse');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pdfParse = (pdfParseModule as any).default || pdfParseModule;
       const data = await pdfParse(buffer);
       return data.text?.trim() || null;
@@ -51,6 +77,7 @@ export async function GET() {
         ragStatus: true,
         fileSize: true,
         createdAt: true,
+        updatedAt: true,
         uploader: { select: { name: true, nameZh: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -62,7 +89,22 @@ export async function GET() {
       tags: m.tags ? JSON.parse(m.tags) : [],
     }));
 
-    return NextResponse.json({ materials: formatted });
+    // ETag 支援：基於 updatedAt 最大值生成 cache key
+    const latestUpdate = materials.reduce((max, m) => {
+      const t = m.updatedAt ? new Date(m.updatedAt).getTime() : 0;
+      return t > max ? t : max;
+    }, 0);
+    const etag = `"materials-${latestUpdate}"`;
+
+    return NextResponse.json(
+      { materials: formatted },
+      {
+        headers: {
+          'ETag': etag,
+          'Cache-Control': 'public, max-age=30, must-revalidate',
+        },
+      }
+    );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -93,7 +135,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '未提供檔案' }, { status: 400 });
       }
 
+      // 🔒 Body size validation：檢查檔案大小
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: `檔案大小超過上限（${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB）` },
+          { status: 413 }
+        );
+      }
+
       const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+
+      // 🔒 副檔名白名單檢查
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        return NextResponse.json(
+          { error: `不支援的檔案格式：.${ext}。支援格式：${ALLOWED_EXTENSIONS.join(', ')}` },
+          { status: 415 }
+        );
+      }
+
       const content = await extractTextFromFile(file);
 
       if (!content || content.length < 10) {
@@ -107,7 +166,7 @@ export async function POST(request: NextRequest) {
         data: {
           title: file.name,
           type: ext,
-          content: content.slice(0, 100000),
+          content: content.slice(0, MAX_CONTENT_LENGTH),
           fileSize: file.size,
           uploadedBy: userId,
           ocrStatus: 'done',
@@ -118,13 +177,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ material }, { status: 201 });
     }
 
-    // === 現有：JSON body（文字/圖片 OCR 結果）===
-    const body = await request.json();
-    const { title, description, type, gradeLevel, strand, content, tags, fileSize } = body;
+    // === JSON body（文字/圖片 OCR 結果）— Zod 驗證 ===
+    const rawBody = await request.json();
 
-    if (!title) {
-      return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
+    // 🔒 檢查 body 大小
+    const bodyStr = JSON.stringify(rawBody);
+    if (bodyStr.length > MAX_CONTENT_LENGTH) {
+      return NextResponse.json(
+        { error: `請求內容超過上限（${Math.round(MAX_CONTENT_LENGTH / 1024)}KB）` },
+        { status: 413 }
+      );
     }
+
+    const parsed = materialBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const errors = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`);
+      return NextResponse.json({ error: '輸入驗證失敗', details: errors }, { status: 400 });
+    }
+
+    const { title, description, type, gradeLevel, strand, content, tags, fileSize } = parsed.data;
 
     const material = await db.material.create({
       data: {

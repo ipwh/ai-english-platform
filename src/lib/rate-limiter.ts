@@ -115,17 +115,19 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
 }
 
 // ============================================
-// 預設限流設定
+// 預設限流設定（統一從 config.ts 讀取）
 // ============================================
+
+import { config } from '@/lib/config';
 
 /** AI API 端點限流：每 IP 每 60 秒最多 30 次請求 */
 export const AI_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 30,
-  windowMs: 60_000,
+  maxRequests: config.rateLimit.ai.maxRequests,
+  windowMs: config.rateLimit.ai.windowMs,
 };
 
-/** 登入端點限流：每 IP 每 60 秒最多 10 次請求（防止暴力破解） */
+/** 登入端點限流：每 IP 每 60 秒最多 5 次請求（防止暴力破解） */
 export const LOGIN_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 10,
-  windowMs: 60_000,
+  maxRequests: config.rateLimit.login.maxRequests,
+  windowMs: config.rateLimit.login.windowMs,
 };

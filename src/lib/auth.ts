@@ -70,6 +70,12 @@ export async function authenticateUser(email: string, password: string): Promise
 }
 
 export async function getDemoUsers(): Promise<{ email: string; password: string; role: string; name: string }[]> {
+  // 🔒 生產環境安全防護：禁止暴露用戶列表
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    console.warn('[auth] getDemoUsers() 在生產環境被呼叫 — 回傳空陣列。');
+    return [];
+  }
+
   const users = await db.user.findMany({
     select: { email: true, role: true, nameZh: true, name: true },
     take: 20,

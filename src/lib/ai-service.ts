@@ -96,20 +96,22 @@ export function detectChinglish(text: string): ChinglishWarning[] {
 }
 
 // ============================================
-// 設定
+// 設定（統一從 config.ts 讀取）
 // ============================================
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+import { config } from '@/lib/config';
 
-const VERTEX_PROJECT_ID = process.env.GCP_PROJECT_ID || '';
-const VERTEX_LOCATION = process.env.VERTEX_AI_LOCATION || 'global';
-const VERTEX_GEMINI_MODEL = process.env.VERTEX_GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const DEEPSEEK_API_KEY = config.deepseek.apiKey;
+const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
+const DEEPSEEK_MODEL = config.deepseek.model;
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const VERTEX_PROJECT_ID = config.vertex.projectId;
+const VERTEX_LOCATION = config.vertex.location;
+const VERTEX_GEMINI_MODEL = config.vertex.model;
+
+const GEMINI_API_KEY = config.gemini.apiKey;
+const GEMINI_BASE_URL = config.gemini.baseUrl;
+const GEMINI_MODEL = config.gemini.model;
 
 // ============================================
 // Provider 追蹤 — 供 API routes 通知前端目前使用的 AI
@@ -1167,11 +1169,11 @@ export function getDSEEmpiricalTopics(
   if (!pool) return [];
   
   const allTopics: string[] = [];
-  if (category && (pool as any)[category]) {
-    allTopics.push(...((pool as any)[category] as string[]));
+  if (category && category in pool) {
+    allTopics.push(...(pool[category as keyof typeof pool] as readonly string[]));
   } else {
     for (const cat of Object.values(pool)) {
-      allTopics.push(...(cat as string[]));
+      allTopics.push(...(cat as readonly string[]));
     }
   }
   
