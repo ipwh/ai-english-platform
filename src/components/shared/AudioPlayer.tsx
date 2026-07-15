@@ -11,7 +11,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Volume2, Pause, Play, Square, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Volume2, Pause, Play, Square, Loader2, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
 
 interface AudioPlayerProps {
   text: string;
@@ -259,6 +259,8 @@ export default function AudioPlayer({
   const [cloudFetching, setCloudFetching] = useState(false);
   const [cloudError, setCloudError] = useState('');
   const [fallbackMode, setFallbackMode] = useState(false); // TTS fallback indicator
+  const [showFallbackBanner, setShowFallbackBanner] = useState(false); // persistent notice
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const cloudAudioRef = useRef<HTMLAudioElement | null>(null);
   const cloudAbortRef = useRef<AbortController | null>(null);
   // 快取
@@ -332,6 +334,8 @@ export default function AudioPlayer({
     setCloudError('');
     setProgress(0);
     setFallbackMode(false);
+    // Keep fallback banner visible so user knows Web Speech is active
+    // setShowFallbackBanner(false);
     if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null; }
   }, []);
 
@@ -441,6 +445,25 @@ export default function AudioPlayer({
     cleanupAllPlayback();
     setPaused(false);
   }, [cleanupAllPlayback]);
+
+  // === 音頻問題回報 ===
+  const handleFeedback = useCallback(() => {
+    const payload = {
+      text: text.slice(0, 200),
+      error: cloudError || (fallbackMode ? 'Web Speech fallback' : ''),
+      speed,
+      timestamp: new Date().toISOString(),
+    };
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'tts', payload }),
+    }).then(r => {
+      if (r.ok) setFeedbackSent(true);
+      setTimeout(() => setFeedbackSent(false), 3000);
+    }).catch(() => {});
+    console.warn('[AudioPlayer] User reported audio issue:', payload);
+  }, [text, cloudError, fallbackMode, speed]);
 
   // ============================================
   // 暫停播放（保留進度，可繼續）
@@ -738,6 +761,7 @@ export default function AudioPlayer({
     // 開始新播放 session：先完整清理，再初始化
     cleanupAllPlayback();
     setFallbackMode(true); // Indicate browser TTS fallback
+    setShowFallbackBanner(true); // Show persistent notice
     const currentSessionId = ++sessionIdRef.current;
     setLoading(true);
     cancelled.current = false;
@@ -903,6 +927,28 @@ export default function AudioPlayer({
     <div className={`flex flex-col gap-1 ${className}`}
       onMouseEnter={() => { if (useCloudTTS && !isBusy && !paused) prefetchAudio(); }}
     >
+      {/* Fallback Banner */}
+      {showFallbackBanner && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="text-amber-700 dark:text-amber-300">
+            Google TTS unavailable — using browser speech.
+          </span>
+          <button
+            onClick={handleFeedback}
+            className="ml-auto text-amber-500 hover:text-amber-700 underline shrink-0"
+            disabled={feedbackSent}
+          >
+            {feedbackSent ? '✓ Sent' : 'Report'}
+          </button>
+          <button
+            onClick={() => setShowFallbackBanner(false)}
+            className="text-amber-400 hover:text-amber-600 shrink-0"
+          >
+            <XCircle className="w-3 h-3" />
+          </button>
+        </div>
+      )}
       <div className="inline-flex items-center gap-1">
       {/* 播放 / 暫停 / 繼續 按鈕 */}
       <button
