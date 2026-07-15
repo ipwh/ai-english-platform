@@ -77,7 +77,6 @@ export async function GET() {
         ragStatus: true,
         fileSize: true,
         createdAt: true,
-        updatedAt: true,
         uploader: { select: { name: true, nameZh: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -89,9 +88,9 @@ export async function GET() {
       tags: m.tags ? JSON.parse(m.tags) : [],
     }));
 
-    // ETag 支援：基於 updatedAt 最大值生成 cache key
+    // ETag 支援：基於 createdAt 最大值生成 cache key
     const latestUpdate = materials.reduce((max, m) => {
-      const t = m.updatedAt ? new Date(m.updatedAt).getTime() : 0;
+      const t = m.createdAt ? new Date(m.createdAt).getTime() : 0;
       return t > max ? t : max;
     }, 0);
     const etag = `"materials-${latestUpdate}"`;
