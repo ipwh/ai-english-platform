@@ -121,6 +121,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'writing.grade': { zh: '年級', en: 'Grade' },
   'writing.textType': { zh: '文體', en: 'Text Type' },
   'writing.wordLimit': { zh: '字數上限', en: 'Word Limit' },
+  'writing.customWordLimit': { zh: '輸入自訂字數 (50-2000)', en: 'Enter custom word count (50-2000)' },
   'writing.customWordCount': { zh: '自訂字數', en: 'Custom word count' },
   'writing.topicHint': { zh: '主題提示（可選）', en: 'Topic Hint (optional)' },
   'writing.customTopic': { zh: '使用自訂題目（不使用 AI 生成）', en: 'Use custom topic (skip AI generation)' },

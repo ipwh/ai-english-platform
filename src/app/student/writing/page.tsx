@@ -344,8 +344,19 @@ export default function WritingPage() {
             <input
               type="number"
               value={wordLimit}
-              onChange={e => { const v = Number(e.target.value); if (v >= 50 && v <= 2000) setWordLimit(v); }}
+              onChange={e => {
+                const raw = e.target.value;
+                if (raw === '') { setWordLimit(0); return; }
+                const v = parseInt(raw, 10);
+                if (!isNaN(v)) setWordLimit(v);
+              }}
+              onBlur={e => {
+                const v = Number(e.target.value);
+                if (isNaN(v) || v < 50) setWordLimit(50);
+                else if (v > 2000) setWordLimit(2000);
+              }}
               min={50} max={2000} step={10}
+              placeholder={t('writing.customWordLimit')}
               className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white"
             />
             <div className="flex gap-1 mt-1 flex-wrap">
@@ -476,6 +487,18 @@ export default function WritingPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <Sparkles className="w-5 h-5 text-purple-600" /><h3 className="font-semibold text-purple-800 dark:text-purple-200">{t('writing.aiAnalysisResult')}</h3>
             <span className="ml-auto text-2xl font-bold text-purple-700">{aiResult.overallScore}/100</span>
+            {/* DSE Level Badge */}
+            {aiResult.dseLevel && (
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                ['5**','5*','5'].includes(aiResult.dseLevel) ? 'bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200' :
+                aiResult.dseLevel === '4' ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200' :
+                aiResult.dseLevel === '3' ? 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                ['2','1'].includes(aiResult.dseLevel) ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200' :
+                'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200'
+              }`}>
+                DSE Level {aiResult.dseLevel}
+              </span>
+            )}
             {/* 分層反饋切換 */}
             <button
               onClick={() => setFeedbackLevel(feedbackLevel === 'simple' ? 'detailed' : 'simple')}
@@ -508,6 +531,43 @@ export default function WritingPage() {
               {aiResult.generalComment}
             </p>
           </div>
+
+          {/* CLO Score Breakdown */}
+          {(aiResult.contentScore != null || aiResult.languageScore != null || aiResult.organizationScore != null) && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-3 text-center border border-red-200 dark:border-red-800">
+                <p className="text-xs font-medium text-red-600 dark:text-red-400">Content 內容</p>
+                <p className="text-2xl font-bold text-red-700 dark:text-red-300">{aiResult.contentScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-3 text-center border border-amber-200 dark:border-amber-800">
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Language 語言</p>
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{aiResult.languageScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 text-center border border-green-200 dark:border-green-800">
+                <p className="text-xs font-medium text-green-600 dark:text-green-400">Organization 組織</p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">{aiResult.organizationScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
+              </div>
+            </div>
+          )}
+
+          {/* CLO Total Score */}
+          {aiResult.cloTotalScore != null && (
+            <div className="flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg py-2 px-4">
+              <span className="text-sm text-gray-600 dark:text-gray-400">CLO 總分：</span>
+              <span className="text-lg font-bold text-purple-700 dark:text-purple-300">{aiResult.cloTotalScore.toFixed(1)}<span className="text-sm font-normal text-gray-500">/21</span></span>
+              {aiResult.dseLevel && (
+                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                  ['5**','5*','5'].includes(aiResult.dseLevel) ? 'bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-200' :
+                  aiResult.dseLevel === '4' ? 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200' :
+                  aiResult.dseLevel === '3' ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200' :
+                  ['2','1'].includes(aiResult.dseLevel) ? 'bg-amber-100 text-amber-700 dark:bg-amber-800 dark:text-amber-200' :
+                  'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200'
+                }`}>
+                  對應 {aiResult.dseLevel}
+                </span>
+              )}
+            </div>
+          )}
 
           {feedbackLevel === 'simple' && aiResult.structureFeedback && (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic">💡 {aiResult.structureFeedback}</p>

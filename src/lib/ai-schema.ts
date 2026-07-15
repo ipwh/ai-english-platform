@@ -51,6 +51,11 @@ export const AnswerAnalysisSchema = z.object({
 
 export const WritingAnalysisSchema = z.object({
   overallScore: z.number().min(0).max(100),
+  contentScore: z.number().min(0).max(7).optional(),
+  languageScore: z.number().min(0).max(7).optional(),
+  organizationScore: z.number().min(0).max(7).optional(),
+  cloTotalScore: z.number().min(0).max(21).optional(),
+  dseLevel: z.string().optional(),
   strengths: z.array(z.string()),
   weaknesses: z.array(z.string()),
   grammarErrors: z.array(z.object({
