@@ -241,6 +241,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'practice.search': { zh: '搜尋題目...', en: 'Search questions...' },
   'practice.aiError': { zh: 'AI 生成失敗', en: 'AI generation failed' },
   'practice.networkError': { zh: '網絡錯誤，請重試。', en: 'Network error, please try again.' },
+  'practice.noHistory': { zh: '尚無練習記錄，開始你的第一次 AI 練習吧！', en: 'No practice history yet. Start your first AI practice!' },
   'practice.weeklyQuestions': { zh: '本週 {n} 題', en: '{n} questions this week' },
   'practice.weeklyAccuracy': { zh: '正確率 {n}%', en: 'Accuracy {n}%' },
   'practice.hints.reading.1': { zh: '提示1：仔細閱讀篇章。', en: 'Hint 1: Read the passage carefully.' },
