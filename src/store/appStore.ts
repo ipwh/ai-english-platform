@@ -212,6 +212,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Sync notification prefs to localStorage
       const notifSettings: Record<string, boolean> = {};
       if (typeof prefs.notifAssignment === 'boolean') notifSettings.assignment = prefs.notifAssignment;
+      if (typeof prefs.notifSubmission === 'boolean') notifSettings.submission = prefs.notifSubmission;
       if (typeof prefs.notifFeedback === 'boolean') notifSettings.feedback = prefs.notifFeedback;
       if (typeof prefs.notifAchievement === 'boolean') notifSettings.achievement = prefs.notifAchievement;
       if (typeof prefs.notifSystem === 'boolean') notifSettings.system = prefs.notifSystem;
@@ -241,6 +242,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           language,
           darkMode: isDarkMode,
           notifAssignment: notifPrefs.assignment ?? true,
+          notifSubmission: notifPrefs.submission ?? true,
           notifFeedback: notifPrefs.feedback ?? true,
           notifAchievement: notifPrefs.achievement ?? true,
           notifSystem: notifPrefs.system ?? true,

@@ -4,12 +4,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, BookOpen, MessageSquare, Trophy, Megaphone, Loader2, Check } from 'lucide-react';
+import { Bell, BookOpen, Send, MessageSquare, Trophy, Megaphone, Loader2, Check } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
 
 const NOTIF_TYPES = [
   { key: 'assignment', icon: BookOpen, zh: '作業通知', en: 'Assignments', descZh: '新作業指派與截止提醒', descEn: 'New assignments and due reminders' },
+  { key: 'submission', icon: Send, zh: '提交通知', en: 'Submissions', descZh: '練習/寫作提交完成確認', descEn: 'Practice and writing submission confirmations' },
   { key: 'feedback', icon: MessageSquare, zh: '批改通知', en: 'Feedback', descZh: '寫作批改完成與教師回饋', descEn: 'Writing feedback and teacher comments' },
   { key: 'achievement', icon: Trophy, zh: '成就通知', en: 'Achievements', descZh: '徽章解鎖與里程碑', descEn: 'Badge unlocks and milestones' },
   { key: 'system', icon: Megaphone, zh: '系統公告', en: 'Announcements', descZh: '平台公告與重要提醒', descEn: 'Platform announcements' },
@@ -29,10 +30,10 @@ export default function NotificationSettingsPage() {
       if (raw) {
         setSettings(JSON.parse(raw));
       } else {
-        setSettings({ assignment: true, feedback: true, achievement: true, system: true });
+        setSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
       }
     } catch {
-      setSettings({ assignment: true, feedback: true, achievement: true, system: true });
+      setSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
     }
   }, []);
 

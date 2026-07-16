@@ -85,6 +85,7 @@ model UserPreferences {
   darkMode             Boolean   @default(false)
   sidebarOpen          Boolean   @default(true)
   notifAssignment      Boolean   @default(true)
+  notifSubmission      Boolean   @default(true)   // 學生提交作業後的通知
   notifFeedback        Boolean   @default(true)
   notifAchievement     Boolean   @default(true)
   notifSystem          Boolean   @default(true)

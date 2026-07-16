@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           darkMode: false,
           sidebarOpen: true,
           notifAssignment: true,
+          notifSubmission: true,
           notifFeedback: true,
           notifAchievement: true,
           notifSystem: true,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { language, darkMode, sidebarOpen, notifAssignment, notifFeedback, notifAchievement, notifSystem } = body;
+    const { language, darkMode, sidebarOpen, notifAssignment, notifSubmission, notifFeedback, notifAchievement, notifSystem } = body;
 
     const prefs = await db.userPreferences.upsert({
       where: { userId },
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         darkMode: darkMode ?? false,
         sidebarOpen: sidebarOpen ?? true,
         notifAssignment: notifAssignment ?? true,
+        notifSubmission: notifSubmission ?? true,
         notifFeedback: notifFeedback ?? true,
         notifAchievement: notifAchievement ?? true,
         notifSystem: notifSystem ?? true,
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
         ...(darkMode !== undefined ? { darkMode } : {}),
         ...(sidebarOpen !== undefined ? { sidebarOpen } : {}),
         ...(notifAssignment !== undefined ? { notifAssignment } : {}),
+        ...(notifSubmission !== undefined ? { notifSubmission } : {}),
         ...(notifFeedback !== undefined ? { notifFeedback } : {}),
         ...(notifAchievement !== undefined ? { notifAchievement } : {}),
         ...(notifSystem !== undefined ? { notifSystem } : {}),
