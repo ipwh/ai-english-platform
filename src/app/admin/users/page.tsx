@@ -9,7 +9,7 @@ import { useT } from '@/hooks/use-i18n';
 import {
   Search, Filter, ChevronLeft, ChevronRight,
   Edit3, Download, Users, GraduationCap, Shield,
-  X, Save, Loader2, RefreshCw, UserPlus,
+  X, Save, Loader2, RefreshCw, UserPlus, Trash2, Key,
 } from 'lucide-react';
 
 // ---- Types ----
@@ -511,6 +511,82 @@ function CreateUserModal({
   );
 }
 
+// ---- Reset Password Modal ----
+function ResetPasswordModal({
+  user,
+  onClose,
+}: {
+  user: UserRecord;
+  onClose: () => void;
+}) {
+  const { t } = useT();
+  const [password, setPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const handleReset = async () => {
+    if (password.length < 6) { setError('密碼長度至少需要 6 個字元'); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '重設失敗');
+      setDone(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '重設失敗');
+    } finally { setSaving(false); }
+  };
+
+  if (done) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 text-center" onClick={e => e.stopPropagation()}>
+          <div className="text-green-500 text-4xl mb-3">✓</div>
+          <p className="text-gray-900 dark:text-white font-medium">密碼已重設</p>
+          <p className="text-sm text-gray-500 mt-1">{user.email}</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg">確定</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 dark:text-white">🔑 重設密碼</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-sm text-gray-500">{user.email}</p>
+          {error && <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs text-red-600">{error}</div>}
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="輸入新密碼（至少 6 字元）"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+            onKeyDown={e => e.key === 'Enter' && handleReset()}
+          />
+          <button
+            onClick={handleReset}
+            disabled={saving || password.length < 6}
+            className="w-full py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+            重設密碼
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- Role Badge ----
 function RoleBadge({ role }: { role: string }) {
   const { t } = useT();
@@ -553,6 +629,12 @@ export default function AdminUsersPage() {
 
   // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Reset password modal
+  const [resetPwUser, setResetPwUser] = useState<UserRecord | null>(null);
+
+  // Delete confirmation
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Export loading
   const [exporting, setExporting] = useState<'students' | 'teachers' | null>(null);
@@ -605,6 +687,21 @@ export default function AdminUsersPage() {
       alert(t('admin.users.exportFailed'));
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleDelete = async (userId: string, userEmail: string) => {
+    if (!confirm(`確定要刪除使用者 ${userEmail} 嗎？\n此操作將永久刪除該使用者的所有資料（練習記錄、生字簿、錯題本、寫作等），無法復原。`)) return;
+    setDeletingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '刪除失敗');
+      fetchUsers();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '刪除失敗');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -782,13 +879,30 @@ export default function AdminUsersPage() {
                       {user.academicYear || user.class?.academicYear || '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setEditingUser(user)}
-                        className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                        title={t("admin.users.edit")}
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setResetPwUser(user)}
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                          title="重設密碼"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingUser(user)}
+                          className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                          title={t("admin.users.edit")}
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user.id, user.email)}
+                          disabled={deletingId === user.id}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-30"
+                          title="刪除使用者"
+                        >
+                          {deletingId === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -871,6 +985,14 @@ export default function AdminUsersPage() {
           classes={data?.classes || []}
           onClose={() => setShowCreateModal(false)}
           onCreated={fetchUsers}
+        />
+      )}
+
+      {/* Reset Password Modal */}
+      {resetPwUser && (
+        <ResetPasswordModal
+          user={resetPwUser}
+          onClose={() => setResetPwUser(null)}
         />
       )}
     </div>

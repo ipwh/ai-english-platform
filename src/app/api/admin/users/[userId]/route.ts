@@ -1,11 +1,14 @@
 // ============================================
-// PUT /api/admin/users/[userId] — 編輯單一使用者
+// PUT    /api/admin/users/[userId] — 編輯單一使用者
+// DELETE /api/admin/users/[userId] — 刪除使用者及其關聯資料
+// PATCH  /api/admin/users/[userId] — 重設使用者密碼
 // 僅 admin 可存取
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
+import { hashPassword } from '@/lib/crypto';
 
 export async function PUT(
   request: NextRequest,
@@ -87,6 +90,106 @@ export async function PUT(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
     console.error('[admin/users PUT] Error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// DELETE /api/admin/users/[userId] — 刪除使用者及其所有關聯資料
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const auth = await verifyAdmin(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 403 });
+    }
+
+    const { userId } = await params;
+
+    const existing = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, role: true } });
+    if (!existing) {
+      return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
+    }
+
+    // Prevent admin from deleting themselves
+    if (auth.userId === userId) {
+      return NextResponse.json({ error: '無法刪除自己的帳戶' }, { status: 400 });
+    }
+
+    // Delete related records that don't have cascade in schema
+    await db.$transaction([
+      // Submissions (no cascade on student relation)
+      db.submission.deleteMany({ where: { studentId: userId } }),
+      // Reviews (student or teacher)
+      db.review.deleteMany({ where: { OR: [{ studentId: userId }, { teacherId: userId }] } }),
+      // Assignments created by this user (teacher)
+      db.assignment.deleteMany({ where: { createdBy: userId } }),
+      // Materials uploaded by this user
+      db.material.deleteMany({ where: { uploadedBy: userId } }),
+      // Groups created by this user
+      db.group.deleteMany({ where: { createdBy: userId } }),
+      // TeacherClass relations
+      db.teacherClass.deleteMany({ where: { teacherId: userId } }),
+      // StudentClass relations
+      db.studentClass.deleteMany({ where: { studentId: userId } }),
+      // GroupMember relations
+      db.groupMember.deleteMany({ where: { studentId: userId } }),
+      // AssignmentStudent relations
+      db.assignmentStudent.deleteMany({ where: { studentId: userId } }),
+      // IntegratedSkillsDraft
+      db.integratedSkillsDraft.deleteMany({ where: { userId } }),
+      // UserPreferences
+      db.userPreferences.deleteMany({ where: { userId } }),
+      // Account (NextAuth)
+      db.account.deleteMany({ where: { userId } }),
+      // Session (NextAuth)
+      db.session.deleteMany({ where: { userId } }),
+    ]);
+
+    // Now delete the user — cascade handles remaining: Mistake, VocabItem,
+    // WritingDraft, PracticeSession, ListeningSession, SpellingSession, Notification
+    await db.user.delete({ where: { id: userId } });
+
+    return NextResponse.json({ success: true, deleted: { id: userId, email: existing.email } });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '伺服器錯誤';
+    console.error('[admin/users DELETE] Error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// PATCH /api/admin/users/[userId] — 重設使用者密碼
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  try {
+    const auth = await verifyAdmin(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: 403 });
+    }
+
+    const { userId } = await params;
+    const body = await request.json();
+    const { password } = body;
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return NextResponse.json({ error: '密碼長度至少需要 6 個字元' }, { status: 400 });
+    }
+
+    const existing = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+    if (!existing) {
+      return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
+    }
+
+    const hashed = await hashPassword(password);
+    await db.user.update({ where: { id: userId }, data: { passwordHash: hashed } });
+
+    return NextResponse.json({ success: true, message: `已重設 ${existing.email} 的密碼` });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '伺服器錯誤';
+    console.error('[admin/users PATCH] Error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
