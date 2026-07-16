@@ -15,11 +15,17 @@ export async function login(page: Page, email: string, password: string) {
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', password);
   await page.click('button:has-text("登入")');
-  await page.waitForURL('**/role-select', { timeout: 15_000 });
+  // 可能直接進入 dashboard（已有角色）或跳轉 role-select
+  await page.waitForURL(url =>
+    url.pathname.includes('role-select') ||
+    url.pathname.includes('dashboard'),
+    { timeout: 15_000 }
+  );
 }
 
-/** 選擇角色 */
+/** 選擇角色（若已在 dashboard 則跳過） */
 export async function selectRole(page: Page, role: 'student' | 'teacher') {
+  if (page.url().includes('dashboard')) return; // 已有角色
   if (role === 'student') {
     await page.click('button:has-text("學生")');
     await page.waitForURL('**/student/dashboard', { timeout: 15_000 });
