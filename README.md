@@ -995,6 +995,73 @@ src/
 
 ### 設定步驟
 
+## 📋 2026-07-16 更新日誌
+
+### 🎤 Speaking Practice 強化（2 commits）
+
+| Commit | 說明 |
+|--------|------|
+| `fix(speaking): content-only analysis + customizable prep time` | AI 分析範圍限定內容維度（文法/詞彙/內容相關性），移除無法從文字判斷的 fluency/pronunciation；前端新增琥珀色警示橫幅說明 AI 限制；準備時間改為可自訂（1-30 分鐘，預設 10 分鐘） |
+| `fix(speaking): crash on submit + enforce Traditional Chinese` | 修復 `interactionQuality→interaction` 欄位不匹配導致提交崩潰；所有 AI prompt 強制使用繁體中文 |
+
+### 🚀 綜合平台強化（1 commit）
+
+| Commit | 說明 |
+|--------|------|
+| `feat: comprehensive platform enhancement` | **Must-Fix**：OnboardingGuard 新生強制診斷流程 + Teacher route Middleware JWT/NextAuth 雙重保護。**Should-Fix**：`dseLevel` 改為必填、Integrated Skills 聆聽文稿支援 VocabEnabledText 一鍵加入生字、錯題自動同步 Mistake 表、i18n 新增 `nav.dailyChallenge/reading/speaking` 鍵值。**Nice-to-Have**：新增 `/student/speaking`（DSE Paper 4 模擬）、`/student/daily-challenge`（每日挑戰+連續學習 XP）、`/student/reading`（DSE Paper 1 閱讀理解）、抄襲檢測（n-gram 過度抄襲檢測） |
+
+### 📝 Spelling & Vocabulary 強化（3 commits）
+
+| Commit | 說明 |
+|--------|------|
+| `feat(spelling): word selection support` | 學生可在生字簿選取特定單字進行串字練習；API 新增 `wordIds` 查詢參數；選取模式下按鈕文字顯示 "Spell Selected (N)" |
+| `fix(vocab): iPad tap-to-add touch event overhaul v3` | HighlightContextMenu / VocabEnabledText / InlineAddVocabButton 全面改用 `pointerdown` + `pointerup` 位置追蹤（<10px 判定為 tap）；iPad 加入 `touchend` 雙重觸發防護及 `touchmove` 距離閾值；VocabCard 加入 `touch-action:manipulation` 消除 300ms 延遲 |
+| `feat: vocab word selection + date sorting, iPad tap-to-add fix, integrated skills audio improvements` | 生字簿 3.1：選取模式+日期排序+選取單字測驗；iPad tap-to-add 修復；Integrated Skills 音頻改進（預設隱藏文稿、筆記合併至聆聽步驟、Cloud TTS 精確進度、多人對話靜音間隔 350→200ms） |
+
+### 🧹 Code Quality（2 commits）
+
+| Commit | 說明 |
+|--------|------|
+| `chore: dead code cleanup + reading page zh toggle` | 移除 `LISTENING_TOPICS` / `READING_TOPICS` 等已廢棄常數及 legacy wrapper；Reading 頁面新增中文翻譯開關按鈕（預設隱藏） |
+| `fix(build): remove orphaned duplicate cleanup code` | 移除 HighlightContextMenu.tsx 中重複的 cleanup 程式碼 |
+
+### 🧪 E2E Testing（5 commits）
+
+| Commit | 說明 |
+|--------|------|
+| `test(e2e): comprehensive E2E test suite (6 scenarios, 22 tests)` | 學生全流程、教師工作流、混合班級權限隔離、邊緣案例（TTS 失敗/AI timeout/離線/XSS）、通知 i18n 跨裝置同步、Integrated Skills 音頻修復 |
+| `fix(e2e): correct import paths` | 修正 `../helpers→./helpers` import，加入 testMatch 排除 Vitest 檔案 |
+| `fix(e2e): move playwright.config.ts to project root` | 確保 `npx playwright` 正確找到配置 |
+| `fix(e2e): add testIgnore to exclude Vitest __tests__` | Playwright 掃描排除 Vitest 測試檔案 |
+| `fix(e2e): handle login flow when user already has role` | 處理已有角色的使用者跳過角色選擇頁面 |
+
+### 🔔 Notifications & Settings（1 commit）
+
+| Commit | 說明 |
+|--------|------|
+| `feat: notification preferences cross-device sync + unified settings page` | Prisma 新增 `notifSubmission` 欄位；API GET/POST 支援作業提交通知類型；新增 `/student/settings` 統一設定頁面（語言+主題+通知）；跨裝置同步（login→hydrateStoredPrefs→syncFromServer→remote wins→dual-write） |
+
+### ⚙️ DevOps & Fixes（2 commits）
+
+| Commit | 說明 |
+|--------|------|
+| `devops: add config defaults` | config.ts 新增 `ai.timeoutMs` / `ai.cacheEnabled` / `cron.secret` / `google.sheetsId` 預設值；新增 `scripts/devops-check.js` 一鍵環境檢查 |
+| `fix: correct Google Sheets env var name` | 修正 env var 名稱為 `GOOGLE_SHEETS_CLASS_ROSTER_ID` |
+
+### 📄 Documentation（1 commit）
+
+| Commit | 說明 |
+|--------|------|
+| `docs: staging smoke test checklist (44 checkpoints)` | 學生端 15 項、教師端 13 項、技術端 16 項，含 blocker/warning 定義及快速診斷指令 |
+
+### 🔧 今日未提交修復
+
+| 項目 | 說明 |
+|------|------|
+| **Daily Challenge 文字輸入框修復** | 改錯題（error-correction）及填充題（fill-blank）原先只有 MCQ 按鈕沒有文字輸入框，現已新增 `TextAnswerInput` 組件支援文字作答，並修正 API POST body 傳遞 `isCorrect` 及 `studentAnswer` 欄位 |
+
+**今日統計：17 commits + 1 pending fix，涵蓋 Speaking、Daily Challenge、Reading、Spelling、Vocabulary、E2E、Notifications、DevOps 共 8 大範疇**
+
 1. **建立 Google Sheet** 並填入學生資料，欄位支援多種常見名稱：
 
    | CLASSCODE | CLASSNO | CHNAME | ENNAME | EMAIL |

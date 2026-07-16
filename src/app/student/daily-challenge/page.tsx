@@ -4,12 +4,15 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Calendar, Flame, Sparkles, Loader2, Trophy, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Flame, Sparkles, Loader2, Trophy, CheckCircle, XCircle, ArrowRight, Send } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 
+type QuestionType = 'mc' | 'fill-blank' | 'error-correction' | 'short-writing' | 'matching';
+
 interface DailyQuestion {
+  questionType?: QuestionType;
   question: {
     prompt: string;
     promptZh?: string;
@@ -26,6 +29,7 @@ interface ChallengeState {
   status: 'loading' | 'ready' | 'answered' | 'completed' | 'error';
   question?: DailyQuestion;
   selectedAnswer?: string;
+  textAnswer?: string;
   isCorrect?: boolean;
   xpEarned?: number;
   error?: string;
@@ -71,17 +75,26 @@ export default function DailyChallengePage() {
   async function submitAnswer(answer: string) {
     if (!studentId || state.status !== 'ready') return;
     const q = state.question!;
-    const isCorrect = answer === q.question.answer;
-    setState({ ...state, status: 'answered', selectedAnswer: answer, isCorrect });
+    const isMcq = q.questionType === 'mc';
+    // For MCQ: answer is the choice letter; for text: compare trimmed lowercased values
+    const isCorrect = isMcq
+      ? answer === q.question.answer
+      : answer.trim().toLowerCase() === q.question.answer.trim().toLowerCase();
+    setState({ ...state, status: 'answered', selectedAnswer: isMcq ? answer : undefined, textAnswer: isMcq ? undefined : answer, isCorrect });
 
     try {
       const res = await fetch('/api/daily-challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, answer, correctAnswer: q.question.answer }),
+        body: JSON.stringify({
+          studentId,
+          isCorrect,
+          studentAnswer: answer,
+          correctAnswer: q.question.answer,
+        }),
       });
       const data = await res.json();
-      setState(prev => ({ ...prev, xpEarned: data.xpEarned || 0 }));
+      setState(prev => ({ ...prev, xpEarned: data.xpAwarded || data.xpEarned || 0 }));
     } catch { /* ignore */ }
   }
 
@@ -195,7 +208,8 @@ export default function DailyChallengePage() {
           {state.question.question.promptZh && (
             <p className="text-sm text-gray-500">{state.question.question.promptZh}</p>
           )}
-          {state.question.question.choices && (
+          {/* MCQ choices */}
+          {state.question.question.choices && state.question.question.choices.length > 0 && (
             <div className="space-y-2 mt-4">
               {state.question.question.choices.map((choice, i) => {
                 const letter = String.fromCharCode(65 + i);
@@ -223,8 +237,69 @@ export default function DailyChallengePage() {
               })}
             </div>
           )}
+
+          {/* Text input for fill-blank / error-correction questions */}
+          {(!state.question.question.choices || state.question.question.choices.length === 0) && state.status === 'ready' && (
+            <TextAnswerInput onSubmit={submitAnswer} language={language} />
+          )}
+
+          {/* Show submitted text answer */}
+          {(!state.question.question.choices || state.question.question.choices.length === 0) && state.status === 'answered' && state.textAnswer && (
+            <div className={`mt-4 p-3 rounded-xl border text-sm ${
+              state.isCorrect
+                ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700'
+                : 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700'
+            }`}>
+              <span className="font-semibold">{language === 'en' ? 'Your answer: ' : '你的答案：'}</span>
+              {state.textAnswer}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Text input component for fill-blank / error-correction question types */
+function TextAnswerInput({ onSubmit, language }: { onSubmit: (text: string) => void; language: string }) {
+  const [value, setValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSubmit = () => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  return (
+    <div className="mt-4 flex gap-2">
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={language === 'en' ? 'Type your answer...' : '輸入你的答案...'}
+        className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+      />
+      <button
+        onClick={handleSubmit}
+        disabled={!value.trim()}
+        className="px-4 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        <Send className="w-4 h-4" />
+      </button>
     </div>
   );
 }
