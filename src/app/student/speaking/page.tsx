@@ -24,7 +24,7 @@ interface SpeakingAnalysis {
   pronunciation: { score: number; comment: string };
   grammarAccuracy: { score: number; comment: string };
   vocabularyRange: { score: number; comment: string };
-  interactionQuality: { score: number; comment: string };
+  interaction: { score: number; comment: string };
   overallComment: string;
   improvementTips: string[];
 }
@@ -295,14 +295,14 @@ export default function SpeakingPracticePage() {
                 </span>
               </div>
 
-              {(['fluency', 'pronunciation', 'grammarAccuracy', 'vocabularyRange', 'interactionQuality'] as const).map(dim => (
+              {(['fluency', 'pronunciation', 'grammarAccuracy', 'vocabularyRange', 'interaction'] as const).map(dim => (
                 <div key={dim} className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300">
-                    {analysis[dim].score}
+                    {analysis[dim]?.score ?? '?'}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{dim.replace(/([A-Z])/g, ' $1')}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{analysis[dim].comment}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{analysis[dim]?.comment ?? ''}</p>
                   </div>
                 </div>
               ))}

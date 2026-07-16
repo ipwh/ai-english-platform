@@ -74,13 +74,13 @@ ${SPEAKING_RUBRIC}
 Return a JSON object:
 {
   "estimatedLevel": "L1-L5",
-  "fluency": { "score": 1-5, "comment": "zh comment" },
-  "pronunciation": { "score": 1-5, "comment": "zh comment" },
-  "grammarAccuracy": { "score": 1-5, "comment": "zh comment" },
-  "vocabularyRange": { "score": 1-5, "comment": "zh comment" },
-  "interaction": { "score": 1-5, "comment": "zh comment" },
-  "overallComment": "general feedback in Traditional Chinese",
-  "improvementTips": ["tip1 zh", "tip2 zh"]
+  "fluency": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
+  "pronunciation": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
+  "grammarAccuracy": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
+  "vocabularyRange": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
+  "interaction": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
+  "overallComment": "general feedback in Traditional Chinese (繁體中文)",
+  "improvementTips": ["tip in Traditional Chinese (繁體中文)"]
 }`,
       },
       { role: 'user', content: `Analyze this student speaking transcript from a DSE ${gradeLevel || 'S4'} student on the topic "${topic || 'general'}":\n\n${transcript}` },
