@@ -1,11 +1,14 @@
 // ============================================
 // HighlightContextMenu — 選取文字右鍵加入生字簿
-// 用於練習頁、錯題頁、寫作頁等任何顯示英文文字的地方
+// v3: 完整 iPad/Android/Desktop 三平台觸控支援
 // ============================================
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { BookMarked, Sparkles } from 'lucide-react';
+
+const DEV_LOG = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 interface HighlightContextMenuProps {
   /** 學生 ID */
@@ -32,61 +35,135 @@ export function useHighlightAddVocab(
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTouchPos = useRef<Position | null>(null);
   const touchMoved = useRef(false);
+  const pointerDownPos = useRef<Position | null>(null);
 
   const showMenuForSelection = useCallback((x: number, y: number) => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
+    if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+      if (DEV_LOG) console.log('[HighlightCM] showMenu: no selection or collapsed');
+      return;
+    }
 
     const text = selection.toString().trim();
     const wordCount = text.split(/\s+/).length;
-    if (wordCount > 3) return;
-    if (!/^[a-zA-Z\s'-]+$/.test(text)) return;
+    if (wordCount > 3) {
+      if (DEV_LOG) console.log('[HighlightCM] showMenu: too many words', wordCount);
+      return;
+    }
+    if (!/^[a-zA-Z\s'-]+$/.test(text)) {
+      if (DEV_LOG) console.log('[HighlightCM] showMenu: non-English text', text);
+      return;
+    }
 
+    if (DEV_LOG) console.log('[HighlightCM] showMenu:', text, 'at', x, y);
     setSelectedWord(text);
     setMenuPos({ x, y });
   }, []);
 
   const handleContextMenu = useCallback((e: MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     showMenuForSelection(e.clientX, e.clientY);
   }, [showMenuForSelection]);
 
-  // Pointerup handler — universal fallback for iPad and all touch devices
+  // pointerdown: track tap start for distance validation
+  const handlePointerDown = useCallback((e: PointerEvent) => {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+    touchMoved.current = false;
+    if (DEV_LOG) console.log('[HighlightCM] pointerdown', e.pointerType, e.clientX, e.clientY);
+  }, []);
+
+  // pointerup: universal fallback for iPad/Android/Desktop
   const handlePointerUp = useCallback((e: PointerEvent) => {
-    // Only handle touch pointers (not mouse)
-    if (e.pointerType !== 'touch') return;
-    if (touchMoved.current) return;
-    // Small delay to let browser finalize text selection
+    if (DEV_LOG) console.log('[HighlightCM] pointerup', e.pointerType);
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+
+    // Validate tap distance: skip if moved > 10px
+    const downPos = pointerDownPos.current;
+    if (downPos) {
+      const dx = Math.abs(e.clientX - downPos.x);
+      const dy = Math.abs(e.clientY - downPos.y);
+      if (dx > 10 || dy > 10) {
+        if (DEV_LOG) console.log('[HighlightCM] pointerup: moved too much, skipping', dx, dy);
+        pointerDownPos.current = null;
+        return;
+      }
+    }
+
+    if (touchMoved.current) {
+      if (DEV_LOG) console.log('[HighlightCM] pointerup: touchMoved, skipping');
+      return;
+    }
+
+    // Prevent default to avoid double-fire on iPad
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Delay to let browser finalize text selection
     setTimeout(() => {
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        if (DEV_LOG) console.log('[HighlightCM] pointerup: no selection after delay');
+        return;
+      }
       showMenuForSelection(e.clientX, e.clientY);
-    }, 300);
+    }, 350);
   }, [showMenuForSelection]);
+
+  // touchend: backup for older iOS
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (touchMoved.current) return;
+
+    // On iPad, touch events after text selection may have no touches
+    // Use last known position
+    const pos = lastTouchPos.current;
+    if (!pos) return;
+
+    // Only fire on short tap (long press fires separately)
+    if (DEV_LOG) console.log('[HighlightCM] touchend', pos.x, pos.y);
+
+    setTimeout(() => {
+      // Avoid double-fire if pointerup already handled it
+      if (menuPos !== null) return;
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
+      showMenuForSelection(pos.x, pos.y);
+    }, 400);
+  }, [showMenuForSelection, menuPos]);
 
   // Long-press handler for touch devices
   const handleTouchStart = useCallback((e: TouchEvent) => {
+    // Prevent default to stop iOS text selection UI from interfering
+    // Only prevent on long-press targets, not for normal text interaction
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
     touchMoved.current = false;
     const touch = e.touches[0];
     lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
     longPressTimer.current = setTimeout(() => {
-      // Only show on long press if there's a text selection
       const pos = lastTouchPos.current;
-      if (pos && !touchMoved.current) showMenuForSelection(pos.x, pos.y);
-    }, 600); // 600ms long press
+      if (pos && !touchMoved.current) {
+        if (DEV_LOG) console.log('[HighlightCM] longPress fired', pos.x, pos.y);
+        showMenuForSelection(pos.x, pos.y);
+      }
+    }, 600);
   }, [showMenuForSelection]);
 
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0];
+    const startPos = lastTouchPos.current;
+    if (startPos) {
+      const dx = Math.abs(touch.clientX - startPos.x);
+      const dy = Math.abs(touch.clientY - startPos.y);
+      if (dx > 8 || dy > 8) {
+        touchMoved.current = true;
+        if (DEV_LOG) console.log('[HighlightCM] touchMove: moved beyond threshold', dx, dy);
+      }
     }
-  }, []);
-
-  const handleTouchMove = useCallback(() => {
-    // Cancel long press if finger moves
-    touchMoved.current = true;
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -110,14 +187,37 @@ export function useHighlightAddVocab(
   }, [onWordAdded]);
 
   useEffect(() => {
+    // Desktop
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('click', handleCloseMenu);
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchend', handleTouchEnd);
-    document.addEventListener('touchmove', handleTouchMove);
+    // Touch: use { passive: false } to allow preventDefault on iPad
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd as EventListener, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    // Pointer: universal fallback
+    document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('pointerup', handlePointerUp);
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('click', handleCloseMenu);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd as EventListener);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [handleContextMenu, handleCloseMenu, handleTouchStart, handleTouchEnd, handleTouchMove, handlePointerDown, handlePointerUp]);
+
+  return {
+    menuPos,
+    selectedWord,
+    showQuickAdd,
+    handleAddToVocab,
+    handleCloseMenu,
+    handleWordAdded,
+    setShowQuickAdd,
+  };
+}
       document.removeEventListener('click', handleCloseMenu);
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchend', handleTouchEnd);

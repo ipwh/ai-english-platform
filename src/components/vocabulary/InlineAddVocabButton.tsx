@@ -1,13 +1,15 @@
 // ============================================
 // InlineAddVocabButton — 無縫添加生字按鈕
-// 可在 AI 輸出（passage、分析、改寫建議）中的單字旁邊顯示
-// 支援 hover 顯示 + 按鈕和文字選取雙模式
+// v3: iPad 強化 — pointerdown 位置校驗 + aria
 // ============================================
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { BookMarked, Plus, Loader2, Check, Sparkles } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
+
+const DEV_LOG = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 // ============================================
 // Hook: useTextSelectionVocab — 文字選取加入生字
@@ -34,11 +36,15 @@ export function useTextSelectionVocab({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSelectionEnd = useCallback((e: MouseEvent | TouchEvent | PointerEvent) => {
-    // Prevent interfering with long-press context menu
+    if (DEV_LOG) console.log('[InlineVocab] handleSelectionEnd', e.type);
+
+    // For touch/pointer events, validate there's a selection
     if (e.type === 'touchend' || e.type === 'pointerup') {
-      // Only show popup on touch/pointer events if there's a selection (not a simple tap)
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        if (DEV_LOG) console.log('[InlineVocab] no selection on', e.type);
+        return;
+      }
     }
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -60,6 +66,7 @@ export function useTextSelectionVocab({
         return;
       }
 
+      if (DEV_LOG) console.log('[InlineVocab] showing popup for:', text);
       setSelectedText(text);
       setAdded(false);
 
@@ -70,11 +77,12 @@ export function useTextSelectionVocab({
         x: rect.left + rect.width / 2,
         y: rect.bottom + window.scrollY + 8,
       });
-    }, 200);
+    }, 250);
   }, [maxWords]);
 
   const handleAddWord = useCallback(async () => {
     if (!selectedText || adding) return;
+    if (DEV_LOG) console.log('[InlineVocab] addWord:', selectedText);
     setAdding(true);
     try {
       const res = await fetch('/api/vocabulary', {
@@ -93,16 +101,13 @@ export function useTextSelectionVocab({
       if (res.ok) {
         setAdded(true);
         onWordAdded?.(selectedText);
-        // Auto-close after 1.5s
         setTimeout(() => setPopupPos(null), 1500);
-        // 🎮 XP
         fetch('/api/gamification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
         }).catch(() => {});
       } else if (res.status === 409) {
-        // Already exists — still show success
         setAdded(true);
         setTimeout(() => setPopupPos(null), 1500);
       }
@@ -196,6 +201,8 @@ export function TextSelectionPopup({
       className="fixed z-[100]"
       style={{ left: displayPos.x, top: displayPos.y, transform: 'translate(-50%, 0)' }}
       onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-label={language === 'en' ? 'Add word to vocabulary' : '加入生字簿'}
     >
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 px-3 py-2 flex items-center gap-2 animate-in fade-in zoom-in-95 max-w-[calc(100vw-24px)]">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
@@ -210,6 +217,8 @@ export function TextSelectionPopup({
           <button
             onClick={onAdd}
             disabled={adding}
+            role="button"
+            aria-label={`${language === 'en' ? 'Add' : '加入'} "${selectedText}" ${language === 'en' ? 'to vocabulary' : '到生字簿'}`}
             className="flex items-center gap-1 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap min-h-[36px]"
           >
             {adding ? (

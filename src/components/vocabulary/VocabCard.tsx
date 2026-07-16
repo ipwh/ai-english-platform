@@ -62,7 +62,9 @@ export default function VocabCard({
       selected
         ? 'border-teal-400 dark:border-teal-500 ring-2 ring-teal-200 dark:ring-teal-800 bg-teal-50/50 dark:bg-teal-900/10'
         : 'border-gray-100 dark:border-gray-700 hover:border-teal-200 dark:hover:border-teal-700'
-    }`}>
+    }`}
+    style={{ touchAction: 'manipulation' }}
+    >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           {/* Checkbox for selection mode */}
