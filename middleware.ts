@@ -83,20 +83,35 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (hasNextAuthCookie) {
-    // 檢查 NextAuth 使用者的 admin 路由權限
+    // 🔐 Resolve effective role: JWT role (verified) may be overridden by
+    // selected_role cookie (view-switch preference), but ONLY for downgrades.
+    // Hierarchy: admin > teacher > student
+    const jwtRole = await getRoleFromNextAuthCookie(request);
+    const selectedRole = request.cookies.get('selected_role')?.value || null;
+
+    // Determine effective role — only allow downgrades via selected_role
+    const effectiveRole = (() => {
+      if (!jwtRole) return selectedRole; // fallback if JWT decode failed
+      if (!selectedRole) return jwtRole;
+      // Allow admin → teacher/student, teacher → student. Deny upgrades.
+      if (jwtRole === 'admin') return selectedRole; // admin can switch to any view
+      if (jwtRole === 'teacher' && selectedRole === 'student') return 'student';
+      return jwtRole; // deny all other switches (student→teacher, teacher→admin, etc.)
+    })();
+
+    // 檢查 admin 路由權限
     if (pathname.startsWith('/admin')) {
-      const role = await getRoleFromNextAuthCookie(request);
-      if (role !== 'admin') {
+      // Admin routes: only verified JWT role 'admin' is accepted (no downgrade cookie)
+      if (jwtRole !== 'admin') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'admin_only');
         return NextResponse.redirect(forbiddenUrl);
       }
     }
 
-    // 檢查 NextAuth 使用者的 teacher 路由權限
+    // 檢查 teacher 路由權限
     if (pathname.startsWith('/teacher')) {
-      const role = await getRoleFromNextAuthCookie(request);
-      if (role !== 'teacher' && role !== 'admin') {
+      if (effectiveRole !== 'teacher' && effectiveRole !== 'admin') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'teacher_only');
         return NextResponse.redirect(forbiddenUrl);
