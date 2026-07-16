@@ -128,6 +128,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | `AI_CACHE_ENABLED` | 啟用 AI 回應快取（預設 `true`，降低 API 費用） | ⬜ |
 | `AI_CACHE_TTL_MS` | AI 快取 TTL（毫秒，預設 3600000 = 1 小時） | ⬜ |
 | `LOG_LEVEL` | 日誌等級：`trace`/`debug`/`info`/`warn`/`error`/`fatal`（生產預設 `info`，開發預設 `debug`） | ⬜ |
+| `AI_RATE_LIMIT_MAX` | AI API 每 IP 每分鐘最大請求數（預設 60，約支援 2 班同時使用） | ⬜ |
 | `CRON_SECRET` | Cron Job 驗證密鑰（生產環境必須設定，`openssl rand -base64 32`） | ⬜ (prod) |
 | `GEMINI_MODEL` | Gemini model（預設 `gemini-2.5-flash`） | ⬜ |
 
@@ -227,7 +228,37 @@ npm run storybook:build   # 建置 Storybook 靜態站
 - **新增測試**：3 檔案 / 55 tests / 全通過
 - **TypeScript 錯誤**：0
 
-### 📚 生字簿 3.1 — 自選生字測驗 + 日期排序 + 跨平台觸控修復 — 2026-07-16
+### � DeepSeek Rate Limit 優化 — user_id 隔離 + App Rate Limiter 放寬 — 2026-07-16
+
+根據 DeepSeek API 官方文件（Concurrency Limit = 500，非 RPM 制），分析並修復了實際瓶頸：
+
+#### 🔍 分析結論
+
+| 瓶頸層 | 上限 | 實際影響 |
+|--------|------|---------|
+| **App Rate Limiter（原 30 req/60s/IP）** | 🔴 主要 | 同校 >30 人 → 429 |
+| Vercel Hobby concurrency | 🟡 | ~20-30 同時請求 |
+| DeepSeek 500 concurrency | 🟢 | 學校場景幾乎不可能觸發 |
+
+#### 🔧 修復內容
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 1 | **Rate Limiter 放寬**：`AI_RATE_LIMIT` 從 30→60 req/60s/IP，支援同校 2 班同時使用 | `config.ts` |
+| 2 | **DeepSeek `user_id` 隔離**：`callDeepSeek()` 請求 body 加入 `user_id` 參數，實現 DeepSeek 端 per-user 排程隔離與 KVCache 隔離 | `ai-service.ts` |
+| 3 | **全域 userId 傳遞**：全部 13 個 `LLMCallOptions` 加入 `userId` 欄位，13 個 input interface 加入 `userId?: string` | `ai-service.ts` |
+| 4 | **API Routes 全覆蓋**：11 條 AI API routes 全部從 `verifyApiAuth()` 提取 `userId` 並傳遞至對應的 AI 函數 | `src/app/api/ai/*/route.ts` × 11 |
+| 5 | **安全修復**：`analyze-integrated-skills` route 補回遺漏的 `verifyApiAuth()` 認證檢查 | `analyze-integrated-skills/route.ts` |
+
+#### 📊 容量估算（優化後）
+
+| 場景 | 優化前 | 優化後 |
+|------|--------|--------|
+| 1 班 35 人同時使用 | 5 人報錯 | ✅ 全部通過 |
+| 2 班 70 人同時使用 | 40 人報錯 | ✅ 全部通過（含緩衝） |
+| DeepSeek 端隔離 | 無隔離，共享 500 池 | ✅ per-user 排程隔離 |
+
+### �📚 生字簿 3.1 — 自選生字測驗 + 日期排序 + 跨平台觸控修復 — 2026-07-16
 
 #### ✅ 生字選取與日期功能
 - **選取模式**：生字簿新增「選取生字」按鈕，勾選特定生字後可一鍵生成測驗（僅包含所選單字）

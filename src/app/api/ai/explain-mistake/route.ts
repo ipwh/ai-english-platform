@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       studentAnswer,
       grammarItemZh,
       studentLevel,
+      userId: authResult.userId,
     });
 
     return NextResponse.json({

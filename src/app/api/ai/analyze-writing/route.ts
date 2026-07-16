@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       studentDraft: safeDraft,
       studentLevel,
       textType,
+      userId: authResult.userId,
     });
 
     return NextResponse.json({

@@ -9,6 +9,12 @@ import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 import { verifyApiAuth } from '@/lib/api-auth';
 import { detectOverCopying } from '@/lib/plagiarism';
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const rateLimit = await checkRateLimit({ ...AI_RATE_LIMIT, identifier: `ai-intsk-analyze:${ip}` });
@@ -48,6 +54,7 @@ export async function POST(request: NextRequest) {
       studentNotes: studentNotes || '',
       studentWriting,
       gradeLevel,
+      userId: authResult.userId,
     });
 
     // === 抄襲檢測：檢查學生寫作是否過度複製聆聽文稿 ===

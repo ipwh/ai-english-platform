@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     const analysis = await analyzeProgress({
+      userId: authResult.userId,
       studentLevel: resolvedLevel,
       overallAccuracy: resolvedAccuracy,
       weakSkills: resolvedWeakSkills,

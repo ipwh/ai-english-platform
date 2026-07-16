@@ -128,8 +128,8 @@ const auth = {
 // ============================================
 
 const rateLimit = {
-  /** AI API：每個 IP 每 60 秒最多 30 次請求 */
-  ai: { maxRequests: 30, windowMs: 60_000 },
+  /** AI API：每個 IP 每 60 秒最多 60 次請求（同校 2 班同時使用） */
+  ai: { maxRequests: 60, windowMs: 60_000 },
   /** 一般 API：每個 IP 每 60 秒最多 60 次請求 */
   api: { maxRequests: 60, windowMs: 60_000 },
   /** 上傳：每個 IP 每 60 秒最多 10 次請求 */

@@ -109,7 +109,7 @@ function adaptMessagesForGemini(messages: ChatMessage[], jsonMode: boolean): Cha
   });
 }
 
-type LLMCallOptions = { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number };
+type LLMCallOptions = { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number; userId?: string };
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -197,9 +197,10 @@ async function callDeepSeek(
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? 1024,
         response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
+        ...(options?.userId ? { user_id: options.userId } : {}),
       }),
       signal: controller.signal,
-    });
+   , userId: input.userId });
 
     if (!res.ok) {
       const err = await res.text();
@@ -274,7 +275,7 @@ async function callGemini(
         },
       }),
       signal: controller.signal,
-    });
+   , userId: input.userId });
 
     if (!res.ok) {
       const errText = await res.text();
@@ -352,7 +353,7 @@ async function callGeminiViaVertex(
         },
       }),
       signal: controller.signal,
-    });
+   , userId: input.userId });
 
     if (!res.ok) {
       const errText = await res.text();
@@ -396,7 +397,7 @@ export async function callLLM(
   }
 
   // AI 回應快取：嘗試從快取取得（僅對非 streaming、非隨機化請求生效）
-  const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode });
+  const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode, userId: input.userId });
   if (!options?.temperature || options.temperature <= 0.3) {
     const cached = await aiCache.get(cacheKey);
     if (cached) return cached;
@@ -409,7 +410,7 @@ export async function callLLM(
     try {
       const result = await callDeepSeek(messages, options);
       lastAIProvider = 'deepseek';
-      aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime });
+      aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime, userId: input.userId });
       if (!options?.temperature || options.temperature <= 0.3) {
         await aiCache.set(cacheKey, result);
       }
@@ -418,7 +419,7 @@ export async function callLLM(
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`DeepSeek: ${msg}`);
       if (!hasVertexGemini && !hasGemini) {
-        aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime });
+        aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime, userId: input.userId });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
       logger.warn({ module: 'ai-service', error: msg }, 'DeepSeek failed, switching to Gemini fallback');
@@ -429,7 +430,7 @@ export async function callLLM(
     try {
       const result = await callGeminiViaVertex(messages, options);
       lastAIProvider = 'vertex-gemini';
-      aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true });
+      aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true, userId: input.userId });
       if (!options?.temperature || options.temperature <= 0.3) {
         await aiCache.set(cacheKey, result);
       }
@@ -438,7 +439,7 @@ export async function callLLM(
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`Vertex Gemini: ${msg}`);
       if (!hasGemini) {
-        aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime });
+        aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime, userId: input.userId });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
       logger.warn({ module: 'ai-service', error: msg }, 'Vertex Gemini failed, switching to Gemini API key fallback');
@@ -448,7 +449,7 @@ export async function callLLM(
   try {
     const result = await callGemini(messages, options);
     lastAIProvider = 'gemini-api';
-    aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true });
+    aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true, userId: input.userId });
     if (!options?.temperature || options.temperature <= 0.3) {
       await aiCache.set(cacheKey, result);
     }
@@ -456,7 +457,7 @@ export async function callLLM(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`Gemini API: ${msg}`);
-    aiLog('call_failed', { provider: 'gemini-api', error: msg, latencyMs: Date.now() - startTime });
+    aiLog('call_failed', { provider: 'gemini-api', error: msg, latencyMs: Date.now() - startTime, userId: input.userId });
     throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
   }
 }
@@ -475,6 +476,8 @@ export interface GenerateQuestionsInput {
   count?: number;
   questionType?: 'mc' | 'fill-blank' | 'error-correction' | 'short-writing' | 'matching';
   topic?: string;
+  /** DeepSeek user_id for per-user concurrency isolation */
+  userId?: string;
 }
 
 export interface GeneratedQuestion {
@@ -1482,7 +1485,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   let dseContextPrompt = '';
   try {
     if (isDSERAGEnabled()) {
-      console.log('[DSE-RAG] 檢索歷屆試題內容...', { dseSkill, topic: input.topic, difficulty: input.difficulty });
+      console.log('[DSE-RAG] 檢索歷屆試題內容...', { dseSkill, topic: input.topic, difficulty: input.difficulty, userId: input.userId });
 
       const [pastPaperChunks, markingSchemeChunks] = await Promise.all([
         retrievePastPaperContent(dseSkill, input.topic, input.difficulty, input.gradeLevel, 3),
@@ -1949,7 +1952,7 @@ ${STRICT_ANSWER_RULES}
       { role: 'system', content: finalSystemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 25000 }
+    { temperature: qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 25000, userId: input.userId }
   );
 
   const tryValidate = (rawText: string) => {
@@ -1970,7 +1973,7 @@ ${STRICT_ANSWER_RULES}
       const { fixed, warnings } = validateAndFixQuestion(q, i + 1);
       allWarnings.push(...warnings);
       return fixed;
-    });
+   , userId: input.userId });
     if (allWarnings.length > 0) {
       console.warn('[ai-service] Generated questions had consistency issues (auto-fixed):', allWarnings);
     }
@@ -2032,7 +2035,7 @@ ${result.slice(0, 12000)}`;
         { role: 'system', content: repairSystemPrompt },
         { role: 'user', content: repairUserPrompt },
       ],
-      { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 15000 }
+      { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 15000, userId: input.userId }
     );
 
     return tryValidate(repaired);
@@ -2161,6 +2164,7 @@ export function parseAIJSON<T>(raw: string): T {
 // ============================================
 
 export interface AnalyzeAnswerInput {
+  userId?: string;
   question: string;
   questionType: string;
   correctAnswer: string;
@@ -2268,7 +2272,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.3, maxTokens: 2048, jsonMode: true }
+    { temperature: 0.3, maxTokens: 2048, jsonMode: true, userId: input.userId }
   );
 
   const analysis = parseAIJSON<AnswerAnalysis>(result);
@@ -2288,6 +2292,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 // ============================================
 
 export interface AnalyzeWritingInput {
+  userId?: string;
   title: string;
   prompt: string;
   studentDraft: string;
@@ -2745,7 +2750,7 @@ Very → exceedingly / remarkably / exceptionally
               { role: 'system', content: grammarPrompt + writingMSContext },
               { role: 'user', content: grammarUserPrompt },
             ],
-            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 35000 }
+            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 35000, userId: input.userId }
           );
         } catch (e) {
           if (attempt === 1) throw e;
@@ -2759,7 +2764,7 @@ Very → exceedingly / remarkably / exceptionally
         { role: 'system', content: stylePrompt + writingMSContext },
         { role: 'user', content: styleUserPrompt },
       ],
-      { temperature: 0.3, maxTokens: 6144, jsonMode: true, timeoutMs: 35000 }
+      { temperature: 0.3, maxTokens: 6144, jsonMode: true, timeoutMs: 35000, userId: input.userId }
     ),
   ]);
 
@@ -2894,6 +2899,7 @@ Very → exceedingly / remarkably / exceptionally
 // ============================================
 
 export interface ExplainMistakeInput {
+  userId?: string;
   question: string;
   correctAnswer: string;
   studentAnswer: string;
@@ -2966,7 +2972,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.5, maxTokens: 2048, jsonMode: true }
+    { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId }
   );
 
   const explanation = parseAIJSON<MistakeExplanation>(result);
@@ -2980,6 +2986,7 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 // ============================================
 
 export interface AnalyzeWordInput {
+  userId?: string;
   word: string;
   gradeLevel?: string;
 }
@@ -3025,7 +3032,7 @@ export async function analyzeWord(input: AnalyzeWordInput): Promise<import('@/li
       { role: 'system', content: systemPrompt },
       { role: 'user', content: `請分析以下英文單字：${word}\n學生年級：${gradeLevel}` },
     ],
-    { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 }
+    { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 15000, userId: input.userId }
   );
 
   const data = parseAIJSON(result);
@@ -3039,6 +3046,7 @@ export async function analyzeWord(input: AnalyzeWordInput): Promise<import('@/li
 // ============================================
 
 export interface AnalyzeProgressInput {
+  userId?: string;
   studentLevel: string;
   overallAccuracy: number;
   weakSkills: { name: string; nameZh: string; accuracy: number }[];
@@ -3136,7 +3144,7 @@ ${recentDesc}
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.6, maxTokens: 2048, jsonMode: true }
+    { temperature: 0.6, maxTokens: 2048, jsonMode: true, userId: input.userId }
   );
 
   const progress = parseAIJSON<ProgressAnalysis>(result);
@@ -3146,6 +3154,7 @@ ${recentDesc}
 }
 
 export interface StudyHelpInput {
+  userId?: string;
   question: string;
   studentLevel: string;
   weakSkills?: { name: string; nameZh: string; accuracy: number }[];
@@ -3231,7 +3240,7 @@ ${recentDesc || '暫無'}
       { role: 'system', content: systemPrompt + dseContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.5, maxTokens: 2048, jsonMode: true }
+    { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId }
   );
 
   const help = parseAIJSON<StudyHelpResponse>(result);
@@ -3245,6 +3254,7 @@ ${recentDesc || '暫無'}
 // ============================================
 
 export interface AnalyzeMaterialInput {
+  userId?: string;
   title: string;
   content: string; // 教材文字內容
   gradeLevel?: string;
@@ -3286,7 +3296,7 @@ ${input.content.slice(0, 8000)}
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.4, maxTokens: 4096, jsonMode: true }
+    { temperature: 0.4, maxTokens: 4096, jsonMode: true, userId: input.userId }
   );
 
   const material = parseAIJSON<MaterialAnalysis>(result);
@@ -3300,6 +3310,7 @@ ${input.content.slice(0, 8000)}
 // ============================================
 
 export interface GenerateWritingPromptInput {
+  userId?: string;
   textType: string;
   gradeLevel: string;
   wordLimit: number;
@@ -3310,6 +3321,7 @@ export interface GenerateWritingPromptInput {
 }
 
 export interface GenerateWritingOutlineInput {
+  userId?: string;
   textType: string;
   gradeLevel: string;
   wordLimit: number;
@@ -3321,6 +3333,7 @@ export interface GenerateWritingOutlineInput {
 }
 
 export interface GenerateWritingGuideInput {
+  userId?: string;
   textType: string;
   gradeLevel: string;
   writingPrompt: string;
@@ -3645,7 +3658,7 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a 
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000 }
+    { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000, userId: input.userId }
   );
 
   const prompt = result.trim();
@@ -3755,7 +3768,7 @@ Prompt: ${input.writingPrompt}`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.7, maxTokens: 4096, timeoutMs: 25000 }
+    { temperature: 0.7, maxTokens: 4096, timeoutMs: 25000, userId: input.userId }
   );
 
   return result.trim();
@@ -3876,7 +3889,7 @@ ${guide ? `必備元素：${guide.requiredElements.join(', ')}` : ''}
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      { temperature: 0.4, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 }
+      { temperature: 0.4, maxTokens: 1024, jsonMode: true, timeoutMs: 15000, userId: input.userId }
     );
 
     return parseAIJSON<{
@@ -3901,6 +3914,7 @@ ${guide ? `必備元素：${guide.requiredElements.join(', ')}` : ''}
 // ============================================
 
 export interface GenerateIntegratedSkillsInput {
+  userId?: string;
   gradeLevel: string;
   difficulty: 'remedial' | 'core' | 'challenge';
   taskType: 'summary' | 'email-reply' | 'short-article' | 'report';
@@ -3927,6 +3941,7 @@ export interface IntegratedSkillsTask {
 }
 
 export interface AnalyzeIntegratedSkillsInput {
+  userId?: string;
   /** 原始聽力材料 */
   listeningContent: string;
   /** Note-taking 指引 */
@@ -4164,7 +4179,7 @@ ${input.taskType === 'summary' ? 'Summary 要求：用自己文字概括，不�
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+    { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId }
   );
 
   const task = parseAIJSON<IntegratedSkillsTask>(result);
@@ -4314,7 +4329,7 @@ ${sanitizedWriting}
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 }
+    { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId }
   );
 
   const analysis = parseAIJSON<IntegratedSkillsAnalysis>(result);

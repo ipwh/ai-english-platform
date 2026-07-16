@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       difficulty,
       taskType,
       topicHint,
+      userId: authResult.userId,
     });
 
     return NextResponse.json({

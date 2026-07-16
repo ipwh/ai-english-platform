@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'prompt') {
       const prompt = await generateWritingPrompt({
+        userId: authResult.userId,
         textType,
         gradeLevel,
         wordLimit: wordLimit || 200,
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
       }
 
       const outline = await generateWritingOutline({
+        userId: authResult.userId,
         textType,
         gradeLevel,
         wordLimit: wordLimit || 200,

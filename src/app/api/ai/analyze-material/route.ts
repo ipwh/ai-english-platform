@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     const analysis = await analyzeMaterial({
+      userId: authResult.userId,
       title,
       content,
       gradeLevel,

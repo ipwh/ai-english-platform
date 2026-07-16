@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       : '';
 
     const input: StudyHelpInput = {
+      userId: authResult.userId,
       question: question + contextStr,
       studentLevel: studentProfile?.level || 'S4',
       weakSkills: (studentProfile?.weakSkills || []).map(w => ({

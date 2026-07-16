@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const help = await answerStudyHelp({
+      userId: authResult.userId,
       question,
       studentLevel,
       weakSkills: weakSkills || [],

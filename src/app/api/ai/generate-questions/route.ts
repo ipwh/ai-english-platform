@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
           count: safeCount,
           questionType,
           topic,
+          userId: authResult.userId,
         });
         break;
       } catch (err) {
