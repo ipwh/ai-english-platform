@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId');
     const count = Math.min(Math.max(1, parseInt(searchParams.get('count') || '10')), 30);
     const mode = searchParams.get('mode') || 'new'; // new | random | weakest | due
+    const wordIdsParam = searchParams.get('wordIds'); // comma-separated vocab IDs for custom selection
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
@@ -34,31 +35,35 @@ export async function GET(request: NextRequest) {
 
     switch (mode) {
       case 'weakest':
-        // 最低掌握度優先
         orderBy = { masteryLevel: 'asc' };
         break;
       case 'new':
-        // 最新加入優先
         orderBy = { createdAt: 'desc' };
         break;
       case 'due':
-        // SRS 到期優先
         orderBy = { masteryLevel: 'asc' };
         whereExtra = { nextReviewDate: { lte: new Date() } };
         break;
       default:
-        // random — 在應用層隨機
         orderBy = { createdAt: 'desc' };
+    }
+
+    // 自選單字模式：wordIds 優先
+    if (wordIdsParam) {
+      const ids = wordIdsParam.split(',').map(id => id.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        whereExtra = { id: { in: ids } };
+      }
     }
 
     let vocabItems = await db.vocabItem.findMany({
       where: { studentId, ...whereExtra },
       orderBy,
-      take: mode === 'random' ? 100 : count * 2, // random 模式多取一些再隨機選
+      take: wordIdsParam ? (wordIdsParam.split(',').length || 30) : (mode === 'random' ? 100 : count * 2),
     });
 
-    // random 模式：隨機打亂後取前 count 個
-    if (mode === 'random') {
+    // random 模式：隨機打亂後取前 count 個（wordIds 模式則保持原順序）
+    if (mode === 'random' && !wordIdsParam) {
       vocabItems = vocabItems.sort(() => Math.random() - 0.5).slice(0, count);
     } else {
       vocabItems = vocabItems.slice(0, count);

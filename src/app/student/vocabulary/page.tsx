@@ -629,7 +629,9 @@ export default function VocabularyPage() {
             >
               {showSpelling
                 ? (language === 'en' ? 'Hide Practice' : '收起練習')
-                : (language === 'en' ? 'Start Spelling' : '開始串字')}
+                : selectionMode && selectedWordIds.size > 0
+                  ? `${language === 'en' ? 'Spell Selected' : '串字所選'} (${selectedWordIds.size})`
+                  : (language === 'en' ? 'Start Spelling' : '開始串字')}
             </button>
           </div>
 
@@ -637,6 +639,7 @@ export default function VocabularyPage() {
             <SpellingPractice
               studentId={studentId}
               embedded
+              wordIds={selectionMode && selectedWordIds.size > 0 ? Array.from(selectedWordIds) : undefined}
               onComplete={(result) => {
                 // 🎮 XP for completing spelling
                 if (store.userId && result.correct > 0) {

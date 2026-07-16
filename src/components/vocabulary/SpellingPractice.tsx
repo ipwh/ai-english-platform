@@ -43,6 +43,8 @@ interface Props {
   studentId: string;
   /** 外部傳入的特定單字列表（可選，用於從 vocab 頁面直接開始特定練習） */
   preselectedWords?: { vocabId: string; word: string; meaningZh: string; partOfSpeech: string; exampleSentence?: string }[];
+  /** 自選生字 ID 列表（可選，優先於 mode） */
+  wordIds?: string[];
   /** 完成後的回呼 */
   onComplete?: (result: { correct: number; total: number; accuracy: number }) => void;
   /** 是否嵌入模式（較小尺寸） */
@@ -56,6 +58,7 @@ interface Props {
 export default function SpellingPractice({
   studentId,
   preselectedWords,
+  wordIds,
   onComplete,
   embedded = false,
 }: Props) {
@@ -101,9 +104,11 @@ export default function SpellingPractice({
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(
-        `/api/vocabulary/spelling?studentId=${encodeURIComponent(studentId)}&count=${count}&mode=${mode}`
-      );
+      let url = `/api/vocabulary/spelling?studentId=${encodeURIComponent(studentId)}&count=${count}&mode=${mode}`;
+      if (wordIds && wordIds.length > 0) {
+        url += `&wordIds=${wordIds.join(',')}`;
+      }
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok || data.error) {
         setError(data.error || data.message || t('vocab.loadFailed'));
