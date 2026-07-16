@@ -163,14 +163,43 @@ const db = {
 };
 
 // ============================================
-// AI 快取設定
+// AI 設定（Timeout、快取）
 // ============================================
 
-const cache = {
-  /** AI 回應快取 TTL（秒）。相同 prompt hash 在此時間內不重複調用 AI */
-  aiResponseTTL: 300, // 5 minutes
-  /** 是否啟用 AI 快取 */
-  aiEnabled: process.env.AI_CACHE_ENABLED === 'true',
+const ai = {
+  /** AI API timeout in ms。Vercel Hobby 建議 ≤8000，本地/Pro 可用 30000+ */
+  timeoutMs: process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : (isProduction ? 8000 : 30000),
+  /** 是否啟用 AI 回應快取（相同 prompt 不重複調用） */
+  cacheEnabled: process.env.AI_CACHE_ENABLED ? process.env.AI_CACHE_ENABLED === 'true' : true,
+  /** AI 回應快取 TTL（秒） */
+  cacheTTL: 300,
+};
+
+// ============================================a
+// Cron / Admin 設定
+// ============================================
+
+const cron = {
+  get secret(): string {
+    const s = process.env.CRON_SECRET;
+    if (!s && isProduction) {
+      throw new Error('[config] CRON_SECRET 未設定！生產環境必須設定。');
+    }
+    return s || 'dev-cron-secret-change-me';
+  },
+};
+
+// ============================================
+// Google Services 設定
+// ============================================
+
+const google = {
+  sheetsId: process.env.GOOGLE_SHEETS_ID || '',
+  driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
+  /** Sheets 同步是否可用 */
+  get sheetsConfigured(): boolean { return !!this.sheetsId; },
+  /** Drive 匯入是否可用 */
+  get driveConfigured(): boolean { return !!this.driveFolderId; },
 };
 
 // ============================================
@@ -185,10 +214,12 @@ export const config = {
   vertex,
   jwt,
   auth,
+  ai,
   rateLimit,
   upload,
   db,
-  cache,
+  cron,
+  google,
 } as const;
 
 export default config;

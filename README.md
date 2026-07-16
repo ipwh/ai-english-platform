@@ -122,8 +122,10 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
-| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 8000（Vercel Hobby 建議） | ⬜ |
-| `CRON_SECRET` | Cron Job 驗證密鑰（用於 `/api/admin/sync-sheets/cron`） | ⬜ |
+| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 dev=30000 / prod=8000（Vercel Hobby 建議） | ⬜ |
+| `AI_CACHE_ENABLED` | 啟用 AI 回應快取（預設 `true`，降低 API 費用） | ⬜ |
+| `CRON_SECRET` | Cron Job 驗證密鑰（生產環境必須設定，`openssl rand -base64 32`） | ⬜ (prod) |
+| `GEMINI_MODEL` | Gemini model（預設 `gemini-2.5-flash`） | ⬜ |
 
 ### 部署步驟
 
