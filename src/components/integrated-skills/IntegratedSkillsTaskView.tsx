@@ -412,6 +412,10 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   onPlayEnd={() => {
                     if (!s.listeningCompleted) s.setListeningCompleted(true);
                   }}
+                  onPlayStart={() => {
+                    // Auto-hide transcript when playback starts
+                    if (s.showListeningText) s.toggleListeningText();
+                  }}
                 />
 
                 {/* Transcript toggle */}
@@ -436,17 +440,61 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   )}
                 </div>
 
+                {/* Note-taking — always accessible during listening */}
+                <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-3 flex items-center gap-2">
+                    <Edit3 className="w-4 h-4 text-amber-500" />
+                    Note-taking
+                    <span className="text-xs font-normal text-gray-400">
+                      — 邊聽邊記下關鍵資訊
+                    </span>
+                  </h3>
+
+                  {/* Note-taking guide */}
+                  {s.showNotesGuide && task.noteTakingGuide.length > 0 && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                          <Target className="w-4 h-4" /> 筆記指引
+                        </h4>
+                        <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
+                          隱藏
+                        </button>
+                      </div>
+                      <ul className="space-y-2">
+                        {task.noteTakingGuide.map((item, i) => (
+                          <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                            <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
+                            <div>
+                              <span className="font-medium">{item.question}</span>
+                              <span className="text-amber-500/60 ml-1.5 text-xs">提示：{item.hint}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Notes textarea */}
+                  <textarea
+                    value={s.studentNotes}
+                    onChange={e => s.setStudentNotes(e.target.value)}
+                    placeholder="邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）..."
+                    className="w-full min-h-[160px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                  />
+                </div>
+
                 {/* Next step prompt */}
                 {s.listeningCompleted && (
                   <div className="flex items-center justify-between p-3 bg-teal-50 dark:bg-teal-900/10 rounded-xl border border-teal-100 dark:border-teal-800 animate-in fade-in">
                     <span className="text-sm text-teal-700 dark:text-teal-400 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" /> 已聽完對話，準備做筆記！
+                      <CheckCircle2 className="w-4 h-4" /> 已聽完對話，準備寫作！
                     </span>
                     <button
-                      onClick={() => s.setActiveStep(2)}
+                      onClick={() => { s.setListeningCompleted(true); s.setActiveStep(3); }}
                       className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
-                      開始筆記 <ChevronRight className="w-4 h-4" />
+                      開始寫作 <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 )}

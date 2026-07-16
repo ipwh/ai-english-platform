@@ -51,7 +51,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 📱 行動裝置支援
 - **統一側欄佈局**（`SidebarLayout`）：教師端與學生端共用，桌面可收合為圖標模式，手機為抽屜式滑入 + 遮罩
 - **學生手機底部快捷列**：5 個常用功能快速切換（主頁、練習、錯題、進度、更多）
-- **全平台觸控優化**：所有按鈕 ≥ 36px 觸控面積、長按支援（HighlightContextMenu 600ms long-press）、文字選取彈出加入（`mouseup` + `touchend`）、模態框 `max-w-[calc(100vw-2rem)]`、iPhone safe-area（`safe-bottom`）、iOS 鍵盤縮放防護（`text-base`）
+- **全平台觸控優化**：所有按鈕 ≥ 36px 觸控面積、長按支援（HighlightContextMenu 600ms long-press）、文字選取彈出加入（`mouseup` + `touchend` + `pointerup` 三模式，涵蓋 Desktop / Android / iPad）、模態框 `max-w-[calc(100vw-2rem)]`、iPhone safe-area（`safe-bottom`）、iOS 鍵盤縮放防護（`text-base`）
 - **響應式網格系統**：全站網格已適配 `grid-cols-1 sm:grid-cols-N` 模式（統計、CLO 評分、KPI、過濾列等）
 - 所有功能在手機與桌面完全一致，無功能缺漏
 
@@ -176,6 +176,27 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **🟠 HIGH**：Modal `max-w-[calc(100vw-2rem)]`、FAB `safe-bottom`、網格 `grid-cols-1 sm:grid-cols-N`
 - **🟡 MEDIUM**：iOS 鍵盤防縮放 `text-base`、`break-words`、`flex-col sm:flex-row`
 - **🔵 LOW**：觸控面積 36-40px、`px-4 sm:px-6` 內邊距適配
+
+### 📚 生字簿 3.1 — 自選生字測驗 + 日期排序 + 跨平台觸控修復 — 2026-07-16
+
+#### ✅ 生字選取與日期功能
+- **選取模式**：生字簿新增「選取生字」按鈕，勾選特定生字後可一鍵生成測驗（僅包含所選單字）
+- **加入日期**：每個生字自動記錄 `createdAt`，卡片上顯示 📅 加入日期
+- **日期排序**：`VocabFilterBar` 新增「加入日期」排序選項（最新/最舊）
+- **所選測驗**：`/api/vocabulary/quiz` 支援 `wordIds` 參數，只對選取的單字出題
+- **VocabCard 增強**：新增 `selectable`/`selected`/`onToggleSelect` props + checkbox UI + 選中高亮邊框
+
+#### 🍎 iPad 輕按加入生字修復
+- **`InlineAddVocabButton`**：`handleSelectionEnd` 新增 `PointerEvent` 型別支援，`pointerup` 事件可觸發選取彈出
+- **`VocabEnabledText`**：新增 `pointerup` 事件監聽器（與 `mouseup`、`touchend` 並存），iPad Safari 現可輕按選字後顯示加入按鈕
+- **`HighlightContextMenu`**：新增 `pointerup` handler（iPad 通用指標事件）+ `touchMoved` ref 區分拖動與點按；長按（600ms）仍保留給 Android
+
+#### 🎧 Integrated Skills 聆聽修正
+- **自動隱藏文稿**：播放錄音時自動隱藏聆聽文字（`showListeningText` 預設 `false`），用家可隨時點擊「顯示聆聽文字」查看
+- **同步摘錄筆記**：Note-taking 區域已整合至 Step 1（聆聽），預設展開，用家可邊聽邊記
+- **錄音進度修正**：Cloud TTS 播放改用 `audio.ontimeupdate` 真實進度追蹤（取代估算），不再出現「播完人聲後錄音繼續空播」問題
+- **對話停頓優化**：多人對話段落間靜音從 350ms 減至 200ms，減少空白感
+- **`AudioPlayer` 新增 `onPlayStart` prop**：父元件可在播放開始時執行回呼（如自動隱藏文稿）
 
 ### 🏗️ 基礎架構重構 — 集中式設定 + 安全性強化 + 輸入驗證 — 2026-07-15
 

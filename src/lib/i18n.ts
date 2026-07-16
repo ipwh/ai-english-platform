@@ -354,6 +354,13 @@ const translations: Record<string, { zh: string; en: string }> = {
   'vocab.sortRecent': { zh: '最近新增', en: 'Recent' },
   'vocab.sortAlpha': { zh: '字母排序', en: 'A-Z' },
   'vocab.sortMastery': { zh: '掌握度', en: 'Mastery' },
+  'vocab.sortDate': { zh: '加入日期', en: 'Date Added' },
+  'vocab.selectWords': { zh: '選取生字', en: 'Select Words' },
+  'vocab.selectedCount': { zh: '已選取 {n} 個', en: '{n} selected' },
+  'vocab.addToQuiz': { zh: '加入測驗', en: 'Add to Quiz' },
+  'vocab.addToPractice': { zh: '加入練習', en: 'Add to Practice' },
+  'vocab.clearSelection': { zh: '清除選取', en: 'Clear Selection' },
+  'vocab.addedDate': { zh: '加入日期', en: 'Added' },
   'vocab.analyzing': { zh: '正在分析', en: 'Analyzing' },
   'vocab.analyzingDesc': { zh: '查詢詞性、意思、例句、同反義字、搭配詞', en: 'Looking up POS, meaning, examples, synonyms, antonyms, collocations' },
 

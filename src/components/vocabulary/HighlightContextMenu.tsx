@@ -31,6 +31,7 @@ export function useHighlightAddVocab(
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTouchPos = useRef<Position | null>(null);
+  const touchMoved = useRef(false);
 
   const showMenuForSelection = useCallback((x: number, y: number) => {
     const selection = window.getSelection();
@@ -50,15 +51,29 @@ export function useHighlightAddVocab(
     showMenuForSelection(e.clientX, e.clientY);
   }, [showMenuForSelection]);
 
+  // Pointerup handler — universal fallback for iPad and all touch devices
+  const handlePointerUp = useCallback((e: PointerEvent) => {
+    // Only handle touch pointers (not mouse)
+    if (e.pointerType !== 'touch') return;
+    if (touchMoved.current) return;
+    // Small delay to let browser finalize text selection
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
+      showMenuForSelection(e.clientX, e.clientY);
+    }, 300);
+  }, [showMenuForSelection]);
+
   // Long-press handler for touch devices
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    touchMoved.current = false;
     const touch = e.touches[0];
     lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
     longPressTimer.current = setTimeout(() => {
       // Only show on long press if there's a text selection
       const pos = lastTouchPos.current;
-      if (pos) showMenuForSelection(pos.x, pos.y);
+      if (pos && !touchMoved.current) showMenuForSelection(pos.x, pos.y);
     }, 600); // 600ms long press
   }, [showMenuForSelection]);
 
@@ -71,6 +86,7 @@ export function useHighlightAddVocab(
 
   const handleTouchMove = useCallback(() => {
     // Cancel long press if finger moves
+    touchMoved.current = true;
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -99,14 +115,16 @@ export function useHighlightAddVocab(
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchend', handleTouchEnd);
     document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('pointerup', handlePointerUp);
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('click', handleCloseMenu);
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchend', handleTouchEnd);
       document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [handleContextMenu, handleCloseMenu, handleTouchStart, handleTouchEnd, handleTouchMove]);
+  }, [handleContextMenu, handleCloseMenu, handleTouchStart, handleTouchEnd, handleTouchMove, handlePointerUp]);
 
   return {
     menuPos,

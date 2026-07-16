@@ -44,9 +44,11 @@ export default function VocabEnabledText({
     if (!el) return;
     el.addEventListener('mouseup', handleSelectionEnd as EventListener);
     el.addEventListener('touchend', handleSelectionEnd as EventListener);
+    el.addEventListener('pointerup', handleSelectionEnd as EventListener);
     return () => {
       el.removeEventListener('mouseup', handleSelectionEnd as EventListener);
       el.removeEventListener('touchend', handleSelectionEnd as EventListener);
+      el.removeEventListener('pointerup', handleSelectionEnd as EventListener);
     };
   }, [handleSelectionEnd]);
 

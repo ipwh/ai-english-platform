@@ -371,6 +371,7 @@ export interface VocabItem {
   nextReviewDate: string;
   easeFactor?: number;
   reviewInterval?: number;
+  createdAt?: string;            // 加入生字簿日期
 }
 
 // ============================================

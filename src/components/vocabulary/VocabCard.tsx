@@ -21,6 +21,10 @@ interface VocabCardProps {
   onGenerateAiExample: (v: VocabItem) => void;
   onDelete?: (id: string) => void;
   onSetMasteryLevel?: (id: string, level: MasteryLevel) => void;
+  /** 選取模式 */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 const masteryStars: Record<number, string> = {
@@ -40,6 +44,9 @@ export default function VocabCard({
   onGenerateAiExample,
   onDelete,
   onSetMasteryLevel,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: VocabCardProps) {
   const { t } = useT();
   const [expanded, setExpanded] = useState(false);
@@ -51,9 +58,23 @@ export default function VocabCard({
     vocab.secondaryMeaningZh;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-teal-200 dark:hover:border-teal-700 transition-colors">
+    <div className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border transition-colors ${
+      selected
+        ? 'border-teal-400 dark:border-teal-500 ring-2 ring-teal-200 dark:ring-teal-800 bg-teal-50/50 dark:bg-teal-900/10'
+        : 'border-gray-100 dark:border-gray-700 hover:border-teal-200 dark:hover:border-teal-700'
+    }`}>
       <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {/* Checkbox for selection mode */}
+          {selectable && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggleSelect?.(vocab.id)}
+              className="mt-1.5 w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500 shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0">
           {/* Word + POS + Audio */}
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{vocab.word}</h3>
@@ -75,6 +96,16 @@ export default function VocabCard({
               <span className="text-gray-400 dark:text-gray-500"> · {vocab.secondaryMeaningZh}</span>
             )}
           </p>
+
+          {/* Added date */}
+          {vocab.createdAt && (
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+              📅 {language === 'en' ? 'Added: ' : '加入日期：'}
+              {new Date(vocab.createdAt).toLocaleDateString(language === 'zh' ? 'zh-HK' : 'en-US', {
+                year: 'numeric', month: 'short', day: 'numeric',
+              })}
+            </p>
+          )}
 
           {/* Example sentence */}
           {vocab.exampleSentence && (
@@ -159,7 +190,8 @@ export default function VocabCard({
               )}
             </div>
           )}
-        </div>
+          </div> {/* close inner flex-1 wrapper */}
+        </div> {/* close outer flex wrapper */}
 
         {/* Right side: familiarity badge + actions */}
         <div className="flex flex-col items-end gap-1.5 ml-3 shrink-0">

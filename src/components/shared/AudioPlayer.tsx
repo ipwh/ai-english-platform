@@ -20,6 +20,7 @@ interface AudioPlayerProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   onPlayEnd?: () => void;
+  onPlayStart?: () => void;
   /** 啟用 Google Cloud TTS（server-side 神經語音，intonation 自然） */
   useCloudTTS?: boolean;
   /** 預載入 callback — 父元件可呼叫此函式提前生成音訊 */
@@ -249,6 +250,7 @@ export default function AudioPlayer({
   size = 'md',
   className = '',
   onPlayEnd,
+  onPlayStart,
   useCloudTTS = false,
   onPrefetchReady,
 }: AudioPlayerProps) {
@@ -620,7 +622,19 @@ export default function AudioPlayer({
       const oldCached = cloudAudioRef.current;
       if (oldCached) { oldCached.pause(); oldCached.src = ''; }
       cloudAudioRef.current = audio;
-      audio.onplay = () => { setPlaying(true); setLoading(false); setCloudFetching(false); startProgress(); };
+      audio.onplay = () => {
+        setPlaying(true); setLoading(false); setCloudFetching(false);
+        onPlayStart?.();
+        // Use actual audio timeupdate for accurate progress
+        const audioEl = cloudAudioRef.current;
+        if (audioEl) {
+          audioEl.ontimeupdate = () => {
+            if (audioEl.duration && isFinite(audioEl.duration)) {
+              setProgress(Math.round((audioEl.currentTime / audioEl.duration) * 100));
+            }
+          };
+        }
+      };
         audio.onended = () => { setPlaying(false); setProgress(100); onPlayEnd?.(); };
       audio.onerror = () => {
         console.error('[TTS] Cached audio playback error');
@@ -683,7 +697,19 @@ export default function AudioPlayer({
         if (oldFetched) { oldFetched.pause(); oldFetched.src = ''; }
         cloudAudioRef.current = audio;
 
-        audio.onplay = () => { setLoading(false); setCloudFetching(false); setPlaying(true); startProgress(); };
+        audio.onplay = () => {
+        setLoading(false); setCloudFetching(false); setPlaying(true);
+        onPlayStart?.();
+        // Use actual audio timeupdate for accurate progress
+        const aEl = cloudAudioRef.current;
+        if (aEl) {
+          aEl.ontimeupdate = () => {
+            if (aEl.duration && isFinite(aEl.duration)) {
+              setProgress(Math.round((aEl.currentTime / aEl.duration) * 100));
+            }
+          };
+        }
+      };
         audio.onended = () => { setPlaying(false); setProgress(100); onPlayEnd?.(); };
 
         // Wrap audio playback in a promise to properly catch errors and handle retry
@@ -862,7 +888,7 @@ export default function AudioPlayer({
           utterance.pitch = getSpeakerPitch(line.speaker);
         }
 
-        utterance.onstart = () => { setLoading(false); setPlaying(true); };
+        utterance.onstart = () => { setLoading(false); setPlaying(true); onPlayStart?.(); startProgress(); };
         utterance.onend = () => { idx++; setTimeout(speakNext, line.speaker ? 120 : 60); };
         utterance.onerror = (e) => {
           if (e.error === 'canceled' || e.error === 'interrupted') { setPlaying(false); setLoading(false); return; }

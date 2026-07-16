@@ -33,10 +33,10 @@ export function useTextSelectionVocab({
   const [added, setAdded] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSelectionEnd = useCallback((e: MouseEvent | TouchEvent) => {
+  const handleSelectionEnd = useCallback((e: MouseEvent | TouchEvent | PointerEvent) => {
     // Prevent interfering with long-press context menu
-    if (e.type === 'touchend') {
-      // Only show popup on touchend if there's a selection (not a simple tap)
+    if (e.type === 'touchend' || e.type === 'pointerup') {
+      // Only show popup on touch/pointer events if there's a selection (not a simple tap)
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
     }

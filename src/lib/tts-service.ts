@@ -348,9 +348,9 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
       console.log(`[TTS]   Segment ${i + 1}/${segments.length}: speaker=${seg.speaker}, voice=${segVoiceName}, text="${seg.text.slice(0, 60)}"`);
 
       try {
-        // 每段之間插入靜音停頓（約 0.35s silence，不使用 TTS 合成以避免殘音）
+        // 每段之間插入短暫停頓（約 0.2s，讓對話自然但不至於有明顯空白）
         if (i > 0) {
-          audioBuffers.push(generateSilenceMP3(350));
+          audioBuffers.push(generateSilenceMP3(200));
         }
 
         const segBuffer = await synthesizeWithRetry(

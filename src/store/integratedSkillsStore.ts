@@ -103,7 +103,7 @@ const initialState = {
   loading: false,
   error: '',
   aiLoading: false,
-  showListeningText: true,
+  showListeningText: false,
   showNotesGuide: true,
   showContentPoints: false,
   draftSaved: false,

@@ -11,17 +11,21 @@ import { serializeVocab } from '@/lib/utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { studentId, type, count } = body;
+    const { studentId, type, count, wordIds } = body;
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
     }
 
-    // 取得學生生字（優先取低掌握度的）
+    // 取得學生生字（優先取低掌握度的，或依照指定 wordIds）
+    const whereClause: Record<string, unknown> = { studentId };
+    if (wordIds && Array.isArray(wordIds) && wordIds.length > 0) {
+      whereClause.id = { in: wordIds };
+    }
     const vocabItems = await db.vocabItem.findMany({
-      where: { studentId },
+      where: whereClause,
       orderBy: { masteryLevel: 'asc' },
-      take: 30,
+      take: wordIds?.length ? wordIds.length : 30,
     });
 
     if (vocabItems.length === 0) {

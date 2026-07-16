@@ -16,8 +16,8 @@ interface VocabFilterBarProps {
   onFilterChange: (v: Familiarity | 'all') => void;
   posFilter: string;
   onPosFilterChange: (v: string) => void;
-  sortBy: 'recent' | 'alphabetical' | 'mastery';
-  onSortByChange: (v: 'recent' | 'alphabetical' | 'mastery') => void;
+  sortBy: 'recent' | 'alphabetical' | 'mastery' | 'date';
+  onSortByChange: (v: 'recent' | 'alphabetical' | 'mastery' | 'date') => void;
   onExportCSV?: () => void;
   onExportAnki?: () => void;
   language: 'zh' | 'en';
@@ -71,6 +71,7 @@ export default function VocabFilterBar({
         >
           <option value="recent">{t('vocab.sortRecent')}</option>
           <option value="alphabetical">{t('vocab.sortAlpha')}</option>
+          <option value="date">{t('vocab.sortDate')}</option>
           <option value="mastery">{t('vocab.sortMastery')}</option>
         </select>
 
