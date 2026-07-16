@@ -68,3 +68,4 @@ neon.txt
 .env*
 
 test-results/
+playwright-report/
