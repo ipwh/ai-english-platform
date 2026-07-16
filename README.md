@@ -75,7 +75,9 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 部署 | Vercel |
 | OCR | Google Cloud Vision API |
 | 雲端 | Google Drive API（教材匯入）、Vertex AI（語義搜尋） |
-| DSE RAG | DeepSeek Embedding + 向量相似度檢索 + 歷屆試題注入（Feature Flag: `DSE_RAG_ENABLED`） |
+| DSE RAG | DeepSeek Embedding + pgvector (PostgreSQL native vector search, auto-fallback to in-memory cosine similarity) + 歷屆試題注入（Feature Flag: `DSE_RAG_ENABLED`） |
+| 日誌 | 結構化 Logger（`src/lib/logger.ts`，Pino-style JSON / human-readable 雙格式，`LOG_LEVEL` 控制） |
+| 快取 | AI 回應快取（`src/lib/ai-cache.ts`，Vercel KV / in-memory 雙後端，`AI_CACHE_ENABLED` 開關） |
 
 ## 個人化學習流程
 
@@ -124,12 +126,15 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
 | `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 dev=30000 / prod=8000（Vercel Hobby 建議） | ⬜ |
 | `AI_CACHE_ENABLED` | 啟用 AI 回應快取（預設 `true`，降低 API 費用） | ⬜ |
+| `AI_CACHE_TTL_MS` | AI 快取 TTL（毫秒，預設 3600000 = 1 小時） | ⬜ |
+| `LOG_LEVEL` | 日誌等級：`trace`/`debug`/`info`/`warn`/`error`/`fatal`（生產預設 `info`，開發預設 `debug`） | ⬜ |
 | `CRON_SECRET` | Cron Job 驗證密鑰（生產環境必須設定，`openssl rand -base64 32`） | ⬜ (prod) |
 | `GEMINI_MODEL` | Gemini model（預設 `gemini-2.5-flash`） | ⬜ |
 
 ### 部署步驟
 
 1. **資料庫**: 在 [Neon](https://neon.tech) / [Supabase](https://supabase.com) 建立免費 PostgreSQL，複製 `DATABASE_URL`
+   - **pgvector**：執行 `CREATE EXTENSION IF NOT EXISTS vector;` 以啟用原生向量搜尋（可選但強烈建議，大幅提升 RAG 效能）
 2. **Google OAuth**: [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID
    - Authorized redirect URIs: `https://你的網域.vercel.app/api/auth/callback/google`
 3. **DeepSeek API**: [platform.deepseek.com](https://platform.deepseek.com) → API Keys
@@ -178,6 +183,49 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - **🟠 HIGH**：Modal `max-w-[calc(100vw-2rem)]`、FAB `safe-bottom`、網格 `grid-cols-1 sm:grid-cols-N`
 - **🟡 MEDIUM**：iOS 鍵盤防縮放 `text-base`、`break-words`、`flex-col sm:flex-row`
 - **🔵 LOW**：觸控面積 36-40px、`px-4 sm:px-6` 內邊距適配
+
+### 🏗️ 程式碼品質全面升級 v2 — RAG pgvector + AI 快取 + 結構化日誌 + 單元測試擴充 — 2026-07-16
+
+根據深度程式碼分析報告的 9 項改善建議，全面升級專案架構與品質：
+
+#### 🔴 高優先級
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 1 | **RAG pgvector 向量檢索升級**：新增 `MaterialChunk.embeddingVector` 欄位（`vector(1536)`），`rag-service.ts` 自動偵測 pgvector extension 並使用 `$queryRaw` 進行資料庫層級餘弦相似度搜尋（`<=>` operator），未安裝時自動 fallback 到 in-memory 路徑；`indexMaterial()` 同時寫入 JSON embedding（legacy）與 pgvector native vector | `prisma/schema.prisma`、`rag-service.ts`、`prisma/migrations/pgvector-setup.sql` |
+| 2 | **AI 回應快取** (`AI_CACHE_ENABLED=true`)：新增 `src/lib/ai-cache.ts`，SHA-256 hash key + Vercel KV / in-memory 雙模式後端，TTL 預設 1 小時（`AI_CACHE_TTL_MS`），對低 temperature（≤0.3）請求自動快取，大幅降低 AI API 費用；CLI `aiCache.stats()` 可查詢快取命中率 | `src/lib/ai-cache.ts`、`ai-service.ts` |
+| 3 | **單元測試擴充**：新增 3 個測試檔案 — `gamification.test.ts`（35 tests：XP 計算/等級/徽章/每日目標）、`rate-limiter.test.ts`（9 tests：滑動窗口/隔離/訊息格式）、`i18n.test.ts`（11 tests：翻譯/插值/覆蓋率），測試總數 55→55 全通過 | `src/lib/__tests__/` × 3 |
+
+#### 🟡 中優先級
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 4 | **結構化日誌系統**：新增 `src/lib/logger.ts`，支援 6 級 log level（`LOG_LEVEL` env var）、生產環境 JSON 輸出（Vercel Log Drain 相容）、開發環境人類可讀格式、`createModuleLogger()` 子 logger 工廠；`ai-service.ts` 的 `aiLog()` 已遷移至 `logger.info()` | `src/lib/logger.ts`、`ai-service.ts`、`rag-service.ts` |
+| 5 | **API 回應型別統一 `ApiResponse<T>`**：新增 `src/lib/api-response.ts`，提供 `success()`/`error()`/`jsonSuccess()`/`jsonError()` 輔助函式，10 種標準錯誤碼（`BAD_REQUEST`/`UNAUTHORIZED`/`FORBIDDEN`/`NOT_FOUND`/`RATE_LIMITED`/`AI_SERVICE_UNAVAILABLE` 等），自動 HTTP status code 映射 | `src/lib/api-response.ts` |
+| 6 | **ai-service.ts 模組化拆分**：Chinglish 規則提取至 `chinglish-rules.json`（12 條規則 + `enabled` 開關）+ `chinglish.ts`（載入/快取/檢測）；AI 快取提取至 `ai-cache.ts`；日誌遷移至 `logger.ts`；`ai-service.ts` 現僅保留核心 LLM 調用與題目生成邏輯 | `chinglish-rules.json`、`chinglish.ts`、`ai-cache.ts`、`logger.ts` |
+
+#### 🟢 低優先級
+
+| # | 項目 | 檔案 |
+|---|------|------|
+| 7 | **Chinglish 規則外部化**：12 條檢測規則從程式碼移至 `chinglish-rules.json`，教師可直接編輯 JSON 新增/修改/停用規則（`enabled` 欄位），`chinglish.ts` 提供 `loadChinglishRules()`/`clearRulesCache()` 熱重載支援 | `chinglish-rules.json`、`chinglish.ts` |
+| 8 | **i18n 覆蓋率自動檢查**：新增 `scripts/check-i18n.js`，掃描 `src/components/` 與 `src/app/` 中所有 `.tsx`/`.ts` 檔案，偵測 JSX 文字與字串常值中的硬編碼中文，排除已知合法檔案（prompts/i18n/seed），自動產出逐檔報告 | `scripts/check-i18n.js` |
+| 9 | **Storybook 元件文件**：新增 `.storybook/main.ts` + `preview.ts` 設定檔，`Toast.stories.tsx` 作為 32 個共用元件的 Story 範本（4 種 variant + Controls + autodocs），`npm run storybook` 啟動 | `.storybook/`、`Toast.stories.tsx` |
+
+#### 📦 新增 npm scripts
+
+```bash
+npm run check:i18n        # 掃描硬編碼中文
+npm run storybook         # 啟動 Storybook (port 6006)
+npm run storybook:build   # 建置 Storybook 靜態站
+```
+
+#### 📊 變更統計
+
+- **新增檔案**：9（`logger.ts`、`ai-cache.ts`、`api-response.ts`、`chinglish.ts`、`chinglish-rules.json`、`check-i18n.js`、`.storybook/main.ts`、`.storybook/preview.ts`、`Toast.stories.tsx`）
+- **修改檔案**：5（`prisma/schema.prisma`、`rag-service.ts`、`ai-service.ts`、`package.json`、`README.md`）
+- **新增測試**：3 檔案 / 55 tests / 全通過
+- **TypeScript 錯誤**：0
 
 ### 📚 生字簿 3.1 — 自選生字測驗 + 日期排序 + 跨平台觸控修復 — 2026-07-16
 

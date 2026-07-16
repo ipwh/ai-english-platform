@@ -362,14 +362,15 @@ model Material {
 
 // 材料文字區塊（用於向量嵌入）
 model MaterialChunk {
-  id          String    @id @default(cuid())
-  materialId  String
-  material    Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  chunkIndex  Int
-  content     String
-  tokenCount  Int       @default(0)
-  embedding   String?   // JSON 浮點陣列（向量）
-  createdAt   DateTime  @default(now())
+  id             String    @id @default(cuid())
+  materialId     String
+  material       Material  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  chunkIndex     Int
+  content        String
+  tokenCount     Int       @default(0)
+  embedding      String?   // JSON 浮點陣列（向量）— legacy，逐步遷移至 embeddingVector
+  embeddingVector Unsupported("vector(1536)")?  // pgvector 原生向量欄位
+  createdAt      DateTime  @default(now())
 }
 
 // ============================================

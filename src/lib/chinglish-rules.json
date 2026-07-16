@@ -1,0 +1,102 @@
+{
+  "$schema": "./chinglish-rules.schema.json",
+  "description": "Rule-based Chinglish 前置檢測規則。教師可自行編輯此檔案以新增/修改/停用規則。",
+  "rules": [
+    {
+      "id": "although-but",
+      "pattern": "\\b(?:A|a)lthough\\b[^.]*\\bbut\\b",
+      "flags": "i",
+      "suggestion": "Remove \"but\" — \"Although\" already implies contrast. Use: \"Although X, Y.\"",
+      "label": "although...but",
+      "enabled": true
+    },
+    {
+      "id": "because-so",
+      "pattern": "\\b(?:B|b)ecause\\b[^.]*\\bso\\b",
+      "flags": "i",
+      "suggestion": "Remove \"so\" — \"Because\" already implies cause. Use: \"Because X, Y.\"",
+      "label": "because...so",
+      "enabled": true
+    },
+    {
+      "id": "i-very-like",
+      "pattern": "\\bI very (like|love|enjoy|hate)\\b",
+      "flags": "i",
+      "suggestion": "Use \"I really $1\" or \"I $1 very much\"",
+      "label": "I very like",
+      "enabled": true
+    },
+    {
+      "id": "there-have",
+      "pattern": "\\bThere have (many|a lot|some|several)\\b",
+      "flags": "i",
+      "suggestion": "Use \"There are $1\" instead of \"There have\"",
+      "label": "There have",
+      "enabled": true
+    },
+    {
+      "id": "i-am-agree",
+      "pattern": "\\bI am agree\\b",
+      "flags": "i",
+      "suggestion": "Use \"I agree\" (no \"am\")",
+      "label": "I am agree",
+      "enabled": true
+    },
+    {
+      "id": "discuss-about",
+      "pattern": "\\bdiscuss about\\b",
+      "flags": "i",
+      "suggestion": "Remove \"about\" — \"discuss\" is transitive. Use: \"discuss X\"",
+      "label": "discuss about",
+      "enabled": true
+    },
+    {
+      "id": "according-to-my-opinion",
+      "pattern": "\\b(?:A|a)ccording to my opinion\\b",
+      "flags": "i",
+      "suggestion": "Use \"In my opinion\" instead of \"According to my opinion\"",
+      "label": "according to my opinion",
+      "enabled": true
+    },
+    {
+      "id": "every-coin-has-two-sides",
+      "pattern": "\\b(?:E|e)very coin has two sides\\b",
+      "flags": "i",
+      "suggestion": "Cliché — use a more original expression or state both perspectives directly",
+      "label": "every coin has two sides",
+      "enabled": true
+    },
+    {
+      "id": "last-but-not-least",
+      "pattern": "\\b(?:L|l)ast but not least\\b",
+      "flags": "i",
+      "suggestion": "Cliché — use \"Finally\" or \"Most importantly\" instead",
+      "label": "last but not least",
+      "enabled": true
+    },
+    {
+      "id": "more-and-more-comparative",
+      "pattern": "\\bmore and more (better|worse|stronger|weaker)\\b",
+      "flags": "i",
+      "suggestion": "Use \"increasingly $1\" or just \"$1\" (comparative already implies change)",
+      "label": "more and more + comparative",
+      "enabled": true
+    },
+    {
+      "id": "return-back",
+      "pattern": "\\b(?:R|r)eturn back\\b",
+      "flags": "i",
+      "suggestion": "Use \"return\" (no \"back\" needed)",
+      "label": "return back",
+      "enabled": true
+    },
+    {
+      "id": "can-be-able-to",
+      "pattern": "\\b(?:C|c)an be able to\\b",
+      "flags": "i",
+      "suggestion": "Use \"can\" OR \"be able to\" (not both)",
+      "label": "can be able to",
+      "enabled": true
+    }
+  ]
+}

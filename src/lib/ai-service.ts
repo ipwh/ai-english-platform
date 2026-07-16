@@ -46,60 +46,23 @@ export function sanitizeForAI(text: string): string {
     .replace(/(?<!\d)\d{8}(?!\d)/g, '[PHONE_REMOVED]')
     // 電郵地址
     .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL_REMOVED]')
-    // 常見香港學校關鍵字（選擇性，視需要啟用）
-    // .replace(/Po Chiu|寶血|PCCS|pochiu/gi, '[SCHOOL]')
 }
 
 // ============================================
 // Rule-based Chinglish 前置檢測（補充 AI 批改）
-// 在傳送 AI 批改前先掃描常見中式英文錯誤
+// 規則從 chinglish-rules.json 外部讀取，教師可自行編輯
 // ============================================
 
-export interface ChinglishWarning {
-  pattern: string;
-  found: string;
-  suggestion: string;
-}
-
-const CHINGLISH_RULES: { regex: RegExp; suggestion: string; label: string }[] = [
-  { regex: /\b(?:A|a)lthough\b[^.]*\bbut\b/i, suggestion: 'Remove "but" — "Although" already implies contrast. Use: "Although X, Y."', label: 'although...but' },
-  { regex: /\b(?:B|b)ecause\b[^.]*\bso\b/i, suggestion: 'Remove "so" — "Because" already implies cause. Use: "Because X, Y."', label: 'because...so' },
-  { regex: /\bI very (like|love|enjoy|hate)\b/i, suggestion: 'Use "I really $1" or "I $1 very much"', label: 'I very like' },
-  { regex: /\bThere have (many|a lot|some|several)\b/i, suggestion: 'Use "There are $1" instead of "There have"', label: 'There have' },
-  { regex: /\bI am agree\b/i, suggestion: 'Use "I agree" (no "am")', label: 'I am agree' },
-  { regex: /\bdiscuss about\b/i, suggestion: 'Remove "about" — "discuss" is transitive. Use: "discuss X"', label: 'discuss about' },
-  { regex: /\b(?:A|a)ccording to my opinion\b/i, suggestion: 'Use "In my opinion" instead of "According to my opinion"', label: 'according to my opinion' },
-  { regex: /\b(?:E|e)very coin has two sides\b/i, suggestion: 'Cliché — use a more original expression or state both perspectives directly', label: 'every coin has two sides' },
-  { regex: /\b(?:L|l)ast but not least\b/i, suggestion: 'Cliché — use "Finally" or "Most importantly" instead', label: 'last but not least' },
-  { regex: /\bmore and more (better|worse|stronger|weaker)\b/i, suggestion: 'Use "increasingly $1" or just "$1" (comparative already implies change)', label: 'more and more + comparative' },
-  { regex: /\b(?:R|r)eturn back\b/i, suggestion: 'Use "return" (no "back" needed)', label: 'return back' },
-  { regex: /\b(?:C|c)an be able to\b/i, suggestion: 'Use "can" OR "be able to" (not both)', label: 'can be able to' },
-];
-
-/**
- * 對學生寫作進行 rule-based Chinglish 前置檢測。
- * 回傳檢測到的警告清單，可在 AI 批改前或後補充使用。
- */
-export function detectChinglish(text: string): ChinglishWarning[] {
-  const warnings: ChinglishWarning[] = [];
-  for (const rule of CHINGLISH_RULES) {
-    const match = text.match(rule.regex);
-    if (match) {
-      warnings.push({
-        pattern: rule.label,
-        found: match[0],
-        suggestion: rule.suggestion,
-      });
-    }
-  }
-  return warnings;
-}
+export type { ChinglishWarning } from './chinglish';
+export { detectChinglish, loadChinglishRules } from './chinglish';
 
 // ============================================
 // 設定（統一從 config.ts 讀取）
 // ============================================
 
 import { config } from '@/lib/config';
+import { logger } from '@/lib/logger';
+import { aiCache } from '@/lib/ai-cache';
 
 const DEEPSEEK_API_KEY = config.deepseek.apiKey;
 const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
@@ -413,15 +376,11 @@ async function callGeminiViaVertex(
 }
 
 // ============================================
-// 結構化 AI 日誌 — 供 Vercel Logs / 監控使用
+// 結構化 AI 日誌 — 使用集中式 logger
 // ============================================
+
 function aiLog(event: string, data: Record<string, unknown>) {
-  console.log(JSON.stringify({
-    service: 'ai-service',
-    event,
-    timestamp: new Date().toISOString(),
-    ...data,
-  }));
+  logger.info({ module: 'ai-service', event, ...data }, event);
 }
 
 export async function callLLM(
@@ -436,6 +395,13 @@ export async function callLLM(
     throw new Error('AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。');
   }
 
+  // AI 回應快取：嘗試從快取取得（僅對非 streaming、非隨機化請求生效）
+  const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode });
+  if (!options?.temperature || options.temperature <= 0.3) {
+    const cached = await aiCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
   const errors: string[] = [];
   const startTime = Date.now();
 
@@ -444,6 +410,9 @@ export async function callLLM(
       const result = await callDeepSeek(messages, options);
       lastAIProvider = 'deepseek';
       aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime });
+      if (!options?.temperature || options.temperature <= 0.3) {
+        await aiCache.set(cacheKey, result);
+      }
       return result;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -452,7 +421,7 @@ export async function callLLM(
         aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
-      console.warn('[ai-service] DeepSeek 失敗，切換 Gemini fallback:', msg);
+      logger.warn({ module: 'ai-service', error: msg }, 'DeepSeek failed, switching to Gemini fallback');
     }
   }
 
@@ -461,6 +430,9 @@ export async function callLLM(
       const result = await callGeminiViaVertex(messages, options);
       lastAIProvider = 'vertex-gemini';
       aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true });
+      if (!options?.temperature || options.temperature <= 0.3) {
+        await aiCache.set(cacheKey, result);
+      }
       return result;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -469,7 +441,7 @@ export async function callLLM(
         aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
-      console.warn('[ai-service] Vertex Gemini 失敗，切換 Gemini API key fallback:', msg);
+      logger.warn({ module: 'ai-service', error: msg }, 'Vertex Gemini failed, switching to Gemini API key fallback');
     }
   }
 
@@ -477,6 +449,9 @@ export async function callLLM(
     const result = await callGemini(messages, options);
     lastAIProvider = 'gemini-api';
     aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true });
+    if (!options?.temperature || options.temperature <= 0.3) {
+      await aiCache.set(cacheKey, result);
+    }
     return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

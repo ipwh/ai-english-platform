@@ -5,6 +5,7 @@
 
 import db from '@/lib/db';
 import { config } from '@/lib/config';
+import { logger } from '@/lib/logger';
 
 const DEEPSEEK_API_KEY = config.deepseek.apiKey;
 const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
@@ -140,18 +141,29 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
   for (let i = 0; i < chunks.length; i++) {
     try {
       const embedding = await getEmbedding(chunks[i]);
+      const embeddingJson = JSON.stringify(embedding);
 
+      // Always store JSON embedding (legacy fallback)
       await db.materialChunk.create({
         data: {
           materialId,
           chunkIndex: i,
           content: chunks[i],
           tokenCount: estimateTokens(chunks[i]),
-          embedding: JSON.stringify(embedding),
+          embedding: embeddingJson,
         },
       });
+
+      // Also store pgvector embedding if available
+      if (await isPgvectorAvailable()) {
+        const vectorLiteral = `[${embedding.join(',')}]`;
+        await db.$executeRawUnsafe(
+          `UPDATE "MaterialChunk" SET "embeddingVector" = $1::vector(1536) WHERE "materialId" = $2 AND "chunkIndex" = $3`,
+          vectorLiteral, materialId, i
+        );
+      }
     } catch (err) {
-      console.error(`[RAG] 區塊 ${i}/${chunks.length} embedding 失敗:`, err);
+      logger.error({ module: 'rag-service', chunkIndex: i, total: chunks.length, error: (err as Error).message }, 'Chunk embedding failed');
       throw err;
     }
   }
@@ -184,11 +196,97 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+// ============================================
+// pgvector 支援 — 資料庫層級向量相似度檢索
+// ============================================
+
+let _pgvectorAvailable: boolean | null = null;
+
 /**
- * 檢索相關教材區塊
- * @param query 查詢文字（例如學生的問題或題目）
- * @param topK 返回前 K 個最相關區塊
- * @param threshold 相似度閾值 (0-1)
+ * 檢測 PostgreSQL pgvector extension 是否可用
+ */
+async function isPgvectorAvailable(): Promise<boolean> {
+  if (_pgvectorAvailable !== null) return _pgvectorAvailable;
+  try {
+    const result = await db.$queryRawUnsafe<{ installed: boolean }[]>(
+      `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector') AS "installed"`
+    );
+    _pgvectorAvailable = result[0]?.installed ?? false;
+    logger.info({ module: 'rag-service', pgvectorAvailable: _pgvectorAvailable }, 'pgvector detection complete');
+  } catch {
+    _pgvectorAvailable = false;
+    logger.warn({ module: 'rag-service' }, 'pgvector detection failed — falling back to in-memory similarity');
+  }
+  return _pgvectorAvailable;
+}
+
+/**
+ * 使用 pgvector 進行向量相似度檢索（高效能，資料庫層級）
+ */
+async function pgvectorSearch(
+  queryEmbedding: number[],
+  topK: number,
+  threshold: number,
+  materialWhere?: Record<string, unknown>
+): Promise<{
+  chunk: { id: string; content: string; materialId: string };
+  score: number;
+  materialTitle: string;
+}[]> {
+  const vectorLiteral = `[${queryEmbedding.join(',')}]`;
+
+  // Build material filter clause
+  let materialFilter = '';
+  const params: (string | number)[] = [vectorLiteral, threshold, topK];
+  let paramIdx = 3;
+
+  if (materialWhere && Object.keys(materialWhere).length > 0) {
+    const clauses: string[] = [];
+    if (materialWhere.ragStatus) {
+      paramIdx++;
+      clauses.push(`m."ragStatus" = $${paramIdx}`);
+      params.push(materialWhere.ragStatus as string);
+    }
+    if (materialWhere.strand) {
+      paramIdx++;
+      clauses.push(`m."strand" = $${paramIdx}`);
+      params.push(materialWhere.strand as string);
+    }
+    if (materialWhere.gradeLevel) {
+      paramIdx++;
+      clauses.push(`m."gradeLevel" = $${paramIdx}`);
+      params.push(materialWhere.gradeLevel as string);
+    }
+    if (clauses.length > 0) {
+      materialFilter = 'AND ' + clauses.join(' AND ');
+    }
+  }
+
+  const query = `
+    SELECT mc."id", mc."content", mc."materialId", m."title" AS "materialTitle",
+           1 - (mc."embeddingVector" <=> $1::vector) AS score
+    FROM "MaterialChunk" mc
+    JOIN "Material" m ON mc."materialId" = m."id"
+    WHERE mc."embeddingVector" IS NOT NULL
+      ${materialFilter}
+      AND 1 - (mc."embeddingVector" <=> $1::vector) >= $2
+    ORDER BY mc."embeddingVector" <=> $1::vector
+    LIMIT $3
+  `;
+
+  const rows = await db.$queryRawUnsafe<{
+    id: string; content: string; materialId: string; materialTitle: string; score: number;
+  }[]>(query, ...params);
+
+  return rows.map(row => ({
+    chunk: { id: row.id, content: row.content, materialId: row.materialId },
+    score: Number(row.score),
+    materialTitle: row.materialTitle,
+  }));
+}
+
+/**
+ * 檢索相關教材區塊（自動選擇 pgvector 或 in-memory 路徑）
  */
 export async function retrieveRelevantChunks(
   query: string,
@@ -199,11 +297,21 @@ export async function retrieveRelevantChunks(
   score: number;
   materialTitle: string;
 }[]> {
-  // 1. 取得查詢向量
   const queryEmbedding = await getEmbedding(query);
 
-  // 2. 獲取已嵌入的區塊（限制最大數量防止 OOM；優先取最近建立的）
-  const MAX_CHUNKS = 200; // 降低上限以減輕記憶體壓力
+  // Try pgvector first (fast, DB-level)
+  if (await isPgvectorAvailable()) {
+    try {
+      const results = await pgvectorSearch(queryEmbedding, topK, threshold);
+      logger.debug({ module: 'rag-service', method: 'pgvector', resultCount: results.length, topK, threshold }, 'Vector search completed');
+      return results;
+    } catch (err) {
+      logger.warn({ module: 'rag-service', error: (err as Error).message }, 'pgvector search failed, falling back to in-memory');
+    }
+  }
+
+  // Fallback: in-memory cosine similarity (legacy path)
+  const MAX_CHUNKS = 200;
   const chunks = await db.materialChunk.findMany({
     where: { embedding: { not: null } },
     include: { material: { select: { title: true } } },
@@ -213,9 +321,8 @@ export async function retrieveRelevantChunks(
 
   if (chunks.length === 0) return [];
 
-  // 3. 計算相似度並排序
   const scored = chunks
-    .filter(chunk => chunk.embedding) // 防止 null embedding
+    .filter(chunk => chunk.embedding)
     .map(chunk => ({
       chunk: {
         id: chunk.id,
@@ -229,6 +336,7 @@ export async function retrieveRelevantChunks(
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
 
+  logger.debug({ module: 'rag-service', method: 'in-memory', resultCount: scored.length, topK, threshold }, 'Vector search completed (fallback)');
   return scored;
 }
 
@@ -373,7 +481,7 @@ export async function retrieveDSERelevantChunks(
   const queryEmbedding = await getEmbedding(query);
 
   // 2. 建立 Prisma where 條件（只查 RAG 已完成的教材）
-  const materialWhere: any = {
+  const materialWhere: Record<string, unknown> = {
     ragStatus: 'done',
   };
 
@@ -396,10 +504,26 @@ export async function retrieveDSERelevantChunks(
     tagFilters.push(filter.part);
   }
 
-  // 3. 獲取符合條件的 chunks
-  const where: any = { embedding: { not: null } };
+  // 3. Try pgvector first
+  if (await isPgvectorAvailable() && tagFilters.length === 0) {
+    try {
+      const results = await pgvectorSearch(queryEmbedding, topK, threshold, materialWhere);
+      if (results.length > 0) {
+        return results.map(r => ({
+          ...r,
+          materialType: 'General',
+          tags: [] as string[],
+        }));
+      }
+    } catch (err) {
+      logger.warn({ module: 'rag-service', error: (err as Error).message }, 'pgvector DSE search failed, falling back');
+    }
+  }
 
-  if (materialWhere && Object.keys(materialWhere).length > 0) {
+  // 4. Fallback: in-memory cosine similarity
+  const where: Record<string, unknown> = { embedding: { not: null } };
+
+  if (Object.keys(materialWhere).length > 0) {
     where.material = materialWhere;
   }
 
