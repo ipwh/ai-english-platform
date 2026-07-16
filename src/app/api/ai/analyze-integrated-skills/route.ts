@@ -5,7 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider } from '@/lib/ai-service';
-import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';import { verifyApiAuth } from '@/lib/api-auth';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
+import { verifyApiAuth } from '@/lib/api-auth';
+import { detectOverCopying } from '@/lib/plagiarism';
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -48,8 +50,12 @@ export async function POST(request: NextRequest) {
       gradeLevel,
     });
 
+    // === 抄襲檢測：檢查學生寫作是否過度複製聆聽文稿 ===
+    const overCopyResult = detectOverCopying(listeningContent, studentWriting);
+
     return NextResponse.json({
       analysis,
+      overCopyCheck: overCopyResult,
       _meta: { provider: getLastAIProvider() },
     }, {
       headers: { 'X-AI-Provider': getLastAIProvider() },

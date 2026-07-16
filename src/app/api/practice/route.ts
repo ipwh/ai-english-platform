@@ -53,6 +53,30 @@ export async function POST(request: NextRequest) {
           })),
         });
       } catch { /* 答案儲存非致命錯誤，session 已儲存 */ }
+
+      // === Auto-mistake sync: 錯誤答案自動記錄到錯題本 ===
+      if (answers && Array.isArray(answers)) {
+        try {
+          const wrongAnswers = answers.filter((a: { isCorrect: boolean }) => !a.isCorrect);
+          for (const a of wrongAnswers) {
+            const qId = `${session.id}-q${a.questionIndex}`;
+            const existing = await db.mistake.findFirst({ where: { questionId: qId, studentId } });
+            if (!existing) {
+              await db.mistake.create({
+                data: {
+                  studentId,
+                  questionId: qId,
+                  studentAnswer: a.studentAnswer || '',
+                  correctAnswer: a.correctAnswer || '',
+                  mistakeType: 'grammar',
+                  reviewed: false,
+                  inReviewList: true,
+                },
+              });
+            }
+          }
+        } catch { /* mistake sync non-critical */ }
+      }
     }
 
     // 更新學生整體正確率（從所有練習紀錄計算）

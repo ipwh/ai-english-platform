@@ -103,6 +103,20 @@ export default async function middleware(request: NextRequest) {
         return NextResponse.redirect(forbiddenUrl);
       }
     }
+
+    // 檢查 NextAuth 使用者的 teacher 路由權限
+    if (pathname.startsWith('/teacher')) {
+      let role = await getRoleFromNextAuthCookie(request);
+      if (!role) {
+        role = request.cookies.get('selected_role')?.value || null;
+      }
+      if (role !== 'teacher' && role !== 'admin') {
+        const forbiddenUrl = new URL('/login', request.url);
+        forbiddenUrl.searchParams.set('error', 'teacher_only');
+        return NextResponse.redirect(forbiddenUrl);
+      }
+    }
+
     return NextResponse.next();
   }
 
@@ -117,6 +131,14 @@ export default async function middleware(request: NextRequest) {
         forbiddenUrl.searchParams.set('error', 'admin_only');
         return NextResponse.redirect(forbiddenUrl);
       }
+
+      // === Teacher 路由保護：僅 role === 'teacher' 或 'admin' 可存取 /teacher ===
+      if (pathname.startsWith('/teacher') && payload.role !== 'teacher' && payload.role !== 'admin') {
+        const forbiddenUrl = new URL('/login', request.url);
+        forbiddenUrl.searchParams.set('error', 'teacher_only');
+        return NextResponse.redirect(forbiddenUrl);
+      }
+
       return NextResponse.next();
     }
   }

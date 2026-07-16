@@ -10,6 +10,7 @@ import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/lib/utils';
 import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats } from '@/lib/gamification';
 import { GamificationSkeleton } from '@/components/shared/Skeleton';
+import OnboardingGuard from '@/components/shared/OnboardingGuard';
 
 interface GamificationData {
   xp: number;
@@ -22,6 +23,7 @@ export default function StudentDashboardPage() {
   const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory, language, userId } = useAppStore();
   const { t } = useT();
   const displayName = userDisplayName || t('common.studentFallback');
+  const [studentId, setStudentId] = useState('');
   const [aiInsight, setAiInsight] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
@@ -39,6 +41,7 @@ export default function StudentDashboardPage() {
       if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setStudentLevel(level);
       const userId = d?.user?.id || '';
       if (userId) {
+        setStudentId(userId);
         // Load gamification data
         fetch(`/api/gamification?studentId=${encodeURIComponent(userId)}`)
           .then(r => r.json())
@@ -83,7 +86,8 @@ export default function StudentDashboardPage() {
     ? Math.round((1 - gamification.level.xpToNext / (gamification.level.xpRequired + gamification.level.xpToNext || 1)) * 100)
     : 0;
 
-  return (
+  // === Render with OnboardingGuard for new students ===
+  const dashboardContent = (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-4 sm:p-6 text-white">
         <p className="text-teal-100 text-sm">{getGreeting(language)}, {displayName}!</p>
@@ -230,4 +234,15 @@ export default function StudentDashboardPage() {
       </div>
     </div>
   );
+
+  // Wrap with OnboardingGuard for new students
+  if (studentId && !gamificationLoading) {
+    return (
+      <OnboardingGuard studentId={studentId}>
+        {dashboardContent}
+      </OnboardingGuard>
+    );
+  }
+
+  return dashboardContent;
 }

@@ -13,6 +13,10 @@ const translations: Record<string, { zh: string; en: string }> = {
   'nav.progress': { zh: '我的進度', en: 'My Progress' },
   'nav.writing': { zh: '寫作支援', en: 'Writing Support' },
   'nav.integratedSkills': { zh: 'Integrated Skills', en: 'Integrated Skills' },
+  'nav.dailyChallenge': { zh: '每日挑戰', en: 'Daily Challenge' },
+  'nav.reading': { zh: '閱讀理解', en: 'Reading' },
+  'nav.speaking': { zh: '會話練習', en: 'Speaking' },
+  'nav.assignments': { zh: '我的作業', en: 'My Assignments' },
 
   // Integrated Skills Page
   'is.description': { zh: 'DSE Paper 3 Part B — 聆聽 → 筆記 → 寫作', en: 'DSE Paper 3 Part B — Listening → Notes → Writing' },
@@ -60,7 +64,6 @@ const translations: Record<string, { zh: string; en: string }> = {
   'groups.save': { zh: '儲存', en: 'Save' },
   'groups.notFound': { zh: '找不到匹配的學生。請使用學生姓名或電郵。', en: 'No matching students found. Use student name or email.' },
 
-  'nav.assignments': { zh: '我的作業', en: 'Assignments' },
   'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },
   'nav.help': { zh: '求助建議', en: 'Help' },
   'nav.profile': { zh: '個人檔案', en: 'Profile' },

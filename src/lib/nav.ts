@@ -7,6 +7,7 @@ import {
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
   User, Users, GraduationCap, FileText, Upload,
   ClipboardCheck, BarChart3, Settings, Search, Headphones,
+  Mic, Calendar, BookText,
   type LucideIcon
 } from 'lucide-react';
 import { t } from '@/lib/i18n';
@@ -40,7 +41,10 @@ export function getSectionTitle(section: NavSection, lang: string): string | und
 // ========================================
 export const studentNavItems: NavItem[] = [
   { label: '學習主頁', i18nKey: 'nav.dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+  { label: '每日挑戰', i18nKey: 'nav.dailyChallenge', href: '/student/daily-challenge', icon: Calendar },
   { label: 'AI 練習', i18nKey: 'nav.practice', href: '/student/practice', icon: BookOpen },
+  { label: '閱讀理解', i18nKey: 'nav.reading', href: '/student/reading', icon: BookText },
+  { label: '會話練習', i18nKey: 'nav.speaking', href: '/student/speaking', icon: Mic },
   { label: '寫作支援', i18nKey: 'nav.writing', href: '/student/writing', icon: PencilLine },
   { label: 'Integrated Skills', i18nKey: 'nav.integratedSkills', href: '/student/integrated-skills', icon: Headphones },
   { label: '生字簿', i18nKey: 'nav.vocabulary', href: '/student/vocabulary', icon: BookMarked },

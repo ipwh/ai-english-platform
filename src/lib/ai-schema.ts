@@ -55,7 +55,7 @@ export const WritingAnalysisSchema = z.object({
   languageScore: z.number().min(0).max(7).optional(),
   organizationScore: z.number().min(0).max(7).optional(),
   cloTotalScore: z.number().min(0).max(21).optional(),
-  dseLevel: z.string().optional(),
+  dseLevel: z.string().min(1, 'DSE level is required'),
   strengths: z.array(z.string()),
   weaknesses: z.array(z.string()),
   grammarErrors: z.array(z.object({
