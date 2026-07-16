@@ -55,6 +55,7 @@ export function sanitizeForAI(text: string): string {
 
 export type { ChinglishWarning } from './chinglish';
 export { detectChinglish, loadChinglishRules } from './chinglish';
+import { detectChinglish } from './chinglish';
 
 // ============================================
 // 設定（統一從 config.ts 讀取）
@@ -199,8 +200,7 @@ async function callDeepSeek(
         response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
         ...(options?.userId ? { user_id: options.userId } : {}),
       }),
-      signal: controller.signal,
-   , userId: input.userId });
+      signal: controller.signal,    });
 
     if (!res.ok) {
       const err = await res.text();
@@ -274,8 +274,7 @@ async function callGemini(
           maxOutputTokens: isJson ? Math.max(options?.maxTokens ?? 1024, 4096) : (options?.maxTokens ?? 1024),
         },
       }),
-      signal: controller.signal,
-   , userId: input.userId });
+      signal: controller.signal,    });
 
     if (!res.ok) {
       const errText = await res.text();
@@ -352,8 +351,7 @@ async function callGeminiViaVertex(
           maxOutputTokens: isJson ? Math.max(options?.maxTokens ?? 1024, 4096) : (options?.maxTokens ?? 1024),
         },
       }),
-      signal: controller.signal,
-   , userId: input.userId });
+      signal: controller.signal,    });
 
     if (!res.ok) {
       const errText = await res.text();
@@ -397,7 +395,7 @@ export async function callLLM(
   }
 
   // AI 回應快取：嘗試從快取取得（僅對非 streaming、非隨機化請求生效）
-  const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode, userId: input.userId });
+  const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode, userId: options?.userId });
   if (!options?.temperature || options.temperature <= 0.3) {
     const cached = await aiCache.get(cacheKey);
     if (cached) return cached;
@@ -410,7 +408,7 @@ export async function callLLM(
     try {
       const result = await callDeepSeek(messages, options);
       lastAIProvider = 'deepseek';
-      aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime, userId: input.userId });
+      aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime, userId: options?.userId });
       if (!options?.temperature || options.temperature <= 0.3) {
         await aiCache.set(cacheKey, result);
       }
@@ -419,7 +417,7 @@ export async function callLLM(
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`DeepSeek: ${msg}`);
       if (!hasVertexGemini && !hasGemini) {
-        aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime, userId: input.userId });
+        aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime, userId: options?.userId });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
       logger.warn({ module: 'ai-service', error: msg }, 'DeepSeek failed, switching to Gemini fallback');
@@ -430,7 +428,7 @@ export async function callLLM(
     try {
       const result = await callGeminiViaVertex(messages, options);
       lastAIProvider = 'vertex-gemini';
-      aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true, userId: input.userId });
+      aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true, userId: options?.userId });
       if (!options?.temperature || options.temperature <= 0.3) {
         await aiCache.set(cacheKey, result);
       }
@@ -439,7 +437,7 @@ export async function callLLM(
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`Vertex Gemini: ${msg}`);
       if (!hasGemini) {
-        aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime, userId: input.userId });
+        aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime, userId: options?.userId });
         throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
       }
       logger.warn({ module: 'ai-service', error: msg }, 'Vertex Gemini failed, switching to Gemini API key fallback');
@@ -449,7 +447,7 @@ export async function callLLM(
   try {
     const result = await callGemini(messages, options);
     lastAIProvider = 'gemini-api';
-    aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true, userId: input.userId });
+    aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true, userId: options?.userId });
     if (!options?.temperature || options.temperature <= 0.3) {
       await aiCache.set(cacheKey, result);
     }
@@ -457,7 +455,7 @@ export async function callLLM(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`Gemini API: ${msg}`);
-    aiLog('call_failed', { provider: 'gemini-api', error: msg, latencyMs: Date.now() - startTime, userId: input.userId });
+    aiLog('call_failed', { provider: 'gemini-api', error: msg, latencyMs: Date.now() - startTime, userId: options?.userId });
     throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
   }
 }
@@ -1972,8 +1970,7 @@ ${STRICT_ANSWER_RULES}
     const fixedQuestions = questions.map((q, i) => {
       const { fixed, warnings } = validateAndFixQuestion(q, i + 1);
       allWarnings.push(...warnings);
-      return fixed;
-   , userId: input.userId });
+      return fixed;    });
     if (allWarnings.length > 0) {
       console.warn('[ai-service] Generated questions had consistency issues (auto-fixed):', allWarnings);
     }

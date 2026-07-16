@@ -48,15 +48,10 @@ function formatLog(log: StructuredLog): string {
     return JSON.stringify(log);
   }
   // 開發環境：人類可讀格式
-  const prefix = `[${log.module}]${log.event ? ` [${log.event}]` : ''}`;
-  const meta = { ...log };
-  delete meta.level;
-  delete meta.time;
-  delete meta.module;
-  delete meta.event;
-  delete meta.msg;
+  const { level, time, module, event, msg, ...meta } = log;
+  const prefix = `[${module}]${event ? ` [${event}]` : ''}`;
   const metaStr = Object.keys(meta).length > 0 ? ' ' + JSON.stringify(meta) : '';
-  return `${log.time.slice(11, 23)} ${log.level.toUpperCase().padEnd(5)} ${prefix} ${log.msg}${metaStr}`;
+  return `${time.slice(11, 23)} ${level.toUpperCase().padEnd(5)} ${prefix} ${msg}${metaStr}`;
 }
 
 function shouldLog(level: LogLevel): boolean {
