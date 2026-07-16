@@ -2,7 +2,7 @@
 // E2E: 教師端流程 + 混合班級情境
 // ============================================
 import { test, expect } from '@playwright/test';
-import { login, selectRole, waitForLoadingDone, expectButtonEnabled } from '../helpers';
+import { login, selectRole, waitForLoadingDone, expectButtonEnabled } from './helpers';
 
 test.describe('Teacher Flow', () => {
 

@@ -3,7 +3,7 @@
 // 登入 → 診斷 → 練習 → Integrated Skills → 生字簿 → 作業
 // ============================================
 import { test, expect } from '@playwright/test';
-import { login, selectRole, waitForLoadingDone, expectButtonEnabled, safeClick } from '../helpers';
+import { login, selectRole, waitForLoadingDone, expectButtonEnabled, safeClick } from './helpers';
 
 test.describe('Student Full Learning Flow', () => {
 

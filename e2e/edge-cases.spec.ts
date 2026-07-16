@@ -2,7 +2,7 @@
 // E2E: 邊界案例測試
 // ============================================
 import { test, expect } from '@playwright/test';
-import { login, selectRole, waitForLoadingDone } from '../helpers';
+import { login, selectRole, waitForLoadingDone } from './helpers';
 
 test.describe('Edge Cases', () => {
 
