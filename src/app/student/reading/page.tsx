@@ -72,6 +72,7 @@ export default function ReadingPracticePage() {
   const [answers, setAnswers] = useState<AnswerState>({});
   const [showVocab, setShowVocab] = useState(false);
   const [showPassage, setShowPassage] = useState(true);
+  const [showQuestionZh, setShowQuestionZh] = useState(false);
 
   async function generate() {
     setLoading(true); setError('');
@@ -239,6 +240,16 @@ export default function ReadingPracticePage() {
 
           {/* Questions */}
           <div className="space-y-3">
+            {/* Global zh toggle */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowQuestionZh(!showQuestionZh)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500 transition-colors"
+              >
+                {showQuestionZh ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {language === 'en' ? 'Show Chinese' : '顯示中文翻譯'}
+              </button>
+            </div>
             {data.questions.map((q, qi) => {
               const tier = getTierBadge(q.tier);
               const ans = answers[qi];
@@ -254,7 +265,7 @@ export default function ReadingPracticePage() {
                     <span className="text-xs text-gray-400">¶{q.paragraphRef}</span>
                   </div>
                   <p className="text-sm text-gray-900 dark:text-white">{q.question}</p>
-                  {q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}
+                  {showQuestionZh && q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}
 
                   {q.type === 'mc' && q.choices && (
                     <div className="space-y-1.5">
@@ -315,7 +326,7 @@ export default function ReadingPracticePage() {
                       <div>
                         {!ans.isCorrect && <p className="font-medium">{language === 'en' ? 'Correct:' : '正確答案：'} {q.answer}</p>}
                         <p className="text-gray-500 text-xs mt-1">
-                          {language === 'en' ? q.explanationEn : q.explanationZh}
+                          {language === 'en' ? q.explanationEn : (showQuestionZh ? q.explanationZh : q.explanationEn)}
                         </p>
                       </div>
                     </div>

@@ -1099,9 +1099,6 @@ const LISTENING_TOPICS_V2: TopicEntry[] = [
   { text: 'ordering custom T-shirts for a school event（為學校活動訂製 T 恤）', category: 'daily-life', grades: ['S3','S4','S5'] },
 ];
 
-// Legacy topics for backward compatibility (map to V2 entries)
-const LISTENING_TOPICS = LISTENING_TOPICS_V2.map(t => t.text);
-
 const READING_TOPICS_V2: TopicEntry[] = [
   // === 科學 (science) ===
   { text: 'the science behind cooking and food chemistry（烹飪科學與食物化學）', category: 'science', grades: ['S3','S4','S5'] },
@@ -1149,8 +1146,6 @@ const READING_TOPICS_V2: TopicEntry[] = [
   { text: 'the psychology of color in marketing（營銷中的色彩心理學）', category: 'hk-local', grades: ['S5','S6'] },
   { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'hk-local', grades: ['S4','S5'] },
 ];
-
-const READING_TOPICS = READING_TOPICS_V2.map(t => t.text);
 
 // ============================================
 // DSE Empirical Topic Helper — 從實證資料庫抽取主題建議
@@ -1293,8 +1288,6 @@ function logValidationFailure(
     timestamp: new Date().toISOString(),
     ...data,
   }));
-  // Optional: send to Sentry
-  // if (process.env.SENTRY_DSN) { Sentry.captureMessage(...) }
 }
 
 // ============================================
@@ -1486,11 +1479,6 @@ function updateTopicTracking(sessionKey: string, topic: TopicEntry) {
   cleanupBlacklistIfNeeded();
 }
 
-// Legacy wrapper for backward compatibility
-function getRandomTopic(isListening: boolean, isReading: boolean, gradeLevel: string): string {
-  return getRandomTopicV2(isListening, isReading, gradeLevel);
-}
-
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
   const count = input.count || 5;
   const skillDesc = input.grammarItemZh || input.languageSkillZh || input.grammarItem || input.languageSkill || '綜合';
@@ -1574,7 +1562,7 @@ HKDSE 等級對齊指引：
 - 難度：${diffMap[input.difficulty]}
 - 年級：${input.gradeLevel}
 - 題型：${typeDesc}
-- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${getRandomTopic(isListening, isReading, input.gradeLevel)}"
+- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${getRandomTopicV2(isListening, isReading, input.gradeLevel)}"
   禁止使用你慣用的預設主題（如籃球選拔/蜜蜂/電影時間）。每題需有不同的對話場景。
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
