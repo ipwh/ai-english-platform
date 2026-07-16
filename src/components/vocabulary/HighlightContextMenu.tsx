@@ -218,24 +218,6 @@ export function useHighlightAddVocab(
     setShowQuickAdd,
   };
 }
-      document.removeEventListener('click', handleCloseMenu);
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchend', handleTouchEnd);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [handleContextMenu, handleCloseMenu, handleTouchStart, handleTouchEnd, handleTouchMove, handlePointerUp]);
-
-  return {
-    menuPos,
-    selectedWord,
-    showQuickAdd,
-    handleAddToVocab,
-    handleCloseMenu,
-    handleWordAdded,
-    setShowQuickAdd,
-  };
-}
 
 export function HighlightContextMenu({
   menuPos,
