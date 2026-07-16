@@ -64,8 +64,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             });
             userRole = defaultRole;
           } else {
-            userRole = existing.role;
-            console.log('[auth] existing user found', existing.id, existing.role);
+            // Detect correct role based on email pattern
+            const emailPrefix = user.email.split('@')[0];
+            const isStudent = /^s\d{7}$/i.test(emailPrefix);
+            const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
+            const correctRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
+
+            // Auto-correct DB role if it doesn't match email pattern
+            if (existing.role !== correctRole) {
+              console.log(`[auth] Auto-correcting DB role for ${user.email}: ${existing.role} → ${correctRole}`);
+              await db.user.update({
+                where: { id: existing.id },
+                data: { role: correctRole },
+              });
+              userRole = correctRole;
+            } else {
+              userRole = existing.role;
+            }
+
+            console.log('[auth] existing user found', existing.id, userRole);
             // 每次 Google 登入時更新名稱和頭像
             const googleName = user.name || (profile as { name?: string } | null)?.name;
             const googlePic = user.image || (profile as { picture?: string } | null)?.picture;
