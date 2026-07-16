@@ -194,12 +194,10 @@ const cron = {
 // ============================================
 
 const google = {
-  sheetsId: process.env.GOOGLE_SHEETS_ID || '',
-  driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
-  /** Sheets 同步是否可用 */
-  get sheetsConfigured(): boolean { return !!this.sheetsId; },
-  /** Drive 匯入是否可用 */
-  get driveConfigured(): boolean { return !!this.driveFolderId; },
+  /** Google Sheets 班級名單 ID（admin sync-sheets/export-sheets 用） */
+  sheetsClassRosterId: process.env.GOOGLE_SHEETS_CLASS_ROSTER_ID || '',
+  /** Drive 教材匯入 — 用 GCP Service Account 按連結下載，無需 folder ID */
+  get sheetsConfigured(): boolean { return !!this.sheetsClassRosterId; },
 };
 
 // ============================================

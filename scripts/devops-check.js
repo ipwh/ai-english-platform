@@ -69,7 +69,7 @@ const ENV_VARS = {
     { key: 'AI_TIMEOUT_MS', desc: 'AI API timeout (ms)', fallback: '30000 (dev) / 8000 (prod)' },
     { key: 'AI_CACHE_ENABLED', desc: '啟用 AI 回應快取', fallback: 'true' },
     { key: 'CRON_SECRET', desc: 'Cron Job 驗證密鑰', fallback: 'dev-cron-secret-change-me (dev only)' },
-    { key: 'GOOGLE_SHEETS_ID', desc: 'Google Sheets spreadsheet ID（選用）' },
+    { key: 'GOOGLE_SHEETS_CLASS_ROSTER_ID', desc: 'Google Sheets 班級名單 ID（選用）' },
     { key: 'GOOGLE_DRIVE_FOLDER_ID', desc: 'Google Drive folder ID（選用）' },
   ],
 };
