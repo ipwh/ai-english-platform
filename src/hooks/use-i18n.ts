@@ -18,7 +18,7 @@ export function useT() {
       let text = t(key, language);
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
-          text = text.replace(`{${k}}`, String(v));
+          text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
         }
       }
       return text;

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { ALL_CLEARABLE_COOKIE_NAMES } from '@/lib/auth-cookies';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,17 +64,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 清除所有 NextAuth session cookie，避免舊 Google OAuth session 覆蓋 JWT 登入
-    const nextAuthCookieNames = [
-      'authjs.session-token',
-      '__Secure-authjs.session-token',
-      'next-auth.session-token',
-      '__Secure-next-auth.session-token',
-      'authjs.callback-url',
-      'next-auth.callback-url',
-      'authjs.csrf-token',
-      'next-auth.csrf-token',
-    ];
-    for (const name of nextAuthCookieNames) {
+    for (const name of ALL_CLEARABLE_COOKIE_NAMES) {
       response.cookies.set(name, '', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

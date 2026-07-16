@@ -9,7 +9,7 @@ import {
   Loader2, Send, Sparkles, CheckCircle2, XCircle, Lightbulb,
   Target, BookOpen, AlertTriangle, Award, ChevronDown, ChevronUp,
   Save, Headphones, Edit3, ChevronRight, PenLine, FileText,
-  Play, Pause, RotateCcw, Gauge, ArrowLeft, Mic, Eye, EyeOff,
+  ArrowLeft, Eye, EyeOff,
 } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';

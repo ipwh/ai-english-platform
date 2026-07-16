@@ -9,11 +9,17 @@ import db from '@/lib/db';
 export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement';
 export type NotificationLang = 'zh' | 'en';
 
-/** Resolve user language — checks DB if language field exists, falls back to 'zh' */
-export async function getUserLang(_userId: string): Promise<NotificationLang> {
-  // Language preference is stored in client-side Zustand/localStorage.
-  // Server-side notifications default to 'zh' since the DB User model
-  // does not currently have a language column.
+/** Resolve user language — queries UserPreferences from DB, falls back to 'zh' */
+export async function getUserLang(userId: string): Promise<NotificationLang> {
+  try {
+    const prefs = await db.userPreferences.findUnique({
+      where: { userId },
+      select: { language: true },
+    });
+    if (prefs?.language === 'en') return 'en';
+  } catch {
+    // DB not available or UserPreferences not set — default to Chinese
+  }
   return 'zh';
 }
 

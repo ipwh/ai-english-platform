@@ -31,7 +31,9 @@ async function getKvClient() {
   if (kvClient) return kvClient;
   if (process.env.VERCEL_KV_URL) {
     try {
-      const mod = (globalThis as Record<string, unknown>).__vercel_kv_module as { kv?: typeof kvClient };
+      // Dynamic import — @vercel/kv is an optional dependency
+      // @ts-expect-error — @vercel/kv may not be installed
+      const mod = await import('@vercel/kv');
       if (mod?.kv) {
         kvClient = mod.kv;
         logger.info({ module: 'ai-cache' }, 'Using Vercel KV backend');
@@ -53,13 +55,21 @@ function getTTL(): number {
 }
 
 /**
- * 產生快取 key（基於 MD5 hash 確保長度可控）
+ * 產生快取 key（基於 SHA-256 hash 確保長度可控）
+ * 自動偵測 Edge (Web Crypto) vs Node.js (crypto 模組)
  */
 async function hashKey(raw: string): Promise<string> {
-  // 使用 Web Crypto API（Edge-compatible）
   const encoder = new TextEncoder();
   const data = encoder.encode(raw);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  let hashBuffer: ArrayBuffer;
+  // Edge Runtime / modern browsers — Web Crypto API
+  if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle) {
+    hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
+  } else {
+    // Node.js fallback (local dev, tests)
+    const nodeCrypto = await import('node:crypto');
+    hashBuffer = nodeCrypto.createHash('sha256').update(Buffer.from(data)).digest().buffer;
+  }
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return 'ai-cache:' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }

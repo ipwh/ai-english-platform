@@ -566,38 +566,6 @@ export const GRAMMAR_ITEM_LABELS: Record<GrammarItem, { zh: string; en: string }
   'participle-phrases': { zh: '分詞短語', en: 'Participle Phrases' },
 };
 
-export const LANGUAGE_SKILL_LABELS: Record<LanguageSkill, { zh: string; en: string }> = {
-  'listening': { zh: '聆聽', en: 'Listening' },
-  'speaking': { zh: '說話', en: 'Speaking' },
-  'reading': { zh: '閱讀', en: 'Reading' },
-  'writing': { zh: '寫作', en: 'Writing' },
-};
-
-export const STRAND_LABELS: Record<CurriculumStrand, { zh: string; en: string }> = {
-  'interpersonal': { zh: '人際關係', en: 'Interpersonal' },
-  'knowledge': { zh: '知識', en: 'Knowledge' },
-  'experience': { zh: '經驗', en: 'Experience' },
-};
-
-export const KEY_STAGE_LABELS: Record<KeyStage, { zh: string; en: string; years: string }> = {
-  'KS1': { zh: '第一學習階段', en: 'Key Stage 1', years: 'P1-P3' },
-  'KS2': { zh: '第二學習階段', en: 'Key Stage 2', years: 'P4-P6' },
-  'KS3': { zh: '第三學習階段', en: 'Key Stage 3', years: 'S1-S3' },
-  'KS4': { zh: '第四學習階段', en: 'Key Stage 4', years: 'S4-S6' },
-};
-
-export const GENERIC_SKILL_LABELS: Record<GenericSkill, { zh: string; en: string; cluster: GenericSkillCluster }> = {
-  'communication': { zh: '溝通能力', en: 'Communication Skills', cluster: 'basic' },
-  'mathematical': { zh: '數學能力', en: 'Mathematical Skills', cluster: 'basic' },
-  'it-skills': { zh: '資訊科技能力', en: 'IT Skills', cluster: 'basic' },
-  'critical-thinking': { zh: '批判性思考', en: 'Critical Thinking Skills', cluster: 'thinking' },
-  'creativity': { zh: '創造力', en: 'Creativity', cluster: 'thinking' },
-  'problem-solving': { zh: '解決問題能力', en: 'Problem Solving Skills', cluster: 'thinking' },
-  'self-management': { zh: '自我管理能力', en: 'Self-management Skills', cluster: 'personal-social' },
-  'self-learning': { zh: '自主學習能力', en: 'Self-learning Skills', cluster: 'personal-social' },
-  'collaboration': { zh: '協作能力', en: 'Collaboration Skills', cluster: 'personal-social' },
-};
-
 export const PRIORITY_VALUE_LABELS: Record<PriorityValue, { zh: string; en: string }> = {
   'perseverance': { zh: '堅毅', en: 'Perseverance' },
   'respect': { zh: '尊重他人', en: 'Respect for Others' },

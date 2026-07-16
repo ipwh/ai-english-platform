@@ -30,20 +30,6 @@ function requireEnv(key: string): string {
   return value || '';
 }
 
-function requireEnvNonEmpty(key: string, fallback?: string): string {
-  const value = process.env[key];
-  if (!value || value === 'sk-your-deepseek-api-key-here') {
-    if (fallback !== undefined) return fallback;
-    if (isProduction) {
-      throw new Error(
-        `[config] 生產環境必須設定 ${key} 環境變數（不可為預設值）。\n` +
-        '請在 Vercel Dashboard → Settings → Environment Variables 中設定。'
-      );
-    }
-  }
-  return value || '';
-}
-
 // ============================================
 // DeepSeek AI 設定
 // ============================================
@@ -168,14 +154,17 @@ const db = {
 
 const ai = {
   /** AI API timeout in ms。Vercel Hobby 建議 ≤8000，本地/Pro 可用 30000+ */
-  timeoutMs: process.env.AI_TIMEOUT_MS ? Number(process.env.AI_TIMEOUT_MS) : (isProduction ? 8000 : 30000),
+  timeoutMs: (() => {
+    const val = Number(process.env.AI_TIMEOUT_MS);
+    return Number.isFinite(val) && val > 0 ? val : (isProduction ? 8000 : 30000);
+  })(),
   /** 是否啟用 AI 回應快取（相同 prompt 不重複調用） */
   cacheEnabled: process.env.AI_CACHE_ENABLED ? process.env.AI_CACHE_ENABLED === 'true' : true,
   /** AI 回應快取 TTL（秒） */
   cacheTTL: 300,
 };
 
-// ============================================a
+// ============================================
 // Cron / Admin 設定
 // ============================================
 

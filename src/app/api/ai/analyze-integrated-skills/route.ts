@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider } from '@/lib/ai-service';
+import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 import { verifyApiAuth } from '@/lib/api-auth';
 import { detectOverCopying } from '@/lib/plagiarism';
@@ -45,14 +45,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🔒 Input length limits — prevent token exhaustion attacks
+    const MAX_LISTENING = 15000;
+    const MAX_WRITING_TASK = 5000;
+    const MAX_STUDENT_WRITING = 10000;
+    const MAX_STUDENT_NOTES = 10000;
+
     const analysis = await analyzeIntegratedSkills({
-      listeningContent,
+      listeningContent: listeningContent.length > MAX_LISTENING ? listeningContent.slice(0, MAX_LISTENING) : listeningContent,
       noteTakingGuide: noteTakingGuide || [],
       expectedContentPoints: expectedContentPoints || [],
-      writingTask,
+      writingTask: writingTask.length > MAX_WRITING_TASK ? writingTask.slice(0, MAX_WRITING_TASK) : writingTask,
       taskType: taskType || 'summary',
-      studentNotes: studentNotes || '',
-      studentWriting,
+      studentNotes: sanitizeForAI((studentNotes || '').length > MAX_STUDENT_NOTES ? (studentNotes || '').slice(0, MAX_STUDENT_NOTES) : (studentNotes || '')),
+      studentWriting: sanitizeForAI(studentWriting.length > MAX_STUDENT_WRITING ? studentWriting.slice(0, MAX_STUDENT_WRITING) : studentWriting),
       gradeLevel,
       userId: authResult.userId,
     });
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       analysis,
       overCopyCheck: overCopyResult,
-      _meta: { provider: getLastAIProvider() },
+      _meta: { provider: getLastAIProvider(), fallback: wasFallbackUsed() },
     }, {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
@@ -72,7 +78,7 @@ export async function POST(request: NextRequest) {
     console.error('[analyze-integrated-skills] Error:', message);
     return NextResponse.json({
       error: `Integrated Skills 批改失敗：${message}`,
-      _meta: { provider: getLastAIProvider() },
+      _meta: { provider: getLastAIProvider(), fallback: wasFallbackUsed() },
     }, {
       status: 500,
       headers: { 'X-AI-Provider': getLastAIProvider() },

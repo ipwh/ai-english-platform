@@ -126,27 +126,3 @@ export const logger = {
   error: (metaOrMsg: Record<string, unknown> | string, msg?: string) => log('error', metaOrMsg, msg),
   fatal: (metaOrMsg: Record<string, unknown> | string, msg?: string) => log('fatal', metaOrMsg, msg),
 };
-
-/**
- * 建立帶 module 前綴的子 logger
- *
- * @example
- * const aiLogger = createModuleLogger('ai-service');
- * aiLogger.info({ latencyMs: 450 }, 'call succeeded');
- */
-export function createModuleLogger(module: string) {
-  return {
-    trace: (metaOrMsg: Record<string, unknown> | string, msg?: string) =>
-      log('trace', { module, ...(typeof metaOrMsg === 'object' ? metaOrMsg : {}) }, typeof metaOrMsg === 'string' ? metaOrMsg : msg),
-    debug: (metaOrMsg: Record<string, unknown> | string, msg?: string) =>
-      log('debug', { module, ...(typeof metaOrMsg === 'object' ? metaOrMsg : {}) }, typeof metaOrMsg === 'string' ? metaOrMsg : msg),
-    info: (metaOrMsg: Record<string, unknown> | string, msg?: string) =>
-      log('info', { module, ...(typeof metaOrMsg === 'object' ? metaOrMsg : {}) }, typeof metaOrMsg === 'string' ? metaOrMsg : msg),
-    warn: (metaOrMsg: Record<string, unknown> | string, msg?: string) =>
-      log('warn', { module, ...(typeof metaOrMsg === 'object' ? metaOrMsg : {}) }, typeof metaOrMsg === 'string' ? metaOrMsg : msg),
-    error: (metaOrMsg: Record<string, unknown> | string, msg?: string) =>
-      log('error', { module, ...(typeof metaOrMsg === 'object' ? metaOrMsg : {}) }, typeof metaOrMsg === 'string' ? metaOrMsg : msg),
-    fatal: (metaOrMsg: Record<string, unknown> | string, msg?: string) =>
-      log('fatal', { module, ...(typeof metaOrMsg === 'object' ? metaOrMsg : {}) }, typeof metaOrMsg === 'string' ? metaOrMsg : msg),
-  };
-}

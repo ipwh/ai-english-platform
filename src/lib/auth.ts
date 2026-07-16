@@ -15,7 +15,7 @@ export { verifySessionToken, type SessionPayload } from './jwt';
 // 密碼工具 — 已移至 @/lib/crypto.ts
 // ============================================
 
-import { hashPasswordSync, verifyPassword } from '@/lib/crypto';
+import { hashPassword, verifyPassword } from '@/lib/crypto';
 
 // ============================================
 // 認證邏輯（Prisma DB）
@@ -62,28 +62,10 @@ export async function authenticateUser(email: string, password: string): Promise
 
   // 若密碼是舊版 simpleHash，背景重新雜湊為 bcrypt（不阻塞登入）
   if (verifyResult === 'needs_rehash') {
-    const newHash = hashPasswordSync(password);
-    db.user.update({ where: { id: user.id }, data: { passwordHash: newHash } }).catch(() => {});
+    hashPassword(password).then(newHash => {
+      db.user.update({ where: { id: user.id }, data: { passwordHash: newHash } }).catch(() => {});
+    });
   }
 
   return { success: true, token, user: sessionPayload };
-}
-
-export async function getDemoUsers(): Promise<{ email: string; password: string; role: string; name: string }[]> {
-  // 🔒 生產環境安全防護：禁止暴露用戶列表
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    console.warn('[auth] getDemoUsers() 在生產環境被呼叫 — 回傳空陣列。');
-    return [];
-  }
-
-  const users = await db.user.findMany({
-    select: { email: true, role: true, nameZh: true, name: true },
-    take: 20,
-  });
-  return users.map(u => ({
-    email: u.email,
-    password: u.role === 'student' ? 'student123' : u.role === 'teacher' ? 'teacher123' : 'admin123',
-    role: u.role,
-    name: u.nameZh || u.name || u.email,
-  }));
 }

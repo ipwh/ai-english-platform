@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Loader2, Sparkles, Award } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { useIntegratedSkillsStore } from '@/store/integratedSkillsStore';
 import { useT } from '@/hooks/use-i18n';
 import IntegratedSkillsTaskView from '@/components/integrated-skills/IntegratedSkillsTaskView';

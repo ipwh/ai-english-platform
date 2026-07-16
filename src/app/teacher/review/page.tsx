@@ -13,7 +13,7 @@ import type { ReviewStatus, ReviewItem } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReviewPage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [selectedReview, setSelectedReview] = useState<ReviewItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,10 +107,10 @@ export default function TeacherReviewPage() {
           aiMistakeType: json.analysis.mistakeType,
         });
       } else {
-        setAiError(json.error || t('teacher.review.aiFailed'));
+        setAiError(json.error || (language === 'en' ? 'AI re-analysis failed' : 'AI 重新批改失敗'));
       }
     } catch {
-      setAiError(t('teacher.review.aiConnectionFailed'));
+      setAiError(language === 'en' ? 'AI connection failed' : 'AI 連線失敗');
     } finally {
       setAiLoading(false);
     }
@@ -191,7 +191,7 @@ export default function TeacherReviewPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{t('teacher.review.aiGrading')}</span>
                     <span className={`text-sm font-bold ${selectedReview.aiScore >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                      {selectedReview.aiScore}{t('teacher.review.scoreUnit')}
+                      {selectedReview.aiScore}{language === 'en' ? ' pts' : ' 分'}
                     </span>
                   </div>
                   <button
@@ -243,10 +243,10 @@ export default function TeacherReviewPage() {
                 {/* 操作按鈕 */}
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                   <button onClick={handleAccept} disabled={actionLoading !== null} className="flex items-center gap-1 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
-                    {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t('teacher.review.accept')}
+                    {actionLoading === 'accept' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t('teacher.review.acceptAi')}
                   </button>
                   <button onClick={handleReturn} disabled={actionLoading !== null} className="flex items-center gap-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
-                    {actionLoading === 'return' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {t('teacher.review.return')}
+                    {actionLoading === 'return' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {t('teacher.review.returnForRedo')}
                   </button>
                 </div>
               </div>

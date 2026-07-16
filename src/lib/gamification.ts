@@ -2,8 +2,6 @@
 // Gamification 系統 — XP、成就徽章、排行榜
 // ============================================
 
-import type { GrammarItem, LanguageSkill } from './types';
-
 // ============================================
 // XP 計算
 // ============================================
@@ -107,6 +105,16 @@ export function getLevelInfo(totalXp: number): LevelInfo {
     { en: 'Master', zh: '大師' },
     { en: 'Grandmaster', zh: '宗師' },
     { en: 'Legend', zh: '傳奇' },
+    { en: 'Mythic', zh: '神話' },
+    { en: 'Titan', zh: '泰坦' },
+    { en: 'Olympian', zh: '奧林匹斯' },
+    { en: 'Immortal', zh: '不朽' },
+    { en: 'Transcendent', zh: '超越' },
+    { en: 'Celestial', zh: '天界' },
+    { en: 'Eternal', zh: '永恆' },
+    { en: 'Infinity', zh: '無限' },
+    { en: 'Singularity', zh: '奇點' },
+    { en: 'Cosmic', zh: '宇宙' },
   ];
   const titleIndex = Math.min(level - 1, titles.length - 1);
   const title = titles[titleIndex];
@@ -270,7 +278,7 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     descriptionZh: '在一個 5 題以上的練習中全部答對',
     icon: '✨',
     category: 'special',
-    condition: (s) => s.sessionsCompleted >= 1,
+    condition: (s) => s.sessionsCompleted >= 5, // 需完成 5+ 次練習會話（配合 description 中的 "5+ questions"）
   },
   // Hidden Achievements（隱藏成就 — 解鎖時才顯示）
   {

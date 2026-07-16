@@ -6,7 +6,10 @@
 import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from './types';
 
+let _cachedSecret: Uint8Array | null = null;
+
 function getJWTSecret(): Uint8Array {
+  if (_cachedSecret) return _cachedSecret;
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error(
@@ -14,7 +17,8 @@ function getJWTSecret(): Uint8Array {
       '生產環境必須使用至少 32 字元的隨機字串。'
     );
   }
-  return new TextEncoder().encode(secret);
+  _cachedSecret = new TextEncoder().encode(secret);
+  return _cachedSecret;
 }
 
 const JWT_EXPIRY = '7d';

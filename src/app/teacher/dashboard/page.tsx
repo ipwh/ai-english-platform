@@ -67,17 +67,17 @@ export default function TeacherDashboardPage() {
     ? Math.round(classes.reduce((sum, c) => sum + ((c as any).completionRate || 0), 0) / classes.length)
     : 0;
   const kpis = [
-    { label: t('teacher.classCount'), value: totalStudents, unit: t('generic.people'), trend: 'up' as const, change: 0 },
+    { label: t('teacher.classCount'), value: classes.length, unit: t('generic.classes'), trend: 'stable' as const },
     { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy || '—', unit: '%', trend: 'stable' as const },
-    { label: t('generic.sessions'), value: classes.reduce((sum, c) => sum + ((c as any).sessionCount || 0), 0), unit: t('teacher.assignments.title'), trend: 'up' as const },
+    { label: t('teacher.studentCount'), value: totalStudents, unit: t('generic.people'), trend: 'stable' as const },
     { label: t('teacher.completionRate'), value: `${avgCompletionRate || 0}`, unit: '%', trend: 'stable' as const },
   ];
 
   // Class chart data from real classes with accuracy
   const classChartData = classes.slice(0, 8).map((c) => ({
     name: c.name,
-    [t('teacher.completionRate')]: c.studentCount || 0,
     [t('teacher.avgAccuracy')]: c.avgAccuracy || 0,
+    [t('teacher.studentCount')]: c.studentCount || 0,
   }));
 
   // AI advice

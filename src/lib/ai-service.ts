@@ -46,6 +46,10 @@ export function sanitizeForAI(text: string): string {
     .replace(/(?<!\d)\d{8}(?!\d)/g, '[PHONE_REMOVED]')
     // 電郵地址
     .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL_REMOVED]')
+    // Basic prompt injection guard — strip common injection patterns
+    .replace(/ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|directives?|prompts?)/gi, '[FILTERED]')
+    .replace(/(you\s+are\s+now|act\s+as|pretend\s+you\s+are|from\s+now\s+on\s+you\s+are)\s+(DAN|jailbreak|an?\s+unrestricted)/gi, '[FILTERED]')
+    .replace(/system\s*:\s*/gi, '')
 }
 
 // ============================================
@@ -1119,8 +1123,8 @@ const READING_TOPICS_V2: TopicEntry[] = [
   { text: 'famous inventors and their accidental discoveries（著名發明家與意外發現）', category: 'science', grades: ['S2','S3','S4'] },
   
   // === 香港本地 (hk-local) ===
-  { text: 'the psychology of color in marketing（營銷中的色彩心理學）', category: 'hk-local', grades: ['S5','S6'] },
-  { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'hk-local', grades: ['S4','S5'] },
+  { text: 'the psychology of color in marketing（營銷中的色彩心理學）', category: 'society', grades: ['S5','S6'] },
+  { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'environment', grades: ['S4','S5'] },
 ];
 
 // ============================================

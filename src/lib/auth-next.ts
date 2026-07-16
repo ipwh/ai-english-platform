@@ -7,7 +7,15 @@ import Google from 'next-auth/providers/google';
 import db from './db';
 
 function getRequiredEnv(name: string): string {
-  return process.env[name] || '';
+  const value = process.env[name];
+  if (!value) {
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+      throw new Error(`[auth-next] 缺少必要的環境變數: ${name}。請在 Vercel Dashboard 中設定。`);
+    }
+    console.warn(`[auth-next] ⚠️ ${name} 未設定，OAuth 將無法正常運作。`);
+    return '';
+  }
+  return value;
 }
 
 const googleClientId = getRequiredEnv('AUTH_GOOGLE_ID');

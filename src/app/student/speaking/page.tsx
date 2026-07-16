@@ -7,7 +7,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Target, Lightbulb, Play, Square, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
-import { useT } from '@/hooks/use-i18n';
 
 interface SpeakingQuestion {
   topic: string;
@@ -38,7 +37,6 @@ const TOPICS_AREA = [
 
 export default function SpeakingPracticePage() {
   const { language } = useAppStore();
-  const { t } = useT();
 
   const [grade, setGrade] = useState<string>('S4');
   const [topic, setTopic] = useState<string>('general');

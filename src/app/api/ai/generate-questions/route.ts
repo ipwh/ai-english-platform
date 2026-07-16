@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
+import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 import { verifyApiAuth } from '@/lib/api-auth';
 
@@ -58,14 +58,14 @@ export async function POST(request: NextRequest) {
       try {
         questions = await generateQuestions({
           grammarItem,
-          grammarItemZh,
+          grammarItemZh: grammarItemZh ? sanitizeForAI(grammarItemZh) : undefined,
           languageSkill,
-          languageSkillZh,
+          languageSkillZh: languageSkillZh ? sanitizeForAI(languageSkillZh) : undefined,
           difficulty,
           gradeLevel,
           count: safeCount,
           questionType,
-          topic,
+          topic: topic ? sanitizeForAI(topic) : undefined,
           userId: authResult.userId,
         });
         break;

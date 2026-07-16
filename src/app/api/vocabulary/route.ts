@@ -143,6 +143,15 @@ export async function PATCH(request: NextRequest) {
     const { id, familiarity, masteryLevel, nextReviewDate, reviewInterval, easeFactor, lastReviewedAt } = body;
     if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
 
+    // 🔒 Ownership check: verify the vocab item belongs to this student
+    const prev = await db.vocabItem.findUnique({ where: { id }, select: { studentId: true, familiarity: true, masteryLevel: true } });
+    if (!prev) {
+      return NextResponse.json({ error: '找不到此單字' }, { status: 404 });
+    }
+    if (prev.studentId !== authResult.userId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限修改其他用戶的生字簿' }, { status: 403 });
+    }
+
     const updateData: Record<string, unknown> = {};
     if (familiarity && ['new', 'learning', 'familiar', 'mastered'].includes(familiarity)) {
       updateData.familiarity = familiarity;
@@ -159,11 +168,6 @@ export async function PATCH(request: NextRequest) {
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
-
-    // 記錄變更前的狀態（用於 mastery 歷史記錄）
-    const prev = (familiarity || masteryLevel !== undefined)
-      ? await db.vocabItem.findUnique({ where: { id }, select: { studentId: true, familiarity: true, masteryLevel: true } })
-      : null;
 
     const vocab = await db.vocabItem.update({ where: { id }, data: updateData as unknown as Prisma.VocabItemUpdateInput });
 
@@ -204,6 +208,15 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+
+    // 🔒 Ownership check: verify the vocab item belongs to this student
+    const existing = await db.vocabItem.findUnique({ where: { id }, select: { studentId: true } });
+    if (!existing) {
+      return NextResponse.json({ error: '找不到此單字' }, { status: 404 });
+    }
+    if (existing.studentId !== authResult.userId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限刪除其他用戶的生字簿' }, { status: 403 });
+    }
 
     await db.vocabItem.delete({ where: { id } });
     return NextResponse.json({ success: true });

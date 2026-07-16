@@ -15,15 +15,6 @@ export function formatDate(dateStr: string, lang: string = 'zh'): string {
 }
 
 /**
- * 格式化日期為簡短格式
- */
-export function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '—';
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-/**
  * 計算剩餘天數
  */
 export function daysRemaining(dueDateStr: string): number {
@@ -47,18 +38,6 @@ export function getStatusColor(status: string): string {
     'returned': 'bg-orange-100 text-orange-700',
   };
   return map[status] || 'bg-gray-100 text-gray-600';
-}
-
-/**
- * 取得風險等級顏色
- */
-export function getRiskColor(risk: string): string {
-  const map: Record<string, string> = {
-    'high': 'bg-red-100 text-red-700',
-    'medium': 'bg-yellow-100 text-yellow-700',
-    'low': 'bg-green-100 text-green-700',
-  };
-  return map[risk] || 'bg-gray-100 text-gray-600';
 }
 
 /**
@@ -87,14 +66,6 @@ export function getFamiliarityLabel(familiarity: string, lang: string = 'zh'): s
   const entry = map[familiarity];
   if (!entry) return familiarity;
   return lang === 'en' ? entry.en : entry.zh;
-}
-
-/**
- * 截斷文字
- */
-export function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + '...';
 }
 
 /**

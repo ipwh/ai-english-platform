@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySessionToken } from '@/lib/jwt';
 import { jwtVerify } from 'jose';
+import { ALL_SESSION_COOKIE_NAMES } from '@/lib/auth-cookies';
 
 const publicPaths = ['/login', '/role-select', '/api/auth', '/style-guide'];
 
@@ -32,22 +33,18 @@ function getAuthSecret(): string {
  * NextAuth v5 的 session-token 本身就是一個 JWT
  */
 async function getRoleFromNextAuthCookie(request: NextRequest): Promise<string | null> {
-  const cookieName =
-    request.cookies.get('__Secure-authjs.session-token')?.value ? '__Secure-authjs.session-token' :
-    request.cookies.get('authjs.session-token')?.value ? 'authjs.session-token' :
-    request.cookies.get('__Secure-next-auth.session-token')?.value ? '__Secure-next-auth.session-token' :
-    request.cookies.get('next-auth.session-token')?.value ? 'next-auth.session-token' :
-    null;
-  if (!cookieName) return null;
-  const token = request.cookies.get(cookieName)?.value;
-  if (!token) return null;
-  try {
-    const secret = new TextEncoder().encode(getAuthSecret());
-    const { payload } = await jwtVerify(token, secret);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const role = (payload as Record<string, unknown>)?.role;
-    return typeof role === 'string' ? role : null;
-  } catch { return null; }
+  // Use shared cookie name list to find the active session cookie
+  for (const name of ALL_SESSION_COOKIE_NAMES) {
+    const token = request.cookies.get(name)?.value;
+    if (!token) continue;
+    try {
+      const secret = new TextEncoder().encode(getAuthSecret());
+      const { payload } = await jwtVerify(token, secret);
+      const role = (payload as Record<string, unknown>)?.role;
+      return typeof role === 'string' ? role : null;
+    } catch { /* try next cookie */ }
+  }
+  return null;
 }
 
 export default async function middleware(request: NextRequest) {
@@ -74,11 +71,7 @@ export default async function middleware(request: NextRequest) {
   const isVercelProtected = request.cookies.has('_vercel_jwt');
 
   // NextAuth v5 session cookie check（Google OAuth 登入）
-  const hasNextAuthCookie =
-    request.cookies.has('authjs.session-token') ||
-    request.cookies.has('__Secure-authjs.session-token') ||
-    request.cookies.has('next-auth.session-token') ||
-    request.cookies.has('__Secure-next-auth.session-token');
+  const hasNextAuthCookie = ALL_SESSION_COOKIE_NAMES.some(name => request.cookies.has(name));
 
   // 若只有 Vercel protection cookie 而沒有任何 auth cookie，
   // 且當前不是 auth 相關路徑 → 可能是 Vercel 驗證阻擋了正常登入流程
@@ -92,11 +85,7 @@ export default async function middleware(request: NextRequest) {
   if (hasNextAuthCookie) {
     // 檢查 NextAuth 使用者的 admin 路由權限
     if (pathname.startsWith('/admin')) {
-      let role = await getRoleFromNextAuthCookie(request);
-      // Fallback: 若 JWT 解碼失敗，檢查 selected_role cookie
-      if (!role) {
-        role = request.cookies.get('selected_role')?.value || null;
-      }
+      const role = await getRoleFromNextAuthCookie(request);
       if (role !== 'admin') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'admin_only');
@@ -106,10 +95,7 @@ export default async function middleware(request: NextRequest) {
 
     // 檢查 NextAuth 使用者的 teacher 路由權限
     if (pathname.startsWith('/teacher')) {
-      let role = await getRoleFromNextAuthCookie(request);
-      if (!role) {
-        role = request.cookies.get('selected_role')?.value || null;
-      }
+      const role = await getRoleFromNextAuthCookie(request);
       if (role !== 'teacher' && role !== 'admin') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'teacher_only');

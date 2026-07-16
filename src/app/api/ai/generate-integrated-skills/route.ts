@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
+import { generateIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 import { verifyApiAuth } from '@/lib/api-auth';
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       gradeLevel,
       difficulty,
       taskType,
-      topicHint,
+      topicHint: topicHint ? sanitizeForAI(topicHint) : undefined,
       userId: authResult.userId,
     });
 

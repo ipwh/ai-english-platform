@@ -9,7 +9,7 @@ import { Plus, Clock, Users, ChevronRight, Loader2 } from 'lucide-react';
 
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
-import { formatDate, daysRemaining } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { statusLabels } from '@/lib/nav';
 import type { Assignment } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';
@@ -67,7 +67,6 @@ export default function TeacherAssignmentsPage() {
       {!loading && !loadError && assignments.length > 0 && (
       <div className="space-y-3">
         {assignments.map((a) => {
-          const remaining = daysRemaining(a.dueDate);
           return (
             <div
               key={a.id}

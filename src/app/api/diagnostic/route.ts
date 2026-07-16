@@ -6,12 +6,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyApiAuth } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/rate-limiter';
+
+const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
+  // 🔒 Rate limiting
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimit = await checkRateLimit({ ...DIAGNOSTIC_RATE_LIMIT, identifier: `diagnostic:${ip}` });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: rateLimit.message }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+    });
   }
 
   try {
@@ -23,6 +36,11 @@ export async function POST(request: NextRequest) {
 
     if (!studentId || !results?.length) {
       return NextResponse.json({ error: '缺少 studentId 或 results' }, { status: 400 });
+    }
+
+    // 🔒 Ownership check: only the student themselves or a teacher/admin can save diagnostic data
+    if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限為其他用戶儲存診斷結果' }, { status: 403 });
     }
 
     // 清除舊診斷結果（保留最新一次）
@@ -64,6 +82,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
     if (!studentId) return NextResponse.json({ error: '缺少 studentId' }, { status: 400 });
+
+    // 🔒 Ownership check: only the student themselves or a teacher/admin can read diagnostic data
+    if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限查看其他用戶的診斷結果' }, { status: 403 });
+    }
 
     const results = await db.diagnosticResult.findMany({
       where: { studentId },

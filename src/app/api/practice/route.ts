@@ -5,6 +5,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyApiAuth } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/rate-limiter';
+
+const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
 // POST /api/practice — 儲存練習記錄
 export async function POST(request: NextRequest) {
@@ -14,12 +17,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
 
+  // 🔒 Rate limiting
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimit = await checkRateLimit({ ...PRACTICE_RATE_LIMIT, identifier: `practice:${ip}` });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: rateLimit.message }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+    });
+  }
+
   try {
     const body = await request.json();
     const { studentId, skill, skillZh, difficulty, totalQuestions, correctCount, source, answers } = body;
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
+    }
+
+    // 🔒 Ownership check: only the student themselves or a teacher can write practice data
+    if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限為其他用戶儲存練習記錄' }, { status: 403 });
     }
 
     const session = await db.practiceSession.create({
@@ -55,28 +73,26 @@ export async function POST(request: NextRequest) {
       } catch { /* 答案儲存非致命錯誤，session 已儲存 */ }
 
       // === Auto-mistake sync: 錯誤答案自動記錄到錯題本 ===
-      if (answers && Array.isArray(answers)) {
-        try {
-          const wrongAnswers = answers.filter((a: { isCorrect: boolean }) => !a.isCorrect);
-          for (const a of wrongAnswers) {
-            const qId = `${session.id}-q${a.questionIndex}`;
-            const existing = await db.mistake.findFirst({ where: { questionId: qId, studentId } });
-            if (!existing) {
-              await db.mistake.create({
-                data: {
-                  studentId,
-                  questionId: qId,
-                  studentAnswer: a.studentAnswer || '',
-                  correctAnswer: a.correctAnswer || '',
-                  mistakeType: 'grammar',
-                  reviewed: false,
-                  inReviewList: true,
-                },
-              });
-            }
+      try {
+        const wrongAnswers = answers.filter((a: { isCorrect: boolean }) => !a.isCorrect);
+        for (const a of wrongAnswers) {
+          const qId = `${session.id}-q${a.questionIndex}`;
+          const existing = await db.mistake.findFirst({ where: { questionId: qId, studentId } });
+          if (!existing) {
+            await db.mistake.create({
+              data: {
+                studentId,
+                questionId: qId,
+                studentAnswer: a.studentAnswer || '',
+                correctAnswer: a.correctAnswer || '',
+                mistakeType: 'grammar',
+                reviewed: false,
+                inReviewList: true,
+              },
+            });
           }
-        } catch { /* mistake sync non-critical */ }
-      }
+        }
+      } catch { /* mistake sync non-critical */ }
     }
 
     // 更新學生整體正確率（從所有練習紀錄計算）
@@ -145,6 +161,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+
+    // 🔒 Ownership check: only the student themselves or a teacher/admin can read practice history
+    if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限查看其他用戶的練習記錄', sessions: [] }, { status: 403 });
+    }
 
     const sessions = await db.practiceSession.findMany({
       where: { studentId },

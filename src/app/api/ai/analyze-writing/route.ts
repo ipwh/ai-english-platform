@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/lib/ai-service';
+import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
 import { verifyApiAuth } from '@/lib/api-auth';
 
@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
       : studentDraft;
 
     const analysis = await analyzeWriting({
-      title,
-      prompt: prompt || '',
-      studentDraft: safeDraft,
+      title: sanitizeForAI(title),
+      prompt: prompt ? sanitizeForAI(prompt) : '',
+      studentDraft: sanitizeForAI(safeDraft),
       studentLevel,
       textType,
       userId: authResult.userId,

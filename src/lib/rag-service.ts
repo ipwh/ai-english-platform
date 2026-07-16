@@ -322,7 +322,15 @@ export async function retrieveRelevantChunks(
   if (chunks.length === 0) return [];
 
   const scored = chunks
-    .filter(chunk => chunk.embedding)
+    .filter(chunk => {
+      if (!chunk.embedding) return false;
+      // Filter out empty embedding arrays stored as JSON strings
+      if (chunk.embedding === '[]' || chunk.embedding === 'null') return false;
+      try {
+        const parsed = JSON.parse(chunk.embedding);
+        return Array.isArray(parsed) && parsed.length > 0;
+      } catch { return false; }
+    })
     .map(chunk => ({
       chunk: {
         id: chunk.id,

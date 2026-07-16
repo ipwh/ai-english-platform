@@ -6,11 +6,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { synthesizeSpeech } from '@/lib/tts-service';
+import { verifyApiAuth } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 多人對話需要多次 API call，給充足時間
 
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check — prevent unauthorized GCP TTS quota consumption
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => null);
     if (!body || !body.text) {
