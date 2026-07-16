@@ -1,7 +1,8 @@
 // ============================================
 // API: POST /api/speaking — Speaking practice AI analysis
-// Accepts text transcript and provides DSE Speaking rubric feedback
-// Future: will accept audio blob for STT → analysis
+// IMPORTANT: AI can ONLY analyze text content (grammar, vocabulary, relevance).
+// It CANNOT assess fluency, pronunciation, or interaction from text alone.
+// The limitation is clearly communicated in every response.
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -67,20 +68,29 @@ Return a JSON object:
     const analysis = await callLLM([
       {
         role: 'system',
-        content: `You are an HKDSE English Speaking examiner. Analyze the student's speaking transcript.
+        content: `You are an HKDSE English Speaking examiner analyzing a TEXT transcript (NOT audio).
 
 ${SPEAKING_RUBRIC}
 
+⚠️ CRITICAL LIMITATION: You are reading text, not listening to audio. You CANNOT assess:
+- Fluency (pace, hesitation, smoothness)
+- Pronunciation (accuracy, clarity)
+- Interaction quality (turn-taking, engagement)
+
+ONLY analyze what is observable from written text:
+- Grammar accuracy
+- Vocabulary range and appropriateness
+- Content relevance (did the student address the topic?)
+- Idea development and logical flow
+
 Return a JSON object:
 {
-  "estimatedLevel": "L1-L5",
-  "fluency": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
-  "pronunciation": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
-  "grammarAccuracy": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
-  "vocabularyRange": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
-  "interaction": { "score": 1-5, "comment": "detailed feedback in Traditional Chinese (繁體中文)" },
-  "overallComment": "general feedback in Traditional Chinese (繁體中文)",
-  "improvementTips": ["tip in Traditional Chinese (繁體中文)"]
+  "grammarAccuracy": { "score": 1-5, "comment": "grammar analysis in Traditional Chinese (繁體中文)" },
+  "vocabularyRange": { "score": 1-5, "comment": "vocabulary analysis in Traditional Chinese (繁體中文)" },
+  "contentRelevance": { "score": 1-5, "comment": "content/topic relevance in Traditional Chinese (繁體中文)" },
+  "overallComment": "overall assessment in Traditional Chinese (繁體中文). MUST start with: 「注意：此分析僅基於文字轉錄內容。AI 無法聆聽錄音，因此無法評估流暢度、發音及互動表現。以下僅就文法、詞彙及內容相關性進行分析。」",
+  "improvementTips": ["improvement tip in Traditional Chinese (繁體中文)"],
+  "limitationNote": "清晰說明 AI 只分析了文字內容中的文法、詞彙及內容相關性，無法評估流暢度、發音及互動表現。建議用家尋求老師或母語人士進行真人評估。（繁體中文）"
 }`,
       },
       { role: 'user', content: `Analyze this student speaking transcript from a DSE ${gradeLevel || 'S4'} student on the topic "${topic || 'general'}":\n\n${transcript}` },

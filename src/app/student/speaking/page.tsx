@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Target, Lightbulb, Play, Square, RotateCcw } from 'lucide-react';
+import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Target, Lightbulb, Play, Square, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 
@@ -19,14 +19,12 @@ interface SpeakingQuestion {
 }
 
 interface SpeakingAnalysis {
-  estimatedLevel: string;
-  fluency: { score: number; comment: string };
-  pronunciation: { score: number; comment: string };
   grammarAccuracy: { score: number; comment: string };
   vocabularyRange: { score: number; comment: string };
-  interaction: { score: number; comment: string };
+  contentRelevance: { score: number; comment: string };
   overallComment: string;
   improvementTips: string[];
+  limitationNote: string;
 }
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
@@ -52,6 +50,7 @@ export default function SpeakingPracticePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<SpeakingAnalysis | null>(null);
   const [showHints, setShowHints] = useState(false);
+  const [prepTimeMinutes, setPrepTimeMinutes] = useState(10);
 
   // Timer
   const [timerRunning, setTimerRunning] = useState(false);
@@ -231,30 +230,41 @@ export default function SpeakingPracticePage() {
               </div>
             )}
 
-            {/* Timer */}
+            {/* Prep Time + Timer */}
             <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
               <div className="flex items-center gap-3">
                 <Clock className={`w-5 h-5 ${timerRunning ? 'text-pink-500 animate-pulse' : 'text-gray-400'}`} />
                 <span className="text-2xl font-mono font-bold text-gray-900 dark:text-white">
-                  {timerRunning ? formatTime(timeLeft) : formatTime(question.timeLimit * 60)}
+                  {timerRunning ? formatTime(timeLeft) : formatTime(prepTimeMinutes * 60)}
                 </span>
               </div>
-              <div className="flex gap-2">
-                {!timerRunning ? (
-                  <button onClick={() => startTimer(question.timeLimit * 60)}
-                    className="p-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors">
-                    <Play className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button onClick={stopTimer}
-                    className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
-                    <Square className="w-4 h-4" />
-                  </button>
+              <div className="flex items-center gap-3">
+                {!timerRunning && (
+                  <div className="flex items-center gap-1 bg-white dark:bg-gray-600 rounded-lg px-2 py-1">
+                    <button onClick={() => setPrepTimeMinutes(p => Math.max(1, p - 1))}
+                      className="w-6 h-6 rounded text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors">−</button>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300 w-8 text-center">{prepTimeMinutes} min</span>
+                    <button onClick={() => setPrepTimeMinutes(p => Math.min(30, p + 1))}
+                      className="w-6 h-6 rounded text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors">+</button>
+                  </div>
                 )}
-                <button onClick={() => { stopTimer(); setTimeLeft(question.timeLimit * 60); }}
-                  className="p-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
-                  <RotateCcw className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                  {!timerRunning ? (
+                    <button onClick={() => startTimer(prepTimeMinutes * 60)}
+                      className="p-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors">
+                      <Play className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button onClick={stopTimer}
+                      className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                      <Square className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button onClick={() => { stopTimer(); setTimeLeft(prepTimeMinutes * 60); }}
+                    className="p-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -286,16 +296,26 @@ export default function SpeakingPracticePage() {
           {/* Analysis Results */}
           {analysis && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                  {language === 'en' ? 'AI Speaking Analysis' : 'AI 口語分析'}
-                </h3>
-                <span className="px-3 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full text-sm font-bold">
-                  {analysis.estimatedLevel}
-                </span>
+              {/* ⚠️ Limitation Banner */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    {language === 'en' ? '⚠️ Content-Only Analysis' : '⚠️ 僅內容分析（非完整口語評估）'}
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    {analysis.limitationNote || (language === 'en'
+                      ? 'AI can only analyze grammar, vocabulary, and content from your text transcript. Fluency, pronunciation, and interaction cannot be assessed without audio recording.'
+                      : 'AI 只能從文字記錄分析文法、詞彙及內容相關性。由於無法聆聽錄音，無法評估流暢度、發音及互動表現。')}
+                  </p>
+                </div>
               </div>
 
-              {(['fluency', 'pronunciation', 'grammarAccuracy', 'vocabularyRange', 'interaction'] as const).map(dim => (
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                {language === 'en' ? 'AI Content Analysis' : 'AI 內容分析'}
+              </h3>
+
+              {(['grammarAccuracy', 'vocabularyRange', 'contentRelevance'] as const).map(dim => (
                 <div key={dim} className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300">
                     {analysis[dim]?.score ?? '?'}
