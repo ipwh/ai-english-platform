@@ -316,8 +316,21 @@ src/
 │   ├── teacher/              # 教師端專用元件
 │   └── layout/               # 佈局元件（SidebarLayout、StudentLayout、TeacherLayout）
 ├── lib/
-│   ├── ai-service.ts         # AI 服務層（6 個 AI 函數 + JSON 解析）
-│   ├── ai-schema.ts          # Zod Schema 驗證（6 組）
+│   ├── ai/                    # AI 服務層（模組化拆分）
+│   │   ├── prompts/           # System Prompt 模板（6 個檔案）
+│   │   │   ├── answer-rules.ts
+│   │   │   ├── explain-mistake.ts
+│   │   │   ├── gemini-json-instruction.ts
+│   │   │   ├── progress-analysis.ts
+│   │   │   └── writing-outline.ts
+│   │   ├── dse-topics.ts      # DSE 主題資料庫（歷屆試題歸納）
+│   │   ├── dse-writing-data.ts # 寫作文體結構 + 詞彙升級 + 中式英文修正
+│   │   ├── integrated-skills-config.ts # Paper 3 難度+題型對照
+│   │   ├── mcq-filters.ts     # MCQ 選項過濾規則
+│   │   ├── sanitizer.ts       # 輸入消毒（PDPO + Prompt Injection）
+│   │   └── topic-selector.ts  # 主題選擇引擎（黑名單+類別輪換）
+│   ├── ai-service.ts          # AI 核心服務層（~3,200 行，13+ AI 函數）
+│   ├── ai-schema.ts           # Zod Schema 驗證（6 組）
 │   ├── rate-limiter.ts       # 滑動窗口限流
 │   ├── auth.ts               # JWT 認證邏輯（Prisma DB 查詢）
 │   ├── auth-next.ts          # NextAuth.js v5 設定（Google OAuth）
@@ -559,13 +572,13 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 
 ### 技術債（非阻塞，後續 sprint）
 - **`process.env → config` 遷移未完成**：`src/lib/config.ts` 已建立集中式設定，但 API routes 層 ~12 處仍直接讀取 `process.env`（主要為 GCP 憑證、NODE_ENV 判斷）。
-- **`ai-service.ts` 巨型檔案**：~4,373 行，包含所有 AI provider 呼叫、13 個 AI 功能、prompt 模板、DSE 主題驗證。Chinglish 規則及 AI 快取已拆分，但主檔案仍過大，建議按功能域繼續拆分。
+- **`ai-service.ts` 巨型檔案**：已從 ~4,413 行減至 ~3,200 行（−27.5%），拆分出 12 個模組化檔案（`src/lib/ai/` + `src/lib/ai/prompts/`）。剩餘大型 system prompt（~1,300 行）仍內嵌於函式中，屬 P2 優先級後續拆分。
 - **prompt-injection 防護為 regex-based**：`sanitizeForAI()` 使用正則表達式過濾（L1-L3 三層），屬於深度防禦層，無法防止所有注入攻擊。見 `src/lib/ai-service.ts`。
 - **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。
 
-### ✅ 已修復技術債（2026-07-17）
-- **`console.log → logger`**：`logger.ts` 新增 `patchConsole()`，生產環境自動攔截 `console.log/error/warn` 並路由至結構化 logger，**無需逐檔遷移**。開發環境保留原生 console。
-- **認證碎片化**：`admin-auth.ts` 重構為薄封裝，委託 `verifyApiAuth(['admin'])`，消除重複的 JWT + NextAuth 驗證邏輯（−32 行）。
+### ✅ 已修復技術債（2026-07-17 第二輪）
+- **`ai-service.ts` 模組化拆分**：DSE 主題資料庫（`dse-topics.ts`）、寫作文體知識庫（`dse-writing-data.ts`）、System Prompt 模板（`prompts/` 5 個檔案）、MCQ 過濾規則（`mcq-filters.ts`）、Integrated Skills 配置（`integrated-skills-config.ts`）、主題選擇引擎（`topic-selector.ts`）— 共 12 個檔案，總計 ~1,200 行提取。
+- **AI 出題品質提升**：`generateQuestions` 加入重試機制（MAX_RETRIES=2），題目數不足或品質不佳時自動更換主題重試；`analyzeAnswer` 加入 context 傳遞（choices/listeningContent/readingContent）防止 hallucination；聆聽題驗證放寬格式檢查、保留內容關鍵檢查。
 
 ### ✅ 已修復（2026-07-17）
 

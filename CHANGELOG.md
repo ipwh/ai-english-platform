@@ -1,7 +1,40 @@
 # Changelog
 
 All notable changes to the AI English Platform are documented here.
-This file is extracted from `README.md` for better maintainability.
+
+---
+
+## 2026-07-17 — AI Service Modularization & Quality Upgrade
+
+### 🧩 ai-service.ts 模組化拆分（−27.5%，4,413 → 3,200 行）
+
+| 提取項目 | 新檔案 | 行數 |
+|---------|--------|------|
+| DSE 主題資料庫（2012-2024 歷屆試題歸納） | `ai/dse-topics.ts` | 251 |
+| 寫作文體結構 + 詞彙升級 + 中式英文修正 | `ai/dse-writing-data.ts` | 245 |
+| 答案準確性規則 Prompt | `ai/prompts/answer-rules.ts` | 36 |
+| 錯題解說 Prompt | `ai/prompts/explain-mistake.ts` | 35 |
+| 進度分析 Prompt | `ai/prompts/progress-analysis.ts` | 37 |
+| 寫作大綱 Prompt | `ai/prompts/writing-outline.ts` | 75 |
+| Gemini JSON 格式指引 | `ai/prompts/gemini-json-instruction.ts` | 14 |
+| MCQ 選項過濾規則（禁用模式+時間碎片+補位） | `ai/mcq-filters.ts` | 48 |
+| Integrated Skills 配置（難度+題型對照） | `ai/integrated-skills-config.ts` | 57 |
+| 主題選擇引擎（黑名單+類別輪換） | `ai/topic-selector.ts` | 96 |
+| 輸入消毒（PDPO + Prompt Injection） | `ai/sanitizer.ts` | 35 |
+
+**共 12 個模組化檔案，總計 ~1,200 行提取。**
+
+### 🎯 AI 出題品質提升
+- **出題重試機制**：`generateQuestions` 加入 MAX_RETRIES=2 重試循環，題目數不足或 >50% 關鍵失敗時自動更換主題重試，確保不返回不足量題目
+- **閱讀理解驗證**：新增 `readingContent` 長度檢查，內容過短（<50 chars）或缺失時觸發重試
+- **AI 幻覺修復**：`analyzeAnswer` 現在傳入完整 context（choices/listeningContent/readingContent），防止 AI 憑空捏造答案內容
+- **聆聽題驗證優化**：`validateListeningConsistency` 將格式問題（數字時間、短選項、bare "o'clock"）從錯誤降級為警告，只保留內容關鍵檢查
+- 所有修改在 178 個測試中驗證通過，0 TypeScript 錯誤
+
+### 📊 驗證
+- TypeScript: **0 errors**
+- Tests: **178/178 passing**
+- Commits: `179ed44`, `d8aaadf`, `0317f57`, `d0138fe`
 
 ---
 
