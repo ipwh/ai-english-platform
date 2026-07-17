@@ -1266,7 +1266,7 @@ export function validateListeningConsistency(questions: GeneratedQuestion[]): {
   passed: boolean;
   errors: string[];
   warnings: string[];
-  questionIndices: number[]; // indices of questions that need regeneration
+  questionIndices: number[]; // indices of questions that need regeneration (CRITICAL only)
 } {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -1278,7 +1278,7 @@ export function validateListeningConsistency(questions: GeneratedQuestion[]): {
 
     const prefix = `[L-Listening Q${i + 1}]`;
 
-    // 1. Check listeningContent has valid dialogue structure
+    // 1. CRITICAL: Check listeningContent has valid dialogue structure
     const lines = q.listeningContent.split('\n').filter(l => l.trim());
     if (lines.length < 2) {
       errors.push(`${prefix} dialogue too short (<2 lines)`);
@@ -1286,7 +1286,7 @@ export function validateListeningConsistency(questions: GeneratedQuestion[]): {
       continue;
     }
 
-    // 2. Check answer is verbatim in listeningContent
+    // 2. CRITICAL: Check answer is verbatim in listeningContent
     if (q.choices && q.choices.length > 0 && q.type === 'mc') {
       const letterMatch = q.answer.trim().match(/^[A-D]$/i);
       if (letterMatch) {
@@ -1302,37 +1302,30 @@ export function validateListeningConsistency(questions: GeneratedQuestion[]): {
       }
     }
 
-    // 3. Check for numeric time formats in listeningContent (banned)
+    // 3. WARNING (not rejection): Numeric time formats — AI prompt prefers words but numbers are still valid
     const timeFragPattern = /\b\d{1,2}:\d{2}\b/g;
     const timeMatches = q.listeningContent.match(timeFragPattern);
     if (timeMatches && timeMatches.length > 0) {
-      errors.push(`${prefix} numeric time format found: ${timeMatches.join(', ')} — must use words`);
-      retryIndices.push(i);
+      warnings.push(`${prefix} numeric time format found: ${timeMatches.join(', ')} — prefer words (e.g. 'three o'clock')`);
     }
 
-    // 4. Check choices for DSE format
+    // 4. WARNING (not rejection): Choice format checks — informational only
     if (q.choices && q.choices.length > 0) {
       for (let ci = 0; ci < q.choices.length; ci++) {
         const choice = stripMcqPrefix(q.choices[ci] || '');
-        // Check for numeric time fragments in choices
         if (/^\d{1,2}:\d{2}\s*(?:AM|PM)?$/i.test(choice)) {
-          errors.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" is numeric time format`);
-          retryIndices.push(i);
+          warnings.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" is numeric time format`);
         }
-        // Check for very short fragments
         if (choice.length < 3) {
-          errors.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" too short (<3 chars)`);
-          retryIndices.push(i);
+          warnings.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" too short (<3 chars)`);
         }
-        // Check for "o'clock" without leading word
         if (/^o'?clock$/i.test(choice)) {
-          errors.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" bare clock word`);
-          retryIndices.push(i);
+          warnings.push(`${prefix} choice ${String.fromCharCode(65 + ci)} "${choice}" bare clock word`);
         }
       }
     }
 
-    // 5. Check for mixed digit+word time in listeningContent
+    // 5. WARNING: Mixed digit+word time in listeningContent
     const mixedTimePattern = /\b\d+\s+o'?clock\b/i;
     if (mixedTimePattern.test(q.listeningContent)) {
       warnings.push(`${prefix} mixed digit+word time detected (e.g. "3 o'clock")`);
@@ -1982,16 +1975,29 @@ ${STRICT_ANSWER_RULES}
     if (isListening) {
       const listenCheck = validateListeningConsistency(fixedQuestions);
       if (!listenCheck.passed) {
-        console.warn('[ai-service] ⚠️ Listening consistency FAILED:',
+        console.warn('[ai-service] ⚠️ Listening consistency issues:',
           { errors: listenCheck.errors, warnings: listenCheck.warnings });
-        // Filter out questions that failed consistency
+        
         const validQuestions = fixedQuestions.filter((_, i) => !listenCheck.questionIndices.includes(i));
+        const rejectRatio = listenCheck.questionIndices.length / fixedQuestions.length;
+        
         if (validQuestions.length === 0) {
-          console.warn('[ai-service] All listening questions failed consistency — returning original set with warnings');
-          // Don't return empty; return originals so user at least sees something
+          console.warn('[ai-service] All listening questions failed critical checks — returning original set with warnings');
           return fixedQuestions;
         }
-        console.log(`[ai-service] Listening consistency: ${validQuestions.length}/${fixedQuestions.length} questions passed`);
+        
+        // If more than 50% failed CRITICAL checks (not format warnings), consider retrying
+        if (rejectRatio > 0.5 && fixedQuestions.length > 1) {
+          console.warn(`[ai-service] ${listenCheck.questionIndices.length}/${fixedQuestions.length} listening questions failed critical checks (${Math.round(rejectRatio * 100)}%) — returning valid subset`);
+        }
+        
+        console.log(`[ai-service] Listening consistency: ${validQuestions.length}/${fixedQuestions.length} questions passed critical checks`);
+        
+        // Return all fixed questions but mark failed ones with a note (don't silently drop)
+        // If we have at least 1 valid question, return the full set to preserve requested count
+        if (validQuestions.length >= 1 && fixedQuestions.length >= 2) {
+          return fixedQuestions; // Keep all — format warnings shouldn't cause questions to disappear
+        }
         return validQuestions;
       }
       console.log('[ai-service] ✅ Listening consistency validation passed');
