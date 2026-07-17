@@ -5,6 +5,7 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import db from './db';
+import { logger } from '@/lib/logger';
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
@@ -12,7 +13,7 @@ function getRequiredEnv(name: string): string {
     if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
       throw new Error(`[auth-next] 缺少必要的環境變數: ${name}。請在 Vercel Dashboard 中設定。`);
     }
-    console.warn(`[auth-next] ⚠️ ${name} 未設定，OAuth 將無法正常運作。`);
+    logger.warn({ module: 'auth-next', envVar: name }, 'OAuth may not function — env var not set');
     return '';
   }
   return value;
@@ -30,11 +31,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log('[auth] signIn callback entered', {
-        provider: account?.provider,
-        email: user.email,
-        timestamp: new Date().toISOString(),
-      });
+      logger.info({ module: 'auth', provider: account?.provider, email: user.email }, 'signIn callback entered');
 
       let userRole: string | null = null;
 
@@ -46,11 +43,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (!existing) {
-            console.log('[auth] creating new user for', user.email);
             // 自動判斷角色：學生 email = s + 數字；其餘為教師
             const emailPrefix = user.email.split('@')[0];
             const isStudent = /^s\d{7}$/i.test(emailPrefix);
             const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
+            logger.info({ module: 'auth', email: user.email }, 'creating new user');
             const defaultRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
 
             await db.user.create({
@@ -72,7 +69,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
             // Auto-correct DB role if it doesn't match email pattern
             if (existing.role !== correctRole) {
-              console.log(`[auth] Auto-correcting DB role for ${user.email}: ${existing.role} → ${correctRole}`);
+              logger.info({ module: 'auth', email: user.email, oldRole: existing.role, newRole: correctRole }, 'Auto-correcting DB role');
               await db.user.update({
                 where: { id: existing.id },
                 data: { role: correctRole },
@@ -82,7 +79,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               userRole = existing.role;
             }
 
-            console.log('[auth] existing user found', existing.id, userRole);
+            logger.info({ module: 'auth', userId: existing.id, role: userRole }, 'existing user found');
             // 每次 Google 登入時更新名稱和頭像
             const googleName = user.name || (profile as { name?: string } | null)?.name;
             const googlePic = user.image || (profile as { picture?: string } | null)?.picture;
@@ -95,18 +92,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                   image: googlePic || existing.image,
                 },
               });
-              console.log('[auth] updated name from Google profile:', googleName);
+              logger.info({ module: 'auth', googleName }, 'updated name from Google profile');
             }
           }
         } catch (error) {
-          console.error('[auth] failed to ensure Google user exists', error);
+          logger.error({ module: 'auth', error: (error as Error).message }, 'failed to ensure Google user exists');
         }
       }
 
       // 確保 role 正確寫入 user 物件（jwt callback 會讀取此值）
       (user as { role?: string }).role = userRole || 'student';
 
-      console.log('[auth] signIn callback complete, role:', userRole);
+      logger.info({ module: 'auth', role: userRole }, 'signIn callback complete');
       return true;
     },
     async redirect({ url, baseUrl }) {
@@ -151,7 +148,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.role = dbUser.role || 'student';
           }
         } catch (err) {
-          console.error('[auth] jwt callback: db lookup failed', err);
+          logger.error({ module: 'auth', error: (err as Error).message }, 'jwt callback: db lookup failed');
         }
       }
 
@@ -168,25 +165,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   events: {
     async signIn(message) {
-      console.log('[auth:event] signIn succeeded', {
-        email: message.user.email,
-        provider: message.account?.provider,
-        isNewUser: message.isNewUser,
-      });
+      logger.info({ module: 'auth:event', email: message.user.email, provider: message.account?.provider, isNewUser: message.isNewUser }, 'signIn succeeded');
     },
     async createUser(message) {
-      console.log('[auth:event] user created', { id: message.user.id });
+      logger.info({ module: 'auth:event', userId: message.user.id }, 'user created');
     },
     async linkAccount(message) {
-      console.log('[auth:event] account linked', {
-        provider: message.account.provider,
-        userId: message.user.id,
-      });
+      logger.info({ module: 'auth:event', provider: message.account.provider, userId: message.user.id }, 'account linked');
     },
   },
   pages: {
     signIn: '/login',
-    error: '/login',
   },
   session: {
     strategy: 'jwt',

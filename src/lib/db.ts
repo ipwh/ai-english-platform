@@ -7,6 +7,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
 import { config } from '@/lib/config';
+import { logger } from '@/lib/logger';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -17,7 +18,7 @@ function getDbUrl(): string {
   if (url) return url;
 
   // 生產環境必須設定 DATABASE_URL
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+  if (config.isProduction) {
     throw new Error(
       '[db] 生產環境必須設定 DATABASE_URL 環境變數。\n' +
       '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
@@ -49,10 +50,10 @@ function createPrismaClient(): PrismaClient {
       const adapter = new PrismaPg(pool);
       return new PrismaClient({
         adapter,
-        log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+        log: config.isDevelopment ? ['warn', 'error'] : ['error'],
       });
     } catch (e) {
-      console.error('[db] PostgreSQL adapter not available. Install: npm install @prisma/adapter-pg pg');
+      logger.error({ module: 'db', error: 'PostgreSQL adapter not available' }, 'Install: npm install @prisma/adapter-pg pg');
       throw e;
     }
   }
@@ -61,7 +62,7 @@ function createPrismaClient(): PrismaClient {
   const adapter = new PrismaLibSql({ url: dbUrl });
   return new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    log: config.isDevelopment ? ['warn', 'error'] : ['error'],
   });
 }
 
@@ -104,10 +105,10 @@ export function getBulkDb(): PrismaClient {
 if (typeof window === 'undefined') {
   db.$connect()
     .then(() => {
-      console.log('[db] connected successfully');
+      logger.info({ module: 'db' }, 'connected successfully');
     })
     .catch((err: unknown) => {
-      console.error('[db] connection test failed', err);
+      logger.error({ module: 'db', error: String(err) }, 'connection test failed');
     });
 }
 

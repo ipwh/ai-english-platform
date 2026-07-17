@@ -31,7 +31,7 @@ async function getKvClient() {
       const mod = await import('@vercel/kv');
       if (mod?.kv) {
         kvClient = mod.kv;
-        console.log('[RateLimiter] Using Vercel KV backend');
+        logger.info({ module: 'rate-limiter' }, 'Using Vercel KV backend');
         return kvClient;
       }
     } catch { /* @vercel/kv not installed, fall through to in-memory */ }
@@ -121,6 +121,7 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
 // ============================================
 
 import { config } from '@/lib/config';
+import { logger } from '@/lib/logger';
 
 /** AI API 端點限流：每 IP 每 60 秒最多 30 次請求 */
 export const AI_RATE_LIMIT: RateLimitConfig = {

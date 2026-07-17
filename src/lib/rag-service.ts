@@ -47,9 +47,9 @@ async function getEmbedding(text: string): Promise<number[]> {
           return json.data[0].embedding;
         }
       }
-      console.warn(`[RAG] DeepSeek embedding returned ${res.status}, falling back to Vertex AI`);
+      logger.warn({ module: 'rag-service', status: res.status }, 'DeepSeek embedding failed, falling back to Vertex AI');
     } catch (e) {
-      console.warn('[RAG] DeepSeek embedding failed, falling back to Vertex AI:', (e as Error).message);
+      logger.warn({ module: 'rag-service', error: (e as Error).message }, 'DeepSeek embedding failed, falling back to Vertex AI');
     }
   }
 
@@ -127,7 +127,7 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
 
   // 分塊
   const chunks = chunkText(material.content);
-  console.log(`[RAG] 教材 "${material.title}" 分為 ${chunks.length} 個區塊`);
+  logger.info({ module: 'rag-service', title: material.title, chunkCount: chunks.length }, 'Material chunked');
 
   // 清除舊區塊
   await db.materialChunk.deleteMany({ where: { materialId } });
@@ -174,7 +174,7 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
     data: { ragStatus: 'done' },
   });
 
-  console.log(`[RAG] 教材 "${material.title}" 索引完成 (${chunks.length} chunks)`);
+  logger.info({ module: 'rag-service', title: material.title, chunkCount: chunks.length }, 'Material indexed');
   return { chunkCount: chunks.length };
 }
 

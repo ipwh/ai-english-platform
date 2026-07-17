@@ -5,6 +5,7 @@
 // ============================================
 
 import db from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement';
 export type NotificationLang = 'zh' | 'en';
@@ -76,7 +77,7 @@ export async function createNotification(params: CreateNotificationParams) {
       },
     });
   } catch (err) {
-    console.error('[NotificationService] Failed to create notification:', err);
+    logger.error({ module: 'notifications', error: (err as Error).message }, 'Failed to create notification');
   }
 }
 
@@ -100,7 +101,7 @@ export async function createBulkNotifications(
       })),
     });
   } catch (err) {
-    console.error('[NotificationService] Failed to create bulk notifications:', err);
+    logger.error({ module: 'notifications', error: (err as Error).message }, 'Failed to create bulk notifications');
   }
 }
 
@@ -136,9 +137,9 @@ export async function notifyAssignmentCreated(
       bodyMsg.zh,
       `/student/assignments/${assignmentId}`,
     );
-    console.log(`[Notification] Assignment "${assignmentTitle}" → ${students.length} students in ${className}`);
+    logger.info({ module: 'notifications', assignmentTitle, studentCount: students.length, className }, 'Assignment notification sent');
   } catch (err) {
-    console.error('[NotificationService] notifyAssignmentCreated failed:', err);
+    logger.error({ module: 'notifications', error: (err as Error).message }, 'notifyAssignmentCreated failed');
   }
 }
 

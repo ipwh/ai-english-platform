@@ -4,6 +4,7 @@
 // ============================================
 
 import bcrypt from 'bcryptjs';
+import { logger } from '@/lib/logger';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -80,15 +81,11 @@ export function getLegacyHashStats(): { count: number; needsMigration: boolean }
 function trackLegacyUsage(): void {
   legacyHashUsageCount++;
   if (legacyHashUsageCount <= MAX_LEGACY_WARNINGS) {
-    console.warn(
-      `[crypto] ⚠️ 偵測到第 ${legacyHashUsageCount} 個使用舊版 simpleHash 的密碼。` +
-      '使用者登入時將自動升級為 bcrypt。建議執行一次性遷移腳本：npx tsx scripts/migrate-legacy-hashes.ts'
-    );
+    logger.warn({ module: 'crypto', count: legacyHashUsageCount },
+      `Detected legacy simpleHash password #${legacyHashUsageCount}. Will auto-upgrade to bcrypt on login.`);
   } else if (legacyHashUsageCount === MAX_LEGACY_WARNINGS + 1) {
-    console.warn(
-      `[crypto] ⚠️ 已超過 ${MAX_LEGACY_WARNINGS} 次舊版雜湊警告，後續將不再顯示。` +
-      `目前累計 ${legacyHashUsageCount} 次。請盡快完成遷移。`
-    );
+    logger.warn({ module: 'crypto', count: legacyHashUsageCount },
+      `Legacy hash warnings exceeded limit of ${MAX_LEGACY_WARNINGS}. Total: ${legacyHashUsageCount}. Please complete migration.`);
   }
 }
 
