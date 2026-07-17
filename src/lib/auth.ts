@@ -16,6 +16,7 @@ export { verifySessionToken, type SessionPayload } from './jwt';
 // ============================================
 
 import { hashPassword, verifyPassword } from '@/lib/crypto';
+import { logger } from '@/lib/logger';
 
 // ============================================
 // 認證邏輯（Prisma DB）
@@ -63,7 +64,9 @@ export async function authenticateUser(email: string, password: string): Promise
   // 若密碼是舊版 simpleHash，背景重新雜湊為 bcrypt（不阻塞登入）
   if (verifyResult === 'needs_rehash') {
     hashPassword(password).then(newHash => {
-      db.user.update({ where: { id: user.id }, data: { passwordHash: newHash } }).catch(() => {});
+      db.user.update({ where: { id: user.id }, data: { passwordHash: newHash } }).catch(err => {
+        logger.error({ module: 'auth', userId: user.id, error: (err as Error).message }, 'Background password rehash failed');
+      });
     });
   }
 

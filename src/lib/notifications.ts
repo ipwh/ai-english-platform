@@ -127,16 +127,22 @@ export async function notifyAssignmentCreated(
     });
     if (students.length === 0) return;
 
+    // Create per-student notifications with their language preference
     const titleMsg = MSG.assignmentTitle;
     const bodyMsg = MSG.newAssignment(className, assignmentTitle);
-    // Use bulk create for efficiency; language defaults to 'zh' (DB has no language column yet)
-    await createBulkNotifications(
-      students.map(s => s.id),
-      'assignment',
-      titleMsg.zh,
-      bodyMsg.zh,
-      `/student/assignments/${assignmentId}`,
-    );
+    const link = `/student/assignments/${assignmentId}`;
+
+    for (const student of students) {
+      const lang = await getUserLang(student.id);
+      await createNotification({
+        userId: student.id,
+        type: 'assignment',
+        title: titleMsg[lang],
+        message: bodyMsg[lang],
+        link,
+      });
+    }
+
     logger.info({ module: 'notifications', assignmentTitle, studentCount: students.length, className }, 'Assignment notification sent');
   } catch (err) {
     logger.error({ module: 'notifications', error: (err as Error).message }, 'notifyAssignmentCreated failed');
