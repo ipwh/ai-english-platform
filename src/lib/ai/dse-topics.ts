@@ -1,0 +1,268 @@
+// ============================================
+// DSE Empirical Topic Database — 基於真實歷屆試題歸納
+// 來源：2012-2024 HKDSE English Language Past Papers
+// 提取自 ai-service.ts 以保持檔案模組化
+// ============================================
+
+// ============================================
+// DSE_EMPIRICAL_TOPICS — Paper 1/2/3 真實題材
+// ============================================
+
+export const DSE_EMPIRICAL_TOPICS = {
+  // Paper 2 寫作真實題材（2012-2024）
+  writing: {
+    food: ['restaurant review (Dim Sum / local cuisine)', 'food culture and dining trends', 'healthy eating and food labeling', 'school canteen menu reform'],
+    culture: ['Hong Kong housing estates Instagram culture', 'Chinese Opera / Xiqu Centre experience', 'cultural heritage preservation', 'festivals and traditions (Mid-Autumn, CNY, Dragon Boat)', 'pop culture and music industry', 'film and movie reviews'],
+    social: ['independent shops vs chain stores', 'small business survival in HK', 'social media impact on youth', 'cyberbullying and online ethics', 'ageing population and elderly care', 'income inequality and poverty'],
+    technology: ['AI in education and workplace', 'social media and privacy', 'e-learning vs traditional classroom', 'technology addiction among teens', 'smart city development in HK'],
+    environment: ['plastic waste and recycling', 'renewable energy adoption', 'green living and sustainability', 'wildlife conservation', 'carbon footprint and climate action'],
+    education: ['exam pressure and mental health', 'school uniform policies', 'vocational vs academic education', 'lifelong learning', 'university admission criteria'],
+    career: ['job interviews and workplace communication', 'work transfer and career development', 'internship and work experience', 'entrepreneurship and startups', 'gig economy and freelancing'],
+    sports: ['Olympic sports inclusion debate', 'Dragon Boat Racing as international sport', 'e-sports as legitimate competition', 'sportsmanship and doping', 'extreme sports and risk-taking'],
+    arts: ['music and songwriting inspiration', 'film and television influence', 'street art and public spaces', 'literature and creative writing', 'performing arts and theatre'],
+    travel: ['study tour and exchange programmes', 'eco-tourism and responsible travel', 'working holiday experiences', 'cultural immersion travel', 'HK as travel destination'],
+    health: ['mental health awareness among youth', 'sleep deprivation and academic performance', 'exercise and physical wellbeing', 'traditional vs modern medicine', 'pandemic preparedness'],
+    hkLocal: ['HK identity and cultural uniqueness', 'Cantonese language preservation', 'urban development vs heritage', 'public housing and living space', 'HK food culture (dai pai dong, cha chaan teng)'],
+  },
+  
+  // Paper 1 & Paper 3 閱讀/聆聽常見主題
+  reading: {
+    science: ['marine biology and ocean conservation', 'astronomy and space exploration', 'neuroscience and brain plasticity', 'genetics and bioethics', 'robotics and automation', 'climate science and meteorology'],
+    history: ['Olympic Games history and evolution', 'ancient civilizations and archaeology', 'industrial revolution impact', 'HK colonial history and handover', 'World War stories and memoirs'],
+    nature: ['endangered species protection', 'urban wildlife and biodiversity', 'natural disasters and resilience', 'national parks and conservation', 'ocean pollution and microplastics'],
+    society: ['volunteerism and community service', 'philanthropy and charity work', 'urbanization and city planning', 'migration and diaspora', 'gender equality movements'],
+    psychology: ['procrastination science', 'color psychology in marketing', 'decision-making biases', 'child development theories', 'social conformity experiments'],
+    technology: ['AI transformation of industries', '3D printing revolution', 'autonomous vehicles future', 'blockchain beyond cryptocurrency', 'biotechnology breakthroughs'],
+    health: ['music therapy benefits', 'sleep science and learning', 'nutrition myths debunked', 'exercise and brain function', 'mindfulness and meditation'],
+    hkLocal: ['HK wetland and Mai Po reserve', 'HK hiking trails and country parks', 'HK film industry golden age', 'HK public transport efficiency', 'HK street food culture'],
+    global: ['UN sustainable development goals', 'globalization pros and cons', 'international trade and fair trade', 'refugee crises and humanitarian aid', 'pandemic global response'],
+  },
+  
+  // Paper 3 聆聽場景
+  listening: {
+    school: ['club fair and society recruitment', 'debate competition preparation', 'school talent show planning', 'student council election campaign', 'graduation ceremony planning', 'parent-teacher conference', 'school open day organization', 'peer mentoring programme'],
+    community: ['charity fundraising walkathon', 'beach cleanup volunteer day', 'elderly home visit programme', 'community garden project', 'neighbourhood festival', 'blood donation drive', 'food bank collection'],
+    workplace: ['summer internship application', 'part-time job orientation', 'business meeting and presentation', 'customer complaint handling', 'team building activity planning', 'conference call with overseas office', 'product launch preparation'],
+    services: ['doctor appointment booking', 'hotel reservation changes', 'flight booking and itinerary', 'restaurant group booking', 'bank account opening', 'library membership registration', 'gym membership inquiry'],
+    hkLife: ['MTR route planning', 'Octopus card top-up issue', 'typhoon day arrangements', 'wet market shopping', 'temple visit and fortune telling', 'junk trip boat booking', 'dim sum ordering etiquette'],
+    social: ['environmental campaign launch', 'social media detox challenge', 'mental health awareness week', 'cultural diversity celebration', 'anti-bullying workshop', 'digital literacy seminar', 'entrepreneurship bootcamp'],
+  },
+} as const;
+
+// ============================================
+// Types
+// ============================================
+
+export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life';
+
+export interface TopicEntry {
+  text: string;
+  category: TopicCategory;
+  grades: string[]; // S1-S6
+}
+
+// ============================================
+// LISTENING_TOPICS_V2 — 聆聽主題庫（含年級標記）
+// ============================================
+
+export const LISTENING_TOPICS_V2: TopicEntry[] = [
+  // === 校園生活 (school) ===
+  { text: 'school club recruitment fair（學會招募博覽）', category: 'school', grades: ['S1','S2','S3','S4'] },
+  { text: 'planning a school field trip to a museum（策劃學校博物館考察）', category: 'school', grades: ['S1','S2','S3','S4'] },
+  { text: 'discussing a group project presentation（討論小組項目簡報）', category: 'school', grades: ['S3','S4','S5'] },
+  { text: 'negotiating a project deadline extension with a teacher（與老師協商項目延期）', category: 'school', grades: ['S4','S5','S6'] },
+  { text: 'debating school uniform policy changes（辯論校服政策修改）', category: 'school', grades: ['S4','S5','S6'] },
+  { text: 'planning a school talent show（策劃學校才藝表演）', category: 'school', grades: ['S1','S2','S3'] },
+  
+  // === 社會議題 (society) ===
+  { text: 'debating the pros and cons of social media（辯論社交媒體的利弊）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'discussing cyberbullying prevention（討論網絡欺凌預防）', category: 'society', grades: ['S3','S4','S5','S6'] },
+  { text: 'planning a charity fundraising event for underprivileged children（策劃弱勢兒童慈善籌款）', category: 'society', grades: ['S3','S4','S5','S6'] },
+  { text: 'discussing mental health awareness in schools（討論校園心理健康關注）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'debating whether AI should replace human jobs（辯論 AI 應否取代人類工作）', category: 'society', grades: ['S5','S6'] },
+  { text: 'discussing volunteer work at an elderly home（討論老人院義工服務）', category: 'society', grades: ['S3','S4','S5','S6'] },
+  
+  // === 科技 (technology) ===
+  { text: 'discussing the impact of smartphones on student life（討論智能手機對學生生活的影響）', category: 'technology', grades: ['S3','S4','S5'] },
+  { text: 'debating whether AI should be used in classrooms（辯論課室應否使用 AI）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'planning a STEM competition logistics meeting（策劃 STEM 比賽物流會議）', category: 'technology', grades: ['S3','S4','S5'] },
+  { text: 'calling tech support about a malfunctioning laptop（致電技術支援關於故障筆電）', category: 'technology', grades: ['S3','S4','S5','S6'] },
+  { text: 'discussing online learning vs traditional classroom（討論網上學習 vs 傳統課堂）', category: 'technology', grades: ['S4','S5','S6'] },
+  
+  // === 環境 (environment) ===
+  { text: 'discussing environmental protection initiatives at school（討論學校環保倡議）', category: 'environment', grades: ['S2','S3','S4','S5'] },
+  { text: 'planning a beach cleanup activity（策劃沙灘清潔活動）', category: 'environment', grades: ['S1','S2','S3','S4'] },
+  { text: 'making a complaint about noise pollution to the housing estate（向屋苑投訴噪音污染）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'debating plastic ban policies in Hong Kong（辯論香港塑膠禁令政策）', category: 'environment', grades: ['S5','S6'] },
+  
+  // === 文化 (culture) ===
+  { text: 'planning a cultural diversity day at school（策劃學校多元文化日）', category: 'culture', grades: ['S3','S4','S5'] },
+  { text: 'discussing Mid-Autumn Festival celebration ideas（討論中秋節慶祝活動）', category: 'culture', grades: ['S1','S2','S3'] },
+  { text: 'planning an overseas exchange programme（策劃海外交流計劃）', category: 'culture', grades: ['S4','S5','S6'] },
+  { text: 'interviewing a guest speaker about their career abroad（訪問嘉賓講者關於海外職業生涯）', category: 'culture', grades: ['S5','S6'] },
+  
+  // === 健康 (health) ===
+  { text: "making a doctor's appointment（預約看醫生）", category: 'health', grades: ['S1','S2','S3','S4'] },
+  { text: 'discussing healthy eating habits at school canteen（討論學校飯堂健康飲食習慣）', category: 'health', grades: ['S2','S3','S4'] },
+  { text: 'calling to reschedule a dentist appointment（致電改期牙醫預約）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'discussing sleep deprivation among students（討論學生睡眠不足問題）', category: 'health', grades: ['S5','S6'] },
+  
+  // === 就業 (career) ===
+  { text: 'part-time job interview at a bookstore（書店兼職面試）', category: 'career', grades: ['S4','S5','S6'] },
+  { text: 'discussing internship opportunities during summer break（討論暑期實習機會）', category: 'career', grades: ['S5','S6'] },
+  { text: 'career guidance session about university choices（大學選科職業輔導）', category: 'career', grades: ['S5','S6'] },
+  { text: 'discussing gap year options and working holidays（討論空檔年與工作假期）', category: 'career', grades: ['S6'] },
+  
+  // === 科學 (science) ===
+  { text: 'discussing a science fair project（科學展項目討論）', category: 'science', grades: ['S2','S3','S4'] },
+  { text: 'debating genetic engineering ethics（辯論基因工程倫理）', category: 'science', grades: ['S5','S6'] },
+  { text: 'discussing space exploration and its benefits（討論太空探索及其益處）', category: 'science', grades: ['S4','S5'] },
+  
+  // === 香港本地 (hk-local) ===
+  { text: 'discussing weekend hiking trip to Sai Kung（討論週末西貢行山）', category: 'hk-local', grades: ['S2','S3','S4','S5'] },
+  { text: 'planning a visit to Hong Kong Palace Museum（策劃參觀香港故宮文化博物館）', category: 'hk-local', grades: ['S1','S2','S3'] },
+  { text: 'discussing Hong Kong food culture and dai pai dong（討論香港飲食文化與大排檔）', category: 'hk-local', grades: ['S3','S4','S5'] },
+  { text: 'debating the future of Cantonese in Hong Kong（辯論粵語在香港的未來）', category: 'hk-local', grades: ['S5','S6'] },
+  
+  // === 日常生活 (daily-life) ===
+  { text: 'ordering food at a café with dietary restrictions（咖啡店點餐含飲食限制）', category: 'daily-life', grades: ['S1','S2','S3','S4'] },
+  { text: 'booking a badminton court at a sports centre（預訂體育中心羽毛球場）', category: 'daily-life', grades: ['S1','S2','S3'] },
+  { text: 'planning a surprise birthday party（策劃驚喜生日派對）', category: 'daily-life', grades: ['S1','S2','S3','S4'] },
+  { text: 'calling customer service about a faulty product（致電客服關於瑕疵產品）', category: 'daily-life', grades: ['S4','S5','S6'] },
+  { text: 'ordering custom T-shirts for a school event（為學校活動訂製 T 恤）', category: 'daily-life', grades: ['S3','S4','S5'] },
+];
+
+// ============================================
+// READING_TOPICS_V2 — 閱讀主題庫（含年級標記）
+// ============================================
+
+export const READING_TOPICS_V2: TopicEntry[] = [
+  // === 科學 (science) ===
+  { text: 'the science behind cooking and food chemistry（烹飪科學與食物化學）', category: 'science', grades: ['S3','S4','S5'] },
+  { text: 'space exploration and Mars colonization（太空探索與火星殖民）', category: 'science', grades: ['S4','S5','S6'] },
+  { text: 'deep-sea exploration and undiscovered species（深海探索與未發現物種）', category: 'science', grades: ['S4','S5'] },
+  { text: 'the science of sleep and its effect on learning（睡眠科學及其對學習的影響）', category: 'science', grades: ['S4','S5','S6'] },
+  { text: 'the history and future of space telescopes（太空望遠鏡的歷史與未來）', category: 'science', grades: ['S5','S6'] },
+  
+  // === 科技 (technology) ===
+  { text: 'how artificial intelligence is changing education（人工智能如何改變教育）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'how 3D printing is revolutionizing medicine（3D 打印如何革新醫學）', category: 'technology', grades: ['S5','S6'] },
+  { text: 'the future of electric and autonomous vehicles（電動車與自動駕駛的未來）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'the rise of e-sports and competitive gaming（電子競技與競技遊戲的興起）', category: 'technology', grades: ['S3','S4','S5'] },
+  
+  // === 環境 (environment) ===
+  { text: 'marine life conservation and coral reefs（海洋生物保育與珊瑚礁）', category: 'environment', grades: ['S2','S3','S4','S5'] },
+  { text: 'renewable energy solutions in Hong Kong（香港可再生能源方案）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'the impact of fast fashion on the environment（快時尚對環境的影響）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'endangered species and wildlife protection（瀕危物種與野生動物保護）', category: 'environment', grades: ['S3','S4','S5'] },
+  { text: 'urban farming and green cities（都市農業與綠色城市）', category: 'environment', grades: ['S4','S5'] },
+  { text: 'food sustainability and the future of meat alternatives（糧食可持續性與肉類替代品的未來）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'microplastics in the ocean and their effects on the food chain（海洋微塑膠及其對食物鏈的影響）', category: 'environment', grades: ['S5','S6'] },
+  
+  // === 社會 (society) ===
+  { text: 'how social media affects teenage mental health（社交媒體對青少年心理健康的影響）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'the gig economy and its impact on young workers（零工經濟對年輕工作者的影響）', category: 'society', grades: ['S5','S6'] },
+  { text: 'the role of public libraries in the digital age（公共圖書館在數碼時代的角色）', category: 'society', grades: ['S3','S4','S5'] },
+  { text: 'volunteer tourism and its pros and cons（義工旅遊的利弊）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'the psychology behind procrastination（拖延背後的心理學）', category: 'society', grades: ['S4','S5','S6'] },
+  
+  // === 文化/歷史 (culture) ===
+  { text: 'the history of the Olympic Games（奧運會歷史）', category: 'culture', grades: ['S2','S3','S4'] },
+  { text: 'cultural festivals around the world（世界各地的文化節日）', category: 'culture', grades: ['S1','S2','S3','S4'] },
+  { text: 'traditional crafts and their modern revival（傳統工藝與現代復興）', category: 'culture', grades: ['S3','S4','S5'] },
+  { text: 'the history and cultural significance of tea（茶的歷史與文化意義）', category: 'culture', grades: ['S3','S4'] },
+  { text: 'ancient civilizations and their engineering marvels（古代文明及其工程奇蹟）', category: 'culture', grades: ['S4','S5'] },
+  { text: 'the evolution of the English language（英語的演變）', category: 'culture', grades: ['S4','S5','S6'] },
+  { text: 'the philosophy of happiness across different cultures（不同文化中的幸福哲學）', category: 'culture', grades: ['S5','S6'] },
+  
+  // === 健康/心理 (health) ===
+  { text: 'how music therapy benefits mental health（音樂治療如何有益心理健康）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'famous inventors and their accidental discoveries（著名發明家與意外發現）', category: 'science', grades: ['S2','S3','S4'] },
+  
+  // === 香港本地 (hk-local) ===
+  { text: 'the psychology of color in marketing（營銷中的色彩心理學）', category: 'society', grades: ['S5','S6'] },
+  { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'environment', grades: ['S4','S5'] },
+];
+
+// ============================================
+// DSE Empirical Topic Helper — 從實證資料庫抽取主題建議
+// ============================================
+
+/**
+ * Get real DSE exam-style topic suggestions for prompt enrichment.
+ * Draws from the empirical topic database built from 2012-2024 past papers.
+ */
+export function getDSEEmpiricalTopics(
+  skill: 'writing' | 'reading' | 'listening',
+  category?: string,
+  count = 3,
+): string[] {
+  const pool = DSE_EMPIRICAL_TOPICS[skill];
+  if (!pool) return [];
+  
+  const allTopics: string[] = [];
+  if (category && category in pool) {
+    allTopics.push(...(pool[category as keyof typeof pool] as readonly string[]));
+  } else {
+    for (const cat of Object.values(pool)) {
+      allTopics.push(...(cat as readonly string[]));
+    }
+  }
+  
+  const shuffled = [...allTopics].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+// ============================================
+// DSE 主題驗證器 — post-generation topic match check
+// ============================================
+
+/** Extract all DSE topic keywords into a flat set for substring matching */
+function buildDSEKeywordSet(skill: 'writing' | 'reading' | 'listening'): Set<string> {
+  const pool = DSE_EMPIRICAL_TOPICS[skill];
+  const keywords = new Set<string>();
+  for (const cat of Object.values(pool)) {
+    for (const topic of cat as string[]) {
+      const parts = topic.toLowerCase().split(/[\/\-,()（）:：\s]+/);
+      for (const p of parts) {
+        const trimmed = p.trim();
+        if (trimmed.length >= 3 && !['and', 'the', 'for', 'its', 'how', 'why', 'what', 'pros', 'cons'].includes(trimmed)) {
+          keywords.add(trimmed);
+        }
+      }
+    }
+  }
+  return keywords;
+}
+
+// Pre-built keyword sets (lazy init)
+const _dseKeywordCache: Map<string, Set<string>> = new Map();
+function getDSEKeywords(skill: 'writing' | 'reading' | 'listening'): Set<string> {
+  if (!_dseKeywordCache.has(skill)) {
+    _dseKeywordCache.set(skill, buildDSEKeywordSet(skill));
+  }
+  return _dseKeywordCache.get(skill)!;
+}
+
+/**
+ * Validate that generated content references topics from the DSE empirical database.
+ * Returns a match score (0-1) indicating how many DSE keywords were found.
+ * Score >= 0.05 means at least some DSE topic alignment was detected.
+ */
+export function validateDSEtopicMatch(
+  generatedText: string,
+  skill: 'writing' | 'reading' | 'listening',
+): { matched: boolean; score: number; matchedKeywords: string[] } {
+  const keywords = getDSEKeywords(skill);
+  const lower = generatedText.toLowerCase();
+  const matched: string[] = [];
+
+  for (const kw of keywords) {
+    if (lower.includes(kw)) {
+      matched.push(kw);
+    }
+  }
+
+  const score = keywords.size > 0 ? matched.length / Math.min(keywords.size, 100) : 0;
+  return { matched: matched.length >= 2, score, matchedKeywords: matched };
+}
