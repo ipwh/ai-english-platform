@@ -88,6 +88,12 @@ ${isListening ? '- listeningContent / listeningContentZh\n' : ''}${isReading ? '
 - 禁止 True/False 格式、"All of the above"、"None of the above"
 - 時間答案必須完整格式（如 "4:00 PM"），嚴禁 "00"、"30 PM" 等碎片
 - distractor 必須與正確答案屬同一類別
+
+【MCQ 正確答案位置分布 — CRITICAL】
+- ⚠️ 正確答案必須均勻分布在 A、B、C、D 四個位置，不可集中在某一個字母
+- 對於 ${count} 題 MCQ：若 4 題則 A/B/C/D 各出現 1 次；若 5 題則其中 1 個字母出現 2 次、其餘各 1 次；若 6 題則 2 個字母各出現 2 次、其餘各 1 次；依此類推
+- 嚴禁全部或大部分正確答案集中在 B 或 C（DSE 實戰中正確答案分布是均勻的）
+- 生成完畢後必須自我檢查：統計 A/B/C/D 出現次數，確保偏差 ≤1
 - choices 陣列必須恰好 4 個選項
 
 ${strictAnswerRules}

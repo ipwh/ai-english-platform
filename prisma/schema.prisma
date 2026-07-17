@@ -248,21 +248,22 @@ model Submission {
 // ============================================
 
 model Mistake {
-  id             String    @id @default(cuid())
-  studentId      String
-  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  questionId     String
-  studentAnswer  String
-  correctAnswer  String
-  mistakeType    String    // grammar | vocabulary | comprehension | careless | time-management | chinglish
-  aiExplanation  String?
-  reviewed       Boolean   @default(false)
-  inReviewList   Boolean   @default(false)
-  nextReviewDate DateTime? // SRS: 下次複習日期
-  reviewInterval Int       @default(0)  // SRS: 複習間隔天數
-  easeFactor     Float     @default(2.5) // SRS: 簡化 EF
-  lastReviewedAt DateTime? // SRS: 上次複習時間
-  createdAt      DateTime  @default(now())
+  id              String    @id @default(cuid())
+  studentId       String
+  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId      String
+  questionSummary String    @default("") // 題目摘要（來自 questionPrompt）
+  studentAnswer   String
+  correctAnswer   String
+  mistakeType     String    // grammar | vocabulary | comprehension | careless | time-management | chinglish
+  aiExplanation   String?
+  reviewed        Boolean   @default(false)
+  inReviewList    Boolean   @default(false)
+  nextReviewDate  DateTime? // SRS: 下次複習日期
+  reviewInterval  Int       @default(0)  // SRS: 複習間隔天數
+  easeFactor      Float     @default(2.5) // SRS: 簡化 EF
+  lastReviewedAt  DateTime? // SRS: 上次複習時間
+  createdAt       DateTime  @default(now())
 
   @@index([studentId])
 }

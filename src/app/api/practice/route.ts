@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
               data: {
                 studentId,
                 questionId: qId,
+                questionSummary: (a as { questionPrompt?: string }).questionPrompt || '',
                 studentAnswer: a.studentAnswer || '',
                 correctAnswer: a.correctAnswer || '',
                 mistakeType: 'grammar',

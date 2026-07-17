@@ -329,11 +329,11 @@ export interface MistakeItem {
   id: string;
   questionId: string;
   questionSummary: string;
-  strand: CurriculumStrand;
+  strand?: CurriculumStrand;
   grammarItem?: GrammarItem;
   languageSkill?: LanguageSkill;
-  subSkill: string;
-  subSkillZh: string;
+  subSkill?: string;
+  subSkillZh?: string;
   mistakeType: MistakeType;
   studentAnswer: string;
   correctAnswer: string;

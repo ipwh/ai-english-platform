@@ -67,7 +67,13 @@ export async function GET(request: NextRequest) {
       take: 100,
     });
 
-    return NextResponse.json({ mistakes });
+    // Map DB fields to frontend MistakeItem shape
+    const mapped = mistakes.map((m) => ({
+      ...m,
+      date: m.createdAt.toISOString(),
+    }));
+
+    return NextResponse.json({ mistakes: mapped });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     console.error('[Mistakes GET]', message);
