@@ -90,6 +90,7 @@ export default function SpellingPractice({
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickedIds, setPickedIds] = useState<Set<string>>(new Set());
   const [pickerError, setPickerError] = useState('');
+  const pickerFetchedRef = useRef(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -114,7 +115,7 @@ export default function SpellingPractice({
       const res = await fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}&limit=200`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const items = (data.items || data.vocabulary || []).map((v: Record<string, unknown>) => ({
+      const items = (data.vocab || data.items || data.vocabulary || []).map((v: Record<string, unknown>) => ({
         vocabId: String(v.id || ''),
         word: String(v.word || ''),
         meaningZh: String(v.meaningZh || ''),
@@ -131,10 +132,14 @@ export default function SpellingPractice({
 
   // Load vocab when entering pick mode
   useEffect(() => {
-    if (mode === 'pick' && pickerWords.length === 0 && !pickerLoading) {
+    if (mode === 'pick' && !pickerFetchedRef.current && !pickerLoading) {
+      pickerFetchedRef.current = true;
       fetchVocabForPicker();
     }
-  }, [mode, pickerWords.length, pickerLoading, fetchVocabForPicker]);
+    if (mode !== 'pick') {
+      pickerFetchedRef.current = false;
+    }
+  }, [mode, pickerLoading, fetchVocabForPicker]);
 
   // ============================================
   // Generate words
