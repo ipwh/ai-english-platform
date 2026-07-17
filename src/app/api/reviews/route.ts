@@ -58,14 +58,14 @@ export async function GET(request: NextRequest) {
       let studentAnswer = '';
       let correctAnswer = '';
       let questionType = 'mc';
-      const questions = (s.assignment as any)?.questions || [];
+      const questions = (s.assignment as Record<string, unknown>)?.questions as Array<{ id?: string; prompt?: string; answer?: string; questionType?: string }> || [];
       try {
-        const answers = JSON.parse((s as any).answers || '{}');
+        const answers = JSON.parse((s as Record<string, unknown>).answers as string || '{}');
         const qIds = Object.keys(answers);
         if (qIds.length > 0) {
           const firstQId = qIds[0];
           studentAnswer = answers[firstQId] || '';
-          const matchedQ = questions.find((q: any) => q.id === firstQId);
+          const matchedQ = questions.find((q) => q.id === firstQId);
           if (matchedQ) {
             questionPrompt = matchedQ.prompt || '';
             correctAnswer = matchedQ.answer || '';

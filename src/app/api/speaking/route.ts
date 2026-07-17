@@ -8,6 +8,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/lib/api-auth';
 import { callLLM } from '@/lib/ai-service';
+import { checkRateLimit } from '@/lib/rate-limiter';
+
+const SPEAKING_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
+
+/** Safe JSON parse — strips markdown fences and retries on failure */
+function safeJsonParse(raw: string, context: string): Record<string, unknown> {
+  try { return JSON.parse(raw); } catch { /* try stripping markdown fences */ }
+  const stripped = raw.replace(/```json\s*|```\s*/g, '').trim();
+  try { return JSON.parse(stripped); } catch {
+    throw new Error(`AI returned invalid JSON for ${context}`);
+  }
+}
 
 // HKDSE Speaking Level Descriptors (simplified for prompt)
 const SPEAKING_RUBRIC = `
@@ -23,6 +35,16 @@ export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
+  // Rate limiting
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimit = await checkRateLimit({ ...SPEAKING_RATE_LIMIT, identifier: `speaking:${ip}` });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: rateLimit.message }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+    });
   }
 
   try {
@@ -56,7 +78,7 @@ Return a JSON object:
         { role: 'user', content: `Generate a DSE Speaking mock question for ${gradeLevel || 'S4'} students. Topic area: ${topic || 'general'}.` },
       ], { temperature: 0.8, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 });
 
-      const parsed = JSON.parse(prompt);
+      const parsed = safeJsonParse(prompt, 'mock prompt generation');
       return NextResponse.json({ mockQuestion: parsed });
     }
 
@@ -96,7 +118,7 @@ Return a JSON object:
       { role: 'user', content: `Analyze this student speaking transcript from a DSE ${gradeLevel || 'S4'} student on the topic "${topic || 'general'}":\n\n${transcript}` },
     ], { temperature: 0.3, maxTokens: 2048, jsonMode: true, timeoutMs: 15000 });
 
-    const parsed = JSON.parse(analysis);
+    const parsed = safeJsonParse(analysis, 'transcript analysis');
     return NextResponse.json({ analysis: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';

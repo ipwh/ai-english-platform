@@ -7,9 +7,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyApiAuth } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { generateQuestions } from '@/lib/ai-service';
 import { calculateXp } from '@/lib/gamification';
 import { syncUserStreak } from '@/lib/streak-service';
+
+const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
 
 // 每日挑戰題型輪換
 const QUESTION_TYPES = ['mc', 'fill-blank', 'error-correction'] as const;
@@ -49,6 +52,16 @@ export async function GET(request: NextRequest) {
 
   if (!studentId) {
     return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+  }
+
+  // Rate limiting
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimit = await checkRateLimit({ ...DAILY_CHALLENGE_RATE, identifier: `daily:${ip}` });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: rateLimit.message }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+    });
   }
 
   try {
