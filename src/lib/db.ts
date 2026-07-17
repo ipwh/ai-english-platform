@@ -71,6 +71,10 @@ export const db = globalForPrisma.prisma ?? createPrismaClient();
 // 所有環境都 cache，避免 serverless 每次調用重建 Pool
 globalForPrisma.prisma = db;
 
+// Default export for consumers that prefer `import db from '@/lib/db'`
+// Named export `import { db } from '@/lib/db'` is also valid
+export default db;
+
 // ---- 大量匯入專用 DB 客戶端（較大連線池，避免逾時）----
 let bulkDbCache: PrismaClient | null = null;
 

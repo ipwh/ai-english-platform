@@ -14,9 +14,7 @@ import {
   MaterialAnalysisSchema,
   validateAIResponse,
 } from './ai-schema';
-import { GoogleAuth } from 'google-auth-library';
-import fs from 'node:fs';
-import path from 'node:path';
+import { hasServiceAccountSource, getGoogleAuth } from '@/lib/gcp-auth';
 
 // ============================================
 // DSE RAG 整合 (Feature Flag: DSE_RAG_ENABLED)
@@ -171,38 +169,11 @@ interface GeminiResponse {
   };
 }
 
-let vertexAuth: GoogleAuth | null = null;
+let vertexAuth: ReturnType<typeof getGoogleAuth> | null = null;
 
-function hasServiceAccountSource(): boolean {
-  if (process.env.GCP_SERVICE_ACCOUNT_JSON) return true;
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return true;
-  const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-  return fs.existsSync(localCredPath);
-}
-
-function getVertexAuth(): GoogleAuth {
+function getVertexAuth() {
   if (vertexAuth) return vertexAuth;
-
-  const options: ConstructorParameters<typeof GoogleAuth>[0] = {
-    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-  };
-
-  if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
-    options.credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    if (!fs.existsSync(credPath)) {
-      throw new Error(`GOOGLE_APPLICATION_CREDENTIALS 指向的憑證檔案不存在：${credPath}`);
-    }
-    options.keyFile = credPath;
-  } else {
-    const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-    if (fs.existsSync(localCredPath)) {
-      options.keyFile = localCredPath;
-    }
-  }
-
-  vertexAuth = new GoogleAuth(options);
+  vertexAuth = getGoogleAuth();
   return vertexAuth;
 }
 

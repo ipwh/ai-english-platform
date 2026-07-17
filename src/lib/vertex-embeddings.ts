@@ -4,22 +4,9 @@
 // 設定統一從 config.ts 讀取
 // ============================================
 
-import { GoogleAuth } from 'google-auth-library';
+import { getGoogleAuth } from '@/lib/gcp-auth';
 import { config } from '@/lib/config';
-import path from 'node:path';
-import fs from 'node:fs';
 
-function resolveServiceAccountKey(): string | undefined {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    return process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  }
-  // 本地開發：自動尋找 materials/ 下的 service account JSON
-  const localPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-  if (fs.existsSync(localPath)) return localPath;
-  return undefined;
-}
-
-const SERVICE_ACCOUNT_KEY = resolveServiceAccountKey();
 const PROJECT_ID = config.vertex.projectId;
 const LOCATION = config.vertex.embeddingsLocation;
 const MODEL = config.vertex.embeddingsModel;
@@ -28,20 +15,14 @@ interface EmbeddingResponse {
   predictions: { embeddings: { values: number[] } }[];
 }
 
-let auth: GoogleAuth | null = null;
+let auth: ReturnType<typeof getGoogleAuth> | null = null;
 
-function getAuth(): GoogleAuth {
+function getAuth() {
   if (!auth) {
-    if (!SERVICE_ACCOUNT_KEY) {
-      throw new Error('Vertex AI Embeddings 未設定憑證。請設定 GOOGLE_APPLICATION_CREDENTIALS 環境變數，或將 gcp-service-account.json 放在 materials/ 目錄。');
-    }
     if (!PROJECT_ID) {
       throw new Error('Vertex AI Embeddings 未設定 GCP_PROJECT_ID。');
     }
-    auth = new GoogleAuth({
-      keyFile: SERVICE_ACCOUNT_KEY,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
+    auth = getGoogleAuth();
   }
   return auth;
 }

@@ -4,57 +4,26 @@
 // ============================================
 
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
-import { GoogleAuth } from 'google-auth-library';
-import fs from 'node:fs';
-import path from 'node:path';
+import { loadServiceAccountCredentials } from '@/lib/gcp-auth';
 
 // ============================================
-// Credential / Client 管理（與 ai-service.ts 共用模式）
+// Credential / Client 管理
 // ============================================
 
 let ttsClient: TextToSpeechClient | null = null;
 
-function getServiceAccountCredentials(): object | null {
-  // 優先級：1. env var JSON  2. env var file path  3. local file
-  if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
-    return JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
-  }
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    if (!fs.existsSync(credPath)) return null;
-    return JSON.parse(fs.readFileSync(credPath, 'utf-8'));
-  }
-  const localPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-  if (fs.existsSync(localPath)) {
-    return JSON.parse(fs.readFileSync(localPath, 'utf-8'));
-  }
-  return null;
-}
-
-function getTTSScopes(): string[] {
-  return ['https://www.googleapis.com/auth/cloud-platform'];
-}
-
 export async function getTTSClient(): Promise<TextToSpeechClient | null> {
   if (ttsClient) return ttsClient;
 
-  const credentials = getServiceAccountCredentials();
+  const credentials = loadServiceAccountCredentials();
   if (!credentials) {
     console.warn('[TTS] No GCP service account found. Cloud TTS unavailable.');
     return null;
   }
 
   try {
-    // 使用 GoogleAuth 取得 access token，然後傳給 TTS client
-    const auth = new GoogleAuth({
-      credentials,
-      scopes: getTTSScopes(),
-    });
-
-    // GoogleAuth 與 TextToSpeechClient 的 auth 型別不完全相容（Google 庫已知問題）
-     
     ttsClient = new TextToSpeechClient({
-      auth: auth as any,
+      credentials,
       projectId: (credentials as Record<string, unknown>).project_id as string,
     });
 

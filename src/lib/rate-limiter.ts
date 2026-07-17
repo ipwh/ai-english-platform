@@ -14,6 +14,7 @@
 // ============================================
 
 import { logger } from '@/lib/logger';
+import { getKvClient, getKvBackend } from '@/lib/vercel-kv';
 
 interface RateLimitEntry {
   count: number;
@@ -21,41 +22,7 @@ interface RateLimitEntry {
 }
 
 const store = new Map<string, RateLimitEntry>();
-let kvClient: { get: (k: string) => Promise<string | null>; set: (k: string, v: string, opts: { ex: number }) => Promise<void> } | null = null;
-let kvInitAttempted = false;
 let activeBackend: 'kv' | 'memory' = 'memory';
-
-/** 嘗試初始化 Vercel KV — 需 `@vercel/kv` 已安裝且 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 已設定 */
-async function getKvClient() {
-  if (kvClient) return kvClient;
-  if (kvInitAttempted) return null;
-  kvInitAttempted = true;
-
-  const kvUrl = process.env.VERCEL_KV_URL;
-  const kvToken = process.env.VERCEL_KV_TOKEN;
-
-  if (kvUrl && kvToken) {
-    try {
-      // Dynamic import — @vercel/kv is an optional dependency
-       
-      // @ts-expect-error — @vercel/kv may not be installed
-      const mod = await import('@vercel/kv');
-      if (mod?.kv) {
-        kvClient = mod.kv;
-        activeBackend = 'kv';
-        logger.info({ module: 'rate-limiter', backend: 'Vercel KV' }, 'Rate limiter using distributed backend');
-        return kvClient;
-      }
-    } catch {
-      logger.warn({ module: 'rate-limiter' }, '@vercel/kv not installed — falling back to in-memory rate limiter');
-    }
-  } else {
-    if (process.env.NODE_ENV === 'production') {
-      logger.warn({ module: 'rate-limiter' }, 'VERCEL_KV_URL/VERCEL_KV_TOKEN not set — using in-memory rate limiter (per-instance, not global)');
-    }
-  }
-  return null;
-}
 
 /** 取得當前使用的 backend（用於 monitoring） */
 export function getRateLimitBackend(): 'kv' | 'memory' {

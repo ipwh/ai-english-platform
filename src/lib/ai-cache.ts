@@ -17,6 +17,7 @@
 // ============================================
 
 import { logger } from '@/lib/logger';
+import { getKvClient } from '@/lib/vercel-kv';
 
 interface CacheEntry {
   value: string;
@@ -24,25 +25,6 @@ interface CacheEntry {
 }
 
 const inMemoryStore = new Map<string, CacheEntry>();
-
-let kvClient: { get: (k: string) => Promise<string | null>; set: (k: string, v: string, opts: { ex: number }) => Promise<void> } | null = null;
-
-async function getKvClient() {
-  if (kvClient) return kvClient;
-  if (process.env.VERCEL_KV_URL) {
-    try {
-      // Dynamic import — @vercel/kv is an optional dependency
-      // @ts-expect-error — @vercel/kv may not be installed
-      const mod = await import('@vercel/kv');
-      if (mod?.kv) {
-        kvClient = mod.kv;
-        logger.info({ module: 'ai-cache' }, 'Using Vercel KV backend');
-        return kvClient;
-      }
-    } catch { /* @vercel/kv not installed */ }
-  }
-  return null;
-}
 
 function isEnabled(): boolean {
   const env = process.env.AI_CACHE_ENABLED;
