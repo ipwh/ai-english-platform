@@ -1,11 +1,12 @@
 // ============================================
 // POST /api/admin/ensure-admin — 確保管理員帳號存在
 // ⚠️ 僅供開發/初始化使用，生產環境自動禁用
+// 密碼由環境變數 ADMIN_INIT_PASSWORD 提供，無設定時不允許建立
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { simpleHash } from '@/lib/crypto';
+import { hashPasswordSync } from '@/lib/crypto';
 
 export async function GET() {
   return POST();
@@ -17,9 +18,16 @@ export async function POST(_request?: NextRequest) {
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }
 
+  // 🔒 Password must be provided via environment variable — no hardcoded default
+  const adminPassword = process.env.ADMIN_INIT_PASSWORD;
+  if (!adminPassword || adminPassword.length < 8) {
+    return NextResponse.json({
+      error: 'ADMIN_INIT_PASSWORD environment variable must be set (min 8 characters)',
+    }, { status: 400 });
+  }
+
   try {
     const adminEmail = 'ipwh@pochiu.edu.hk';
-    const adminPassword = 'admin123';
 
     const existing = await db.user.findUnique({
       where: { email: adminEmail },
@@ -27,18 +35,18 @@ export async function POST(_request?: NextRequest) {
     });
 
     if (existing) {
-      // 確保 role 為 admin，並補設定密碼（若之前是 Google OAuth 建立則無密碼）
+      // 確保 role 為 admin，並更新密碼
       await db.user.update({
         where: { email: adminEmail },
         data: {
           role: 'admin',
-          passwordHash: simpleHash(adminPassword),
+          passwordHash: hashPasswordSync(adminPassword),
         },
       });
       return NextResponse.json({
         message: '管理員帳號已存在，role 及密碼已更新',
         email: adminEmail,
-        password: adminPassword,
+        // 不回傳密碼明文
       });
     }
 
@@ -46,7 +54,7 @@ export async function POST(_request?: NextRequest) {
     await db.user.create({
       data: {
         email: adminEmail,
-        passwordHash: simpleHash(adminPassword),
+        passwordHash: hashPasswordSync(adminPassword),
         name: 'Admin',
         nameEn: 'System Admin',
         role: 'admin',
@@ -57,8 +65,7 @@ export async function POST(_request?: NextRequest) {
     return NextResponse.json({
       message: '管理員帳號已建立',
       email: adminEmail,
-      password: adminPassword,
-      loginMethod: '使用上述 email 和 password 在登入頁面以密碼登入，或使用 Google OAuth 登入',
+      // 不回傳密碼明文
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';

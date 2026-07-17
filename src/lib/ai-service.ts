@@ -240,8 +240,8 @@ async function callDeepSeek(
       signal: controller.signal,    });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`AI 服務錯誤 (${res.status})`);
+      const errText = await res.text();
+      throw new Error(`AI 服務錯誤 (${res.status}): ${errText.slice(0, 200)}`);
     }
 
     const data: DeepSeekResponse = await res.json();
@@ -1656,7 +1656,7 @@ ${STRICT_ANSWER_RULES}
     
     if (!needsRetry || attempt >= MAX_RETRIES - 1) {
       if (actualCount < count && attempt > 0) {
-        console.warn(`[ai-service] After ${attempt + 1} attempts, got ${actualCount}/${count} questions — returning best effort`);
+        console.warn(`[ai-service] After ${attempt + 1} attempts, got ${actualCount}/${count} questions — returning best effort. Last error: ${lastError || 'none'}`);
       }
       // DSE topic validation (informational only)
       const skillForValidation: 'writing' | 'reading' | 'listening' =

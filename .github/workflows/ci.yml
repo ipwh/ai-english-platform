@@ -56,4 +56,4 @@ jobs:
         run: npm test -- --run
 
       - name: Lint check
-        run: npx eslint . --max-warnings 250
+        run: npx eslint . --max-warnings 225
