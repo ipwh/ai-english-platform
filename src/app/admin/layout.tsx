@@ -68,7 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { isLoggedIn, currentRole, initSession, userDisplayName, logout, toggleLanguage, language } = useAppStore();
   const { t } = useT();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -94,29 +94,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
-          sidebarOpen ? 'w-64' : 'w-20'
-        }`}
+        className={`fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${sidebarOpen ? 'w-64' : 'lg:w-20'}
+        `}
       >
         {/* Logo */}
         <div
           className={`flex items-center gap-3 px-4 py-5 border-b border-gray-100 dark:border-gray-700 ${
-            !sidebarOpen && 'justify-center'
+            !sidebarOpen && 'lg:justify-center'
           }`}
         >
           <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
             A
           </div>
-          {sidebarOpen && (
-            <div>
-              <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                AI English Platform
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin.layout.title')}</p>
-            </div>
-          )}
+          <div className={`${!sidebarOpen ? 'hidden' : 'block'}`}>
+            <p className="font-semibold text-gray-900 dark:text-white text-sm">
+              AI English Platform
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin.layout.title')}</p>
+          </div>
+          {/* Close button — mobile only */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-auto p-1 text-gray-400 hover:text-gray-600 rounded-lg lg:hidden"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -128,15 +142,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setSidebarOpen(false)} // close sidebar on mobile after navigation
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                } ${!sidebarOpen && 'justify-center'}`}
+                } ${!sidebarOpen && 'lg:justify-center'}`}
                 title={!sidebarOpen ? label : undefined}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span>{label}</span>}
+                <span className={`${!sidebarOpen && 'lg:hidden'}`}>{label}</span>
               </Link>
             );
           })}
@@ -145,35 +160,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* User info & logout */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-700">
           <div
-            className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}
+            className={`flex items-center gap-3 ${!sidebarOpen && 'lg:justify-center'}`}
           >
             <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-purple-700 dark:text-purple-300 font-medium text-sm">
               {userDisplayName?.charAt(0) || 'A'}
             </div>
-            {sidebarOpen && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {userDisplayName || 'Admin'}
-                </p>
-              </div>
-            )}
-            {sidebarOpen && (
-              <button
-                onClick={() => logout().then(() => router.push('/login'))}
-                className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                title={t('profile.logout')}
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            )}
+            <div className={`flex-1 min-w-0 ${!sidebarOpen && 'lg:hidden'}`}>
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {userDisplayName || 'Admin'}
+              </p>
+            </div>
+            <button
+              onClick={() => logout().then(() => router.push('/login'))}
+              className={`p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${!sidebarOpen && 'lg:hidden'}`}
+              title={t('profile.logout')}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>
 
       {/* Main content */}
       <div
-        className={`transition-all duration-300 ${
-          sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+        className={`transition-all duration-300 lg:ml-20 ${
+          sidebarOpen ? 'lg:ml-64' : ''
         }`}
       >
         {/* Top bar */}
