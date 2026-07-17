@@ -1129,7 +1129,7 @@ ${getDSEEmpiricalTopics('reading', undefined, 5).map(t => `  • ${t}`).join('\n
 ` : ''}${isWriting ? `Writing reference topics (from real DSE Paper 2 past papers):
 ${getDSEEmpiricalTopics('writing', undefined, 5).map(t => `  • ${t}`).join('\n')}
 ` : ''}${isSpeaking ? `Speaking reference topics (from real DSE Paper 4 past papers):
-${getDSEEmpiricalTopics('speaking', undefined, 3).map(t => `  • ${t}`).join('\n')}
+${getDSEEmpiricalTopics('listening', undefined, 3).map(t => `  • ${t}`).join('\n')}
 ` : ''}${!isListening && !isReading && !isWriting && !isSpeaking ? `Reference topics (from real DSE past papers):
 ${getDSEEmpiricalTopics('writing', undefined, 3).map(t => `  • ${t}`).join('\n')}
 ` : ''}
