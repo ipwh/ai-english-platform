@@ -18,11 +18,14 @@ function run(cmd, label) {
   try {
     execSync(cmd, { stdio: 'inherit', cwd: process.cwd() });
     console.log(`✅ ${label} done`);
-    return { ok: true, error: null };
+    return { ok: true, output: '' };
   } catch (err) {
-    const msg = err.message?.slice(0, 300) || '';
-    console.error(`❌ ${label} failed:`, msg);
-    return { ok: false, error: msg };
+    // execSync throws on non-zero exit — the actual error text is in stderr/stdout
+    const stderr = err.stderr?.toString() || '';
+    const stdout = err.stdout?.toString() || '';
+    const combined = stderr + stdout + (err.message || '');
+    console.error(`❌ ${label} failed`);
+    return { ok: false, output: combined };
   }
 }
 
@@ -40,27 +43,30 @@ const migrateResult = run('npx prisma migrate deploy', 'prisma migrate deploy');
 if (migrateResult.ok) {
   console.log('✅  Schema deployed via prisma migrate deploy');
 } else {
-  const isP3005 = migrateResult.error?.includes('P3005');
-  const isNoMigration = migrateResult.error?.includes('No migration found');
+  const output = migrateResult.output;
+  const isMissingMigration =
+    output.includes('P3005') ||
+    output.includes('No migration found') ||
+    output.includes('not empty');
 
-  if (isP3005 || isNoMigration) {
-    // DB already has schema but no migration history yet.
+  if (isMissingMigration) {
+    // DB already has schema but no migration history yet (project was using db push).
     // Fallback to db push until baseline migration is created.
-    console.warn('⚠️  No migration history found (P3005).');
-    console.warn('   This is expected if the project was previously using prisma db push.');
+    console.warn('⚠️  No migration history found — project was previously using prisma db push.');
     console.warn('   Falling back to prisma db push for this deployment.');
-    console.warn('   To migrate: create a baseline migration with `npx prisma migrate diff`.');
-    const pushOk = run('npx prisma db push', 'prisma db push (fallback)').ok;
-    if (!pushOk && isProd) {
+    console.warn('   To migrate: run `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql`');
+    const pushResult = run('npx prisma db push', 'prisma db push (fallback)');
+    if (!pushResult.ok && isProd) {
       console.error('❌  Production requires a working DB connection. Aborting build.');
       process.exit(1);
     }
   } else if (isProd) {
-    // Real error in production — abort
-    console.error('❌  Production requires successful prisma migrate deploy. Aborting build.');
+    // Real error in production (not a missing-migration issue) — abort
+    console.error('❌  prisma migrate deploy failed in production. Aborting build.');
+    console.error('   Error:', output.slice(0, 500));
     process.exit(1);
   } else {
-    // Dev fallback
+    // Dev: just warn and try db push
     console.warn('⚠️  prisma migrate deploy failed — falling back to prisma db push for local dev.');
     run('npx prisma db push', 'prisma db push (dev fallback)');
   }
