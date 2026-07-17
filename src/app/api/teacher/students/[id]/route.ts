@@ -7,16 +7,20 @@ import db from '@/lib/db';
 import { verifySessionToken } from '@/lib/jwt';
 import { auth } from '@/lib/auth-next';
 
-async function getTeacherId(request: NextRequest): Promise<string | null> {
+async function getTeacherAuth(request: NextRequest): Promise<{ userId: string; isAdmin: boolean } | null> {
   const token = request.cookies.get('session_token')?.value;
   if (token) {
     const payload = await verifySessionToken(token);
-    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) return payload.userId;
+    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) {
+      return { userId: payload.userId, isAdmin: payload.role === 'admin' };
+    }
   }
   const session = await auth();
   if (session?.user?.id) {
     const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
-    if (user && (user.role === 'teacher' || user.role === 'admin')) return session.user.id;
+    if (user && (user.role === 'teacher' || user.role === 'admin')) {
+      return { userId: session.user.id, isAdmin: user.role === 'admin' };
+    }
   }
   return null;
 }
@@ -26,8 +30,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
+    const teacherAuth = await getTeacherAuth(request);
+    if (!teacherAuth) {
       return NextResponse.json({ error: '請先登入教師帳號' }, { status: 403 });
     }
 
@@ -43,12 +47,28 @@ export async function GET(
         id: true, email: true, nameZh: true, nameEn: true,
         level: true, overallAccuracy: true, classNumber: true,
         xp: true, badgeIds: true, streakDays: true, academicYear: true,
+        classId: true,
         class: { select: { id: true, name: true, gradeLevel: true } },
       },
     });
 
     if (!student) {
       return NextResponse.json({ error: '找不到學生' }, { status: 404 });
+    }
+
+    // 🔒 Class-level authorization: non-admin teachers can only view students in their own classes
+    if (!teacherAuth.isAdmin && student.classId) {
+      const teachingRelation = await db.teacherClass.findUnique({
+        where: {
+          teacherId_classId: {
+            teacherId: teacherAuth.userId,
+            classId: student.classId,
+          },
+        },
+      });
+      if (!teachingRelation) {
+        return NextResponse.json({ error: '無權限查看此學生：不屬於您任教的班級' }, { status: 403 });
+      }
     }
 
     // 並行載入所有關聯數據

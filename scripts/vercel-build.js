@@ -1,7 +1,8 @@
 // ============================================
 // Vercel Build Script
-// 取代 "prisma generate && prisma db push && next build"
-// prisma db push 在 DB 無法連線時不中斷 build（Vercel serverless 環境可正常連線）
+// 取代 "prisma generate && prisma migrate deploy && next build"
+// 使用 migrate deploy 而非 db push，確保生產環境 schema 變更可審計且不會遺失資料
+// 本地開發仍可使用 prisma db push 快速迭代
 // ============================================
 
 const { execSync } = require('node:child_process');
@@ -23,12 +24,18 @@ if (!run('npx prisma generate', 'prisma generate')) {
   process.exit(1);
 }
 
-// Step 2: Push schema to DB (非致命：Vercel 環境可正常連線 Neon)
-// P1001 = Can't reach database server（本地開發常見，Vercel 環境不會發生）
-const pushOk = run('npx prisma db push', 'prisma db push');
-if (!pushOk) {
-  console.warn('⚠️  prisma db push failed — DB may be unreachable locally.');
-  console.warn('   This is OK for local testing. On Vercel, the build will connect to Neon successfully.');
+// Step 2: Deploy migrations to DB
+// 使用 migrate deploy（而非 db push）以確保生產環境 schema 變更可追蹤
+// 若 DB 無法連線（如本地開發），不中斷 build
+const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+const migrateOk = run('npx prisma migrate deploy', 'prisma migrate deploy');
+if (!migrateOk) {
+  if (isProd) {
+    console.error('❌  Production requires successful prisma migrate deploy. Aborting build.');
+    process.exit(1);
+  }
+  console.warn('⚠️  prisma migrate deploy failed — DB may be unreachable locally.');
+  console.warn('   This is OK for local testing.');
 }
 
 // Step 3: Build Next.js (必須成功)

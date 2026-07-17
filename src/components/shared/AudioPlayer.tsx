@@ -254,6 +254,8 @@ export default function AudioPlayer({
   useCloudTTS = false,
   onPrefetchReady,
 }: AudioPlayerProps) {
+  // Track client-side mount to avoid conditional hooks (SSR safety)
+  const [isClient, setIsClient] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -291,6 +293,9 @@ export default function AudioPlayer({
     default: SpeechSynthesisVoice | null;
     sameVoice: boolean;
   } | null>(null);
+
+  // Mark as client-side mounted (SSR-safe: ensures all hooks run in same order)
+  useEffect(() => { setIsClient(true); }, []);
 
   // ============================================
   // 統一 Cleanup Helper — 停止所有播放來源
@@ -437,11 +442,10 @@ export default function AudioPlayer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speed]);
 
-  if (typeof window === 'undefined') {
-    return <span className="text-xs text-gray-400">TTS</span>;
-  }
-
-  const synth = window.speechSynthesis;
+  // ============================================
+  // All hooks must be declared BEFORE any conditional return
+  // to comply with React Rules of Hooks
+  // ============================================
 
   const handleStop = useCallback(() => {
     cleanupAllPlayback();
@@ -574,6 +578,129 @@ export default function AudioPlayer({
       onPrefetchReady(prefetchAudio);
     }
   }, [onPrefetchReady, prefetchAudio]);
+
+  // ============================================
+  // Web Speech API 播放（必須在 playCloudTTS 之前定義，因為 playCloudTTS fallback 會用到）
+  // ============================================
+  const handlePlayWebSpeech = useCallback(() => {
+    // Access speechSynthesis dynamically (not via closure over `synth` const)
+    // so this hook can be declared before the SSR guard
+    const speechSynth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+    if (!text) return;
+
+    if (playing) {
+      cleanupAllPlayback();
+      return;
+    }
+
+    if (!speechSynth) {
+      setLoading(false);
+      return;
+    }
+
+    // 開始新播放 session：先完整清理，再初始化
+    cleanupAllPlayback();
+    setFallbackMode(true);
+    setShowFallbackBanner(true);
+    const currentSessionId = ++sessionIdRef.current;
+    setLoading(true);
+    cancelled.current = false; // ← reset cancelled flag for new session
+
+    const cjkCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    const lang: 'en' | 'zh' = cjkCount / Math.max(text.length, 1) > 0.3 ? 'zh' : 'en';
+
+    const dialogue = parseDialogue(text);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AudioPlayer] WebSpeech session', currentSessionId, {
+        lang,
+        lines: dialogue.length,
+        speakers: [...new Set(dialogue.filter(d => d.speaker).map(d => d.speaker))],
+      });
+    }
+
+    const trySpeak = () => {
+      if (sessionIdRef.current !== currentSessionId || cancelled.current) return;
+
+      const voices = speechSynth.getVoices();
+      if (voices.length === 0) {
+        setTimeout(trySpeak, 150);
+        return;
+      }
+
+      if (!voicesRef.current) {
+        const female = pickVoice(voices, lang, 'female');
+        const male = pickVoice(voices, lang, 'male');
+        voicesRef.current = {
+          female, male,
+          default: pickVoice(voices, lang, 'any'),
+          sameVoice: !!(female && male && female.name === male.name),
+        };
+      }
+      const { female: femaleVoice, male: maleVoice, default: defaultVoice, sameVoice } = voicesRef.current;
+
+      const map = new Map<string, SpeechSynthesisVoice | null>();
+      map.set('woman', femaleVoice);
+      map.set('girl', femaleVoice);
+      map.set('man', maleVoice);
+      map.set('boy', maleVoice);
+
+      let idx = 0;
+
+      const speakNext = () => {
+        if (sessionIdRef.current !== currentSessionId || cancelled.current) {
+          setPlaying(false);
+          setLoading(false);
+          return;
+        }
+
+        while (idx < dialogue.length && !dialogue[idx].text.trim()) idx++;
+
+        if (idx >= dialogue.length) {
+          setPlaying(false);
+          setLoading(false);
+          if (sessionIdRef.current === currentSessionId) {
+            onPlayEnd?.();
+          }
+          return;
+        }
+
+        const line = dialogue[idx];
+        const utterance = new SpeechSynthesisUtterance(line.text);
+        utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+        utterance.rate = speed;
+
+        if (line.speaker) {
+          const voice = map.get(line.speaker);
+          if (voice) {
+            utterance.voice = voice;
+          } else if (defaultVoice) {
+            utterance.voice = defaultVoice;
+            utterance.pitch = getSpeakerPitch(line.speaker);
+          }
+        } else if (defaultVoice) {
+          utterance.voice = defaultVoice;
+        }
+
+        if (sameVoice && line.speaker && !utterance.pitch) {
+          utterance.pitch = getSpeakerPitch(line.speaker);
+        }
+
+        utterance.onstart = () => { setLoading(false); setPlaying(true); onPlayStart?.(); startProgress(); };
+        utterance.onend = () => { idx++; setTimeout(speakNext, line.speaker ? 120 : 60); };
+        utterance.onerror = (e) => {
+          if (e.error === 'canceled' || e.error === 'interrupted') { setPlaying(false); setLoading(false); return; }
+          idx++;
+          setTimeout(speakNext, 100);
+        };
+
+        speechSynth.speak(utterance);
+      };
+
+      speakNext();
+    };
+
+    trySpeak();
+  }, [text, playing, onPlayEnd, speed, cleanupAllPlayback, estimateDuration, startProgress]);
 
   // ============================================
   // Google Cloud TTS 播放（v3.1: 預處理文字 + 重試 + 完整 cleanup + 防止疊聲）
@@ -766,144 +893,11 @@ export default function AudioPlayer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, speed, onPlayEnd]);
 
-  // ============================================
-  // Web Speech API 播放（原有邏輯）
-  // ============================================
-
-  const handlePlayWebSpeech = useCallback(() => {
-    if (!text) return;
-
-    if (playing) {
-      // Already playing → stop instead
-      cleanupAllPlayback();
-      return;
-    }
-
-    if (!synth) {
-      setLoading(false);
-      return;
-    }
-
-    // 開始新播放 session：先完整清理，再初始化
-    cleanupAllPlayback();
-    setFallbackMode(true); // Indicate browser TTS fallback
-    setShowFallbackBanner(true); // Show persistent notice
-    const currentSessionId = ++sessionIdRef.current;
-    setLoading(true);
-    cancelled.current = false;
-
-    const cjkCount = (text.match(/[\u4e00-\u9fff]/g) || []).length;
-    const lang: 'en' | 'zh' = cjkCount / Math.max(text.length, 1) > 0.3 ? 'zh' : 'en';
-
-    const dialogue = parseDialogue(text);
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[AudioPlayer] WebSpeech session', currentSessionId, {
-        lang,
-        lines: dialogue.length,
-        speakers: [...new Set(dialogue.filter(d => d.speaker).map(d => d.speaker))],
-      });
-    }
-
-    const trySpeak = () => {
-      // Guard: stale session or cancelled
-      if (sessionIdRef.current !== currentSessionId || cancelled.current) return;
-
-      const voices = synth.getVoices();
-      if (voices.length === 0) {
-        setTimeout(trySpeak, 150);
-        return;
-      }
-
-      // 使用快取的 voices；若 ref 尚未填充則立即挑選
-      if (!voicesRef.current) {
-        const female = pickVoice(voices, lang, 'female');
-        const male = pickVoice(voices, lang, 'male');
-        voicesRef.current = {
-          female, male,
-          default: pickVoice(voices, lang, 'any'),
-          sameVoice: !!(female && male && female.name === male.name),
-        };
-      }
-      const { female: femaleVoice, male: maleVoice, default: defaultVoice, sameVoice } = voicesRef.current;
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[AudioPlayer] Voice mapping:', {
-          female: femaleVoice?.name ?? 'none',
-          male: maleVoice?.name ?? 'none',
-          default: defaultVoice?.name ?? 'none',
-          sameVoice,
-          lang,
-        });
-      }
-
-      const map = new Map<string, SpeechSynthesisVoice | null>();
-      map.set('woman', femaleVoice);
-      map.set('girl', femaleVoice);
-      map.set('man', maleVoice);
-      map.set('boy', maleVoice);
-
-      let idx = 0;
-
-      const speakNext = () => {
-        // Guard: stale session, cancelled, or component gone
-        if (sessionIdRef.current !== currentSessionId || cancelled.current) {
-          setPlaying(false);
-          setLoading(false);
-          return;
-        }
-
-        while (idx < dialogue.length && !dialogue[idx].text.trim()) idx++;
-
-        if (idx >= dialogue.length) {
-          setPlaying(false);
-          setLoading(false);
-          // Only fire onPlayEnd if this is still the current session
-          if (sessionIdRef.current === currentSessionId) {
-            onPlayEnd?.();
-          }
-          return;
-        }
-
-        const line = dialogue[idx];
-        const utterance = new SpeechSynthesisUtterance(line.text);
-        utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
-        utterance.rate = speed;
-
-        // Voice selection: 用 speaker-specific voice，null 時 fallback 到 defaultVoice + pitch
-        if (line.speaker) {
-          const voice = map.get(line.speaker);
-          if (voice) {
-            utterance.voice = voice;
-          } else if (defaultVoice) {
-            // 找不到對應 voice 時用 default + pitch 模擬性別差異
-            utterance.voice = defaultVoice;
-            utterance.pitch = getSpeakerPitch(line.speaker);
-          }
-        } else if (defaultVoice) {
-          utterance.voice = defaultVoice;
-        }
-
-        // 若男女聲相同（sameVoice），用 pitch 補償
-        if (sameVoice && line.speaker && !utterance.pitch) {
-          utterance.pitch = getSpeakerPitch(line.speaker);
-        }
-
-        utterance.onstart = () => { setLoading(false); setPlaying(true); onPlayStart?.(); startProgress(); };
-        utterance.onend = () => { idx++; setTimeout(speakNext, line.speaker ? 120 : 60); };
-        utterance.onerror = (e) => {
-          if (e.error === 'canceled' || e.error === 'interrupted') { setPlaying(false); setLoading(false); return; }
-          idx++;
-          setTimeout(speakNext, 100);
-        };
-
-        synth.speak(utterance);
-      };
-
-      speakNext();
-    };
-
-    trySpeak();
-  }, [text, playing, synth, onPlayEnd, speed, cleanupAllPlayback]);
+  // SSR fallback: render placeholder until client-side mount
+  // ALL hooks are declared above; this guard only affects rendering, not hook count
+  if (!isClient) {
+    return <span className="text-xs text-gray-400">TTS</span>;
+  }
 
   const isBusy = loading || cloudFetching;
 

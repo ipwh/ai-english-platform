@@ -10,7 +10,7 @@ import { analyzeAnswer } from '@/lib/ai-service';
 import { notifySubmissionReceived } from '@/lib/notifications';
 
 // GET /api/assignments/[id]
-// ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）
+// ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）— 需教師/管理員身分
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,6 +18,18 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const isTeacher = searchParams.get('teacher') === 'true';
+
+  // 🔒 Teacher view requires authentication + teacher/admin role
+  if (isTeacher) {
+    const token = request.cookies.get('session_token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: '請先登入' }, { status: 401 });
+    }
+    const payload = await verifySessionToken(token);
+    if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
+      return NextResponse.json({ error: '權限不足：僅教師可查看此視圖' }, { status: 403 });
+    }
+  }
 
   try {
     const assignment = await db.assignment.findUnique({

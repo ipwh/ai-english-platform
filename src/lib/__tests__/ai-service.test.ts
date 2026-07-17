@@ -213,6 +213,7 @@ describe('AnswerAnalysisSchema', () => {
 describe('WritingAnalysisSchema', () => {
   const validWriting = {
     overallScore: 78,
+    dseLevel: 'Level 4',
     strengths: ['Good vocabulary', 'Clear structure'],
     weaknesses: ['Some grammar errors', 'Chinglish expressions'],
     grammarErrors: [{ original: 'He go', correction: 'He goes', explanation: 'Subject-verb agreement' }],

@@ -29,6 +29,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId, word 為必填' }, { status: 400 });
     }
 
+    // 🔒 Ownership: students can only create vocab for themselves
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能為自己的帳號新增單字' }, { status: 403 });
+    }
+
     // 自動去重：檢查是否已存在相同 word + studentId
     const existing = await db.vocabItem.findFirst({
       where: { word: word.trim(), studentId },
@@ -85,6 +90,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+
+    // 🔒 Ownership: students can only read their own vocabulary
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能查看自己的生字簿' }, { status: 403 });
+    }
 
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '50')));
