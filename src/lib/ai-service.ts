@@ -2154,6 +2154,12 @@ export interface AnalyzeAnswerInput {
   questionType: string;
   correctAnswer: string;
   studentAnswer: string;
+  /** MCQ 選項列表（含完整文字，用於 AI 分析時引用實際內容） */
+  choices?: string[];
+  /** 聆聽題的聆聽內容（對話/段落） */
+  listeningContent?: string;
+  /** 閱讀題的閱讀篇章 */
+  readingContent?: string;
   grammarItem?: string;
   grammarItemZh?: string;
   studentLevel?: string;
@@ -2242,6 +2248,19 @@ HKDSE 對齊規則：
 
   const studentWordCount = (input.studentAnswer.match(/[A-Za-z0-9][A-Za-z0-9'\-]*/g) || []).length;
 
+  // Build context: include choices with full text and listening/reading content
+  let contextBlock = '';
+  if (input.listeningContent) {
+    contextBlock += `\n【聆聽內容】\n${input.listeningContent.slice(0, 2000)}\n`;
+  }
+  if (input.readingContent) {
+    contextBlock += `\n【閱讀篇章】\n${input.readingContent.slice(0, 2000)}\n`;
+  }
+  if (input.choices && input.choices.length > 0) {
+    const choiceLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+    contextBlock += `\n【選項內容】\n${input.choices.map((c, i) => `${choiceLetters[i] || i + 1}. ${c}`).join('\n')}\n`;
+  }
+
   const userPrompt = `題目：${input.question}
 題型：${input.questionType}
 正確答案：${input.correctAnswer}
@@ -2249,6 +2268,8 @@ HKDSE 對齊規則：
 學生答案詞數（系統計算）：${studentWordCount}
 ${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
+${contextBlock}
+⚠️ CRITICAL: 你的解釋必須引用上述【聆聽內容】/【閱讀篇章】/【選項內容】中的實際文字，嚴禁編造不存在於上述內容中的資訊（如虛構的「漢堡」、「薯條」等）。若正確答案是字母（如 B），請對照【選項內容】找出對應的實際選項文字（如 "the grilled chicken salad"），並在解釋中使用該文字。
 
 請分析學生的答案。`;
 

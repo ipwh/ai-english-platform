@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { question, questionType, correctAnswer, studentAnswer, grammarItem, grammarItemZh, studentLevel } = body;
+    const { question, questionType, correctAnswer, studentAnswer, choices, listeningContent, readingContent, grammarItem, grammarItemZh, studentLevel } = body;
 
     if (!question || !correctAnswer || !studentAnswer) {
       return NextResponse.json(
@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
       questionType: questionType || 'mc',
       correctAnswer,
       studentAnswer,
+      choices: Array.isArray(choices) ? choices : undefined,
+      listeningContent: listeningContent || undefined,
+      readingContent: readingContent || undefined,
       grammarItem,
       grammarItemZh,
       studentLevel,
