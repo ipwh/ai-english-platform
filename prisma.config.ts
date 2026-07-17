@@ -37,7 +37,23 @@ function loadEnv() {
 
 loadEnv();
 
-const dbUrl = process.env.DATABASE_URL || `file:${process.cwd()}/prisma/dev.db`;
+const isProduction = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+
+// 生產環境必須設定 DATABASE_URL（透過 Vercel Environment Variables）
+// 開發環境若無 DATABASE_URL 則 fallback 到本地 SQLite
+let dbUrl: string;
+if (process.env.DATABASE_URL) {
+  dbUrl = process.env.DATABASE_URL;
+} else if (!isProduction) {
+  dbUrl = `file:${process.cwd()}/prisma/dev.db`;
+  console.warn('[prisma.config] DATABASE_URL not set — using local SQLite (dev only)');
+} else {
+  throw new Error(
+    '[prisma.config] 生產環境必須設定 DATABASE_URL 環境變數。\n' +
+    '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
+    '格式: postgresql://user:password@host:5432/database'
+  );
+}
 
 export default defineConfig({
   datasource: {
