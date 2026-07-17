@@ -36,20 +36,68 @@ import type { DSESkill } from './rag-service';
 /**
  * 移除文字中的個人識別資訊後再傳送給 AI API。
  * 香港 PDPO 合規要求：不可將學生真實姓名、身份證、電話、電郵等傳送給第三方 AI。
+ *
+ * 防護層級：
+ *   L1 — PII 移除（HKID、電話、電郵）
+ *   L2 — Prompt injection 過濾（角色扮演、系統指令覆蓋、分隔符注入）
+ *   L3 — 輸入長度截斷（防止 token exhaustion）
  */
-export function sanitizeForAI(text: string): string {
-  return text
+export function sanitizeForAI(text: string, maxLength = 15_000): string {
+  let cleaned = text;
+
+  // ============================
+  // L1: PII 移除（PDPO 合規）
+  // ============================
+  cleaned = cleaned
     // 香港身份證格式 A123456(7) 或 A1234567
     .replace(/[A-Za-z]\d{6}\(\d\)/g, '[HKID_REMOVED]')
     .replace(/[A-Za-z]\d{7}/g, '[HKID_REMOVED]')
     // 香港電話 8 位數字（避免誤判年份，要求前後為邊界）
     .replace(/(?<!\d)\d{8}(?!\d)/g, '[PHONE_REMOVED]')
     // 電郵地址
-    .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL_REMOVED]')
-    // Basic prompt injection guard — strip common injection patterns
-    .replace(/ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|directives?|prompts?)/gi, '[FILTERED]')
-    .replace(/(you\s+are\s+now|act\s+as|pretend\s+you\s+are|from\s+now\s+on\s+you\s+are)\s+(DAN|jailbreak|an?\s+unrestricted)/gi, '[FILTERED]')
-    .replace(/system\s*:\s*/gi, '')
+    .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL_REMOVED]');
+
+  // ============================
+  // L2: Prompt injection 防護
+  // ============================
+
+  // 2a. 指令覆蓋模式（ignore/forget/disregard prior instructions）
+  cleaned = cleaned
+    .replace(/ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|directives?|prompts?|rules?|constraints?|guidelines?)/gi, '[INJECTION_FILTERED]')
+    .replace(/(forget|disregard|override|overwrite|discard)\s+(all\s+)?(previous|prior|earlier)\s+(instructions?|directives?|prompts?|rules?)/gi, '[INJECTION_FILTERED]')
+    .replace(/you\s+are\s+(now\s+)?(a\s+)?(new|different)\s+(AI|assistant|model|system|bot)/gi, '[INJECTION_FILTERED]');
+
+  // 2b. 角色扮演越獄（DAN/jailbreak/role-play）
+  cleaned = cleaned
+    .replace(/(you\s+are\s+now|act\s+as|pretend\s+(that\s+)?you\s+are|from\s+now\s+on\s+you\s+(are|will\s+be)|imagine\s+you\s+are|roleplay\s+as)\s+(DAN|jailbreak|an?\s+unrestricted|a\s+different\s+(AI|model)|someone\s+else|another\s+(AI|assistant|entity))/gi, '[INJECTION_FILTERED]')
+    .replace(/\b(DAN|jailbreak|developer\s*mode|god\s*mode)\b/gi, '[INJECTION_FILTERED]');
+
+  // 2c. 分隔符注入（試圖用 markdown/code blocks 包裹惡意指令）
+  cleaned = cleaned
+    .replace(/```[\s\S]*?```/g, '[CODE_BLOCK_REMOVED]')
+    .replace(/<\|[\s\S]*?\|>/g, '[SPECIAL_TOKEN_REMOVED]');
+
+  // 2d. 系統提示覆蓋（system: / system prompt: / <system>）
+  cleaned = cleaned
+    .replace(/(?:\n|^)\s*system\s*[:：]\s*/gi, '\n[FILTERED] ')
+    .replace(/<system>[\s\S]*?<\/system>/gi, '[SYSTEM_TAG_REMOVED]')
+    .replace(/\[system\]/gi, '[FILTERED]')
+    .replace(/<\|system\|>/gi, '[FILTERED]');
+
+  // 2e. 常見越獄關鍵詞
+  cleaned = cleaned
+    .replace(/\b(repeat\s+(after\s+me|the\s+following|this|these\s+words)|say\s+(exactly|only|just)\s+["'])/gi, '[INJECTION_FILTERED]')
+    .replace(/\b(output\s+(your\s+)?(system\s+(prompt|message|instructions?)|initial\s+(prompt|instructions?)|hidden\s+(prompt|instructions?)))/gi, '[INJECTION_FILTERED]')
+    .replace(/\b(what\s+(is|are|was)\s+your\s+(system\s+(prompt|message|instructions?)|initial\s+(prompt|instructions?)|original\s+(prompt|instructions?)))/gi, '[INJECTION_FILTERED]');
+
+  // ============================
+  // L3: 輸入長度截斷（防止 token exhaustion）
+  // ============================
+  if (cleaned.length > maxLength) {
+    cleaned = cleaned.slice(0, maxLength) + '\n\n[TRUNCATED — input exceeds AI safety limit]';
+  }
+
+  return cleaned;
 }
 
 // ============================================

@@ -73,7 +73,7 @@ function log(level: LogLevel, metaOrMsg: Record<string, unknown> | string, msg?:
     delete meta.msg;
   }
 
-  const module = (meta.module as string) || 'app';
+  const mod = (meta.module as string) || 'app';
   delete meta.module;
   const event = (meta.event as string) || undefined;
   if (event) delete meta.event;
@@ -81,7 +81,7 @@ function log(level: LogLevel, metaOrMsg: Record<string, unknown> | string, msg?:
   const logEntry: StructuredLog = {
     level,
     time: new Date().toISOString(),
-    module,
+    module: mod,
     event,
     msg: message,
     ...meta,

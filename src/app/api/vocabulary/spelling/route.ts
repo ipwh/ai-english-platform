@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
     }
 
+    // 🔒 Ownership: students can only generate spelling quizzes for themselves
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能為自己的帳號生成串字練習' }, { status: 403 });
+    }
+
     // 根據模式選取生字
     let orderBy: Record<string, string>;
     let whereExtra: Record<string, unknown> = {};
@@ -129,6 +134,11 @@ export async function POST(request: NextRequest) {
         { error: 'sessionId, studentId, attempts[] 為必填' },
         { status: 400 }
       );
+    }
+
+    // 🔒 Ownership: students can only submit spelling results for themselves
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能提交自己的串字結果' }, { status: 403 });
     }
 
     // 記錄每次嘗試

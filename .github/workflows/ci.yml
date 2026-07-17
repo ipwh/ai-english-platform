@@ -56,5 +56,4 @@ jobs:
         run: npm test -- --run
 
       - name: Lint check
-        run: npx eslint .
-        continue-on-error: true  # Allow lint warnings during transition period
+        run: npx eslint . --max-warnings 200

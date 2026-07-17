@@ -5,15 +5,27 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 import { callLLM } from '@/lib/ai-service';
 
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { studentId, text, source, gradeLevel } = body;
 
     if (!studentId || !text) {
       return NextResponse.json({ error: 'studentId, text 為必填' }, { status: 400 });
+    }
+
+    // 🔒 Ownership: students can only get suggestions for themselves
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能為自己的帳號獲取建議' }, { status: 403 });
     }
 
     // 取得學生已有的生字（避免重複建議）

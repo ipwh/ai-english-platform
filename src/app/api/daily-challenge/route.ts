@@ -54,6 +54,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'studentId required' }, { status: 400 });
   }
 
+  // 🔒 Ownership: students can only access their own daily challenge
+  if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+    return NextResponse.json({ error: '只能查看自己的每日挑戰' }, { status: 403 });
+  }
+
   // Rate limiting
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const rateLimit = await checkRateLimit({ ...DAILY_CHALLENGE_RATE, identifier: `daily:${ip}` });

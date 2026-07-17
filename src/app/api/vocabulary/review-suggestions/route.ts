@@ -5,14 +5,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 import { getDueCards, getDailyReviewTarget } from '@/lib/srs';
 
 export async function GET(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
     if (!studentId) {
       return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+    }
+
+    // 🔒 Ownership: students can only view their own review suggestions
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能查看自己的複習建議' }, { status: 403 });
     }
 
     // 1. Get all vocabulary items

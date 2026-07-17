@@ -3,14 +3,17 @@
 // 保護 AI API 端點免受濫用
 //
 // ✅ Production-ready for Vercel serverless:
-//    - 當 VERCEL_KV_URL 環境變數設定時，自動使用 Vercel KV 作為後端
+//    - 當 VERCEL_KV_URL + VERCEL_KV_TOKEN 環境變數設定時，自動使用 Vercel KV
 //    - 未設定時 fallback 到 in-memory Map（適合單實例/低流量）
-//    - In-memory mode: 每 instance 獨立計數，非全局精確
+//    - In-memory mode: 每 instance 獨立計數，非全域精確
+//    - 啟動時輸出 active backend 至 logger
 //
 // 升級建議：
-//    Vercel KV:  設定 VERCEL_KV_URL + VERCEL_KV_TOKEN 環境變數即可
-//    Upstash Redis: 大規模部署時的建議方案
+//    Vercel KV:  設定 VERCEL_KV_URL + VERCEL_KV_TOKEN 環境變數即可（自動偵測）
+//    Upstash Redis: 大規模部署時的建議方案（需自行實作 Redis adapter）
 // ============================================
+
+import { logger } from '@/lib/logger';
 
 interface RateLimitEntry {
   count: number;
@@ -19,11 +22,19 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>();
 let kvClient: { get: (k: string) => Promise<string | null>; set: (k: string, v: string, opts: { ex: number }) => Promise<void> } | null = null;
+let kvInitAttempted = false;
+let activeBackend: 'kv' | 'memory' = 'memory';
 
-/** 嘗試初始化 Vercel KV — 需 `@vercel/kv` 已安裝且 `VERCEL_KV_URL` 已設定 */
+/** 嘗試初始化 Vercel KV — 需 `@vercel/kv` 已安裝且 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 已設定 */
 async function getKvClient() {
   if (kvClient) return kvClient;
-  if (process.env.VERCEL_KV_URL) {
+  if (kvInitAttempted) return null;
+  kvInitAttempted = true;
+
+  const kvUrl = process.env.VERCEL_KV_URL;
+  const kvToken = process.env.VERCEL_KV_TOKEN;
+
+  if (kvUrl && kvToken) {
     try {
       // Dynamic import — @vercel/kv is an optional dependency
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -31,12 +42,24 @@ async function getKvClient() {
       const mod = await import('@vercel/kv');
       if (mod?.kv) {
         kvClient = mod.kv;
-        logger.info({ module: 'rate-limiter' }, 'Using Vercel KV backend');
+        activeBackend = 'kv';
+        logger.info({ module: 'rate-limiter', backend: 'Vercel KV' }, 'Rate limiter using distributed backend');
         return kvClient;
       }
-    } catch { /* @vercel/kv not installed, fall through to in-memory */ }
+    } catch {
+      logger.warn({ module: 'rate-limiter' }, '@vercel/kv not installed — falling back to in-memory rate limiter');
+    }
+  } else {
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn({ module: 'rate-limiter' }, 'VERCEL_KV_URL/VERCEL_KV_TOKEN not set — using in-memory rate limiter (per-instance, not global)');
+    }
   }
   return null;
+}
+
+/** 取得當前使用的 backend（用於 monitoring） */
+export function getRateLimitBackend(): 'kv' | 'memory' {
+  return activeBackend;
 }
 
 /** 定期清理過期條目（in-memory mode only，每 60 秒） */
@@ -121,9 +144,8 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
 // ============================================
 
 import { config } from '@/lib/config';
-import { logger } from '@/lib/logger';
 
-/** AI API 端點限流：每 IP 每 60 秒最多 30 次請求 */
+/** AI API 端點限流：每 IP 每 60 秒（上限由 config.rateLimit.ai 決定，預設 60 次） */
 export const AI_RATE_LIMIT: RateLimitConfig = {
   maxRequests: config.rateLimit.ai.maxRequests,
   windowMs: config.rateLimit.ai.windowMs,

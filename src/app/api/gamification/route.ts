@@ -25,6 +25,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: '缺少 studentId' }, { status: 400 });
     }
 
+    // 🔒 Ownership: students can only view their own gamification data
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能查看自己的遊戲化數據' }, { status: 403 });
+    }
+
     if (action === 'leaderboard') {
       const classId = searchParams.get('classId');
       const where = classId ? { classId } : { role: 'student' };
@@ -155,6 +160,11 @@ export async function POST(req: NextRequest) {
 
     if (!studentId || !event) {
       return NextResponse.json({ error: '缺少必要參數' }, { status: 400 });
+    }
+
+    // 🔒 Ownership: students can only record XP events for themselves
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能記錄自己的 XP 事件' }, { status: 403 });
     }
 
     const xpGained = calculateXp(event);
