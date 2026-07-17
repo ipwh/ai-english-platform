@@ -1377,9 +1377,17 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 
 ## Known Limitations
 
-- **新用戶尚無學習記錄**：首次登入的用戶（包括 Google OAuth）尚無練習/錯題/詞彙數據，部分頁面會顯示 empty state 或引導提示。開始練習後會自動累積真實數據。
-- Vercel 免費版有 10 秒函數執行限制，寫作批改等長請求可能逾時
-- Web Speech API 在不同瀏覽器的語音品質不一（建議使用 Chrome）
+### 平台設計限制（非 bug，屬設計取捨）
+- **新用戶尚無學習記錄**：首次登入的用戶尚無練習/錯題/詞彙數據，部分頁面會顯示 empty state 或引導提示。開始練習後會自動累積真實數據。
+- **Speaking Practice**：目前僅支援文字 transcript 輸入分析（文法/詞彙/內容），無法評估流暢度、發音及互動表現。未來可整合 STT（語音辨識）。
+- **Vercel 部署**：AI 函數需要 Vercel Pro（30s maxDuration）或 Enterprise。Hobby 方案（10s）可能導致寫作批改等長請求逾時。見 `vercel.json`。
+- **Web Speech API Fallback**：Google Cloud TTS 不可用時自動降級至瀏覽器 Web Speech API，不同瀏覽器的語音品質不一（建議使用 Chrome）。
+
+### 技術債（非阻塞，後續 sprint）
+- `console.log/error` 部分尚未遷移至 `src/lib/logger.ts`（lib 層已完成，API routes + 前端頁面 ~200 處待遷移）
+- `process.env` 部分尚未遷移至 `src/lib/config.ts`（API routes 層 ~40 處待遷移）
+
+> ✅ **所有 P0/P1/P2/P3 安全漏洞、功能性 bugs、dead code、i18n 覆蓋、rate limiting、型別安全問題已於 2026-07-17 前修復完畢。** 詳見上方「生產部署就緒」章節。
 
 ## License
 
