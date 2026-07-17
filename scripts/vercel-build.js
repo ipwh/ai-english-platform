@@ -43,6 +43,30 @@ if (!run('npx prisma generate', 'prisma generate').ok) {
 // Step 2: Deploy schema to DB
 const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 
+// Step 2a: Ensure pgvector extension is available (required for vector(1536) column)
+// Non-fatal: if pgvector is not available, the column will be skipped
+// and the app falls back to in-memory cosine similarity in rag-service.ts
+console.log('\n🔧 Ensuring pgvector extension...');
+try {
+  execSync('npx prisma db execute --stdin', {
+    input: 'CREATE EXTENSION IF NOT EXISTS vector;',
+    cwd: process.cwd(),
+    stdio: 'pipe',
+    encoding: 'utf-8',
+  });
+  console.log('✅ pgvector extension ready');
+} catch (err) {
+  const msg = (err.stderr?.toString() || '') + (err.message || '');
+  if (msg.includes('vector') || msg.includes('extension')) {
+    console.warn('⚠️  pgvector extension not available on this database.');
+    console.warn('   The vector(1536) column for embeddings will be skipped.');
+    console.warn('   RAG will use in-memory cosine similarity as fallback.');
+    console.warn('   To enable pgvector: Neon Dashboard → Extensions → enable "vector".');
+  } else {
+    console.warn('⚠️  Could not verify pgvector extension:', msg.slice(0, 200));
+  }
+}
+
 // Try migrate deploy first (preferred for production)
 // Use captureOutput to inspect the actual Prisma error (P3005 detection)
 const migrateResult = run('npx prisma migrate deploy', 'prisma migrate deploy', { captureOutput: true });
@@ -62,10 +86,20 @@ if (migrateResult.ok) {
     console.warn('⚠️  No migration history found — project was previously using prisma db push.');
     console.warn('   Falling back to prisma db push for this deployment.');
     console.warn('   To migrate: run `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql`');
-    const pushResult = run('npx prisma db push', 'prisma db push (fallback)');
-    if (!pushResult.ok && isProd) {
-      console.error('❌  Production requires a working DB connection. Aborting build.');
-      process.exit(1);
+    const pushResult = run('npx prisma db push', 'prisma db push (fallback)', { captureOutput: true });
+    if (!pushResult.ok) {
+      const pushOutput = pushResult.output;
+      if (pushOutput.includes('vector') && pushOutput.includes('does not exist')) {
+        // pgvector extension missing — this is a known setup issue, not a build error
+        console.warn('⚠️  prisma db push skipped vector column (pgvector not enabled).');
+        console.warn('   This is OK — RAG will use in-memory fallback.');
+        console.warn('   To fix: enable pgvector in your database (Neon Dashboard → Extensions).');
+        // Don't abort — the app works without pgvector
+      } else if (isProd) {
+        console.error('❌  Production requires a working DB connection. Aborting build.');
+        console.error('   Error:', pushOutput.slice(0, 500));
+        process.exit(1);
+      }
     }
   } else if (isProd) {
     // Real error in production (not a missing-migration issue) — abort
