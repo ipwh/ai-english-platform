@@ -1061,10 +1061,15 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 
   const isListening = input.languageSkill === 'listening';
   const isReading = input.languageSkill === 'reading';
+  const isWriting = input.languageSkill === 'writing';
+  const isSpeaking = input.languageSkill === 'speaking';
   const _isMcq = typeDesc === 'mc';
 
-  // 聽力/閱讀題使用較低 temperature 提高準確性，但不能過低導致重複
-  const qTemperature = (isListening || isReading) ? 0.45 : 0.7;
+  // 寫作技能自動使用 short-writing 題型
+  const effectiveQuestionType = isWriting ? 'short-writing' : typeDesc;
+
+  // 聽力/閱讀/口語題使用較低 temperature 提高準確性
+  const qTemperature = (isListening || isReading || isSpeaking) ? 0.45 : 0.7;
 
   // ============================================
   // DSE RAG 整合：檢索相關歷屆試題與 Marking Scheme
@@ -1121,7 +1126,11 @@ ${isListening ? `Listening reference topics (from real DSE Paper 3 past papers):
 ${getDSEEmpiricalTopics('listening', undefined, 5).map(t => `  • ${t}`).join('\n')}
 ` : ''}${isReading ? `Reading reference topics (from real DSE Paper 1 past papers):
 ${getDSEEmpiricalTopics('reading', undefined, 5).map(t => `  • ${t}`).join('\n')}
-` : ''}${!isListening && !isReading ? `Writing reference topics (from real DSE Paper 2 past papers):
+` : ''}${isWriting ? `Writing reference topics (from real DSE Paper 2 past papers):
+${getDSEEmpiricalTopics('writing', undefined, 5).map(t => `  • ${t}`).join('\n')}
+` : ''}${isSpeaking ? `Speaking reference topics (from real DSE Paper 4 past papers):
+${getDSEEmpiricalTopics('speaking', undefined, 3).map(t => `  • ${t}`).join('\n')}
+` : ''}${!isListening && !isReading && !isWriting && !isSpeaking ? `Reference topics (from real DSE past papers):
 ${getDSEEmpiricalTopics('writing', undefined, 3).map(t => `  • ${t}`).join('\n')}
 ` : ''}
 
@@ -1135,8 +1144,8 @@ HKDSE 等級對齊指引：
 - 技能範疇：${skillDesc}
 - 難度：${diffMap[input.difficulty]}
 - 年級：${input.gradeLevel}
-- 題型：${typeDesc}
-- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${getRandomTopicV2(isListening, isReading, input.gradeLevel)}"
+- 題型：${effectiveQuestionType}
+- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${getRandomTopicV2(isListening, isReading || isWriting || isSpeaking, input.gradeLevel)}"
   禁止使用你慣用的預設主題（如籃球選拔/蜜蜂/電影時間）。每題需有不同的對話場景。
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
@@ -1414,6 +1423,33 @@ DSE English Paper 3 佔英文科總分 30%，是四卷中比重最高的分卷�
 2. 冒號後是否只有一個空格，無引號無括號？
 3. 每題行數是否符合難度要求？
 若有不符 → 立即修正再輸出。` : ''}
+${isWriting ? `
+【DSE Paper 2 Writing 寫作題 — 短文寫作】
+
+⚠️ 必須生成原創寫作提示，嚴禁複製真實 DSE 歷屆試題。
+
+要求：
+- prompt 欄位：一個具體的短文寫作題目（30-80字），包含情境、角色、任務、具體要求
+- answer 欄位：提供一個範例答案（80-150字），展示如何回應題目要求
+- 題目必須貼近香港中學生的生活經驗（校園、家庭、社會議題、個人成長等）
+- 根據年級調整題目複雜度：S1-S3 較簡單主題，S4-S6 DSE程度
+- choices 欄位設為空陣列 []
+- 所有中文使用繁體中文
+` : ''}${isSpeaking ? `
+【DSE Paper 4 Speaking 口語練習題】
+
+⚠️ 必須生成原創口語練習題目，模擬 DSE Group Discussion 或 Individual Response 格式。
+
+要求：
+- prompt 欄位：一個口語討論題目或個人回應題目（20-50字）
+  - Group Discussion 格式：提供一個爭議性話題，要求學生表達立場並給理由
+  - Individual Response 格式：提供一個情境問題，要求學生在1分鐘內回應
+- answer 欄位：提供範例回應要點（3-5個 bullet points），不是完整答案
+- choices 欄位設為空陣列 []
+- 題目應適合口語表達，避免需要計算或書面推理的題目
+- 根據年級調整：S1-S3 生活化話題，S4-S6 社會議題
+- 所有中文使用繁體中文
+` : ''}
 ${isReading ? `
 【閱讀理解題特別要求 — 極重要！】
 - readingContent: 一段完整的英文閱讀篇章（80-200字），必須在題目之前提供給學生閱讀
@@ -1439,7 +1475,7 @@ ${isReading ? `
   "commonMistake": "學生可能被干擾選項誤導，應訓練直接從文本中尋找證據。",
   "grammarPoint": "Reading comprehension — identifying explicit information"
 }
-
+` : ''}
 【聆聽題 JSON 輸出示例 — v4.0 每題獨立短對話 + 完整選項格式】
 ⚠️ 每題都有自己獨立的 listeningContent！以下展示 2 題的輸出結構：
 [
@@ -1538,7 +1574,7 @@ ${STRICT_ANSWER_RULES}
   }
 ]`;
 
-  const userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${typeDesc === 'mc' ? '選擇題' : typeDesc === 'fill-blank' ? '填充題' : typeDesc === 'error-correction' ? '改錯題' : '寫作題'}。`;
+  const userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${effectiveQuestionType === 'mc' ? '選擇題' : effectiveQuestionType === 'fill-blank' ? '填充題' : effectiveQuestionType === 'error-correction' ? '改錯題' : effectiveQuestionType === 'short-writing' ? '短文寫作題' : '練習題'}。`;
 
   // 注入 DSE RAG context（若有）
   const finalSystemPrompt = systemPrompt + dseContextPrompt;

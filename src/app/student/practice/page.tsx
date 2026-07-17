@@ -370,7 +370,14 @@ function PracticeListPageContent() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.languageSkill')}</label>
                 <select
                   value={form.languageSkill}
-                  onChange={(e) => setForm({ ...form, languageSkill: e.target.value, grammarItem: '' })}
+                  onChange={(e) => {
+                    const skill = e.target.value;
+                    // Auto-set questionType to match language skill
+                    const qType = skill === 'writing' ? 'short-writing'
+                      : skill === 'listening' || skill === 'reading' ? 'mc'
+                      : form.questionType;
+                    setForm({ ...form, languageSkill: skill, grammarItem: '', questionType: qType });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >
                   <option value="">{t('practice.noSkill')}</option>
