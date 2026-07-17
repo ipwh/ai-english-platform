@@ -550,33 +550,49 @@ npm run storybook:build   # 建置 Storybook 靜態站
 - speaker label 不被 TTS 朗讀、男女聲分離穩定（含 pitch 補償）
 - Chrome / Edge 跨瀏覽器測試
 
-### 🚀 生產部署就緒 (Production Readiness) — 2026-07-13
+### 🚀 生產部署就緒 (Production Readiness) — 2026-07-17
 
-#### 安全性強化
-- **密碼雜湊升級**：從 `simpleHash` → `bcryptjs`（10 rounds），舊密碼自動遷移
-- **JWT Secret**：移除硬編碼 fallback，改為延遲檢查
-- **PDPO 合規**：`sanitizeForAI()` 傳送 AI 前移除 HKID/電話/電郵
+#### 🔒 安全性修復 (14 項)
+- **API 認證**：TTS 端點加入 `verifyApiAuth`，防止未授權消耗 GCP 配額
+- **所有權驗證**：Practice / Diagnostic / Vocabulary API 加入 `studentId` 所有權檢查
+- **AI Sanitization**：`sanitizeForAI()` 升級 — 加入 prompt injection 防護 regex（`ignore previous instructions`、`system:` 等）
+- **輸入長度限制**：Integrated Skills analyze 加入 token exhaustion 防護（15K/5K/10K 上限）
+- **Rate Limiting**：Diagnostic (10/min)、Practice (30/min) 端點加入限流
+- **Middleware 安全**：`selected_role` cookie 降級防護（admin→teacher/student 允許，student→teacher/admin 拒絕）
+- **Auth Config**：`getRequiredEnv` 生產環境拋錯；`config.ai.timeoutMs` NaN 防護
+- **共享 Cookie 常數**：`auth-cookies.ts` 集中管理 NextAuth cookie 名稱
+- **Admin 登入修復**：`signIn` callback 自動修正 DB role（email 模式匹配）；middleware `effectiveRole` 支援
 
-#### AI 品質強化
-- **Listening v3.1**：`stripSpeakerLabels` 強化，TTS clean text，2 次重試，答案不匹配→拒絕，語速變更防疊聲
-- **MCQ 選項過濾**：`TIME_FRAGMENT_PATTERNS` + context-aware fillers
-- **Non-MC 驗證**：空答案直接 reject
-- **題材多樣化**：`getRandomTopic()` 16+16 主題池，temperature 0.45
-- **Rule-based Chinglish**：`detectChinglish()` 12 條規則
-- **Writing 版本歷史**：`revisions` JSON 欄位，保留最近 10 版
+#### 🐛 功能性修復 (12 項)
+- `useT()` replace → `replaceAll()`（global regex 修復）
+- 教師 Review 頁面 i18n key mismatch 修復（5 keys）
+- Integrated Skills `wasFallbackUsed` 缺失 import
+- `getUserLang()` 實作真正的 DB 查詢（`UserPreferences.language`）
+- `jwt.ts` cache secret key；`auth.ts` `hashPasswordSync` → async
+- `ai-cache.ts` `crypto.subtle` Node.js fallback
+- Gamification level titles 10→20 擴展、perfect-session badge 條件修正
+- 教師 Dashboard KPI label/unit 交換 + bar chart data-viz 修復
+- DSE topics 分類修正（psychology of color → society, migration patterns → environment）
+- RAG embedding 空字串過濾
+- `vercel.json` 重複 security headers 移除
+- 通知系統 `getUserLang()` 實作 + notification `console` → `logger`
 
-#### 平台穩定性
-- **24 silent catch**：全部加入 `console.error`
-- **Vercel Build**：容錯腳本 `scripts/vercel-build.js`
-- **DB 效能**：6 個 `@@index`
-- **Integrated Skills RAG**：Paper 3 MS 接入
-- **DiagnosticResult.completedAt**：正確設定
-- **buildWeakSkills**：chinglish 獨立追蹤
+#### 🗑️ 程式碼清理 (12 項)
+- 移除 `getDemoUsers()`、`formatDateShort()`、`getRiskColor()`、`truncate()`、`createModuleLogger()` 等未使用函數
+- 移除 4 個未使用的 label maps（`LANGUAGE_SKILL_LABELS` 等）
+- 合併 Practice route 重複 if-check
+- 清理 `IntegratedSkillsTaskView.tsx` 5 個未使用 icon imports
+- 清理 `speaking/page.tsx` 未使用 `useT` import
 
-#### 體驗優化
-- **Admin 全面 i18n** + Practice hints i18n
-- **行動裝置**：viewport + 44px touch targets + safe-area + overscroll
-- **寫作頁**：手動輸入字數（50-2000）
+#### ⚡ 品質提升 (8 項)
+- **Prisma 類型安全**：`vocabulary/route.ts` `Record<string,unknown>` → `Prisma.VocabItemCreateInput`
+- **`any` 清理**：9 個檔案 `any` → `Record<string,unknown>` 或特定型別
+- **Integrated Skills i18n**：30+ keys 加入 `is.*` namespace，所有 hardcoded 中文 → `t()`
+- **`console` → `logger`**：6 個核心 lib 檔案結構化日誌遷移（auth-next, db, notifications, rag-service, crypto, rate-limiter）
+- **`process.env` → `config`**：db.ts `NODE_ENV`/`VERCEL` → `config.isProduction`
+- **Vercel KV 初始化修復**：`globalThis.__vercel_kv_module` → `await import('@vercel/kv')`
+- **tsconfig target**：ES2017 → ES2020
+- **Admin 功能擴展**：刪除使用者（cascade） + 重設密碼（bcrypt）
 
 ### ☁️ Google Cloud Text-to-Speech 整合 (2026-07-12)
 

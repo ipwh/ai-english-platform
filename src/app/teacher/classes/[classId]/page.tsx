@@ -36,7 +36,7 @@ export default function ClassDetailPage() {
       fetch('/api/classes').then(r => r.json()),
       fetch('/api/teacher/students').then(r => r.json()),
     ]).then(([classData, studentData]) => {
-      const found = (classData.classes || []).find((c: any) => c.id === classId);
+      const found = (classData.classes || []).find((c: Record<string, unknown>) => c.id === classId);
       setCls(found || null);
       const classStudents = (studentData.students || []).filter(
         (s: RealStudent) => s.class?.id === classId

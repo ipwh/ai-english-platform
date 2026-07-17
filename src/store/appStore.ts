@@ -371,7 +371,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(`/api/practice?studentId=${userId}`);
       if (res.ok) {
         const json = await res.json();
-        const sessions: PracticeSession[] = (json.sessions || []).map((s: any) => ({
+        const sessions: PracticeSession[] = (json.sessions || []).map((s: Record<string, unknown>) => ({
           id: s.id,
           startedAt: s.startedAt,
           completedAt: s.completedAt || undefined,

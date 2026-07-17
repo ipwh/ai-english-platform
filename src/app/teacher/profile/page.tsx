@@ -37,7 +37,7 @@ export default function TeacherProfilePage() {
       });
       if (res.ok) {
         const d = await res.json();
-        setProfile((p: any) => ({ ...p, ...d.user }));
+        setProfile((p: Record<string, unknown>) => ({ ...p, ...(d.user as Record<string, unknown>) }));
         setEditing(false);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);

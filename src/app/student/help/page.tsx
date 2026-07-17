@@ -139,7 +139,7 @@ export default function StudentHelpPage() {
       });
       const data = await res.json();
       if (res.ok && data.questions?.length) {
-        setGenQuestions(data.questions.map((q: any) => ({
+        setGenQuestions(data.questions.map((q: Record<string, unknown>) => ({
           prompt: q.prompt,
           answer: q.answer,
           explanationZh: q.explanationZh || '',
@@ -475,7 +475,7 @@ export default function StudentHelpPage() {
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(adviceLoading ? aiAdviceI18n.map(a => ({ icon: a.icon, title: t(a.titleKey), desc: t(a.descKey) })) : adviceCards).map((advice: any, i: number) => (
+          {(adviceLoading ? aiAdviceI18n.map(a => ({ icon: a.icon, title: t(a.titleKey), desc: t(a.descKey) })) : adviceCards).map((advice: { icon: string; title: string; desc: string }, i: number) => (
             <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex gap-3">
               <span className="text-2xl">{advice.icon}</span>
               <div>

@@ -41,12 +41,10 @@ export default function StudentAssignmentsPage() {
         } catch { /* fallback */ }
       }
 
-      const mapped = (assignData.assignments || []).map((a: any) => {
+      const mapped = (assignData.assignments || []).map((a: { _count?: { submissions?: number }; questionCount?: number; dueDate?: string }) => {
         // 判斷學生提交狀態：檢查 a._count.submissions > 0
-        const hasSubmission = a._count?.submissions > 0;
+        const hasSubmission = (a._count?.submissions ?? 0) > 0;
         return {
-          ...a,
-          status: (hasSubmission ? 'completed' : 'not-started') as AssignmentStatus,
           questionCount: a.questionCount || 5,
           score: null,
           submittedAt: a.dueDate,

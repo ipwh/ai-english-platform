@@ -169,7 +169,7 @@ export default function TeacherGroupsPage() {
             setShowCreate(true);
             const res = await fetch('/api/teacher/students');
             const d = await res.json();
-            setStudents((d.students || []).map((s: any) => ({
+            setStudents((d.students || []).map((s: Record<string, unknown>) => ({
               id: s.id, name: s.nameZh || s.name || s.email, className: s.className || '',
             })));
           }}

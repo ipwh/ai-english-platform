@@ -36,7 +36,7 @@ export default function TeacherStudentsPage() {
       fetch('/api/classes').then(r => r.json()),
     ]).then(([studentData, classData]) => {
       setStudents(studentData.students || []);
-      setClasses((classData.classes || []).map((c: any) => c.name));
+      setClasses((classData.classes || []).map((c: Record<string, unknown>) => c.name));
       setLoading(false);
     }).catch((e) => {
       console.error('Failed to load students:', e);

@@ -39,7 +39,7 @@ export default function StudentProfilePage() {
       const res = await fetch('/api/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       if (res.ok) {
         const d = await res.json();
-        setProfile((p: any) => ({ ...p, ...d.user }));
+        setProfile((p: Record<string, unknown>) => ({ ...p, ...(d.user as Record<string, unknown>) }));
         setEditing(false);
         setSaveMsg(t('profile.saveSuccess'));
       } else {

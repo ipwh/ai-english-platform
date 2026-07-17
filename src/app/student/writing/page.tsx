@@ -267,7 +267,7 @@ export default function WritingPage() {
     setRewriteSummary([]);
     try {
       const feedbackText = aiResult
-        ? `Grammar errors: ${(aiResult.grammarErrors || []).map((e: any) => `${e.original} → ${e.correction}`).join('; ')}. Chinglish: ${(aiResult.chinglishWarnings || []).map((c: any) => c.original).join('; ')}`
+        ? `Grammar errors: ${(aiResult.grammarErrors || []).map((e: Record<string, unknown>) => `${e.original} → ${e.correction}`).join('; ')}. Chinglish: ${(aiResult.chinglishWarnings || []).map((c: Record<string, unknown>) => c.original).join('; ')}`
         : '';
       const res = await fetch('/api/ai/rewrite-writing', {
         method: 'POST',

@@ -44,11 +44,11 @@ export default function SRSReviewFlow({ studentId, reviewType, onComplete }: SRS
     fetch(`/api/srs/review?studentId=${encodeURIComponent(studentId)}&type=${reviewType}`)
       .then(r => r.json())
       .then(data => {
-        const vocabCards = (data.reviewCards?.vocab || []).map((v: any) => ({
+        const vocabCards = (data.reviewCards?.vocab || []).map((v: Record<string, unknown>) => ({
           id: v.id, front: v.word, back: v.meaningZh || v.exampleSentence || '',
           type: 'vocab' as const, metadata: v,
         }));
-        const mistakeCards = (data.reviewCards?.mistakes || []).map((m: any) => ({
+        const mistakeCards = (data.reviewCards?.mistakes || []).map((m: Record<string, unknown>) => ({
           id: m.id, front: m.questionPrompt || m.studentAnswer,
           back: m.correctAnswer || '', type: 'mistake' as const, metadata: m,
         }));

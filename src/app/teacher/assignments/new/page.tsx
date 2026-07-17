@@ -58,7 +58,7 @@ export default function NewAssignmentPage() {
       fetch('/api/groups').then(r => r.json()).then(d => setGroups(d.groups || [])).catch(() => {});
     } else if (form.targetType === 'students') {
       fetch('/api/teacher/students').then(r => r.json()).then(d =>
-        setStudents((d.students || []).map((s: any) => ({
+        setStudents((d.students || []).map((s: Record<string, unknown>) => ({
           id: s.id, name: s.nameZh || s.name || s.email, className: s.className || '',
         })))
       ).catch(() => {});
