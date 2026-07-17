@@ -1475,7 +1475,7 @@ ${isReading ? `
   "commonMistake": "學生可能被干擾選項誤導，應訓練直接從文本中尋找證據。",
   "grammarPoint": "Reading comprehension — identifying explicit information"
 }
-` : ''}
+
 【聆聽題 JSON 輸出示例 — v4.0 每題獨立短對話 + 完整選項格式】
 ⚠️ 每題都有自己獨立的 listeningContent！以下展示 2 題的輸出結構：
 [
