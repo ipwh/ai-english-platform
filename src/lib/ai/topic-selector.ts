@@ -12,7 +12,7 @@ import type { TopicCategory, TopicEntry } from './dse-topics';
 const topicBlacklist: Map<string, Set<string>> = new Map(); // sessionKey → Set<topic text>
 const recentTopicsByCategory: Map<string, string[]> = new Map(); // category → [recent topics]
 export const MAX_BLACKLIST_SIZE = 50; // Prevent unbounded memory growth
-const MAX_RECENT_CATEGORIES = 10;
+const _MAX_RECENT_CATEGORIES = 10;
 
 /** Periodic cleanup to prevent memory leaks in long-running processes */
 function cleanupBlacklistIfNeeded(): void {

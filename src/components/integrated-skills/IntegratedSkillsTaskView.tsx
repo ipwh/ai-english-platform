@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import {
   Loader2, Send, Sparkles, CheckCircle2, XCircle, Lightbulb,
   Target, BookOpen, AlertTriangle, Award, ChevronDown, ChevronUp,
@@ -222,10 +222,10 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
 
   // === 自動儲存 (15 秒) + beforeunload 保護 ===
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const lastSavedRef = useRef<string>('');
+  const [lastSavedContent, setLastSavedContent] = useState('');
 
   const currentContent = s.studentNotes + '|' + s.studentWriting;
-  const hasUnsavedChanges = currentContent !== lastSavedRef.current && (s.studentNotes || s.studentWriting);
+  const hasUnsavedChanges = currentContent !== lastSavedContent && (s.studentNotes || s.studentWriting);
 
   // Save to localStorage + backend API
   const saveDraft = useCallback(async () => {
@@ -238,7 +238,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
       }));
       // Also save to backend if logged in
       try { await s.saveDraft(); } catch { /* backend optional */ }
-      lastSavedRef.current = currentContent;
+      setLastSavedContent(currentContent);
       setSaveState('saved');
       setTimeout(() => setSaveState('idle'), 3000);
     } catch {

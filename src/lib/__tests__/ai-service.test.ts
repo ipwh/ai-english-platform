@@ -33,7 +33,7 @@ describe('repairTruncatedJSON', () => {
   }
 
   function parseAIJSON<T>(raw: string): T {
-    let cleaned = raw
+    const cleaned = raw
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/g, '')
       .trim();

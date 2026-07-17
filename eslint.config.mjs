@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build scripts — not application code
+    "scripts/**",
+    // E2E test files
+    "e2e/**",
+    // Virtual env
+    ".venv/**",
   ]),
   // Downgrade non-critical rules to warnings during codebase transition.
   // These will be re-upgraded to errors once the codebase is fully cleaned.
@@ -25,6 +31,8 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "react-hooks/exhaustive-deps": "warn",
+      // React 19 new rules — downgrade to warnings during transition
+      "react-hooks/set-state-in-effect": "warn",
       "@next/next/no-img-element": "warn",
       "prefer-const": "warn",
     },

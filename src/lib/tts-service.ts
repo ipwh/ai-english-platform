@@ -52,7 +52,7 @@ export async function getTTSClient(): Promise<TextToSpeechClient | null> {
     });
 
     // GoogleAuth 與 TextToSpeechClient 的 auth 型別不完全相容（Google 庫已知問題）
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     ttsClient = new TextToSpeechClient({
       auth: auth as any,
       projectId: (credentials as Record<string, unknown>).project_id as string,

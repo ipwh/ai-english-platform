@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { verifyApiAuth } from '@/lib/api-auth';
 import { verifySessionToken } from '@/lib/jwt';
 import { analyzeAnswer } from '@/lib/ai-service';
 import { notifySubmissionReceived } from '@/lib/notifications';
@@ -19,14 +20,13 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const isTeacher = searchParams.get('teacher') === 'true';
 
-  // 🔒 Teacher view requires authentication + teacher/admin role
+  // 🔒 Teacher view requires authentication + teacher/admin role (JWT + NextAuth dual support)
   if (isTeacher) {
-    const token = request.cookies.get('session_token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: '請先登入' }, { status: 401 });
+    const auth = await verifyApiAuth(request, ['teacher', 'admin']);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: auth.error || '請先登入' }, { status: 401 });
     }
-    const payload = await verifySessionToken(token);
-    if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
+    if (auth.role !== 'teacher' && auth.role !== 'admin') {
       return NextResponse.json({ error: '權限不足：僅教師可查看此視圖' }, { status: 403 });
     }
   }

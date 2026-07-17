@@ -33,6 +33,11 @@ function stripMcqPrefix(choice: string): string {
     .trim();
 }
 
+/** Pick a random element from an array (module-level to satisfy React Compiler purity) */
+function pickRandom<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 /** 正規化文字以進行精確比對 */
 function normalizeAnswer(text: string): string {
   return text
@@ -283,7 +288,7 @@ export default function PracticeQuestionPage() {
 
     // 💪 答錯時顯示鼓勵語
     if (!correct) {
-      setWrongEncouragement(ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)]);
+      setWrongEncouragement(pickRandom(ENCOURAGEMENTS));
     }
 
     // 呼叫 AI 分析答案

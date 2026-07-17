@@ -206,7 +206,7 @@ export function TextSelectionPopup({
     >
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 px-3 py-2 flex items-center gap-2 animate-in fade-in zoom-in-95 max-w-[calc(100vw-24px)]">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
-          "{selectedText}"
+          &ldquo;{selectedText}&rdquo;
         </span>
         {added ? (
           <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 whitespace-nowrap">

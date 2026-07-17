@@ -47,7 +47,7 @@ export async function verifyApiAuth(
   try {
     const session = await auth();
     if (session?.user?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const role = (session.user as Record<string, unknown>)?.role as UserRole | undefined;
       // Fix: if allowedRoles is specified but role is undefined/missing, deny access
       // Previously `allowedRoles && role && !allowedRoles.includes(role)` short-circuited

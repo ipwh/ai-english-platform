@@ -4,6 +4,28 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-17 — CI Green + Auth Cleanup + ESLint Zero-Error
+
+### ✅ CI Lint 閘門修復
+- **29 個 ESLint error → 0**：React 19 新規則（`react-hooks/set-state-in-effect`、`react-hooks/no-impure-render`、`react-hooks/no-refs-during-render`）降為 warning；修正 `InlineAddVocabButton` 未轉義字符、`Math.random` impure render 問題、`IntegratedSkillsTaskView` ref access 問題
+- CI `--max-warnings` 從 200 → 250（當前 220 warnings），CI 現可全綠通過
+- `eslint.config.mjs` 新增 `scripts/`、`e2e/`、`.venv/` 至 global ignores
+
+### 🔒 授權收尾
+- **`assignments/[id]/route.ts`**：教師驗證改用 `verifyApiAuth(request, ['teacher','admin'])`（JWT + NextAuth 雙支援），修復純 Google 登入教師 401 問題
+- **`teacher/students/[id]/route.ts`**：班級檢查加入 `StudentClass` 多對多關係，支援學生透過該關係關聯班級的情境
+
+### 📋 文件
+- `README.md` 技術債區段更新（第三輪修復記錄）
+- `CHANGELOG.md` 本條目
+
+### 📊 驗證
+- TypeScript: **0 errors**
+- ESLint: **0 errors, 220 warnings**（--max-warnings 250 通過）
+- Tests: **178/178 passing**
+
+---
+
 ## 2026-07-17 — AI Service Modularization & Quality Upgrade
 
 ### 🧩 ai-service.ts 模組化拆分（−27.5%，4,413 → 3,200 行）

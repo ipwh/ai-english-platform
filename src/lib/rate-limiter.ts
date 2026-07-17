@@ -37,7 +37,7 @@ async function getKvClient() {
   if (kvUrl && kvToken) {
     try {
       // Dynamic import — @vercel/kv is an optional dependency
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+       
       // @ts-expect-error — @vercel/kv may not be installed
       const mod = await import('@vercel/kv');
       if (mod?.kv) {

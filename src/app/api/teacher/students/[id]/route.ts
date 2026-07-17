@@ -49,6 +49,7 @@ export async function GET(
         xp: true, badgeIds: true, streakDays: true, academicYear: true,
         classId: true,
         class: { select: { id: true, name: true, gradeLevel: true } },
+        studentClasses: { select: { classId: true } },
       },
     });
 
@@ -57,16 +58,23 @@ export async function GET(
     }
 
     // 🔒 Class-level authorization: non-admin teachers can only view students in their own classes
-    if (!teacherAuth.isAdmin && student.classId) {
-      const teachingRelation = await db.teacherClass.findUnique({
+    if (!teacherAuth.isAdmin) {
+      const studentClassIds = [
+        ...(student.classId ? [student.classId] : []),
+        ...(student.studentClasses?.map(sc => sc.classId) || []),
+      ];
+      if (studentClassIds.length === 0) {
+        return NextResponse.json({ error: '學生未分配至任何班級' }, { status: 403 });
+      }
+      // Check if teacher teaches any of the student's classes
+      const teachingRelations = await db.teacherClass.findMany({
         where: {
-          teacherId_classId: {
-            teacherId: teacherAuth.userId,
-            classId: student.classId,
-          },
+          teacherId: teacherAuth.userId,
+          classId: { in: studentClassIds },
         },
+        select: { classId: true },
       });
-      if (!teachingRelation) {
+      if (teachingRelations.length === 0) {
         return NextResponse.json({ error: '無權限查看此學生：不屬於您任教的班級' }, { status: 403 });
       }
     }

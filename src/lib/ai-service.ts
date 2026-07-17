@@ -57,13 +57,9 @@ export {
 } from './ai/dse-topics';
 export type { TopicCategory, TopicEntry } from './ai/dse-topics';
 import {
-  DSE_EMPIRICAL_TOPICS,
-  LISTENING_TOPICS_V2,
-  READING_TOPICS_V2,
   getDSEEmpiricalTopics,
   validateDSEtopicMatch,
 } from './ai/dse-topics';
-import type { TopicCategory, TopicEntry } from './ai/dse-topics';
 
 // ============================================
 // DSE Writing 文體資料 + 詞彙升級 + 中式英文修正 (extracted)
@@ -76,7 +72,6 @@ export {
 import {
   DSE_TEXT_TYPE_GUIDE,
   VOCAB_UPGRADES,
-  CHINGLISH_FIXES,
 } from './ai/dse-writing-data';
 
 // ============================================
@@ -600,8 +595,8 @@ function normalizeAnswer(text: string): string {
  *  v2.0: 新增 `rejected` 旗標 — 聆聽/閱讀題答案完全無法在內容中找到時拒絕該題。 */
 export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { fixed: GeneratedQuestion; warnings: string[]; rejected: boolean } {
   const warnings: string[] = [];
-  let fixed = { ...q };
-  let rejected = false;
+  const fixed = { ...q };
+  const rejected = false;
 
   // 1. MCQ：答案必須指向 choices 中的某個選項
   if (fixed.type === 'mc' && fixed.choices && fixed.choices.length > 0) {
@@ -835,7 +830,7 @@ function sanitizeListeningLine(line: string): string {
   if (!line.trim()) return '';
 
   // 移除行首/行尾空白和包裹引號
-  let cleaned = line.trim().replace(/^["'「『\[]+|["'」』\]]+$/g, '');
+  const cleaned = line.trim().replace(/^["'「『\[]+|["'」』\]]+$/g, '');
 
   // 嘗試匹配 speaker label 格式
   const looseMatch = cleaned.match(/^["'\[]?\s*([A-Za-z]+(?:\s+[A-Za-z0-9]+)?)\s*["'\]]?\s*[:：\-–—]\s*/);
@@ -945,7 +940,7 @@ function normalizeListeningContent(raw: string): string {
 // DSE Validation Retry Engine + Stats
 // ============================================
 
-const MAX_DSE_RETRIES = 2;
+const _MAX_DSE_RETRIES = 2;
 
 interface RetryStats {
   totalAttempts: number;
@@ -985,7 +980,7 @@ export function getRetryStats(): RetryStats & { retryRate: number } {
 }
 
 /** Structured logging for validation failures */
-function logValidationFailure(
+function _logValidationFailure(
   event: string,
   skill: string,
   data: { score?: number; attempts?: number; errors?: string[]; topic?: string; grade?: string }
@@ -1095,7 +1090,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 
   const isListening = input.languageSkill === 'listening';
   const isReading = input.languageSkill === 'reading';
-  const isMcq = typeDesc === 'mc';
+  const _isMcq = typeDesc === 'mc';
 
   // 聽力/閱讀題使用較低 temperature 提高準確性，但不能過低導致重複
   const qTemperature = (isListening || isReading) ? 0.45 : 0.7;
@@ -1793,7 +1788,7 @@ function extractBalancedJson(raw: string): string | null {
 
 /** 穩健解析 AI 回傳的 JSON，處理 markdown 代碼塊、截斷等常見問題 */
 export function parseAIJSON<T>(raw: string): T {
-  let cleaned = raw
+  const cleaned = raw
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/g, '')
     .trim();
@@ -3014,7 +3009,7 @@ export interface WritingGuide {
  * 整合 DSE 教學專家指引：包含情境、角色、任務、具體要求、字數
  */
 export async function generateWritingPrompt(input: GenerateWritingPromptInput): Promise<string> {
-  const lang = input.lang || 'en';
+  const _lang = input.lang || 'en';
   const guide = DSE_TEXT_TYPE_GUIDE[input.textType];
 
   const structureHint = guide
@@ -3093,7 +3088,7 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a 
  * 每個段落有獨特的具體內容，不是題目的重述
  */
 export async function generateWritingOutline(input: GenerateWritingOutlineInput): Promise<string> {
-  const lang = input.lang || 'en';
+  const _lang = input.lang || 'en';
   const guide = DSE_TEXT_TYPE_GUIDE[input.textType];
 
   // 提取文體特定的結構指引

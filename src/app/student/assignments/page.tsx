@@ -32,7 +32,7 @@ export default function StudentAssignmentsPage() {
     ]).then(async ([assignData, profile]) => {
       const studentId = profile?.id;
       // 取得學生所有提交記錄以判斷作業狀態
-      let submissionsMap: Record<string, { status: string; score: number | null }> = {};
+      const submissionsMap: Record<string, { status: string; score: number | null }> = {};
       if (studentId) {
         try {
           // 透過 assignments 的 submission 關聯獲取狀態

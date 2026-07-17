@@ -37,9 +37,9 @@ function createPrismaClient(): PrismaClient {
   if (isPostgres) {
     // PostgreSQL: 使用 require() 避免 SQLite 專案需安裝 pg（無法用動態 import，此處須同步初始化）
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { PrismaPg } = require('@prisma/adapter-pg') as typeof import('@prisma/adapter-pg');
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { Pool } = require('pg') as typeof import('pg');
       const pool = new Pool({
         connectionString: dbUrl,
@@ -81,9 +81,9 @@ export function getBulkDb(): PrismaClient {
   const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://');
 
   if (isPostgres) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaPg } = require('@prisma/adapter-pg') as typeof import('@prisma/adapter-pg');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Pool } = require('pg') as typeof import('pg');
     const pool = new Pool({
       connectionString: dbUrl,
