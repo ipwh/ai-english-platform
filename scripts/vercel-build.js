@@ -13,18 +13,24 @@
 
 const { execSync } = require('node:child_process');
 
-function run(cmd, label) {
+function run(cmd, label, { captureOutput = false } = {}) {
   console.log(`\n🔧 ${label}...`);
+  const opts = {
+    cwd: process.cwd(),
+    stdio: captureOutput ? 'pipe' : 'inherit',
+    encoding: 'utf-8',
+  };
   try {
-    execSync(cmd, { stdio: 'inherit', cwd: process.cwd() });
+    const result = execSync(cmd, opts);
     console.log(`✅ ${label} done`);
-    return { ok: true, output: '' };
+    return { ok: true, output: captureOutput ? (result?.toString() || '') : '' };
   } catch (err) {
-    // execSync throws on non-zero exit — the actual error text is in stderr/stdout
-    const stderr = err.stderr?.toString() || '';
-    const stdout = err.stdout?.toString() || '';
+    const stderr = captureOutput ? (err.stderr?.toString() || '') : '';
+    const stdout = captureOutput ? (err.stdout?.toString() || '') : '';
     const combined = stderr + stdout + (err.message || '');
-    console.error(`❌ ${label} failed`);
+    if (!captureOutput) {
+      console.error(`❌ ${label} failed`);
+    }
     return { ok: false, output: combined };
   }
 }
@@ -38,7 +44,8 @@ if (!run('npx prisma generate', 'prisma generate').ok) {
 const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 
 // Try migrate deploy first (preferred for production)
-const migrateResult = run('npx prisma migrate deploy', 'prisma migrate deploy');
+// Use captureOutput to inspect the actual Prisma error (P3005 detection)
+const migrateResult = run('npx prisma migrate deploy', 'prisma migrate deploy', { captureOutput: true });
 
 if (migrateResult.ok) {
   console.log('✅  Schema deployed via prisma migrate deploy');
