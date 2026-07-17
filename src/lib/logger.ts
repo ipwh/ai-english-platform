@@ -159,21 +159,34 @@ export function patchConsole(): void {
   }
 
   console.log = (...args: unknown[]) => {
-    const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
-    logger.info({ module: 'console' }, msg);
+    try {
+      const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      logger.info({ module: 'console' }, msg);
+    } catch {
+      // Fallback: if structured logging fails, use original console directly
+      _origConsole.log(...args);
+    }
   };
 
   console.error = (...args: unknown[]) => {
-    const msg = args.map(a => {
-      if (a instanceof Error) return a.stack || a.message;
-      return typeof a === 'string' ? a : JSON.stringify(a);
-    }).join(' ');
-    logger.error({ module: 'console' }, msg);
+    try {
+      const msg = args.map(a => {
+        if (a instanceof Error) return a.stack || a.message;
+        return typeof a === 'string' ? a : JSON.stringify(a);
+      }).join(' ');
+      logger.error({ module: 'console' }, msg);
+    } catch {
+      _origConsole.error(...args);
+    }
   };
 
   console.warn = (...args: unknown[]) => {
-    const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
-    logger.warn({ module: 'console' }, msg);
+    try {
+      const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      logger.warn({ module: 'console' }, msg);
+    } catch {
+      _origConsole.warn(...args);
+    }
   };
 
   _origConsole.log('[logger] Console patched — all console.* calls now route through structured logger');
