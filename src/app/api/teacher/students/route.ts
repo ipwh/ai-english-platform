@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const taughtClassIds = taughtClasses.map(tc => tc.classId);
 
     // If teacher has no taught classes, return all students (for admin-teachers)
-    const where: any = { role: 'student', level: { not: 'Demo' } };
+    const where: Record<string, unknown> = { role: 'student', level: { not: 'Demo' } };
     if (taughtClassIds.length > 0) {
       where.classId = { in: taughtClassIds };
     }

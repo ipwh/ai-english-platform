@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data: Record<string, unknown> = {
-      studentId,
+    const data: Prisma.VocabItemCreateInput = {
+      student: { connect: { id: studentId } },
       word: word.trim(),
       partOfSpeech: partOfSpeech || 'unknown',
       meaningZh: meaningZh || '',
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     if (collocations) data.collocations = JSON.stringify(collocations);
     if (allPartOfSpeech) data.allPartOfSpeech = JSON.stringify(allPartOfSpeech);
 
-    const vocab = await db.vocabItem.create({ data: data as unknown as Prisma.VocabItemCreateInput });
+    const vocab = await db.vocabItem.create({ data });
 
     return NextResponse.json({ vocab: serializeVocab(vocab) }, { status: 201 });
   } catch (err: unknown) {
@@ -152,7 +152,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '無權限修改其他用戶的生字簿' }, { status: 403 });
     }
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Prisma.VocabItemUpdateInput = {};
     if (familiarity && ['new', 'learning', 'familiar', 'mastered'].includes(familiarity)) {
       updateData.familiarity = familiarity;
     }
@@ -169,7 +169,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    const vocab = await db.vocabItem.update({ where: { id }, data: updateData as unknown as Prisma.VocabItemUpdateInput });
+    const vocab = await db.vocabItem.update({ where: { id }, data: updateData });
 
     // 記錄 mastery 變更歷史
     if (prev && (familiarity || masteryLevel !== undefined)) {

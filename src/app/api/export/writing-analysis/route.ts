@@ -241,6 +241,7 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
 async function generateDOCX(analysis: WritingAnalysis): Promise<Buffer> {
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType } = await import('docx');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const children: any[] = [];
 
   // Title

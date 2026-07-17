@@ -34,10 +34,11 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
   hasNotes: boolean;
   hasWriting: boolean;
 }) {
+  const { t } = useT();
   const steps = [
-    { num: 1, label: '聆聽', icon: Headphones, done: listeningCompleted },
-    { num: 2, label: '筆記', icon: Edit3, done: hasNotes },
-    { num: 3, label: '寫作', icon: PenLine, done: hasWriting },
+    { num: 1, label: t('is.stepListening'), icon: Headphones, done: listeningCompleted },
+    { num: 2, label: t('is.stepNotes'), icon: Edit3, done: hasNotes },
+    { num: 3, label: t('is.stepWriting'), icon: PenLine, done: hasWriting },
   ];
 
   return (
@@ -205,7 +206,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
 // 主元件
 // ============================================
 export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
-  const { language } = useT();
+  const { t, language } = useT();
   const appStore = useAppStore();
   const s = useIntegratedSkillsStore();
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,10 +295,10 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           }).catch(() => {});
         }
       } else {
-        s.setError(json.error || 'AI 批改失敗，請重試');
+        s.setError(json.error || t('is.analyzeFailed'));
       }
     } catch {
-      s.setError('網絡連線失敗，請檢查連線後重試');
+      s.setError(t('is.networkFailed'));
     } finally {
       s.setAiLoading(false);
     }
@@ -312,7 +313,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
             onClick={() => { s.setStage('writing'); s.setAnalysis(null); }}
             className="text-gray-400 hover:text-gray-600 flex items-center gap-1 text-sm"
           >
-            <ArrowLeft className="w-4 h-4" /> 返回修改
+            <ArrowLeft className="w-4 h-4" /> {t('is.backToEdit')}
           </button>
         </div>
         <ResultView studentId={appStore.userId || ''} gradeLevel={s.gradeLevel || 'S4'} />
@@ -321,7 +322,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
             onClick={() => { s.reset(); }}
             className="flex-1 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            <Sparkles className="w-4 h-4" /> 生成新任務
+            <Sparkles className="w-4 h-4" /> {t('is.newTask')}
           </button>
         </div>
       </div>
@@ -389,7 +390,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 }`}>
                   {s.listeningCompleted ? <CheckCircle2 className="w-4 h-4" /> : '1'}
                 </span>
-                Listening<span className="text-xs font-normal text-gray-400">— 仔細聆聽對話內容</span>
+                Listening<span className="text-xs font-normal text-gray-400">— {t('is.listeningDesc')}</span>
               </h2>
               <div className="flex items-center gap-2">
                 {s.listeningCompleted && (
@@ -406,7 +407,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 {/* Audio player */}
                 <AudioPlayer
                   text={task.listeningContent}
-                  label="播放對話"
+                  label={t('is.playAudio')}
                   size="lg"
                   useCloudTTS
                   onPlayEnd={() => {
@@ -428,9 +429,9 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                     className="flex items-center gap-2 text-sm text-gray-500 hover:text-teal-600 transition-colors"
                   >
                     {s.showListeningText ? (
-                      <><EyeOff className="w-4 h-4" /> 隱藏聆聽文字</>
+                      <><EyeOff className="w-4 h-4" /> {t('is.hideTranscript')}</>
                     ) : (
-                      <><Eye className="w-4 h-4" /> 顯示聆聽文字</>
+                      <><Eye className="w-4 h-4" /> {t('is.showTranscript')}</>
                     )}
                   </button>
                   {s.showListeningText && (
@@ -452,7 +453,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                     <Edit3 className="w-4 h-4 text-amber-500" />
                     Note-taking
                     <span className="text-xs font-normal text-gray-400">
-                      — 邊聽邊記下關鍵資訊
+                      — {t('is.noteHint')}
                     </span>
                   </h3>
 
@@ -461,10 +462,10 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                     <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800 mb-3">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                          <Target className="w-4 h-4" /> 筆記指引
+                          <Target className="w-4 h-4" /> {t('is.noteGuide')}
                         </h4>
                         <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
-                          隱藏
+                          {t('is.hide')}
                         </button>
                       </div>
                       <ul className="space-y-2">
@@ -473,7 +474,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                             <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
                             <div>
                               <span className="font-medium">{item.question}</span>
-                              <span className="text-amber-500/60 ml-1.5 text-xs">提示：{item.hint}</span>
+                              <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
                             </div>
                           </li>
                         ))}
@@ -485,7 +486,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   <textarea
                     value={s.studentNotes}
                     onChange={e => s.setStudentNotes(e.target.value)}
-                    placeholder="邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）..."
+                    placeholder={t('is.notePlaceholder')}
                     className="w-full min-h-[160px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
                   />
                 </div>
@@ -494,13 +495,13 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 {s.listeningCompleted && (
                   <div className="flex items-center justify-between p-3 bg-teal-50 dark:bg-teal-900/10 rounded-xl border border-teal-100 dark:border-teal-800 animate-in fade-in">
                     <span className="text-sm text-teal-700 dark:text-teal-400 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" /> 已聽完對話，準備寫作！
+                      <CheckCircle2 className="w-4 h-4" /> {t('is.listeningDone')}
                     </span>
                     <button
                       onClick={() => { s.setListeningCompleted(true); s.setActiveStep(3); }}
                       className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
-                      開始寫作 <ChevronRight className="w-4 h-4" />
+                      {t('is.startWriting')} <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 )}
@@ -533,11 +534,11 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 </span>
                 Note-taking
                 <span className="text-xs font-normal text-gray-400">
-                  {hasNotes ? `${s.studentNotes.length} chars` : '— 記下關鍵資訊'}
+                  {hasNotes ? `${s.studentNotes.length} ${t('is.chars')}` : `— ${t('is.noteHint')}`}
                 </span>
                 {!canAccessNotes && (
                   <span className="text-xs text-gray-400 flex items-center gap-1 ml-2">
-                    <Target className="w-3 h-3" /> 請先完成聆聽
+                    <Target className="w-3 h-3" /> {t('is.pleaseListenFirst')}
                   </span>
                 )}
               </h2>
@@ -551,10 +552,10 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                        <Target className="w-4 h-4" /> 筆記指引
+                        <Target className="w-4 h-4" /> {t('is.noteGuide')}
                       </h4>
                       <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
-                        隱藏
+                        {t('is.hide')}
                       </button>
                     </div>
                     <ul className="space-y-2">
@@ -563,7 +564,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                           <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
                           <div>
                             <span className="font-medium">{item.question}</span>
-                            <span className="text-amber-500/60 ml-1.5 text-xs">提示：{item.hint}</span>
+                            <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
                           </div>
                         </li>
                       ))}
@@ -575,7 +576,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 <textarea
                   value={s.studentNotes}
                   onChange={e => s.setStudentNotes(e.target.value)}
-                  placeholder="邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）..."
+                  placeholder={t('is.notePlaceholder')}
                   className="w-full min-h-[200px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
                 />
 
@@ -585,14 +586,14 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                     onClick={saveDraft}
                     className="text-xs text-teal-600 hover:underline flex items-center gap-1"
                   >
-                    <Save className="w-3 h-3" /> 手動儲存草稿
+                    <Save className="w-3 h-3" /> {t('is.manualSave')}
                   </button>
                   {hasNotes && (
                     <button
                       onClick={() => s.setActiveStep(3)}
                       className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
-                      完成筆記，開始寫作 <ChevronRight className="w-4 h-4" />
+                      {t('is.doneNotesStartWriting')} <ChevronRight className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -627,12 +628,12 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 <span className="text-xs font-normal text-gray-400">
                   — {wordCount}{task.wordLimit ? ` / ${task.wordLimit}` : ''} words
                   {task.wordLimit && wordCount > task.wordLimit && (
-                    <span className="text-red-500 ml-1 font-medium">⚠️ 超出字數</span>
+                    <span className="text-red-500 ml-1 font-medium">{t('is.overWordLimit')}</span>
                   )}
                 </span>
                 {!canAccessWriting && (
                   <span className="text-xs text-gray-400 flex items-center gap-1 ml-2">
-                    <Target className="w-3 h-3" /> 請先完成筆記
+                    <Target className="w-3 h-3" /> {t('is.pleaseNoteFirst')}
                   </span>
                 )}
               </h2>
@@ -644,11 +645,11 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 {/* Writing task prompt */}
                 <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800">
                   <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-400 mb-1.5 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4" /> 寫作任務
+                    <FileText className="w-4 h-4" /> {t('is.writingTask')}
                   </h4>
                   <p className="text-sm text-purple-700 dark:text-purple-400 leading-relaxed">{task.writingTask}</p>
                   {task.wordLimit && (
-                    <p className="text-xs text-purple-500 mt-2">📏 建議字數：{task.wordLimit} 字</p>
+                    <p className="text-xs text-purple-500 mt-2">📏 {t('is.suggestedWords')}：{task.wordLimit} {t('is.chars')}</p>
                   )}
                 </div>
 
@@ -656,7 +657,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 <textarea
                   value={s.studentWriting}
                   onChange={e => s.setStudentWriting(e.target.value)}
-                  placeholder="根據你的筆記和寫作任務，在此撰寫你的答案..."
+                  placeholder={t('is.writingPlaceholder')}
                   className="w-full min-h-[300px] p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-y focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 />
 
@@ -677,7 +678,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 {s.showNotesWarning && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2 animate-in fade-in">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>請先完成筆記再提交寫作。</span>
+                    <span>{t('is.needNotesFirst')}</span>
                   </div>
                 )}
                 {s.error && (
@@ -691,9 +692,9 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   className="w-full py-3.5 bg-gradient-to-r from-purple-500 to-teal-500 hover:from-purple-600 hover:to-teal-600 disabled:from-gray-300 disabled:to-gray-300 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md shadow-purple-200 dark:shadow-purple-900/20 disabled:shadow-none"
                 >
                   {s.aiLoading ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> AI 批改中...</>
+                    <><Loader2 className="w-5 h-5 animate-spin" /> {t('is.aiAnalyzing')}</>
                   ) : (
-                    <><Send className="w-5 h-5" /> 提交 AI 批改</>
+                    <><Send className="w-5 h-5" /> {t('is.submitForReview')}</>
                   )}
                 </button>
               </div>

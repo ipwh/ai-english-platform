@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
     }
 
     const now = new Date();
-    let dueVocab: any[] = [];
-    let dueMistakes: any[] = [];
+    let dueVocab: Record<string, unknown>[] = [];
+    let dueMistakes: Record<string, unknown>[] = [];
 
     if (type === 'all' || type === 'vocab') {
       try {

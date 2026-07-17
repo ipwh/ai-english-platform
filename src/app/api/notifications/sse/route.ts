@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const since = searchParams.get('since'); // ISO timestamp
 
   try {
-    const where: any = { userId: authResult.userId };
+    const where: Record<string, unknown> = { userId: authResult.userId };
     if (since) {
       where.createdAt = { gt: new Date(since) };
     }

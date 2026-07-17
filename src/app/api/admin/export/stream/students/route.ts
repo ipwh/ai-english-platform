@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const academicYear = searchParams.get('academicYear') || '2025-2026';
 
   try {
-    const where: any = { role: 'student' };
+    const where: Record<string, unknown> = { role: 'student' };
     if (className) {
       where.class = { name: className };
     }

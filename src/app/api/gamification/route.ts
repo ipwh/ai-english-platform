@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Default: student stats + badges — each query isolated to survive partial schema
-    let student: any = null;
+    let student: Record<string, unknown> | null = null;
     let practiceSessions: { totalQuestions: number }[] = [];
     let vocabMastered = 0;
     let writingCount = 0;
@@ -87,8 +87,8 @@ export async function GET(req: NextRequest) {
 
     const stats: BadgeCheckStats = {
       totalQuestions,
-      overallAccuracy: student?.overallAccuracy ?? 0,
-      streakDays: student?.streakDays ?? 0,
+      overallAccuracy: (student?.overallAccuracy as number) ?? 0,
+      streakDays: (student?.streakDays as number) ?? 0,
       sessionsCompleted: sessionsCount,
       wordsMastered: vocabMastered,
       writingSubmissions: writingCount,
@@ -96,13 +96,13 @@ export async function GET(req: NextRequest) {
       skillAccuracy: {},
     };
 
-    const xp = (student as any)?.xp ?? 0;
+    const xp = (student?.xp as number) ?? 0;
     const levelInfo = getLevelInfo(xp);
 
     // Parse already-unlocked badge IDs
     let alreadyUnlocked: string[] = [];
     try {
-      alreadyUnlocked = student?.badgeIds ? JSON.parse(student.badgeIds) : [];
+      alreadyUnlocked = student?.badgeIds ? JSON.parse(student.badgeIds as string) : [];
     } catch { alreadyUnlocked = []; }
 
     const allBadges = getAllBadges(stats, alreadyUnlocked);
