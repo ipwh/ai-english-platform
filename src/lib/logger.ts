@@ -92,17 +92,17 @@ function log(level: LogLevel, metaOrMsg: Record<string, unknown> | string, msg?:
   switch (level) {
     case 'trace':
     case 'debug':
-      console.debug(output);
+      _origConsole.log(output);
       break;
     case 'info':
-      console.info(output);
+      _origConsole.log(output);
       break;
     case 'warn':
-      console.warn(output);
+      _origConsole.warn(output);
       break;
     case 'error':
     case 'fatal':
-      console.error(output);
+      _origConsole.error(output);
       break;
   }
 }
