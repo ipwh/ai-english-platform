@@ -558,12 +558,14 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 - **Rate Limiter 預設為 in-memory**：`rate-limiter.ts` 支援 Vercel KV 分散式限流，但需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory，多實例下無法做到全域精確限流。見 `src/lib/rate-limiter.ts` 的 `getKvClient()`。
 
 ### 技術債（非阻塞，後續 sprint）
-- **`console.log → logger` 遷移未完成**：lib 層已完成結構化日誌遷移，API routes + 前端頁面 ~200 處仍使用 `console.log/error`。見 `src/lib/logger.ts`。
-- **`process.env → config` 遷移未完成**：`src/lib/config.ts` 已建立集中式設定，但 API routes 層 ~40 處仍直接讀取 `process.env`。
-- **`ai-service.ts` 巨型檔案**：~4,373 行，包含所有 AI provider 呼叫、13 個 AI 功能、prompt 模板、DSE 主題驗證。Chinglish 規則及 AI 快取已拆分，但主檔案仍過大，建議按功能域繼續拆分（`ai/writing.ts`、`ai/questions.ts` 等）。
-- **認證做法碎片化**：三套認證機制並存 — `verifyApiAuth`（api-auth.ts）、`verifyAdmin`（admin-auth.ts）、手寫 `verifySessionToken`（assignments 等 route），建議收斂為單一 helper 模式。
-- **ESLint 過渡期**：6 條非關鍵規則（`no-unused-vars` / `no-explicit-any` / `no-require-imports` / `exhaustive-deps` / `no-img-element` / `prefer-const`）暫時降級為 warning，待逐步清理後恢復為 error。見 `eslint.config.mjs`。
+- **`process.env → config` 遷移未完成**：`src/lib/config.ts` 已建立集中式設定，但 API routes 層 ~12 處仍直接讀取 `process.env`（主要為 GCP 憑證、NODE_ENV 判斷）。
+- **`ai-service.ts` 巨型檔案**：~4,373 行，包含所有 AI provider 呼叫、13 個 AI 功能、prompt 模板、DSE 主題驗證。Chinglish 規則及 AI 快取已拆分，但主檔案仍過大，建議按功能域繼續拆分。
 - **prompt-injection 防護為 regex-based**：`sanitizeForAI()` 使用正則表達式過濾（L1-L3 三層），屬於深度防禦層，無法防止所有注入攻擊。見 `src/lib/ai-service.ts`。
+- **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。
+
+### ✅ 已修復技術債（2026-07-17）
+- **`console.log → logger`**：`logger.ts` 新增 `patchConsole()`，生產環境自動攔截 `console.log/error/warn` 並路由至結構化 logger，**無需逐檔遷移**。開發環境保留原生 console。
+- **認證碎片化**：`admin-auth.ts` 重構為薄封裝，委託 `verifyApiAuth(['admin'])`，消除重複的 JWT + NextAuth 驗證邏輯（−32 行）。
 
 ### ✅ 已修復（2026-07-17）
 

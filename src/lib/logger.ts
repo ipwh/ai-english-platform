@@ -126,3 +126,69 @@ export const logger = {
   error: (metaOrMsg: Record<string, unknown> | string, msg?: string) => log('error', metaOrMsg, msg),
   fatal: (metaOrMsg: Record<string, unknown> | string, msg?: string) => log('fatal', metaOrMsg, msg),
 };
+
+// ============================================
+// Console Patching — 自動將 console.log/error/warn
+// 路由至結構化 logger（生產環境），消滅技術債
+// ============================================
+
+const _origConsole = {
+  log: console.log.bind(console),
+  error: console.error.bind(console),
+  warn: console.warn.bind(console),
+};
+
+let _consolePatched = false;
+
+/**
+ * 在生產環境中攔截 console.log/error/warn，自動路由至結構化 logger。
+ * 開發環境保留原生 console 以便除錯。
+ * 
+ * 呼叫此函數後，所有現有的 console.log() 呼叫會自動轉為
+ * logger.info()，無需逐檔遷移。
+ */
+export function patchConsole(): void {
+  if (_consolePatched) return;
+  _consolePatched = true;
+
+  const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+
+  if (!isProd) {
+    _origConsole.log('[logger] Console patching skipped (dev mode — native console preserved)');
+    return;
+  }
+
+  console.log = (...args: unknown[]) => {
+    const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+    logger.info({ module: 'console' }, msg);
+  };
+
+  console.error = (...args: unknown[]) => {
+    const msg = args.map(a => {
+      if (a instanceof Error) return a.stack || a.message;
+      return typeof a === 'string' ? a : JSON.stringify(a);
+    }).join(' ');
+    logger.error({ module: 'console' }, msg);
+  };
+
+  console.warn = (...args: unknown[]) => {
+    const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+    logger.warn({ module: 'console' }, msg);
+  };
+
+  _origConsole.log('[logger] Console patched — all console.* calls now route through structured logger');
+}
+
+/**
+ * 恢復原生 console（用於測試或特殊情境）
+ */
+export function unpatchConsole(): void {
+  if (!_consolePatched) return;
+  console.log = _origConsole.log;
+  console.error = _origConsole.error;
+  console.warn = _origConsole.warn;
+  _consolePatched = false;
+}
+
+// 模組載入時自動在生產環境啟用 console patching
+patchConsole();
