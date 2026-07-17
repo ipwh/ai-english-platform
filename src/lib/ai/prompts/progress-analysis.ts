@@ -18,6 +18,8 @@ HKDSE Subject Descriptors 參考：
 2. strengthsAreas: string[] 學生做得好的方面
 3. urgentAreas: string[] 急需改善的弱項（標明對應 HKDSE 卷別與等級）
 4. recommendedFocus: { skill, reason, priority }[] 建議優先學習的技能
+   - priority 必須是以下三者之一（小寫，不可用其他值）："high"、"medium"、"low"
+   - "high" = 急需處理的弱項，"medium" = 應改善的技能，"low" = 可稍後提升的項目
 5. studyPlan: string 未來一週學習計劃建議
 6. encouragementMessage: string 鼓勵訊息（正向、具體）
 7. estimatedTimeToImprove: string 預計改善所需時間`;

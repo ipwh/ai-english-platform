@@ -105,7 +105,17 @@ export const ProgressAnalysisSchema = z.object({
   recommendedFocus: z.array(z.object({
     skill: z.string(),
     reason: z.string(),
-    priority: z.enum(['high', 'medium', 'low']),
+    priority: z.preprocess(
+      (val) => {
+        if (typeof val !== 'string') return val;
+        const v = val.toLowerCase().trim();
+        if (v.startsWith('high') || v === 'urgent' || v === 'critical') return 'high';
+        if (v.startsWith('med') || v === 'moderate' || v === 'normal') return 'medium';
+        if (v.startsWith('low') || v === 'minor') return 'low';
+        return v;
+      },
+      z.enum(['high', 'medium', 'low']),
+    ),
   })),
   studyPlan: z.string().min(1),
   encouragementMessage: z.string().min(1),
