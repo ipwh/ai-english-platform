@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Play, Loader2, Check, X, RotateCcw, ArrowRight, ArrowLeft,
   Sparkles, Brain, Target, Trophy, AlertCircle, Eye, EyeOff,
-  Volume2, Lightbulb,
+  Volume2, Lightbulb, Search, ListChecks,
 } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -79,10 +79,17 @@ export default function SpellingPractice({
   const [attemptCount, setAttemptCount] = useState(1);
   const [showHint, setShowHint] = useState(false);
   const [results, setResults] = useState<SpellingAttempt[]>([]);
-  const [mode, setMode] = useState<'new' | 'random' | 'weakest' | 'due'>('random');
+  const [mode, setMode] = useState<'new' | 'random' | 'weakest' | 'due' | 'pick'>('random');
   const [count, setCount] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const [finalResult, setFinalResult] = useState<{ correct: number; total: number; accuracy: number } | null>(null);
+
+  // Word picker state (for 'pick' mode)
+  const [pickerWords, setPickerWords] = useState<SpellingWord[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickedIds, setPickedIds] = useState<Set<string>>(new Set());
+  const [pickerError, setPickerError] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -98,6 +105,38 @@ export default function SpellingPractice({
   }, [currentIndex, stage]);
 
   // ============================================
+  // Fetch vocab for manual picker
+  // ============================================
+  const fetchVocabForPicker = useCallback(async () => {
+    setPickerLoading(true);
+    setPickerError('');
+    try {
+      const res = await fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}&limit=200`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const items = (data.items || data.vocabulary || []).map((v: Record<string, unknown>) => ({
+        vocabId: String(v.id || ''),
+        word: String(v.word || ''),
+        meaningZh: String(v.meaningZh || ''),
+        partOfSpeech: String(v.partOfSpeech || ''),
+        explanationEn: v.exampleSentence ? String(v.exampleSentence) : undefined,
+      }));
+      setPickerWords(items);
+    } catch (err) {
+      setPickerError(err instanceof Error ? err.message : 'Failed to load vocabulary');
+    } finally {
+      setPickerLoading(false);
+    }
+  }, [studentId]);
+
+  // Load vocab when entering pick mode
+  useEffect(() => {
+    if (mode === 'pick' && pickerWords.length === 0 && !pickerLoading) {
+      fetchVocabForPicker();
+    }
+  }, [mode, pickerWords.length, pickerLoading, fetchVocabForPicker]);
+
+  // ============================================
   // Generate words
   // ============================================
   const handleGenerate = useCallback(async () => {
@@ -105,7 +144,10 @@ export default function SpellingPractice({
     setError('');
     try {
       let url = `/api/vocabulary/spelling?studentId=${encodeURIComponent(studentId)}&count=${count}&mode=${mode}`;
-      if (wordIds && wordIds.length > 0) {
+      // In pick mode, pass selected word IDs
+      if (mode === 'pick' && pickedIds.size > 0) {
+        url += `&wordIds=${Array.from(pickedIds).join(',')}`;
+      } else if (wordIds && wordIds.length > 0) {
         url += `&wordIds=${wordIds.join(',')}`;
       }
       const res = await fetch(url);
@@ -251,10 +293,11 @@ export default function SpellingPractice({
                 { value: 'random', labelZh: '隨機選取', labelEn: 'Random' },
                 { value: 'weakest', labelZh: '最弱優先', labelEn: 'Weakest' },
                 { value: 'due', labelZh: '到期複習', labelEn: 'Due Review' },
+                { value: 'pick', labelZh: '✋ 自選單字', labelEn: '✋ Pick Words' },
               ].map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setMode(opt.value as typeof mode)}
+                  onClick={() => { setMode(opt.value as typeof mode); if (opt.value === 'pick') setCount(pickedIds.size || 10); }}
                   className={`p-3 rounded-xl text-sm font-medium transition-all ${
                     mode === opt.value
                       ? 'bg-purple-500 text-white shadow-md shadow-purple-200 dark:shadow-purple-900/30'
@@ -266,8 +309,123 @@ export default function SpellingPractice({
               ))}
             </div>
           </div>
+        </div>
 
-          <div>
+        {/* Word picker (shown when mode === 'pick') */}
+        {mode === 'pick' && (
+          <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
+                <ListChecks className="w-4 h-4" />
+                {language === 'en' ? 'Select Words' : '選取要練習的單字'}
+              </h4>
+              <span className="text-xs text-purple-600 dark:text-purple-400">
+                {language === 'en' ? `${pickedIds.size} selected` : `已選 ${pickedIds.size} 個`}
+              </span>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                placeholder={language === 'en' ? 'Search words...' : '搜尋單字...'}
+                className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-300"
+              />
+            </div>
+
+            {pickerLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+              </div>
+            ) : pickerError ? (
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-600">
+                <AlertCircle className="w-4 h-4" />{pickerError}
+                <button onClick={fetchVocabForPicker} className="ml-auto text-xs underline">
+                  {language === 'en' ? 'Retry' : '重試'}
+                </button>
+              </div>
+            ) : (
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {pickerWords
+                  .filter(w =>
+                    !pickerSearch ||
+                    w.word.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                    w.meaningZh.includes(pickerSearch)
+                  )
+                  .map((w) => (
+                    <label
+                      key={w.vocabId}
+                      className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors text-sm ${
+                        pickedIds.has(w.vocabId)
+                          ? 'bg-purple-100 dark:bg-purple-800/40 text-purple-900 dark:text-purple-200'
+                          : 'hover:bg-white/60 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={pickedIds.has(w.vocabId)}
+                        onChange={() => {
+                          setPickedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(w.vocabId)) next.delete(w.vocabId);
+                            else next.add(w.vocabId);
+                            setCount(Math.max(1, next.size));
+                            return next;
+                          });
+                        }}
+                        className="rounded accent-purple-500"
+                      />
+                      <span className="font-medium flex-1 min-w-0 truncate">{w.word}</span>
+                      <span className="text-xs text-gray-400 truncate max-w-[120px]">{w.meaningZh}</span>
+                      <span className="text-xs text-purple-400 bg-purple-50 dark:bg-purple-800/30 px-1.5 py-0.5 rounded">{w.partOfSpeech}</span>
+                    </label>
+                  ))}
+                {pickerWords.filter(w =>
+                  !pickerSearch ||
+                  w.word.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                  w.meaningZh.includes(pickerSearch)
+                ).length === 0 && (
+                  <p className="text-center text-xs text-gray-400 py-4">
+                    {language === 'en' ? 'No matching words' : '沒有符合的單字'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Select all / Clear */}
+            <div className="flex gap-2 mt-2 pt-2 border-t border-purple-200 dark:border-purple-700">
+              <button
+                onClick={() => {
+                  const allIds = new Set(pickerWords.map(w => w.vocabId));
+                  setPickedIds(allIds);
+                  setCount(allIds.size);
+                }}
+                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+              >
+                {language === 'en' ? 'Select all' : '全選'}
+              </button>
+              <button
+                onClick={() => { setPickedIds(new Set()); setCount(0); }}
+                className="text-xs text-gray-400 hover:underline"
+              >
+                {language === 'en' ? 'Clear' : '清除'}
+              </button>
+              <button
+                onClick={fetchVocabForPicker}
+                className="text-xs text-gray-400 hover:underline ml-auto"
+              >
+                {language === 'en' ? 'Refresh' : '重新載入'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Number of words (hidden in pick mode) */}
+        {mode !== 'pick' && (
+          <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
               {language === 'en' ? 'Number of Words' : '練習數量'}
             </label>
@@ -287,7 +445,7 @@ export default function SpellingPractice({
               ))}
             </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 dark:bg-red-900/20 rounded-xl text-sm text-red-600 dark:text-red-400">
@@ -298,7 +456,7 @@ export default function SpellingPractice({
 
         <button
           onClick={handleGenerate}
-          disabled={loading}
+          disabled={loading || (mode === 'pick' && pickedIds.size === 0)}
           className="w-full flex items-center justify-center gap-2 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold rounded-xl transition-colors"
         >
           {loading ? (
