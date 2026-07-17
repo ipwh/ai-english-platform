@@ -93,6 +93,27 @@ import { getProgressAnalysisSystemPrompt, buildProgressAnalysisUserPrompt } from
 import { getWritingOutlineSystemPrompt, buildWritingOutlineUserPrompt } from './ai/prompts/writing-outline';
 
 // ============================================
+// P0: 純資料常數 (extracted)
+// ============================================
+import { GEMINI_JSON_INSTRUCTION } from './ai/prompts/gemini-json-instruction';
+import { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS, getFallbackFillers } from './ai/mcq-filters';
+import {
+  INTEGRATED_SKILLS_DIFF_MAP,
+  INTEGRATED_SKILLS_TASK_TYPE_MAP,
+} from './ai/integrated-skills-config';
+export { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS } from './ai/mcq-filters';
+export {
+  INTEGRATED_SKILLS_DIFF_MAP,
+  INTEGRATED_SKILLS_TASK_TYPE_MAP,
+} from './ai/integrated-skills-config';
+
+// ============================================
+// Topic Selection Engine (extracted)
+// ============================================
+export { getRandomTopicV2 } from './ai/topic-selector';
+import { getRandomTopicV2 } from './ai/topic-selector';
+
+// ============================================
 // 設定（統一從 config.ts 讀取）
 // ============================================
 
@@ -119,21 +140,7 @@ let lastAIProvider: 'deepseek' | 'vertex-gemini' | 'gemini-api' | 'none' = 'none
 export function getLastAIProvider(): string { return lastAIProvider; }
 export function wasFallbackUsed(): boolean { return lastAIProvider !== 'deepseek' && lastAIProvider !== 'none'; }
 
-// ============================================
-// Gemini prompt 適配 — Gemini 對 system prompt 的遵循方式與 DeepSeek 不同
-// 移除 responseMimeType 硬約束，改為在 prompt 中注入明確 JSON 格式指引
-// 這是確保 Gemini fallback 品質與 DeepSeek 一致的關鍵機制
-// ============================================
-const GEMINI_JSON_INSTRUCTION = `
----
-CRITICAL OUTPUT FORMAT:
-- Output ONLY a valid JSON object (start with {, end with }) or JSON array (start with [, end with ]).
-- Do NOT wrap in markdown code blocks (no \`\`\`json).
-- Do NOT add any text, explanation, or notes before or after the JSON.
-- EVERY string field must contain meaningful, complete, substantive content.
-- NO empty strings "". NO placeholder values like "N/A", "todo", "TBD".
-- For Chinese text, use Traditional Chinese (繁體中文), NOT Simplified.
-- The response must be parseable by JSON.parse() directly.`.trim();
+// Gemini JSON instruction extracted to src/lib/ai/prompts/gemini-json-instruction.ts
 
 function adaptMessagesForGemini(messages: ChatMessage[], jsonMode: boolean): ChatMessage[] {
   if (!jsonMode) return messages;
@@ -750,22 +757,7 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       return c;
     });
 
-    // 過濾掉 DSE 不相容的選項（All/None of the above、碎片數字等）
-    const BANNED_PATTERNS = [
-      /^all\s*of\s*the\s*above\.?\s*$/i,
-      /^none\s*of\s*the\s*above\.?\s*$/i,
-      /^all\s*the\s*above\.?\s*$/i,
-      /^not\s*mentioned/i,
-      /^cannot\s*be\s*determined/i,
-    ];
-    // 時間碎片模式 — AI 常生成不完整的時間選項（如 "00 PM", "30 PM", "4:00"）
-    const TIME_FRAGMENT_PATTERNS = [
-      /^\d{1,2}:\d{2}\s*(?:AM|PM)?$/i,     // "4:00", "4:00 PM" 等時間格式（無上下文過於狹窄）
-      /^\d{1,2}\s*(?:AM|PM)$/i,             // "4 PM", "00 PM", "30 PM" 等破碎時間
-      /^\d{1,2}\s*o'?clock$/i,              // "4 oclock", "4 o'clock"
-      /^(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:AM|PM|in the (?:morning|afternoon|evening))$/i, // "at 4 PM"
-    ];
-    // v2.1: 聆聽題中時間是常見答案（如 "4:00 PM", "at 3:30"），不應過濾
+    // 過濾掉 DSE 不相容的選項（現在從 mcq-filters.ts 匯入）
     const isListening = !!base.listeningContent;
     const isReading = !!base.readingContent;
 
@@ -787,11 +779,7 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     // 若過濾後不足 2 個有效選項，使用 context-aware fallback fillers
     if (validChoices.length < 2) {
       console.error(`[ai-service] Q has only ${validChoices.length} valid choices after filtering:`, validChoices);
-      const fallbackFillers = isListening
-        ? ['The information is not provided in the recording.', 'The speaker did not mention this.', 'This detail was changed during the conversation.', 'Listen carefully to the exact words used.']
-        : isReading
-          ? ['The passage does not mention this detail.', 'This idea is not supported by the text.', 'The author does not discuss this point.', 'Re-read the relevant paragraph carefully.']
-          : ['The correct answer depends on the grammar rule.', 'Check the sentence structure carefully.', 'Eliminate obviously incorrect options first.', 'Review the key concept before answering.'];
+      const fallbackFillers = getFallbackFillers(isListening, isReading);
       while (validChoices.length < 4) {
         const filler = fallbackFillers[validChoices.length] || `Option ${validChoices.length + 1}`;
         if (!validChoices.some(c => c.toLowerCase() === filler.toLowerCase())) {
@@ -1097,101 +1085,7 @@ export function validateListeningConsistency(questions: GeneratedQuestion[]): {
   };
 }
 
-// ============================================
-// 主題選擇引擎 v2.0
-// ============================================
-
-const topicBlacklist: Map<string, Set<string>> = new Map(); // sessionKey → Set<topic text>
-const recentTopicsByCategory: Map<string, string[]> = new Map(); // category → [recent topics]
-const MAX_BLACKLIST_SIZE = 50; // Prevent unbounded memory growth
-const MAX_RECENT_CATEGORIES = 10;
-
-/** Periodic cleanup to prevent memory leaks in long-running processes */
-function cleanupBlacklistIfNeeded(): void {
-  if (topicBlacklist.size > MAX_BLACKLIST_SIZE) {
-    // Remove oldest entries (first 20)
-    const keys = [...topicBlacklist.keys()].slice(0, 20);
-    for (const key of keys) {
-      topicBlacklist.delete(key);
-      recentTopicsByCategory.delete(key);
-    }
-    console.log('[DSE Topics] Blacklist cleanup: removed', keys.length, 'old sessions');
-  }
-}
-
-/**
- * Get a diverse random topic with:
- * - Grade-level filtering (S3→life-oriented, S5-S6→social issues)
- * - Category rotation (avoid consecutive same-category topics)
- * - Blacklist mechanism (avoid repetition within session)
- * - Student topic preference support
- */
-function getRandomTopicV2(
-  isListening: boolean,
-  isReading: boolean,
-  gradeLevel: string,
-  preferredCategories?: TopicCategory[],
-): string {
-  const pool = isListening ? LISTENING_TOPICS_V2 : isReading ? READING_TOPICS_V2 : LISTENING_TOPICS_V2;
-  
-  // Filter by grade level
-  const gradeEligible = pool.filter(t => t.grades.includes(gradeLevel));
-  const candidates = gradeEligible.length > 0 ? gradeEligible : pool;
-  
-  // Session key for blacklist
-  const sessionKey = `${gradeLevel}-${isListening ? 'listen' : isReading ? 'read' : 'default'}`;
-  const blacklist = topicBlacklist.get(sessionKey) || new Set();
-  
-  // Filter out blacklisted topics
-  let available = candidates.filter(t => !blacklist.has(t.text));
-  
-  // Reset blacklist if all topics are used
-  if (available.length === 0) {
-    topicBlacklist.delete(sessionKey);
-    available = candidates;
-  }
-  
-  // Category rotation: avoid the last 3 categories used
-  const recentCats = recentTopicsByCategory.get(sessionKey) || [];
-  const nonRecent = available.filter(t => !recentCats.includes(t.category));
-  const poolToUse = nonRecent.length >= 3 ? nonRecent : available;
-  
-  // Student preference boost: if preferredCategories specified, prioritize those
-  if (preferredCategories && preferredCategories.length > 0) {
-    const preferred = poolToUse.filter(t => preferredCategories.includes(t.category));
-    if (preferred.length > 0 && Math.random() > 0.4) {
-      // 60% chance to use preferred category
-      const pick = preferred[Math.floor(Math.random() * preferred.length)];
-      updateTopicTracking(sessionKey, pick);
-      return pick.text;
-    }
-  }
-  
-  // Select random topic
-  const pick = poolToUse[Math.floor(Math.random() * poolToUse.length)];
-  updateTopicTracking(sessionKey, pick);
-  return pick.text;
-}
-
-function updateTopicTracking(sessionKey: string, topic: TopicEntry) {
-  // Blacklist (keep last 10)
-  const blacklist = topicBlacklist.get(sessionKey) || new Set();
-  blacklist.add(topic.text);
-  if (blacklist.size > 10) {
-    const first = blacklist.values().next().value;
-    if (first) blacklist.delete(first);
-  }
-  topicBlacklist.set(sessionKey, blacklist);
-  
-  // Category tracking (keep last 3)
-  const cats = recentTopicsByCategory.get(sessionKey) || [];
-  cats.push(topic.category);
-  if (cats.length > 3) cats.shift();
-  recentTopicsByCategory.set(sessionKey, cats);
-
-  // Periodic global cleanup
-  cleanupBlacklistIfNeeded();
-}
+// (Topic Selection Engine extracted to src/lib/ai/topic-selector.ts)
 
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
   const count = input.count || 5;
@@ -3473,52 +3367,8 @@ export interface IntegratedSkillsAnalysis {
 export async function generateIntegratedSkills(
   input: GenerateIntegratedSkillsInput
 ): Promise<IntegratedSkillsTask> {
-  const diffMap: Record<string, { label: string; lines: string; traps: string; wordLimit: number }> = {
-    remedial: {
-      label: '補底 (Level 1-2)',
-      lines: '一段短對話，8-12 行，2 位說話者',
-      traps: '無需刻意加入陷阱',
-      wordLimit: 80,
-    },
-    core: {
-      label: '核心 (Level 3)',
-      lines: '一段中等對話，12-18 行，2-3 位說話者，含 1-2 個 distraction',
-      traps: '必須包含 1 個 distraction (說了又改) + 1 個 synonym replacement',
-      wordLimit: 120,
-    },
-    challenge: {
-      label: '挑戰 (Level 4-5)',
-      lines: '一段長對話或 2 段相關對話，18-30 行，2-3 位說話者',
-      traps: '必須包含 2+ 個陷阱：distraction + synonym + speaker attitude + numerical precision',
-      wordLimit: 180,
-    },
-  };
-
-  const diff = diffMap[input.difficulty];
-  const taskTypeMap: Record<string, { name: string; nameZh: string; formatHint: string }> = {
-    'summary': {
-      name: 'Summary',
-      nameZh: '摘要寫作',
-      formatHint: 'Write a concise summary. Use your own words — do NOT copy directly from the listening. Organize points logically.',
-    },
-    'email-reply': {
-      name: 'Email Reply',
-      nameZh: '電郵回覆',
-      formatHint: 'Write a proper email reply. Include: subject line, appropriate salutation, body paragraphs addressing all points from the listening, polite closing. Use semi-formal to formal tone.',
-    },
-    'short-article': {
-      name: 'Short Article',
-      nameZh: '短文撰寫',
-      formatHint: 'Write a short article. Include: catchy headline, engaging opening, body paragraphs with key points from the listening, and a concluding remark. Use an appropriate tone for the target audience.',
-    },
-    'report': {
-      name: 'Report',
-      nameZh: '報告撰寫',
-      formatHint: 'Write a report. Include: title ("Report on..."), introduction/background, findings (use sub-headings), and recommendations. Use objective tone and passive voice where appropriate.',
-    },
-  };
-
-  const taskInfo = taskTypeMap[input.taskType];
+  const diff = INTEGRATED_SKILLS_DIFF_MAP[input.difficulty];
+  const taskInfo = INTEGRATED_SKILLS_TASK_TYPE_MAP[input.taskType];
 
   const systemPrompt = `你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
 ⚠️ 原創性要求：必須生成 100% 原創內容，嚴禁複製或改寫任何真實 HKDSE 試題。
