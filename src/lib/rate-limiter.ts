@@ -13,8 +13,7 @@
 //    Upstash Redis: 大規模部署時的建議方案（需自行實作 Redis adapter）
 // ============================================
 
-import { logger } from '@/lib/logger';
-import { getKvClient, getKvBackend } from '@/lib/vercel-kv';
+import { getKvClient } from '@/lib/vercel-kv';
 
 interface RateLimitEntry {
   count: number;
@@ -22,11 +21,11 @@ interface RateLimitEntry {
 }
 
 const store = new Map<string, RateLimitEntry>();
-let activeBackend: 'kv' | 'memory' = 'memory';
+const kvBackend = { current: 'memory' as 'kv' | 'memory' };
 
 /** 取得當前使用的 backend（用於 monitoring） */
 export function getRateLimitBackend(): 'kv' | 'memory' {
-  return activeBackend;
+  return kvBackend.current;
 }
 
 /** 定期清理過期條目（in-memory mode only，每 60 秒） */

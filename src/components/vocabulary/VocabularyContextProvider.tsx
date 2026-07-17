@@ -32,7 +32,6 @@ export default function VocabularyContextProvider({ children }: { children: Reac
     showQuickAdd,
     handleAddToVocab,
     handleWordAdded,
-    setShowQuickAdd,
   } = useHighlightAddVocab(studentId, gradeLevel);
 
   return (

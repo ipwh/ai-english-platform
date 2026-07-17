@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { Search, Filter, Download, ChevronDown } from 'lucide-react';
+import { Search, Download, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { Familiarity } from '@/lib/types';
 import { useT } from '@/hooks/use-i18n';

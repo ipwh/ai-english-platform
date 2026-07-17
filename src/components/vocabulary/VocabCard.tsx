@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { Sparkles, Loader2, ChevronDown, ChevronUp, Trash2, ExternalLink } from 'lucide-react';
+import { Sparkles, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import ProgressBar from '@/components/shared/ProgressBar';

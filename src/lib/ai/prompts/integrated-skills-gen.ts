@@ -40,7 +40,7 @@ export interface IntegratedSkillsGenPromptParams {
 
 export function buildIntegratedSkillsGenPrompt(params: IntegratedSkillsGenPromptParams): string {
   const {
-    gradeLevel, difficulty, taskType, topicHint,
+    gradeLevel, taskType, topicHint,
     dseTopics, diffLines, diffTraps, diffWordLimit, diffLabel,
     taskInfoName, taskInfoNameZh, taskInfoFormatHint,
   } = params;
