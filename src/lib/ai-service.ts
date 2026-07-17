@@ -86,6 +86,13 @@ export { STRICT_ANSWER_RULES } from './ai/prompts/answer-rules';
 import { STRICT_ANSWER_RULES } from './ai/prompts/answer-rules';
 
 // ============================================
+// 已提取的 System Prompts
+// ============================================
+import { getExplainMistakeSystemPrompt, buildExplainMistakeUserPrompt } from './ai/prompts/explain-mistake';
+import { getProgressAnalysisSystemPrompt, buildProgressAnalysisUserPrompt } from './ai/prompts/progress-analysis';
+import { getWritingOutlineSystemPrompt, buildWritingOutlineUserPrompt } from './ai/prompts/writing-outline';
+
+// ============================================
 // 設定（統一從 config.ts 讀取）
 // ============================================
 
@@ -2730,31 +2737,15 @@ export async function explainMistake(input: ExplainMistakeInput): Promise<Mistak
     console.warn('[DSE-RAG] explainMistake MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
     msContextPrompt = '';
   }
-  const systemPrompt = `你是一位香港中學英文科教師，專門為學生解釋錯題。
-請參考 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening）來判斷學生錯誤對應的能力水平。
-請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
+  const systemPrompt = getExplainMistakeSystemPrompt();
 
-HKDSE 常見錯誤類型與對應等級：
-- 詞義推斷失敗 / 無法追蹤論點 → Reading Level 2-3 典型弱項
-- 未能辨識說話者態度意圖 / 不懂重音語調提示 → Listening Level 2-3 典型弱項
-- 中式英文 / 基本文法錯誤 → Writing Level 1-2 典型弱項
-- 理解錯誤 / 答非所問 → 跨卷別共通弱項（comprehension）
-
-回覆欄位：
-1. reasonZh: string 為什麼答錯（繁體中文，簡潔易懂，並指出對應 HKDSE 哪個等級能力不足）
-2. reasonEn: string 為什麼答錯（英文版）
-3. ruleExplanation: string 相關文法/語言規則的詳細說明（繁體中文）
-4. examples: { wrong: string, correct: string }[] 2-3組對比例句
-5. memoryTip: string 記憶口訣或技巧（繁體中文）
-6. relatedTopics: string[] 相關學習主題建議`;
-
-  const userPrompt = `題目：${input.question}
-正確答案：${input.correctAnswer}
-學生答案：${input.studentAnswer}
-${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}
-${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
-
-請幫學生解釋為什麼答錯了，以及如何避免再犯。`;
+  const userPrompt = buildExplainMistakeUserPrompt({
+    question: input.question,
+    correctAnswer: input.correctAnswer,
+    studentAnswer: input.studentAnswer,
+    grammarItemZh: input.grammarItemZh,
+    studentLevel: input.studentLevel,
+  });
 
   const result = await callLLM(
     [
@@ -2891,23 +2882,7 @@ export async function analyzeProgress(input: AnalyzeProgressInput): Promise<Prog
     console.warn('[DSE-RAG] analyzeProgress RAG 失敗，fallback:', err instanceof Error ? err.message : String(err));
   }
 
-  const systemPrompt = `${dseContextPrompt}你是一位香港中學英文科的學習顧問，熟悉 HKDSE English Language Level Descriptors。
-請根據學生的學習數據，對照 HKDSE 等級描述提供個人化分析與建議。
-以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
-
-HKDSE Subject Descriptors 參考：
-- Level 5: 理解近自然語速口語（含比喻）、評價觀點、從語調辨識態度；理解複雜文本、追蹤論點、推論詞義；寫作有趣相關有組織、廣泛句式準確、語域恰當；表達流暢準確、持續互動。
-- Level 3: 理解中等語速字面口語、辨識明確觀點；理解簡單文本、做直接推論；寫作相關有組織（熟悉語境）、部分複合句準確、基本語域；使用簡單常用表達、回應他人。
-- Level 1: 理解簡短簡單口語、提取可預測信息；理解部分簡單文本、辨識基本事實；寫作一兩個相關點、數句簡單可理解句子；使用少數簡短表達、在被提示時回應。
-
-回覆欄位：
-1. summary: string 整體學習狀況摘要（對照 HKDSE Level）
-2. strengthsAreas: string[] 學生做得好的方面
-3. urgentAreas: string[] 急需改善的弱項（標明對應 HKDSE 卷別與等級）
-4. recommendedFocus: { skill, reason, priority }[] 建議優先學習的技能
-5. studyPlan: string 未來一週學習計劃建議
-6. encouragementMessage: string 鼓勵訊息（正向、具體）
-7. estimatedTimeToImprove: string 預計改善所需時間`;
+  const systemPrompt = getProgressAnalysisSystemPrompt(dseContextPrompt);
 
   const weakSkillsDesc = input.weakSkills
     .map(s => `${s.nameZh} (正確率: ${s.accuracy}%)`)
@@ -2917,16 +2892,13 @@ HKDSE Subject Descriptors 參考：
     .map(p => `${p.date}: 正確率${p.accuracy}%, ${p.questionsDone}題`)
     .join('\n');
 
-  const userPrompt = `學生資料：
-- 年級：${input.studentLevel}
-- 整體正確率：${input.overallAccuracy}%
-- 連續學習天數：${input.streakDays} 天
-- 弱項技能：${weakSkillsDesc || '無明顯弱項'}
-
-近期表現：
-${recentDesc}
-
-請提供個人化學習建議。`;
+  const userPrompt = buildProgressAnalysisUserPrompt({
+    studentLevel: input.studentLevel,
+    overallAccuracy: input.overallAccuracy,
+    streakDays: input.streakDays,
+    weakSkillsDesc,
+    recentDesc,
+  });
 
   const result = await callLLM(
     [
@@ -3243,71 +3215,25 @@ export async function generateWritingOutline(input: GenerateWritingOutlineInput)
     ? `\nStudent weaknesses: ${input.weakSkills.join(', ')}. Emphasize these areas in the outline.`
     : '';
 
-  const systemPrompt = `You are an experienced HKDSE English writing tutor who has trained hundreds of DSE students. Your job is to create a DETAILED, STRUCTURED, BILINGUAL (Chinese + English) writing outline that helps a ${input.gradeLevel} student plan their essay to DSE Paper 2 standards.
+  const systemPrompt = getWritingOutlineSystemPrompt({
+    gradeLevel: input.gradeLevel,
+    textType: input.textType,
+    guideName: guide?.name || input.textType,
+    wordLimit: input.wordLimit,
+    writingPrompt: input.writingPrompt,
+    topicHint: input.topicHint,
+    structureGuide,
+    commonErrors,
+    weakSkillHint,
+  });
 
-⚠️ THE OUTLINE MUST BE COMPLETELY DIFFERENT FROM THE WRITING PROMPT. The prompt tells WHAT to write. The outline tells HOW to write — paragraph by paragraph, with concrete, specific content ideas.
-
-═══════════════════════════════════════
-DSE WRITING STRUCTURE KNOWLEDGE
-═══════════════════════════════════════
-
-Target text type structure:
-${structureGuide || '- Introduction (Hook + Background + Thesis), Body × 2-3 (PEEL), Counter-argument + Rebuttal (if argumentative), Conclusion'}
-
-Common mistakes to avoid for this text type:
-${commonErrors || '- Off-topic, no specific examples, weak thesis, no counter-argument, formulaic conclusion'}
-
-═══════════════════════════════════════
-DSE HIGH-SCORE TECHNIQUES TO EMBED
-═══════════════════════════════════════
-
-1. PEEL per paragraph: Point → Explain (elaborate) → Example (concrete) → Link (to next paragraph)
-2. Show Don't Tell: "His palms were sweaty" NOT "He was nervous"
-3. Concession + Rebuttal (argumentative): "Admittedly, some may argue... However..."
-4. Vocab variety: Replace basic words with advanced (important→crucial/vital/paramount)
-5. Sentence variety: Mix simple + compound + complex; use inversions ("Not only does this...")
-6. Connector richness: Furthermore / Moreover / Nevertheless / Consequently / In stark contrast
-7. Opening-closing echo: Conclusion echoes introduction but with different wording
-8. Powerful conclusion: Summary → broader implications → memorable final line
-
-═══════════════════════════════════════
-OUTPUT FORMAT (STRICT)
-═══════════════════════════════════════
-
-Every section MUST be in BOTH Chinese (繁體中文) AND English:
-
----
-## Paragraph N — [Paragraph Role] / [中文角色]
-**Topic sentence / 主題句**:
-- EN: [one clear topic sentence]
-- ZH: [對應中文]
-
-**Content points / 內容要點** (SHORT PHRASES only, 3-8 words English, NOT full sentences):
-- EN: [short phrase] / ZH: [中文短語]
-
-**Useful phrases / 實用句式**:
-- EN: [linking phrase or sentence starter] / ZH: [中文]
----
-
-CRITICAL RULES:
-1. Content points MUST be SHORT PHRASES (3-8 English words, 4-10 Chinese characters) — NOT complete sentences.
-2. Every section MUST have BOTH Chinese and English side by side.
-3. Every paragraph MUST have COMPLETELY DIFFERENT content — no repetition.
-4. Be CONCRETE and TOPIC-SPECIFIC — use real facts, places, policies, examples relevant to the topic.
-5. Useful phrases should include DSE-level connectors appropriate to the paragraph's function.
-6. Return ONLY the outline. No introductory/concluding remarks. No JSON. No "Here is an outline".
-
-Text type: ${guide?.name || input.textType}
-Grade: ${input.gradeLevel}
-Word limit: ~${input.wordLimit} words${weakSkillHint}
-Prompt: ${input.writingPrompt}
-${input.topicHint ? `Topic context: ${input.topicHint}` : ''}`;
-
-  const userPrompt = `Create a detailed bilingual (ZH+EN) paragraph-by-paragraph DSE writing outline.
-Text type: ${guide?.name || input.textType}
-Grade: ${input.gradeLevel}
-Words: ~${input.wordLimit}
-Prompt: ${input.writingPrompt}`;
+  const userPrompt = buildWritingOutlineUserPrompt({
+    guideName: guide?.name || input.textType,
+    textType: input.textType,
+    gradeLevel: input.gradeLevel,
+    wordLimit: input.wordLimit,
+    writingPrompt: input.writingPrompt,
+  });
 
   const result = await callLLM(
     [
