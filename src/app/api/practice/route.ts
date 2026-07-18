@@ -3,10 +3,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { checkRateLimit } from '@/shared/utils/rate-limiter';;
-import { validateRequest, practiceCreateSchema } from '@/shared/validation/schemas'
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
+import { db } from '@/shared/db/db';
 
 const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 

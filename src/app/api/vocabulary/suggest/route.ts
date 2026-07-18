@@ -4,10 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { callLLM } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { callLLM } from '@/modules/ai/services/ai-service';;
-import { validateRequest, vocabularySuggestSchema } from '@/shared/validation/schemas'
+import { db } from '@/shared/db/db';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check

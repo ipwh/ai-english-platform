@@ -8,46 +8,7 @@ import { db } from '@/shared/db/db';
 import { getBulkDb } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
-
-// ---- 簡易 CSV 解析（無需外部依賴） ----
-function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const rows: Record<string, string>[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
-    if (values.length === 0) continue;
-    const row: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      row[h] = (values[idx] || '').trim().replace(/^"|"$/g, '');
-    });
-    // 跳過完全空白的行
-    if (Object.values(row).every(v => !v)) continue;
-    rows.push(row);
-  }
-  return rows;
-}
-
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (const ch of line) {
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  result.push(current);
-  return result;
-}
+import { parseCSV } from '@/shared/utils/import-utils';
 
 // ---- CSV 格式定義 ----
 

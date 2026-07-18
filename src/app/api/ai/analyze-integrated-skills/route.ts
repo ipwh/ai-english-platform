@@ -4,8 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';;
-import { validateRequest, analyzeIntegratedSkillsSchema } from '@/shared/validation/schemas'
+import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
+
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { detectOverCopying } from '@/modules/assessment/services/plagiarism';

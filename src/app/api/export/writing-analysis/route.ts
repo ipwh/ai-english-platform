@@ -35,7 +35,7 @@ interface WritingAnalysis {
 }
 
 /** 嘗試載入中文字型（支援 Windows 開發 + Vercel 部署） */
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+ 
 function loadCJKFont(): Buffer {
   const path = require('node:path') as typeof import('node:path');
   const fs = require('node:fs') as typeof import('node:fs');

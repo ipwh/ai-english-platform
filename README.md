@@ -1,6 +1,33 @@
 # AI English Platform 🇭🇰
 
-AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors**（Subject / Reading / Writing / Listening / Speaking）設計，支援 DeepSeek API（主）及 Vertex Gemini / Gemini API（fallback）生成 DSE 程度的練習題目、HKDSE 等級對齊的智能批改及個人化學習分析。
+AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
+
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md)  
+> **Status**: 17 Sprints ✅ | 328 tests | 18 modules | Build: Passing
+
+## 🏗️ Architecture Overview
+
+```
+Routes → Zod Validation → Services → Repositories → DB (PostgreSQL/Neon)
+  ↕         ↕              ↕
+Events ←── Caching ──→ AI Cost Tracking
+  ↕
+Learning Engine → Profile → Mistake DB → Vocab Graph
+  ↕
+Performance ← Security ← Observability
+```
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (Turbopack) |
+| Language | TypeScript 5 (strict) |
+| Database | PostgreSQL (Neon) + Prisma 7 (pgvector) |
+| Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
+| AI | DeepSeek → Vertex Gemini → Gemini API (fallback chain) |
+| Validation | Zod v4 (17 routes) |
+| Testing | Vitest 4 (328 tests) + Playwright |
+| State | Zustand |
+| CSS | Tailwind 4 |
 
 ## 功能
 
@@ -66,9 +93,9 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | 狀態管理 | Zustand |
 | 國際化 | 自訂 i18n（useT hook + Zustand language store，支援繁體中文/English，含變數插值） |
 | 圖表 | Recharts |
-| AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (optional fallback) + Vertex AI Embeddings |
+| AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (fallback) + Vertex AI Embeddings<br>`src/modules/ai/` (20 services, 6 prompt families) |
 | 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
-| 驗證 | Zod（API 輸入驗證） + `ai-schema.ts`（AI 輸出驗證） |
+| 驗證 | Zod（API 輸入驗證） + `src/shared/validation/`（21 schemas, 17 routes） |
 | 語音 | Google Cloud Text-to-Speech（多人對話分段合成）+ Web Speech API（fallback） |
 | 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
@@ -76,8 +103,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 | OCR | Google Cloud Vision API |
 | 雲端 | Google Drive API（教材匯入）、Vertex AI（語義搜尋） |
 | DSE RAG | DeepSeek Embedding + pgvector (PostgreSQL native vector search, auto-fallback to in-memory cosine similarity) + 歷屆試題注入（Feature Flag: `DSE_RAG_ENABLED`） |
-| 日誌 | 結構化 Logger（`src/lib/logger.ts`，Pino-style JSON / human-readable 雙格式，`LOG_LEVEL` 控制） |
-| 快取 | AI 回應快取（`src/lib/ai-cache.ts`，Vercel KV / in-memory 雙後端，`AI_CACHE_ENABLED` 開關） |
+| 日誌 | 結構化 Logger（`src/shared/logger/`，Pino-style JSON / human-readable 雙格式，`LOG_LEVEL` 控制） |
+| 快取 | AI 回應快取（`src/modules/cache/`，TTL Map cache-aside，`AI_CACHE_ENABLED` 開關） |
 
 ## 個人化學習流程
 
@@ -281,72 +308,44 @@ npm run dev
 
 ```
 src/
-├── app/                      # Next.js App Router 頁面
-│   ├── api/
-│   │   ├── ai/               # AI API 端點（server-side only）
-│   │   │   ├── generate-questions/   # 題目生成
-│   │   │   ├── analyze-answer/       # 答案分析
-│   │   │   ├── analyze-writing/      # 寫作批改
-│   │   │   ├── explain-mistake/      # 錯題解說
-│   │   │   ├── analyze-progress/     # 進度分析
-│   │   │   └── analyze-material/     # 教材分析
-│   │   ├── assignments/       # 課業 CRUD
-│   │   ├── classes/           # 班級 CRUD
-│   │   ├── practice/          # 練習記錄
-│   │   ├── mistakes/          # 錯題記錄
-│   │   ├── vocabulary/        # 詞彙庫
-│   │   ├── auth/              # 認證（NextAuth + JWT login/logout/session/role）
-│   │   ├── drive/             # Google Drive 教材下載
-│   │   ├── import/            # CSV 匯入（舊版，保留相容）
-│   │   ├── admin/             # 管理員 API
-│   │   │   ├── import/        #   批量匯入（template + students + teachers）
-│   │   │   ├── users/         #   使用者 CRUD
-│   │   │   ├── export/        #   數據匯出（students + teachers CSV）
-│   │   │   ├── stats/         #   全校統計數據
-│   │   │   ├── sync-sheets/   #   Google Sheets 班別同步
-│   │   │   └── fix-classes/   #   班級修復工具
-│   │   └── rag/               # RAG 向量檢索（DeepSeek + Vertex AI）
-│   ├── (public)/             # 公開頁面（登入、角色選擇）
-│   ├── student/              # 學生端頁面（10 頁，sidebar + 手機底部導航）
-│   ├── teacher/              # 教師端頁面（11 頁，sidebar 佈局）
-│   └── admin/                # 管理員後台（5 頁：總覽、匯入、使用者管理、數據分析、班級管理）
-├── components/
-│   ├── shared/               # 共用元件（AudioPlayer、Modal、Toast 等）
-│   ├── student/              # 學生端專用元件
-│   ├── teacher/              # 教師端專用元件
-│   └── layout/               # 佈局元件（SidebarLayout、StudentLayout、TeacherLayout）
-├── lib/
-│   ├── ai/                    # AI 服務層（模組化拆分）
-│   │   ├── prompts/           # System Prompt 模板（6 個檔案）
-│   │   │   ├── answer-rules.ts
-│   │   │   ├── explain-mistake.ts
-│   │   │   ├── gemini-json-instruction.ts
-│   │   │   ├── progress-analysis.ts
-│   │   │   └── writing-outline.ts
-│   │   ├── dse-topics.ts      # DSE 主題資料庫（歷屆試題歸納）
-│   │   ├── dse-writing-data.ts # 寫作文體結構 + 詞彙升級 + 中式英文修正
-│   │   ├── integrated-skills-config.ts # Paper 3 難度+題型對照
-│   │   ├── mcq-filters.ts     # MCQ 選項過濾規則
-│   │   ├── sanitizer.ts       # 輸入消毒（PDPO + Prompt Injection）
-│   │   └── topic-selector.ts  # 主題選擇引擎（黑名單+類別輪換）
-│   ├── ai-service.ts          # AI 核心服務層（~3,200 行，13+ AI 函數）
-│   ├── ai-schema.ts           # Zod Schema 驗證（6 組）
-│   ├── rate-limiter.ts       # 滑動窗口限流
-│   ├── auth.ts               # JWT 認證邏輯（Prisma DB 查詢）
-│   ├── auth-next.ts          # NextAuth.js v5 設定（Google OAuth）
-│   ├── db.ts                 # Prisma 7（自動 SQLite/PostgreSQL 切換）
-│   ├── vertex-embeddings.ts  # Vertex AI 向量嵌入 + 語義搜尋
-│   ├── types.ts              # 核心型別定義（KLACG 2017 對齊）
-│   ├── import-utils.ts        # CSV 解析、Zod 驗證、模板生成
-│   ├── use-ai.ts             # 前端 AI React Hooks
-│   ├── rag-service.ts        # RAG 嵌入與相似度搜尋
-│   └── utils.ts              # 通用工具函數
-├── store/
-│   └── appStore.ts           # Zustand 全域狀態（含 dark mode localStorage）
-├── lib/__tests__/
-│   └── ai-service.test.ts    # 29 個單元測試
-└── middleware.ts              # 路由守衛（NextAuth + JWT 雙支援）
+├── app/                      # Next.js App Router
+│   ├── api/                  # 83 API route files
+│   ├── student/              # 學生端頁面
+│   ├── teacher/              # 教師端頁面
+│   └── admin/                # 管理員後台
+├── modules/                  # 🆕 模組化架構 (18 modules)
+│   ├── ai/                   # AI 服務 (20 services, prompts, providers)
+│   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations)
+│   ├── profile/              # 學生學習檔案
+│   ├── mistake-db/           # 錯題資料庫 (tracking, analytics, SRS)
+│   ├── vocab-graph/          # 詞彙關聯圖 (word families, CEFR, collocations)
+│   ├── events/               # 領域事件 (pub/sub event bus)
+│   ├── cache/                # 快取層 (TTL Map, cache-aside)
+│   ├── ai-cost/              # AI 成本追蹤 (5 models, dedup, reports)
+│   ├── perf/                 # 效能優化 (N+1 detection, bundle analysis)
+│   ├── security/             # 安全 (prompt injection, XSS, PII, CSP)
+│   ├── observability/        # 可觀測性 (metrics, tracing, health reports)
+│   ├── assessment/           # 評量服務
+│   ├── exercise/             # 練習服務
+│   ├── feedback/             # 回饋服務
+│   ├── student/              # 學生服務
+│   ├── progress/             # 進度服務 (gamification, streaks)
+│   ├── vocabulary/           # 詞彙服務 (SRS)
+│   └── notification/         # 通知倉儲
+├── shared/                   # 共享工具
+│   ├── auth/                 # JWT + NextAuth
+│   ├── config/               # 集中設定
+│   ├── db/                   # Prisma 7
+│   ├── logger/               # 結構化日誌
+│   ├── utils/                # 通用工具
+│   └── validation/           # Zod schemas (21 schemas, 17 routes)
+├── components/               # React 元件
+├── hooks/                    # React Hooks
+├── store/                    # Zustand state
+└── types/                    # TypeScript types
 ```
+
+> 📖 完整模組文檔: [docs/MODULES.md](docs/MODULES.md) | 架構圖: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## CSV 批量匯入格式
 
@@ -457,37 +456,34 @@ npm run db:reset      # 重置資料庫
 ## 測試
 
 ```bash
-npm test              # 執行全部測試（178 tests）
+npm test              # 執行全部測試（328 tests, 18 files）
 npm run test:watch    # 持續監控模式
 ```
 
-測試涵蓋：
-- AI JSON 解析（含 markdown 代碼塊移除、截斷修復、MCQ 選項正規化）— 11 tests
-- Zod Schema 驗證（題目、答案、寫作、錯題、進度、教材）— 10 tests
-- Rate Limiter（滑動窗口、隔離、超限）— 4 tests
-- SRS SM-2 演算法（複習排程、熟悉度映射、到期卡片、每日目標）— 27 tests
-- 詞彙 Schema + SRS 整合（分析驗證、序列化、去重、UI helpers）— 22 tests
-- 答案一致性（MCQ 正規化、聆聽驗證、i18n 完整性）— 41 tests
-- `validateAIResponse` 安全包裝 — 2 tests
-- 其他輔助工具 — 6 tests
-- HKDSE prompt 對齊驗證 — 所有 AI prompt 已嵌入官方等級描述 rubric
+測試涵蓋 18 模組：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙。
 
 ## 目前狀態
 
+> **最後更新**: 2025-01-16 | Sprints 1-18 完成
+
 | 層級 | 狀態 |
 |------|------|
-| AI 服務層 | ✅ 完整（6 個函數 + Zod 驗證 + 限流 + HKDSE descriptor rubric 對齊 + MCQ 正規化 + Gemini prompt 適配） |
-| API 路由 | ✅ 完整（AI × 6 + CRUD × 5 + 認證 + Drive + 匯入 + RAG + 管理員 API × 8） |
-| 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，自動切換） |
-| 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 格式自動識別學生/教師角色，Middleware 路由保護 |
-| 前端頁面 | ✅ 核心頁面已接 API + 全站 i18n 中英切換 + 診斷→弱項訓練流程 + 管理員後台 5 頁 + MCQ 選項按索引渲染（防 T/F 全選 bug） |
-| HKDSE 對齊 | ✅ 全部 AI prompt 已嵌入官方 Level Descriptors（Subject / Reading / Writing / Listening / Speaking），作文批改嚴格依 Content / Language & Style / Organization 三向度評級 |
-| 管理員功能 | ✅ CSV 批量匯入、使用者 CRUD、全校數據匯出、Recharts 儀表板、跨學年追蹤、Google Sheets 同步、班級修復、管理工具一鍵執行 |
-| 行動裝置 | ✅ 統一 SidebarLayout（學生/教師）、手機抽屜式側欄、學生底部快捷導航 |
-| Google 整合 | ✅ OAuth 登入（自動角色識別）+ Drive 匯入 + Vertex AI Embeddings + Vision OCR + Sheets 同步 + Drive 報告上傳 + RAG 語義索引 |
-| 隱私合規 | ✅ PDPO 去識別化（sanitizeForAI），傳送 AI 前自動移除身份證、電話、電郵 |
-| 測試 | ✅ 178 tests，覆蓋 AI 解析 + Schema + 限流 + SRS + 詞彙 + 答案一致性 + 遊戲化 + i18n |
-| DSE RAG | ✅ 歷屆試題已匯入 + RAG 索引完成 + 5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`） |
+| 架構 | ✅ 18 模組 (Routes → Zod → Services → Repositories → DB)，0 default DB imports |
+| AI 服務層 | ✅ 20 services（DeepSeek → Vertex Gemini → Gemini API fallback chain, 6 prompt families v1, MCQ 正規化, provider registry DI） |
+| API 路由 | ✅ 83 routes（17 Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
+| 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
+| 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
+| 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |
+| 領域事件 | ✅ pub/sub event bus, 7 achievements, progress/achievement handlers |
+| 快取 | ✅ TTL Map cache-aside, 6 cache namespaces |
+| AI 成本 | ✅ 5 models priced, prompt dedup, usage reports |
+| 安全 | ✅ prompt injection (11 patterns), XSS (9), PII (5), SQL injection (8), CSP |
+| 可觀測性 | ✅ counters/histograms/gauges, distributed tracing, latency/error monitors, health reports |
+| 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，pgvector） |
+| 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 自動角色識別，Middleware 路由保護 |
+| HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language & Style/Organization 三向度評級 |
+| DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`） |
+| 測試 | ✅ 328 tests（18 files, Vitest + Playwright），100% module coverage |
 
 ## 部署
 
@@ -498,7 +494,7 @@ npm run test:watch    # 持續監控模式
 3. 設定環境變數（`DEEPSEEK_API_KEY` 等）
 4. 部署
 
-> **注意：** Vercel 免費版有 10 秒函數執行限制。若 AI 回應較慢，建議將 `ai-service.ts` 中的 `timeoutMs` 調低至 8000，或升級至 Pro 方案。
+> **注意：** Vercel 免費版有 10 秒函數執行限制。若 AI 回應較慢，建議升級至 Pro 方案（已在 `vercel.json` 配置 `maxDuration: 30`）。
 
 ## 歷屆試題 RAG 設定 🔍
 
@@ -546,12 +542,12 @@ curl http://localhost:3000/api/rag?action=stats
 ```
 materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + MaterialChunk (DB)
                                                               ↓
-學生出題/批改請求  →  ai-service.ts  →  retrievePastPaperContent()  →  Cosine Similarity
-                                        retrieveMarkingScheme()         ↓
-                                            ↓                    DeepSeek Embedding
-                                     buildDSEContextPrompt()
-                                            ↓
-                                    注入 System Prompt  →  DeepSeek / Gemini
+學生出題/批改請求  →  src/modules/ai/services/ai-service.ts  →  retrievePastPaperContent()  →  Cosine Similarity
+                                                        retrieveMarkingScheme()         ↓
+                                                            ↓                    DeepSeek Embedding
+                                                     buildDSEContextPrompt()
+                                                            ↓
+                                                    注入 System Prompt  →  DeepSeek / Gemini
 ```
 
 ### 注意事項
@@ -568,12 +564,8 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 - **Speaking Practice**：目前僅支援文字 transcript 輸入分析（文法/詞彙/內容），無法評估流暢度、發音及互動表現。未來可整合 STT（語音辨識）。
 - **Vercel 部署**：AI 函數需要 Vercel Pro（30s maxDuration）或 Enterprise。Hobby 方案（10s）可能導致寫作批改等長請求逾時。見 `vercel.json`。
 - **Web Speech API Fallback**：Google Cloud TTS 不可用時自動降級至瀏覽器 Web Speech API，不同瀏覽器的語音品質不一（建議使用 Chrome）。
-- **Rate Limiter 預設為 in-memory**：`rate-limiter.ts` 支援 Vercel KV 分散式限流，但需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory，多實例下無法做到全域精確限流。見 `src/lib/rate-limiter.ts` 的 `getKvClient()`。
-
-### 技術債（非阻塞，後續 sprint）
-- **`process.env → config` 遷移未完成**：`src/lib/config.ts` 已建立集中式設定，但 API routes 層 ~12 處仍直接讀取 `process.env`（主要為 GCP 憑證、NODE_ENV 判斷）。
-- **`ai-service.ts` 巨型檔案**：已從 ~4,413 行減至 ~3,200 行（−27.5%），拆分出 12 個模組化檔案（`src/lib/ai/` + `src/lib/ai/prompts/`）。剩餘大型 system prompt（~1,300 行）仍內嵌於函式中，屬 P2 優先級後續拆分。
-- **prompt-injection 防護為 regex-based**：`sanitizeForAI()` 使用正則表達式過濾（L1-L3 三層），屬於深度防禦層，無法防止所有注入攻擊。見 `src/lib/ai-service.ts`。
+- **Rate Limiter**: `src/shared/config/rate-limiter.ts` 支援 Vercel KV 分散式限流，需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory。
+- **prompt-injection 防護為 regex-based**：`src/modules/security/input-sanitizer.ts` 使用正則表達式過濾（11 prompt injection + 9 XSS + 5 PII + 8 SQL injection patterns），為深度防禦層。
 - **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。
 
 ### ✅ 已修復技術債（2026-07-17 第三輪 — CI + Auth 收尾）

@@ -5,9 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
-import { verifySessionToken } from '@/shared/auth/auth';
-import { notifyAssignmentCreated } from '@/shared/utils/notifications';;
-import { validateRequest, assignmentCreateSchema } from '@/shared/validation/schemas'
+import { notifyAssignmentCreated } from '@/shared/utils/notifications';
 
 // GET /api/assignments — 列出課業
 export async function GET(request: NextRequest) {

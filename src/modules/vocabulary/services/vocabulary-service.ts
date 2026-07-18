@@ -3,7 +3,7 @@ import {
   listVocab, findVocabById, findVocabByWord, createVocab, updateVocab, deleteVocab,
   countVocab, getDueVocabForReview
 } from '@/modules/vocabulary/repositories/vocabulary-repo';
-import { calculateNextReview, familiarityToQuality } from '@/modules/vocabulary/services/srs';
+import { calculateNextReview } from '@/modules/vocabulary/services/srs';
 import { logger } from '@/shared/logger/logger';
 
 export interface VocabInput {

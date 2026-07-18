@@ -4,9 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
-import { verifyApiAuth } from '@/shared/auth/api-auth';;
-import { validateRequest, mistakeBulkSchema } from '@/shared/validation/schemas'
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);

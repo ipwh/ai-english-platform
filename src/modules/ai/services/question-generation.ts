@@ -4,12 +4,9 @@ import { parseAIJSON } from './json-utils';
 import { isDSERAGEnabled, retrievePastPaperContent, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '@/modules/ai/services/rag-service';
 import { logger } from '@/shared/logger/logger';
 import { GeneratedQuestionsArraySchema, validateAIResponse } from '@/modules/ai/schemas/ai-schema';
-import { config } from '@/shared/config/config';
-import { GEMINI_JSON_INSTRUCTION, STRICT_ANSWER_RULES, buildQuestionGenerationPrompt } from '@/modules/ai/prompts';
-import { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS, getFallbackFillers } from './mcq-filters';
+import { STRICT_ANSWER_RULES, buildQuestionGenerationPrompt } from '@/modules/ai/prompts';
 import { getDSEEmpiricalTopics, validateDSEtopicMatch } from './dse-topics';
 import { getRandomTopicV2 } from './topic-selector';
-import { DSE_TEXT_TYPE_GUIDE, VOCAB_UPGRADES } from './dse-writing-data';
 import { validateListeningConsistency } from './listening-normalizer';
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
   const count = input.count || 5;

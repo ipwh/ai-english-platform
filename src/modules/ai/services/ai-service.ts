@@ -117,7 +117,6 @@ import { getRandomTopicV2 } from '../services/topic-selector';
 
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
-import { aiCache } from '@/modules/ai/services/ai-cache';
 import { providerRegistry } from '@/modules/ai/providers';
 import type { ChatMessage, LLMCallOptions } from '@/modules/ai/providers';
 
@@ -168,7 +167,7 @@ function getVertexAuth() {
 // 核心 API 調用
 // ============================================
 
-async function callDeepSeek(
+async function _callDeepSeek(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
@@ -230,7 +229,7 @@ function toGeminiPayload(messages: ChatMessage[]) {
   return { systemMessages, contents };
 }
 
-async function callGemini(
+async function _callGemini(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
@@ -291,7 +290,7 @@ async function callGemini(
   }
 }
 
-async function callGeminiViaVertex(
+async function _callGeminiViaVertex(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
@@ -368,17 +367,8 @@ async function callGeminiViaVertex(
 }
 
 // ============================================
-// 結構化 AI 日誌 — 使用集中式 logger
+// Core LLM call — delegates to provider registry
 // ============================================
-
-function aiLog(event: string, data: Record<string, unknown>) {
-  logger.info({ module: 'ai-service', event, ...data }, event);
-}
-
-/**
- * Core LLM call — delegates to provider registry with automatic fallback.
- * Replaces the old if/else chain with dependency-injected providers.
- */
 export async function callLLM(
   messages: ChatMessage[],
   options?: LLMCallOptions

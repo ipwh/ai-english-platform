@@ -2,6 +2,14 @@
 // 工具函數 — AI 英語學習平台
 // ============================================
 
+/** Milliseconds per day — use instead of inline 86400000 */
+export const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/** Returns today's date as YYYY-MM-DD */
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /**
  * 格式化日期（支援中英雙語 + 無效日期保護）
  */
@@ -21,7 +29,7 @@ export function daysRemaining(dueDateStr: string): number {
   const now = new Date();
   const due = new Date(dueDateStr);
   const diff = due.getTime() - now.getTime();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return Math.ceil(diff / MS_PER_DAY);
 }
 
 /**

@@ -13,7 +13,7 @@ function tryParse(val: unknown): string[] {
   try { const p = JSON.parse(val as string); return Array.isArray(p) ? p.map(String) : []; } catch { return []; }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+ 
 function getCJKFont(): Buffer | null {
   const path = require('node:path') as typeof import('node:path');
   const fs = require('node:fs') as typeof import('node:fs');

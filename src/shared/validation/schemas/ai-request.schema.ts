@@ -1,6 +1,6 @@
 // Sprint 6: AI Request schemas — validate AI route request bodies
 import { z } from 'zod';
-import { difficulty, gradeLevel, studentId, userId, optionalString } from './common.schema';
+import { difficulty, gradeLevel, userId, optionalString } from './common.schema';
 
 export const generateQuestionsSchema = z.object({
   difficulty,

@@ -2,7 +2,6 @@
 import { callLLM } from './ai-service';
 import { parseAIJSON } from './json-utils';
 import { logger } from '@/shared/logger/logger';
-import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '@/modules/ai/services/rag-service';
 import { validateDSEtopicMatch } from './dse-topics';
 import { DSE_TEXT_TYPE_GUIDE, VOCAB_UPGRADES } from './dse-writing-data';
 import { getWritingOutlineSystemPrompt, buildWritingOutlineUserPrompt } from '@/modules/ai/prompts';

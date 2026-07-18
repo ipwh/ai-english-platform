@@ -112,7 +112,7 @@ export async function verifyOwnership(
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const record = await StudentRepo.findRecordOwner(table, resourceId, ownerField);
 
   if (!record) {
