@@ -5,6 +5,7 @@
 
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { loadServiceAccountCredentials } from '@/lib/gcp-auth';
+import { logger } from '@/lib/logger';
 
 // ============================================
 // Credential / Client 管理
@@ -17,7 +18,7 @@ export async function getTTSClient(): Promise<TextToSpeechClient | null> {
 
   const credentials = loadServiceAccountCredentials();
   if (!credentials) {
-    console.warn('[TTS] No GCP service account found. Cloud TTS unavailable.');
+    logger.warn({ module: 'tts-service' }, 'No GCP service account found. Cloud TTS unavailable.');
     return null;
   }
 
@@ -27,10 +28,10 @@ export async function getTTSClient(): Promise<TextToSpeechClient | null> {
       projectId: (credentials as Record<string, unknown>).project_id as string,
     });
 
-    console.log('[TTS] Google Cloud TTS client initialized');
+    logger.info({ module: 'tts-service' }, 'Google Cloud TTS client initialized');
     return ttsClient;
   } catch (err) {
-    console.error('[TTS] Failed to initialize TTS client:', err);
+    logger.error({ module: 'tts-service', error: (err as Error).message }, 'Failed to initialize TTS client');
     return null;
   }
 }
@@ -264,7 +265,7 @@ async function synthesizeWithRetry(
       return await synthesizeSegment(client, text, voiceName, speakingRate, encoding);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      console.warn(`[TTS] Segment synthesis attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+      logger.warn({ module: 'tts-service', attempt, maxRetries, error: lastError.message }, 'Segment synthesis attempt failed');
 
       if (attempt < maxRetries) {
         // 指數退避：1s, 2s, 4s
@@ -300,11 +301,11 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
     const segments = parseDialogueForTTS(text);
     if (segments.length === 0) {
       // 無法解析對話段落 → fallback 單人模式
-      console.warn('[TTS] Multi-speaker mode: no dialogue segments found, falling back to single-speaker');
+      logger.warn({ module: 'tts-service' }, 'Multi-speaker mode: no dialogue segments found, falling back to single-speaker');
       return synthesizeSpeech({ ...options, multiSpeaker: false });
     }
 
-    console.log(`[TTS] Multi-speaker mode: ${segments.length} segments`);
+    logger.debug({ module: 'tts-service', segmentCount: segments.length }, 'Multi-speaker mode segments');
 
     // 逐段合成（帶重試）
     const audioBuffers: Buffer[] = [];
@@ -314,7 +315,7 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
       const segVoiceName = voiceEntry[voiceTier] ?? voiceEntry.default;
 
       // Debug: 顯示實際送到 TTS 的文字（確認 label 已被剝離）
-      console.log(`[TTS]   Segment ${i + 1}/${segments.length}: speaker=${seg.speaker}, voice=${segVoiceName}, text="${seg.text.slice(0, 60)}"`);
+      logger.debug({ module: 'tts-service', segmentIndex: i + 1, totalSegments: segments.length, speaker: seg.speaker, voice: segVoiceName, textPreview: seg.text.slice(0, 60) }, 'Synthesizing segment');
 
       try {
         // 每段之間插入短暫停頓（約 0.2s，讓對話自然但不至於有明顯空白）
@@ -327,7 +328,7 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
         );
         audioBuffers.push(segBuffer);
       } catch (err) {
-        console.error(`[TTS] Segment ${i + 1} synthesis failed after retries:`, err);
+        logger.error({ module: 'tts-service', segmentIndex: i + 1, error: (err as Error).message }, 'Segment synthesis failed after retries');
         // 單段失敗不中斷整個流程，用靜音墊檔
         // 但若第一段就失敗則拋出錯誤
         if (i === 0) throw err;
@@ -347,7 +348,7 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
       LINEAR16: 'audio/l16',
     };
 
-    console.log(`[TTS] Multi-speaker synthesis complete: ${combined.length} bytes, ${segments.length} segments`);
+    logger.info({ module: 'tts-service', byteLength: combined.length, segmentCount: segments.length }, 'Multi-speaker synthesis complete');
 
     return {
       audioContent: combined,

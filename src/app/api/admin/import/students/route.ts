@@ -14,7 +14,7 @@ import {
 } from '@/lib/import-utils';
 import type { ImportResult, ImportDetail } from '@/lib/import-utils';
 import { verifyAdmin } from '@/lib/admin-auth';
-import { simpleHash } from '@/lib/crypto';
+import { hashPasswordSync } from '@/lib/crypto';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     // ---- Phase 5: 分批寫入（每批獨立 commit，避免 Vercel 10s timeout）----
     const BATCH_SIZE = 50;
-    const defaultPwHash = simpleHash('student123');
+    const defaultPwHash = hashPasswordSync('student123');
 
     for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
       const batch = validRows.slice(i, i + BATCH_SIZE);

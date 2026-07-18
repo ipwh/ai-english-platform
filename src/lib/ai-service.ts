@@ -107,6 +107,14 @@ export { getRandomTopicV2 } from './ai/topic-selector';
 import { getRandomTopicV2 } from './ai/topic-selector';
 
 // ============================================
+// 🆕 Sprint 0.5 — Extracted modules (import directly for new code):
+//   '@/lib/ai/question-validator' — validateAndFixQuestion, normalizeMcqAnswer, etc.
+//   '@/lib/ai/listening-normalizer' — normalizeListeningContent, validateListeningConsistency
+//   '@/lib/ai/json-utils' — parseAIJSON, repairTruncatedJSON
+// The functions below are original definitions kept for backward compatibility.
+// ============================================
+
+// ============================================
 // 設定（統一從 config.ts 讀取）
 // ============================================
 
@@ -545,7 +553,7 @@ function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): str
   }
 
   // Failed all matching attempts — log warning before defaulting
-  console.warn('[ai-service] normalizeMcqAnswer: could not match answer to any choice, defaulting to A. answerRaw:', answerRaw.slice(0, 80), 'choices:', normalizedChoices.join('|').slice(0, 120));
+  logger.warn({ module: 'ai-service', answerRaw: answerRaw.slice(0, 80), choices: normalizedChoices.join('|').slice(0, 120) }, 'normalizeMcqAnswer: could not match answer to any choice, defaulting to A');
   return 'A';
 }
 
@@ -628,7 +636,7 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
         // AI prompt 中已有 Self-Check 指令確保答案存在於 listeningContent，
         // 此處降級為 warning 而非 rejection。
         const warnMsg = `[Listening Consistency] Q${index}: answer "${answerToCheck}" not found verbatim in listeningContent — kept with warning (synonyms/paraphrase may be used)`;
-        console.warn(warnMsg);
+        logger.warn({ module: 'ai-service' }, warnMsg);
         warnings.push(warnMsg);
         // rejected = true;  // v2.1: 不再因 listening exact match 失敗而拒絕
       }
@@ -649,7 +657,7 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
     const keyWords = normAnswer.split(' ').filter(w => w.length > 3);
     const missing = keyWords.filter(kw => !normReading.includes(kw));
     if (missing.length === keyWords.length && keyWords.length > 0) {
-      console.warn(`[Reading Consistency] Q${index}: no keywords from "${answerToCheck}" in readingContent`);
+      logger.warn({ module: 'ai-service', questionIndex: index }, `no keywords from answer in readingContent`);
     }
   }
 
@@ -681,10 +689,10 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     if (base.type !== 'mc') {
       const { warnings, rejected } = validateAndFixQuestion(base, results.length);
       if (rejected) { rejectedCount++; continue; }
-      if (warnings.length > 0) console.warn('[ai-service] Non-MC answer consistency:', warnings);
+      if (warnings.length > 0) logger.warn({ module: 'ai-service', warnings }, 'Non-MC answer consistency issues');
       // Non-MC 題型答案也做基本驗證：answer 不能為空
       if (!base.answer || base.answer.trim().length === 0) {
-        console.warn(`[ai-service] Non-MC Q${results.length} has empty answer — rejected`);
+        logger.warn({ module: 'ai-service', questionIndex: results.length }, 'Non-MC question has empty answer — rejected');
         rejectedCount++;
         continue;
       }
@@ -731,12 +739,12 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
       if (c.length < 3) return false; // 太短→碎片
       if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false; // 純數字碎片
       if (BANNED_PATTERNS.some(p => p.test(c))) {
-        console.warn(`[ai-service] Filtered banned choice: "${c}"`);
+        logger.warn({ module: 'ai-service', choice: c }, 'Filtered banned choice');
         return false;
       }
       // 聆聽題不過濾時間格式選項（對話中時間是常見答案）
       if (!isListening && TIME_FRAGMENT_PATTERNS.some(p => p.test(c))) {
-        console.warn(`[ai-service] Filtered time fragment choice: "${c}"`);
+        logger.warn({ module: 'ai-service', choice: c }, 'Filtered time fragment choice');
         return false;
       }
       return true;
@@ -744,7 +752,7 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
 
     // 若過濾後不足 2 個有效選項，使用 context-aware fallback fillers
     if (validChoices.length < 2) {
-      console.error(`[ai-service] Q has only ${validChoices.length} valid choices after filtering:`, validChoices);
+      logger.error({ module: 'ai-service', validChoiceCount: validChoices.length, choices: validChoices }, 'Question has insufficient valid choices after filtering');
       const fallbackFillers = getFallbackFillers(isListening, isReading);
       while (validChoices.length < 4) {
         const filler = fallbackFillers[validChoices.length] || `Option ${validChoices.length + 1}`;
@@ -768,10 +776,10 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
     const { fixed, warnings, rejected } = validateAndFixQuestion(tempQuestion, results.length);
     if (rejected) {
       rejectedCount++;
-      console.warn(`[ai-service] Q${results.length} rejected — answer not found in listeningContent`);
+      logger.warn({ module: 'ai-service', questionIndex: results.length }, 'Question rejected — answer not found in listeningContent');
       continue;
     }
-    if (warnings.length > 0) console.warn('[ai-service] Answer auto-fix:', warnings);
+    if (warnings.length > 0) logger.warn({ module: 'ai-service', warnings }, 'Answer auto-fix applied');
 
     results.push({
       ...base,
@@ -781,7 +789,7 @@ function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQ
   }
 
   if (rejectedCount > 0) {
-    console.warn(`[ai-service] ${rejectedCount}/${questions.length} listening/reading questions rejected due to answer-content mismatch`);
+    logger.warn({ module: 'ai-service', rejectedCount, totalQuestions: questions.length }, 'Questions rejected due to answer-content mismatch');
   }
 
   return results;
@@ -891,13 +899,9 @@ function normalizeListeningContent(raw: string): string {
   if (process.env.NODE_ENV === 'development') {
     const validation = validateListeningContent(content);
     if (!validation.valid) {
-      console.warn('[ai-service] listeningContent validation warnings:', validation.errors);
+      logger.warn({ module: 'ai-service', errors: validation.errors }, 'listeningContent validation warnings');
     }
-    console.log('[ai-service] listeningContent normalized:', {
-      lines: sanitized.length,
-      chars: content.length,
-      preview: content.slice(0, 80),
-    });
+    logger.debug({ module: 'ai-service', lines: sanitized.length, chars: content.length, preview: content.slice(0, 80) }, 'listeningContent normalized');
   }
 
   return content;
@@ -956,13 +960,7 @@ function _logValidationFailure(
   skill: string,
   data: { score?: number; attempts?: number; errors?: string[]; topic?: string; grade?: string }
 ): void {
-  console.log(JSON.stringify({
-    service: 'ai-validation',
-    event,
-    skill,
-    timestamp: new Date().toISOString(),
-    ...data,
-  }));
+  logger.info({ module: 'ai-validation', event, skill, ...data }, event);
 }
 
 // ============================================
@@ -1086,7 +1084,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   let dseContextPrompt = '';
   try {
     if (isDSERAGEnabled()) {
-      console.log('[DSE-RAG] 檢索歷屆試題內容...', { dseSkill, topic: input.topic, difficulty: input.difficulty, userId: input.userId });
+      logger.info({ module: 'dse-rag', dseSkill, topic: input.topic, difficulty: input.difficulty, userId: input.userId }, 'Retrieving past paper content...');
 
       const [pastPaperChunks, markingSchemeChunks] = await Promise.all([
         retrievePastPaperContent(dseSkill, input.topic, input.difficulty, input.gradeLevel, 3),
@@ -1100,14 +1098,14 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       );
 
       if (dseContextPrompt) {
-        console.log(`[DSE-RAG] 已擷取 ${pastPaperChunks.length} 個歷屆試題段落 + ${markingSchemeChunks.length} 個 MS 段落`);
+        logger.info({ module: 'dse-rag', pastPaperChunks: pastPaperChunks.length, markingSchemeChunks: markingSchemeChunks.length }, 'Retrieved past paper and marking scheme chunks');
       } else {
-        console.log('[DSE-RAG] 無相關歷屆試題，使用純 prompt 模式');
+        logger.info({ module: 'dse-rag' }, 'No relevant past papers, using pure prompt mode');
       }
     }
   } catch (err) {
     // RAG 失敗不應中斷出題流程，fallback 到純 prompt
-    console.warn('[DSE-RAG] 檢索失敗，fallback 純 prompt:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'RAG retrieval failed, falling back to pure prompt');
     dseContextPrompt = '';
   }
 
@@ -1621,7 +1619,7 @@ ${STRICT_ANSWER_RULES}
       allWarnings.push(...warnings);
       return fixed;    });
     if (allWarnings.length > 0) {
-      console.warn('[ai-service] Generated questions had consistency issues (auto-fixed):', allWarnings);
+      logger.warn({ module: 'ai-service', warnings: allWarnings }, 'Generated questions had consistency issues (auto-fixed)');
     }
 
     // === 出題後品質檢查 ===
@@ -1630,10 +1628,9 @@ ${STRICT_ANSWER_RULES}
       ? (() => {
           const check = validateListeningConsistency(fixedQuestions);
           if (!check.passed) {
-            console.warn('[ai-service] ⚠️ Listening consistency issues (attempt ' + (attempt + 1) + '):',
-              { errors: check.errors, warnings: check.warnings });
+            logger.warn({ module: 'ai-service', attempt: attempt + 1, errors: check.errors, warnings: check.warnings }, 'Listening consistency issues');
           } else {
-            console.log('[ai-service] ✅ Listening consistency passed (attempt ' + (attempt + 1) + ')');
+            logger.info({ module: 'ai-service', attempt: attempt + 1 }, 'Listening consistency passed');
           }
           if (check.errors.length > 0) {
             lastError = check.errors.join('; ');
@@ -1650,7 +1647,7 @@ ${STRICT_ANSWER_RULES}
         return q.readingContent.trim().length < 50; // Too short
       });
       if (readingIssues.length > 0) {
-        console.warn(`[ai-service] ⚠️ ${readingIssues.length}/${fixedQuestions.length} reading questions have missing/short readingContent`);
+        logger.warn({ module: 'ai-service', readingIssueCount: readingIssues.length, totalQuestions: fixedQuestions.length }, 'Reading questions have missing/short readingContent');
         if (readingIssues.length >= fixedQuestions.length * 0.5) {
           lastError = 'Too many reading questions with insufficient content';
           hasCriticalFailures = true;
@@ -1663,7 +1660,7 @@ ${STRICT_ANSWER_RULES}
     
     if (!needsRetry || attempt >= MAX_RETRIES - 1) {
       if (actualCount < count && attempt > 0) {
-        console.warn(`[ai-service] After ${attempt + 1} attempts, got ${actualCount}/${count} questions — returning best effort. Last error: ${lastError || 'none'}`);
+        logger.warn({ module: 'ai-service', attempts: attempt + 1, actualCount, expectedCount: count, lastError: lastError || undefined }, 'Returning best effort after retry attempts');
       }
       // DSE topic validation (informational only)
       const skillForValidation: 'writing' | 'reading' | 'listening' =
@@ -1673,12 +1670,12 @@ ${STRICT_ANSWER_RULES}
         skillForValidation,
       );
       if (!topicCheck.matched) {
-        console.warn('[ai-service] ⚠️ DSE topic match LOW', { score: topicCheck.score.toFixed(3) });
+        logger.warn({ module: 'ai-service', dseTopicScore: topicCheck.score }, 'DSE topic match LOW');
       }
       return fixedQuestions;
     }
     
-    console.warn(`[ai-service] Retrying question generation (attempt ${attempt + 1}/${MAX_RETRIES}): got ${actualCount}/${count} questions, critFail=${hasCriticalFailures}`);
+    logger.warn({ module: 'ai-service', attempt: attempt + 1, maxRetries: MAX_RETRIES, actualCount, expectedCount: count, criticalFailure: hasCriticalFailures }, 'Retrying question generation');
     // Continue to next iteration of retry loop
   } catch (firstErr: unknown) {
     const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
@@ -1881,11 +1878,11 @@ export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAn
       );
 
       if (msContextPrompt) {
-        console.log(`[DSE-RAG] analyzeAnswer: 已擷取 ${msChunks.length} 個 MS 段落`);
+        logger.info({ module: 'dse-rag', msChunks: msChunks.length }, 'analyzeAnswer: Retrieved marking scheme chunks');
       }
     }
   } catch (err) {
-    console.warn('[DSE-RAG] analyzeAnswer MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'analyzeAnswer MS retrieval failed, fallback');
     msContextPrompt = '';
   }
 
@@ -2032,11 +2029,11 @@ export async function analyzeWriting(input: AnalyzeWritingInput): Promise<Writin
         'analyze_writing'
       );
       if (writingMSContext) {
-        console.log(`[DSE-RAG] analyzeWriting: 已擷取 ${msChunks.length} 個 Writing MS 段落`);
+        logger.info({ module: 'dse-rag', msChunks: msChunks.length }, 'analyzeWriting: Retrieved Writing MS chunks');
       }
     }
   } catch (err) {
-    console.warn('[DSE-RAG] analyzeWriting MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'analyzeWriting MS retrieval failed, fallback');
     writingMSContext = '';
   }
 
@@ -2446,7 +2443,7 @@ Very → exceedingly / remarkably / exceptionally
           );
         } catch (e) {
           if (attempt === 1) throw e;
-          console.warn('[analyzeWriting] Grammar call retry after failure:', e);
+          logger.warn({ module: 'analyzeWriting', error: (e as Error).message }, 'Grammar call retry after failure');
         }
       }
       throw new Error('Grammar analysis failed after retry');
@@ -2486,14 +2483,14 @@ Very → exceedingly / remarkably / exceptionally
     grammarAnalysis = parseAIJSON<typeof grammarAnalysis>(grammarResult);
   } catch (e) {
     grammarFailed = true;
-    console.error('[analyzeWriting] Grammar call JSON parse failed:', e);
+    logger.error({ module: 'analyzeWriting', error: (e as Error).message }, 'Grammar call JSON parse failed');
   }
 
   try {
     styleAnalysis = parseAIJSON<typeof styleAnalysis>(styleResult);
   } catch (e) {
     styleFailed = true;
-    console.error('[analyzeWriting] Style call JSON parse failed:', e);
+    logger.error({ module: 'analyzeWriting', error: (e as Error).message }, 'Style call JSON parse failed');
   }
 
   // 兩者都失敗才拋錯
@@ -2578,7 +2575,7 @@ Very → exceedingly / remarkably / exceptionally
       grammarFailed ? '文法分析' : '',
       styleFailed ? '寫作技巧分析' : '',
     ].filter(Boolean).join('、');
-    console.warn(`[analyzeWriting] 部分分析失敗: ${failedParts}`);
+    logger.warn({ module: 'analyzeWriting', failedParts }, 'Partial analysis failure');
   }
 
   const validated = validateAIResponse(WritingAnalysisSchema, combined);
@@ -2626,11 +2623,11 @@ export async function explainMistake(input: ExplainMistakeInput): Promise<Mistak
         'explain_mistake'
       );
       if (msContextPrompt) {
-        console.log(`[DSE-RAG] explainMistake: 已擷取 ${msChunks.length} 個 MS 段落`);
+        logger.info({ module: 'dse-rag', msChunks: msChunks.length }, 'explainMistake: Retrieved MS chunks');
       }
     }
   } catch (err) {
-    console.warn('[DSE-RAG] explainMistake MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'explainMistake MS retrieval failed, fallback');
     msContextPrompt = '';
   }
   const systemPrompt = getExplainMistakeSystemPrompt();
@@ -2771,11 +2768,11 @@ export async function analyzeProgress(input: AnalyzeProgressInput): Promise<Prog
       );
 
       if (dseContextPrompt) {
-        console.log(`[DSE-RAG] analyzeProgress: 已擷取 ${pastPaperChunks.length} 試題 + ${msChunks.length} MS`);
+        logger.info({ module: 'dse-rag', pastPaperChunks: pastPaperChunks.length, msChunks: msChunks.length }, 'analyzeProgress: Retrieved past papers + MS');
       }
     }
   } catch (err) {
-    console.warn('[DSE-RAG] analyzeProgress RAG 失敗，fallback:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'analyzeProgress RAG failed, fallback');
   }
 
   const systemPrompt = getProgressAnalysisSystemPrompt(dseContextPrompt);
@@ -2866,11 +2863,11 @@ export async function answerStudyHelp(input: StudyHelpInput): Promise<StudyHelpR
       );
 
       if (dseContextPrompt) {
-        console.log(`[DSE-RAG] studyHelp: 已擷取 ${pastPaperChunks.length} 歷屆試題 + ${msChunks.length} MS 段落`);
+        logger.info({ module: 'dse-rag', pastPaperChunks: pastPaperChunks.length, msChunks: msChunks.length }, 'studyHelp: Retrieved past papers + MS');
       }
     }
   } catch (err) {
-    console.warn('[DSE-RAG] studyHelp RAG 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'studyHelp RAG retrieval failed, fallback');
     dseContextPrompt = '';
   }
 
@@ -3080,11 +3077,9 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a 
   // === DSE Topic Validation (post-generation) ===
   const topicCheck = validateDSEtopicMatch(prompt, 'writing');
   if (!topicCheck.matched) {
-    console.warn('[ai-service] ⚠️ Writing prompt DSE topic match LOW — may not align with real DSE Paper 2 themes.',
-      { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords });
+    logger.warn({ module: 'ai-service', score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords }, 'Writing prompt DSE topic match LOW — may not align with real DSE Paper 2 themes.');
   } else {
-    console.log('[ai-service] ✅ Writing prompt DSE validation passed',
-      { score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords.slice(0, 5) });
+    logger.info({ module: 'ai-service', score: topicCheck.score.toFixed(3), matched: topicCheck.matchedKeywords.slice(0, 5) }, 'Writing prompt DSE validation passed');
   }
 
   return prompt;
@@ -3547,11 +3542,11 @@ export async function analyzeIntegratedSkills(
         'analyze_integrated'
       );
       if (paper3MSContext) {
-        console.log(`[DSE-RAG] analyzeIntegratedSkills: 已擷取 ${msChunks.length} 個 Listening MS 段落`);
+        logger.info({ module: 'dse-rag', msChunks: msChunks.length }, 'analyzeIntegratedSkills: Retrieved Listening MS chunks');
       }
     }
   } catch (err) {
-    console.warn('[DSE-RAG] analyzeIntegratedSkills MS 檢索失敗，fallback:', err instanceof Error ? err.message : String(err));
+    logger.warn({ module: 'dse-rag', error: err instanceof Error ? err.message : String(err) }, 'analyzeIntegratedSkills MS retrieval failed, fallback');
     paper3MSContext = '';
   }
 

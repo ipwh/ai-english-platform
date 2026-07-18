@@ -7,7 +7,7 @@
 import db from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement';
+export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement' | 'curriculum-update';
 export type NotificationLang = 'zh' | 'en';
 
 /** Resolve user language — queries UserPreferences from DB, falls back to 'zh' */
@@ -221,7 +221,7 @@ export async function notifySystemAnnouncement(
       message,
     );
   } catch (err) {
-    console.error('[NotificationService] notifySystemAnnouncement failed:', err);
+    logger.error({ module: 'notifications', error: (err as Error).message }, 'notifySystemAnnouncement failed');
   }
 }
 

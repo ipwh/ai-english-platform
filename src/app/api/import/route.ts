@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getBulkDb } from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
-import { simpleHash } from '@/lib/crypto';
+import { hashPasswordSync } from '@/lib/crypto';
 
 // ---- 簡易 CSV 解析（無需外部依賴） ----
 function parseCSV(text: string): Record<string, string>[] {
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
         await bulkDb.user.create({
           data: {
             email: importRow.email,
-            passwordHash: simpleHash(importRow.password || 'student123'),
+            passwordHash: hashPasswordSync(importRow.password || 'student123'),
             nameZh: importRow.nameZh,
             nameEn: importRow.nameEn || importRow.nameZh,
             role: importRow.role,

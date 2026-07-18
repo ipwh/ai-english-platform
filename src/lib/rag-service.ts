@@ -461,7 +461,7 @@ export interface DSERetrievalFilter {
  * 可透過環境變數 DSE_RAG_ENABLED=true 啟用（預設為 false）
  */
 export function isDSERAGEnabled(): boolean {
-  return process.env.DSE_RAG_ENABLED === 'true';
+  return config.rag.dseRagEnabled;
 }
 
 /**

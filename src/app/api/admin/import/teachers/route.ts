@@ -12,7 +12,7 @@ import {
 } from '@/lib/import-utils';
 import type { ImportResult } from '@/lib/import-utils';
 import { verifyAdmin } from '@/lib/admin-auth';
-import { simpleHash } from '@/lib/crypto';
+import { hashPasswordSync } from '@/lib/crypto';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       select: { id: true, email: true, role: true },
     });
     const existingMap = new Map(existingUsers.map(u => [u.email, u]));
-    const defaultPwHash = simpleHash('teacher123');
+    const defaultPwHash = hashPasswordSync('teacher123');
     const BATCH_SIZE = 50;
 
     for (let i = 0; i < validRows.length; i += BATCH_SIZE) {

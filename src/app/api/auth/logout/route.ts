@@ -4,6 +4,7 @@
 // ============================================
 
 import { NextResponse } from 'next/server';
+import { ALL_CLEARABLE_COOKIE_NAMES } from '@/lib/auth-cookies';
 
 export async function POST() {
   const response = NextResponse.json({ success: true });
@@ -18,17 +19,24 @@ export async function GET() {
 }
 
 function clearAuthCookies(response: NextResponse) {
-  const cookieOpts = {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const baseOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     sameSite: 'lax' as const,
     maxAge: 0,
     path: '/',
   };
-  response.cookies.set('session_token', '', cookieOpts);
-  response.cookies.set('authjs.session-token', '', cookieOpts);
-  response.cookies.set('__Secure-authjs.session-token', '', { ...cookieOpts, secure: true });
-  response.cookies.set('next-auth.session-token', '', cookieOpts);
-  response.cookies.set('__Secure-next-auth.session-token', '', { ...cookieOpts, secure: true });
-  response.cookies.set('selected_role', '', cookieOpts);
+
+  // Clear all NextAuth session/callback/csrf cookies
+  for (const name of ALL_CLEARABLE_COOKIE_NAMES) {
+    const isSecure = name.startsWith('__Secure-');
+    response.cookies.set(name, '', { ...baseOpts, secure: isSecure || isProduction });
+  }
+
+  // Clear custom JWT session token
+  response.cookies.set('session_token', '', baseOpts);
+
+  // Clear role-switching cookie
+  response.cookies.set('selected_role', '', baseOpts);
 }

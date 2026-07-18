@@ -6,6 +6,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import db from './db';
 import { logger } from '@/lib/logger';
+import { AUTHJS_SESSION_COOKIES } from '@/lib/auth-cookies';
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
@@ -183,8 +184,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   cookies: {
     sessionToken: {
       name: process.env.NODE_ENV === 'production'
-        ? '__Secure-authjs.session-token'
-        : 'authjs.session-token',
+        ? AUTHJS_SESSION_COOKIES[0]
+        : AUTHJS_SESSION_COOKIES[1],
       options: {
         httpOnly: true,
         sameSite: 'lax',

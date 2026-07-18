@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyAdmin } from '@/lib/admin-auth';
-import { simpleHash } from '@/lib/crypto';
+import { hashPasswordSync } from '@/lib/crypto';
 import type { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         nameZh,
         nameEn: nameEn || undefined,
         role,
-        passwordHash: password ? simpleHash(password) : null,
+        passwordHash: password ? hashPasswordSync(password) : null,
         level: role === 'student' ? (level || undefined) : undefined,
         classNumber: role === 'student' ? (classNumber || undefined) : undefined,
         academicYear: academicYear || undefined,
