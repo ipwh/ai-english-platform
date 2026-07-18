@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { generateQuestions } from '@/modules/ai/services/ai-service';

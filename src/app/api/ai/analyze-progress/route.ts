@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);

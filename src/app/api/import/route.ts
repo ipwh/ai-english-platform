@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { getBulkDb } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';

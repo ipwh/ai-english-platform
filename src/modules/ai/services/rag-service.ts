@@ -3,7 +3,10 @@
 // 使用 DeepSeek Embedding API 做向量化 + 相似度檢索
 // ============================================
 
-import db from '@/shared/db/db';
+import {
+  findMaterialById, updateMaterial, deleteMaterialChunks, createMaterialChunk,
+  searchChunks, executeRawUnsafe, queryRawUnsafe, countMaterials, countMaterialChunks
+} from '@/modules/ai/repositories/material-repo';
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
 
@@ -114,29 +117,23 @@ function estimateTokens(text: string): number {
  * 為教材建立 embedding 索引
  */
 export async function indexMaterial(materialId: string): Promise<{ chunkCount: number }> {
-  const material = await db.material.findUnique({ where: { id: materialId } });
+  const material = await findMaterialById(materialId);
   if (!material || !material.content) {
     throw new Error('教材不存在或尚無文字內容');
   }
 
   // 更新狀態
-  await db.material.update({
-    where: { id: materialId },
-    data: { ragStatus: 'chunking' },
-  });
+  await updateMaterial(materialId, { ragStatus: 'chunking' });
 
   // 分塊
   const chunks = chunkText(material.content);
   logger.info({ module: 'rag-service', title: material.title, chunkCount: chunks.length }, 'Material chunked');
 
   // 清除舊區塊
-  await db.materialChunk.deleteMany({ where: { materialId } });
+  await deleteMaterialChunks(materialId);
 
   // 逐塊建立 embedding
-  await db.material.update({
-    where: { id: materialId },
-    data: { ragStatus: 'embedding' },
-  });
+  await updateMaterial(materialId, { ragStatus: 'embedding' });
 
   for (let i = 0; i < chunks.length; i++) {
     try {
@@ -144,20 +141,18 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
       const embeddingJson = JSON.stringify(embedding);
 
       // Always store JSON embedding (legacy fallback)
-      await db.materialChunk.create({
-        data: {
-          materialId,
-          chunkIndex: i,
-          content: chunks[i],
-          tokenCount: estimateTokens(chunks[i]),
-          embedding: embeddingJson,
-        },
+      await createMaterialChunk({
+        materialId,
+        chunkIndex: i,
+        content: chunks[i],
+        tokenCount: estimateTokens(chunks[i]),
+        embedding: embeddingJson,
       });
 
       // Also store pgvector embedding if available
       if (await isPgvectorAvailable()) {
         const vectorLiteral = `[${embedding.join(',')}]`;
-        await db.$executeRawUnsafe(
+        await executeRawUnsafe(
           `UPDATE "MaterialChunk" SET "embeddingVector" = $1::vector(1536) WHERE "materialId" = $2 AND "chunkIndex" = $3`,
           vectorLiteral, materialId, i
         );
@@ -169,10 +164,7 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
   }
 
   // 完成
-  await db.material.update({
-    where: { id: materialId },
-    data: { ragStatus: 'done' },
-  });
+  await updateMaterial(materialId, { ragStatus: 'done' });
 
   logger.info({ module: 'rag-service', title: material.title, chunkCount: chunks.length }, 'Material indexed');
   return { chunkCount: chunks.length };
@@ -208,9 +200,9 @@ let _pgvectorAvailable: boolean | null = null;
 async function isPgvectorAvailable(): Promise<boolean> {
   if (_pgvectorAvailable !== null) return _pgvectorAvailable;
   try {
-    const result = await db.$queryRawUnsafe<{ installed: boolean }[]>(
+    const result = await queryRawUnsafe(
       `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector') AS "installed"`
-    );
+    ) as { installed: boolean }[];
     _pgvectorAvailable = result[0]?.installed ?? false;
     logger.info({ module: 'rag-service', pgvectorAvailable: _pgvectorAvailable }, 'pgvector detection complete');
   } catch {
@@ -274,9 +266,9 @@ async function pgvectorSearch(
     LIMIT $3
   `;
 
-  const rows = await db.$queryRawUnsafe<{
+  const rows = await queryRawUnsafe(query, ...params) as {
     id: string; content: string; materialId: string; materialTitle: string; score: number;
-  }[]>(query, ...params);
+  }[];
 
   return rows.map(row => ({
     chunk: { id: row.id, content: row.content, materialId: row.materialId },
@@ -312,7 +304,7 @@ export async function retrieveRelevantChunks(
 
   // Fallback: in-memory cosine similarity (legacy path)
   const MAX_CHUNKS = 200;
-  const chunks = await db.materialChunk.findMany({
+  const chunks = await searchChunks({
     where: { embedding: { not: null } },
     include: { material: { select: { title: true } } },
     take: MAX_CHUNKS,
@@ -410,13 +402,10 @@ ${contextText ? `\n\n=== 相關教材內容 ===\n${contextText}\n=== 教材內�
  */
 export async function processMaterialForRAG(materialId: string, content: string): Promise<void> {
   // 儲存內容
-  await db.material.update({
-    where: { id: materialId },
-    data: {
-      content,
-      ocrStatus: 'done',
-      ragStatus: 'chunking',
-    },
+  await updateMaterial(materialId, {
+    content,
+    ocrStatus: 'done',
+    ragStatus: 'chunking',
   });
 
   // 建立向量索引
@@ -428,9 +417,9 @@ export async function processMaterialForRAG(materialId: string, content: string)
  */
 export async function getRAGStats() {
   const [totalMaterials, indexedMaterials, totalChunks] = await Promise.all([
-    db.material.count(),
-    db.material.count({ where: { ragStatus: 'done' } }),
-    db.materialChunk.count({ where: { embedding: { not: null } } }),
+    countMaterials(),
+    countMaterials({ ragStatus: 'done' }),
+    countMaterialChunks({ embedding: { not: null } }),
   ]);
 
   return { totalMaterials, indexedMaterials, totalChunks };
@@ -535,7 +524,7 @@ export async function retrieveDSERelevantChunks(
     where.material = materialWhere;
   }
 
-  const chunks = await db.materialChunk.findMany({
+  const chunks = await searchChunks({
     where,
     include: { material: { select: { title: true, tags: true, strand: true } } },
     take: 500,

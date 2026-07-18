@@ -4,7 +4,8 @@
 // 支援 i18n: 根據 user language 偏好發送對應語言通知
 // ============================================
 
-import db from '@/shared/db/db';
+import { getUserPreferences, findUsers } from '@/modules/student/repositories/student-repo';
+import { createNotification as createNotifRecord, createBulkNotifications as createBulkNotifRecords } from '@/modules/notification/repositories/notification-repo';
 import { logger } from '@/shared/logger/logger';
 
 export type NotificationType = 'assignment' | 'feedback' | 'reminder' | 'system' | 'achievement' | 'curriculum-update';
@@ -13,10 +14,7 @@ export type NotificationLang = 'zh' | 'en';
 /** Resolve user language — queries UserPreferences from DB, falls back to 'zh' */
 export async function getUserLang(userId: string): Promise<NotificationLang> {
   try {
-    const prefs = await db.userPreferences.findUnique({
-      where: { userId },
-      select: { language: true },
-    });
+    const prefs = await getUserPreferences(userId);
     if (prefs?.language === 'en') return 'en';
   } catch {
     // DB not available or UserPreferences not set — default to Chinese
@@ -67,14 +65,12 @@ interface CreateNotificationParams {
 /** 建立單一通知 */
 export async function createNotification(params: CreateNotificationParams) {
   try {
-    await db.notification.create({
-      data: {
-        userId: params.userId,
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        link: params.link || null,
-      },
+    await createNotifRecord({
+      userId: params.userId,
+      type: params.type,
+      title: params.title,
+      message: params.message,
+      link: params.link || null,
     });
   } catch (err) {
     logger.error({ module: 'notifications', error: (err as Error).message }, 'Failed to create notification');
@@ -91,15 +87,15 @@ export async function createBulkNotifications(
 ) {
   if (userIds.length === 0) return;
   try {
-    await db.notification.createMany({
-      data: userIds.map(userId => ({
+    await createBulkNotifRecords(
+      userIds.map(userId => ({
         userId,
         type,
         title,
         message,
         link: link || null,
-      })),
-    });
+      }))
+    );
   } catch (err) {
     logger.error({ module: 'notifications', error: (err as Error).message }, 'Failed to create bulk notifications');
   }
@@ -121,10 +117,7 @@ export async function notifyAssignmentCreated(
     const where = classId
       ? { studentClasses: { some: { classId } }, role: 'student' as const }
       : { class: { name: className }, role: 'student' as const };
-    const students = await db.user.findMany({
-      where,
-      select: { id: true },
-    });
+    const students = await findUsers(where, { id: true });
     if (students.length === 0) return;
 
     // Create per-student notifications with their language preference
@@ -210,10 +203,7 @@ export async function notifySystemAnnouncement(
   role?: 'student' | 'teacher',
 ) {
   try {
-    const users = await db.user.findMany({
-      where: role ? { role } : {},
-      select: { id: true },
-    });
+    const users = await findUsers(role ? { role } : {}, { id: true });
     await createBulkNotifications(
       users.map(u => u.id),
       'system',

@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { serializeVocab } from '@/shared/utils/utils';
 

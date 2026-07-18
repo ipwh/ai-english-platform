@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import {
   parseCSV,
   teacherRowSchema,

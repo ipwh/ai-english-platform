@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 

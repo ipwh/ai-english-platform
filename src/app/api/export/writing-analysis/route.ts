@@ -7,8 +7,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
-import fs from 'fs';
-import path from 'path';
 
 /** 驗證使用者已登入 */
 async function authenticateUser(request: NextRequest): Promise<string | null> {
@@ -37,9 +35,11 @@ interface WritingAnalysis {
 }
 
 /** 嘗試載入中文字型（支援 Windows 開發 + Vercel 部署） */
-async function loadCJKFont(): Promise<Buffer> {
-  // 專案內嵌字型（部署用 — 優先使用）
-  const bundled = path.join(/* turbopackIgnore: true */ process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+function loadCJKFont(): Buffer {
+  const path = require('node:path') as typeof import('node:path');
+  const fs = require('node:fs') as typeof import('node:fs');
+  const bundled = path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
   if (fs.existsSync(bundled)) return fs.readFileSync(bundled);
 
   const candidates = [
@@ -60,7 +60,8 @@ async function loadCJKFont(): Promise<Buffer> {
 async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
   const PDFDocument = (await import('pdfkit')).default;
 
-  const fontData = await loadCJKFont();
+  const fontData = loadCJKFont();
+  if (!fontData) throw new Error('PDF 匯出需要字型檔。請執行 npx tsx scripts/download-font.ts 下載字型。');
   const doc = new PDFDocument({
     size: 'A4',
     margin: 50,

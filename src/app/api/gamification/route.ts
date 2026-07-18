@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/modules/progress/services/gamification';
 import type { XpEvent } from '@/modules/progress/services/gamification';

@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 
 async function resolveCurrentUser(request?: NextRequest) {
   const jwtToken = request?.cookies.get('session_token')?.value;

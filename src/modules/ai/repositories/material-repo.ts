@@ -9,7 +9,8 @@ export async function deleteMaterial(id: string) { return db.material.delete({ w
 export async function deleteMaterialChunks(materialId: string) { return db.materialChunk.deleteMany({ where: { materialId } }); }
 export async function createMaterialChunk(data: any) { return db.materialChunk.create({ data }); }
 export async function findMaterialChunks(materialId: string) { return db.materialChunk.findMany({ where: { materialId }, orderBy: { chunkIndex: 'asc' } }); }
-export async function executeRawUnsafe(query: string) { return db.$executeRawUnsafe(query); }
-export async function queryRawUnsafe(query: string) { return db.$queryRawUnsafe(query); }
+export async function searchChunks(args: { where?: any; include?: any; take?: number; orderBy?: any }): Promise<any[]> { return db.materialChunk.findMany(args); }
+export async function executeRawUnsafe(query: string, ...params: any[]) { return db.$executeRawUnsafe(query, ...params); }
+export async function queryRawUnsafe(query: string, ...params: any[]) { return db.$queryRawUnsafe(query, ...params) as any; }
 export async function countMaterials(where?: any) { return db.material.count({ where }); }
 export async function countMaterialChunks(where?: any) { return db.materialChunk.count({ where }); }

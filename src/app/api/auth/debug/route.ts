@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 
 export async function GET(request: NextRequest) {
   // 🔒 Production guard — never expose session data in production

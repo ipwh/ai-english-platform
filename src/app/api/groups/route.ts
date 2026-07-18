@@ -7,7 +7,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 
 async function getTeacherId(request: NextRequest): Promise<string | null> {

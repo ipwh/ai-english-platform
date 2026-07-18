@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { syncUserStreak } from '@/modules/progress/services/streak-service';
 import { calculateXp } from '@/modules/progress/services/gamification';

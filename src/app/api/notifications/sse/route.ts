@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 
 // Vercel: serverless functions don't support persistent SSE connections.
 // For production, consider using Vercel Edge + Streaming or a dedicated

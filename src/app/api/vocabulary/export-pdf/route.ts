@@ -4,10 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import path from 'node:path';
-import fs from 'node:fs';
 
 function tryParse(val: unknown): string[] {
   if (!val) return [];
@@ -15,8 +13,10 @@ function tryParse(val: unknown): string[] {
   try { const p = JSON.parse(val as string); return Array.isArray(p) ? p.map(String) : []; } catch { return []; }
 }
 
-/** Load CJK font buffer for pdfkit */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 function getCJKFont(): Buffer | null {
+  const path = require('node:path') as typeof import('node:path');
+  const fs = require('node:fs') as typeof import('node:fs');
   const paths = [
     path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf'),
     path.join(process.cwd(), 'fonts', 'NotoSansTC-Regular.ttf'),
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         doc.on('data', (chunk: Buffer) => chunks.push(chunk));
         const pdfPromise = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
 
-        // Register CJK font for Chinese text
+        // Register CJK font for Chinese text (dynamic import avoids NFT tracing)
         const cjkFont = getCJKFont();
         if (cjkFont) {
           doc.registerFont('CJK', cjkFont);

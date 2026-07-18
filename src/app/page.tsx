@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 
 /** 根據 email 判斷用戶的「真實最高角色」（不可被角色切換降級） */
 function getRealRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {

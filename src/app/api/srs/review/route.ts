@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/shared/db/db';
+import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/modules/vocabulary/services/srs';
 

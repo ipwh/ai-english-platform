@@ -75,20 +75,17 @@ import {
 // ============================================
 // 答案準確性規則 (extracted prompt)
 // ============================================
-export { STRICT_ANSWER_RULES } from '../prompts/answer-rules';
-import { STRICT_ANSWER_RULES } from '../prompts/answer-rules';
+export { STRICT_ANSWER_RULES } from '@/modules/ai/prompts';
+import { STRICT_ANSWER_RULES, GEMINI_JSON_INSTRUCTION } from '@/modules/ai/prompts';
 
 // ============================================
 // 已提取的 System Prompts
 // ============================================
-import { getExplainMistakeSystemPrompt, buildExplainMistakeUserPrompt } from '../prompts/explain-mistake';
-import { getProgressAnalysisSystemPrompt, buildProgressAnalysisUserPrompt } from '../prompts/progress-analysis';
-import { getWritingOutlineSystemPrompt, buildWritingOutlineUserPrompt } from '../prompts/writing-outline';
-
-// ============================================
-// P0: 純資料常數 (extracted)
-// ============================================
-import { GEMINI_JSON_INSTRUCTION } from '../prompts/gemini-json-instruction';
+import {
+  getExplainMistakeSystemPrompt, buildExplainMistakeUserPrompt,
+  getProgressAnalysisSystemPrompt, buildProgressAnalysisUserPrompt,
+  getWritingOutlineSystemPrompt, buildWritingOutlineUserPrompt,
+} from '@/modules/ai/prompts';
 import { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS, getFallbackFillers } from '../services/mcq-filters';
 import {
   INTEGRATED_SKILLS_DIFF_MAP,
@@ -578,7 +575,7 @@ export function validateAndFixQuestion(q: GeneratedQuestion, index: number): { f
   return { fixed, warnings, rejected };
 }
 
-function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQuestion[] {
+export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): GeneratedQuestion[] {
   const results: GeneratedQuestion[] = [];
   let rejectedCount = 0;
 
