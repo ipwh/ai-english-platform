@@ -67,8 +67,14 @@ class ProviderRegistry {
 
     for (let i = 0; i < available.length; i++) {
       const provider = available[i];
+      // Primary provider gets full timeout; fallbacks get proportionally less
+      // to stay within Vercel's 10s function limit
+      const isFallback = i > 0;
+      const adjustedOptions = isFallback && options?.timeoutMs
+        ? { ...options, timeoutMs: Math.max(5000, Math.floor(options.timeoutMs / (i + 1))) }
+        : options;
       try {
-        const text = await provider.call(messages, options);
+        const text = await provider.call(messages, adjustedOptions);
         this.lastUsed = provider.name;
         const latencyMs = Date.now() - startTime;
         const fallback = i > 0;

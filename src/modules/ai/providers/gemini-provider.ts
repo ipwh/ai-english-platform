@@ -64,7 +64,7 @@ export class GeminiProvider implements AIProvider {
       if (!content) throw new Error(data.error?.message || 'Gemini returned empty response.');
       return content;
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         throw new Error('Gemini request timed out.');
       }
       throw err;

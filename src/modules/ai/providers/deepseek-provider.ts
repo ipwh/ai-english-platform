@@ -43,13 +43,15 @@ export class DeepSeekProvider implements AIProvider {
 
       if (!res.ok) {
         const errText = await res.text();
+        // 402 = insufficient balance — should trigger fallback, not timeout
         throw new Error(`DeepSeek error (${res.status}): ${errText.slice(0, 200)}`);
       }
 
       const data = await res.json() as { choices?: { message?: { content?: string } }[] };
       return data.choices?.[0]?.message?.content || '';
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      // Node.js AbortError is NOT a DOMException — check name instead
+      if (err instanceof Error && err.name === 'AbortError') {
         throw new Error('DeepSeek request timed out.');
       }
       throw err;

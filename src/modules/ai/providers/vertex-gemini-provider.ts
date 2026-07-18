@@ -75,7 +75,7 @@ export class VertexGeminiProvider implements AIProvider {
       if (!content) throw new Error(data.error?.message || 'Vertex Gemini returned empty response.');
       return content;
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') throw new Error('Vertex Gemini request timed out.');
+      if (err instanceof Error && err.name === 'AbortError') throw new Error('Vertex Gemini request timed out.');
       throw err;
     } finally { clearTimeout(timeoutId); }
   }
