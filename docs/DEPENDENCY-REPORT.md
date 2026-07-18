@@ -1,10 +1,59 @@
 # 📊 Dependency Report — AI English Platform
-## Sprint 0: Architecture Analysis
-**Date:** 2026-07-18
+## Sprint 0: Architecture Analysis → Sprint 1: Refactored
+**Last Updated:** 2026-07-18 (post-Sprint 1 refactor)
 
 ---
 
-## 1. Dependency Graph
+## ⚡ Sprint 1 Update — Feature-Based Architecture (2026-07-18)
+
+The codebase was restructured into **feature modules** and **shared infrastructure**:
+
+```
+src/
+├── modules/
+│   ├── ai/              services/ prompts/ schemas/ __tests__/
+│   ├── assessment/      services/ components/
+│   ├── exercise/        services/           (placeholder)
+│   ├── progress/        services/ __tests__/
+│   ├── student/         components/ repositories/
+│   ├── teacher/         components/ repositories/
+│   └── vocabulary/      components/ services/ repositories/ __tests__/
+├── shared/
+│   ├── auth/            (jwt, crypto, cookies, health, admin, api-auth)
+│   ├── config/          (centralized env config)
+│   ├── db/              (Prisma client, Vercel KV)
+│   ├── logger/          (structured logger)
+│   ├── types/           (shared type definitions)
+│   └── utils/           (i18n, api-response, rate-limiter, notifications, etc.)
+├── components/
+│   ├── layout/          (SidebarLayout, StudentLayout, TeacherLayout)
+│   └── shared/          (17 reusable UI components)
+├── app/                 (routes, pages — unchanged)
+├── hooks/               (use-i18n)
+├── store/               (Zustand stores)
+└── types/               (NextAuth type augmentation)
+```
+
+**Key changes from Sprint 0:**
+- `src/lib/` → eliminated (all files moved to modules/ or shared/)
+- `@/lib/*` imports → `@/modules/*` or `@/shared/*`
+- 150+ import paths updated
+- Test files moved to respective module `__tests__/` directories
+- Empty directories cleaned
+- vercel-build ✅ passing
+
+### Current Import Health
+
+| Metric | Sprint 0 | Post-Sprint 1 |
+|---|---|---|
+| `@/lib/` references remaining | ~150 | **0** ✅ |
+| Old `@/components/domain/` references | ~30 | **0** ✅ |
+| Cyclic dependencies | 0 | **0** ✅ |
+| Empty directories | ~5 | **0** ✅ |
+
+---
+
+## 1. Dependency Graph (Sprint 0 — original, preserved for reference)
 
 ```mermaid
 graph TD
@@ -259,15 +308,20 @@ Only **4 files** import from `@prisma/client`:
 
 ---
 
-## 7. Summary
+## 7. Summary — Post-Sprint 1 Status
 
-| Finding | Status |
-|---|---|
-| Cyclic dependencies | ✅ **None found** |
-| Circular imports | ✅ **None found** |
-| Direct `@prisma/client` (non-type) outside db.ts | ✅ **None found** |
-| Config bypass (process.env instead of config.ts) | ⚠️ **10+ files** |
-| Missing config entries | ⚠️ **5 env vars** |
-| DB default import of named export | ⚠️ **5 files** |
-| Inconsistent cookie name references | ⚠️ **2 files** |
-| AI service depends on 15 modules | 🔴 **Excessive coupling** |
+| Finding | Sprint 0 | Post-Sprint 1 |
+|---|---|---|
+| Cyclic dependencies | ✅ **None found** | ✅ **None found** |
+| Circular imports | ✅ **None found** | ✅ **None found** |
+| Direct `@prisma/client` (non-type) outside db.ts | ✅ **None found** | ✅ **None found** |
+| Config bypass (process.env instead of config.ts) | ⚠️ 10+ files | ✅ **Resolved** (jwt, ai-cache, ai-svc, auth-next → config) |
+| Missing config entries | ⚠️ 5 env vars | ✅ **Resolved** (DSE_RAG_ENABLED added) |
+| DB default import of named export | ⚠️ 5 files | ✅ **Resolved** (export default added) |
+| Inconsistent cookie name references | ⚠️ 2 files | ✅ **Resolved** (→ auth-cookies.ts) |
+| AI service depends on 15 modules | 🔴 Excessive coupling | 🔴 **Still true** (Sprint 2 task) |
+| `src/lib/` flat structure | ⚠️ All in one dir | ✅ **Feature-based modules** |
+| `@/lib/*` references remaining | ~150 | ✅ **0** |
+| Test files location | `src/lib/__tests__/` | ✅ **Module __tests__/ dirs** |
+| Empty directories | ~5 | ✅ **0** |
+| vercel-build | ❌ Failing | ✅ **Passing** |

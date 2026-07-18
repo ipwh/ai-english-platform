@@ -4,7 +4,7 @@
 
 import type { UserRole } from '@/shared/types/types';
 import type { SessionPayload } from '@/shared/auth/jwt';
-import db from '@/shared/db/db';
+import { StudentRepo } from '@/modules/repositories';
 import { createSessionToken } from '@/shared/auth/jwt';
 
 // Re-export JWT utilities from Edge-safe module
@@ -32,10 +32,7 @@ export interface LoginResult {
 export async function authenticateUser(email: string, password: string): Promise<LoginResult> {
   const emailLower = email.toLowerCase().trim();
 
-  const user = await db.user.findUnique({
-    where: { email: emailLower },
-    include: { class: { select: { name: true } } },
-  });
+  const user = await StudentRepo.findUserByEmail(emailLower);
 
   if (!user) {
     return { success: false, error: '電郵地址或密碼不正確。' };
@@ -64,7 +61,7 @@ export async function authenticateUser(email: string, password: string): Promise
   // 若密碼是舊版 simpleHash，背景重新雜湊為 bcrypt（不阻塞登入）
   if (verifyResult === 'needs_rehash') {
     hashPassword(password).then(newHash => {
-      db.user.update({ where: { id: user.id }, data: { passwordHash: newHash } }).catch(err => {
+      StudentRepo.updateUserPassword(user.id, newHash).catch(err => {
         logger.error({ module: 'auth', userId: user.id, error: (err as Error).message }, 'Background password rehash failed');
       });
     });
