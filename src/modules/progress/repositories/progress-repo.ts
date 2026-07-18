@@ -7,6 +7,10 @@
 import { db } from '@/shared/db/db';
 import type { Prisma } from '@prisma/client';
 
+// Streak helpers (used by streak-service.ts)
+export async function getLoginDates(userId: string, limit = 90) { return db.loginLog.findMany({ where: { userId }, select: { loginAt: true }, orderBy: { loginAt: 'desc' }, take: limit }); }
+export async function getPracticeDates(studentId: string, limit = 90) { return db.practiceSession.findMany({ where: { studentId }, select: { startedAt: true }, orderBy: { startedAt: 'desc' }, take: limit }); }
+
 // ============================================
 // XP transactions
 // ============================================
@@ -64,13 +68,7 @@ export async function getUserBadgeIds(userId: string) {
   try { return JSON.parse(user?.badgeIds || '[]') as string[]; } catch { return []; }
 }
 
-export async function awardBadge(userId: string, badgeId: string) {
-  const current = await getUserBadgeIds(userId);
-  if (current.includes(badgeId)) return current;
-  current.push(badgeId);
-  await db.user.update({ where: { id: userId }, data: { badgeIds: JSON.stringify(current) } });
-  return current;
-}
+export async function awardBadge(userId: string, badgeId: string) { const current = await getUserBadgeIds(userId); if (current.includes(badgeId)) return current; current.push(badgeId); await db.user.update({ where: { id: userId }, data: { badgeIds: JSON.stringify(current) } }); return current; }
 
 // ============================================
 // Weekly snapshots
@@ -116,13 +114,13 @@ export async function getUnreadNotificationCount(userId: string) {
   return db.notification.count({ where: { userId, read: false } });
 }
 
-export async function createNotification(data: Prisma.NotificationCreateInput) {
-  return db.notification.create({ data });
+export async function createNotification(data: Record<string, unknown>) {
+  return db.notification.create({ data: data as any });
 }
 
-export async function createBulkNotifications(data: Prisma.NotificationCreateManyInput[]) {
+export async function createBulkNotifications(data: Record<string, unknown>[]) {
   if (data.length === 0) return;
-  return db.notification.createMany({ data });
+  return db.notification.createMany({ data: data as any });
 }
 
 export async function markNotificationRead(notificationId: string) {

@@ -4,7 +4,7 @@
 
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
-import db from '@/shared/db/db';
+import { StudentRepo } from '@/modules/repositories';
 import { logger } from '@/shared/logger/logger';
 import { AUTHJS_SESSION_COOKIES } from '@/shared/auth/auth-cookies';
 import { config } from '@/shared/config/config';
@@ -39,10 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (account?.provider === 'google' && user.email) {
         try {
-          const existing = await db.user.findUnique({
-            where: { email: user.email },
-            select: { id: true, role: true, name: true, nameEn: true, image: true },
-          });
+          const existing = await StudentRepo.findUserByEmailMinimal(user.email);
 
           if (!existing) {
             // 自動判斷角色：學生 email = s + 數字；其餘為教師
@@ -52,14 +49,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             logger.info({ module: 'auth', email: user.email }, 'creating new user');
             const defaultRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
 
-            await db.user.create({
-              data: {
-                email: user.email,
-                name: user.name || (profile as { name?: string } | null)?.name || null,
-                nameEn: user.name || (profile as { name?: string } | null)?.name || null,
-                image: user.image || (profile as { picture?: string } | null)?.picture || null,
-                role: defaultRole,
-              },
+            await StudentRepo.createUser({
+              email: user.email,
+              name: user.name || (profile as { name?: string } | null)?.name || null,
+              nameEn: user.name || (profile as { name?: string } | null)?.name || null,
+              image: user.image || (profile as { picture?: string } | null)?.picture || null,
+              role: defaultRole,
             });
             userRole = defaultRole;
           } else {
@@ -72,10 +67,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // Auto-correct DB role if it doesn't match email pattern
             if (existing.role !== correctRole) {
               logger.info({ module: 'auth', email: user.email, oldRole: existing.role, newRole: correctRole }, 'Auto-correcting DB role');
-              await db.user.update({
-                where: { id: existing.id },
-                data: { role: correctRole },
-              });
+              await StudentRepo.updateUser(existing.id, { role: correctRole });
               userRole = correctRole;
             } else {
               userRole = existing.role;
@@ -86,13 +78,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const googleName = user.name || (profile as { name?: string } | null)?.name;
             const googlePic = user.image || (profile as { picture?: string } | null)?.picture;
             if (googleName && googleName !== existing.name) {
-              await db.user.update({
-                where: { id: existing.id },
-                data: {
-                  name: googleName,
-                  nameEn: existing.nameEn || googleName,
-                  image: googlePic || existing.image,
-                },
+              await StudentRepo.updateUser(existing.id, {
+                name: googleName,
+                nameEn: existing.nameEn || googleName,
+                image: googlePic || existing.image,
               });
               logger.info({ module: 'auth', googleName }, 'updated name from Google profile');
             }
@@ -140,10 +129,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // 從 DB 同步最新角色（確保 role 變更後即時生效）
       if (token.email) {
         try {
-          const dbUser = await db.user.findUnique({
-            where: { email: token.email as string },
-            select: { id: true, role: true },
-          });
+          const dbUser = await StudentRepo.findUserByEmailMinimal(token.email as string);
 
           if (dbUser) {
             token.id = dbUser.id;

@@ -7,7 +7,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 import type { UserRole } from '@/shared/types/types';
-import db from '@/shared/db/db';
+import { StudentRepo } from '@/modules/repositories';
 
 export interface AuthResult {
   authenticated: boolean;
@@ -113,10 +113,7 @@ export async function verifyOwnership(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const record = await (db as any)[table].findUnique({
-    where: { id: resourceId },
-    select: { [ownerField]: true },
-  });
+  const record = await StudentRepo.findRecordOwner(table, resourceId, ownerField);
 
   if (!record) {
     return NextResponse.json({ error: '找不到此資源' }, { status: 404 });

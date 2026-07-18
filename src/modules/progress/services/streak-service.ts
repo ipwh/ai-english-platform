@@ -4,7 +4,7 @@
 // Uses LoginLog + PracticeSession to calculate streaks
 // ============================================
 
-import db from '@/shared/db/db';
+import { ProgressRepo, StudentRepo } from '@/modules/repositories';
 
 /**
  * Calculate the current streak for a student based on their
@@ -21,18 +21,8 @@ export async function calculateStudentStreak(studentId: string): Promise<{
 
   // Get all unique active dates from both login logs and practice sessions
   const [loginLogs, practiceSessions] = await Promise.all([
-    db.loginLog.findMany({
-      where: { userId: studentId },
-      select: { loginAt: true },
-      orderBy: { loginAt: 'desc' },
-      take: 90,
-    }),
-    db.practiceSession.findMany({
-      where: { studentId },
-      select: { startedAt: true },
-      orderBy: { startedAt: 'desc' },
-      take: 90,
-    }),
+    ProgressRepo.getLoginDates(studentId),
+    ProgressRepo.getPracticeDates(studentId),
   ]);
 
   // Merge and deduplicate dates
@@ -79,9 +69,6 @@ export async function calculateStudentStreak(studentId: string): Promise<{
  */
 export async function syncUserStreak(studentId: string): Promise<number> {
   const { streakDays } = await calculateStudentStreak(studentId);
-  await db.user.update({
-    where: { id: studentId },
-    data: { streakDays },
-  });
+  await StudentRepo.updateUserStreak(studentId, streakDays);
   return streakDays;
 }

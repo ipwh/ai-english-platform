@@ -9,3 +9,4 @@ export * as AssessmentRepo from '@/modules/assessment/repositories/assessment-re
 export * as VocabularyRepo from '@/modules/vocabulary/repositories/vocabulary-repo';
 export * as ExerciseRepo from '@/modules/exercise/repositories/exercise-repo';
 export * as ProgressRepo from '@/modules/progress/repositories/progress-repo';
+export * as MaterialRepo from '@/modules/ai/repositories/material-repo';
