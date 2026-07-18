@@ -121,25 +121,14 @@ import { getRandomTopicV2 } from '../services/topic-selector';
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
 import { aiCache } from '@/modules/ai/services/ai-cache';
-
-const DEEPSEEK_API_KEY = config.deepseek.apiKey;
-const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
-const DEEPSEEK_MODEL = config.deepseek.model;
-
-const VERTEX_PROJECT_ID = config.vertex.projectId;
-const VERTEX_LOCATION = config.vertex.location;
-const VERTEX_GEMINI_MODEL = config.vertex.model;
-
-const GEMINI_API_KEY = config.gemini.apiKey;
-const GEMINI_BASE_URL = config.gemini.baseUrl;
-const GEMINI_MODEL = config.gemini.model;
+import { providerRegistry } from '@/modules/ai/providers';
+import type { ChatMessage, LLMCallOptions } from '@/modules/ai/providers';
 
 // ============================================
-// Provider 追蹤 — 供 API routes 通知前端目前使用的 AI
+// Provider 追蹤 — delegated to providerRegistry
 // ============================================
-let lastAIProvider: 'deepseek' | 'vertex-gemini' | 'gemini-api' | 'none' = 'none';
-export function getLastAIProvider(): string { return lastAIProvider; }
-export function wasFallbackUsed(): boolean { return lastAIProvider !== 'deepseek' && lastAIProvider !== 'none'; }
+export function getLastAIProvider(): string { return providerRegistry.getLastUsed(); }
+export function wasFallbackUsed(): boolean { const p = providerRegistry.getLastUsed(); return p !== 'deepseek' && p !== 'none'; }
 
 // Gemini JSON instruction extracted to src/lib/ai/prompts/gemini-json-instruction.ts
 
@@ -151,13 +140,6 @@ function adaptMessagesForGemini(messages: ChatMessage[], jsonMode: boolean): Cha
     }
     return m;
   });
-}
-
-type LLMCallOptions = { temperature?: number; maxTokens?: number; jsonMode?: boolean; timeoutMs?: number; userId?: string };
-
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
 }
 
 interface DeepSeekResponse {
@@ -193,8 +175,8 @@ async function callDeepSeek(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
-  if (!DEEPSEEK_API_KEY || DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
-    throw new Error('AI 服務尚未設定。請在環境變數中設定 DEEPSEEK_API_KEY。');
+  if (!config.deepseek.apiKey || config.deepseek.apiKey === 'sk-your-deepseek-api-key-here') {
+    throw new Error('AI 服務尚未設定。請在環境變數中設定 config.deepseek.apiKey。');
   }
 
   const timeoutMs = options?.timeoutMs || config.ai.timeoutMs;
@@ -202,14 +184,14 @@ async function callDeepSeek(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+    const res = await fetch(`${config.deepseek.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${config.deepseek.apiKey}`,
       },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+        model: config.deepseek.model,
         messages,
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? 1024,
@@ -255,8 +237,8 @@ async function callGemini(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    throw new Error('Gemini API 尚未設定。請在環境變數中設定 GEMINI_API_KEY。');
+  if (!config.gemini.apiKey) {
+    throw new Error('Gemini API 尚未設定。請在環境變數中設定 config.gemini.apiKey。');
   }
 
   const timeoutMs = options?.timeoutMs || config.ai.timeoutMs;
@@ -271,7 +253,7 @@ async function callGemini(
   const isJson = options?.jsonMode ?? false;
 
   try {
-    const res = await fetch(`${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+    const res = await fetch(`${config.gemini.baseUrl}/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -316,7 +298,7 @@ async function callGeminiViaVertex(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
-  if (!VERTEX_PROJECT_ID) {
+  if (!config.vertex.projectId) {
     throw new Error('Vertex Gemini 尚未設定 GCP_PROJECT_ID。');
   }
   if (!hasServiceAccountSource()) {
@@ -337,10 +319,10 @@ async function callGeminiViaVertex(
   try {
     const auth = getVertexAuth();
     const client = await auth.getClient();
-    const host = VERTEX_LOCATION === 'global'
+    const host = config.vertex.location === 'global'
       ? 'aiplatform.googleapis.com'
-      : `${VERTEX_LOCATION}-aiplatform.googleapis.com`;
-    const url = `https://${host}/v1/projects/${VERTEX_PROJECT_ID}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_GEMINI_MODEL}:generateContent`;
+      : `${config.vertex.location}-aiplatform.googleapis.com`;
+    const url = `https://${host}/v1/projects/${config.vertex.projectId}/locations/${config.vertex.location}/publishers/google/models/${config.vertex.model}:generateContent`;
     const token = await client.getAccessToken();
     if (!token?.token) {
       throw new Error('無法取得 Vertex OAuth access token。請檢查 service account 憑證與 IAM 權限。');
@@ -396,82 +378,16 @@ function aiLog(event: string, data: Record<string, unknown>) {
   logger.info({ module: 'ai-service', event, ...data }, event);
 }
 
+/**
+ * Core LLM call — delegates to provider registry with automatic fallback.
+ * Replaces the old if/else chain with dependency-injected providers.
+ */
 export async function callLLM(
   messages: ChatMessage[],
   options?: LLMCallOptions
 ): Promise<string> {
-  const hasDeepSeek = !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here';
-  const hasVertexGemini = !!VERTEX_PROJECT_ID && hasServiceAccountSource();
-  const hasGemini = !!GEMINI_API_KEY;
-
-  if (!hasDeepSeek && !hasVertexGemini && !hasGemini) {
-    throw new Error('AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。');
-  }
-
-  // AI 回應快取：嘗試從快取取得（僅對非 streaming、非隨機化請求生效）
-  const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode, userId: options?.userId });
-  if (!options?.temperature || options.temperature <= 0.3) {
-    const cached = await aiCache.get(cacheKey);
-    if (cached) return cached;
-  }
-
-  const errors: string[] = [];
-  const startTime = Date.now();
-
-  if (hasDeepSeek) {
-    try {
-      const result = await callDeepSeek(messages, options);
-      lastAIProvider = 'deepseek';
-      aiLog('call_success', { provider: 'deepseek', latencyMs: Date.now() - startTime, userId: options?.userId });
-      if (!options?.temperature || options.temperature <= 0.3) {
-        await aiCache.set(cacheKey, result);
-      }
-      return result;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`DeepSeek: ${msg}`);
-      if (!hasVertexGemini && !hasGemini) {
-        aiLog('call_failed', { provider: 'deepseek', error: msg, latencyMs: Date.now() - startTime, userId: options?.userId });
-        throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
-      }
-      logger.warn({ module: 'ai-service', error: msg }, 'DeepSeek failed, switching to Gemini fallback');
-    }
-  }
-
-  if (hasVertexGemini) {
-    try {
-      const result = await callGeminiViaVertex(messages, options);
-      lastAIProvider = 'vertex-gemini';
-      aiLog('call_success', { provider: 'vertex-gemini', latencyMs: Date.now() - startTime, fallback: true, userId: options?.userId });
-      if (!options?.temperature || options.temperature <= 0.3) {
-        await aiCache.set(cacheKey, result);
-      }
-      return result;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`Vertex Gemini: ${msg}`);
-      if (!hasGemini) {
-        aiLog('call_failed', { provider: 'vertex-gemini', error: msg, latencyMs: Date.now() - startTime, userId: options?.userId });
-        throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
-      }
-      logger.warn({ module: 'ai-service', error: msg }, 'Vertex Gemini failed, switching to Gemini API key fallback');
-    }
-  }
-
-  try {
-    const result = await callGemini(messages, options);
-    lastAIProvider = 'gemini-api';
-    aiLog('call_success', { provider: 'gemini-api', latencyMs: Date.now() - startTime, fallback: true, userId: options?.userId });
-    if (!options?.temperature || options.temperature <= 0.3) {
-      await aiCache.set(cacheKey, result);
-    }
-    return result;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`Gemini API: ${msg}`);
-    aiLog('call_failed', { provider: 'gemini-api', error: msg, latencyMs: Date.now() - startTime, userId: options?.userId });
-    throw new Error(`AI 服務全部不可用。\n${errors.join('\n')}`);
-  }
+  const result = await providerRegistry.call(messages, options);
+  return result.text;
 }
 
 // ============================================
@@ -3668,23 +3584,23 @@ export function isDeepSeekConfigured(): boolean {
 }
 
 export function isAIConfigured(): boolean {
-  const deepSeekConfigured = !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here';
-  const vertexGeminiConfigured = !!VERTEX_PROJECT_ID && hasServiceAccountSource();
-  const geminiApiKeyConfigured = !!GEMINI_API_KEY;
+  const deepSeekConfigured = !!config.deepseek.apiKey && config.deepseek.apiKey !== 'sk-your-deepseek-api-key-here';
+  const vertexGeminiConfigured = !!config.vertex.projectId && hasServiceAccountSource();
+  const geminiApiKeyConfigured = !!config.gemini.apiKey;
   return deepSeekConfigured || vertexGeminiConfigured || geminiApiKeyConfigured;
 }
 
 export function isVertexGeminiConfigured(): boolean {
-  return !!VERTEX_PROJECT_ID && hasServiceAccountSource();
+  return !!config.vertex.projectId && hasServiceAccountSource();
 }
 
 export function getAIProviders() {
   return {
-    deepseek: !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'sk-your-deepseek-api-key-here',
+    deepseek: !!config.deepseek.apiKey && config.deepseek.apiKey !== 'sk-your-deepseek-api-key-here',
     vertexGemini: isVertexGeminiConfigured(),
-    geminiApiKey: !!GEMINI_API_KEY,
-    vertexProjectId: VERTEX_PROJECT_ID || null,
-    vertexLocation: VERTEX_LOCATION,
-    vertexModel: VERTEX_GEMINI_MODEL,
+    geminiApiKey: !!config.gemini.apiKey,
+    vertexProjectId: config.vertex.projectId || null,
+    vertexLocation: config.vertex.location,
+    vertexModel: config.vertex.model,
   };
 }
