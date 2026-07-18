@@ -14,7 +14,6 @@ export interface AssignmentFilters {
   teacherId?: string;
   studentId?: string;
   classId?: string;
-  status?: 'draft' | 'active' | 'closed';
   limit?: number;
   offset?: number;
 }
@@ -40,13 +39,11 @@ export async function findAssignmentById(id: string) {
 export async function listAssignments(filters: AssignmentFilters) {
   const where: Prisma.AssignmentWhereInput = {};
 
-  if (filters.teacherId) where.teacherId = filters.teacherId;
+  if (filters.teacherId) where.createdBy = filters.teacherId;
   if (filters.classId) where.classId = filters.classId;
-  if (filters.status) where.status = filters.status;
 
   if (filters.studentId) {
     where.AND = [
-      { status: 'active' },
       {
         targetStudents: { some: { studentId: filters.studentId } },
       },
@@ -81,10 +78,8 @@ export async function getAssignmentSubmissions(assignmentId: string) {
 }
 
 export async function getStudentSubmission(assignmentId: string, studentId: string) {
-  return db.submission.findUnique({
-    where: {
-      assignmentId_studentId: { assignmentId, studentId },
-    },
+  return db.submission.findFirst({
+    where: { assignmentId, studentId },
   });
 }
 
@@ -114,8 +109,8 @@ export async function gradeSubmission(
   score: number,
   feedback?: string,
 ) {
-  return db.submission.update({
-    where: { assignmentId_studentId: { assignmentId, studentId } },
-    data: { score, feedback, gradedAt: new Date() },
+  return db.submission.updateMany({
+    where: { assignmentId, studentId },
+    data: { score, status: 'graded', gradedAt: new Date() },
   });
 }

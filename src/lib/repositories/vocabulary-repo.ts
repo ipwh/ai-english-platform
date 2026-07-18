@@ -11,9 +11,9 @@ import type { Prisma } from '@prisma/client';
 // ============================================
 
 export interface VocabFilters {
-  userId: string;
+  studentId: string;
   search?: string;
-  familiarity?: number;
+  familiarity?: string;
   partOfSpeech?: string;
   limit?: number;
   offset?: number;
@@ -28,7 +28,7 @@ export async function findVocabById(id: string) {
 }
 
 export async function listVocab(filters: VocabFilters) {
-  const where: Prisma.VocabItemWhereInput = { userId: filters.userId };
+  const where: Prisma.VocabItemWhereInput = { studentId: filters.studentId };
 
   if (filters.search) {
     where.OR = [
@@ -52,22 +52,22 @@ export async function listVocab(filters: VocabFilters) {
   return { items, total };
 }
 
-export async function getDueVocabForReview(userId: string, limit = 20) {
+export async function getDueVocabForReview(studentId: string, limit = 20) {
   return db.vocabItem.findMany({
     where: {
-      userId,
-      nextReviewAt: { lte: new Date() },
+      studentId,
+      nextReviewDate: { lte: new Date() },
     },
-    orderBy: { nextReviewAt: 'asc' },
+    orderBy: { nextReviewDate: 'asc' },
     take: limit,
   });
 }
 
-export async function getVocabStats(userId: string) {
+export async function getVocabStats(studentId: string) {
   const [total, mastered, learning] = await Promise.all([
-    db.vocabItem.count({ where: { userId } }),
-    db.vocabItem.count({ where: { userId, familiarity: { gte: 4 } } }),
-    db.vocabItem.count({ where: { userId, familiarity: { lte: 2 } } }),
+    db.vocabItem.count({ where: { studentId } }),
+    db.vocabItem.count({ where: { studentId, familiarity: { in: ['familiar', 'mastered'] } } }),
+    db.vocabItem.count({ where: { studentId, familiarity: 'new' } }),
   ]);
 
   return { total, mastered, learning };

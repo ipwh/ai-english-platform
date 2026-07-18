@@ -5,13 +5,13 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from './types';
-import { config } from '@/lib/config';
 
 let _cachedSecret: Uint8Array | null = null;
 
 function getJWTSecret(): Uint8Array {
   if (_cachedSecret) return _cachedSecret;
-  const secret = config.jwt.secret;
+  // Direct process.env — cannot import config.ts (uses node:fs/path, incompatible with Edge Runtime where middleware.ts runs)
+  const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error(
       'JWT_SECRET 環境變數未設定。請在 .env.local 或 Vercel Environment Variables 中設定。\n' +
