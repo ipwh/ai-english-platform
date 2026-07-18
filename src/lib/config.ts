@@ -159,9 +159,9 @@ const ai = {
     return Number.isFinite(val) && val > 0 ? val : (isProduction ? 8000 : 30000);
   })(),
   /** 是否啟用 AI 回應快取（相同 prompt 不重複調用） */
-  cacheEnabled: process.env.AI_CACHE_ENABLED ? process.env.AI_CACHE_ENABLED === 'true' : true,
-  /** AI 回應快取 TTL（秒） */
-  cacheTTL: 300,
+  cacheEnabled: process.env.AI_CACHE_ENABLED ? process.env.AI_CACHE_ENABLED !== 'false' : true,
+  /** AI 回應快取 TTL（毫秒），預設 1 小時 */
+  cacheTTLMs: Number(process.env.AI_CACHE_TTL_MS) || 3_600_000,
 };
 
 // ============================================

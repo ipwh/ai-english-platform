@@ -36,7 +36,7 @@ function run(cmd, label, { captureOutput = false } = {}) {
 }
 
 // Step 1: Generate Prisma Client (必須成功)
-if (!run('npx prisma generate', 'prisma generate').ok) {
+if (!run('npx --yes prisma generate', 'prisma generate').ok) {
   process.exit(1);
 }
 
@@ -48,7 +48,7 @@ const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV =
 // and the app falls back to in-memory cosine similarity in rag-service.ts
 console.log('\n🔧 Ensuring pgvector extension...');
 try {
-  execSync('npx prisma db execute --stdin', {
+  execSync('npx --yes prisma db execute --stdin', {
     input: 'CREATE EXTENSION IF NOT EXISTS vector;',
     cwd: process.cwd(),
     stdio: 'pipe',
@@ -69,7 +69,7 @@ try {
 
 // Try migrate deploy first (preferred for production)
 // Use captureOutput to inspect the actual Prisma error (P3005 detection)
-const migrateResult = run('npx prisma migrate deploy', 'prisma migrate deploy', { captureOutput: true });
+const migrateResult = run('npx --yes prisma migrate deploy', 'prisma migrate deploy', { captureOutput: true });
 
 if (migrateResult.ok) {
   console.log('✅  Schema deployed via prisma migrate deploy');
@@ -86,7 +86,7 @@ if (migrateResult.ok) {
     console.warn('⚠️  No migration history found — project was previously using prisma db push.');
     console.warn('   Falling back to prisma db push for this deployment.');
     console.warn('   To migrate: run `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql`');
-    const pushResult = run('npx prisma db push', 'prisma db push (fallback)', { captureOutput: true });
+    const pushResult = run('npx --yes prisma db push', 'prisma db push (fallback)', { captureOutput: true });
     if (!pushResult.ok) {
       const pushOutput = pushResult.output;
       if (pushOutput.includes('vector') && pushOutput.includes('does not exist')) {
@@ -109,12 +109,12 @@ if (migrateResult.ok) {
   } else {
     // Dev: just warn and try db push
     console.warn('⚠️  prisma migrate deploy failed — falling back to prisma db push for local dev.');
-    run('npx prisma db push', 'prisma db push (dev fallback)');
+    run('npx --yes prisma db push', 'prisma db push (dev fallback)');
   }
 }
 
 // Step 3: Build Next.js (必須成功)
-if (!run('npx next build', 'next build').ok) {
+if (!run('npx --yes next build', 'next build').ok) {
   process.exit(1);
 }
 

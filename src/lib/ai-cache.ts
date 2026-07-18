@@ -18,6 +18,7 @@
 
 import { logger } from '@/lib/logger';
 import { getKvClient } from '@/lib/vercel-kv';
+import { config } from '@/lib/config';
 
 interface CacheEntry {
   value: string;
@@ -27,13 +28,11 @@ interface CacheEntry {
 const inMemoryStore = new Map<string, CacheEntry>();
 
 function isEnabled(): boolean {
-  const env = process.env.AI_CACHE_ENABLED;
-  if (env === 'false' || env === '0') return false;
-  return true;
+  return config.ai.cacheEnabled;
 }
 
 function getTTL(): number {
-  return Number(process.env.AI_CACHE_TTL_MS) || 3_600_000; // 1 hour default
+  return config.ai.cacheTTLMs;
 }
 
 /**

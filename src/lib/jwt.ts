@@ -5,12 +5,13 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import type { UserRole } from './types';
+import { config } from '@/lib/config';
 
 let _cachedSecret: Uint8Array | null = null;
 
 function getJWTSecret(): Uint8Array {
   if (_cachedSecret) return _cachedSecret;
-  const secret = process.env.JWT_SECRET;
+  const secret = config.jwt.secret;
   if (!secret) {
     throw new Error(
       'JWT_SECRET 環境變數未設定。請在 .env.local 或 Vercel Environment Variables 中設定。\n' +

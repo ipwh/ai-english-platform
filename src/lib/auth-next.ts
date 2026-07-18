@@ -7,11 +7,12 @@ import Google from 'next-auth/providers/google';
 import db from './db';
 import { logger } from '@/lib/logger';
 import { AUTHJS_SESSION_COOKIES } from '@/lib/auth-cookies';
+import { config } from '@/lib/config';
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    if (config.isProduction) {
       throw new Error(`[auth-next] 缺少必要的環境變數: ${name}。請在 Vercel Dashboard 中設定。`);
     }
     logger.warn({ module: 'auth-next', envVar: name }, 'OAuth may not function — env var not set');
@@ -183,14 +184,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   cookies: {
     sessionToken: {
-      name: process.env.NODE_ENV === 'production'
+      name: config.isProduction
         ? AUTHJS_SESSION_COOKIES[0]
         : AUTHJS_SESSION_COOKIES[1],
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        secure: config.isProduction,
       },
     },
   },
