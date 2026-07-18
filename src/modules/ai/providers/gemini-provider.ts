@@ -37,11 +37,17 @@ export class GeminiProvider implements AIProvider {
     const isJson = options?.jsonMode ?? false;
 
     try {
-      const res = await fetch(
-        `${config.gemini.baseUrl}/models/${config.gemini.model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+      // AQ.* keys (GCP API Keys) need header auth; AIza.* keys (AI Studio) use query param
+      const isGcpKey = apiKey.startsWith('AQ.');
+      const url = isGcpKey
+        ? `${config.gemini.baseUrl}/models/${config.gemini.model}:generateContent`
+        : `${config.gemini.baseUrl}/models/${config.gemini.model}:generateContent?key=${apiKey}`;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (isGcpKey) headers['x-goog-api-key'] = apiKey;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
           body: JSON.stringify({
             systemInstruction: systemMessages ? { role: 'system', parts: [{ text: systemMessages }] } : undefined,
             contents,
