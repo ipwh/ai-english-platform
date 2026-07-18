@@ -4,7 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
+import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';;
+import { validateRequest, studyHelpSchema } from '@/shared/validation/schemas'
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 

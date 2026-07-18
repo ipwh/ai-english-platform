@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { validateRequest, generateQuestionsSchema } from '@/shared/validation/schemas';
 
 function isRetryableGenerationError(message: string): boolean {
   return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|is not valid JSON/i.test(message);
@@ -38,18 +39,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { grammarItem, grammarItemZh, languageSkill, languageSkillZh, difficulty, gradeLevel, count, questionType, topic } = body;
+    const parsed = validateRequest(generateQuestionsSchema, body);
+    const { grammarItem, grammarItemZh, languageSkill, languageSkillZh, difficulty, gradeLevel, count, questionType, topic } = parsed;
 
-    if (!difficulty || !gradeLevel) {
-      return NextResponse.json(
-        { error: '請提供 difficulty 和 gradeLevel。' },
-        { status: 400 }
-      );
-    }
-
-    // Guard against excessive question counts
-    const maxCount = 20;
-    const safeCount = Math.min(Math.max(1, count || 5), maxCount);
+    const safeCount = Math.min(Math.max(1, count), 20);
 
     let questions: Awaited<ReturnType<typeof generateQuestions>> | null = null;
     let lastErr: unknown = null;

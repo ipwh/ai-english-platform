@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { checkRateLimit } from '@/shared/utils/rate-limiter';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';;
+import { validateRequest, diagnosticCreateSchema } from '@/shared/validation/schemas'
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
