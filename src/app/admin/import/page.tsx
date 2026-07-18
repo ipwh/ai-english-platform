@@ -9,7 +9,7 @@ import {
   AlertTriangle, RefreshCw, Users, GraduationCap,
 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
-import type { ImportResult, ImportDetail } from '@/lib/import-utils';
+import type { ImportResult, ImportDetail } from '@/shared/utils/import-utils';
 
 // ============================================
 // Sub-components

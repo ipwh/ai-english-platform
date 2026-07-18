@@ -3,7 +3,7 @@
 // 擴展預設 User/Session 型別，加入 role、id 等自訂欄位
 // ============================================
 
-import type { UserRole } from '@/lib/types';
+import type { UserRole } from '@/shared/types/types';
 
 declare module 'next-auth' {
   interface User {

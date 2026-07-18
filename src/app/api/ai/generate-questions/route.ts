@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
-import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
-import { verifyApiAuth } from '@/lib/api-auth';
+import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 function isRetryableGenerationError(message: string): boolean {
   return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|is not valid JSON/i.test(message);

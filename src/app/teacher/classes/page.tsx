@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Loader2, AlertTriangle, GraduationCap } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
-import { gradeLabels } from '@/lib/nav';
+import { gradeLabels } from '@/shared/utils/nav';
 
 export default function TeacherClassesPage() {
   const { t } = useT();

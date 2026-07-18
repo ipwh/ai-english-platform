@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { LogOut, Mail, Save, X, GraduationCap } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
-import { formatDate } from '@/lib/utils';
-import { gradeLabels, getGradeLabel } from '@/lib/nav';
+import { formatDate } from '@/shared/utils/utils';
+import { gradeLabels, getGradeLabel } from '@/shared/utils/nav';
 
 export default function StudentProfilePage() {
   const router = useRouter();

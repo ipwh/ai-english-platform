@@ -4,7 +4,7 @@
 'use client';
 
 import SidebarLayout from './SidebarLayout';
-import { teacherNavSections } from '@/lib/nav';
+import { teacherNavSections } from '@/shared/utils/nav';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 

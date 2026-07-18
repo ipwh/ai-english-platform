@@ -294,7 +294,7 @@ describe('validateAndFixQuestion — Listening consistency', () => {
 // 四、i18n 翻譯函數測試
 // ============================================
 
-import { t } from '@/lib/i18n';
+import { t } from '@/shared/utils/i18n';
 
 describe('i18n — t() function', () => {
   it('should return Chinese by default', () => {
@@ -379,7 +379,7 @@ describe('i18n — t() function', () => {
 // 五、Skill Labels & Difficulty Labels i18n
 // ============================================
 
-import { skillLabels, skillLabelsEn, difficultyLabels, getDifficultyLabel, gradeLabels, getGradeLabel, statusLabels } from '@/lib/nav';
+import { skillLabels, skillLabelsEn, difficultyLabels, getDifficultyLabel, gradeLabels, getGradeLabel, statusLabels } from '@/shared/utils/nav';
 
 describe('nav — label maps', () => {
   it('skillLabels should contain common grammar items', () => {

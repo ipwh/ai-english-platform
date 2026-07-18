@@ -6,9 +6,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyAdmin } from '@/lib/admin-auth';
-import { hashPassword } from '@/lib/crypto';
+import db from '@/shared/db/db';
+import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { hashPassword } from '@/shared/auth/crypto';
 
 export async function PUT(
   request: NextRequest,

@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextResponse } from 'next/server';
-import { getAIProviders, isDeepSeekConfigured } from '@/lib/ai-service';
+import { getAIProviders, isDeepSeekConfigured } from '@/modules/ai/services/ai-service';
 
 export async function GET() {
   const configured = isDeepSeekConfigured();

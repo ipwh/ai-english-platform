@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Sparkles, Loader2 } from 'lucide-react';
 
-import { skillLabels, difficultyLabels, gradeLabels, getSkillLabel, getDifficultyLabel, getGradeLabel } from '@/lib/nav';
+import { skillLabels, difficultyLabels, gradeLabels, getSkillLabel, getDifficultyLabel, getGradeLabel } from '@/shared/utils/nav';
 import Modal from '@/components/shared/Modal';
 import { useT } from '@/hooks/use-i18n';
 

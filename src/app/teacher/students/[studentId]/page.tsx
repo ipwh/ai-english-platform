@@ -12,11 +12,11 @@ import {
   FileText, Download, BarChart3, Languages, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
-import { formatDate } from '@/lib/utils';
-import { getGradeLabel } from '@/lib/nav';
+import { formatDate } from '@/shared/utils/utils';
+import { getGradeLabel } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
-import { getAllBadges } from '@/lib/gamification';
+import { getAllBadges } from '@/modules/progress/services/gamification';
 
 interface StudentDetail {
   id: string; email: string; nameZh?: string; nameEn?: string;

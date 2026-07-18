@@ -5,9 +5,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { answerStudyHelp } from '@/lib/ai-service';
-import type { StudyHelpInput } from '@/lib/ai-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { answerStudyHelp } from '@/modules/ai/services/ai-service';
+import type { StudyHelpInput } from '@/modules/ai/services/ai-service';
 
 // GET — Retrieve conversation history (client-side managed via localStorage)
 export async function GET(_request: NextRequest) {

@@ -4,8 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeWord } from '@/lib/ai-service';
-import { verifyApiAuth } from '@/lib/api-auth';
+import { analyzeWord } from '@/modules/ai/services/ai-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { z } from 'zod';
 
 const RequestSchema = z.object({

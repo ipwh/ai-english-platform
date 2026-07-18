@@ -3,9 +3,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth-next';
-import { verifySessionToken } from '@/lib/jwt';
-import db from '@/lib/db';
+import { auth } from '@/shared/auth/auth-next';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import db from '@/shared/db/db';
 
 async function updateUserRole(userId: string, role: string) {
   await db.user.update({

@@ -7,9 +7,9 @@
 import { useState, useEffect } from 'react';
 import { Check, X, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
 
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/shared/utils/utils';
 import EmptyState from '@/components/shared/EmptyState';
-import type { ReviewStatus, ReviewItem } from '@/lib/types';
+import type { ReviewStatus, ReviewItem } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherReviewPage() {

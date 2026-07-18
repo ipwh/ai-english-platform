@@ -10,7 +10,7 @@ import EmptyState from '@/components/shared/EmptyState';
 import AdvancedSettings from '@/components/shared/AdvancedSettings';
 import { CardSkeleton, ListSkeleton } from '@/components/shared/Skeleton';
 import { BookOpen, Filter } from 'lucide-react';
-import type { KpiData } from '@/lib/types';
+import type { KpiData } from '@/shared/types/types';
 
 const sampleKpi: KpiData = { label: '本週練習量', value: 32, unit: '題', trend: 'up', change: 12 };
 

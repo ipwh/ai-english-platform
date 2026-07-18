@@ -10,7 +10,7 @@ import { useAppStore } from '@/store/appStore';
 import KpiCard from '@/components/shared/KpiCard';
 import { useT } from '@/hooks/use-i18n';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { ClassInfo } from '@/lib/types';
+import type { ClassInfo } from '@/shared/types/types';
 
 interface StudentBrief {
   id: string;

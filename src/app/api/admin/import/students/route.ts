@@ -4,17 +4,17 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { getBulkDb } from '@/lib/db';
+import db from '@/shared/db/db';
+import { getBulkDb } from '@/shared/db/db';
 import {
   parseCSV,
   studentRowSchema,
   inferGradeLevel,
   emptyImportResult,
-} from '@/lib/import-utils';
-import type { ImportResult, ImportDetail } from '@/lib/import-utils';
-import { verifyAdmin } from '@/lib/admin-auth';
-import { hashPasswordSync } from '@/lib/crypto';
+} from '@/shared/utils/import-utils';
+import type { ImportResult, ImportDetail } from '@/shared/utils/import-utils';
+import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { hashPasswordSync } from '@/shared/auth/crypto';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();

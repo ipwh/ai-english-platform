@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Search, ChevronRight, RefreshCw } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
-import { gradeLabels } from '@/lib/nav';
+import { gradeLabels } from '@/shared/utils/nav';
 
 interface RealStudent {
   id: string;

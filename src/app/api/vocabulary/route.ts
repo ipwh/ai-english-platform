@@ -3,9 +3,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { serializeVocab } from '@/lib/utils';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { serializeVocab } from '@/shared/utils/utils';
 import type { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest) {

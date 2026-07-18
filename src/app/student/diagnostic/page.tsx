@@ -9,10 +9,10 @@ import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
-import type { PracticeQuestion } from '@/lib/types';
+import type { PracticeQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
-import { normalizeSkillName, buildWeakSkills } from '@/lib/utils';
-import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/lib/utils';
+import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
+import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 

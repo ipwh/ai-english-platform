@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
-import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
-import { verifyApiAuth } from '@/lib/api-auth';
+import { generateIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);

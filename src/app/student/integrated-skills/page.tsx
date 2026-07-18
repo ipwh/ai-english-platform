@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // 學生端 — Integrated Skills (DSE Paper 3 Part B) v4
 // 重構：步驟鎖定 · 自動儲存 · 雙維度批改 · 行動裝置友好
 // ============================================
@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useIntegratedSkillsStore } from '@/store/integratedSkillsStore';
 import { useT } from '@/hooks/use-i18n';
-import IntegratedSkillsTaskView from '@/components/integrated-skills/IntegratedSkillsTaskView';
+import IntegratedSkillsTaskView from '@/modules/assessment/components/IntegratedSkillsTaskView';
 
 const TASK_TYPES = [
   { value: 'summary', zh: '摘要寫作', en: 'Summary' },

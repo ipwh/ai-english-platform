@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // 學生端 — 生字簿 (重構版)
 // 新功能：AI 智能分析、快速加入、擴展詞彙卡、進階過濾、匯出
 // ============================================
@@ -7,16 +7,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle, PencilLine } from 'lucide-react';
 
-import VocabCard from '@/components/vocabulary/VocabCard';
-import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
-import VocabFilterBar from '@/components/vocabulary/VocabFilterBar';
-import BatchImportVocab from '@/components/vocabulary/BatchImportVocab';
-import SpellingPractice from '@/components/vocabulary/SpellingPractice';
+import VocabCard from '@/modules/vocabulary/components/VocabCard';
+import QuickAddVocab from '@/modules/vocabulary/components/QuickAddVocab';
+import VocabFilterBar from '@/modules/vocabulary/components/VocabFilterBar';
+import BatchImportVocab from '@/modules/vocabulary/components/BatchImportVocab';
+import SpellingPractice from '@/modules/vocabulary/components/SpellingPractice';
 import { useAppStore } from '@/store/appStore';
-import type { Familiarity, VocabItem, MasteryLevel } from '@/lib/types';
+import type { Familiarity, VocabItem, MasteryLevel } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
-import { getFamiliarityLabel, getFamiliarityColor } from '@/lib/utils';
-import { familiarityToQuality, calculateNextReview } from '@/lib/srs';
+import { getFamiliarityLabel, getFamiliarityColor } from '@/shared/utils/utils';
+import { familiarityToQuality, calculateNextReview } from '@/modules/vocabulary/services/srs';
 
 const nextFamiliarity: Record<Familiarity, Familiarity> = {
   'new': 'learning', 'learning': 'familiar', 'familiar': 'mastered', 'mastered': 'mastered',

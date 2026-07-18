@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { getDueCards, getDailyReviewTarget } from '@/lib/srs';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { getDueCards, getDailyReviewTarget } from '@/modules/vocabulary/services/srs';
 
 export async function GET(request: NextRequest) {
   // 🔒 Auth check

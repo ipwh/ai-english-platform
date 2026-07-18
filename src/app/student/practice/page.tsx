@@ -13,12 +13,12 @@ import {
 } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
-import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel } from '@/lib/nav';
+import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel } from '@/shared/utils/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { PracticePageSkeleton } from '@/components/shared/Skeleton';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
-import type { GrammarItem, LanguageSkill, DifficultyLevel, GradeLevel } from '@/lib/types';
+import type { GrammarItem, LanguageSkill, DifficultyLevel, GradeLevel } from '@/shared/types/types';
 
 // ============================================
 // AI 生成練習表單

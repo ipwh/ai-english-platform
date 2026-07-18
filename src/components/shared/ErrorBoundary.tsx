@@ -5,7 +5,7 @@
 // ============================================
 
 import { Component, type ReactNode } from 'react';
-import { t } from '@/lib/i18n';
+import { t } from '@/shared/utils/i18n';
 
 interface Props {
   children: ReactNode;

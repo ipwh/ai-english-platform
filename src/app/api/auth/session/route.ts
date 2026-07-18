@@ -4,6 +4,6 @@
 // while delegating to the shared NextAuth handlers.
 // ============================================
 
-import { handlers } from '@/lib/auth-next';
+import { handlers } from '@/shared/auth/auth-next';
 
 export const { GET, POST } = handlers;

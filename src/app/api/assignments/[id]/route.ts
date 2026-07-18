@@ -4,11 +4,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { verifySessionToken } from '@/lib/jwt';
-import { analyzeAnswer } from '@/lib/ai-service';
-import { notifySubmissionReceived } from '@/lib/notifications';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { analyzeAnswer } from '@/modules/ai/services/ai-service';
+import { notifySubmissionReceived } from '@/shared/utils/notifications';
 
 // GET /api/assignments/[id]
 // ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）— 需教師/管理員身分

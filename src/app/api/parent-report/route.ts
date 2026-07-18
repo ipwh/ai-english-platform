@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/lib/api-auth';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {
   // Auth check: only teachers/admins can generate parent reports
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = (await import('@/lib/db')).default;
+    const db = (await import('@/shared/db/db')).default;
 
     const [student, sessions, mistakes, vocab] = await Promise.all([
       db.user.findUnique({

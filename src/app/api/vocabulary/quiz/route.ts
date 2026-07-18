@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { callLLM } from '@/lib/ai-service';
-import { serializeVocab } from '@/lib/utils';
+import db from '@/shared/db/db';
+import { callLLM } from '@/modules/ai/services/ai-service';
+import { serializeVocab } from '@/shared/utils/utils';
 
 export async function POST(request: NextRequest) {
   try {

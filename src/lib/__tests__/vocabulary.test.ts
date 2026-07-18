@@ -3,9 +3,9 @@
 // ============================================
 
 import { describe, it, expect } from 'vitest';
-import { WordAnalysisSchema, validateAIResponse } from '@/lib/ai-schema';
-import { familiarityToQuality, calculateNextReview, getDueCards, getDailyReviewTarget, getSrsProgress, processReviewResults } from '@/lib/srs';
-import { getFamiliarityColor, getFamiliarityLabel } from '@/lib/utils';
+import { WordAnalysisSchema, validateAIResponse } from '@/modules/ai/schemas/ai-schema';
+import { familiarityToQuality, calculateNextReview, getDueCards, getDailyReviewTarget, getSrsProgress, processReviewResults } from '@/modules/vocabulary/services/srs';
+import { getFamiliarityColor, getFamiliarityLabel } from '@/shared/utils/utils';
 
 // ============================================
 // 1. WordAnalysisSchema 驗證

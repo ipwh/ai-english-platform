@@ -3,10 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/lib/gamification';
-import type { XpEvent } from '@/lib/gamification';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/modules/progress/services/gamification';
+import type { XpEvent } from '@/modules/progress/services/gamification';
 
 // GET — 取得學生 gamification 狀態
 export async function GET(req: NextRequest) {

@@ -3,10 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/jwt';
-import { auth } from '@/lib/auth-next';
-import { config } from '@/lib/config';
+import { db } from '@/shared/db/db';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { auth } from '@/shared/auth/auth-next';
+import { config } from '@/shared/config/config';
 import { z } from 'zod';
 
 // ============================================

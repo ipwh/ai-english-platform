@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth';
+import { verifySessionToken } from '@/shared/auth/auth';
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get('session_token')?.value;

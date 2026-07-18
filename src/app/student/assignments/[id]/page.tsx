@@ -8,8 +8,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Loader2, CheckCircle, XCircle, Clock, AlertCircle, Sparkles } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
-import { formatDate } from '@/lib/utils';
-import { difficultyLabels } from '@/lib/nav';
+import { formatDate } from '@/shared/utils/utils';
+import { difficultyLabels } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';
 
 interface AssignmentQuestion {

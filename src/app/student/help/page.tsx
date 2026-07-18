@@ -7,8 +7,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Lightbulb, BookOpen, MessageCircle, ChevronRight, ChevronDown, ThumbsUp, Sparkles, Send, Loader2, Target, Play, ArrowRight } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
-import { normalizeSkillName, buildWeakSkills } from '@/lib/utils';
-import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/lib/utils';
+import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
+import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
 
 interface QAItem {
   q: string;

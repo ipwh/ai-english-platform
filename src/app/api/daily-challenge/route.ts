@@ -5,12 +5,12 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { checkRateLimit } from '@/lib/rate-limiter';
-import { generateQuestions } from '@/lib/ai-service';
-import { calculateXp } from '@/lib/gamification';
-import { syncUserStreak } from '@/lib/streak-service';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
+import { generateQuestions } from '@/modules/ai/services/ai-service';
+import { calculateXp } from '@/modules/progress/services/gamification';
+import { syncUserStreak } from '@/modules/progress/services/streak-service';
 
 const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
 

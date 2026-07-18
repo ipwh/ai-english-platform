@@ -5,8 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { synthesizeSpeech } from '@/lib/tts-service';
-import { verifyApiAuth } from '@/lib/api-auth';
+import { synthesizeSpeech } from '@/modules/ai/services/tts-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 多人對話需要多次 API call，給充足時間

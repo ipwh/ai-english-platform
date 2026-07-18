@@ -3,9 +3,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifySessionToken } from '@/lib/jwt';
-import { auth } from '@/lib/auth-next';
+import db from '@/shared/db/db';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { auth } from '@/shared/auth/auth-next';
 
 async function getTeacherAuth(request: NextRequest): Promise<{ userId: string; isAdmin: boolean } | null> {
   const token = request.cookies.get('session_token')?.value;

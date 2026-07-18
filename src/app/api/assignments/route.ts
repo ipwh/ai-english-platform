@@ -3,10 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
-import { verifySessionToken } from '@/lib/auth';
-import { notifyAssignmentCreated } from '@/lib/notifications';
+import db from '@/shared/db/db';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
+import { verifySessionToken } from '@/shared/auth/auth';
+import { notifyAssignmentCreated } from '@/shared/utils/notifications';
 
 // GET /api/assignments — 列出課業
 export async function GET(request: NextRequest) {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         where: { groupId: { in: groupIds } },
         select: { studentId: true },
       });
-      const { createBulkNotifications } = await import('@/lib/notifications');
+      const { createBulkNotifications } = await import('@/shared/utils/notifications');
       await createBulkNotifications(
         groupMembers.map(m => m.studentId),
         'assignment',
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         `/student/assignments/${assignment.id}`,
       );
     } else if (resolvedTargetType === 'students' && studentIds?.length) {
-      const { createBulkNotifications } = await import('@/lib/notifications');
+      const { createBulkNotifications } = await import('@/shared/utils/notifications');
       await createBulkNotifications(
         studentIds,
         'assignment',

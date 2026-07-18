@@ -3,8 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM, sanitizeForAI } from '@/lib/ai-service';
-import { verifyApiAuth } from '@/lib/api-auth';
+import { callLLM, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function POST(req: NextRequest) {
   const authResult = await verifyApiAuth(req);

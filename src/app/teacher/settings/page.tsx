@@ -7,8 +7,8 @@
 import { useState, useEffect } from 'react';
 import { Save, Bell, Shield, BookOpen, Users, Sparkles, Loader2, CheckCircle, XCircle, User } from 'lucide-react';
 import AdvancedSettings from '@/components/shared/AdvancedSettings';
-import { GRAMMAR_ITEM_LABELS } from '@/lib/types';
-import { gradeLabels } from '@/lib/nav';
+import { GRAMMAR_ITEM_LABELS } from '@/shared/types/types';
+import { gradeLabels } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';
 
 const SETTINGS_KEY = 'teacher-settings';

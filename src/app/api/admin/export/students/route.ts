@@ -8,11 +8,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+import db from '@/shared/db/db';
 import type { Prisma } from '@prisma/client';
-import { verifyAdmin } from '@/lib/admin-auth';
-import { verifySessionToken } from '@/lib/jwt';
-import { auth } from '@/lib/auth-next';
+import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { auth } from '@/shared/auth/auth-next';
 
 async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized: boolean; userId?: string; error?: string }> {
   // Try admin first

@@ -124,7 +124,7 @@ import {
   ProgressAnalysisSchema,
   MaterialAnalysisSchema,
   validateAIResponse,
-} from '@/lib/ai-schema';
+} from '@/modules/ai/schemas/ai-schema';
 
 describe('GeneratedQuestionSchema', () => {
   const validQuestion = {
@@ -261,7 +261,7 @@ describe('validateAIResponse', () => {
 // 三、Rate Limiter 測試
 // ============================================
 
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 
 describe('checkRateLimit', () => {
   it('should allow first request', async () => {

@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextResponse } from 'next/server';
-import { ALL_CLEARABLE_COOKIE_NAMES } from '@/lib/auth-cookies';
+import { ALL_CLEARABLE_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
 
 export async function POST() {
   const response = NextResponse.json({ success: true });

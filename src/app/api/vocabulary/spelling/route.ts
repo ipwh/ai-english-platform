@@ -5,9 +5,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { serializeVocab } from '@/lib/utils';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { serializeVocab } from '@/shared/utils/utils';
 
 // ============================================
 // GET: 生成串字練習題目

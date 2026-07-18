@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/lib/ai-service';
+import { callLLM } from '@/modules/ai/services/ai-service';
 
 export async function POST(request: NextRequest) {
   try {

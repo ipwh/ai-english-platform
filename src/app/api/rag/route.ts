@@ -7,8 +7,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { retrieveRelevantChunks, buildRAGPrompt, indexMaterial, getRAGStats } from '@/lib/rag-service';
-import { getEmbedding, searchSimilarChunks } from '@/lib/vertex-embeddings';
+import { retrieveRelevantChunks, buildRAGPrompt, indexMaterial, getRAGStats } from '@/modules/ai/services/rag-service';
+import { getEmbedding, searchSimilarChunks } from '@/modules/ai/services/vertex-embeddings';
 
 // ---- RAG 查詢 ----
 export async function POST(request: NextRequest) {

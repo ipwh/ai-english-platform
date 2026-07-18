@@ -5,8 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/jwt';
-import { auth } from '@/lib/auth-next';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { auth } from '@/shared/auth/auth-next';
 import sharp from 'sharp';
 
 // 延遲載入 Vision API（減少 cold start）

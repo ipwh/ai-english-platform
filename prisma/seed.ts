@@ -6,7 +6,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
-import { hashPasswordSync } from '../src/lib/crypto';
+import { hashPasswordSync } from '../src/shared/auth/crypto';
 
 function getDbUrl(): string {
   const url = process.env.DATABASE_URL;

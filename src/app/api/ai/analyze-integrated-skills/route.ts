@@ -4,10 +4,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/lib/ai-service';
-import { checkRateLimit, AI_RATE_LIMIT } from '@/lib/rate-limiter';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { detectOverCopying } from '@/lib/plagiarism';
+import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { detectOverCopying } from '@/modules/assessment/services/plagiarism';
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
   const authResult = await verifyApiAuth(request);

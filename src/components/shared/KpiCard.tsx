@@ -2,7 +2,7 @@
 // KPI 卡片元件
 // ============================================
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import type { KpiData } from '@/lib/types';
+import type { KpiData } from '@/shared/types/types';
 
 interface KpiCardProps {
   data: KpiData;

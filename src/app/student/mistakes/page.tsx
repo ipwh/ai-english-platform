@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // 學生端 — 錯題庫
 // ============================================
 'use client';
@@ -8,12 +8,12 @@ import Link from 'next/link';
 import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
-import QuickAddVocab from '@/components/vocabulary/QuickAddVocab';
-import { skillLabels } from '@/lib/nav';
-import { formatDate } from '@/lib/utils';
+import QuickAddVocab from '@/modules/vocabulary/components/QuickAddVocab';
+import { skillLabels } from '@/shared/utils/nav';
+import { formatDate } from '@/shared/utils/utils';
 import { useAppStore } from '@/store/appStore';
-import type { GrammarItem, LanguageSkill, MistakeType } from '@/lib/types';
-import type { MistakeItem } from '@/lib/types';
+import type { GrammarItem, LanguageSkill, MistakeType } from '@/shared/types/types';
+import type { MistakeItem } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 
 const mistakeTypeLabels: Record<string, string> = {

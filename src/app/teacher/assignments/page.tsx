@@ -9,9 +9,9 @@ import { Plus, Clock, Users, ChevronRight, Loader2 } from 'lucide-react';
 
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
-import { formatDate } from '@/lib/utils';
-import { statusLabels } from '@/lib/nav';
-import type { Assignment } from '@/lib/types';
+import { formatDate } from '@/shared/utils/utils';
+import { statusLabels } from '@/shared/utils/nav';
+import type { Assignment } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherAssignmentsPage() {

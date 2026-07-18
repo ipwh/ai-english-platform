@@ -7,8 +7,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifySessionToken } from '@/lib/jwt';
+import db from '@/shared/db/db';
+import { verifySessionToken } from '@/shared/auth/jwt';
 
 async function getTeacherId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;

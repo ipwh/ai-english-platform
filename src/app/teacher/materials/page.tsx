@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2, Pencil, Trash2, Check, X } from 'lucide-react';
 
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/shared/utils/utils';
 import { useT } from '@/hooks/use-i18n';
 
 const typeIcons: Record<string, React.ElementType> = {

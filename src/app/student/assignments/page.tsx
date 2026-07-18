@@ -9,11 +9,11 @@ import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
-import { formatDate, daysRemaining, getStatusColor } from '@/lib/utils';
-import { statusLabels, getStatusLabel } from '@/lib/nav';
-import type { AssignmentStatus } from '@/lib/types';
+import { formatDate, daysRemaining, getStatusColor } from '@/shared/utils/utils';
+import { statusLabels, getStatusLabel } from '@/shared/utils/nav';
+import type { AssignmentStatus } from '@/shared/types/types';
 import EmptyState from '@/components/shared/EmptyState';
-import type { AssignmentSummary } from '@/lib/types';
+import type { AssignmentSummary } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
 

@@ -14,7 +14,7 @@ import KpiCard from '@/components/shared/KpiCard';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
-import { getDifficultyLabel } from '@/lib/nav';
+import { getDifficultyLabel } from '@/shared/utils/nav';
 
 export default function StudentProgressPage() {
   const store = useAppStore();

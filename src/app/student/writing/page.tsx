@@ -1,4 +1,4 @@
-// Writing Support — AI prompts, word count, outline, assistance
+﻿// Writing Support — AI prompts, word count, outline, assistance
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,8 +7,8 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { useToast } from '@/components/shared/Toast';
 import OcrUpload from '@/components/shared/OcrUpload';
-import { InlineWordBadge } from '@/components/vocabulary/InlineAddVocabButton';
-import VocabEnabledText from '@/components/vocabulary/VocabEnabledText';
+import { InlineWordBadge } from '@/modules/vocabulary/components/InlineAddVocabButton';
+import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {

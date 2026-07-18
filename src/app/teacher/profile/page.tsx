@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, User, Settings, Shield, Mail, ChevronRight, Save, X } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '@/shared/utils/utils';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherProfilePage() {

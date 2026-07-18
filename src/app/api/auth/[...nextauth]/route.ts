@@ -3,6 +3,6 @@
 // 處理 Google OAuth 回調、登入、登出
 // ============================================
 
-import { handlers } from '@/lib/auth-next';
+import { handlers } from '@/shared/auth/auth-next';
 
 export const { GET, POST } = handlers;

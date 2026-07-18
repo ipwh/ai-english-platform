@@ -5,9 +5,9 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySessionToken } from '@/lib/jwt';
+import { verifySessionToken } from '@/shared/auth/jwt';
 import { jwtVerify } from 'jose';
-import { ALL_SESSION_COOKIE_NAMES } from '@/lib/auth-cookies';
+import { ALL_SESSION_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
 
 const publicPaths = ['/login', '/role-select', '/api/auth', '/style-guide'];
 

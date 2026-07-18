@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextResponse } from 'next/server';
-import { generateStudentTemplate } from '@/lib/import-utils';
+import { generateStudentTemplate } from '@/shared/utils/import-utils';
 
 export async function GET() {
   const csv = generateStudentTemplate();

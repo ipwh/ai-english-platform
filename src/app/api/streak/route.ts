@@ -4,10 +4,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { syncUserStreak } from '@/lib/streak-service';
-import { calculateXp } from '@/lib/gamification';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { syncUserStreak } from '@/modules/progress/services/streak-service';
+import { calculateXp } from '@/modules/progress/services/gamification';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'studentId required' }, { status: 400 });
   }
 
-  const { streakDays, lastActiveDate } = await import('@/lib/streak-service').then(m =>
+  const { streakDays, lastActiveDate } = await import('@/modules/progress/services/streak-service').then(m =>
     m.calculateStudentStreak(studentId)
   );
 

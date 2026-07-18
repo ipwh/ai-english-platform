@@ -3,9 +3,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/lib/srs';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/modules/vocabulary/services/srs';
 
 // GET — 取得今日待複習的詞彙 + 錯題
 export async function GET(req: NextRequest) {

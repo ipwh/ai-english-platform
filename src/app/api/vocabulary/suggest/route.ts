@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { callLLM } from '@/lib/ai-service';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { callLLM } from '@/modules/ai/services/ai-service';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check

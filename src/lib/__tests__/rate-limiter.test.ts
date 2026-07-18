@@ -3,8 +3,8 @@
 // ============================================
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { checkRateLimit } from '@/lib/rate-limiter';
-import type { RateLimitConfig } from '@/lib/rate-limiter';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
+import type { RateLimitConfig } from '@/shared/utils/rate-limiter';
 
 // ============================================
 // In-memory Rate Limiter Tests
@@ -102,13 +102,13 @@ describe('checkRateLimit (in-memory)', () => {
 
 describe('Predefined rate limits', () => {
   it('AI_RATE_LIMIT should be importable', async () => {
-    const { AI_RATE_LIMIT } = await import('@/lib/rate-limiter');
+    const { AI_RATE_LIMIT } = await import('@/shared/utils/rate-limiter');
     expect(AI_RATE_LIMIT.maxRequests).toBeGreaterThan(0);
     expect(AI_RATE_LIMIT.windowMs).toBeGreaterThan(0);
   });
 
   it('LOGIN_RATE_LIMIT should be stricter than AI limit', async () => {
-    const { AI_RATE_LIMIT, LOGIN_RATE_LIMIT } = await import('@/lib/rate-limiter');
+    const { AI_RATE_LIMIT, LOGIN_RATE_LIMIT } = await import('@/shared/utils/rate-limiter');
     expect(LOGIN_RATE_LIMIT.maxRequests).toBeLessThan(AI_RATE_LIMIT.maxRequests);
   });
 });

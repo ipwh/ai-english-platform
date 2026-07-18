@@ -8,8 +8,8 @@ import {
   familiarityToQuality,
   getDueCards,
   getDailyReviewTarget,
-} from '@/lib/srs';
-import { serializeVocab } from '@/lib/utils';
+} from '@/modules/vocabulary/services/srs';
+import { serializeVocab } from '@/shared/utils/utils';
 
 // ============================================
 // SM-2 Algorithm Tests

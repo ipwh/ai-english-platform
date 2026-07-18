@@ -8,7 +8,7 @@
 'use client';
 
 import { useAppStore } from '@/store/appStore';
-import { t } from '@/lib/i18n';
+import { t } from '@/shared/utils/i18n';
 
 export function useT() {
   const language = useAppStore((s) => s.language);

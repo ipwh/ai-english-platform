@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateUser } from '@/lib/auth';
-import { checkRateLimit } from '@/lib/rate-limiter';
-import { ALL_CLEARABLE_COOKIE_NAMES } from '@/lib/auth-cookies';
+import { authenticateUser } from '@/shared/auth/auth';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
+import { ALL_CLEARABLE_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
 
 export async function POST(request: NextRequest) {
   try {

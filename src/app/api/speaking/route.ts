@@ -6,9 +6,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { callLLM } from '@/lib/ai-service';
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { callLLM } from '@/modules/ai/services/ai-service';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 
 const SPEAKING_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 

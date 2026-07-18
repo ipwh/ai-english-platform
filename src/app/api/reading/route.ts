@@ -5,8 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { callLLM } from '@/lib/ai-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { callLLM } from '@/modules/ai/services/ai-service';
 
 const READING_RUBRIC = `
 DSE English Language Reading Level Descriptors:

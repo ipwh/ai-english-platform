@@ -5,8 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { hashPasswordSync } from '@/lib/crypto';
+import { db } from '@/shared/db/db';
+import { hashPasswordSync } from '@/shared/auth/crypto';
 
 export async function GET() {
   return POST();

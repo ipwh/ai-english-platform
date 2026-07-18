@@ -3,7 +3,7 @@
 // ============================================
 
 import { describe, it, expect } from 'vitest';
-import { t } from '@/lib/i18n';
+import { t } from '@/shared/utils/i18n';
 
 // ============================================
 // Translation Function Tests

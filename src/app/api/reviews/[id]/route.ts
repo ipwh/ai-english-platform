@@ -3,10 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/jwt';
-import { auth } from '@/lib/auth-next';
-import { notifyFeedbackReady } from '@/lib/notifications';
+import { db } from '@/shared/db/db';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { auth } from '@/shared/auth/auth-next';
+import { notifyFeedbackReady } from '@/shared/utils/notifications';
 
 export async function PATCH(
   request: NextRequest,

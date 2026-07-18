@@ -10,8 +10,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle, LogOut } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
-import { getNavLabel, getSectionTitle, studentTabItems } from '@/lib/nav';
-import type { NavItem, NavSection } from '@/lib/nav';
+import { getNavLabel, getSectionTitle, studentTabItems } from '@/shared/utils/nav';
+import type { NavItem, NavSection } from '@/shared/utils/nav';
 
 // ============================================
 // Types

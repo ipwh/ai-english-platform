@@ -2,9 +2,9 @@
 // 技能標籤晶片元件
 // 支援 ELE KLACG 2017 課程文法項目及語言技能
 // ============================================
-import { skillLabels, skillLabelsEn, difficultyLabels } from '@/lib/nav';
+import { skillLabels, skillLabelsEn, difficultyLabels } from '@/shared/utils/nav';
 import { useAppStore } from '@/store/appStore';
-import type { SkillCategory, DifficultyLevel, GrammarItem, LanguageSkill } from '@/lib/types';
+import type { SkillCategory, DifficultyLevel, GrammarItem, LanguageSkill } from '@/shared/types/types';
 
 interface SkillChipProps {
   /** @deprecated 使用 grammarItem 或 languageSkill */

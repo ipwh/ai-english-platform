@@ -4,10 +4,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { getBulkDb } from '@/lib/db';
-import { verifyAdmin } from '@/lib/admin-auth';
-import { hashPasswordSync } from '@/lib/crypto';
+import db from '@/shared/db/db';
+import { getBulkDb } from '@/shared/db/db';
+import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { hashPasswordSync } from '@/shared/auth/crypto';
 
 // ---- 簡易 CSV 解析（無需外部依賴） ----
 function parseCSV(text: string): Record<string, string>[] {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     // Fallback: allow teacher via JWT
     const jwtToken = request.cookies.get('session_token')?.value || '';
     if (jwtToken) {
-      const { verifySessionToken } = await import('@/lib/jwt');
+      const { verifySessionToken } = await import('@/shared/auth/jwt');
       const payload = await verifySessionToken(jwtToken);
       if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
         return NextResponse.json({ error: '權限不足：僅教師或管理員可匯入' }, { status: 403 });

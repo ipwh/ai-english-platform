@@ -4,7 +4,7 @@
 // ============================================
 
 import { create } from 'zustand';
-import type { UserRole, Notification, PracticeQuestion, DifficultyLevel } from '@/lib/types';
+import type { UserRole, Notification, PracticeQuestion, DifficultyLevel } from '@/shared/types/types';
 
 // ============================================
 // 練習題目（AI 生成或預設）
@@ -308,7 +308,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           // === Badge check & notification ===
           if (userId) {
             try {
-              const { checkNewBadges } = await import('@/lib/gamification');
+              const { checkNewBadges } = await import('@/modules/progress/services/gamification');
               const stats = get().getWeeklyStats();
               const allStats = {
                 totalQuestions: stats.questionsDone + (state.practiceSessions.reduce((s, p) => s + p.totalQuestions, 0)),

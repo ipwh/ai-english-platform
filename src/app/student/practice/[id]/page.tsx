@@ -16,8 +16,8 @@ import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer, { prefetchTTSAudio } from '@/components/shared/AudioPlayer';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
-import type { AnswerAnalysis } from '@/lib/ai-service';
-import type { PracticeQuestion } from '@/lib/types';
+import type { AnswerAnalysis } from '@/modules/ai/services/ai-service';
+import type { PracticeQuestion } from '@/shared/types/types';
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 

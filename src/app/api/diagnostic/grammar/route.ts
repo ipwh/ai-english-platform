@@ -5,9 +5,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifyApiAuth } from '@/lib/api-auth';
-import { generateQuestions, type GeneratedQuestion } from '@/lib/ai-service';
+import db from '@/shared/db/db';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { generateQuestions, type GeneratedQuestion } from '@/modules/ai/services/ai-service';
 
 // 40 個 HKDSE 文法點（對應 ELE KLACG 2017 Appendix 4）
 const GRAMMAR_POINTS = [

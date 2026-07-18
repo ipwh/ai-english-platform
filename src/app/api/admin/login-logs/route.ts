@@ -4,10 +4,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { verifySessionToken } from '@/lib/jwt';
-import { auth } from '@/lib/auth-next';
-import { verifyAdmin } from '@/lib/admin-auth';
+import db from '@/shared/db/db';
+import { verifySessionToken } from '@/shared/auth/jwt';
+import { auth } from '@/shared/auth/auth-next';
+import { verifyAdmin } from '@/shared/auth/admin-auth';
 
 // POST — 記錄登入（由前端在登入/role-select 後呼叫）
 export async function POST(request: NextRequest) {
