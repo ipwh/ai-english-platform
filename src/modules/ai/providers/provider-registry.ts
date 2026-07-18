@@ -71,7 +71,7 @@ class ProviderRegistry {
       // to stay within Vercel's 10s function limit
       const isFallback = i > 0;
       const adjustedOptions = isFallback && options?.timeoutMs
-        ? { ...options, timeoutMs: Math.max(5000, Math.floor(options.timeoutMs / (i + 1))) }
+        ? { ...options, timeoutMs: Math.max(3000, Math.floor(options.timeoutMs / (i + 2))) }
         : options;
       try {
         const text = await provider.call(messages, adjustedOptions);
@@ -97,7 +97,8 @@ class ProviderRegistry {
     }
 
     logger.error({ module: 'ai-provider', errors }, 'All AI providers failed');
-    throw new Error(`All AI providers failed:\n${errors.join('\n')}`);
+    const configuredList = available.map(p => p.name).join(', ');
+    throw new Error(`All AI providers failed (configured: ${configuredList}):\n${errors.join('\n')}`);
   }
 
   /** Convenience: generate exercises */
