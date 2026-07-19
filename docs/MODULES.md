@@ -1,6 +1,6 @@
 # Module Documentation
 
-> 29 modules | 669 tests | 31 test files | Updated 2026-07-19
+> 32 modules | 966 tests | 48 test files | 100% module coverage | Zod 43 routes (69%) | Updated 2026-07-19
 
 ## `ai/` — AI Services (20 services, 2 tests)
 
