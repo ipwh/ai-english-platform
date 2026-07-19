@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { validateRequest, groupCreateSchemaApi, groupUpdateSchemaApi } from '@/shared/validation/schemas';
+import { logger } from '@/shared/logger/logger';
 
 async function getTeacherId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (err) {
-    console.error('[groups GET]', err);
+    logger.error({ module: 'groups', error: (err as Error).message }, 'GET failed');
     return NextResponse.json({ error: 'Server error', groups: [] }, { status: 500 });
   }
 }
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
-    console.error('[groups POST]', err);
+    logger.error({ module: 'groups', error: (err as Error).message }, 'POST failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -126,7 +127,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ group });
   } catch (err) {
-    console.error('[groups PATCH]', err);
+    logger.error({ module: 'groups', error: (err as Error).message }, 'PATCH failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -158,7 +159,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[groups DELETE]', err);
+    logger.error({ module: 'groups', error: (err as Error).message }, 'DELETE failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

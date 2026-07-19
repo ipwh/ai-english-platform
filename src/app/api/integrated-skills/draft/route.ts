@@ -10,6 +10,7 @@ import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { validateRequest } from '@/shared/validation/schemas';
 import { z } from 'zod';
+import { logger } from '@/shared/logger/logger';
 
 const isDraftSchema = z.object({
   studentNotes: z.string().optional(),
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err) {
-    console.error('[integrated-skills draft GET]', err);
+    logger.error({ module: 'isdraft', error: (err as Error).message }, 'GET failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, updatedAt: draft.updatedAt });
   } catch (err) {
-    console.error('[integrated-skills draft POST]', err);
+    logger.error({ module: 'isdraft', error: (err as Error).message }, 'POST failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -115,7 +116,7 @@ export async function DELETE(request: NextRequest) {
     await db.integratedSkillsDraft.deleteMany({ where: { userId } });
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[integrated-skills draft DELETE]', err);
+    logger.error({ module: 'isdraft', error: (err as Error).message }, 'DELETE failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

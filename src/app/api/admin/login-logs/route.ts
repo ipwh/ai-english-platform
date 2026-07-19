@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ id: log.id }, { status: 201 });
   } catch (err: unknown) {
-    console.error('[LoginLog POST]', err);
+    logger.error({ module: 'login-logs', error: (err as Error).message }, 'POST failed');
     return NextResponse.json({ error: 'Failed to log login' }, { status: 500 });
   }
 }
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest) {
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (err: unknown) {
-    console.error('[LoginLog GET]', err);
+    logger.error({ module: 'login-logs', error: (err as Error).message }, 'GET failed');
     return NextResponse.json({ logs: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }, { status: 500 });
   }
 }
