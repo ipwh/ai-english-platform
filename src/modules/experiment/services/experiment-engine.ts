@@ -14,6 +14,13 @@ import type {
   ABTestInput,
 } from '../types';
 
+// Union type for all experiment results (replaces `as any` casts)
+type ExperimentResult =
+  | PromptExperimentResult
+  | ModelExperimentResult
+  | TemperatureExperimentResult
+  | LearningExperimentResult;
+
 // ============================================
 // ExperimentService — main orchestrator
 // ============================================
@@ -436,28 +443,28 @@ export class ExperimentService {
     let variants: CostBreakdown[] = [];
 
     if (stored.result) {
-      const result = stored.result as any;
-      if (result.variantResults) {
+      const result = stored.result as ExperimentResult;
+      if ('variantResults' in result && result.variantResults) {
         // Prompt experiment
-        variants = result.variantResults.map((v: VariantResult) => ({
+        variants = result.variantResults.map(v => ({
           name: v.variantName,
           totalCost: this.round(v.avgCost * v.sampleSize * 10000) / 10000,
           avgCostPerRun: v.avgCost,
           totalRuns: v.sampleSize,
           costRank: 0,
         }));
-      } else if (result.modelResults) {
+      } else if ('modelResults' in result && result.modelResults) {
         // Model experiment
-        variants = result.modelResults.map((m: ModelResult) => ({
+        variants = result.modelResults.map(m => ({
           name: `${m.provider}/${m.modelName}`,
           totalCost: this.round(m.avgCost * m.sampleSize * 10000) / 10000,
           avgCostPerRun: m.avgCost,
           totalRuns: m.sampleSize,
           costRank: 0,
         }));
-      } else if (result.tempResults) {
+      } else if ('tempResults' in result && result.tempResults) {
         // Temperature experiment
-        variants = result.tempResults.map((t: TemperatureResult) => ({
+        variants = result.tempResults.map(t => ({
           name: `T=${t.temperature}`,
           totalCost: this.round(t.avgCost * t.sampleSize * 10000) / 10000,
           avgCostPerRun: t.avgCost,
@@ -516,11 +523,24 @@ export class ExperimentService {
     let confidence = 0;
 
     if (stored.result) {
-      const r = stored.result as any;
-      if (r.variantResults) { totalVariants = r.variantResults.length; winner = r.winner; confidence = r.confidence; totalRuns = r.variantResults.reduce((s: number, v: any) => s + v.sampleSize, 0); totalCost = r.variantResults.reduce((s: number, v: any) => s + v.avgCost * v.sampleSize, 0); }
-      else if (r.modelResults) { totalVariants = r.modelResults.length; winner = r.winner; confidence = r.confidence; totalRuns = r.modelResults.reduce((s: number, m: any) => s + m.sampleSize, 0); totalCost = r.modelResults.reduce((s: number, m: any) => s + m.avgCost * m.sampleSize, 0); }
-      else if (r.tempResults) { totalVariants = r.tempResults.length; winner = `T=${(r as any).optimalTemperature}`; totalRuns = r.tempResults.reduce((s: number, t: any) => s + t.sampleSize, 0); totalCost = r.tempResults.reduce((s: number, t: any) => s + t.avgCost * t.sampleSize, 0); }
-      else if (r.groupResults) { totalVariants = r.groupResults.length; winner = r.winner; confidence = r.confidence; totalRuns = r.groupResults.reduce((s: number, g: any) => s + g.sampleSize, 0); }
+      const r = stored.result as ExperimentResult;
+      if ('variantResults' in r && r.variantResults) {
+        totalVariants = r.variantResults.length; winner = r.winner; confidence = r.confidence;
+        totalRuns = r.variantResults.reduce((s, v) => s + v.sampleSize, 0);
+        totalCost = r.variantResults.reduce((s, v) => s + v.avgCost * v.sampleSize, 0);
+      } else if ('modelResults' in r && r.modelResults) {
+        totalVariants = r.modelResults.length; winner = r.winner; confidence = r.confidence;
+        totalRuns = r.modelResults.reduce((s, m) => s + m.sampleSize, 0);
+        totalCost = r.modelResults.reduce((s, m) => s + m.avgCost * m.sampleSize, 0);
+      } else if ('tempResults' in r && r.tempResults) {
+        totalVariants = r.tempResults.length;
+        winner = `T=${(r as TemperatureExperimentResult).optimalTemperature}`;
+        totalRuns = r.tempResults.reduce((s, t) => s + t.sampleSize, 0);
+        totalCost = r.tempResults.reduce((s, t) => s + t.avgCost * t.sampleSize, 0);
+      } else if ('groupResults' in r && r.groupResults) {
+        totalVariants = r.groupResults.length; winner = r.winner; confidence = r.confidence;
+        totalRuns = r.groupResults.reduce((s, g) => s + g.sampleSize, 0);
+      }
     }
 
     const summary: ReportSummary = {

@@ -6,6 +6,15 @@ import type {
 } from '../types-pro';
 
 // ============================================
+// Internal normalized input type
+// ============================================
+
+interface NormalizedData extends AnalyticsInput {
+  weekStart: string;
+  vocab: AnalyticsInput['vocabulary']; // alias used throughout the code
+}
+
+// ============================================
 // LearningAnalyticsAI
 // ============================================
 
@@ -235,7 +244,7 @@ export class LearningAnalyticsAI {
   // Private helpers
   // ============================================
 
-  private normalizeInput(input: AnalyticsInput) {
+  private normalizeInput(input: AnalyticsInput): NormalizedData {
     return {
       ...input,
       weekStart: input.startDate,
@@ -247,10 +256,10 @@ export class LearningAnalyticsAI {
     };
   }
 
-  private buildTrend(data: any, skill: string): TrendSummary {
-    const relevant = data.sessions.filter((s: any) => (s.skill || 'general') === skill);
-    const correct = relevant.reduce((s: number, x: any) => s + x.correctCount, 0);
-    const total = relevant.reduce((s: number, x: any) => s + x.questionsAnswered, 0);
+  private buildTrend(data: NormalizedData, skill: string): TrendSummary {
+    const relevant = data.sessions.filter(s => (s.skill || 'general') === skill);
+    const correct = relevant.reduce((s, x) => s + x.correctCount, 0);
+    const total = relevant.reduce((s, x) => s + x.questionsAnswered, 0);
     const current = total > 0 ? Math.round(correct / total * 100) : 50;
     const previous = Math.round(current * 0.9);
 
@@ -266,7 +275,7 @@ export class LearningAnalyticsAI {
     };
   }
 
-  private buildHistory(data: any, days: number) {
+  private buildHistory(data: NormalizedData, days: number) {
     const history: Array<{ date: string; mastery: number }> = [];
     const now = new Date();
     for (let i = days; i >= 0; i--) {
@@ -296,7 +305,7 @@ export class LearningAnalyticsAI {
     return projection;
   }
 
-  private buildVelocityChart(data: any) {
+  private buildVelocityChart(data: NormalizedData) {
     return [
       { week: 'W-4', velocity: Math.round(data.sessions.length * 0.6) },
       { week: 'W-3', velocity: Math.round(data.sessions.length * 0.8) },
@@ -305,7 +314,7 @@ export class LearningAnalyticsAI {
     ];
   }
 
-  private buildAccuracyTrend(data: any) {
+  private buildAccuracyTrend(data: NormalizedData) {
     const trend: Array<{ date: string; accuracy: number; movingAverage: number }> = [];
     const now = new Date();
     for (let i = 6; i >= 0; i--) {
@@ -320,7 +329,7 @@ export class LearningAnalyticsAI {
     return trend;
   }
 
-  private buildStudyDistribution(data: any) {
+  private buildStudyDistribution(data: NormalizedData) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days.map(day => ({
       day,

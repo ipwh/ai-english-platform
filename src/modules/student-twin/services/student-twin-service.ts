@@ -7,6 +7,39 @@ import type {
 } from '../types';
 
 // ============================================
+// Internal types (replace :any annotations)
+// ============================================
+
+interface MemoryData {
+  learningSpeed?: {
+    consistencyScore?: number; sessionsPerWeek?: number;
+    averageSessionDuration?: number; completionRate?: number;
+  };
+  motivation?: {
+    motivationLevel?: number; intrinsicMotivation?: number;
+    extrinsicMotivation?: number; motivationTrend?: string;
+    engagementScore?: number; burnoutRisk?: number;
+    recentAchievements?: string[];
+  };
+  confidence?: {
+    overallConfidence?: number; confidenceBySkill?: Record<string, number>;
+    calibrationAccuracy?: number; confidenceTrend?: string;
+  };
+  learningHabits?: {
+    procrastinationIndex?: number; preferredTimeOfDay?: string;
+    avgSessionLength?: number; distractionTendency?: number;
+    preferredStudyTime?: string; focusLevel?: number;
+    distractionPatterns?: string[];
+  };
+}
+
+interface ReviewEntry {
+  skillDimension?: string; itemType?: string; itemId?: string;
+  estimatedMastery: number; isMastered?: boolean;
+  evidenceCount?: number; retentionProbability?: number;
+}
+
+// ============================================
 // StudentTwinService
 // ============================================
 
@@ -65,14 +98,14 @@ export class StudentTwinService {
   // Lazy loaders (avoid top-level Prisma imports)
   // ============================================
 
-  private async loadMemory(studentId: string): Promise<any> {
+  private async loadMemory(studentId: string): Promise<MemoryData | null> {
     try {
       const { memoryEngine } = await import('@/modules/learning-memory/services/memory-engine');
       return await memoryEngine.get(studentId);
     } catch { return null; }
   }
 
-  private async loadReviewEntries(studentId: string): Promise<any[]> {
+  private async loadReviewEntries(studentId: string): Promise<ReviewEntry[]> {
     try {
       const { learningScienceRepo } = await import('@/modules/learning-science/repositories/learning-science-repository');
       return await learningScienceRepo.getByStudentId(studentId);
@@ -83,18 +116,18 @@ export class StudentTwinService {
   // Builders
   // ============================================
 
-  private buildMasteryScores(entries: any[]): Record<string, number> {
+  private buildMasteryScores(entries: ReviewEntry[]): Record<string, number> {
     const scores: Record<string, number> = {};
     for (const e of entries) {
-      const key = e.skillDimension || e.itemType;
+      const key = e.skillDimension || e.itemType || 'general';
       scores[key] = Math.max(scores[key] || 0, e.estimatedMastery);
-      scores[e.itemId] = e.estimatedMastery;
+      if (e.itemId) scores[e.itemId] = e.estimatedMastery;
     }
     return scores;
   }
 
-  private buildPersona(memory: any, entries: any[]): LearningPersona {
-    const mastered = entries.filter((e: any) => e.isMastered).length;
+  private buildPersona(memory: MemoryData | null, entries: ReviewEntry[]): LearningPersona {
+    const mastered = entries.filter(e => e.isMastered).length;
     const total = Math.max(1, entries.length);
     const masteryRate = mastered / total;
     const consistency = memory?.learningSpeed?.consistencyScore ?? 0.5;
@@ -126,7 +159,7 @@ export class StudentTwinService {
     return { type, typeZh: p.zh, description: p.desc, descriptionZh: p.descZh, traits: p.traits, traitsZh: p.traitsZh, recommendedApproach: p.approach, recommendedApproachZh: p.approachZh };
   }
 
-  private buildKnowledge(mastery: Record<string, number>, entries: any[]): KnowledgeState {
+  private buildKnowledge(mastery: Record<string, number>, entries: ReviewEntry[]): KnowledgeState {
     const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
     const skillScores: Record<string, { sum: number; count: number; predicted: number }> = {};
 
@@ -139,7 +172,7 @@ export class StudentTwinService {
       if (skillScores[sk]) {
         skillScores[sk].sum += e.estimatedMastery;
         skillScores[sk].count++;
-        skillScores[sk].predicted += Math.min(1, e.estimatedMastery + 0.1 * (e.evidenceCount > 3 ? 1 : 0.5));
+        skillScores[sk].predicted += Math.min(1, e.estimatedMastery + 0.1 * ((e.evidenceCount ?? 0) > 3 ? 1 : 0.5));
       }
     }
 
@@ -158,7 +191,7 @@ export class StudentTwinService {
 
     const strongSkills = this.rankSkills(currentMastery, true);
     const weakSkills = this.rankSkills(currentMastery, false);
-    const mastered = entries.filter((e: any) => e.isMastered).length;
+    const mastered = entries.filter(e => e.isMastered).length;
     const velocity = entries.length > 0 ? mastered / Math.max(1, entries.length) * 100 : 0;
 
     return {
@@ -170,7 +203,7 @@ export class StudentTwinService {
       nodesMastered: mastered,
       totalNodes: entries.length,
       learningVelocity: Math.round(velocity * 10) / 10,
-      retentionRate: entries.filter((e: any) => e.retentionProbability > 0.5).length / Math.max(1, entries.length),
+      retentionRate: entries.filter(e => (e.retentionProbability ?? 0) > 0.5).length / Math.max(1, entries.length),
     };
   }
 
@@ -186,7 +219,7 @@ export class StudentTwinService {
       }));
   }
 
-  private buildMotivation(memory: any, entries: any[]): MotivationState {
+  private buildMotivation(memory: MemoryData | null, _entries: ReviewEntry[]): MotivationState {
     const m = memory?.motivation;
     const consistency = memory?.learningSpeed?.consistencyScore ?? 0.5;
     const recentSessions = memory?.learningSpeed?.sessionsPerWeek ?? 0;
@@ -198,7 +231,7 @@ export class StudentTwinService {
       overallScore: m?.motivationLevel ?? 0.5,
       intrinsic: m?.intrinsicMotivation ?? 0.5,
       extrinsic: m?.extrinsicMotivation ?? 0.5,
-      trend: m?.motivationTrend ?? 'stable',
+      trend: (m?.motivationTrend as MotivationState['trend']) ?? 'stable',
       engagementLevel: m?.engagementScore ?? 0.5,
       consistencyScore: consistency,
       burnoutRisk,
@@ -209,7 +242,7 @@ export class StudentTwinService {
     };
   }
 
-  private buildConfidence(memory: any, mastery: Record<string, number>): ConfidenceState {
+  private buildConfidence(memory: MemoryData | null, mastery: Record<string, number>): ConfidenceState {
     const c = memory?.confidence;
     const perSkill: Record<string, number> = {};
     const overconfidentIn: string[] = [];
@@ -227,7 +260,7 @@ export class StudentTwinService {
       perSkill,
       calibrationAccuracy: c?.calibrationAccuracy ?? 0,
       overconfidentIn, underconfidentIn,
-      confidenceTrend: c?.confidenceTrend ?? 'stable',
+      confidenceTrend: (c?.confidenceTrend as ConfidenceState['confidenceTrend']) ?? 'stable',
       suggestedConfidenceBoosters: underconfidentIn.length > 0
         ? ['Focus on your strengths — you know more than you think!', 'Review past successes to build confidence']
         : ['Continue challenging yourself', 'Your self-assessment is accurate'],
@@ -237,7 +270,7 @@ export class StudentTwinService {
     };
   }
 
-  private buildHabits(memory: any, entries: any[]): LearningHabit {
+  private buildHabits(memory: MemoryData | null, _entries: ReviewEntry[]): LearningHabit {
     const h = memory?.learningHabits;
     const s = memory?.learningSpeed;
     const procrastination = h?.procrastinationIndex ?? 0.5;
@@ -263,7 +296,7 @@ export class StudentTwinService {
     }
 
     return {
-      preferredTime: h?.preferredStudyTime ?? 'afternoon',
+      preferredTime: (h?.preferredStudyTime as LearningHabit['preferredTime']) ?? 'afternoon',
       sessionsPerWeek,
       avgSessionMinutes: s?.averageSessionDuration ?? 15,
       completionRate: s?.completionRate ?? 0,
@@ -280,7 +313,7 @@ export class StudentTwinService {
 
   private buildPredictions(
     mastery: Record<string, number>,
-    entries: any[],
+    entries: ReviewEntry[],
     knowledge: KnowledgeState,
   ): TwinPredictions {
     const avgMastery = Object.values(mastery).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(mastery).length);
@@ -289,7 +322,7 @@ export class StudentTwinService {
     const confidence = Math.min(0.95, entries.length / 20);
 
     const skillPredictions = Object.entries(mastery).slice(0, 6).map(([skill, score]) => {
-      const entry = entries.find((e: any) => e.skillDimension === skill || e.itemType === skill);
+      const entry = entries.find(e => e.skillDimension === skill || e.itemType === skill);
       const daysToMastery = score >= 0.8 ? null : Math.round((0.8 - score) / Math.max(0.001, velocity / 7));
       return {
         skill,
@@ -311,7 +344,7 @@ export class StudentTwinService {
     };
   }
 
-  private buildRisks(motivation: MotivationState, knowledge: KnowledgeState, entries: any[]): RiskAssessment {
+  private buildRisks(motivation: MotivationState, knowledge: KnowledgeState, _entries: ReviewEntry[]): RiskAssessment {
     const dropoutRisk = motivation.dropoutRisk;
     const burnoutRisk = motivation.burnoutRisk;
     const plateauRisk = knowledge.learningVelocity < 0.5 ? 0.7 : knowledge.learningVelocity < 2 ? 0.4 : 0.1;
