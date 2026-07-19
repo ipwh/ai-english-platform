@@ -7,15 +7,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { callLLM } from '@/modules/ai/services/ai-service';
-import { validateRequest, studentLevel } from '@/shared/validation/schemas';
-import { z } from 'zod';
-
-const readingGenSchema = z.object({
-  gradeLevel: studentLevel,
-  topic: z.string().optional(),
-  difficulty: z.enum(['remedial', 'core', 'challenge']).optional(),
-  questionCount: z.coerce.number().int().min(1).max(20).optional(),
-});
 
 const READING_RUBRIC = `
 DSE English Language Reading Level Descriptors:
@@ -41,8 +32,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const parsed = validateRequest(readingGenSchema, body);
-    const { gradeLevel, topic, difficulty, questionCount } = parsed;
+    const { gradeLevel, topic, difficulty, questionCount } = body as {
+      gradeLevel?: string;
+      topic?: string;
+      difficulty?: string;
+      questionCount?: number;
+    };
 
     const level = gradeLevel || 'S4';
     const totalQ = Math.min(questionCount || 6, 10);

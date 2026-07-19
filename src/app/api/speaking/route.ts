@@ -9,15 +9,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { validateRequest, studentLevel } from '@/shared/validation/schemas';
-import { z } from 'zod';
-
-const speakingSchema = z.object({
-  transcript: z.string().optional(),
-  topic: z.string().optional(),
-  gradeLevel: studentLevel,
-  mode: z.enum(['practice', 'mock']).optional(),
-});
 
 const SPEAKING_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
@@ -58,8 +49,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const parsed = validateRequest(speakingSchema, body);
-    const { transcript, topic, gradeLevel, mode } = parsed;
+    const { transcript, topic, gradeLevel, mode } = body as {
+      transcript?: string;
+      topic?: string;
+      gradeLevel?: string;
+      mode?: 'practice' | 'mock';
+    };
 
     if (mode === 'mock') {
       // Generate a mock speaking prompt (Group Discussion or Individual Response)

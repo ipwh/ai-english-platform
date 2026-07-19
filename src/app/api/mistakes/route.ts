@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { MistakeRepo } from '@/modules/repositories';
-import { validateRequest, mistakeCreateSchemaApi } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -16,10 +15,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // 🔒 Zod validation
     const body = await request.json();
-    const parsed = validateRequest(mistakeCreateSchemaApi, body);
-    const { studentId, questionId, studentAnswer, correctAnswer, mistakeType, aiExplanation } = parsed;
+    const { studentId, questionId, studentAnswer, correctAnswer, mistakeType, aiExplanation } = body;
+
+    if (!studentId || !questionId) {
+      return NextResponse.json({ error: 'studentId, questionId 為必填' }, { status: 400 });
+    }
 
     // 🔒 Ownership: only allow creating mistakes for yourself (teachers use separate routes)
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {

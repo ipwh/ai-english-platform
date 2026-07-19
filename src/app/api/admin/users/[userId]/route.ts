@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { logger } from '@/shared/logger/logger';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPassword } from '@/shared/auth/crypto';
 
@@ -90,7 +89,7 @@ export async function PUT(
     return NextResponse.json({ success: true, user: updated });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    logger.error({ module: 'admin-users', error: msg }, 'PUT failed');
+    console.error('[admin/users PUT] Error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -155,7 +154,7 @@ export async function DELETE(
     return NextResponse.json({ success: true, deleted: { id: userId, email: existing.email } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    logger.error({ module: 'admin-users', error: msg }, 'DELETE failed');
+    console.error('[admin/users DELETE] Error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -190,7 +189,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, message: `已重設 ${existing.email} 的密碼` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    logger.error({ module: 'admin-users', error: msg }, 'PATCH failed');
+    console.error('[admin/users PATCH] Error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -5,7 +5,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, modelEssaysGenSchema } from '@/shared/validation/schemas';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { callLLM } from '@/modules/ai/services/ai-service';
 
@@ -36,9 +35,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const parsed = validateRequest(modelEssaysGenSchema, body);
-    const parsed = validateRequest(modelEssaysGenSchema, body);
-    const { prompt, textType, wordLimit, gradeLevel, studentLevel } = parsed as {
+    const { prompt, textType, wordLimit, gradeLevel, studentLevel } = body as {
       prompt: string;
       textType?: string;
       wordLimit?: number;

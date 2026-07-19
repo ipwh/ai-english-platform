@@ -8,7 +8,6 @@ import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUse
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { validateRequest, analyzeWritingSchemaApi } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -35,10 +34,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 🔒 Zod validation
     const body = await request.json();
-    const parsed = validateRequest(analyzeWritingSchemaApi, body);
-    const { title, prompt, studentDraft, studentLevel, textType } = parsed;
+    const { title, prompt, studentDraft, studentLevel, textType } = body;
+
+    if (!title || !studentDraft) {
+      return NextResponse.json(
+        { error: '請提供 title 和 studentDraft。' },
+        { status: 400 }
+      );
+    }
 
     // 限制草稿長度，防止 token 超限
     const MAX_DRAFT_LENGTH = 5000;

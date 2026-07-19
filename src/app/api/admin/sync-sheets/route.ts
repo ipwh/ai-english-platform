@@ -21,7 +21,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { logger } from '@/shared/logger/logger';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { GoogleAuth } from 'google-auth-library';
 
@@ -234,12 +233,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 從 Google Sheets 讀取資料
-    logger.info({ module: 'sync-sheets', spreadsheetId }, 'Reading spreadsheet');
+    console.log(`[sync-sheets] Reading spreadsheet ${spreadsheetId}...`);
     const { rows, sheetName: actualSheetName } = await fetchSheetData(spreadsheetId, sheetName);
     result.sheetName = actualSheetName;
     result.totalRows = rows.length;
 
-    logger.info({ module: 'sync-sheets', rowCount: rows.length, sheetName: actualSheetName }, 'Fetched rows');
+    console.log(`[sync-sheets] Fetched ${rows.length} rows from sheet "${actualSheetName}"`);
 
     if (rows.length === 0) {
       return NextResponse.json({ ...result, message: 'Sheet 中沒有有效資料列' });
@@ -340,7 +339,7 @@ export async function POST(request: NextRequest) {
           skipDuplicates: true,
         });
         result.created = toCreate.length;
-        logger.info({ module: 'sync-sheets', created: toCreate.length }, 'Created new students');
+        console.log(`[sync-sheets] Created ${toCreate.length} new students`);
       } catch (err: unknown) {
         result.errors.push(`批量建立失敗: ${(err as Error).message}`);
       }
@@ -390,10 +389,10 @@ export async function POST(request: NextRequest) {
           if (row.class && oldClass !== row.class) result.classFixed++;
           else result.updated++;
         }
-        logger.info({ module: 'sync-sheets', updated: toUpdate.length }, 'Bulk updated students');
+        console.log(`[sync-sheets] Bulk updated ${toUpdate.length} students`);
       } catch (err: unknown) {
         result.errors.push(`批量更新失敗: ${(err as Error).message}`);
-        logger.error({ module: 'sync-sheets', error: String(err) }, 'Bulk update error');
+        console.error('[sync-sheets] Bulk update error:', err);
       }
     }
 
@@ -409,12 +408,12 @@ export async function POST(request: NextRequest) {
       if (cls) result.classDistribution[cls.name] = d._count;
     }
 
-    logger.info({ module: 'sync-sheets', created: result.created, updated: result.updated, classFixed: result.classFixed, errors: result.errors.length }, 'Sync complete');
+    console.log(`[sync-sheets] Done: created=${result.created}, updated=${result.updated}, classFixed=${result.classFixed}, errors=${result.errors.length}`);
 
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    logger.error({ module: 'sync-sheets', error: msg }, 'Sync failed');
+    console.error('[sync-sheets] Error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

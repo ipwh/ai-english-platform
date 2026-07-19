@@ -8,7 +8,6 @@ import { analyzeAnswer, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { validateRequest, analyzeAnswerSchema } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -35,14 +34,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 🔒 Zod validation
     const body = await request.json();
-    const parsed = validateRequest(analyzeAnswerSchema, body);
-    const { question, questionType, correctAnswer, studentAnswer, choices, listeningContent, readingContent, grammarItem, grammarItemZh, studentLevel } = parsed;
+    const { question, questionType, correctAnswer, studentAnswer, choices, listeningContent, readingContent, grammarItem, grammarItemZh, studentLevel } = body;
+
+    if (!question || !correctAnswer || !studentAnswer) {
+      return NextResponse.json(
+        { error: '請提供 question、correctAnswer 和 studentAnswer。' },
+        { status: 400 }
+      );
+    }
 
     const analysis = await analyzeAnswer({
       question,
-      questionType, // Zod default('mc') 已確保預設值
+      questionType: questionType || 'mc',
       correctAnswer,
       studentAnswer,
       choices: Array.isArray(choices) ? choices : undefined,

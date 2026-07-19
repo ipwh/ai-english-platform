@@ -4,7 +4,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, generateIntegratedSkillsSchema } from '@/shared/validation/schemas';
 import { generateIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
@@ -32,9 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = validateRequest(generateIntegratedSkillsSchema, body);
-    const parsed = validateRequest(generateIntegratedSkillsSchema, body);
-    const { gradeLevel, difficulty, taskType, topicHint `} = parsed;
+    const { gradeLevel, difficulty, taskType, topicHint } = body;
 
     if (!gradeLevel || !difficulty || !taskType) {
       return NextResponse.json(

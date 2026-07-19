@@ -1,10 +1,9 @@
-// ============================================
+﻿// ============================================
 // API Route: POST /api/ai/study-help
 // 個人化學習求助（帶學生上下文）
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, studyHelpSchemaApi } from '@/shared/validation/schemas';
 import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
@@ -33,9 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = validateRequest(studyHelpSchemaApi, body);
-    const parsed = validateRequest(studyHelpSchemaApi, body);
-    const { question, studentLevel, weakSkills, recentMistakes, recentPerformance `} = parsed;
+    const { question, studentLevel, weakSkills, recentMistakes, recentPerformance } = body;
 
     if (!question || !studentLevel) {
       return NextResponse.json({ error: '請提供 question 與 studentLevel。' }, { status: 400 });
@@ -65,4 +62,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
 

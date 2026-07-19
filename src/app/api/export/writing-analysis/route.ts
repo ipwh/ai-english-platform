@@ -5,7 +5,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, writingAnalysisExportSchema } from '@/shared/validation/schemas';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 
@@ -358,8 +357,7 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'pdf';
     const body = await request.json();
-    const parsed = validateRequest(writingAnalysisExportSchema, body);
-    const analysis: WritingAnalysis = parsed as unknown as WritingAnalysis;
+    const analysis: WritingAnalysis = body.analysis || body;
 
     if (!analysis || (!analysis.studentDraft && !analysis.overallScore)) {
       return NextResponse.json({ error: '請提供 AI 分析結果' }, { status: 400 });

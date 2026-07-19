@@ -1,6 +1,5 @@
 // Sprint 39: POST /api/writing-coach/analyze — enhanced analysis
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, writingCoachAnalyzeSchema } from '@/shared/validation/schemas';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { writingCoachPro } from '@/modules/writing-coach/services/writing-coach-pro';
 import { logger } from '@/shared/logger/logger';
@@ -13,9 +12,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const parsed = validateRequest(writingCoachAnalyzeSchema, body);
-    const parsed = validateRequest(writingCoachAnalyzeSchema, body);
-    const { essayId, studentId, title, content, textType, gradeLevel, action `} = parsed;
+    const { essayId, studentId, title, content, textType, gradeLevel, action } = body;
 
     if (!content) return NextResponse.json({ error: 'content required' }, { status: 400 });
 

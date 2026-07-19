@@ -7,7 +7,6 @@ import { db } from '@/shared/db/db';
 import { checkRateLimit, GENERAL_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { notifyAssignmentCreated } from '@/shared/utils/notifications';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { validateRequest, assignmentCreateSchema } from '@/shared/validation/schemas';
 
 // GET /api/assignments — 列出課業
 export async function GET(request: NextRequest) {
@@ -59,12 +58,15 @@ export async function POST(request: NextRequest) {
     if (!rl.allowed) return NextResponse.json({ error: rl.message }, { status: 429 });
 
     const body = await request.json();
-    const parsed = validateRequest(assignmentCreateSchema, { ...body, createdBy: authResult.userId });
     const {
       title, description, className, classId, targetType, gradeLevel, strand,
       grammarItem, languageSkill, difficulty, questionCount, timeLimit, dueDate,
       questions, groupIds, studentIds,
-    } = parsed;
+    } = body;
+
+    if (!title) {
+      return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
+    }
 
     const resolvedClassName = className || '';
     const resolvedTargetType = targetType || 'class';

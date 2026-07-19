@@ -6,8 +6,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { db } from '@/shared/db/db';
-import { logger } from '@/shared/logger/logger';
-import { validateRequest, roleUpdateSchemaApi } from '@/shared/validation/schemas';
 
 async function updateUserRole(userId: string, role: string) {
   await db.user.update({
@@ -59,10 +57,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '未登入' }, { status: 401 });
     }
 
-    // 🔒 Zod validation
-    const body = await request.json();
-    const parsed = validateRequest(roleUpdateSchemaApi, body);
-    const { role } = parsed;
+    const { role } = await request.json();
+    if (!role || !['student', 'teacher', 'admin'].includes(role)) {
+      return NextResponse.json({ error: '無效的角色' }, { status: 400 });
+    }
 
     await updateUserRole(userId, role);
 
@@ -88,24 +86,33 @@ export async function POST(request: NextRequest) {
   // === Fallback: NextAuth session（Google OAuth 登入） ===
   if (!userId) {
     const session = await auth();
-    logger.debug({ module: 'auth-role', hasSession: !!session?.user?.id }, 'POST /api/auth/role');
+    console.log('[role-select:POST]', {
+      hasSession: !!session?.user?.id,
+      userId: session?.user?.id ?? null,
+      timestamp: new Date().toISOString(),
+      url: request.url,
+      cookieNames: request.cookies.getAll().map(c => c.name),
+    });
 
     if (!session?.user?.id) {
+      console.log('[role-select:POST] no session → redirect /login');
       return NextResponse.redirect(new URL('/login', request.url), 303);
     }
     userId = session.user.id;
   }
 
   if (!userId) {
+    console.log('[role-select:POST] no userId → redirect /login');
     return NextResponse.redirect(new URL('/login', request.url), 303);
   }
 
   const formData = await request.formData();
   const role = formData.get('role');
 
-  logger.debug({ module: 'auth-role', role, userId }, 'POST /api/auth/role');
+  console.log('[role-select:POST]', { role, userId });
 
   if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
+    console.log('[role-select:POST] invalid role → redirect /role-select');
     return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
   }
 

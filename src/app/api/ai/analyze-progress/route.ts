@@ -1,10 +1,9 @@
-// ============================================
+﻿// ============================================
 // API Route: POST /api/ai/analyze-progress
 // 分析學生學習進度 — 從 DB 讀取真實歷史數據
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, analyzeProgressSchema } from '@/shared/validation/schemas';
 import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -33,9 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = validateRequest(analyzeProgressSchema, body);
-    const parsed = validateRequest(analyzeProgressSchema, body);
-    const { studentId, studentLevel, overallAccuracy, weakSkills, recentPerformance, streakDays `} = parsed;
+    const { studentId, studentLevel, overallAccuracy, weakSkills, recentPerformance, streakDays } = body;
 
     // 優先使用伺服器端查詢的真實數據；若客戶端已提供完整數據則作為 fallback
     let resolvedLevel = studentLevel || 'S4';
@@ -141,4 +138,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
 

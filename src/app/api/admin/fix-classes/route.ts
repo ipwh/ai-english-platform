@@ -111,16 +111,11 @@ export async function POST(request: NextRequest) {
         select: { id: true },
         orderBy: { classNumber: 'asc' },
       });
-      // 🔥 Batch update with transaction to avoid N+1
-      if (students.length > 0) {
-        await db.$transaction(
-          students.map((s, i) =>
-            db.user.update({
-              where: { id: s.id },
-              data: { classId: classes[i % classes.length].id },
-            })
-          )
-        );
+      for (let i = 0; i < students.length; i++) {
+        await db.user.update({
+          where: { id: students[i].id },
+          data: { classId: classes[i % classes.length].id },
+        });
       }
       return students.length;
     }

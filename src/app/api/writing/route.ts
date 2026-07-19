@@ -6,7 +6,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
-import { validateRequest, writingDraftSchema } from '@/shared/validation/schemas';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -68,8 +67,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = validateRequest(writingDraftSchema, { ...body, studentId: userId });
-    const { title, prompt, draft, aiSuggestions, chinglishWarnings } = parsed;
+    const { title, prompt, draft, aiSuggestions, chinglishWarnings } = body;
+
+    if (!title) {
+      return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
+    }
 
     const writingDraft = await db.writingDraft.create({
       data: {

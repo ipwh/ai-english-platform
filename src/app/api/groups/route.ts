@@ -9,8 +9,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { validateRequest, groupCreateSchemaApi, groupUpdateSchemaApi } from '@/shared/validation/schemas';
-import { logger } from '@/shared/logger/logger';
 
 async function getTeacherId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -61,7 +59,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (err) {
-    logger.error({ module: 'groups', error: (err as Error).message }, 'GET failed');
+    console.error('[groups GET]', err);
     return NextResponse.json({ error: 'Server error', groups: [] }, { status: 500 });
   }
 }
@@ -73,10 +71,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // 🔒 Zod validation
     const body = await request.json();
-    const parsed = validateRequest(groupCreateSchemaApi, body);
-    const { name, description, studentIds } = parsed;
+    const { name, description, studentIds } = body;
+
+    if (!name?.trim()) {
+      return NextResponse.json({ error: '組別名稱為必填' }, { status: 400 });
+    }
 
     const group = await db.group.create({
       data: {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
-    logger.error({ module: 'groups', error: (err as Error).message }, 'POST failed');
+    console.error('[groups POST]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -106,10 +106,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // 🔒 Zod validation
     const body = await request.json();
-    const parsed = validateRequest(groupUpdateSchemaApi, body);
-    const { id, name, description } = parsed;
+    const { id, name, description } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
+    }
 
     // 驗證所有權
     const existing = await db.group.findUnique({ where: { id }, select: { createdBy: true } });
@@ -127,7 +129,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ group });
   } catch (err) {
-    logger.error({ module: 'groups', error: (err as Error).message }, 'PATCH failed');
+    console.error('[groups PATCH]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -159,7 +161,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    logger.error({ module: 'groups', error: (err as Error).message }, 'DELETE failed');
+    console.error('[groups DELETE]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

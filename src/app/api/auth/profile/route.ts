@@ -6,15 +6,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { db } from '@/shared/db/db';
-import { validateRequest, studentLevel } from '@/shared/validation/schemas';
-import { z } from 'zod';
-
-const profileUpdateSchema = z.object({
-  nameZh: z.string().optional(),
-  nameEn: z.string().optional(),
-  level: studentLevel,
-  classNumber: z.string().optional(),
-});
 
 async function resolveCurrentUser(request?: NextRequest) {
   const jwtToken = request?.cookies.get('session_token')?.value;
@@ -66,8 +57,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = validateRequest(profileUpdateSchema, body);
-    const { nameZh, nameEn, level, classNumber } = parsed;
+    const { nameZh, nameEn, level, classNumber } = body;
 
     const data: Record<string, string> = {};
     if (nameZh !== undefined) data.nameZh = nameZh;

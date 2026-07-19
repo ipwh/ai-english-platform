@@ -8,18 +8,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { validateRequest } from '@/shared/validation/schemas';
-import { z } from 'zod';
-import { logger } from '@/shared/logger/logger';
-
-const isDraftSchema = z.object({
-  studentNotes: z.string().optional(),
-  studentWriting: z.string().optional(),
-  taskData: z.any().optional(),
-  stage: z.enum(['config', 'listening', 'writing', 'result']).optional(),
-  activeStep: z.coerce.number().int().min(1).max(3).optional(),
-  listeningCompleted: z.boolean().optional(),
-});
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -61,7 +49,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err) {
-    logger.error({ module: 'isdraft', error: (err as Error).message }, 'GET failed');
+    console.error('[integrated-skills draft GET]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -74,8 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const parsed = validateRequest(isDraftSchema, body);
-    const { studentNotes, studentWriting, taskData, stage, activeStep, listeningCompleted } = parsed;
+    const { studentNotes, studentWriting, taskData, stage, activeStep, listeningCompleted } = body;
 
     const draft = await db.integratedSkillsDraft.upsert({
       where: { userId },
@@ -101,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, updatedAt: draft.updatedAt });
   } catch (err) {
-    logger.error({ module: 'isdraft', error: (err as Error).message }, 'POST failed');
+    console.error('[integrated-skills draft POST]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -116,7 +103,7 @@ export async function DELETE(request: NextRequest) {
     await db.integratedSkillsDraft.deleteMany({ where: { userId } });
     return NextResponse.json({ success: true });
   } catch (err) {
-    logger.error({ module: 'isdraft', error: (err as Error).message }, 'DELETE failed');
+    console.error('[integrated-skills draft DELETE]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

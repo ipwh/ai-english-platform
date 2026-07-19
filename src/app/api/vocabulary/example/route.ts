@@ -4,15 +4,12 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateRequest, vocabExampleSchema } from '@/shared/validation/schemas';
 import { callLLM } from '@/modules/ai/services/ai-service';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const parsed = validateRequest(vocabExampleSchema, body);
-    const parsed = validateRequest(vocabExampleSchema, body);
-    const { word, partOfSpeech, meaningZh, gradeLevel `} = parsed;
+    const { word, partOfSpeech, meaningZh, gradeLevel } = body;
 
     if (!word) {
       return NextResponse.json({ error: 'word 為必填' }, { status: 400 });
