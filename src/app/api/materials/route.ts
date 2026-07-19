@@ -4,8 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { verifySessionToken } from '@/shared/auth/jwt';
-import { auth } from '@/shared/auth/auth-next';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { config } from '@/shared/config/config';
 import { z } from 'zod';
 
@@ -59,7 +58,13 @@ async function extractTextFromFile(file: File): Promise<string | null> {
   return null;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const materials = await db.material.findMany({
       where: {
@@ -111,19 +116,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    // 取得真實 userId：先查 JWT，再查 NextAuth
-    let userId = 'system';
-    const jwtToken = request.cookies.get('session_token')?.value;
-    if (jwtToken) {
-      const payload = await verifySessionToken(jwtToken);
-      if (payload) userId = payload.userId;
-    }
-    if (userId === 'system') {
-      const session = await auth();
-      if (session?.user?.id) userId = session.user.id;
-    }
+  // 🔒 Auth check — only teachers/admins can upload
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
 
+  try {
     const contentType = request.headers.get('content-type') || '';
 
     // === 新：multipart file upload（PDF/DOCX/TXT 伺服器端文字提取）===
@@ -223,18 +223,14 @@ export async function POST(request: NextRequest) {
 // PATCH /api/materials — 編輯教材標題/描述/標籤
 // ============================================
 export async function PATCH(request: NextRequest) {
-  try {
-    let userId = 'system';
-    const jwtToken = request.cookies.get('session_token')?.value;
-    if (jwtToken) {
-      const payload = await verifySessionToken(jwtToken);
-      if (payload) userId = payload.userId;
-    }
-    if (userId === 'system') {
-      const session = await auth();
-      if (session?.user?.id) userId = session.user.id;
-    }
+  // 🔒 Auth check — only teachers/admins
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
 
+  try {
     const body = await request.json();
     const { id, title, description, tags, gradeLevel, strand } = body;
 
@@ -242,25 +238,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    // Auth: only allow teachers/admins or the original uploader
+    // Verify material exists and user owns it or is admin
     const existing = await db.material.findUnique({ where: { id }, select: { uploadedBy: true } });
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
-    if (userId === 'system' || (existing.uploadedBy && existing.uploadedBy !== userId)) {
-      // Fall back to role check via JWT
-      const jwtToken = request.cookies.get('session_token')?.value;
-      if (jwtToken) {
-        const payload = await verifySessionToken(jwtToken);
-        if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        }
-      } else {
-        const session = await auth();
-        if (!session?.user?.id) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        }
-      }
+    if (authResult.role !== 'admin' && existing.uploadedBy && existing.uploadedBy !== userId) {
+      return NextResponse.json({ error: 'Unauthorized — not the uploader' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -286,18 +270,14 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/materials — 刪除教材
 // ============================================
 export async function DELETE(request: NextRequest) {
-  try {
-    let userId = 'system';
-    const jwtToken = request.cookies.get('session_token')?.value;
-    if (jwtToken) {
-      const payload = await verifySessionToken(jwtToken);
-      if (payload) userId = payload.userId;
-    }
-    if (userId === 'system') {
-      const session = await auth();
-      if (session?.user?.id) userId = session.user.id;
-    }
+  // 🔒 Auth check — only teachers/admins
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
 
+  try {
     const body = await request.json();
     const { id } = body;
 
@@ -305,24 +285,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    // Auth check: require teacher/admin
+    // Verify material exists and user owns it or is admin
     const existing = await db.material.findUnique({ where: { id }, select: { uploadedBy: true } });
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
-    if (userId === 'system') {
-      const jwtToken = request.cookies.get('session_token')?.value;
-      if (jwtToken) {
-        const payload = await verifySessionToken(jwtToken);
-        if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        }
-      } else {
-        const session = await auth();
-        if (!session?.user?.id) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        }
-      }
+    if (authResult.role !== 'admin' && existing.uploadedBy && existing.uploadedBy !== userId) {
+      return NextResponse.json({ error: 'Unauthorized — not the uploader' }, { status: 403 });
     }
 
     // Clean up RAG chunks + the material itself

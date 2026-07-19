@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTaskTypes = ['summary', 'email-reply', 'short-article', 'report'];
+    const validTaskTypes = ['summary', 'email-reply', 'short-article', 'report', 'speech', 'proposal', 'letter', 'newsletter'];
     if (!validTaskTypes.includes(taskType)) {
       return NextResponse.json(
         { error: `taskType 必須是 ${validTaskTypes.join(' / ')} 之一。` },

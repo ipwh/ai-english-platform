@@ -4,21 +4,34 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
+import { checkRateLimit, GENERAL_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { notifyAssignmentCreated } from '@/shared/utils/notifications';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 // GET /api/assignments — 列出課業
 export async function GET(request: NextRequest) {
+  // 🔒 Auth check
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
     const teacherId = searchParams.get('teacherId');
 
+    // Students can only see their own class assignments
+    const where: Record<string, unknown> = {};
+    if (classId) where.className = classId;
+    if (teacherId) where.createdBy = teacherId;
+    // Students: filter to their own class
+    if (authResult.role === 'student' && !classId && !teacherId) {
+      where.className = authResult.userId;
+    }
+
     const assignments = await db.assignment.findMany({
-      where: {
-        ...(classId ? { className: classId } : {}),
-        ...(teacherId ? { createdBy: teacherId } : {}),
-      },
+      where,
       include: { _count: { select: { submissions: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -33,29 +46,35 @@ export async function GET(request: NextRequest) {
 
 // POST /api/assignments — 建立課業
 export async function POST(request: NextRequest) {
+  // 🔒 Auth check — only teachers/admins
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = await checkRateLimit({ ...AI_RATE_LIMIT, identifier: `assign:${ip}` });
+    const rl = await checkRateLimit({ ...GENERAL_RATE_LIMIT, identifier: `assign:${ip}` });
     if (!rl.allowed) return NextResponse.json({ error: rl.message }, { status: 429 });
 
     const body = await request.json();
     const {
       title, description, className, classId, targetType, gradeLevel, strand,
       grammarItem, languageSkill, difficulty, questionCount, timeLimit, dueDate,
-      createdBy, questions, groupIds, studentIds,
+      questions, groupIds, studentIds,
     } = body;
 
-    if (!title || !createdBy) {
-      return NextResponse.json({ error: 'title, createdBy 為必填' }, { status: 400 });
+    if (!title) {
+      return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
     }
 
     const resolvedClassName = className || '';
     const resolvedTargetType = targetType || 'class';
 
-    // 驗證教師權限
+    // 驗證教師權限 — use authResult.userId instead of body.createdBy
     if (resolvedTargetType === 'class' && resolvedClassName) {
       const teacherClass = await db.teacherClass.findFirst({
-        where: { teacherId: createdBy, class: { name: resolvedClassName } },
+        where: { teacherId: authResult.userId, class: { name: resolvedClassName } },
       });
       if (!teacherClass) {
         return NextResponse.json({ error: `您沒有任教 ${resolvedClassName} 班級的權限` }, { status: 403 });
@@ -77,7 +96,7 @@ export async function POST(request: NextRequest) {
         questionCount: questionCount || 5,
         timeLimit,
         dueDate: dueDate ? new Date(dueDate) : null,
-        createdBy,
+        createdBy: authResult.userId!,
         questions: questions ? {
           create: questions.map((q: { questionType: string; prompt: string; options?: string; answer: string; explanation?: string }, i: number) => ({
             questionType: q.questionType,

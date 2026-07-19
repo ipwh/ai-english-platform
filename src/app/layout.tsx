@@ -25,6 +25,12 @@ export const metadata: Metadata = {
     template: "%s | AI English Platform",
   },
   description: t('layout.description'),
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'AI English',
+  },
 };
 
 export const viewport: Viewport = {

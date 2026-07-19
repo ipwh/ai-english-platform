@@ -164,9 +164,13 @@ function getVertexAuth() {
 }
 
 // ============================================
-// 核心 API 調用
+// ⚠️ @deprecated Legacy direct API calls — no longer used.
+// All LLM calls now go through providerRegistry.call() which handles
+// fallback chain (DeepSeek→Vertex→Gemini→Claude→OpenAI).
+// These functions remain for reference only. Remove after Q3 2026.
 // ============================================
 
+/** @deprecated Use providerRegistry.call() instead */
 async function _callDeepSeek(
   messages: ChatMessage[],
   options?: LLMCallOptions
@@ -229,6 +233,7 @@ function toGeminiPayload(messages: ChatMessage[]) {
   return { systemMessages, contents };
 }
 
+/** @deprecated Use providerRegistry.call() instead */
 async function _callGemini(
   messages: ChatMessage[],
   options?: LLMCallOptions
@@ -290,6 +295,7 @@ async function _callGemini(
   }
 }
 
+/** @deprecated Use providerRegistry.call() instead */
 async function _callGeminiViaVertex(
   messages: ChatMessage[],
   options?: LLMCallOptions

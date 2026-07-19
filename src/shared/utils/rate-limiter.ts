@@ -122,3 +122,9 @@ export const LOGIN_RATE_LIMIT: RateLimitConfig = {
   maxRequests: config.rateLimit.login.maxRequests,
   windowMs: config.rateLimit.login.windowMs,
 };
+
+/** 一般 CRUD 端點限流：每 IP 每 60 秒 30 次 */
+export const GENERAL_RATE_LIMIT: RateLimitConfig = {
+  maxRequests: 30,
+  windowMs: 60_000,
+};

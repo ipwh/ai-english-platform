@@ -70,6 +70,7 @@ model User {
   // === RAG 關聯 ===
   uploadedMaterials Material[]
   preferences     UserPreferences?
+  feedbacks       Feedback[]
 
   @@index([classId])
 }
@@ -90,6 +91,19 @@ model UserPreferences {
   notifAchievement     Boolean   @default(true)
   notifSystem          Boolean   @default(true)
   updatedAt            DateTime  @updatedAt
+}
+
+// ============================================
+// Feedback — 用戶回報（TTS、UI、內容問題）
+// ============================================
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "tts", "ui", "content", "bug", "feature-request"
+  payload   String   // JSON stringified payload
+  createdAt DateTime @default(now())
 }
 
 // ============================================
