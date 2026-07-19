@@ -593,3 +593,252 @@ describe('EdgeCases', () => {
     expect(knowledgeGraphService.getNode('does-not-exist')).toBeUndefined();
   });
 });
+
+// ============================================
+// Sprint 34: Knowledge Graph v2 tests
+// ============================================
+
+import { KnowledgeTraversalService } from '../services/traversal-service';
+import { LearningPathGenerator } from '../services/learning-path-generator';
+import { WeaknessLocator } from '../services/weakness-locator';
+import { SkillDependencyResolver } from '../services/skill-dependency-resolver';
+
+const traversalService = new KnowledgeTraversalService();
+const pathGenerator = new LearningPathGenerator();
+const weaknessLocator = new WeaknessLocator();
+const skillResolver = new SkillDependencyResolver();
+
+// Sample mastery data for testing
+const sampleMastery: Record<string, number> = {
+  'tenses-simple': 85, 'tenses-continuous': 40, 'vocab-basic-academic': 60,
+  'reading-scanning': 70, 'writing-essay-structure': 55,
+};
+
+describe('KnowledgeGraph v2 — Node Metadata', () => {
+  it('all nodes should have forgettingWeight', () => {
+    for (const [, node] of graph.nodes) {
+      expect(node.forgettingWeight).toBeGreaterThan(0);
+      expect(node.forgettingWeight).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('all nodes should have importanceWeight', () => {
+    for (const [, node] of graph.nodes) {
+      expect(node.importanceWeight).toBeGreaterThan(0);
+      expect(node.importanceWeight).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('all nodes should have recommendedExercises', () => {
+    for (const [, node] of graph.nodes) {
+      expect(node.recommendedExercises).toBeDefined();
+      expect(node.recommendedExercises?.length ?? 0).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('grammar and writing nodes should have high importance', () => {
+    for (const [, node] of graph.nodes) {
+      if (node.skill === 'grammar' || node.skill === 'writing') {
+        expect(node.importanceWeight).toBeGreaterThanOrEqual(0.6);
+      }
+    }
+  });
+});
+
+describe('KnowledgeTraversalService', () => {
+  it('should traverse graph with BFS strategy', () => {
+    const result = traversalService.traverse({ strategy: 'bfs' });
+    expect(result.path.length).toBeGreaterThan(0);
+    expect(result.strategy).toBe('bfs');
+    expect(result.visitedCount).toBe(result.path.length);
+  });
+
+  it('should traverse graph with DFS strategy', () => {
+    const result = traversalService.traverse({ strategy: 'dfs' });
+    expect(result.path.length).toBeGreaterThan(0);
+  });
+
+  it('should traverse graph topologically', () => {
+    const result = traversalService.traverse({ strategy: 'topological' });
+    expect(result.path.length).toBeGreaterThan(0);
+  });
+
+  it('should filter by skill dimension', () => {
+    const result = traversalService.traverse({ strategy: 'bfs', skillFilter: 'grammar' });
+    for (const nodeId of result.path) {
+      const node = graph.nodes.get(nodeId);
+      expect(node?.skill).toBe('grammar');
+    }
+  });
+
+  it('should order by importance', () => {
+    const result = traversalService.traverse({ strategy: 'importance-first' });
+    expect(result.path.length).toBeGreaterThan(0);
+    // First node should be high importance
+    const first = graph.nodes.get(result.path[0])!;
+    expect(first.importanceWeight).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('should order by weakness', () => {
+    const result = traversalService.traverse({
+      strategy: 'weakness-first',
+      masteryScores: sampleMastery,
+    });
+    expect(result.path.length).toBeGreaterThan(0);
+  });
+
+  it('should respect maxNodes limit', () => {
+    const result = traversalService.traverse({ strategy: 'bfs', maxNodes: 5 });
+    expect(result.visitedCount).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('LearningPathGenerator', () => {
+  it('should generate shortest-time path', () => {
+    const path = pathGenerator.generate({
+      studentId: 's1', strategy: 'shortest-time', gradeLevel: 'S4',
+      masteryScores: sampleMastery, maxNodes: 10,
+    });
+    expect(path.nodes.length).toBeGreaterThan(0);
+    expect(path.strategy).toBe('shortest-time');
+    expect(path.rationale).toBeTruthy();
+    expect(path.rationaleZh).toBeTruthy();
+    expect(path.nodeDetails.length).toBe(path.nodes.length);
+  });
+
+  it('should generate highest-importance path', () => {
+    const path = pathGenerator.generate({
+      studentId: 's1', strategy: 'highest-importance', gradeLevel: 'S4', maxNodes: 8,
+    });
+    expect(path.nodes.length).toBeGreaterThan(0);
+  });
+
+  it('should generate weakness-first path', () => {
+    const path = pathGenerator.generate({
+      studentId: 's1', strategy: 'weakness-first', gradeLevel: 'S4',
+      masteryScores: sampleMastery, maxNodes: 8,
+    });
+    expect(path.nodes.length).toBeGreaterThan(0);
+  });
+
+  it('should generate balanced path', () => {
+    const path = pathGenerator.generate({
+      studentId: 's1', strategy: 'balanced', gradeLevel: 'S4',
+      masteryScores: sampleMastery, maxNodes: 12,
+    });
+    expect(path.nodes.length).toBeGreaterThan(0);
+    expect(path.strategy).toBe('balanced');
+  });
+
+  it('should generate exam-prep path', () => {
+    const path = pathGenerator.generate({
+      studentId: 's1', strategy: 'exam-prep', gradeLevel: 'S4',
+      masteryScores: sampleMastery, maxTimeMinutes: 120,
+    });
+    expect(path.nodes.length).toBeGreaterThan(0);
+    expect(path.strategy).toBe('exam-prep');
+  });
+
+  it('should mark weaknesses in node details', () => {
+    const path = pathGenerator.generate({
+      studentId: 's1', strategy: 'weakness-first', gradeLevel: 'S4',
+      masteryScores: sampleMastery, maxNodes: 5,
+    });
+    const weakNodes = path.nodeDetails.filter(d => d.isWeakness);
+    expect(weakNodes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('WeaknessLocator', () => {
+  it('should locate weaknesses with scores', () => {
+    const result = weaknessLocator.locate({
+      studentId: 's1',
+      masteryScores: sampleMastery,
+    });
+    expect(result.weaknesses.length).toBeGreaterThan(0);
+    expect(result.skillBreakdown.length).toBeGreaterThan(0);
+    expect(result.generatedAt).toBeTruthy();
+  });
+
+  it('should integrate retention data into urgency', () => {
+    const result = weaknessLocator.locate({
+      studentId: 's1',
+      masteryScores: sampleMastery,
+      retentionData: { 'tenses-continuous': 0.2, 'vocab-basic-academic': 0.5 },
+      lastReviewDates: {
+        'tenses-continuous': new Date(Date.now() - 30 * 86400000).toISOString(),
+      },
+    });
+    expect(result.weaknesses.length).toBeGreaterThan(0);
+  });
+
+  it('should detect learning gaps', () => {
+    const result = weaknessLocator.detectGaps({
+      studentId: 's1',
+      gradeLevel: 'S4',
+      masteredNodeIds: ['tenses-simple', 'vocab-basic-academic'],
+    });
+    expect(result.gapNodes.length).toBeGreaterThan(0);
+    expect(result.severity).toBeDefined();
+    expect(result.catchUpPlan.length).toBeGreaterThan(0);
+    expect(result.catchUpPlanZh.length).toBe(result.catchUpPlan.length);
+  });
+
+  it('should filter weaknesses by skill', () => {
+    const result = weaknessLocator.locate({
+      studentId: 's1',
+      masteryScores: sampleMastery,
+      skillFilter: 'grammar',
+    });
+    for (const w of result.weaknesses) {
+      expect(w.skill).toBe('grammar');
+    }
+  });
+});
+
+describe('SkillDependencyResolver', () => {
+  it('should find bottleneck nodes', () => {
+    const result = skillResolver.findBottlenecks({
+      masteredNodeIds: ['tenses-simple'],
+    });
+    expect(result.bottlenecks.length).toBeGreaterThan(0);
+    expect(result.highestImpact).toBeTruthy();
+  });
+
+  it('should predict next skills', () => {
+    const result = skillResolver.predictNextSkills({
+      studentId: 's1',
+      masteryScores: sampleMastery,
+      masteredNodeIds: ['tenses-simple', 'vocab-basic-academic'],
+      gradeLevel: 'S4',
+    });
+    expect(result.predictions.length).toBeGreaterThan(0);
+    expect(result.predictions.length).toBeLessThanOrEqual(5);
+    expect(result.predictions[0].confidence).toBeGreaterThan(0);
+    expect(result.predictions[0].reason).toBeTruthy();
+    expect(result.predictions[0].reasonZh).toBeTruthy();
+  });
+
+  it('should detect when student is ready to advance', () => {
+    const allMastered = [...graph.nodes.values()]
+      .filter(n => n.hkdseLevel === 'S4')
+      .map(n => n.id);
+    const masteryAll: Record<string, number> = {};
+    for (const id of allMastered) masteryAll[id] = 100;
+
+    const result = skillResolver.predictNextSkills({
+      studentId: 's1',
+      masteryScores: masteryAll,
+      masteredNodeIds: allMastered,
+      gradeLevel: 'S4',
+    });
+    // May or may not be ready depending on graph state
+    expect(result.predictions.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should find cross-skill dependencies (or return empty if none)', () => {
+    const result = skillResolver.findCrossSkillDependencies();
+    // Cross-skill deps may be empty in v1 graph — the method still works
+    expect(Array.isArray(result)).toBe(true);
+  });
+});

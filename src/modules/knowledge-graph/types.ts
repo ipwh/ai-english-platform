@@ -61,6 +61,13 @@ export interface KnowledgeNode {
   }>;
   /** Tags for categorization and search */
   tags: string[];
+  // === Sprint 34: Knowledge Graph v2 fields ===
+  /** Forgetting curve weight (0-1) — how fast this skill decays without practice */
+  forgettingWeight?: number;
+  /** Importance weight (0-1) — how critical this skill is for DSE exam */
+  importanceWeight?: number;
+  /** Recommended exercise types for this skill */
+  recommendedExercises?: string[];
 }
 
 // ============================================
@@ -242,4 +249,144 @@ export interface VisualizationData {
     totalEdges: number;
     layoutAlgorithm: 'layered' | 'force' | 'radial';
   };
+}
+
+// ============================================
+// Sprint 34: Knowledge Graph v2 types
+// ============================================
+
+/** Traversal strategy */
+export type TraversalStrategy = 'dfs' | 'bfs' | 'topological' | 'importance-first' | 'weakness-first';
+
+/** Traversal result */
+export interface TraversalResult {
+  /** Ordered node IDs visited */
+  path: string[];
+  /** Nodes visited count */
+  visitedCount: number;
+  /** Strategy used */
+  strategy: TraversalStrategy;
+  /** Total estimated time for all visited nodes (minutes) */
+  totalEstimatedMinutes: number;
+}
+
+/** Multi-criteria learning path */
+export interface GeneratedLearningPath {
+  /** Unique path ID */
+  id: string;
+  /** Ordered list of node IDs to study */
+  nodes: string[];
+  /** Path metadata per node */
+  nodeDetails: Array<{
+    nodeId: string;
+    title: string;
+    titleZh: string;
+    estimatedMinutes: number;
+    currentMastery?: number;
+    isMastered?: boolean;
+    isWeakness?: boolean;
+  }>;
+  /** Total time in minutes */
+  totalTimeMinutes: number;
+  /** Path generation strategy */
+  strategy: 'shortest-time' | 'highest-importance' | 'weakness-first' | 'balanced' | 'exam-prep';
+  /** Why this path was chosen */
+  rationale: string;
+  rationaleZh: string;
+}
+
+/** Enhanced weakness detection with forgetting integration */
+export interface EnhancedWeaknessResult {
+  studentId: string;
+  generatedAt: string;
+  weaknesses: Array<{
+    nodeId: string;
+    title: string;
+    titleZh: string;
+    skill: string;
+    currentMastery: number;
+    masteryThreshold: number;
+    masteryGap: number;
+    forgettingWeight: number;
+    importanceWeight: number;
+    /** Composite urgency score (0-1) */
+    urgencyScore: number;
+    urgency: 'critical' | 'high' | 'medium' | 'low';
+    /** Estimated time to fix (minutes) */
+    estimatedFixTime: number;
+    /** Prerequisites that are also weak */
+    weakPrerequisites: string[];
+    /** Recommended exercises */
+    recommendedExercises: string[];
+  }>;
+  /** Skill-level summary */
+  skillBreakdown: Array<{
+    skill: string;
+    weakCount: number;
+    averageGap: number;
+  }>;
+  /** Urgent items needing immediate attention */
+  criticalItems: string[];
+}
+
+/** Learning gap: what student should know vs what they actually know */
+export interface LearningGapResult {
+  studentId: string;
+  gradeLevel: string;
+  /** Expected nodes based on grade level + CEFR alignment */
+  expectedNodes: string[];
+  /** Nodes the student has actually mastered */
+  masteredNodes: string[];
+  /** Nodes that are expected but not mastered (the gaps) */
+  gapNodes: Array<{
+    nodeId: string;
+    title: string;
+    titleZh: string;
+    skill: string;
+    importanceWeight: number;
+    /** How many days behind schedule */
+    estimatedDaysBehind: number;
+  }>;
+  /** Overall gap severity */
+  severity: 'none' | 'minor' | 'moderate' | 'severe';
+  /** Recommended catch-up plan */
+  catchUpPlan: string[];
+  catchUpPlanZh: string[];
+}
+
+/** Next skill prediction */
+export interface NextSkillPrediction {
+  studentId: string;
+  /** Top 5 recommended next skills with confidence scores */
+  predictions: Array<{
+    nodeId: string;
+    title: string;
+    titleZh: string;
+    /** 0-1 confidence that this is the right next skill */
+    confidence: number;
+    reason: string;
+    reasonZh: string;
+  }>;
+  /** Whether student is ready to advance (all current-level nodes mastered) */
+  readyToAdvance: boolean;
+  /** Suggested CEFR level to target next */
+  suggestedCefrLevel: string;
+}
+
+/** Bottleneck detection — nodes blocking many successors */
+export interface BottleneckResult {
+  /** Bottleneck nodes sorted by impact */
+  bottlenecks: Array<{
+    nodeId: string;
+    title: string;
+    titleZh: string;
+    /** Number of successor nodes blocked */
+    blocksCount: number;
+    /** Blocked node IDs */
+    blockedNodes: string[];
+    /** Total estimated time of blocked content (minutes) */
+    blockedContentMinutes: number;
+  }>;
+  /** The single most impactful node to master */
+  highestImpact: string | null;
 }

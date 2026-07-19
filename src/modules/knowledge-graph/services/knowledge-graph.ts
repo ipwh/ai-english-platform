@@ -28,7 +28,7 @@ export const HKDSE_TO_CEFR: Record<HKDSELevel, CEFRLevel> = {
 // Build KnowledgeNode from existing SkillNode
 // ============================================
 
-function buildGrammarNode(id: string, title: string, titleZh: string, dseLevel: HKDSELevel, prerequisites: string[], estimatedHours: number, successors: string[]): KnowledgeNode {
+function buildGrammarNode(id: string, title: string, titleZh: string, dseLevel: HKDSELevel, prerequisites: string[], estimatedHours: number, successors: string[], importance: number, exercises: string[]): KnowledgeNode {
   return {
     id, title, titleZh,
     skill: 'grammar',
@@ -44,6 +44,9 @@ function buildGrammarNode(id: string, title: string, titleZh: string, dseLevel: 
     commonMistakes: [{ description: `Common errors with ${title}`, descriptionZh: `${titleZh}常見錯誤`, severity: 'major' }],
     exampleQuestions: [{ question: `Practice ${title}`, questionZh: `練習${titleZh}`, answer: '', explanation: '' }],
     tags: ['grammar', `hkdse-${dseLevel.toLowerCase()}`, id],
+    forgettingWeight: dseLevel === 'S1' || dseLevel === 'S2' ? 0.4 : dseLevel === 'S3' || dseLevel === 'S4' ? 0.6 : 0.8,
+    importanceWeight: importance,
+    recommendedExercises: exercises,
   };
 }
 
@@ -386,6 +389,8 @@ function buildGraphFromExistingGrammar(): KnowledgeNode[] {
       skill.prerequisites,
       skill.estimatedHours,
       successors,
+      0.8, // default importance for grammar
+      ['mcq', 'fill-blank', 'error-correction'], // default exercises
     );
   });
 }
@@ -404,7 +409,19 @@ export function buildFullKnowledgeGraph(): KnowledgeGraph {
 
   const nodeMap = new Map<string, KnowledgeNode>();
   for (const node of allNodes) {
-    nodeMap.set(node.id, node);
+    // Sprint 34: backfill v2 fields with sensible defaults if missing
+    const enriched: KnowledgeNode = {
+      ...node,
+      forgettingWeight: node.forgettingWeight ?? (
+        node.difficulty <= 2 ? 0.4 : node.difficulty <= 3 ? 0.6 : 0.8
+      ),
+      importanceWeight: node.importanceWeight ?? (
+        node.skill === 'grammar' || node.skill === 'writing' ? 0.8 :
+        node.skill === 'reading' ? 0.7 : 0.6
+      ),
+      recommendedExercises: node.recommendedExercises ?? ['mcq', 'fill-blank'],
+    };
+    nodeMap.set(node.id, enriched);
   }
 
   // Build edges from prerequisite/successor relationships
