@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { config } from '@/shared/config/config';
+import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
 
 // ============================================
@@ -298,7 +299,7 @@ export async function DELETE(request: NextRequest) {
     const deletedChunks = await db.materialChunk.deleteMany({ where: { materialId: id } });
     await db.material.delete({ where: { id } });
 
-    console.log(`[Materials] Deleted material ${id} with ${deletedChunks.count} RAG chunks`);
+    logger.info({ module: 'materials', materialId: id, deletedChunks: deletedChunks.count }, 'Material deleted');
     return NextResponse.json({ success: true, deletedChunks: deletedChunks.count });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';

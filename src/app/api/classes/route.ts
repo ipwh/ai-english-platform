@@ -6,6 +6,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { cacheFor, CACHE_MEDIUM } from '@/shared/utils/api-cache';
+import { z } from 'zod';
+
+const createClassSchema = z.object({
+  name: z.string().min(1, 'name 為必填').max(10),
+  gradeLevel: z.enum(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']),
+  academicYear: z.string().max(10).optional(),
+});
 
 // GET /api/classes
 export async function GET(request: NextRequest) {
@@ -47,11 +54,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, gradeLevel, academicYear } = body;
-
-    if (!name || !gradeLevel) {
-      return NextResponse.json({ error: 'name, gradeLevel 為必填' }, { status: 400 });
+    const parsed = createClassSchema.safeParse(body);
+    if (!parsed.success) {
+      const errors = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`);
+      return NextResponse.json({ error: '輸入驗證失敗', details: errors }, { status: 400 });
     }
+    const { name, gradeLevel, academicYear } = parsed.data;
 
     const cls = await db.class.create({
       data: { name, gradeLevel, academicYear: academicYear || '2025-2026' },

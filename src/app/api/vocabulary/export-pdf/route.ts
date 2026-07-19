@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 
 function tryParse(val: unknown): string[] {
   if (!val) return [];
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
         doc.end();
         const pdfBuffer = await pdfPromise;
 
-        console.log(`[export-pdf] Generated PDF: ${(pdfBuffer.length / 1024).toFixed(0)} KB, ${vocab.length} words`);
+        logger.info({ module: 'vocabulary-export', sizeKB: (pdfBuffer.length / 1024).toFixed(0), wordCount: vocab.length }, 'PDF generated');
         return new NextResponse(new Uint8Array(pdfBuffer), {
           headers: {
             'Content-Type': 'application/pdf',

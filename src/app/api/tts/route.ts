@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { synthesizeSpeech } from '@/modules/ai/services/tts-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 多人對話需要多次 API call，給充足時間
@@ -48,13 +49,7 @@ export async function POST(request: NextRequest) {
     const trimmedText = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('[TTS API] Request:', {
-        textLen: trimmedText.length,
-        textPreview: trimmedText.slice(0, 60),
-        multiSpeaker,
-        voiceTier,
-        speakingRate,
-      });
+      logger.debug({ module: 'tts', textLen: trimmedText.length, multiSpeaker, voiceTier, speakingRate }, 'TTS request');
     }
 
     const result = await synthesizeSpeech({

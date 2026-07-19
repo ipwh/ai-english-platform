@@ -9,11 +9,14 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { answerStudyHelp } from '@/modules/ai/services/ai-service';
 import type { StudyHelpInput } from '@/modules/ai/services/ai-service';
 
-// GET — Retrieve conversation history (client-side managed via localStorage)
+// GET — Retrieve conversation history
+// Currently managed client-side via localStorage. Server endpoint exists for
+// future migration to DB-backed conversation persistence (planned Q4 2026).
 export async function GET(_request: NextRequest) {
-  // Conversation history is managed client-side via localStorage.
-  // Server provides this endpoint for future DB-backed conversation storage.
-  return NextResponse.json({ conversations: [] });
+  return NextResponse.json({
+    conversations: [],
+    _note: 'Conversation history is managed client-side. Server-side persistence planned for future release.',
+  });
 }
 
 // POST — Send message & get AI response with conversation context

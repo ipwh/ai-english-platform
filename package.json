@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "smoke": "node scripts/smoke-test.js",
     "check:i18n": "node scripts/check-i18n.js",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
