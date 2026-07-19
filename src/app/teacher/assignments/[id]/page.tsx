@@ -170,7 +170,7 @@ export default function TeacherAssignmentDetailPage() {
         <div className="space-y-2">
           {assignment.questions.map((q, i) => (
             <div key={q.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-              <p className="text-sm font-medium text-gray-900 dark:text-white" dangerouslySetInnerHTML={{ __html: \. \ }} />
+              <p className="text-sm font-medium text-gray-900 dark:text-white" dangerouslySetInnerHTML={{ __html: (i + 1) + ". " + q.prompt }} />
               {q.options && (
                 <div className="flex gap-2 mt-1 flex-wrap">
                   {q.options.map((opt, j) => (
