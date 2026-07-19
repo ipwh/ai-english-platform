@@ -102,6 +102,55 @@ export interface ReviewHistoryMemory {
 }
 
 // ============================================
+// Sprint 36: Long-term Memory v2 — new sub-memories
+// ============================================
+
+export interface ConfidenceMemory {
+  overallConfidence: number; // 0-1
+  confidenceBySkill: Record<string, number>; // skill → confidence
+  calibrationAccuracy: number; // self-assessment vs actual gap
+  overconfidentTopics: string[];
+  underconfidentTopics: string[];
+  confidenceTrend: 'improving' | 'stable' | 'declining';
+  lastSelfAssessment?: string;
+}
+
+export interface MotivationMemory {
+  motivationLevel: number; // 0-1
+  intrinsicMotivation: number; // 0-1 (learning for interest)
+  extrinsicMotivation: number; // 0-1 (learning for exams/grades)
+  motivationTrend: 'improving' | 'stable' | 'declining';
+  burnoutRisk: number; // 0-1
+  engagementScore: number; // 0-1
+  recentAchievements: string[];
+  demotivationTriggers: string[];
+}
+
+export interface LearningHabitsMemory {
+  preferredStudyTime: 'morning' | 'afternoon' | 'evening' | 'night';
+  averageSessionLength: number; // minutes
+  sessionsPerWeek: number;
+  weekendWarrior: boolean; // studies mostly on weekends
+  distractionPatterns: string[];
+  focusLevel: number; // 0-1
+  noteTakingStyle: 'minimal' | 'moderate' | 'comprehensive';
+  reviewConsistency: number; // 0-1
+  procrastinationIndex: number; // 0-1 (higher = more procrastination)
+}
+
+// ============================================
+// Extended LearningMemory (v2)
+// ============================================
+
+export interface LearningMemoryV2 extends LearningMemory {
+  confidence: ConfidenceMemory;
+  motivation: MotivationMemory;
+  learningHabits: LearningHabitsMemory;
+  lastDecayApplied: string; // ISO date when decay was last computed
+  memoryFreshness: number; // 0-1 overall memory quality
+}
+
+// ============================================
 // Memory Context (for injecting into prompts)
 // ============================================
 
@@ -119,4 +168,79 @@ export interface LearningContext {
   personalizationHints: string[];  // Hints for prompt generation
   avoidTopics: string[];           // Topics to avoid (already mastered or disengaged)
   suggestedDifficulty: string;     // remedial/core/challenge
+}
+
+// ============================================
+// Sprint 36: Memory Profile + Influence types
+// ============================================
+
+export interface MemoryProfile {
+  studentId: string;
+  generatedAt: string;
+  overallMetrics: {
+    memoryFreshness: number;
+    totalKnowledgePoints: number;
+    masteryPercentage: number;
+    learningVelocity: number; // items mastered per week
+    reviewCompliance: number;
+  };
+  skillProfiles: Record<string, {
+    level: string;
+    confidence: number;
+    strengthCount: number;
+    weaknessCount: number;
+    recommendedAction: string;
+  }>;
+  confidence: ConfidenceMemory;
+  motivation: MotivationMemory;
+  learningHabits: LearningHabitsMemory;
+  topStrengths: string[];
+  criticalWeaknesses: string[];
+  nextMilestones: string[];
+  nextMilestonesZh: string[];
+}
+
+export interface MemoryInfluence {
+  /** How memory should influence prompt generation */
+  promptModifiers: string[];
+  promptModifiersZh: string[];
+  /** How memory should influence exercise selection */
+  exercisePreferences: {
+    preferredFormats: string[];
+    topicsToFocus: string[];
+    topicsToAvoid: string[];
+    difficultyBias: 'remedial' | 'core' | 'challenge';
+  };
+  /** How memory should influence feedback style */
+  feedbackPreferences: {
+    detailLevel: 'minimal' | 'balanced' | 'detailed';
+    includeExamples: boolean;
+    includeChinglishWarnings: boolean;
+    tonePreference: 'encouraging' | 'direct' | 'analytical';
+  };
+  /** How memory should influence recommendations */
+  recommendationModifiers: {
+    prioritizeWeaknesses: boolean;
+    prioritizeInterests: boolean;
+    includeChallengeContent: boolean;
+    suggestedStrategies: string[];
+  };
+}
+
+export interface DecayResult {
+  memoryId: string;
+  appliedAt: string;
+  previousFreshness: number;
+  newFreshness: number;
+  decayedItems: number;
+  archivedItems: number;
+}
+
+export interface RefreshResult {
+  memoryId: string;
+  refreshedAt: string;
+  itemsRefreshed: number;
+  newTopicsDetected: number;
+  resolvedWeaknesses: number;
+  updatedSkills: string[];
 }
