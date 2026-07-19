@@ -83,3 +83,117 @@ export interface LearningScienceReport {
   recommendations: string[];
   recommendationsZh: string[];
 }
+
+// ============================================
+// Sprint 33: Learning Science Engine — new types
+// ============================================
+
+export type ItemType = 'knowledge-node' | 'vocabulary' | 'mistake' | 'grammar' | 'skill';
+export type DifficultyLevel = 'remedial' | 'core' | 'challenge';
+export type DifficultyDirection = 'increase' | 'decrease' | 'maintain';
+export type ReviewUrgency = 'critical' | 'high' | 'medium' | 'low';
+export type LearningStrategy = 'spaced-repetition' | 'retrieval-practice' | 'interleaving' | 'desirable-difficulty' | 'active-recall' | 'confidence-based' | 'reflection';
+
+export interface ReviewScheduleEntry {
+  id?: string;
+  studentId: string;
+  itemId: string;
+  itemType: ItemType;
+  skillDimension?: string;
+  title?: string;
+  titleZh?: string;
+  // SM-2 state
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+  lapses: number;
+  quality: number;
+  // Bayesian mastery
+  estimatedMastery: number;
+  masteryConfidence: number;
+  evidenceCount: number;
+  isMastered: boolean;
+  // Difficulty
+  currentDifficulty: DifficultyLevel;
+  difficultyAdjustment: DifficultyDirection;
+  adaptiveFactor: number;
+  // Retrieval
+  retrievalStrength: number;
+  timesCorrect: number;
+  timesIncorrect: number;
+  // Forgetting curve
+  reviewStrength: number;
+  retentionProbability: number;
+  // Reflection
+  lastReflection?: string;
+  reflectionNotes?: string;
+  // Scheduling
+  lastReviewedAt?: string;
+  nextReviewAt: string;
+  reviewPriority: number;
+  reviewUrgency: ReviewUrgency;
+  // Recommendation
+  recommendationReason?: string;
+  recommendationReasonZh?: string;
+  recommendedStrategy?: LearningStrategy;
+}
+
+export interface LearningSessionInput {
+  studentId: string;
+  items: Array<{
+    itemId: string;
+    itemType: ItemType;
+    skillDimension?: string;
+    title?: string;
+    titleZh?: string;
+    correct: boolean;
+    quality: number; // 0-5 SM-2
+    responseTimeMs?: number;
+    difficulty?: DifficultyLevel;
+  }>;
+  sessionDurationMs?: number;
+}
+
+export interface LearningSessionOutput {
+  studentId: string;
+  sessionId: string;
+  generatedAt: string;
+  items: ReviewScheduleEntry[];
+  summary: {
+    totalItems: number;
+    correctCount: number;
+    incorrectCount: number;
+    averageQuality: number;
+    averageRetention: number;
+    masteredCount: number;
+    newMasteries: string[];
+    dueForReview: number;
+    urgentCount: number;
+  };
+  difficultyRecommendations: Array<{
+    itemId: string;
+    from: DifficultyLevel;
+    to: DifficultyLevel;
+    reason: string;
+  }>;
+  reflectionPrompts: string[];
+  nextSessionRecommendation: string;
+}
+
+export interface EffectivenessReport {
+  studentId: string;
+  period: { start: string; end: string };
+  metrics: {
+    averageRetention: number;
+    retentionTrend: 'improving' | 'stable' | 'declining';
+    averageMasteryGain: number;
+    itemsMastered: number;
+    itemsRegressed: number;
+    optimalDifficultyRate: number; // % of items in sweet spot (70-85%)
+    averageCalibration: number; // self-assessment vs actual gap
+    reviewCompliance: number; // % of due items reviewed on time
+    timeToMastery: number; // average days to mastery
+  };
+  recommendations: string[];
+  recommendationsZh: string[];
+}
