@@ -129,6 +129,109 @@ export interface PriorityAction {
   effort: 'low' | 'medium' | 'high';
 }
 
+// ============================================
+// Sprint 39: Writing Coach Pro — enhanced types
+// ============================================
+
+export interface IELTSScores {
+  taskAchievement: { score: number; maxScore: number; band: number; comments: string };
+  coherenceAndCohesion: { score: number; maxScore: number; band: number; comments: string };
+  lexicalResource: { score: number; maxScore: number; band: number; comments: string };
+  grammaticalRange: { score: number; maxScore: number; band: number; comments: string };
+  overallBand: number;
+}
+
+export interface ProRubricScores extends RubricScores {
+  ielts?: IELTSScores;
+}
+
+export interface SentenceVarietyAnalysis {
+  simpleCount: number;
+  compoundCount: number;
+  complexCount: number;
+  compoundComplexCount: number;
+  varietyScore: number; // 0-1
+  averageLength: number;
+  longestSentence: number;
+  suggestions: string[];
+  suggestionsZh: string[];
+}
+
+export interface ToneRegisterAnalysis {
+  tone: 'formal' | 'semi-formal' | 'informal' | 'inconsistent';
+  register: 'academic' | 'professional' | 'casual' | 'mixed';
+  consistency: number; // 0-1
+  inappropriateShifts: Array<{ location: string; from: string; to: string }>;
+  suggestions: string[];
+  suggestionsZh: string[];
+}
+
+export interface LogicArgumentAnalysis {
+  thesisClarity: number; // 0-1
+  argumentStrength: number; // 0-1
+  evidenceQuality: number; // 0-1
+  counterargumentPresence: boolean;
+  logicalFallacies: string[];
+  transitionsQuality: number;
+  overallPersuasiveness: number;
+  suggestions: string[];
+  suggestionsZh: string[];
+}
+
+export interface ExpressionUpgrade {
+  original: string;
+  upgraded: string;
+  type: 'clarity' | 'conciseness' | 'impact' | 'flow' | 'formality';
+  explanation: string;
+  explanationZh: string;
+}
+
+export interface ParagraphRewrite {
+  originalParagraph: string;
+  rewrittenParagraph: string;
+  changes: Array<{ what: string; why: string; whyZh: string }>;
+  improvementScore: number;
+}
+
+export interface SentenceRewrite {
+  original: string;
+  rewritten: string;
+  technique: 'combine' | 'split' | 'reorder' | 'vary-opening' | 'active-voice' | 'parallelism';
+  explanation: string;
+  explanationZh: string;
+}
+
+export interface ProRevisionPlan extends RevisionPlan {
+  vocabularyUpgrades: ExpressionUpgrade[];
+  grammarUpgrades: ExpressionUpgrade[];
+  betterExpressions: ExpressionUpgrade[];
+  sentenceRewrites: SentenceRewrite[];
+  paragraphRewrites: ParagraphRewrite[];
+  estimatedScoreGain: number;
+}
+
+export interface ProRevisionComparison {
+  essayId: string;
+  originalVersion: number;
+  newVersion: number;
+  scoreChange: { before: number; after: number; gain: number };
+  improvements: Array<{ area: string; before: string; after: string; impact: string }>;
+  vocabularyChanges: { added: string[]; removed: string[]; upgraded: Array<{ from: string; to: string }> };
+  grammarChanges: { fixed: number; remaining: number };
+}
+
+export interface RevisionRecord {
+  id: string;
+  essayId: string;
+  studentId: string;
+  version: number;
+  content: string;
+  scores: ProRubricScores;
+  totalScore: number;
+  createdAt: string;
+  changesFromPrevious?: ProRevisionComparison;
+}
+
 export interface RevisionComparison {
   originalId: string;
   revisedId: string;
