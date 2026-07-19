@@ -35,3 +35,9 @@ export { KnowledgeTraversalService, knowledgeTraversalService } from './services
 export { LearningPathGenerator, learningPathGenerator } from './services/learning-path-generator';
 export { WeaknessLocator, weaknessLocator } from './services/weakness-locator';
 export { SkillDependencyResolver, skillDependencyResolver } from './services/skill-dependency-resolver';
+
+// Schemas (Sprint 40)
+export {
+  graphQuerySchema, nodeParamsSchema, learningOrderQuerySchema,
+  masteryDataSchema, learningPathBodySchema, recommendNextBodySchema,
+} from './schemas';

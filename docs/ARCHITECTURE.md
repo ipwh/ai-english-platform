@@ -491,6 +491,13 @@ Mastery score (0-100) = weighted sum of:
 | `any[]` return type | `student/repositories/student-repo.ts` | Narrowed to `{ id: string } & Record<string, unknown>` |
 | Missing `kv` config | `shared/config/config.ts` | Added `kv` section (url, token, isConfigured) |
 
+### Fixed in Sprint 40 Audit (Phase 3)
+
+| Issue | File | Fix |
+|-------|------|-----|
+| Missing Zod schemas | `knowledge-graph/` | Added `schemas/index.ts` (6 schemas: graph, node, learning-order, mastery-data, learning-path, recommend-next) |
+| Direct `process.env` | `production/services/production-ready.ts` | → `config.deepseek.isConfigured` / `config.gemini.isConfigured` |
+
 ### Remaining Tech Debt (non-blocking)
 
 | Item | Severity | Count |

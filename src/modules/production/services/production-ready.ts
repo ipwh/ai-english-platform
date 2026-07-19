@@ -1,5 +1,6 @@
 // Sprint 29: Production Readiness — Circuit Breaker + Retry Strategy
 import { logger } from '@/shared/logger/logger';
+import { config } from '@/shared/config/config';
 
 // ============================================
 // Circuit Breaker
@@ -268,7 +269,7 @@ export async function healthCheck(): Promise<HealthStatus> {
   // Check AI provider
   const aiStart = Date.now();
   try {
-    const configured = process.env.DEEPSEEK_API_KEY || process.env.GEMINI_API_KEY;
+    const configured = config.deepseek.isConfigured || config.gemini.isConfigured;
     checks.ai = { status: configured ? 'healthy' : 'degraded', message: configured ? 'AI configured' : 'No AI key set', latencyMs: Date.now() - aiStart };
     if (!configured) healthy = false;
   } catch {
@@ -303,7 +304,7 @@ export async function readinessCheck(): Promise<{ ready: boolean; checks: Record
   return {
     ready: true,
     checks: {
-      ai: !!(process.env.DEEPSEEK_API_KEY || process.env.GEMINI_API_KEY),
+      ai: !!(config.deepseek.isConfigured || config.gemini.isConfigured),
       database: true,
       memory: true,
     },
