@@ -87,11 +87,14 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[generate-questions] Error:', message);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[generate-questions] Error type:', typeof err, 'name:', (err as Error)?.name, 'message:', message);
+    console.error('[generate-questions] Stack:', (err as Error)?.stack?.slice(0, 500));
+    // Log DeepSeek config status for diagnostics
+    console.error('[generate-questions] DeepSeek configured:', isDeepSeekConfigured());
     return NextResponse.json({
       error: `AI 生成失敗：${message}`,
-      _meta: { provider: getLastAIProvider() },
+      _meta: { provider: getLastAIProvider(), deepseekConfigured: isDeepSeekConfigured() },
     }, {
       status: 500,
       headers: { 'X-AI-Provider': getLastAIProvider() },
