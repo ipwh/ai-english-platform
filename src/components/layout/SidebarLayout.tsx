@@ -544,7 +544,12 @@ export default function SidebarLayout({
               </button>
               {/* Logout */}
               <button
-                onClick={() => { if (confirm(t('common.confirmLogout'))) router.push('/api/auth/logout'); }}
+                onClick={async () => {
+                  if (confirm(t('common.confirmLogout'))) {
+                    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+                    router.push('/login');
+                  }
+                }}
                 className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title={t('common.logout')}
               >
