@@ -4,6 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { validateRequest, mistakeBulkSchemaApi } from '@/shared/validation/schemas';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
 
@@ -15,7 +16,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, action, ids } = body as {
+    const parsed = validateRequest(mistakeBulkSchemaApi, body);
+    const parsed = validateRequest(mistakeBulkSchemaApi, body);
+    const { studentId, action, ids } = parsed as {
       studentId: string;
       action: 'markAllReviewed' | 'deleteSelected' | 'addAllToReview';
       ids?: string[];

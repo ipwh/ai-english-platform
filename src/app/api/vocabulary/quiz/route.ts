@@ -4,6 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { validateRequest, vocabQuizSchema } from '@/shared/validation/schemas';
 import { db } from '@/shared/db/db';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { serializeVocab } from '@/shared/utils/utils';
@@ -11,7 +12,9 @@ import { serializeVocab } from '@/shared/utils/utils';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { studentId, type, count, wordIds } = body;
+    const parsed = validateRequest(vocabQuizSchema, body);
+    const parsed = validateRequest(vocabQuizSchema, body);
+    const { studentId, type, count, wordIds `} = parsed;
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });

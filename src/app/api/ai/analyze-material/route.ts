@@ -1,9 +1,10 @@
-﻿// ============================================
+// ============================================
 // API Route: POST /api/ai/analyze-material
 // 分析教材內容
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { validateRequest, analyzeMaterialSchema } from '@/shared/validation/schemas';
 import { analyzeMaterial, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -31,7 +32,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, content, gradeLevel } = body;
+    const parsed = validateRequest(analyzeMaterialSchema, body);
+    const parsed = validateRequest(analyzeMaterialSchema, body);
+    const { title, content, gradeLevel `} = parsed;
 
     if (!title || !content) {
       return NextResponse.json(
@@ -62,5 +65,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
 

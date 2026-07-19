@@ -4,6 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { validateRequest, vocabSuggestSchema } from '@/shared/validation/schemas';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
@@ -17,7 +18,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, text, source, gradeLevel } = body;
+    const parsed = validateRequest(vocabSuggestSchema, body);
+    const parsed = validateRequest(vocabSuggestSchema, body);
+    const { studentId, text, source, gradeLevel `} = parsed;
 
     if (!studentId || !text) {
       return NextResponse.json({ error: 'studentId, text 為必填' }, { status: 400 });
