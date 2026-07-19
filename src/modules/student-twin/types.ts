@@ -1,0 +1,229 @@
+// Sprint 37: Student Digital Twin — types
+import type { SkillDimension } from '@/modules/profile/types';
+import type { CEFRLevel, HKDSELevel } from '@/modules/knowledge-graph/types';
+
+// ============================================
+// StudentTwin — complete digital representation
+// ============================================
+
+export interface StudentTwin {
+  studentId: string;
+  generatedAt: string;
+  persona: LearningPersona;
+  knowledge: KnowledgeState;
+  motivation: MotivationState;
+  confidence: ConfidenceState;
+  habits: LearningHabit;
+  predictions: TwinPredictions;
+  risks: RiskAssessment;
+  dashboard: DashboardData;
+}
+
+// ============================================
+// LearningPersona — derived learning profile
+// ============================================
+
+export interface LearningPersona {
+  type: PersonaType;
+  typeZh: string;
+  description: string;
+  descriptionZh: string;
+  traits: string[];
+  traitsZh: string[];
+  recommendedApproach: string;
+  recommendedApproachZh: string;
+}
+
+export type PersonaType =
+  | 'steady-grinder' | 'fast-learner' | 'struggling-but-persistent'
+  | 'high-potential-unfocused' | 'exam-crammer' | 'balanced-achiever'
+  | 'curious-explorer' | 'anxious-perfectionist';
+
+// ============================================
+// KnowledgeState — current + predicted knowledge
+// ============================================
+
+export interface KnowledgeState {
+  /** Mastery scores per skill dimension */
+  currentMastery: Record<string, number>;
+  /** Predicted mastery in 7/30/90 days */
+  predictedMastery: {
+    '7d': Record<string, number>;
+    '30d': Record<string, number>;
+    '90d': Record<string, number>;
+  };
+  /** Skills ordered by strength */
+  strongSkills: SkillRank[];
+  /** Skills ordered by weakness */
+  weakSkills: SkillRank[];
+  /** Overall HKDSE estimated level */
+  estimatedHkdseLevel: string;
+  /** Overall CEFR estimated level */
+  estimatedCefrLevel: CEFRLevel;
+  /** Total knowledge nodes mastered */
+  nodesMastered: number;
+  /** Total knowledge nodes in curriculum */
+  totalNodes: number;
+  /** Learning velocity (nodes mastered per week) */
+  learningVelocity: number;
+  /** Knowledge retention rate */
+  retentionRate: number;
+}
+
+export interface SkillRank {
+  skill: string;
+  skillZh?: string;
+  currentScore: number;
+  predictedScore: number;
+  trend: 'improving' | 'stable' | 'declining';
+  confidence: number;
+}
+
+// ============================================
+// MotivationState
+// ============================================
+
+export interface MotivationState {
+  overallScore: number; // 0-1
+  intrinsic: number;
+  extrinsic: number;
+  trend: 'improving' | 'stable' | 'declining';
+  engagementLevel: number;
+  consistencyScore: number;
+  burnoutRisk: number;
+  dropoutRisk: number;
+  recentAchievements: string[];
+  suggestedMotivators: string[];
+  suggestedMotivatorsZh: string[];
+}
+
+// ============================================
+// ConfidenceState
+// ============================================
+
+export interface ConfidenceState {
+  overallConfidence: number; // 0-1
+  perSkill: Record<string, number>;
+  calibrationAccuracy: number; // how well self-assessment matches actual
+  overconfidentIn: string[];
+  underconfidentIn: string[];
+  confidenceTrend: 'improving' | 'stable' | 'declining';
+  suggestedConfidenceBoosters: string[];
+  suggestedConfidenceBoostersZh: string[];
+}
+
+// ============================================
+// LearningHabit
+// ============================================
+
+export interface LearningHabit {
+  preferredTime: 'morning' | 'afternoon' | 'evening' | 'night';
+  sessionsPerWeek: number;
+  avgSessionMinutes: number;
+  completionRate: number;
+  consistencyScore: number;
+  procrastinationIndex: number;
+  focusLevel: number;
+  fatigueEstimation: number; // 0-1, higher = more fatigued
+  optimalSessionLength: number; // recommended minutes
+  distractionPatterns: string[];
+  improvementSuggestions: string[];
+  improvementSuggestionsZh: string[];
+}
+
+// ============================================
+// TwinPredictions
+// ============================================
+
+export interface TwinPredictions {
+  /** Predicted HKDSE level in 90 days */
+  predictedHkdseLevel: string;
+  /** Predicted exam score (0-100) */
+  predictedExamScore: number;
+  /** Score range with confidence */
+  examScoreRange: { low: number; high: number; confidence: number };
+  /** Predicted CEFR level in 90 days */
+  predictedCefrLevel: CEFRLevel;
+  /** Predicted mastery percentages per skill */
+  skillPredictions: Array<{
+    skill: string;
+    currentScore: number;
+    predictedScore: number;
+    confidence: number;
+    estimatedDaysToMastery: number | null;
+  }>;
+  /** Overall learning trajectory */
+  trajectory: 'accelerating' | 'steady' | 'plateauing' | 'declining';
+  /** Recommended weekly study time (minutes) */
+  recommendedWeeklyMinutes: number;
+}
+
+// ============================================
+// RiskAssessment
+// ============================================
+
+export interface RiskAssessment {
+  overallRisk: 'low' | 'moderate' | 'high' | 'critical';
+  dropoutRisk: number; // 0-1
+  burnoutRisk: number; // 0-1
+  plateauRisk: number; // 0-1
+  regressionRisk: number; // 0-1 (risk of losing previously mastered skills)
+  examReadiness: number; // 0-1
+  riskFactors: string[];
+  riskFactorsZh: string[];
+  mitigationStrategies: string[];
+  mitigationStrategiesZh: string[];
+  requiresIntervention: boolean;
+  interventionSuggestions: string[];
+  interventionSuggestionsZh: string[];
+}
+
+// ============================================
+// DashboardData — ready-to-render JSON
+// ============================================
+
+export interface DashboardData {
+  summary: {
+    studentId: string;
+    personaType: string;
+    personaTypeZh: string;
+    estimatedLevel: string;
+    overallProgress: number; // 0-1
+  };
+  kpiCards: Array<{
+    key: string;
+    label: string;
+    labelZh: string;
+    value: number;
+    unit: string;
+    trend: 'up' | 'down' | 'stable';
+    color: 'green' | 'yellow' | 'red' | 'blue';
+  }>;
+  skillRadar: Array<{
+    skill: string;
+    skillZh: string;
+    current: number;
+    predicted: number;
+    maxValue: number;
+  }>;
+  learningVelocity: Array<{
+    week: string;
+    velocity: number;
+    sessionsCompleted: number;
+  }>;
+  riskIndicators: Array<{
+    type: string;
+    label: string;
+    labelZh: string;
+    level: 'low' | 'moderate' | 'high' | 'critical';
+    score: number;
+    action: string;
+    actionZh: string;
+  }>;
+  nextMilestones: Array<{
+    milestone: string;
+    milestoneZh: string;
+    progress: number;
+    estimatedDays: number;
+  }>;
+}
