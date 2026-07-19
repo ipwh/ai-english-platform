@@ -10,7 +10,14 @@ export type {
 export { memoryService, createEmptyMemory } from './services/memory-service';
 export { memoryRepo } from './repositories/memory-repository';
 export {
+  persistMemoryToDb, loadMemoryFromDb, deleteMemoryFromDb,
+  initMemoryPersistence, loadAllMemoriesFromDb,
+} from './repositories/memory-db-repository';
+export {
   decayScore, recencyScore, weaknessSeverity, strengthConfidence,
   generateLearningContext, shouldUpdateMemory, calculateMemoryFreshness,
   estimateMemorySize,
 } from './services/memory-scoring';
+export {
+  getMemoryContext, enrichSystemPrompt, getMemorySummary, recordAiInteraction,
+} from './services/ai-memory-integration';

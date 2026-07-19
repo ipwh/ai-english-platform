@@ -671,3 +671,15 @@ model SpellingAttempt {
   @@index([sessionId])
   @@index([vocabId])
 }
+
+// ============================================
+// Sprint 25: Learning Memory — persistent student context
+// ============================================
+
+model LearningMemory {
+  studentId  String   @id
+  memoryJson String   @default("{}")
+  version    Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
