@@ -8,6 +8,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
+import { validateRequest } from '@/shared/validation/schemas';
+import { z } from 'zod';
+
+const isDraftSchema = z.object({
+  studentNotes: z.string().optional(),
+  studentWriting: z.string().optional(),
+  taskData: z.any().optional(),
+  stage: z.enum(['config', 'listening', 'writing', 'result']).optional(),
+  activeStep: z.coerce.number().int().min(1).max(3).optional(),
+  listeningCompleted: z.boolean().optional(),
+});
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -62,7 +73,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { studentNotes, studentWriting, taskData, stage, activeStep, listeningCompleted } = body;
+    const parsed = validateRequest(isDraftSchema, body);
+    const { studentNotes, studentWriting, taskData, stage, activeStep, listeningCompleted } = parsed;
 
     const draft = await db.integratedSkillsDraft.upsert({
       where: { userId },

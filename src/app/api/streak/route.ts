@@ -8,6 +8,12 @@ import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { syncUserStreak } from '@/modules/progress/services/streak-service';
 import { calculateXp } from '@/modules/progress/services/gamification';
+import { validateRequest, studentId } from '@/shared/validation/schemas';
+import { z } from 'zod';
+
+const streakSchema = z.object({
+  studentId,
+});
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -17,11 +23,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId } = body;
-
-    if (!studentId) {
-      return NextResponse.json({ error: 'studentId required' }, { status: 400 });
-    }
+    const parsed = validateRequest(streakSchema, body);
+    const { studentId } = parsed;
 
     // Sync streak from actual DB activity
     const streakDays = await syncUserStreak(studentId);

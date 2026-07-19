@@ -12,6 +12,7 @@ import { teacherTranslations } from './i18n-teacher';
 import { commonTranslations } from './i18n-common';
 import { loginTranslations } from './i18n-login';
 import { roleTranslations } from './i18n-role';
+import { practiceTranslations } from './i18n-practice';
 
 const translations: Record<string, { zh: string; en: string }> = {
   // 模組化翻譯（來自 i18n-*.ts 拆分檔）
@@ -23,6 +24,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   ...commonTranslations,
   ...loginTranslations,
   ...roleTranslations,
+  ...practiceTranslations,
 
   // 以下為尚未模組化的翻譯（待遷移至 i18n-*.ts）
   'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },

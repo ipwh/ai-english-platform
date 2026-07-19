@@ -6,6 +6,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { db } from '@/shared/db/db';
+import { validateRequest, studentLevel } from '@/shared/validation/schemas';
+import { z } from 'zod';
+
+const settingsUpdateSchema = z.object({
+  subjects: z.union([z.string(), z.array(z.string())]).optional(),
+  level: studentLevel,
+});
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   // NextAuth session
@@ -64,11 +71,12 @@ export async function PATCH(request: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
+  const parsed = validateRequest(settingsUpdateSchema, body);
 
   // Update user fields
   const userData: Record<string, unknown> = {};
-  if (body.subjects !== undefined) userData.subjects = typeof body.subjects === 'string' ? body.subjects : JSON.stringify(body.subjects);
-  if (body.level !== undefined) userData.level = body.level;
+  if (parsed.subjects !== undefined) userData.subjects = typeof parsed.subjects === 'string' ? parsed.subjects : JSON.stringify(parsed.subjects);
+  if (parsed.level !== undefined) userData.level = parsed.level;
 
   if (Object.keys(userData).length > 0) {
     await db.user.update({ where: { id: userId }, data: userData });

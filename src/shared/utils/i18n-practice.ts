@@ -1,0 +1,22 @@
+// Practice page translations
+export const practiceTranslations: Record<string, { zh: string; en: string }> = {
+  'practice.title': { zh: '📝 AI 練習', en: '📝 AI Practice' },
+  'practice.generate': { zh: '生成題目', en: 'Generate Questions' },
+  'practice.generating': { zh: '生成中...', en: 'Generating...' },
+  'practice.start': { zh: '開始練習', en: 'Start Practice' },
+  'practice.aiGen': { zh: 'AI 生成練習', en: 'AI Generate' },
+  'practice.browse': { zh: '瀏覽題庫', en: 'Browse' },
+  'practice.grammar': { zh: '文法項目', en: 'Grammar' },
+  'practice.skill': { zh: '技能範疇', en: 'Skill' },
+  'practice.difficulty': { zh: '難度', en: 'Difficulty' },
+  'practice.questionType': { zh: '題型', en: 'Type' },
+  'practice.questionCount': { zh: '題數', en: 'Questions' },
+  'practice.advanced': { zh: '進階選項', en: 'Advanced' },
+  'practice.search': { zh: '搜尋題目...', en: 'Search questions...' },
+  'practice.aiError': { zh: 'AI 生成失敗', en: 'AI generation failed' },
+  'practice.networkError': { zh: '網絡錯誤，請重試。', en: 'Network error, please try again.' },
+  'practice.noHistory': { zh: '尚無練習記錄，開始你的第一次 AI 練習吧！', en: 'No practice history yet. Start your first AI practice!' },
+  'practice.weeklyQuestions': { zh: '本週 {n} 題', en: '{n} questions this week' },
+  'practice.weeklyAccuracy': { zh: '正確率 {n}%', en: 'Accuracy {n}%' },
+  'practice.generateBtn': { zh: '生成 {n} 題 AI 練習', en: 'Generate {n} AI questions' },
+};

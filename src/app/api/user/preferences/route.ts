@@ -8,6 +8,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
+import { validateRequest } from '@/shared/validation/schemas';
+import { z } from 'zod';
+
+const preferencesSchema = z.object({
+  language: z.enum(['zh', 'en']).optional(),
+  darkMode: z.boolean().optional(),
+  sidebarOpen: z.boolean().optional(),
+  notifAssignment: z.boolean().optional(),
+  notifSubmission: z.boolean().optional(),
+  notifFeedback: z.boolean().optional(),
+  notifAchievement: z.boolean().optional(),
+  notifSystem: z.boolean().optional(),
+});
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -62,7 +75,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { language, darkMode, sidebarOpen, notifAssignment, notifSubmission, notifFeedback, notifAchievement, notifSystem } = body;
+    const parsed = validateRequest(preferencesSchema, body);
+    const { language, darkMode, sidebarOpen, notifAssignment, notifSubmission, notifFeedback, notifAchievement, notifSystem } = parsed;
 
     const prefs = await db.userPreferences.upsert({
       where: { userId },
