@@ -1,123 +1,72 @@
 // ============================================
-// 全域狀態管理 (Zustand) — AI 英語學習平台
-// 支援 JWT 認證同步
+// 全域狀態管理 (Zustand) — 向後相容匯出
+// 已拆分為: authStore | uiStore | practiceStore | notificationStore
+// 此檔案保留以維持舊有 import 相容性
 // ============================================
 
-import { create } from 'zustand';
+import { useAuthStore } from './authStore';
+import { useUIStore } from './uiStore';
+import { usePracticeStore } from './practiceStore';
+import type { PracticeSession as PSSession } from './practiceStore';
+import { useNotificationStore } from './notificationStore';
 import type { UserRole, Notification, PracticeQuestion, DifficultyLevel } from '@/shared/types/types';
 
-// ============================================
-// 練習題目（AI 生成或預設）
-// ============================================
+// 重新導出型別
+export type PracticeSession = PSSession;
 
-export interface PracticeSession {
-  id: string;
-  startedAt: string;
-  completedAt?: string;
-  questions: PracticeQuestion[];
-  answers: Record<string, string>;     // questionId → studentAnswer
-  results: Record<string, boolean>;    // questionId → isCorrect
-  skill: string;                       // grammarItem or languageSkill
-  skillZh: string;
-  difficulty: DifficultyLevel;
-  totalQuestions: number;
-  correctCount: number;
-  source: 'ai-generated' | 'mock' | 'assignment';
-}
+// 重新導出各 store（向後相容）
+export { useAuthStore, useUIStore, usePracticeStore, useNotificationStore };
 
 // ============================================
-// App Store
+// 複合 AppStore — 向後相容的單一存取點
+// 新程式碼請直接使用各別 store
 // ============================================
 
-interface AppState {
-  // 認證狀態
-  isLoggedIn: boolean;
-  currentRole: UserRole | null;
-  userId: string | null;
-  userDisplayName: string | null;
+/** 向後相容 hook — 聚合所有 store（新程式碼請用個別 store） */
+export const useAppStore = () => {
+  const auth = useAuthStore();
+  const ui = useUIStore();
+  const practice = usePracticeStore();
+  const notif = useNotificationStore();
 
-  // UI 狀態
-  isDarkMode: boolean;
-  language: 'zh' | 'en';
-  sidebarOpen: boolean;
+  return {
+    // 認證
+    isLoggedIn: auth.isLoggedIn,
+    currentRole: auth.currentRole,
+    userId: auth.userId,
+    userDisplayName: auth.userDisplayName,
+    login: auth.login,
+    logout: auth.logout,
+    initSession: auth.initSession,
 
-  // 通知
-  notifications: Notification[];
-  unreadCount: number;
-  setNotifications: (notifications: Notification[], unreadCount: number) => void;
+    // UI
+    isDarkMode: ui.isDarkMode,
+    language: ui.language,
+    sidebarOpen: ui.sidebarOpen,
+    toggleDarkMode: ui.toggleDarkMode,
+    toggleLanguage: ui.toggleLanguage,
+    toggleSidebar: ui.toggleSidebar,
+    hydrateStoredPrefs: ui.hydrateStoredPrefs,
+    syncPreferencesFromServer: ui.syncPreferencesFromServer,
+    syncPreferencesToServer: ui.syncPreferencesToServer,
 
-  // === 練習進度追蹤 ===
-  practiceSessions: PracticeSession[];
-  currentSession: PracticeSession | null;
+    // 通知
+    notifications: notif.notifications,
+    unreadCount: notif.unreadCount,
+    setNotifications: notif.setNotifications,
 
-  // 動作 — 認證
-  login: (role: UserRole) => void;
-  logout: () => Promise<void>;
-  initSession: () => Promise<void>;
-  toggleDarkMode: () => void;
-  toggleLanguage: () => void;
-  toggleSidebar: () => void;
-
-  // 動作 — 偏好設定（hydration-safe）
-  hydrateStoredPrefs: () => void;
-  /** 從後端拉取偏好設定（跨裝置同步） */
-  syncPreferencesFromServer: () => Promise<void>;
-  /** 將當前偏好設定推送至後端 */
-  syncPreferencesToServer: () => Promise<void>;
-
-  // 動作 — 練習
-  startSession: (session: PracticeSession) => void;
-  submitAnswer: (questionId: string, answer: string, isCorrect: boolean) => void;
-  completeSession: () => void;
-  loadPracticeHistory: () => Promise<void>;
-  getMasteryBySkill: () => { skill: string; skillZh: string; accuracy: number; total: number }[];
-  getRecentSessions: (limit?: number) => PracticeSession[];
-  getWeeklyStats: () => { questionsDone: number; accuracy: number; sessionsCount: number; streakDays: number };
-}
-
-export const useAppStore = create<AppState>((set, get) => ({
-  // 預設值
-  isLoggedIn: false,
-  currentRole: null,
-  userId: null,
-  userDisplayName: null as string | null,
-  // 初始值必須與伺服器端一致（避免 hydration mismatch）
-  // localStorage 值在 useEffect（hydrateStoredPrefs）中載入
-  isDarkMode: false,
-  language: 'zh' as 'zh' | 'en',
-  sidebarOpen: true,
-  notifications: [],
-  unreadCount: 0,
-  setNotifications: (notifications, unreadCount) => set({ notifications, unreadCount }),
-  practiceSessions: [],
-  currentSession: null,
-
-  // === 認證動作 ===
-
-  login: (role: UserRole) => {
-    set({ isLoggedIn: true, currentRole: role });
-  },
-
-  logout: async () => {
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { console.error('Failed to call logout API:', e); }
-    set({ isLoggedIn: false, currentRole: null, userId: null });
-  },
-
-  /** 從伺服器 session 初始化登入狀態（JWT 優先，NextAuth 為備援） */
-  initSession: async () => {
-    // 優先檢查 JWT session（密碼登入）— 確保 demo 帳號不會被 stale NextAuth cookie 覆蓋
-    try {
-      const jwtRes = await fetch('/api/auth/jwt-session');
-      if (jwtRes.ok) {
-        const jwtJson = await jwtRes.json();
-        if (jwtJson.loggedIn && jwtJson.user) {
-          set({
-            isLoggedIn: true,
-            currentRole: jwtJson.user.role,
-            userId: jwtJson.user.userId,
-            userDisplayName: jwtJson.user.nameZh || jwtJson.user.nameEn || jwtJson.user.email?.split('@')[0] || null,
-          });
-          return;
+    // 練習
+    practiceSessions: practice.practiceSessions,
+    currentSession: practice.currentSession,
+    startSession: practice.startSession,
+    submitAnswer: practice.submitAnswer,
+    completeSession: practice.completeSession,
+    loadPracticeHistory: practice.loadPracticeHistory,
+    getMasteryBySkill: practice.getMasteryBySkill,
+    getRecentSessions: practice.getRecentSessions,
+    getWeeklyStats: practice.getWeeklyStats,
+  };
+};
         }
       }
     } catch { /* fallback to NextAuth */ }

@@ -1,0 +1,22 @@
+// Groups page translations
+export const groupsTranslations: Record<string, { zh: string; en: string }> = {
+  'groups.title': { zh: '👥 組別管理', en: '👥 Group Management' },
+  'groups.create': { zh: '建立組別', en: 'Create Group' },
+  'groups.createTitle': { zh: '建立新組別', en: 'Create New Group' },
+  'groups.namePlaceholder': { zh: '組別名稱（如：補底組、拔尖組）', en: 'Group name (e.g. Remedial, Elite)' },
+  'groups.descPlaceholder': { zh: '描述（可選）', en: 'Description (optional)' },
+  'groups.selectStudents': { zh: '選擇學生（可選，稍後可再添加）', en: 'Select students (optional, can add later)' },
+  'groups.paste': { zh: '貼上', en: 'Paste' },
+  'groups.pasteHint': { zh: '貼上學生姓名/電郵（每行一個，或逗號/分號分隔）', en: 'Paste student names/emails (one per line, or comma/semicolon separated)' },
+  'groups.add': { zh: '加入', en: 'Add' },
+  'groups.cancel': { zh: '取消', en: 'Cancel' },
+  'groups.createBtn': { zh: '建立', en: 'Create' },
+  'groups.empty': { zh: '暫無組別', en: 'No groups yet' },
+  'groups.edit': { zh: '編輯', en: 'Edit' },
+  'groups.delete': { zh: '刪除', en: 'Delete' },
+  'groups.members': { zh: '{n} 人', en: '{n} members' },
+  'groups.assignments': { zh: '{n} 作業', en: '{n} assignments' },
+  'groups.noMembers': { zh: '暫無成員', en: 'No members' },
+  'groups.searchStudent': { zh: '搜尋學生...', en: 'Search students...' },
+  'groups.confirmDelete': { zh: '確定要刪除此組別？', en: 'Are you sure you want to delete this group?' },
+};

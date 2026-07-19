@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { PracticeRepo, MistakeRepo, StudentRepo } from '@/modules/repositories';
+import { validateRequest, practiceCreateSchema } from '@/shared/validation/schemas';
 
 const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
@@ -30,11 +31,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, skill, skillZh, difficulty, totalQuestions, correctCount, source, answers } = body;
-
-    if (!studentId) {
-      return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
-    }
+    const parsed = validateRequest(practiceCreateSchema, body);
+    const { studentId, skill, skillZh, difficulty, totalQuestions, correctCount, source, answers } = parsed;
 
     // 🔒 Ownership check: only the student themselves or a teacher can write practice data
     if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {

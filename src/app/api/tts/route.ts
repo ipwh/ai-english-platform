@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { synthesizeSpeech } from '@/modules/ai/services/tts-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { validateRequest, ttsRequestSchema } from '@/shared/validation/schemas';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 多人對話需要多次 API call，給充足時間
@@ -21,21 +22,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => null);
-    if (!body || !body.text) {
+    if (!body) {
       return NextResponse.json(
-        { error: 'Missing required field: text' },
+        { error: 'Invalid request body' },
         { status: 400 }
       );
     }
-
+    const parsed = validateRequest(ttsRequestSchema, body);
     const {
       text,
       voiceName,
-      voiceTier = 'default',
-      speakingRate = 1.0,
-      multiSpeaker = false,  // 預設純文字模式：前端已預處理 text，server 不自行解析 speaker
-      audioEncoding = 'MP3',
-    } = body;
+      voiceTier,
+      speakingRate,
+      multiSpeaker,
+      audioEncoding,
+    } = parsed;
 
     if (typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json(

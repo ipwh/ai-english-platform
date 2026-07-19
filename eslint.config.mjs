@@ -35,6 +35,11 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "warn",
       "@next/next/no-img-element": "warn",
       "prefer-const": "warn",
+      // Enforce structured logging — forbid console.log/error/warn
+      // Use logger.info/error/warn from '@/shared/logger/logger' instead
+      "no-console": ["error", {
+        allow: ["warn", "error"],
+      }],
     },
   },
 ]);

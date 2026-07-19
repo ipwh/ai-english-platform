@@ -9,6 +9,8 @@ export const assignmentId = z.string().min(1, 'assignmentId 為必填');
 
 export const difficulty = z.enum(['remedial', 'core', 'challenge']);
 export const gradeLevel = z.string().regex(/^S[1-6]$/, 'gradeLevel 必須為 S1-S6');
+/** Student level for AI prompts — accepts S1-S6 or any string */
+export const studentLevel = z.string().optional();
 export const role = z.enum(['student', 'teacher', 'admin']);
 
 export const pagination = z.object({

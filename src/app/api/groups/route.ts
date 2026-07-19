@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
+import { validateRequest, groupCreateSchemaApi, groupUpdateSchemaApi } from '@/shared/validation/schemas';
 
 async function getTeacherId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -71,12 +72,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // 🔒 Zod validation
     const body = await request.json();
-    const { name, description, studentIds } = body;
-
-    if (!name?.trim()) {
-      return NextResponse.json({ error: '組別名稱為必填' }, { status: 400 });
-    }
+    const parsed = validateRequest(groupCreateSchemaApi, body);
+    const { name, description, studentIds } = parsed;
 
     const group = await db.group.create({
       data: {
@@ -106,12 +105,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // 🔒 Zod validation
     const body = await request.json();
-    const { id, name, description } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
-    }
+    const parsed = validateRequest(groupUpdateSchemaApi, body);
+    const { id, name, description } = parsed;
 
     // 驗證所有權
     const existing = await db.group.findUnique({ where: { id }, select: { createdBy: true } });

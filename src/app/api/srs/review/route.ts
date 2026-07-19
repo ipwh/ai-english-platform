@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/modules/vocabulary/services/srs';
+import { logger } from '@/shared/logger/logger';
 
 // GET — 取得今日待複習的詞彙 + 錯題
 export async function GET(req: NextRequest) {
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[SRS Review GET]', error);
+    logger.error({ module: 'srs-review', error: (error as Error).message }, 'GET failed');
     return NextResponse.json({ error: '無法載入複習卡片' }, { status: 500 });
   }
 }
@@ -127,10 +128,20 @@ export async function POST(req: NextRequest) {
 
     const updates: Promise<any>[] = [];
 
+    // 🔥 Batch-fetch all vocab items first to avoid N+1
+    const vocabIds = results.filter(r => r.type === 'vocab').map(r => r.id);
+    const vocabMap = new Map<string, Awaited<ReturnType<typeof db.vocabItem.findUnique>>>();
+    if (vocabIds.length > 0) {
+      const vocabItems = await db.vocabItem.findMany({
+        where: { id: { in: vocabIds }, studentId },
+      });
+      for (const v of vocabItems) vocabMap.set(v.id, v as NonNullable<typeof v>);
+    }
+
     for (const r of results) {
       if (r.type === 'vocab') {
-        const vocab = await db.vocabItem.findUnique({ where: { id: r.id } });
-        if (!vocab || vocab.studentId !== studentId) continue;
+        const vocab = vocabMap.get(r.id);
+        if (!vocab) continue;
 
         // 使用 vocab 現有的 SRS 狀態（easeFactor, reviewInterval, lastReviewedAt）
         const quality = r.quality;
@@ -181,7 +192,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, processed: results.length });
   } catch (error) {
-    console.error('[SRS Review POST]', error);
+    logger.error({ module: 'srs-review', error: (error as Error).message }, 'POST failed');
     return NextResponse.json({ error: '無法儲存複習結果' }, { status: 500 });
   }
 }

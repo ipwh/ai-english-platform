@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
+import { validateRequest, notificationCreateSchemaApi } from '@/shared/validation/schemas';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;

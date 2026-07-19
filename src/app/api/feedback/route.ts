@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
+import { validateRequest, feedbackCreateSchemaApi } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -15,11 +16,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 🔒 Zod validation
     const body = await request.json();
-    const { type, payload } = body as { type: string; payload: Record<string, unknown> };
-
-    // Persist to DB for analysis
-    const feedbackType = type || 'unknown';
+    const parsed = validateRequest(feedbackCreateSchemaApi, body);
+    const { type, payload } = parsed;
+    const feedbackType = type;
     await db.feedback.create({
       data: {
         userId: authResult.userId!,

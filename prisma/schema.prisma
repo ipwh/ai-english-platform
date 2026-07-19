@@ -39,10 +39,10 @@ model User {
   overallAccuracy Float?  @default(0)
   academicYear  String?   // 學年追蹤 (e.g. "2025-2026")
   xp            Int       @default(0)
-  badgeIds      String    @default("[]")  // JSON 陣列: ["streak-3", "accuracy-80"]
+  badgeIds      Json      @default("[]")  // JSON 陣列: ["streak-3", "accuracy-80"]
 
   // === 教師專屬欄位 ===
-  subjects      String?   // JSON 陣列: '["English Language"]'
+  subjects      Json?     // JSON 陣列: '["English Language"]'
   department    String?   // 所屬部門
   taughtClasses TeacherClass[]
 

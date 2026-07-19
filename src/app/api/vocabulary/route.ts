@@ -8,6 +8,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
 import type { Prisma } from '@prisma/client';
 import { cacheFor, CACHE_SHORT } from '@/shared/utils/api-cache';
+import { validateRequest, vocabCreateSchemaApi } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -18,17 +19,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    const parsed = validateRequest(vocabCreateSchemaApi, body);
     const {
       studentId, word, partOfSpeech, allPartOfSpeech,
       meaningZh, secondaryMeaningZh,
       exampleSentence, exampleZh,
       synonyms, antonyms, collocations,
       familiarity, masteryLevel,
-    } = body;
-
-    if (!studentId || !word) {
-      return NextResponse.json({ error: 'studentId, word 為必填' }, { status: 400 });
-    }
+    } = parsed;
 
     // 🔒 Ownership: students can only create vocab for themselves
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {

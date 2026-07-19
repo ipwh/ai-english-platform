@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/shared/auth/auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { ALL_CLEARABLE_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
+import { validateRequest, loginSchema } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,15 +31,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🔒 Zod validation
     const body = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: '請提供電郵地址和密碼。' },
-        { status: 400 }
-      );
-    }
+    const parsed = validateRequest(loginSchema, body);
+    const { email, password } = parsed;
 
     const result = await authenticateUser(email, password);
 

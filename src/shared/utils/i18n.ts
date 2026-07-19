@@ -3,100 +3,28 @@
 // 用法: import { t } from '@/shared/utils/i18n'; t('nav.dashboard')
 //       import { useT } from '@/hooks/use-i18n'; // Client Component 用（響應式）
 // ============================================
+// 翻譯已按功能模組拆分至 i18n-*.ts 檔案，此處聚合所有翻譯
+import { navTranslations } from './i18n-nav';
+import { isTranslations } from './i18n-is';
+import { groupsTranslations } from './i18n-groups';
+import { notifTranslations } from './i18n-notifications';
+import { teacherTranslations } from './i18n-teacher';
+import { commonTranslations } from './i18n-common';
+import { loginTranslations } from './i18n-login';
+import { roleTranslations } from './i18n-role';
 
 const translations: Record<string, { zh: string; en: string }> = {
-  // Navigation
-  'nav.dashboard': { zh: '學習主頁', en: 'Dashboard' },
-  'nav.practice': { zh: 'AI 練習', en: 'AI Practice' },
-  'nav.mistakes': { zh: '我的錯題', en: 'My Mistakes' },
-  'nav.vocabulary': { zh: '生字簿', en: 'Vocabulary' },
-  'nav.progress': { zh: '我的進度', en: 'My Progress' },
-  'nav.writing': { zh: '寫作支援', en: 'Writing Support' },
-  'nav.integratedSkills': { zh: 'Integrated Skills', en: 'Integrated Skills' },
-  'nav.dailyChallenge': { zh: '每日挑戰', en: 'Daily Challenge' },
-  'nav.reading': { zh: '閱讀理解', en: 'Reading' },
-  'nav.speaking': { zh: '會話練習', en: 'Speaking' },
-  'nav.assignments': { zh: '我的作業', en: 'My Assignments' },
+  // 模組化翻譯（來自 i18n-*.ts 拆分檔）
+  ...navTranslations,
+  ...isTranslations,
+  ...groupsTranslations,
+  ...notifTranslations,
+  ...teacherTranslations,
+  ...commonTranslations,
+  ...loginTranslations,
+  ...roleTranslations,
 
-  // Integrated Skills Page
-  'is.description': { zh: 'DSE Paper 3 Part B — 聆聽 → 筆記 → 寫作', en: 'DSE Paper 3 Part B — Listening → Notes → Writing' },
-  'is.grade': { zh: '📚 年級', en: '📚 Grade' },
-  'is.difficulty': { zh: '🎯 難度', en: '🎯 Difficulty' },
-  'is.taskType': { zh: '📝 任務類型', en: '📝 Task Type' },
-  'is.generate': { zh: 'AI 生成 Integrated Skills 任務', en: 'AI Generate Integrated Skills Task' },
-  'is.generating': { zh: 'AI 生成中...', en: 'AI Generating...' },
-  'is.generateFailed': { zh: 'AI 生成失敗，請稍後重試', en: 'AI generation failed, please try again later' },
-  'is.networkFailed': { zh: '網絡連線失敗，請檢查連線後重試', en: 'Network connection failed, please check and try again' },
-  'is.analyzeFailed': { zh: 'AI 批改失敗，請重試', en: 'AI analysis failed, please try again' },
-  'is.backToEdit': { zh: '返回修改', en: 'Back to Edit' },
-  'is.newTask': { zh: '生成新任務', en: 'Generate New Task' },
-  'is.saving': { zh: '儲存中...', en: 'Saving...' },
-  'is.saved': { zh: '已儲存', en: 'Saved' },
-  'is.unsaved': { zh: '未儲存', en: 'Unsaved changes' },
-  'is.stepListening': { zh: '聆聽', en: 'Listening' },
-  'is.stepNotes': { zh: '筆記', en: 'Notes' },
-  'is.stepWriting': { zh: '寫作', en: 'Writing' },
-  'is.listeningDesc': { zh: '仔細聆聽對話內容', en: 'Listen carefully to the dialogue' },
-  'is.playAudio': { zh: '播放對話', en: 'Play Dialogue' },
-  'is.hideTranscript': { zh: '隱藏聆聽文字', en: 'Hide Transcript' },
-  'is.showTranscript': { zh: '顯示聆聽文字', en: 'Show Transcript' },
-  'is.noteHint': { zh: '邊聽邊記下關鍵資訊', en: 'Jot down key info while listening' },
-  'is.noteGuide': { zh: '筆記指引', en: 'Note Guide' },
-  'is.hide': { zh: '隱藏', en: 'Hide' },
-  'is.hint': { zh: '提示', en: 'Hint' },
-  'is.notePlaceholder': { zh: '邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）...', en: 'Jot down key info (dates, numbers, names, events, reasons, results)...' },
-  'is.listeningDone': { zh: '已聽完對話，準備寫作！', en: 'Finished listening, ready to write!' },
-  'is.startWriting': { zh: '開始寫作', en: 'Start Writing' },
-  'is.chars': { zh: '字元', en: 'chars' },
-  'is.pleaseListenFirst': { zh: '請先完成聆聽', en: 'Please complete listening first' },
-  'is.manualSave': { zh: '手動儲存草稿', en: 'Save Draft' },
-  'is.doneNotesStartWriting': { zh: '完成筆記，開始寫作', en: 'Done with notes, start writing' },
-  'is.overWordLimit': { zh: '⚠️ 超出字數', en: '⚠️ Over word limit' },
-  'is.pleaseNoteFirst': { zh: '請先完成筆記', en: 'Please complete notes first' },
-  'is.writingTask': { zh: '寫作任務', en: 'Writing Task' },
-  'is.suggestedWords': { zh: '建議字數', en: 'Suggested word count' },
-  'is.writingPlaceholder': { zh: '根據你的筆記和寫作任務，在此撰寫你的答案...', en: 'Write your answer here based on your notes and the writing task...' },
-  'is.needNotesFirst': { zh: '請先完成筆記再提交寫作。', en: 'Please complete your notes before submitting.' },
-  'is.aiAnalyzing': { zh: 'AI 批改中...', en: 'AI Analyzing...' },
-  'is.submitForReview': { zh: '提交 AI 批改', en: 'Submit for AI Review' },
-  'is.completed': { zh: '已完成', en: 'Completed' },
-
-  // Notifications Page
-  'notifications.title': { zh: '通知設定', en: 'Notification Settings' },
-  'notifications.saved': { zh: '已儲存', en: 'Saved' },
-  'notifications.description': { zh: '選擇你想接收的通知類型。設定會自動儲存。', en: 'Choose which notification types to receive. Settings are saved automatically.' },
-
-  // Groups Page
-  'groups.title': { zh: '👥 組別管理', en: '👥 Group Management' },
-  'groups.create': { zh: '建立組別', en: 'Create Group' },
-  'groups.createTitle': { zh: '建立新組別', en: 'Create New Group' },
-  'groups.namePlaceholder': { zh: '組別名稱（如：補底組、拔尖組）', en: 'Group name (e.g. Remedial, Elite)' },
-  'groups.descPlaceholder': { zh: '描述（可選）', en: 'Description (optional)' },
-  'groups.selectStudents': { zh: '選擇學生（可選，稍後可再添加）', en: 'Select students (optional, can add later)' },
-  'groups.paste': { zh: '貼上', en: 'Paste' },
-  'groups.pasteHint': { zh: '貼上學生姓名/電郵（每行一個，或逗號/分號分隔）', en: 'Paste student names/emails (one per line, or comma/semicolon separated)' },
-  'groups.add': { zh: '加入', en: 'Add' },
-  'groups.cancel': { zh: '取消', en: 'Cancel' },
-  'groups.createBtn': { zh: '建立', en: 'Create' },
-  'groups.creating': { zh: '建立中...', en: 'Creating...' },
-  'groups.createFailed': { zh: '建立失敗', en: 'Create failed' },
-  'groups.connectionFailed': { zh: '連線失敗', en: 'Connection failed' },
-  'groups.editFailed': { zh: '編輯失敗', en: 'Edit failed' },
-  'groups.deleteFailed': { zh: '刪除失敗', en: 'Delete failed' },
-  'groups.deleteConfirm': { zh: '確定要刪除此組別嗎？此操作無法復原。', en: 'Are you sure you want to delete this group? This cannot be undone.' },
-  'groups.empty': { zh: '尚未建立任何組別', en: 'No groups created yet' },
-  'groups.emptyHint': { zh: '組別可用於跨班級派發作業（如補底組、拔尖組）', en: 'Groups can be used for cross-class assignments (e.g. remedial, elite groups)' },
-  'groups.members': { zh: '{n} 人', en: '{n} members' },
-  'groups.assignments': { zh: '{n} 作業', en: '{n} assignments' },
-  'groups.edit': { zh: '編輯', en: 'Edit' },
-  'groups.delete': { zh: '刪除', en: 'Delete' },
-  'groups.deleting': { zh: '刪除中...', en: 'Deleting...' },
-  'groups.memberList': { zh: '成員列表', en: 'Member List' },
-  'groups.noMembers': { zh: '暫無成員', en: 'No members yet' },
-  'groups.editNamePlaceholder': { zh: '組別名稱', en: 'Group name' },
-  'groups.save': { zh: '儲存', en: 'Save' },
-  'groups.notFound': { zh: '找不到匹配的學生。請使用學生姓名或電郵。', en: 'No matching students found. Use student name or email.' },
-
+  // 以下為尚未模組化的翻譯（待遷移至 i18n-*.ts）
   'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },
   'nav.help': { zh: '求助建議', en: 'Help' },
   'nav.profile': { zh: '個人檔案', en: 'Profile' },

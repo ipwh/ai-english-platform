@@ -66,10 +66,12 @@ export const analyzeIntegratedSkillsSchema = z.object({
 });
 
 export const generateWritingSchema = z.object({
+  action: z.enum(['prompt', 'outline']).optional(),
   textType: z.string().min(1, '文本類型為必填'),
   gradeLevel,
   wordLimit: z.number().int().min(50).max(1000),
   topicHint: optionalString,
+  writingPrompt: z.string().optional(),
   lang: z.enum(['zh', 'en']).optional(),
   userId,
 });

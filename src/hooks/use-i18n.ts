@@ -7,11 +7,11 @@
 // ============================================
 'use client';
 
-import { useAppStore } from '@/store/appStore';
+import { useUIStore } from '@/store/uiStore';
 import { t } from '@/shared/utils/i18n';
 
 export function useT() {
-  const language = useAppStore((s) => s.language);
+  const language = useUIStore((s) => s.language);
   return {
     t: (key: string, vars?: Record<string, string | number>) => {
       if (!key) return '';

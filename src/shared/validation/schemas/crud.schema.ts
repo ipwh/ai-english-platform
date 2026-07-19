@@ -73,6 +73,9 @@ export const writingDraftSchema = z.object({
   studentId,
   textType: optionalString,
   prompt: optionalString,
+  draft: z.string().optional(),
+  aiSuggestions: z.string().optional(),
+  chinglishWarnings: z.string().optional(),
 });
 
 export const notificationCreateSchema = z.object({
@@ -87,6 +90,11 @@ export const ttsRequestSchema = z.object({
   text: z.string().min(1, '文字內容為必填').max(5000),
   lang: z.enum(['en', 'zh']).default('en'),
   speed: z.number().min(0.5).max(2).default(1),
+  voiceName: z.string().optional(),
+  voiceTier: z.enum(['default', 'wavenet', 'neural']).default('default'),
+  speakingRate: z.number().min(0.25).max(4.0).default(1.0),
+  multiSpeaker: z.boolean().default(false),
+  audioEncoding: z.enum(['MP3', 'OGG_OPUS', 'LINEAR16']).default('MP3'),
 });
 
 export const diagnosticCreateSchema = z.object({

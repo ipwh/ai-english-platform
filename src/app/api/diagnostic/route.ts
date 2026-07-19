@@ -7,6 +7,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { db } from '@/shared/db/db';
+import { validateRequest, studentId } from '@/shared/validation/schemas';
+import { z } from 'zod';
+
+const diagnosticSaveSchema = z.object({
+  studentId,
+  results: z.array(z.object({
+    skill: z.string(),
+    skillZh: z.string(),
+    accuracy: z.number().min(0).max(100),
+    weakAreas: z.array(z.string()).optional(),
+    recommendedGrammar: z.string().optional(),
+    recommendedSkill: z.string().optional(),
+  })).min(1, '至少需要一個結果'),
+});
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
@@ -29,14 +43,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, results } = body as {
-      studentId: string;
-      results: { skill: string; skillZh: string; accuracy: number; weakAreas: string[]; recommendedGrammar?: string; recommendedSkill?: string }[];
-    };
-
-    if (!studentId || !results?.length) {
-      return NextResponse.json({ error: '缺少 studentId 或 results' }, { status: 400 });
-    }
+    const parsed = validateRequest(diagnosticSaveSchema, body);
+    const { studentId, results } = parsed;
 
     // 🔒 Ownership check: only the student themselves or a teacher/admin can save diagnostic data
     if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {

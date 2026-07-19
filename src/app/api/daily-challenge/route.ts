@@ -8,6 +8,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
+import { validateRequest, studentId } from '@/shared/validation/schemas';
+import { z } from 'zod';
+
+const dailyChallengeSubmitSchema = z.object({
+  studentId,
+  correctAnswer: z.string().min(1),
+  studentAnswer: z.string().min(1),
+  isCorrect: z.boolean(),
+  grammarItem: z.string().optional(),
+});
 import { generateQuestions } from '@/modules/ai/services/ai-service';
 import { calculateXp } from '@/modules/progress/services/gamification';
 import { syncUserStreak } from '@/modules/progress/services/streak-service';
@@ -127,13 +137,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, correctAnswer, studentAnswer, isCorrect, grammarItem } = body as {
-      studentId: string; correctAnswer: string; studentAnswer: string; isCorrect: boolean; grammarItem?: string;
-    };
-
-    if (!studentId) {
-      return NextResponse.json({ error: 'studentId required' }, { status: 400 });
-    }
+    const parsed = validateRequest(dailyChallengeSubmitSchema, body);
+    const { studentId, correctAnswer, studentAnswer, isCorrect, grammarItem } = parsed;
 
     // Check duplicate
     const today = new Date();

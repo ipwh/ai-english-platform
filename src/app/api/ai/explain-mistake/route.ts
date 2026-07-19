@@ -5,10 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { explainMistake, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
-
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { validateRequest, explainMistakeSchema } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -31,15 +31,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🔒 Zod validation
     const body = await request.json();
-    const { question, correctAnswer, studentAnswer, grammarItemZh, studentLevel } = body;
-
-    if (!question || !correctAnswer || !studentAnswer) {
-      return NextResponse.json(
-        { error: '請提供 question、correctAnswer 和 studentAnswer。' },
-        { status: 400 }
-      );
-    }
+    const parsed = validateRequest(explainMistakeSchema, body);
+    const { question, correctAnswer, studentAnswer, grammarItemZh, studentLevel } = parsed;
 
     const explanation = await explainMistake({
       question,

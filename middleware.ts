@@ -8,24 +8,13 @@ import type { NextRequest } from 'next/server';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { jwtVerify } from 'jose';
 import { ALL_SESSION_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
+import { getEdgeAuthSecret, EDGE_PUBLIC_PATHS } from '@/shared/config/edge-config';
 
-const publicPaths = ['/login', '/role-select', '/api/auth', '/style-guide'];
+const publicPaths = EDGE_PUBLIC_PATHS;
 
 /** 安全取得 AUTH_SECRET（Edge Runtime 無法匯入 config.ts 含 fs 依賴的模組） */
 function getAuthSecret(): string {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    // 生產環境強制要求設定 AUTH_SECRET
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-      throw new Error(
-        '[middleware] 生產環境必須設定 AUTH_SECRET 環境變數。'
-      );
-    }
-    // 開發環境使用 fallback（不會用於真實安全場景）
-    console.warn('[middleware] ⚠️ AUTH_SECRET 未設定，使用開發環境預設值。生產環境必須設定！');
-    return 'dev-secret-change-me-in-production';
-  }
-  return secret;
+  return getEdgeAuthSecret();
 }
 
 /**

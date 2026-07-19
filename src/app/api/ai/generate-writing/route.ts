@@ -5,10 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
-
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { validateRequest, generateWritingSchema } from '@/shared/validation/schemas';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, textType, gradeLevel, wordLimit, topicHint, writingPrompt, lang } = body;
+    const parsed = validateRequest(generateWritingSchema, { ...body, userId: authResult.userId });
+    const { action, textType, gradeLevel, wordLimit, topicHint, writingPrompt, lang } = parsed;
 
     if (!textType || !gradeLevel || !wordLimit) {
       return NextResponse.json(

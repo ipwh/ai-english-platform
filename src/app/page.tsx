@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { StudentRepo } from '@/modules/repositories';
+import { logger } from '@/shared/logger/logger';
 
 /** 根據 email 判斷用戶的「真實最高角色」（不可被角色切換降級） */
 function getRealRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
@@ -31,16 +32,16 @@ export default async function Home() {
         if (dbUser) {
           // 若 DB role 與 email 模式不符（被舊版角色切換污染），自動修復
           if (dbUser.role !== realRole && realRole !== 'student') {
-            console.log(`[root:/] Auto-fixing DB role for ${email}: ${dbUser.role} → ${realRole}`);
-            await StudentRepo.updateUser(dbUser.id, { role: realRole }).catch((e) => { console.error('Failed to auto-fix DB role:', e); });
+            logger.info({ module: 'root', email, oldRole: dbUser.role, newRole: realRole }, 'Auto-fixing DB role');
+            await StudentRepo.updateUser(dbUser.id, { role: realRole }).catch((e) => { logger.error({ module: 'root', error: String(e) }, 'Failed to auto-fix DB role'); });
           }
           if (!selectedRole) {
             role = dbUser.role;
           }
         }
-      } catch (e) { console.error('Failed to resolve JWT session role:', e); }
+      } catch (e) { logger.error({ module: 'root', error: String(e) }, 'Failed to resolve JWT session role'); }
 
-      console.log('[root:/] JWT resolved role:', role, 'realRole:', realRole);
+      logger.debug({ module: 'root', role, realRole }, 'JWT resolved role');
 
       if (role === 'admin' || role === 'teacher') {
         redirect('/role-select');
@@ -68,7 +69,7 @@ export default async function Home() {
       if (dbUser) {
         // 自動修復被污染的 DB role
         if (dbUser.role !== realRole && realRole !== 'student') {
-          console.log(`[root:/] Auto-fixing DB role for ${email}: ${dbUser.role} → ${realRole}`);
+          logger.info({ module: 'root', email, oldRole: dbUser.role, newRole: realRole }, 'Auto-fixing DB role');
           await StudentRepo.updateUser(dbUser.id, { role: realRole }).catch(() => {});
         }
         if (!selectedRole) {
@@ -77,7 +78,7 @@ export default async function Home() {
       }
     } catch { /* fallback to session role */ }
 
-    console.log('[root:/] NextAuth resolved role:', role, 'realRole:', realRole);
+    logger.debug({ module: 'root', role, realRole }, 'NextAuth resolved role');
 
     if (role === 'admin' || role === 'teacher') {
       redirect('/role-select');
