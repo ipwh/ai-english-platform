@@ -762,3 +762,45 @@ model LearningReviewSchedule {
   @@index([studentId, itemType])
   @@unique([studentId, itemId])
 }
+
+// ============================================
+// Sprint 31: Student Mastery Model — 學生掌握度模型
+// ============================================
+
+model StudentMastery {
+  id              String   @id @default(cuid())
+  studentId       String
+  skill           String   // Grammar | Vocabulary | Reading | Writing | Listening | Speaking
+  subSkill        String   // Articles | Tenses | Collocations | Inference | Organization etc.
+  masteryScore    Int      @default(0)  // 0-100
+  confidenceScore Int      @default(0)  // 0-100
+  retentionScore  Int      @default(0)  // 0-100
+  lastPracticedAt DateTime?
+  practiceCount   Int      @default(0)
+  mistakeCount    Int      @default(0)
+  correctCount    Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentId, skill, subSkill])
+  @@index([studentId])
+  @@index([studentId, skill])
+}
+
+// ============================================
+// Sprint 32: Student Mistake Summary — 錯題智能摘要
+// ============================================
+
+model StudentMistakeSummary {
+  id              String   @id @default(cuid())
+  studentId       String
+  grammarCategory String   // tense | article | preposition | passive-voice | etc.
+  mistakeCount    Int      @default(0)
+  lastSeen        DateTime @default(now())
+  severity        String   // critical | major | minor
+  mastered        Boolean  @default(false)
+  trend           String   // improving | stable | worsening
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentId, grammarCategory])
+  @@index([studentId])
+}

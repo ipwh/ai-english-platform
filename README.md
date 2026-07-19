@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md)
-> **Status**: 42 Sprints ✅ | 853 tests | 34 modules | Build: Passing | **Deployment Readiness: 98%**
+> **Status**: 40 Sprints ✅ | 1135 tests | 39 modules | Build: Passing | **Deployment Readiness: 99%** | **v4.0**
 
 ## 🏗️ Architecture Overview
 
@@ -12,9 +12,13 @@ Routes → Zod Validation → Services → Repositories → DB (PostgreSQL/Neon)
   ↕         ↕              ↕
 Events ←── Caching ──→ AI Cost Tracking
   ↕
-Learning Engine → Profile → Mistake DB → Vocab Graph
+Learning Intelligence Pipeline v4:
+  Student → Mastery (S31) → Mistakes (S32) → Knowledge Graph (S34)
+         → Recommendations (S33) → AI Exercise → Feedback → Mastery Update
   ↕
-Performance ← Security ← Observability
+Teacher Copilot (S38) ← Learning Analytics (S37)
+  ↕
+Vocabulary Intelligence (S35) + Writing Coach V2 (S36)
 ```
 
 | Layer | Technology |
@@ -25,7 +29,7 @@ Performance ← Security ← Observability
 | Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 (21 schemas, 17 validated routes) |
-| Testing | Vitest 4 (853 tests, 39 test files) + Playwright + Smoke (45 checks) |
+| Testing | Vitest 4 (1135 tests, 55 test files) + Playwright + Smoke (45 checks) |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Logging | Structured Logger (Pino-style JSON/human-readable) |
@@ -58,6 +62,19 @@ Performance ← Security ← Observability
 - **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
+
+### 🚀 v4.0 Learning Intelligence (Sprints 31-40)
+- **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(45%)+練習頻率(20%)+新近度(20%)+錯誤懲罰(15%)的加權公式
+- **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）
+- **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
+- **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
+- **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints
+- **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
+- **✍️ 寫作教練 2.0 (S36)** — 8 維度啟發式評分（Grammar/Vocabulary/SentenceVariety/Coherence/Cohesion/Organization/TaskResponse/Tone）、DSE Band 預測（U→5**）
+- **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
+- **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測
+- **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
+- **🏛️ 統一 LearningFacade (S40)** — 所有學習模組的單一入口點，零重複業務邏輯
 
 ### 👩‍🏫 教師端
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
