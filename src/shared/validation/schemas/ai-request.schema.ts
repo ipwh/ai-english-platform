@@ -12,7 +12,7 @@ export const generateQuestionsSchema = z.object({
   languageSkill: z.enum(['reading', 'writing', 'listening', 'speaking', 'integrated']).optional(),
   languageSkillZh: optionalString,
   topic: optionalString,
-  userId,
+  userId: optionalString,
 });
 
 export const analyzeWritingSchema = z.object({
