@@ -249,7 +249,7 @@ export default function AssignmentDetailPage() {
                       {q.explanation}
                     </div>
                   )}
-                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">{q.prompt}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3" dangerouslySetInnerHTML={{ __html: q.prompt }} />
 
                   {/* MC 選項 */}
                   {isMcq && q.options && (

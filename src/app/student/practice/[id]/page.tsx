@@ -864,7 +864,7 @@ function SessionCompleteSummary({
                   {correct ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">Q{i + 1}. {q.prompt}</p>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" dangerouslySetInnerHTML={{ __html: Q. \ }} />
                   <p className="text-xs text-gray-500 mt-0.5">
                     你的答案：<span className={correct ? 'text-green-600 font-medium' : 'text-red-500 line-through'}>{answer}</span>
                     {!correct && <span className="text-green-600 ml-2">✓ {q.answer}</span>}

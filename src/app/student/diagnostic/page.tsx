@@ -483,7 +483,7 @@ export default function DiagnosticPage() {
             </div>
           )}
 
-          <p className="text-lg text-gray-900 dark:text-white mb-6">{currentQ.prompt}</p>
+          <p className="text-lg text-gray-900 dark:text-white mb-6" dangerouslySetInnerHTML={{ __html: currentQ.prompt }} />
           {currentQ.promptZh && (
             <details className="mb-4">
               <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">顯示中文提示</summary>
