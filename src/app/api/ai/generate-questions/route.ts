@@ -87,10 +87,18 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[generate-questions] Error type:', typeof err, 'name:', (err as Error)?.name, 'message:', message);
-    console.error('[generate-questions] Stack:', (err as Error)?.stack?.slice(0, 500));
-    // Log DeepSeek config status for diagnostics
+    let message: string;
+    if (err instanceof Error) {
+      message = err.message;
+    } else if (err && typeof err === 'object' && 'status' in err && 'statusText' in err) {
+      // Handle fetch Response objects thrown as exceptions
+      const r = err as Response;
+      message = `HTTP ${r.status} ${r.statusText}`;
+      try { const body = await r.text(); message += ` — ${body.slice(0, 200)}`; } catch {}
+    } else {
+      message = String(err);
+    }
+    console.error('[generate-questions] Error:', message);
     console.error('[generate-questions] DeepSeek configured:', isDeepSeekConfigured());
     return NextResponse.json({
       error: `AI 生成失敗：${message}`,
