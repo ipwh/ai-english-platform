@@ -1,6 +1,6 @@
 # Module Documentation
 
-> 18 modules | 328 tests | Auto-generated 2026-07-18
+> 29 modules | 669 tests | 31 test files | Updated 2026-07-19
 
 ## `ai/` — AI Services (20 services, 2 tests)
 

@@ -1,20 +1,28 @@
 # 長期維護與監控策略
 
 > AI English Platform — Production Maintenance & Monitoring Strategy
-> 最後更新：2026-07-11
+> 最後更新：2026-07-19 | 32 Sprints | 669 tests | 29 modules | 98% Ready
 
 ---
 
-## 一、每月/每季維護 Checklist
+## 一、快速健康檢查
+
+```bash
+npm run smoke     # 45 項自動化檢查（0 需 DB）
+npm test          # 669 單元測試
+npm run build     # TypeScript 編譯檢查
+```
+
+## 二、每月/每季維護 Checklist
 
 ### 📅 每週（5 分鐘）
 
 | # | 任務 | 難度 | 工具 |
 |---|------|------|------|
-| W1 | 檢查 Vercel Logs 中 `[ai-service]` 錯誤數 | Easy | Vercel Dashboard → Logs |
-| W2 | 檢查 `[Listening Consistency]` / `[Reading Consistency]` 警告數 | Easy | Vercel Logs 搜尋 |
+| W1 | `npm run smoke` — 45 項自動化檢查 | Easy | Terminal |
+| W2 | 檢查 Vercel Logs 中 `logger.error` 數量 | Easy | Vercel Dashboard → Logs |
 | W3 | 確認 DeepSeek API 餘額（platform.deepseek.com → Billing） | Easy | DeepSeek Dashboard |
-| W4 | 快速 smoke test：登入 → 生成 1 題 MCQ + 1 題 Listening | Easy | 手動 |
+| W4 | 快速手動 smoke test：登入 → 生成 1 題 → 批改 | Easy | 手動 |
 
 ### 📅 每月（30 分鐘）
 

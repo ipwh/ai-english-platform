@@ -4,6 +4,76 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-19 — Ultimate Code Quality & Type Safety (Sprint 32) ★★★★★
+
+### 🏆 Type Safety — `any` Reduction (51→8, 84% decrease)
+- **material-repo**: Replaced `any` with `Prisma.MaterialCreateInput`, `Prisma.MaterialUpdateInput`, `Prisma.MaterialWhereInput`, `Prisma.MaterialChunkUncheckedCreateInput`
+- **assessment-repo**: Replaced `any` with `Prisma.SubmissionCreateInput`, `Prisma.MistakeCreateInput`, `Prisma.WritingDraftCreateInput`, `Prisma.WritingDraftUpdateInput`
+- **student-repo**: Replaced `any` with `Prisma.UserCreateInput`, `Prisma.UserUpdateInput`, `Prisma.UserWhereInput`
+- **progress-repo**: Replaced `any` with `Prisma.NotificationCreateInput`, `Prisma.NotificationCreateManyInput`
+- Retained 8 strategic `any` casts for dynamic table lookup, Prisma include propagation, and pgvector raw SQL
+
+### 📊 Structured Logging — 12 AI Routes Migrated
+- All `/api/ai/*` routes: `console.error` → `logger.error` with module-specific metadata
+- `generate-questions`: `console.warn` → `logger.warn`
+- Routes: analyze-answer, analyze-writing, analyze-integrated-skills, analyze-material, analyze-progress, analyze-word, explain-mistake, generate-questions, generate-integrated-skills, generate-writing, rewrite-writing, study-help
+
+### 🔧 Build Fixes
+- Restored `executeRawUnsafe`/`queryRawUnsafe` (required by RAG pgvector service)
+- Fixed `MaterialChunkCreateInput` → `UncheckedCreateInput` (relation field mismatch)
+- Fixed `searchChunks` include type propagation (Prisma generic limitation)
+- Fixed `listAssignments` filter type compatibility with callers
+
+### 📊 Verification
+- TypeScript: **0 errors**
+- Tests: **669/669 passing** (31 test files)
+- Smoke Test: **45/45 passing**
+- Build: ✅ (clean)
+
+---
+
+## 2026-07-19 — Pre-Deployment Security & Quality Audit (Sprint 31) ★★★★★
+
+### 🔒 Critical Auth Fixes (P0)
+- **`assignments` GET/POST**: Added `verifyApiAuth`; POST `createdBy` now sourced from token, not body
+- **`materials` GET/POST/PATCH/DELETE**: Unified auth via `verifyApiAuth` (was manual cookie-hopping)
+- **`classes` GET/POST**: Verified already secured
+
+### 📦 Quality Hardening (P1)
+- **Feedback DB**: New `Feedback` Prisma model + persistence (was console-only TODO)
+- **Rate Limiter**: Added `GENERAL_RATE_LIMIT` (30 req/60s) for CRUD routes
+- **ai-service**: Marked legacy `_callDeepSeek`/`_callGemini`/`_callGeminiViaVertex` as `@deprecated`
+- **Integrated Skills**: Expanded task types 4→8 (speech, proposal, letter, newsletter)
+- **console.log→logger**: materials DELETE, TTS route, vocabulary export-pdf
+- **Zod validation**: Added to `POST /api/classes`
+
+### 📱 PWA & Mobile (P2)
+- **PWA**: `public/manifest.json` + SVG icons (192px + 512px)
+- **Apple Web App**: `appleWebApp` meta (capable, black-translucent)
+- **Mobile sidebar**: Verified existing hamburger/drawer/backdrop implementation
+- **E2E Smoke Test**: `scripts/smoke-test.js` (45 automated checks) + `npm run smoke`
+
+### 📊 Verification
+- Tests: **669/669 passing**
+- Smoke Test: **45/45 passing**
+- Build: ✅
+
+---
+
+## 2026-07-18 — AI Learning Science (Sprint 30)
+
+### 🧠 7 Learning Science Algorithms
+- **SM-2 Enhanced Spaced Repetition**: Intervals 1→6 days, ease factor, lapsed items
+- **Ebbinghaus Forgetting Curve**: R=e^(-t/S), optimal review timing
+- **Retrieval Practice**: Bayesian retrieval strength tracking
+- **Interleaving**: Mixed-topic sequencing (25-43% better retention)
+- **Desirable Difficulty**: 70-85% target zone, ZPD leveling
+- **Metacognition**: Self-assessment calibration
+- **Bayesian Mastery**: Beta-Bernoulli Knowledge Tracing
+- New module: `src/modules/learning-science/` (24 tests)
+
+---
+
 ## 2026-07-17 — CI Green + Auth Cleanup + ESLint Zero-Error
 
 ### ✅ CI Lint 閘門修復

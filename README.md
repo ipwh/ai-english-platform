@@ -2,8 +2,8 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md)  
-> **Status**: 17 Sprints ✅ | 328 tests | 18 modules | Build: Passing
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md) | [AUDIT REPORT](docs/DEPLOYMENT-AUDIT-REPORT.md)
+> **Status**: 32 Sprints ✅ | 669 tests | 29 modules | Build: Passing | **Deployment Readiness: 98%**
 
 ## 🏗️ Architecture Overview
 
@@ -19,15 +19,17 @@ Performance ← Security ← Observability
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 16 (Turbopack) |
+| Framework | Next.js 16 (Turbopack + Edge Runtime) |
 | Language | TypeScript 5 (strict) |
 | Database | PostgreSQL (Neon) + Prisma 7 (pgvector) |
 | Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
-| AI | DeepSeek → Vertex Gemini → Gemini API (fallback chain) |
-| Validation | Zod v4 (17 routes) |
-| Testing | Vitest 4 (328 tests) + Playwright |
+| AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
+| Validation | Zod v4 (21 schemas, 17 validated routes) |
+| Testing | Vitest 4 (669 tests, 31 test files) + Playwright + Smoke (45 checks) |
 | State | Zustand |
 | CSS | Tailwind 4 |
+| Logging | Structured Logger (Pino-style JSON/human-readable) |
+| PWA | manifest.json + SVG icons + Apple Web App meta |
 
 ## 功能
 
@@ -93,11 +95,11 @@ Performance ← Security ← Observability
 | 狀態管理 | Zustand |
 | 國際化 | 自訂 i18n（useT hook + Zustand language store，支援繁體中文/English，含變數插值） |
 | 圖表 | Recharts |
-| AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (fallback) + Vertex AI Embeddings<br>`src/modules/ai/` (20 services, 6 prompt families) |
+| AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (fallback) + Claude + OpenAI<br>`src/modules/ai/` (25 services, 6 prompt families, 5 providers) |
 | 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
 | 驗證 | Zod（API 輸入驗證） + `src/shared/validation/`（21 schemas, 17 routes） |
 | 語音 | Google Cloud Text-to-Speech（多人對話分段合成）+ Web Speech API（fallback） |
-| 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2) |
+| 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2 Enhanced) |
 | 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
 | 部署 | Vercel |
 | OCR | Google Cloud Vision API |
@@ -175,14 +177,18 @@ Performance ← Security ← Observability
    - 檢查 `/api/ai/status` 回傳 `{ configured: true }`
 
 ### Smoke Tests
+- [ ] `npm run smoke` — 45 項自動化檢查通過
 - [ ] Google OAuth 登入成功
 - [ ] AI 生成練習題（MCQ + 聽力）
-- [ ] 寫作批改與改寫
+- [ ] 寫作批改與改寫（CLO rubric 21 分制）
+- [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面）
+- [ ] 中英語言切換（所有頁面，1,358 entries）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
-- [ ] Vercel Logs 中無 `[ai-service]` 錯誤
+- [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
+- [ ] AI fallback 驗證（DeepSeek fail → Gemini 接手）
+- [ ] PWA 安裝（manifest.json + SVG icons）
 
 ### Vercel 配置要點
 - **AI 函數**: maxDuration 30s + memory 1024MB（`vercel.json`）
@@ -195,9 +201,22 @@ Performance ← Security ← Observability
 
 > 📋 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。以下僅保留最新摘要。
 
+### 🏆 2026-07-19 — Ultimate Code Quality & Type Safety (Sprint 32)
+- **Type Safety**: `any` types 從 51 降至 8（84% 減少），4 個 repositories 改用正確 Prisma 型別
+- **Structured Logging**: 全部 12 條 AI route 的 `console.error` 遷移至 `logger.error`（結構化 JSON）
+- **Smoke Test**: 新增 `npm run smoke`（45 項自動化檢查：檔案、金鑰、auth、AI chain、i18n、PWA、Vercel）
+
+### 🛡️ 2026-07-19 — Pre-Deployment Security & Quality Audit (Sprint 31)
+- **Auth 修復**: `assignments` GET/POST + `materials` GET/POST/PATCH/DELETE 加入 `verifyApiAuth`
+- **Feedback DB**: 新增 `Feedback` Prisma 模型，feedback 持久化至 DB
+- **PWA**: `manifest.json` + SVG icons + Apple Web App meta
+- **Rate Limiting**: 新增 `GENERAL_RATE_LIMIT`（30 req/60s）於 CRUD routes
+
+### 🧠 2026-07-18 — AI Learning Science (Sprint 30)
+- **7 項學習科學演算法**: SM-2 Enhanced Spaced Repetition、Ebbinghaus Forgetting Curve、Retrieval Practice、Interleaving、Desirable Difficulty、Metacognition、Bayesian Knowledge Tracing
+
 ### 🔒 2026-07-17 — Security Hardening
-- **授權修復**：11 個 API route 加入 resource-level ownership 檢查（mistakes/vocabulary/gamification/spelling/review-suggestions/suggest/daily-challenge/assignments/teacher-students），修復 pi-auth.ts role=undefined 繞過漏洞
-- **AudioPlayer**：修復 React Hooks 規則違反（條件式 early return）
+- **授權修復**：11 個 API route 加入 resource-level ownership 檢查，修復 `api-auth.ts` role=undefined 繞過漏洞
 - **CI/CD**：新增 GitHub Actions CI pipeline（typecheck + test + lint）
 - **生產部署**：ercel-build.js 改用 prisma migrate deploy、修正 CORS header、修正 rate-limiter 註解
 - **測試**：178 tests 全通過，修復 2 條 WritingAnalysisSchema 漂移測試
