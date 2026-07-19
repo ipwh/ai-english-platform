@@ -54,3 +54,15 @@ export {
   feedbackCreateSchemaApi, notificationCreateSchemaApi,
   groupCreateSchemaApi, groupUpdateSchemaApi,
 } from './api-route.schema';
+
+// Remaining routes (P16 batch)
+export {
+  analyzeIntegratedSkillsSchema, analyzeMaterialSchema, analyzeProgressSchema,
+  generateIntegratedSkillsSchema, studyHelpSchemaApi,
+  vocabExampleSchema, vocabQuizSchema, vocabSuggestSchema,
+  vocabSpellingGenerateSchema, vocabSpellingSubmitSchema, vocabExportPdfSchema,
+  writingCoachAnalyzeSchema, modelEssaysGenSchema,
+  mistakeBulkSchemaApi,
+  analyticsReportSchema, writingAnalysisExportSchema,
+  llmEvalSchema, experimentSchema, writingCoachRouterSchema,
+} from './remaining-routes.schema';
