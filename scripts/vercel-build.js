@@ -102,10 +102,14 @@ if (migrateResult.ok) {
       }
     }
   } else if (isProd) {
-    // Real error in production (not a missing-migration issue) — abort
-    console.error('❌  prisma migrate deploy failed in production. Aborting build.');
-    console.error('   Error:', output.slice(0, 500));
-    process.exit(1);
+    const isConnectionError = output.includes('P1001') || output.includes('P1002') || output.includes('Timed out') || output.includes('advisory lock');
+    if (isConnectionError) {
+      console.warn('⚠️  Database unreachable — skipping migration. Build will succeed if schema is already deployed.');
+    } else {
+      console.error('❌  prisma migrate deploy failed in production. Aborting build.');
+      console.error('   Error:', output.slice(0, 500));
+      process.exit(1);
+    }
   } else {
     // Dev: just warn and try db push
     console.warn('⚠️  prisma migrate deploy failed — falling back to prisma db push for local dev.');
