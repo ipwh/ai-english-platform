@@ -1,0 +1,22 @@
+// Student page translations  
+export const studentTranslations: Record<string, { zh: string; en: string }> = {
+  'student.startPractice': { zh: '開始今天的練習吧！', en: 'Start practicing today!' },
+  'student.aiInsight': { zh: 'AI 學習洞察', en: 'AI Learning Insights' },
+  'student.aiAnalysis': { zh: 'AI 分析', en: 'AI Analysis' },
+  'student.analyzing': { zh: '分析中...', en: 'Analyzing...' },
+  'student.pendingAssignments': { zh: '待完成作業', en: 'Pending Assignments' },
+  'student.noMistakes': { zh: '暫無錯題記錄', en: 'No mistake records' },
+  'student.noVocab': { zh: '暫無生字', en: 'No vocabulary' },
+  'student.correctAnswer': { zh: '正確答案', en: 'Correct Answer' },
+  'student.wrongAnswer': { zh: '你的答案', en: 'Your Answer' },
+  'student.correct': { zh: '正確', en: 'Correct' },
+  'student.accuracy': { zh: '正確率', en: 'Accuracy' },
+  'student.streak': { zh: '連續天數', en: 'Streak' },
+  'student.sessions': { zh: '練習次數', en: 'Sessions' },
+  'student.vocabCount': { zh: '生字數量', en: 'Vocabulary' },
+  'student.dashboard.title': { zh: '學習主頁', en: 'Dashboard' },
+  'student.dashboard.practice': { zh: '開始練習', en: 'Start Practice' },
+  'student.dashboard.aiInsight': { zh: 'AI 學習洞察', en: 'AI Insights' },
+  'student.dashboard.aiAnalysis': { zh: 'AI 分析中...', en: 'AI Analyzing...' },
+  'student.dashboard.aiError': { zh: 'AI 分析暫時無法使用', en: 'AI analysis unavailable' },
+};
