@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 
 export async function POST(req: NextRequest) {
   const authResult = await verifyApiAuth(req);
@@ -85,7 +86,7 @@ Return ONLY a JSON object:
     });
 
   } catch (error: unknown) {
-    console.error('[Rewrite Writing]', error);
+    logger.error({ module: 'rewrite-writing', error }, 'Writing rewrite failed');
     const msg = error instanceof Error ? error.message : '未知錯誤';
     return NextResponse.json({ error: `AI 改寫失敗：${msg}` }, { status: 500 });
   }

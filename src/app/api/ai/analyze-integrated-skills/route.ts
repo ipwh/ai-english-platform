@@ -9,6 +9,7 @@ import { analyzeIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFa
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { detectOverCopying } from '@/modules/assessment/services/plagiarism';
+import { logger } from '@/shared/logger/logger';
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
   const authResult = await verifyApiAuth(request);
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[analyze-integrated-skills] Error:', message);
+    logger.error({ module: 'analyze-integrated-skills', error: message }, 'Integrated skills analysis failed');
     return NextResponse.json({
       error: `Integrated Skills 批改失敗：${message}`,
       _meta: { provider: getLastAIProvider(), fallback: wasFallbackUsed() },

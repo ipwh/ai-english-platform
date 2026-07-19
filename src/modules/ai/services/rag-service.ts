@@ -304,7 +304,8 @@ export async function retrieveRelevantChunks(
 
   // Fallback: in-memory cosine similarity (legacy path)
   const MAX_CHUNKS = 200;
-  const chunks = await searchChunks({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chunks: any[] = await searchChunks({
     where: { embedding: { not: null } },
     include: { material: { select: { title: true } } },
     take: MAX_CHUNKS,
@@ -524,7 +525,8 @@ export async function retrieveDSERelevantChunks(
     where.material = materialWhere;
   }
 
-  const chunks = await searchChunks({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chunks: any[] = await searchChunks({
     where,
     include: { material: { select: { title: true, tags: true, strand: true } } },
     take: 500,

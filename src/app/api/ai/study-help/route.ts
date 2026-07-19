@@ -8,6 +8,7 @@ import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUs
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('study-help error:', message);
+    logger.error({ module: 'study-help', error: message }, 'Study help failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

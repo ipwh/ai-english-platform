@@ -5,9 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
-
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('analyze-writing error:', message);
+    logger.error({ module: 'analyze-writing', error: message }, 'Writing analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

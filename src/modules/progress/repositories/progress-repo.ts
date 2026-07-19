@@ -114,13 +114,13 @@ export async function getUnreadNotificationCount(userId: string) {
   return db.notification.count({ where: { userId, read: false } });
 }
 
-export async function createNotification(data: Record<string, unknown>) {
-  return db.notification.create({ data: data as any });
+export async function createNotification(data: Prisma.NotificationCreateInput) {
+  return db.notification.create({ data });
 }
 
-export async function createBulkNotifications(data: Record<string, unknown>[]) {
+export async function createBulkNotifications(data: Prisma.NotificationCreateManyInput[]) {
   if (data.length === 0) return;
-  return db.notification.createMany({ data: data as any });
+  return db.notification.createMany({ data });
 }
 
 export async function markNotificationRead(notificationId: string) {

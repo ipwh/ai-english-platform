@@ -8,6 +8,7 @@ import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUs
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('analyze-progress error:', message);
+    logger.error({ module: 'analyze-progress', error: message }, 'Progress analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeWord } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ analysis });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'AI 分析失敗';
-    console.error('[analyze-word]', message);
+    logger.error({ module: 'analyze-word', error: message }, 'Word analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

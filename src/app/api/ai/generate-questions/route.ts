@@ -8,6 +8,7 @@ import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallback
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest, generateQuestionsSchema } from '@/shared/validation/schemas';
+import { logger } from '@/shared/logger/logger';
 
 function isRetryableGenerationError(message: string): boolean {
   return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|is not valid JSON/i.test(message);
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
         lastErr = err;
         const message = err instanceof Error ? err.message : String(err);
         if (attempt === 1 && isRetryableGenerationError(message)) {
-          console.warn('[generate-questions] transient AI output issue, retrying once:', message);
+          logger.warn({ module: 'generate-questions', error: message }, 'Transient AI output issue, retrying');
           continue;
         }
         throw err;
@@ -98,8 +99,7 @@ export async function POST(request: NextRequest) {
     } else {
       message = String(err);
     }
-    console.error('[generate-questions] Error:', message);
-    console.error('[generate-questions] DeepSeek configured:', isDeepSeekConfigured());
+    logger.error({ module: 'generate-questions', error: message, deepseekConfigured: isDeepSeekConfigured() }, 'AI generation failed');
     return NextResponse.json({
       error: `AI 生成失敗：${message}`,
       _meta: { provider: getLastAIProvider(), deepseekConfigured: isDeepSeekConfigured() },
