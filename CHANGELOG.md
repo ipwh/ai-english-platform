@@ -4,6 +4,97 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-19 — AI Experiment Platform (Sprint 42) ★★★★★
+
+- **ExperimentService**: 4 experiment types (Prompt/Model/Temperature/Learning) with full lifecycle
+- **A/B Testing**: Winner detection, confidence, p-value, Cohen's d, bilingual recommendations
+- **Cost Comparison**: Per-variant breakdown, cheapest/most-expensive ranking
+- **Reports**: ExperimentReport + RecommendationReport with success metrics and action items
+- **API**: `POST /api/experiment` (18 actions), feature flag gated (`experiment: false` default)
+- **Tests**: 32 new (853 total, 39 files)
+- **Enhancement**: Speaking prompt v1.1 with full HKDSE Paper 4 rubrics (Pronunciation, Communication Strategies, Vocabulary, Ideas & Organization)
+- **Docs**: `docs/EXPERIMENT-PLATFORM.md`, consolidated `.env.example`, updated README counts
+
+---
+
+## 2026-07-19 — AI Evaluation Platform Pro (Sprint 41) ★★★★★
+
+- **AIEvaluationPro**: 6-dimension scoring (consistency, JSON validity, hallucination, rubric, latency, cost)
+- **A/B Testing**: Prompt version comparison with 6 metrics, winner detection, statistical significance
+- **Quality Metrics**: Feedback quality (5 dims), recommendation quality (4 dims), learning gain (normalized gain + Cohen's d)
+- **API**: `POST /api/llm-eval/evaluate` (10 actions)
+- **Tests**: 12 new (821 total, 38 files)
+
+---
+
+## 2026-07-19 — AI Learning Analytics Pro (Sprint 40) ★★★★★
+
+- **AnalyticsPro**: 5 report types (weekly, monthly, mastery, retention, dashboard)
+- Student progress trends, skill breakdowns, risk detection
+- **API**: Enhanced `POST /api/analytics/report`
+- **Tests**: 12 new (809 total, 37 files)
+
+---
+
+## 2026-07-19 — Writing Coach Pro (Sprint 39) ★★★★★
+
+- **WritingCoachPro**: 3 rubrics (HKDSE CLO 21pt + CEFR A1-C2 + IELTS Band 1-9)
+- Sentence variety analysis, tone/register detection, logic/argument evaluation
+- Upgrade engine with targeted improvement suggestions
+- **Tests**: 15 new (797 total, 36 files)
+
+---
+
+## 2026-07-19 — Teacher Copilot (Sprint 38) ★★★★★
+
+- **TeacherCopilot**: 6 capabilities (lesson plan, assignments, student analysis, class analysis, exam prediction, overview)
+- Bilingual (en+zh) outputs for all capabilities
+- **API**: `POST /api/teacher/copilot/*`
+- **Tests**: 12 new (782 total, 35 files)
+
+---
+
+## 2026-07-19 — Student Digital Twin (Sprint 37) ★★★★★
+
+- **StudentTwinService**: 8 persona types with KnowledgeState, MotivationState, ConfidenceState
+- Learning Habits profiling, Twin Predictions, Risk Assessment, Dashboard generation
+- **Tests**: 10 new (770 total, 34 files)
+
+---
+
+## 2026-07-19 — Long-term Learning Memory v2 (Sprint 36) ★★★★★
+
+- **MemoryEngine**: Full lifecycle (get/update/decay/refresh/profile/influence/context)
+- 3 sub-memories: ConfidenceMemory, MotivationMemory, LearningHabitsMemory
+- Auto-upgrade v1→v2, persistence via Prisma LearningReviewSchedule
+- **Tests**: 10 new (760 total, 33 files)
+
+---
+
+## 2026-07-19 — Adaptive AI Tutor (Sprint 35) ★★★★★
+
+- **AdaptiveTutorEngine**: 7 tutor actions (exercise/hint/feedback/explanation/review/challenge/support)
+- Auto mode selection via generate() based on context
+- **Tests**: 10 new (750 total, 32 files)
+
+---
+
+## 2026-07-19 — Knowledge Graph v2 (Sprint 34) ★★★★★
+
+- **4 enhanced services**: Traversal, Learning Path Generator, Weakness Locator, Skill Dependency Resolver
+- Optional forgetting weight, importance weight, recommended exercises on KnowledgeNode
+- **Tests**: 10 new (740 total, 31 files)
+
+---
+
+## 2026-07-19 — Learning Science Engine (Sprint 33) ★★★★★
+
+- **LearningScienceEngine**: processSession, reviewQueue, interleaving, effectiveness analysis, reports
+- 7 algorithms integrated: SM-2, Ebbinghaus, Retrieval Practice, Interleaving, Desirable Difficulty, Metacognition, Bayesian KT
+- **Tests**: 10 new (730 total, 30 files)
+
+---
+
 ## 2026-07-19 — Ultimate Code Quality & Type Safety (Sprint 32) ★★★★★
 
 ### 🏆 Type Safety — `any` Reduction (51→8, 84% decrease)
@@ -377,45 +468,6 @@ See full CHANGELOG for detailed tables of all 30 items covering Zod validation, 
 ### 🧪 Testing
 - 22 vocabulary tests: AI schema validation, SRS algorithm, serialization, deduplication
 - All tests passing
-
----
-
-## 2026-07-16 Update Log
-
-### 🎤 Speaking Practice Enhancement (2 commits)
-- Content-only analysis + customizable prep time
-- Crash fix on submit + enforce Traditional Chinese
-
-### 🚀 Platform Enhancement (1 commit)
-- OnboardingGuard mandatory diagnostic flow
-- Teacher route Middleware JWT/NextAuth dual protection
-- New pages: `/student/speaking`, `/student/daily-challenge`, `/student/reading`
-- Plagiarism detection (n-gram over-copy detection)
-
-### 📝 Spelling & Vocabulary Enhancements (3 commits)
-- Word selection support for spelling practice
-- iPad tap-to-add touch event overhaul v3
-- Vocab 3.1: selection mode + date sorting + selected word quiz
-
-### 🧹 Code Quality (2 commits)
-- Dead code cleanup + Reading page zh toggle
-- Removed orphaned duplicate cleanup code
-
-### 🧪 E2E Testing (5 commits)
-- Comprehensive E2E test suite (6 scenarios, 22 tests)
-- Import path fixes, playwright config relocation, Vitest exclusion
-
-### 🔔 Notifications & Settings (1 commit)
-- Notification preferences cross-device sync + unified settings page
-
-### ⚙️ DevOps & Fixes (2 commits)
-- Config defaults + devops-check.js
-- Google Sheets env var name fix
-
-### 📄 Documentation (1 commit)
-- Staging smoke test checklist (44 checkpoints)
-
-**Daily stats: 17 commits + 1 pending fix covering Speaking, Daily Challenge, Reading, Spelling, Vocabulary, E2E, Notifications, DevOps — 8 major domains**
 
 ---
 

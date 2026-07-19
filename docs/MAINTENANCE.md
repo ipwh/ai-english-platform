@@ -1,7 +1,7 @@
 # 長期維護與監控策略
 
 > AI English Platform — Production Maintenance & Monitoring Strategy
-> 最後更新：2026-07-19 | 32 Sprints | 669 tests | 29 modules | 98% Ready
+> 最後更新：2026-07-19 | 42 Sprints | 853 tests | 34 modules | 98% Ready
 
 ---
 
@@ -9,7 +9,7 @@
 
 ```bash
 npm run smoke     # 45 項自動化檢查（0 需 DB）
-npm test          # 669 單元測試
+npm test          # 853 單元測試
 npm run build     # TypeScript 編譯檢查
 ```
 
@@ -28,7 +28,7 @@ npm run build     # TypeScript 編譯檢查
 
 | # | 任務 | 難度 | 類別 |
 |---|------|------|------|
-| M1 | 執行 `npm run test` 確認全部 74+ tests 通過 | Easy | 測試 |
+| M1 | 執行 `npm run test` 確認全部 853+ tests 通過 | Easy | 測試 |
 | M2 | 檢查 Vercel Analytics：AI 生成平均耗時、p99 延遲 | Easy | 效能 |
 | M3 | 檢查 Prisma 資料庫：學生數、錯題數、詞彙數增長趨勢 | Easy | 資料 |
 | M4 | 抽查 10 題最新 AI 生成的 Listening 題目，人工核對答案一致性 | Medium | AI Prompt |
@@ -51,7 +51,7 @@ npm run build     # TypeScript 編譯檢查
 
 ---
 
-## 二、AI Prompt 版本管理機制
+## 三、AI Prompt 版本管理機制
 
 ### 2.1 Prompt 檔案結構
 

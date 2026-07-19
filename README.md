@@ -2,8 +2,8 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md) | [AUDIT REPORT](docs/DEPLOYMENT-AUDIT-REPORT.md)
-> **Status**: 32 Sprints ✅ | 669 tests | 29 modules | Build: Passing | **Deployment Readiness: 98%**
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md)
+> **Status**: 42 Sprints ✅ | 853 tests | 34 modules | Build: Passing | **Deployment Readiness: 98%**
 
 ## 🏗️ Architecture Overview
 
@@ -25,7 +25,7 @@ Performance ← Security ← Observability
 | Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 (21 schemas, 17 validated routes) |
-| Testing | Vitest 4 (669 tests, 31 test files) + Playwright + Smoke (45 checks) |
+| Testing | Vitest 4 (853 tests, 39 test files) + Playwright + Smoke (45 checks) |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Logging | Structured Logger (Pino-style JSON/human-readable) |
@@ -302,37 +302,30 @@ npm run dev
 
 ## 環境變數
 
-參考 `.env.example`，主要變數：
+參考 `.env.example`，所有可用環境變數已完整列於上方「🚀 生產部署 Checklist」表格中。主要必填變數：
 
 | 變數 | 說明 | 必填 |
 |------|------|------|
-| `DEEPSEEK_API_KEY` | DeepSeek API 金鑰（主要供應商） | ❌ |
-| `GCP_PROJECT_ID` | Vertex/Gemini 所屬 GCP Project ID（service account 路徑必填） | ❌ |
-| `VERTEX_AI_LOCATION` | Vertex 區域（預設 `asia-east2`） | ❌ |
-| `VERTEX_GEMINI_MODEL` | Vertex Gemini 模型（預設 `gemini-2.5-flash`） | ❌ |
-| `GEMINI_API_KEY` | Gemini API 金鑰（可選，僅當 Vertex 不可用時備援） | ❌ |
-| `AUTH_GOOGLE_ID` | Google OAuth 用戶端 ID | ✅（Google 登入） |
-| `AUTH_GOOGLE_SECRET` | Google OAuth 用戶端密碼 | ✅（Google 登入） |
-| `AUTH_SECRET` | NextAuth 加密密鑰 | ✅（Google 登入） |
-| `DEEPSEEK_BASE_URL` | API 端點（預設 `https://api.deepseek.com/v1`） | ❌ |
-| `DEEPSEEK_MODEL` | 模型名稱（預設 `deepseek-chat`） | ❌ |
-| `GEMINI_MODEL` | Gemini 模型名稱（預設 `gemini-2.5-flash`） | ❌ |
-| `DATABASE_URL` | Prisma 連線字串（SQLite 或 PostgreSQL） | ❌ |
-| `JWT_SECRET` | JWT 簽署密鑰 | ❌ |
-| `GOOGLE_APPLICATION_CREDENTIALS` | GCP 服務帳號 JSON 路徑 | ❌ |
-| `GOOGLE_SHEETS_CLASS_ROSTER_ID` | Google Sheets 班別名單 ID（用於同步學生班別） | ❌ |
-| `GCP_SERVICE_ACCOUNT_JSON` | GCP 服務帳號 JSON 內容（Vercel 用，替代檔案路徑） | ❌ |
+| `DEEPSEEK_API_KEY` | DeepSeek API 金鑰（主要 AI 供應商） | ✅ |
+| `JWT_SECRET` | JWT 簽署密鑰 | ✅ |
+| `AUTH_SECRET` | NextAuth 加密密鑰 | ✅ |
+| `AUTH_GOOGLE_ID` | Google OAuth 用戶端 ID | ✅ |
+| `AUTH_GOOGLE_SECRET` | Google OAuth 用戶端密碼 | ✅ |
+| `DATABASE_URL` | PostgreSQL 連線字串 | ✅ |
+| `GCP_PROJECT_ID` | Vertex/Gemini 所屬 GCP Project ID | ⬜ |
+| `GCP_SERVICE_ACCOUNT_JSON` | GCP 服務帳號 JSON (Base64) | ⬜ |
+| `GEMINI_API_KEY` | Gemini API 金鑰（備援） | ⬜ |
 
 ## 專案結構
 
 ```
 src/
 ├── app/                      # Next.js App Router
-│   ├── api/                  # 83 API route files
+│   ├── api/                  # 103 API route files
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
-├── modules/                  # 🆕 模組化架構 (18 modules)
+├── modules/                  # 🆕 模組化架構 (34 modules)
 │   ├── ai/                   # AI 服務 (20 services, prompts, providers)
 │   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations)
 │   ├── profile/              # 學生學習檔案
@@ -475,21 +468,21 @@ npm run db:reset      # 重置資料庫
 ## 測試
 
 ```bash
-npm test              # 執行全部測試（328 tests, 18 files）
+npm test              # 執行全部測試（853 tests, 39 files）
 npm run test:watch    # 持續監控模式
 ```
 
-測試涵蓋 18 模組：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙。
+測試涵蓋 34 模組：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台 等。
 
 ## 目前狀態
 
-> **最後更新**: 2025-01-16 | Sprints 1-18 完成
+> **最後更新**: 2026-07-19 | Sprints 1-42 完成
 
 | 層級 | 狀態 |
 |------|------|
-| 架構 | ✅ 18 模組 (Routes → Zod → Services → Repositories → DB)，0 default DB imports |
-| AI 服務層 | ✅ 20 services（DeepSeek → Vertex Gemini → Gemini API fallback chain, 6 prompt families v1, MCQ 正規化, provider registry DI） |
-| API 路由 | ✅ 83 routes（17 Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
+| 架構 | ✅ 34 模組 (Routes → Zod → Services → Repositories → DB)，0 default DB imports |
+| AI 服務層 | ✅ 25 services（DeepSeek → Vertex Gemini → Gemini API fallback chain, 6 prompt families v1.1, MCQ 正規化, provider registry DI） |
+| API 路由 | ✅ 103 routes（17 Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
 | 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
 | 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |

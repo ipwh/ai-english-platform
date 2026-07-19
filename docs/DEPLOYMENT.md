@@ -1,6 +1,19 @@
 # Deployment Guide — AI English Platform
 
-> **Deployment Readiness**: 98% | **Last Audit**: 2026-07-19 | **Smoke Test**: `npm run smoke` (45 checks)
+> **Deployment Readiness**: 98% | **Last Audit**: 2026-07-19 | **Smoke Test**: `npm run smoke` (45 checks) | **Tests**: 853 (39 files)
+
+## Audit Summary (2026-07-19)
+
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| API Security | ✅ 100% | All 103 routes authenticated via `verifyApiAuth()` |
+| AI Quality | 🟢 90% | DSE rubrics embedded in all prompts; Speaking enhanced with Paper 4 rubrics |
+| Type Safety | 🟢 92% | 38 `: any` / 26 `as any` remaining (strategic, documented) |
+| Structured Logging | 🟡 75% | 71 files still use raw `console.*`; logger auto-patches in production |
+| Config Consolidation | 🟡 70% | `process.env` exists in 25 files outside config; `NODE_ENV` most common |
+| Documentation | 🟢 95% | Consolidated: 8 active docs, `.env.example` complete |
+| Test Coverage | ✅ 853 tests | 39 test files, 34 modules covered |
+| Build | ✅ Clean | TypeScript 0 errors, Next.js 16 Turbopack |
 
 ## Prerequisites
 
