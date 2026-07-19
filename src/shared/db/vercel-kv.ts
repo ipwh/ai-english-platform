@@ -26,10 +26,9 @@ export async function getKvClient(): Promise<KvClient | null> {
   if (kvUrl && kvToken) {
     try {
       // Dynamic import — @vercel/kv is an optional dependency
-      // @ts-expect-error — @vercel/kv may not be installed
       const mod = await import('@vercel/kv');
       if (mod?.kv) {
-        kvClient = mod.kv;
+        kvClient = mod.kv as unknown as KvClient;
         activeBackend = 'kv';
         logger.info({ module: 'vercel-kv', backend: 'Vercel KV' }, 'KV client initialized');
         return kvClient;

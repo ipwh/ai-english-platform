@@ -6,10 +6,10 @@
 // ============================================
 
 import { useEffect } from 'react';
-import { useAppStore } from '@/store/appStore';
+import { useUIStore } from '@/store/uiStore';
 
 export function HydrateStore() {
-  const hydrateStoredPrefs = useAppStore((s) => s.hydrateStoredPrefs);
+  const hydrateStoredPrefs = useUIStore((s) => s.hydrateStoredPrefs);
 
   useEffect(() => {
     hydrateStoredPrefs();

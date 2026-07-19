@@ -3,7 +3,7 @@
 // 支援 ELE KLACG 2017 課程文法項目及語言技能
 // ============================================
 import { skillLabels, skillLabelsEn, difficultyLabels } from '@/shared/utils/nav';
-import { useAppStore } from '@/store/appStore';
+import { useUIStore } from '@/store/uiStore';
 import type { SkillCategory, DifficultyLevel, GrammarItem, LanguageSkill } from '@/shared/types/types';
 
 interface SkillChipProps {
@@ -21,7 +21,7 @@ interface SkillChipProps {
 }
 
 export default function SkillChip({ skill, grammarItem, languageSkill, subSkill, subSkillZh, difficulty, size = 'sm', className = '' }: SkillChipProps) {
-  const language = useAppStore(s => s.language);
+  const language = useUIStore(s => s.language);
   const sizeClass = size === 'sm' ? 'text-xs px-2 py-0.5' : 'text-sm px-3 py-1';
 
   const diffColorMap: Record<string, string> = {
