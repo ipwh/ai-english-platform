@@ -481,20 +481,23 @@ Mastery score (0-100) = weighted sum of:
 | AI Provider Chain | 5-model fallback with circuit breaker | ✅ A |
 | Deployment Readiness | **99%** | ✅ A |
 
-### Fixed in Sprint 40 Audit
+### Fixed in Sprint 40 Audit (Phase 2)
 
 | Issue | File | Fix |
 |-------|------|-----|
 | `any` types (2 occurrences) | `vocabulary/repositories/vocabulary-repo.ts` | Replaced with `Prisma.VocabItemCreateInput` / `Prisma.VocabItemUpdateInput` |
-| `as any` casts (3 occurrences) | `exercise/services/exercise-service.ts` | Replaced with `Prisma.PracticeSessionCreateInput` + `Prisma.PracticeAnswerCreateManyInput` |
+| `as any` casts (4 occurrences) | `exercise/services/exercise-service.ts` | Replaced with `Prisma.PracticeSessionCreateInput` + `Prisma.PracticeAnswerCreateManyInput` |
+| `as any` casts (2 occurrences) | `vocabulary/services/vocabulary-service.ts` | Replaced with `Prisma.VocabItemCreateInput` + `Prisma.VocabItemUpdateInput` |
+| `any[]` return type | `student/repositories/student-repo.ts` | Narrowed to `{ id: string } & Record<string, unknown>` |
+| Missing `kv` config | `shared/config/config.ts` | Added `kv` section (url, token, isConfigured) |
 
 ### Remaining Tech Debt (non-blocking)
 
 | Item | Severity | Count |
 |------|----------|-------|
-| Direct `process.env` usage outside config | Medium | ~42 references |
+| Direct `process.env` usage outside config | Medium | ~40 references |
 | Legacy `console.*` calls (routed through logger but lose module context) | Low | ~71 files |
-| `as any` casts remaining (mostly legacy pages) | Low | ~27 occurrences |
+| `as any` casts remaining (mostly legacy pages) | Low | ~24 occurrences |
 | `teacher-copilot-service.ts` uses `data: any` for `loadClassData` | Low | 5 occurrences |
 | `DiagnosticResult` schema mismatch (grammarItem/score/level vs skill/accuracy) | Medium | 1 bug |
 | v1 modules lack Zod schemas (vocabulary, mistake-db, writing-coach, etc.) | Medium | 6 modules |

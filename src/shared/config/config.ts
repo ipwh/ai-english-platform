@@ -222,6 +222,12 @@ const google = {
   get sheetsConfigured(): boolean { return !!this.sheetsClassRosterId; },
 };
 
+const kv = {
+  url: process.env.VERCEL_KV_URL || process.env.KV_URL || '',
+  token: process.env.VERCEL_KV_TOKEN || process.env.KV_TOKEN || '',
+  get isConfigured(): boolean { return !!this.url && !!this.token; },
+};
+
 // ============================================
 // 整合匯出
 // ============================================
@@ -241,6 +247,7 @@ export const config = {
   cron,
   rag,
   google,
+  kv,
 } as const;
 
 export default config;

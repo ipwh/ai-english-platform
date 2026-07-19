@@ -5,6 +5,7 @@ import {
 } from '@/modules/vocabulary/repositories/vocabulary-repo';
 import { calculateNextReview } from '@/modules/vocabulary/services/srs';
 import { logger } from '@/shared/logger/logger';
+import type { Prisma } from '@prisma/client';
 
 export interface VocabInput {
   studentId: string; word: string; translation: string;
@@ -16,10 +17,13 @@ export async function addWord(input: VocabInput) {
   if (existing) return existing;
   logger.info({ module: 'vocabulary-service', word: input.word, studentId: input.studentId }, 'Adding word');
   return createVocab({
-    studentId: input.studentId, word: input.word, translation: input.translation,
-    partOfSpeech: input.partOfSpeech, example: input.example,
-    source: input.source, familiarity: 'new',
-  } as any);
+    student: { connect: { id: input.studentId } },
+    word: input.word,
+    partOfSpeech: input.partOfSpeech || 'noun',
+    meaningZh: input.translation,
+    exampleSentence: input.example,
+    familiarity: 'new',
+  });
 }
 
 export async function getStudentWords(studentId: string) { return listVocab(studentId); }
@@ -29,10 +33,11 @@ export async function getDueReviews(studentId: string, limit = 20) { return getD
 export async function recordReview(vocabId: string, quality: number) {
   const srs = calculateNextReview(quality);
   return updateVocab(vocabId, {
-    nextReviewDate: srs.nextReviewDate, easeFactor: srs.easeFactor,
-    interval: srs.interval, repetitions: srs.repetitions,
-    lastReviewedAt: new Date(), reviewCount: { increment: 1 },
-  } as any);
+    nextReviewDate: srs.nextReviewDate,
+    easeFactor: srs.easeFactor,
+    reviewInterval: srs.interval,
+    lastReviewedAt: new Date(),
+  });
 }
 
 export async function getVocabularyStats(studentId: string) {

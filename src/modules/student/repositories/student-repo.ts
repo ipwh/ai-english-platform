@@ -23,7 +23,7 @@ export async function findRecordOwner(table: string, resourceId: string, ownerFi
 }
 
 // Lightweight user lookup (notifications, bulk ops)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function findUsers(where: Prisma.UserWhereInput, select?: Record<string, boolean>): Promise<any[]> {
-  return db.user.findMany({ where, select: select as any });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma Select type varies by caller
+export async function findUsers(where: Prisma.UserWhereInput, select?: Record<string, boolean>): Promise<Array<{ id: string } & Record<string, unknown>>> {
+  return db.user.findMany({ where, select: select as Prisma.UserSelect }) as Promise<Array<{ id: string } & Record<string, unknown>>>;
 }
