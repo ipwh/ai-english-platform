@@ -229,6 +229,7 @@ const DEFAULTS: Record<string, boolean> = {
   'recommendation-engine': true,
   'writing-coach-rubric': true,
   'llm-evaluation': false,
+  'experiment': false,
 };
 
 export function isFeatureEnabled(feature: string): boolean {
