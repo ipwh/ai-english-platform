@@ -186,7 +186,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   'teacher.uploadMaterial': { zh: '上傳教材', en: 'Upload Material' },
   'teacher.classCount': { zh: '學生人數', en: 'Students' },
   'teacher.avgAccuracy': { zh: '平均正確率', en: 'Avg Accuracy' },
-  'teacher.completionRate': { zh: '平均完成率', en: 'Completion Rate' },
+  'teacher.completionRate': { zh: '完成率', en: 'Completion Rate' },
   'teacher.aiStatus': { zh: 'AI 服務狀態', en: 'AI Service Status' },
   'teacher.connected': { zh: '已連線', en: 'Connected' },
   'teacher.disconnected': { zh: '未連線', en: 'Disconnected' },
@@ -1532,6 +1532,67 @@ const translations: Record<string, { zh: string; en: string }> = {
   // ============================================
   'help.personalizedAnalysis': { zh: '個人化分析', en: 'Personalized Analysis' },
   'help.priorityImprove': { zh: '目前優先改善：', en: 'Priority: ' },
+
+  // ============================================
+  // Audio Player — TTS controls
+  // ============================================
+  'audio.stop': { zh: '停止', en: 'Stop' },
+  'audio.play': { zh: '播放', en: 'Play' },
+  'audio.pause': { zh: '暫停', en: 'Pause' },
+  'audio.resume': { zh: '繼續', en: 'Resume' },
+
+  // ============================================
+  // Layout & Metadata
+  // ============================================
+  'layout.title': { zh: 'AI 英語學習平台 — 香港中學英語適應性學習', en: 'AI English Platform — HK Secondary English Adaptive Learning' },
+  'layout.description': { zh: 'AI 驅動香港中學英語適應性學習平台，支援中一至中六學生文法、詞彙、閱讀、寫作及改錯練習，教師可派發任務、查看班級進度及覆核 AI 批改。', en: 'AI-powered adaptive English learning platform for HK secondary students (S1-S6). Supports grammar, vocabulary, reading, writing, and error correction practice. Teachers can assign tasks, track class progress, and review AI grading.' },
+
+  // ============================================
+  // Practice — in-session feedback
+  // ============================================
+  'practice.aiAnalyzing': { zh: 'AI 正在分析你的答案...', en: 'AI is analyzing your answer...' },
+  'practice.aiAnalysis': { zh: 'AI 智能分析', en: 'AI Smart Analysis' },
+  'practice.aiScore': { zh: 'AI 評分：', en: 'AI Score: ' },
+  'practice.inputPlaceholder': { zh: '請輸入你的答案...', en: 'Type your answer...' },
+  'practice.aiGrade': { zh: 'AI 批改', en: 'AI Grade' },
+  'practice.grading': { zh: '批改中...', en: 'Grading...' },
+  'practice.showZhHint': { zh: '顯示中文提示', en: 'Show Chinese Hint' },
+
+  // ============================================
+  // Writing — CLO labels
+  // ============================================
+  'writing.contentScore': { zh: 'Content 內容', en: 'Content' },
+  'writing.languageScore': { zh: 'Language 語言', en: 'Language' },
+  'writing.organizationScore': { zh: 'Organization 組織', en: 'Organization' },
+
+  // ============================================
+  // Teacher — Assignment management & materials
+  // ============================================
+  'teacher.targetClass': { zh: '📚 班級', en: '📚 Class' },
+  'teacher.targetGroup': { zh: '👥 組別', en: '👥 Group' },
+  'teacher.targetStudent': { zh: '👤 個別學生', en: '👤 Individual Student' },
+  'teacher.aiFeedback': { zh: 'AI 批改反饋', en: 'AI Feedback' },
+  'teacher.ocrStatus': { zh: 'OCR 狀態', en: 'OCR Status' },
+  'teacher.ragStatus': { zh: 'RAG 狀態', en: 'RAG Status' },
+  'teacher.subjects': { zh: '任教科目', en: 'Subjects' },
+  'teacher.formClass': { zh: '班主任班別', en: 'Form Class' },
+  'teacher.teachingClasses': { zh: '任教班別', en: 'Teaching Classes' },
+  'teacher.noBadges': { zh: '尚未獲得徽章', en: 'No badges earned' },
+  'teacher.noPracticeRecords': { zh: '尚無練習紀錄', en: 'No practice records' },
+
+  // ============================================
+  // Admin — Import & User management
+  // ============================================
+  'admin.importStudentTemplate': { zh: '學生匯入模板', en: 'Student Import Template' },
+  'admin.importStudentTemplateDesc': { zh: '包含 studentId, email, nameZh, nameEn, level, className, classNumber, gender, joinedAt', en: 'Includes studentId, email, nameZh, nameEn, level, className, classNumber, gender, joinedAt' },
+  'admin.importTeacherTemplate': { zh: '教師匯入模板', en: 'Teacher Import Template' },
+  'admin.importPlaceholderName': { zh: '陳大文, 李小明, mary@school.edu.hk', en: 'John Doe, Jane Smith, mary@school.edu.hk' },
+  'admin.passwordReset': { zh: '密碼已重設', en: 'Password Reset' },
+  'admin.confirm': { zh: '確定', en: 'Confirm' },
+  'admin.resetPassword': { zh: '🔑 重設密碼', en: '🔑 Reset Password' },
+  'admin.csvField.chineseName': { zh: ': 中文姓名（必填）', en: ': Chinese Name (required)' },
+  'admin.csvField.englishName': { zh: ': 英文姓名', en: ': English Name' },
+  'admin.csvField.email': { zh: ': 學校電郵（必填，不可重複）', en: ': School Email (required, unique)' },
 };
 
 /**

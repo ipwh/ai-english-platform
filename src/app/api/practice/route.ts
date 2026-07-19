@@ -1,11 +1,12 @@
 // ============================================
 // API: /api/practice — 練習記錄（僅儲存，XP 由 gamification API 控制）
+// P1: Migrated to PracticeRepo + MistakeRepo
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { db } from '@/shared/db/db';
+import { PracticeRepo, MistakeRepo, StudentRepo } from '@/modules/repositories';
 
 const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
@@ -40,36 +41,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '無權限為其他用戶儲存練習記錄' }, { status: 403 });
     }
 
-    const session = await db.practiceSession.create({
-      data: {
-        studentId,
-        skill: skill || 'general',
-        skillZh: skillZh || '綜合',
-        difficulty: difficulty || 'core',
-        totalQuestions: totalQuestions || 0,
-        correctCount: correctCount || 0,
-        source: source || 'ai-generated',
-      },
+    const session = await PracticeRepo.createPracticeSession({
+      studentId,
+      skill: skill || 'general',
+      skillZh: skillZh || '綜合',
+      difficulty: difficulty || 'core',
+      totalQuestions: totalQuestions || 0,
+      correctCount: correctCount || 0,
+      source: source || 'ai-generated',
     });
 
     // 逐題答案儲存（即使 AI/RAG 失敗也要儲存學生答案）
     if (answers && Array.isArray(answers) && answers.length > 0) {
       try {
-        await db.practiceAnswer.createMany({
-          data: answers.map((a: {
-            questionIndex: number; questionType?: string; questionPrompt?: string;
-            correctAnswer: string; studentAnswer: string; isCorrect: boolean; timeSpent?: number;
-          }, idx: number) => ({
-            sessionId: session.id,
-            questionIndex: a.questionIndex ?? idx,
-            questionType: a.questionType || 'mc',
-            questionPrompt: a.questionPrompt || '',
-            correctAnswer: a.correctAnswer || '',
-            studentAnswer: a.studentAnswer || '',
-            isCorrect: a.isCorrect,
-            timeSpent: a.timeSpent ?? null,
-          })),
-        });
+        await PracticeRepo.createPracticeAnswers(session.id, answers);
       } catch { /* 答案儲存非致命錯誤，session 已儲存 */ }
 
       // === Auto-mistake sync: 錯誤答案自動記錄到錯題本 ===
@@ -77,19 +62,15 @@ export async function POST(request: NextRequest) {
         const wrongAnswers = answers.filter((a: { isCorrect: boolean }) => !a.isCorrect);
         for (const a of wrongAnswers) {
           const qId = `${session.id}-q${a.questionIndex}`;
-          const existing = await db.mistake.findFirst({ where: { questionId: qId, studentId } });
+          const existing = await MistakeRepo.findMistakeByQuestion(studentId, qId);
           if (!existing) {
-            await db.mistake.create({
-              data: {
-                studentId,
-                questionId: qId,
-                questionSummary: (a as { questionPrompt?: string }).questionPrompt || '',
-                studentAnswer: a.studentAnswer || '',
-                correctAnswer: a.correctAnswer || '',
-                mistakeType: 'grammar',
-                reviewed: false,
-                inReviewList: true,
-              },
+            await MistakeRepo.createMistake({
+              studentId,
+              questionId: qId,
+              questionSummary: (a as { questionPrompt?: string }).questionPrompt || '',
+              studentAnswer: a.studentAnswer || '',
+              correctAnswer: a.correctAnswer || '',
+              mistakeType: 'grammar',
             });
           }
         }
@@ -98,22 +79,17 @@ export async function POST(request: NextRequest) {
 
     // 更新學生整體正確率（從所有練習紀錄計算）
     try {
-      const allSessions = await db.practiceSession.findMany({
-        where: { studentId },
-        select: { totalQuestions: true, correctCount: true },
-      });
+      const allSessions = await PracticeRepo.listPracticeSessions(studentId, 1000);
       const totalQ = allSessions.reduce((s, r) => s + r.totalQuestions, 0);
       const totalC = allSessions.reduce((s, r) => s + r.correctCount, 0);
       if (totalQ > 0) {
-        await db.user.update({
-          where: { id: studentId },
-          data: { overallAccuracy: Math.round((totalC / totalQ) * 100) },
-        });
+        await StudentRepo.updateUser(studentId, { overallAccuracy: Math.round((totalC / totalQ) * 100) });
       }
     } catch { /* accuracy update is non-critical */ }
 
-    // 每週進度快照（upsert 本週記錄）
+    // 每週進度快照（upsert 本週記錄）— still uses db for WeeklySnapshot (no dedicated repo yet)
     try {
+      const { db } = await import('@/shared/db/db');
       const now = new Date();
       const dayOfWeek = now.getDay();
       const monday = new Date(now);
@@ -168,12 +144,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '無權限查看其他用戶的練習記錄', sessions: [] }, { status: 403 });
     }
 
-    const sessions = await db.practiceSession.findMany({
-      where: { studentId },
-      orderBy: { startedAt: 'desc' },
-      take: 50,
-      include: { answers: { orderBy: { questionIndex: 'asc' } } },
-    });
+    const sessions = await PracticeRepo.listPracticeSessions(studentId, 50);
 
     return NextResponse.json({ sessions });
   } catch (err: unknown) {

@@ -69,10 +69,17 @@ export function getGoogleAuth(options?: {
     authOptions.credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    if (!fs.existsSync(credPath)) {
-      throw new Error(`GOOGLE_APPLICATION_CREDENTIALS 指向的憑證檔案不存在：${credPath}`);
+    if (fs.existsSync(credPath)) {
+      authOptions.keyFile = credPath;
+    } else {
+      // Fallback: try local materials file if env var path doesn't exist
+      const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+      if (fs.existsSync(localCredPath)) {
+        authOptions.keyFile = localCredPath;
+      } else {
+        throw new Error(`GOOGLE_APPLICATION_CREDENTIALS 指向的憑證檔案不存在：${credPath}，且 materials/gcp-service-account.json 也不存在。`);
+      }
     }
-    authOptions.keyFile = credPath;
   } else {
     const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
     if (fs.existsSync(localCredPath)) {

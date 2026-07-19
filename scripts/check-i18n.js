@@ -12,18 +12,14 @@ const fs = require('fs');
 const path = require('path');
 
 const SRC_DIR = path.join(__dirname, '..', 'src');
-const COMPONENTS_DIR = path.join(SRC_DIR, 'components');
-const APP_DIR = path.join(SRC_DIR, 'app');
-const LIB_DIR = path.join(SRC_DIR, 'lib');
 
-// Skip these patterns (lib files, test files, etc.)
+// Skip these patterns (test files, server-side routes, etc.)
 const SKIP_PATTERNS = [
-  /\\__tests__\\/,
-  /\\lib\\/,
-  /\\types\\/,
+  /[\\/]__tests__[\\/]/,
+  /[\\/]types[\\/]/,
   /\.test\.tsx?$/,
   /\.spec\.tsx?$/,
-  /\\api\\//,  // API routes are server-side
+  /[\\/]api[\\/]/,  // API routes are server-side
 ];
 
 // Chinese character pattern (CJK Unified Ideographs)
@@ -35,22 +31,23 @@ const CHINESE_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf]/;
 const HARDCODED_ZH_IN_JSX = /(?:>|}\s*)([^<{]*[\u4e00-\u9fff][^<{]*?)(?:<|{)/g;
 const HARDCODED_ZH_IN_STRING = /["'`]([^"'`]*[\u4e00-\u9fff][^"'`]*?)["'`]/g;
 
-// Files known to contain intentional Chinese (prompts, configs, seed data)
+// Files known to contain intentional Chinese (prompts, configs, seed data, style guide)
 const ALLOWED_CHINESE_FILES = [
   'prompts',
   'seed.ts',
-  'ai-service.ts', // AI prompts contain Chinese intentionally
-  'rag-service.ts', // RAG prompts
-  'i18n.ts', // The translation file itself
+  'ai-service.ts',       // AI prompts contain Chinese intentionally
+  'rag-service.ts',       // RAG prompts
+  'i18n.ts',              // The translation file itself
   'chinglish-rules.json', // Rule config
+  'check-i18n.js',        // This script itself
+  'style-guide',          // Design system demo page — intentional bilingual content
+  'dse-topics.ts',        // DSE topic taxonomy with bilingual labels
+  'dse-writing-data.ts',  // Writing data with bilingual examples
+  'writing-generation.ts', // Writing generation prompts
+  'OnboardingGuard.tsx',  // First-run onboarding has intentional step-by-step Chinese
 ];
 
-interface Finding {
-  file: string;
-  line: number;
-  text: string;
-  type: 'jsx-text' | 'string-literal' | 'comment' | 'attribute';
-}
+/** @typedef {{ file: string; line: number; text: string; type: 'jsx-text' | 'string-literal' | 'comment' | 'attribute' }} Finding */
 
 function shouldSkip(filePath) {
   return SKIP_PATTERNS.some(p => p.test(filePath));
@@ -119,9 +116,16 @@ function scanFile(filePath) {
 function main() {
   console.log('🔍 i18n Coverage Check — Scanning for hardcoded Chinese text...\n');
 
+  const COMPONENTS_DIR = path.join(SRC_DIR, 'components');
+  const APP_DIR = path.join(SRC_DIR, 'app');
+  const MODULES_DIR = path.join(SRC_DIR, 'modules');
+  const SHARED_DIR = path.join(SRC_DIR, 'shared');
+
   const allFiles = [
     ...findAllFiles(COMPONENTS_DIR),
     ...findAllFiles(APP_DIR),
+    ...findAllFiles(MODULES_DIR),
+    ...findAllFiles(SHARED_DIR),
   ].filter(f => !shouldSkip(f) && !isAllowedChineseFile(f));
 
   console.log(`📁 Scanning ${allFiles.length} files...\n`);
@@ -157,7 +161,7 @@ function main() {
     }
 
     console.log('💡 To fix: Replace hardcoded Chinese with t("key") calls.');
-    console.log('   Add translations to src/lib/i18n.ts translations object.\n');
+    console.log('   Add translations to src/shared/utils/i18n.ts translations object.\n');
     process.exitCode = 1;
   }
 }

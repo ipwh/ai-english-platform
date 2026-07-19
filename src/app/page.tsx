@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { db } from '@/shared/db/db';
+import { StudentRepo } from '@/modules/repositories';
 
 /** 根據 email 判斷用戶的「真實最高角色」（不可被角色切換降級） */
 function getRealRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
@@ -27,18 +27,12 @@ export default async function Home() {
 
       // 從 DB 查詢最新角色（以 DB 為準），並自動修復被角色切換污染的 DB role
       try {
-        const dbUser = await db.user.findUnique({
-          where: { email },
-          select: { role: true },
-        });
+        const dbUser = await StudentRepo.findUserByEmailMinimal(email);
         if (dbUser) {
           // 若 DB role 與 email 模式不符（被舊版角色切換污染），自動修復
           if (dbUser.role !== realRole && realRole !== 'student') {
             console.log(`[root:/] Auto-fixing DB role for ${email}: ${dbUser.role} → ${realRole}`);
-            await db.user.update({
-              where: { email },
-              data: { role: realRole },
-            }).catch((e) => { console.error('Failed to auto-fix DB role:', e); });
+            await StudentRepo.updateUser(dbUser.id, { role: realRole }).catch((e) => { console.error('Failed to auto-fix DB role:', e); });
           }
           if (!selectedRole) {
             role = dbUser.role;
@@ -70,18 +64,12 @@ export default async function Home() {
     const realRole = getRealRoleByEmail(email);
     let role = selectedRole || (session.user as { role?: string }).role;
     try {
-      const dbUser = await db.user.findUnique({
-        where: { email },
-        select: { role: true },
-      });
+      const dbUser = await StudentRepo.findUserByEmailMinimal(email);
       if (dbUser) {
         // 自動修復被污染的 DB role
         if (dbUser.role !== realRole && realRole !== 'student') {
           console.log(`[root:/] Auto-fixing DB role for ${email}: ${dbUser.role} → ${realRole}`);
-          await db.user.update({
-            where: { email },
-            data: { role: realRole },
-          }).catch(() => {});
+          await StudentRepo.updateUser(dbUser.id, { role: realRole }).catch(() => {});
         }
         if (!selectedRole) {
           role = dbUser.role;

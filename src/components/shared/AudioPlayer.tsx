@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Volume2, Pause, Play, Square, Loader2, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
+import { useT } from '@/hooks/use-i18n';
 
 interface AudioPlayerProps {
   text: string;
@@ -254,6 +255,7 @@ export default function AudioPlayer({
   useCloudTTS = false,
   onPrefetchReady,
 }: AudioPlayerProps) {
+  const { t } = useT();
   // Track client-side mount to avoid conditional hooks (SSR safety)
   const [isClient, setIsClient] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -1009,7 +1011,7 @@ export default function AudioPlayer({
         <button
           onClick={handleStop}
           className={`inline-flex items-center rounded-lg font-medium transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 ${sizeClasses[size]}`}
-          title="停止"
+          title={t('audio.stop')}
         >
           <Square className={iconSize[size]} />
         </button>

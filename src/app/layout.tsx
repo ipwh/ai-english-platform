@@ -7,6 +7,7 @@ import { HydrateStore } from "@/components/shared/HydrateStore";
 import { GlobalErrorBoundary } from "@/components/shared/GlobalErrorBoundary";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
+import { t } from "@/shared/utils/i18n";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,10 +21,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "AI 英語學習平台 — 香港中學英語適應性學習",
+    default: t('layout.title'),
     template: "%s | AI English Platform",
   },
-  description: "AI 驅動香港中學英語適應性學習平台，支援中一至中六學生文法、詞彙、閱讀、寫作及改錯練習，教師可派發任務、查看班級進度及覆核 AI 批改。",
+  description: t('layout.description'),
 };
 
 export const viewport: Viewport = {

@@ -79,7 +79,31 @@ function hasServiceAccountSource(): boolean {
   if (process.env.GCP_SERVICE_ACCOUNT_JSON) return true;
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return true;
   const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-  return fs.existsSync(localCredPath);
+  const localClientSecret = path.join(process.cwd(), 'materials', 'client_secret_');
+  if (fs.existsSync(localCredPath)) {
+    if (isProduction) {
+      console.error(
+        '[config] ⚠️ 生產環境偵測到本機憑證檔案 materials/gcp-service-account.json。\n' +
+        '請刪除該檔案，改用 GCP_SERVICE_ACCOUNT_JSON 或 GOOGLE_APPLICATION_CREDENTIALS 環境變數。'
+      );
+    }
+    return true;
+  }
+  // 檢查 materials/ 中是否有 client_secret 檔案（不應存在）
+  try {
+    const matDir = path.join(process.cwd(), 'materials');
+    if (fs.existsSync(matDir)) {
+      const files = fs.readdirSync(matDir);
+      const secretFiles = files.filter(f => f.startsWith('client_secret_') && f.endsWith('.json'));
+      if (secretFiles.length > 0) {
+        console.error(
+          `[config] ⚠️ 偵測到 Google OAuth client secret 檔案在 materials/ 目錄: ${secretFiles.join(', ')}。\n` +
+          '這些檔案不應存在於專案目錄中。請立即刪除並確保已加入 .gitignore。'
+        );
+      }
+    }
+  } catch { /* 無法讀取目錄，忽略 */ }
+  return false;
 }
 
 // ============================================

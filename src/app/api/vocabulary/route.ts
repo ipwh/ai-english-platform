@@ -7,6 +7,7 @@ import { serializeVocab } from '@/shared/utils/utils';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
 import type { Prisma } from '@prisma/client';
+import { cacheFor, CACHE_SHORT } from '@/shared/utils/api-cache';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       vocab: vocab.map(serializeVocab),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
+    }, { headers: cacheFor(CACHE_SHORT) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load vocabulary';
     console.error('[Vocabulary GET]', err);

@@ -1,10 +1,11 @@
 // ============================================
 // API: /api/mistakes — 錯題記錄
+// P1: Migrated to MistakeRepo
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { db } from '@/shared/db/db';
+import { MistakeRepo } from '@/modules/repositories';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -26,15 +27,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只能為自己的帳號新增錯題' }, { status: 403 });
     }
 
-    const mistake = await db.mistake.create({
-      data: {
-        studentId,
-        questionId,
-        studentAnswer: studentAnswer || '',
-        correctAnswer: correctAnswer || '',
-        mistakeType: mistakeType || 'grammar',
-        aiExplanation,
-      },
+    const mistake = await MistakeRepo.createMistake({
+      studentId,
+      questionId,
+      studentAnswer: studentAnswer || '',
+      correctAnswer: correctAnswer || '',
+      mistakeType: mistakeType || 'grammar',
+      aiExplanation,
     });
 
     return NextResponse.json({ mistake }, { status: 201 });
@@ -61,11 +60,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '只能查看自己的錯題' }, { status: 403 });
     }
 
-    const mistakes = await db.mistake.findMany({
-      where: { studentId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    const mistakes = await MistakeRepo.listMistakes(studentId, 100);
 
     // Map DB fields to frontend MistakeItem shape
     const mapped = mistakes.map((m) => ({
@@ -97,7 +92,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 🔒 Ownership: verify the mistake belongs to this student
-    const existing = await db.mistake.findUnique({ where: { id }, select: { studentId: true } });
+    const existing = await MistakeRepo.findMistakeById(id);
     if (!existing) {
       return NextResponse.json({ error: '找不到此錯題' }, { status: 404 });
     }
@@ -113,16 +108,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    const mistake = await db.mistake.update({
-      where: { id },
-      data: updateData,
-    });
+    const mistake = await MistakeRepo.updateMistake(id, updateData);
 
-    // 記錄複習歷史
+    // 記錄複習歷史 — uses db directly (MistakeReviewLog has no dedicated repo yet)
     try {
       const action = inReviewList === true ? 'addToReviewList'
         : inReviewList === false ? 'removeFromReviewList'
         : 'reviewed';
+      const { db } = await import('@/shared/db/db');
       await db.mistakeReviewLog.create({
         data: {
           mistakeId: id,
@@ -153,7 +146,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
 
     // 🔒 Ownership: verify the mistake belongs to this student
-    const existing = await db.mistake.findUnique({ where: { id }, select: { studentId: true } });
+    const existing = await MistakeRepo.findMistakeById(id);
     if (!existing) {
       return NextResponse.json({ error: '找不到此錯題' }, { status: 404 });
     }
@@ -161,7 +154,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '無權限刪除其他用戶的錯題' }, { status: 403 });
     }
 
-    await db.mistake.delete({ where: { id } });
+    await MistakeRepo.deleteMistake(id);
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
