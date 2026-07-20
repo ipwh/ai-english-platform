@@ -78,11 +78,16 @@ export async function GET(
     ]);
 
     // 2. 最近練習記錄（含教師指派任務）
+    // NOTE: 排除 source='assignment' 的 practiceSession，避免與 submission 重複
     const [recentSessions, recentSubmissions] = await Promise.all([
       db.practiceSession.findMany({
-        where: { studentId },
-        orderBy: { startedAt: 'desc' },
-        take: 10,
+        where: {
+          studentId,
+          source: { not: 'assignment' },
+          completedAt: { not: null },
+        },
+        orderBy: { completedAt: 'desc' },
+        take: 15,
         select: {
           id: true,
           skill: true,
@@ -91,13 +96,14 @@ export async function GET(
           totalQuestions: true,
           correctCount: true,
           startedAt: true,
+          completedAt: true,
           source: true,
         },
       }),
       db.submission.findMany({
         where: { studentId, submittedAt: { not: null } },
         orderBy: { submittedAt: 'desc' },
-        take: 10,
+        take: 15,
         select: {
           id: true,
           assignmentId: true,
@@ -112,7 +118,7 @@ export async function GET(
       }),
     ]);
 
-    // 合併練習記錄 + 任務提交，按時間排序
+    // 合併練習記錄 + 任務提交，按完成時間排序，去重
     const mergedSessions = [
       ...recentSessions.map(s => ({
         id: s.id,
@@ -124,6 +130,7 @@ export async function GET(
         correctCount: s.correctCount,
         accuracy: s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0,
         startedAt: s.startedAt,
+        completedAt: s.completedAt,
         source: s.source,
       })),
       ...recentSubmissions.map(sub => {
@@ -139,20 +146,22 @@ export async function GET(
           correctCount: sub.score != null ? Math.round((sub.score / 100) * (sub.assignment?.questionCount || ansCount || 1)) : 0,
           accuracy: sub.score != null ? Math.round(sub.score) : 0,
           startedAt: sub.submittedAt!,
+          completedAt: sub.submittedAt!,
           source: 'assignment',
         };
       }),
     ]
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+      .sort((a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime())
       .slice(0, 15);
 
-    // 3. 最近錯題
-    const recentMistakes = await db.mistake.findMany({
+    // 3. 最近錯題（去重：同一 questionId 只保留最新一筆）
+    const rawMistakes = await db.mistake.findMany({
       where: { studentId },
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      take: 50,
       select: {
         id: true,
+        questionId: true,
         questionSummary: true,
         studentAnswer: true,
         correctAnswer: true,
@@ -160,6 +169,14 @@ export async function GET(
         createdAt: true,
       },
     });
+
+    // 依 questionId 去重，保留最新
+    const seenQuestionIds = new Set<string>();
+    const recentMistakes = rawMistakes.filter(m => {
+      if (seenQuestionIds.has(m.questionId)) return false;
+      seenQuestionIds.add(m.questionId);
+      return true;
+    }).slice(0, 10);
 
     // 4. 詞彙概覽
     const vocabStats = await db.vocabItem.groupBy({
@@ -234,12 +251,7 @@ export async function GET(
       weakness: weaknessProfile,
       trends,
       stats,
-      recentSessions: recentSessions.map(s => ({
-        ...s,
-        accuracy: s.totalQuestions > 0
-          ? Math.round((s.correctCount / s.totalQuestions) * 100)
-          : 0,
-      })),
+      recentSessions: mergedSessions,
       recentMistakes,
       vocabStats: vocabStats.map(v => ({
         familiarity: v.familiarity,

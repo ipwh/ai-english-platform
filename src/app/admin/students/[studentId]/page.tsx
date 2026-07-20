@@ -93,6 +93,7 @@ interface StudentAnalytics {
     correctCount: number;
     accuracy: number;
     startedAt: string;
+    completedAt: string | null;
     source?: string;
   }>;
   recentMistakes: Array<{
@@ -576,6 +577,15 @@ export default function StudentAnalyticsPage() {
                       <p className="text-xs text-gray-500">
                         {isAssignment ? '任務' : s.difficulty} · {new Date(s.startedAt).toLocaleDateString()}
                       </p>
+                      {s.completedAt && (
+                        <p className="text-xs text-gray-400">
+                          <Clock className="w-3 h-3 inline mr-0.5" />
+                          完成: {new Date(s.completedAt).toLocaleString('zh-HK', {
+                            month: 'numeric', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
