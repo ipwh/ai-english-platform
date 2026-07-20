@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { PracticeRepo, MistakeRepo, StudentRepo } from '@/modules/repositories';
+import { PracticeRepo, MistakeRepo } from '@/modules/repositories';
+import { recordActivityMastery, syncStudentActivityMetrics } from '@/modules/learning-analytics/services/activity-accounting-service';
 
 const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
@@ -78,47 +79,22 @@ export async function POST(request: NextRequest) {
       } catch { /* mistake sync non-critical */ }
     }
 
-    // 更新學生整體正確率（從所有練習紀錄計算）
+    // 同步所有衍生數據：整體正確率、週統計及掌握度。
+    // 服務同時涵蓋教師任務提交，避免兩種活動出現不同口徑。
     try {
-      const allSessions = await PracticeRepo.listPracticeSessions(studentId, 1000);
-      const totalQ = allSessions.reduce((s, r) => s + r.totalQuestions, 0);
-      const totalC = allSessions.reduce((s, r) => s + r.correctCount, 0);
-      if (totalQ > 0) {
-        await StudentRepo.updateUser(studentId, { overallAccuracy: Math.round((totalC / totalQ) * 100) });
-      }
-    } catch { /* accuracy update is non-critical */ }
-
-    // 每週進度快照（upsert 本週記錄）— still uses db for WeeklySnapshot (no dedicated repo yet)
-    try {
-      const { db } = await import('@/shared/db/db');
-      const now = new Date();
-      const dayOfWeek = now.getDay();
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
-      const weekStart = monday.toISOString().split('T')[0];
-
-      const weekSessions = await db.practiceSession.findMany({
-        where: { studentId, startedAt: { gte: monday } },
-        select: { totalQuestions: true, correctCount: true },
-      });
-      const weekTotal = weekSessions.reduce((s, r) => s + r.totalQuestions, 0);
-      const weekCorrect = weekSessions.reduce((s, r) => s + r.correctCount, 0);
-
-      await db.weeklySnapshot.upsert({
-        where: { userId_weekStart: { userId: studentId, weekStart } },
-        create: {
-          userId: studentId, weekStart,
-          totalQuestions: weekTotal, correctCount: weekCorrect,
-          accuracy: weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0,
-          sessionsCount: weekSessions.length, xpGained: 0, streakDays: 0, wordsLearned: 0,
-        },
-        update: {
-          totalQuestions: weekTotal, correctCount: weekCorrect,
-          accuracy: weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0,
-          sessionsCount: weekSessions.length,
-        },
-      });
-    } catch { /* snapshot is non-critical */ }
+      await Promise.all([
+        syncStudentActivityMetrics(studentId),
+        recordActivityMastery({
+          studentId,
+          skill,
+          subSkill: skillZh || skill || 'general',
+          totalQuestions: totalQuestions || 0,
+          correctCount: correctCount || 0,
+        }),
+      ]);
+    } catch (error) {
+      logger.error({ module: 'practice', studentId, error: error instanceof Error ? error.message : String(error) }, 'Practice analytics sync failed');
+    }
 
     return NextResponse.json({ session }, { status: 201 });
   } catch (err: unknown) {
@@ -145,9 +121,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '無權限查看其他用戶的練習記錄', sessions: [] }, { status: 403 });
     }
 
-    const sessions = await PracticeRepo.listPracticeSessions(studentId, 50);
+    const [sessions, submissions] = await Promise.all([
+      PracticeRepo.listPracticeSessions(studentId, 50),
+      (await import('@/shared/db/db')).db.submission.findMany({
+        where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } },
+        orderBy: { submittedAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          score: true,
+          submittedAt: true,
+          assignment: { select: { title: true, grammarItem: true, difficulty: true, questionCount: true } },
+        },
+      }),
+    ]);
 
-    return NextResponse.json({ sessions });
+    const assignmentSessions = submissions.map(submission => {
+      const totalQuestions = submission.assignment.questionCount;
+      return {
+        id: `assignment-${submission.id}`,
+        skill: submission.assignment.grammarItem || 'assignment',
+        skillZh: submission.assignment.title,
+        difficulty: submission.assignment.difficulty,
+        totalQuestions,
+        correctCount: Math.round(((submission.score || 0) / 100) * totalQuestions),
+        source: 'assignment',
+        startedAt: submission.submittedAt,
+        completedAt: submission.submittedAt,
+        answers: [],
+      };
+    });
+
+    return NextResponse.json({
+      sessions: [...sessions, ...assignmentSessions]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .slice(0, 50),
+    });
   } catch (err: unknown) {
     logger.error({ module: 'practice', error: err instanceof Error ? err.message : String(err) }, 'Practice GET failed');
     return NextResponse.json({ error: 'Failed to load practice history', sessions: [] }, { status: 500 });

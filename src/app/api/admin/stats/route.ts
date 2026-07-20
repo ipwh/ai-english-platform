@@ -49,25 +49,31 @@ export async function GET(request: NextRequest) {
 
     // ---- 總計統計 ----
     const [totalStudents, totalTeachers, totalAdmins,
-      totalSessions, totalMistakes, totalAssignments] = await Promise.all([
+      practiceSessionCount, assignmentSubmissionCount, totalMistakes, totalAssignments] = await Promise.all([
       db.user.count({ where: { role: 'student' } }),
       db.user.count({ where: { role: 'teacher' } }),
       db.user.count({ where: { role: 'admin' } }),
       db.practiceSession.count(),
+      db.submission.count({ where: { status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } } }),
       db.mistake.count(),
       db.assignment.count(),
     ]);
+    const totalSessions = practiceSessionCount + assignmentSubmissionCount;
 
     // ---- 練習趨勢（按月份） ----
-    const recentSessions = await db.practiceSession.findMany({
-      where: {
-        startedAt: {
-          gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000), // 最近6個月
-        },
-      },
-      select: { startedAt: true, totalQuestions: true, correctCount: true },
-      orderBy: { startedAt: 'asc' },
-    });
+    const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+    const [recentSessions, recentSubmissions] = await Promise.all([
+      db.practiceSession.findMany({
+        where: { startedAt: { gte: sixMonthsAgo } },
+        select: { startedAt: true, totalQuestions: true, correctCount: true },
+        orderBy: { startedAt: 'asc' },
+      }),
+      db.submission.findMany({
+        where: { status: { in: ['submitted', 'graded'] }, submittedAt: { gte: sixMonthsAgo }, score: { not: null } },
+        select: { submittedAt: true, score: true, assignment: { select: { questionCount: true } } },
+        orderBy: { submittedAt: 'asc' },
+      }),
+    ]);
 
     // 按月彙總
     const monthlyMap = new Map<string, { sessions: number; questions: number; correct: number }>();
@@ -77,6 +83,15 @@ export async function GET(request: NextRequest) {
       entry.sessions++;
       entry.questions += s.totalQuestions;
       entry.correct += s.correctCount;
+      monthlyMap.set(month, entry);
+    }
+    for (const submission of recentSubmissions) {
+      const month = submission.submittedAt!.toISOString().slice(0, 7);
+      const entry = monthlyMap.get(month) || { sessions: 0, questions: 0, correct: 0 };
+      const totalQuestions = submission.assignment.questionCount;
+      entry.sessions++;
+      entry.questions += totalQuestions;
+      entry.correct += Math.round((submission.score! / 100) * totalQuestions);
       monthlyMap.set(month, entry);
     }
 

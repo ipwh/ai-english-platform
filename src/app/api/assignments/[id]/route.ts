@@ -9,6 +9,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { analyzeAnswer } from '@/modules/ai/services/ai-service';
 import { notifySubmissionReceived } from '@/shared/utils/notifications';
+import { recordActivityMastery, syncStudentActivityMetrics } from '@/modules/learning-analytics/services/activity-accounting-service';
 
 // GET /api/assignments/[id]
 // ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）— 需教師/管理員身分
@@ -243,6 +244,22 @@ export async function POST(
             submittedAt: new Date(),
           },
         });
+
+    // Assignment submissions use the same accounting path as self-directed
+    // practice. Re-submissions recalculate statistics but do not add a second
+    // mastery attempt for the same assignment.
+    try {
+      await syncStudentActivityMetrics(payload.userId);
+      if (!existing) {
+        await recordActivityMastery({
+          studentId: payload.userId,
+          skill: assignment.languageSkill || assignment.strand,
+          subSkill: assignment.grammarItem || assignment.title,
+          totalQuestions: assignment.questions.length,
+          correctCount: totalScore,
+        });
+      }
+    } catch { /* analytics sync must not prevent a valid submission */ }
 
     // 🔔 通知教師：學生已提交作業
     const student = await db.user.findUnique({

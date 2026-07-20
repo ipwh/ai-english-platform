@@ -88,6 +88,7 @@ export async function GET(
       writingDrafts,
       xpTransactions,
       weeklySnapshots,
+      submissions,
     ] = await Promise.all([
       db.practiceSession.findMany({
         where: { studentId },
@@ -118,11 +119,39 @@ export async function GET(
         orderBy: { weekStart: 'desc' },
         take: 12,
       }),
+      db.submission.findMany({
+        where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } },
+        orderBy: { submittedAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          score: true,
+          submittedAt: true,
+          assignment: { select: { title: true, grammarItem: true, difficulty: true, questionCount: true } },
+        },
+      }),
     ]);
+
+    const assignmentSessions = submissions.map(submission => {
+      const totalQuestions = submission.assignment.questionCount;
+      return {
+        id: `assignment-${submission.id}`,
+        skill: submission.assignment.grammarItem || 'assignment',
+        skillZh: submission.assignment.title,
+        difficulty: submission.assignment.difficulty,
+        totalQuestions,
+        correctCount: Math.round(((submission.score || 0) / 100) * totalQuestions),
+        source: 'assignment',
+        startedAt: submission.submittedAt!,
+        completedAt: submission.submittedAt!,
+        answers: [],
+      };
+    });
 
     return NextResponse.json({
       student,
-      practiceSessions,
+      practiceSessions: [...practiceSessions, ...assignmentSessions]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
       mistakes,
       vocab: { total: vocabCount, mastered: vocabMastered },
       writingDrafts,

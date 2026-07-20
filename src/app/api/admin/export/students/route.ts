@@ -82,14 +82,23 @@ export async function GET(request: NextRequest) {
           orderBy: { startedAt: 'desc' },
           take: 50,
         },
+        submissions: {
+          where: { status: { in: ['submitted', 'graded'] }, submittedAt: { not: null }, score: { not: null } },
+          select: { score: true, assignment: { select: { questionCount: true } } },
+        },
       },
       orderBy: [{ level: 'asc' }, { class: { name: 'asc' } }, { classNumber: 'asc' }],
     });
 
     // 計算每位學生的練習總次數與總題數
     const enriched = students.map(s => {
-      const totalQuestions = s.sessions.reduce((sum, sess) => sum + sess.totalQuestions, 0);
-      const totalCorrect = s.sessions.reduce((sum, sess) => sum + sess.correctCount, 0);
+      const assignmentQuestions = s.submissions.reduce((sum, submission) => sum + submission.assignment.questionCount, 0);
+      const assignmentCorrect = s.submissions.reduce(
+        (sum, submission) => sum + Math.round((submission.score! / 100) * submission.assignment.questionCount),
+        0,
+      );
+      const totalQuestions = s.sessions.reduce((sum, sess) => sum + sess.totalQuestions, 0) + assignmentQuestions;
+      const totalCorrect = s.sessions.reduce((sum, sess) => sum + sess.correctCount, 0) + assignmentCorrect;
       const sessionAccuracy = totalQuestions > 0
         ? Math.round((totalCorrect / totalQuestions) * 100)
         : null;
@@ -104,7 +113,7 @@ export async function GET(request: NextRequest) {
         classNumber: s.classNumber,
         overallAccuracy: s.overallAccuracy ? Math.round(s.overallAccuracy) : null,
         sessionAccuracy,
-        practiceSessions: s._count.sessions,
+        practiceSessions: s._count.sessions + s.submissions.length,
         totalQuestionsAnswered: totalQuestions,
         totalCorrectAnswers: totalCorrect,
         mistakes: s._count.mistakes,
