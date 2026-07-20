@@ -21,7 +21,8 @@ interface RealStudent {
 }
 
 export default function TeacherStudentsPage() {
-  const { t } = useT();
+  const { t, language } = useT();
+  const lang = language || 'zh';
   const [students, setStudents] = useState<RealStudent[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +203,7 @@ export default function TeacherStudentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !creatingGroup && setShowGroupModal(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">建立新組別</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('groups.createTitle')}</h3>
               <button onClick={() => setShowGroupModal(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
@@ -213,38 +214,38 @@ export default function TeacherStudentsPage() {
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Check className="w-6 h-6 text-green-600" />
                 </div>
-                <p className="text-green-600 font-medium">組別建立成功！</p>
+                <p className="text-green-600 font-medium">{lang === 'en' ? 'Group created successfully!' : '組別建立成功！'}</p>
               </div>
             ) : (
               <>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">組別名稱 *</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('groups.name') || '組別名稱'} *</label>
                     <input
                       type="text"
                       value={groupName}
                       onChange={e => setGroupName(e.target.value)}
-                      placeholder="例如：拔尖組、文法加強組"
+                      placeholder={t('groups.namePlaceholder')}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">描述（可選）</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('groups.descPlaceholder')}</label>
                     <input
                       type="text"
                       value={groupDesc}
                       onChange={e => setGroupDesc(e.target.value)}
-                      placeholder="組別目的或備註"
+                      placeholder={lang === 'en' ? 'Group purpose or notes' : '組別目的或備註'}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">選擇學生</label>
-                    {/* 搜尋 + 班級篩選 */}
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('groups.selectStudents')}</label>
                     <GroupStudentSelector
                       students={filtered}
                       selectedIds={selectedForGroup}
                       onSelectionChange={setSelectedForGroup}
+                      language={lang}
                     />
                   </div>
                   {groupError && <p className="text-xs text-red-500">{groupError}</p>}
@@ -252,12 +253,12 @@ export default function TeacherStudentsPage() {
                 <div className="flex justify-end gap-3 mt-4">
                   <button onClick={() => setShowGroupModal(false)} disabled={creatingGroup}
                     className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                    取消
+                    {t('groups.cancel')}
                   </button>
                   <button onClick={handleCreateGroup} disabled={creatingGroup || !groupName.trim() || selectedForGroup.length === 0}
                     className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
                     {creatingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                    建立組別
+                    {t('groups.createBtn')}
                   </button>
                 </div>
               </>
@@ -276,10 +277,12 @@ function GroupStudentSelector({
   students,
   selectedIds,
   onSelectionChange,
+  language,
 }: {
   students: RealStudent[];
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  language: string;
 }) {
   const [modalSearch, setModalSearch] = useState('');
   const [modalClassFilter, setModalClassFilter] = useState('');
@@ -287,12 +290,24 @@ function GroupStudentSelector({
   const classList = [...new Set(students.map(s => s.class?.name).filter(Boolean) as string[])].sort();
 
   const modalFiltered = students.filter(s => {
-    if (modalSearch && !(s.nameZh || '').includes(modalSearch) && !(s.nameEn || '').toLowerCase().includes(modalSearch.toLowerCase()) && !s.email.includes(modalSearch.toLowerCase())) return false;
+    const searchLower = modalSearch.toLowerCase();
+    if (modalSearch && !(s.nameZh || '').includes(searchLower) && !(s.nameEn || '').toLowerCase().includes(searchLower) && !s.email.toLowerCase().includes(searchLower)) return false;
     if (modalClassFilter && s.class?.name !== modalClassFilter) return false;
     return true;
   });
 
   const allSelected = modalFiltered.length > 0 && modalFiltered.every(s => selectedIds.includes(s.id));
+
+  const displayName = (s: RealStudent) => {
+    if (language === 'en') return s.nameEn || s.nameZh || s.email;
+    return s.nameZh || s.nameEn || s.email;
+  };
+
+  const displayNameSub = (s: RealStudent) => {
+    if (language === 'en' && s.nameEn && s.nameZh) return s.nameZh;
+    if (language !== 'en' && s.nameZh && s.nameEn) return s.nameEn;
+    return '';
+  };
 
   return (
     <div>
@@ -303,7 +318,7 @@ function GroupStudentSelector({
             type="text"
             value={modalSearch}
             onChange={e => setModalSearch(e.target.value)}
-            placeholder="搜尋學生姓名..."
+            placeholder={language === 'en' ? 'Search student name...' : '搜尋學生姓名...'}
             className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
           />
         </div>
@@ -312,7 +327,7 @@ function GroupStudentSelector({
           onChange={e => setModalClassFilter(e.target.value)}
           className="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
         >
-          <option value="">全部班級</option>
+          <option value="">{language === 'en' ? 'All classes' : '全部班級'}</option>
           {classList.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
@@ -329,13 +344,13 @@ function GroupStudentSelector({
               onSelectionChange(newIds);
             }
           }} className="rounded" />
-          全選 ({modalFiltered.length} 位)
+          {language === 'en' ? `Select all (${modalFiltered.length})` : `全選 (${modalFiltered.length} 位)`}
         </label>
-        <span className="text-xs text-blue-600 font-medium">已選 {selectedIds.length} 人</span>
+        <span className="text-xs text-blue-600 font-medium">{language === 'en' ? `${selectedIds.length} selected` : `已選 ${selectedIds.length} 人`}</span>
       </div>
       <div className="max-h-32 overflow-y-auto space-y-1 border border-gray-100 dark:border-gray-700 rounded-lg p-1">
         {modalFiltered.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">無符合條件的學生</p>
+          <p className="text-xs text-gray-400 text-center py-4">{language === 'en' ? 'No matching students' : '無符合條件的學生'}</p>
         ) : (
           modalFiltered.map(s => (
             <label key={s.id} className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
@@ -348,7 +363,8 @@ function GroupStudentSelector({
                 }}
                 className="rounded"
               />
-              <span className="flex-1 min-w-0 truncate">{s.nameZh || s.nameEn || s.email}</span>
+              <span className="flex-1 min-w-0 truncate">{displayName(s)}</span>
+              {displayNameSub(s) && <span className="text-xs text-gray-400 hidden sm:inline">{displayNameSub(s)}</span>}
               <span className="text-xs text-gray-400 flex-shrink-0">{s.class?.name || ''}</span>
             </label>
           ))

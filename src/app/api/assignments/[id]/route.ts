@@ -252,6 +252,29 @@ export async function POST(
     const studentDisplayName = student?.nameZh || student?.name || payload.userId;
     notifySubmissionReceived(studentDisplayName, assignment.title, id, assignment.createdBy);
 
+    // 更新作業完成率
+    try {
+      const totalSubmissions = await db.submission.count({
+        where: { assignmentId: id, status: { in: ['submitted', 'graded'] } },
+      });
+      // 估算目標人數：targetStudents / targetGroups / class 學生數
+      let totalTarget = 0;
+      if (assignment.targetType === 'students') {
+        totalTarget = await db.assignmentStudent.count({ where: { assignmentId: id } });
+      } else if (assignment.targetType === 'group') {
+        const groupIds = (await db.assignmentGroup.findMany({ where: { assignmentId: id }, select: { groupId: true } })).map(g => g.groupId);
+        if (groupIds.length > 0) {
+          totalTarget = await db.groupMember.count({ where: { groupId: { in: groupIds } } });
+        }
+      } else if (assignment.classId) {
+        totalTarget = await db.user.count({ where: { classId: assignment.classId, role: 'student' } });
+      }
+      if (totalTarget > 0) {
+        const rate = Math.round((totalSubmissions / totalTarget) * 100);
+        await db.assignment.update({ where: { id }, data: { completionRate: rate } });
+      }
+    } catch { /* non-critical */ }
+
     return NextResponse.json({
       submission: {
         id: submission.id,

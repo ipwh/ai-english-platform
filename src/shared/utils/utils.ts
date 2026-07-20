@@ -13,7 +13,8 @@ export function todayISO(): string {
 /**
  * 格式化日期（支援中英雙語 + 無效日期保護）
  */
-export function formatDate(dateStr: string, lang: string = 'zh'): string {
+export function formatDate(dateStr: string | null | undefined, lang: string = 'zh'): string {
+  if (!dateStr) return '—';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '—';
   if (lang === 'en') {
