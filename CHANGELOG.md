@@ -4,12 +4,18 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-07-20 (evening) — Reading Module v2: DSE RAG, Persistence & Class Linking
+## 2026-07-20 (evening) — Reading Module v2, Sidebar Reorg & Speaking Limitations
 
 ### 📖 Reading Module (DSE Paper 1) Enhancement
 - **DSE RAG integration** — `POST /api/reading` now retrieves real past paper reading passages + marking schemes via `retrievePastPaperContent()` and `retrieveMarkingScheme()`, injects context into AI prompt for authentic DSE-style output
 - **Data persistence** — reading scores now saved to practice history (`POST /api/practice`) when all questions are answered; wrong answers auto-synced to mistake book
-- **Sidebar renamed** — `閱讀理解` → `📖 DSE 閱讀模擬` to differentiate from AI Practice page's reading skill option
+
+### 🎨 Sidebar Reorganization
+- **Renamed**: `閱讀理解` → `📖 DSE 閱讀模擬`, `寫作支援` → `DSE寫作支援`, `Integrated Skills` → `DSE Integrated Skills`
+- **Reordered**: Speaking (會話練習) moved after Integrated Skills, grouping all DSE paper modules together (閱讀 → 寫作 → Integrated Skills → 會話)
+
+### 🗣️ Speaking Page — Limitation Notice
+- Added amber warning banner clarifying: no real-time conversation, no full Paper 4 simulation; AI analyzes typed text only
 
 ### 🏫 Admin-Teacher Class Linking
 - **Auto-link** — `POST /api/admin/classes` now auto-creates `TeacherClass` entries for all existing teachers when a new class is created, ensuring teachers can immediately assign work to it
@@ -17,9 +23,10 @@ All notable changes to the AI English Platform are documented here.
 ### 📁 Files Changed
 - `src/app/api/reading/route.ts` — DSE RAG retrieval + context injection
 - `src/app/student/reading/page.tsx` — practice persistence via `/api/practice`
+- `src/app/student/speaking/page.tsx` — limitation notice banner
 - `src/app/api/admin/classes/route.ts` — auto-link new classes to all teachers
-- `src/shared/utils/nav.ts` — sidebar label rename
-- `src/shared/utils/i18n-nav.ts` — i18n key rename
+- `src/shared/utils/nav.ts` — sidebar labels + reorder
+- `src/shared/utils/i18n-nav.ts` — i18n key renames
 
 ---
 

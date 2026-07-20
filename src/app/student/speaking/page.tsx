@@ -145,6 +145,21 @@ export default function SpeakingPracticePage() {
         </p>
       </div>
 
+      {/* ⚠️ Limitation Notice */}
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+        <div className="text-sm text-amber-800 dark:text-amber-300">
+          <p className="font-medium mb-1">
+            {language === 'en' ? '⚠️ Current Limitations' : '⚠️ 目前限制'}
+          </p>
+          <ul className="list-disc list-inside space-y-0.5 text-amber-700 dark:text-amber-400">
+            <li>{language === 'en' ? 'Cannot simulate real-time human-machine conversation' : '未能做到即時人機對答'}</li>
+            <li>{language === 'en' ? 'Cannot fully simulate a live DSE Paper 4 oral exam (Group Discussion + Individual Response)' : '未能完整模擬 DSE Paper 4 口語考試（小組討論 + 個人回應）'}</li>
+            <li>{language === 'en' ? 'Practice by typing your response; AI will analyze your text for grammar, vocabulary, and content quality' : '請以文字輸入你的回應，AI 將分析你的文法、詞彙及內容質素'}</li>
+          </ul>
+        </div>
+      </div>
+
       {/* Config */}
       {!question && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4">
