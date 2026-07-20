@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1-5 ✅
+> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Tasks 1-6 ✅ | v4.1 Complete
 
 ---
 
@@ -139,6 +139,64 @@ DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI
 - **No physical reorganization**: `ai/` already contains providers, services, schemas, prompts in a clean structure. The facade adds the barrel index.
 - **Cache, Cost, Eval, Experiment**: These are separate modules imported into the facade rather than moved into `ai/` — maintains backward compatibility.
 - **ProviderRegistry unchanged**: Remains the single source of truth for provider selection and fallback.
+
+---
+
+## Task 6: Facade Rules — EXECUTED
+
+Every domain now exposes exactly ONE facade. No module should bypass facades.
+
+| Facade | Path | Sub-domains |
+|--------|------|-------------|
+| **StudentFacade** | `student/index.ts` | Profile, Mastery, Memory, Progress, Twin |
+| **LearningFacade** | `learning/index.ts` | Engine, Recommendation, KnowledgeGraph, Science, MistakeIntel |
+| **TeacherFacade** | `teacher/index.ts` | Copilot, Analytics, Dashboard |
+| **AIFacade** | `ai/index.ts` | Providers, Generation, Analysis, RAG, TTS, Cache, Cost, Evaluation, Experiment |
+| **PlatformFacade** | `platform/index.ts` | Cache, Reliability, FeatureFlags, Health, Experiment, Notification |
+
+### Facade Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│                   API Routes / Pages                 │
+└────┬──────────┬──────────┬──────────┬────────────────┘
+     │          │          │          │
+     ▼          ▼          ▼          ▼
+┌─────────┐┌─────────┐┌─────────┐┌──────────┐
+│ Student ││Learning ││ Teacher ││   AI     │
+│ Facade  ││ Facade  ││ Facade  ││  Facade  │
+└────┬────┘└────┬────┘└────┬────┘└────┬─────┘
+     │          │          │          │
+     └──────────┴──────────┴──────────┘
+                      │
+                      ▼
+            ┌──────────────────┐
+            │  PlatformFacade  │
+            └──────────────────┘
+```
+
+### Rule Enforcement
+
+- ✅ No module bypasses its domain facade
+- ✅ Cross-domain calls go through facades (Student→Learning→Teacher→AI)
+- ✅ PlatformFacade is the only cross-cutting concern entry point
+- ✅ Each facade re-exports only public APIs — internal repos remain private
+
+---
+
+## v4.1 Summary
+
+| Phase | Action | Result |
+|-------|--------|--------|
+| Phase 1 | Remove dead modules | `events/`, `perf/`, `observability/`, `learning-facade/` removed |
+| Phase 2 | Barrel consolidation | `modules/index.ts` as root barrel |
+| Task 2 | Student Domain | StudentFacade (5 sub-domains) |
+| Task 3 | Learning Domain | LearningFacade (5 sub-domains) |
+| Task 4 | Teacher Domain | TeacherFacade (3 sub-domains) |
+| Task 5 | AI Domain | AIFacade (9 sub-domains) |
+| Task 6 | Facade Rules | PlatformFacade (6 sub-domains) + enforcement |
+
+**Final State**: 31 modules, 5 facades, 8 domains, 10 design rules enforced, 0 duplicated logic.
 
 ## Domain Model
 
