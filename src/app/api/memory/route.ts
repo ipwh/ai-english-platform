@@ -1,10 +1,9 @@
-// Sprint 25: Learning Memory API
+// Sprint 25: Learning Memory API — v4.1: uses service layer, not repos directly
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { memoryService } from '@/modules/learning-memory/services/memory-service';
-import { memoryRepo } from '@/modules/learning-memory/repositories/memory-repository';
 import { generateLearningContext } from '@/modules/learning-memory/services/memory-scoring';
-import { persistMemoryToDb, loadMemoryFromDb, deleteMemoryFromDb } from '@/modules/learning-memory/repositories/memory-db-repository';
+import { loadMemoryFromDb } from '@/modules/learning-memory/repositories/memory-db-repository';
 
 // GET /api/memory?action=context|memory|freshness
 export async function GET(request: NextRequest) {
@@ -17,21 +16,17 @@ export async function GET(request: NextRequest) {
   const action = searchParams.get('action') || 'context';
 
   try {
+    // Sync DB → in-memory (persistence layer concern)
+    const dbMemory = await loadMemoryFromDb(auth.userId);
+    if (dbMemory) {
+      memoryService.saveMemory(auth.userId, dbMemory);
+    }
+
     switch (action) {
-      case 'context': {
-        // Try loading from DB first
-        const dbMemory = await loadMemoryFromDb(auth.userId);
-        if (dbMemory) {
-          memoryRepo.save(auth.userId, dbMemory);
-        }
-        const ctx = memoryService.getContext(auth.userId);
-        return NextResponse.json(ctx);
-      }
-      case 'memory': {
-        const dbMemory = await loadMemoryFromDb(auth.userId);
-        if (dbMemory) memoryRepo.save(auth.userId, dbMemory);
+      case 'context':
+        return NextResponse.json(memoryService.getContext(auth.userId));
+      case 'memory':
         return NextResponse.json(memoryService.getMemory(auth.userId));
-      }
       case 'freshness':
         return NextResponse.json({ freshnessHours: memoryService.getFreshness(auth.userId) });
       default:

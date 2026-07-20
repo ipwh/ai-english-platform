@@ -124,6 +124,11 @@ class KnowledgeGraphService {
     };
   }
 
+  /** Get all edges (v4.1: exposed for API routes) */
+  getAllEdges() {
+    return knowledgeGraphRepo.getAllEdges();
+  }
+
   // ============================================
   // Integration Helpers
   // ============================================

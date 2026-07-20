@@ -2,7 +2,6 @@
 // Returns full knowledge graph or filtered view
 import { NextRequest, NextResponse } from 'next/server';
 import { knowledgeGraphService } from '@/modules/knowledge-graph/services/knowledge-graph-service';
-import { knowledgeGraphRepo } from '@/modules/knowledge-graph/repositories/knowledge-graph-repository';
 import type { SkillDimension } from '@/modules/profile/types';
 
 export async function GET(request: NextRequest) {
@@ -14,7 +13,7 @@ export async function GET(request: NextRequest) {
     const includeNodes = searchParams.get('includeNodes') !== 'false';
     const includeEdges = searchParams.get('includeEdges') !== 'false';
 
-    let nodes = knowledgeGraphRepo.getAllNodes();
+    let nodes = knowledgeGraphService.getAllNodes();
     let edges: unknown[] = [];
 
     // Apply filters
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     // Get edges for filtered nodes
     if (includeEdges) {
-      const allEdges = knowledgeGraphRepo.getAllEdges();
+      const allEdges = knowledgeGraphService.getAllEdges();
       const nodeIds = new Set(nodes.map(n => n.id));
       edges = allEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
     }
