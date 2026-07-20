@@ -1,18 +1,24 @@
 // ============================================
 // 管理員：學生個人分析總覽 — /admin/students
-// 列出所有學生，點擊進入個別分析頁面
+// 列出所有學生，支援搜尋、年級及班級篩選
 // ============================================
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
 import {
   Search, ChevronLeft, ChevronRight, RefreshCw,
-  BarChart3, Users, GraduationCap, Filter,
+  BarChart3, Filter,
 } from 'lucide-react';
 
 // ---- Types ----
+interface ClassInfo {
+  id: string;
+  name: string;
+  gradeLevel: string;
+}
+
 interface StudentRecord {
   id: string;
   nameZh: string;
@@ -22,15 +28,14 @@ interface StudentRecord {
   classNumber: string | null;
   overallAccuracy: number | null;
   streakDays: number;
-  xp: number;
+  xp: number | null;
   academicYear: string | null;
-  class: { id: string; name: string; gradeLevel: string } | null;
+  class: ClassInfo | null;
   _count: {
     sessions: number;
     mistakes: number;
     vocabItems: number;
     submissions: number;
-    writingDrafts: number;
   };
 }
 
@@ -40,9 +45,10 @@ interface StudentsResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  classes: ClassInfo[];
 }
 
-// ---- Role Badge ----
+// ---- Level Badge ----
 function LevelBadge({ level }: { level: string | null }) {
   if (!level) return <span className="text-gray-400">-</span>;
   const colors: Record<string, string> = {
@@ -72,10 +78,15 @@ export default function AdminStudentsPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const mountedRef = useRef(true);
 
-  const fetchStudents = useCallback(async () => {
+  // Stable error message (avoid t in deps to prevent infinite loops)
+  const loadFailedMsg = '載入失敗';
+
+  const fetchStudents = async () => {
     setLoading(true);
     setError('');
     try {
@@ -85,30 +96,42 @@ export default function AdminStudentsPage() {
       params.set('role', 'student');
       if (search) params.set('search', search);
       if (levelFilter) params.set('level', levelFilter);
+      if (classFilter) params.set('className', classFilter);
 
       const res = await fetch(`/api/admin/users?${params}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || t('admin.users.loadFailed'));
-      setData({
-        students: json.users,
-        total: json.total,
-        page: json.page,
-        pageSize: json.pageSize,
-        totalPages: json.totalPages,
-      });
+      if (!res.ok) throw new Error(json.error || loadFailedMsg);
+      if (mountedRef.current) {
+        setData({
+          students: json.users,
+          total: json.total,
+          page: json.page,
+          pageSize: json.pageSize,
+          totalPages: json.totalPages,
+          classes: json.classes || [],
+        });
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('admin.users.loadFailed'));
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : loadFailedMsg);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  }, [page, search, levelFilter, t]);
+  };
 
-  useEffect(() => { fetchStudents(); }, [fetchStudents]);
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchStudents();
+    return () => { mountedRef.current = false; };
+  }, [page, search, levelFilter, classFilter]);
 
   const handleSearch = () => {
     setSearch(searchInput);
     setPage(1);
   };
+
+  const classList = data?.classes || [];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -125,7 +148,8 @@ export default function AdminStudentsPage() {
       {/* Search & Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px]">
+          {/* Search */}
+          <div className="flex-1 min-w-[180px]">
             <label className="block text-xs font-medium text-gray-500 mb-1">{t('admin.users.search')}</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -138,6 +162,7 @@ export default function AdminStudentsPage() {
               />
             </div>
           </div>
+          {/* Level filter */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">{t('admin.users.level')}</label>
             <select
@@ -148,6 +173,20 @@ export default function AdminStudentsPage() {
               <option value="">{t('admin.users.all')}</option>
               {['S1', 'S2', 'S3', 'S4', 'S5', 'S6'].map(l => (
                 <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+          {/* Class filter */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('admin.users.class')}</label>
+            <select
+              value={classFilter}
+              onChange={e => { setClassFilter(e.target.value); setPage(1); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+            >
+              <option value="">{t('admin.users.all')}</option>
+              {classList.map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
               ))}
             </select>
           </div>
@@ -165,7 +204,7 @@ export default function AdminStudentsPage() {
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-600 dark:text-red-400">
           {error}
-          <button onClick={fetchStudents} className="ml-3 underline">{t('admin.users.retry')}</button>
+          <button onClick={() => { setPage(1); fetchStudents(); }} className="ml-3 underline">{t('admin.users.retry')}</button>
         </div>
       )}
 
@@ -227,7 +266,7 @@ export default function AdminStudentsPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-amber-600 dark:text-amber-400 font-medium">
-                        {student.xp.toLocaleString()}
+                        {(student.xp ?? 0).toLocaleString()}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
