@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1 ✅ | Task 2 ✅
+> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1 ✅ | Task 2 ✅ | Task 3 ✅
 
 ---
 
@@ -31,6 +31,50 @@ Unified entry point wrapping all 5 student sub-domains:
 - **Not physically moved**: Modules remain at `student-mastery/`, `learning-memory/`, etc. to maintain backward compatibility. The facade provides the unified interface.
 - **Other modules should use StudentFacade**: Future code should import from `@/modules/student` instead of directly from individual modules.
 - **No repository-level changes**: Repositories remain internal to their modules.
+
+---
+
+## Task 3: Learning Domain Consolidation — EXECUTED
+
+### LearningFacade (`src/modules/learning/index.ts`)
+
+Unified entry point wrapping all 5 learning sub-domains:
+
+| Sub-domain | Modules | Facade API |
+|-----------|---------|------------|
+| **Engine** | `adaptive-learning/` (S39) | `execute` (Pipeline) |
+| **Recommendation** | `recommendation-v2/` (S33) | `getFull`, `grammar`, `vocabulary`, `writing`, `nextExercise` |
+| **KnowledgeGraph** | `knowledge-graph/` (S21/34) | `service`, `repo`, `topologicalSort`, `shortestLearningPath`, `lookupWeaknesses`, `unlockNextSkills` |
+| **Science** | `learning-science/` (S33) | `confidence`, `difficulty` (algorithms only, no API/repos) |
+| **MistakeIntel** | `mistake-intelligence/` (S32) | `buildProfile` |
+
+### Overlap Analysis
+
+| Overlap | Modules | Resolution |
+|---------|---------|------------|
+| Dual knowledge graphs | `learning/` (S7, 30 nodes) vs `knowledge-graph/` (S21, 52 nodes) | S7 provides seed data (`GRAMMAR_GRAPH`). Migration: extract into `knowledge-graph/data/`, deprecate S7. |
+| Dual recommendation engines | `recommendation/` (v1, 8 strategies) vs `recommendation-v2/` (S33, 4-factor) | Both active. v2 is canonical deterministic path. v1 retained for LLM-based complementary recommendations. |
+| Dual pipelines | `learning/` (S7) vs `adaptive-learning/` (S39) | S39 supersedes S7. S7 is legacy. |
+
+### Rule Compliance
+
+| Rule | Status |
+|------|--------|
+| #1: Decisions based on Student State | ✅ LearningFacade requires mastery data via StudentFacade |
+| #2: Recommendation is deterministic | ✅ v2 uses 4-factor weighted formula with explanations |
+| #4: Knowledge Graph → prerequisites only, no AI | ✅ No AI logic in knowledge-graph module |
+| #5: Science → algorithms only, no API/repos | ✅ learning-science has no API routes or DB repos |
+| #10: Reuse over duplication | ✅ Facade wraps, never rewrites |
+
+### Cross-Module Call Violations (documented, not yet migrated)
+
+| Caller | Callee | Violation |
+|--------|--------|-----------|
+| `recommendation-v2/` | `student-mastery/repositories` | Should go through StudentFacade |
+| `recommendation-v2/` | `mistake-intelligence/repositories` | Should go through LearningFacade.mistakeIntel |
+| `adaptive-learning/` | `student-mastery/`, `mistake-intelligence/`, `knowledge-graph/` | Should go through facades |
+
+> These violations are documented for future migration. They do not break functionality — the facades exist as the RECOMMENDED path forward.
 
 ## Domain Model
 
