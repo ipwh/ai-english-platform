@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | v4.1 Complete — All 8 Tasks ✅
+> Generated: 2026-07-20 | v4.1 Complete — All 11 Tasks ✅
 
 ---
 
@@ -359,6 +359,45 @@ The repository handles DB persistence for SM-2 review schedules. This is a data 
 | Types | 1 | ✅ Type definitions only |
 | Repository | 1 | ⚠️ DB-dependent (marked for migration) |
 | **Overall** | **8** | **87.5% compliant** |
+
+---
+
+## Task 11: Student Twin — Clarified Responsibilities
+
+### Digital Learning Twin — Updated Type
+
+| Component | Existing | v4.1 Update |
+|-----------|----------|-------------|
+| **Current ability** | ✅ `KnowledgeState.currentMastery` | — |
+| **Predicted ability** | ✅ `KnowledgeState.predictedMastery` (7d/30d/90d) + `TwinPredictions` | — |
+| **Weakness** | ✅ `KnowledgeState.weakSkills` + `ConfidenceState.underconfidentIn` | — |
+| **Learning state** | ✅ `MotivationState` + `ConfidenceState` + `LearningHabit` | — |
+| **Risk** | ✅ `RiskAssessment` (dropout, burnout, plateau, regression, exam readiness) | — |
+| **Dashboard** | ✅ `DashboardData` (KPIs, radar charts, velocity, milestones) | — |
+| **Goals** | ❌ Missing | ✅ Added `LearningGoals` (short-term + medium-term + target HKDSE) |
+| **Recommendations** | ❌ Missing | ✅ Added `RecommendationSummary[]` (sourced from LearningFacade) |
+
+### Rule #7 Compliance
+
+| Requirement | Status |
+|-------------|--------|
+| Twin represents digital learning state | ✅ 11 fields: persona, knowledge, motivation, confidence, habits, predictions, risks, dashboard, goals, recommendations |
+| Twin is NOT another profile | ✅ Profile is separate (identity, preferences, learning speed). Twin is derived state. |
+| Mastery is only one component | ✅ Mastery lives in `KnowledgeState.currentMastery` — one of 11 components |
+
+### Architecture
+
+```
+Student Profile (identity) ──→ Student Mastery (ability)
+                                      │
+                                      ▼
+                              Student Twin (derived digital state)
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                  ▼
+              Learning Goals    Recommendations    Risk Assessment
+              (derived)         (from LearningFacade)  (derived)
+```
 
 ## Domain Model
 

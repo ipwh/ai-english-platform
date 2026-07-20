@@ -17,6 +17,10 @@ export interface StudentTwin {
   predictions: TwinPredictions;
   risks: RiskAssessment;
   dashboard: DashboardData;
+  /** Learning goals — derived from weakness + exam targets (v4.1) */
+  goals: LearningGoals;
+  /** Top recommendations — sourced from LearningFacade (v4.1) */
+  recommendations: RecommendationSummary[];
 }
 
 // ============================================
@@ -226,4 +230,41 @@ export interface DashboardData {
     progress: number;
     estimatedDays: number;
   }>;
+}
+
+// ============================================
+// LearningGoals — derived from weakness + exam targets (v4.1)
+// ============================================
+
+export interface LearningGoals {
+  /** Short-term goals (next 7 days) */
+  shortTerm: LearningGoal[];
+  /** Medium-term goals (next 30 days) */
+  mediumTerm: LearningGoal[];
+  /** Target HKDSE level */
+  targetHkdseLevel: string;
+  /** Target overall mastery */
+  targetMastery: number;
+}
+
+export interface LearningGoal {
+  skill: string;
+  skillZh: string;
+  currentScore: number;
+  targetScore: number;
+  priority: 'high' | 'medium' | 'low';
+  reason: string;
+  reasonZh: string;
+}
+
+// ============================================
+// RecommendationSummary — sourced from LearningFacade (v4.1)
+// ============================================
+
+export interface RecommendationSummary {
+  type: 'grammar' | 'vocabulary' | 'reading' | 'writing' | 'exercise';
+  action: string;
+  actionZh: string;
+  priority: 'high' | 'medium' | 'low';
+  reason: string;
 }
