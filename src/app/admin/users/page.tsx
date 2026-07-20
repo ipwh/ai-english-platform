@@ -5,11 +5,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
 import {
   Search, Filter, ChevronLeft, ChevronRight,
   Edit3, Download, Users, GraduationCap, Shield,
   X, Save, Loader2, RefreshCw, UserPlus, Trash2, Key,
+  BarChart3,
 } from 'lucide-react';
 
 // ---- Types ----
@@ -880,6 +882,15 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {user.role === 'student' && (
+                          <Link
+                            href={`/admin/students/${user.id}`}
+                            className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                            title={t("admin.students.analyze")}
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </Link>
+                        )}
                         <button
                           onClick={() => setResetPwUser(user)}
                           className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"

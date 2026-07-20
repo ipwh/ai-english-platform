@@ -9,7 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Upload, Users, BookOpen, LogOut,
   Menu, ChevronLeft, BarChart3, AlertTriangle, RefreshCw,
-  Shuffle, Languages,
+  Shuffle, Languages, UserCheck,
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -59,6 +59,7 @@ const adminNavItems = [
   { i18nKey: 'admin.nav.overview', href: '/admin', icon: LayoutDashboard },
   { i18nKey: 'admin.nav.import', href: '/admin/import', icon: Upload },
   { i18nKey: 'admin.nav.users', href: '/admin/users', icon: Users },
+  { i18nKey: 'admin.nav.students', href: '/admin/students', icon: UserCheck },
   { i18nKey: 'admin.nav.reports', href: '/admin/reports', icon: BarChart3 },
   { i18nKey: 'admin.nav.classes', href: '/admin/classes', icon: BookOpen },
 ];

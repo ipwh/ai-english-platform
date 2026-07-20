@@ -173,4 +173,11 @@ export const adminTranslations: Record<string, { zh: string; en: string }> = {
   'admin.csvField.chineseName': { zh: ': 中文姓名（必填）', en: ': Chinese Name (required)' },
   'admin.csvField.englishName': { zh: ': 英文姓名', en: ': English Name' },
   'admin.csvField.email': { zh: ': 學校電郵（必填，不可重複）', en: ': School Email (required, unique)' },
+  // Student Analytics
+  'admin.nav.students': { zh: '學生分析', en: 'Student Analysis' },
+  'admin.students.title': { zh: '學生個人分析', en: 'Student Analysis' },
+  'admin.students.totalStudents': { zh: '共 {n} 位學生', en: '{n} total students' },
+  'admin.students.analyze': { zh: '分析', en: 'Analyze' },
+  'admin.students.back': { zh: '返回學生列表', en: 'Back to Student List' },
+  'admin.students.notFound': { zh: '學生不存在', en: 'Student not found' },
 };

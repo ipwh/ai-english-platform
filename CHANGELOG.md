@@ -6,6 +6,14 @@ All notable changes to the AI English Platform are documented here.
 
 ## 2026-07-20 — v4.2 Architecture Consolidation & Quality Remediation ★★★★★
 
+### 🆕 Admin Student Analysis Pages
+- **`/admin/students`** — searchable student list with level filter, pagination, and quick "Analyze" button
+- **`/admin/students/[studentId]`** — comprehensive individual analytics dashboard: 6 stat cards (accuracy/sessions/mistakes/streak/xp/vocab), 6-skill mastery bars, weakness profile (frequency/severity/trend/recommendations), weekly activity trend, per-skill session stats table, recent sessions & mistakes, vocabulary distribution overview, diagnostic results, writing submissions
+- **`GET /api/admin/students/[studentId]/analytics`** — aggregates 8 data sources (student info, mastery, weakness, trends, stats, sessions, mistakes, vocab, writing, diagnostics)
+- **Navigation** — "學生分析" link added to admin sidebar (UserCheck icon)
+- **Quick-access** — "分析" button (BarChart3 icon) added to user management table for student rows
+- **i18n** — `admin.nav.students`, `admin.students.*` translations (zh+en)
+
 ### 🧹 Dead Module Removal
 - **Removed `src/modules/recommendation/`** (8 files) — completely unused, replaced by `recommendation-v2/`
 - **Removed `src/modules/vocab-graph/`** (7 files) — completely unused, functionality absorbed by `vocabulary-intelligence/`
