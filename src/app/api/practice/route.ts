@@ -156,8 +156,16 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    type SessionItem = {
+      id: string; skill: string; skillZh: string; difficulty: string;
+      totalQuestions: number; correctCount: number; source: string;
+      startedAt: Date | string | null; completedAt?: Date | string | null;
+      answers?: unknown[];
+    };
+    const allSessions: SessionItem[] = [...filteredSessions, ...assignmentSessions];
+
     return NextResponse.json({
-      sessions: [...filteredSessions, ...assignmentSessions]
+      sessions: allSessions
         .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())
         // 智能去重：相同 (skill, totalQuestions, source) 且 startedAt 在 2 分鐘內 → 只保留 correctCount 最高者
         .reduce((acc, s) => {
@@ -174,7 +182,7 @@ export async function GET(request: NextRequest) {
             acc.push(s);
           }
           return acc;
-        }, [] as typeof filteredSessions)
+        }, [] as SessionItem[])
         .slice(0, 50),
     });
   } catch (err: unknown) {
