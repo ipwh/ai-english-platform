@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1 ✅ | Task 2 ✅ | Task 3 ✅
+> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1 ✅ | Task 2 ✅ | Task 3 ✅ | Task 4 ✅
 
 ---
 
@@ -75,6 +75,28 @@ Unified entry point wrapping all 5 learning sub-domains:
 | `adaptive-learning/` | `student-mastery/`, `mistake-intelligence/`, `knowledge-graph/` | Should go through facades |
 
 > These violations are documented for future migration. They do not break functionality — the facades exist as the RECOMMENDED path forward.
+
+---
+
+## Task 4: Teacher Domain Consolidation — EXECUTED
+
+### TeacherFacade (`src/modules/teacher/index.ts`)
+
+Unified entry point wrapping all 3 teacher sub-domains:
+
+| Sub-domain | Modules | Facade API |
+|-----------|---------|------------|
+| **Copilot** | `teacher-copilot/` (S38) | `generateLessonPlan`, `generateAssignments`, `analyzeClass`, `analyzeStudent`, `predictExam`, `getOverview` |
+| **Analytics** | `teacher-analytics/` (S24) | `analyzeClass`, `detectWeakSkills`, `rankWriting`, `rankReading`, `compareStudent`, `predictRisks`, `generateSuggestions`, `detectLearningGaps`, `generateAIReport` |
+| **Dashboard** | `learning-analytics/` (S37) | `build` (TeacherDashboard with weak/strong skills, class comparison, risk predictions, charts) |
+
+### Rule #6 Compliance
+
+| Requirement | Status |
+|-------------|--------|
+| Teacher Copilot never duplicates Recommendation logic | ✅ Copilot generates assignments using `learning-analytics` data, not its own recommendation engine |
+| Always reuse Learning Engine | ✅ Dashboard reuses `learning-analytics`; analytics warns about weak skills via LearningFacade |
+| Future-proof architecture | ✅ 3 distinct sub-domains with clear boundaries |
 
 ## Domain Model
 
