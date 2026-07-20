@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/shared/auth/jwt';
+import { logger } from '@/shared/logger/logger';
 import { auth } from '@/shared/auth/auth-next';
 
 /** 驗證使用者已登入 */
@@ -386,7 +387,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '匯出失敗';
-    console.error('[export/writing-analysis] Error:', msg);
+    logger.error({ module: 'export-writing-analysis', error: msg }, 'Export writing analysis failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

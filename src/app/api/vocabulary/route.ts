@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { serializeVocab } from '@/shared/utils/utils';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import type { Prisma } from '@prisma/client';
 import { cacheFor, CACHE_SHORT } from '@/shared/utils/api-cache';
 
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
     }, { headers: cacheFor(CACHE_SHORT) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load vocabulary';
-    console.error('[Vocabulary GET]', err);
+    logger.error({ module: 'vocabulary', error: err instanceof Error ? err.message : String(err) }, 'Vocabulary GET failed');
     return NextResponse.json({ error: message, vocab: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }, { status: 500 });
   }
 }

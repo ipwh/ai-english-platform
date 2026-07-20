@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM } from '@/modules/ai/services/ai-service';
+import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,7 +72,7 @@ Generate one example sentence.`;
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[vocab-example] Error:', message);
+    logger.error({ module: 'vocab-example', error: message }, 'Vocab example generation failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

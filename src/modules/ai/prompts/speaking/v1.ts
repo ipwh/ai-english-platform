@@ -1,8 +1,9 @@
-// Sprint 42: Speaking Prompts v1.1 — Enhanced with HKDSE Paper 4 rubrics
+// Sprint 42: Speaking Prompts v1.2 — Enhanced with HKDSE Paper 4 rubrics + hallucination guard
 // HKDSE Paper 4 Speaking prompts
-export const version = '1.1.0';
+import { HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
+export const version = '1.2.0';
 export const description = 'HKDSE Speaking prompts: group discussion and individual response prompts with full Paper 4 scoring rubrics';
-export const updatedAt = '2026-07-19';
+export const updatedAt = '2026-07-20';
 export const author = 'AI English Platform';
 
 const PAPER4_RUBRICS = `
@@ -41,6 +42,8 @@ export function buildSpeakingPrompt(topic: string, gradeLevel: string): string {
   return `你是一位香港 DSE English Paper 4 Speaking 考官，嚴格根據 HKDSE Level Descriptors 評分。
 
 ${PAPER4_RUBRICS}
+
+${HALLUCINATION_GUARD_LITE}
 
 請生成一個 HKDSE 格式的口語練習題目，並根據以上準則提供評分指導。
 

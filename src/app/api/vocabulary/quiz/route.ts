@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { callLLM } from '@/modules/ai/services/ai-service';
+import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
 
 export async function POST(request: NextRequest) {
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[vocab-quiz] Error:', message);
+    logger.error({ module: 'vocab-quiz', error: message }, 'Vocab quiz generation failed');
     return NextResponse.json({ quiz: [], error: message }, { status: 500 });
   }
 }

@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';
 
 // ============================================
@@ -392,7 +393,7 @@ export async function POST(request: NextRequest) {
         console.log(`[sync-sheets] Bulk updated ${toUpdate.length} students`);
       } catch (err: unknown) {
         result.errors.push(`批量更新失敗: ${(err as Error).message}`);
-        console.error('[sync-sheets] Bulk update error:', err);
+        logger.error({ module: 'sync-sheets', error: err instanceof Error ? err.message : String(err) }, 'Bulk update error');
       }
     }
 
@@ -413,7 +414,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[sync-sheets] Error:', msg);
+    logger.error({ module: 'sync-sheets', error: msg }, 'Sync sheets failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

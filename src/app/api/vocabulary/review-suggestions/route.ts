@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { getDueCards, getDailyReviewTarget } from '@/modules/vocabulary/services/srs';
 
 export async function GET(request: NextRequest) {
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(suggestions);
   } catch (err) {
-    console.error('[review-suggestions]', err);
+    logger.error({ module: 'review-suggestions', error: err instanceof Error ? err.message : String(err) }, 'Review suggestions failed');
     return NextResponse.json({ error: 'Failed to generate review suggestions' }, { status: 500 });
   }
 }

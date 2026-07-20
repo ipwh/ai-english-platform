@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import { checkRateLimit, GENERAL_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { notifyAssignmentCreated } from '@/shared/utils/notifications';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ assignments });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    console.error('[assignments GET]', msg);
+    logger.error({ module: 'assignments', error: msg }, 'Assignments GET failed');
     return NextResponse.json({ error: msg, assignments: [] }, { status: 500 });
   }
 }
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ assignment }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[assignments] POST error:', message);
+    logger.error({ module: 'assignments', error: message }, 'Assignments POST failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

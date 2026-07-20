@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
           },
         });
       } catch (pdfErr) {
-        console.error('[export-pdf] pdfkit generation failed, falling back to HTML:', pdfErr);
+        logger.error({ module: 'export-pdf', error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr) }, 'PDFKit generation failed, falling back to HTML');
       }
     }
 
@@ -258,7 +258,7 @@ ${rows}
       },
     });
   } catch (err) {
-    console.error('[export-pdf]', err);
+    logger.error({ module: 'export-pdf', error: err instanceof Error ? err.message : String(err) }, 'Export PDF failed');
     return NextResponse.json({ error: 'Export failed' }, { status: 500 });
   }
 }

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown TTS error';
-    console.error('[TTS API] Synthesis failed:', message);
+    logger.error({ module: 'tts', error: message }, 'TTS synthesis failed');
 
     // 判斷是否為憑證問題
     if (message.includes('unavailable') || message.includes('service account')) {

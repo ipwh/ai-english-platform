@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { logger } from '@/shared/logger/logger';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import type { Prisma } from '@prisma/client';
 
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/users] Error:', msg);
+    logger.error({ module: 'admin-users', error: msg }, 'Admin users GET failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ user }, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/users] POST Error:', msg);
+    logger.error({ module: 'admin-users', error: msg }, 'Admin users POST failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

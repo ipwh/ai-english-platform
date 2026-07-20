@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { MistakeRepo } from '@/modules/repositories';
 
 export async function POST(request: NextRequest) {
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ mistakes: mapped });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[Mistakes GET]', message);
+    logger.error({ module: 'mistakes', error: message }, 'Mistakes GET failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
+import { logger } from '@/shared/logger/logger';
 import { auth } from '@/shared/auth/auth-next';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
@@ -173,7 +174,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ draft: created }, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    console.error('[writing PATCH]', msg);
+    logger.error({ module: 'writing', error: msg }, 'Writing PATCH failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

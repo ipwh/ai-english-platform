@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import { verifySessionToken } from '@/shared/auth/jwt';
 
 async function getTeacherId(request: NextRequest): Promise<string | null> {
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (err) {
-    console.error('[groups GET]', err);
+    logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups GET failed');
     return NextResponse.json({ error: 'Server error', groups: [] }, { status: 500 });
   }
 }
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
-    console.error('[groups POST]', err);
+    logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups POST failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -129,7 +130,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ group });
   } catch (err) {
-    console.error('[groups PATCH]', err);
+    logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups PATCH failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -161,7 +162,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[groups DELETE]', err);
+    logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups DELETE failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

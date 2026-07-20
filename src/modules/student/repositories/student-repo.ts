@@ -14,10 +14,15 @@ export async function getUserPreferences(userId: string) { return db.userPrefere
 export async function listUsers(filters: { role?: string; level?: string; search?: string; page?: number; pageSize?: number }) { const where: Prisma.UserWhereInput = {}; if (filters.role) where.role = filters.role; if (filters.level) where.level = filters.level; if (filters.search) where.OR = [{ name: { contains: filters.search, mode: 'insensitive' } }, { email: { contains: filters.search, mode: 'insensitive' } }]; const p = filters.page ?? 1; const ps = Math.min(100, filters.pageSize ?? 20); const [users, total] = await Promise.all([db.user.findMany({ where, include: { class: true }, orderBy: { createdAt: 'desc' }, take: ps, skip: (p - 1) * ps }), db.user.count({ where })]); return { users, total, page: p, pageSize: ps }; }
 export async function deleteUser(id: string) { return db.user.delete({ where: { id } }); }
 
-// Dynamic table lookup for ownership checks
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Dynamic table lookup for ownership checks — explicit Prisma model map
+const MODEL_MAP: Record<string, { findUnique: (args: { where: { id: string }; select: Record<string, boolean> }) => Promise<Record<string, unknown> | null> }> = {
+  assignment: db.assignment as unknown as { findUnique: (args: { where: { id: string }; select: Record<string, boolean> }) => Promise<Record<string, unknown> | null> },
+  material: db.material as unknown as { findUnique: (args: { where: { id: string }; select: Record<string, boolean> }) => Promise<Record<string, unknown> | null> },
+  submission: db.submission as unknown as { findUnique: (args: { where: { id: string }; select: Record<string, boolean> }) => Promise<Record<string, unknown> | null> },
+};
+
 export async function findRecordOwner(table: string, resourceId: string, ownerField: string): Promise<Record<string, unknown> | null> {
-  const model = (db as any)[table];
+  const model = MODEL_MAP[table];
   if (!model?.findUnique) return null;
   return model.findUnique({ where: { id: resourceId }, select: { [ownerField]: true } });
 }

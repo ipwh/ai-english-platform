@@ -77,6 +77,7 @@ import {
 // ============================================
 export { STRICT_ANSWER_RULES } from '@/modules/ai/prompts';
 import { STRICT_ANSWER_RULES, GEMINI_JSON_INSTRUCTION } from '@/modules/ai/prompts';
+import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
 
 // ============================================
 // 已提取的 System Prompts
@@ -1464,6 +1465,8 @@ ${input.difficulty === 'remedial' ? '- 補底模式：每個選項的錯誤應�
 
 ${STRICT_ANSWER_RULES}
 
+${HALLUCINATION_GUARD}
+
 【正確 JSON 輸出範例】
 [
   {
@@ -1705,30 +1708,30 @@ export function parseAIJSON<T>(raw: string): T {
     .trim();
 
   // 嘗試直接解析
-  try { return JSON.parse(cleaned) as T; } catch { /* continue */ }
+  try { return JSON.parse(cleaned) as T; } catch { logger.debug({ module: 'ai-json' }, 'parseAIJSON: direct parse failed, trying balanced extraction'); }
 
   // 嘗試擷取第一段完整 JSON 區塊（可容忍前後雜訊）
   const balanced = extractBalancedJson(cleaned);
   if (balanced) {
-    try { return JSON.parse(balanced) as T; } catch { /* continue */ }
+    try { return JSON.parse(balanced) as T; } catch { logger.debug({ module: 'ai-json' }, 'parseAIJSON: balanced extraction failed, trying object extraction'); }
   }
 
   // 嘗試提取 JSON 物件
   const objMatch = cleaned.match(/\{[\s\S]*\}/);
   if (objMatch) {
-    try { return JSON.parse(objMatch[0]) as T; } catch { /* continue */ }
+    try { return JSON.parse(objMatch[0]) as T; } catch { logger.debug({ module: 'ai-json' }, 'parseAIJSON: object extraction failed, trying array extraction'); }
   }
 
   // 嘗試提取 JSON 陣列
   const arrMatch = cleaned.match(/\[[\s\S]*\]/);
   if (arrMatch) {
-    try { return JSON.parse(arrMatch[0]) as T; } catch { /* continue */ }
+    try { return JSON.parse(arrMatch[0]) as T; } catch { logger.debug({ module: 'ai-json' }, 'parseAIJSON: array extraction failed, trying repair'); }
   }
 
   // 嘗試修復截斷
   const repaired = repairTruncatedJSON(cleaned);
   if (repaired) {
-    try { return JSON.parse(repaired) as T; } catch { /* continue */ }
+    try { return JSON.parse(repaired) as T; } catch { logger.debug({ module: 'ai-json' }, 'parseAIJSON: repair failed, throwing'); }
   }
 
   throw new Error('AI 回傳格式無法解析，請重試。');
@@ -1851,10 +1854,10 @@ HKDSE 對齊規則：
     contextBlock += `\n【選項內容】\n${input.choices.map((c, i) => `${choiceLetters[i] || i + 1}. ${c}`).join('\n')}\n`;
   }
 
-  const userPrompt = `題目：${input.question}
+  const userPrompt = `題目：${sanitizeForAI(input.question)}
 題型：${input.questionType}
-正確答案：${input.correctAnswer}
-學生答案：${input.studentAnswer}
+正確答案：${sanitizeForAI(input.correctAnswer)}
+學生答案：${sanitizeForAI(input.studentAnswer)}
 學生答案詞數（系統計算）：${studentWordCount}
 ${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
@@ -2540,9 +2543,9 @@ export async function explainMistake(input: ExplainMistakeInput): Promise<Mistak
   const systemPrompt = getExplainMistakeSystemPrompt();
 
   const userPrompt = buildExplainMistakeUserPrompt({
-    question: input.question,
-    correctAnswer: input.correctAnswer,
-    studentAnswer: input.studentAnswer,
+    question: sanitizeForAI(input.question),
+    correctAnswer: sanitizeForAI(input.correctAnswer),
+    studentAnswer: sanitizeForAI(input.studentAnswer),
     grammarItemZh: input.grammarItemZh,
     studentLevel: input.studentLevel,
   });
@@ -3169,7 +3172,7 @@ ${guide ? `必備元素：${guide.requiredElements.join(', ')}` : ''}
       missingElements: string[];
     }>(result);
   } catch {
-    // Fallback: return generic guidance
+    logger.warn({ module: 'live-writing-coach', userId: input.userId }, 'Live writing coach failed, returning generic guidance');
     return {
       personalizedTips: ['繼續寫作，完成後可以使用 AI 批改獲得詳細分析。'],
       structureIssues: [],

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { getBulkDb } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import {
   parseCSV,
   studentRowSchema,
@@ -239,7 +240,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/import/students] Error:', msg);
+    logger.error({ module: 'admin-import-students', error: msg }, 'Import students failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

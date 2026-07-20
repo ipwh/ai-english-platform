@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -147,7 +148,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/stats] Error:', msg);
+    logger.error({ module: 'admin-stats', error: msg }, 'Admin stats failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

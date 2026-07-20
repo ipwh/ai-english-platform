@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import { verifySessionToken } from '@/shared/auth/jwt';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err) {
-    console.error('[integrated-skills draft GET]', err);
+    logger.error({ module: 'integrated-skills-draft', error: err instanceof Error ? err.message : String(err) }, 'Draft GET failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, updatedAt: draft.updatedAt });
   } catch (err) {
-    console.error('[integrated-skills draft POST]', err);
+    logger.error({ module: 'integrated-skills-draft', error: err instanceof Error ? err.message : String(err) }, 'Draft POST failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -103,7 +104,7 @@ export async function DELETE(request: NextRequest) {
     await db.integratedSkillsDraft.deleteMany({ where: { userId } });
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[integrated-skills draft DELETE]', err);
+    logger.error({ module: 'integrated-skills-draft', error: err instanceof Error ? err.message : String(err) }, 'Draft DELETE failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

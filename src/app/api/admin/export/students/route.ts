@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 import type { Prisma } from '@prisma/client';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
@@ -37,7 +38,7 @@ async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized:
         return { authorized: true, userId: session.user.id };
       }
     }
-  } catch { /* ignore */ }
+  } catch { logger.warn({ module: 'admin-export-students' }, 'NextAuth session check failed, falling back to JWT'); }
 
   return { authorized: false, error: '請先登入教師或管理員帳號' };
 }
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ students: enriched, total: enriched.length });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/export/students] Error:', msg);
+    logger.error({ module: 'admin-export-students', error: msg }, 'Export students failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

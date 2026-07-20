@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { db } from '@/shared/db/db';
 
 export async function POST(request: NextRequest) {
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ suggestions: filtered.slice(0, 5) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[vocab-suggest] Error:', message);
+    logger.error({ module: 'vocab-suggest', error: message }, 'Vocab suggestion failed');
     return NextResponse.json({ suggestions: [], error: message }, { status: 500 });
   }
 }

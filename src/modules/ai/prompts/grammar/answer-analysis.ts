@@ -1,12 +1,15 @@
-// Sprint 5: Answer Analysis Prompt
+// Sprint 5: Answer Analysis Prompt — v4.2 enhanced with hallucination guard
 // HKDSE answer grading system prompt
-export const version = '1.0.0';
+import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
+export const version = '1.1.0';
 export const description = 'HKDSE answer analysis: grade student answers against Level Descriptors';
-export const updatedAt = '2026-07-18';
+export const updatedAt = '2026-07-20';
 export const author = 'AI English Platform';
 
 export function buildAnswerAnalysisPrompt(): string {
-  return `你是一位香港中學英文科教師兼 HKDSE 評卷員。
+  return `${HALLUCINATION_GUARD}
+
+你是一位香港中學英文科教師兼 HKDSE 評卷員。
 請嚴格依據以下官方 HKDSE Level Descriptors 進行批改。
 請以繁體中文提供詳細分析，並以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
 

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
 
 // ============================================
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to generate spelling quiz';
-    console.error('[Spelling GET]', err);
+    logger.error({ module: 'spelling', error: err instanceof Error ? err.message : String(err) }, 'Spelling GET failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to submit spelling';
-    console.error('[Spelling POST]', err);
+    logger.error({ module: 'spelling', error: err instanceof Error ? err.message : String(err) }, 'Spelling POST failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

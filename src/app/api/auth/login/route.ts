@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/shared/auth/auth';
+import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { ALL_CLEARABLE_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
-    console.error('[auth/login] Error:', message);
+    logger.error({ module: 'auth-login', error: message }, 'Login failed');
     // 開發/測試階段顯示詳細錯誤以方便除錯
     const isDev = process.env.NODE_ENV === 'development';
     return NextResponse.json(

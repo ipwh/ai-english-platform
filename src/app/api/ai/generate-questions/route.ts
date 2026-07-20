@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       // Handle fetch Response objects thrown as exceptions
       const r = err as Response;
       message = `HTTP ${r.status} ${r.statusText}`;
-      try { const body = await r.text(); message += ` — ${body.slice(0, 200)}`; } catch {}
+      try { const body = await r.text(); message += ` — ${body.slice(0, 200)}`; } catch { logger.warn({ module: 'generate-questions' }, 'Failed to read error response body'); }
     } else {
       message = String(err);
     }

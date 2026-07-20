@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ preferences: prefs });
   } catch (err) {
-    console.error('[preferences POST]', err);
+    logger.error({ module: 'preferences', error: err instanceof Error ? err.message : String(err) }, 'Preferences POST failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

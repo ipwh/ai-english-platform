@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/shared/auth/jwt';
+import { logger } from '@/shared/logger/logger';
 import { auth } from '@/shared/auth/auth-next';
 import sharp from 'sharp';
 
@@ -32,7 +33,7 @@ async function getVisionClient(): Promise<import('@google-cloud/vision').ImageAn
       visionClient = new ImageAnnotatorClient({ credentials });
       return visionClient;
     } catch (e) {
-      console.error('[ocr] Failed to parse GCP_SERVICE_ACCOUNT_JSON:', e);
+      logger.error({ module: 'ocr', error: e instanceof Error ? e.message : String(e) }, 'Failed to parse GCP_SERVICE_ACCOUNT_JSON');
     }
   }
 
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'OCR 處理失敗';
-    console.error('[ocr/essay] Error:', msg);
+    logger.error({ module: 'ocr-essay', error: msg }, 'OCR essay failed');
 
     // 偵測常見錯誤
     if (msg.includes('Could not load the default credentials')) {
