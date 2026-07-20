@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1 ✅ | Task 2 ✅ | Task 3 ✅ | Task 4 ✅
+> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1-5 ✅
 
 ---
 
@@ -97,6 +97,48 @@ Unified entry point wrapping all 3 teacher sub-domains:
 | Teacher Copilot never duplicates Recommendation logic | ✅ Copilot generates assignments using `learning-analytics` data, not its own recommendation engine |
 | Always reuse Learning Engine | ✅ Dashboard reuses `learning-analytics`; analytics warns about weak skills via LearningFacade |
 | Future-proof architecture | ✅ 3 distinct sub-domains with clear boundaries |
+
+---
+
+## Task 5: AI Domain Consolidation — EXECUTED
+
+### AIFacade (`src/modules/ai/index.ts`)
+
+Unified entry point wrapping all AI sub-domains:
+
+| Sub-domain | Modules | Facade API |
+|-----------|---------|------------|
+| **Providers** | `ai/providers/` (5 models) | `registry`, `getLastUsed`, `wasFallbackUsed`, `isDeepSeekConfigured` |
+| **Generation** | `ai/services/` | `questions`, `writingPrompt` |
+| **Analysis** | `ai/services/` | `writing` (analyzeWriting) |
+| **RAG** | `ai/services/rag-service` | `service` (DSE past paper retrieval) |
+| **TTS** | `ai/services/tts-service` | `service` |
+| **Cache** | `cache/` (S12) | `service` (TTL in-memory) |
+| **Cost** | `ai-cost/` (S13) | `tracker` |
+| **Evaluation** | `llm-eval/` | `engine` |
+| **Experiment** | `experiment/` (S42) | `engine` (A/B testing) |
+
+### Rule #8 Compliance
+
+| Requirement | Status |
+|-------------|--------|
+| AI providers independent from learning logic | ✅ Learning modules go through AIFacade, not individual providers |
+| Learning modules never know which model generated response | ✅ `callLLM` abstracts provider selection |
+| ProviderRegistry is single entry point | ✅ `AIFacade.providers.registry` |
+
+### Provider Fallback Chain
+
+```
+DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI
+   ↓           ↓              ↓          ↓        ↓
+  Primary    GCP-hosted    Google AI   Anthropic  OpenAI
+```
+
+### Design Decisions
+
+- **No physical reorganization**: `ai/` already contains providers, services, schemas, prompts in a clean structure. The facade adds the barrel index.
+- **Cache, Cost, Eval, Experiment**: These are separate modules imported into the facade rather than moved into `ai/` — maintains backward compatibility.
+- **ProviderRegistry unchanged**: Remains the single source of truth for provider selection and fallback.
 
 ## Domain Model
 
