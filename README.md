@@ -9,17 +9,17 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ```
 Routes → Zod Validation → Services → Repositories → DB (PostgreSQL/Neon)
-  ↕         ↕              ↕
-Events ←── Caching ──→ AI Cost Tracking
-  ↕
-Learning Intelligence Pipeline v4:
-  Student → Mastery (S31) → Mistakes (S32) → Knowledge Graph (S34)
-         → Recommendations (S33) → AI Exercise → Feedback → Mastery Update
-  ↕
-Teacher Copilot (S38) ← Learning Analytics (S37)
-  ↕
-Vocabulary Intelligence (S35) + Writing Coach V2 (S36)
+
+v4.1 Domain Architecture:
+  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │ Student  │ │ Learning │ │ Teacher  │ │    AI    │ │ Platform │
+  │ Facade   │ │ Facade   │ │ Facade   │ │  Facade  │ │  Facade  │
+  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+
+Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Recommendations → AI Exercise
 ```
+
+> 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)
 
 | Layer | Technology |
 |-------|-----------|
@@ -63,7 +63,7 @@ Vocabulary Intelligence (S35) + Writing Coach V2 (S36)
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
 
-### 🚀 v4.0 Learning Intelligence (Sprints 31-40)
+### 🚀 v4.1 Learning Intelligence (Sprints 31-40)
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(45%)+練習頻率(20%)+新近度(20%)+錯誤懲罰(15%)的加權公式
 - **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
@@ -101,29 +101,17 @@ Vocabulary Intelligence (S35) + Writing Coach V2 (S36)
 - **響應式網格系統**：全站網格已適配 `grid-cols-1 sm:grid-cols-N` 模式（統計、CLO 評分、KPI、過濾列等）
 - 所有功能在手機與桌面完全一致，無功能缺漏
 
-## Tech Stack
+## 域架構 (v4.1)
 
-| 類別 | 技術 |
-|------|------|
-| 框架 | Next.js 16 (App Router + Turbopack) |
-| 語言 | TypeScript |
-| 樣式 | Tailwind CSS 4 |
-| 資料庫 | Prisma 7 + SQLite (開發) / PostgreSQL (生產) |
-| 狀態管理 | Zustand |
-| 國際化 | 自訂 i18n（useT hook + Zustand language store，支援繁體中文/English，含變數插值） |
-| 圖表 | Recharts |
-| AI | DeepSeek API (primary) + Vertex Gemini (service account fallback) + Gemini API (fallback) + Claude + OpenAI<br>`src/modules/ai/` (25 services, 6 prompt families, 5 providers) |
-| 評分標準 | HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）— 所有 AI prompt 已嵌入官方等級描述 rubric |
-| 驗證 | Zod（API 輸入驗證） + `src/shared/validation/`（21 schemas, 17 routes） |
-| 語音 | Google Cloud Text-to-Speech（多人對話分段合成）+ Web Speech API（fallback） |
-| 遊戲化 | XP 經驗值、等級系統、成就徽章、SRS 間隔重溫 (SM-2 Enhanced) |
-| 認證 | NextAuth.js v5 (Google OAuth) + JWT (jose) |
-| 部署 | Vercel |
-| OCR | Google Cloud Vision API |
-| 雲端 | Google Drive API（教材匯入）、Vertex AI（語義搜尋） |
-| DSE RAG | DeepSeek Embedding + pgvector (PostgreSQL native vector search, auto-fallback to in-memory cosine similarity) + 歷屆試題注入（Feature Flag: `DSE_RAG_ENABLED`） |
-| 日誌 | 結構化 Logger（`src/shared/logger/`，Pino-style JSON / human-readable 雙格式，`LOG_LEVEL` 控制） |
-| 快取 | AI 回應快取（`src/modules/cache/`，TTL Map cache-aside，`AI_CACHE_ENABLED` 開關） |
+| 域 | Facade | 子域 |
+|----|--------|------|
+| Student | `student/index.ts` | Profile, Mastery, Memory, Progress, Twin |
+| Learning | `learning/index.ts` | Engine, Recommendation, KnowledgeGraph, Science, MistakeIntel |
+| Teacher | `teacher/index.ts` | Copilot, Analytics, Dashboard |
+| AI | `ai/index.ts` | Providers, Generation, Analysis, RAG, TTS, Cache, Cost, Eval, Experiment |
+| Platform | `platform/index.ts` | Cache, Reliability, FeatureFlags, Health, Experiment, Notification |
+
+> 詳細技術棧見上方 [Layer | Technology](#-architecture-overview) 表格。域審計見 [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)。
 
 ## 個人化學習流程
 
