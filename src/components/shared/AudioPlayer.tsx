@@ -424,7 +424,7 @@ export default function AudioPlayer({
         try { URL.revokeObjectURL(cachedUrlRef.current); } catch { /* ignore */ }
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps — intentionally narrow deps: only re-init on src change, not on callback identity shifts
   }, []);
 
   // Fix: text prop 變化（切換題目）時徹底清理前一題的 audio 資源
@@ -441,7 +441,7 @@ export default function AudioPlayer({
   // 語速變更時停止現有播放（防止疊聲）
   useEffect(() => {
     cleanupAllPlayback();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps — intentionally narrow: re-init playback only on speed change
   }, [speed]);
 
   // ============================================
@@ -892,7 +892,7 @@ export default function AudioPlayer({
         handlePlayWebSpeech();
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps — intentionally narrow: cloud fetch depends only on text+speed, callbacks are stable refs
   }, [text, speed, onPlayEnd]);
 
   // SSR fallback: render placeholder until client-side mount

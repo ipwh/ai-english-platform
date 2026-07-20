@@ -29,6 +29,7 @@ export function getRateLimitBackend(): 'kv' | 'memory' {
 }
 
 /** 定期清理過期條目（in-memory mode only，每 60 秒） */
+// Module-level rate limit reset — persists for application lifetime, no cleanup needed
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();

@@ -171,7 +171,7 @@ function getVertexAuth() {
 // These functions remain for reference only. Remove after Q3 2026.
 // ============================================
 
-/** @deprecated Use providerRegistry.call() instead */
+/** @deprecated Use providerRegistry.call() instead. Remove by Sprint 45 (2026-08). */
 async function _callDeepSeek(
   messages: ChatMessage[],
   options?: LLMCallOptions
@@ -234,7 +234,7 @@ function toGeminiPayload(messages: ChatMessage[]) {
   return { systemMessages, contents };
 }
 
-/** @deprecated Use providerRegistry.call() instead */
+/** @deprecated Use providerRegistry.call() instead. Remove by Sprint 45 (2026-08). */
 async function _callGemini(
   messages: ChatMessage[],
   options?: LLMCallOptions
@@ -296,7 +296,7 @@ async function _callGemini(
   }
 }
 
-/** @deprecated Use providerRegistry.call() instead */
+/** @deprecated Use providerRegistry.call() instead. Remove by Sprint 45 (2026-08). */
 async function _callGeminiViaVertex(
   messages: ChatMessage[],
   options?: LLMCallOptions

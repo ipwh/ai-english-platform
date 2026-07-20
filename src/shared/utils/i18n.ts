@@ -35,6 +35,11 @@ const translations: Record<string, { zh: string; en: string }> = {
   ...progressTranslations,
 
   // 以下為尚未模組化的翻譯（待遷移至 i18n-*.ts）
+  // TODO(Sprint 45): Move remaining ~1,500 inline translations to domain files:
+  //   - teacher.* → i18n-teacher.ts
+  //   - diagnostic.*, help.*, profile.* → i18n-student.ts
+  //   - admin.*, ai.*, common.* → respective domain files
+  //   - Once complete, this file becomes a pure aggregator (~30 lines)
   'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },
   'nav.help': { zh: '求助建議', en: 'Help' },
   'nav.profile': { zh: '個人檔案', en: 'Profile' },

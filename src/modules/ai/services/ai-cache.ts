@@ -148,6 +148,7 @@ export const aiCache = {
 };
 
 /** 定期清理過期 in-memory 條目（每 5 分鐘） */
+// Module-level cache pruning — persists for application lifetime, no cleanup needed
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
