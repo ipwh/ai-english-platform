@@ -1,7 +1,7 @@
 # AI English Platform — Architecture
 
-> Generated: 2026-07-20 | 40 Sprints | 1,134 tests | 31 modules | Deployment Readiness: 99% | **v4.1**
-> See also: [DOMAIN_AUDIT.md](DOMAIN_AUDIT.md) | [FINAL_AUDIT_REPORT.md](FINAL_AUDIT_REPORT.md)
+> Generated: 2026-07-20 | 40 Sprints | 51 test files | 1,100+ tests | 36 modules | **v4.2**
+> See also: [DOMAIN_AUDIT.md](DOMAIN_AUDIT.md) | [DEEP_AUDIT_2026-07-20.md](DEEP_AUDIT_2026-07-20.md)
 
 ## Architecture Diagram
 
@@ -22,7 +22,7 @@ graph TB
         PROFILE[Student Profile<br/>5 services]
         MISTAKE[Mistake DB<br/>4 services]
         MISTAKE_INTEL[Mistake Intelligence<br/>2 services]
-        VOCAB[Vocab Graph<br/>5 services]
+        VOCAB[vocabulary<br/>2 services]
         MASTERY[Student Mastery<br/>2 services]
         RECO_V2[Recommendation V2<br/>2 services]
         EVENTS[Domain Events<br/>pub/sub]
@@ -88,13 +88,8 @@ graph LR
 
     MISTAKE_INTEL --> PROFILE
 
-    RECO_V2[recommendation-v2<br/>2 svc] --> MASTERY
+    RECO_V2[recommendation-v2<br/>2 services] --> MASTERY
     RECO_V2 --> MISTAKE_INTEL
-
-    VOCAB_GRAPH[vocab-graph<br/>5 svc] --> VOCAB
-
-    EVENTS[events<br/>pub/sub] -.-> PROFILE
-    EVENTS -.-> PROGRESS
 
     CACHE[cache] -.-> AI
     COST[ai-cost] -.-> AI
@@ -145,8 +140,8 @@ sequenceDiagram
 | 7 | Learning Engine | +21 | `learning/` |
 | 8 | Student Profile | +9 | `profile/` |
 | 9 | Mistake Database | +12 | `mistake-db/` |
-| 10 | Vocabulary Graph | +20 | `vocab-graph/` |
-| 11 | Domain Events | +13 | `events/` |
+| 10 | Vocabulary Intelligence | +34 | `vocabulary-intelligence/` |
+| 11 | Domain Events | +13 | removed in v4.1 |
 | 12 | Caching | +14 | `cache/` |
 | 13 | AI Cost Optimization | +16 | `ai-cost/` |
 | 14 | Performance | +9 | `perf/` |
@@ -162,22 +157,9 @@ sequenceDiagram
 | 37 | Learning Analytics | +21 | `learning-analytics/` |
 | 38 | Teacher Copilot | — | `teacher-copilot/` (API routes) |
 | 39 | Adaptive Learning | +11 | `adaptive-learning/` |
-| 40 | Learning Facade (v4) | — | `learning-facade/` (unified entry) |
+| 40 | Learning Facade (v4) | — | `learning/` (unified entry, v4.2 renamed) |
 
-## Module: learning-facade
-
-**Sprint 40** — Unified entry point for Learning Intelligence Platform v4. Barrel re-exports all public APIs from Sprints 31-39. Zero new business logic.
-
-### Exports
-- `getLearningProfile`, `updateAfterExercise` (S31)
-- `buildWeaknessProfile` (S32)
-- `getFullRecommendations`, `recommendGrammar`, `recommendVocabulary`, `recommendWritingTopic` (S33)
-- `knowledgeGraphService` (S34)
-- `buildVocabProfile` (S35)
-- `analyzeEssay` (S36)
-- `buildStudentTrends`, `buildTeacherDashboard`, `buildLearningStats` (S37)
-- `teacherCopilotService` (S38)
-- `executePipeline` (S39)
+> **v4.2 Cleanup**: Removed `recommendation/` (dead, replaced by `recommendation-v2/`), `vocab-graph/` (dead, absorbed by `vocabulary-intelligence/`). Module count: 38→36.
 
 ## Module: adaptive-learning
 

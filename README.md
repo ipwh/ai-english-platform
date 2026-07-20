@@ -2,8 +2,8 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [FINAL_AUDIT.md](docs/FINAL_AUDIT_REPORT.md)
-> **Status**: 40 Sprints ✅ | 1,134 tests | Build: ✅ | **Deployment Readiness: 99%** | **v4.1**
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [DEEP_AUDIT.md](docs/DEEP_AUDIT_2026-07-20.md)
+> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 99%** | **v4.2**
 
 ## 🏗️ Architecture Overview
 
@@ -27,9 +27,10 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 | Language | TypeScript 5 (strict) |
 | Database | PostgreSQL (Neon) + Prisma 7 (pgvector) |
 | Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
-| AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
+| AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback, prompt injection sanitized) |
 | Validation | Zod v4 (21 schemas, 17 validated routes) |
-| Testing | Vitest 4 (1,134 tests, 53 test files) + Playwright |
+| i18n | 16 domain files (i18n-*.ts), bilingual en/zh-HK |
+| Testing | Vitest 4 (51 test files, 1,100+ tests) + Playwright |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Logging | Structured Logger (Pino-style JSON/human-readable) |

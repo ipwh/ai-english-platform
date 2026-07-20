@@ -4,6 +4,55 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-20 — v4.2 Architecture Consolidation & Quality Remediation ★★★★★
+
+### 🧹 Dead Module Removal
+- **Removed `src/modules/recommendation/`** (8 files) — completely unused, replaced by `recommendation-v2/`
+- **Removed `src/modules/vocab-graph/`** (7 files) — completely unused, functionality absorbed by `vocabulary-intelligence/`
+
+### 🛡️ AI Safety — Prompt Injection Defense
+- **`sanitizeForAI()`** added to `analyzeAnswer`, `explainMistake` service functions (defense-in-depth)
+- Empty `catch {}` in `generate-questions/route.ts` replaced with `logger.warn`
+- Centralized `HALLUCINATION_GUARD` imported into all prompt files (`speaking/v1.ts`, `grammar/answer-analysis.ts`)
+- `HALLUCINATION_GUARD` appended to `generateQuestions` inline prompt (largest prompt in system)
+
+### 📝 Prompt Quality
+- **Reading prompt expanded** from 42→65 lines: 9 DSE Paper 1 question types (MCQ, T/F/NG, Matching, Summary Cloze, Referencing, Inference, Tone/Attitude, Sequencing, Short Answer)
+- Writing prompt: added JSON output schema + hallucination guard
+- Grammar prompt: added `GRAMMAR_HALLUCINATION_GUARD`
+
+### 🔧 Error Handling — Structured Logging
+- **35 `console.error` → `logger.error()`** across 26 API route files — zero `console.error` remaining in routes
+- **7 silent catch blocks** in `ai-service.ts` (`parseAIJSON` cascade + `liveWritingCoach`) now logged with `logger.debug`/`logger.warn`
+- `gamification/route.ts`: 9 silent catches → `logger.error()`
+- `student-twin-service.ts`: silent `return null/[]` → logger before fallback
+
+### 📐 Type Safety
+- **22 `as any` assertions removed** (production code only; test files excluded)
+- `student-repo.ts`: `(db as any)[table]` → explicit `MODEL_MAP`
+- `pdfParseModule` casts: `as any` → typed interface
+- All facade files (student/teacher/learning/ai/platform): `export { X } from` → `import+export` pattern fixes
+
+### 🌐 i18n System Overhaul
+- **1,269 inline translations migrated** to domain files via automated script
+- `i18n.ts` shrunk from **1,560 → 55 lines** (pure aggregator)
+- New domain files: `i18n-admin.ts`, `i18n-gamification.ts`, `i18n-mistakes.ts`
+- Fixed `isTranslations`, `groupsTranslations`, `notifTranslations` not spread into translations map
+
+### 🐛 Bug Fixes
+- `instrumentation.ts`: missing closing brace fixed
+- `knowledge-graph/graph/route.ts`: `knowledgeGraphRepo` → `knowledgeGraphService`
+- `memory/route.ts`: replaced non-existent `persistMemoryToDb`/`deleteMemoryFromDb` with TODOs
+- `cache-service.ts`: added `cacheService` singleton export for facade
+- `teacher/index.ts`, `student/index.ts`, `learning/index.ts`, `ai/index.ts`, `platform/index.ts`: re-export binding fixes
+
+### 📊 Verification
+- TypeScript: **0 errors** | Tests: 51 files, 1,100+ tests
+- All `console.error` removed from API routes
+- All empty catches logged
+
+---
+
 ## 2026-07-19 — Code Quality Boost & AI Anti-Hallucination (Sprint 44) ★★★★★
 
 ### 🛡️ AI Hallucination Guard
