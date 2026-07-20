@@ -285,6 +285,12 @@ export async function POST(
         }
       } else if (assignment.classId) {
         totalTarget = await db.user.count({ where: { classId: assignment.classId, role: 'student' } });
+      } else if (assignment.className) {
+        // Fallback: lookup by className if classId is null
+        const classRecord = await db.class.findFirst({ where: { name: assignment.className } });
+        if (classRecord) {
+          totalTarget = await db.user.count({ where: { classId: classRecord.id, role: 'student' } });
+        }
       }
       if (totalTarget > 0) {
         const rate = Math.round((totalSubmissions / totalTarget) * 100);

@@ -4,6 +4,23 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-20 (afternoon) — Bug Fixes: i18n, Completion Rate & Type Safety
+
+### 🐛 Bug Fixes
+- **`generic.classes` i18n key missing** — Added `'generic.classes': { zh: '個班級', en: 'classes' }` to `i18n-common.ts`; was rendering raw key on teacher dashboard KPI cards
+- **Teacher import redirect page — no English** — Added `'use client'` + `useT()` hook + 3 new i18n keys (`teacher.import.movedTitle`, `teacher.import.movedDesc`, `teacher.import.goToAdmin`) to `src/app/teacher/import/page.tsx`
+- **Completion rate stuck at 0%** — `POST /api/assignments/[id]` now falls back to className lookup when `classId` is null, ensuring target student count is always resolved
+- **TypeScript — `new Date(null)`** — Fixed nullable `startedAt` in practice route sort by using `?? 0` nullish coalescing
+
+### 📁 Files Changed
+- `src/app/api/assignments/[id]/route.ts` — className fallback for completion rate
+- `src/app/api/practice/route.ts` — `new Date(b.startedAt ?? 0)` type fix
+- `src/app/teacher/import/page.tsx` — i18n support (was hardcoded Chinese)
+- `src/shared/utils/i18n-common.ts` — added `generic.classes`
+- `src/shared/utils/i18n-teacher.ts` — added `teacher.import.moved*` keys
+
+---
+
 ## 2026-07-20 — v4.2 Architecture Consolidation & Quality Remediation ★★★★★
 
 ### 🆕 Admin Student Analysis Pages
