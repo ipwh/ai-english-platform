@@ -1,4 +1,7 @@
 // Sprint 33: Learning Science Repository — DB persistence for review schedules
+// ⚠️ TECH DEBT (Sprint 42): This repository violates Rule #5.
+// Learning Science should contain only algorithms.
+// Migrate to learning-memory/repositories/ and update consumers to go through LearningFacade.
 import { db } from '@/shared/db/db';
 import type { ReviewScheduleEntry } from '../types';
 

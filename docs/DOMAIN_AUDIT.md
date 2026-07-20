@@ -319,6 +319,47 @@ Routes → Facade → Services → Repositories → Database
 | Versioning only for prompts, algorithms, migrations | ✅ Module names are semantic, not versioned |
 | No `module-final`, `module-new`, `module-v3` patterns | ✅ Only 2 `-v2` suffixes, both justified |
 
+---
+
+## Task 10: Learning Science Cleanup — EXECUTED
+
+### Audit: `src/modules/learning-science/`
+
+| Check | Status |
+|-------|--------|
+| API routes | ✅ None |
+| React components | ✅ None |
+| Direct Prisma in services | ✅ None |
+| **Repository with DB** | ⚠️ 1 found |
+
+### Violation Found
+
+| File | Issue | Consumers |
+|------|-------|-----------|
+| `repositories/learning-science-repository.ts` | Uses `db` for `LearningReviewSchedule` CRUD. Violates Rule #5. | `learning-science-engine.ts` (same module), `student-twin-service.ts` (cross-domain) |
+
+### Analysis
+
+The repository handles DB persistence for SM-2 review schedules. This is a data access concern, not an algorithm. The algorithms in `learning-science/services/` (SM-2, Ebbinghaus, confidence estimation) are pure and compliant.
+
+### Resolution
+
+| Action | Reason |
+|--------|--------|
+| ✅ **Keep** the repository | "Never rewrite working modules" |
+| ✅ **Mark as tech debt** | Sprint 42: move to `learning-memory/repositories/` |
+| ✅ **Document the exception** | Only DB-access file in learning-science; all 6 service files are pure algorithms |
+| ⚠️ **Cross-domain access** | `student-twin` imports repo directly — should go through `LearningFacade` |
+
+### Cleanliness Score
+
+| Layer | Files | Compliant |
+|-------|-------|-----------|
+| Services (algorithms) | 6 | ✅ All pure (SM-2, Ebbinghaus, confidence, difficulty, interleaving, reflection) |
+| Types | 1 | ✅ Type definitions only |
+| Repository | 1 | ⚠️ DB-dependent (marked for migration) |
+| **Overall** | **8** | **87.5% compliant** |
+
 ## Domain Model
 
 The platform is organized into **8 domains**, each with clear boundaries:
