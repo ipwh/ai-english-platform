@@ -43,7 +43,7 @@ export const studentNavItems: NavItem[] = [
   { label: '學習主頁', i18nKey: 'nav.dashboard', href: '/student/dashboard', icon: LayoutDashboard },
   { label: '每日挑戰', i18nKey: 'nav.dailyChallenge', href: '/student/daily-challenge', icon: Calendar },
   { label: 'AI 練習', i18nKey: 'nav.practice', href: '/student/practice', icon: BookOpen },
-  { label: '📖 DSE 閱讀模擬', i18nKey: 'nav.reading', href: '/student/reading', icon: BookText },
+  { label: 'DSE閱讀理解', i18nKey: 'nav.reading', href: '/student/reading', icon: BookText },
   { label: 'DSE寫作支援', i18nKey: 'nav.writing', href: '/student/writing', icon: PencilLine },
   { label: 'DSE Integrated Skills', i18nKey: 'nav.integratedSkills', href: '/student/integrated-skills', icon: Headphones },
   { label: '會話練習', i18nKey: 'nav.speaking', href: '/student/speaking', icon: Mic },

@@ -8,7 +8,7 @@ export const navTranslations: Record<string, { zh: string; en: string }> = {
   'nav.writing': { zh: 'DSE寫作支援', en: 'DSE Writing' },
   'nav.integratedSkills': { zh: 'DSE Integrated Skills', en: 'DSE Integrated Skills' },
   'nav.dailyChallenge': { zh: '每日挑戰', en: 'Daily Challenge' },
-  'nav.reading': { zh: '📖 DSE 閱讀模擬', en: '📖 DSE Reading' },
+  'nav.reading': { zh: 'DSE閱讀理解', en: 'DSE Reading' },
   'nav.speaking': { zh: '會話練習', en: 'Speaking' },
   'nav.assignments': { zh: '我的作業', en: 'My Assignments' },
 
