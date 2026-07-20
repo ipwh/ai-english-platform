@@ -345,8 +345,19 @@ export default function StudentDetailPage() {
                   className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
+                      {s.source === 'dse-reading' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">DSE</span>}
+                      {s.source === 'ai-generated' && <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-600 rounded-full">AI</span>}
+                      {s.source === 'assignment' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-full">任務</span>}
+                    </div>
                     <p className="text-xs text-gray-400">{s.totalQuestions || 0} 題 · {formatDate(s.startedAt)} · {s.difficulty}</p>
+                    {s.completedAt && (
+                      <p className="text-xs text-gray-400">
+                        <Clock className="w-3 h-3 inline mr-0.5" />
+                        完成: {new Date(s.completedAt).toLocaleString('zh-HK', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-bold ${(s.correctCount / Math.max(1, s.totalQuestions)) >= 0.7 ? 'text-teal-600' : 'text-red-500'}`}>

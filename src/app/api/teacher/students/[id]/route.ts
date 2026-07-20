@@ -81,8 +81,8 @@ export async function GET(
 
     // 並行載入所有關聯數據
     const [
-      practiceSessions,
-      mistakes,
+      rawPracticeSessions,
+      rawMistakes,
       vocabCount,
       vocabMastered,
       writingDrafts,
@@ -91,7 +91,7 @@ export async function GET(
       submissions,
     ] = await Promise.all([
       db.practiceSession.findMany({
-        where: { studentId },
+        where: { studentId, source: { not: 'assignment' } },
         orderBy: { startedAt: 'desc' },
         take: 50,
         include: { answers: { orderBy: { questionIndex: 'asc' } } },
@@ -99,7 +99,7 @@ export async function GET(
       db.mistake.findMany({
         where: { studentId },
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: 200,
       }),
       db.vocabItem.count({ where: { studentId } }),
       db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
@@ -132,6 +132,14 @@ export async function GET(
       }),
     ]);
 
+    // 錯題依 questionId 去重，保留最新
+    const seenMistakeQIds = new Set<string>();
+    const mistakes = rawMistakes.filter(m => {
+      if (seenMistakeQIds.has(m.questionId)) return false;
+      seenMistakeQIds.add(m.questionId);
+      return true;
+    });
+
     const assignmentSessions = submissions.map(submission => {
       const totalQuestions = submission.assignment.questionCount;
       return {
@@ -148,10 +156,20 @@ export async function GET(
       };
     });
 
+    // 合併 + 內容去重：相同 skill+題數+正確數+source 只保留最新
+    const mergedSessions = [...rawPracticeSessions, ...assignmentSessions]
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+      .filter((s, _i, arr) => {
+        const key = `${s.skill}|${s.totalQuestions}|${s.correctCount}|${s.source}`;
+        const firstIdx = arr.findIndex(x => `${x.skill}|${x.totalQuestions}|${x.correctCount}|${x.source}` === key);
+        return _i === firstIdx;
+      });
+
+    const practiceSessions = mergedSessions;
+
     return NextResponse.json({
       student,
-      practiceSessions: [...practiceSessions, ...assignmentSessions]
-        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
+      practiceSessions,
       mistakes,
       vocab: { total: vocabCount, mastered: vocabMastered },
       writingDrafts,

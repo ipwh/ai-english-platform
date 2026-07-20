@@ -88,6 +88,11 @@ function PracticeListPageContent() {
       .catch((e) => { console.error("[page] fetch failed", e) });
   }, []);
 
+  // === 載入練習歷史 ===
+  useEffect(() => {
+    store.loadPracticeHistory();
+  }, []);
+
   // === 練習記錄 ===
   const recentSessions = store.getRecentSessions(5);
   const weeklyStats = store.getWeeklyStats();
