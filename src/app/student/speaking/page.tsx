@@ -36,7 +36,7 @@ const TOPICS_AREA = [
 ] as const;
 
 export default function SpeakingPracticePage() {
-  const { language } = useAppStore();
+  const { language, userId } = useAppStore();
 
   const [grade, setGrade] = useState<string>('S4');
   const [topic, setTopic] = useState<string>('general');
@@ -113,12 +113,11 @@ export default function SpeakingPracticePage() {
       if (res.ok && json.analysis) {
         setAnalysis(json.analysis);
         // 儲存練習記錄到學生分析
-        const store = useAppStore.getState();
-        if (store.userId) {
+        if (userId) {
           fetch('/api/practice', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              studentId: store.userId, skill: 'speaking', skillZh: '會話練習',
+              studentId: userId, skill: 'speaking', skillZh: '會話練習',
               difficulty: 'core', totalQuestions: 1, correctCount: 1, source: 'dse-speaking',
             }),
           }).catch(() => {});

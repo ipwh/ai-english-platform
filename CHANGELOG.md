@@ -6,6 +6,9 @@ All notable changes to the AI English Platform are documented here.
 
 ## 2026-07-20 (night) — Practice Records Dedup & Student Analytics Overhaul
 
+### 📝 All Exercise Types Now Tracked
+- **Writing** (`dse-writing`), **Integrated Skills** (`dse-integrated-skills`), **Speaking** (`dse-speaking`) now POST to `/api/practice` on submission — all 5 exercise types appear in student analysis
+
 ### 🩺 Practice Session Deduplication (4 data paths unified)
 - **Root cause**: `cleanup useEffect` fired on every question navigation (Q1→Q2→…→Q5), creating 1 `PracticeSession` per question instead of 1 per exercise. Also `source='assignment'` sessions duplicated with `Submission` entries.
 - **Fix**: Completely removed cleanup auto-save. Save only on last question via `handleNext` with `await savePractice()` → `completeSession()`.
