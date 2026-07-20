@@ -343,9 +343,16 @@ export default function PracticeQuestionPage() {
     if (isSessionMode && hasNextSession) {
       const nextQ = sessionQuestions[sessionIndex + 1];
       router.push(`/student/practice/${nextQ.id}`);
-    } else {
+      setSelectedAnswer('');
+      setSubmitted(false);
+      setCurrentHint(0);
+      setAiAnalysis(null);
+      setAiError('');
+      setListeningRevealed(false);
+      return;
+    } else if (isSessionMode) {
       // 完成所有題目 → 儲存完整練習記錄 + 顯示摘要
-      if (isSessionMode && store.currentSession && !hasSavedRef.current) {
+      if (store.currentSession && !hasSavedRef.current) {
         hasSavedRef.current = true;
         const session = store.currentSession;
         const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = session;
@@ -369,7 +376,7 @@ export default function PracticeQuestionPage() {
         });
         store.completeSession();
         awardXp('completeSession', difficulty);
-      } else if (isSessionMode && store.currentSession) {
+      } else if (store.currentSession) {
         const sessionDiff = store.currentSession.difficulty;
         store.completeSession();
         awardXp('completeSession', sessionDiff);
@@ -377,8 +384,7 @@ export default function PracticeQuestionPage() {
       setSessionComplete(true);
       return;
     }
-      router.push('/student/practice');
-    }
+    router.push('/student/practice');
     setSelectedAnswer('');
     setSubmitted(false);
     setCurrentHint(0);
