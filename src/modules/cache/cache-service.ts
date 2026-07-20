@@ -153,5 +153,26 @@ export function startPruning(intervalSeconds = 300): void {
 
 /** Stop background pruning */
 export function stopPruning(): void {
-  if (pruneInterval) { clearInterval(pruneInterval); pruneInterval = null; }
+  if (pruneInterval) {
+    clearInterval(pruneInterval);
+    pruneInterval = null;
+  }
 }
+
+// ============================================
+// Service object — v4.2 convenience wrapper for facade
+// ============================================
+
+export const cacheService = {
+  get,
+  set,
+  del,
+  has,
+  ttl,
+  getOrCompute,
+  clearNamespace,
+  clearAll,
+  getStats,
+  startPruning,
+  stopPruning,
+};

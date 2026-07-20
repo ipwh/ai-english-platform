@@ -35,8 +35,8 @@ export class MemoryProfileGenerator {
     ]);
 
     for (const skill of [...allSkills]) {
-      const isStrength = memory.strengths.strongestSkills.includes(skill as any);
-      const isWeakness = memory.weaknesses.weakestSkills.includes(skill as any);
+      const isStrength = memory.strengths.strongestSkills.includes(skill as 'grammar' | 'vocabulary' | 'writing' | 'reading' | 'speaking' | 'listening');
+      const isWeakness = memory.weaknesses.weakestSkills.includes(skill as 'grammar' | 'vocabulary' | 'writing' | 'reading' | 'speaking' | 'listening');
       const confidence = memory.confidence?.confidenceBySkill?.[skill] ?? 0.5;
 
       skillProfiles[skill] = {

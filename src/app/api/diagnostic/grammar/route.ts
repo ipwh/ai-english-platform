@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     const questions = await generateQuestions({
       count: 3,
       gradeLevel: gradeLevel || 'S4',
-      grammarItem: grammarPoint.cat as any,
+      grammarItem: grammarPoint.cat,
       grammarItemZh: grammarPoint.nameZh,
       questionType: 'mc',
       difficulty: 'core',

@@ -5,11 +5,12 @@
 // ============================================
 // Providers (5-model fallback chain)
 // ============================================
-export { providerRegistry } from '@/modules/ai/providers/provider-registry';
-export type { ProviderName, AIProvider } from '@/modules/ai/providers/provider-interface';
+import { providerRegistry } from '@/modules/ai/providers/provider-registry';
+export { providerRegistry };
+export type { AIProvider } from '@/modules/ai/providers/provider-interface';
 
 // Core AI service — question generation, writing analysis, TTS
-export {
+import {
   generateQuestions,
   callLLM,
   sanitizeForAI,
@@ -18,42 +19,63 @@ export {
   wasFallbackUsed,
   getRetryStats,
 } from '@/modules/ai/services/ai-service';
+export {
+  generateQuestions,
+  callLLM,
+  sanitizeForAI,
+  isDeepSeekConfigured,
+  getLastAIProvider,
+  wasFallbackUsed,
+  getRetryStats,
+};
 
 // RAG — DSE past paper retrieval
-export { ragService } from '@/modules/ai/services/rag-service';
+import * as ragService from '@/modules/ai/services/rag-service';
+export { ragService };
 
 // TTS
-export { ttsService } from '@/modules/ai/services/tts-service';
+import * as ttsService from '@/modules/ai/services/tts-service';
+export { ttsService };
 
 // Writing
-export { analyzeWriting } from '@/modules/ai/services/writing-analysis';
-export { generateWritingPrompt } from '@/modules/ai/services/writing-generation';
+import { analyzeWriting } from '@/modules/ai/services/writing-analysis';
+export { analyzeWriting };
+import { generateWritingPrompt } from '@/modules/ai/services/writing-generation';
+export { generateWritingPrompt };
 
 // Schemas
-export {
+import {
   GeneratedQuestionsArraySchema,
   validateAIResponse,
 } from '@/modules/ai/schemas/ai-schema';
+export {
+  GeneratedQuestionsArraySchema,
+  validateAIResponse,
+};
 
 // ============================================
 // Cache (S12) — TTL in-memory cache
 // ============================================
-export { cacheService } from '@/modules/cache/services/cache-service';
+import { cacheService } from '@/modules/cache/cache-service';
+export { cacheService };
 
 // ============================================
 // Cost (S13) — token estimation, cost tracking
 // ============================================
-export { costTracker } from '@/modules/ai-cost/services/cost-tracker';
+import * as costTracker from '@/modules/ai-cost/cost-tracker';
+export { costTracker };
 
 // ============================================
 // Evaluation — LLM eval, prompt testing, model comparison
 // ============================================
-export { evalEngine } from '@/modules/llm-eval/services/eval-engine';
+import * as evalEngine from '@/modules/llm-eval/services/eval-engine';
+export { evalEngine };
 
 // ============================================
 // Experiment (S42) — A/B testing for prompts and models
 // ============================================
-export { experimentEngine } from '@/modules/experiment/services/experiment-engine';
+import { experimentService as experimentEngine } from '@/modules/experiment/services/experiment-engine';
+export { experimentEngine };
 
 // ============================================
 // Unified Facade Object

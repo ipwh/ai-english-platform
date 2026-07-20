@@ -98,10 +98,10 @@ export async function GET(request: NextRequest) {
     const seed = getDailySeed(studentId!);
     const questions = await generateQuestions({
       count: 1,
-      gradeLevel: gradeLevel as any,
-      grammarItem: grammarItem as any,
+      gradeLevel: gradeLevel as 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6',
+      grammarItem: grammarItem as string,
       grammarItemZh: DAILY_TOPICS[topicIndex],
-      questionType: questionType as any,
+      questionType: questionType as 'mc' | 'fill-blank' | 'error-correction' | 'short-writing' | 'matching',
       difficulty: 'core',
     });
 

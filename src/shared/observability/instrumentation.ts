@@ -76,6 +76,8 @@ export function startOtelSpan(
       return noopSpan;
     }
   }
+  return noopSpan;
+}
 
 /**
  * OpenTelemetry abstraction layer for AI English Platform.

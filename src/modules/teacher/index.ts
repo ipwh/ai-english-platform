@@ -5,7 +5,8 @@
 // ============================================
 // Copilot (S38) — lesson plans, assignments, class analysis, exam predictions
 // ============================================
-export { teacherCopilotService } from '@/modules/teacher-copilot/services/teacher-copilot-service';
+import { teacherCopilotService } from '@/modules/teacher-copilot/services/teacher-copilot-service';
+export { teacherCopilotService };
 export type {
   WeeklyTeachingPlan,
   DailyPlan,
@@ -19,7 +20,7 @@ export type {
 // ============================================
 // Analytics (S24) — class overview, weak skills, rankings, risk predictions
 // ============================================
-export {
+import {
   analyzeClass,
   detectWeakSkills,
   rankWriting,
@@ -30,6 +31,17 @@ export {
   detectLearningGaps,
   generateAIReport,
 } from '@/modules/teacher-analytics/services/teacher-analytics';
+export {
+  analyzeClass,
+  detectWeakSkills,
+  rankWriting,
+  rankReading,
+  compareStudent,
+  predictRisks,
+  generateSuggestions,
+  detectLearningGaps,
+  generateAIReport,
+};
 export type {
   ClassOverview,
   WeakSkill,
@@ -42,7 +54,8 @@ export type {
 // ============================================
 // Dashboard (S37) — trends, class comparison, progress (reuses Learning Analytics)
 // ============================================
-export { buildTeacherDashboard } from '@/modules/learning-analytics/services/learning-analytics-service';
+import { buildTeacherDashboard } from '@/modules/learning-analytics/services/learning-analytics-service';
+export { buildTeacherDashboard };
 export type { TeacherDashboard } from '@/modules/learning-analytics/types';
 
 // ============================================

@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       const leaderboard = buildLeaderboard(
         students.map(s => ({
           ...s,
-          xp: (s as any).xp ?? 0,
+          xp: (s as { xp?: number }).xp ?? 0,
           overallAccuracy: s.overallAccuracy ?? undefined,
         }))
       );
@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     }
     await db.user.update({
       where: { id: studentId },
-      data: updateData as any,
+      data: updateData as Record<string, unknown>,
     });
 
     // XP 交易記錄（完整審計追蹤）

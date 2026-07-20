@@ -8,19 +8,27 @@
 // ============================================
 // Engine (S39) — adaptive learning pipeline
 // ============================================
-export { executePipeline } from '@/modules/adaptive-learning/services/adaptive-learning-pipeline';
+import { executePipeline } from '@/modules/adaptive-learning/services/adaptive-learning-pipeline';
+export { executePipeline };
 export type { AdaptiveLearningResult, PipelineInput, PipelineStage } from '@/modules/adaptive-learning/types';
 
 // ============================================
 // Recommendation (S33) — weighted 4-factor algorithm
 // ============================================
-export {
+import {
   getFullRecommendations,
   recommendGrammar,
   recommendVocabulary,
   recommendWritingTopic,
   recommendNextExercise,
 } from '@/modules/recommendation-v2/services/recommendation-engine';
+export {
+  getFullRecommendations,
+  recommendGrammar,
+  recommendVocabulary,
+  recommendWritingTopic,
+  recommendNextExercise,
+};
 export type {
   RecommendationResult,
   ScoredRecommendation,
@@ -30,9 +38,11 @@ export type {
 // ============================================
 // Knowledge Graph (S21/34) — 52-node prerequisite DAG
 // ============================================
-export { knowledgeGraphService } from '@/modules/knowledge-graph/services/knowledge-graph-service';
-export { knowledgeGraphRepo } from '@/modules/knowledge-graph/repositories/knowledge-graph-repository';
-export {
+import { knowledgeGraphService } from '@/modules/knowledge-graph/services/knowledge-graph-service';
+export { knowledgeGraphService };
+import { knowledgeGraphRepo } from '@/modules/knowledge-graph/repositories/knowledge-graph-repository';
+export { knowledgeGraphRepo };
+import {
   topologicalSort,
   searchDependencies,
   shortestLearningPath,
@@ -41,6 +51,15 @@ export {
   getAllPrerequisites,
   getAllSuccessors,
 } from '@/modules/knowledge-graph/services/dependency-resolver';
+export {
+  topologicalSort,
+  searchDependencies,
+  shortestLearningPath,
+  lookupWeaknesses,
+  unlockNextSkills,
+  getAllPrerequisites,
+  getAllSuccessors,
+};
 export type {
   KnowledgeNode,
   KnowledgeEdge,
@@ -52,15 +71,20 @@ export type {
 // Science (S33) — SM-2, Ebbinghaus, interleaving, confidence
 // No API routes. No repositories. Algorithms only.
 // ============================================
+import {
+  confidenceEstimator,
+  difficultyAdjuster,
+} from '@/modules/learning-science';
 export {
   confidenceEstimator,
   difficultyAdjuster,
-} from '@/modules/learning-science/services';
+};
 
 // ============================================
 // Mistake Intelligence (S32) — longitudinal mistake patterns
 // ============================================
-export { buildWeaknessProfile } from '@/modules/mistake-intelligence/services/mistake-intelligence-service';
+import { buildWeaknessProfile } from '@/modules/mistake-intelligence/services/mistake-intelligence-service';
+export { buildWeaknessProfile };
 export type { WeaknessProfile, WeaknessItem } from '@/modules/mistake-intelligence/types';
 
 // ============================================

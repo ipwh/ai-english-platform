@@ -1,6 +1,6 @@
 // Sprint 4: Progress Service — aggregated progress, gamification, streaks
 import { calculateStudentStreak } from '@/modules/progress/services/streak-service';
-import { calculateXp, getLevelInfo, getDailyGoal } from '@/modules/progress/services/gamification';
+import { calculateXp, getLevelInfo, getDailyGoal, type XpEvent } from '@/modules/progress/services/gamification';
 import { updateUserXp } from '@/modules/student/repositories/student-repo';
 import { logger } from '@/shared/logger/logger';
 
@@ -12,7 +12,7 @@ export async function getStudentProgress(studentId: string) {
 }
 
 export async function awardXp(studentId: string, event: string, difficulty = 'core') {
-  const xp = calculateXp({ event, difficulty } as any);
+  const xp = calculateXp({ type: event as XpEvent['type'], difficulty } as XpEvent);
   await updateUserXp(studentId, xp);
   logger.info({ module: 'progress-service', studentId, event, xp }, 'XP awarded');
   return xp;

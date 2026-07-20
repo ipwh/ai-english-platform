@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      metadata: knowledgeGraphRepo.getMetadata(),
+      metadata: { nodeCount: nodes.length, edgeCount: edges.length },
       nodes: includeNodes ? nodes : undefined,
       edges: includeEdges ? edges : undefined,
     });

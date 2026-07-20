@@ -1,5 +1,5 @@
 // Sprint 40+: Assessment Grading Logic — 真正的邏輯測試
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { detectChinglish, clearRulesCache } from '../services/chinglish';
 import { detectOverCopying } from '../services/plagiarism';
 

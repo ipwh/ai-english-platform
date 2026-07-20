@@ -6,24 +6,34 @@
 // ============================================
 // Profile (identity, preferences, learning speed)
 // ============================================
-export { generateProfile } from '@/modules/profile/services/profile-service';
+import { generateProfile } from '@/modules/profile/services/profile-service';
+export { generateProfile };
 export type { ProfileInput } from '@/modules/profile/services/profile-service';
-export { aggregateSkillStats, mapToDimension } from '@/modules/profile/services/skill-tracker';
+import { aggregateSkillStats, mapToDimension } from '@/modules/profile/services/skill-tracker';
+export { aggregateSkillStats, mapToDimension };
 export type { PracticeRecord } from '@/modules/profile/services/skill-tracker';
-export { analyzeTopicPreferences } from '@/modules/profile/services/topic-preferences';
+import { analyzeTopicPreferences } from '@/modules/profile/services/topic-preferences';
+export { analyzeTopicPreferences };
 export type { TopicEngagement } from '@/modules/profile/services/topic-preferences';
-export { calculateLearningSpeed } from '@/modules/profile/services/learning-speed';
+import { calculateLearningSpeed } from '@/modules/profile/services/learning-speed';
+export { calculateLearningSpeed };
 export type { SessionRecord } from '@/modules/profile/services/learning-speed';
 
 // ============================================
 // Mastery (S31) — SINGLE SOURCE OF TRUTH for ability
 // ============================================
-export {
+import {
   getLearningProfile,
   updateAfterExercise,
   updateAfterWriting,
   updateAfterVocabulary,
 } from '@/modules/student-mastery/services/student-mastery-service';
+export {
+  getLearningProfile,
+  updateAfterExercise,
+  updateAfterWriting,
+  updateAfterVocabulary,
+};
 export type {
   StudentLearningProfile,
   MasteryEntry,
@@ -34,24 +44,33 @@ export type {
 // ============================================
 // Memory (S36) — learning memory lifecycle
 // ============================================
-export { memoryService } from '@/modules/learning-memory/services/memory-service';
-export { memoryEngine } from '@/modules/learning-memory/services/memory-engine';
+import { memoryService } from '@/modules/learning-memory/services/memory-service';
+export { memoryService };
+import { memoryEngine } from '@/modules/learning-memory/services/memory-engine';
+export { memoryEngine };
 
 // ============================================
 // Progress — gamification, XP, streaks, badges, leaderboard
 // ============================================
-export { getStudentProgress, awardXp } from '@/modules/progress/services/progress-service';
-export { calculateStudentStreak, syncUserStreak } from '@/modules/progress/services/streak-service';
+import { getStudentProgress, awardXp } from '@/modules/progress/services/progress-service';
+export { getStudentProgress, awardXp };
+import { calculateStudentStreak, syncUserStreak } from '@/modules/progress/services/streak-service';
+export { calculateStudentStreak, syncUserStreak };
+import {
+  calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
+  getStudyRecommendation, buildLeaderboard, getDailyGoal,
+} from '@/modules/progress/services/gamification';
 export {
   calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
   getStudyRecommendation, buildLeaderboard, getDailyGoal,
-  type BadgeCheckStats, type LeaderboardEntry, type BadgeDefinition,
-} from '@/modules/progress/services/gamification';
+};
+export type { BadgeCheckStats, LeaderboardEntry, BadgeDefinition } from '@/modules/progress/services/gamification';
 
 // ============================================
 // Twin (S20) — digital learning state
 // ============================================
-export { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+export { studentTwinService };
 export type {
   StudentTwin, LearningPersona, PersonaType,
   KnowledgeState, TwinPredictions, RiskAssessment,

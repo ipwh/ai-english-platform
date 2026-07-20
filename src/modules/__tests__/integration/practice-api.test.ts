@@ -118,7 +118,7 @@ describe('POST /api/practice — Integration Logic', () => {
   });
 
   it('應驗證必填欄位 studentId', async () => {
-    const body = { skill: 'grammar' };
+    const body: Record<string, unknown> = { skill: 'grammar' };
     const errors: string[] = [];
 
     if (!body.studentId) {
@@ -170,9 +170,9 @@ describe('Practice — 授權邏輯', () => {
   });
 
   it('學生不能為其他學生儲存練習記錄', () => {
-    const authUserId = 'student-123';
-    const targetUserId = 'student-456';
-    const authRole = 'student';
+    const authUserId: string = 'student-123';
+    const targetUserId: string = 'student-456';
+    const authRole: string = 'student';
     const canWrite = authUserId === targetUserId || authRole === 'teacher' || authRole === 'admin';
     expect(canWrite).toBe(false);
   });

@@ -205,7 +205,7 @@ describe('Provider Convenience Methods — Options 設定', () => {
   });
 
   it('chat 不應使用 jsonMode', () => {
-    const options = { maxTokens: 2048 };
+    const options: { maxTokens: number; jsonMode?: boolean } = { maxTokens: 2048 };
     expect(options.jsonMode).toBeUndefined();
   });
 });

@@ -11,4 +11,13 @@ export const navTranslations: Record<string, { zh: string; en: string }> = {
   'nav.reading': { zh: '閱讀理解', en: 'Reading' },
   'nav.speaking': { zh: '會話練習', en: 'Speaking' },
   'nav.assignments': { zh: '我的作業', en: 'My Assignments' },
+
+  'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },
+  'nav.help': { zh: '求助建議', en: 'Help' },
+  'nav.profile': { zh: '個人檔案', en: 'Profile' },
+  'nav.more': { zh: '更多', en: 'More' },
+  'nav.home': { zh: '主頁', en: 'Home' },
+  'nav.practice_short': { zh: '練習', en: 'Practice' },
+  'nav.mistakes_short': { zh: '錯題', en: 'Mistakes' },
+  'nav.progress_short': { zh: '進度', en: 'Progress' },
 };

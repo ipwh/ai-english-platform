@@ -4,6 +4,7 @@ import type {
 } from '../types';
 import type { SkillDimension } from '@/modules/profile/types';
 import { difficultyAdjuster } from '@/modules/learning-science/services/difficulty-adjuster';
+import type { ReviewScheduleEntry } from '@/modules/learning-science/types';
 import { weaknessLocator } from '@/modules/knowledge-graph/services/weakness-locator';
 
 // ============================================
@@ -44,7 +45,7 @@ export class ExerciseSelector {
       : 0.5;
 
     const difficultyResult = difficultyAdjuster.adjust(
-      { currentDifficulty: 'core', timesCorrect: 0, timesIncorrect: 0 } as any,
+      { currentDifficulty: 'core', timesCorrect: 0, timesIncorrect: 0 } as unknown as ReviewScheduleEntry,
       avgAccuracy, avgAccuracy,
     );
 

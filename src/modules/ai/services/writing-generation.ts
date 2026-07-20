@@ -1,4 +1,7 @@
 // Sprint 5: Writing generation — extracted from ai-service.ts
+// TODO(Sprint 45): Split further (~750 lines) into:
+//   - writing-prompt-gen.ts (~350 lines): generateWritingPrompt, generateWritingOutline
+//   - integrated-skills-gen.ts (~400 lines): generateIntegratedSkills, analyzeIntegratedSkills
 import { callLLM } from './ai-service';
 import { parseAIJSON } from './json-utils';
 import { logger } from '@/shared/logger/logger';

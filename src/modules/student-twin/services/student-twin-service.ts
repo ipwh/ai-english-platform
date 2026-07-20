@@ -68,6 +68,8 @@ export class StudentTwinService {
       studentId, generatedAt: now,
       persona, knowledge, motivation, confidence, habits,
       predictions, risks, dashboard,
+      goals: { shortTerm: [], mediumTerm: [], targetHkdseLevel: '3', targetMastery: 0.6 },
+      recommendations: [],
     };
   }
 

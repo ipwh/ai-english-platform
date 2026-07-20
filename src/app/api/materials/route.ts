@@ -40,9 +40,8 @@ async function extractTextFromFile(file: File): Promise<string | null> {
   try {
     if (ext === 'pdf') {
       const pdfParseModule = await import('pdf-parse');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-      const data = await pdfParse(buffer);
+      const pdfParse = (pdfParseModule as Record<string, unknown>).default || pdfParseModule;
+      const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string }>)(buffer);
       return data.text?.trim() || null;
     }
     if (ext === 'docx') {

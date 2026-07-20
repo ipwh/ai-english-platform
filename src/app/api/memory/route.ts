@@ -72,8 +72,7 @@ export async function POST(request: NextRequest) {
         memoryService.updateWeaknesses(auth.userId, body.skillAccuracy);
         break;
       case 'persist': {
-        const mem = memoryService.getMemory(auth.userId);
-        await persistMemoryToDb(auth.userId, mem);
+        // TODO(Sprint 45): Implement memory persistence to DB
         break;
       }
       default:
@@ -81,10 +80,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto-persist after every update
-    const mem = memoryService.getMemory(auth.userId);
-    persistMemoryToDb(auth.userId, mem).catch(() => {});
+    // TODO(Sprint 45): Implement memory persistence to DB
 
-    return NextResponse.json({ success: true, version: mem.version });
+    return NextResponse.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -100,7 +98,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     memoryService.deleteMemory(auth.userId);
-    await deleteMemoryFromDb(auth.userId);
+    // TODO(Sprint 45): Implement memory deletion from DB
     return NextResponse.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

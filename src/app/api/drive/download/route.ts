@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await downloadRes.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const pdfParseModule = await import('pdf-parse');
-        const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-        const data = await pdfParse(buffer);
+        const pdfParse = (pdfParseModule as Record<string, unknown>).default || pdfParseModule;
+        const data = await (pdfParse as (buf: Buffer) => Promise<{ text: string }>)(buffer);
         content = data.text?.trim() || '';
         if (!content) {
           content = `[PDF 檔案: ${meta.name}] — 此 PDF 為掃描圖片，請使用 OCR 功能提取文字`;

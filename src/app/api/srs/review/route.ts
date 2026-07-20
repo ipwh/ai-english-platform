@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
           orderBy: { createdAt: 'desc' },
         });
         dueVocab = allVocab.filter(v =>
-          !v.nextReviewDate || new Date(v.nextReviewDate as any) <= now
+          !v.nextReviewDate || new Date(v.nextReviewDate as Date) <= now
         );
       } catch {
         // Fallback without nextReviewDate
