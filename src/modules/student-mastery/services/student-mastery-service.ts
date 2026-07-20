@@ -8,18 +8,6 @@ import { recordPracticeAttempt, upsertMastery, getMasteryBySkill, getWeakestSkil
 // Service Functions
 // ============================================
 
-/** Map exercise skill strings to mastery skill categories */
-function mapToMasterySkill(skill: string): MasterySkill {
-  const s = skill.toLowerCase();
-  if (s.includes('grammar') || s.includes('tense') || s.includes('passive') || s.includes('article') || s.includes('relative') || s.includes('modal') || s.includes('conditional') || s.includes('connector') || s.includes('preposition') || s.includes('gerund')) return 'grammar';
-  if (s.includes('vocab') || s.includes('word') || s.includes('collocat')) return 'vocabulary';
-  if (s.includes('read') || s.includes('comprehension')) return 'reading';
-  if (s.includes('writ') || s.includes('essay') || s.includes('paragraph') || s.includes('organization') || s.includes('register')) return 'writing';
-  if (s.includes('listen') || s.includes('integrated')) return 'listening';
-  if (s.includes('speak') || s.includes('oral') || s.includes('pronunc')) return 'speaking';
-  return 'grammar'; // default
-}
-
 /**
  * Update mastery after an exercise session.
  * Called from practice route after recording exercise results.
