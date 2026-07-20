@@ -76,9 +76,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     initSession().then(() => setAuthChecked(true));
   }, [initSession]);
 
-  // 權限守衛：admin 或 teacher 可訪問（教師僅限 student analysis 子頁面）
+  // 權限守衛：admin 或 teacher 可訪問
   useEffect(() => {
-    if (authChecked && (!isLoggedIn || (currentRole !== 'admin' && currentRole !== 'teacher'))) {
+    if (authChecked && (!isLoggedIn || !currentRole || (currentRole !== 'admin' && currentRole !== 'teacher'))) {
       router.replace('/login');
     }
   }, [authChecked, isLoggedIn, currentRole, router]);
@@ -91,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!isLoggedIn || (currentRole !== 'admin' && currentRole !== 'teacher')) return null;
+  if (!isLoggedIn || !currentRole || (currentRole !== 'admin' && currentRole !== 'teacher')) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

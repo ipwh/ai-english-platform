@@ -192,35 +192,8 @@ export default function PracticeQuestionPage() {
   const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
   const hasNextSession = sessionIndex < sessionTotal - 1;
 
-  // 離開頁面時自動儲存 session 進度（僅在真正離開 session 時，非題目間導航）
-  useEffect(() => {
-    return () => {
-      // 只在 session 模式且尚未完成時儲存
-      if (!isSessionMode || !store.currentSession || store.currentSession.completedAt) return;
-      // 如果還有下一題（題目間導航），不儲存
-      if (hasNextSession) return;
-      // 真正離開 session → 儲存
-      const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = store.currentSession;
-      const answerRecords = questions.map((q, idx) => ({
-        questionIndex: idx,
-        questionType: q.type || 'mc',
-        questionPrompt: q.prompt || '',
-        correctAnswer: q.answer || '',
-        studentAnswer: answers[q.id] || '',
-        isCorrect: results[q.id] ?? false,
-      }));
-      savePractice({
-        studentId: store.userId || '',
-        skill: skill || 'general',
-        skillZh: skillZh || '',
-        difficulty: difficulty || 'core',
-        totalQuestions,
-        correctCount,
-        source: source || 'ai-generated',
-        answers: answerRecords,
-      });
-    };
-  }, [isSessionMode, store.currentSession, store.userId, savePractice, hasNextSession]);
+  // ⚠️ 不再使用 cleanup auto-save — 只在 handleNext 最後一題時儲存
+  // 避免題目間導航 (Q1→Q2→...→Q5) 每題都建立獨立 PracticeSession
 
   // 聆聽題：每題獨立錄音（v2.0 — 不再共用長錄音）
   const isListening = question?.languageSkill === 'listening';
@@ -347,7 +320,7 @@ export default function PracticeQuestionPage() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isSessionMode && hasNextSession) {
       const nextQ = sessionQuestions[sessionIndex + 1];
       router.push(`/student/practice/${nextQ.id}`);
@@ -372,7 +345,8 @@ export default function PracticeQuestionPage() {
           studentAnswer: answers[q.id] || '',
           isCorrect: results[q.id] ?? false,
         }));
-        savePractice({
+        // 先 await 儲存完成，再標記 session 完成
+        await savePractice({
           studentId: store.userId || '',
           skill: skill || 'general',
           skillZh: skillZh || '',
