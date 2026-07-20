@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       if (offset > 50000) hasMore = false;
     }
 
-    return new NextResponse(csv, {
+    return new NextResponse('\uFEFF' + csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="students-export-${new Date().toISOString().slice(0, 10)}.csv"`,

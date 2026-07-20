@@ -77,21 +77,74 @@ export async function GET(
       buildLearningStats(studentId).catch(() => null),
     ]);
 
-    // 2. 最近練習記錄
-    const recentSessions = await db.practiceSession.findMany({
-      where: { studentId },
-      orderBy: { startedAt: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        skill: true,
-        skillZh: true,
-        difficulty: true,
-        totalQuestions: true,
-        correctCount: true,
-        startedAt: true,
-      },
-    });
+    // 2. 最近練習記錄（含教師指派任務）
+    const [recentSessions, recentSubmissions] = await Promise.all([
+      db.practiceSession.findMany({
+        where: { studentId },
+        orderBy: { startedAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          skill: true,
+          skillZh: true,
+          difficulty: true,
+          totalQuestions: true,
+          correctCount: true,
+          startedAt: true,
+          source: true,
+        },
+      }),
+      db.submission.findMany({
+        where: { studentId, submittedAt: { not: null } },
+        orderBy: { submittedAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          assignmentId: true,
+          score: true,
+          status: true,
+          submittedAt: true,
+          answers: true,
+          assignment: {
+            select: { title: true, grammarItem: true, difficulty: true, questionCount: true },
+          },
+        },
+      }),
+    ]);
+
+    // 合併練習記錄 + 任務提交，按時間排序
+    const mergedSessions = [
+      ...recentSessions.map(s => ({
+        id: s.id,
+        type: 'practice' as const,
+        skill: s.skill,
+        skillZh: s.skillZh,
+        difficulty: s.difficulty,
+        totalQuestions: s.totalQuestions,
+        correctCount: s.correctCount,
+        accuracy: s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0,
+        startedAt: s.startedAt,
+        source: s.source,
+      })),
+      ...recentSubmissions.map(sub => {
+        let ansCount = 0;
+        try { const a = JSON.parse(sub.answers); ansCount = Array.isArray(a) ? a.length : Object.keys(a).length; } catch { /* */ }
+        return {
+          id: sub.id,
+          type: 'assignment' as const,
+          skill: sub.assignment?.grammarItem || 'assignment',
+          skillZh: sub.assignment?.title || '教師任務',
+          difficulty: sub.assignment?.difficulty || 'core',
+          totalQuestions: sub.assignment?.questionCount || ansCount,
+          correctCount: sub.score != null ? Math.round((sub.score / 100) * (sub.assignment?.questionCount || ansCount || 1)) : 0,
+          accuracy: sub.score != null ? Math.round(sub.score) : 0,
+          startedAt: sub.submittedAt!,
+          source: 'assignment',
+        };
+      }),
+    ]
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+      .slice(0, 15);
 
     // 3. 最近錯題
     const recentMistakes = await db.mistake.findMany({

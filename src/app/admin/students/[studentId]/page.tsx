@@ -12,7 +12,7 @@ import {
   ArrowLeft, RefreshCw, TrendingUp, Target, AlertTriangle,
   BookOpen, GraduationCap, Zap, Award, Clock,
   BarChart3, CheckCircle2, XCircle, ChevronRight,
-  BrainCircuit, FileText, Volume2, MessageSquare,
+  BrainCircuit, FileText, Volume2, MessageSquare, ClipboardList,
 } from 'lucide-react';
 
 // ============================================
@@ -85,6 +85,7 @@ interface StudentAnalytics {
   } | null;
   recentSessions: Array<{
     id: string;
+    type: string;
     skill: string;
     skillZh: string;
     difficulty: string;
@@ -92,6 +93,7 @@ interface StudentAnalytics {
     correctCount: number;
     accuracy: number;
     startedAt: string;
+    source?: string;
   }>;
   recentMistakes: Array<{
     id: string;
@@ -552,18 +554,27 @@ export default function StudentAnalyticsPage() {
           </h3>
           {recentSessions.length > 0 ? (
             <div className="space-y-2">
-              {recentSessions.map(s => (
+              {recentSessions.map(s => {
+                const isAssignment = s.type === 'assignment';
+                return (
                 <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isAssignment
+                        ? 'bg-amber-100 dark:bg-amber-900/30'
+                        : 'bg-purple-100 dark:bg-purple-900/30'
+                    }`}>
+                      {isAssignment
+                        ? <ClipboardList className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        : <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      }
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {s.skillZh || s.skill}
+                        {isAssignment ? `📋 ${s.skillZh}` : (s.skillZh || s.skill)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {s.difficulty} · {new Date(s.startedAt).toLocaleDateString()}
+                        {isAssignment ? '任務' : s.difficulty} · {new Date(s.startedAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -579,7 +590,7 @@ export default function StudentAnalyticsPage() {
                     </p>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">暫無練習記錄</p>

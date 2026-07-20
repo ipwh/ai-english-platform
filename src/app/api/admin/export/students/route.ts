@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
           ].join(','));
         }
       }
-      return new NextResponse(csvRows.join('\n'), {
+      return new NextResponse('\uFEFF' + csvRows.join('\n'), {
         status: 200,
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',

@@ -5,7 +5,7 @@
 import {
   LayoutDashboard, BookOpen, AlertTriangle, BookMarked,
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
-  User, Users, GraduationCap, FileText, Upload,
+  User, Users, GraduationCap, Upload,
   ClipboardCheck, BarChart3, Settings, Search, Headphones,
   Mic, Calendar, BookText,
   type LucideIcon
@@ -82,7 +82,6 @@ export const teacherNavSections: NavSection[] = [
       { label: '任務派發', i18nKey: 'teacher.assignments', href: '/teacher/assignments', icon: ClipboardList },
       { label: '教材中心', i18nKey: 'teacher.materials', href: '/teacher/materials', icon: Upload },
       { label: 'AI 批改覆核', i18nKey: 'teacher.review', href: '/teacher/review', icon: ClipboardCheck },
-      { label: '導入資料', i18nKey: 'teacher.import', href: '/teacher/import', icon: FileText },
     ],
   },
   {

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Send, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, Loader2, Search } from 'lucide-react';
 
 import { skillLabels, difficultyLabels, gradeLabels, getSkillLabel, getDifficultyLabel, getGradeLabel } from '@/shared/utils/nav';
 import Modal from '@/components/shared/Modal';
@@ -206,32 +206,13 @@ export default function NewAssignmentPage() {
               </div>
             )}
 
-            {/* 個別學生選擇 */}
+            {/* 個別學生選擇（含搜尋及篩選） */}
             {form.targetType === 'students' && (
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.selectStudents')}</label>
-                {students.length === 0 ? (
-                  <p className="text-xs text-gray-400">載入中...</p>
-                ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {students.map(s => (
-                      <label key={s.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(s.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedStudentIds([...selectedStudentIds, s.id]);
-                            else setSelectedStudentIds(selectedStudentIds.filter(id => id !== s.id));
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-sm">{s.name}</span>
-                        <span className="text-xs text-gray-400">{s.className}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <StudentSelector
+                students={students}
+                selectedIds={selectedStudentIds}
+                onSelectionChange={setSelectedStudentIds}
+              />
             )}
           </div>
         </div>
@@ -319,6 +300,105 @@ export default function NewAssignmentPage() {
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{t('teacher.assignmentNew.successMsg', { title: form.title || t('teacher.assignments.unnamed') })}</p>
         <p className="text-xs text-gray-500 dark:text-gray-500">{t('teacher.assignmentNew.notifyMsg')}</p>
       </Modal>
+    </div>
+  );
+}
+
+// ============================================
+// 學生選擇器（含搜尋、年級及班級篩選、全選）
+// ============================================
+function StudentSelector({
+  students,
+  selectedIds,
+  onSelectionChange,
+}: {
+  students: { id: string; name: string; className: string }[];
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
+}) {
+  const [searchText, setSearchText] = useState('');
+  const [classFilter, setClassFilter] = useState('');
+
+  // 提取不重複班級列表
+  const classList = [...new Set(students.map(s => s.className).filter(Boolean))].sort();
+
+  // 根據搜尋及班級篩選
+  const filtered = students.filter(s => {
+    if (searchText && !s.name.toLowerCase().includes(searchText.toLowerCase())) return false;
+    if (classFilter && s.className !== classFilter) return false;
+    return true;
+  });
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(s => selectedIds.includes(s.id));
+
+  const toggleAll = () => {
+    if (allFilteredSelected) {
+      onSelectionChange(selectedIds.filter(id => !filtered.find(s => s.id === id)));
+    } else {
+      const newIds = [...selectedIds];
+      for (const s of filtered) {
+        if (!newIds.includes(s.id)) newIds.push(s.id);
+      }
+      onSelectionChange(newIds);
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">選擇個別學生</label>
+      {/* 搜尋 + 班級篩選 */}
+      <div className="flex gap-2 mb-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="搜尋學生姓名..."
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
+          />
+        </div>
+        <select
+          value={classFilter}
+          onChange={e => setClassFilter(e.target.value)}
+          className="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
+        >
+          <option value="">全部班級</option>
+          {classList.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      {/* 全選 + 已選計數 */}
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+          <input type="checkbox" checked={allFilteredSelected} onChange={toggleAll} className="rounded" />
+          全選 ({filtered.length} 位)
+        </label>
+        <span className="text-xs text-blue-600 font-medium">已選 {selectedIds.length} 人</span>
+      </div>
+      {/* 學生列表 */}
+      {students.length === 0 ? (
+        <p className="text-xs text-gray-400">載入中...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-xs text-gray-400 py-4 text-center">無符合條件的學生</p>
+      ) : (
+        <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-lg p-1">
+          {filtered.map(s => (
+            <label key={s.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(s.id)}
+                onChange={(e) => {
+                  if (e.target.checked) onSelectionChange([...selectedIds, s.id]);
+                  else onSelectionChange(selectedIds.filter(id => id !== s.id));
+                }}
+                className="rounded"
+              />
+              <span className="text-sm flex-1 min-w-0 truncate">{s.name}</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">{s.className}</span>
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

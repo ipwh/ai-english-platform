@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, ChevronRight, RefreshCw } from 'lucide-react';
+import { Search, ChevronRight, RefreshCw, Users, X, Loader2, Check } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { gradeLabels } from '@/shared/utils/nav';
 
@@ -29,6 +29,34 @@ export default function TeacherStudentsPage() {
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
+
+  // === 自訂組別狀態 ===
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupDesc, setGroupDesc] = useState('');
+  const [selectedForGroup, setSelectedForGroup] = useState<string[]>([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupError, setGroupError] = useState('');
+  const [groupSuccess, setGroupSuccess] = useState(false);
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || selectedForGroup.length === 0) return;
+    setCreatingGroup(true);
+    setGroupError('');
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: groupName.trim(), description: groupDesc.trim(), studentIds: selectedForGroup }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '建立失敗');
+      setGroupSuccess(true);
+      setTimeout(() => { setShowGroupModal(false); setGroupSuccess(false); setGroupName(''); setGroupDesc(''); setSelectedForGroup([]); }, 1500);
+    } catch (err: unknown) {
+      setGroupError(err instanceof Error ? err.message : '建立失敗');
+    } finally { setCreatingGroup(false); }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -98,6 +126,13 @@ export default function TeacherStudentsPage() {
           {['S1','S2','S3','S4','S5','S6'].map(l => <option key={l} value={l}>{gradeLabels[l] || l}</option>)}
         </select>
         <span className="self-center text-xs text-gray-400">{filtered.length} {t('teacher.classCount').toLowerCase()}</span>
+        <button
+          onClick={() => { setSelectedForGroup(filtered.map(s => s.id)); setShowGroupModal(true); }}
+          className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+        >
+          <Users className="w-4 h-4" />
+          建立組別
+        </button>
       </div>
 
       {/* Student table */}
@@ -161,6 +196,87 @@ export default function TeacherStudentsPage() {
           </table>
         </div>
       </div>
+
+      {/* ====== 建立組別 Modal ====== */}
+      {showGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !creatingGroup && setShowGroupModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">建立新組別</h3>
+              <button onClick={() => setShowGroupModal(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {groupSuccess ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Check className="w-6 h-6 text-green-600" />
+                </div>
+                <p className="text-green-600 font-medium">組別建立成功！</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">組別名稱 *</label>
+                    <input
+                      type="text"
+                      value={groupName}
+                      onChange={e => setGroupName(e.target.value)}
+                      placeholder="例如：拔尖組、文法加強組"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">描述（可選）</label>
+                    <input
+                      type="text"
+                      value={groupDesc}
+                      onChange={e => setGroupDesc(e.target.value)}
+                      placeholder="組別目的或備註"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">選擇學生</label>
+                    <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 dark:border-gray-700 rounded-lg p-1">
+                      {filtered.map(s => (
+                        <label key={s.id} className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedForGroup.includes(s.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedForGroup([...selectedForGroup, s.id]);
+                              else setSelectedForGroup(selectedForGroup.filter(id => id !== s.id));
+                            }}
+                            className="rounded"
+                          />
+                          <span className="flex-1 min-w-0 truncate">{s.nameZh || s.nameEn || s.email}</span>
+                          <span className="text-xs text-gray-400 flex-shrink-0">{s.class?.name || ''}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">已選 {selectedForGroup.length} 位學生</p>
+                  </div>
+                  {groupError && <p className="text-xs text-red-500">{groupError}</p>}
+                </div>
+                <div className="flex justify-end gap-3 mt-4">
+                  <button onClick={() => setShowGroupModal(false)} disabled={creatingGroup}
+                    className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                    取消
+                  </button>
+                  <button onClick={handleCreateGroup} disabled={creatingGroup || !groupName.trim() || selectedForGroup.length === 0}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+                    {creatingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                    建立組別
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
