@@ -129,6 +129,7 @@ interface StudentAnalytics {
   }>;
   diagnosticResults: Array<{
     skill: string;
+    skillZh: string;
     accuracy: number;
     weakAreas: string;
   }>;
@@ -716,7 +717,9 @@ export default function StudentAnalyticsPage() {
               {diagnosticResults.map((d, i) => (
                 <div key={i} className="space-y-1">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{d.skill}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {d.skillZh || d.skill}
+                    </span>
                     <span className={`text-sm font-medium ${
                       d.accuracy >= 70 ? 'text-green-600' :
                       d.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'
@@ -733,7 +736,7 @@ export default function StudentAnalyticsPage() {
                       style={{ width: `${Math.min(100, d.accuracy)}%` }}
                     />
                   </div>
-                  {d.weakAreas && d.weakAreas !== '[]' && (
+                  {d.weakAreas && d.weakAreas !== '[]' && d.weakAreas !== '' && (
                     <p className="text-xs text-gray-500 mt-0.5">
                       弱項: {d.weakAreas}
                     </p>

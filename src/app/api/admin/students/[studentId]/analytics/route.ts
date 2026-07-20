@@ -79,15 +79,15 @@ export async function GET(
 
     // 2. 最近練習記錄（含教師指派任務）
     // NOTE: 排除 source='assignment' 的 practiceSession，避免與 submission 重複
+    // 放寬 completedAt 條件：優先取已完成，但也包含未標記完成的記錄
     const [recentSessions, recentSubmissions] = await Promise.all([
       db.practiceSession.findMany({
         where: {
           studentId,
           source: { not: 'assignment' },
-          completedAt: { not: null },
         },
-        orderBy: { completedAt: 'desc' },
-        take: 15,
+        orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { startedAt: 'desc' }],
+        take: 20,
         select: {
           id: true,
           skill: true,
@@ -225,7 +225,8 @@ export async function GET(
     // 8. HKDSE 診斷結果
     const diagnosticResults = await db.diagnosticResult.findMany({
       where: { studentId },
-      select: { skill: true, accuracy: true, weakAreas: true },
+      orderBy: { completedAt: 'desc' },
+      select: { skill: true, skillZh: true, accuracy: true, weakAreas: true },
     });
 
     return NextResponse.json({
@@ -274,7 +275,16 @@ export async function GET(
           ? Math.round(((s._sum.correctCount || 0) / (s._sum.totalQuestions || 1)) * 100)
           : 0,
       })),
-      diagnosticResults,
+      diagnosticResults: diagnosticResults.map(d => {
+        let parsedWeakAreas: string[] = [];
+        try { parsedWeakAreas = JSON.parse(d.weakAreas); } catch { /* keep empty */ }
+        return {
+          skill: d.skill,
+          skillZh: d.skillZh,
+          accuracy: d.accuracy,
+          weakAreas: Array.isArray(parsedWeakAreas) ? parsedWeakAreas.join('、') : d.weakAreas,
+        };
+      }),
       generatedAt: new Date().toISOString(),
     });
   } catch (err: unknown) {
