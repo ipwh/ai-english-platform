@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
+import { logger } from '@/shared/logger/logger';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ preferences: prefs });
   } catch (err) {
-    console.error('[preferences GET]', err);
+    logger.error({ module: 'preferences', error: err instanceof Error ? err.message : String(err) }, 'Preferences GET failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

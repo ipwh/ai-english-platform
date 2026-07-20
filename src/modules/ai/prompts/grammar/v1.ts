@@ -1,9 +1,22 @@
-// Sprint 5: Grammar & Language Prompts v1
+// Sprint 5: Grammar & Language Prompts v1 — v4.1 enhanced
 // All HKDSE grammar, question generation, mistake explanation, progress analysis prompts
-export const version = '1.0.0';
+export const version = '1.1.0';
 export const description = 'HKDSE Grammar/Language prompts: question generation, mistake explanation, progress analysis, answer rules, JSON formatting';
-export const updatedAt = '2026-07-18';
+export const updatedAt = '2026-07-20';
 export const author = 'AI English Platform';
+
+// ============================================
+// Hallucination Prevention (applies to ALL grammar prompts)
+// ============================================
+
+export const GRAMMAR_HALLUCINATION_GUARD = `
+CRITICAL — ANTI-HALLUCINATION RULES:
+- Every answer must be derivable from the provided content
+- For question generation: all distractors must be plausible but unambiguously wrong
+- For mistake explanation: only report errors that exist in the student's text
+- Never fabricate student errors or grammar rules not applicable
+- JSON output only; no markdown wrapping
+`;
 
 // ============================================
 // Answer Rules (from answer-rules.ts)

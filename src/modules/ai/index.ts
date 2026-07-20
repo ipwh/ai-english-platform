@@ -16,7 +16,6 @@ export {
   isDeepSeekConfigured,
   getLastAIProvider,
   wasFallbackUsed,
-  resetRetryStats,
   getRetryStats,
 } from '@/modules/ai/services/ai-service';
 
@@ -127,7 +126,6 @@ export const AIFacade = {
   utils: {
     callLLM,
     sanitize: sanitizeForAI,
-    resetRetryStats,
     getRetryStats,
   },
 } as const;

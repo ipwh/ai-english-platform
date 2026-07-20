@@ -1,18 +1,37 @@
-// Sprint 5: Writing Prompts v1
+// Sprint 5: Writing Prompts v1 — v4.1 enhanced
 // All HKDSE Paper 2 & Paper 3 writing-related prompts
-export const version = '1.0.0';
+export const version = '1.1.0';
 export const description = 'HKDSE Writing prompts: CLO grammar, style, outline, integrated skills generation & analysis';
-export const updatedAt = '2026-07-18';
+export const updatedAt = '2026-07-20';
 export const author = 'AI English Platform';
+
+const HALLUCINATION_GUARD = `
+CRITICAL — DO NOT HALLUCINATE:
+- All scores and feedback must be derived from the actual student writing provided
+- Never invent errors or strengths not present in the text
+- If the writing is too short to assess, state that honestly
+- DSE rubrics are reference guides; apply them strictly to the actual content
+`;
 
 // ============================================
 // Writing CLO Grammar Analysis (from writing-clo-grammar.ts)
 // ============================================
 
 export function buildWritingGrammarPrompt(writingMSContext: string): string {
-  return `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，擁有多年 DSE 評卷經驗。
+  return `${HALLUCINATION_GUARD}
+你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，擁有多年 DSE 評卷經驗。
 請嚴格依據以下官方 HKDSE Paper 2 Writing 評分框架（Content / Language / Organization，簡稱 CLO）進行評分，每卷滿分 21 分（C:7 + L:7 + O:7），每卷經 2 位評卷員獨立評審。
-請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。${writingMSContext}
+請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
+
+【期望輸出 JSON schema】
+{
+  "content": { "score": 0-7, "strengths": ["具體優點"], "weaknesses": ["具體弱點"], "commentZh": "繁體中文評語" },
+  "language": { "score": 0-7, "strengths": ["具體優點"], "weaknesses": ["具體弱點"], "commentZh": "繁體中文評語" },
+  "organization": { "score": 0-7, "strengths": ["具體優點"], "weaknesses": ["具體弱點"], "commentZh": "繁體中文評語" },
+  "totalScore": 0-21,
+  "overallCommentZh": "繁體中文總評"
+}
+${writingMSContext}
 
 【HKDSE Paper 2 Writing 官方評分框架 — 必須以此為唯一評分基準】
 

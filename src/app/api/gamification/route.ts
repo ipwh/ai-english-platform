@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/modules/progress/services/gamification';
 import type { XpEvent } from '@/modules/progress/services/gamification';
 
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
         select: { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true },
       });
     } catch {
-      // Fallback: try without new columns
+      logger.error({ module: 'gamification', studentId }, 'Failed to fetch student with full columns, trying fallback');
       student = await db.user.findUnique({
         where: { id: studentId },
         select: { streakDays: true, overallAccuracy: true },
@@ -82,11 +83,11 @@ export async function GET(req: NextRequest) {
         where: { studentId },
         select: { totalQuestions: true },
       });
-    } catch { /* ignore */ }
+    } catch { logger.error({ module: 'gamification', studentId }, 'Failed to fetch practiceSessions'); }
 
-    try { vocabMastered = await db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }); } catch { /* ignore */ }
-    try { writingCount = await db.writingDraft.count({ where: { studentId } }); } catch { /* ignore */ }
-    try { sessionsCount = await db.practiceSession.count({ where: { studentId } }); } catch { /* ignore */ }
+    try { vocabMastered = await db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count vocabMastered'); }
+    try { writingCount = await db.writingDraft.count({ where: { studentId } }); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count writingDraft'); }
+    try { sessionsCount = await db.practiceSession.count({ where: { studentId } }); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count practiceSession'); }
 
     const totalQuestions = practiceSessions.reduce((sum, s) => sum + s.totalQuestions, 0);
 
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
     let alreadyUnlocked: string[] = [];
     try {
       alreadyUnlocked = student?.badgeIds ? JSON.parse(student.badgeIds as string) : [];
-    } catch { alreadyUnlocked = []; }
+    } catch { logger.error({ module: 'gamification', studentId }, 'Failed to parse badgeIds JSON'); alreadyUnlocked = []; }
 
     const allBadges = getAllBadges(stats, alreadyUnlocked);
 
@@ -121,7 +122,7 @@ export async function GET(req: NextRequest) {
           where: { id: studentId },
           data: { badgeIds: JSON.stringify(updatedBadgeIds) },
         });
-      } catch { /* Silently fail — badges are cosmetic, column may not exist yet */ }
+      } catch { logger.error({ module: 'gamification', studentId, newBadgeCount: newBadges.length }, 'Failed to persist newly earned badges'); }
     }
 
     return NextResponse.json({
@@ -132,7 +133,7 @@ export async function GET(req: NextRequest) {
       newBadges: newBadges.length > 0 ? newBadges : undefined,
     });
   } catch (error) {
-    console.error('[Gamification GET]', error);
+    logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification GET failed');
     // Return a graceful fallback instead of 500
     return NextResponse.json({
       xp: 0,
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
           metadata: event.metadata ? JSON.stringify(event.metadata) : null,
         },
       });
-    } catch { /* XP 記錄非致命 — 不影響使用者體驗 */ }
+    } catch { logger.error({ module: 'gamification', studentId, eventType: event.type }, 'XP transaction audit log failed — non-fatal'); }
 
     const updated = await db.user.findUnique({
       where: { id: studentId },
@@ -208,7 +209,7 @@ export async function POST(req: NextRequest) {
         writingSubmissions: 0, diagnosticCompleted: false,
         skillAccuracy: {},
       }, alreadyUnlocked);
-    } catch { /* ignore */ }
+    } catch { logger.error({ module: 'gamification', studentId }, 'Badge check after XP failed — non-fatal'); }
 
     return NextResponse.json({
       success: true,
@@ -222,7 +223,7 @@ export async function POST(req: NextRequest) {
       event: event.type,
     });
   } catch (error) {
-    console.error('[Gamification POST]', error);
+    logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification POST failed');
     return NextResponse.json({ error: '無法記錄 XP' }, { status: 500 });
   }
 }

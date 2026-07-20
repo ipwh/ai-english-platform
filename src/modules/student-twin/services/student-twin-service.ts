@@ -1,5 +1,6 @@
 // Sprint 37: StudentTwinService — builds the complete digital twin
 // Uses lazy imports for modules that require DB (Prisma)
+import { logger } from '@/shared/logger/logger';
 import type {
   StudentTwin, LearningPersona, PersonaType,
   KnowledgeState, MotivationState, ConfidenceState, LearningHabit,
@@ -102,14 +103,14 @@ export class StudentTwinService {
     try {
       const { memoryEngine } = await import('@/modules/learning-memory/services/memory-engine');
       return await memoryEngine.get(studentId);
-    } catch { return null; }
+    } catch (err) { logger.error({ module: 'student-twin', studentId, error: err instanceof Error ? err.message : String(err) }, 'Failed to lazy-load memory engine'); return null; }
   }
 
   private async loadReviewEntries(studentId: string): Promise<ReviewEntry[]> {
     try {
       const { learningScienceRepo } = await import('@/modules/learning-science/repositories/learning-science-repository');
       return await learningScienceRepo.getByStudentId(studentId);
-    } catch { return []; }
+    } catch (err) { logger.error({ module: 'student-twin', studentId, error: err instanceof Error ? err.message : String(err) }, 'Failed to lazy-load review entries'); return []; }
   }
 
   // ============================================

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { cacheFor, CACHE_MEDIUM } from '@/shared/utils/api-cache';
 import { z } from 'zod';
 
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ classes }, { headers: cacheFor(CACHE_MEDIUM) });
   } catch (err: unknown) {
-    console.error('[Classes GET]', err);
+    logger.error({ module: 'classes', error: err instanceof Error ? err.message : String(err) }, 'Classes GET failed');
     return NextResponse.json({ error: 'Failed to load classes', classes: [] }, { status: 500 });
   }
 }

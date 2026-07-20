@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/modules/vocabulary/services/srs';
 
 // GET — 取得今日待複習的詞彙 + 錯題
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[SRS Review GET]', error);
+    logger.error({ module: 'srs-review', error: error instanceof Error ? error.message : String(error) }, 'SRS Review GET failed');
     return NextResponse.json({ error: '無法載入複習卡片' }, { status: 500 });
   }
 }
@@ -181,7 +182,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, processed: results.length });
   } catch (error) {
-    console.error('[SRS Review POST]', error);
+    logger.error({ module: 'srs-review', error: error instanceof Error ? error.message : String(error) }, 'SRS Review POST failed');
     return NextResponse.json({ error: '無法儲存複習結果' }, { status: 500 });
   }
 }

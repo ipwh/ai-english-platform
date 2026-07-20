@@ -20,5 +20,21 @@ export function buildReadingSectionPrompt(): string {
 - 所有題目必須基於此閱讀篇章
 - 篇章類型：S1-S3 故事/書信/海報；S4-S6 新聞/議論文/社論
 - 提供 readingContentZh 繁體中文輔助說明
-- 輸出格式：JSON with passage, passageZh, questions[] (MCQ/short-answer/inference)`;
+- 輸出格式：JSON with passage, passageZh, questions[] (MCQ/short-answer/inference)
+
+【期望 JSON schema】
+{
+  "readingContent": "Full English passage (80-200 words)",
+  "readingContentZh": "繁體中文輔助說明",
+  "questions": [
+    {
+      "type": "MCQ|shortAnswer|inference|vocabulary|trueFalse",
+      "questionText": "Question in English",
+      "questionTextZh": "繁體中文題目翻譯",
+      "choices": ["A. ...", "B. ...", "C. ...", "D. ..."],
+      "answer": "A",
+      "explanationZh": "繁體中文解釋"
+    }
+  ]
+}`;
 }

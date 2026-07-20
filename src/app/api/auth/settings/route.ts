@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   // NextAuth session
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    console.error('[Auth Settings GET]', err);
+    logger.error({ module: 'auth-settings', error: err instanceof Error ? err.message : String(err) }, 'Auth Settings GET failed');
     return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 });
   }
 }
@@ -88,7 +89,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
-    console.error('[Auth Settings PATCH]', err);
+    logger.error({ module: 'auth-settings', error: err instanceof Error ? err.message : String(err) }, 'Auth Settings PATCH failed');
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
   }
 }

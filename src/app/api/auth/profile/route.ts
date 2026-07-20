@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 
 async function resolveCurrentUser(request?: NextRequest) {
   const jwtToken = request?.cookies.get('session_token')?.value;
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return NextResponse.json({ user });
   } catch (err: unknown) {
-    console.error('[Auth Profile GET]', err);
+    logger.error({ module: 'auth-profile', error: err instanceof Error ? err.message : String(err) }, 'Auth Profile GET failed');
     return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 });
   }
 }

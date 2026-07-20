@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { PracticeRepo, MistakeRepo, StudentRepo } from '@/modules/repositories';
 
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ sessions });
   } catch (err: unknown) {
-    console.error('[Practice GET]', err);
+    logger.error({ module: 'practice', error: err instanceof Error ? err.message : String(err) }, 'Practice GET failed');
     return NextResponse.json({ error: 'Failed to load practice history', sessions: [] }, { status: 500 });
   }
 }
