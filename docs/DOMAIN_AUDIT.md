@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Tasks 1-6 ✅ | v4.1 Complete
+> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Tasks 1-7 ✅ | v4.1 Complete
 
 ---
 
@@ -197,6 +197,69 @@ Every domain now exposes exactly ONE facade. No module should bypass facades.
 | Task 6 | Facade Rules | PlatformFacade (6 sub-domains) + enforcement |
 
 **Final State**: 31 modules, 5 facades, 8 domains, 10 design rules enforced, 0 duplicated logic.
+
+---
+
+## Task 7: Dependency Rules — AUDITED
+
+### Allowed Dependency Flow
+
+```
+Routes → Facade → Services → Repositories → Database
+```
+
+### Violations Found
+
+#### Pattern 1: API Route → Repository (bypassing service)
+
+| # | File | Violation |
+|---|------|-----------|
+| 1 | `api/knowledge-graph/graph/route.ts` | Imports `knowledgeGraphRepo` directly (also imports service) |
+| 2 | `api/memory/route.ts` | Imports `memoryRepo` + `memory-db-repository` directly |
+
+**Count**: 2 violations, **Low** severity — both already import the service too.
+
+#### Pattern 2: Service → Another Domain's Repository
+
+**Count**: 0 violations ✅ — No cross-domain repository access.
+
+#### Pattern 3: Route / Service → Prisma `db.` Directly
+
+**Count**: **52 API routes** use `db.` directly — bypassing the entire service/repository layer.
+
+| Category | Count | Example |
+|----------|-------|---------|
+| Admin routes | 15 | `db.user.findMany()`, `db.class.create()` |
+| Vocabulary routes | 6 | `db.vocabItem.findMany()`, `db.vocabItem.create()` |
+| Auth/profile routes | 5 | `db.user.findUnique()`, `db.user.update()` |
+| Assignment routes | 2 | `db.assignment.findMany()` |
+| Teacher routes | 2 | `db.user.findUnique()` |
+| Other (mistakes, writing, feedback, etc.) | 22 | Various direct `db.` calls |
+
+**Risk**: Medium. These are legacy patterns from pre-facade architecture. They function correctly but bypass business logic enforcement in services. Migration plan: incrementally redirect to repository/service layers.
+
+#### Pattern 4: Learning Modules → Prisma Directly
+
+**Count**: 0 violations ✅ — All `db.` usage within Learning modules is confined to `repositories/` files.
+
+#### Pattern 5: Teacher → Student Repository
+
+**Count**: 0 violations ✅ — Teacher modules do not access Student repositories directly.
+
+### Summary
+
+| Rule | Violations | Severity |
+|------|-----------|----------|
+| Route → Repo (bypass service) | 2 | Low |
+| Service → Other Domain Repo | 0 | — |
+| Route → Prisma `db.` directly | 52 | Medium |
+| Learning → Prisma directly | 0 | — |
+| Teacher → Student Repo | 0 | — |
+
+### Migration Plan (Sprint 42)
+
+1. **Low**: Fix 2 routes importing repos (add facade method if needed)
+2. **Medium**: Incrementally migrate 52 routes from `db.` → repository calls. Prioritize: auth/profile → admin → teacher → vocabulary → others
 
 ## Domain Model
 
