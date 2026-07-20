@@ -288,6 +288,16 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         s.setAnalysis(json.analysis);
         s.setStage('result');
         localStorage.removeItem(DRAFT_KEY);
+        // 儲存練習記錄到學生分析
+        if (appStore.userId) {
+          fetch('/api/practice', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: appStore.userId, skill: 'integrated-skills', skillZh: 'DSE Integrated Skills',
+              difficulty: s.difficulty, totalQuestions: 1, correctCount: 1, source: 'dse-integrated-skills',
+            }),
+          }).catch(() => {});
+        }
         if (appStore.userId) {
           fetch('/api/gamification', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },

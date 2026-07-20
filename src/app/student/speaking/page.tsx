@@ -112,6 +112,17 @@ export default function SpeakingPracticePage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setAnalysis(json.analysis);
+        // 儲存練習記錄到學生分析
+        const store = useAppStore.getState();
+        if (store.userId) {
+          fetch('/api/practice', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: store.userId, skill: 'speaking', skillZh: '會話練習',
+              difficulty: 'core', totalQuestions: 1, correctCount: 1, source: 'dse-speaking',
+            }),
+          }).catch(() => {});
+        }
       } else {
         setError(json.error || 'Analysis failed');
       }

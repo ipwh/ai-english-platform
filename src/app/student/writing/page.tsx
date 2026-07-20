@@ -233,6 +233,16 @@ export default function WritingPage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setAiResult(json.analysis);
+        // 儲存練習記錄到學生分析
+        if (store.userId) {
+          fetch('/api/practice', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: store.userId, skill: 'writing', skillZh: 'DSE 寫作',
+              difficulty: 'core', totalQuestions: 1, correctCount: 1, source: 'dse-writing',
+            }),
+          }).catch(() => {});
+        }
         // 持久化 AI 分析結果到 DB
         try {
           await fetch('/api/writing', {
