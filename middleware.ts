@@ -90,11 +90,8 @@ export default async function middleware(request: NextRequest) {
 
     // 檢查 admin 路由權限
     if (pathname.startsWith('/admin')) {
-      // Admin: require effectiveRole = 'admin'.
-      // effectiveRole is safe because downgrade-only logic prevents privilege escalation:
-      // a teacher with selected_role='admin' still gets effectiveRole='teacher'.
-      // Falls back to selected_role cookie if JWT decode fails (user is authenticated).
-      if (effectiveRole !== 'admin') {
+      // Admin routes: allow admin or teacher (for student analysis sub-pages)
+      if (effectiveRole !== 'admin' && effectiveRole !== 'teacher') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'admin_only');
         return NextResponse.redirect(forbiddenUrl);

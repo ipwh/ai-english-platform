@@ -119,7 +119,11 @@ export async function GET(
     ]);
 
     // 合併練習記錄 + 任務提交，按完成時間排序，去重
-    const mergedSessions = [
+    const mergedSessions: Array<{
+      id: string; type: 'practice' | 'assignment'; skill: string; skillZh: string;
+      difficulty: string; totalQuestions: number; correctCount: number;
+      accuracy: number; startedAt: Date | string; completedAt: Date | string | null; source: string;
+    }> = [
       ...recentSessions.map(s => ({
         id: s.id,
         type: 'practice' as const,
@@ -152,12 +156,25 @@ export async function GET(
       }),
     ]
       .sort((a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime())
-      // 依內容去重：相同 skill + 題數 + 正確數 + source 只保留最新
-      .filter((s, _i, arr) => {
-        const key = `${s.skill}|${s.totalQuestions}|${s.correctCount}|${s.source}`;
-        const firstIdx = arr.findIndex(x => `${x.skill}|${x.totalQuestions}|${x.correctCount}|${x.source}` === key);
-        return _i === firstIdx;
-      })
+      // 智能去重：相同 (skill, totalQuestions, source) 且 startedAt 在 2 分鐘內 → 只保留 correctCount 最高者
+      // 解決舊 bug 遺留的 Q1→Q5 逐題儲存問題
+      .reduce((acc, s) => {
+        const sTime = new Date(s.startedAt).getTime();
+        const dup = acc.find(x =>
+          x.skill === s.skill &&
+          x.totalQuestions === s.totalQuestions &&
+          x.source === s.source &&
+          Math.abs(new Date(x.startedAt).getTime() - sTime) < 120_000
+        );
+        if (dup) {
+          if (s.correctCount > dup.correctCount) {
+            Object.assign(dup, s);
+          }
+        } else {
+          acc.push(s);
+        }
+        return acc;
+      }, [] as typeof mergedSessions)
       .slice(0, 15);
 
     // 3. 最近錯題（去重：同一 questionId 只保留最新一筆）

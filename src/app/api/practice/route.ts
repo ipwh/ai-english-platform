@@ -159,12 +159,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       sessions: [...filteredSessions, ...assignmentSessions]
         .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())
-        // 依內容去重：相同 skill + 題數 + 正確數 + source 只保留最新
-        .filter((s, _i, arr) => {
-          const key = `${s.skill}|${s.totalQuestions}|${s.correctCount}|${s.source}`;
-          const firstIdx = arr.findIndex(x => `${x.skill}|${x.totalQuestions}|${x.correctCount}|${x.source}` === key);
-          return _i === firstIdx;
-        })
+        // 智能去重：相同 (skill, totalQuestions, source) 且 startedAt 在 2 分鐘內 → 只保留 correctCount 最高者
+        .reduce((acc, s) => {
+          const sTime = new Date(s.startedAt ?? 0).getTime();
+          const dup = acc.find(x =>
+            x.skill === s.skill &&
+            x.totalQuestions === s.totalQuestions &&
+            x.source === s.source &&
+            Math.abs(new Date(x.startedAt ?? 0).getTime() - sTime) < 120_000
+          );
+          if (dup) {
+            if ((s.correctCount ?? 0) > (dup.correctCount ?? 0)) Object.assign(dup, s);
+          } else {
+            acc.push(s);
+          }
+          return acc;
+        }, [] as typeof filteredSessions)
         .slice(0, 50),
     });
   } catch (err: unknown) {

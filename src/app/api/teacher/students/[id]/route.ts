@@ -157,14 +157,31 @@ export async function GET(
       };
     });
 
-    // 合併 + 內容去重：相同 skill+題數+正確數+source 只保留最新
-    const mergedSessions = [...rawPracticeSessions, ...assignmentSessions]
+    // 合併 + 智能去重：相同 (skill, totalQuestions, source) 且 startedAt 在 2 分鐘內 → 只保留 correctCount 最高者
+    type MergedSession = {
+      id: string; skill: string; skillZh: string; difficulty: string;
+      totalQuestions: number; correctCount: number; source: string;
+      startedAt: Date | string; completedAt?: Date | string | null;
+      answers?: unknown[];
+    };
+    const merged: MergedSession[] = [...rawPracticeSessions, ...assignmentSessions];
+    const mergedSessions = merged
       .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-      .filter((s, _i, arr) => {
-        const key = `${s.skill}|${s.totalQuestions}|${s.correctCount}|${s.source}`;
-        const firstIdx = arr.findIndex(x => `${x.skill}|${x.totalQuestions}|${x.correctCount}|${x.source}` === key);
-        return _i === firstIdx;
-      });
+      .reduce((acc, s) => {
+        const sTime = new Date(s.startedAt).getTime();
+        const dup = acc.find(x =>
+          x.skill === s.skill &&
+          x.totalQuestions === s.totalQuestions &&
+          x.source === s.source &&
+          Math.abs(new Date(x.startedAt).getTime() - sTime) < 120_000
+        );
+        if (dup) {
+          if (s.correctCount > dup.correctCount) Object.assign(dup, s);
+        } else {
+          acc.push(s);
+        }
+        return acc;
+      }, [] as MergedSession[]);
 
     const practiceSessions = mergedSessions;
 

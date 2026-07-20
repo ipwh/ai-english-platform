@@ -87,7 +87,6 @@ export const teacherNavSections: NavSection[] = [
   {
     title: '報告與設定', titleKey: 'teacher.reports_settings',
     items: [
-      { label: '學生分析報告', i18nKey: 'teacher.analytics', href: '/teacher/students', icon: BarChart3 },
       { label: '報告匯出', i18nKey: 'teacher.reports', href: '/teacher/reports', icon: FileText },
       { label: '系統設定', i18nKey: 'teacher.settings', href: '/teacher/settings', icon: Settings },
       { label: '個人檔案', i18nKey: 'nav.profile', href: '/teacher/profile', icon: User },
