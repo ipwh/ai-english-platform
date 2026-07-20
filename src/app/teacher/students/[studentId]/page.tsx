@@ -184,12 +184,6 @@ export default function StudentDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/students/${studentId}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg hover:bg-purple-100 transition-colors"
-          >
-            <BarChart3 className="w-3.5 h-3.5" /> 學生分析
-          </Link>
           <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 transition-colors">
             <Download className="w-3.5 h-3.5" /> CSV
           </button>
@@ -259,7 +253,7 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* 練習統計 KPI */}
+      {/* 練習統計 KPI + 學生分析 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: '練習次數', value: practiceSessions.length, unit: '次', icon: Hash },
@@ -269,7 +263,6 @@ export default function StudentDetailPage() {
           { label: '生字', value: vocab.total, unit: '詞', icon: Languages },
           { label: '寫作', value: writingDrafts.length, unit: '篇', icon: FileText },
           { label: '已掌握', value: vocab.mastered, unit: '詞', icon: GraduationCap },
-          { label: '每週快照', value: weeklySnapshots.length, unit: '週', icon: BarChart3 },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <stat.icon className="w-4 h-4 text-gray-400 mb-2" />
@@ -277,6 +270,15 @@ export default function StudentDetailPage() {
             <p className="text-xs text-gray-500">{stat.label}</p>
           </div>
         ))}
+        {/* 學生分析 — 顯眼 CTA */}
+        <Link
+          href={`/admin/students/${studentId}`}
+          className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border-2 border-purple-300 dark:border-purple-700 hover:border-purple-500 transition-colors flex flex-col items-center justify-center text-center gap-1.5"
+        >
+          <BarChart3 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <p className="text-sm font-bold text-purple-700 dark:text-purple-400">學生分析</p>
+          <p className="text-[10px] text-purple-500">完整診斷報告</p>
+        </Link>
       </div>
 
       {/* 技能弱項分析 */}
