@@ -1,6 +1,7 @@
 # AI English Platform — Architecture v4.1
 
-> Generated: 2026-07-20 | 11 Tasks ✅ | 5 Domain Facades | 10 Design Rules Enforced
+> ⚠️ **Merged into [ARCHITECTURE.md](ARCHITECTURE.md)** as of v4.1.
+> This file is retained for historical reference of the domain consolidation process.
 
 ---
 

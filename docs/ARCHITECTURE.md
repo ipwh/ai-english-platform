@@ -1,6 +1,7 @@
 # AI English Platform — Architecture
 
-> Generated: 2026-07-19 | 40 Sprints | 1135 tests | 39 modules | Deployment Readiness: 99% | v4.0
+> Generated: 2026-07-20 | 40 Sprints | 1,134 tests | 31 modules | Deployment Readiness: 99% | **v4.1**
+> See also: [DOMAIN_AUDIT.md](DOMAIN_AUDIT.md) | [FINAL_AUDIT_REPORT.md](FINAL_AUDIT_REPORT.md)
 
 ## Architecture Diagram
 

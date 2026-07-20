@@ -2,8 +2,8 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [MODULES.md](docs/MODULES.md)
-> **Status**: 40 Sprints ✅ | 1135 tests | 39 modules | Build: Passing | **Deployment Readiness: 99%** | **v4.0**
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [FINAL_AUDIT.md](docs/FINAL_AUDIT_REPORT.md)
+> **Status**: 40 Sprints ✅ | 1,134 tests | Build: ✅ | **Deployment Readiness: 99%** | **v4.1**
 
 ## 🏗️ Architecture Overview
 
@@ -29,7 +29,7 @@ Vocabulary Intelligence (S35) + Writing Coach V2 (S36)
 | Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 (21 schemas, 17 validated routes) |
-| Testing | Vitest 4 (1135 tests, 55 test files) + Playwright + Smoke (45 checks) |
+| Testing | Vitest 4 (1,134 tests, 53 test files) + Playwright |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Logging | Structured Logger (Pino-style JSON/human-readable) |
