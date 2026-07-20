@@ -49,7 +49,7 @@ ${PAPER4_RUBRICS}
 - 主題：${topic}
 - 格式：Group Discussion (8 minutes) + Individual Response (1 minute)
 - 提供 discussion topic、supporting points、vocabulary hints
-- 所有內容使用英文
+- 使用英文生成口語內容，評語和解釋提供繁體中文翻譯
 - 必須包含考官評分提示：針對上述 4 個評分維度（Pronunciation、Communication Strategies、Vocabulary、Ideas），各提供 2-3 個具體評分重點`;
 }
 

@@ -53,16 +53,16 @@ export function calcConsistency(outputs: string[]): number {
 /** Calculate JSON validity (0-1) */
 export function calcJsonValidity(output: string): number {
   // Try parsing as JSON directly
-  try { JSON.parse(output); return 1; } catch {}
+  try { JSON.parse(output); return 1; } catch { /* valid JSON → 1 */ }
   // Try extracting JSON from markdown code blocks
   const mdMatch = output.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
   if (mdMatch) {
-    try { JSON.parse(mdMatch[1]); return 0.9; } catch {}
+    try { JSON.parse(mdMatch[1]); return 0.9; } catch { /* markdown JSON → 0.9 */ }
   }
   // Try finding JSON objects/arrays
   const jsonMatch = output.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   if (jsonMatch) {
-    try { JSON.parse(jsonMatch[0]); return 0.7; } catch {}
+    try { JSON.parse(jsonMatch[0]); return 0.7; } catch { /* partial JSON → 0.7 */ }
   }
   // Partial JSON: count balanced brackets
   const openBraces = (output.match(/\{/g) || []).length;
