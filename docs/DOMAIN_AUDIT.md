@@ -1,6 +1,6 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Tasks 1-7 ✅ | v4.1 Complete
+> Generated: 2026-07-20 | v4.1 Complete — All 8 Tasks ✅
 
 ---
 
@@ -260,6 +260,30 @@ Routes → Facade → Services → Repositories → Database
 
 1. **Low**: Fix 2 routes importing repos (add facade method if needed)
 2. **Medium**: Incrementally migrate 52 routes from `db.` → repository calls. Prioritize: auth/profile → admin → teacher → vocabulary → others
+
+---
+
+## Task 8: Remove Technical Debt — EXECUTED
+
+### Deduplication Results
+
+| Category | Before | After | Files Changed |
+|----------|--------|-------|---------------|
+| Skill dimension arrays | 9 separate definitions | 1 per module (module-level constant) | `teacher-analytics/services/teacher-analytics.ts` (5→1), `analytics/services/learning-analytics.ts` (4→1) |
+| Skill dimension names | 5 separate `skillNames` objects | 1 per module | `teacher-analytics` — `SKILL_NAMES` constant |
+| `SkillDimension` type | 1 definition (`profile/types.ts`) | ✅ Already clean | No change needed |
+| `Familiarity` type | 1 definition (`shared/types/types.ts`) | ✅ Already clean | No change needed |
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `SkillDimension` defined only in `profile/types.ts` | ✅ |
+| All modules import `SkillDimension` from single source | ✅ |
+| `MASTERY_SKILLS` in `student-mastery/types` is canonical | ✅ |
+| No duplicate type exports across modules | ✅ |
+| `teacher-analytics` uses module-level `SKILLS` + `SKILL_NAMES` | ✅ |
+| `analytics` uses module-level `SKILL_DIMS` | ✅ |
 
 ## Domain Model
 
