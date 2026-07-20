@@ -38,11 +38,27 @@ export { memoryService } from '@/modules/learning-memory/services/memory-service
 export { memoryEngine } from '@/modules/learning-memory/services/memory-engine';
 
 // ============================================
-// Progress — gamification, XP, streaks
+// Progress — gamification, XP, streaks, badges, leaderboard
 // ============================================
+export { getStudentProgress, awardXp } from '@/modules/progress/services/progress-service';
+export { calculateStudentStreak, syncUserStreak } from '@/modules/progress/services/streak-service';
+export {
+  calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
+  getStudyRecommendation, buildLeaderboard, getDailyGoal,
+  type BadgeCheckStats, type LeaderboardEntry, type BadgeDefinition,
+} from '@/modules/progress/services/gamification';
 
 // ============================================
 // Twin (S20) — digital learning state
+// ============================================
+export { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+export type {
+  StudentTwin, LearningPersona, PersonaType,
+  KnowledgeState, TwinPredictions, RiskAssessment,
+} from '@/modules/student-twin/types';
+
+// ============================================
+// Unified Facade Object
 // ============================================
 
 /**
@@ -51,24 +67,57 @@ export { memoryEngine } from '@/modules/learning-memory/services/memory-engine';
  * ALL student-related logic must be accessed through this facade.
  * Other modules should NOT directly call student repositories.
  *
+ * Domains:
+ *   Profile  — identity, preferences, learning speed
+ *   Mastery  — SINGLE SOURCE OF TRUTH for ability (S31)
+ *   Memory   — learning memory lifecycle (S36)
+ *   Progress — gamification, XP, streaks, badges
+ *   Twin     — digital learning state (S20)
+ *
  * @example
  * import { StudentFacade } from '@/modules/student';
  * const profile = await StudentFacade.getLearningProfile(studentId);
+ * await StudentFacade.awardXp(studentId, 'answerCorrect');
  */
 export const StudentFacade = {
-  // Identity
-  generateProfile,
-  aggregateSkillStats,
-  analyzeTopicPreferences,
-  calculateLearningSpeed,
+  // Profile
+  profile: {
+    generate: generateProfile,
+    aggregateSkills: aggregateSkillStats,
+    analyzeTopics: analyzeTopicPreferences,
+    learningSpeed: calculateLearningSpeed,
+  },
 
   // Mastery (single source of truth)
-  getLearningProfile,
-  updateAfterExercise,
-  updateAfterWriting,
-  updateAfterVocabulary,
+  mastery: {
+    getProfile: getLearningProfile,
+    updateAfterExercise,
+    updateAfterWriting,
+    updateAfterVocabulary,
+  },
 
   // Memory
-  memoryService,
-  memoryEngine,
+  memory: {
+    service: memoryService,
+    engine: memoryEngine,
+  },
+
+  // Progress
+  progress: {
+    get: getStudentProgress,
+    awardXp,
+    streak: calculateStudentStreak,
+    syncStreak: syncUserStreak,
+    levelInfo: getLevelInfo,
+    checkBadges: checkNewBadges,
+    allBadges: getAllBadges,
+    studyRecommendation: getStudyRecommendation,
+    leaderboard: buildLeaderboard,
+    dailyGoal: getDailyGoal,
+  },
+
+  // Twin
+  twin: {
+    service: studentTwinService,
+  },
 } as const;

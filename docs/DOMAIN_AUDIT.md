@@ -1,8 +1,36 @@
 # Domain Consolidation Audit — AI English Platform v4.1
 
-> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined
+> Generated: 2026-07-20 | 35 modules analyzed | 8 domains defined | Task 1 ✅ | Task 2 ✅
 
 ---
+
+## Task 2: Student Domain Consolidation — EXECUTED
+
+### StudentFacade (`src/modules/student/index.ts`)
+
+Unified entry point wrapping all 5 student sub-domains:
+
+| Sub-domain | Modules | Facade API |
+|-----------|---------|------------|
+| **Profile** | `profile/` | `generate`, `aggregateSkills`, `analyzeTopics`, `learningSpeed` |
+| **Mastery** | `student-mastery/` (S31) | `getProfile`, `updateAfterExercise`, `updateAfterWriting`, `updateAfterVocabulary` |
+| **Memory** | `learning-memory/` (S36) | `service` (MemoryService), `engine` (MemoryEngine) |
+| **Progress** | `progress/` | `get`, `awardXp`, `streak`, `syncStreak`, `levelInfo`, `checkBadges`, `allBadges`, `studyRecommendation`, `leaderboard`, `dailyGoal` |
+| **Twin** | `student-twin/` (S20) | `service` (StudentTwinService) |
+
+### Design Rule Compliance
+
+| Rule | Status |
+|------|--------|
+| #3: Student Mastery is single source of truth | ✅ `StudentFacade.mastery` is the only entry point |
+| #7: Twin represents digital state, not profile | ✅ Twin is separate sub-domain under StudentFacade |
+| #10: Prefer reuse over duplication | ✅ All 5 sub-domains are wrapped, not rewritten |
+
+### Key Design Decisions
+
+- **Not physically moved**: Modules remain at `student-mastery/`, `learning-memory/`, etc. to maintain backward compatibility. The facade provides the unified interface.
+- **Other modules should use StudentFacade**: Future code should import from `@/modules/student` instead of directly from individual modules.
+- **No repository-level changes**: Repositories remain internal to their modules.
 
 ## Domain Model
 
