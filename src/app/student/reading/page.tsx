@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -73,9 +73,44 @@ export default function ReadingPracticePage() {
   const [showVocab, setShowVocab] = useState(false);
   const [showPassage, setShowPassage] = useState(true);
   const [showQuestionZh, setShowQuestionZh] = useState(false);
+  const savedRef = useRef(false);
+
+  // Persist score when all questions are answered
+  useEffect(() => {
+    if (!data || savedRef.current) return;
+    const allAnswered = data.questions.every((_, i) => answers[i]?.submitted);
+    if (!allAnswered) return;
+
+    savedRef.current = true;
+    const correctCount = Object.values(answers).filter(a => a.isCorrect).length;
+
+    const practicePayload = {
+      studentId: useAppStore.getState().userId,
+      skill: 'reading',
+      skillZh: 'DSE 閱讀模擬',
+      difficulty,
+      totalQuestions: data.questions.length,
+      correctCount,
+      source: 'dse-reading',
+      answers: data.questions.map((q, i) => ({
+        questionIndex: i,
+        studentAnswer: answers[i]?.answer || '',
+        correctAnswer: q.answer,
+        isCorrect: answers[i]?.isCorrect || false,
+        questionPrompt: q.question,
+      })),
+    };
+
+    fetch('/api/practice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(practicePayload),
+    }).catch(() => { /* silent — practice save is non-critical */ });
+  }, [answers, data, difficulty]);
 
   async function generate() {
     setLoading(true); setError('');
+    savedRef.current = false;
     try {
       const res = await fetch('/api/reading', {
         method: 'POST',
@@ -344,7 +379,7 @@ export default function ReadingPracticePage() {
               <p className="text-indigo-100 text-sm">
                 {language === 'en' ? 'Reading Score' : '閱讀成績'} — {Math.round((totalScore / data.questions.length) * 100)}%
               </p>
-              <button onClick={() => { setData(null); setAnswers({}); }}
+              <button onClick={() => { setData(null); setAnswers({}); savedRef.current = false; }}
                 className="mt-3 px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium">
                 {language === 'en' ? 'New Reading' : '新閱讀練習'}
               </button>

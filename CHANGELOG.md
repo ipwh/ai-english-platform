@@ -4,6 +4,25 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-20 (evening) — Reading Module v2: DSE RAG, Persistence & Class Linking
+
+### 📖 Reading Module (DSE Paper 1) Enhancement
+- **DSE RAG integration** — `POST /api/reading` now retrieves real past paper reading passages + marking schemes via `retrievePastPaperContent()` and `retrieveMarkingScheme()`, injects context into AI prompt for authentic DSE-style output
+- **Data persistence** — reading scores now saved to practice history (`POST /api/practice`) when all questions are answered; wrong answers auto-synced to mistake book
+- **Sidebar renamed** — `閱讀理解` → `📖 DSE 閱讀模擬` to differentiate from AI Practice page's reading skill option
+
+### 🏫 Admin-Teacher Class Linking
+- **Auto-link** — `POST /api/admin/classes` now auto-creates `TeacherClass` entries for all existing teachers when a new class is created, ensuring teachers can immediately assign work to it
+
+### 📁 Files Changed
+- `src/app/api/reading/route.ts` — DSE RAG retrieval + context injection
+- `src/app/student/reading/page.tsx` — practice persistence via `/api/practice`
+- `src/app/api/admin/classes/route.ts` — auto-link new classes to all teachers
+- `src/shared/utils/nav.ts` — sidebar label rename
+- `src/shared/utils/i18n-nav.ts` — i18n key rename
+
+---
+
 ## 2026-07-20 (afternoon) — Bug Fixes: i18n, Completion Rate & Type Safety
 
 ### 🐛 Bug Fixes

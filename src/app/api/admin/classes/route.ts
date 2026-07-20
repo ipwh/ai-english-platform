@@ -57,6 +57,21 @@ export async function POST(request: NextRequest) {
       create: { name, gradeLevel, academicYear: academicYear || '2025-2026' },
     });
 
+    // Auto-link new class to all existing teachers so they can assign work to it
+    try {
+      const teachers = await db.user.findMany({
+        where: { role: 'teacher' },
+        select: { id: true },
+      });
+      for (const teacher of teachers) {
+        await db.teacherClass.upsert({
+          where: { teacherId_classId: { teacherId: teacher.id, classId: cls.id } },
+          update: {},
+          create: { teacherId: teacher.id, classId: cls.id },
+        });
+      }
+    } catch { /* non-critical: teachers can self-assign later via settings */ }
+
     return NextResponse.json({ success: true, class: cls });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';

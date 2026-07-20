@@ -2,11 +2,19 @@
 // API: /api/reading — 閱讀理解獨立模組
 // DSE Paper 1 完整對標：篇章 → 漸進式問題
 //   Literal → Inferential → Evaluative
+// v2: DSE RAG integration + data persistence
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { callLLM } from '@/modules/ai/services/ai-service';
+import {
+  retrievePastPaperContent,
+  retrieveMarkingScheme,
+  buildDSEContextPrompt,
+  isDSERAGEnabled,
+} from '@/modules/ai/services/rag-service';
+import { logger } from '@/shared/logger/logger';
 
 const READING_RUBRIC = `
 DSE English Language Reading Level Descriptors:
@@ -42,18 +50,42 @@ export async function POST(request: NextRequest) {
     const level = gradeLevel || 'S4';
     const totalQ = Math.min(questionCount || 6, 10);
 
+    // DSE RAG: retrieve past paper reading content and marking schemes
+    let dseContext = '';
+    try {
+      if (isDSERAGEnabled()) {
+        const [pastPapers, markingSchemes] = await Promise.all([
+          retrievePastPaperContent('Reading', topic || 'general interest', difficulty, level, 3),
+          retrieveMarkingScheme('Reading', 2),
+        ]);
+        dseContext = buildDSEContextPrompt(
+          pastPapers.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+          markingSchemes.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+          'generate_questions',
+        );
+        if (dseContext) {
+          logger.info({ module: 'reading-api', topic, paperCount: pastPapers.length, msCount: markingSchemes.length }, 'DSE RAG context built');
+        }
+      }
+    } catch (ragErr) {
+      logger.warn({ module: 'reading-api', error: (ragErr as Error).message }, 'DSE RAG retrieval failed, continuing without it');
+    }
+
+    const dseContextBlock = dseContext ? `\n\n=== DSE Real Past Paper Reference ===\n${dseContext}\n=== End DSE Reference ===\n` : '';
+
     const result = await callLLM([
       {
         role: 'system',
         content: `You are an HKDSE English Paper 1 examiner. Create a reading comprehension passage with progressive questions.
 
 ${READING_RUBRIC}
-
+${dseContextBlock}
 Requirements:
 - Passage: 250-400 words, DSE ${level} level, topic: ${topic || 'general interest'}
 - Include 3 tiers of questions (Literal → Inferential → Evaluative), ${totalQ} total
 - Each question must specify which paragraph the answer is found in
 - ALL answers must be directly supported by the passage
+- If DSE reference is provided, model your passage style, difficulty, and question types after real DSE past papers
 
 Return JSON:
 {
