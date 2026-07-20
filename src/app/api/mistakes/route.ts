@@ -63,11 +63,12 @@ export async function GET(request: NextRequest) {
 
     const raw = await MistakeRepo.listMistakes(studentId, 100);
 
-    // 依 questionId 去重，保留最新一筆
-    const seenQuestionIds = new Set<string>();
+    // 依 questionSummary 去重（同一題目文字只保留最新一筆）
+    const seenSummaries = new Set<string>();
     const mistakes = raw.filter(m => {
-      if (seenQuestionIds.has(m.questionId)) return false;
-      seenQuestionIds.add(m.questionId);
+      const key = m.questionSummary.trim().toLowerCase();
+      if (!key || seenSummaries.has(key)) return false;
+      seenSummaries.add(key);
       return true;
     });
 

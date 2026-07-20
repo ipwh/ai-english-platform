@@ -132,11 +132,12 @@ export async function GET(
       }),
     ]);
 
-    // 錯題依 questionId 去重，保留最新
-    const seenMistakeQIds = new Set<string>();
+    // 錯題依 questionSummary 去重（同一題目文字只保留最新）
+    const seenSummaries = new Set<string>();
     const mistakes = rawMistakes.filter(m => {
-      if (seenMistakeQIds.has(m.questionId)) return false;
-      seenMistakeQIds.add(m.questionId);
+      const key = m.questionSummary.trim().toLowerCase();
+      if (!key || seenSummaries.has(key)) return false;
+      seenSummaries.add(key);
       return true;
     });
 

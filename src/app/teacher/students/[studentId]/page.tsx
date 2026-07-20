@@ -183,9 +183,17 @@ export default function StudentDetailPage() {
             {student.nameZh || student.nameEn || t('teacher.studentDetail.fallback')}
           </h1>
         </div>
-        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 transition-colors">
-          <Download className="w-3.5 h-3.5" /> CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/students/${studentId}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg hover:bg-purple-100 transition-colors"
+          >
+            <BarChart3 className="w-3.5 h-3.5" /> 學生分析
+          </Link>
+          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 transition-colors">
+            <Download className="w-3.5 h-3.5" /> CSV
+          </button>
+        </div>
       </div>
 
       {/* 基本資料 + 徽章 */}

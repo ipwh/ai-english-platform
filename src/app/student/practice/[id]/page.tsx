@@ -140,12 +140,17 @@ export default function PracticeQuestionPage() {
   /** 傳送練習記錄（僅儲存，不發 XP） */
   const savePractice = useCallback(async (payload: Record<string, unknown>) => {
     try {
-      await fetch('/api/practice', {
+      const res = await fetch('/api/practice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-    } catch { /* silent */ }
+      if (!res.ok) {
+        console.error('[practice] savePractice failed:', res.status, await res.text().catch(() => ''));
+      }
+    } catch (err) {
+      console.error('[practice] savePractice network error:', err);
+    }
   }, []);
 
   /** 發放 XP 並顯示 toast */

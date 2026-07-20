@@ -1,11 +1,11 @@
 // ============================================
 // GET /api/admin/students/[studentId]/analytics
-// 學生個人分析聚合數據（供管理員使用）
+// 學生個人分析聚合數據（供管理員及教師使用）
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
 export async function GET(
@@ -13,9 +13,9 @@ export async function GET(
   { params }: { params: Promise<{ studentId: string }> },
 ) {
   try {
-    // ---- 認證：僅 admin ----
-    const auth = await verifyAdmin(request);
-    if (!auth.authorized) {
+    // ---- 認證：admin 或 teacher ----
+    const auth = await verifyApiAuth(request, ['teacher', 'admin']);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 
@@ -87,7 +87,7 @@ export async function GET(
           source: { not: 'assignment' },
         },
         orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { startedAt: 'desc' }],
-        take: 20,
+        take: 50,
         select: {
           id: true,
           skill: true,
@@ -176,11 +176,12 @@ export async function GET(
       },
     });
 
-    // 依 questionId 去重，保留最新
-    const seenQuestionIds = new Set<string>();
+    // 依 questionSummary 去重（同一題目文字只保留最新一筆）
+    const seenSummaries = new Set<string>();
     const recentMistakes = rawMistakes.filter(m => {
-      if (seenQuestionIds.has(m.questionId)) return false;
-      seenQuestionIds.add(m.questionId);
+      const key = m.questionSummary.trim().toLowerCase();
+      if (!key || seenSummaries.has(key)) return false;
+      seenSummaries.add(key);
       return true;
     }).slice(0, 10);
 
