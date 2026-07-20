@@ -61,7 +61,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '只能查看自己的錯題' }, { status: 403 });
     }
 
-    const mistakes = await MistakeRepo.listMistakes(studentId, 100);
+    const raw = await MistakeRepo.listMistakes(studentId, 100);
+
+    // 依 questionId 去重，保留最新一筆
+    const seenQuestionIds = new Set<string>();
+    const mistakes = raw.filter(m => {
+      if (seenQuestionIds.has(m.questionId)) return false;
+      seenQuestionIds.add(m.questionId);
+      return true;
+    });
 
     // Map DB fields to frontend MistakeItem shape
     const mapped = mistakes.map((m) => ({

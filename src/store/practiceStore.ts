@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import type { PracticeQuestion, DifficultyLevel } from '@/shared/types/types';
+import { useAuthStore } from './authStore';
 
 export interface PracticeSession {
   id: string;
@@ -83,11 +84,20 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
 
   loadPracticeHistory: async () => {
     try {
-      const res = await fetch('/api/practice/history');
+      const userId = useAuthStore.getState().userId;
+      if (!userId) return;
+      const res = await fetch(`/api/practice?studentId=${userId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.sessions) {
-          set({ practiceSessions: data.sessions });
+          // 依 id 去重
+          const seen = new Set<string>();
+          const deduped = (data.sessions as PracticeSession[]).filter(s => {
+            if (seen.has(s.id)) return false;
+            seen.add(s.id);
+            return true;
+          });
+          set({ practiceSessions: deduped });
         }
       }
     } catch {
@@ -118,7 +128,14 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
 
   getRecentSessions: (limit = 10) => {
     const { practiceSessions } = get();
+    // 依 id 去重，再按 startedAt 排序
+    const seen = new Set<string>();
     return [...practiceSessions]
+      .filter(s => {
+        if (seen.has(s.id)) return false;
+        seen.add(s.id);
+        return true;
+      })
       .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
       .slice(0, limit);
   },

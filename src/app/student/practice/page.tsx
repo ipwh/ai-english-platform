@@ -543,7 +543,9 @@ function PracticeListPageContent() {
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {s.totalQuestions} {t('common.question')} · {t('common.correctCount', { correct: String(s.correctCount), total: String(s.totalQuestions) })}
-                      {s.completedAt ? ` · ${new Date(s.completedAt).toLocaleDateString('zh-HK')}` : ` · ${t('common.inProgress')}`}
+                      {s.completedAt
+                        ? ` · ${new Date(s.completedAt).toLocaleString('zh-HK', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                        : ` · ${t('common.inProgress')}`}
                     </p>
                   </div>
                   <div className="text-right">

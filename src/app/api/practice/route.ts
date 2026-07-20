@@ -136,6 +136,9 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // 排除 source='assignment' 的 practiceSession，避免與下方 assignmentSessions 重複
+    const filteredSessions = sessions.filter(s => s.source !== 'assignment');
+
     const assignmentSessions = submissions.map(submission => {
       const totalQuestions = submission.assignment.questionCount;
       return {
@@ -153,7 +156,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      sessions: [...sessions, ...assignmentSessions]
+      sessions: [...filteredSessions, ...assignmentSessions]
         .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())
         .slice(0, 50),
     });

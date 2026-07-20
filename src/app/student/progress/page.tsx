@@ -205,6 +205,15 @@ export default function StudentProgressPage() {
                     )}
                   </div>
                   <p className="text-xs text-gray-400">{s.totalQuestions} {t('progress.questionsSuffix')}{getDifficultyLabel(s.difficulty, store.language)}</p>
+                  {s.completedAt && (
+                    <p className="text-xs text-gray-400">
+                      <Clock className="w-3 h-3 inline mr-0.5" />
+                      {new Date(s.completedAt).toLocaleString('zh-HK', {
+                        month: 'numeric', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  )}
                 </div>
                 <span className="text-lg font-bold text-teal-600">
                   {Math.round((s.correctCount / s.totalQuestions) * 100)}%
