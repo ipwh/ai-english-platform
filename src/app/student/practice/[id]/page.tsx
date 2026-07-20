@@ -124,7 +124,7 @@ export default function PracticeQuestionPage() {
   // === XP 即時通知 ===
   const [xpToast, setXpToast] = useState<{ xp: number; level: number; title: string } | null>(null);
   const [wrongEncouragement, setWrongEncouragement] = useState('');
-  const hasSavedRef = useRef(false); // 防止重複 savePractice
+  const hasSavedRef = useRef(false); // 防止重複 savePractice（完成時設為 true）
   const [sessionComplete, setSessionComplete] = useState(false);
 
   // 失敗鼓勵語（DSE 正向引導）
@@ -187,12 +187,11 @@ export default function PracticeQuestionPage() {
   const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
   const hasNextSession = sessionIndex < sessionTotal - 1;
 
-  // 離開頁面時自動儲存 session 進度（僅在未透過 handleSubmit 儲存時）
+  // 離開頁面時自動儲存 session 進度（僅在未完成時）
   useEffect(() => {
     return () => {
-        if (isSessionMode && store.currentSession && !store.currentSession.completedAt && !hasSavedRef.current) {
+      if (isSessionMode && store.currentSession && !store.currentSession.completedAt) {
         const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = store.currentSession;
-        // 構建逐題答案陣列
         const answerRecords = questions.map((q, idx) => ({
           questionIndex: idx,
           questionType: q.type || 'mc',
@@ -323,30 +322,6 @@ export default function PracticeQuestionPage() {
       setAiLoading(false);
     }
 
-    // 儲存練習記錄到後端（含逐題答案）
-    if (isSessionMode && !hasSavedRef.current) {
-      hasSavedRef.current = true;
-      const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = store.currentSession!;
-      const answerRecords = questions.map((q, idx) => ({
-        questionIndex: idx,
-        questionType: q.type || 'mc',
-        questionPrompt: q.prompt || '',
-        correctAnswer: q.answer || '',
-        studentAnswer: answers[q.id] || '',
-        isCorrect: results[q.id] ?? false,
-      }));
-      savePractice({
-        studentId: store.userId || '',
-        skill: skill || question.grammarItem || question.languageSkill || 'general',
-        skillZh: skillZh || question.subSkillZh || '',
-        difficulty: difficulty || question.difficulty || 'core',
-        totalQuestions,
-        correctCount,
-        source: source || 'ai-generated',
-        answers: answerRecords,
-      });
-    }
-
     // 答錯時儲存錯題
     if (!correct) {
       fetch('/api/mistakes', {
@@ -369,13 +344,39 @@ export default function PracticeQuestionPage() {
       const nextQ = sessionQuestions[sessionIndex + 1];
       router.push(`/student/practice/${nextQ.id}`);
     } else {
-      // 完成所有題目 → 留在頁面顯示摘要
-      if (isSessionMode) {
+      // 完成所有題目 → 儲存完整練習記錄 + 顯示摘要
+      if (isSessionMode && store.currentSession && !hasSavedRef.current) {
+        hasSavedRef.current = true;
+        const session = store.currentSession;
+        const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = session;
+        const answerRecords = questions.map((q, idx) => ({
+          questionIndex: idx,
+          questionType: q.type || 'mc',
+          questionPrompt: q.prompt || '',
+          correctAnswer: q.answer || '',
+          studentAnswer: answers[q.id] || '',
+          isCorrect: results[q.id] ?? false,
+        }));
+        savePractice({
+          studentId: store.userId || '',
+          skill: skill || 'general',
+          skillZh: skillZh || '',
+          difficulty: difficulty || 'core',
+          totalQuestions,
+          correctCount,
+          source: source || 'ai-generated',
+          answers: answerRecords,
+        });
         store.completeSession();
-        awardXp('completeSession', store.currentSession?.difficulty);
-        setSessionComplete(true);
-        return;
+        awardXp('completeSession', difficulty);
+      } else if (isSessionMode && store.currentSession) {
+        const sessionDiff = store.currentSession.difficulty;
+        store.completeSession();
+        awardXp('completeSession', sessionDiff);
       }
+      setSessionComplete(true);
+      return;
+    }
       router.push('/student/practice');
     }
     setSelectedAnswer('');

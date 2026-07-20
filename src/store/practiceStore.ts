@@ -49,12 +49,14 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
 
     const newAnswers = { ...currentSession.answers, [questionId]: answer };
     const newResults = { ...currentSession.results, [questionId]: isCorrect };
+    const newCorrectCount = Object.values(newResults).filter(Boolean).length;
 
     set({
       currentSession: {
         ...currentSession,
         answers: newAnswers,
         results: newResults,
+        correctCount: newCorrectCount,
       },
     });
   },
