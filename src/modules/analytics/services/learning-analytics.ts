@@ -1,3 +1,6 @@
+import type { SkillDimension } from '@/modules/profile/types';
+
+const SKILL_DIMS: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
 // Sprint 23: Learning Analytics Service — main facade
 import type {
   TimeGranularity, ProgressTimeline, TimelinePoint,
@@ -10,7 +13,7 @@ import type {
   TrendLineData, LearningVelocity,
   SkillStatistics,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+
 
 // ============================================
 // Input Interfaces
@@ -181,7 +184,7 @@ export function buildLearningStatistics(
   const correct = practices.filter(p => p.correct).length;
 
   const bySkill = {} as Record<SkillDimension, SkillStatistics>;
-  const skillDims: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skillDims = SKILL_DIMS;
   for (const dim of skillDims) {
     const dimP = practices.filter(p => p.skill === dim);
     const dimC = dimP.filter(p => p.correct).length;
@@ -574,7 +577,7 @@ function forecastAchievements(
 // ============================================
 
 export function generateHeatmap(input: AnalyticsInput): HeatmapData {
-  const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skills = SKILL_DIMS;
   const weeks = ['W1', 'W2', 'W3', 'W4'];
   const data: number[][] = skills.map(skill => {
     const skillPractices = input.practiceHistory.filter(p => p.skill === skill);
@@ -596,7 +599,7 @@ export function generateHeatmap(input: AnalyticsInput): HeatmapData {
 }
 
 export function generateRadarChart(input: AnalyticsInput): RadarChartData {
-  const skills: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skills = SKILL_DIMS;
   const labels = ['Grammar', 'Vocabulary', 'Reading', 'Writing', 'Listening', 'Speaking'];
   const labelZh = ['文法', '詞彙', '閱讀', '寫作', '聆聽', '口語'];
 

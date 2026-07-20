@@ -6,6 +6,12 @@ import type {
 } from '../types';
 import type { SkillDimension } from '@/modules/profile/types';
 
+// Single source: use MASTERY_SKILLS for canonical skill dimensions
+const SKILLS: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+const SKILL_NAMES: Record<SkillDimension, string> = {
+  grammar: '文法', vocabulary: '詞彙', reading: '閱讀', writing: '寫作', listening: '聆聽', speaking: '口語',
+};
+
 // ============================================
 // Class Analytics
 // ============================================
@@ -17,7 +23,7 @@ export function analyzeClass(input: TeacherDashboardInput): ClassOverview {
   const avgMastery = active.length > 0 ? active.reduce((s, st) => s + st.masteryScore, 0) / active.length : 0;
   const totalSessions = active.reduce((s, st) => s + st.totalQuestions, 0);
 
-  const skillDims: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skillDims = SKILLS;
   const bySkill = {} as ClassOverview['bySkill'];
   for (const dim of skillDims) {
     const withSkill = active.filter(s => s.bySkill[dim].questions > 0);
@@ -50,10 +56,8 @@ export function analyzeClass(input: TeacherDashboardInput): ClassOverview {
 // ============================================
 
 export function detectWeakSkills(input: TeacherDashboardInput): WeakSkill[] {
-  const skillDims: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
-  const skillNames: Record<SkillDimension, string> = {
-    grammar: '文法', vocabulary: '詞彙', reading: '閱讀', writing: '寫作', listening: '聆聽', speaking: '口語',
-  };
+  const skillDims = SKILLS;
+  const skillNames = SKILL_NAMES;
   const results: WeakSkill[] = [];
 
   for (const dim of skillDims) {
@@ -130,7 +134,7 @@ export function compareStudent(input: TeacherDashboardInput, studentId: string):
 
   const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
 
-  const skillDims: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skillDims = SKILLS;
   const bySkill = {} as StudentComparison['bySkill'];
   const strengths: SkillDimension[] = [];
   const weaknesses: SkillDimension[] = [];
@@ -202,7 +206,7 @@ export function generateSuggestions(input: TeacherDashboardInput, studentId: str
   if (!student) return null;
 
   const suggestions: LearningSuggestion['suggestions'] = [];
-  const skillDims: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skillDims = SKILLS;
   const skillNames: Record<SkillDimension, string> = { grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', writing: 'Writing', listening: 'Listening', speaking: 'Speaking' };
   const skillNamesZh: Record<SkillDimension, string> = { grammar: '文法', vocabulary: '詞彙', reading: '閱讀', writing: '寫作', listening: '聆聽', speaking: '口語' };
 
@@ -242,7 +246,7 @@ export function generateSuggestions(input: TeacherDashboardInput, studentId: str
 // ============================================
 
 export function detectLearningGaps(input: TeacherDashboardInput): LearningGap[] {
-  const skillDims: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+  const skillDims = SKILLS;
   const skillNamesZh: Record<SkillDimension, string> = { grammar: '文法', vocabulary: '詞彙', reading: '閱讀', writing: '寫作', listening: '聆聽', speaking: '口語' };
   const expectedForGrade: Record<string, number> = { S1: 55, S2: 60, S3: 65, S4: 70, S5: 75, S6: 80 };
   const gaps: LearningGap[] = [];
