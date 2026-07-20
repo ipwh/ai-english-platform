@@ -285,6 +285,40 @@ Routes → Facade → Services → Repositories → Database
 | `teacher-analytics` uses module-level `SKILLS` + `SKILL_NAMES` | ✅ |
 | `analytics` uses module-level `SKILL_DIMS` | ✅ |
 
+---
+
+## Task 9: Version Cleanup — EXECUTED
+
+### Versioned Modules Found
+
+| v1 Module | v2 Module | Relationship | Action |
+|-----------|-----------|-------------|--------|
+| `recommendation/` (8 strategies, LLM-based) | `recommendation-v2/` (4-factor weighted, deterministic) | **Complementary** — different approaches for different use cases | ✅ Keep both. Facade presents v2 as canonical. |
+| `writing-coach/` (LLM-based analysis) | `writing-coach-v2/` (formula-based heuristic scoring) | **Complementary** — v1 rich LLM feedback, v2 instant deterministic scoring | ✅ Keep both. Facade presents v2 as canonical. |
+
+### Cleanly Named Pairs (no version suffix needed)
+
+| Data Layer | Intelligence Layer | Naming |
+|-----------|-------------------|--------|
+| `vocabulary/` | `vocabulary-intelligence/` | ✅ Clean |
+| `mistake-db/` | `mistake-intelligence/` | ✅ Clean |
+| `analytics/` (legacy) | `learning-analytics/` | ✅ Clean |
+| (in profile) | `student-mastery/` | ✅ Clean |
+
+### Decision: No Merges
+
+- Merging would violate "Never rewrite working modules unnecessarily"
+- v2 modules are NOT complete replacements — they serve different use cases
+- Domain facades already provide a unified interface
+- Renaming would break backward compatibility across all imports
+
+### Rule Compliance
+
+| Rule | Status |
+|------|--------|
+| Versioning only for prompts, algorithms, migrations | ✅ Module names are semantic, not versioned |
+| No `module-final`, `module-new`, `module-v3` patterns | ✅ Only 2 `-v2` suffixes, both justified |
+
 ## Domain Model
 
 The platform is organized into **8 domains**, each with clear boundaries:
