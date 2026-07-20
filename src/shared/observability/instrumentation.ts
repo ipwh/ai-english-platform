@@ -77,25 +77,13 @@ export function startOtelSpan(
     }
   }
 
-  // Fallback: 使用自訂 tracer
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { startTrace, startSpan, endSpan } = require('@/modules/observability/tracer');
-    const traceId = startTrace(name);
-    const spanId = startSpan(traceId, name);
-    if (attributes) {
-      // 自訂 tracer 暫不支援 attributes
-    }
-    return {
-      end: () => endSpan(spanId),
-      setAttribute: () => {},
-      setStatus: () => {},
-      recordException: () => {},
-    };
-  } catch {
-    return noopSpan;
-  }
-}
+/**
+ * OpenTelemetry abstraction layer for AI English Platform.
+ * Falls back to noop when OTEL is not configured.
+ *
+ * v4.1: Removed fallback to modules/observability/ (deprecated).
+ * If OTEL is not configured, all operations are noops.
+ */
 
 /**
  * 在 span 中執行 async 函數
