@@ -112,6 +112,7 @@ export default function NewAssignmentPage() {
           difficulty: form.difficulty,
           questionCount: generatedQuestions.length,
           createdBy: teacherId || 'teacher',
+          dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : undefined,
           groupIds: form.targetType === 'group' ? selectedGroupIds : undefined,
           studentIds: form.targetType === 'students' ? selectedStudentIds : undefined,
           questions: generatedQuestions.map((q, i) => ({

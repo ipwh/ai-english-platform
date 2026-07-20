@@ -36,6 +36,8 @@ export default function TeacherSettingsPage() {
   const [classes, setClasses] = useState<{ id: string; name: string; gradeLevel: string }[]>([]);
   const [selectedGrades, setSelectedGrades] = useState<string[]>(['S4', 'S5']);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  // Custom groups
+  const [customGroups, setCustomGroups] = useState<{ id: string; name: string; description: string; memberCount: number }[]>([]);
   // Teacher profile info
   const [teacherProfile, setTeacherProfile] = useState<{
     subjects?: string; department?: string; formTeacherOf?: string; taughtClasses?: { name: string; isFormTeacher: boolean }[];
@@ -68,6 +70,10 @@ export default function TeacherSettingsPage() {
         if (d.profile) setTeacherProfile(d.profile);
       })
       .catch((e) => { console.error('Failed to load auth settings:', e); });
+    fetch('/api/groups')
+      .then(r => r.json())
+      .then(d => setCustomGroups(d.groups || []))
+      .catch((e) => { console.error('Failed to load groups:', e); });
 
     // Load local settings
     const local = loadLocalSettings();
@@ -211,6 +217,21 @@ export default function TeacherSettingsPage() {
               )}
             </div>
           </div>
+          {/* 自訂組別概覽 */}
+          {customGroups.length > 0 && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">自訂組別</label>
+              <div className="flex gap-2 flex-wrap">
+                {customGroups.map(g => (
+                  <span key={g.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                    <Users className="w-3 h-3" />
+                    {g.name}
+                    <span className="text-blue-400 dark:text-blue-500">({g.memberCount}人)</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

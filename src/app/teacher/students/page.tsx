@@ -240,24 +240,12 @@ export default function TeacherStudentsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">選擇學生</label>
-                    <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 dark:border-gray-700 rounded-lg p-1">
-                      {filtered.map(s => (
-                        <label key={s.id} className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedForGroup.includes(s.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedForGroup([...selectedForGroup, s.id]);
-                              else setSelectedForGroup(selectedForGroup.filter(id => id !== s.id));
-                            }}
-                            className="rounded"
-                          />
-                          <span className="flex-1 min-w-0 truncate">{s.nameZh || s.nameEn || s.email}</span>
-                          <span className="text-xs text-gray-400 flex-shrink-0">{s.class?.name || ''}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">已選 {selectedForGroup.length} 位學生</p>
+                    {/* 搜尋 + 班級篩選 */}
+                    <GroupStudentSelector
+                      students={filtered}
+                      selectedIds={selectedForGroup}
+                      onSelectionChange={setSelectedForGroup}
+                    />
                   </div>
                   {groupError && <p className="text-xs text-red-500">{groupError}</p>}
                 </div>
@@ -277,6 +265,95 @@ export default function TeacherStudentsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================
+// 組別學生選擇器（含搜尋、班級篩選、全選）
+// ============================================
+function GroupStudentSelector({
+  students,
+  selectedIds,
+  onSelectionChange,
+}: {
+  students: RealStudent[];
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
+}) {
+  const [modalSearch, setModalSearch] = useState('');
+  const [modalClassFilter, setModalClassFilter] = useState('');
+
+  const classList = [...new Set(students.map(s => s.class?.name).filter(Boolean) as string[])].sort();
+
+  const modalFiltered = students.filter(s => {
+    if (modalSearch && !(s.nameZh || '').includes(modalSearch) && !(s.nameEn || '').toLowerCase().includes(modalSearch.toLowerCase()) && !s.email.includes(modalSearch.toLowerCase())) return false;
+    if (modalClassFilter && s.class?.name !== modalClassFilter) return false;
+    return true;
+  });
+
+  const allSelected = modalFiltered.length > 0 && modalFiltered.every(s => selectedIds.includes(s.id));
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+          <input
+            type="text"
+            value={modalSearch}
+            onChange={e => setModalSearch(e.target.value)}
+            placeholder="搜尋學生姓名..."
+            className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
+          />
+        </div>
+        <select
+          value={modalClassFilter}
+          onChange={e => setModalClassFilter(e.target.value)}
+          className="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
+        >
+          <option value="">全部班級</option>
+          {classList.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+          <input type="checkbox" checked={allSelected} onChange={() => {
+            if (allSelected) {
+              onSelectionChange(selectedIds.filter(id => !modalFiltered.find(s => s.id === id)));
+            } else {
+              const newIds = [...selectedIds];
+              for (const s of modalFiltered) {
+                if (!newIds.includes(s.id)) newIds.push(s.id);
+              }
+              onSelectionChange(newIds);
+            }
+          }} className="rounded" />
+          全選 ({modalFiltered.length} 位)
+        </label>
+        <span className="text-xs text-blue-600 font-medium">已選 {selectedIds.length} 人</span>
+      </div>
+      <div className="max-h-32 overflow-y-auto space-y-1 border border-gray-100 dark:border-gray-700 rounded-lg p-1">
+        {modalFiltered.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-4">無符合條件的學生</p>
+        ) : (
+          modalFiltered.map(s => (
+            <label key={s.id} className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(s.id)}
+                onChange={(e) => {
+                  if (e.target.checked) onSelectionChange([...selectedIds, s.id]);
+                  else onSelectionChange(selectedIds.filter(id => id !== s.id));
+                }}
+                className="rounded"
+              />
+              <span className="flex-1 min-w-0 truncate">{s.nameZh || s.nameEn || s.email}</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">{s.class?.name || ''}</span>
+            </label>
+          ))
+        )}
+      </div>
     </div>
   );
 }
