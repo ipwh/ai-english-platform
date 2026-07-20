@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       sessions: [...sessions, ...assignmentSessions]
-        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())
         .slice(0, 50),
     });
   } catch (err: unknown) {
