@@ -4,6 +4,48 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-20 (night) — Practice Records Dedup & Student Analytics Overhaul
+
+### 🩺 Practice Session Deduplication (4 data paths unified)
+- **Root cause**: `cleanup useEffect` fired on every question navigation (Q1→Q2→…→Q5), creating 1 `PracticeSession` per question instead of 1 per exercise. Also `source='assignment'` sessions duplicated with `Submission` entries.
+- **Fix**: Completely removed cleanup auto-save. Save only on last question via `handleNext` with `await savePractice()` → `completeSession()`.
+- **All 4 data paths now consistent**: Student progress, student practice list, admin analytics, teacher student detail — all use `source≠'assignment'` filter + content dedup `(skill|totalQuestions|correctCount|source)` + `completedAt` display.
+
+### 🤖 Mistake Dedup Fix
+- Changed dedup key from `questionId` (session-scoped: `${sessionId}-q${i}`) to `questionSummary.trim().toLowerCase()` — catches same question across different sessions.
+
+### 📊 Student Analysis (Admin + Teacher)
+- **Admin analytics API**: Auth changed from `verifyAdmin` to `verifyApiAuth(['teacher','admin'])`
+- **Admin layout**: Now allows teachers (`currentRole !== 'admin' && !== 'teacher'` guard with null-safe check)
+- **Teacher student detail**: Added prominent "學生分析" KPI card linking to `/admin/students/[id]`
+- **Teacher sidebar**: Added "學生分析報告" link under "報告與設定" section
+- **Diagnostic display**: Fixed `skillZh` missing, `weakAreas` JSON raw display → parsed human-readable
+
+### ⏱️ Completion Time
+- `POST /api/practice`: Now auto-sets `completedAt: new Date()` on creation
+- Teacher + Admin pages: Show `🕐 完成: MM/DD HH:mm` on every practice record
+
+### 🎨 UI
+- **Admin header**: Added Notifications, Dark Mode, Logout buttons (aligns with teacher/student)
+- `savePractice` error logging (was silent `catch {}`)
+
+### 📁 Files Changed
+- `src/app/student/practice/[id]/page.tsx` — removed cleanup auto-save, await savePractice
+- `src/app/api/practice/route.ts` — completedAt on POST, content dedup on GET
+- `src/app/api/admin/students/[studentId]/analytics/route.ts` — teacher auth, content+questionSummary dedup, skillZh, weakAreas parse
+- `src/app/api/teacher/students/[id]/route.ts` — source filter + content dedup + questionSummary dedup
+- `src/app/api/mistakes/route.ts` — questionSummary dedup
+- `src/app/admin/layout.tsx` — teacher role + null-safe guard + header buttons
+- `src/app/admin/students/[studentId]/page.tsx` — skillZh, weakAreas, completedAt
+- `src/app/teacher/students/[studentId]/page.tsx` — completedAt + source badges + analysis KPI card
+- `src/app/student/practice/page.tsx` — loadPracticeHistory on mount
+- `src/app/student/progress/page.tsx` — completedAt display
+- `src/store/practiceStore.ts` — loadPracticeHistory URL fix + id dedup
+- `src/modules/exercise/repositories/practice-repo.ts` — completedAt param
+- `src/shared/utils/nav.ts` — teacher sidebar "學生分析報告" + FileText import
+
+---
+
 ## 2026-07-20 (evening) — Reading Module v2, Sidebar Reorg & Speaking Limitations
 
 ### 📖 Reading Module (DSE Paper 1) Enhancement

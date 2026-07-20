@@ -7,7 +7,7 @@ import {
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
   User, Users, GraduationCap, Upload,
   ClipboardCheck, BarChart3, Settings, Search, Headphones,
-  Mic, Calendar, BookText,
+  Mic, Calendar, BookText, FileText,
   type LucideIcon
 } from 'lucide-react';
 import { t } from '@/shared/utils/i18n';
