@@ -152,6 +152,12 @@ export async function GET(
       }),
     ]
       .sort((a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime())
+      // 依內容去重：相同 skill + 題數 + 正確數 + source 只保留最新
+      .filter((s, _i, arr) => {
+        const key = `${s.skill}|${s.totalQuestions}|${s.correctCount}|${s.source}`;
+        const firstIdx = arr.findIndex(x => `${x.skill}|${x.totalQuestions}|${x.correctCount}|${x.source}` === key);
+        return _i === firstIdx;
+      })
       .slice(0, 15);
 
     // 3. 最近錯題（去重：同一 questionId 只保留最新一筆）

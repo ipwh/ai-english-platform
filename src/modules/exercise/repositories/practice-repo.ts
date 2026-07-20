@@ -14,6 +14,7 @@ export async function createPracticeSession(data: {
   totalQuestions: number;
   correctCount: number;
   source: string;
+  completedAt?: Date;
 }) {
   return db.practiceSession.create({ data });
 }

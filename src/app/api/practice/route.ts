@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       totalQuestions: totalQuestions || 0,
       correctCount: correctCount || 0,
       source: source || 'ai-generated',
+      completedAt: new Date(),
     });
 
     // 逐題答案儲存（即使 AI/RAG 失敗也要儲存學生答案）
@@ -158,6 +159,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       sessions: [...filteredSessions, ...assignmentSessions]
         .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())
+        // 依內容去重：相同 skill + 題數 + 正確數 + source 只保留最新
+        .filter((s, _i, arr) => {
+          const key = `${s.skill}|${s.totalQuestions}|${s.correctCount}|${s.source}`;
+          const firstIdx = arr.findIndex(x => `${x.skill}|${x.totalQuestions}|${x.correctCount}|${x.source}` === key);
+          return _i === firstIdx;
+        })
         .slice(0, 50),
     });
   } catch (err: unknown) {
