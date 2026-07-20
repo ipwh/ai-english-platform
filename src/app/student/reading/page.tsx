@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
+import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/hooks/use-i18n';
 
 interface ReadingPassage {
@@ -85,7 +86,7 @@ export default function ReadingPracticePage() {
     const correctCount = Object.values(answers).filter(a => a.isCorrect).length;
 
     const practicePayload = {
-      studentId: useAppStore.getState().userId,
+      studentId: useAuthStore.getState().userId,
       skill: 'reading',
       skillZh: 'DSE 閱讀模擬',
       difficulty,
