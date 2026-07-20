@@ -232,10 +232,15 @@ export default function StudentProgressPage() {
         </h2>
         {!aiAnalysis ? (
           <>
+            <p className="text-xs text-gray-400 mb-3">
+              {t('progress.aiClickToAnalyze')}
+            </p>
             <button
               onClick={async () => {
                 setAiLoading(true);
                 setAiError('');
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30_000);
                 try {
                   const weakSkills = masteryBySkill
                     .filter(m => m.accuracy < 70)
@@ -255,16 +260,25 @@ export default function StudentProgressPage() {
                       })),
                       streakDays: weeklyStats.streakDays || 0,
                     }),
+                    signal: controller.signal,
                   });
+                  clearTimeout(timeout);
                   const data = await res.json();
                   if (data.analysis) {
                     setAiAnalysis(data.analysis);
                   } else {
                     setAiError(data.error || t('progress.aiError'));
                   }
-                } catch {
-                  setAiError(t('progress.aiError'));
-                } finally { setAiLoading(false); }
+                } catch (err: unknown) {
+                  if (err instanceof DOMException && err.name === 'AbortError') {
+                    setAiError(t('progress.aiTimeout'));
+                  } else {
+                    setAiError(t('progress.aiError'));
+                  }
+                } finally {
+                  clearTimeout(timeout);
+                  setAiLoading(false);
+                }
               }}
               disabled={aiLoading}
               className="w-full py-3 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-xl text-sm font-medium hover:bg-purple-100 disabled:opacity-50 flex items-center justify-center gap-2"
