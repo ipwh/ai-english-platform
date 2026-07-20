@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
           classNumber: true,
           overallAccuracy: true,
           streakDays: true,
+          xp: true,
           joinedAt: true,
           academicYear: true,
           subjects: true,

@@ -5,13 +5,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2 } from 'lucide-react';
+import { Upload, Users, BookOpen, BarChart3, RefreshCw, FileSpreadsheet, Wrench, Trash2, Loader2, UserCheck } from 'lucide-react';
 
 import { useT } from '@/hooks/use-i18n';
 
 const quickLinkKeys = [
   { key: 'admin.quickLinks.import', href: '/admin/import', icon: Upload, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
   { key: 'admin.quickLinks.users', href: '/admin/users', icon: Users, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+  { key: 'admin.quickLinks.students', href: '/admin/students', icon: UserCheck, color: 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' },
   { key: 'admin.quickLinks.classes', href: '/admin/classes', icon: BookOpen, color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
   { key: 'admin.quickLinks.reports', href: '/admin/reports', icon: BarChart3, color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
 ];

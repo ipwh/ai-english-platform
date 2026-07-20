@@ -41,6 +41,8 @@ export const adminTranslations: Record<string, { zh: string; en: string }> = {
   'admin.quickLinks.classes.description': { zh: '管理班級、年級與學年設定', en: 'Manage classes, grades and academic years' },
   'admin.quickLinks.reports.label': { zh: '數據分析', en: 'Analytics' },
   'admin.quickLinks.reports.description': { zh: '查看平台使用數據與學習報表', en: 'View platform usage data and reports' },
+  'admin.quickLinks.students.label': { zh: '學生分析', en: 'Student Analysis' },
+  'admin.quickLinks.students.description': { zh: '查看個別學生的學習表現與分析數據', en: 'View individual student performance and analytics' },
   'admin.classes.confirmDelete': { zh: '確定要刪除班級「{name}」嗎？', en: 'Are you sure you want to delete class "{name}"?' },
   'admin.import.importType': { zh: '匯入類型', en: 'Import Type' },
   'admin.import.students': { zh: '學生', en: 'Students' },
