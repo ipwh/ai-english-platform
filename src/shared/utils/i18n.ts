@@ -26,6 +26,9 @@ import { adminTranslations } from './i18n-admin';
 const translations: Record<string, { zh: string; en: string }> = {
   // 模組化翻譯（來自 i18n-*.ts 拆分檔）
   ...navTranslations,
+  ...isTranslations,
+  ...groupsTranslations,
+  ...notifTranslations,
   ...teacherTranslations,
   ...commonTranslations,
   ...loginTranslations,
