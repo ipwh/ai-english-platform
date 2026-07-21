@@ -1866,6 +1866,7 @@ HKDSE 對齊規則：
 ${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 ${contextBlock}
+${input.questionType === 'error-correction' ? `⚠️ 改錯題特別說明：學生可能寫出了完整的改正後句子，而非只寫修改的部分。請檢查學生答案中是否包含了正確的改正（例如原句 "families gets" 應改為 "families get"），即使學生寫了整句也要判定為正確。` : ''}
 ⚠️ CRITICAL: 你的解釋必須引用上述【聆聽內容】/【閱讀篇章】/【選項內容】中的實際文字，嚴禁編造不存在於上述內容中的資訊（如虛構的「漢堡」、「薯條」等）。若正確答案是字母（如 B），請對照【選項內容】找出對應的實際選項文字（如 "the grilled chicken salad"），並在解釋中使用該文字。
 
 請分析學生的答案。`;
