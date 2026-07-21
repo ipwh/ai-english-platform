@@ -33,6 +33,21 @@ function stripMcqPrefix(choice: string): string {
     .trim();
 }
 
+/** 數字詞彙對照表（英文→數字），用於答案比對時正規化 "fifteen" ↔ "15" */
+const NUMBER_WORDS: Record<string, number> = {
+  one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10,
+  eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16,
+  seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40,
+  fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100,
+};
+
+/** 將答案中的數字詞彙統一轉為數字，例："fifteen" → "15", "15" → "15" */
+function normalizeNumbers(text: string): string {
+  return text.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/gi,
+    (match) => String(NUMBER_WORDS[match.toLowerCase()] ?? match)
+  );
+}
+
 /** Pick a random element from an array (module-level to satisfy React Compiler purity) */
 function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -76,15 +91,20 @@ function checkAnswer(student: string, correct: string, type: string, choices?: s
     return false;
   }
 
-  // 文字題：正規化後比對
-  const normStudent = normalizeAnswer(student);
-  const normCorrect = normalizeAnswer(correct);
+  // 文字題：正規化後比對（含數字格式正規化）
+  const normStudent = normalizeNumbers(normalizeAnswer(student));
+  const normCorrect = normalizeNumbers(normalizeAnswer(correct));
 
   if (normStudent === normCorrect) return true;
 
   // 部分匹配：若學生答案包含正確答案的主要詞彙
   const correctWords = normCorrect.split(' ').filter(w => w.length > 2);
   if (correctWords.length >= 2 && correctWords.every(w => normStudent.includes(w))) {
+    return true;
+  }
+
+  // 單詞匹配：若正確答案只有一個關鍵詞，且學生答案包含它（適用於填充題）
+  if (correctWords.length === 1 && normStudent.includes(correctWords[0])) {
     return true;
   }
 

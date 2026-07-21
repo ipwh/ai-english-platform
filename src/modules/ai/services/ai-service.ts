@@ -1837,7 +1837,7 @@ Level 3: 辨識直接口語文本主旨；辨識明確表達觀點；在中等�
 
 HKDSE 對齊規則：
 - MC: score 必須 100 或 0，無中間分數。
-- fill-blank/error-correction: 完全正確 ≥85，部分理解 ≤60。
+- fill-blank/error-correction: 完全正確 ≥90，部分理解 ≤70。改錯題中，數字格式（15 vs fifteen）、完整句子 vs 關鍵詞等格式差異不應扣分。內容正確即為正確。
 - short-writing: 需同時考慮內容、組織、語言，不可只看文法。少於 8 詞且未回應題目者 ≤35。
 - 離題或答非所問 → mistakeType=comprehension，分數 ≤30。
 

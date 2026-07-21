@@ -79,6 +79,7 @@ export const practiceTranslations: Record<string, { zh: string; en: string }> = 
   'practice.question.aiGenerated': { zh: 'AI 生成練習', en: 'AI Generated' },
   'practice.question.questionN': { zh: '第 {n}/{total} 題', en: 'Q {n}/{total}' },
   'practice.question.listeningContent': { zh: '聆聽內容', en: 'Listening Content' },
+  'practice.question.listeningTitle': { zh: '聆聽題目', en: 'Listening' },
   'practice.question.play': { zh: '▶ 播放', en: '▶ Play' },
   'practice.question.replay': { zh: '重播', en: 'Replay' },
   'practice.question.showText': { zh: '我需要看文字版本', en: 'Show text version' },
