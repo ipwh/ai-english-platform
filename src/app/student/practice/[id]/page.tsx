@@ -217,19 +217,7 @@ export default function PracticeQuestionPage() {
     }
   }, [isSessionMode, hasNextSession, sessionIndex, sessionQuestions, question]);
   
-  if (!question) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <div className="text-center">
-          <p className="text-gray-500 mb-3">{t('practice.question.notFound')}</p>
-          <Link href="/student/practice" className="text-blue-600 hover:underline">
-            {t('practice.question.backToPractice')}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+  // 練習完成摘要 — 必須在 !question 檢查之前，因為 completeSession() 後 currentSession 為 null
   if (sessionComplete && (store.currentSession || completedSessionRef.current)) {
     const displaySession = store.currentSession || completedSessionRef.current!;
     return (
@@ -243,13 +231,28 @@ export default function PracticeQuestionPage() {
             setSessionComplete(false);
             setSelectedAnswer('');
             setSubmitted(false);
-            const firstQ = sessionQuestions[0];
+            const sessionQs = displaySession.questions;
+            const firstQ = sessionQs[0];
             if (firstQ) router.push(`/student/practice/${firstQ.id}`);
           }}
         />
       </div>
     );
   }
+
+  if (!question) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="text-center">
+          <p className="text-gray-500 mb-3">{t('practice.question.notFound')}</p>
+          <Link href="/student/practice" className="text-blue-600 hover:underline">
+            {t('practice.question.backToPractice')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const isReading = question.languageSkill === 'reading';
 
   /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
