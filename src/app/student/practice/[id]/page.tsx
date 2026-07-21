@@ -68,7 +68,8 @@ function normalizeAnswer(text: string): string {
 /** 智能答案比對：
  *  - MCQ: 比對字母 (A/B/C/D) 或完整選項文字
  *  - 文字題: 正規化後比對，支援部分匹配（至少一個關鍵詞匹配）
- *  - 改錯題有選項時視為 MC 題處理 */
+ *  - 改錯題有選項時視為 MC 題處理
+ *  - 改錯題 "X → Y" 格式：檢查學生答案是否包含 Y 且不含 X */
 function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
   // 改錯題若有 MC 選項，視為 MC 題進行比對
   const effectiveType = (type === 'error-correction' && choices && choices.length > 0) ? 'mc' : type;
@@ -89,6 +90,23 @@ function checkAnswer(student: string, correct: string, type: string, choices?: s
     }
 
     return false;
+  }
+
+  // 改錯題 "X → Y" 格式：檢查學生答案是否包含改正後的部分 Y，且不含錯誤 X
+  if (type === 'error-correction') {
+    const arrowMatch = correct.match(/^(.+?)\s*[→>]\s*(.+)$/);
+    if (arrowMatch) {
+      const wrongPart = normalizeAnswer(arrowMatch[1]);   // e.g. "what"
+      const rightPart = normalizeAnswer(arrowMatch[2]);    // e.g. "that/which"
+      const normStudent = normalizeAnswer(student);
+      // 檢查學生答案包含改正（that 或 which），且不含錯誤（what）
+      const rightOptions = rightPart.split('/').map(s => s.trim());
+      const hasCorrection = rightOptions.some(opt => normStudent.includes(opt));
+      const hasError = normStudent.includes(wrongPart);
+      if (hasCorrection && !hasError) return true;
+      // 即使仍含錯誤部分但已包含改正，也給通過（學生可能寫了完整句子但保留了部分原句）
+      if (hasCorrection) return true;
+    }
   }
 
   // 文字題：正規化後比對（含數字格式正規化）
