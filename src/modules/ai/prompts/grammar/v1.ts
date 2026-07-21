@@ -69,11 +69,11 @@ CRITICAL OUTPUT FORMAT:
 export interface QuestionGenPromptParams {
   count: number; skillDesc: string; difficultyLabel: string; gradeLevel: string;
   typeDesc: string; topic: string; userTopic?: string;
-  isListening: boolean; isReading: boolean; strictAnswerRules: string; dseTopics: string;
+  isListening: boolean; isReading: boolean; isErrorCorrection: boolean; strictAnswerRules: string; dseTopics: string;
 }
 
 export function buildQuestionGenerationPrompt(params: QuestionGenPromptParams): string {
-  const { count, skillDesc, difficultyLabel, gradeLevel, typeDesc, topic, userTopic, isListening, isReading, strictAnswerRules, dseTopics } = params;
+  const { count, skillDesc, difficultyLabel, gradeLevel, typeDesc, topic, userTopic, isListening, isReading, isErrorCorrection, strictAnswerRules, dseTopics } = params;
   return `你是一位香港中學英文科教師，熟悉 ELE KLACG 2017 課程指引及 HKDSE English Language Level Descriptors。
 請根據以下要求生成英語練習題目，題目必須對齊 HKDSE 各卷別（Reading / Writing / Listening / Speaking）的能力要求。
 請以純 JSON 陣列格式回覆（不要用 Markdown 代碼塊包裝）。
@@ -99,12 +99,13 @@ HKDSE 等級對齊指引：
 ${userTopic ? `- 主題：${userTopic}` : ''}
 ${isListening ? buildListeningSection() : ''}
 ${isReading ? buildReadingSection() : ''}
+${isErrorCorrection ? buildErrorCorrectionSection() : ''}
 
 每題必須包含以下欄位（全部為必填）：
 - type: "mc" / "fill-blank" / "error-correction" / "short-writing"
 - prompt: 英文題目問題
 - promptZh: 中文輔助說明
-${isListening ? '- listeningContent / listeningContentZh\n' : ''}${isReading ? '- readingContent / readingContentZh\n' : ''}- choices: MC題4個選項；其他題型 []
+${isListening ? '- listeningContent / listeningContentZh\n' : ''}${isReading || isErrorCorrection ? '- readingContent / readingContentZh: 完整的英文篇章/句子（閱讀題80-200字；改錯題必須包含含錯誤的完整句子，50-150字）\n' : ''}- choices: MC題4個選項；其他題型 []
 - answer: MC題 "A"/"B"/"C"/"D"；填充題給單詞
 - explanationZh / explanationEn: 解釋
 - commonMistake: 常犯錯誤
@@ -144,6 +145,21 @@ function buildReadingSection(): string {
 - readingContent: 完整的英文閱讀篇章（80-200字）
 - 所有題目必須基於此閱讀篇章
 - 篇章類型：S1-S3 故事/書信/海報；S4-S6 新聞/議論文/社論`;
+}
+
+function buildErrorCorrectionSection(): string {
+  return `
+【改錯題特別要求 — CRITICAL】
+- 每道改錯題必須在 readingContent 欄位提供一段完整的英文段落（50-150字），其中包含 1 個文法錯誤
+- prompt 應指示學生找出並改正錯誤，例如："The passage contains one mistake. Find the error and correct it."
+- choices 欄位提供 4 個選項（A/B/C/D），每個選項是段落中被標示的不同部分（片語），其中一個包含錯誤
+- answer 必須是 "A"/"B"/"C"/"D" 之一，對應包含錯誤的那個選項
+- explanationZh/explanationEn 必須清楚解釋為何該部分錯誤以及正確用法
+- 範例格式：
+  readingContent: "She has been making pottery since she was a child, and she still enjoys to create new pieces. Her works are inspired by traditional Chinese designs."
+  choices: ["has been making", "since she was a child", "enjoys to create", "are inspired by"]
+  answer: "C"
+  prompt: "In the passage, which underlined part contains a grammatical error?"`;
 }
 
 // ============================================

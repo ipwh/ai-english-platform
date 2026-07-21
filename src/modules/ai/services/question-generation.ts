@@ -82,6 +82,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     userTopic: input.topic,
     isListening,
     isReading: isReading || isWriting || isSpeaking,
+    isErrorCorrection: effectiveQuestionType === 'error-correction',
     strictAnswerRules: STRICT_ANSWER_RULES,
     dseTopics: dseTopicsForPrompt,
   });

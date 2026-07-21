@@ -52,9 +52,13 @@ function normalizeAnswer(text: string): string {
 
 /** 智能答案比對：
  *  - MCQ: 比對字母 (A/B/C/D) 或完整選項文字
- *  - 文字題: 正規化後比對，支援部分匹配（至少一個關鍵詞匹配） */
+ *  - 文字題: 正規化後比對，支援部分匹配（至少一個關鍵詞匹配）
+ *  - 改錯題有選項時視為 MC 題處理 */
 function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
-  if (type === 'mc') {
+  // 改錯題若有 MC 選項，視為 MC 題進行比對
+  const effectiveType = (type === 'error-correction' && choices && choices.length > 0) ? 'mc' : type;
+
+  if (effectiveType === 'mc') {
     const studentUpper = student.trim().toUpperCase();
     const correctUpper = correct.trim().toUpperCase();
 
@@ -126,6 +130,8 @@ export default function PracticeQuestionPage() {
   const [wrongEncouragement, setWrongEncouragement] = useState('');
   const hasSavedRef = useRef(false); // 防止重複 savePractice（完成時設為 true）
   const [sessionComplete, setSessionComplete] = useState(false);
+  // 保存 session 快照，因為 completeSession() 會清空 currentSession
+  const completedSessionRef = useRef<typeof store.currentSession>(null);
 
   // 失敗鼓勵語（DSE 正向引導）
   const ENCOURAGEMENTS = [
@@ -224,11 +230,12 @@ export default function PracticeQuestionPage() {
     );
   }
 
-  if (sessionComplete && store.currentSession) {
+  if (sessionComplete && (store.currentSession || completedSessionRef.current)) {
+    const displaySession = store.currentSession || completedSessionRef.current!;
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <SessionCompleteSummary
-          session={store.currentSession}
+          session={displaySession}
           onBackToPractice={() => router.push('/student/practice')}
           onReviewMistakes={() => router.push('/student/mistakes')}
           onDashboard={() => router.push('/student/dashboard')}
@@ -336,6 +343,8 @@ export default function PracticeQuestionPage() {
       if (store.currentSession && !hasSavedRef.current) {
         hasSavedRef.current = true;
         const session = store.currentSession;
+        // 保存快照以便 SessionCompleteSummary 使用（completeSession 會清空 currentSession）
+        completedSessionRef.current = { ...session };
         const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = session;
         const answerRecords = questions.map((q, idx) => ({
           questionIndex: idx,
@@ -359,6 +368,7 @@ export default function PracticeQuestionPage() {
         store.completeSession();
         awardXp('completeSession', difficulty);
       } else if (store.currentSession) {
+        completedSessionRef.current = { ...store.currentSession };
         const sessionDiff = store.currentSession.difficulty;
         store.completeSession();
         awardXp('completeSession', sessionDiff);
@@ -500,6 +510,24 @@ export default function PracticeQuestionPage() {
           </div>
         )}
 
+        {/* 改錯題：顯示需要改正的篇章/句子 */}
+        {question.type === 'error-correction' && question.readingContent && (
+          <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border-2 border-amber-300 dark:border-amber-600">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">📖</span>
+              <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                {t('practice.question.readingPassage')}
+              </span>
+            </div>
+            <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed whitespace-pre-line">
+              {question.readingContent}
+            </p>
+            {question.readingContentZh && (
+              <p className="text-xs text-amber-500 mt-2 italic">{question.readingContentZh}</p>
+            )}
+          </div>
+        )}
+
         {/* 題目（始終顯示） */}
         <div className="mb-4">
           <p
@@ -590,8 +618,8 @@ export default function PracticeQuestionPage() {
           </div>
         )}
 
-        {/* 改錯題輸入 */}
-        {question.type === 'error-correction' && (
+        {/* 改錯題輸入（僅在沒有 MC 選項時顯示自由輸入框） */}
+        {question.type === 'error-correction' && (!question.choices || question.choices.length === 0) && (
           <div>
             <textarea
               value={selectedAnswer}

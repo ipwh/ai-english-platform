@@ -604,7 +604,9 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
         rejectedCount++;
         continue;
       }
-      results.push({ ...base, choices: [] });
+      // 改錯題保留 choices（若有），以便 UI 渲染 MC 選項
+      const keepChoices = base.type === 'error-correction' && base.choices && base.choices.length > 0;
+      results.push({ ...base, choices: keepChoices ? base.choices : [] });
       continue;
     }
 
@@ -973,6 +975,8 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 
   // 寫作技能自動使用 short-writing 題型
   const effectiveQuestionType = isWriting ? 'short-writing' : typeDesc;
+
+  const isErrorCorrection = effectiveQuestionType === 'error-correction';
 
   // 聽力/閱讀/口語題使用較低 temperature 提高準確性
   const qTemperature = (isListening || isReading || isSpeaking) ? 0.45 : 0.7;
@@ -1421,7 +1425,7 @@ ${isReading ? `
 - type: 題型 ("mc" / "fill-blank" / "error-correction" / "short-writing")
 - prompt: 英文題目問題${isListening ? '（針對聆聽內容的提問）' : isReading ? '（針對閱讀篇章的提問）' : ''}
 - promptZh: 中文輔助說明
-${isListening ? '- listeningContent: 英文聆聽材料（對話/獨白，50-100字）\n- listeningContentZh: 中文簡短情境說明\n' : ''}${isReading ? '- readingContent: 英文閱讀篇章（80-200字）\n- readingContentZh: 中文簡短篇章主題說明\n' : ''}- choices: 選項陣列（MC題4個選項；其他題型給空陣列 []）
+${isListening ? '- listeningContent: 英文聆聽材料（對話/獨白，50-100字）\n- listeningContentZh: 中文簡短情境說明\n' : ''}${isReading || isErrorCorrection ? `- readingContent: ${isErrorCorrection ? '含錯誤的英文句子/段落（50-150字）' : '英文閱讀篇章（80-200字）'}\n- readingContentZh: 中文簡短篇章主題說明\n` : ''}- choices: 選項陣列（MC題4個選項；其他題型給空陣列 []）
 - answer: 正確答案（MC題只能是 "A" / "B" / "C" / "D" 其中之一；填充題給單詞）
 - explanationZh: 繁體中文解釋（簡短）
 - explanationEn: 英文解釋（簡短）
