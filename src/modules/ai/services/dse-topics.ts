@@ -11,18 +11,21 @@
 export const DSE_EMPIRICAL_TOPICS = {
   // Paper 2 寫作真實題材（2012-2024）
   writing: {
-    food: ['restaurant review (Dim Sum / local cuisine)', 'food culture and dining trends', 'healthy eating and food labeling', 'school canteen menu reform'],
-    culture: ['Hong Kong housing estates Instagram culture', 'Chinese Opera / Xiqu Centre experience', 'cultural heritage preservation', 'festivals and traditions (Mid-Autumn, CNY, Dragon Boat)', 'pop culture and music industry', 'film and movie reviews'],
-    social: ['independent shops vs chain stores', 'small business survival in HK', 'social media impact on youth', 'cyberbullying and online ethics', 'ageing population and elderly care', 'income inequality and poverty'],
-    technology: ['AI in education and workplace', 'social media and privacy', 'e-learning vs traditional classroom', 'technology addiction among teens', 'smart city development in HK'],
-    environment: ['plastic waste and recycling', 'renewable energy adoption', 'green living and sustainability', 'wildlife conservation', 'carbon footprint and climate action'],
+    food: ['restaurant review (Dim Sum / local cuisine)', 'food culture and dining trends', 'healthy eating and food labeling', 'school canteen menu reform', 'food waste and sustainability'],
+    economy: ['digital transformation and regulation of tech giants', 'cryptocurrency and central bank digital currencies (CBDC)', 'buy-now-pay-later (BNPL) and youth debt crisis', 'experiential retail vs e-commerce', 'gig economy worker rights and protections', 'carbon pricing and green finance'],
+    culture: ['Hong Kong housing estates Instagram culture', 'Chinese Opera / Xiqu Centre experience', 'cultural heritage preservation', 'festivals and traditions (Mid-Autumn, CNY, Dragon Boat)', 'pop culture and music industry', 'film and movie reviews', 'cultural appropriation vs appreciation debate'],
+    social: ['independent shops vs chain stores', 'small business survival in HK', 'social media impact on youth', 'cyberbullying and online ethics', 'ageing population and elderly care', 'income inequality and poverty', 'loneliness as a public health crisis', 'four-day work week and work-life balance', 'quiet quitting and workplace boundaries'],
+    technology: ['AI in education and workplace', 'social media and privacy', 'e-learning vs traditional classroom', 'technology addiction among teens', 'smart city development in HK', 'AI-generated content and intellectual property rights', 'deepfake technology and misinformation', 'quantum computing and cybersecurity threats', 'algorithmic bias and AI ethics'],
+    environment: ['plastic waste and recycling', 'renewable energy adoption', 'green living and sustainability', 'wildlife conservation', 'carbon footprint and climate action', 'climate justice and loss-and-damage funds for developing nations', 'carbon border adjustment mechanism (CBAM)', 'fast fashion environmental and labour impact', 'urban development vs ecological conservation'],
     education: ['exam pressure and mental health', 'school uniform policies', 'vocational vs academic education', 'lifelong learning', 'university admission criteria'],
     career: ['job interviews and workplace communication', 'work transfer and career development', 'internship and work experience', 'entrepreneurship and startups', 'gig economy and freelancing'],
     sports: ['Olympic sports inclusion debate', 'Dragon Boat Racing as international sport', 'e-sports as legitimate competition', 'sportsmanship and doping', 'extreme sports and risk-taking'],
     arts: ['music and songwriting inspiration', 'film and television influence', 'street art and public spaces', 'literature and creative writing', 'performing arts and theatre'],
     travel: ['study tour and exchange programmes', 'eco-tourism and responsible travel', 'working holiday experiences', 'cultural immersion travel', 'HK as travel destination'],
     health: ['mental health awareness among youth', 'sleep deprivation and academic performance', 'exercise and physical wellbeing', 'traditional vs modern medicine', 'pandemic preparedness'],
-    hkLocal: ['HK identity and cultural uniqueness', 'Cantonese language preservation', 'urban development vs heritage', 'public housing and living space', 'HK food culture (dai pai dong, cha chaan teng)'],
+    petEconomy: ['rise of pet ownership among young adults', 'pet-friendly workplaces and public spaces', 'loneliness driving the pet economy boom'],
+    hkLocal: ['HK identity and cultural uniqueness', 'Cantonese language preservation', 'urban development vs heritage', 'public housing and living space', 'HK food culture (dai pai dong, cha chaan teng)', 'Northern Metropolis development and wetland conservation', 'e-HKD and Hong Kong fintech innovation'],
+    global: ['global citizenship and youth responsibility', 'UN Sustainable Development Goals in daily life', 'international cooperation on climate change', 'migration and cultural identity', 'technology bridging global inequality', 'ethical consumerism and fair trade', 'pandemic lessons and global health security', 'labour shortage and foreign talent policies', 'WHO loneliness epidemic declaration'],
   },
   
   // Paper 1 & Paper 3 閱讀/聆聽常見主題
@@ -35,7 +38,9 @@ export const DSE_EMPIRICAL_TOPICS = {
     technology: ['AI transformation of industries', '3D printing revolution', 'autonomous vehicles future', 'blockchain beyond cryptocurrency', 'biotechnology breakthroughs'],
     health: ['music therapy benefits', 'sleep science and learning', 'nutrition myths debunked', 'exercise and brain function', 'mindfulness and meditation'],
     hkLocal: ['HK wetland and Mai Po reserve', 'HK hiking trails and country parks', 'HK film industry golden age', 'HK public transport efficiency', 'HK street food culture'],
-    global: ['UN sustainable development goals', 'globalization pros and cons', 'international trade and fair trade', 'refugee crises and humanitarian aid', 'pandemic global response'],
+    global: ['UN sustainable development goals', 'globalization pros and cons', 'international trade and fair trade', 'refugee crises and humanitarian aid', 'pandemic global response', 'central bank digital currencies around the world', 'carbon border taxes and climate trade wars', 'AI copyright lawsuits and creative industries', 'loneliness epidemic and social prescribing', 'four-day work week global experiments'],
+    economy: ['cryptocurrency regulation across countries', 'fast fashion supply chain ethics', 'buy-now-pay-later and Gen Z debt', 'experiential retail transforming shopping malls'],
+    techEthics: ['deepfake scams and voice cloning fraud', 'quantum computing and encryption security', 'algorithmic bias in hiring and lending', 'SMS phishing and cybersecurity awareness'],
   },
   
   // Paper 3 聆聽場景
@@ -45,7 +50,9 @@ export const DSE_EMPIRICAL_TOPICS = {
     workplace: ['summer internship application', 'part-time job orientation', 'business meeting and presentation', 'customer complaint handling', 'team building activity planning', 'conference call with overseas office', 'product launch preparation'],
     services: ['doctor appointment booking', 'hotel reservation changes', 'flight booking and itinerary', 'restaurant group booking', 'bank account opening', 'library membership registration', 'gym membership inquiry'],
     hkLife: ['MTR route planning', 'Octopus card top-up issue', 'typhoon day arrangements', 'wet market shopping', 'temple visit and fortune telling', 'junk trip boat booking', 'dim sum ordering etiquette'],
-    social: ['environmental campaign launch', 'social media detox challenge', 'mental health awareness week', 'cultural diversity celebration', 'anti-bullying workshop', 'digital literacy seminar', 'entrepreneurship bootcamp'],
+    social: ['environmental campaign launch', 'social media detox challenge', 'mental health awareness week', 'cultural diversity celebration', 'anti-bullying workshop', 'digital literacy seminar', 'entrepreneurship bootcamp', 'fintech startup pitch competition', 'green finance and sustainable investing workshop'],
+    economy: ['opening a digital wallet account', 'discussing cryptocurrency investment risks', 'complaining about a buy-now-pay-later charge', 'negotiating a freelance contract'],
+    global: ['Model UN climate finance debate', 'international video call with sister school', 'discussing study abroad scholarship applications', 'debating fast fashion boycotts'],
   },
 } as const;
 
@@ -53,7 +60,7 @@ export const DSE_EMPIRICAL_TOPICS = {
 // Types
 // ============================================
 
-export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life' | 'sports' | 'arts' | 'travel';
+export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life' | 'sports' | 'arts' | 'travel' | 'global' | 'economy' | 'tech-ethics';
 
 export interface TopicEntry {
   text: string;
@@ -112,11 +119,13 @@ export const LISTENING_TOPICS_V2: TopicEntry[] = [
   { text: 'discussing internship opportunities during summer break（討論暑期實習機會）', category: 'career', grades: ['S5','S6'] },
   { text: 'career guidance session about university choices（大學選科職業輔導）', category: 'career', grades: ['S5','S6'] },
   { text: 'discussing gap year options and working holidays（討論空檔年與工作假期）', category: 'career', grades: ['S6'] },
+  { text: 'applying for an international scholarship programme（申請國際獎學金計劃）', category: 'career', grades: ['S5','S6'] },
   
   // === 科學 (science) ===
   { text: 'discussing a science fair project（科學展項目討論）', category: 'science', grades: ['S2','S3','S4'] },
   { text: 'debating genetic engineering ethics（辯論基因工程倫理）', category: 'science', grades: ['S5','S6'] },
   { text: 'discussing space exploration and its benefits（討論太空探索及其益處）', category: 'science', grades: ['S4','S5'] },
+  { text: 'discussing the latest discoveries about black holes（討論黑洞最新發現）', category: 'science', grades: ['S5','S6'] },
   
   // === 香港本地 (hk-local) ===
   { text: 'discussing weekend hiking trip to Sai Kung（討論週末西貢行山）', category: 'hk-local', grades: ['S2','S3','S4','S5'] },
@@ -124,12 +133,45 @@ export const LISTENING_TOPICS_V2: TopicEntry[] = [
   { text: 'discussing Hong Kong food culture and dai pai dong（討論香港飲食文化與大排檔）', category: 'hk-local', grades: ['S3','S4','S5'] },
   { text: 'debating the future of Cantonese in Hong Kong（辯論粵語在香港的未來）', category: 'hk-local', grades: ['S5','S6'] },
   
+  // === 國際/全球議題 (global) — 新增 ===
+  { text: 'discussing climate change and its impact on coastal cities（討論氣候變化對沿海城市的影響）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'planning a Model United Nations conference（策劃模擬聯合國會議）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'discussing refugee crises and humanitarian aid（討論難民危機與人道援助）', category: 'society', grades: ['S5','S6'] },
+  { text: 'debating fast fashion and ethical consumerism（辯論快時尚與道德消費）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'discussing the digital divide between developed and developing countries（討論發達與發展中國家的數位鴻溝）', category: 'technology', grades: ['S5','S6'] },
+  { text: 'planning an international food festival at school（策劃學校國際美食節）', category: 'culture', grades: ['S1','S2','S3','S4'] },
+  { text: 'discussing UNESCO World Heritage sites（討論聯合國教科文組織世界遺產）', category: 'culture', grades: ['S3','S4','S5'] },
+  { text: 'debating whether space tourism should be regulated（辯論太空旅遊應否受監管）', category: 'science', grades: ['S5','S6'] },
+  { text: 'discussing ocean plastic pollution solutions（討論海洋塑膠污染解決方案）', category: 'environment', grades: ['S3','S4','S5'] },
+  { text: 'planning an international pen pal exchange programme（策劃國際筆友交流計劃）', category: 'culture', grades: ['S1','S2','S3'] },
+  { text: 'discussing the impact of tourism on local communities（討論旅遊業對當地社區的影響）', category: 'travel', grades: ['S4','S5','S6'] },
+  { text: 'debating renewable energy vs nuclear power（辯論可再生能源 vs 核能）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'discussing food waste and global hunger（討論食物浪費與全球飢餓）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'planning a cultural exchange with a sister school overseas（策劃與海外姊妹學校文化交流）', category: 'culture', grades: ['S4','S5'] },
+  { text: 'discussing the ethics of artificial intelligence（討論人工智能的倫理）', category: 'technology', grades: ['S5','S6'] },
+  
   // === 日常生活 (daily-life) ===
   { text: 'ordering food at a café with dietary restrictions（咖啡店點餐含飲食限制）', category: 'daily-life', grades: ['S1','S2','S3','S4'] },
   { text: 'booking a badminton court at a sports centre（預訂體育中心羽毛球場）', category: 'daily-life', grades: ['S1','S2','S3'] },
   { text: 'planning a surprise birthday party（策劃驚喜生日派對）', category: 'daily-life', grades: ['S1','S2','S3','S4'] },
   { text: 'calling customer service about a faulty product（致電客服關於瑕疵產品）', category: 'daily-life', grades: ['S4','S5','S6'] },
   { text: 'ordering custom T-shirts for a school event（為學校活動訂製 T 恤）', category: 'daily-life', grades: ['S3','S4','S5'] },
+  
+  // === 經濟與金融 (economy) — 新增 ===
+  { text: 'discussing whether teenagers should use digital payment apps（討論青少年應否使用電子支付）', category: 'economy', grades: ['S3','S4','S5'] },
+  { text: 'debating the risks of buy-now-pay-later services（辯論先買後付服務的風險）', category: 'economy', grades: ['S4','S5','S6'] },
+  { text: 'discussing cryptocurrency and whether schools should teach it（討論加密貨幣與學校應否教授）', category: 'economy', grades: ['S4','S5','S6'] },
+  { text: 'planning a student pop-up market for handmade crafts（策劃學生手作市集）', category: 'economy', grades: ['S2','S3','S4'] },
+  
+  // === 科技倫理 (tech-ethics) — 新增 ===
+  { text: 'discussing a news report about a deepfake scam（討論一宗深偽詐騙新聞）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'debating whether schools should use AI to grade essays（辯論學校應否用 AI 批改作文）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'discussing how to spot fake news online（討論如何辨識網上假新聞）', category: 'technology', grades: ['S3','S4','S5'] },
+  
+  // === 社會變遷 (society) — 新增 ===
+  { text: 'discussing the idea of a four-day school week（討論四天學校週的構想）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'debating whether social media makes people lonelier（辯論社交媒體是否令人更孤獨）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'discussing the rise of single-person households（討論單人住戶的興起）', category: 'society', grades: ['S5','S6'] },
 ];
 
 // ============================================
@@ -223,6 +265,53 @@ export const READING_TOPICS_V2: TopicEntry[] = [
   
   // === 環境 (environment) — additional ===
   { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'environment', grades: ['S4','S5'] },
+  
+  // === 全球/國際議題 (global) — 新增 ===
+  { text: 'the impact of climate change on island nations（氣候變化對島國的影響）', category: 'global', grades: ['S4','S5','S6'] },
+  { text: 'how international space stations foster global cooperation（國際太空站如何促進全球合作）', category: 'global', grades: ['S4','S5','S6'] },
+  { text: 'the story of Malala and the fight for girls\' education（馬拉拉與女童教育抗爭）', category: 'global', grades: ['S3','S4','S5'] },
+  { text: 'the Paris Agreement and global climate action（巴黎協定與全球氣候行動）', category: 'global', grades: ['S5','S6'] },
+  { text: 'how the internet connects remote villages to the world（互聯網如何將偏遠村莊連接到世界）', category: 'global', grades: ['S3','S4','S5'] },
+  { text: 'the rise of global youth activism movements（全球青年運動的興起）', category: 'global', grades: ['S4','S5','S6'] },
+  { text: 'fair trade chocolate and ethical farming（公平貿易朱古力與道德農業）', category: 'global', grades: ['S3','S4','S5'] },
+  { text: 'how countries prepare for natural disasters differently（各國如何不同地應對自然災害）', category: 'global', grades: ['S3','S4','S5'] },
+  { text: 'the history and impact of the European Union（歐盟的歷史與影響）', category: 'global', grades: ['S5','S6'] },
+  { text: 'world-changing inventions from unexpected places（來自意想不到地方的改變世界發明）', category: 'global', grades: ['S2','S3','S4'] },
+  { text: 'the psychology of kindness and why helping others makes us happy（善意的心理學：為何幫助他人讓我們快樂）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'how different cultures celebrate the New Year（不同文化如何慶祝新年）', category: 'culture', grades: ['S1','S2','S3'] },
+  { text: 'the science behind earthquakes and tsunami warnings（地震與海嘯預警背後的科學）', category: 'science', grades: ['S4','S5','S6'] },
+  { text: 'should animals be kept in zoos? the great debate（動物應被關在動物園嗎？大辯論）', category: 'society', grades: ['S3','S4','S5'] },
+  { text: 'the rise of plant-based diets around the world（全球植物性飲食的興起）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'how podcasts are changing the way we learn（播客如何改變我們學習的方式）', category: 'technology', grades: ['S3','S4','S5'] },
+  { text: 'the mystery of the Bermuda Triangle and other unexplained phenomena（百慕達三角之謎與其他未解現象）', category: 'science', grades: ['S3','S4','S5'] },
+  { text: 'the true story of the Christmas Truce in World War I（一戰聖誕休戰的真實故事）', category: 'culture', grades: ['S4','S5','S6'] },
+  { text: 'should voting be compulsory? democracy around the world（投票應否強制？世界各地的民主）', category: 'society', grades: ['S5','S6'] },
+  
+  // === 經濟 (economy) — 新增 ===
+  { text: 'how digital payments are replacing cash around the world（電子支付如何在全球取代現金）', category: 'economy', grades: ['S3','S4','S5'] },
+  { text: 'the rise and risks of cryptocurrency（加密貨幣的崛起與風險）', category: 'economy', grades: ['S4','S5','S6'] },
+  { text: 'buy-now-pay-later: convenience or debt trap?（先買後付：便利還是負債陷阱？）', category: 'economy', grades: ['S4','S5','S6'] },
+  { text: 'how fast fashion brands dominate the global market（快時尚品牌如何主導全球市場）', category: 'economy', grades: ['S4','S5','S6'] },
+  { text: 'the gig economy: freedom or exploitation?（零工經濟：自由還是剝削？）', category: 'economy', grades: ['S5','S6'] },
+  
+  // === 科技倫理 (tech-ethics) — 新增 ===
+  { text: 'can AI create real art? the copyright debate（AI 能創造真正的藝術嗎？版權爭論）', category: 'tech-ethics', grades: ['S4','S5','S6'] },
+  { text: 'deepfake technology: harmless fun or dangerous tool?（深偽技術：無害娛樂還是危險工具？）', category: 'tech-ethics', grades: ['S4','S5','S6'] },
+  { text: 'how quantum computers could break all our passwords（量子電腦如何破解所有密碼）', category: 'tech-ethics', grades: ['S5','S6'] },
+  { text: 'should algorithms decide who gets a loan or a job?（演算法應否決定誰獲得貸款或工作？）', category: 'tech-ethics', grades: ['S5','S6'] },
+  { text: 'how to protect yourself from online scams and phishing（如何保護自己免受網絡詐騙和釣魚攻擊）', category: 'tech-ethics', grades: ['S3','S4','S5'] },
+  
+  // === 社會變遷 (society) — 新增 ===
+  { text: 'the four-day work week experiment: does it really work?（四天工作週實驗：真的有效嗎？）', category: 'society', grades: ['S5','S6'] },
+  { text: 'why the WHO declared loneliness a global health threat（為何世衛將孤獨列為全球健康威脅）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'the rise of pet ownership among young adults（年輕人中寵物飼養的興起）', category: 'society', grades: ['S3','S4','S5'] },
+  { text: 'quiet quitting: setting boundaries or being lazy?（安靜離職：設立界限還是懶惰？）', category: 'society', grades: ['S5','S6'] },
+  { text: 'how Japan and South Korea are fighting the loneliness crisis（日本與南韓如何對抗孤獨危機）', category: 'society', grades: ['S5','S6'] },
+  
+  // === 環境 (environment) — 新增 ===
+  { text: 'carbon border taxes: fair climate policy or trade war?（碳邊境稅：公平氣候政策還是貿易戰？）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'Indonesia is moving its capital because Jakarta is sinking（印尼因雅加達下沉而遷都）', category: 'environment', grades: ['S4','S5','S6'] },
+  { text: 'green finance: can money save the planet?（綠色金融：金錢能拯救地球嗎？）', category: 'environment', grades: ['S5','S6'] },
 ];
 
 // ============================================

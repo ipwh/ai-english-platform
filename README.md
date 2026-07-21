@@ -68,6 +68,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(45%)+練習頻率(20%)+新近度(20%)+錯誤懲罰(15%)的加權公式
 - **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
+- **🌍 多元題材資料庫** — 80+ 閱讀主題、60+ 聆聽場景、12+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易），確保出題內容豐富不重複
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
 - **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
