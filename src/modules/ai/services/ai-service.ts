@@ -2714,7 +2714,7 @@ export async function analyzeProgress(input: AnalyzeProgressInput): Promise<Prog
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.6, maxTokens: 2048, jsonMode: true, userId: input.userId }
+    { temperature: 0.6, maxTokens: 2048, jsonMode: true, timeoutMs: 15000, userId: input.userId }
   );
 
   const progress = parseAIJSON<ProgressAnalysis>(result);

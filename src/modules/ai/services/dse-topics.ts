@@ -53,7 +53,7 @@ export const DSE_EMPIRICAL_TOPICS = {
 // Types
 // ============================================
 
-export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life';
+export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life' | 'sports' | 'arts' | 'travel';
 
 export interface TopicEntry {
   text: string;
@@ -177,10 +177,51 @@ export const READING_TOPICS_V2: TopicEntry[] = [
   
   // === 健康/心理 (health) ===
   { text: 'how music therapy benefits mental health（音樂治療如何有益心理健康）', category: 'health', grades: ['S3','S4','S5'] },
-  { text: 'famous inventors and their accidental discoveries（著名發明家與意外發現）', category: 'science', grades: ['S2','S3','S4'] },
+  { text: 'the importance of physical exercise for teenagers（青少年運動的重要性）', category: 'health', grades: ['S2','S3','S4'] },
+  { text: 'understanding and managing stress in school（理解和管理校園壓力）', category: 'health', grades: ['S3','S4','S5'] },
+  { text: 'the benefits and risks of extreme sports（極限運動的好處與風險）', category: 'health', grades: ['S4','S5','S6'] },
+  
+  // === 運動/冒險 (sports) ===
+  { text: 'the rise of parkour and urban sports（跑酷與城市運動的興起）', category: 'sports', grades: ['S3','S4','S5'] },
+  { text: 'how chess improves critical thinking（國際象棋如何提升批判思維）', category: 'sports', grades: ['S2','S3','S4'] },
+  { text: 'the most dangerous hiking trails in the world（世界上最危險的登山徑）', category: 'sports', grades: ['S4','S5','S6'] },
+  { text: 'why skateboarding became an Olympic sport（滑板為何成為奧運項目）', category: 'sports', grades: ['S3','S4','S5'] },
+  
+  // === 藝術/娛樂 (arts) ===
+  { text: 'how street art transforms urban spaces（街頭藝術如何改變城市空間）', category: 'arts', grades: ['S3','S4','S5'] },
+  { text: 'the history of animation from hand-drawn to CGI（動畫從手繪到電腦生成的歷史）', category: 'arts', grades: ['S3','S4','S5'] },
+  { text: 'why people love mystery and detective stories（人們為何喜愛推理偵探故事）', category: 'arts', grades: ['S2','S3','S4'] },
+  { text: 'the rise of K-pop and its global influence（K-pop 的崛起與全球影響力）', category: 'arts', grades: ['S3','S4','S5'] },
+  
+  // === 職業/商業 (career) ===
+  { text: 'unusual and interesting jobs around the world（世界各地奇特有趣的工作）', category: 'career', grades: ['S2','S3','S4'] },
+  { text: 'how teenagers can start a small business（青少年如何創業）', category: 'career', grades: ['S3','S4','S5'] },
+  { text: 'the future of remote work and digital nomads（遠程工作與數位遊牧的未來）', category: 'career', grades: ['S5','S6'] },
+  { text: 'why some people choose gap years before university（為何有人選擇大學前休學年）', category: 'career', grades: ['S4','S5','S6'] },
   
   // === 香港本地 (hk-local) ===
+  { text: 'the history of Hong Kong street food（香港街頭小吃的歷史）', category: 'hk-local', grades: ['S2','S3','S4'] },
+  { text: 'Hong Kong\'s country parks and hiking culture（香港郊野公園與行山文化）', category: 'hk-local', grades: ['S3','S4','S5'] },
+  { text: 'the story behind the Star Ferry（天星小輪背後的故事）', category: 'hk-local', grades: ['S2','S3','S4'] },
+  { text: 'how Hong Kong became a global financial centre（香港如何成為國際金融中心）', category: 'hk-local', grades: ['S5','S6'] },
+  { text: 'the conservation of Hong Kong\'s historic buildings（香港歷史建築保育）', category: 'hk-local', grades: ['S4','S5','S6'] },
+  
+  // === 旅行/地理 (travel) ===
+  { text: 'the most unusual hotels in the world（世界上最不尋常的酒店）', category: 'travel', grades: ['S2','S3','S4'] },
+  { text: 'life in the coldest inhabited places on Earth（地球上最寒冷居住地的生活）', category: 'travel', grades: ['S3','S4','S5'] },
+  { text: 'the secrets of the Amazon rainforest（亞馬遜雨林的秘密）', category: 'travel', grades: ['S3','S4','S5'] },
+  { text: 'exploring underground cities and cave dwellings（探索地下城市與洞穴居所）', category: 'travel', grades: ['S4','S5','S6'] },
+  
+  // === 科學 (science) — additional ===
+  { text: 'famous inventors and their accidental discoveries（著名發明家與意外發現）', category: 'science', grades: ['S2','S3','S4'] },
+  { text: 'how animals communicate in ways we never knew（動物以我們未知的方式溝通）', category: 'science', grades: ['S3','S4','S5'] },
+  { text: 'the mystery of black holes explained simply（黑洞之謎簡釋）', category: 'science', grades: ['S4','S5','S6'] },
+  
+  // === 社會 (society) — additional ===
   { text: 'the psychology of color in marketing（營銷中的色彩心理學）', category: 'society', grades: ['S5','S6'] },
+  { text: 'why do we dream? the science and theories of dreaming（我們為何做夢？夢的科學與理論）', category: 'society', grades: ['S4','S5','S6'] },
+  
+  // === 環境 (environment) — additional ===
   { text: 'migration patterns of birds and climate change（鳥類遷徙模式與氣候變化）', category: 'environment', grades: ['S4','S5'] },
 ];
 
