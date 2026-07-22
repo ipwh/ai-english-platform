@@ -359,7 +359,7 @@ export default function DiagnosticPage() {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const finalAnswers = answersRef.current;
     setCompleted(true);
 
@@ -521,24 +521,31 @@ export default function DiagnosticPage() {
           {/* Per-question feedback with explanation */}
           {showFeedback && lastAnswerCorrect !== null && (
             <div className="mb-4 space-y-3">
-              <div className={`p-4 rounded-xl text-sm ${
-                lastAnswerCorrect
-                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-              }`}>
-                <p className="font-semibold mb-1">
-                  {lastAnswerCorrect ? '✅ 回答正確！' : `❌ 回答錯誤`}
-                </p>
-                {!lastAnswerCorrect && (
-                  <p className="mb-1">正確答案：<strong>{currentQ.answer}</strong></p>
-                )}
-                {currentQ.explanationZh && (
-                  <p className="text-xs mt-2 opacity-80">{currentQ.explanationZh}</p>
-                )}
-                {currentQ.commonMistake && (
-                  <p className="text-xs mt-1 italic opacity-70">⚠️ {currentQ.commonMistake}</p>
-                )}
-              </div>
+              {currentQ.type === 'short-writing' ? (
+                <div className="p-4 rounded-xl text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400">
+                  <p className="font-semibold mb-1">✍️ 寫作已提交</p>
+                  <p>你的文章將在完成診斷後由 AI 進行質性分析，不會以對錯計分。</p>
+                </div>
+              ) : (
+                <div className={`p-4 rounded-xl text-sm ${
+                  lastAnswerCorrect
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+                }`}>
+                  <p className="font-semibold mb-1">
+                    {lastAnswerCorrect ? '✅ 回答正確！' : `❌ 回答錯誤`}
+                  </p>
+                  {!lastAnswerCorrect && (
+                    <p className="mb-1">正確答案：<strong>{currentQ.answer}</strong></p>
+                  )}
+                  {currentQ.explanationZh && (
+                    <p className="text-xs mt-2 opacity-80">{currentQ.explanationZh}</p>
+                  )}
+                  {currentQ.commonMistake && (
+                    <p className="text-xs mt-1 italic opacity-70">⚠️ {currentQ.commonMistake}</p>
+                  )}
+                </div>
+              )}
               <button onClick={handleNext}
                 className="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
                 {currentStep < totalSteps - 1 ? '下一題' : '查看結果'}
@@ -581,15 +588,20 @@ export default function DiagnosticPage() {
                   <textarea
                     value={writingAnswer}
                     onChange={(e) => setWritingAnswer(e.target.value)}
-                    placeholder={t('diagnostic.inputAnswer')}
-                    rows={6}
+                    placeholder={t('diagnostic.writingPlaceholder') || 'Write your essay here...'}
+                    rows={12}
                     disabled={answeredCurrent}
-                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-y disabled:opacity-50"
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-y disabled:opacity-50 text-base leading-relaxed"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
-                    {writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0} words / {writingAnswer.length} chars
-                  </p>
-                  <button onClick={() => handleAnswer(writingAnswer)} disabled={answeredCurrent}
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm text-gray-500">
+                      <strong>{writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0}</strong> words / {writingAnswer.length} chars
+                    </span>
+                    {writingAnswer.trim() && writingAnswer.trim().split(/\s+/).length < 30 && (
+                      <span className="text-xs text-amber-500">建議最少 30 字</span>
+                    )}
+                  </div>
+                  <button onClick={() => handleAnswer(writingAnswer)} disabled={answeredCurrent || !writingAnswer.trim()}
                     className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm disabled:opacity-50">{t('diagnostic.submit')}</button>
                 </>
               ) : (
@@ -650,6 +662,9 @@ export default function DiagnosticPage() {
               </span>
             </div>
             <ProgressBar value={r.score} size="sm" showPercentage={true} />
+            {r.id === 'writing' && (
+              <p className="text-xs text-gray-400 mt-1">✍️ 寫作部分為質性評估，已提交的內容不設對錯計分</p>
+            )}
           </div>
         ))}
       </div>
