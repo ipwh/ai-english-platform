@@ -6,27 +6,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { verifySessionToken } from '@/shared/auth/jwt';
-import { auth } from '@/shared/auth/auth-next';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
-async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload) return payload.userId;
-  }
-  const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  return null;
-}
-
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const prefs = await db.userPreferences.findUnique({
       where: { userId },
@@ -56,11 +45,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const body = await request.json();
     const { language, darkMode, sidebarOpen, notifAssignment, notifSubmission, notifFeedback, notifAchievement, notifSystem } = body;

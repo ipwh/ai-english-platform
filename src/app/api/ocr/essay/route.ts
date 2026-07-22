@@ -5,9 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/shared/auth/jwt';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { auth } from '@/shared/auth/auth-next';
 import sharp from 'sharp';
 
 // 延遲載入 Vision API（減少 cold start）
@@ -53,27 +52,13 @@ async function getVisionClient(): Promise<import('@google-cloud/vision').ImageAn
   }
 }
 
-/** 驗證使用者已登入（支援 JWT + NextAuth） */
-async function authenticateUser(request: NextRequest): Promise<string | null> {
-  // JWT token
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload) return payload.userId;
-  }
-  // NextAuth session
-  const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  return null;
-}
-
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    // 認證
-    const userId = await authenticateUser(request);
-    if (!userId) {
-      return NextResponse.json({ error: '請先登入' }, { status: 401 });
-    }
 
     // 解析上傳檔案
     const formData = await request.formData();

@@ -8,23 +8,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
-import { verifySessionToken } from '@/shared/auth/jwt';
-
-async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload) return payload.userId;
-  }
-  return null;
-}
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const draft = await db.integratedSkillsDraft.findUnique({
       where: { userId },

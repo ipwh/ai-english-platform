@@ -4,28 +4,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { verifySessionToken } from '@/shared/auth/jwt';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { auth } from '@/shared/auth/auth-next';
-
-async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload) return payload.userId;
-  }
-  const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  return null;
-}
 
 // GET — 取得學生的寫作草稿列表
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
@@ -61,11 +50,12 @@ export async function GET(request: NextRequest) {
 
 // POST — 建立新的寫作草稿
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const body = await request.json();
     const { title, prompt, draft, aiSuggestions, chinglishWarnings } = body;
@@ -95,11 +85,12 @@ export async function POST(request: NextRequest) {
 
 // PATCH — 更新寫作草稿（自動 upsert + 版本歷史）
 export async function PATCH(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const body = await request.json();
     const { id, draft, revisedVersion, aiSuggestions, chinglishWarnings, status, title } = body;

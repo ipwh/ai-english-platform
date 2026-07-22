@@ -5,26 +5,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { verifySessionToken } from '@/shared/auth/jwt';
-import { auth } from '@/shared/auth/auth-next';
-
-async function getTeacherId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) return payload.userId;
-  }
-  const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  return null;
-}
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const teacherId = authResult.userId!;
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     // 從 Submission 表中提取需要教師覆核的記錄
     const submissions = await db.submission.findMany({

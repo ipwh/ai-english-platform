@@ -5,27 +5,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
-import { verifySessionToken } from '@/shared/auth/jwt';
-import { auth } from '@/shared/auth/auth-next';
-
-async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload) return payload.userId;
-  }
-  const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  return null;
-}
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 // GET — 取得使用者通知
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const notifications = await db.notification.findMany({
       where: { userId },
@@ -50,11 +39,12 @@ export async function GET(request: NextRequest) {
 
 // POST — 建立通知 或 標記通知為已讀
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const body = await request.json();
 

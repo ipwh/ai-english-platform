@@ -9,25 +9,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
-import { verifySessionToken } from '@/shared/auth/jwt';
-
-async function getTeacherId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) {
-      return payload.userId;
-    }
-  }
-  return null;
-}
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const teacherId = authResult.userId!;
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const groups = await db.group.findMany({
       where: { createdBy: teacherId },
@@ -66,11 +56,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const teacherId = authResult.userId!;
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const body = await request.json();
     const { name, description, studentIds } = body;
@@ -101,11 +92,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const teacherId = authResult.userId!;
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const body = await request.json();
     const { id, name, description } = body;
@@ -136,11 +128,12 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const teacherId = authResult.userId!;
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
 
     const body = await request.json();
     const { id } = body;

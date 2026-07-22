@@ -5,9 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/shared/auth/jwt';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { auth } from '@/shared/auth/auth-next';
 
 /** 驗證使用者已登入 */
 async function authenticateUser(request: NextRequest): Promise<string | null> {
@@ -349,11 +348,12 @@ async function generateDOCX(analysis: WritingAnalysis): Promise<Buffer> {
 // ---- API Handler ----
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const userId = authResult.userId!;
   try {
-    const userId = await authenticateUser(request);
-    if (!userId) {
-      return NextResponse.json({ error: '請先登入' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'pdf';
