@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeAnswer, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
+import { analyzeAnswer, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
@@ -45,13 +45,13 @@ export async function POST(request: NextRequest) {
     }
 
     const analysis = await analyzeAnswer({
-      question,
+      question: sanitizeForAI(question),
       questionType: questionType || 'mc',
-      correctAnswer,
-      studentAnswer,
-      choices: Array.isArray(choices) ? choices : undefined,
-      listeningContent: listeningContent || undefined,
-      readingContent: readingContent || undefined,
+      correctAnswer: sanitizeForAI(correctAnswer),
+      studentAnswer: sanitizeForAI(studentAnswer),
+      choices: Array.isArray(choices) ? choices.map((c: string) => sanitizeForAI(c)) : undefined,
+      listeningContent: listeningContent ? sanitizeForAI(listeningContent) : undefined,
+      readingContent: readingContent ? sanitizeForAI(readingContent) : undefined,
       grammarItem,
       grammarItemZh,
       studentLevel,

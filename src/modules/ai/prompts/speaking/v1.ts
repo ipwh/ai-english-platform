@@ -38,7 +38,10 @@ const PAPER4_RUBRICS = `
 - L1: Few or no relevant ideas; incoherent
 `;
 
-export function buildSpeakingPrompt(topic: string, gradeLevel: string): string {
+export function buildSpeakingPrompt(topic: string, gradeLevel: string, difficulty?: string): string {
+  const diffLabel = difficulty === 'remedial' ? '補底 (HKDSE Level 1-2) — basic vocabulary, simple ideas'
+    : difficulty === 'challenge' ? '挑戰 (HKDSE Level 4-5) — advanced vocabulary, complex reasoning, critical discussion'
+    : '核心 (HKDSE Level 3) — intermediate vocabulary, structured arguments';
   return `你是一位香港 DSE English Paper 4 Speaking 考官，嚴格根據 HKDSE Level Descriptors 評分。
 
 ${PAPER4_RUBRICS}
@@ -49,6 +52,7 @@ ${HALLUCINATION_GUARD_LITE}
 
 要求：
 - 年級：${gradeLevel}
+- 難度：${diffLabel}
 - 主題：${topic}
 - 格式：Group Discussion (8 minutes) + Individual Response (1 minute)
 - 提供 discussion topic、supporting points、vocabulary hints
@@ -56,13 +60,19 @@ ${HALLUCINATION_GUARD_LITE}
 - 必須包含考官評分提示：針對上述 4 個評分維度（Pronunciation、Communication Strategies、Vocabulary、Ideas），各提供 2-3 個具體評分重點`;
 }
 
-export function buildSpeakingAnalysisPrompt(transcript: string, topic: string): string {
-  return `你是一位香港 DSE English Paper 4 Speaking 考官，請根據以下準則分析學生的口語表現。
+export function buildSpeakingAnalysisPrompt(transcript: string, topic: string, gradeLevel?: string, difficulty?: string): string {
+  const diffLabel = difficulty === 'remedial' ? '補底 (HKDSE Level 1-2)'
+    : difficulty === 'challenge' ? '挑戰 (HKDSE Level 4-5)'
+    : '核心 (HKDSE Level 3)';
+  return `${HALLUCINATION_GUARD_LITE}
+你是一位香港 DSE English Paper 4 Speaking 考官，請根據以下準則分析學生的口語表現。
 
 ${PAPER4_RUBRICS}
 
 學生 transcript：${transcript}
 討論主題：${topic}
+${gradeLevel ? `學生年級：${gradeLevel}` : ''}
+${difficulty ? `難度：${diffLabel}` : ''}
 
 請提供：
 1. 各維度評級 (L1-L5) 及簡短說明

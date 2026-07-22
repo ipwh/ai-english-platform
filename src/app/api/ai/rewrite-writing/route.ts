@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -26,7 +27,8 @@ export async function POST(req: NextRequest) {
     const level = gradeLevel || 'S4';
     const sanitized = sanitizeForAI(originalDraft);
 
-    const systemPrompt = `You are an expert HKDSE English writing tutor. Your task is to REWRITE the student's essay to improve it while PRESERVING their original ideas and voice.
+    const systemPrompt = `${HALLUCINATION_GUARD}
+You are an expert HKDSE English writing tutor. Your task is to REWRITE the student's essay to improve it while PRESERVING their original ideas and voice.
 
 GUIDELINES:
 - Fix grammar errors and Chinglish expressions

@@ -171,7 +171,8 @@ function buildErrorCorrectionSection(): string {
 // ============================================
 
 export function getExplainMistakeSystemPrompt(): string {
-  return `你是一位香港中學英文科教師，專門為學生解釋錯題。
+  return `${HALLUCINATION_GUARD}
+你是一位香港中學英文科教師，專門為學生解釋錯題。
 請參考 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening）來判斷學生錯誤對應的能力水平。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 
@@ -208,7 +209,8 @@ ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 // ============================================
 
 export function getProgressAnalysisSystemPrompt(dseContextPrompt: string): string {
-  return `${dseContextPrompt}你是一位香港中學英文科的學習顧問，熟悉 HKDSE English Language Level Descriptors。
+  return `${HALLUCINATION_GUARD}
+${dseContextPrompt}你是一位香港中學英文科的學習顧問，熟悉 HKDSE English Language Level Descriptors。
 請根據學生的學習數據，對照 HKDSE 等級描述提供個人化分析與建議。
 以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 

@@ -132,7 +132,8 @@ ${writingMSContext}
 // ============================================
 
 export function buildWritingStylePrompt(writingMSContext: string): string {
-  return `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，專注批改寫作技巧並提供修改範例。
+  return `${HALLUCINATION_GUARD}
+你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，專注批改寫作技巧並提供修改範例。
 請嚴格依據以下 HKDSE Paper 2 Writing 官方 CLO 評分框架（Content / Language / Organization，每項 0-7 分，滿分 21 分）進行判斷。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。${writingMSContext}
 
@@ -200,7 +201,8 @@ export function getWritingOutlineSystemPrompt(input: {
   writingPrompt: string; topicHint?: string; structureGuide: string;
   commonErrors: string; weakSkillHint: string;
 }): string {
-  return `You are an experienced HKDSE English writing tutor who has trained hundreds of DSE students. Your job is to create a DETAILED, STRUCTURED, BILINGUAL (Chinese + English) writing outline that helps a ${input.gradeLevel} student plan their essay to DSE Paper 2 standards.
+  return `${HALLUCINATION_GUARD}
+You are an experienced HKDSE English writing tutor who has trained hundreds of DSE students. Your job is to create a DETAILED, STRUCTURED, BILINGUAL (Chinese + English) writing outline that helps a ${input.gradeLevel} student plan their essay to DSE Paper 2 standards.
 
 ⚠️ THE OUTLINE MUST BE COMPLETELY DIFFERENT FROM THE WRITING PROMPT. The prompt tells WHAT to write. The outline tells HOW to write — paragraph by paragraph, with concrete, specific content ideas.
 
@@ -285,7 +287,8 @@ export interface IntegratedSkillsGenPromptParams {
 
 export function buildIntegratedSkillsGenPrompt(params: IntegratedSkillsGenPromptParams): string {
   const { gradeLevel, taskType, topicHint, dseTopics, diffLines, diffTraps, diffWordLimit, diffLabel, taskInfoName, taskInfoNameZh, taskInfoFormatHint, diffDataFilePages, diffSpeakerCount, taskRequiredElements } = params;
-  return `你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
+  return `${HALLUCINATION_GUARD}
+你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
 ⚠️ 原創性要求：必須生成 100% 原創內容，嚴禁複製或改寫任何真實 HKDSE 試題。
 
 請生成一個完整的 Integrated Skills 任務，模擬 DSE Paper 3 Part B「聽 → 記 → 寫」的真實考試流程。
@@ -374,7 +377,8 @@ ${taskType === 'short-article' ? 'Article 特別要求：標題吸引、開頭 h
 // ============================================
 
 export function buildIntegratedSkillsAnalysisPrompt(paper3MSContext: string): string {
-  return `你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
+  return `${HALLUCINATION_GUARD}
+你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
 請從三個維度進行全面評估，對齊 HKDSE Paper 3 官方評分標準。
 ${paper3MSContext}
 
@@ -502,7 +506,8 @@ overallScore = Math.round(listeningAccuracy × 0.40 + languageAccuracy × 0.35 +
 // ============================================
 
 export function buildPartACLOPrompt(writingMSContext: string): string {
-  return `${writingMSContext}
+  return `${HALLUCINATION_GUARD}
+${writingMSContext}
 你是一位香港中學英文科教師兼 HKDSE English Paper 2 Part A 評卷員。
 
 ═══════════════════════════════════════
@@ -590,7 +595,8 @@ Part A CLO 評分框架（0-7 分）
 // ============================================
 
 export function buildQuestionAnalysisPrompt(): string {
-  return `你是一位香港 DSE English Paper 2 應試策略專家，專門幫助學生進行「審題訓練」。
+  return `${HALLUCINATION_GUARD}
+你是一位香港 DSE English Paper 2 應試策略專家，專門幫助學生進行「審題訓練」。
 
 ═══════════════════════════════════════
 審題三大步驟

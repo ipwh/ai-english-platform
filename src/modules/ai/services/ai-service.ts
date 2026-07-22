@@ -1813,7 +1813,8 @@ export async function analyzeAnswer(input: AnalyzeAnswerInput): Promise<AnswerAn
     msContextPrompt = '';
   }
 
-  const systemPrompt = `你是一位香港中學英文科教師兼 HKDSE 評卷員。
+  const systemPrompt = `${HALLUCINATION_GUARD}
+你是一位香港中學英文科教師兼 HKDSE 評卷員。
 請嚴格依據以下官方 HKDSE Level Descriptors 進行批改。
 請以繁體中文提供詳細分析，並以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝）。
 
@@ -2603,7 +2604,8 @@ export async function analyzeWord(input: AnalyzeWordInput): Promise<import('@/mo
   const word = sanitizeForAI(input.word.trim());
   const gradeLevel = input.gradeLevel || 'S4';
 
-  const systemPrompt = `你是香港中學英語教學專家，專門幫助 S1-S6 學生建立個人化生字簿。
+  const systemPrompt = `${HALLUCINATION_GUARD}
+你是香港中學英語教學專家，專門幫助 S1-S6 學生建立個人化生字簿。
 
 分析英文單字，以 JSON 格式回傳完整詞彙資料。
 
@@ -2801,7 +2803,8 @@ export async function answerStudyHelp(input: StudyHelpInput): Promise<StudyHelpR
     dseContextPrompt = '';
   }
 
-  const systemPrompt = `你是一位香港中學英文科私人學習顧問，熟悉 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）。
+  const systemPrompt = `${HALLUCINATION_GUARD}
+你是一位香港中學英文科私人學習顧問，熟悉 HKDSE English Language Level Descriptors（Subject / Reading / Writing / Listening / Speaking）。
 請根據學生的個人背景、弱項與近期表現，對照 HKDSE 等級描述回答學生的英文學習問題。
 請使用繁體中文，語氣清晰、具體、可執行。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），欄位如下：
@@ -2854,7 +2857,8 @@ export interface MaterialAnalysis {
 }
 
 export async function analyzeMaterial(input: AnalyzeMaterialInput): Promise<MaterialAnalysis> {
-  const systemPrompt = `你是一位香港中學英文科教材分析專家。
+  const systemPrompt = `${HALLUCINATION_GUARD}
+你是一位香港中學英文科教材分析專家。
 請分析以下教材內容，以純 JSON 格式回覆（以 { 開頭，以 } 結尾，不要用 Markdown 代碼塊包裝），所有中文使用繁體中文。
 
 回覆欄位：
