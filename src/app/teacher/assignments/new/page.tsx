@@ -287,7 +287,7 @@ export default function NewAssignmentPage() {
               )}
               {!q.choices && <p className="text-xs text-green-600 mt-1">{t('teacher.assignmentNew.answer')}{q.answer}</p>}
             </div>
-          ))}
+          )})}
         </div>
         <div className="flex gap-3">
           <button onClick={() => setStep('config')} className="flex-1 py-2 text-sm text-gray-600 border rounded-lg">{t('teacher.assignmentNew.back')}</button>
