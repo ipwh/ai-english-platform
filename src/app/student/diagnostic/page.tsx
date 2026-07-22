@@ -143,6 +143,7 @@ function buildPracticeRecommendation(results: DiagnosticResult[], level: string)
 export default function DiagnosticPage() {
   const { t } = useT();
   const inputRef = useRef<HTMLInputElement>(null);
+  const answersRef = useRef<Record<string, string>>({}); // ✅ ref avoids stale closure
 
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
@@ -152,7 +153,6 @@ export default function DiagnosticPage() {
   const [genError, setGenError] = useState('');
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [completed, setCompleted] = useState(false);
   const [results, setResults] = useState<DiagnosticResult[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -160,6 +160,7 @@ export default function DiagnosticPage() {
   const [writingAnswer, setWritingAnswer] = useState('');
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [answeredCurrent, setAnsweredCurrent] = useState(false);
 
   /** 正規化文字以進行精確比對 */
   function normalizeAnswer(text: string): string {
@@ -246,7 +247,7 @@ export default function DiagnosticPage() {
         const allQuestions: PracticeQuestion[] = [];
         let questionId = 0;
 
-        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
+        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
           (res.questions || []).forEach((q) => {
             allQuestions.push({
               id: `diag-${++questionId}`,
@@ -262,9 +263,9 @@ export default function DiagnosticPage() {
               difficulty: 'core',
               gradeLevel: 'S4',
               keyStage: 'KS4',
-              explanationZh: '',
-              explanationEn: '',
-              commonMistake: '',
+              explanationZh: q.explanationZh || '',
+              explanationEn: q.explanationEn || '',
+              commonMistake: q.commonMistake || '',
               hintLevels: [],
               listeningContent: q.listeningContent,
               listeningContentZh: q.listeningContentZh,
@@ -338,25 +339,28 @@ export default function DiagnosticPage() {
   };
 
   const handleAnswer = (answer: string) => {
+    if (answeredCurrent) return; // prevent double-submit
     const isCorrect = checkAnswer(answer, currentQ.answer, currentQ.type, currentQ.choices);
-    setAnswers(prev => ({ ...prev, [currentQ.id]: answer }));
+    answersRef.current = { ...answersRef.current, [currentQ.id]: answer };
     setLastAnswerCorrect(isCorrect);
     setShowFeedback(true);
-
-    // Auto-advance after 1.5s
-    setTimeout(() => {
-      setShowFeedback(false);
-      setLastAnswerCorrect(null);
-      if (currentStep < totalSteps - 1) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        handleComplete(answer);
-      }
-    }, 1500);
+    setAnsweredCurrent(true);
   };
 
-  const handleComplete = async (lastAnswer: string) => {
-    const finalAnswers = { ...answers, [currentQ.id]: lastAnswer };
+  const handleNext = () => {
+    setShowFeedback(false);
+    setLastAnswerCorrect(null);
+    setAnsweredCurrent(false);
+    setWritingAnswer('');
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleComplete();
+    }
+  };
+
+  const handleComplete = () => {
+    const finalAnswers = answersRef.current;
     setCompleted(true);
 
     // 計算各技能分數
@@ -514,14 +518,32 @@ export default function DiagnosticPage() {
 
           <p className="text-lg text-gray-900 dark:text-white mb-6" dangerouslySetInnerHTML={{ __html: currentQ.prompt }} />
 
-          {/* Per-question feedback */}
+          {/* Per-question feedback with explanation */}
           {showFeedback && lastAnswerCorrect !== null && (
-            <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${
-              lastAnswerCorrect
-                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-            }`}>
-              {lastAnswerCorrect ? '✅ 正確！' : `❌ 錯誤。正確答案：${currentQ.answer}`}
+            <div className="mb-4 space-y-3">
+              <div className={`p-4 rounded-xl text-sm ${
+                lastAnswerCorrect
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+              }`}>
+                <p className="font-semibold mb-1">
+                  {lastAnswerCorrect ? '✅ 回答正確！' : `❌ 回答錯誤`}
+                </p>
+                {!lastAnswerCorrect && (
+                  <p className="mb-1">正確答案：<strong>{currentQ.answer}</strong></p>
+                )}
+                {currentQ.explanationZh && (
+                  <p className="text-xs mt-2 opacity-80">{currentQ.explanationZh}</p>
+                )}
+                {currentQ.commonMistake && (
+                  <p className="text-xs mt-1 italic opacity-70">⚠️ {currentQ.commonMistake}</p>
+                )}
+              </div>
+              <button onClick={handleNext}
+                className="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+                {currentStep < totalSteps - 1 ? '下一題' : '查看結果'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           )}
 
@@ -539,7 +561,14 @@ export default function DiagnosticPage() {
                 const choiceText = stripMcqPrefix(choice);
                 return (
                   <button key={`${index}-${choice}`} onClick={() => handleAnswer(choiceLetter)}
-                    className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl hover:border-teal-400 transition-colors text-gray-700 dark:text-gray-300">
+                    disabled={answeredCurrent}
+                    className={`w-full text-left p-4 border-2 rounded-xl transition-colors text-gray-700 dark:text-gray-300 ${
+                      answeredCurrent
+                        ? choiceLetter === currentQ.answer?.toUpperCase()
+                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                          : 'border-gray-200 dark:border-gray-600 opacity-60'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-teal-400'
+                    }`}>
                     <span className="font-bold mr-2">{choiceLetter}.</span>{choiceText}
                   </button>
                 );
@@ -554,25 +583,27 @@ export default function DiagnosticPage() {
                     onChange={(e) => setWritingAnswer(e.target.value)}
                     placeholder={t('diagnostic.inputAnswer')}
                     rows={6}
-                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-y"
+                    disabled={answeredCurrent}
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-y disabled:opacity-50"
                   />
                   <p className="text-xs text-gray-400 mt-1">
                     {writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0} words / {writingAnswer.length} chars
                   </p>
-                  <button onClick={() => handleAnswer(writingAnswer)}
-                    className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
+                  <button onClick={() => handleAnswer(writingAnswer)} disabled={answeredCurrent}
+                    className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm disabled:opacity-50">{t('diagnostic.submit')}</button>
                 </>
               ) : (
                 <>
                   <input
                     ref={inputRef}
                     type="text"
+                    disabled={answeredCurrent}
                     placeholder={t('diagnostic.inputAnswer')}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && inputRef.current) handleAnswer(inputRef.current.value); }}
-                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400"
+                    onKeyDown={(e) => { if (e.key === 'Enter' && inputRef.current && !answeredCurrent) handleAnswer(inputRef.current.value); }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 disabled:opacity-50"
                   />
-                  <button onClick={() => { if (inputRef.current) handleAnswer(inputRef.current.value); }}
-                    className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>
+                  <button onClick={() => { if (inputRef.current && !answeredCurrent) handleAnswer(inputRef.current.value); }} disabled={answeredCurrent}
+                    className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm disabled:opacity-50">{t('diagnostic.submit')}</button>
                 </>
               )}
             </div>
