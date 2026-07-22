@@ -7,12 +7,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimit = await checkRateLimit({ ...AI_RATE_LIMIT, identifier: `vocab-example:${ip}` });
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: rateLimit.message }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+    });
+  }
+
   try {
     const body = await request.json();
     const { word, partOfSpeech, meaningZh, gradeLevel } = body;
