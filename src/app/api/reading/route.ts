@@ -602,10 +602,23 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   const elapsed = Date.now() - startTime;
   logger.info({ module: 'reading-api', level, topic, elapsed, mode: 'legacy' }, 'Legacy passage generated');
 
-  return NextResponse.json({
-    ...parsed,
-    _metadata: { generationTimeMs: elapsed, mode: 'legacy-single-passage' },
-  });
+  // Transform AI output to match frontend ReadingData interface
+  // The AI may return { readingContent, questions } or { passage: { title, content }, questions }
+  const response: Record<string, unknown> = { ...parsed };
+  if (!response.passage && response.readingContent) {
+    const content = response.readingContent as string;
+    const words = content.split(/\s+/).length;
+    response.passage = {
+      title: topic ? `${topic.charAt(0).toUpperCase() + topic.slice(1)} Reading` : 'Reading Passage',
+      content,
+      wordCount: words,
+      source: parsed.source || undefined,
+    };
+    delete response.readingContent;
+  }
+  response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
+
+  return NextResponse.json(response);
 }
 
 // ============================================
