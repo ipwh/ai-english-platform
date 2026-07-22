@@ -440,7 +440,7 @@ function PracticeListPageContent() {
                   >
                     <option value="mc">{t('practice.typeMc')}</option>
                     <option value="fill-blank">{t('practice.typeFill')}</option>
-                    <option value="error-correction">{t('practice.typeError')}</option>
+                    {/* error-correction removed — underline rendering not supported in UI */}
                     <option value="short-writing">{t('practice.typeWriting')}</option>
                     <option value="matching">{t('practice.typeMatching')}</option>
                   </select>

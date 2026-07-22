@@ -976,7 +976,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   // 寫作技能自動使用 short-writing 題型
   const effectiveQuestionType = isWriting ? 'short-writing' : typeDesc;
 
-  const isErrorCorrection = effectiveQuestionType === 'error-correction';
+  const isErrorCorrection = false; // error-correction disabled — underline rendering not supported in UI
 
   // 聽力/閱讀/口語題使用較低 temperature 提高準確性
   const qTemperature = (isListening || isReading || isSpeaking) ? 0.45 : 0.7;

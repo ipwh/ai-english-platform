@@ -9,7 +9,7 @@ import { Calendar, Flame, Sparkles, Loader2, Trophy, CheckCircle, XCircle, Arrow
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 
-type QuestionType = 'mc' | 'fill-blank' | 'error-correction' | 'short-writing' | 'matching';
+type QuestionType = 'mc' | 'fill-blank' | 'short-writing' | 'matching';
 
 interface DailyQuestion {
   questionType?: QuestionType;
@@ -18,6 +18,7 @@ interface DailyQuestion {
     promptZh?: string;
     choices?: string[];
     answer: string;
+    readingContent?: string;
     explanationZh?: string;
     explanationEn?: string;
   };

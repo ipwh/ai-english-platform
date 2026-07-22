@@ -390,7 +390,7 @@ function buildGraphFromExistingGrammar(): KnowledgeNode[] {
       skill.estimatedHours,
       successors,
       0.8, // default importance for grammar
-      ['mcq', 'fill-blank', 'error-correction'], // default exercises
+      ['mcq', 'fill-blank'], // default exercises (error-correction removed — underline not supported)
     );
   });
 }

@@ -80,7 +80,7 @@ export class MemoryInfluenceEngine {
     if (memory.learningHabits?.focusLevel < 0.4) {
       preferredFormats.push('mcq', 'matching'); // low cognitive load
     } else {
-      preferredFormats.push('fill-blank', 'error-correction');
+      preferredFormats.push('fill-blank'); // error-correction removed — underline not supported
     }
 
     // Writing preference

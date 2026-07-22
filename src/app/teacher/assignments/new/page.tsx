@@ -245,7 +245,7 @@ export default function NewAssignmentPage() {
               <select value={form.questionType} onChange={(e) => setForm({...form, questionType: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
                 <option value="mc">{t('teacher.assignmentNew.typeMc')}</option>
                 <option value="fill-blank">{t('teacher.assignmentNew.typeFill')}</option>
-                <option value="error-correction">{t('teacher.assignmentNew.typeError')}</option>
+                {/* error-correction removed — underline rendering not supported in UI */}
                 <option value="short-writing">{t('teacher.assignmentNew.typeWriting')}</option>
               </select>
             </div>

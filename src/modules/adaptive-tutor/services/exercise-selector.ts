@@ -73,7 +73,7 @@ export class ExerciseSelector {
 
     switch (skill) {
       case 'grammar':
-        return isLowEnergy ? 'mcq' : isHighEnergy ? 'error-correction' : 'fill-blank';
+        return isLowEnergy ? 'mcq' : isHighEnergy ? 'fill-blank' : 'fill-blank';
       case 'vocabulary':
         return isLowEnergy ? 'matching' : 'fill-blank';
       case 'reading':
