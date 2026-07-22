@@ -4,6 +4,33 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-22 (late night) — Production Hotfixes Round ★★★
+
+### 🐛 Reading (DSE Paper 1) — Response Format Compatibility
+- **Passage format bridge**: API now transforms v2 AI output `{ readingContent }` → `{ passage: { title, content, wordCount } }` for frontend compatibility
+- **Question format bridge**: Maps v2 AI fields (`questionText`, `type: "mcq"`, `choices: ["A. ..."]`) to legacy frontend format (`question`, `type: "mc"`, `choices: ["..."]`)
+- **Auto tier/paragraphRef**: Infer missing fields from question position + lineRef
+- **Paragraph breaks**: Insert `\n\n` before `[N]` markers for clear paragraph structure
+- **[line N] recalibration**: Strip AI-generated inaccurate markers, recalculate deterministically at 11 words/line × every 5 lines (true DSE Paper 1 format)
+
+### 🔒 Auth Fix
+- **`/api/ai/status`**: Relaxed from `['admin']` → `['teacher', 'admin']` — teacher settings page uses this endpoint
+- **`/api/admin/fix-classes`**: Added missing `import { logger }` (was causing 500 on build)
+- **`/api/admin/import/template/*`**: Added `verifyApiAuth(['admin'])` to CSV template downloads
+
+### 🧹 Build Fixes
+- **JSX bracket**: Fixed `)}` → `)}` → `})}` in `teacher/assignments/new/page.tsx` after `as any` cleanup
+- **TypeScript strict**: Fixed `match` null narrowing, `formatRequirements` variable reference, `any` implicit types
+- **4 orphan modules deleted**: `security/`, `platform/`, `teacher/` (facade), `feedback/`
+- **39 `console.log` → `logger.info()`**: All API-route logging now structured
+
+### 📚 Docs
+- Updated `README.md`, `MODULES.md`, `ARCHITECTURE.md` to reflect deleted modules
+- `PRODUCTION_READINESS_AUDIT_2026-07-22.md`: Full security + quality audit
+- `PAPER2_IMPROVEMENT_ANALYSIS.md`: DSE Paper 2 reform analysis
+
+---
+
 ## 2026-07-22 (night) — Ultimate Production Readiness + DSE Paper 2 Overhaul ★★★★★
 
 ### 📝 DSE Paper 2 Writing — Full 2024 Reform Alignment
