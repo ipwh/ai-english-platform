@@ -309,20 +309,24 @@ export default function ReadingPracticePage() {
                         const letter = String.fromCharCode(65 + ci);
                         const isSelected = ans?.answer === letter;
                         const isCorrect = letter === q.answer;
-                        let cls = 'w-full text-left p-2.5 rounded-lg text-sm border transition-colors ';
+                        // Strip any A. B. C. D. prefix that survived API processing
+                        const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
+                        const displayText = cleanChoice || `Option ${letter}`;
+                        let cls = 'w-full text-left p-2.5 rounded-lg text-sm border transition-colors appearance-none ';
                         if (ans?.submitted) {
                           if (isCorrect) cls += 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700';
                           else if (isSelected) cls += 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700';
                           else cls += 'border-gray-200 dark:border-gray-700 text-gray-400';
                         } else {
-                          cls += 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 text-gray-700 dark:text-gray-300';
+                          cls += 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 active:bg-indigo-50 text-gray-700 dark:text-gray-300';
                         }
                         return (
                           <button key={ci} className={cls}
                             onClick={() => !ans?.submitted && submitAnswer(qi, letter)}
-                            disabled={ans?.submitted}>
+                            disabled={ans?.submitted}
+                            type="button">
                             <span className="font-semibold mr-2">{letter}.</span>
-                            {choice.replace(/^[A-D][.)\s]+/, '')}
+                            {displayText}
                           </button>
                         );
                       })}

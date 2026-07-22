@@ -215,13 +215,15 @@ export default function DailyChallengePage() {
                 const letter = String.fromCharCode(65 + i);
                 const isSelected = state.selectedAnswer === letter;
                 const isCorrectAnswer = letter === state.question?.question.answer;
-                let btnClass = 'w-full text-left p-3 rounded-xl border transition-colors text-sm ';
+                const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
+                const displayText = cleanChoice || `Option ${letter}`;
+                let btnClass = 'w-full text-left p-3 rounded-xl border transition-colors text-sm appearance-none ';
                 if (state.status === 'answered') {
                   if (isCorrectAnswer) btnClass += 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700';
                   else if (isSelected && !isCorrectAnswer) btnClass += 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700';
                   else btnClass += 'border-gray-200 dark:border-gray-700 text-gray-500';
                 } else {
-                  btnClass += 'border-gray-200 dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 text-gray-700 dark:text-gray-300';
+                  btnClass += 'border-gray-200 dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 active:bg-orange-50 text-gray-700 dark:text-gray-300';
                 }
                 return (
                   <button
@@ -229,9 +231,10 @@ export default function DailyChallengePage() {
                     className={btnClass}
                     onClick={() => state.status === 'ready' && submitAnswer(letter)}
                     disabled={state.status === 'answered'}
+                    type="button"
                   >
                     <span className="font-semibold mr-2">{letter}.</span>
-                    {choice.replace(/^[A-D][.)\s]+/, '')}
+                    {displayText}
                   </button>
                 );
               })}

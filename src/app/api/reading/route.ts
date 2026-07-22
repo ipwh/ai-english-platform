@@ -614,6 +614,40 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     // Step A: Add paragraph breaks before [N] markers if not already present
     content = content.replace(/([^\n])\s*\[(\d+)\]/g, '$1\n\n[$2]');
 
+    // Step A2: Capture AI's [line N] markers BEFORE stripping, so we can remap question references
+    // Record each marker's line number and its word position in the text
+    interface AiMarker { lineNum: number; wordPos: number }
+    const aiMarkers: AiMarker[] = [];
+    // Pre-scan: count words up to each [line N] marker in the content (before stripping)
+    {
+      const preContent = content.replace(/\s*\[line\s+\d+\]\s*/gi, ' '); // temp strip for word counting
+      // Find marker positions in original content by scanning
+      let scanIdx = 0;
+      const markerRegex = /\[line\s+(\d+)\]/gi;
+      let match: RegExpExecArray | null;
+      // Count words up to each marker in the stripped version
+      const strippedWords = preContent.split(/\s+/);
+      // We estimate: each marker was at roughly (markerCharPos / totalChars) * totalWords position
+      // More accurate: find word index in content before stripping
+      let wordCount = 0;
+      let i = 0;
+      while (i < content.length) {
+        // Check for [line N] marker at this position
+        const slice = content.slice(i);
+        const m = slice.match(/^\[line\s+(\d+)\]\s*/i);
+        if (m) {
+          aiMarkers.push({ lineNum: parseInt(m[1], 10), wordPos: wordCount });
+          i += m[0].length;
+          continue;
+        }
+        const ch = content[i];
+        if (ch === ' ' || ch === '\n') {
+          wordCount++;
+        }
+        i++;
+      }
+    }
+
     // Step B: Strip all AI-generated [line N] markers (they're often inaccurate)
     content = content.replace(/\s*\[line\s+\d+\]\s*/gi, ' ');
 
@@ -627,8 +661,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     // Build content with accurate line markers
     const markerPositions = new Set<number>();
+    const newLineByWordPos = new Map<number, number>(); // wordPos → new line number
     for (let line = MARKER_INTERVAL; line <= totalLines; line += MARKER_INTERVAL) {
-      markerPositions.add(line * WORDS_PER_LINE);
+      const wp = line * WORDS_PER_LINE;
+      markerPositions.add(wp);
+      newLineByWordPos.set(wp, line);
     }
 
     let result = '';
@@ -647,6 +684,48 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       charIndex++;
     }
 
+    // Step D: Build old-line-number → new-line-number mapping for question remapping
+    const oldToNewLine = new Map<number, number>();
+    for (const aiMarker of aiMarkers) {
+      const oldLine = aiMarker.lineNum;
+      const oldWordPos = aiMarker.wordPos;
+      // Find the closest new line marker to this word position
+      let bestNewLine = oldLine; // default: keep same (fallback)
+      let bestDist = Infinity;
+      for (const [newWp, newLine] of newLineByWordPos) {
+        const dist = Math.abs(newWp - oldWordPos);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestNewLine = newLine;
+        }
+      }
+      oldToNewLine.set(oldLine, bestNewLine);
+    }
+
+    // Helper: remap a line number reference, with clamping
+    const remapLine = (oldLine: number): number => {
+      // Direct match first
+      if (oldToNewLine.has(oldLine)) return oldToNewLine.get(oldLine)!;
+      // Proportional fallback
+      const maxOldLine = aiMarkers.length > 0
+        ? Math.max(...aiMarkers.map(m => m.lineNum))
+        : totalLines;
+      const ratio = totalLines / Math.max(maxOldLine, 1);
+      return Math.max(5, Math.round(oldLine * ratio / MARKER_INTERVAL) * MARKER_INTERVAL);
+    };
+
+    // Helper: remap (line X) or (lines X-Y) references in question text
+    const remapQuestionTextLineRefs = (text: string): string => {
+      return text.replace(/\(lines?\s+(\d+)(?:\s*[-–]\s*(\d+))?\s*\)/gi, (full, line1: string, line2?: string) => {
+        const new1 = remapLine(parseInt(line1, 10));
+        if (line2) {
+          const new2 = remapLine(parseInt(line2, 10));
+          return `(lines ${new1}-${new2})`;
+        }
+        return `(line ${new1})`;
+      });
+    };
+
     response.passage = {
       title: topic ? `${topic.charAt(0).toUpperCase() + topic.slice(1)} Reading` : 'Reading Passage',
       content: result,
@@ -654,44 +733,99 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       source: parsed.source || undefined,
     };
     delete response.readingContent;
-  }
 
-  // 2. Transform question format from v2 AI output to legacy frontend format
-  if (Array.isArray(response.questions)) {
-    response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
-      // Map questionText → question
-      const question = (q.questionText as string) || (q.question as string) || '';
-      const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
+    // 2. Transform question format from v2 AI output to legacy frontend format
+    if (Array.isArray(response.questions)) {
+      response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
+        // Map questionText → question
+        let rawQuestion = (q.questionText as string) || (q.question as string) || '';
+        const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
 
-      // Map AI question type to legacy type
-      const aiType = (q.type as string) || 'shortAnswer';
-      const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
+        // Remap line number references in question text to match recalculated passage
+        const question = remapQuestionTextLineRefs(rawQuestion);
 
-      // Strip "A. " prefix from choices if present
-      let choices: string[] | undefined;
-      if (Array.isArray(q.choices)) {
-        choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
-      }
+        // Map AI question type to legacy type
+        const aiType = (q.type as string) || 'shortAnswer';
+        const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
 
-      // Determine tier from question metadata or default based on position
-      const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
+        // Strip "A. " prefix from choices if present
+        let choices: string[] | undefined;
+        if (Array.isArray(q.choices)) {
+          choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
+          // Guard: if all choices are empty after stripping, use fallback labels
+          if (choices.every(c => c.trim() === '')) {
+            choices = ['A', 'B', 'C', 'D'].slice(0, choices.length || 4);
+          }
+        }
 
-      // Determine paragraph reference
-      const paragraphRef = (q.paragraphRef as number) || (q.lineRef ? parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10) : 1);
+        // Determine tier from question metadata or default based on position
+        const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
-      return {
-        index: (q.index as number) || i + 1,
-        tier,
-        paragraphRef: Math.min(paragraphRef, 7), // clamp to passage paragraphs
-        question,
-        questionZh,
-        type: isMc ? 'mc' : 'short-answer',
-        choices: isMc ? (choices || ['A', 'B', 'C', 'D']) : undefined,
-        answer: (q.answer as string) || '',
-        explanationZh: (q.explanationZh as string) || undefined,
-        explanationEn: (q.explanationEn as string) || undefined,
-      };
-    });
+        // Determine paragraph reference — remap using oldToNewLine if lineRef is present
+        let paragraphRef = (q.paragraphRef as number) || 1;
+        if (!q.paragraphRef && q.lineRef) {
+          const oldLineRef = parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10);
+          const newLine = remapLine(oldLineRef);
+          // Estimate paragraph from new line number: each paragraph ~4-6 lines
+          paragraphRef = Math.max(1, Math.ceil(newLine / 5));
+        }
+
+        return {
+          index: (q.index as number) || i + 1,
+          tier,
+          paragraphRef: Math.min(paragraphRef, 7), // clamp to passage paragraphs
+          question,
+          questionZh,
+          type: isMc ? 'mc' : 'short-answer',
+          choices: isMc ? (choices || ['A', 'B', 'C', 'D']) : undefined,
+          answer: (q.answer as string) || '',
+          explanationZh: (q.explanationZh as string) || undefined,
+          explanationEn: (q.explanationEn as string) || undefined,
+        };
+      });
+    }
+  } else {
+    // 2. Transform question format from v2 AI output to legacy frontend format (no passage transform needed)
+    if (Array.isArray(response.questions)) {
+      response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
+        // Map questionText → question
+        const question = (q.questionText as string) || (q.question as string) || '';
+        const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
+
+        // Map AI question type to legacy type
+        const aiType = (q.type as string) || 'shortAnswer';
+        const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
+
+        // Strip "A. " prefix from choices if present
+        let choices: string[] | undefined;
+        if (Array.isArray(q.choices)) {
+          choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
+          // Guard: if all choices are empty after stripping, use fallback labels
+          if (choices.every(c => c.trim() === '')) {
+            choices = ['A', 'B', 'C', 'D'].slice(0, choices.length || 4);
+          }
+        }
+
+        // Determine tier from question metadata or default based on position
+        const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
+
+        // Determine paragraph reference
+        const paragraphRef = (q.paragraphRef as number) || (q.lineRef ? parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10) : 1);
+
+        return {
+          index: (q.index as number) || i + 1,
+          tier,
+          paragraphRef: Math.min(paragraphRef, 7),
+          question,
+          questionZh,
+          type: isMc ? 'mc' : 'short-answer',
+          choices: isMc ? (choices || ['A', 'B', 'C', 'D']) : undefined,
+          answer: (q.answer as string) || '',
+          explanationZh: (q.explanationZh as string) || undefined,
+          explanationEn: (q.explanationEn as string) || undefined,
+        };
+      });
+    }
   }
   response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
 

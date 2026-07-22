@@ -591,7 +591,7 @@ export default function PracticeQuestionPage() {
             {question.choices.map((choice: string, index: number) => {
               const correctLetter = question.answer.trim().toUpperCase();
               const choiceLetter = getMcqLetterByIndex(index);
-              const choiceText = stripMcqPrefix(choice);
+              const choiceText = stripMcqPrefix(choice) || `Option ${choiceLetter}`;
               let choiceStyle = 'border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-500';
               if (submitted) {
                 if (choiceLetter === correctLetter) {
@@ -608,7 +608,7 @@ export default function PracticeQuestionPage() {
                   key={`${index}-${choice}`}
                   onClick={() => !submitted && setSelectedAnswer(choiceLetter)}
                   disabled={submitted}
-                  className={`w-full flex items-center gap-3 p-4 border-2 rounded-xl text-left transition-colors min-h-[48px] ${choiceStyle}`}
+                  className={`w-full flex items-center gap-3 p-4 border-2 rounded-xl text-left transition-colors min-h-[48px] appearance-none active:bg-gray-50 dark:active:bg-gray-800 ${choiceStyle}`}
                 >
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                     submitted && choiceLetter === correctLetter
