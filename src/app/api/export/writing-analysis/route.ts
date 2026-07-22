@@ -8,18 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
-/** 驗證使用者已登入 */
-async function authenticateUser(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('session_token')?.value;
-  if (token) {
-    const payload = await verifySessionToken(token);
-    if (payload) return payload.userId;
-  }
-  const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  return null;
-}
-
 /** WritingAnalysis 資料結構 */
 interface WritingAnalysis {
   overallScore?: number;
