@@ -894,15 +894,16 @@ export function suggestShowDontTell(content: string): Array<{
 
   // Pattern 2: "[subject] was [adjective]" (simple telling)
   const wasAdjPattern = /\b(he|she|it|they|i)\s+(was|were|felt)\s+(\w+)\b/gi;
-  while ((match = wasAdjPattern.exec(content)) !== null) {
-    const adj = match[3].toLowerCase();
+  let match2: RegExpExecArray | null;
+  while ((match2 = wasAdjPattern.exec(content)) !== null) {
+    const adj = match2[3].toLowerCase();
     if (['good', 'bad', 'sad', 'happy', 'angry', 'tired', 'scared', 'nervous', 'excited', 'bored'].includes(adj)) {
-      if (!suggestions.some(s => s.original === match[0])) {
+      if (!suggestions.some(s => s.original === match2[0])) {
         const example = SHOW_DONT_TELL_EXAMPLES.find(e => e.emotion === adj);
         suggestions.push({
-          original: match[0],
-          issue: `Telling instead of showing: "${match[0]}"`,
-          issueZh: `直接陳述狀態而非描寫：「${match[0]}」`,
+          original: match2[0],
+          issue: `Telling instead of showing: "${match2[0]}"`,
+          issueZh: `直接陳述狀態而非描寫：「${match2[0]}」`,
           suggestion: example ? example.show : 'Show this through actions, body language, and sensory details.',
           suggestionZh: example ? example.showZh : '通過動作、肢體語言和感官細節來展示。',
           technique: 'Show, Don\'t Tell',

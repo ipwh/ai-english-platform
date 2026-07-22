@@ -309,7 +309,7 @@ function generateChecklist(
   const checklist: string[] = [
     `📝 我確認文體是「${textType.typeZh}」嗎？`,
     `🎯 我理解要${instructionVerbs.map(iv => iv.meaningZh).join('、')}嗎？`,
-    ...formatRequirements.map((req, i) => `✅ 格式檢查 ${i + 1}：我的文章有包含「${req}」嗎？`),
+    ...textType.formatRequirements.map((req: string, i: number) => `✅ 格式檢查 ${i + 1}：我的文章有包含「${req}」嗎？`),
     ...contentRequirements.map((req, i) => `📋 內容要點 ${i + 1}：我有回應「${req}」嗎？`),
     `🔍 每寫完一段，我都有回頭檢查是否離題嗎？`,
     `⏱️ 我的字數是否在要求範圍內？`,
