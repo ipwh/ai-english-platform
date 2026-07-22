@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
+import { MASTERY_SKILLS } from '@/modules/student-mastery/types';
+import type { MasterySkill } from '@/modules/student-mastery/types';
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
@@ -63,6 +66,46 @@ export async function POST(request: NextRequest) {
         })
       )
     );
+
+    // 🔧 Sync diagnostic results to StudentMastery so dashboard shows real scores (not 0)
+    try {
+      // Map diagnostic skill names to MasterySkill enum
+      const skillMap: Record<string, MasterySkill> = {
+        grammar: 'grammar', vocabulary: 'vocabulary',
+        reading: 'reading', writing: 'writing',
+        listening: 'listening', speaking: 'speaking',
+      };
+      for (const r of results) {
+        const masterySkill = skillMap[r.skill];
+        if (!masterySkill) continue;
+        // Initialize mastery with the diagnostic accuracy as the baseline score
+        // and a single practice entry to bootstrap the system
+        await db.studentMastery.upsert({
+          where: { studentId_skill_subSkill: { studentId, skill: masterySkill, subSkill: r.skill } },
+          create: {
+            studentId,
+            skill: masterySkill,
+            subSkill: r.skill,
+            masteryScore: Math.round(r.accuracy),
+            confidenceScore: 50, // moderate confidence for diagnostic results
+            retentionScore: 100,  // just completed, full retention
+            correctCount: Math.round(r.accuracy / 100 * 5), // estimate: ~5 questions per skill
+            practiceCount: 5,
+            mistakeCount: Math.round((100 - r.accuracy) / 100 * 5),
+            lastPracticedAt: new Date(),
+          },
+          update: {
+            masteryScore: Math.round(r.accuracy),
+            confidenceScore: 50,
+            retentionScore: 100,
+            lastPracticedAt: new Date(),
+          },
+        });
+      }
+      logger.info({ module: 'diagnostic', studentId, skillCount: results.length }, 'Synced diagnostic results to StudentMastery');
+    } catch (syncErr) {
+      logger.warn({ module: 'diagnostic', studentId, error: syncErr instanceof Error ? syncErr.message : String(syncErr) }, 'Failed to sync diagnostic to mastery (non-critical)');
+    }
 
     return NextResponse.json({ results: created }, { status: 201 });
   } catch (err: unknown) {

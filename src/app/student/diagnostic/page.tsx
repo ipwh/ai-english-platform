@@ -329,7 +329,7 @@ export default function DiagnosticPage() {
     // 計算各技能分數
     const skillScores: Record<string, { correct: number; total: number }> = {};
     for (const q of questions) {
-      const key = q.grammarItem ? 'grammar' : q.languageSkill === 'reading' ? 'reading' : q.languageSkill === 'writing' ? 'writing' : 'vocabulary';
+      const key = q.grammarItem ? 'grammar' : q.languageSkill === 'reading' ? 'reading' : q.languageSkill === 'writing' ? 'writing' : q.languageSkill === 'listening' ? 'listening' : q.languageSkill === 'speaking' ? 'speaking' : 'vocabulary';
       if (!skillScores[key]) skillScores[key] = { correct: 0, total: 0 };
       skillScores[key].total++;
       const userAnswer = finalAnswers[q.id] || '';
