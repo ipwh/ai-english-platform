@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeMaterial, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
+import { analyzeMaterial, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
     const analysis = await analyzeMaterial({
       userId: authResult.userId,
-      title,
-      content,
+      title: sanitizeForAI(title),
+      content: sanitizeForAI(content),
       gradeLevel,
     });
 

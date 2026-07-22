@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
+import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const help = await answerStudyHelp({
       userId: authResult.userId,
-      question,
+      question: sanitizeForAI(question),
       studentLevel,
       weakSkills: weakSkills || [],
       recentMistakes: recentMistakes || [],

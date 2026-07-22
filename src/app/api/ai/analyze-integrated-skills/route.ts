@@ -56,10 +56,10 @@ export async function POST(request: NextRequest) {
     const MAX_STUDENT_NOTES = 10000;
 
     const analysis = await analyzeIntegratedSkills({
-      listeningContent: listeningContent.length > MAX_LISTENING ? listeningContent.slice(0, MAX_LISTENING) : listeningContent,
+      listeningContent: sanitizeForAI(listeningContent.length > MAX_LISTENING ? listeningContent.slice(0, MAX_LISTENING) : listeningContent),
       noteTakingGuide: noteTakingGuide || [],
       expectedContentPoints: expectedContentPoints || [],
-      writingTask: writingTask.length > MAX_WRITING_TASK ? writingTask.slice(0, MAX_WRITING_TASK) : writingTask,
+      writingTask: sanitizeForAI(writingTask.length > MAX_WRITING_TASK ? writingTask.slice(0, MAX_WRITING_TASK) : writingTask),
       taskType: taskType || 'summary',
       studentNotes: sanitizeForAI((studentNotes || '').length > MAX_STUDENT_NOTES ? (studentNotes || '').slice(0, MAX_STUDENT_NOTES) : (studentNotes || '')),
       studentWriting: sanitizeForAI(studentWriting.length > MAX_STUDENT_WRITING ? studentWriting.slice(0, MAX_STUDENT_WRITING) : studentWriting),

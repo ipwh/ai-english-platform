@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
+import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         gradeLevel,
         difficulty,
         wordLimit: wordLimit || 200,
-        topicHint: topicHint || undefined,
+        topicHint: topicHint ? sanitizeForAI(topicHint) : undefined,
         lang: lang || 'en',
       });
 
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
         gradeLevel,
         difficulty,
         wordLimit: wordLimit || 200,
-        writingPrompt,
-        topicHint: topicHint || undefined,
+        writingPrompt: sanitizeForAI(writingPrompt),
+        topicHint: topicHint ? sanitizeForAI(topicHint) : undefined,
         lang: lang || 'en',
       });
 

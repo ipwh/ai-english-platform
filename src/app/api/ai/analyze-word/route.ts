@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeWord } from '@/modules/ai/services/ai-service';
+import { analyzeWord, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const analysis = await analyzeWord({
       userId: authResult.userId,
-      word: rawWord,
+      word: sanitizeForAI(rawWord),
       gradeLevel,
     });
 
