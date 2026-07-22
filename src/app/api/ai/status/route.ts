@@ -9,9 +9,9 @@ import { getAIProviders, isDeepSeekConfigured } from '@/modules/ai/services/ai-s
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {
-  const auth = await verifyApiAuth(request, ['admin']);
+  const auth = await verifyApiAuth(request, ['teacher', 'admin']);
   if (!auth.authenticated) {
-    return NextResponse.json({ error: 'Forbidden — admin access required' }, { status: 403 });
+    return NextResponse.json({ error: 'Forbidden — teacher or admin access required' }, { status: 403 });
   }
   const configured = isDeepSeekConfigured();
   const providers = getAIProviders();
