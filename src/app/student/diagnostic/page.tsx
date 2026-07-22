@@ -179,8 +179,8 @@ export default function DiagnosticPage() {
       }
       return false;
     }
-    // short-writing: accept any non-empty answer (AI model answer won't match free text)
-    if (type === 'short-writing') return student.trim().length > 0;
+    // short-writing / writing skill: accept any non-empty answer (qualitative assessment)
+    if (type === 'short-writing' || type === 'writing') return student.trim().length > 0;
     // fill-blank: normalized comparison
     return normalizeAnswer(student) === normalizeAnswer(correct);
   }
@@ -521,7 +521,7 @@ export default function DiagnosticPage() {
           {/* Per-question feedback with explanation */}
           {showFeedback && lastAnswerCorrect !== null && (
             <div className="mb-4 space-y-3">
-              {currentQ.type === 'short-writing' ? (
+              {currentQ.languageSkill === 'writing' || currentQ.type === 'short-writing' ? (
                 <div className="p-4 rounded-xl text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400">
                   <p className="font-semibold mb-1">✍️ 寫作已提交</p>
                   <p>你的文章將在完成診斷後由 AI 進行質性分析，不會以對錯計分。</p>
@@ -583,7 +583,7 @@ export default function DiagnosticPage() {
             </div>
           ) : (
             <div>
-              {currentQ.type === 'short-writing' ? (
+              {currentQ.languageSkill === 'writing' || currentQ.type === 'short-writing' ? (
                 <>
                   <textarea
                     value={writingAnswer}
