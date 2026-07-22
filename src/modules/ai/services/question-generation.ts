@@ -5,9 +5,11 @@ import { isDSERAGEnabled, retrievePastPaperContent, retrieveMarkingScheme, build
 import { logger } from '@/shared/logger/logger';
 import { GeneratedQuestionsArraySchema, validateAIResponse } from '@/modules/ai/schemas/ai-schema';
 import { STRICT_ANSWER_RULES, buildQuestionGenerationPrompt } from '@/modules/ai/prompts';
+import { buildReadingExercisePrompt } from '@/modules/ai/prompts/reading/v1';
 import { getDSEEmpiricalTopics, validateDSEtopicMatch } from './dse-topics';
 import { getRandomTopicV2 } from './topic-selector';
 import { validateListeningConsistency } from './listening-normalizer';
+import { platformDifficultyToHKEAALevel, estimateReadability, mapReadabilityToHKEAALevel } from '@/modules/ai/prompts/reading/types';
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
   const count = input.count || 5;
   const skillDesc = input.grammarItemZh || input.languageSkillZh || input.grammarItem || input.languageSkill || '綜合';
@@ -72,22 +74,38 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     ...getDSEEmpiricalTopics('reading', undefined, 5),
   ].map(t => `  • ${t}`).join('\n');
 
-  const systemPrompt = buildQuestionGenerationPrompt({
-    count,
-    skillDesc,
-    difficultyLabel: diffMap[input.difficulty],
-    gradeLevel: input.gradeLevel,
-    typeDesc: effectiveQuestionType,
-    topic,
-    userTopic: input.topic,
-    isListening,
-    isReading: isReading || isWriting || isSpeaking,
-    isErrorCorrection: effectiveQuestionType === 'error-correction',
-    strictAnswerRules: STRICT_ANSWER_RULES,
-    dseTopics: dseTopicsForPrompt,
-  });
+  // === Reading skill: use dedicated DSE Paper 1 v2 prompt ===
+  let systemPrompt: string;
+  let userPrompt: string;
 
-  const userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${effectiveQuestionType === 'mc' ? '選擇題' : effectiveQuestionType === 'fill-blank' ? '填充題' : effectiveQuestionType === 'error-correction' ? '改錯題' : effectiveQuestionType === 'short-writing' ? '短文寫作題' : '練習題'}。`;
+  if (isReading) {
+    const targetLevel = platformDifficultyToHKEAALevel(input.difficulty, 'A');
+    systemPrompt = buildReadingExercisePrompt({
+      count,
+      difficultyLabel: diffMap[input.difficulty],
+      gradeLevel: input.gradeLevel,
+      topic: input.topic || topic,
+      partLabel: 'A',
+      targetLevel,
+    });
+    userPrompt = `Generate ${count} DSE Paper 1 reading comprehension questions (${diffMap[input.difficulty]} level, ${input.gradeLevel}) about "${input.topic || topic}". Include a 500-800 word reading passage with [line N] and [paragraph] markers. Use authentic DSE question wording. Return JSON.`;
+  } else {
+    systemPrompt = buildQuestionGenerationPrompt({
+      count,
+      skillDesc,
+      difficultyLabel: diffMap[input.difficulty],
+      gradeLevel: input.gradeLevel,
+      typeDesc: effectiveQuestionType,
+      topic,
+      userTopic: input.topic,
+      isListening,
+      isReading: isWriting || isSpeaking,
+      isErrorCorrection: effectiveQuestionType === 'error-correction',
+      strictAnswerRules: STRICT_ANSWER_RULES,
+      dseTopics: dseTopicsForPrompt,
+    });
+    userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${effectiveQuestionType === 'mc' ? '選擇題' : effectiveQuestionType === 'fill-blank' ? '填充題' : effectiveQuestionType === 'error-correction' ? '改錯題' : effectiveQuestionType === 'short-writing' ? '短文寫作題' : '練習題'}。`;
+  }
 
   // 注入 DSE RAG context（若有）
   const finalSystemPrompt = systemPrompt + dseContextPrompt;
@@ -155,17 +173,26 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
         })()
       : false;
 
-    // === Reading Content Validation ===
+    // === Reading Content Validation (v2: DSE-appropriate word count) ===
     if (isReading) {
       const readingIssues = fixedQuestions.filter(q => {
-        if (!q.readingContent) return true; // Missing reading content is critical
-        return q.readingContent.trim().length < 50; // Too short
+        if (!q.readingContent) return true;
+        const wordCount = q.readingContent.trim().split(/\s+/).length;
+        return wordCount < 300; // Min 300 words for DSE-style (target 500-800)
       });
       if (readingIssues.length > 0) {
-        logger.warn({ module: 'ai-service', readingIssueCount: readingIssues.length, totalQuestions: fixedQuestions.length }, 'Reading questions have missing/short readingContent');
+        logger.warn({ module: 'ai-service', readingIssueCount: readingIssues.length, totalQuestions: fixedQuestions.length }, 'Reading questions have missing/short readingContent (< 300 words)');
         if (readingIssues.length >= fixedQuestions.length * 0.5) {
-          lastError = 'Too many reading questions with insufficient content';
+          lastError = 'Too many reading questions with insufficient content (< 300 words)';
           hasCriticalFailures = true;
+        }
+      }
+      // Readability check (informational)
+      for (const q of fixedQuestions) {
+        if (q.readingContent && q.readingContent.trim().length >= 300) {
+          const metrics = estimateReadability(q.readingContent);
+          const readabilityLevel = mapReadabilityToHKEAALevel(metrics);
+          logger.info({ module: 'ai-service', readabilityLevel, wordCount: metrics.totalWords, fleschKincaid: metrics.fleschKincaidGrade }, 'Reading passage readability');
         }
       }
     }

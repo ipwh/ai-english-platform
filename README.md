@@ -343,11 +343,9 @@ src/
 │   ├── cache/                # 快取層 (TTL Map, cache-aside)
 │   ├── ai-cost/              # AI 成本追蹤 (5 models, dedup, reports)
 │   ├── perf/                 # 效能優化 (N+1 detection, bundle analysis)
-│   ├── security/             # 安全 (prompt injection, XSS, PII, CSP)
 │   ├── observability/        # 可觀測性 (metrics, tracing, health reports)
 │   ├── assessment/           # 評量服務
 │   ├── exercise/             # 練習服務
-│   ├── feedback/             # 回饋服務
 │   ├── student/              # 學生服務
 │   ├── progress/             # 進度服務 (gamification, streaks)
 │   ├── vocabulary/           # 詞彙服務 (SRS)
@@ -584,8 +582,8 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 - **Speaking Practice**：目前僅支援文字 transcript 輸入分析（文法/詞彙/內容），無法評估流暢度、發音及互動表現。未來可整合 STT（語音辨識）。
 - **Vercel 部署**：AI 函數需要 Vercel Pro（30s maxDuration）或 Enterprise。Hobby 方案（10s）可能導致寫作批改等長請求逾時。見 `vercel.json`。
 - **Web Speech API Fallback**：Google Cloud TTS 不可用時自動降級至瀏覽器 Web Speech API，不同瀏覽器的語音品質不一（建議使用 Chrome）。
-- **Rate Limiter**: `src/shared/config/rate-limiter.ts` 支援 Vercel KV 分散式限流，需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory。
-- **prompt-injection 防護為 regex-based**：`src/modules/security/input-sanitizer.ts` 使用正則表達式過濾（11 prompt injection + 9 XSS + 5 PII + 8 SQL injection patterns），為深度防禦層。
+- **Rate Limiter**: `src/shared/utils/rate-limiter.ts` 支援 Vercel KV 分散式限流，需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory。
+- **AI Hallucination Guard**: 集中式 10 規則 guard（`src/modules/ai/services/hallucination-guard.ts`），所有 prompt 模板統一引用，防止 AI 生成虛構內容。
 - **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。
 
 ### ✅ 已修復技術債（2026-07-17 第三輪 — CI + Auth 收尾）

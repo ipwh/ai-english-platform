@@ -105,16 +105,6 @@ N+1 query detection, bundle analysis, optimization reports.
 
 ---
 
-## `security/` — Security (1 test)
-
-Input sanitization, prompt injection prevention, security auditing.
-
-- 11 prompt injection patterns, 9 XSS, 5 PII, 8 SQL injection
-- `sanitizeInput()` with risk scoring (0-100)
-- CSP validation, security audit (A-F grading)
-
----
-
 ## `observability/` — Observability (1 test)
 
 Metrics, tracing, latency monitoring, error aggregation.

@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
       await Promise.allSettled(batchOps);
 
       // 進度回報（透過 console，可在 Vercel logs 看到）
-      console.log(`[import/students] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(validRows.length / BATCH_SIZE)} done (${Math.min(i + BATCH_SIZE, validRows.length)}/${validRows.length})`);
+      logger.info({ module: 'import-students', batch: Math.floor(i / BATCH_SIZE) + 1, totalBatches: Math.ceil(validRows.length / BATCH_SIZE), processed: Math.min(i + BATCH_SIZE, validRows.length), total: validRows.length }, 'Import batch complete');
     }
 
     // Fire-and-forget: batch sync all students to Google Sheets

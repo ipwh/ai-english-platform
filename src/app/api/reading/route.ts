@@ -1,8 +1,14 @@
 // ============================================
-// API: /api/reading — 閱讀理解獨立模組
-// DSE Paper 1 完整對標：篇章 → 漸進式問題
-//   Literal → Inferential → Evaluative
-// v2: DSE RAG integration + data persistence
+// API: /api/reading — DSE Paper 1 閱讀理解 v3
+// Features:
+//   - Full DSE Paper generation (multi-passage, 42 marks)
+//   - 19 question types with EXACT DSE wording
+//   - B1/B2 level cap enforcement
+//   - Passage quality validation (word count, line markers, readability)
+//   - HK-local content density check
+//   - Wrong answer analysis & classification
+//   - Summary Cloze / Paraphrase / Idiom training endpoints
+//   - Time management metadata
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,23 +21,38 @@ import {
   isDSERAGEnabled,
 } from '@/modules/ai/services/rag-service';
 import { logger } from '@/shared/logger/logger';
+import {
+  buildFullDSEPaperPrompt,
+  buildReadingSectionPrompt,
+  buildReadingExercisePrompt,
+} from '@/modules/ai/prompts/reading/v1';
+import { buildSummaryClozeTrainingPrompt, getSummaryClozeTips, COMMON_CLOZE_TRAP_WORDS } from '@/modules/ai/prompts/reading/training-summary-cloze';
+import { buildParaphraseTrainingPrompt, getParaphraseTips, PARAPHRASE_PATTERNS } from '@/modules/ai/prompts/reading/training-paraphrase';
+import { buildIdiomTrainingPrompt, getIdiomTips, getDSEidiomQuickReference, getContextClueChecklist, DSE_IDIOM_BANK } from '@/modules/ai/prompts/reading/training-idiom';
+import {
+  type DSEpart,
+  type HKEAALevel,
+  type DSEreadingPaper,
+  type DSEreadingQuestion,
+  type ReadingErrorType,
+  type AnswerAnalysis,
+  platformDifficultyToHKEAALevel,
+  maxAttainableLevel,
+  passageWordCountRange,
+  recommendedQuestionCount,
+  estimateReadability,
+  mapReadabilityToHKEAALevel,
+  checkHKLocalContent,
+  validatePassageQuality,
+  validateQuestionQuality,
+} from '@/modules/ai/prompts/reading/types';
+import { DSE_PART_QUESTION_MIX } from '@/modules/ai/prompts/reading/dse-question-templates';
+import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';
+import { DSE_TEXT_TYPES, DSE_PUBLICATION_SOURCES } from '@/modules/ai/prompts/reading/text-types';
 
-const READING_RUBRIC = `
-DSE English Language Reading Level Descriptors:
-L5: Understand and interpret complex texts. Identify attitudes, assumptions, and implicit meanings.
-L4: Understand detailed information and infer meaning from context.
-L3: Understand main ideas and some details in familiar texts.
-L2: Understand basic facts in simple texts.
-L1: Identify isolated words/phrases.
-`;
-
-const QUESTION_TIERS = {
-  literal: 'Literal comprehension — 直接從文本中找答案（what/who/when/where）',
-  inferential: 'Inferential — 需要推理、歸納（why/how/what does X imply）',
-  evaluative: 'Evaluative — 批判性評價（tone/attitude/purpose/effectiveness）',
-};
-
-// POST — Generate reading passage + progressive questions
+// ============================================
+// POST — 路由分派（根據 action 參數）
+// ============================================
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
@@ -40,80 +61,37 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { gradeLevel, topic, difficulty, questionCount } = body as {
-      gradeLevel?: string;
-      topic?: string;
-      difficulty?: string;
-      questionCount?: number;
-    };
+    const { action } = body as { action?: string };
 
-    const level = gradeLevel || 'S4';
-    const totalQ = Math.min(questionCount || 6, 10);
-
-    // DSE RAG: retrieve past paper reading content and marking schemes
-    let dseContext = '';
-    try {
-      if (isDSERAGEnabled()) {
-        const [pastPapers, markingSchemes] = await Promise.all([
-          retrievePastPaperContent('Reading', topic || 'general interest', difficulty, level, 3),
-          retrieveMarkingScheme('Reading', 2),
-        ]);
-        dseContext = buildDSEContextPrompt(
-          pastPapers.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
-          markingSchemes.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
-          'generate_questions',
-        );
-        if (dseContext) {
-          logger.info({ module: 'reading-api', topic, paperCount: pastPapers.length, msCount: markingSchemes.length }, 'DSE RAG context built');
-        }
-      }
-    } catch (ragErr) {
-      logger.warn({ module: 'reading-api', error: (ragErr as Error).message }, 'DSE RAG retrieval failed, continuing without it');
+    switch (action) {
+      case 'full-paper':
+        return handleFullPaperGeneration(body);
+      case 'exercise':
+        return handleExerciseGeneration(body);
+      case 'analyze-answers':
+        return handleAnswerAnalysis(body);
+      case 'summary-cloze-training':
+        return handleSummaryClozeTraining(body);
+      case 'paraphrase-training':
+        return handleParaphraseTraining(body);
+      case 'idiom-training':
+        return handleIdiomTraining(body);
+      case 'validate-paper':
+        return handlePaperValidation(body);
+      default:
+        // Backward compat: single passage generation
+        return handleLegacyGeneration(body);
     }
-
-    const dseContextBlock = dseContext ? `\n\n=== DSE Real Past Paper Reference ===\n${dseContext}\n=== End DSE Reference ===\n` : '';
-
-    const result = await callLLM([
-      {
-        role: 'system',
-        content: `You are an HKDSE English Paper 1 examiner. Create a reading comprehension passage with progressive questions.
-
-${READING_RUBRIC}
-${dseContextBlock}
-Requirements:
-- Passage: 250-400 words, DSE ${level} level, topic: ${topic || 'general interest'}
-- Include 3 tiers of questions (Literal → Inferential → Evaluative), ${totalQ} total
-- Each question must specify which paragraph the answer is found in
-- ALL answers must be directly supported by the passage
-- If DSE reference is provided, model your passage style, difficulty, and question types after real DSE past papers
-
-Return JSON:
-{
-  "passage": { "title": "...", "content": "...", "wordCount": N, "source": "adapted from..." },
-  "vocabularyHints": [{ "word": "...", "meaningZh": "..." }],
-  "questions": [
-    {
-      "index": 1, "tier": "literal|inferential|evaluative",
-      "paragraphRef": 2,
-      "question": "...", "questionZh": "...",
-      "type": "mc", "choices": ["A...", "B...", "C...", "D..."], "answer": "A",
-      "explanationZh": "...", "explanationEn": "..."
-    }
-  ]
-}`,
-      },
-      { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions.` },
-    ], { temperature: 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
-
-    const parsed = JSON.parse(result);
-    return NextResponse.json(parsed);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
+    logger.error({ module: 'reading-api', error: msg }, 'Reading API error');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
-// GET — List available reading topics by grade
+// ============================================
+// GET — 資源列表
+// ============================================
 export async function GET(_request: NextRequest) {
   return NextResponse.json({
     topics: [
@@ -131,6 +109,538 @@ export async function GET(_request: NextRequest) {
       { id: 'media', zh: '媒體與新聞', en: 'Media & News' },
     ],
     gradeLevels: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'],
-    questionTiers: QUESTION_TIERS,
+    parts: {
+      A: DSE_PART_QUESTION_MIX.A,
+      B1: DSE_PART_QUESTION_MIX.B1,
+      B2: DSE_PART_QUESTION_MIX.B2,
+    },
+    textTypes: DSE_TEXT_TYPES.map(t => ({ id: t.id, nameEn: t.nameEn, nameZh: t.nameZh })),
+    publicationSources: DSE_PUBLICATION_SOURCES,
+    levelCaps: B1_B2_LEVEL_CAPS,
+    levelDescriptors: HKEAA_TO_PLATFORM_DIFFICULTY,
+    idiomBank: DSE_IDIOM_BANK.slice(0, 20),
+    trainingModules: {
+      'summary-cloze-training': { action: 'summary-cloze-training', description: 'Summary Cloze 專項訓練' },
+      'paraphrase-training': { action: 'paraphrase-training', description: 'Paraphrase 改寫技能訓練' },
+      'idiom-training': { action: 'idiom-training', description: 'Idiom 語境推斷訓練' },
+    },
+    tips: {
+      summaryCloze: getSummaryClozeTips(),
+      paraphrase: getParaphraseTips(),
+      idiom: getIdiomTips(),
+    },
   });
+}
+
+// ============================================
+// Action: full-paper — 完整 DSE 模擬卷生成
+// ============================================
+async function handleFullPaperGeneration(body: Record<string, unknown>) {
+  const startTime = Date.now();
+  const {
+    gradeLevel = 'S5',
+    part = 'A',
+    targetLevel,
+    topic,
+    textTypes,
+  } = body as {
+    gradeLevel?: string;
+    part?: DSEpart;
+    targetLevel?: HKEAALevel;
+    topic?: string;
+    textTypes?: string[];
+  };
+
+  // Validate part
+  const validatedPart: DSEpart = ['A', 'B1', 'B2'].includes(part as string) ? part as DSEpart : 'A';
+
+  // Determine target level
+  const resolvedLevel: HKEAALevel = targetLevel
+    ? Math.min(targetLevel, maxAttainableLevel(validatedPart)) as HKEAALevel
+    : (validatedPart === 'B1' ? 3 : validatedPart === 'B2' ? 5 : 3);
+
+  // Level cap warning
+  if (targetLevel && targetLevel > maxAttainableLevel(validatedPart)) {
+    logger.warn({ module: 'reading-api', targetLevel, part: validatedPart, maxLevel: maxAttainableLevel(validatedPart) }, 'Target level exceeds part max, capping');
+  }
+
+  // DSE RAG
+  let dseContext = '';
+  try {
+    if (isDSERAGEnabled()) {
+      const [pastPapers, markingSchemes] = await Promise.all([
+        retrievePastPaperContent('Reading', topic || 'general interest', undefined, gradeLevel, 3),
+        retrieveMarkingScheme('Reading', 2),
+      ]);
+      dseContext = buildDSEContextPrompt(
+        pastPapers.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        markingSchemes.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'generate_questions',
+      );
+      if (dseContext) {
+        logger.info({ module: 'reading-api', topic, paperCount: pastPapers.length }, 'DSE RAG context built for full paper');
+      }
+    }
+  } catch (ragErr) {
+    logger.warn({ module: 'reading-api', error: (ragErr as Error).message }, 'DSE RAG retrieval failed, continuing without it');
+  }
+
+  const systemPrompt = buildFullDSEPaperPrompt({
+    gradeLevel,
+    part: validatedPart,
+    targetLevel: resolvedLevel,
+    topic: topic as string | undefined,
+    textTypes: textTypes as string[] | undefined,
+  });
+
+  const dseContextBlock = dseContext ? `\n\n=== DSE Real Past Paper Reference ===\n${dseContext}\n=== End DSE Reference ===\n` : '';
+
+  const result = await callLLM([
+    { role: 'system', content: systemPrompt + dseContextBlock },
+    { role: 'user', content: `Generate a complete DSE Paper 1 Part ${validatedPart} paper for ${gradeLevel} students (target Level ${resolvedLevel}) about "${topic || 'DSE-appropriate topic'}". Return the complete JSON paper object.` },
+  ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 45000 });
+
+  const paper = JSON.parse(result) as DSEreadingPaper;
+
+  // Post-generation quality validation
+  const warnings: string[] = [];
+  for (const passage of paper.passages) {
+    const pqCheck = validatePassageQuality(passage, validatedPart);
+    if (!pqCheck.passed) {
+      warnings.push(`Passage ${passage.textNumber}: ${pqCheck.issues.join('; ')}`);
+    }
+
+    // Readability check
+    const metrics = estimateReadability(passage.content);
+    const actualReadabilityLevel = mapReadabilityToHKEAALevel(metrics);
+    metrics.targetLevel = resolvedLevel;
+    metrics.levelMatch = Math.abs(actualReadabilityLevel - resolvedLevel) <= 1;
+    if (!metrics.levelMatch) {
+      warnings.push(`Passage ${passage.textNumber}: Readability level ${actualReadabilityLevel} vs target ${resolvedLevel}`);
+    }
+
+    // HK-local check
+    const hkCheck = checkHKLocalContent(passage.content);
+    if (!hkCheck.meetsRecommendedRatio) {
+      warnings.push(`Passage ${passage.textNumber}: HK-local ratio ${hkCheck.hkLocalRatio} below recommended 0.30`);
+    }
+
+    // Attach metrics to passage (extended fields)
+    (passage as unknown as Record<string, unknown>)._readability = metrics;
+    (passage as unknown as Record<string, unknown>)._hkLocal = hkCheck;
+  }
+
+  // Question quality check
+  const allQuestions = paper.passages.flatMap(p => p.questions);
+  const qqCheck = validateQuestionQuality(allQuestions, validatedPart);
+  if (!qqCheck.passed) {
+    warnings.push(...qqCheck.issues);
+  }
+
+  const elapsed = Date.now() - startTime;
+  logger.info({ module: 'reading-api', part: validatedPart, level: resolvedLevel, passages: paper.passages.length, questions: allQuestions.length, elapsed, warnings: warnings.length }, 'Full paper generated');
+
+  return NextResponse.json({
+    paper,
+    metadata: {
+      generationTimeMs: elapsed,
+      part: validatedPart,
+      targetLevel: resolvedLevel,
+      maxAttainableLevel: maxAttainableLevel(validatedPart),
+      questionTypesUsed: qqCheck.typesUsed,
+      totalMarks: qqCheck.totalMarks,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    },
+  });
+}
+
+// ============================================
+// Action: exercise — 閱讀練習題生成（用於 question-generation.ts 整合）
+// ============================================
+async function handleExerciseGeneration(body: Record<string, unknown>) {
+  const {
+    gradeLevel = 'S4',
+    difficulty = 'core',
+    topic,
+    count = 5,
+    partLabel = 'A',
+  } = body as {
+    gradeLevel?: string;
+    difficulty?: 'remedial' | 'core' | 'challenge';
+    topic?: string;
+    count?: number;
+    partLabel?: DSEpart;
+  };
+
+  const validatedPart: DSEpart = ['A', 'B1', 'B2'].includes(partLabel as string) ? partLabel as DSEpart : 'A';
+  const targetLevel = platformDifficultyToHKEAALevel(difficulty, validatedPart);
+
+  const prompt = buildReadingExercisePrompt({
+    count: Math.min(count, 10),
+    difficultyLabel: { remedial: '補底', core: '核心', challenge: '挑戰' }[difficulty],
+    gradeLevel,
+    topic: topic || 'DSE-appropriate topic',
+    partLabel: validatedPart,
+    targetLevel,
+  });
+
+  const result = await callLLM([
+    { role: 'system', content: prompt },
+    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". Include the reading passage. Return JSON.` },
+  ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
+
+  const parsed = JSON.parse(result);
+  return NextResponse.json(parsed);
+}
+
+// ============================================
+// Action: analyze-answers — 錯題分析與分類
+// ============================================
+async function handleAnswerAnalysis(body: Record<string, unknown>) {
+  const {
+    questions,
+    studentAnswers,
+  } = body as {
+    questions: DSEreadingQuestion[];
+    studentAnswers: Record<number, string>; // questionIndex → student's answer
+  };
+
+  if (!questions || !studentAnswers) {
+    return NextResponse.json({ error: 'questions and studentAnswers are required' }, { status: 400 });
+  }
+
+  const analyses: AnswerAnalysis[] = questions.map(q => {
+    const studentAnswer = (studentAnswers[q.index] || '').trim();
+    const correctAnswer = q.answer.trim();
+    const isCorrect = studentAnswer.toLowerCase() === correctAnswer.toLowerCase();
+
+    // Determine error type
+    let errorType: ReadingErrorType | undefined;
+    let isPartiallyCorrect = false;
+    let score = 0;
+
+    if (isCorrect) {
+      score = q.marks;
+    } else {
+      // Classify error
+      if (q.type === 'referencing') {
+        errorType = 'reference_error';
+      } else if (q.type === 'inference' || q.type === 'toneAttitude') {
+        errorType = 'inference_error';
+      } else if (q.type === 'vocabularyInContext' || q.type === 'synonymSearch') {
+        errorType = 'vocabulary_error';
+      } else if (q.type === 'trueFalseNG' && studentAnswer.toUpperCase() === 'F' && correctAnswer.toUpperCase() === 'NG') {
+        errorType = 'false_vs_ng_confusion';
+      } else if (q.type === 'summaryCloze' || q.type === 'shortAnswer') {
+        if (q.wordLimit && studentAnswer.split(/\s+/).length > parseInt(q.wordLimit)) {
+          errorType = 'word_limit_exceeded';
+        } else if (studentAnswer.length > 0 && correctAnswer.toLowerCase().includes(studentAnswer.toLowerCase())) {
+          isPartiallyCorrect = true;
+          score = Math.ceil(q.marks / 2);
+          errorType = 'partial_understanding';
+        } else {
+          errorType = 'not_in_passage';
+        }
+      } else {
+        errorType = studentAnswer.length === 0 ? 'incomplete_answer' : 'not_in_passage';
+      }
+    }
+
+    return {
+      questionIndex: q.index,
+      studentAnswer,
+      correctAnswer,
+      isCorrect,
+      isPartiallyCorrect,
+      score,
+      maxMarks: q.marks,
+      errorType,
+      feedbackZh: isCorrect
+        ? '✅ 正確！做得很好。'
+        : isPartiallyCorrect
+        ? `⚠️ 部分正確。你答了「${studentAnswer}」，正確答案是「${correctAnswer}」。你的答案方向正確但不夠完整。`
+        : `❌ 不正確。你的答案是「${studentAnswer}」，正確答案是「${correctAnswer}」。${q.explanationZh}`,
+      feedbackEn: isCorrect
+        ? 'Correct! Well done.'
+        : `Incorrect. Your answer was "${studentAnswer}". The correct answer is "${correctAnswer}". ${q.explanationEn || ''}`,
+    };
+  });
+
+  // Aggregate error breakdown
+  const errorBreakdown: Record<string, number> = {};
+  const typeBreakdown: Record<string, { correct: number; total: number }> = {};
+
+  for (const a of analyses) {
+    const q = questions.find(qq => qq.index === a.questionIndex);
+    const qType = q?.type || 'unknown';
+
+    if (!typeBreakdown[qType]) {
+      typeBreakdown[qType] = { correct: 0, total: 0 };
+    }
+    typeBreakdown[qType].total++;
+    if (a.isCorrect) typeBreakdown[qType].correct++;
+
+    if (a.errorType) {
+      errorBreakdown[a.errorType] = (errorBreakdown[a.errorType] || 0) + 1;
+    }
+  }
+
+  const totalMarks = questions.reduce((s, q) => s + q.marks, 0);
+  const scoredMarks = analyses.reduce((s, a) => s + a.score, 0);
+  const accuracy = totalMarks > 0 ? scoredMarks / totalMarks : 0;
+
+  // Estimate HKEAA level from accuracy (rough mapping)
+  const estimatedLevel: HKEAALevel = accuracy >= 0.85 ? 5 : accuracy >= 0.70 ? 4 : accuracy >= 0.50 ? 3 : accuracy >= 0.30 ? 2 : 1;
+
+  return NextResponse.json({
+    analyses,
+    summary: {
+      totalMarks,
+      scoredMarks,
+      accuracy: Math.round(accuracy * 100) / 100,
+      estimatedLevel,
+      errorBreakdown,
+      typeBreakdown,
+      weakAreas: Object.entries(typeBreakdown)
+        .filter(([, v]) => v.total > 0 && v.correct / v.total < 0.5)
+        .map(([type]) => type),
+      recommendations: generateRecommendations(errorBreakdown, typeBreakdown),
+    },
+  });
+}
+
+// ============================================
+// Action: summary-cloze-training
+// ============================================
+async function handleSummaryClozeTraining(body: Record<string, unknown>) {
+  const {
+    targetLevel = 4,
+    focusArea = 'mixed',
+    count = 5,
+  } = body as {
+    targetLevel?: number;
+    focusArea?: 'partOfSpeech' | 'participialModifier' | 'sameSubjectCheck' | 'mixed';
+    count?: number;
+  };
+
+  const prompt = buildSummaryClozeTrainingPrompt({
+    targetLevel,
+    focusArea,
+    count: Math.min(count, 10),
+  });
+
+  const result = await callLLM([
+    { role: 'system', content: prompt },
+    { role: 'user', content: `Generate ${count} Summary Cloze exercises (focus: ${focusArea}) for DSE Level ${targetLevel} students. Return JSON.` },
+  ], { temperature: 0.4, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
+
+  const parsed = JSON.parse(result);
+  return NextResponse.json({
+    ...parsed,
+    tips: getSummaryClozeTips(),
+    trapWords: COMMON_CLOZE_TRAP_WORDS,
+  });
+}
+
+// ============================================
+// Action: paraphrase-training
+// ============================================
+async function handleParaphraseTraining(body: Record<string, unknown>) {
+  const {
+    targetLevel = 4,
+    focusArea = 'mixed',
+    count = 5,
+  } = body as {
+    targetLevel?: number;
+    focusArea?: 'synonym' | 'voice' | 'wordForm' | 'sentenceStructure' | 'clausePhrase' | 'mixed';
+    count?: number;
+  };
+
+  const prompt = buildParaphraseTrainingPrompt({
+    targetLevel,
+    focusArea,
+    count: Math.min(count, 10),
+  });
+
+  const result = await callLLM([
+    { role: 'system', content: prompt },
+    { role: 'user', content: `Generate ${count} Paraphrase exercises (focus: ${focusArea}) for DSE Level ${targetLevel} students. Return JSON.` },
+  ], { temperature: 0.4, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
+
+  const parsed = JSON.parse(result);
+  return NextResponse.json({
+    ...parsed,
+    tips: getParaphraseTips(),
+    patterns: PARAPHRASE_PATTERNS,
+  });
+}
+
+// ============================================
+// Action: idiom-training
+// ============================================
+async function handleIdiomTraining(body: Record<string, unknown>) {
+  const {
+    targetLevel = 4,
+    strategy = 'mixed',
+    count = 5,
+  } = body as {
+    targetLevel?: number;
+    strategy?: 'definition' | 'contrast' | 'example' | 'causeEffect' | 'tone' | 'mixed';
+    count?: number;
+  };
+
+  const prompt = buildIdiomTrainingPrompt({
+    targetLevel,
+    strategy,
+    count: Math.min(count, 10),
+  });
+
+  const result = await callLLM([
+    { role: 'system', content: prompt },
+    { role: 'user', content: `Generate ${count} Idiom inference exercises (strategy: ${strategy}) for DSE Level ${targetLevel} students. Return JSON.` },
+  ], { temperature: 0.4, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
+
+  const parsed = JSON.parse(result);
+  return NextResponse.json({
+    ...parsed,
+    tips: getIdiomTips(),
+    dseIdiomReference: getDSEidiomQuickReference(),
+    contextClueChecklist: getContextClueChecklist(),
+  });
+}
+
+// ============================================
+// Action: validate-paper — 質量驗證（不經 LLM）
+// ============================================
+async function handlePaperValidation(body: Record<string, unknown>) {
+  const { paper, part = 'A' } = body as { paper: DSEreadingPaper; part?: DSEpart };
+  const validatedPart: DSEpart = ['A', 'B1', 'B2'].includes(part as string) ? part as DSEpart : 'A';
+
+  if (!paper || !paper.passages) {
+    return NextResponse.json({ error: 'paper with passages array is required' }, { status: 400 });
+  }
+
+  const results = paper.passages.map(p => {
+    const pqCheck = validatePassageQuality(p, validatedPart);
+    const metrics = estimateReadability(p.content);
+    const readabilityLevel = mapReadabilityToHKEAALevel(metrics);
+    const hkCheck = checkHKLocalContent(p.content);
+
+    return {
+      textNumber: p.textNumber,
+      passageQuality: pqCheck,
+      readability: { ...metrics, estimatedHKEAALevel: readabilityLevel },
+      hkLocalContent: hkCheck,
+    };
+  });
+
+  const allQuestions = paper.passages.flatMap(p => p.questions);
+  const qqCheck = validateQuestionQuality(allQuestions, validatedPart);
+
+  return NextResponse.json({
+    part: validatedPart,
+    passageResults: results,
+    questionQuality: qqCheck,
+    overallPassed: results.every(r => r.passageQuality.passed) && qqCheck.passed,
+  });
+}
+
+// ============================================
+// Legacy: 單篇 passage 生成（向後兼容）
+// ============================================
+async function handleLegacyGeneration(body: Record<string, unknown>) {
+  const startTime = Date.now();
+  const { gradeLevel, topic, difficulty, questionCount } = body as {
+    gradeLevel?: string;
+    topic?: string;
+    difficulty?: string;
+    questionCount?: number;
+  };
+
+  const level = gradeLevel || 'S4';
+  const totalQ = Math.min(questionCount || 6, 10);
+
+  // DSE RAG
+  let dseContext = '';
+  try {
+    if (isDSERAGEnabled()) {
+      const [pastPapers, markingSchemes] = await Promise.all([
+        retrievePastPaperContent('Reading', topic || 'general interest', difficulty, level, 3),
+        retrieveMarkingScheme('Reading', 2),
+      ]);
+      dseContext = buildDSEContextPrompt(
+        pastPapers.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        markingSchemes.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
+        'generate_questions',
+      );
+    }
+  } catch (ragErr) {
+    logger.warn({ module: 'reading-api', error: (ragErr as Error).message }, 'DSE RAG retrieval failed');
+  }
+
+  const dseContextBlock = dseContext ? `\n\n=== DSE Real Past Paper Reference ===\n${dseContext}\n=== End DSE Reference ===\n` : '';
+
+  const systemPrompt = buildReadingSectionPrompt();
+
+  const result = await callLLM([
+    { role: 'system', content: systemPrompt + dseContextBlock },
+    { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
+  ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
+
+  const parsed = JSON.parse(result);
+
+  // Attach readability if passage content exists
+  if (parsed.readingContent || parsed.passage?.content) {
+    const content = parsed.readingContent || parsed.passage?.content;
+    const metrics = estimateReadability(content);
+    const readabilityLevel = mapReadabilityToHKEAALevel(metrics);
+    const hkCheck = checkHKLocalContent(content);
+    parsed._readability = { ...metrics, estimatedHKEAALevel: readabilityLevel };
+    parsed._hkLocal = hkCheck;
+  }
+
+  const elapsed = Date.now() - startTime;
+  logger.info({ module: 'reading-api', level, topic, elapsed, mode: 'legacy' }, 'Legacy passage generated');
+
+  return NextResponse.json({
+    ...parsed,
+    _metadata: { generationTimeMs: elapsed, mode: 'legacy-single-passage' },
+  });
+}
+
+// ============================================
+// Helper: Generate targeted recommendations
+// ============================================
+function generateRecommendations(
+  errorBreakdown: Record<string, number>,
+  typeBreakdown: Record<string, { correct: number; total: number }>,
+): string[] {
+  const recommendations: string[] = [];
+
+  // Error-type based recommendations
+  if (errorBreakdown['reference_error']) {
+    recommendations.push('🔍 代詞指涉題 (Reference) 較弱：建議練習「向前找1-2句的原則」，並將答案代入原句檢查。');
+  }
+  if (errorBreakdown['false_vs_ng_confusion']) {
+    recommendations.push('⚠️ T/F/NG 混淆 False 與 Not Given：False = 文章明確反對；NG = 文章完全沒有提及。請複習此區別。');
+  }
+  if (errorBreakdown['inference_error']) {
+    recommendations.push('🧠 推論題 (Inference) 需要加強：不要 over-infer，只推斷文中有 evidence 支持的內容。');
+  }
+  if (errorBreakdown['vocabulary_error']) {
+    recommendations.push('📖 詞彙題 (Vocabulary) 需改善：使用 context clues（前後2句）推斷詞義，不要只看字典意思。');
+  }
+  if (errorBreakdown['word_limit_exceeded']) {
+    recommendations.push('✂️ 注意字數限制：DSE 明確要求 "ONE word" 或 "no more than THREE words"，超出即失分。');
+  }
+
+  // Question-type based recommendations
+  for (const [type, stats] of Object.entries(typeBreakdown)) {
+    if (stats.total >= 2 && stats.correct / stats.total < 0.5) {
+      const typeName = type.replace(/([A-Z])/g, ' $1').trim();
+      recommendations.push(`📋 ${typeName} 題型正確率低於50%，建議針對此題型進行專項訓練。`);
+    }
+  }
+
+  return recommendations;
 }

@@ -2,21 +2,16 @@
 // All HKDSE grammar, question generation, mistake explanation, progress analysis prompts
 export const version = '1.1.0';
 export const description = 'HKDSE Grammar/Language prompts: question generation, mistake explanation, progress analysis, answer rules, JSON formatting';
-export const updatedAt = '2026-07-20';
+export const updatedAt = '2026-07-22';
 export const author = 'AI English Platform';
 
+import { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
+
 // ============================================
-// Hallucination Prevention (applies to ALL grammar prompts)
+// Hallucination Prevention — re-export centralized guard
 // ============================================
 
-export const GRAMMAR_HALLUCINATION_GUARD = `
-CRITICAL — ANTI-HALLUCINATION RULES:
-- Every answer must be derivable from the provided content
-- For question generation: all distractors must be plausible but unambiguously wrong
-- For mistake explanation: only report errors that exist in the student's text
-- Never fabricate student errors or grammar rules not applicable
-- JSON output only; no markdown wrapping
-`;
+export { HALLUCINATION_GUARD as GRAMMAR_HALLUCINATION_GUARD };
 
 // ============================================
 // Answer Rules (from answer-rules.ts)

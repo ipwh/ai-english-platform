@@ -40,7 +40,6 @@ graph TB
         CACHE[Caching<br/>TTL Map]
         COST[AI Cost<br/>tracking]
         PERF[Performance<br/>optimization]
-        SEC[Security<br/>sanitization]
         OBS[Observability<br/>metrics/tracing]
     end
 
@@ -94,7 +93,6 @@ graph LR
     CACHE[cache] -.-> AI
     COST[ai-cost] -.-> AI
     PERF[perf] -.-> DB
-    SEC[security] -.-> ROUTES
     OBS[observability] -.-> AI
 ```
 
@@ -145,7 +143,7 @@ sequenceDiagram
 | 12 | Caching | +14 | `cache/` |
 | 13 | AI Cost Optimization | +16 | `ai-cost/` |
 | 14 | Performance | +9 | `perf/` |
-| 15 | Security | +15 | `security/` |
+| 15 | Security (removed v4.2) | — | consolidated into api-auth + hallucination-guard |
 | 16 | Testing | +10 | 100% coverage |
 | 17 | Observability | +11 | `observability/` |
 | 31 | Student Mastery | +16 | `student-mastery/` |

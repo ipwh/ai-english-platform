@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     });
 
     const mockUserIds = mockUsers.map(u => u.id);
-    console.log(`[cleanup] Found ${mockUserIds.length} mock users: ${mockUsers.map(u => u.email).join(', ')}`);
+    logger.info({ module: 'cleanup-mock-data', mockUserIds, mockEmails: mockUsers.map(u => u.email) }, 'Found mock users for cleanup');
 
     if (mockUserIds.length === 0) {
       // 仍然清理可能殘留的關聯資料

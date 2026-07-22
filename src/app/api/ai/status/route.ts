@@ -1,12 +1,18 @@
 ﻿// ============================================
 // API Route: GET /api/ai/status
 // 檢查 AI 供應商連線狀態（DeepSeek / Vertex Gemini / Gemini API）
+// Admin-only: leaks provider chain configuration
 // ============================================
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAIProviders, isDeepSeekConfigured } from '@/modules/ai/services/ai-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await verifyApiAuth(request, ['admin']);
+  if (!auth.authenticated) {
+    return NextResponse.json({ error: 'Forbidden — admin access required' }, { status: 403 });
+  }
   const configured = isDeepSeekConfigured();
   const providers = getAIProviders();
   const provider = providers.deepseek

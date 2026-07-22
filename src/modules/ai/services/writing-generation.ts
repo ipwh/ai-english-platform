@@ -75,12 +75,21 @@ export async function generateWritingPrompt(input: GenerateWritingPromptInput): 
 
   const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner who has marked thousands of DSE scripts.
 
-Create ONE complete, self-contained writing prompt that mirrors the style, complexity, and expectations of the REAL HKDSE English Paper 2 Part B.
+Create ONE complete, self-contained writing prompt that mirrors the style, complexity, and expectations of the REAL HKDSE English Paper 2 Part B (2024 reform onwards).
+
+═══════════════════════════════════════
+2024 HKDSE REFORM — CRITICAL CHANGES
+═══════════════════════════════════════
+- Part B now has ONLY 4 questions (was 8 before 2024).
+- Questions are NO LONGER tied to the 8 Elective modules (Sports, Drama, Short Stories, etc.).
+- Topics are now LIFE-ORIENTED: closely related to HK students' daily lives, contemporary social issues, and real-world situations.
+- DO NOT use "Learning English Through [Elective]" format. DO NOT reference electives.
+- Topics should feel authentic, relatable, and grounded in HK youth experience.
 
 The prompt MUST include ALL of these elements in order:
-1. CONTEXT: A clear, realistic situation or background (1-2 sentences) that a Hong Kong secondary school student would relate to
-2. ROLE: Who the writer is (e.g. "You are the chairperson of the Student Council", "You are the editor of your school magazine")
-3. TASK: What to write, CLEARLY stating the required text type (e.g. "Write a letter to the editor...", "Write an article for your school magazine...")
+1. CONTEXT: A clear, realistic situation or background (1-2 sentences) that a Hong Kong secondary school student would relate to. Use contemporary HK social contexts (e.g., coffee shop culture, social media trends, pet-friendly spaces, gig economy, work-from-home, study pressure, environmental issues).
+2. ROLE: Who the writer is (e.g. "You are the chairperson of the Student Council", "You are a school reporter", "You are writing for your school magazine")
+3. TASK: What to write, CLEARLY stating the required text type (e.g. "Write a letter to the editor...", "Write an article for your school magazine...", "Write a blog entry...", "Write a proposal...")
 4. REQUIREMENTS: 3 specific content points or guiding questions that the student MUST address. These should be concrete and checkable.
 5. WORD LIMIT: "Write about ${input.wordLimit} words."
 
@@ -88,26 +97,39 @@ Text type: ${guide?.name || input.textType}${structureHint}
 Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school life, family, hobbies, personal experiences' : 'senior secondary — social issues, argumentative topics, DSE-level complexity'})
 
 ═══════════════════════════════════════
-DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE
+DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE (2024+ Reform)
 ═══════════════════════════════════════
-⚠️ CRITICAL: Strictly base the topic on real DSE Paper 2 themes from 2012-2024 past papers.
-Mimic actual DSE format: situation → role → task → specific requirements → word limit.
-DO NOT invent topics not found in real DSE exams.
+⚠️ CRITICAL: Strictly base the topic on real DSE Paper 2 themes from 2012-2025 past papers.
+Mimic actual DSE format (2024+): situation → role → task → specific requirements → word limit.
+DO NOT use Elective module names. Topics should be life-oriented and contemporary.
 
 Real DSE Paper 2 reference topics (use one as inspiration):
 ${getDSEEmpiricalTopics('writing', undefined, 5).map(t => `  • ${t}`).join('\n')}
-${input.topicHint ? `\nTopic area: ${input.topicHint}` : ''}
-For ${input.gradeLevel}${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? ' (junior), prefer topics related to school life, family, hobbies, personal experiences — avoid complex social/abstract topics' : ' (senior), prefer social issues, argumentative topics, abstract concepts at DSE complexity level'}.${weakSkillHint}
 
-DSE QUALITY STANDARDS:
+Post-2024 emerging topic areas (HIGH PRIORITY):
+  • Coffee shop / fast-food culture (people occupying seats for hours, tutoring in cafes)
+  • Social media fame and its impact on youth
+  • Pet-friendly policies and community attitudes
+  • Declining birth rates and aging population
+  • Workplace challenges (group work, monitoring, gig economy)
+  • Lifestyle changes (veganism, minimalism, FIRE movement)
+  • AI and technology in daily life
+  • Mental health and study pressure among HK students
+  • Environmental sustainability and green living
+  • Cultural identity and local traditions in Hong Kong
+${input.topicHint ? `\nTopic area: ${input.topicHint}` : ''}
+For ${input.gradeLevel}${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? ' (junior), prefer topics related to school life, family, hobbies, personal experiences — avoid complex social/abstract topics' : ' (senior), prefer contemporary social issues, argumentative topics, and real-world scenarios at DSE complexity level. Draw from HK-relevant themes: coffee shop culture, social media, pet-friendly policies, workplace dynamics, lifestyle choices, AI/tech, environmental issues.'}.${weakSkillHint}
+
+DSE QUALITY STANDARDS (2024+):
 - The prompt must be SPECIFIC and ACTIONABLE — not vague. Students should know exactly what to write.
 - Include 3 checkable requirements (not just "express your views")
-- The context must feel REAL and RELEVANT to HK students
+- The context must feel REAL and RELEVANT to HK students' lives in 2024-2026
 - The task must match the text type's genre conventions (e.g., a speech needs audience awareness; a proposal needs measurable objectives)
 - Use DSE-style phrasing: "Write a letter to...", "You are...", "In your [text type], you should..."
+- Topics should connect to contemporary HK social realities: coffee shop culture, social media, pet-friendly spaces, FIRE movement, vegan/eco lifestyle, workplace dynamics
 
-Example of a HIGH-QUALITY DSE prompt (from real DSE 2020):
-"You are the chairperson of your school's Environmental Protection Club. Your school has recently conducted a waste audit and found that 40% of campus waste comes from single-use plastics. Write a proposal to the school principal outlining a plan to make the campus plastic-free by the end of the academic year. In your proposal, you should (1) describe at least three concrete measures, (2) explain the expected benefits for the school community, and (3) address one potential challenge and how to overcome it. Write about 400 words."
+Example of a HIGH-QUALITY DSE prompt (2024+ reform style):
+"More and more people are spending extended periods in coffee shops and fast-food restaurants for activities such as tutoring sessions and remote work. This has sparked debate about the appropriate use of these spaces. Write a letter to the editor of the Hong Kong Daily expressing your opinion on this issue. In your letter, you should (1) describe the situation as you have observed it, (2) discuss both the positive and negative impacts on different stakeholders, and (3) suggest what coffee shop owners or the government could do to address the issue. Write about 400 words."
 
 CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a prompt:". Just the complete, ready-to-use prompt text.`.trim();
 
@@ -321,4 +343,79 @@ ${guide ? `必備元素：${guide.requiredElements.join(', ')}` : ''}
   }
 }
 
-// ============================================
+export interface GeneratePartAPromptInput {
+  userId?: string;
+  gradeLevel: string;
+  topicHint?: string;
+  lang?: 'zh' | 'en';
+  /** Part A 題型: email, application-form, promotional-leaflet, short-report, notice */
+  partAType?: 'email' | 'application-form' | 'promotional-leaflet' | 'short-report' | 'notice';
+  weakSkills?: string[];
+}
+
+/**
+ * ✍️ 生成 Part A 寫作題目（2024 新制兼容）
+ * Part A 題型已大幅擴展：email, application form, promotional leaflet, short report, notice
+ */
+export async function generatePartAPrompt(input: GeneratePartAPromptInput): Promise<string> {
+  const partAType = input.partAType || 'email';
+  const partATypeGuides: Record<string, string> = {
+    'email': 'An email/letter task: the student writes to a specific recipient (hotel manager, school principal, company). Must include: clear purpose in first sentence, specific details/complaints/requests, polite but firm tone, appropriate salutation and closing.',
+    'application-form': 'An application form task: the student fills in sections of a form. Sections typically include: Company/Organization Profile (introduction), Product/Service highlight, Promotional event or activity description. Each section is ~50-70 words. Must be concise and persuasive.',
+    'promotional-leaflet': 'A promotional leaflet task: the student creates a promotional leaflet for a club, event, or organization. Must include: organization background, a member\'s memorable experience or testimonial, upcoming activities. Use headings, bullet points, engaging tone.',
+    'short-report': 'A short report task (~200 words): the student writes a brief report with clear headings. Must include: purpose, key findings (2-3 points), brief recommendation. Objective tone, passive voice where appropriate.',
+    'notice': 'A notice/announcement task: the student writes a public notice for a school or community. Must include: title (NOTICE), date, target audience, clear message, call to action or instruction. Concise and direct.',
+  };
+
+  const partAExamples: Record<string, string> = {
+    'email': 'Example (2024 DSE Part A style): "After seeing the advertisement below, you booked a one-night stay at the Seaside Hotel. However, you were not happy with your stay because the room was very different from what was shown on the hotel\'s website. Write an email to the hotel manager. In your email, you should explain why you were disappointed and what you would like the manager to do."',
+    'application-form': 'Example (2023 DSE Part A style): "You are an employee for Nature Smart, a company selling eco-friendly goods. Your team wants to bid for a pop-up space in a shopping mall for 5 months. Complete the form: Company Profile, Bestseller, Promotional Events."',
+    'promotional-leaflet': 'Example (2025 DSE Part A style): "Create a promotional leaflet for the \'852 Teen Art Club\'. Include: your background, a club member\'s most memorable experience, your upcoming activities."',
+    'short-report': 'Example: "Your school recently conducted a survey on students\' reading habits. Write a short report for the school newsletter summarizing the key findings and making one recommendation."',
+    'notice': 'Example: "Your school is organizing a Charity Walk. Write a notice for the school bulletin board to invite students to participate. Include date, time, venue, and how to sign up."',
+  };
+
+  const systemPrompt = `You are an experienced HKDSE English Language Paper 2 examiner specializing in Part A (Guided Writing).
+
+Create ONE Part A writing task (~200 words target) that mirrors the REAL HKDSE English Paper 2 Part A format (2024 reform onwards).
+
+═══════════════════════════════════════
+PART A TASK TYPE: ${partAType.toUpperCase()}
+═══════════════════════════════════════
+
+Guide for this task type:
+${partATypeGuides[partAType] || partATypeGuides['email']}
+
+Reference example (REAL DSE style):
+${partAExamples[partAType] || partAExamples['email']}
+
+═══════════════════════════════════════
+DSE PART A REQUIREMENTS (STRICT)
+═══════════════════════════════════════
+
+1. WORD LIMIT: ~200 words. This is SHORT practical writing — concise and to the point.
+2. CONTEXT: A realistic situation a HK secondary student would relate to (school, community, consumer experience, part-time work).
+3. CLEAR INSTRUCTIONS: The student must know EXACTLY what to write. List 2-3 specific content points they MUST include.
+4. AUDIENCE/TONE: Clearly indicate who the recipient/audience is. The tone must match (formal for complaints, engaging for leaflets, etc.).
+5. AUTHENTIC DSE STYLE: Use wording similar to real HKDSE Part A prompts. "Write an email to...", "Complete the form...", "Create a leaflet..."
+
+For ${input.gradeLevel}${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? ' (junior), use simpler situations: school events, club activities, personal experiences.' : ' (senior), use DSE-level situations: consumer issues, workplace scenarios, community matters.'}
+${input.topicHint ? `Topic area: ${input.topicHint}` : ''}
+${input.weakSkills?.length ? `Target weak skills: ${input.weakSkills.join(', ')}.` : ''}
+
+CRITICAL: Output ONLY the writing task. No headings, no labels. Just the complete task, ready for a student to read and respond to.`.trim();
+
+  const userPrompt = `Create a DSE Paper 2 Part A ${partAType} writing task. Grade: ${input.gradeLevel}.${input.topicHint ? ` Topic: ${input.topicHint}.` : ''}`;
+
+  const result = await callLLM(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000, userId: input.userId }
+  );
+
+  const prompt = result.trim();
+  logger.info({ module: 'writing-generation', partAType }, 'Part A prompt generated');
+  return prompt;
+}

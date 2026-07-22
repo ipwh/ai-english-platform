@@ -42,19 +42,9 @@ describe('Architecture Rule: Facade Usage', () => {
     expect(subDomains).toHaveLength(5);
   });
 
-  it('TeacherFacade exports all 3 sub-domains', () => {
-    const subDomains = ['copilot', 'analytics', 'dashboard'];
-    expect(subDomains).toHaveLength(3);
-  });
-
   it('AIFacade exports providers sub-domain', () => {
     // ProviderRegistry is the single entry point (Rule #8)
     expect(true).toBe(true);
-  });
-
-  it('PlatformFacade exports 6 sub-domains', () => {
-    const subDomains = ['cache', 'reliability', 'features', 'health', 'experiment', 'notification'];
-    expect(subDomains).toHaveLength(6);
   });
 });
 
@@ -86,11 +76,6 @@ describe('Architecture Rule: Repository Isolation', () => {
 describe('Architecture Rule: Service Isolation', () => {
   it('Learning domain services should not call AI providers directly', () => {
     // Rule #8: AI providers independent from learning logic
-    expect(true).toBe(true);
-  });
-
-  it('Teacher services reuse Learning services (Rule #6)', () => {
-    // TeacherFacade delegates to LearningFacade for recommendations
     expect(true).toBe(true);
   });
 
@@ -171,20 +156,17 @@ describe('Architecture Rule: No Duplicate Logic', () => {
 });
 
 // ============================================
-// Facade Structure Validation
+// Facade Structure Validation (v4.2 — cleaned orphan facades)
 // ============================================
 
 describe('Facade Structure', () => {
-  it('All 5 domain facade files exist', () => {
-    // Verify the facade index files exist at expected paths
+  it('All 3 core domain facade files exist', () => {
     const facadePaths = [
       'src/modules/student/index.ts',
       'src/modules/learning/index.ts',
-      'src/modules/teacher/index.ts',
       'src/modules/ai/index.ts',
-      'src/modules/platform/index.ts',
     ];
-    expect(facadePaths).toHaveLength(5);
+    expect(facadePaths).toHaveLength(3);
   });
 
   it('StudentFacade sub-domains are correctly named', () => {
@@ -200,21 +182,9 @@ describe('Facade Structure', () => {
     expect(expected).toContain('knowledgeGraph');
   });
 
-  it('TeacherFacade sub-domains are correctly named', () => {
-    const expected = ['copilot', 'analytics', 'dashboard'];
-    expect(expected).toHaveLength(3);
-    expect(expected).toContain('copilot');
-  });
-
   it('AIFacade sub-domains include providers', () => {
     const expected = ['providers', 'generation', 'analysis', 'rag', 'tts', 'cache', 'cost', 'evaluation', 'experiment'];
     expect(expected).toHaveLength(9);
     expect(expected).toContain('providers');
-  });
-
-  it('PlatformFacade sub-domains are correctly named', () => {
-    const expected = ['cache', 'reliability', 'features', 'health', 'experiment', 'notification'];
-    expect(expected).toHaveLength(6);
-    expect(expected).toContain('reliability');
   });
 });

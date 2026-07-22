@@ -4,6 +4,52 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-22 (night) — Ultimate Production Readiness + DSE Paper 2 Overhaul ★★★★★
+
+### 📝 DSE Paper 2 Writing — Full 2024 Reform Alignment
+- **5 new text types** added to `dse-writing-data.ts`: `blog-entry`, `promotional-leaflet`, `feature-article`, `diary-entry`, `letter-to-editor` (now 12 total, up from 7)
+- **Part A generation** (`generatePartAPrompt`): Supports 5 Part A types (email, application-form, promotional-leaflet, short-report, notice) with real DSE examples
+- **Part B prompts updated**: Removed all Elective module references (pre-2024); added 10 post-2024 HK-relevant topic areas
+- **New module `hk-social-contexts.ts`**: 7 categories × 14 sub-topics of HK-specific social contexts for AI prompt enrichment
+
+### 🤖 AI Quality
+- **Hallucination guard unified**: `writing/v1.ts` + `grammar/v1.ts` now import centralized 10-rule `HALLUCINATION_GUARD` (was 3 different weaker versions)
+- **New module `question-analysis.ts`**: Auto-analyzes DSE question keywords, hidden requirements, audience, tone, common pitfalls — addresses #1 DSE error ("審題不清")
+- **CLO Part A rubric**: `buildPartACLOPrompt()` specifically for Part A's unique scoring (format > creativity)
+- **Difficulty tier system**: 4-level DSE difficulty (foundation/intermediate/advanced/elite) with `recommendDifficulty()`
+
+### 🔒 Security Hardening
+- **6 endpoints patched**: `api/ai/status`, `api/reviews/[id]`, `api/knowledge-graph/.../prerequisites`, `api/knowledge-graph/.../dependents`, `api/admin/import/template/students`, `api/admin/import/template/teachers`
+- **Hardcoded secrets removed**: `edge-config.ts` dev-secret fallback deleted; `ensure-admin` email → `process.env.ADMIN_EMAIL`
+- **Reviews role check**: Added teacher/admin gate to `api/reviews/[id]` (was any authenticated student)
+
+### 🧹 Codebase Cleanup
+- **4 orphan modules deleted**: `security/`, `platform/`, `teacher/` (facade), `feedback/` — zero production consumers
+- **39 `console.log` → `logger.info()`**: All API-route logging now structured; 0 unguarded console.log in production
+- **9 `as any` casts removed**: Replaced with proper typed casts in `teacher/assignments/new`, `teacher/dashboard`
+- **Dead export removed**: `ExerciseRepo` from `repositories.ts` (never imported)
+
+### 📐 Format Validation System
+- **6 rule-based validators**: `validateLetterFormat`, `validateSpeechFormat`, `validateProposalFormat`, `validateArticleFormat`, `validateReportFormat`, `validateFormat` (dispatcher)
+- **PEEL detection**: `analyzePEEL()` checks Point/Explain/Example/Link per paragraph
+- **Connector analysis**: `analyzeConnectors()` — 6 categories, diversity scoring, overuse detection
+- **Show Don't Tell**: 8 emotion examples + `suggestShowDontTell()` auto-detection
+- **Time management**: `DSE_TIME_MANAGEMENT` constants + `generateTimePlan()` + `estimateWritingTime()`
+
+### 📚 Documentation
+- `docs/PAPER2_IMPROVEMENT_ANALYSIS.md`: Comprehensive HKDSE Paper 2 analysis (10 sources)
+- `docs/PRODUCTION_READINESS_AUDIT_2026-07-22.md`: Full security + code quality + AI quality audit
+
+### 📦 Types + Exports
+- **10 new types** in `writing-coach/types.ts`: FormatValidationResult, LetterFormatValidation, SpeechFormatValidation, ProposalFormatValidation, ArticleFormatValidation, ReportFormatValidation, PEELValidationResult, ConnectorAnalysis, TimePlan
+- **Prompts barrel updated**: `buildPartACLOPrompt`, `buildQuestionAnalysisPrompt`, `DSE_DIFFICULTY_LEVELS`, `recommendDifficulty` now exported
+- **hkdse-enhanced.ts**: 17 text types (was 12), 18 common topics (was 10) with 8 post-2024 entries
+
+### 📁 Files Changed (25+ total)
+- 8 new files created, 4 orphan modules deleted, 10 API routes patched, 3 prompt files updated, 2 new service modules
+
+---
+
 ## 2026-07-22 (evening) — Security Hardening & Platform Quality Fixes
 
 ### 🔒 Security — Auth Added to 7 Previously Unprotected Routes

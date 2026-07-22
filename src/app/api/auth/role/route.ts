@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 
 async function updateUserRole(userId: string, role: string) {
   await db.user.update({
@@ -86,33 +87,27 @@ export async function POST(request: NextRequest) {
   // === Fallback: NextAuth session（Google OAuth 登入） ===
   if (!userId) {
     const session = await auth();
-    console.log('[role-select:POST]', {
-      hasSession: !!session?.user?.id,
-      userId: session?.user?.id ?? null,
-      timestamp: new Date().toISOString(),
-      url: request.url,
-      cookieNames: request.cookies.getAll().map(c => c.name),
-    });
+    logger.info({ module: 'role-select' }, 'POST role-select session check');
 
     if (!session?.user?.id) {
-      console.log('[role-select:POST] no session → redirect /login');
+      logger.warn({ module: 'role-select' }, 'No session, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url), 303);
     }
     userId = session.user.id;
   }
 
   if (!userId) {
-    console.log('[role-select:POST] no userId → redirect /login');
+    logger.warn({ module: 'role-select' }, 'No userId, redirecting to login');
     return NextResponse.redirect(new URL('/login', request.url), 303);
   }
 
   const formData = await request.formData();
   const role = formData.get('role');
 
-  console.log('[role-select:POST]', { role, userId });
+  logger.info({ module: 'role-select', role, userId }, 'Role selected');
 
   if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
-    console.log('[role-select:POST] invalid role → redirect /role-select');
+    logger.warn({ module: 'role-select', role }, 'Invalid role, redirecting');
     return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
   }
 
@@ -122,7 +117,7 @@ export async function POST(request: NextRequest) {
 
   const response = createRoleResponse(request, role);
 
-  console.log('[role-select:POST] redirect →', response.headers.get('location'));
+  logger.info({ module: 'role-select', redirectTo: response.headers.get('location') }, 'Role redirect');
 
   return response;
 }

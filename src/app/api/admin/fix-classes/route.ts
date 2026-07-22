@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       // 無 body 時使用預設值
     }
 
-    console.log(`[fix-classes] forceRedistribute=${forceRedistribute}, targetLevels=${targetLevels.join(',') || 'all'}`);
+    logger.info({ module: 'fix-classes', forceRedistribute, targetLevels: targetLevels.join(',') || 'all' }, 'Starting fix-classes');
 
     // Step 1: Ensure standard classes exist
     const existingClasses = await db.class.findMany();
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         data: { classId: null },
       });
       clearedCount = cleared.count;
-      console.log(`[fix-classes] forceRedistribute: cleared ${clearedCount} students' class assignments`);
+      logger.info({ module: 'fix-classes', clearedCount }, 'Cleared student class assignments');
     }
 
     // Reload classes

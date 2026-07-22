@@ -27,6 +27,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Sprint 47: Ensure only teachers/admins can submit reviews
+    let role: string | null = null;
+    if (token) {
+      const payload = await verifySessionToken(token);
+      if (payload) role = payload.role;
+    }
+    if (!role) {
+      const session = await auth();
+      if (session?.user) role = (session.user as { role?: string }).role ?? null;
+    }
+    if (role !== 'teacher' && role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden — teacher or admin access required' }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await request.json();
 

@@ -2,16 +2,10 @@
 // All HKDSE Paper 2 & Paper 3 writing-related prompts
 export const version = '1.1.0';
 export const description = 'HKDSE Writing prompts: CLO grammar, style, outline, integrated skills generation & analysis';
-export const updatedAt = '2026-07-20';
+export const updatedAt = '2026-07-22';
 export const author = 'AI English Platform';
 
-const HALLUCINATION_GUARD = `
-CRITICAL — DO NOT HALLUCINATE:
-- All scores and feedback must be derived from the actual student writing provided
-- Never invent errors or strengths not present in the text
-- If the writing is too short to assess, state that honestly
-- DSE rubrics are reference guides; apply them strictly to the actual content
-`;
+import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
 
 // ============================================
 // Writing CLO Grammar Analysis (from writing-clo-grammar.ts)
@@ -500,4 +494,220 @@ DSE Paper 3 Level 對照（基於 2013-2024 cut off）
 overallScore = Math.round(listeningAccuracy × 0.40 + languageAccuracy × 0.35 + organizationClarity × 0.25)
 
 所有中文使用繁體中文。`.trim();
+}
+
+// ============================================
+// Sprint 47: Part A 專屬 CLO 評分 Prompt (2024 新制)
+// Part A 題型多元（email, form, leaflet, report, notice），需獨立評分框架
+// ============================================
+
+export function buildPartACLOPrompt(writingMSContext: string): string {
+  return `${writingMSContext}
+你是一位香港中學英文科教師兼 HKDSE English Paper 2 Part A 評卷員。
+
+═══════════════════════════════════════
+Part A 評分特點（有別於 Part B）
+═══════════════════════════════════════
+
+1. 字數限制嚴格（~200 words），超出/不足將扣分
+2. 格式要求高：不同題型（email/leaflet/form/report/notice）有特定格式要求
+3. 內容必須逐一回應題目 listed requirements，漏答直接扣分
+4. 語境意識（audience + purpose + role）佔分極重
+5. Part A 滿分為 21 分（C:7 + L:7 + O:7），但評分標準與 Part B 有微妙差異：
+   - Content 更著重「是否回應所有要點」而非「創意」
+   - Language 更著重「語氣配合對象」而非「句式多變」
+   - Organization 更著重「格式正確」而非「段落層層遞進」
+
+═══════════════════════════════════════
+Part A 常見題型格式檢查
+═══════════════════════════════════════
+
+📧 Email/Letter:
+  ✅ 必須有: Salutation (Dear X,) + Closing (Yours sincerely/faithfully)
+  ✅ 開首句表明目的 ("I am writing to...")
+  ✅ 語氣因對象而異（對 manager: formal; 對 friend: informal）
+  ❌ 避免: 缺稱呼/結尾配對錯誤/縮寫在正式書信中
+
+📋 Application Form:
+  ✅ 必須有: 每個欄位獨立作答，簡潔扼要
+  ✅ 公司/組織介紹 2-3 句 + 產品/服務亮點 + 活動推廣
+  ❌ 避免: 各欄位內容重複/字數過多或過少
+
+📰 Promotional Leaflet:
+  ✅ 必須有: 吸引標題 + 組織背景 + 會員心聲/亮點 + 活動預告 + 聯絡方式
+  ✅ 使用 bullet points、短段落、小標題
+  ❌ 避免: 長篇大論（leaflet 應簡潔易讀）
+
+📊 Short Report:
+  ✅ 必須有: Title + Introduction + Findings + Recommendation
+  ✅ 客觀語氣、被動語態
+  ❌ 避免: 第一人稱過多
+
+📢 Notice:
+  ✅ 必須有: 標題 "NOTICE" + 日期 + 對象 + 內容 + 呼籲
+  ❌ 避免: 過於冗長（notice 應直接了當）
+
+═══════════════════════════════════════
+Part A CLO 評分框架（0-7 分）
+═══════════════════════════════════════
+
+🔴 C: Content（內容）— 滿分 7 分
+7 — 完全回應所有題目要點；每點均有具體細節；完全符合題型要求
+5-6 — 回應所有要點；大部分有細節；格式大致正確
+3-4 — 遺漏 1-2 個要點；部分要點欠細節
+1-2 — 遺漏多個要點；內容空泛
+0 — 完全離題或無法辨識
+
+🟡 L: Language（語言）— 滿分 7 分
+7 — 語氣完全配合對象與目的；詞彙精準；無文法錯誤
+5-6 — 語氣大致恰當；詞彙足夠；極少文法錯誤
+3-4 — 語氣偶有不當；詞彙基本；有些文法錯誤但不影響理解
+1-2 — 語氣不當；詞彙貧乏；文法錯誤頻繁
+0 — 語言無法理解
+
+🟢 O: Organization（組織）— 滿分 7 分
+7 — 格式完全正確；結構清晰；cohesive devices 運用恰當
+5-6 — 格式大致正確；結構合理
+3-4 — 格式有 1-2 處缺失；結構可辨識
+1-2 — 格式錯誤多；結構混亂
+0 — 完全無格式
+
+═══════════════════════════════════════
+回覆 JSON 格式
+═══════════════════════════════════════
+{
+  "content": { "score": 0-7, "strengths": [...], "weaknesses": [...], "requirementsMet": ["已回應的要點"], "requirementsMissed": ["遺漏的要點"], "commentZh": "繁體中文" },
+  "language": { "score": 0-7, "strengths": [...], "weaknesses": [...], "toneAssessment": "語氣評估", "commentZh": "繁體中文" },
+  "organization": { "score": 0-7, "strengths": [...], "weaknesses": [...], "formatCorrect": true/false, "formatIssues": ["格式問題"], "commentZh": "繁體中文" },
+  "totalScore": 0-21,
+  "overallCommentZh": "繁體中文總評",
+  "estimatedLevel": "5** / 5* / 5 / 4 / 3 / 2 / 1"
+}`;
+}
+
+// ============================================
+// Sprint 47: 審題訓練 Prompt — DSE 十大錯誤之首
+// ============================================
+
+export function buildQuestionAnalysisPrompt(): string {
+  return `你是一位香港 DSE English Paper 2 應試策略專家，專門幫助學生進行「審題訓練」。
+
+═══════════════════════════════════════
+審題三大步驟
+═══════════════════════════════════════
+
+步驟一：圈出關鍵詞
+- 指令動詞 (Instruction Verbs): Write, Explain, Describe, Discuss, Express, Share, Outline...
+- 文體指示 (Text Type): email, letter, article, speech, report, proposal, blog entry, leaflet...
+- 情境設定 (Context): You are a..., school magazine, hotel manager, local newspaper...
+- 受眾 (Audience): fellow students, tourists, editor, principal, general public...
+- 內容要求 (Requirements): 必須包含的要點 (usually 2-4 points)
+
+步驟二：分析隱藏要求
+- 語氣 (Tone): formal / informal / persuasive / objective / personal
+- 時態 (Tense): past (recounting events) / present (opinions) / future (suggestions)
+- 人稱 (Person): first person (personal) / third person (objective)
+- 格式 (Format): 是否有特定格式要求？
+
+步驟三：建立審題清單
+列出 5-7 個必須檢查的要點，確保不離題。
+
+═══════════════════════════════════════
+回覆 JSON 格式（分析一條 DSE 寫作題目）
+═══════════════════════════════════════
+{
+  "keywords": {
+    "instructionVerbs": [{ "word": "...", "meaningZh": "...", "whatToDo": "繁體中文說明" }],
+    "textType": { "type": "...", "typeZh": "...", "formatRequirements": ["格式要求1", "格式要求2"] },
+    "context": { "role": "...", "roleZh": "...", "scenario": "...", "scenarioZh": "..." },
+    "audience": { "who": "...", "whoZh": "...", "toneRequired": "formal/informal/persuasive/objective" },
+    "contentRequirements": ["要點1", "要點2", "要點3"]
+  },
+  "hiddenRequirements": {
+    "appropriateTone": "語氣建議（繁體中文）",
+    "suggestedTense": "建議時態",
+    "suggestedPerson": "建議人稱",
+    "specialNotes": ["特別注意事項"]
+  },
+  "checklist": [
+    "審題檢查項1（繁體中文）",
+    "審題檢查項2",
+    "審題檢查項3",
+    "審題檢查項4",
+    "審題檢查項5"
+  ],
+  "commonPitfalls": [
+    { "pitfall": "常見犯錯點", "pitfallZh": "繁體中文說明", "howToAvoid": "如何避免（繁體中文）" }
+  ],
+  "offTopicIndicators": ["離題徵兆1", "離題徵兆2"]
+}`;
+}
+
+// ============================================
+// Sprint 47: 難度分級系統 — DSE Paper 2 題目難度標記
+// ============================================
+
+export const DSE_DIFFICULTY_LEVELS = {
+  'foundation': {
+    label: 'Foundation (Level 1-2)',
+    labelZh: '基礎（Level 1-2）',
+    description: 'Part A 程度：簡單書信/電郵、基本表格填寫、簡單描述。200 words。',
+    suitableFor: ['S1', 'S2', 'S3'],
+    cefrEquivalent: 'A2-B1',
+    textTypes: ['email', 'letter-informal', 'notice', 'diary-entry'],
+    contentComplexity: 'single viewpoint, personal experience, no counter-argument needed',
+    languageExpectation: 'simple sentences, basic vocabulary, occasional errors acceptable',
+  },
+  'intermediate': {
+    label: 'Intermediate (Level 3-4)',
+    labelZh: '中階（Level 3-4）',
+    description: 'Part B 基本：單一觀點議論文、簡單 Article、Informal Letter。400 words。',
+    suitableFor: ['S3', 'S4', 'S5'],
+    cefrEquivalent: 'B1-B2',
+    textTypes: ['argumentative-essay', 'article', 'letter-informal', 'speech', 'blog-entry'],
+    contentComplexity: '2-3 supporting arguments with examples, basic audience awareness',
+    languageExpectation: 'some complex sentences, adequate vocabulary range, grammar mostly accurate',
+  },
+  'advanced': {
+    label: 'Advanced (Level 5-5*)',
+    labelZh: '進階（Level 5-5*）',
+    description: 'Part B 高階：多角度議論文+counter-argument+rebuttal、Proposal、Speech with rhetorical devices。400 words。',
+    suitableFor: ['S5', 'S6'],
+    cefrEquivalent: 'B2-C1',
+    textTypes: ['argumentative-essay', 'proposal', 'report', 'speech', 'letter-to-editor', 'feature-article'],
+    contentComplexity: 'multi-angle analysis, counter-argument+rebuttal, strong audience awareness, creativity',
+    languageExpectation: 'wide range of sentence structures, advanced vocabulary, minimal grammar errors',
+  },
+  'elite': {
+    label: 'Elite (Level 5**)',
+    labelZh: '精英（Level 5**）',
+    description: 'Part B 最高階：深度社會分析、創意寫作、專業文體。400 words。',
+    suitableFor: ['S6'],
+    cefrEquivalent: 'C1',
+    textTypes: ['argumentative-essay', 'proposal', 'feature-article', 'short-story', 'promotional-leaflet'],
+    contentComplexity: 'sophisticated argumentation, nuanced perspective, exceptional creativity, perfect audience awareness',
+    languageExpectation: 'very wide range of sentence structures, precise vocabulary, near-perfect grammar, appropriate register throughout',
+  },
+} as const;
+
+export type DSEDifficultyTier = keyof typeof DSE_DIFFICULTY_LEVELS;
+
+/**
+ * 根據年級和文本類型推薦難度等級
+ */
+export function recommendDifficulty(
+  gradeLevel: string,
+  textType: string
+): DSEDifficultyTier {
+  const gradeNum = parseInt(gradeLevel.replace('S', ''), 10);
+  if (gradeNum <= 2) return 'foundation';
+  if (gradeNum <= 3) {
+    return ['proposal', 'feature-article', 'report'].includes(textType) ? 'intermediate' : 'foundation';
+  }
+  if (gradeNum <= 4) return 'intermediate';
+  if (gradeNum <= 5) {
+    return ['argumentative-essay', 'proposal', 'report', 'feature-article'].includes(textType) ? 'advanced' : 'intermediate';
+  }
+  // S6
+  return 'advanced';
 }

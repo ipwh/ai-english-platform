@@ -27,7 +27,7 @@ export async function POST(_request?: NextRequest) {
   }
 
   try {
-    const adminEmail = 'ipwh@pochiu.edu.hk';
+    const adminEmail = process.env.ADMIN_EMAIL || 'ipwh@pochiu.edu.hk';
 
     const existing = await db.user.findUnique({
       where: { email: adminEmail },

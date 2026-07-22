@@ -14,12 +14,14 @@ export const edgeIsProduction = process.env.NODE_ENV === 'production' || !!proce
 // ============================================
 export function getEdgeAuthSecret(): string {
   const secret = process.env.AUTH_SECRET;
-  if (!secret && edgeIsProduction) {
+  if (!secret) {
     throw new Error(
-      '[edge-config] 生產環境必須設定 AUTH_SECRET 環境變數。'
+      '[edge-config] AUTH_SECRET 環境變數未設定。\n' +
+      '請在 .env.local 設定至少 32 字元的隨機字串。' +
+      (edgeIsProduction ? '\n生產環境嚴禁使用預設值。' : '')
     );
   }
-  return secret || 'dev-secret-change-me-in-production';
+  return secret;
 }
 
 export function getEdgeJWTSecret(): Uint8Array {

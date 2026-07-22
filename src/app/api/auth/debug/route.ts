@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { db } from '@/shared/db/db';
+import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {
   // 🔒 Production guard — never expose session data in production
@@ -39,11 +40,7 @@ export async function GET(request: NextRequest) {
     cookies: cookieMap,
   });
 
-  console.log('[debug]', {
-    hasSession: !!session?.user?.id,
-    sessionRole: session?.user?.role ?? null,
-    dbRole,
-  });
+  logger.info({ module: 'auth-debug', hasSession: !!session?.user?.id, sessionRole: session?.user?.role ?? null, dbRole }, 'Debug session info');
 
   return response;
 }

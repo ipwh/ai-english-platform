@@ -257,3 +257,125 @@ export interface EssayVersion {
   score: number;
   changes: string;
 }
+
+// ============================================
+// Sprint 47: Rule-based Format Validation Types
+// 程式化格式檢查，補足 AI 評分的盲點
+// ============================================
+
+export interface FormatValidationResult {
+  textType: string;
+  textTypeZh: string;
+  overallValid: boolean;
+  score: number; // 0-100, percentage of format elements correctly present
+  checks: FormatCheck[];
+  issues: FormatIssue[];
+  summary: string;
+  summaryZh: string;
+}
+
+export interface FormatCheck {
+  element: string;
+  elementZh: string;
+  description: string;
+  passed: boolean;
+  found: boolean;
+  details?: string;
+}
+
+export interface FormatIssue {
+  element: string;
+  elementZh: string;
+  severity: 'critical' | 'major' | 'minor';
+  problem: string;
+  problemZh: string;
+  fix: string;
+  fixZh: string;
+}
+
+/** Letter-specific format validation */
+export interface LetterFormatValidation extends FormatValidationResult {
+  hasSenderAddress: boolean;
+  hasDate: boolean;
+  hasRecipientAddress: boolean;
+  hasSalutation: boolean;
+  salutationType: 'named' | 'unnamed' | 'unknown';
+  closingType: 'sincerely' | 'faithfully' | 'other' | 'missing';
+  salutationClosingMatch: boolean;
+  usesContractions: boolean;
+  contractionCount: number;
+}
+
+/** Speech-specific format validation */
+export interface SpeechFormatValidation extends FormatValidationResult {
+  hasGreeting: boolean;
+  greetingIncludesAudience: boolean;
+  greetingOrderCorrect: boolean; // guests → principal → teachers → students
+  hasSelfIntroduction: boolean;
+  hasCallToAction: boolean;
+  hasThankYou: boolean;
+  audienceEngagementCount: number; // rhetorical questions, "you", "we"
+}
+
+/** Proposal-specific format validation */
+export interface ProposalFormatValidation extends FormatValidationResult {
+  hasTitle: boolean;
+  hasSubHeadings: boolean;
+  subHeadingCount: number;
+  hasObjectives: boolean;
+  hasTimeline: boolean;
+  hasBudget: boolean;
+  hasExpectedOutcomes: boolean;
+  hasConclusion: boolean;
+}
+
+/** Article-specific format validation */
+export interface ArticleFormatValidation extends FormatValidationResult {
+  hasHeadline: boolean;
+  headlineIsCatchy: boolean;
+  hasByline: boolean;
+  hasLeadParagraph: boolean;
+  averageParagraphLength: number;
+  paragraphLengthGood: boolean; // paragraphs not too long
+}
+
+/** Report-specific format validation */
+export interface ReportFormatValidation extends FormatValidationResult {
+  hasTitle: boolean;
+  hasSubHeadings: boolean;
+  hasIntroduction: boolean;
+  hasFindings: boolean;
+  hasRecommendations: boolean;
+  usesObjectiveTone: boolean;
+  firstPersonCount: number;
+}
+
+/** PEEL structure detection result */
+export interface PEELValidationResult {
+  paragraphIndex: number;
+  hasPoint: boolean;
+  hasExplain: boolean;
+  hasExample: boolean;
+  hasLink: boolean;
+  peelScore: number; // 0-4
+  analysis: string;
+  analysisZh: string;
+}
+
+/** Connector diversity analysis */
+export interface ConnectorAnalysis {
+  totalConnectors: number;
+  uniqueConnectors: number;
+  diversityScore: number; // 0-100
+  categories: {
+    addition: string[];      // Furthermore, Moreover, In addition
+    contrast: string[];      // However, Nevertheless, In contrast
+    cause: string[];         // Therefore, Consequently, As a result
+    example: string[];       // For instance, To illustrate
+    conclusion: string[];    // In conclusion, To sum up
+    concession: string[];    // Admittedly, Granted, Although
+  };
+  overusedConnectors: string[];
+  suggestions: string[];
+  suggestionsZh: string[];
+}

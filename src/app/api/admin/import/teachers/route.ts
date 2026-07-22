@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       }
 
       await Promise.allSettled(batchOps);
-      console.log(`[import/teachers] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(validRows.length / BATCH_SIZE)} done`);
+      logger.info({ module: 'import-teachers', batch: Math.floor(i / BATCH_SIZE) + 1, totalBatches: Math.ceil(validRows.length / BATCH_SIZE) }, 'Import batch complete');
     }
 
     return NextResponse.json(result);

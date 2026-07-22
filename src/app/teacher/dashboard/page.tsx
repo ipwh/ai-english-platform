@@ -64,7 +64,7 @@ export default function TeacherDashboardPage() {
     : 0;
   // 計算真實的平均完成率（從班級數據中獲取）
   const avgCompletionRate = classes.length > 0
-    ? Math.round(classes.reduce((sum, c) => sum + ((c as any).completionRate || 0), 0) / classes.length)
+    ? Math.round(classes.reduce((sum, c) => sum + ((c as { completionRate?: number }).completionRate || 0), 0) / classes.length)
     : 0;
   const kpis = [
     { label: t('teacher.classCount'), value: classes.length, unit: t('generic.classes'), trend: 'stable' as const },

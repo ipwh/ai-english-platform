@@ -120,7 +120,7 @@ export default function NewAssignmentPage() {
             prompt: q.prompt,
             options: q.choices ? JSON.stringify(q.choices) : null,
             answer: q.answer,
-            explanation: (q as any).readingContent || (q as any).listeningContent || null,
+            explanation: (q as { readingContent?: string; listeningContent?: string }).readingContent || (q as { readingContent?: string; listeningContent?: string }).listeningContent || null,
             orderIndex: i,
           })),
         }),
@@ -268,11 +268,13 @@ export default function NewAssignmentPage() {
       {/* ====== 預覽 Modal ====== */}
       <Modal open={step === 'preview'} onClose={() => setStep('config')} title={t('teacher.assignmentNew.preview', { n: generatedQuestions.length })} size="lg">
         <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
-          {generatedQuestions.map((q, i) => (
+          {generatedQuestions.map((q, i) => {
+            const readingContent = (q as { readingContent?: string }).readingContent;
+            return (
             <div key={i} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
-              {(q as any).readingContent && (
+              {readingContent && (
                 <div className="mb-2 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded text-xs text-indigo-700 dark:text-indigo-300">
-                  📖 {(q as any).readingContent.slice(0, 150)}{(q as any).readingContent.length > 150 ? '...' : ''}
+                  📖 {readingContent.slice(0, 150)}{readingContent.length > 150 ? '...' : ''}
                 </div>
               )}
               <p className="font-medium text-gray-900 dark:text-white">{i + 1}. {q.prompt}</p>

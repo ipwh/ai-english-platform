@@ -8,6 +8,7 @@ import {
   READING_TOPICS_V2,
 } from './dse-topics';
 import type { TopicCategory, TopicEntry } from './dse-topics';
+import { logger } from '@/shared/logger/logger';
 
 const topicBlacklist: Map<string, Set<string>> = new Map(); // sessionKey → Set<topic text>
 const recentTopicsByCategory: Map<string, string[]> = new Map(); // category → [recent topics]
@@ -23,7 +24,7 @@ function cleanupBlacklistIfNeeded(): void {
       topicBlacklist.delete(key);
       recentTopicsByCategory.delete(key);
     }
-    console.log('[DSE Topics] Blacklist cleanup: removed', keys.length, 'old sessions');
+    logger.info({ module: 'topic-selector', removedSessions: keys.length }, 'Blacklist cleanup');
   }
 }
 
