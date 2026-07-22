@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { logger } from '@/shared/logger/logger';
 
 const STANDARD_CLASSES = [
   { name: '1A', gradeLevel: 'S1' }, { name: '1B', gradeLevel: 'S1' },
