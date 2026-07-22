@@ -1,11 +1,16 @@
 // Sprint 34: GET /api/knowledge-graph/node/[id]
 import { NextRequest, NextResponse } from 'next/server';
 import { knowledgeGraphService } from '@/modules/knowledge-graph/services/knowledge-graph-service';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const node = knowledgeGraphService.getNode(id);

@@ -8,18 +8,29 @@ import { db } from '@/shared/db/db';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const { studentId, type, count, wordIds } = body;
 
-    if (!studentId) {
+    // 驗證 studentId 與已登入用戶一致（防止存取他人資料）
+    if (studentId && authResult.userId && studentId !== authResult.userId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+      return NextResponse.json({ error: '無權限存取此學生的資料' }, { status: 403 });
+    }
+    const effectiveStudentId = studentId || authResult.userId;
+
+    if (!effectiveStudentId) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
     }
 
     // 取得學生生字（優先取低掌握度的，或依照指定 wordIds）
-    const whereClause: Record<string, unknown> = { studentId };
+    const whereClause: Record<string, unknown> = { studentId: effectiveStudentId };
     if (wordIds && Array.isArray(wordIds) && wordIds.length > 0) {
       whereClause.id = { in: wordIds };
     }

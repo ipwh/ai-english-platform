@@ -4,6 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -46,6 +48,10 @@ function extractFileId(url: string): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
   try {
     const { url } = await request.json();
     if (!url) return NextResponse.json({ error: '請提供 Google Drive 連結' }, { status: 400 });

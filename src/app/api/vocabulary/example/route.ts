@@ -6,8 +6,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { logger } from '@/shared/logger/logger';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const { word, partOfSpeech, meaningZh, gradeLevel } = body;

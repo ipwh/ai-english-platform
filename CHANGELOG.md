@@ -4,6 +4,30 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-22 (evening) — Security Hardening & Platform Quality Fixes
+
+### 🔒 Security — Auth Added to 7 Previously Unprotected Routes
+- **`/api/rag`** (POST/GET): Now requires `verifyApiAuth` — prevents unauthorized AI token consumption
+- **`/api/knowledge-graph/graph`**, **`/api/knowledge-graph/learning-order`**, **`/api/knowledge-graph/node/[id]`**: Added `verifyApiAuth`
+- **`/api/vocabulary/quiz`**: Added `verifyApiAuth` + **ownership check** — prevents accessing other students' vocab data via forged `studentId`
+- **`/api/vocabulary/example`**: Added `verifyApiAuth` — prevents unauthorized AI example generation
+- **`/api/drive/download`**: Added `verifyApiAuth`
+
+### 🔧 Bug Fixes
+- **Cron route localhost fallback**: Changed `'http://localhost:3000'` → `process.env.NEXT_PUBLIC_APP_URL || ''`
+- **Silent catch documented**: `SidebarLayout.tsx` logout catch now has explanatory comment
+
+### 📦 Module Exports
+- **`src/modules/ai/index.ts`**: Added `generateIntegratedSkills`, `analyzeIntegratedSkills`, and all Integrated Skills config exports (`INTEGRATED_SKILLS_DIFF_MAP`, `INTEGRATED_SKILLS_TASK_TYPE_MAP`, `LISTENING_TRAP_TYPES`, `NOTE_TAKING_SYMBOLS`, `PAPER3_TIMING`, `PAPER3_SCORING_WEIGHTS`, `PAPER3_LEVEL_THRESHOLDS`) to the AI barrel
+
+### 📁 Files Changed (10 total)
+- 7 API routes: auth gates added
+- `src/app/api/admin/sync-sheets/cron/route.ts`: localhost URL fix
+- `src/components/layout/SidebarLayout.tsx`: catch comment
+- `src/modules/ai/index.ts`: barrel exports for IS module
+
+---
+
 ## 2026-07-22 — Integrated Skills v5, Google Sheets Auto-Sync & Platform Hardening
 
 ### 🎧✍️ Integrated Skills v5 — Full DSE Paper 3 Simulation

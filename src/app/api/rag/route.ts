@@ -9,9 +9,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { retrieveRelevantChunks, buildRAGPrompt, indexMaterial, getRAGStats } from '@/modules/ai/services/rag-service';
 import { getEmbedding, searchSimilarChunks } from '@/modules/ai/services/vertex-embeddings';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 
 // ---- RAG 查詢 ----
 export async function POST(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
 
@@ -21,6 +27,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
   if (action === 'stats') {

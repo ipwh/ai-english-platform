@@ -546,7 +546,7 @@ export default function SidebarLayout({
               <button
                 onClick={async () => {
                   if (confirm(t('common.confirmLogout'))) {
-                    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+                    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* logout is best-effort, proceed regardless */ }
                     router.push('/login');
                   }
                 }}
