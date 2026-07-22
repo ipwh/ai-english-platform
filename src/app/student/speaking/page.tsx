@@ -218,15 +218,14 @@ export default function SpeakingPracticePage() {
             </div>
           </div>
           <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Topic Area' : '話題範圍'}</label>
-              <div className="flex flex-wrap gap-1">
-                {TOPICS_AREA.map(tp => (
-                  <button key={tp.value} onClick={() => setTopic(tp.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${topic === tp.value ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                    {language === 'en' ? tp.en : tp.zh}
-                  </button>
-                ))}
-              </div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Topic Area' : '話題範圍'}</label>
+            <div className="flex flex-wrap gap-1">
+              {TOPICS_AREA.map(tp => (
+                <button key={tp.value} onClick={() => setTopic(tp.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${topic === tp.value ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                  {language === 'en' ? tp.en : tp.zh}
+                </button>
+              ))}
             </div>
           </div>
           <button onClick={generateQuestion} disabled={loading}
