@@ -162,6 +162,11 @@ export default function DiagnosticPage() {
   const [results, setResults] = useState<DiagnosticResult[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
+  const [writingAnalysis, setWritingAnalysis] = useState<{
+    overallScore: number; contentScore?: number; languageScore?: number; organizationScore?: number;
+    dseLevel?: string; strengths?: string[]; weaknesses?: string[]; overallCommentZh?: string;
+  } | null>(null);
+  const [writingLoading, setWritingLoading] = useState(false);
   const [writingAnswer, setWritingAnswer] = useState('');
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -438,6 +443,31 @@ export default function DiagnosticPage() {
       }).catch((e) => { console.error("[page] fetch failed", e) });
     }
 
+    // AI 寫作批改（CLO 框架）
+    const writingQ = questions.find(q => q.languageSkill === 'writing' || q.type === 'short-writing');
+    const writingText = writingQ ? (finalAnswers[writingQ.id] || '') : '';
+    if (writingText.trim()) {
+      setWritingLoading(true);
+      try {
+        const wRes = await fetch('/api/ai/analyze-writing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: writingQ?.prompt?.slice(0, 80) || 'Diagnostic Writing',
+            prompt: writingQ?.prompt || '',
+            studentDraft: writingText,
+            gradeLevel: getStudentLevel(studentProfile),
+            difficulty: 'core',
+          }),
+        });
+        const wJson = await wRes.json();
+        if (wRes.ok && wJson.analysis) {
+          setWritingAnalysis(wJson.analysis);
+        }
+      } catch { /* non-critical */ }
+      finally { setWritingLoading(false); }
+    }
+
     // AI 分析報告
     setAiLoading(true);
     try {
@@ -668,7 +698,44 @@ export default function DiagnosticPage() {
             </div>
             <ProgressBar value={r.score} size="sm" showPercentage={true} />
             {r.id === 'writing' && (
-              <p className="text-xs text-gray-400 mt-1">✍️ 寫作部分為質性評估，已提交的內容不設對錯計分</p>
+              <div className="mt-2">
+                {writingLoading ? (
+                  <p className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> AI 正在批改寫作...</p>
+                ) : writingAnalysis ? (
+                  <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">✍️ CLO 寫作評分</span>
+                      {writingAnalysis.dseLevel && (
+                        <span className="text-xs px-2 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full font-bold">
+                          DSE {writingAnalysis.dseLevel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-2">
+                        <div className="font-bold text-blue-600">{writingAnalysis.contentScore ?? '—'}/7</div>
+                        <div className="text-gray-400">Content</div>
+                      </div>
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-2">
+                        <div className="font-bold text-blue-600">{writingAnalysis.languageScore ?? '—'}/7</div>
+                        <div className="text-gray-400">Language</div>
+                      </div>
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-2">
+                        <div className="font-bold text-blue-600">{writingAnalysis.organizationScore ?? '—'}/7</div>
+                        <div className="text-gray-400">Organization</div>
+                      </div>
+                    </div>
+                    {writingAnalysis.strengths && writingAnalysis.strengths.length > 0 && (
+                      <p className="text-xs text-green-700 dark:text-green-400">👍 {writingAnalysis.strengths.slice(0, 2).join('；')}</p>
+                    )}
+                    {writingAnalysis.weaknesses && writingAnalysis.weaknesses.length > 0 && (
+                      <p className="text-xs text-red-700 dark:text-red-400">💡 {writingAnalysis.weaknesses.slice(0, 2).join('；')}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-1">✍️ 寫作部分為質性評估</p>
+                )}
+              </div>
             )}
           </div>
         ))}
