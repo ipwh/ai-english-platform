@@ -15,6 +15,13 @@ export const analyzeIntegratedSkillsSchema = z.object({
   studentNotes: z.string().optional(),
   studentWriting: z.string().min(1),
   gradeLevel: studentLevel,
+  dataFileSources: z.array(z.object({
+    type: z.string(),
+    title: z.string(),
+    content: z.string(),
+    relevantFor: z.array(z.number()),
+    sourceDate: z.string().optional(),
+  })).optional(),
 });
 
 export const analyzeMaterialSchema = z.object({

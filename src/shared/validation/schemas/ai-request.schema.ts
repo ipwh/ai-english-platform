@@ -50,7 +50,7 @@ export const explainMistakeSchema = z.object({
 export const generateIntegratedSkillsSchema = z.object({
   gradeLevel,
   difficulty,
-  taskType: z.enum(['summary', 'email-reply', 'short-article', 'report']),
+  taskType: z.enum(['summary', 'email-reply', 'short-article', 'report', 'speech', 'proposal', 'notice', 'press-release', 'letter-to-editor']),
   topicHint: optionalString,
   userId,
 });
@@ -62,6 +62,15 @@ export const analyzeIntegratedSkillsSchema = z.object({
   studentNotes: optionalString,
   expectedContentPoints: z.array(z.string()),
   noteTakingGuide: z.array(z.object({ question: z.string(), hint: z.string() })),
+  taskType: optionalString,
+  gradeLevel: optionalString,
+  dataFileSources: z.array(z.object({
+    type: z.string(),
+    title: z.string(),
+    content: z.string(),
+    relevantFor: z.array(z.number()),
+    sourceDate: optionalString,
+  })).optional(),
   userId,
 });
 

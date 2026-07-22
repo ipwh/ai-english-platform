@@ -4,11 +4,17 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateIntegratedSkills, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { generateIntegratedSkills } from '@/modules/ai/services/integrated-skills';
+import { isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+
+const VALID_TASK_TYPES = [
+  'summary', 'email-reply', 'short-article', 'report',
+  'speech', 'proposal', 'notice', 'press-release', 'letter-to-editor',
+] as const;
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTaskTypes = ['summary', 'email-reply', 'short-article', 'report', 'speech', 'proposal', 'letter', 'newsletter'];
+    const validTaskTypes = VALID_TASK_TYPES as readonly string[];
     if (!validTaskTypes.includes(taskType)) {
       return NextResponse.json(
         { error: `taskType 必須是 ${validTaskTypes.join(' / ')} 之一。` },

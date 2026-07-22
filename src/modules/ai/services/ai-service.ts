@@ -1483,6 +1483,19 @@ ${HALLUCINATION_GUARD}
     "explanationEn": "In Type 2 conditionals, we use past tense in the if-clause, and 'were' is used for all persons of 'be'.",
     "commonMistake": "學生常誤用 was 代替 were，忽略了條件句中 were 的特殊用法。",
     "grammarPoint": "Type 2 Conditional (Subjunctive)"
+https://afterschool.com.hk/blog/242-dse-english-paper-3-listening/  },
+  {
+    "type": "error-correction",
+    "prompt": "The passage below contains ONE grammatical error. Which underlined part is incorrect?",
+    "promptZh": "以下段落包含一個文法錯誤，哪個劃線部分是錯誤的？",
+    "readingContent": "She has been making pottery since she was a child, and she still enjoys to create new pieces. Her works are inspired by traditional Chinese designs.",
+    "readingContentZh": "她從小就開始製作陶器，至今仍然享受創作新作品。她的作品靈感來自中國傳統設計。",
+    "choices": ["has been making", "since she was a child", "enjoys to create", "are inspired by"],
+    "answer": "C",
+    "explanationZh": "「enjoys to create」錯誤，'enjoy' 後應接動名詞（gerund），正確為「enjoys creating」。",
+    "explanationEn": "'enjoys to create' is incorrect. After 'enjoy', always use a gerund: 'enjoys creating'.",
+    "commonMistake": "學生常混淆動名詞與不定詞的用法，例如 'enjoy to do'、'suggest to go' 是常見錯誤。",
+    "grammarPoint": "Gerunds vs Infinitives"
   }
 ]`;
 
@@ -3274,8 +3287,8 @@ export interface IntegratedSkillsAnalysis {
 
 /**
  * 🎧✍️ 生成 Integrated Skills 任務
- * 先提供聆聽材料 → Note-taking 指引 → 寫作任務
- * 模擬 DSE Paper 3 Part B 的真實考試流程
+ * ⚠️ DEPRECATED inline — delegates to integrated-skills.ts
+ * Import directly from '@/modules/ai/services/integrated-skills' for new code.
  */
 export async function generateIntegratedSkills(
   input: GenerateIntegratedSkillsInput

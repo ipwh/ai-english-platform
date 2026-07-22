@@ -15,6 +15,11 @@ const TASK_TYPES = [
   { value: 'email-reply', zh: '電郵回覆', en: 'Email Reply' },
   { value: 'short-article', zh: '短文寫作', en: 'Short Article' },
   { value: 'report', zh: '報告寫作', en: 'Report' },
+  { value: 'speech', zh: '演講辭', en: 'Speech' },
+  { value: 'proposal', zh: '建議書', en: 'Proposal' },
+  { value: 'notice', zh: '通告', en: 'Notice' },
+  { value: 'press-release', zh: '新聞稿', en: 'Press Release' },
+  { value: 'letter-to-editor', zh: '讀者投稿', en: 'Letter to Editor' },
 ] as const;
 
 const DIFFICULTIES = [

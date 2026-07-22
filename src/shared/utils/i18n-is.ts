@@ -41,4 +41,43 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.aiAnalyzing': { zh: 'AI 批改中...', en: 'AI Analyzing...' },
   'is.submitForReview': { zh: '提交 AI 批改', en: 'Submit for AI Review' },
   'is.completed': { zh: '已完成', en: 'Completed' },
+  // v2 — new task types
+  'is.taskType.summary': { zh: '摘要寫作', en: 'Summary' },
+  'is.taskType.emailReply': { zh: '電郵回覆', en: 'Email Reply' },
+  'is.taskType.shortArticle': { zh: '短文撰寫', en: 'Short Article' },
+  'is.taskType.report': { zh: '報告撰寫', en: 'Report' },
+  'is.taskType.speech': { zh: '演講辭', en: 'Speech' },
+  'is.taskType.proposal': { zh: '建議書', en: 'Proposal' },
+  'is.taskType.notice': { zh: '通告', en: 'Notice' },
+  'is.taskType.pressRelease': { zh: '新聞稿', en: 'Press Release' },
+  'is.taskType.letterToEditor': { zh: '讀者投稿', en: 'Letter to Editor' },
+  // v2 — note-taking symbols
+  'is.symbols.title': { zh: '速記符號提示', en: 'Shorthand Symbols' },
+  'is.symbols.plus': { zh: '+ = 優點/好處', en: '+ = advantages/benefits' },
+  'is.symbols.minus': { zh: '− = 缺點/問題', en: '− = disadvantages/problems' },
+  'is.symbols.arrow': { zh: '→ = 導致/因果', en: '→ = causes/leads to' },
+  'is.symbols.because': { zh: '∵ = 原因', en: '∵ = reasons for' },
+  'is.symbols.important': { zh: '! = 重要/關鍵', en: '! = important/key' },
+  'is.symbols.money': { zh: '$ = 金錢/財務', en: '$ = money/financial' },
+  'is.symbols.number': { zh: '# = 數字/統計', en: '# = numbers/statistics' },
+  'is.symbols.uncertain': { zh: '? = 不確定', en: '? = uncertain' },
+  'is.symbols.location': { zh: '@ = 地點', en: '@ = location' },
+  // v2 — data file
+  'is.dataFile': { zh: '📁 Data File', en: '📁 Data File' },
+  'is.dataFile.source': { zh: '資料來源', en: 'Source' },
+  'is.dataFile.relevantFor': { zh: '相關任務', en: 'Relevant for' },
+  // v2 — scoring dimensions
+  'is.scoring.listening': { zh: '聆聽理解 (40%)', en: 'Listening (40%)' },
+  'is.scoring.language': { zh: '語言運用 (35%)', en: 'Language (35%)' },
+  'is.scoring.organization': { zh: '組織結構 (25%)', en: 'Organization (25%)' },
+  // v2 — proofreading checklist
+  'is.proofreading.title': { zh: '✅ 檢查清單', en: '✅ Proofreading Checklist' },
+  'is.proofreading.points': { zh: '確認所有 content points 已包括', en: 'All content points included' },
+  'is.proofreading.grammar': { zh: '檢查 tenses / pronouns / singular-plural', en: 'Check tenses / pronouns / singular-plural' },
+  'is.proofreading.tone': { zh: 'Tone 符合目標讀者', en: 'Tone matches target audience' },
+  'is.proofreading.format': { zh: '格式正確（上款/下款/標題/分段）', en: 'Format correct (salutation/closing/headings/paragraphs)' },
+  'is.proofreading.nocopy': { zh: '沒有過度抄襲（>8 連續詞）', en: 'No excessive copying (>8 consecutive words)' },
+  // v2 — level estimate
+  'is.level.estimated': { zh: '預估等級', en: 'Estimated Level' },
+  'is.level.description': { zh: '（基於 2013-2024 DSE Paper 3 cut off 數據）', en: '(Based on 2013-2024 DSE Paper 3 cut off data)' },
 };

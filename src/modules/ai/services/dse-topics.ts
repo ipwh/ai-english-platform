@@ -9,7 +9,7 @@
 // ============================================
 
 export const DSE_EMPIRICAL_TOPICS = {
-  // Paper 2 寫作真實題材（2012-2024）
+  // Paper 2 寫作真實題材（2012-2024 + expanded topics）
   writing: {
     food: ['restaurant review (Dim Sum / local cuisine)', 'food culture and dining trends', 'healthy eating and food labeling', 'school canteen menu reform', 'food waste and sustainability'],
     economy: ['digital transformation and regulation of tech giants', 'cryptocurrency and central bank digital currencies (CBDC)', 'buy-now-pay-later (BNPL) and youth debt crisis', 'experiential retail vs e-commerce', 'gig economy worker rights and protections', 'carbon pricing and green finance'],
@@ -24,8 +24,50 @@ export const DSE_EMPIRICAL_TOPICS = {
     travel: ['study tour and exchange programmes', 'eco-tourism and responsible travel', 'working holiday experiences', 'cultural immersion travel', 'HK as travel destination'],
     health: ['mental health awareness among youth', 'sleep deprivation and academic performance', 'exercise and physical wellbeing', 'traditional vs modern medicine', 'pandemic preparedness'],
     petEconomy: ['rise of pet ownership among young adults', 'pet-friendly workplaces and public spaces', 'loneliness driving the pet economy boom'],
-    hkLocal: ['HK identity and cultural uniqueness', 'Cantonese language preservation', 'urban development vs heritage', 'public housing and living space', 'HK food culture (dai pai dong, cha chaan teng)', 'Northern Metropolis development and wetland conservation', 'e-HKD and Hong Kong fintech innovation'],
-    global: ['global citizenship and youth responsibility', 'UN Sustainable Development Goals in daily life', 'international cooperation on climate change', 'migration and cultural identity', 'technology bridging global inequality', 'ethical consumerism and fair trade', 'pandemic lessons and global health security', 'labour shortage and foreign talent policies', 'WHO loneliness epidemic declaration'],
+    hkLocal: [
+      'HK identity and cultural uniqueness', 'Cantonese language preservation', 'urban development vs heritage',
+      'public housing and living space', 'HK food culture (dai pai dong, cha chaan teng)',
+      'Northern Metropolis development and wetland conservation', 'e-HKD and Hong Kong fintech innovation',
+      // expanded local topics
+      'community rebuilding and neighborhood conservation（社區重建與街區保育）',
+      'cha chaan teng, two-dish rice and affordable food culture（茶餐廳、兩餸飯與平價飲食文化）',
+      'public housing, subdivided flats and living space（公屋、劏房與居住空間）',
+      'public transport and urban living efficiency（公共交通與城市生活效率）',
+      'country parks, hiking trails and urban green lungs（郊野公園、行山與城市綠肺）',
+      'local intangible cultural heritage and youth participation（本地非物質文化遺產與年輕人參與）',
+      'community markets and small shop economy（社區市集與小店經濟）',
+      'digital payment and cashless living in HK（數碼支付與無現金生活）',
+    ],
+    international: [
+      'digital payment and cashless societies across regions（不同地區的電子支付與無現金社會）',
+      'school uniform culture comparison across countries（各國學校制服文化比較）',
+      'four-day work week and work-life balance globally（四天工作周與工作生活平衡）',
+      'youth financial literacy and consumption risks（青少年財務素養與消費風險）',
+      'international student exchange and cross-cultural adaptation（國際學生交換與跨文化適應）',
+      'studying abroad: opportunities and challenges（海外留學的機遇與挑戰）',
+      'urban renewal approaches in different countries（城市更新在不同國家的做法）',
+      'global food waste and surplus food recovery（全球食品浪費與剩食回收）',
+      'public libraries in the digital age across countries（各國公共圖書館在數碼時代的角色）',
+      'cross-border online shopping and consumer rights（跨境網購與消費者權益）',
+    ],
+    global: [
+      'global citizenship and youth responsibility', 'UN Sustainable Development Goals in daily life',
+      'international cooperation on climate change', 'migration and cultural identity',
+      'technology bridging global inequality', 'ethical consumerism and fair trade',
+      'pandemic lessons and global health security', 'labour shortage and foreign talent policies',
+      'WHO loneliness epidemic declaration',
+      // expanded global topics
+      'climate change and the survival of coastal cities（氣候變化與沿海城市存亡）',
+      'climate refugees and humanitarian aid（氣候難民與人道援助）',
+      'AI ethics and campus usage guidelines（人工智能倫理與校園使用規範）',
+      'deepfake technology and information authenticity（深偽技術與資訊真偽）',
+      'social media addiction and youth mental health（社交媒體成癮與青少年心理健康）',
+      'global youth participation in Sustainable Development Goals（全球青年參與可持續發展目標）',
+      'refugee education and social integration（難民教育與社會融入）',
+      'fast fashion global supply chain and labour rights（快時尚的全球供應鏈與勞工權益）',
+      'can green finance save the planet（綠色金融能否拯救地球）',
+      'international cooperation on pandemics and public health（國際合作應對疫情與公共衛生）',
+    ],
   },
   
   // Paper 1 & Paper 3 閱讀/聆聽常見主題
@@ -37,22 +79,117 @@ export const DSE_EMPIRICAL_TOPICS = {
     psychology: ['procrastination science', 'color psychology in marketing', 'decision-making biases', 'child development theories', 'social conformity experiments'],
     technology: ['AI transformation of industries', '3D printing revolution', 'autonomous vehicles future', 'blockchain beyond cryptocurrency', 'biotechnology breakthroughs'],
     health: ['music therapy benefits', 'sleep science and learning', 'nutrition myths debunked', 'exercise and brain function', 'mindfulness and meditation'],
-    hkLocal: ['HK wetland and Mai Po reserve', 'HK hiking trails and country parks', 'HK film industry golden age', 'HK public transport efficiency', 'HK street food culture'],
-    global: ['UN sustainable development goals', 'globalization pros and cons', 'international trade and fair trade', 'refugee crises and humanitarian aid', 'pandemic global response', 'central bank digital currencies around the world', 'carbon border taxes and climate trade wars', 'AI copyright lawsuits and creative industries', 'loneliness epidemic and social prescribing', 'four-day work week global experiments'],
+    hkLocal: [
+      'HK wetland and Mai Po reserve', 'HK hiking trails and country parks',
+      'HK film industry golden age', 'HK public transport efficiency', 'HK street food culture',
+      // expanded local reading topics
+      'HK urban renewal and historic district preservation（香港城市更新與歷史街區保存）',
+      'HK country parks and biodiversity（香港郊野公園與生物多樣性）',
+      'local wet markets, small shops and community economy（本地街市、小店與社區經濟）',
+      'evolution of HK food culture（香港飲食文化的演變）',
+      'local opera, intangible heritage and cultural transmission（本地戲曲、非遺與文化傳承）',
+      'HK public housing policy and living quality（香港公共房屋政策與居住質素）',
+      'HK youth employment and internship opportunities（香港青年就業與實習機會）',
+      'HK museums, exhibitions and cultural education（香港博物館、展覽與文化教育）',
+      'HK digital transformation and smart city（香港數碼轉型與智慧城市）',
+      'HK and Greater Bay Area educational exchange（香港與大灣區的教育交流）',
+    ],
+    international: [
+      'how different countries handle urban aging and renewal（各國如何處理城市老化與重建）',
+      'food and identity across cultures（不同文化中的食物與身份認同）',
+      'global metro and public transport system comparison（全球地鐵與公共交通系統比較）',
+      'public libraries and community learning worldwide（各地公共圖書館與社區學習）',
+      'cultural adaptation of international exchange students（國際交換生的文化適應）',
+      'remote work and cross-border team collaboration（遠距工作與跨國團隊合作）',
+      'youth entrepreneurship cases around the world（世界各地青年創業案例）',
+      'impact of international tourism on local communities（國際旅遊對當地社群的影響）',
+      'global digital payment and financial inclusion（全球數碼支付與金融包容）',
+      'student psychological support systems in different countries（不同國家的學生心理支援制度）',
+    ],
+    global: [
+      'UN sustainable development goals', 'globalization pros and cons',
+      'international trade and fair trade', 'refugee crises and humanitarian aid',
+      'pandemic global response', 'central bank digital currencies around the world',
+      'carbon border taxes and climate trade wars', 'AI copyright lawsuits and creative industries',
+      'loneliness epidemic and social prescribing', 'four-day work week global experiments',
+      // expanded global reading topics
+      'climate justice and the future of island nations（氣候正義與島國未來）',
+      'global energy transition and renewable energy（全球能源轉型與再生能源）',
+      'fast fashion, consumerism and labour rights（快時尚、消費主義與勞工權益）',
+      'AI, copyright and creative rights（人工智能、版權與創作權利）',
+      'deepfakes, fake news and democratic society（深偽、假新聞與民主社會）',
+      'global refugee crisis and the right to education（全球難民危機與教育權利）',
+      'world food crisis and agricultural technology（世界糧食危機與農業科技）',
+      'global youth citizenship and social participation（全球青年公民與社會參與）',
+      'International Space Station and cross-border cooperation（國際太空站與跨國合作）',
+      'global public health and pandemic prevention（全球公共衛生與疫情預防）',
+    ],
     economy: ['cryptocurrency regulation across countries', 'fast fashion supply chain ethics', 'buy-now-pay-later and Gen Z debt', 'experiential retail transforming shopping malls'],
     techEthics: ['deepfake scams and voice cloning fraud', 'quantum computing and encryption security', 'algorithmic bias in hiring and lending', 'SMS phishing and cybersecurity awareness'],
   },
   
   // Paper 3 聆聽場景
   listening: {
-    school: ['club fair and society recruitment', 'debate competition preparation', 'school talent show planning', 'student council election campaign', 'graduation ceremony planning', 'parent-teacher conference', 'school open day organization', 'peer mentoring programme'],
-    community: ['charity fundraising walkathon', 'beach cleanup volunteer day', 'elderly home visit programme', 'community garden project', 'neighbourhood festival', 'blood donation drive', 'food bank collection'],
+    school: [
+      'club fair and society recruitment', 'debate competition preparation',
+      'school talent show planning', 'student council election campaign',
+      'graduation ceremony planning', 'parent-teacher conference',
+      'school open day organization', 'peer mentoring programme',
+      // expanded local school topics
+      'school open day and further studies information seminar（校園開放日與升學資訊講座）',
+      'student union election and campus advocacy（學生會選舉與校園倡議）',
+      'school menu reform and healthy eating promotion（學校菜單改革與健康飲食推廣）',
+    ],
+    community: [
+      'charity fundraising walkathon', 'beach cleanup volunteer day',
+      'elderly home visit programme', 'community garden project',
+      'neighbourhood festival', 'blood donation drive', 'food bank collection',
+      // expanded local community topics
+      'community volunteer recruitment and elderly home visits（社區義工招募與長者探訪）',
+      'environmental recycling day and school waste reduction（環保回收日與校內減廢計劃）',
+      'youth entrepreneurship market and booth application（青年創業市集與攤位申請）',
+    ],
     workplace: ['summer internship application', 'part-time job orientation', 'business meeting and presentation', 'customer complaint handling', 'team building activity planning', 'conference call with overseas office', 'product launch preparation'],
     services: ['doctor appointment booking', 'hotel reservation changes', 'flight booking and itinerary', 'restaurant group booking', 'bank account opening', 'library membership registration', 'gym membership inquiry'],
-    hkLife: ['MTR route planning', 'Octopus card top-up issue', 'typhoon day arrangements', 'wet market shopping', 'temple visit and fortune telling', 'junk trip boat booking', 'dim sum ordering etiquette'],
+    hkLife: [
+      'MTR route planning', 'Octopus card top-up issue', 'typhoon day arrangements',
+      'wet market shopping', 'temple visit and fortune telling', 'junk trip boat booking',
+      'dim sum ordering etiquette',
+      // expanded local HK life topics
+      'local cultural guided tour and intangible heritage experience（本地文化導賞團與非遺體驗）',
+      'HK museum guided tour and student ticketing inquiry（香港博物館導賞與學生票務查詢）',
+      'typhoon and rainstorm school arrangements（颱風與暴雨下的校務安排）',
+      'public transport disruption and rerouting information（公共交通故障與改道資訊）',
+    ],
     social: ['environmental campaign launch', 'social media detox challenge', 'mental health awareness week', 'cultural diversity celebration', 'anti-bullying workshop', 'digital literacy seminar', 'entrepreneurship bootcamp', 'fintech startup pitch competition', 'green finance and sustainable investing workshop'],
     economy: ['opening a digital wallet account', 'discussing cryptocurrency investment risks', 'complaining about a buy-now-pay-later charge', 'negotiating a freelance contract'],
-    global: ['Model UN climate finance debate', 'international video call with sister school', 'discussing study abroad scholarship applications', 'debating fast fashion boycotts'],
+    international: [
+      'international student exchange and host family arrangements（國際學生交流與寄宿安排）',
+      'overseas school joint science fair（海外學校聯合科學展）',
+      'travel safety advisories around the world（世界各地旅遊安全提示）',
+      'international food festival and culinary culture（國際食物節與飲食文化介紹）',
+      'cross-timezone online meetings and collaboration（跨時區網上會議與協作）',
+      'overseas internship and working holiday programmes（海外實習與工作假期計劃）',
+      'international football tournament and volunteer arrangements（國際足球賽事與志願者安排）',
+      'UN Youth Forum and climate action（聯合國青年論壇與氣候行動）',
+      'international charity fundraising and supply delivery（國際慈善籌款與物資運送）',
+      'global school partnership programme（全球校園夥伴計劃）',
+    ],
+    global: [
+      'Model UN climate finance debate', 'international video call with sister school',
+      'discussing study abroad scholarship applications', 'debating fast fashion boycotts',
+      // expanded global listening topics
+      'UN SDGs and youth action（聯合國可持續發展目標與青年行動）',
+      'climate summit and carbon emission reduction pledges（氣候峰會與碳減排承諾）',
+      'global food security and agricultural innovation（全球糧食安全與農業創新）',
+      'world public health and vaccine equity（世界公共衛生與疫苗公平）',
+      'global cybersecurity and scam prevention（全球網絡安全與詐騙防範）',
+      'deepfake news and media literacy（深偽新聞與媒體識讀）',
+      'global migration and family separation（全球移民與家庭離散）',
+      'international humanitarian aid and post-disaster reconstruction（國際人道救援與災後重建）',
+      'AI impact on the future workplace（AI 對未來職場的影響）',
+      'international space cooperation and exploration（國際太空合作與太空探索）',
+    ],
   },
 } as const;
 
@@ -60,7 +197,7 @@ export const DSE_EMPIRICAL_TOPICS = {
 // Types
 // ============================================
 
-export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life' | 'sports' | 'arts' | 'travel' | 'global' | 'economy' | 'tech-ethics';
+export type TopicCategory = 'school' | 'society' | 'technology' | 'environment' | 'culture' | 'health' | 'career' | 'science' | 'hk-local' | 'daily-life' | 'sports' | 'arts' | 'travel' | 'global' | 'economy' | 'tech-ethics' | 'community';
 
 export interface TopicEntry {
   text: string;
@@ -172,6 +309,38 @@ export const LISTENING_TOPICS_V2: TopicEntry[] = [
   { text: 'discussing the idea of a four-day school week（討論四天學校週的構想）', category: 'society', grades: ['S4','S5','S6'] },
   { text: 'debating whether social media makes people lonelier（辯論社交媒體是否令人更孤獨）', category: 'society', grades: ['S4','S5','S6'] },
   { text: 'discussing the rise of single-person households（討論單人住戶的興起）', category: 'society', grades: ['S5','S6'] },
+  
+  // === 國際交流與全球議題 (international/global) — 從 expanded_dse_topics.csv 擴充 ===
+  { text: 'international student exchange and host family arrangements（國際學生交流與寄宿安排）', category: 'culture', grades: ['S3','S4','S5','S6'] },
+  { text: 'overseas school joint science fair planning（海外學校聯合科學展策劃）', category: 'science', grades: ['S3','S4','S5'] },
+  { text: 'discussing travel safety advisories for different destinations（討論不同目的地的旅遊安全提示）', category: 'travel', grades: ['S4','S5','S6'] },
+  { text: 'international food festival and culinary culture introduction（國際食物節與飲食文化介紹）', category: 'culture', grades: ['S2','S3','S4','S5'] },
+  { text: 'cross-timezone online meeting coordination（跨時區網上會議協調）', category: 'career', grades: ['S5','S6'] },
+  { text: 'overseas internship and working holiday programme briefing（海外實習與工作假期計劃簡介會）', category: 'career', grades: ['S5','S6'] },
+  { text: 'international football tournament volunteer arrangement（國際足球賽事志願者安排）', category: 'sports', grades: ['S3','S4','S5','S6'] },
+  { text: 'UN Youth Forum delegate application and climate action speech（聯合國青年論壇代表申請與氣候行動演講）', category: 'society', grades: ['S5','S6'] },
+  { text: 'international charity fundraising and relief supply logistics（國際慈善籌款與救援物資運送）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'global school partnership programme orientation（全球校園夥伴計劃說明會）', category: 'school', grades: ['S3','S4','S5'] },
+  { text: 'UN Sustainable Development Goals youth action workshop（聯合國可持續發展目標青年行動工作坊）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'climate summit simulation and carbon emission reduction debate（模擬氣候峰會與碳減排辯論）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'global food security panel discussion（全球糧食安全專題討論）', category: 'society', grades: ['S4','S5','S6'] },
+  { text: 'world public health and vaccine equity debate（世界公共衛生與疫苗公平辯論）', category: 'health', grades: ['S5','S6'] },
+  { text: 'cybersecurity awareness and online scam prevention seminar（網絡安全意識與網上詐騙防範講座）', category: 'technology', grades: ['S3','S4','S5','S6'] },
+  { text: 'deepfake news identification and media literacy workshop（深偽新聞辨識與媒體識讀工作坊）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'global migration stories and family separation support group（全球移民故事與家庭離散支援小組）', category: 'society', grades: ['S5','S6'] },
+  { text: 'international humanitarian aid and post-disaster reconstruction briefing（國際人道救援與災後重建簡報）', category: 'society', grades: ['S5','S6'] },
+  
+  // === 香港本地擴充 (hk-local) ===
+  { text: 'school open day and further studies information seminar（校園開放日與升學資訊講座）', category: 'school', grades: ['S4','S5','S6'] },
+  { text: 'community volunteer recruitment for elderly home visits（社區長者探訪義工招募）', category: 'community', grades: ['S2','S3','S4','S5'] },
+  { text: 'environmental recycling day and school waste reduction campaign（環保回收日與校內減廢計劃）', category: 'environment', grades: ['S1','S2','S3','S4'] },
+  { text: 'local cultural heritage guided tour and ICH experience（本地文化導賞團與非遺體驗）', category: 'culture', grades: ['S2','S3','S4','S5'] },
+  { text: 'Hong Kong museum guided tour and student ticket inquiry（香港博物館導賞與學生票務查詢）', category: 'hk-local', grades: ['S1','S2','S3','S4'] },
+  { text: 'typhoon and rainstorm school arrangement announcement（颱風與暴雨下的校務安排宣佈）', category: 'hk-local', grades: ['S1','S2','S3','S4','S5','S6'] },
+  { text: 'public transport disruption and rerouting announcement（公共交通故障與改道資訊廣播）', category: 'hk-local', grades: ['S2','S3','S4','S5'] },
+  { text: 'student union election campaign and campus advocacy（學生會選舉與校園倡議）', category: 'school', grades: ['S3','S4','S5'] },
+  { text: 'school canteen menu reform and healthy eating promotion（學校菜單改革與健康飲食推廣）', category: 'school', grades: ['S2','S3','S4'] },
+  { text: 'youth entrepreneurship market stall application（青年創業市集攤位申請）', category: 'economy', grades: ['S4','S5','S6'] },
 ];
 
 // ============================================
@@ -312,6 +481,38 @@ export const READING_TOPICS_V2: TopicEntry[] = [
   { text: 'carbon border taxes: fair climate policy or trade war?（碳邊境稅：公平氣候政策還是貿易戰？）', category: 'environment', grades: ['S5','S6'] },
   { text: 'Indonesia is moving its capital because Jakarta is sinking（印尼因雅加達下沉而遷都）', category: 'environment', grades: ['S4','S5','S6'] },
   { text: 'green finance: can money save the planet?（綠色金融：金錢能拯救地球嗎？）', category: 'environment', grades: ['S5','S6'] },
+  
+  // === 從 expanded_dse_topics.csv 擴充的閱讀主題 ===
+  { text: 'HK urban renewal and historic district preservation（香港城市更新與歷史街區保存）', category: 'hk-local', grades: ['S4','S5','S6'] },
+  { text: 'HK country parks and biodiversity conservation（香港郊野公園與生物多樣性保育）', category: 'environment', grades: ['S3','S4','S5'] },
+  { text: 'local wet markets, small shops and community economy（本地街市、小店與社區經濟）', category: 'hk-local', grades: ['S3','S4','S5'] },
+  { text: 'the evolution of Hong Kong food culture（香港飲食文化的演變）', category: 'hk-local', grades: ['S2','S3','S4','S5'] },
+  { text: 'Cantonese opera, intangible heritage and cultural transmission（粵劇、非遺與文化傳承）', category: 'hk-local', grades: ['S4','S5','S6'] },
+  { text: 'HK public housing policy and living quality（香港公共房屋政策與居住質素）', category: 'hk-local', grades: ['S5','S6'] },
+  { text: 'HK youth employment and internship opportunities（香港青年就業與實習機會）', category: 'hk-local', grades: ['S5','S6'] },
+  { text: 'Hong Kong museums, exhibitions and cultural education（香港博物館、展覽與文化教育）', category: 'hk-local', grades: ['S2','S3','S4'] },
+  { text: 'HK digital transformation and smart city development（香港數碼轉型與智慧城市發展）', category: 'technology', grades: ['S4','S5','S6'] },
+  { text: 'HK and Greater Bay Area educational exchange（香港與大灣區教育交流）', category: 'hk-local', grades: ['S5','S6'] },
+  { text: 'how different countries handle urban aging and renewal（各國城市老化與重建的處理方式）', category: 'society', grades: ['S5','S6'] },
+  { text: 'food and identity across different cultures（不同文化中的食物與身份認同）', category: 'culture', grades: ['S3','S4','S5'] },
+  { text: 'global metro and public transport system comparison（全球地鐵與公共交通系統比較）', category: 'travel', grades: ['S3','S4','S5'] },
+  { text: 'public libraries and community learning worldwide（世界各地公共圖書館與社區學習）', category: 'society', grades: ['S3','S4','S5'] },
+  { text: 'cultural adaptation challenges of international exchange students（國際交換生的文化適應挑戰）', category: 'culture', grades: ['S4','S5','S6'] },
+  { text: 'remote work and cross-border team collaboration（遠距工作與跨國團隊合作）', category: 'career', grades: ['S5','S6'] },
+  { text: 'youth entrepreneurship success stories around the world（世界各地青年創業成功案例）', category: 'career', grades: ['S3','S4','S5'] },
+  { text: 'the impact of international tourism on local communities（國際旅遊對當地社群的影響）', category: 'travel', grades: ['S4','S5','S6'] },
+  { text: 'global digital payment and financial inclusion（全球數碼支付與金融包容）', category: 'economy', grades: ['S4','S5','S6'] },
+  { text: 'student psychological support systems in different countries（不同國家的學生心理支援制度）', category: 'health', grades: ['S4','S5','S6'] },
+  { text: 'climate justice and the future of island nations（氣候正義與島國未來）', category: 'global', grades: ['S5','S6'] },
+  { text: 'global energy transition and renewable energy adoption（全球能源轉型與再生能源採用）', category: 'environment', grades: ['S5','S6'] },
+  { text: 'fast fashion, consumerism and labour rights（快時尚、消費主義與勞工權益）', category: 'global', grades: ['S4','S5','S6'] },
+  { text: 'AI, copyright and creative rights in the digital age（數碼時代的AI、版權與創作權利）', category: 'tech-ethics', grades: ['S5','S6'] },
+  { text: 'deepfakes, fake news and the threat to democratic society（深偽、假新聞與對民主社會的威脅）', category: 'tech-ethics', grades: ['S5','S6'] },
+  { text: 'the global refugee crisis and the right to education（全球難民危機與教育權利）', category: 'global', grades: ['S4','S5','S6'] },
+  { text: 'world food crisis and agricultural technology solutions（世界糧食危機與農業科技解決方案）', category: 'global', grades: ['S4','S5','S6'] },
+  { text: 'global youth citizenship and social participation（全球青年公民與社會參與）', category: 'global', grades: ['S3','S4','S5'] },
+  { text: 'International Space Station and cross-border scientific cooperation（國際太空站與跨國科學合作）', category: 'science', grades: ['S4','S5','S6'] },
+  { text: 'global public health systems and pandemic prevention（全球公共衛生系統與疫情預防）', category: 'health', grades: ['S5','S6'] },
 ];
 
 // ============================================

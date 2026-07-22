@@ -4,6 +4,66 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-22 — Integrated Skills v5, Google Sheets Auto-Sync & Platform Hardening
+
+### 🎧✍️ Integrated Skills v5 — Full DSE Paper 3 Simulation
+- **Task types expanded 4→9**: Summary, Email Reply, Short Article, Report, **Speech**, **Proposal**, **Notice**, **Press Release**, **Letter to Editor** — covering all DSE Paper 3 Part B formats with frequency ratings and required format elements
+- **Data File support**: AI now generates realistic Data File sources (email, memo, report-excerpt, webpage, statistics, notice) with distractors, source dates, and cross-source conflicts — students must integrate listening + reading data like real Paper 3
+- **HKEAA 3-dimension scoring**: Replaced dual-dimension with official weighting — Listening (40%) + Language (35%) + Organization (25%) — with formula-enforced `overallScore` calculation
+- **DSE Level mapping**: 5**→1 thresholds based on 2013-2024 cut off data (5** ≥85%, 5* ≥78%, 5 ≥73%, 4 ≥63%, 3 ≥50%)
+- **5 trap types**: Self-correction, Synonym Replacement, Speaker Attitude, Numerical Precision, Distraction — each with descriptions and examples
+- **12 shorthand symbols**: + − → ∵ ! $ # ? @ ∴ ≈ ↑↓ — displayed in note-taking UI with bilingual tooltips
+- **Enhanced plagiarism detection**: ≥8 consecutive word matching against listeningContent + Data File sources, Chinglish detection (10 patterns), Data Manipulation 3-level assessment (L1 direct quote → L2 grammar conversion → L3 context adaptation)
+- **7 new result fields in UI**: Grammar errors, Chinglish warnings, vocabulary upgrades, note-taking feedback, data manipulation feedback, improvement tips, scoring breakdown
+- **API migration**: `generate-integrated-skills` and `analyze-integrated-skills` routes migrated from `ai-service.ts` inline code to dedicated `integrated-skills.ts` module with expanded types
+- **Validation**: `dataFileSources` added to analyze schemas, task type enum expanded to 9 values
+
+### 🔄 Google Sheets Auto-Sync
+- **New module**: `src/shared/google/sheets-sync.ts` — shared utility for writing to Google Sheets
+- **Class auto-sync**: `POST /api/admin/classes` now appends new classes to "班級列表" sheet (fire-and-forget, non-blocking)
+- **Student auto-sync**: `POST /api/admin/users` appends new students to student roster sheet; `POST /api/admin/import/students` batch-syncs all imported students in one API call
+- **Sheet format**: Matches existing `sync-sheets` import format — Email | Class | ClassNumber | NameZh | NameEn | Level
+
+### 🐛 Bug Fixes
+- **Error correction prompt**: Previously AI sometimes generated clean passages with no errors. Prompt now explicitly forbids clean passages and requires AI self-check that errors are present and identifiable.
+- **AI Learning Insights button**: Changed label from "AI 分析中..." (analyzing) to "AI 分析" (analyze) — was showing in-progress state on page load when no analysis was running
+- **Teacher class visibility**: Admin-created classes now auto-linked to both `teacher` AND `admin` role users (was only teachers). `GET /api/teacher/students` now bypasses `TeacherClass` filter for admin users.
+- **Stale `writingQuality` references**: UI updated from dual-dimension to 3-dimension display. Old field references cleaned from prompts.
+
+### 📚 Content Enrichment
+- **DSE topics expanded**: 120+ new topics from `expanded_dse_topics.csv` integrated into `DSE_EMPIRICAL_TOPICS` database across writing (local/international/global), reading, and listening categories
+- **LISTENING_TOPICS_V2**: +28 new listening scenarios (international exchange, global issues, HK local)
+- **READING_TOPICS_V2**: +30 new reading topics (HK urban renewal, food identity, climate justice, AI copyright, etc.)
+- **TopicCategory type**: Added `'community'` category
+
+### 🧹 Code Quality
+- **Dead code audit**: Confirmed `remaining-routes.schema.ts` schemas unused; `ai-service.ts` IS code marked DEPRECATED
+- **Type consistency**: All 12 modified files verified — no stale `writingQuality`, `writingTaskZh`, or 4-type enums in active code paths
+- **i18n**: 35+ new translation keys for new task types, symbols, Data File UI, scoring dimensions, proofreading checklist, Level estimates
+
+### 📁 Files Changed (13 total)
+- `src/modules/ai/services/integrated-skills-config.ts` — 9 task types, trap types, symbols, scoring weights, Level thresholds
+- `src/modules/ai/services/integrated-skills.ts` — Expanded types (DataFile, Chinglish, etc.), generation + analysis functions
+- `src/modules/ai/prompts/writing/v1.ts` — Generation prompt (Data File + 9 formats + symbols), analysis prompt (HKEAA 3-dim + plagiarism + Level)
+- `src/modules/assessment/components/IntegratedSkillsTaskView.tsx` — 3-dim result display, Data File UI, symbols panel, 7 new result sections
+- `src/store/integratedSkillsStore.ts` — Extended `IntegratedTaskData` + `IntegratedSkillsResult` types
+- `src/app/api/ai/generate-integrated-skills/route.ts` — Import migration, 9 task types validation
+- `src/app/api/ai/analyze-integrated-skills/route.ts` — Import migration, dataFileSources passthrough
+- `src/app/student/integrated-skills/page.tsx` — TASK_TYPES 4→9
+- `src/shared/utils/i18n-is.ts` — 35+ new i18n keys
+- `src/shared/validation/schemas/ai-request.schema.ts` — Enum expansion, dataFileSources
+- `src/shared/validation/schemas/remaining-routes.schema.ts` — dataFileSources
+- `src/modules/ai/services/ai-service.ts` — DEPRECATED markers
+- `src/shared/google/sheets-sync.ts` — **New file**: Google Sheets auto-sync utility
+- `src/modules/ai/services/dse-topics.ts` — 120+ expanded topics
+- `src/modules/ai/prompts/grammar/v1.ts` — Error correction prompt hardening
+- `src/shared/utils/i18n-student.ts` — AI button label fix
+- `src/app/api/admin/classes/route.ts` — Auto-link admin users + Sheets sync
+- `src/app/api/admin/users/route.ts` — Student Sheets sync
+- `src/app/api/admin/import/students/route.ts` — Batch Sheets sync
+
+---
+
 ## 2026-07-20 (night) — Practice Records Dedup & Student Analytics Overhaul
 
 ### 📝 All Exercise Types Now Tracked

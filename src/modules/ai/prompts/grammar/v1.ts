@@ -150,16 +150,25 @@ function buildReadingSection(): string {
 function buildErrorCorrectionSection(): string {
   return `
 【改錯題特別要求 — CRITICAL】
-- 每道改錯題必須在 readingContent 欄位提供一段完整的英文段落（50-150字），其中包含 1 個文法錯誤
-- prompt 應指示學生找出並改正錯誤，例如："The passage contains one mistake. Find the error and correct it."
-- choices 欄位提供 4 個選項（A/B/C/D），每個選項是段落中被標示的不同部分（片語），其中一個包含錯誤
-- answer 必須是 "A"/"B"/"C"/"D" 之一，對應包含錯誤的那個選項
-- explanationZh/explanationEn 必須清楚解釋為何該部分錯誤以及正確用法
+- ⚠️ 最重要：readingContent 必須是一段包含 1 個明確文法錯誤的英文段落（50-150字）。錯誤必須是真實的、可識別的文法錯誤（如時態、主謂一致、冠詞、介詞、詞性等），絕對不可提供完全正確無誤的段落。
+- 生成後必須自我檢查：在 readingContent 中找出你故意放置的錯誤，確認它確實存在且可被 S1-S6 學生辨識。
+- prompt 必須明確指示學生找出並改正錯誤，例如："The passage below contains ONE grammatical error. Find the error and correct it." 或 "Read the passage. One of the underlined parts is incorrect. Identify and correct it."
+- choices 欄位提供 4 個選項（A/B/C/D），每個選項是從段落中提取的片語（約3-8字），其中一個是包含錯誤的片語，另外三個是正確的片語。
+- 這三個正確的 distractor 選項必須是看似可能有錯但實際上正確的片語（例如有特殊搭配或較複雜的句式），以增加題目挑戰性。
+- answer 必須是 "A"/"B"/"C"/"D" 之一，對應包含錯誤的那個選項。
+- explanationZh/explanationEn 必須清楚解釋 (a) 為何該選項錯誤 (b) 正確的文法規則是什麼 (c) 如何改正。
+- commonMistake 欄位說明學生常犯的類似錯誤（繁體中文）。
+- ❌ 禁止：提供完全正確的段落然後問學生找錯。
+- ❌ 禁止：使用 "All of the above"、"None of the above"、"Both A and B" 等選項。
 - 範例格式：
   readingContent: "She has been making pottery since she was a child, and she still enjoys to create new pieces. Her works are inspired by traditional Chinese designs."
   choices: ["has been making", "since she was a child", "enjoys to create", "are inspired by"]
   answer: "C"
-  prompt: "In the passage, which underlined part contains a grammatical error?"`;
+  prompt: "The passage below contains ONE grammatical error. Which underlined part is incorrect?"
+  explanationZh: "「enjoys to create」錯誤，'enjoy' 後應接動名詞（gerund），正確為「enjoys creating」。"
+  explanationEn: "'enjoys to create' is incorrect. After 'enjoy', use a gerund: 'enjoys creating'."
+  commonMistake: "學生常混淆動名詞與不定詞的用法，例如 'enjoy to do' 是常見錯誤。"
+  grammarPoint: "Gerunds vs Infinitives"`;
 }
 
 // ============================================

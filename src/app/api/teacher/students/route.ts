@@ -8,40 +8,44 @@ import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 
-async function getTeacherId(request: NextRequest): Promise<string | null> {
+async function getTeacherInfo(request: NextRequest): Promise<{ userId: string; role: string } | null> {
   const token = request.cookies.get('session_token')?.value;
   if (token) {
     const payload = await verifySessionToken(token);
-    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) return payload.userId;
+    if (payload && (payload.role === 'teacher' || payload.role === 'admin')) return { userId: payload.userId, role: payload.role };
   }
   const session = await auth();
   if (session?.user?.id) {
     const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
-    if (user && (user.role === 'teacher' || user.role === 'admin')) return session.user.id;
+    if (user && (user.role === 'teacher' || user.role === 'admin')) return { userId: session.user.id, role: user.role };
   }
   return null;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const teacherId = await getTeacherId(request);
-    if (!teacherId) {
+    const teacherInfo = await getTeacherInfo(request);
+    if (!teacherInfo) {
       return NextResponse.json({ error: '請先登入教師帳號' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const className = searchParams.get('className') || '';
+    const isAdmin = teacherInfo.role === 'admin';
 
-    // Get teacher's taught classes
-    const taughtClasses = await db.teacherClass.findMany({
-      where: { teacherId },
-      select: { classId: true },
-    });
-    const taughtClassIds = taughtClasses.map(tc => tc.classId);
+    // Get teacher's taught classes (admins see all classes)
+    let taughtClassIds: string[] = [];
+    if (!isAdmin) {
+      const taughtClasses = await db.teacherClass.findMany({
+        where: { teacherId: teacherInfo.userId },
+        select: { classId: true },
+      });
+      taughtClassIds = taughtClasses.map(tc => tc.classId);
+    }
 
-    // If teacher has no taught classes, return all students (for admin-teachers)
+    // Build student filter: admins see all, teachers see their taught classes
     const where: Record<string, unknown> = { role: 'student', level: { not: 'Demo' } };
-    if (taughtClassIds.length > 0) {
+    if (!isAdmin && taughtClassIds.length > 0) {
       where.classId = { in: taughtClassIds };
     }
     if (className) {
@@ -62,7 +66,7 @@ export async function GET(request: NextRequest) {
     const classes = await db.class.findMany({
       where: {
         name: { not: 'Demo' },
-        ...(taughtClassIds.length > 0 ? { id: { in: taughtClassIds } } : {}),
+        ...(!isAdmin && taughtClassIds.length > 0 ? { id: { in: taughtClassIds } } : {}),
       },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, gradeLevel: true },

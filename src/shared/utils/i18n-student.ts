@@ -17,7 +17,7 @@ export const studentTranslations: Record<string, { zh: string; en: string }> = {
   'student.dashboard.title': { zh: '學習主頁', en: 'Dashboard' },
   'student.dashboard.practice': { zh: '開始練習', en: 'Start Practice' },
   'student.dashboard.aiInsight': { zh: 'AI 學習洞察', en: 'AI Insights' },
-  'student.dashboard.aiAnalysis': { zh: 'AI 分析中...', en: 'AI Analyzing...' },
+  'student.dashboard.aiAnalysis': { zh: 'AI 分析', en: 'AI Analysis' },
   'student.dashboard.aiError': { zh: 'AI 分析暫時無法使用', en: 'AI analysis unavailable' },
 
   'diagnostic.title': { zh: '🧪 診斷測驗', en: '🧪 Diagnostic Test' },

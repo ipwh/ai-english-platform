@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [DEEP_AUDIT.md](docs/DEEP_AUDIT_2026-07-20.md)
-> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 99%** | **v4.2**
+> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 99%** | **v4.3**
 
 ## 🏗️ Architecture Overview
 
@@ -42,7 +42,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
-- **🎧✍️ Integrated Skills 綜合訓練 v4** — 模擬 DSE Paper 3 Part B「先聽後寫」完整流程。**步驟鎖定**（聆聽完成→解鎖筆記→解鎖寫作）、StepIndicator 環型進度指示器、AudioPlayer 播放控制（暫停/繼續/停止/語速）、Note-taking 引導問題、寫作任務（Summary / Email Reply / Short Article / Report）、**AI 雙維度批改**（Listening Recall + Writing Quality）、內容要點分析（Captured/Missed Points）、過度抄襲檢測、文法錯誤詳解、HKDSE 等級估算、**桌面 Sidebar + 行動裝置 Bottom Tabs**、返回修改重新提交、15 秒自動儲存草稿
+- **🎧✍️ Integrated Skills 綜合訓練 v5** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**（Summary / Email Reply / Short Article / Report / Speech / Proposal / Notice / Press Release / Letter to Editor）、**Data File 資料夾模擬**（email, memo, report-excerpt, webpage, statistics, notice — 含干擾資訊與來源日期）、**HKEAA 官方三維評分**（Listening 40% + Language 35% + Organization 25%，含 DSE Level 5**~1 對照）、**5 種真實考試陷阱**（Self-correction / Synonym Replacement / Speaker Attitude / Numerical Precision / Distraction）、**12 種速記符號面板**（+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓）、**抄襲偵測強化**（≥8 連續詞 + Data File 比對 + 中式英文 10 項檢測）、步驟鎖定（聆聽→筆記→寫作）、AudioPlayer 播放控制、Note-taking 引導問題、7 種 AI 分析結果展示（文法錯誤/中式英文/詞彙升級/筆記評估/Data Manipulation/改進建議/評分明細）、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分，含五大鋪墊法（現況切入→他人意見→表達立場→理據→讓步）、評卷員雙關卡流程（Layout & Clarity → CLO 三維評分）、中式英文 10 項高頻檢測、詞彙升級建議、結構評語、文體格式驗證、HKDSE Level 對應（1→5**）及 100 分制換算，前端顯示 CLO 三維評分卡片及 DSE Level 徽章
@@ -68,7 +68,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(45%)+練習頻率(20%)+新近度(20%)+錯誤懲罰(15%)的加權公式
 - **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
-- **🌍 多元題材資料庫** — 80+ 閱讀主題、60+ 聆聽場景、12+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易），確保出題內容豐富不重複
+- **🌍 多元題材資料庫** — 200+ 閱讀主題、90+ 聆聽場景、90+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園、茶餐廳文化、社區重建、非遺保育、公共房屋）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易、難民教育、全球糧食安全、跨境網購權益），確保出題內容豐富不重複
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
 - **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
@@ -87,7 +87,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 - **成績報告** — 班級及個別學生成績分析
 
 ### 🛡️ 管理員後台（`/admin`）
-- **Google Sheets 同步** — 一鍵從 Google Sheets 同步全校學生班別名單（真相來源），支援 dry-run 預覽
+- **Google Sheets 同步** — 一鍵從 Google Sheets 同步全校學生班別名單（真相來源），支援 dry-run 預覽；**自動反向同步**：在平台新增班級或學生時，自動寫入 Google Sheets（班級列表 + 學生名單分頁），支援批量匯入批次同步
 - **批量匯入** — CSV 批量匯入學生與教師資料（支援模板下載、Zod 驗證、upsert、dry-run 預覽、錯誤報告）
 - **使用者管理** — 分頁查看、搜尋、篩選所有使用者（依角色/年級/班級），可編輯單筆資料（姓名、email、班級、科目、部門、學年等）
 - **學生個人分析** — 搜尋學生列表，點擊進入個人分析儀表板：6 大統計卡片（準確率/練習次數/錯題數/連續學習/經驗值/詞彙量）、6 維技能掌握度進度條、弱點分析（頻率/嚴重程度/改善趨勢/建議）、每週學習趨勢圖、各技能練習統計表、最近練習記錄、最近錯題（含正誤答案對比）、詞彙概覽（熟悉度分佈）、診斷評估結果、寫作提交概覽

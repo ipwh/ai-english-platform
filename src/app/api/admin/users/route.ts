@@ -10,6 +10,7 @@ import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { hashPasswordSync } from '@/shared/auth/crypto';
+import { syncStudentToSheet } from '@/shared/google/sheets-sync';
 import type { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
@@ -180,6 +181,18 @@ export async function POST(request: NextRequest) {
         class: { select: { id: true, name: true } },
       },
     });
+
+    // Fire-and-forget: sync student to Google Sheets
+    if (role === 'student') {
+      syncStudentToSheet({
+        email,
+        className: className || '',
+        classNumber: classNumber || undefined,
+        nameZh,
+        nameEn: nameEn || undefined,
+        level: level || undefined,
+      });
+    }
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (err: unknown) {

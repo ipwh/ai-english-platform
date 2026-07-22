@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { logger } from '@/shared/logger/logger';
+import { syncClassToSheet } from '@/shared/google/sheets-sync';
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,20 +59,26 @@ export async function POST(request: NextRequest) {
       create: { name, gradeLevel, academicYear: academicYear || '2025-2026' },
     });
 
-    // Auto-link new class to all existing teachers so they can assign work to it
+    // Auto-link new class to all existing teachers AND admins so they can assign work to it
     try {
-      const teachers = await db.user.findMany({
-        where: { role: 'teacher' },
-        select: { id: true },
+      const educators = await db.user.findMany({
+        where: { role: { in: ['teacher', 'admin'] } },
+        select: { id: true, role: true },
       });
-      for (const teacher of teachers) {
+      for (const educator of educators) {
         await db.teacherClass.upsert({
-          where: { teacherId_classId: { teacherId: teacher.id, classId: cls.id } },
+          where: { teacherId_classId: { teacherId: educator.id, classId: cls.id } },
           update: {},
-          create: { teacherId: teacher.id, classId: cls.id },
+          create: { teacherId: educator.id, classId: cls.id },
         });
       }
-    } catch { /* non-critical: teachers can self-assign later via settings */ }
+      logger.info({ module: 'admin-classes', classId: cls.id, educatorCount: educators.length }, 'Auto-linked class to educators');
+    } catch (err) {
+      logger.error({ module: 'admin-classes', classId: cls.id, error: err instanceof Error ? err.message : String(err) }, 'Failed to auto-link class to educators');
+    }
+
+    // Fire-and-forget: sync to Google Sheets
+    syncClassToSheet(cls.name, cls.gradeLevel, cls.academicYear);
 
     return NextResponse.json({ success: true, class: cls });
   } catch (err: unknown) {

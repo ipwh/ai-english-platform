@@ -17,26 +17,36 @@ export interface NoteGuideItem {
 
 export interface IntegratedTaskData {
   listeningContent: string;
-  listeningContentZh?: string;
+  listeningTopicZh?: string;
+  /** v2: Data File sources */
+  dataFile?: { sources: Array<{ type: string; title: string; content: string; relevantFor: number[]; sourceDate?: string }> };
   noteTakingGuide: NoteGuideItem[];
   writingTask: string;
-  writingTaskZh?: string;
-  expectedContentPoints: string[];
+  taskType?: string;
   wordLimit?: number;
+  expectedContentPoints: string[];
+  listeningAnswers?: { question: string; answer: string }[];
 }
 
 export interface IntegratedSkillsResult {
   overallScore: number;
   estimatedLevel?: string;
   listeningAccuracy: number;
-  writingQuality: number;
-  contentCompleteness: number;
   languageAccuracy: number;
   organizationClarity: number;
+  contentCompleteness: number;
   generalComment?: string;
   capturedPoints?: string[];
   missedPoints?: string[];
-  overCopyWarnings?: { original: string; suggestion: string }[];
+  overCopyWarnings?: { original: string; studentText?: string; suggestion: string; sourceType?: string }[];
+  chinglishWarnings?: { original: string; suggestion: string; explanation: string }[];
+  grammarErrors?: { original: string; correction: string; explanation: string }[];
+  vocabularySuggestions?: { original: string; suggestion: string; reason: string }[];
+  dataManipulationFeedback?: string;
+  structureFeedback?: string;
+  noteTakingFeedback?: string;
+  improvementTips?: string[];
+  scoringBreakdown?: { listeningWeighted: string; languageWeighted: string; organizationWeighted: string; formula: string };
 }
 
 interface IntegratedSkillsState {

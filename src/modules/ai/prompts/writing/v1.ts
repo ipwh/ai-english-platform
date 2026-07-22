@@ -286,10 +286,11 @@ export interface IntegratedSkillsGenPromptParams {
   gradeLevel: string; difficulty: string; taskType: string; topicHint?: string;
   dseTopics: string; diffLines: string; diffTraps: string; diffWordLimit: number;
   diffLabel: string; taskInfoName: string; taskInfoNameZh: string; taskInfoFormatHint: string;
+  diffDataFilePages: number; diffSpeakerCount: number; taskRequiredElements: string[];
 }
 
 export function buildIntegratedSkillsGenPrompt(params: IntegratedSkillsGenPromptParams): string {
-  const { gradeLevel, taskType, topicHint, dseTopics, diffLines, diffTraps, diffWordLimit, diffLabel, taskInfoName, taskInfoNameZh, taskInfoFormatHint } = params;
+  const { gradeLevel, taskType, topicHint, dseTopics, diffLines, diffTraps, diffWordLimit, diffLabel, taskInfoName, taskInfoNameZh, taskInfoFormatHint, diffDataFilePages, diffSpeakerCount, taskRequiredElements } = params;
   return `你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
 ⚠️ 原創性要求：必須生成 100% 原創內容，嚴禁複製或改寫任何真實 HKDSE 試題。
 
@@ -304,37 +305,69 @@ Real DSE Paper 3 reference topics:
 ${dseTopics}
 
 ═══════════════════════════════════════
-一、聆聽材料 (listeningContent) 設計規則
+一、Data File 設計規則（模擬真實 Paper 3 資料夾）
+═══════════════════════════════════════
+- 必須生成 ${diffDataFilePages} 個獨立的 data file 來源（sources）
+- 每個來源模擬以下 DSE 常見格式：email / memo / report-excerpt / webpage / statistics / notice
+- 每個來源標記 relevantFor（該資料用於哪些 expectedContentPoints 索引）
+- 部分來源應包含干擾資訊（distractor）
+- 來源之間可有資訊衝突（舊資訊已被新資訊更新）
+
+═══════════════════════════════════════
+二、聆聽材料 (listeningContent) 設計規則
 ═══════════════════════════════════════
 - 結構與長度：${diffLines}
+- 角色數量：${diffSpeakerCount} 位說話者
 - 角色標籤：Woman:/Man:/Boy/Girl:（TTS 相容，禁用 A/B/Speaker 標籤）
 - 內容密度：每 3-4 行必須包含一個可提取的 Content Point
 - 陷阱設計：${diffTraps}
 - 自然口語：linking (gonna/wanna)、reduction、hesitation (Um.../Well...)、self-correction
-- 題材多樣性：必須使用 Empirical Topic Database 中的真實主題
+- ⚠️ 聆聽和 Data File 互補：部分資訊只出現在其中一方
 
-二、Note-taking 指引 — 提供 4-5 個引導問題，融入 DSE Note-taking 教學技巧（符號系統、信號詞）
+三、Note-taking 指引 — 提供 4-5 個引導問題
+hint 中融入速記符號提示：+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓
+信號詞提示：注意 "importantly", "however", "statistics show", "in conclusion"
 
-三、寫作任務 (writingTask) — DSE Paper 3 Part B 標準
+四、寫作任務 (writingTask) — DSE Paper 3 Part B 標準
 任務類型：${taskInfoName} (${taskInfoNameZh})
 必須包含：CONTEXT + ROLE + AUDIENCE + TASK + REQUIREMENTS (3-4個) + WORD LIMIT (~${diffWordLimit} words) + FORMAT NOTES
 ${taskInfoFormatHint}
 
-${taskType === 'email-reply' ? 'Email 格式：subject line + salutation + body + closing + signature + role' : ''}
-${taskType === 'report' ? 'Report 格式：title + introduction/background + findings + recommendations + conclusion' : ''}
-${taskType === 'summary' ? 'Summary：用自己文字概括，不可直接抄襲聆聽原文' : ''}
+⚠️ ${taskInfoNameZh} 必須包含的格式元素：
+${taskRequiredElements.map((el, i) => `${i + 1}. ${el}`).join('\n')}
 
-四、預期內容要點 (expectedContentPoints) — 列出 5-7 個具體要點
+${taskType === 'speech' ? 'Speech 特別要求：greeting line 按輩份排序（guests → Principal → teachers → students），以逗號結尾。' : ''}
+${taskType === 'proposal' ? 'Proposal 特別要求：包含 timeline 和 budget considerations。' : ''}
+${taskType === 'notice' ? 'Notice 特別要求：正文簡潔（時間+地點+事項+對象），不需長篇論述。' : ''}
+${taskType === 'press-release' ? 'Press Release 特別要求：lead 含 5W1H，加入模擬 quote。' : ''}
+${taskType === 'letter-to-editor' ? 'Letter to Editor 特別要求：回應一篇假設已發表的文章，可用 rebuttal。' : ''}
+${taskType === 'email-reply' ? 'Email Reply 特別要求：回覆 data file 中的電郵，逐一引用原文要點回應。' : ''}
+${taskType === 'report' ? 'Report 特別要求：至少 3 個 sub-headings（Background / Findings / Recommendations）。' : ''}
+${taskType === 'summary' ? 'Summary 特別要求：用自己的文字概括，不可直接抄襲。' : ''}
+${taskType === 'short-article' ? 'Article 特別要求：標題吸引、開頭 hook、結尾 concluding remark。' : ''}
 
-五、答案參考 (listeningAnswers) — 為每個 note-taking 引導問題提供標準答案
+五、預期內容要點 (expectedContentPoints) — 5-7 個要點，標註來源（listening / data file / both）
 
-輸出格式（純 JSON）：
+六、答案參考 (listeningAnswers) — 為每個 note-taking 引導問題提供標準答案
+
+輸出格式（純 JSON，不要 Markdown 代碼塊）：
 {
   "listeningContent": "Woman: ...\\nMan: ...",
   "listeningTopicZh": "繁體中文主題簡介",
-  "noteTakingGuide": [{ "question": "...?", "hint": "..." }],
+  "dataFile": {
+    "sources": [
+      {
+        "type": "email|memo|report-excerpt|webpage|statistics|notice",
+        "title": "資料標題",
+        "content": "資料內容（50-150字）",
+        "relevantFor": [0, 1, 2],
+        "sourceDate": "日期"
+      }
+    ]
+  },
+  "noteTakingGuide": [{ "question": "...?", "hint": "符號提示+信號詞" }],
   "writingTask": "完整的寫作任務說明...",
-  "expectedContentPoints": ["要點1", "要點2", ...],
+  "expectedContentPoints": ["要點1", "要點2", "要點3", "要點4", "要點5"],
   "listeningAnswers": [{ "question": "...", "answer": "..." }]
 }
 
@@ -348,47 +381,123 @@ ${taskType === 'summary' ? 'Summary：用自己文字概括，不可直接抄襲
 
 export function buildIntegratedSkillsAnalysisPrompt(paper3MSContext: string): string {
   return `你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
-請同時從「Listening 提取準確度」和「Writing 品質」兩個維度進行評估。
+請從三個維度進行全面評估，對齊 HKDSE Paper 3 官方評分標準。
 ${paper3MSContext}
 
 ═══════════════════════════════════════
-DSE Paper 3 官方評分標準
+HKDSE Paper 3 官方三維評分標準
 ═══════════════════════════════════════
-- Listening 理解能力 (40%)：準確提取 Content Points、理解細節與隱含意思、識別說話者態度
-- Language 語言運用 (35%)：詞彙準確性與多樣性、文法正確性、Data manipulation（非直接抄襲）、Tone 與語境匹配
-- Organization 組織結構 (25%)：邏輯性與連貫性、PEEL 結構、分段合理、格式正確
 
-批改維度一：Listening 提取準確度
-- capturedPoints: 已成功提取的要點
-- missedPoints: 完全遺漏的要點
-- Note-taking 品質評估（符號系統、關鍵資訊捕捉）
+維度一：Listening 理解能力（權重 40%）
+- 準確提取 Content Points（從聆聽錄音 + Data File 中）
+- 理解細節與隱含意思（subtext、speaker attitude）
+- 識別說話者態度和意圖
+- 區分主要資訊 vs 陷阱資訊（distraction detection）
 
-批改維度二：Writing 品質
-- Paraphrasing vs 過度抄襲檢測（>8 連續詞直接照搬 = 過度抄襲）
-- Data Manipulation 三層次：L1 直接引用 → L2 語法轉換 → L3 語境適應
-- 寫作結構：PEEL、清晰分段、邏輯連接
-- Audience Awareness：Tone 是否符合目標讀者、格式是否正確
-- 語言品質：文法錯誤 + 詞彙豐富度 + 句式變化
+維度二：Language 語言運用（權重 35%）
+- 詞彙準確性與多樣性（避免重複用詞）
+- 文法正確性（tenses、articles、prepositions、subject-verb agreement）
+- Data Manipulation 能力（三層次）：
+  * L1 直接引用：準確保留關鍵數據/專有名詞 ✓
+  * L2 語法轉換：陳述句↔問句、主動↔被動、時態轉換 ✓
+  * L3 語境適應：人稱轉換、語氣轉換（口語→書面正式語言） ✓
+- 過度抄襲檢測：>8 連續詞直接照搬聆聽/Data File 原文 = 抄襲，扣分
+- 中式英文 (Chinglish) 檢測：although...but、because...so、I very like 等
+- Tone 與語境匹配（formal/semi-formal/informal）
 
-回覆格式（純 JSON）：
+維度三：Organization 組織結構（權重 25%）
+- 邏輯性與連貫性（觀點是否層層遞進）
+- PEEL 結構運用（Point → Explain → Example → Link）
+- 分段合理性（one point per paragraph）
+- 格式正確性（必須的格式元素是否齊全）
+- 過渡詞使用（Furthermore、Nevertheless、Consequently 等）
+
+═══════════════════════════════════════
+過度抄襲檢測規則（Plagiarism Detection）
+═══════════════════════════════════════
+- 偵測範圍：比對學生寫作 vs listeningContent + dataFile 所有 sources
+- 抄襲標準：連續 ≥8 個單詞直接照搬（不含專有名詞、數字、日期）
+- 每偵測到一處抄襲 → overCopyWarnings 中加入一條
+- 30% 以上內容為抄襲 → languageAccuracy 扣 15-25 分
+- 50% 以上內容為抄襲 → languageAccuracy 上限 40 分
+
+Data Manipulation 正確示範：
+- ✓ 錄音："The company will launch the product in March 2025."
+- ✓ 寫作："According to the announcement, the product launch is scheduled for March 2025."
+- ✗ 寫作："The company will launch the product in March 2025."（直接照抄）
+
+═══════════════════════════════════════
+DSE Paper 3 Level 對照（基於 2013-2024 cut off）
+═══════════════════════════════════════
+- 5**：≥85 分（最高等級 — 極少 grammar 錯誤、完整 content、格式完美）
+- 5* ：≥78 分
+- 5  ：≥73 分
+- 4  ：≥63 分
+- 3  ：≥50 分
+- 2  ：≥40 分
+- 1  ：≥25 分
+- Below Level 1：<25 分
+
+═══════════════════════════════════════
+回覆 JSON 格式
+═══════════════════════════════════════
 {
-  "overallScore": 0-100, "listeningAccuracy": 0-100, "writingQuality": 0-100,
-  "contentCompleteness": 0-100, "languageAccuracy": 0-100, "organizationClarity": 0-100,
-  "capturedPoints": ["..."], "missedPoints": ["..."],
-  "overCopyWarnings": [{"original": "...", "suggestion": "..."}],
-  "grammarErrors": [{"original": "...", "correction": "...", "explanation": "..."}],
-  "vocabularySuggestions": [{"original": "...", "suggestion": "...", "reason": "..."}],
-  "structureFeedback": "文章結構評語（繁體中文，含 PEEL 建議）",
-  "generalComment": "總評（繁體中文，80-120字，指出最接近的 HKDSE Level + Note-taking 改善建議）",
-  "improvementTips": ["至少包含1條 Note-taking 改善建議", "...", "..."],
-  "estimatedLevel": "Level 1-5 或 Below Level 1"
+  "overallScore": 0-100,
+  "listeningAccuracy": 0-100,
+  "languageAccuracy": 0-100,
+  "organizationClarity": 0-100,
+  "contentCompleteness": 0-100,
+  "capturedPoints": ["已提取的要點"],
+  "missedPoints": ["遺漏的要點"],
+  "overCopyWarnings": [
+    {
+      "original": "抄襲的原文片段",
+      "studentText": "學生寫的對應文字",
+      "suggestion": "建議如何用自己的文字改寫",
+      "sourceType": "listening|dataFile"
+    }
+  ],
+  "chinglishWarnings": [
+    {
+      "original": "學生的中式英文",
+      "suggestion": "建議的正確英文",
+      "explanation": "繁體中文解釋"
+    }
+  ],
+  "grammarErrors": [
+    {
+      "original": "錯誤原文",
+      "correction": "正確寫法",
+      "explanation": "繁體中文解釋"
+    }
+  ],
+  "vocabularySuggestions": [
+    {
+      "original": "基礎詞彙",
+      "suggestion": "升級詞彙",
+      "reason": "繁體中文理由"
+    }
+  ],
+  "dataManipulationFeedback": "Data Manipulation 評估（繁體中文，指出學生用了哪些層次的 manipulation，以及哪裏可以改進）",
+  "structureFeedback": "文章結構評語（繁體中文，含 PEEL + 格式 + 分段建議）",
+  "noteTakingFeedback": "Note-taking 品質評語（繁體中文，含符號使用 + 關鍵資訊捕捉建議）",
+  "generalComment": "總評（繁體中文，80-120字，必須包含：整體表現 + 最強項 + 最弱項 + estimatedLevel + 一句具體改善建議）",
+  "improvementTips": [
+    "具體改善建議1（至少1條 Note-taking 建議）",
+    "具體改善建議2（至少1條 Data Manipulation 建議）",
+    "具體改善建議3"
+  ],
+  "estimatedLevel": "5** / 5* / 5 / 4 / 3 / 2 / 1 / Below Level 1",
+  "scoringBreakdown": {
+    "listeningWeighted": "listeningAccuracy × 0.40",
+    "languageWeighted": "languageAccuracy × 0.35",
+    "organizationWeighted": "organizationClarity × 0.25",
+    "formula": "overallScore = listening×0.40 + language×0.35 + organization×0.25"
+  }
 }
 
-評分規則：
-- contentCompleteness 基於 capturedPoints/expectedContentPoints 的比例
-- 超過 30% 文字直接抄襲 listeningContent → writingQuality 扣 15-25 分
-- writing 與 listening content 完全無關 → overallScore <= 30
-- improvementTips 中至少包含 1 條 Note-taking 改善建議
+評分計算公式（強制使用）：
+overallScore = Math.round(listeningAccuracy × 0.40 + languageAccuracy × 0.35 + organizationClarity × 0.25)
 
 所有中文使用繁體中文。`.trim();
 }

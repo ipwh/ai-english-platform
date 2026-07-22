@@ -16,6 +16,7 @@ import {
 import type { ImportResult, ImportDetail } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
+import { syncStudentsToSheet } from '@/shared/google/sheets-sync';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
@@ -235,6 +236,20 @@ export async function POST(request: NextRequest) {
 
       // 進度回報（透過 console，可在 Vercel logs 看到）
       console.log(`[import/students] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(validRows.length / BATCH_SIZE)} done (${Math.min(i + BATCH_SIZE, validRows.length)}/${validRows.length})`);
+    }
+
+    // Fire-and-forget: batch sync all students to Google Sheets
+    if (!dryRun && validRows.length > 0) {
+      syncStudentsToSheet(
+        validRows.map(r => ({
+          email: r.data.email,
+          className: r.data.className,
+          classNumber: r.data.classNumber,
+          nameZh: r.data.nameZh,
+          nameEn: r.data.nameEn,
+          level: r.data.level,
+        })),
+      );
     }
 
     return NextResponse.json(result);

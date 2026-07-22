@@ -105,17 +105,22 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         )}
       </div>
 
-      {/* Dual-dimension scores */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Three-dimension scores (HKEAA aligned) */}
+      <div className="grid grid-cols-3 gap-3">
         <div className={`rounded-xl p-4 text-center ${scoreColor(a.listeningAccuracy)}`}>
           <Headphones className="w-5 h-5 mx-auto mb-1" />
           <div className="text-2xl font-bold">{a.listeningAccuracy}%</div>
-          <div className="text-xs font-medium">Listening Recall</div>
+          <div className="text-xs font-medium">Listening (40%)</div>
         </div>
-        <div className={`rounded-xl p-4 text-center ${scoreColor(a.writingQuality)}`}>
+        <div className={`rounded-xl p-4 text-center ${scoreColor(a.languageAccuracy)}`}>
           <PenLine className="w-5 h-5 mx-auto mb-1" />
-          <div className="text-2xl font-bold">{a.writingQuality}%</div>
-          <div className="text-xs font-medium">Writing Quality</div>
+          <div className="text-2xl font-bold">{a.languageAccuracy}%</div>
+          <div className="text-xs font-medium">Language (35%)</div>
+        </div>
+        <div className={`rounded-xl p-4 text-center ${scoreColor(a.organizationClarity)}`}>
+          <Target className="w-5 h-5 mx-auto mb-1" />
+          <div className="text-2xl font-bold">{a.organizationClarity}%</div>
+          <div className="text-xs font-medium">Organization (25%)</div>
         </div>
       </div>
 
@@ -183,7 +188,90 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         </div>
       )}
 
-      {/* General comment */}
+      {/* Grammar errors */}
+      {a.grammarErrors && a.grammarErrors.length > 0 && (
+        <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-200 dark:border-red-800">
+          <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
+            <XCircle className="w-4 h-4" /> Grammar Errors ({a.grammarErrors.length})
+          </h4>
+          {a.grammarErrors.map((e, i) => (
+            <div key={i} className="text-xs mb-2 last:mb-0">
+              <div className="text-red-600 line-through bg-red-50 dark:bg-red-900/20 rounded px-2 py-1 mb-1">{e.original}</div>
+              <div className="text-green-600 bg-green-50 dark:bg-green-900/20 rounded px-2 py-1">→ {e.correction}</div>
+              <div className="text-gray-500 text-xs mt-0.5 ml-1">{e.explanation}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Chinglish warnings */}
+      {a.chinglishWarnings && a.chinglishWarnings.length > 0 && (
+        <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+          <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-400 mb-2 flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4" /> Chinglish Warnings ({a.chinglishWarnings.length})
+          </h4>
+          {a.chinglishWarnings.map((w, i) => (
+            <div key={i} className="text-xs mb-2 last:mb-0">
+              <div className="text-orange-600 line-through bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1 mb-1">{w.original}</div>
+              <div className="text-green-600 bg-green-50 dark:bg-green-900/20 rounded px-2 py-1">→ {w.suggestion}</div>
+              <div className="text-gray-500 text-xs mt-0.5 ml-1">{w.explanation}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Vocabulary suggestions */}
+      {a.vocabularySuggestions && a.vocabularySuggestions.length > 0 && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
+          <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-2 flex items-center gap-1.5">
+            <BookOpen className="w-4 h-4" /> Vocabulary Upgrades ({a.vocabularySuggestions.length})
+          </h4>
+          {a.vocabularySuggestions.map((v, i) => (
+            <div key={i} className="text-xs mb-2 last:mb-0 flex flex-wrap items-center gap-1.5">
+              <span className="text-indigo-500 line-through bg-indigo-50 dark:bg-indigo-900/20 rounded px-1.5 py-0.5">{v.original}</span>
+              <span className="text-gray-400">→</span>
+              <span className="text-green-600 bg-green-50 dark:bg-green-900/20 rounded px-1.5 py-0.5 font-medium">{v.suggestion}</span>
+              {v.reason && <span className="text-gray-400 text-xs ml-1">— {v.reason}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Note-taking feedback */}
+      {a.noteTakingFeedback && (
+        <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+          <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1.5">
+            <Edit3 className="w-4 h-4" /> Note-taking Feedback
+          </h4>
+          <p className="text-sm text-amber-700 dark:text-amber-400 leading-relaxed">{a.noteTakingFeedback}</p>
+        </div>
+      )}
+
+      {/* Data manipulation feedback */}
+      {a.dataManipulationFeedback && (
+        <div className="bg-teal-50 dark:bg-teal-900/10 rounded-xl p-4 border border-teal-200 dark:border-teal-800">
+          <h4 className="text-sm font-semibold text-teal-700 dark:text-teal-400 mb-1 flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4" /> Data Manipulation
+          </h4>
+          <p className="text-sm text-teal-700 dark:text-teal-400 leading-relaxed">{a.dataManipulationFeedback}</p>
+        </div>
+      )}
+
+      {/* Improvement tips */}
+      {a.improvementTips && a.improvementTips.length > 0 && (
+        <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
+          <h4 className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2 flex items-center gap-1.5">
+            <Lightbulb className="w-4 h-4" /> Improvement Tips
+          </h4>
+          <ul className="space-y-1.5">
+            {a.improvementTips.map((tip, i) => (
+              <li key={i} className="text-sm text-green-700 dark:text-green-400 flex items-start gap-2">
+                <span className="text-green-500 mt-0.5 font-bold">{i + 1}.</span>{tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {a.generalComment && (
         <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
           <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1.5">
@@ -281,6 +369,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           writingTask: task.writingTask, taskType: s.taskType,
           studentNotes: s.studentNotes, studentWriting: s.studentWriting,
           gradeLevel: s.gradeLevel,
+          dataFileSources: task.dataFile?.sources,
         }),
       });
       const json = await res.json();
@@ -376,6 +465,33 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           )}
         </div>
       </div>
+
+      {/* Data File section (if present) */}
+      {task.dataFile?.sources && task.dataFile.sources.length > 0 && (
+        <details className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-blue-200 dark:border-blue-700 overflow-hidden" open>
+          <summary className="p-4 cursor-pointer font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm">
+            <FileText className="w-4 h-4 text-blue-500" />
+            Data File ({task.dataFile.sources.length} sources)
+            <span className="text-xs font-normal text-gray-400 ml-2">— Click to expand/collapse</span>
+          </summary>
+          <div className="px-4 pb-4 space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+            {task.dataFile.sources.map((src, i) => (
+              <div key={i} className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-bold bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full uppercase">
+                    {src.type}
+                  </span>
+                  <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">{src.title}</span>
+                  {src.sourceDate && (
+                    <span className="text-xs text-blue-400 ml-auto">{src.sourceDate}</span>
+                  )}
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed whitespace-pre-line">{src.content}</p>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       {/* Main grid: 3/4 content + 1/4 sidebar (desktop) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -491,6 +607,24 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                       </ul>
                     </div>
                   )}
+
+                  {/* Shorthand symbols reference */}
+                  <details className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                    <summary className="cursor-pointer hover:text-teal-500 transition-colors">
+                      {t('is.symbols.title')}
+                    </summary>
+                    <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-1.5 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <span title="advantages/benefits">{t('is.symbols.plus')}</span>
+                      <span title="disadvantages/problems">{t('is.symbols.minus')}</span>
+                      <span title="causes/leads to">{t('is.symbols.arrow')}</span>
+                      <span title="reasons for">{t('is.symbols.because')}</span>
+                      <span title="important/key">{t('is.symbols.important')}</span>
+                      <span title="money/financial">{t('is.symbols.money')}</span>
+                      <span title="numbers/statistics">{t('is.symbols.number')}</span>
+                      <span title="uncertain">{t('is.symbols.uncertain')}</span>
+                      <span title="location">{t('is.symbols.location')}</span>
+                    </div>
+                  </details>
 
                   {/* Notes textarea */}
                   <textarea

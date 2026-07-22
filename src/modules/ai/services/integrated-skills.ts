@@ -15,8 +15,17 @@ export interface GenerateIntegratedSkillsInput {
   userId?: string;
   gradeLevel: string;
   difficulty: 'remedial' | 'core' | 'challenge';
-  taskType: 'summary' | 'email-reply' | 'short-article' | 'report';
+  taskType: 'summary' | 'email-reply' | 'short-article' | 'report' | 'speech' | 'proposal' | 'notice' | 'press-release' | 'letter-to-editor';
   topicHint?: string;
+}
+
+/** Data File 中的一個來源文件 */
+export interface DataFileSource {
+  type: 'email' | 'memo' | 'report-excerpt' | 'webpage' | 'statistics' | 'notice';
+  title: string;
+  content: string;
+  relevantFor: number[];
+  sourceDate?: string;
 }
 
 export interface IntegratedSkillsTask {
@@ -24,6 +33,8 @@ export interface IntegratedSkillsTask {
   listeningContent: string;
   /** 聽力主題簡介（中文） */
   listeningTopicZh: string;
+  /** Data File 資料來源（模擬真實 Paper 3 資料夾） */
+  dataFile?: { sources: DataFileSource[] };
   /** Note-taking 指引（告訴學生要留意什麼） */
   noteTakingGuide: { question: string; hint: string }[];
   /** 寫作任務說明（DSE 風格） */
@@ -42,6 +53,8 @@ export interface AnalyzeIntegratedSkillsInput {
   userId?: string;
   /** 原始聽力材料 */
   listeningContent: string;
+  /** Data File 來源（若有） */
+  dataFileSources?: DataFileSource[];
   /** Note-taking 指引 */
   noteTakingGuide: { question: string; hint: string }[];
   /** 預期內容要點 */
@@ -59,36 +72,42 @@ export interface AnalyzeIntegratedSkillsInput {
 }
 
 export interface IntegratedSkillsAnalysis {
-  /** 總分 0-100 */
+  /** 總分 0-100（weighted: listening×0.40 + language×0.35 + organization×0.25） */
   overallScore: number;
   /** Listening 提取準確度 0-100 */
   listeningAccuracy: number;
-  /** 寫作品質 0-100 */
-  writingQuality: number;
-  /** 內容完整度 0-100 */
-  contentCompleteness: number;
   /** 語言準確度 0-100 */
   languageAccuracy: number;
   /** 組織清晰度 0-100 */
   organizationClarity: number;
+  /** 內容完整度 0-100 */
+  contentCompleteness: number;
   /** 已提取的要點 */
   capturedPoints: string[];
   /** 遺漏的要點 */
   missedPoints: string[];
-  /** 抄襲聽力原文的段落（過度抄襲） */
-  overCopyWarnings: { original: string; suggestion: string }[];
+  /** 抄襲檢測警告 */
+  overCopyWarnings: { original: string; studentText?: string; suggestion: string; sourceType?: string }[];
+  /** 中式英文警告 */
+  chinglishWarnings?: { original: string; suggestion: string; explanation: string }[];
   /** 文法錯誤 */
   grammarErrors: { original: string; correction: string; explanation: string }[];
   /** 詞彙升級建議 */
   vocabularySuggestions: { original: string; suggestion: string; reason: string }[];
+  /** Data Manipulation 反饋 */
+  dataManipulationFeedback?: string;
   /** 結構評語（繁體中文） */
   structureFeedback: string;
+  /** Note-taking 品質評語 */
+  noteTakingFeedback?: string;
   /** 總評（繁體中文） */
   generalComment: string;
   /** 改進建議（繁體中文） */
   improvementTips: string[];
   /** 對應 HKDSE Level */
   estimatedLevel: string;
+  /** 評分明細 */
+  scoringBreakdown?: { listeningWeighted: string; languageWeighted: string; organizationWeighted: string; formula: string };
 }
 
 /**
@@ -116,13 +135,17 @@ export async function generateIntegratedSkills(
     taskInfoName: taskInfo.name,
     taskInfoNameZh: taskInfo.nameZh,
     taskInfoFormatHint: taskInfo.formatHint,
+    diffDataFilePages: diff.dataFilePages,
+    diffSpeakerCount: diff.speakerCount,
+    taskRequiredElements: taskInfo.requiredElements,
   });
 
   const userPrompt = `生成一個 DSE Paper 3 Part B Integrated Skills 練習：
-- 任務類型：${taskInfo.name}
+- 任務類型：${taskInfo.name} (${taskInfo.nameZh})
 - 年級：${input.gradeLevel}
 - 難度：${input.difficulty}
-- 字數要求：約 ${diff.wordLimit} words${input.topicHint ? `\n- 主題：${input.topicHint}` : ''}`;
+- 字數要求：約 ${diff.wordLimit} words${input.topicHint ? `\n- 主題：${input.topicHint}` : ''}
+- Data File 頁數：${diff.dataFilePages}`;
 
   const result = await callLLM(
     [
@@ -142,6 +165,7 @@ export async function generateIntegratedSkills(
   return {
     listeningContent: normalizeListeningContent(task.listeningContent),
     listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務',
+    dataFile: task.dataFile,
     noteTakingGuide: task.noteTakingGuide || [],
     writingTask: task.writingTask,
     taskType: input.taskType,
@@ -185,9 +209,17 @@ export async function analyzeIntegratedSkills(
 
   const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');
 
+  // Build Data File context for analysis
+  let dataFileContext = '';
+  if (input.dataFileSources && input.dataFileSources.length > 0) {
+    dataFileContext = '\n【Data File 資料】\n' + input.dataFileSources.map((s, i) =>
+      `[來源 ${i + 1}] ${s.type}: ${s.title}\n${s.content.slice(0, 500)}`
+    ).join('\n\n');
+  }
+
   const userPrompt = `【聆聽材料】
 ${input.listeningContent.slice(0, 3000)}
-
+${dataFileContext}
 【Note-taking 指引】
 ${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}
 
