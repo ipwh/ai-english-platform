@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [DEEP_AUDIT.md](docs/DEEP_AUDIT_2026-07-20.md)
-> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 99%** | **v4.3**
+> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 97%** | **v4.3.2**
 
 ## 🏗️ Architecture Overview
 
@@ -26,7 +26,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 | Framework | Next.js 16 (Turbopack + Edge Runtime) |
 | Language | TypeScript 5 (strict) |
 | Database | PostgreSQL (Neon) + Prisma 7 (pgvector) |
-| Auth | JWT (jose) + NextAuth v5 (Google OAuth) |
+| Auth | JWT (jose) + NextAuth v5 (Google OAuth) — **unified verifyApiAuth() on all routes** |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback, prompt injection sanitized) |
 | Validation | Zod v4 (21 schemas, 17 validated routes) |
 | i18n | 16 domain files (i18n-*.ts), bilingual en/zh-HK |
