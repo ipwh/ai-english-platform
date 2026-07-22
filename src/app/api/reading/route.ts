@@ -603,10 +603,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   logger.info({ module: 'reading-api', level, topic, elapsed, mode: 'legacy' }, 'Legacy passage generated');
 
   // Transform AI output to match frontend ReadingData interface
-  // The AI may return { readingContent, questions } or { passage: { title, content }, questions }
+  // The v2 AI prompt returns { readingContent } and questions with { questionText, type: "mcq", choices: ["A. ..."] }
+  // but frontend expects { passage: { title, content, wordCount } } and questions with { question, type: "mc", choices: ["..."] }
   const response: Record<string, unknown> = { ...parsed };
+
+  // 1. Transform passage format + add paragraph breaks from [N] markers
   if (!response.passage && response.readingContent) {
-    const content = response.readingContent as string;
+    let content = response.readingContent as string;
+    // Add paragraph breaks before [N] markers if not already present
+    content = content.replace(/([^\n])\s*\[(\d+)\]/g, '$1\n\n[$2]');
     const words = content.split(/\s+/).length;
     response.passage = {
       title: topic ? `${topic.charAt(0).toUpperCase() + topic.slice(1)} Reading` : 'Reading Passage',
@@ -615,6 +620,44 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       source: parsed.source || undefined,
     };
     delete response.readingContent;
+  }
+
+  // 2. Transform question format from v2 AI output to legacy frontend format
+  if (Array.isArray(response.questions)) {
+    response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
+      // Map questionText → question
+      const question = (q.questionText as string) || (q.question as string) || '';
+      const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
+
+      // Map AI question type to legacy type
+      const aiType = (q.type as string) || 'shortAnswer';
+      const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
+
+      // Strip "A. " prefix from choices if present
+      let choices: string[] | undefined;
+      if (Array.isArray(q.choices)) {
+        choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
+      }
+
+      // Determine tier from question metadata or default based on position
+      const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
+
+      // Determine paragraph reference
+      const paragraphRef = (q.paragraphRef as number) || (q.lineRef ? parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10) : 1);
+
+      return {
+        index: (q.index as number) || i + 1,
+        tier,
+        paragraphRef: Math.min(paragraphRef, 7), // clamp to passage paragraphs
+        question,
+        questionZh,
+        type: isMc ? 'mc' : 'short-answer',
+        choices: isMc ? (choices || ['A', 'B', 'C', 'D']) : undefined,
+        answer: (q.answer as string) || '',
+        explanationZh: (q.explanationZh as string) || undefined,
+        explanationEn: (q.explanationEn as string) || undefined,
+      };
+    });
   }
   response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
 
