@@ -4,6 +4,34 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-22 (night v2) — Difficulty Selector Standardization Across All Modules ★★★
+
+### 🎯 UI/UX — Difficulty & Grade Consistency
+- **Writing page**: Added difficulty dropdown (補底/核心/挑戰) — was missing entirely; now sends `difficulty` to generate-writing, analyze-writing, rewrite-writing APIs; practice record uses actual difficulty instead of hardcoded `'core'`
+- **Speaking page**: Added difficulty button group (補底/核心/挑戰) — was missing entirely; sends `difficulty` to mock question generation and transcript analysis; practice record uses actual difficulty
+- **Reading page**: Added profile auto-load for grade level; grade labels now bilingual (中一/S1 via `getGradeLabel()`); difficulty labels unified to `補底` (was inconsistent `基礎`)
+- **Integrated Skills page**: Added profile auto-load for grade level; grade/difficulty labels now use shared `getGradeLabel()`/`getDifficultyLabel()` from `nav.ts`
+- **Label consistency**: All 5 student pages now use the same bilingual label functions (`getGradeLabel`, `getDifficultyLabel` from `@/shared/utils/nav`)
+
+### 🔧 Backend — API Routes Updated
+- **`POST /api/ai/generate-writing`**: Accepts `difficulty` → passes to `generateWritingPrompt()` / `generateWritingOutline()`
+- **`POST /api/ai/analyze-writing`**: Accepts `gradeLevel` + `difficulty` → passes to `analyzeWriting()`
+- **`POST /api/speaking`**: Accepts `difficulty` → injected into AI system prompt with HKDSE level descriptions (補底→L1-2, 核心→L3, 挑戰→L4-5)
+
+### 🧠 AI Prompt Layer
+- **`generateWritingPrompt()`**: Difficulty description injected into system prompt (remedial/core/challenge → HKDSE Level mapping)
+- **`getWritingOutlineSystemPrompt()` / `buildWritingOutlineUserPrompt()`**: Accept and use `difficulty` parameter
+- **`AnalyzeWritingInput`**: Added optional `difficulty` field
+- **`GenerateWritingPromptInput` / `GenerateWritingOutlineInput`**: Added optional `difficulty` field
+
+### 📁 Files Changed (9 files)
+- 4 student pages: `reading`, `writing`, `speaking`, `integrated-skills`
+- 3 API routes: `generate-writing`, `analyze-writing`, `speaking`
+- 2 service files: `writing-generation.ts`, `ai-service.ts`
+- 1 prompt file: `prompts/writing/v1.ts`
+
+---
+
 ## 2026-07-22 (late night) — Production Hotfixes Round ★★★
 
 ### 🐛 Reading (DSE Paper 1) — Response Format Compatibility

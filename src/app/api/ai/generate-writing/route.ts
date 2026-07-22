@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, textType, gradeLevel, wordLimit, topicHint, writingPrompt, lang } = body;
+    const { action, textType, gradeLevel, difficulty, wordLimit, topicHint, writingPrompt, lang } = body;
 
     if (!textType || !gradeLevel || !wordLimit) {
       return NextResponse.json(
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
         userId: authResult.userId,
         textType,
         gradeLevel,
+        difficulty,
         wordLimit: wordLimit || 200,
         topicHint: topicHint || undefined,
         lang: lang || 'en',
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
         userId: authResult.userId,
         textType,
         gradeLevel,
+        difficulty,
         wordLimit: wordLimit || 200,
         writingPrompt,
         topicHint: topicHint || undefined,

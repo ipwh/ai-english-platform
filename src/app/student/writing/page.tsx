@@ -9,6 +9,8 @@ import { useToast } from '@/components/shared/Toast';
 import OcrUpload from '@/components/shared/OcrUpload';
 import { InlineWordBadge } from '@/modules/vocabulary/components/InlineAddVocabButton';
 import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
+import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
+import type { DifficultyLevel } from '@/shared/types/types';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {
@@ -29,6 +31,7 @@ export default function WritingPage() {
   
 
   const [gradeLevel, setGradeLevel] = useState('S4');
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('core');
 
   // 載入學生年級
   useEffect(() => {
@@ -143,6 +146,7 @@ export default function WritingPage() {
           action: 'prompt',
           textType: typeName,
           gradeLevel,
+          difficulty,
           wordLimit,
           topicHint: topic || undefined,
           lang,
@@ -170,6 +174,7 @@ export default function WritingPage() {
             action: 'outline',
             textType: typeName,
             gradeLevel,
+            difficulty,
             wordLimit,
             writingPrompt: resolvedPrompt,
             topicHint: topic || undefined,
@@ -196,7 +201,7 @@ export default function WritingPage() {
     try {
       const res = await fetch('/api/ai/analyze-writing', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft.slice(0, 2000) }),
+        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft.slice(0, 2000), gradeLevel, difficulty }),
       });
       const json = await res.json();
       if (json.analysis) {
@@ -228,7 +233,7 @@ export default function WritingPage() {
     try {
       const res = await fetch('/api/ai/analyze-writing', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft }),
+        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft, gradeLevel, difficulty }),
       });
       const json = await res.json();
       if (res.ok && json.analysis) {
@@ -239,7 +244,7 @@ export default function WritingPage() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               studentId: store.userId, skill: 'writing', skillZh: 'DSE 寫作',
-              difficulty: 'core', totalQuestions: 1, correctCount: 1, source: 'dse-writing',
+              difficulty, totalQuestions: 1, correctCount: 1, source: 'dse-writing',
             }),
           }).catch(() => {});
         }
@@ -286,6 +291,7 @@ export default function WritingPage() {
           originalDraft: draft,
           aiFeedback: feedbackText,
           gradeLevel,
+          difficulty,
         }),
       });
       const json = await res.json();
@@ -342,10 +348,20 @@ export default function WritingPage() {
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-purple-500" /> {t('writing.promptGen')}
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('writing.grade')}</label>
-            <select value={gradeLevel} onChange={e => setGradeLevel(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">{gradeLevels.map(g => <option key={g}>{g}</option>)}</select>
+            <select value={gradeLevel} onChange={e => setGradeLevel(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+              {gradeLevels.map(g => <option key={g} value={g}>{getGradeLabel(g, lang)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{lang === 'en' ? 'Difficulty' : '難度'}</label>
+            <select value={difficulty} onChange={e => setDifficulty(e.target.value as DifficultyLevel)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+              <option value="remedial">{getDifficultyLabel('remedial', lang)}</option>
+              <option value="core">{getDifficultyLabel('core', lang)}</option>
+              <option value="challenge">{getDifficultyLabel('challenge', lang)}</option>
+            </select>
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('writing.textType')}</label>

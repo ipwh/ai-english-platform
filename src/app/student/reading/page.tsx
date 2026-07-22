@@ -9,6 +9,7 @@ import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, Chevron
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/hooks/use-i18n';
+import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 
 interface ReadingPassage {
   title: string;
@@ -46,7 +47,7 @@ interface AnswerState {
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
 const DIFFICULTIES = [
-  { value: 'remedial', zh: '基礎', en: 'Remedial' },
+  { value: 'remedial', zh: '補底', en: 'Remedial' },
   { value: 'core', zh: '核心', en: 'Core' },
   { value: 'challenge', zh: '挑戰', en: 'Challenge' },
 ] as const;
@@ -66,6 +67,19 @@ export default function ReadingPracticePage() {
   const [difficulty, setDifficulty] = useState<string>('core');
   const [topic, setTopic] = useState<string>('general');
   const [questionCount, setQuestionCount] = useState(6);
+
+  // Auto-load grade from student profile
+  useEffect(() => {
+    fetch('/api/auth/profile')
+      .then(r => r.json())
+      .then(data => {
+        const studentLevel = data?.user?.level || data?.user?.class?.gradeLevel;
+        if (studentLevel && ['S1','S2','S3','S4','S5','S6'].includes(studentLevel)) {
+          setGrade(studentLevel);
+        }
+      })
+      .catch(() => { /* silent */ });
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -175,7 +189,7 @@ export default function ReadingPracticePage() {
                 {GRADES.map(g => (
                   <button key={g} onClick={() => setGrade(g)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${grade === g ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                    {g}
+                    {getGradeLabel(g, language)}
                   </button>
                 ))}
               </div>
@@ -186,7 +200,7 @@ export default function ReadingPracticePage() {
                 {DIFFICULTIES.map(d => (
                   <button key={d.value} onClick={() => setDifficulty(d.value)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${difficulty === d.value ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                    {language === 'en' ? d.en : d.zh}
+                    {getDifficultyLabel(d.value, language)}
                   </button>
                 ))}
               </div>

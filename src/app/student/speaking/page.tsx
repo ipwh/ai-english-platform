@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Target, Lightbulb, Play, Square, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
+import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 
 interface SpeakingQuestion {
   topic: string;
@@ -27,6 +28,11 @@ interface SpeakingAnalysis {
 }
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
+const DIFFICULTIES = [
+  { value: 'remedial' as const, zh: '補底', en: 'Remedial' },
+  { value: 'core' as const, zh: '核心', en: 'Core' },
+  { value: 'challenge' as const, zh: '挑戰', en: 'Challenge' },
+];
 const TOPICS_AREA = [
   { value: 'general', zh: '綜合', en: 'General' },
   { value: 'school', zh: '學校', en: 'School' },
@@ -39,7 +45,21 @@ export default function SpeakingPracticePage() {
   const { language, userId } = useAppStore();
 
   const [grade, setGrade] = useState<string>('S4');
+  const [difficulty, setDifficulty] = useState<string>('core');
   const [topic, setTopic] = useState<string>('general');
+
+  // Auto-load grade from student profile
+  useEffect(() => {
+    fetch('/api/auth/profile')
+      .then(r => r.json())
+      .then(data => {
+        const studentLevel = data?.user?.level || data?.user?.class?.gradeLevel;
+        if (studentLevel && ['S1','S2','S3','S4','S5','S6'].includes(studentLevel)) {
+          setGrade(studentLevel);
+        }
+      })
+      .catch(() => { /* silent */ });
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -85,7 +105,7 @@ export default function SpeakingPracticePage() {
       const res = await fetch('/api/speaking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeLevel: grade, topic, mode: 'mock' }),
+        body: JSON.stringify({ gradeLevel: grade, difficulty, topic, mode: 'mock' }),
       });
       const json = await res.json();
       if (res.ok && json.mockQuestion) {
@@ -107,7 +127,7 @@ export default function SpeakingPracticePage() {
       const res = await fetch('/api/speaking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, gradeLevel: grade, mode: 'practice' }),
+        body: JSON.stringify({ transcript, gradeLevel: grade, difficulty, mode: 'practice' }),
       });
       const json = await res.json();
       if (res.ok && json.analysis) {
@@ -118,7 +138,7 @@ export default function SpeakingPracticePage() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               studentId: userId, skill: 'speaking', skillZh: '會話練習',
-              difficulty: 'core', totalQuestions: 1, correctCount: 1, source: 'dse-speaking',
+              difficulty, totalQuestions: 1, correctCount: 1, source: 'dse-speaking',
             }),
           }).catch(() => {});
         }
@@ -180,12 +200,24 @@ export default function SpeakingPracticePage() {
                 {GRADES.map(g => (
                   <button key={g} onClick={() => setGrade(g)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${grade === g ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                    {g}
+                    {getGradeLabel(g, language)}
                   </button>
                 ))}
               </div>
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Difficulty' : '難度'}</label>
+              <div className="flex flex-wrap gap-1">
+                {DIFFICULTIES.map(d => (
+                  <button key={d.value} onClick={() => setDifficulty(d.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${difficulty === d.value ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                    {getDifficultyLabel(d.value, language)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Topic Area' : '話題範圍'}</label>
               <div className="flex flex-wrap gap-1">
                 {TOPICS_AREA.map(tp => (

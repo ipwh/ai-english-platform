@@ -196,7 +196,7 @@ Organization (O) 7 分制：
 // ============================================
 
 export function getWritingOutlineSystemPrompt(input: {
-  gradeLevel: string; textType: string; guideName: string; wordLimit: number;
+  gradeLevel: string; difficulty?: string; textType: string; guideName: string; wordLimit: number;
   writingPrompt: string; topicHint?: string; structureGuide: string;
   commonErrors: string; weakSkillHint: string;
 }): string {
@@ -255,19 +255,19 @@ CRITICAL RULES:
 6. Return ONLY the outline. No introductory/concluding remarks. No JSON. No "Here is an outline".
 
 Text type: ${input.guideName || input.textType}
-Grade: ${input.gradeLevel}
+Grade: ${input.gradeLevel}${input.difficulty ? `\nDifficulty: ${input.difficulty === 'remedial' ? '補底 (HKDSE Level 1-2) — simpler vocabulary, basic structure' : input.difficulty === 'challenge' ? '挑戰 (HKDSE Level 4-5) — advanced vocabulary, complex structure, critical depth' : '核心 (HKDSE Level 3) — intermediate vocabulary, standard DSE structure'}` : ''}
 Word limit: ~${input.wordLimit} words${input.weakSkillHint}
 Prompt: ${input.writingPrompt}
 ${input.topicHint ? `Topic context: ${input.topicHint}` : ''}`;
 }
 
 export function buildWritingOutlineUserPrompt(input: {
-  guideName: string; textType: string; gradeLevel: string;
+  guideName: string; textType: string; gradeLevel: string; difficulty?: string;
   wordLimit: number; writingPrompt: string;
 }): string {
   return `Create a detailed bilingual (ZH+EN) paragraph-by-paragraph DSE writing outline.
 Text type: ${input.guideName || input.textType}
-Grade: ${input.gradeLevel}
+Grade: ${input.gradeLevel}${input.difficulty ? `\nDifficulty: ${input.difficulty}` : ''}
 Words: ~${input.wordLimit}
 Prompt: ${input.writingPrompt}`;
 }

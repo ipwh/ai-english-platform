@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [DEEP_AUDIT.md](docs/DEEP_AUDIT_2026-07-20.md)
-> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 97%** | **v4.3.2**
+> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 97%** | **v4.3.3**
 
 ## 🏗️ Architecture Overview
 
@@ -39,7 +39,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 ## 功能
 
 ### 🧑‍🎓 學生端
-- **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰）
+- **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v5** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**（Summary / Email Reply / Short Article / Report / Speech / Proposal / Notice / Press Release / Letter to Editor）、**Data File 資料夾模擬**（email, memo, report-excerpt, webpage, statistics, notice — 含干擾資訊與來源日期）、**HKEAA 官方三維評分**（Listening 40% + Language 35% + Organization 25%，含 DSE Level 5**~1 對照）、**5 種真實考試陷阱**（Self-correction / Synonym Replacement / Speaker Attitude / Numerical Precision / Distraction）、**12 種速記符號面板**（+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓）、**抄襲偵測強化**（≥8 連續詞 + Data File 比對 + 中式英文 10 項檢測）、步驟鎖定（聆聽→筆記→寫作）、AudioPlayer 播放控制、Note-taking 引導問題、7 種 AI 分析結果展示（文法錯誤/中式英文/詞彙升級/筆記評估/Data Manipulation/改進建議/評分明細）、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
@@ -58,7 +58,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
 - **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes，確保題目風格、難度、評分標準貼近真實 HKDSE 考試（Feature Flag: `DSE_RAG_ENABLED=true`）
-- **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），未來擴展 STT 語音辨識
+- **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），可選 S1-S6 年級及補底/核心/挑戰難度，未來擴展 STT 語音辨識
 - **👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
 - **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）

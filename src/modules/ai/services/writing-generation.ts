@@ -16,6 +16,7 @@ export interface GenerateWritingPromptInput {
   userId?: string;
   textType: string;
   gradeLevel: string;
+  difficulty?: string;
   wordLimit: number;
   topicHint?: string;
   lang?: 'zh' | 'en';
@@ -27,6 +28,7 @@ export interface GenerateWritingOutlineInput {
   userId?: string;
   textType: string;
   gradeLevel: string;
+  difficulty?: string;
   wordLimit: number;
   writingPrompt: string;
   topicHint?: string;
@@ -95,6 +97,7 @@ The prompt MUST include ALL of these elements in order:
 
 Text type: ${guide?.name || input.textType}${structureHint}
 Grade: ${input.gradeLevel} (${input.gradeLevel === 'S1' || input.gradeLevel === 'S2' || input.gradeLevel === 'S3' ? 'junior secondary — school life, family, hobbies, personal experiences' : 'senior secondary — social issues, argumentative topics, DSE-level complexity'})
+${input.difficulty ? `Difficulty: ${input.difficulty === 'remedial' ? '補底 (HKDSE Level 1-2) — basic vocabulary, simple sentences, explicit ideas' : input.difficulty === 'challenge' ? '挑戰 (HKDSE Level 4-5) — advanced vocabulary, complex sentence structures, deep inference, critical analysis' : '核心 (HKDSE Level 3) — intermediate vocabulary, compound sentences, direct inference'}` : ''}
 
 ═══════════════════════════════════════
 DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE (2024+ Reform)
@@ -133,7 +136,7 @@ Example of a HIGH-QUALITY DSE prompt (2024+ reform style):
 
 CRITICAL: Output ONLY the writing prompt. No headings, no labels, no "Here is a prompt:". Just the complete, ready-to-use prompt text.`.trim();
 
-  const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}. Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic: ${input.topicHint}.` : ''}${input.weakSkills?.length ? ` Target weak skills: ${input.weakSkills.join(', ')}.` : ''}`;
+  const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}.${input.difficulty ? ` Difficulty: ${input.difficulty}.` : ''} Word limit: ${input.wordLimit} words.${input.topicHint ? ` Topic: ${input.topicHint}.` : ''}${input.weakSkills?.length ? ` Target weak skills: ${input.weakSkills.join(', ')}.` : ''}`;
 
   const result = await callLLM(
     [
@@ -179,6 +182,7 @@ export async function generateWritingOutline(input: GenerateWritingOutlineInput)
 
   const systemPrompt = getWritingOutlineSystemPrompt({
     gradeLevel: input.gradeLevel,
+    difficulty: input.difficulty,
     textType: input.textType,
     guideName: guide?.name || input.textType,
     wordLimit: input.wordLimit,
@@ -193,6 +197,7 @@ export async function generateWritingOutline(input: GenerateWritingOutlineInput)
     guideName: guide?.name || input.textType,
     textType: input.textType,
     gradeLevel: input.gradeLevel,
+    difficulty: input.difficulty,
     wordLimit: input.wordLimit,
     writingPrompt: input.writingPrompt,
   });

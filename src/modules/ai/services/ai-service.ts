@@ -1915,6 +1915,7 @@ export interface AnalyzeWritingInput {
   prompt: string;
   studentDraft: string;
   studentLevel?: string;
+  difficulty?: string;
   textType?: string;
 }
 

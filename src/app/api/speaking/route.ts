@@ -49,19 +49,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { transcript, topic, gradeLevel, mode } = body as {
+    const { transcript, topic, gradeLevel, difficulty, mode } = body as {
       transcript?: string;
       topic?: string;
       gradeLevel?: string;
+      difficulty?: string;
       mode?: 'practice' | 'mock';
     };
+
+    const levelLabel = gradeLevel || 'S4';
+    const diffLabel = difficulty || 'core';
+    const diffMap: Record<string, string> = { remedial: '補底 (HKDSE Level 1-2)', core: '核心 (HKDSE Level 3)', challenge: '挑戰 (HKDSE Level 4-5)' };
+    const difficultyDesc = diffMap[diffLabel] || diffMap['core'];
 
     if (mode === 'mock') {
       // Generate a mock speaking prompt (Group Discussion or Individual Response)
       const prompt = await callLLM([
         {
           role: 'system',
-          content: `You are an HKDSE English Speaking examiner. Generate ONE speaking practice question suitable for ${gradeLevel || 'S4'} level Hong Kong students.
+          content: `You are an HKDSE English Speaking examiner. Generate ONE speaking practice question suitable for ${levelLabel} level Hong Kong students at ${difficultyDesc} difficulty.
 
 ${SPEAKING_RUBRIC}
 
@@ -75,7 +81,7 @@ Return a JSON object:
   "timeLimit": 8
 }`,
         },
-        { role: 'user', content: `Generate a DSE Speaking mock question for ${gradeLevel || 'S4'} students. Topic area: ${topic || 'general'}.` },
+        { role: 'user', content: `Generate a DSE Speaking mock question for ${levelLabel} students at ${difficultyDesc} difficulty. Topic area: ${topic || 'general'}.` },
       ], { temperature: 0.8, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 });
 
       const parsed = safeJsonParse(prompt, 'mock prompt generation');
@@ -115,7 +121,7 @@ Return a JSON object:
   "limitationNote": "清晰說明 AI 只分析了文字內容中的文法、詞彙及內容相關性，無法評估流暢度、發音及互動表現。建議用家尋求老師或母語人士進行真人評估。（繁體中文）"
 }`,
       },
-      { role: 'user', content: `Analyze this student speaking transcript from a DSE ${gradeLevel || 'S4'} student on the topic "${topic || 'general'}":\n\n${transcript}` },
+      { role: 'user', content: `Analyze this student speaking transcript from a DSE ${levelLabel} student at ${difficultyDesc} difficulty on the topic "${topic || 'general'}":\n\n${transcript}` },
     ], { temperature: 0.3, maxTokens: 2048, jsonMode: true, timeoutMs: 15000 });
 
     const parsed = safeJsonParse(analysis, 'transcript analysis');

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, prompt, studentDraft, studentLevel, textType } = body;
+    const { title, prompt, studentDraft, studentLevel, gradeLevel, difficulty, textType } = body;
 
     if (!title || !studentDraft) {
       return NextResponse.json(
@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
       title: sanitizeForAI(title),
       prompt: prompt ? sanitizeForAI(prompt) : '',
       studentDraft: sanitizeForAI(safeDraft),
-      studentLevel,
+      studentLevel: studentLevel || gradeLevel,
+      difficulty,
       textType,
       userId: authResult.userId,
     });

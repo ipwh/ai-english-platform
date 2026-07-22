@@ -9,6 +9,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { useIntegratedSkillsStore } from '@/store/integratedSkillsStore';
 import { useT } from '@/hooks/use-i18n';
 import IntegratedSkillsTaskView from '@/modules/assessment/components/IntegratedSkillsTaskView';
+import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 
 const TASK_TYPES = [
   { value: 'summary', zh: '摘要寫作', en: 'Summary' },
@@ -23,9 +24,9 @@ const TASK_TYPES = [
 ] as const;
 
 const DIFFICULTIES = [
-  { value: 'remedial', zh: '基礎 (Remedial)', en: 'Remedial' },
-  { value: 'core', zh: '核心 (Core)', en: 'Core' },
-  { value: 'challenge', zh: '挑戰 (Challenge)', en: 'Challenge' },
+  { value: 'remedial', zh: '補底', en: 'Remedial' },
+  { value: 'core', zh: '核心', en: 'Core' },
+  { value: 'challenge', zh: '挑戰', en: 'Challenge' },
 ] as const;
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
@@ -48,6 +49,20 @@ export default function IntegratedSkillsPage() {
         }
       }
     } catch { /* ignore */ }
+
+    // Auto-load grade from student profile (only if no localStorage draft)
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) {
+      fetch('/api/auth/profile')
+        .then(r => r.json())
+        .then(data => {
+          const studentLevel = data?.user?.level || data?.user?.class?.gradeLevel;
+          if (studentLevel && ['S1','S2','S3','S4','S5','S6'].includes(studentLevel)) {
+            s.setConfig(studentLevel, s.difficulty, s.taskType);
+          }
+        })
+        .catch(() => { /* silent */ });
+    }
   }, []);
 
   const handleGenerate = async () => {
@@ -95,7 +110,7 @@ export default function IntegratedSkillsPage() {
                 <button key={g} onClick={() => s.setConfig(g, s.difficulty, s.taskType)}
                   className={`px-3.5 py-2 text-sm rounded-lg font-medium transition-all ${
                     s.gradeLevel === g ? 'bg-teal-500 text-white shadow shadow-teal-200 dark:shadow-teal-900/30'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{g}</button>
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{getGradeLabel(g, language)}</button>
               ))}
             </div>
           </div>
@@ -106,7 +121,7 @@ export default function IntegratedSkillsPage() {
                 <button key={d.value} onClick={() => s.setConfig(s.gradeLevel, d.value, s.taskType)}
                   className={`px-3.5 py-2 text-sm rounded-lg font-medium transition-all ${
                     s.difficulty === d.value ? 'bg-teal-500 text-white shadow shadow-teal-200 dark:shadow-teal-900/30'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{language === 'en' ? d.en : d.zh}</button>
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{getDifficultyLabel(d.value, language)}</button>
               ))}
             </div>
           </div>
