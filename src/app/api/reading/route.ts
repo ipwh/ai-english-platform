@@ -607,16 +607,50 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   // but frontend expects { passage: { title, content, wordCount } } and questions with { question, type: "mc", choices: ["..."] }
   const response: Record<string, unknown> = { ...parsed };
 
-  // 1. Transform passage format + add paragraph breaks from [N] markers
+  // 1. Transform passage format + add paragraph breaks + fix line markers
   if (!response.passage && response.readingContent) {
     let content = response.readingContent as string;
-    // Add paragraph breaks before [N] markers if not already present
+
+    // Step A: Add paragraph breaks before [N] markers if not already present
     content = content.replace(/([^\n])\s*\[(\d+)\]/g, '$1\n\n[$2]');
-    const words = content.split(/\s+/).length;
+
+    // Step B: Strip all AI-generated [line N] markers (they're often inaccurate)
+    content = content.replace(/\s*\[line\s+\d+\]\s*/gi, ' ');
+
+    // Step C: Recalculate and insert accurate [line N] markers
+    // DSE standard: ~10-12 words per line, markers every 5 lines (~50-60 words)
+    const WORDS_PER_LINE = 11;
+    const MARKER_INTERVAL = 5; // every 5 lines
+    const words = content.split(/\s+/);
+    const totalLines = Math.ceil(words.length / WORDS_PER_LINE);
+    const totalWords = words.length;
+
+    // Build content with accurate line markers
+    const markerPositions = new Set<number>();
+    for (let line = MARKER_INTERVAL; line <= totalLines; line += MARKER_INTERVAL) {
+      markerPositions.add(line * WORDS_PER_LINE);
+    }
+
+    let result = '';
+    let wordIndex = 0;
+    let charIndex = 0;
+    const chars = [...content];
+    while (charIndex < chars.length) {
+      const ch = chars[charIndex];
+      result += ch;
+      if (ch === ' ' || ch === '\n') {
+        wordIndex++;
+        if (markerPositions.has(wordIndex)) {
+          result += `[line ${Math.round(wordIndex / WORDS_PER_LINE)}] `;
+        }
+      }
+      charIndex++;
+    }
+
     response.passage = {
       title: topic ? `${topic.charAt(0).toUpperCase() + topic.slice(1)} Reading` : 'Reading Passage',
-      content,
-      wordCount: words,
+      content: result,
+      wordCount: totalWords,
       source: parsed.source || undefined,
     };
     delete response.readingContent;
