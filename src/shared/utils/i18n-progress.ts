@@ -35,6 +35,7 @@ export const progressTranslations: Record<string, { zh: string; en: string }> = 
   'progress.generateAnalysis': { zh: '生成 AI 分析報告', en: 'Generate AI Analysis' },
   'progress.aiError': { zh: 'AI 分析暫時無法使用，請稍後再試。', en: 'AI analysis is temporarily unavailable. Please try again later.' },
   'progress.analyzing': { zh: 'AI 分析中...', en: 'Analyzing...' },
+  'progress.aiClickToAnalyze': { zh: '點擊生成 AI 分析報告', en: 'Click to generate AI analysis' },
   'progress.urgentAreas': { zh: '🔴 急需改善', en: '🔴 Urgent Areas' },
   'progress.studyPlan': { zh: '📋 學習計劃', en: '📋 Study Plan' },
 };

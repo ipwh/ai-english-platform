@@ -14,8 +14,8 @@ import { syncUserStreak } from '@/modules/progress/services/streak-service';
 
 const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
 
-// 每日挑戰題型輪換
-const QUESTION_TYPES = ['mc', 'fill-blank', 'error-correction'] as const;
+// 每日挑戰題型輪換（已移除 error-correction — 劃線題目無法在前端正確顯示）
+const QUESTION_TYPES = ['mc', 'fill-blank'] as const;
 
 /** 根據當天日期產生固定的 seed，確保同一天所有人拿到不同題目但同一人拿到相同題目 */
 function getDailySeed(studentId: string): number {
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       gradeLevel: gradeLevel as 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6',
       grammarItem: grammarItem as string,
       grammarItemZh: DAILY_TOPICS[topicIndex],
-      questionType: questionType as 'mc' | 'fill-blank' | 'error-correction' | 'short-writing' | 'matching',
+      questionType: questionType as 'mc' | 'fill-blank' | 'short-writing' | 'matching',
       difficulty: 'core',
     });
 

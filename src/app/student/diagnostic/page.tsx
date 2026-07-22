@@ -158,6 +158,31 @@ export default function DiagnosticPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState<string>('');
   const [writingAnswer, setWritingAnswer] = useState('');
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  /** 正規化文字以進行精確比對 */
+  function normalizeAnswer(text: string): string {
+    return text.trim().toLowerCase().replace(/\s+/g, ' ').replace(/['']/g, "'").replace(/[""]/g, '"').replace(/[–—]/g, '-').replace(/[.!?,;:]$/g, '');
+  }
+
+  /** 智能答案比對（與練習頁面一致） */
+  function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
+    if (type === 'mc') {
+      const s = student.trim().toUpperCase();
+      const c = correct.trim().toUpperCase();
+      if (s === c) return true;
+      const letterIdx = MCQ_LETTERS.indexOf(c as typeof MCQ_LETTERS[number]);
+      if (choices && letterIdx >= 0 && letterIdx < choices.length) {
+        if (normalizeAnswer(student) === normalizeAnswer(choices[letterIdx])) return true;
+      }
+      return false;
+    }
+    // short-writing: accept any non-empty answer (AI model answer won't match free text)
+    if (type === 'short-writing') return student.trim().length > 0;
+    // fill-blank: normalized comparison
+    return normalizeAnswer(student) === normalizeAnswer(correct);
+  }
 
   // 🔥 載入時根據學生年級與弱項自動生成診斷題目
   useEffect(() => {
@@ -313,13 +338,21 @@ export default function DiagnosticPage() {
   };
 
   const handleAnswer = (answer: string) => {
+    const isCorrect = checkAnswer(answer, currentQ.answer, currentQ.type, currentQ.choices);
     setAnswers(prev => ({ ...prev, [currentQ.id]: answer }));
-    if (currentStep < totalSteps - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      // 完成所有題目，計算分數 + AI 分析
-      handleComplete(answer);
-    }
+    setLastAnswerCorrect(isCorrect);
+    setShowFeedback(true);
+
+    // Auto-advance after 1.5s
+    setTimeout(() => {
+      setShowFeedback(false);
+      setLastAnswerCorrect(null);
+      if (currentStep < totalSteps - 1) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        handleComplete(answer);
+      }
+    }, 1500);
   };
 
   const handleComplete = async (lastAnswer: string) => {
@@ -333,14 +366,8 @@ export default function DiagnosticPage() {
       if (!skillScores[key]) skillScores[key] = { correct: 0, total: 0 };
       skillScores[key].total++;
       const userAnswer = finalAnswers[q.id] || '';
-      if (q.type === 'mc' && userAnswer.toUpperCase() === q.answer.toUpperCase()) {
+      if (checkAnswer(userAnswer, q.answer, q.type, q.choices)) {
         skillScores[key].correct++;
-      } else if (q.type !== 'mc') {
-        // 非MC題：忽略大小寫、前後空白、標點符號
-        const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:]$/g, '');
-        if (normalize(userAnswer) === normalize(q.answer)) {
-          skillScores[key].correct++;
-        }
       }
     }
 
@@ -474,16 +501,30 @@ export default function DiagnosticPage() {
             <SkillChip grammarItem={currentQ.grammarItem} languageSkill={currentQ.languageSkill} subSkill={currentQ.subSkill} />
           </div>
 
-          {/* 閱讀篇章 */}
-          {currentQ.languageSkill === 'reading' && currentQ.readingContent && (
+          {/* 閱讀篇章 / 題目內文 */}
+          {(currentQ.languageSkill === 'reading' || currentQ.readingContent) && (
             <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700">
-              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">📖 {t('diagnostic.skillReading')}</p>
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
+                {currentQ.languageSkill === 'reading' ? `📖 ${t('diagnostic.skillReading')}` : '📝 題目內文'}
+              </p>
               <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">{currentQ.readingContent}</p>
               {currentQ.readingContentZh && <p className="text-xs text-indigo-500 mt-1 italic">{currentQ.readingContentZh}</p>}
             </div>
           )}
 
           <p className="text-lg text-gray-900 dark:text-white mb-6" dangerouslySetInnerHTML={{ __html: currentQ.prompt }} />
+
+          {/* Per-question feedback */}
+          {showFeedback && lastAnswerCorrect !== null && (
+            <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${
+              lastAnswerCorrect
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+            }`}>
+              {lastAnswerCorrect ? '✅ 正確！' : `❌ 錯誤。正確答案：${currentQ.answer}`}
+            </div>
+          )}
+
           {currentQ.promptZh && (
             <details className="mb-4">
               <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">顯示中文提示</summary>
@@ -516,7 +557,7 @@ export default function DiagnosticPage() {
                     className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:border-teal-400 resize-y"
                   />
                   <p className="text-xs text-gray-400 mt-1">
-                    {writingAnswer.length} 字元 / {writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0} 字
+                    {writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0} words / {writingAnswer.length} chars
                   </p>
                   <button onClick={() => handleAnswer(writingAnswer)}
                     className="mt-3 px-4 py-2 bg-teal-500 text-white rounded-lg text-sm">{t('diagnostic.submit')}</button>

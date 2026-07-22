@@ -208,6 +208,12 @@ export default function DailyChallengePage() {
           {state.question.question.promptZh && (
             <p className="text-sm text-gray-500">{state.question.question.promptZh}</p>
           )}
+          {/* Reading passage for fill-blank context */}
+          {state.question.question.readingContent && (
+            <div className="mt-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+              <p className="text-sm text-amber-800 dark:text-amber-300 whitespace-pre-wrap">{state.question.question.readingContent}</p>
+            </div>
+          )}
           {/* MCQ choices */}
           {state.question.question.choices && state.question.question.choices.length > 0 && (
             <div className="space-y-2 mt-4">
