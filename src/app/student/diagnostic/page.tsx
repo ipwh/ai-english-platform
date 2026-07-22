@@ -57,6 +57,7 @@ interface DiagnosticPlan {
   grammarItemZh?: string;
   languageSkill?: string;
   languageSkillZh?: string;
+  skillCategory: 'grammar' | 'vocabulary' | 'reading' | 'writing'; // ✅ for scoring
   questionType: 'mc' | 'short-writing';
   count: number;
   difficulty: 'remedial' | 'core' | 'challenge';
@@ -79,6 +80,7 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
     plans.push({
       grammarItem: junior ? 'subject-verb-agreement' : 'tenses',
       grammarItemZh: junior ? '主謂一致' : '時態',
+      skillCategory: 'grammar',
       questionType: 'mc',
       count: 3,
       difficulty,
@@ -89,6 +91,7 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
     plans.push({
       grammarItem: 'phrasal-verbs',
       grammarItemZh: '詞彙搭配與片語動詞',
+      skillCategory: 'vocabulary',
       questionType: 'mc',
       count: 2,
       difficulty,
@@ -99,6 +102,7 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
     plans.push({
       languageSkill: 'reading',
       languageSkillZh: '閱讀',
+      skillCategory: 'reading',
       questionType: 'mc',
       count: 2,
       difficulty,
@@ -108,6 +112,7 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
   plans.push({
     languageSkill: 'writing',
     languageSkillZh: '寫作',
+    skillCategory: 'writing',
     questionType: 'short-writing',
     count: 1,
     difficulty: difficulty === 'challenge' ? 'core' : difficulty,
@@ -240,14 +245,14 @@ export default function DiagnosticPage() {
               }),
             })
               .then(r => r.json())
-              .then(data => ({ ...data, __skill: plan.languageSkill, __grammar: plan.grammarItem, __grammarZh: plan.grammarItemZh }))
+              .then(data => ({ ...data, __skill: plan.languageSkill, __skillCategory: plan.skillCategory, __grammar: plan.grammarItem, __grammarZh: plan.grammarItemZh }))
           )
         );
 
         const allQuestions: PracticeQuestion[] = [];
         let questionId = 0;
 
-        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, grammar?: string, grammarZh?: string) => {
+        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, skillCategory?: string, grammar?: string, grammarZh?: string) => {
           (res.questions || []).forEach((q) => {
             allQuestions.push({
               id: `diag-${++questionId}`,
@@ -258,8 +263,8 @@ export default function DiagnosticPage() {
               answer: q.answer,
               grammarItem: grammar as PracticeQuestion['grammarItem'],
               languageSkill: skill as PracticeQuestion['languageSkill'],
-              subSkill: grammar || skill || 'diagnostic',
-              subSkillZh: grammarZh || (grammar === 'tenses' ? '時態' : grammar === 'vocabulary' ? '詞彙' : skill === 'reading' ? '閱讀理解' : skill === 'writing' ? '寫作' : '診斷測試'),
+              subSkill: skillCategory || grammar || skill || 'diagnostic',
+              subSkillZh: grammarZh || (grammar === 'tenses' ? '時態' : grammar === 'phrasal-verbs' ? '詞彙' : skill === 'reading' ? '閱讀理解' : skill === 'writing' ? '寫作' : '診斷測試'),
               difficulty: 'core',
               gradeLevel: 'S4',
               keyStage: 'KS4',
@@ -276,7 +281,7 @@ export default function DiagnosticPage() {
         };
 
         for (const response of aiResponses) {
-          addQuestions(response, response.__skill, response.__grammar, response.__grammarZh);
+          addQuestions(response, response.__skill, response.__skillCategory, response.__grammar, response.__grammarZh);
         }
 
         if (allQuestions.length > 0) {
@@ -363,10 +368,10 @@ export default function DiagnosticPage() {
     const finalAnswers = answersRef.current;
     setCompleted(true);
 
-    // 計算各技能分數
+    // 計算各技能分數 — use subSkill (skillCategory) for grammar vs vocabulary distinction
     const skillScores: Record<string, { correct: number; total: number }> = {};
     for (const q of questions) {
-      const key = q.grammarItem ? 'grammar' : q.languageSkill === 'reading' ? 'reading' : q.languageSkill === 'writing' ? 'writing' : q.languageSkill === 'listening' ? 'listening' : q.languageSkill === 'speaking' ? 'speaking' : 'vocabulary';
+      const key = q.languageSkill || (q.subSkill === 'vocabulary' ? 'vocabulary' : 'grammar');
       if (!skillScores[key]) skillScores[key] = { correct: 0, total: 0 };
       skillScores[key].total++;
       const userAnswer = finalAnswers[q.id] || '';

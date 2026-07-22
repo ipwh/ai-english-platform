@@ -33,6 +33,7 @@ export const studentTranslations: Record<string, { zh: string; en: string }> = {
   'diagnostic.assessment': { zh: '📋 能力評估', en: '📋 Assessment' },
   'diagnostic.questionN': { zh: '第 {current}/{total} 題', en: 'Q {current}/{total}' },
   'diagnostic.inputAnswer': { zh: '請輸入答案...', en: 'Type your answer...' },
+  'diagnostic.writingPlaceholder': { zh: '在此寫下你的文章...', en: 'Write your essay here...' },
   'diagnostic.submit': { zh: '提交', en: 'Submit' },
   'diagnostic.complete': { zh: '評估完成！', en: 'Assessment Complete!' },
   'diagnostic.completeDesc': { zh: '以下是你的英語能力分析結果', en: 'Here is your English proficiency analysis' },
