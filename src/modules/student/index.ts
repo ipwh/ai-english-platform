@@ -68,6 +68,7 @@ export type { BadgeCheckStats, LeaderboardEntry, BadgeDefinition } from '@/modul
 
 // ============================================
 // Twin (S20) — digital learning state
+// Sprint 59: Canonical StudentState + StudentStateBuilder
 // ============================================
 import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
 export { studentTwinService };
@@ -75,6 +76,12 @@ export type {
   StudentTwin, LearningPersona, PersonaType,
   KnowledgeState, TwinPredictions, RiskAssessment,
 } from '@/modules/student-twin/types';
+
+// Sprint 59: Canonical StudentState (ONE source of truth)
+export { studentStateBuilder } from './state/StudentStateBuilder';
+export type { StudentState, StudentIdentity, StudentMemory,
+  StudentMastery, StudentWeakness, StudentVocabulary,
+  StudentEngagement, StudentPracticeSummary } from './state/StudentState';
 
 // ============================================
 // v5: Common repository exports (for routes that need simple CRUD)

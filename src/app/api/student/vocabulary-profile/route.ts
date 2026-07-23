@@ -1,11 +1,11 @@
 // Sprint 35: GET /api/student/vocabulary-profile
-// Sprint 58: Delegates through StudentTwin (canonical entry point)
+// Sprint 59: Uses StudentStateBuilder (canonical state)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { vocabProfileQuerySchema } from '@/modules/vocabulary-intelligence/schemas';
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -30,49 +30,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profile = await studentTwinService.getVocabProfile(studentId);
+    const state = await studentStateBuilder.build(studentId);
+    const profile = state.vocabulary;
 
-    // Filter by status if requested
-    if (status) {
-      // Map hyphenated query param to camelCase property
-      const statusKey = status === 'need-review' ? 'needReview' : status;
-      const filtered = (profile as unknown as Record<string, unknown>)[statusKey] as typeof profile.known ?? [];
-      return NextResponse.json({
-        studentId,
-        status,
-        words: filtered,
-        count: filtered.length,
-        generatedAt: profile.generatedAt,
-      });
+    if (!profile) {
+      return NextResponse.json({ studentId, error: 'Vocabulary profile not available' }, { status: 404 });
     }
 
-    // Filter by difficulty
-    if (difficulty) {
-      const allWords = [
-        ...profile.known, ...profile.learning, ...profile.weak,
-        ...profile.forgotten, ...profile.mastered, ...profile.needReview,
-      ].filter(w => w.difficulty === difficulty);
-      return NextResponse.json({
-        studentId,
-        difficulty,
-        words: allWords,
-        count: allWords.length,
-        generatedAt: profile.generatedAt,
-      });
-    }
-
-    // Limit review queue
-    if (reviewLimit < 10) {
-      profile.reviewQueue = profile.reviewQueue.slice(0, reviewLimit);
-    }
-
-    // Optionally strip word families
-    const response = { ...profile } as unknown as Record<string, unknown>;
-    if (!includeWordFamilies) {
-      delete response.wordFamilies;
-    }
-
-    return NextResponse.json(response);
+    return NextResponse.json({
+      studentId,
+      total: profile.total,
+      byStatus: profile.byStatus,
+      reviewQueue: profile.reviewQueue,
+      generatedAt: state.generatedAt,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'vocabulary-intelligence', error: message }, 'GET /api/student/vocabulary-profile failed');

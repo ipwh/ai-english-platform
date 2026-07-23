@@ -1,11 +1,11 @@
 // Sprint 33: GET /api/student/recommendation
-// Sprint 58: Delegates through StudentTwin (canonical entry point)
+// Sprint 59: Uses StudentStateBuilder (canonical state)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { recommendationQuerySchema } from '@/modules/recommendation/schemas';
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -30,8 +30,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await studentTwinService.getRecommendations(studentId, type, limit, includeBreakdown);
-    return NextResponse.json({ studentId, type: type || 'full', recommendations: result, generatedAt: new Date() });
+    const state = await studentStateBuilder.build(studentId);
+    return NextResponse.json({
+      studentId,
+      type: type || 'full',
+      recommendations: state.knowledge.weakSkills.map(s => ({
+        skill: s.skill,
+        score: s.currentScore,
+        trend: s.trend,
+      })),
+      weakSkills: state.mastery.weakSkills,
+      strongSkills: state.mastery.strongSkills,
+      generatedAt: state.generatedAt,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'recommendation', error: message }, 'GET /api/student/recommendation failed');

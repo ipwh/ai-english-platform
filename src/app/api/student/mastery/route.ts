@@ -1,11 +1,11 @@
 // Sprint 31: GET /api/student/mastery
-// Sprint 58: Delegates through StudentTwin (canonical entry point)
+// Sprint 59: Uses StudentStateBuilder (canonical state)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { masteryQuerySchema } from '@/modules/student-mastery/schemas';
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -23,19 +23,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'You can only view your own mastery data' }, { status: 403 });
     }
 
-    const profile = await studentTwinService.getMasteryProfile(studentId);
+    const state = await studentStateBuilder.build(studentId);
+    const mastery = state.mastery;
 
-    // If a specific skill is requested, return only that skill's data
     if (skill) {
       return NextResponse.json({
         studentId,
         skill,
-        mastery: profile.bySkill[skill],
-        generatedAt: profile.generatedAt,
+        mastery: mastery.bySkill[skill],
+        generatedAt: state.generatedAt,
       });
     }
 
-    return NextResponse.json(profile);
+    return NextResponse.json({
+      studentId,
+      overallMastery: mastery.overallScore,
+      bySkill: mastery.bySkill,
+      weakestSkills: mastery.weakSkills,
+      strongestSkills: mastery.strongSkills,
+      totalPractices: Object.values(mastery.bySkill).reduce((s: number, sk: any) => s + sk.practiceCount, 0),
+      generatedAt: state.generatedAt,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'student-mastery', error: message }, 'Failed to get mastery');

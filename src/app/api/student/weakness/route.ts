@@ -1,11 +1,11 @@
 // Sprint 32: GET /api/student/weakness
-// Sprint 58: Delegates through StudentTwin (canonical entry point)
+// Sprint 59: Uses StudentStateBuilder (canonical state)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { weaknessQuerySchema } from '@/modules/mistake-intelligence/schemas';
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -30,23 +30,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profile = await studentTwinService.getWeaknessProfile(studentId, limit, includeRecommendations);
+    const state = await studentStateBuilder.build(studentId);
+    const weakness = state.weakness;
+
+    if (!weakness) {
+      return NextResponse.json({ studentId, topWeaknesses: [], totalMistakes: 0 });
+    }
 
     // If a specific category is requested, filter
     if (category) {
-      const filtered = profile.topWeaknesses.filter(
-        w => w.grammarCategory === category,
+      const filtered = weakness.topWeaknesses.filter(
+        (w: any) => w.grammarCategory === category,
       );
       return NextResponse.json({
         studentId,
         category,
-        weaknesses: filtered,
-        trend: profile.improvementTrend,
-        generatedAt: profile.generatedAt,
+        topWeaknesses: filtered,
+        totalMistakes: weakness.totalMistakes,
+        generatedAt: state.generatedAt,
       });
     }
 
-    return NextResponse.json(profile);
+    return NextResponse.json({
+      ...weakness,
+      generatedAt: state.generatedAt,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'mistake-intelligence', error: message }, 'GET /api/student/weakness failed');

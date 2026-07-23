@@ -1,11 +1,11 @@
 // Sprint 37: GET /api/student/analytics
-// Sprint 58: Delegates through StudentTwin (canonical entry point)
+// Sprint 59: Uses StudentStateBuilder (canonical state)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { studentAnalyticsQuerySchema } from '@/modules/learning-analytics/schemas';
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -22,7 +22,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { trends, stats } = await studentTwinService.getAnalytics(studentId, weeks);
+    const state = await studentStateBuilder.build(studentId);
+    const stats = {
+      totalSessions: state.practice.totalSessions,
+      totalQuestions: state.practice.totalQuestions,
+      overallAccuracy: state.engagement.overallAccuracy ?? 0,
+      streakDays: state.engagement.streakDays,
+      level: state.engagement.level,
+      xp: state.engagement.xp,
+      skillAccuracy: state.mastery.bySkill,
+    };
+    const trends = state.knowledge.strongSkills.map(s => ({
+      skill: s.skill,
+      currentScore: s.currentScore,
+      predictedScore: s.predictedScore,
+      trend: s.trend,
+    }));
+    return NextResponse.json({ trends, stats });
 
     return NextResponse.json({ trends, stats });
   } catch (err: unknown) {
