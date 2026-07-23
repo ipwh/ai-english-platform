@@ -40,6 +40,25 @@ export async function listMistakes(studentId: string, limit = 100) {
   });
 }
 
+/** List mistakes by type for a student */
+export async function listMistakesByType(studentId: string, mistakeType: string, limit = 50) {
+  return db.mistake.findMany({
+    where: { studentId, mistakeType },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+}
+
+/** Bulk update mistakes (mark reviewed, add to review list) */
+export async function bulkUpdateMistakes(where: Record<string, unknown>, data: Record<string, unknown>) {
+  return db.mistake.updateMany({ where, data });
+}
+
+/** Bulk delete mistakes */
+export async function bulkDeleteMistakes(where: Record<string, unknown>) {
+  return db.mistake.deleteMany({ where });
+}
+
 /** Find a single mistake by ID */
 export async function findMistakeById(id: string) {
   return db.mistake.findUnique({ where: { id } });
@@ -58,11 +77,6 @@ export async function updateMistake(id: string, data: Prisma.MistakeUpdateInput)
 /** Delete a mistake record */
 export async function deleteMistake(id: string) {
   return db.mistake.delete({ where: { id } });
-}
-
-/** Bulk update mistake review status (mark multiple as reviewed) */
-export async function bulkUpdateMistakes(ids: string[], data: Prisma.MistakeUpdateInput) {
-  return db.mistake.updateMany({ where: { id: { in: ids } }, data });
 }
 
 /** Get mistakes due for SRS review */

@@ -4,12 +4,12 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
+import { listVocabFiltered } from '@/modules/student';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -40,16 +40,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
     }
 
-    // 取得學生生字（優先取低掌握度的，或依照指定 wordIds）
-    const whereClause: Record<string, unknown> = { studentId: effectiveStudentId };
-    if (wordIds && Array.isArray(wordIds) && wordIds.length > 0) {
-      whereClause.id = { in: wordIds };
-    }
-    const vocabItems = await db.vocabItem.findMany({
-      where: whereClause,
-      orderBy: { masteryLevel: 'asc' },
-      take: wordIds?.length ? wordIds.length : 30,
-    });
+    const vocabItems = wordIds && Array.isArray(wordIds) && wordIds.length > 0
+      ? await listVocabFiltered({
+          where: { studentId: effectiveStudentId, id: { in: wordIds } },
+          orderBy: { masteryLevel: 'asc' },
+          skip: 0,
+          take: wordIds.length,
+        })
+      : await listVocabFiltered({
+          where: { studentId: effectiveStudentId },
+          orderBy: { masteryLevel: 'asc' },
+          skip: 0,
+          take: 30,
+        });
 
     if (vocabItems.length === 0) {
       return NextResponse.json({ quiz: [], message: '你的生字簿還沒有單字，先加入一些吧！' });

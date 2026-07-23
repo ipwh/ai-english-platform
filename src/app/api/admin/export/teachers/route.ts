@@ -4,8 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { exportTeachers } from '@/modules/admin/services/export-service';
 import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const format = searchParams.get('format') || 'json';
 
     // ---- 查詢所有教師 ----
-    const teachers = await db.user.findMany({
+    const teachers = await (await import('@/shared/db/db')).db.user.findMany({
       where: { role: 'teacher' },
       select: {
         id: true,

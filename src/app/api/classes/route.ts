@@ -3,11 +3,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { cacheFor, CACHE_MEDIUM } from '@/shared/utils/api-cache';
 import { z } from 'zod';
+import { listClasses, createClass, findClassByName, deleteClass } from '@/modules/student';
 
 const createClassSchema = z.object({
   name: z.string().min(1, 'name 為必填').max(10),
@@ -27,16 +27,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const teacherId = searchParams.get('teacherId');
 
-    const classes = await db.class.findMany({
-      where: {
-        name: { not: 'Demo' },
-        ...(teacherId ? { teachers: { some: { teacherId } } } : {}),
-      },
-      include: {
-        _count: { select: { students: true, assignments: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    const classes = await listClasses(teacherId || undefined);
 
     return NextResponse.json({ classes }, { headers: cacheFor(CACHE_MEDIUM) });
   } catch (err: unknown) {
@@ -62,9 +53,7 @@ export async function POST(request: NextRequest) {
     }
     const { name, gradeLevel, academicYear } = parsed.data;
 
-    const cls = await db.class.create({
-      data: { name, gradeLevel, academicYear: academicYear || '2025-2026' },
-    });
+    const cls = await createClass({ name, gradeLevel, academicYear });
 
     return NextResponse.json({ class: cls }, { status: 201 });
   } catch (err: unknown) {
@@ -72,3 +61,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+

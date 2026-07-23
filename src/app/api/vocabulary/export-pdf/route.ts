@@ -4,9 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { getVocabForExport } from '@/modules/vocabulary/services/vocabulary-service';
 
 function tryParse(val: unknown): string[] {
   if (!val) return [];
@@ -42,19 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId required' }, { status: 400 });
     }
 
-    let vocab;
-    if (wordIds && wordIds.length > 0) {
-      vocab = await db.vocabItem.findMany({
-        where: { id: { in: wordIds }, studentId },
-        orderBy: { createdAt: 'desc' },
-      });
-    } else {
-      vocab = await db.vocabItem.findMany({
-        where: { studentId },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
-    }
+    const vocab = await getVocabForExport(studentId, wordIds);
 
     if (vocab.length === 0) {
       return NextResponse.json({ error: 'No vocabulary items to export' }, { status: 404 });

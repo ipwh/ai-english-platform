@@ -10,7 +10,7 @@ import { difficultyAdjuster } from './difficulty-adjuster';
 import { confidenceEstimator } from './confidence-estimator';
 import { learningEffectivenessAnalyzer } from './effectiveness-analyzer';
 import { reflectionGenerator } from './reflection-generator';
-import { learningScienceRepo } from '../repositories/learning-science-repository';
+import { learningScienceRepo } from '@/modules/learning-memory/repositories/learning-science-repository';
 import {
   generateInterleavingPlan,
   scheduleRetrievalPractice,

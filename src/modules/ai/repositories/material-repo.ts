@@ -5,6 +5,9 @@ import type { Prisma } from '@prisma/client';
 export async function findMaterialById(id: string) { return db.material.findUnique({ where: { id } }); }
 export async function updateMaterial(id: string, data: Prisma.MaterialUpdateInput) { return db.material.update({ where: { id }, data }); }
 export async function listMaterials(filters?: Prisma.MaterialWhereInput) { return db.material.findMany({ where: filters ?? {}, orderBy: { createdAt: 'desc' } }); }
+export async function listMaterialsFull(args: { where?: Prisma.MaterialWhereInput; select?: Prisma.MaterialSelect; include?: Prisma.MaterialInclude; take?: number; orderBy?: Prisma.MaterialOrderByWithRelationInput }) {
+  return db.material.findMany({ where: args.where ?? {}, ...args });
+}
 export async function createMaterial(data: Prisma.MaterialCreateInput) { return db.material.create({ data }); }
 export async function deleteMaterial(id: string) { return db.material.delete({ where: { id } }); }
 export async function deleteMaterialChunks(materialId: string) { return db.materialChunk.deleteMany({ where: { materialId } }); }

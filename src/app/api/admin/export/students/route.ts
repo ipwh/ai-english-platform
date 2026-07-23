@@ -8,12 +8,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
-import type { Prisma } from '@prisma/client';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
+import { exportStudents } from '@/modules/admin/services/export-service';
 
 async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized: boolean; userId?: string; error?: string }> {
   // Try admin first
@@ -33,7 +32,7 @@ async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized:
   try {
     const session = await auth();
     if (session?.user?.id) {
-      const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+      const user = await (await import('@/shared/db/db')).db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
       if (user && (user.role === 'teacher' || user.role === 'admin')) {
         return { authorized: true, userId: session.user.id };
       }
@@ -62,7 +61,7 @@ export async function GET(request: NextRequest) {
     if (academicYear) where.academicYear = academicYear;
     if (className) where.class = { name: className };
 
-    const students = await db.user.findMany({
+    const students = await (await import('@/shared/db/db')).db.user.findMany({
       where,
       select: {
         id: true,

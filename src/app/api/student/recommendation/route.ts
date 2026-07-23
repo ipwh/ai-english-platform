@@ -4,13 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
-import { recommendationQuerySchema } from '@/modules/recommendation-v2/schemas';
+import { recommendationQuerySchema } from '@/modules/recommendation/schemas';
 import {
   getFullRecommendations,
   recommendGrammar,
   recommendVocabulary,
   recommendWritingTopic,
-} from '@/modules/recommendation-v2/services/recommendation-engine';
+} from '@/modules/recommendation/services/recommendation-engine';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    logger.error({ module: 'recommendation-v2', error: message }, 'GET /api/student/recommendation failed');
+    logger.error({ module: 'recommendation', error: message }, 'GET /api/student/recommendation failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

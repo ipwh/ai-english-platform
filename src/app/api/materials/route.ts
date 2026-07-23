@@ -3,11 +3,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
+import { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks, countMaterials } from '@/modules/student';
 
 // ============================================
 // 上傳限制常數
@@ -66,22 +66,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const materials = await db.material.findMany({
-      where: {
-        isSystem: false,
-      },
+    const materials = await listMaterialsFull({
+      where: { isSystem: false },
       select: {
-        id: true,
-        title: true,
-        description: true,
-        type: true,
-        gradeLevel: true,
-        strand: true,
-        tags: true,
-        ocrStatus: true,
-        ragStatus: true,
-        fileSize: true,
-        createdAt: true,
+        id: true, title: true, description: true,
+        type: true, gradeLevel: true, strand: true, tags: true,
+        ocrStatus: true, ragStatus: true, fileSize: true, createdAt: true,
         uploader: { select: { name: true, nameZh: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -161,7 +151,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const material = await db.material.create({
+      const material = await (await import('@/shared/db/db')).db.material.create({
         data: {
           title: file.name,
           type: ext,
@@ -196,21 +186,19 @@ export async function POST(request: NextRequest) {
 
     const { title, description, type, gradeLevel, strand, content, tags, fileSize } = parsed.data;
 
-    const material = await db.material.create({
-      data: {
-        title,
-        description: description || null,
-        type: type || 'text',
-        gradeLevel: gradeLevel || null,
-        strand: strand || null,
-        content: content || null,
-        tags: tags ? JSON.stringify(tags) : null,
-        fileSize: fileSize || null,
-        uploadedBy: userId,
-        ocrStatus: 'none',
-        ragStatus: 'none',
-      },
-    });
+    const material = await createMaterial({
+      title,
+      description: description || null,
+      type: type || 'text',
+      gradeLevel: gradeLevel || null,
+      strand: strand || null,
+      content: content || null,
+      tags: tags ? JSON.stringify(tags) : null,
+      fileSize: fileSize || null,
+      uploadedBy: userId,
+      ocrStatus: 'none',
+      ragStatus: 'none',
+    } as any);
 
     return NextResponse.json({ material }, { status: 201 });
   } catch (err: unknown) {
@@ -238,12 +226,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    // Verify material exists and user owns it or is admin
-    const existing = await db.material.findUnique({ where: { id }, select: { uploadedBy: true } });
+    const existing = await findMaterialById(id);
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
-    if (authResult.role !== 'admin' && existing.uploadedBy && existing.uploadedBy !== userId) {
+    if (authResult.role !== 'admin' && (existing as any).uploadedBy && (existing as any).uploadedBy !== userId) {
       return NextResponse.json({ error: 'Unauthorized — not the uploader' }, { status: 403 });
     }
 
@@ -258,7 +245,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    const material = await db.material.update({ where: { id }, data: updateData });
+    const material = await updateMaterial(id, updateData as any);
     return NextResponse.json({ material });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
@@ -285,18 +272,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Material ID is required' }, { status: 400 });
     }
 
-    // Verify material exists and user owns it or is admin
-    const existing = await db.material.findUnique({ where: { id }, select: { uploadedBy: true } });
+    const existing = await findMaterialById(id);
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
-    if (authResult.role !== 'admin' && existing.uploadedBy && existing.uploadedBy !== userId) {
+    if (authResult.role !== 'admin' && (existing as any).uploadedBy && (existing as any).uploadedBy !== userId) {
       return NextResponse.json({ error: 'Unauthorized — not the uploader' }, { status: 403 });
     }
 
     // Clean up RAG chunks + the material itself
-    const deletedChunks = await db.materialChunk.deleteMany({ where: { materialId: id } });
-    await db.material.delete({ where: { id } });
+    const deletedChunks = await deleteMaterialChunks(id);
+    await deleteMaterial(id);
 
     logger.info({ module: 'materials', materialId: id, deletedChunks: deletedChunks.count }, 'Material deleted');
     return NextResponse.json({ success: true, deletedChunks: deletedChunks.count });

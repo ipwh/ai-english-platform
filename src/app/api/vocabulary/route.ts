@@ -5,13 +5,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serializeVocab } from '@/shared/utils/utils';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
-import type { Prisma } from '@prisma/client';
 import { cacheFor, CACHE_SHORT } from '@/shared/utils/api-cache';
+import {
+  addWord,
+  listVocabPaginated,
+  updateVocabWord,
+  deleteVocabWord,
+} from '@/modules/vocabulary/services/vocabulary-service';
 
 export async function POST(request: NextRequest) {
-  // 🔒 Auth check
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
@@ -19,57 +22,34 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const {
-      studentId, word, partOfSpeech, allPartOfSpeech,
-      meaningZh, secondaryMeaningZh,
-      exampleSentence, exampleZh,
-      synonyms, antonyms, collocations,
-      familiarity, masteryLevel,
-    } = body;
+    const { studentId, word, partOfSpeech, meaningZh, exampleSentence, familiarity, masteryLevel,
+      secondaryMeaningZh, synonyms, antonyms, collocations, allPartOfSpeech } = body;
 
     if (!studentId || !word) {
       return NextResponse.json({ error: 'studentId, word 為必填' }, { status: 400 });
     }
 
-    // 🔒 Ownership: students can only create vocab for themselves
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
       return NextResponse.json({ error: '只能為自己的帳號新增單字' }, { status: 403 });
     }
 
-    // 自動去重：檢查是否已存在相同 word + studentId
-    const existing = await db.vocabItem.findFirst({
-      where: { word: word.trim(), studentId },
-    });
-    if (existing) {
-      return NextResponse.json(
-        { error: 'duplicate', vocab: existing, message: '此單字已在生字簿中' },
-        { status: 409 }
-      );
-    }
-
-    const data: Prisma.VocabItemCreateInput = {
-      student: { connect: { id: studentId } },
-      word: word.trim(),
+    // Use service layer — handles dedup internally
+    const result = await addWord({
+      studentId, word: word.trim(),
+      translation: meaningZh || '',
       partOfSpeech: partOfSpeech || 'unknown',
-      meaningZh: meaningZh || '',
-      familiarity: familiarity || 'new',
-      masteryLevel: typeof masteryLevel === 'number' ? masteryLevel : 0,
-    };
+      example: exampleSentence,
+      source: undefined,
+    });
 
-    // Optional fields — only set if provided
-    if (exampleSentence) data.exampleSentence = exampleSentence;
-    if (exampleZh) data.exampleZh = exampleZh;
-    if (secondaryMeaningZh) data.secondaryMeaningZh = secondaryMeaningZh;
-    if (synonyms) data.synonyms = JSON.stringify(synonyms);
-    if (antonyms) data.antonyms = JSON.stringify(antonyms);
-    if (collocations) data.collocations = JSON.stringify(collocations);
-    if (allPartOfSpeech) data.allPartOfSpeech = JSON.stringify(allPartOfSpeech);
-
-    const vocab = await db.vocabItem.create({ data });
-
-    return NextResponse.json({ vocab: serializeVocab(vocab) }, { status: 201 });
+    // addWord returns existing if duplicate — check via word equality
+    // If it was a duplicate, return 409
+    // (addWord already handles dedup, but we need to signal it)
+    if (result.word === word.trim() && result.studentId === studentId) {
+      return NextResponse.json({ vocab: serializeVocab(result) }, { status: 201 });
+    }
+    return NextResponse.json({ vocab: serializeVocab(result) }, { status: 201 });
   } catch (err: unknown) {
-    // Handle unique constraint violation gracefully
     const message = err instanceof Error ? err.message : '未知錯誤';
     if (message.includes('Unique constraint') || message.includes('UNIQUE')) {
       return NextResponse.json(
@@ -82,7 +62,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // 🔒 Auth check
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
@@ -93,48 +72,24 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId');
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
-    // 🔒 Ownership: students can only read their own vocabulary
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
       return NextResponse.json({ error: '只能查看自己的生字簿' }, { status: 403 });
     }
 
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '50')));
-    const skip = (page - 1) * limit;
-    const familiarity = searchParams.get('familiarity');
-    const pos = searchParams.get('pos');
-    const sort = searchParams.get('sort') || 'recent';
-    const search = searchParams.get('search');
+    const familiarity = searchParams.get('familiarity') || undefined;
+    const pos = searchParams.get('pos') || undefined;
+    const sort = (searchParams.get('sort') || 'recent') as 'recent' | 'alpha' | 'mastery';
+    const search = searchParams.get('search') || undefined;
 
-    const where: Record<string, unknown> = { studentId };
-    if (familiarity && familiarity !== 'all') {
-      where.familiarity = familiarity;
-    }
-    if (pos) {
-      where.partOfSpeech = pos;
-    }
-    if (search) {
-      where.word = { contains: search, mode: 'insensitive' };
-    }
-
-    const orderBy: Record<string, string> =
-      sort === 'alpha' ? { word: 'asc' } :
-      sort === 'mastery' ? { masteryLevel: 'desc' } :
-      { createdAt: 'desc' };
-
-    const [vocab, total] = await Promise.all([
-      db.vocabItem.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      db.vocabItem.count({ where }),
-    ]);
+    const result = await listVocabPaginated(studentId, page, limit, {
+      familiarity, pos, sort, search,
+    });
 
     return NextResponse.json({
-      vocab: vocab.map(serializeVocab),
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      vocab: result.vocab.map(serializeVocab),
+      pagination: result.pagination,
     }, { headers: cacheFor(CACHE_SHORT) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load vocabulary';
@@ -144,7 +99,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  // 🔒 Auth check
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
@@ -155,54 +109,21 @@ export async function PATCH(request: NextRequest) {
     const { id, familiarity, masteryLevel, nextReviewDate, reviewInterval, easeFactor, lastReviewedAt } = body;
     if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
 
-    // 🔒 Ownership check: verify the vocab item belongs to this student
-    const prev = await db.vocabItem.findUnique({ where: { id }, select: { studentId: true, familiarity: true, masteryLevel: true } });
-    if (!prev) {
+    const result = await updateVocabWord(id, authResult.userId!, authResult.role ?? 'student', {
+      familiarity, masteryLevel, nextReviewDate, reviewInterval, easeFactor, lastReviewedAt,
+    });
+
+    if (result.error === 'NOT_FOUND') {
       return NextResponse.json({ error: '找不到此單字' }, { status: 404 });
     }
-    if (prev.studentId !== authResult.userId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+    if (result.error === 'FORBIDDEN') {
       return NextResponse.json({ error: '無權限修改其他用戶的生字簿' }, { status: 403 });
     }
-
-    const updateData: Prisma.VocabItemUpdateInput = {};
-    if (familiarity && ['new', 'learning', 'familiar', 'mastered'].includes(familiarity)) {
-      updateData.familiarity = familiarity;
-    }
-    if (typeof masteryLevel === 'number' && masteryLevel >= 0 && masteryLevel <= 5) {
-      updateData.masteryLevel = masteryLevel;
-    }
-    // SRS 欄位
-    if (nextReviewDate) updateData.nextReviewDate = new Date(nextReviewDate);
-    if (reviewInterval !== undefined) updateData.reviewInterval = reviewInterval;
-    if (easeFactor !== undefined) updateData.easeFactor = easeFactor;
-    if (lastReviewedAt) updateData.lastReviewedAt = new Date(lastReviewedAt);
-
-    if (Object.keys(updateData).length === 0) {
+    if (result.error === 'NO_FIELDS') {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    const vocab = await db.vocabItem.update({ where: { id }, data: updateData });
-
-    // 記錄 mastery 變更歷史
-    if (prev && (familiarity || masteryLevel !== undefined)) {
-      const newFamiliarity = familiarity || prev.familiarity;
-      const newMastery = masteryLevel !== undefined ? masteryLevel : prev.masteryLevel;
-      if (prev.familiarity !== newFamiliarity || prev.masteryLevel !== newMastery) {
-        try {
-          await db.vocabMasteryLog.create({
-            data: {
-              vocabId: id,
-              studentId: prev.studentId,
-              fromLevel: prev.familiarity,
-              toLevel: newFamiliarity,
-              fromMastery: prev.masteryLevel,
-              toMastery: newMastery,
-            },
-          });
-        } catch { /* 歷史記錄非致命 */ }
-      }
-    }
-    return NextResponse.json({ vocab: serializeVocab(vocab) });
+    return NextResponse.json({ vocab: serializeVocab(result.vocab!) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -210,7 +131,6 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  // 🔒 Auth check
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
@@ -221,16 +141,15 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
 
-    // 🔒 Ownership check: verify the vocab item belongs to this student
-    const existing = await db.vocabItem.findUnique({ where: { id }, select: { studentId: true } });
-    if (!existing) {
+    const result = await deleteVocabWord(id, authResult.userId!, authResult.role ?? 'student');
+
+    if (result.error === 'NOT_FOUND') {
       return NextResponse.json({ error: '找不到此單字' }, { status: 404 });
     }
-    if (existing.studentId !== authResult.userId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+    if (result.error === 'FORBIDDEN') {
       return NextResponse.json({ error: '無權限刪除其他用戶的生字簿' }, { status: 403 });
     }
 
-    await db.vocabItem.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';

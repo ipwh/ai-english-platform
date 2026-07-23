@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { ensureAdmin } from '@/modules/admin/services/admin-service';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 
 export async function GET() {
@@ -29,14 +29,14 @@ export async function POST(_request?: NextRequest) {
   try {
     const adminEmail = process.env.ADMIN_EMAIL || 'ipwh@pochiu.edu.hk';
 
-    const existing = await db.user.findUnique({
+    const existing = await (await import('@/shared/db/db')).db.user.findUnique({
       where: { email: adminEmail },
       select: { id: true, role: true },
     });
 
     if (existing) {
       // 確保 role 為 admin，並更新密碼
-      await db.user.update({
+      await (await import('@/shared/db/db')).db.user.update({
         where: { email: adminEmail },
         data: {
           role: 'admin',
@@ -51,7 +51,7 @@ export async function POST(_request?: NextRequest) {
     }
 
     // 建立 admin 帳號
-    await db.user.create({
+    await (await import('@/shared/db/db')).db.user.create({
       data: {
         email: adminEmail,
         passwordHash: hashPasswordSync(adminPassword),

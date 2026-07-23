@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { db } from '@/shared/db/db';
+import { bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/student';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -31,10 +31,7 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'markAllReviewed': {
-        const result = await db.mistake.updateMany({
-          where,
-          data: { reviewed: true },
-        });
+        const result = await bulkUpdateMistakes(where, { reviewed: true });
         return NextResponse.json({ updated: result.count });
       }
 
@@ -42,15 +39,12 @@ export async function POST(request: NextRequest) {
         if (!ids?.length) {
           return NextResponse.json({ error: 'ids required for delete' }, { status: 400 });
         }
-        const result = await db.mistake.deleteMany({ where });
+        const result = await bulkDeleteMistakes(where);
         return NextResponse.json({ deleted: result.count });
       }
 
       case 'addAllToReview': {
-        const result = await db.mistake.updateMany({
-          where,
-          data: { inReviewList: true },
-        });
+        const result = await bulkUpdateMistakes(where, { inReviewList: true });
         return NextResponse.json({ updated: result.count });
       }
 

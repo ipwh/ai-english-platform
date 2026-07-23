@@ -5,9 +5,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { getUserPreferences, upsertUserPreferences } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -17,9 +17,7 @@ export async function GET(request: NextRequest) {
   const userId = authResult.userId!;
   try {
 
-    const prefs = await db.userPreferences.findUnique({
-      where: { userId },
-    });
+    const prefs = await getUserPreferences(userId);
 
     if (!prefs) {
       // Return defaults
@@ -55,30 +53,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { language, darkMode, sidebarOpen, notifAssignment, notifSubmission, notifFeedback, notifAchievement, notifSystem } = body;
 
-    const prefs = await db.userPreferences.upsert({
-      where: { userId },
-      create: {
-        userId,
-        language: language || 'zh',
-        darkMode: darkMode ?? false,
-        sidebarOpen: sidebarOpen ?? true,
-        notifAssignment: notifAssignment ?? true,
-        notifSubmission: notifSubmission ?? true,
-        notifFeedback: notifFeedback ?? true,
-        notifAchievement: notifAchievement ?? true,
-        notifSystem: notifSystem ?? true,
-      },
-      update: {
-        ...(language ? { language } : {}),
-        ...(darkMode !== undefined ? { darkMode } : {}),
-        ...(sidebarOpen !== undefined ? { sidebarOpen } : {}),
-        ...(notifAssignment !== undefined ? { notifAssignment } : {}),
-        ...(notifSubmission !== undefined ? { notifSubmission } : {}),
-        ...(notifFeedback !== undefined ? { notifFeedback } : {}),
-        ...(notifAchievement !== undefined ? { notifAchievement } : {}),
-        ...(notifSystem !== undefined ? { notifSystem } : {}),
-      },
-    });
+    const data: Record<string, unknown> = {};
+    if (language) data.language = language;
+    if (darkMode !== undefined) data.darkMode = darkMode;
+    if (sidebarOpen !== undefined) data.sidebarOpen = sidebarOpen;
+    if (notifAssignment !== undefined) data.notifAssignment = notifAssignment;
+    if (notifSubmission !== undefined) data.notifSubmission = notifSubmission;
+    if (notifFeedback !== undefined) data.notifFeedback = notifFeedback;
+    if (notifAchievement !== undefined) data.notifAchievement = notifAchievement;
+    if (notifSystem !== undefined) data.notifSystem = notifSystem;
+
+    const prefs = await upsertUserPreferences(userId, data);
 
     return NextResponse.json({ preferences: prefs });
   } catch (err) {
@@ -86,3 +71,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
+

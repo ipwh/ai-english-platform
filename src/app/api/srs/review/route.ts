@@ -3,10 +3,12 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/modules/vocabulary/services/srs';
+import { getStudentWords, getDueReviews, getWordById } from '@/modules/vocabulary/services/vocabulary-service';
+import { updateVocab } from '@/modules/student';
+import { listMistakes, bulkUpdateMistakes } from '@/modules/student';
 
 // GET — 取得今日待複習的詞彙 + 錯題
 export async function GET(req: NextRequest) {
@@ -31,32 +33,21 @@ export async function GET(req: NextRequest) {
 
     if (type === 'all' || type === 'vocab') {
       try {
-        const allVocab = await db.vocabItem.findMany({
-          where: { studentId },
-          orderBy: { createdAt: 'desc' },
-        });
+        const allVocab = await getStudentWords(studentId);
         dueVocab = allVocab.filter(v =>
           !v.nextReviewDate || new Date(v.nextReviewDate as Date) <= now
         );
       } catch {
-        // Fallback without nextReviewDate
         try {
-          const allVocab = await db.vocabItem.findMany({
-            where: { studentId },
-            orderBy: { createdAt: 'desc' },
-          });
-          dueVocab = allVocab.slice(0, 5); // show first 5 as due
+          const allVocab = await getStudentWords(studentId);
+          dueVocab = allVocab.slice(0, 5);
         } catch { /* silently fail */ }
       }
     }
 
     if (type === 'all' || type === 'mistakes') {
       try {
-        const allMistakes = await db.mistake.findMany({
-          where: { studentId, inReviewList: true },
-          orderBy: { createdAt: 'asc' },
-        });
-        dueMistakes = allMistakes;
+        dueMistakes = await listMistakes(studentId, 50);
       } catch { /* silently fail */ }
     }
 
@@ -130,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     for (const r of results) {
       if (r.type === 'vocab') {
-        const vocab = await db.vocabItem.findUnique({ where: { id: r.id } });
+        const vocab = await getWordById(r.id);
         if (!vocab || vocab.studentId !== studentId) continue;
 
         // 使用 vocab 現有的 SRS 狀態（easeFactor, reviewInterval, lastReviewedAt）
@@ -151,15 +142,12 @@ export async function POST(req: NextRequest) {
         else if (quality <= 1 && vocab.familiarity === 'familiar') newFamiliarity = 'learning';
 
         updates.push(
-          db.vocabItem.update({
-            where: { id: r.id },
-            data: {
-              familiarity: newFamiliarity,
-              nextReviewDate: new Date(srsResult.nextReviewDate),
-              reviewInterval: srsResult.interval,
-              easeFactor: srsResult.easeFactor,
-              lastReviewedAt: new Date(srsResult.lastReviewedAt),
-            },
+          updateVocab(r.id, {
+            familiarity: newFamiliarity,
+            nextReviewDate: new Date(srsResult.nextReviewDate),
+            reviewInterval: srsResult.interval,
+            easeFactor: srsResult.easeFactor,
+            lastReviewedAt: new Date(srsResult.lastReviewedAt),
           })
         );
       } else {
@@ -169,10 +157,7 @@ export async function POST(req: NextRequest) {
           updates.push(Promise.resolve());
         } else {
           updates.push(
-            db.mistake.update({
-              where: { id: r.id },
-              data: { inReviewList: false, reviewed: true },
-            })
+            bulkUpdateMistakes({ id: r.id }, { inReviewList: false, reviewed: true })
           );
         }
       }

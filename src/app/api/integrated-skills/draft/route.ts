@@ -6,9 +6,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { findIntegratedSkillsDraft, upsertIntegratedSkillsDraft, deleteIntegratedSkillsDraft } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const userId = authResult.userId!;
   try {
 
-    const draft = await db.integratedSkillsDraft.findUnique({
+    const draft = await (await import('@/shared/db/db')).db.integratedSkillsDraft.findUnique({
       where: { userId },
       select: {
         studentNotes: true,
@@ -58,27 +58,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { studentNotes, studentWriting, taskData, stage, activeStep, listeningCompleted } = body;
 
-    const draft = await db.integratedSkillsDraft.upsert({
-      where: { userId },
-      create: {
-        userId,
-        studentNotes: studentNotes || '',
-        studentWriting: studentWriting || '',
-        taskData: taskData ? JSON.stringify(taskData) : null,
-        stage: stage || 'config',
-        activeStep: activeStep || 1,
-        listeningCompleted: listeningCompleted || false,
-      },
-      update: {
-        studentNotes: studentNotes !== undefined ? studentNotes : undefined,
-        studentWriting: studentWriting !== undefined ? studentWriting : undefined,
-        taskData: taskData !== undefined ? JSON.stringify(taskData) : undefined,
-        stage: stage !== undefined ? stage : undefined,
-        activeStep: activeStep !== undefined ? activeStep : undefined,
-        listeningCompleted: listeningCompleted !== undefined ? listeningCompleted : undefined,
-        updatedAt: new Date(),
-      },
-    });
+    const draftData: Record<string, unknown> = {
+      studentNotes: studentNotes !== undefined ? studentNotes : undefined,
+      studentWriting: studentWriting !== undefined ? studentWriting : undefined,
+      taskData: taskData !== undefined ? JSON.stringify(taskData) : undefined,
+      stage: stage !== undefined ? stage : undefined,
+      activeStep: activeStep !== undefined ? activeStep : undefined,
+      listeningCompleted: listeningCompleted !== undefined ? listeningCompleted : undefined,
+      updatedAt: new Date(),
+    };
+    const draft = await upsertIntegratedSkillsDraft(userId, draftData);
 
     return NextResponse.json({ success: true, updatedAt: draft.updatedAt });
   } catch (err) {
@@ -95,10 +84,11 @@ export async function DELETE(request: NextRequest) {
   const userId = authResult.userId!;
   try {
 
-    await db.integratedSkillsDraft.deleteMany({ where: { userId } });
+    await deleteIntegratedSkillsDraft(userId);
     return NextResponse.json({ success: true });
   } catch (err) {
     logger.error({ module: 'integrated-skills-draft', error: err instanceof Error ? err.message : String(err) }, 'Draft DELETE failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
+

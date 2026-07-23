@@ -24,6 +24,7 @@ import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';
+import { syncSheetToDatabase, getCurrentRoster } from '@/modules/admin/services/sync-service';
 
 // ============================================
 // 類型定義

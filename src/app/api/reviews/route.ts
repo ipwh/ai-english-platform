@@ -4,8 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { listSubmissionsForReview, findReviewsBySubmissions } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
@@ -16,29 +16,8 @@ export async function GET(request: NextRequest) {
   try {
 
     // 從 Submission 表中提取需要教師覆核的記錄
-    const submissions = await db.submission.findMany({
-      where: {
-        status: { in: ['submitted', 'graded'] },
-      },
-      select: {
-        id: true,
-        score: true,
-        aiFeedback: true,
-        status: true,
-        answers: true,
-        submittedAt: true,
-        student: { select: { id: true, nameZh: true, nameEn: true, class: { select: { name: true } } } },
-        assignment: { select: { id: true, title: true, questions: { select: { id: true, prompt: true, answer: true, questionType: true } } } },
-      },
-      orderBy: { submittedAt: 'desc' },
-      take: 50,
-    });
-
-    // Also fetch Review records for teacher feedback
-    const reviewRecords = await db.review.findMany({
-      where: { submissionId: { in: submissions.map(s => s.id) } },
-      select: { submissionId: true, teacherScore: true, teacherFeedback: true, status: true },
-    });
+    const submissions = await listSubmissionsForReview(50);
+    const reviewRecords = await findReviewsBySubmissions(submissions.map((s: any) => s.id));
     const reviewMap = new Map(reviewRecords.map(r => [r.submissionId, r]));
 
     const reviews = submissions.map(s => {
@@ -96,3 +75,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

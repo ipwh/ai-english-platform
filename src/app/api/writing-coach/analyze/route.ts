@@ -1,8 +1,11 @@
-// Sprint 39: POST /api/writing-coach/analyze — enhanced analysis
+// Sprint 36: POST /api/writing-coach/analyze
+// Formula-based writing analysis: 8 dimensions + band prediction + checklist
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { writingCoachPro } from '@/modules/writing-coach/services/writing-coach-pro';
 import { logger } from '@/shared/logger/logger';
+import { z } from 'zod';
+import { writingCoachV2Schema } from '@/modules/writing-coach/schemas';
+import { analyzeEssay } from '@/modules/writing-coach/services/writing-coach-heuristic';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -12,60 +15,26 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { essayId, studentId, title, content, textType, gradeLevel, action } = body;
+    const parsed = writingCoachV2Schema.parse(body);
 
-    if (!content) return NextResponse.json({ error: 'content required' }, { status: 400 });
-
-    const submission = {
-      studentId: studentId || authResult.userId!,
-      essayId: essayId || `essay_${Date.now()}`,
-      title: title || 'Untitled',
-      content,
-      textType: textType || 'essay',
-      gradeLevel: gradeLevel || 'S4',
-      wordCount: content.split(/\s+/).length,
-      submittedAt: new Date().toISOString(),
-    };
-
-    switch (action) {
-      case 'full-analysis': {
-        const scores = writingCoachPro.scoreWithAllRubrics(submission);
-        const sentenceVariety = writingCoachPro.analyzeSentenceVariety(content);
-        const toneRegister = writingCoachPro.analyzeToneRegister(content, submission.textType);
-        const logicArgument = writingCoachPro.analyzeLogicArgument(content);
-        const vocabUpgrades = writingCoachPro.generateVocabUpgrades(content);
-        const grammarUpgrades = writingCoachPro.generateGrammarUpgrades(content);
-        const betterExpressions = writingCoachPro.generateBetterExpressions(content);
-        const sentenceRewrites = writingCoachPro.generateSentenceRewrites(content);
-
-        return NextResponse.json({
-          analysis: {
-            scores, sentenceVariety, toneRegister, logicArgument,
-            vocabUpgrades, grammarUpgrades, betterExpressions, sentenceRewrites,
-          },
-        });
-      }
-      case 'scores':
-        return NextResponse.json({ scores: writingCoachPro.scoreWithAllRubrics(submission) });
-      case 'sentence-variety':
-        return NextResponse.json({ sentenceVariety: writingCoachPro.analyzeSentenceVariety(content) });
-      case 'tone-register':
-        return NextResponse.json({ toneRegister: writingCoachPro.analyzeToneRegister(content, submission.textType) });
-      case 'logic-argument':
-        return NextResponse.json({ logicArgument: writingCoachPro.analyzeLogicArgument(content) });
-      case 'upgrades':
-        return NextResponse.json({
-          vocabUpgrades: writingCoachPro.generateVocabUpgrades(content),
-          grammarUpgrades: writingCoachPro.generateGrammarUpgrades(content),
-          betterExpressions: writingCoachPro.generateBetterExpressions(content),
-          sentenceRewrites: writingCoachPro.generateSentenceRewrites(content),
-        });
-      default:
-        return NextResponse.json({ scores: writingCoachPro.scoreWithAllRubrics(submission) });
+    // Ownership check
+    if (
+      authResult.role !== 'teacher' &&
+      authResult.role !== 'admin' &&
+      parsed.studentId !== authResult.userId
+    ) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error({ module: 'writing-coach-pro', error: msg }, 'Analysis failed');
-    return NextResponse.json({ error: msg }, { status: 500 });
+
+    const result = analyzeEssay(parsed);
+
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid body', details: err.issues }, { status: 400 });
+    }
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    logger.error({ module: 'writing-coach', error: message }, 'POST /api/writing-coach/analyze failed');
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

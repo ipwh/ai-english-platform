@@ -1,6 +1,7 @@
 // Sprint 37: Student Digital Twin — types
 import type { SkillDimension } from '@/modules/profile/types';
 import type { CEFRLevel, HKDSELevel } from '@/modules/knowledge-graph/types';
+import type { ForgettingCurvePoint } from '@/modules/learning-science/types';
 
 // ============================================
 // StudentTwin — complete digital representation
@@ -17,10 +18,14 @@ export interface StudentTwin {
   predictions: TwinPredictions;
   risks: RiskAssessment;
   dashboard: DashboardData;
-  /** Learning goals — derived from weakness + exam targets (v4.1) */
   goals: LearningGoals;
-  /** Top recommendations — sourced from LearningFacade (v4.1) */
   recommendations: RecommendationSummary[];
+  retention: RetentionState;
+  forgetCurve: ForgetCurve;
+  /** v5: Learning velocity metrics */
+  velocity: LearningVelocity;
+  /** v5: Recovery & compliance metrics */
+  recovery: RecoveryMetrics;
 }
 
 // ============================================
@@ -267,4 +272,80 @@ export interface RecommendationSummary {
   actionZh: string;
   priority: 'high' | 'medium' | 'low';
   reason: string;
+}
+
+// ============================================
+// v5: RetentionState — detailed memory retention metrics
+// ============================================
+
+export interface RetentionState {
+  /** Overall retention rate (0-1) */
+  overallRate: number;
+  /** Retention rate per skill dimension */
+  perSkill: Record<string, number>;
+  /** Average days before a skill decays below mastery threshold */
+  averageRetentionDays: number;
+  /** Skills at risk of being forgotten (retention < 0.5) */
+  atRiskSkills: string[];
+  /** Skills with strong retention (> 0.8) */
+  strongSkills: string[];
+  /** Trend direction */
+  trend: 'improving' | 'stable' | 'declining';
+  /** Recommended review cadence in days */
+  recommendedReviewCadence: number;
+}
+
+// ============================================
+// v5: ForgetCurve — Ebbinghaus decay curves per key skill
+// ============================================
+
+export interface ForgetCurve {
+  /** Per-skill forgetting curves */
+  curves: Record<string, ForgettingCurvePoint[]>;
+  /** Overall composite forgetting curve */
+  composite: ForgettingCurvePoint[];
+  /** Estimated half-life of knowledge (days until 50% retention) */
+  knowledgeHalfLifeDays: number;
+  /** When the curves were last computed */
+  computedAt: string;
+}
+
+// ============================================
+// v5: LearningVelocity — how fast the student learns
+// ============================================
+
+export interface LearningVelocity {
+  /** Nodes mastered per week (average over last 4 weeks) */
+  weeklyMasteryRate: number;
+  /** Average score improvement per practice session */
+  improvementPerSession: number;
+  /** Weeks to reach target level at current pace */
+  estimatedWeeksToTarget: number;
+  /** Velocity trend over last 4 weeks */
+  weeklyHistory: Array<{ week: string; nodesMastered: number; avgScore: number }>;
+  /** Compared to peers (percentile, 0-100) */
+  peerPercentile: number;
+  /** Acceleration status */
+  trend: 'accelerating' | 'steady' | 'decelerating';
+}
+
+// ============================================
+// v5: RecoveryMetrics — mistake recovery & review compliance
+// ============================================
+
+export interface RecoveryMetrics {
+  /** Average days to resolve a mistake (from first seen to mastered) */
+  avgRecoveryDays: number;
+  /** Percentage of mistakes eventually resolved */
+  recoveryRate: number; // 0-1
+  /** How often the student follows SRS review schedule */
+  reviewCompliance: number; // 0-1
+  /** Days since last review session */
+  daysSinceLastReview: number;
+  /** Overdue review items count */
+  overdueReviewCount: number;
+  /** Streak of consecutive days meeting review target */
+  reviewStreak: number;
+  /** Whether student is on track with review schedule */
+  onTrack: boolean;
 }

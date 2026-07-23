@@ -7,10 +7,15 @@
 
 // ============================================
 // Engine (S39) — adaptive learning pipeline
+// v5: LearningEngine — deterministic strategy decider (NO AI, NO LLM)
 // ============================================
 import { executePipeline } from '@/modules/adaptive-learning/services/adaptive-learning-pipeline';
-export { executePipeline };
+import { learningEngine, LearningEngine } from '@/modules/adaptive-learning/services/learning-engine';
+import { buildDSEAdaptivePath } from '@/modules/adaptive-learning/services/dse-adaptive-path';
+export { executePipeline, learningEngine, LearningEngine, buildDSEAdaptivePath };
 export type { AdaptiveLearningResult, PipelineInput, PipelineStage } from '@/modules/adaptive-learning/types';
+export type { StrategyDecision, LearningEngineInput } from '@/modules/adaptive-learning/services/learning-engine';
+export type { AdaptivePath, PathNode } from '@/modules/adaptive-learning/services/dse-adaptive-path';
 
 // ============================================
 // Recommendation (S33) — weighted 4-factor algorithm
@@ -21,7 +26,7 @@ import {
   recommendVocabulary,
   recommendWritingTopic,
   recommendNextExercise,
-} from '@/modules/recommendation-v2/services/recommendation-engine';
+} from '@/modules/recommendation/services/recommendation-engine';
 export {
   getFullRecommendations,
   recommendGrammar,
@@ -33,7 +38,7 @@ export type {
   RecommendationResult,
   ScoredRecommendation,
   RecommendationCandidate,
-} from '@/modules/recommendation-v2/types';
+} from '@/modules/recommendation/types';
 
 // ============================================
 // Knowledge Graph (S21/34) — 52-node prerequisite DAG
@@ -165,11 +170,7 @@ export const LearningFacade = {
  *    - S7 has topologicalSort, getDependents, getPrerequisites — all superseded
  *    - Migration: extract GRAMMAR_GRAPH into knowledge-graph/data/, then deprecate S7
  *
- * 2. `recommendation/` (v1) vs `recommendation-v2/` (S33):
- *    - v1 has 8 strategies with knowledge-graph integration
- *    - v2 has 4-factor weighted algorithm with DSE exam weights
- *    - Both are active — v1 (LLM-based recommendations), v2 (deterministic scoring)
- *    - v2 is the LearningFacade default; v1 remains for LLM-based paths
+ * 2. `recommendation/` (S33): 4-factor weighted algorithm with DSE exam weights
  *
  * 3. `adaptive-learning/` (S39) vs `learning/` (S7):
  *    - Both are pipeline orchestrators
@@ -178,7 +179,7 @@ export const LearningFacade = {
  *    - S39 supersedes S7 as the canonical pipeline
  *
  * CROSS-MODULE CALLS (to be migrated to LearningFacade):
- * - recommendation-v2 → student-mastery/repositories (should go through StudentFacade)
- * - recommendation-v2 → mistake-intelligence/repositories (should go through LearningFacade.mistakeIntel)
+ * - recommendation → student-mastery/repositories (should go through StudentFacade)
+ * - recommendation → mistake-intelligence/repositories (should go through LearningFacade.mistakeIntel)
  * - adaptive-learning → student-mastery, mistake-intelligence, knowledge-graph (should go through facades)
  */

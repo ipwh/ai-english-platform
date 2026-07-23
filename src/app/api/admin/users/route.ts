@@ -6,7 +6,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { listUsersAdmin, countUsers, listAllClasses, findUserByEmail, upsertClass, createUser } from '@/modules/admin/services/admin-service';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { hashPasswordSync } from '@/shared/auth/crypto';
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // ---- 查詢 ----
     const [users, total] = await Promise.all([
-      db.user.findMany({
+      listUsersAdmin({
         where,
         select: {
           id: true,
@@ -88,14 +88,10 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      db.user.count({ where }),
+      countUsers(where),
     ]);
 
-    // 取得所有班級清單（供前端篩選）
-    const allClasses = await db.class.findMany({
-      select: { id: true, name: true, gradeLevel: true },
-      orderBy: { name: 'asc' },
-    });
+    const allClasses = await listAllClasses();
 
     return NextResponse.json({
       users,
@@ -132,7 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 檢查 email 是否已存在
-    const existing = await db.user.findUnique({ where: { email } });
+    const existing = await findUserByEmail(email);
     if (existing) {
       return NextResponse.json({ error: `Email ${email} 已被使用` }, { status: 409 });
     }
@@ -141,43 +137,26 @@ export async function POST(request: NextRequest) {
     let classConnect: { id: string } | undefined = undefined;
     if (className && role === 'student') {
       // Upsert class
-      const cls = await db.class.upsert({
-        where: { name: className },
-        update: {},
-        create: { name: className, gradeLevel: level || 'S4' },
-      });
+      const cls = await upsertClass(className, { gradeLevel: level || 'S4' });
       classConnect = { id: cls.id };
     }
 
     // 建立使用者
-    const user = await db.user.create({
+    const user = await createUser({
       data: {
-        email,
-        nameZh,
-        nameEn: nameEn || undefined,
-        role,
+        email, nameZh, nameEn: nameEn || undefined, role,
         passwordHash: password ? hashPasswordSync(password) : null,
         level: role === 'student' ? (level || undefined) : undefined,
         classNumber: role === 'student' ? (classNumber || undefined) : undefined,
         academicYear: academicYear || undefined,
-        subjects: subjects
-          ? (typeof subjects === 'string' ? subjects : JSON.stringify(subjects))
-          : undefined,
+        subjects: subjects ? (typeof subjects === 'string' ? subjects : JSON.stringify(subjects)) : undefined,
         department: department || undefined,
         ...(classConnect ? { classId: classConnect.id } : {}),
       },
       select: {
-        id: true,
-        email: true,
-        nameZh: true,
-        nameEn: true,
-        role: true,
-        level: true,
-        classNumber: true,
-        academicYear: true,
-        subjects: true,
-        department: true,
-        createdAt: true,
+        id: true, email: true, nameZh: true, nameEn: true, role: true,
+        level: true, classNumber: true, academicYear: true,
+        subjects: true, department: true, createdAt: true,
         class: { select: { id: true, name: true } },
       },
     });

@@ -8,8 +8,8 @@ export type { StudentLearningProfile, MasteryEntry, SkillGroupedMastery } from '
 export { buildWeaknessProfile } from './mistake-intelligence/services/mistake-intelligence-service';
 export type { WeaknessProfile, WeaknessItem } from './mistake-intelligence/types';
 
-export { getFullRecommendations, recommendGrammar, recommendVocabulary, recommendWritingTopic } from './recommendation-v2/services/recommendation-engine';
-export type { RecommendationResult, ScoredRecommendation } from './recommendation-v2/types';
+export { getFullRecommendations, recommendGrammar, recommendVocabulary, recommendWritingTopic } from './recommendation/services/recommendation-engine';
+export type { RecommendationResult, ScoredRecommendation } from './recommendation/types';
 
 export { knowledgeGraphService } from './knowledge-graph/services/knowledge-graph-service';
 export type { KnowledgeNode, LearningPathResult } from './knowledge-graph/types';
@@ -21,8 +21,8 @@ export type { AdaptiveLearningResult, PipelineStage } from './adaptive-learning/
 export { buildVocabProfile } from './vocabulary-intelligence/services/vocabulary-intelligence-service';
 export type { VocabularyProfile, VocabWordProfile } from './vocabulary-intelligence/types';
 
-export { analyzeEssay } from './writing-coach-v2/services/writing-coach-v2-service';
-export type { WritingCoachResult, BandPrediction, WritingDimensions } from './writing-coach-v2/types';
+export { analyzeEssay } from './writing-coach/services/writing-coach-heuristic';
+export type { WritingCoachResult, BandPrediction, WritingDimensions } from './writing-coach/types';
 
 // === Analytics Domain ===
 export { buildStudentTrends, buildTeacherDashboard, buildLearningStats } from './learning-analytics/services/learning-analytics-service';
@@ -37,3 +37,7 @@ export { teacherCopilotService } from './teacher-copilot/services/teacher-copilo
  * @example
  * import { getLearningProfile, buildWeaknessProfile, executePipeline } from '@/modules';
  */
+
+// v5: Facades
+export * as TeacherFacade from './teacher';
+export * as PlatformFacade from './platform';

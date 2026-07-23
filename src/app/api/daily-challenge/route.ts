@@ -5,12 +5,13 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { generateQuestions } from '@/modules/ai/services/ai-service';
 import { calculateXp } from '@/modules/progress/services/gamification';
 import { syncUserStreak } from '@/modules/progress/services/streak-service';
+import { findTodaySession, createPracticeSession } from '@/modules/student';
+import { createXpTransaction, updateUserXpAndStreak } from '@/modules/student';
 
 const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
 
@@ -78,13 +79,7 @@ export async function GET(request: NextRequest) {
     // Check if already completed today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todaySession = await db.practiceSession.findFirst({
-      where: {
-        studentId,
-        source: 'daily-challenge',
-        startedAt: { gte: today },
-      },
-    });
+    const todaySession = await findTodaySession(studentId, 'daily-challenge');
 
     if (todaySession) {
       return NextResponse.json({
@@ -136,40 +131,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Check duplicate
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const existing = await db.practiceSession.findFirst({
-      where: { studentId, source: 'daily-challenge', startedAt: { gte: today } },
-    });
+    const existing = await findTodaySession(studentId, 'daily-challenge');
 
     if (existing) {
       return NextResponse.json({ error: 'Already completed today\'s challenge' }, { status: 409 });
     }
 
     // Save session
-    await db.practiceSession.create({
-      data: {
-        studentId,
-        skill: grammarItem || 'daily',
-        skillZh: '每日挑戰 Daily Challenge',
-        difficulty: 'core',
-        totalQuestions: 1,
-        correctCount: isCorrect ? 1 : 0,
-        source: 'daily-challenge',
-        completedAt: new Date(),
-      },
+    await createPracticeSession({
+      studentId,
+      skill: grammarItem || 'daily',
+      skillZh: '每日挑戰 Daily Challenge',
+      difficulty: 'core',
+      totalQuestions: 1,
+      correctCount: isCorrect ? 1 : 0,
+      source: 'daily-challenge',
+      completedAt: new Date(),
     });
 
     // XP: correct answer bonus
     if (isCorrect) {
       const xp = calculateXp({ type: 'answerCorrect', difficulty: 'core' });
-      await db.xpTransaction.create({
-        data: { userId: studentId, event: 'answerCorrect', xpAmount: xp },
-      });
-      await db.user.update({
-        where: { id: studentId },
-        data: { xp: { increment: xp } },
-      });
+      await createXpTransaction({ userId: studentId, event: 'answerCorrect', xpAmount: xp });
     }
 
     // Sync streak

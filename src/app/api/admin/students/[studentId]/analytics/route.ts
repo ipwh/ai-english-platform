@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { findUserByIdSelect, getStudentAnalytics } from '@/modules/admin/services/admin-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -22,7 +22,7 @@ export async function GET(
     const { studentId } = await params;
 
     // ---- 學生基本資料 ----
-    const student = await db.user.findUnique({
+    const student = await (await import('@/shared/db/db')).db.user.findUnique({
       where: { id: studentId },
       select: {
         id: true,
@@ -81,7 +81,7 @@ export async function GET(
     // NOTE: 排除 source='assignment' 的 practiceSession，避免與 submission 重複
     // 放寬 completedAt 條件：優先取已完成，但也包含未標記完成的記錄
     const [recentSessions, recentSubmissions] = await Promise.all([
-      db.practiceSession.findMany({
+      (await import('@/shared/db/db')).db.practiceSession.findMany({
         where: {
           studentId,
           source: { not: 'assignment' },
@@ -100,7 +100,7 @@ export async function GET(
           source: true,
         },
       }),
-      db.submission.findMany({
+      (await import('@/shared/db/db')).db.submission.findMany({
         where: { studentId, submittedAt: { not: null } },
         orderBy: { submittedAt: 'desc' },
         take: 15,
@@ -178,7 +178,7 @@ export async function GET(
       .slice(0, 15);
 
     // 3. 最近錯題（去重：同一 questionId 只保留最新一筆）
-    const rawMistakes = await db.mistake.findMany({
+    const rawMistakes = await (await import('@/shared/db/db')).db.mistake.findMany({
       where: { studentId },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -203,14 +203,14 @@ export async function GET(
     }).slice(0, 10);
 
     // 4. 詞彙概覽
-    const vocabStats = await db.vocabItem.groupBy({
+    const vocabStats = await (await import('@/shared/db/db')).db.vocabItem.groupBy({
       by: ['familiarity'],
       where: { studentId },
       _count: { id: true },
     });
 
     // 5. 寫作提交概覽
-    const writingStats = await db.writingDraft.findMany({
+    const writingStats = await (await import('@/shared/db/db')).db.writingDraft.findMany({
       where: { studentId },
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -224,7 +224,7 @@ export async function GET(
     });
 
     // 6. 每週快照數據 (Weekly snapshots)
-    const weeklySnapshots = await db.weeklySnapshot.findMany({
+    const weeklySnapshots = await (await import('@/shared/db/db')).db.weeklySnapshot.findMany({
       where: { userId: studentId },
       orderBy: { weekStart: 'asc' },
       take: 24,
@@ -239,7 +239,7 @@ export async function GET(
     });
 
     // 7. 總練習統計（按技能分類）
-    const sessionStatsBySkill = await db.practiceSession.groupBy({
+    const sessionStatsBySkill = await (await import('@/shared/db/db')).db.practiceSession.groupBy({
       by: ['skill'],
       where: { studentId },
       _sum: { totalQuestions: true, correctCount: true },
@@ -247,7 +247,7 @@ export async function GET(
     });
 
     // 8. HKDSE 診斷結果
-    const diagnosticResults = await db.diagnosticResult.findMany({
+    const diagnosticResults = await (await import('@/shared/db/db')).db.diagnosticResult.findMany({
       where: { studentId },
       orderBy: { completedAt: 'desc' },
       select: { skill: true, skillZh: true, accuracy: true, weakAreas: true },

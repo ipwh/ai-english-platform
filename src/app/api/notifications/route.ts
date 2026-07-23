@@ -4,8 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { listNotifications, countUnreadNotifications, markNotificationRead, markNotificationsRead, createNotification } from '@/modules/student';
 
 // GET — 取得使用者通知
 export async function GET(request: NextRequest) {
@@ -16,19 +16,8 @@ export async function GET(request: NextRequest) {
   const userId = authResult.userId!;
   try {
 
-    const notifications = await db.notification.findMany({
-      where: { userId },
-      select: {
-        id: true, type: true, title: true, message: true,
-        link: true, read: true, createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 30,
-    });
-
-    const unreadCount = await db.notification.count({
-      where: { userId, read: false },
-    });
+    const notifications = await listNotifications(userId, 30);
+    const unreadCount = await countUnreadNotifications(userId);
 
     return NextResponse.json({ notifications, unreadCount });
   } catch (err: unknown) {
@@ -50,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // 標記全部已讀
     if (body.markAllRead) {
-      await db.notification.updateMany({
+      await (await import('@/shared/db/db')).db.notification.updateMany({
         where: { userId, read: false },
         data: { read: true },
       });
@@ -59,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // 標記單一通知已讀
     if (body.notificationId) {
-      await db.notification.update({
+      await (await import('@/shared/db/db')).db.notification.update({
         where: { id: body.notificationId, userId },
         data: { read: true },
       });
@@ -68,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // 建立新通知（由前端直接呼叫，如成就解鎖）
     if (body.type && body.title && body.message) {
-      const notification = await db.notification.create({
+      const notification = await (await import('@/shared/db/db')).db.notification.create({
         data: {
           userId: body.userId || userId,
           type: body.type,

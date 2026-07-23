@@ -3,10 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 import { notifyFeedbackReady } from '@/shared/utils/notifications';
+import { findSubmissionById, updateSubmission, createReview } from '@/modules/student';
 
 export async function PATCH(
   request: NextRequest,
@@ -58,14 +58,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    await db.submission.update({
+    await (await import('@/shared/db/db')).db.submission.update({
       where: { id },
       data: updateData,
     });
 
     // 記錄到 Review 表
     if (body.teacherFeedback || body.teacherScore !== undefined) {
-      const submission = await db.submission.findUnique({
+      const submission = await (await import('@/shared/db/db')).db.submission.findUnique({
         where: { id },
         select: {
           studentId: true,
@@ -91,7 +91,7 @@ export async function PATCH(
           }
         } catch { /* keep defaults */ }
 
-        await db.review.create({
+        await (await import('@/shared/db/db')).db.review.create({
           data: {
             studentId: submission.studentId,
             teacherId: userId,

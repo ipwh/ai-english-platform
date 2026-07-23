@@ -19,6 +19,29 @@ export async function createPracticeSession(data: {
   return db.practiceSession.create({ data });
 }
 
+/** Find today's session for a student by source */
+export async function findTodaySession(studentId: string, source: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return db.practiceSession.findFirst({
+    where: { studentId, source, startedAt: { gte: today } },
+  });
+}
+
+/** List practice sessions with basic stats (for analytics/gamification) */
+export async function listPracticeSessionsSimple(studentId: string, limit = 100) {
+  return db.practiceSession.findMany({
+    where: { studentId },
+    select: { skill: true, totalQuestions: true, correctCount: true, startedAt: true },
+    take: limit,
+  });
+}
+
+/** Count practice sessions for a student */
+export async function countPracticeSessions(studentId: string) {
+  return db.practiceSession.count({ where: { studentId } });
+}
+
 /** Create answers for a practice session */
 export async function createPracticeAnswers(
   sessionId: string,

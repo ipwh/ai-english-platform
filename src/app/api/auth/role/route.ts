@@ -5,14 +5,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { db } from '@/shared/db/db';
+import { findUserByIdSelect, updateUser } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
 
 async function updateUserRole(userId: string, role: string) {
-  await db.user.update({
-    where: { id: userId },
-    data: { role },
-  });
+  await updateUser(userId, { role });
 }
 
 function createRoleResponse(request: NextRequest, role: string, body?: Record<string, unknown>) {
@@ -147,10 +144,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, name: true, nameZh: true, role: true, image: true },
-  });
+  const user = await findUserByIdSelect(userId, { id: true, role: true, name: true, nameZh: true, email: true });
 
   return NextResponse.json({ user });
 }
+

@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // API Route: POST /api/ai/analyze-progress
 // 分析學生學習進度 — 從 DB 讀取真實歷史數據
 // ============================================
@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { db } from '@/shared/db/db';
+import { findUserByIdSelect, getStudentAnalytics } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
@@ -45,21 +45,21 @@ export async function POST(request: NextRequest) {
       try {
         // 從 DB 讀取學生真實數據
         const [user, sessions, mistakes, vocabItems] = await Promise.all([
-          db.user.findUnique({
+          (await import('@/shared/db/db')).db.user.findUnique({
             where: { id: studentId },
             select: { level: true, overallAccuracy: true, streakDays: true },
           }),
-          db.practiceSession.findMany({
+          (await import('@/shared/db/db')).db.practiceSession.findMany({
             where: { studentId },
             orderBy: { startedAt: 'desc' },
             take: 30,
             select: { skillZh: true, totalQuestions: true, correctCount: true, startedAt: true },
           }),
-          db.mistake.findMany({
+          (await import('@/shared/db/db')).db.mistake.findMany({
             where: { studentId },
             select: { mistakeType: true },
           }),
-          db.vocabItem.findMany({
+          (await import('@/shared/db/db')).db.vocabItem.findMany({
             where: { studentId },
             select: { familiarity: true },
           }),
@@ -138,5 +138,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
 
 

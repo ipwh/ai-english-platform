@@ -1,22 +1,11 @@
-// Sprint 27: AI Writing Coach — barrel exports
-// Sprint 39: Writing Coach Pro — extended exports
-export type {
-  EssaySubmission, EssayReview, RubricScores, HKDSEScores, CEFRScores,
-  GrammarIssue, VocabularySuggestion, CoherenceAnalysis,
-  TaskFulfillment, OrganizationAnalysis, StyleAnalysis,
-  RevisionPlan, PriorityAction, RevisionComparison,
-  RevisionHistory, EssayVersion,
-  // Pro types
-  IELTSScores, ProRubricScores,
-  SentenceVarietyAnalysis, ToneRegisterAnalysis, LogicArgumentAnalysis,
-  ExpressionUpgrade, ParagraphRewrite, SentenceRewrite,
-  ProRevisionPlan, ProRevisionComparison, RevisionRecord,
-} from './types';
+// Sprint 36: Writing Coach 2.0 — Zod schemas
+import { z } from 'zod';
 
-export {
-  scoreRubric, reviewEssay, compareRevisions,
-  saveRevision, getRevisionHistory, getLatestVersion,
-  getGrammarRules, getVocabUpgrades,
-} from './services/writing-coach';
-
-export { WritingCoachPro, writingCoachPro } from './services/writing-coach-pro';
+export const writingCoachV2Schema = z.object({
+  essayId: z.string().min(1),
+  studentId: z.string().min(1),
+  title: z.string().min(1),
+  text: z.string().min(10, 'Essay text must be at least 10 characters'),
+  wordLimit: z.number().int().min(50).max(2000).optional(),
+  textType: z.string().optional(),
+});

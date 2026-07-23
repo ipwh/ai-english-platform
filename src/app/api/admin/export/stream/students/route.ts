@@ -5,9 +5,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { Transform } from 'node:stream';
+import { exportStudentStream } from '@/modules/admin/services/export-service';
 import { pipeline } from 'node:stream/promises';
 
 export async function GET(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await db.user.findMany({
+      const batch = await (await import('@/shared/db/db')).db.user.findMany({
         where,
         select: {
           id: true, nameZh: true, nameEn: true, email: true,

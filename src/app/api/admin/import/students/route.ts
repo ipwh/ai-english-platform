@@ -4,8 +4,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
-import { getBulkDb } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
 import {
   parseCSV,
@@ -17,6 +15,8 @@ import type { ImportResult, ImportDetail } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { syncStudentsToSheet } from '@/shared/google/sheets-sync';
+import { findExistingUsers, findExistingClasses, bulkImportStudents } from '@/modules/admin/services/import-service';
+import { db } from '@/shared/db/db';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();

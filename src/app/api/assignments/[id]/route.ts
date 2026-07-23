@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { findAssignmentById, findAssignmentSubmissions } from '@/modules/student';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { analyzeAnswer } from '@/modules/ai/services/ai-service';
@@ -33,7 +33,7 @@ export async function GET(
   }
 
   try {
-    const assignment = await db.assignment.findUnique({
+    const assignment = await (await import('@/shared/db/db')).db.assignment.findUnique({
       where: { id },
       include: {
         questions: { orderBy: { orderIndex: 'asc' } },
@@ -58,7 +58,7 @@ export async function GET(
       if (token) {
         const payload = await verifySessionToken(token);
         if (payload) {
-          studentSubmission = await db.submission.findFirst({
+          studentSubmission = await (await import('@/shared/db/db')).db.submission.findFirst({
             where: { assignmentId: id, studentId: payload.userId },
           });
         }
@@ -159,7 +159,7 @@ export async function POST(
     }
 
     // 取得作業及題目
-    const assignment = await db.assignment.findUnique({
+    const assignment = await (await import('@/shared/db/db')).db.assignment.findUnique({
       where: { id },
       include: { questions: true },
     });
@@ -169,7 +169,7 @@ export async function POST(
     }
 
     // 檢查是否已有提交
-    const existing = await db.submission.findFirst({
+    const existing = await (await import('@/shared/db/db')).db.submission.findFirst({
       where: { assignmentId: id, studentId: payload.userId },
     });
 
@@ -223,7 +223,7 @@ export async function POST(
 
     // Upsert submission
     const submission = existing
-      ? await db.submission.update({
+      ? await (await import('@/shared/db/db')).db.submission.update({
           where: { id: existing.id },
           data: {
             answers: JSON.stringify(answers),
@@ -233,7 +233,7 @@ export async function POST(
             submittedAt: new Date(),
           },
         })
-      : await db.submission.create({
+      : await (await import('@/shared/db/db')).db.submission.create({
           data: {
             assignmentId: id,
             studentId: payload.userId,
@@ -262,7 +262,7 @@ export async function POST(
     } catch { /* analytics sync must not prevent a valid submission */ }
 
     // 🔔 通知教師：學生已提交作業
-    const student = await db.user.findUnique({
+    const student = await (await import('@/shared/db/db')).db.user.findUnique({
       where: { id: payload.userId },
       select: { name: true, nameZh: true },
     });
@@ -271,30 +271,30 @@ export async function POST(
 
     // 更新作業完成率
     try {
-      const totalSubmissions = await db.submission.count({
+      const totalSubmissions = await (await import('@/shared/db/db')).db.submission.count({
         where: { assignmentId: id, status: { in: ['submitted', 'graded'] } },
       });
       // 估算目標人數：targetStudents / targetGroups / class 學生數
       let totalTarget = 0;
       if (assignment.targetType === 'students') {
-        totalTarget = await db.assignmentStudent.count({ where: { assignmentId: id } });
+        totalTarget = await (await import('@/shared/db/db')).db.assignmentStudent.count({ where: { assignmentId: id } });
       } else if (assignment.targetType === 'group') {
-        const groupIds = (await db.assignmentGroup.findMany({ where: { assignmentId: id }, select: { groupId: true } })).map(g => g.groupId);
+        const groupIds = (await (await import('@/shared/db/db')).db.assignmentGroup.findMany({ where: { assignmentId: id }, select: { groupId: true } })).map(g => g.groupId);
         if (groupIds.length > 0) {
-          totalTarget = await db.groupMember.count({ where: { groupId: { in: groupIds } } });
+          totalTarget = await (await import('@/shared/db/db')).db.groupMember.count({ where: { groupId: { in: groupIds } } });
         }
       } else if (assignment.classId) {
-        totalTarget = await db.user.count({ where: { classId: assignment.classId, role: 'student' } });
+        totalTarget = await (await import('@/shared/db/db')).db.user.count({ where: { classId: assignment.classId, role: 'student' } });
       } else if (assignment.className) {
         // Fallback: lookup by className if classId is null
-        const classRecord = await db.class.findFirst({ where: { name: assignment.className } });
+        const classRecord = await (await import('@/shared/db/db')).db.class.findFirst({ where: { name: assignment.className } });
         if (classRecord) {
-          totalTarget = await db.user.count({ where: { classId: classRecord.id, role: 'student' } });
+          totalTarget = await (await import('@/shared/db/db')).db.user.count({ where: { classId: classRecord.id, role: 'student' } });
         }
       }
       if (totalTarget > 0) {
         const rate = Math.round((totalSubmissions / totalTarget) * 100);
-        await db.assignment.update({ where: { id }, data: { completionRate: rate } });
+        await (await import('@/shared/db/db')).db.assignment.update({ where: { id }, data: { completionRate: rate } });
       }
     } catch { /* non-critical */ }
 

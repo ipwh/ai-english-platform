@@ -14,7 +14,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { cleanupMockData, listAllUsers } from '@/modules/admin/services/admin-service';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 先找出所有 @school.hk 的使用者 ID
-    const mockUsers = await db.user.findMany({
+    const mockUsers = await (await import('@/shared/db/db')).db.user.findMany({
       where: { email: { contains: '@school.hk' } },
       select: { id: true, email: true },
     });
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // 1. 刪除通知
     if (mockUserIds.length > 0) {
-      const r = await db.notification.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.notification.deleteMany({
         where: { userId: { in: mockUserIds } },
       });
       result.deletedNotifications = r.count;
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // 2. 刪除寫作草稿
     if (mockUserIds.length > 0) {
-      const r = await db.writingDraft.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.writingDraft.deleteMany({
         where: { studentId: { in: mockUserIds } },
       });
       result.deletedWritingDrafts = r.count;
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // 4. 刪除詞彙項目
     if (mockUserIds.length > 0) {
-      const r = await db.vocabItem.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.vocabItem.deleteMany({
         where: { studentId: { in: mockUserIds } },
       });
       result.deletedVocabItems = r.count;
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // 5. 刪除錯題記錄
     if (mockUserIds.length > 0) {
-      const r = await db.mistake.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.mistake.deleteMany({
         where: { studentId: { in: mockUserIds } },
       });
       result.deletedMistakes = r.count;
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // 6. 刪除練習記錄
     if (mockUserIds.length > 0) {
-      const r = await db.practiceSession.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.practiceSession.deleteMany({
         where: { studentId: { in: mockUserIds } },
       });
       result.deletedPracticeSessions = r.count;
@@ -97,16 +97,16 @@ export async function POST(request: NextRequest) {
 
     // 7. 刪除提交記錄
     if (mockUserIds.length > 0) {
-      const r = await db.submission.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.submission.deleteMany({
         where: { studentId: { in: mockUserIds } },
       });
       result.deletedSubmissions = r.count;
     }
 
     // 8. 刪除作業（由 mock 教師建立或屬於 Demo 班級）
-    const demoClass = await db.class.findFirst({ where: { name: 'Demo' } });
+    const demoClass = await (await import('@/shared/db/db')).db.class.findFirst({ where: { name: 'Demo' } });
     if (demoClass) {
-      const r = await db.assignment.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.assignment.deleteMany({
         where: { className: 'Demo' },
       });
       result.deletedAssignments = r.count;
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     // 9. 刪除示範教材
     if (mockUserIds.length > 0) {
-      const r = await db.material.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.material.deleteMany({
         where: { uploadedBy: { in: mockUserIds } },
       });
       result.deletedMaterials = r.count;
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     // 10. 刪除教師班級關聯
     if (mockUserIds.length > 0) {
-      const r = await db.teacherClass.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.teacherClass.deleteMany({
         where: { teacherId: { in: mockUserIds } },
       });
       result.deletedTeacherClasses = r.count;
@@ -131,10 +131,10 @@ export async function POST(request: NextRequest) {
     // 11. 刪除 Auth 相關記錄（NextAuth sessions/accounts）
     try {
       if (mockUserIds.length > 0) {
-        await db.session.deleteMany({
+        await (await import('@/shared/db/db')).db.session.deleteMany({
           where: { userId: { in: mockUserIds } },
         });
-        await db.account.deleteMany({
+        await (await import('@/shared/db/db')).db.account.deleteMany({
           where: { userId: { in: mockUserIds } },
         });
       }
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
 
     // 12. 刪除 mock 使用者
     if (mockUserIds.length > 0) {
-      const r = await db.user.deleteMany({
+      const r = await (await import('@/shared/db/db')).db.user.deleteMany({
         where: { id: { in: mockUserIds } },
       });
       result.deletedUsers = r.count;
@@ -154,11 +154,11 @@ export async function POST(request: NextRequest) {
     // 13. 刪除 Demo 班級
     if (demoClass) {
       // 先確認沒有真實學生在 Demo 班（安全檢查）
-      const demoStudents = await db.user.count({
+      const demoStudents = await (await import('@/shared/db/db')).db.user.count({
         where: { classId: demoClass.id, email: { not: { contains: '@school.hk' } } },
       });
       if (demoStudents === 0) {
-        await db.class.delete({ where: { id: demoClass.id } });
+        await (await import('@/shared/db/db')).db.class.delete({ where: { id: demoClass.id } });
         result.deletedDemoClass = true;
       } else {
         result.errors.push(`Demo 班級仍有 ${demoStudents} 名非 mock 學生，跳過刪除`);
@@ -166,8 +166,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 最終統計
-    const remainingStudents = await db.user.count({ where: { role: 'student' } });
-    const remainingTeachers = await db.user.count({ where: { role: 'teacher' } });
+    const remainingStudents = await (await import('@/shared/db/db')).db.user.count({ where: { role: 'student' } });
+    const remainingTeachers = await (await import('@/shared/db/db')).db.user.count({ where: { role: 'teacher' } });
 
     return NextResponse.json({
       ...result,

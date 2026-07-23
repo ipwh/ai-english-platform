@@ -77,6 +77,38 @@ export type {
 } from '@/modules/student-twin/types';
 
 // ============================================
+// v5: Common repository exports (for routes that need simple CRUD)
+// Routes MUST import from here, NOT from repositories/ directly
+// ============================================
+export {
+  findUserById, findUserByIdSelect, updateUser, deleteUser,
+  listAllUsers, countUsers,
+  listClasses, createClass, findClassByName, deleteClass, listAllClasses,
+  listGroups, findGroupById, createGroup, updateGroup, deleteGroup,
+  getUserPreferences, upsertUserPreferences,
+  findTeacherClass, listTeacherClasses, deleteTeacherClasses, createTeacherClass,
+  getStudentAnalytics,
+  listAssignments, findAssignmentById, findAssignmentSubmissions, createAssignment,
+  listSubmissionsForReview, findSubmissionById, updateSubmission,
+  findReviewsBySubmissions, findReviewBySubmission, createReview,
+  findIntegratedSkillsDraft, upsertIntegratedSkillsDraft, deleteIntegratedSkillsDraft,
+  getUnreadNotificationCount,
+  listGroupMembers, getUserXp, getUserStreakDays, listUsersAdmin,
+} from '@/modules/student/repositories/user-repo';
+
+// Re-export common repos through facade (Route ≠ Repository rule)
+export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions } from '@/modules/exercise/repositories/practice-repo';
+export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from '@/modules/progress/repositories/progress-repo';
+export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
+export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';
+export { listMistakes, listMistakesByType, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake-db/repositories/mistake-repo';
+export { clearDiagnosticResults, createDiagnosticResult, getRecentDiagnostics, createFeedback } from '@/modules/assessment/repositories/diagnostic-repo';
+export { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks, countMaterials } from '@/modules/ai/repositories/material-repo';
+export { loadMemoryFromDb } from '@/modules/learning-memory/repositories/memory-db-repository';
+export { listNotifications, countUnreadNotifications, markNotificationRead, markNotificationsRead, createNotification } from '@/modules/notification/repositories/notification-repo';
+export { updateVocab } from '@/modules/vocabulary/repositories/vocabulary-repo';
+
+// ============================================
 // Unified Facade Object
 // ============================================
 

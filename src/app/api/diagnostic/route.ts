@@ -6,10 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
 import { MASTERY_SKILLS } from '@/modules/student-mastery/types';
 import type { MasterySkill } from '@/modules/student-mastery/types';
+import { clearDiagnosticResults, createDiagnosticResult } from '@/modules/student';
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
@@ -46,23 +46,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '無權限為其他用戶儲存診斷結果' }, { status: 403 });
     }
 
-    // 清除舊診斷結果（保留最新一次）
-    await db.diagnosticResult.deleteMany({ where: { studentId } });
+    await clearDiagnosticResults(studentId);
 
-    // 寫入新結果
     const created = await Promise.all(
       results.map(r =>
-        db.diagnosticResult.create({
-          data: {
-            studentId,
-            skill: r.skill,
-            skillZh: r.skillZh,
-            accuracy: r.accuracy,
-            weakAreas: JSON.stringify(r.weakAreas || []),
-            recommendedGrammar: r.recommendedGrammar || null,
-            recommendedSkill: r.recommendedSkill || null,
-            completedAt: new Date(),
-          },
+        createDiagnosticResult({
+          studentId,
+          skill: r.skill,
+          skillZh: r.skillZh,
+          accuracy: r.accuracy,
+          weakAreas: r.weakAreas || [],
+          recommendedGrammar: r.recommendedGrammar || null,
+          recommendedSkill: r.recommendedSkill || null,
         })
       )
     );
@@ -80,7 +75,7 @@ export async function POST(request: NextRequest) {
         if (!masterySkill) continue;
         // Initialize mastery with the diagnostic accuracy as the baseline score
         // and a single practice entry to bootstrap the system
-        await db.studentMastery.upsert({
+        await (await import('@/shared/db/db')).db.studentMastery.upsert({
           where: { studentId_skill_subSkill: { studentId, skill: masterySkill, subSkill: r.skill } },
           create: {
             studentId,
@@ -131,7 +126,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '無權限查看其他用戶的診斷結果' }, { status: 403 });
     }
 
-    const results = await db.diagnosticResult.findMany({
+    const results = await (await import('@/shared/db/db')).db.diagnosticResult.findMany({
       where: { studentId },
       orderBy: { completedAt: 'desc' },
       take: 20,

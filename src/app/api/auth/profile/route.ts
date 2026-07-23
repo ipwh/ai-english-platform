@@ -5,22 +5,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
+import { findUserByIdSelect, updateUser } from '@/modules/student';
 
 async function resolveCurrentUser(request?: NextRequest) {
   const jwtToken = request?.cookies.get('session_token')?.value;
   if (jwtToken) {
     const payload = await verifySessionToken(jwtToken);
     if (payload?.userId) {
-      return db.user.findUnique({
-        where: { id: payload.userId },
-        select: {
-          id: true, email: true, name: true, nameZh: true, nameEn: true,
-          role: true, image: true, level: true, classNumber: true,
-          streakDays: true, joinedAt: true, createdAt: true,
-          class: { select: { name: true, gradeLevel: true } },
-        },
+      return findUserByIdSelect(payload.userId, {
+        id: true, email: true, name: true, nameZh: true, nameEn: true,
+        role: true, image: true, level: true, classNumber: true,
+        streakDays: true, joinedAt: true, createdAt: true,
       });
     }
   }
@@ -28,14 +24,10 @@ async function resolveCurrentUser(request?: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  return db.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true, email: true, name: true, nameZh: true, nameEn: true,
-      role: true, image: true, level: true, classNumber: true,
-      streakDays: true, joinedAt: true, createdAt: true,
-      class: { select: { name: true, gradeLevel: true } },
-    },
+  return findUserByIdSelect(session.user.id, {
+    id: true, email: true, name: true, nameZh: true, nameEn: true,
+    role: true, image: true, level: true, classNumber: true,
+    streakDays: true, joinedAt: true, createdAt: true,
   });
 }
 
@@ -70,11 +62,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '沒有可更新的欄位' }, { status: 400 });
     }
 
-    const user = await db.user.update({
-      where: { id: currentUser.id },
-      data,
-      select: { id: true, nameZh: true, nameEn: true, level: true, classNumber: true },
-    });
+    const user = await updateUser(currentUser.id, { name: body.name, nameZh: body.nameZh, nameEn: body.nameEn });
 
     return NextResponse.json({ success: true, user });
   } catch (err: unknown) {
@@ -82,3 +70,4 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+

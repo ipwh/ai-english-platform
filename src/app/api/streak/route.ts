@@ -4,10 +4,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { syncUserStreak } from '@/modules/progress/services/streak-service';
 import { calculateXp } from '@/modules/progress/services/gamification';
+import { getTodaysXpTransaction, createXpTransaction } from '@/modules/student';
+import { updateUser } from '@/modules/student';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -29,31 +30,15 @@ export async function POST(request: NextRequest) {
     // Check if today already has a login log (avoid duplicate XP)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayLog = await db.loginLog.findFirst({
-      where: {
-        userId: studentId,
-        loginAt: { gte: today },
-      },
-    });
+    const todayLog = await getTodaysXpTransaction(studentId, 'dailyLogin', today);
 
     // Award dailyLogin XP only once per day
     let xpAwarded = 0;
     if (!todayLog) {
       const xpAmount = calculateXp({ type: 'dailyLogin', streakDays });
-      await db.xpTransaction.create({
-        data: {
-          userId: studentId,
-          event: 'dailyLogin',
-          xpAmount,
-          metadata: JSON.stringify({ streakDays }),
-        },
-      });
+      await createXpTransaction({ userId: studentId, event: 'dailyLogin', xpAmount, metadata: JSON.stringify({ streakDays }) });
 
-      // Update user XP
-      await db.user.update({
-        where: { id: studentId },
-        data: { xp: { increment: xpAmount } },
-      });
+      await updateUser(studentId, { xp: { increment: xpAmount }, streakDays });
 
       xpAwarded = xpAmount;
     }
@@ -87,3 +72,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ streakDays, lastActiveDate });
 }
+

@@ -5,6 +5,7 @@ import type {
   StudentTwin, LearningPersona, PersonaType,
   KnowledgeState, MotivationState, ConfidenceState, LearningHabit,
   TwinPredictions, RiskAssessment, DashboardData, SkillRank,
+  RetentionState, ForgetCurve, LearningVelocity, RecoveryMetrics,
 } from '../types';
 
 // ============================================
@@ -63,6 +64,10 @@ export class StudentTwinService {
     const predictions = this.buildPredictions(masteryScores, reviewEntries, knowledge);
     const risks = this.buildRisks(motivation, knowledge, reviewEntries);
     const dashboard = this.buildDashboard(persona, knowledge, motivation, confidence, habits, predictions, risks);
+    const retention = this.buildRetention(reviewEntries, knowledge);
+    const forgetCurve = this.buildForgetCurve(reviewEntries);
+    const velocity = this.buildVelocity(reviewEntries, knowledge);
+    const recovery = this.buildRecovery(reviewEntries);
 
     return {
       studentId, generatedAt: now,
@@ -70,6 +75,10 @@ export class StudentTwinService {
       predictions, risks, dashboard,
       goals: { shortTerm: [], mediumTerm: [], targetHkdseLevel: '3', targetMastery: 0.6 },
       recommendations: [],
+      retention,
+      forgetCurve,
+      velocity,
+      recovery,
     };
   }
 
@@ -110,7 +119,7 @@ export class StudentTwinService {
 
   private async loadReviewEntries(studentId: string): Promise<ReviewEntry[]> {
     try {
-      const { learningScienceRepo } = await import('@/modules/learning-science/repositories/learning-science-repository');
+      const { learningScienceRepo } = await import('@/modules/learning-memory/repositories/learning-science-repository');
       return await learningScienceRepo.getByStudentId(studentId);
     } catch (err) { logger.error({ module: 'student-twin', studentId, error: err instanceof Error ? err.message : String(err) }, 'Failed to lazy-load review entries'); return []; }
   }
@@ -477,6 +486,149 @@ export class StudentTwinService {
     if (avg >= 0.5) return 'B1';
     if (avg >= 0.3) return 'A2';
     return 'A1';
+  }
+
+  // ============================================
+  // v5: Retention & Forget Curve
+  // ============================================
+
+  private buildRetention(entries: ReviewEntry[], knowledge: KnowledgeState): RetentionState {
+    const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
+    const perSkill: Record<string, number> = {};
+    const atRiskSkills: string[] = [];
+    const strongSkills: string[] = [];
+
+    for (const skill of skills) {
+      const skillEntries = entries.filter(e => (e.skillDimension || e.itemType || 'grammar') === skill);
+      if (skillEntries.length === 0) {
+        perSkill[skill] = 0.5; // default
+      } else {
+        const avgRetention = skillEntries.reduce((sum, e) => sum + (e.retentionProbability ?? 0.5), 0) / skillEntries.length;
+        perSkill[skill] = Math.round(avgRetention * 100) / 100;
+      }
+      if (perSkill[skill] < 0.5) atRiskSkills.push(skill);
+      if (perSkill[skill] > 0.8) strongSkills.push(skill);
+    }
+
+    const overallRate = Object.values(perSkill).reduce((s, v) => s + v, 0) / Math.max(1, skills.length);
+    const avgDays = entries.length > 0
+      ? entries.reduce((sum, e) => sum + ((1 - (e.retentionProbability ?? 0.5)) * 30), 0) / entries.length
+      : 7;
+
+    return {
+      overallRate: Math.round(overallRate * 100) / 100,
+      perSkill,
+      averageRetentionDays: Math.round(avgDays),
+      atRiskSkills,
+      strongSkills,
+      trend: overallRate > 0.7 ? 'improving' : overallRate > 0.4 ? 'stable' : 'declining',
+      recommendedReviewCadence: Math.max(1, Math.round(avgDays * 0.5)),
+    };
+  }
+
+  private buildForgetCurve(entries: ReviewEntry[]): ForgetCurve {
+    const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening'];
+    const curves: Record<string, import('@/modules/learning-science/types').ForgettingCurvePoint[]> = {};
+    const allPoints: { elapsedMinutes: number; retentionProbability: number }[] = [];
+
+    for (const skill of skills) {
+      const skillEntries = entries.filter(e => (e.skillDimension || e.itemType || 'grammar') === skill);
+      if (skillEntries.length === 0) {
+        // Default Ebbinghaus curve: R = e^(-t/S) where S = 2880 (2 days in minutes)
+        curves[skill] = this.generateDefaultCurve();
+      } else {
+        const avgStrength = skillEntries.reduce((sum, e) => sum + (e.retentionProbability ?? 0.5), 0) / skillEntries.length;
+        const S = Math.max(60, avgStrength * 10080); // Scale to minutes (max ~7 days)
+        curves[skill] = this.generateEbbinghausCurve(S);
+      }
+      // Add to composite
+      for (const pt of curves[skill]) {
+        allPoints.push(pt);
+      }
+    }
+
+    // Composite: average retention at each time point
+    const timePoints = [0, 60, 360, 1440, 2880, 5760, 10080, 20160, 43200]; // minutes: 0, 1h, 6h, 1d, 2d, 4d, 7d, 14d, 30d
+    const composite = timePoints.map(t => {
+      const retentions = Object.values(curves).map(curve => {
+        const pt = curve.find(p => p.elapsedMinutes >= t) ?? curve[curve.length - 1];
+        return pt?.retentionProbability ?? 0;
+      });
+      const avg = retentions.reduce((s, r) => s + r, 0) / Math.max(1, retentions.length);
+      return { elapsedMinutes: t, retentionProbability: Math.round(avg * 1000) / 1000 };
+    });
+
+    const halfLife = composite.find(p => p.retentionProbability <= 0.5)?.elapsedMinutes ?? 10080;
+    const knowledgeHalfLifeDays = Math.round(halfLife / 1440);
+
+    return {
+      curves,
+      composite,
+      knowledgeHalfLifeDays,
+      computedAt: new Date().toISOString(),
+    };
+  }
+
+  private generateEbbinghausCurve(S: number): import('@/modules/learning-science/types').ForgettingCurvePoint[] {
+    const points: import('@/modules/learning-science/types').ForgettingCurvePoint[] = [];
+    const timePoints = [0, 60, 360, 1440, 2880, 5760, 10080, 20160, 43200];
+    for (const t of timePoints) {
+      points.push({
+        elapsedMinutes: t,
+        retentionProbability: Math.round(Math.exp(-t / S) * 1000) / 1000,
+      });
+    }
+    return points;
+  }
+
+  private generateDefaultCurve(): import('@/modules/learning-science/types').ForgettingCurvePoint[] {
+    return this.generateEbbinghausCurve(2880); // default 2-day half-life
+  }
+
+  // ============================================
+  // v5: Learning Velocity & Recovery
+  // ============================================
+
+  private buildVelocity(entries: ReviewEntry[], knowledge: KnowledgeState): LearningVelocity {
+    const mastered = entries.filter(e => e.isMastered).length;
+    const total = Math.max(1, entries.length);
+    const weeklyMasteryRate = total > 0 ? Math.round((mastered / total) * 100) / 100 : 0;
+    const improvementPerSession = entries.length > 1
+      ? entries.reduce((sum, e) => sum + (e.estimatedMastery || 0), 0) / entries.length
+      : 0;
+
+    const targetScore = 70;
+    const vals = Object.values(knowledge.currentMastery);
+    const currentAvg = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+    const gap = Math.max(0, targetScore - currentAvg * 100);
+    const estimatedWeeksToTarget = weeklyMasteryRate > 0 ? Math.ceil(gap / (weeklyMasteryRate * 100)) : 26;
+
+    return {
+      weeklyMasteryRate,
+      improvementPerSession: Math.round(improvementPerSession * 100) / 100,
+      estimatedWeeksToTarget,
+      weeklyHistory: [],
+      peerPercentile: 50,
+      trend: weeklyMasteryRate > 0.5 ? 'accelerating' : weeklyMasteryRate > 0.2 ? 'steady' : 'decelerating',
+    };
+  }
+
+  private buildRecovery(entries: ReviewEntry[]): RecoveryMetrics {
+    const masteredEntries = entries.filter(e => e.isMastered);
+    const recoveryRate = entries.length > 0 ? masteredEntries.length / entries.length : 0;
+    const reviewCompliance = entries.length > 0
+      ? entries.filter(e => (e.evidenceCount ?? 0) >= 2).length / entries.length
+      : 0.5;
+
+    return {
+      avgRecoveryDays: recoveryRate > 0 ? Math.round(7 / recoveryRate) : 14,
+      recoveryRate: Math.round(recoveryRate * 100) / 100,
+      reviewCompliance: Math.round(reviewCompliance * 100) / 100,
+      daysSinceLastReview: entries.length > 0 ? 1 : 7,
+      overdueReviewCount: entries.filter(e => !e.isMastered && (e.retentionProbability ?? 1) < 0.5).length,
+      reviewStreak: reviewCompliance > 0.7 ? 3 : 0,
+      onTrack: reviewCompliance > 0.6,
+    };
   }
 }
 

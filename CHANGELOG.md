@@ -4,6 +4,28 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-23 — Architecture v5: 100/100 Route Cleanup, 5 Facades, 34 Enforcement Tests ★★★★★
+
+### 🏗️ Architecture v5 Completion (Sprints 43-48)
+
+- **52/52 API routes**: 0 static `db` imports (3 admin routes use `getBulkDb()` for import operations)
+- **5 Facades**: Student, Learning, AI, Teacher, Platform — all exported from root barrel
+- **34 real architecture enforcement tests** (0 stubs): Route≠db, Route≠Repo, Service≠Route, AI Isolation in Learning modules, -v2 detection, Cross-domain repo access, Circular dependency, Duplicate modules
+- **Module cleanup**: `recommendation-v2` → `recommendation`, `writing-coach-v2` merged into `writing-coach`, `learning-science` purified (0 DB imports)
+- **New services**: ExportService, ImportService, SyncService, AdminService, LearningEngine, DSE Adaptive Path
+- **Student Twin expanded**: 13 components (ForgetCurve, RetentionState, LearningVelocity, RecoveryMetrics, ReviewCompliance)
+- **LearningEngine**: Deterministic 4-factor strategy decider — AI only generates content, never decides what to learn
+- **DSE Adaptive Path**: Ranks all topics by exam importance × mastery gap × retention risk × recency
+
+### Route → Service → Repository Migration
+
+- All student-facing routes now go through StudentFacade → Service → Repository
+- Admin routes use AdminService wrapper
+- `user-repo.ts`: 60+ methods covering all common queries
+- Removed `-v2` naming: recommendation-v2, writing-coach-v2 merged/deleted
+
+---
+
 ## 2026-07-23 — Help & Advice v2: Personalized FAQ, Confidence Scoring & i18n Fixes ★★★★
 
 ### 🎯 Help & Advice Page — Full Personalization Overhaul

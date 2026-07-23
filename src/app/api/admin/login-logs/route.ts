@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { listLoginLogs, createLoginLog } from '@/modules/admin/services/admin-service';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
     const userAgent = request.headers.get('user-agent') || '';
 
-    const log = await db.loginLog.create({
+    const log = await (await import('@/shared/db/db')).db.loginLog.create({
       data: {
         userId,
         userEmail,
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([
-      db.loginLog.findMany({
+      (await import('@/shared/db/db')).db.loginLog.findMany({
         orderBy: { loginAt: 'desc' },
         skip,
         take: limit,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
           duration: true,
         },
       }),
-      db.loginLog.count(),
+      (await import('@/shared/db/db')).db.loginLog.count(),
     ]);
 
     return NextResponse.json({

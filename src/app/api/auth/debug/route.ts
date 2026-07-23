@@ -4,8 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
+import { findUserByIdSelect } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   // 🔒 Production guard — never expose session data in production
@@ -21,10 +21,7 @@ export async function GET(request: NextRequest) {
   let dbRole: string | null = null;
   if (session?.user?.id) {
     try {
-      const user = await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { role: true },
-      });
+      const user = await findUserByIdSelect(session.user.id, { role: true });
       dbRole = user?.role ?? null;
     } catch {
       dbRole = '(db error)';
@@ -44,3 +41,4 @@ export async function GET(request: NextRequest) {
 
   return response;
 }
+

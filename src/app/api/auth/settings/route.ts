@@ -5,8 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
+import { findUserByIdSelect, updateUser, deleteTeacherClasses, createTeacherClass } from '@/modules/student';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   // NextAuth session
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const userId = await getUserId(request);
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const user = await db.user.findUnique({
+    const user = await (await import('@/shared/db/db')).db.user.findUnique({
     where: { id: userId },
     select: {
       id: true, subjects: true, department: true, level: true,
@@ -72,16 +72,16 @@ export async function PATCH(request: NextRequest) {
   if (body.level !== undefined) userData.level = body.level;
 
   if (Object.keys(userData).length > 0) {
-    await db.user.update({ where: { id: userId }, data: userData });
+    await (await import('@/shared/db/db')).db.user.update({ where: { id: userId }, data: userData });
   }
 
   // Update teacher-class associations
   if (body.classIds !== undefined && Array.isArray(body.classIds)) {
     // Remove all existing associations
-    await db.teacherClass.deleteMany({ where: { teacherId: userId } });
+    await (await import('@/shared/db/db')).db.teacherClass.deleteMany({ where: { teacherId: userId } });
     // Create new associations
     for (const classId of body.classIds) {
-      await db.teacherClass.create({
+      await (await import('@/shared/db/db')).db.teacherClass.create({
         data: { teacherId: userId, classId, isFormTeacher: false },
       }).catch(() => {}); // Ignore duplicates
     }
@@ -93,3 +93,4 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
   }
 }
+

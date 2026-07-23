@@ -3,9 +3,16 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import {
+  listDrafts,
+  createDraft,
+  findDraftById,
+  updateDraft,
+  findDraftWithRevisions,
+  findLatestDraft,
+} from '@/modules/student';
 
 // GET — 取得學生的寫作草稿列表
 export async function GET(request: NextRequest) {
@@ -19,27 +26,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
 
-    const drafts = await db.writingDraft.findMany({
-      where: {
-        studentId: userId,
-        ...(status ? { status } : {}),
-      },
-      select: {
-        id: true,
-        title: true,
-        prompt: true,
-        draft: true,
-        revisedVersion: true,
-        status: true,
-        aiSuggestions: true,
-        chinglishWarnings: true,
-        teacherComment: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 50,
-    });
+    const drafts = await listDrafts(userId, status);
 
     return NextResponse.json({ drafts });
   } catch (err: unknown) {
@@ -64,16 +51,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
     }
 
-    const writingDraft = await db.writingDraft.create({
-      data: {
-        studentId: userId,
-        title,
-        prompt: prompt || '',
-        draft: draft || '',
-        aiSuggestions: aiSuggestions ? JSON.stringify(aiSuggestions) : null,
-        chinglishWarnings: chinglishWarnings ? JSON.stringify(chinglishWarnings) : null,
-        status: 'draft',
-      },
+    const writingDraft = await createDraft({
+      studentId: userId,
+      title,
+      prompt: prompt || '',
+      draft: draft || '',
+      aiSuggestions,
+      chinglishWarnings,
     });
 
     return NextResponse.json({ draft: writingDraft }, { status: 201 });
@@ -121,46 +105,35 @@ export async function PATCH(request: NextRequest) {
 
     // If id is provided and is a real UUID, update that specific draft
     if (id && id !== 'current' && /^[a-zA-Z0-9_-]{10,}$/.test(id)) {
-      const existing = await db.writingDraft.findUnique({ where: { id, studentId: userId }, select: { revisions: true, draft: true } });
+      const existing = await findDraftWithRevisions(id);
+      if (!existing || existing.studentId !== userId) {
+        return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
+      }
       if (revisedVersion !== undefined && existing) {
         data.revisions = appendRevision(existing.revisions);
       }
-      const updated = await db.writingDraft.update({
-        where: { id, studentId: userId },
-        data,
-      });
+      const updated = await updateDraft(id, data);
       return NextResponse.json({ draft: updated });
     }
 
     // Upsert: find most recent draft for this student, or create new
-    const existing = await db.writingDraft.findFirst({
-      where: { studentId: userId },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const existing = await findLatestDraft(userId);
 
     if (existing) {
       if (revisedVersion !== undefined) {
         data.revisions = appendRevision(existing.revisions);
       }
-      const updated = await db.writingDraft.update({
-        where: { id: existing.id },
-        data,
-      });
+      const updated = await updateDraft(existing.id, data);
       return NextResponse.json({ draft: updated });
     }
 
     // Create new draft
-    const created = await db.writingDraft.create({
-      data: {
-        studentId: userId,
-        title: title || 'Untitled Draft',
-        prompt: '',
-        draft: draft || '',
-        aiSuggestions: aiSuggestions ? JSON.stringify(aiSuggestions) : null,
-        chinglishWarnings: chinglishWarnings ? JSON.stringify(chinglishWarnings) : null,
-        status: 'draft',
-        ...data,
-      },
+    const created = await createDraft({
+      studentId: userId,
+      title: title || 'Untitled Draft',
+      draft: draft || '',
+      aiSuggestions,
+      chinglishWarnings,
     });
     return NextResponse.json({ draft: created }, { status: 201 });
   } catch (err: unknown) {

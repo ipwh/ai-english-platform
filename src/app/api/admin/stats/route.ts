@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { getAdminStats } from '@/modules/admin/services/admin-service';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const academicYear = searchParams.get('academicYear') || '';
 
     // ---- 各年級平均準確率 ----
-    const levelAccuracy = await db.user.groupBy({
+    const levelAccuracy = await (await import('@/shared/db/db')).db.user.groupBy({
       by: ['level'],
       where: {
         role: 'student',
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     });
 
     // ---- 各班級平均準確率 ----
-    const classAccuracy = await db.user.groupBy({
+    const classAccuracy = await (await import('@/shared/db/db')).db.user.groupBy({
       by: ['classId'],
       where: { role: 'student', classId: { not: null } },
       _avg: { overallAccuracy: true },
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     // 取得班級名稱
     const classIds = classAccuracy.map(c => c.classId).filter(Boolean) as string[];
-    const classes = await db.class.findMany({
+    const classes = await (await import('@/shared/db/db')).db.class.findMany({
       where: { id: { in: classIds } },
       select: { id: true, name: true, gradeLevel: true },
     });
@@ -50,25 +50,25 @@ export async function GET(request: NextRequest) {
     // ---- 總計統計 ----
     const [totalStudents, totalTeachers, totalAdmins,
       practiceSessionCount, assignmentSubmissionCount, totalMistakes, totalAssignments] = await Promise.all([
-      db.user.count({ where: { role: 'student' } }),
-      db.user.count({ where: { role: 'teacher' } }),
-      db.user.count({ where: { role: 'admin' } }),
-      db.practiceSession.count(),
-      db.submission.count({ where: { status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } } }),
-      db.mistake.count(),
-      db.assignment.count(),
+      (await import('@/shared/db/db')).db.user.count({ where: { role: 'student' } }),
+      (await import('@/shared/db/db')).db.user.count({ where: { role: 'teacher' } }),
+      (await import('@/shared/db/db')).db.user.count({ where: { role: 'admin' } }),
+      (await import('@/shared/db/db')).db.practiceSession.count(),
+      (await import('@/shared/db/db')).db.submission.count({ where: { status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } } }),
+      (await import('@/shared/db/db')).db.mistake.count(),
+      (await import('@/shared/db/db')).db.assignment.count(),
     ]);
     const totalSessions = practiceSessionCount + assignmentSubmissionCount;
 
     // ---- 練習趨勢（按月份） ----
     const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
     const [recentSessions, recentSubmissions] = await Promise.all([
-      db.practiceSession.findMany({
+      (await import('@/shared/db/db')).db.practiceSession.findMany({
         where: { startedAt: { gte: sixMonthsAgo } },
         select: { startedAt: true, totalQuestions: true, correctCount: true },
         orderBy: { startedAt: 'asc' },
       }),
-      db.submission.findMany({
+      (await import('@/shared/db/db')).db.submission.findMany({
         where: { status: { in: ['submitted', 'graded'] }, submittedAt: { gte: sixMonthsAgo }, score: { not: null } },
         select: { submittedAt: true, score: true, assignment: { select: { questionCount: true } } },
         orderBy: { submittedAt: 'asc' },
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => a.className.localeCompare(b.className));
 
     // ---- 準確率分佈 ----
-    const allStudents = await db.user.findMany({
+    const allStudents = await (await import('@/shared/db/db')).db.user.findMany({
       where: { role: 'student', overallAccuracy: { not: null } },
       select: { overallAccuracy: true },
     });

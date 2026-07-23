@@ -7,9 +7,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { listGroups, findGroupById, createGroup, updateGroup, deleteGroup } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
@@ -19,20 +19,7 @@ export async function GET(request: NextRequest) {
   const teacherId = authResult.userId!;
   try {
 
-    const groups = await db.group.findMany({
-      where: { createdBy: teacherId },
-      include: {
-        _count: { select: { members: true, assignments: true } },
-        members: {
-          include: {
-            student: {
-              select: { id: true, name: true, nameZh: true, email: true, class: { select: { name: true } } },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const groups = await listGroups(teacherId);
 
     return NextResponse.json({
       groups: groups.map(g => ({
@@ -70,19 +57,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '組別名稱為必填' }, { status: 400 });
     }
 
-    const group = await db.group.create({
-      data: {
-        name: name.trim(),
-        description: description || null,
-        createdBy: teacherId,
-        ...(studentIds?.length ? {
-          members: {
-            create: studentIds.map((sid: string) => ({ studentId: sid })),
-          },
-        } : {}),
-      },
-      include: { _count: { select: { members: true } } },
-    });
+    const group = await createGroup({ name: name.trim(), description: description || '', createdBy: teacherId });
 
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
@@ -106,18 +81,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
     }
 
-    // 驗證所有權
-    const existing = await db.group.findUnique({ where: { id }, select: { createdBy: true } });
+    const existing = await findGroupById(id);
     if (!existing || existing.createdBy !== teacherId) {
       return NextResponse.json({ error: '無權編輯此組別' }, { status: 403 });
     }
 
-    const group = await db.group.update({
-      where: { id },
-      data: {
-        ...(name?.trim() ? { name: name.trim() } : {}),
-        ...(description !== undefined ? { description: description?.trim() || null } : {}),
-      },
+    const group = await updateGroup(id, {
+      ...(name?.trim() ? { name: name.trim() } : {}),
+      ...(description !== undefined ? { description: description?.trim() || null } : {}),
     });
 
     return NextResponse.json({ group });
@@ -142,16 +113,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
     }
 
-    // 驗證所有權
-    const existing = await db.group.findUnique({ where: { id }, select: { createdBy: true } });
+    const existing = await findGroupById(id);
     if (!existing || existing.createdBy !== teacherId) {
       return NextResponse.json({ error: '無權刪除此組別' }, { status: 403 });
     }
 
-    // 先移除關聯的 assignments，再刪除 group
-    await db.assignmentGroup.deleteMany({ where: { groupId: id } });
-    await db.groupMember.deleteMany({ where: { groupId: id } });
-    await db.group.delete({ where: { id } });
+    await deleteGroup(id);
 
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -159,3 +126,4 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
+

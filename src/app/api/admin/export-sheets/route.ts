@@ -9,8 +9,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { exportSheetsData } from '@/modules/admin/services/export-service';
 import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';
 
@@ -43,18 +43,18 @@ export async function POST(request: NextRequest) {
     // === 收集統計數據 ===
 
     // 1. 各班平均準確率
-    const classStats = await db.user.groupBy({
+    const classStats = await (await import('@/shared/db/db')).db.user.groupBy({
       by: ['classId'],
       where: { role: 'student', classId: { not: null }, overallAccuracy: { not: null } },
       _avg: { overallAccuracy: true },
       _count: true,
     });
 
-    const allClasses = await db.class.findMany({ select: { id: true, name: true } });
+    const allClasses = await (await import('@/shared/db/db')).db.class.findMany({ select: { id: true, name: true } });
     const classMap = new Map(allClasses.map(c => [c.id, c.name]));
 
     // 2. 各年級統計
-    const levelStats = await db.user.groupBy({
+    const levelStats = await (await import('@/shared/db/db')).db.user.groupBy({
       by: ['level'],
       where: { role: 'student', level: { not: null }, overallAccuracy: { not: null } },
       _avg: { overallAccuracy: true },
@@ -63,12 +63,12 @@ export async function POST(request: NextRequest) {
 
     // 3. 最近練習活躍度（過去 30 天的 submissions）
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentSubmissions = await db.submission.count({
+    const recentSubmissions = await (await import('@/shared/db/db')).db.submission.count({
       where: { createdAt: { gte: thirtyDaysAgo } },
     });
 
     // 4. 總學生數
-    const totalStudents = await db.user.count({ where: { role: 'student' } });
+    const totalStudents = await (await import('@/shared/db/db')).db.user.count({ where: { role: 'student' } });
 
     // === 認證並寫入 Google Sheets ===
     const credentials = JSON.parse(getServiceAccountCredentials());
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch individual student data
-    const students = await db.user.findMany({
+    const students = await (await import('@/shared/db/db')).db.user.findMany({
       where: { role: 'student', overallAccuracy: { not: null } },
       select: {
         id: true, email: true, nameZh: true, nameEn: true, level: true,

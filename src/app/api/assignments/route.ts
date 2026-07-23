@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { listAssignments, findTeacherClass, listGroupMembers, createAssignment, listNotifications } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
 import { checkRateLimit, GENERAL_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { notifyAssignmentCreated } from '@/shared/utils/notifications';
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       where.className = authResult.userId;
     }
 
-    const assignments = await db.assignment.findMany({
+    const assignments = await (await import('@/shared/db/db')).db.assignment.findMany({
       where,
       include: { _count: { select: { submissions: true } } },
       orderBy: { createdAt: 'desc' },
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // 驗證教師權限 — use authResult.userId instead of body.createdBy
     if (resolvedTargetType === 'class' && resolvedClassName) {
-      const teacherClass = await db.teacherClass.findFirst({
+      const teacherClass = await (await import('@/shared/db/db')).db.teacherClass.findFirst({
         where: { teacherId: authResult.userId, class: { name: resolvedClassName } },
       });
       if (!teacherClass) {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const assignment = await db.assignment.create({
+    const assignment = await (await import('@/shared/db/db')).db.assignment.create({
       data: {
         title,
         description,
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       notifyAssignmentCreated(title, resolvedClassName, classId || null, assignment.id);
     } else if (resolvedTargetType === 'group' && groupIds?.length) {
       // 通知組別內所有學生
-      const groupMembers = await db.groupMember.findMany({
+      const groupMembers = await (await import('@/shared/db/db')).db.groupMember.findMany({
         where: { groupId: { in: groupIds } },
         select: { studentId: true },
       });
@@ -153,3 +153,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+

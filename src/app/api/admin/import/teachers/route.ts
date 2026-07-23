@@ -4,7 +4,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
 import {
   parseCSV,
@@ -14,6 +13,7 @@ import {
 import type { ImportResult } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
+import { findExistingUsers, bulkImportTeachers } from '@/modules/admin/services/import-service';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Dry run: batch check
     if (dryRun) {
       const existingEmails = new Set(
-        (await db.user.findMany({ where: { email: { in: allEmails } }, select: { email: true } })).map(u => u.email)
+        (await (await import('@/shared/db/db')).db.user.findMany({ where: { email: { in: allEmails } }, select: { email: true } })).map(u => u.email)
       );
       for (const { rowNum, data } of validRows) {
         const exists = existingEmails.has(data.email);
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Phase 2: Batch upsert — 每批獨立 commit，避免 Vercel timeout
-    const existingUsers = await db.user.findMany({
+    const existingUsers = await (await import('@/shared/db/db')).db.user.findMany({
       where: { email: { in: allEmails } },
       select: { id: true, email: true, role: true },
     });
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
         if (existing) {
           batchOps.push(
-            db.user.update({ where: { email: data.email }, data: userData }).then(() => {
+            (await import('@/shared/db/db')).db.user.update({ where: { email: data.email }, data: userData }).then(() => {
               result.updated++;
               result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'updated' });
             }).catch((err: Error) => {
@@ -115,13 +115,13 @@ export async function POST(request: NextRequest) {
           );
         } else {
           batchOps.push(
-            db.user.create({ data: { id: data.teacherId, ...userData } }).then(() => {
+            (await import('@/shared/db/db')).db.user.create({ data: { id: data.teacherId, ...userData } }).then(() => {
               result.success++;
               result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'created' });
             }).catch(async (createErr: Error) => {
               if (createErr.message.includes('Unique constraint')) {
                 try {
-                  await db.user.create({ data: userData });
+                  await (await import('@/shared/db/db')).db.user.create({ data: userData });
                   result.success++;
                   result.details.push({ row: rowNum, teacherId: '(auto)', email: data.email, nameZh: data.nameZh, status: 'created' });
                 } catch (retryErr: unknown) {

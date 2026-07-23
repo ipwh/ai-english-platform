@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { db } from '@/shared/db/db';
 import { logger } from '@/shared/logger/logger';
+import { createFeedback } from '@/modules/student';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -20,12 +20,10 @@ export async function POST(request: NextRequest) {
 
     // Persist to DB for analysis
     const feedbackType = type || 'unknown';
-    await db.feedback.create({
-      data: {
-        userId: authResult.userId!,
-        type: feedbackType,
-        payload: JSON.stringify(payload || {}),
-      },
+    await createFeedback({
+      userId: authResult.userId!,
+      type: feedbackType,
+      payload: payload || {},
     });
 
     logger.info({ module: 'feedback', type: feedbackType, userId: authResult.userId }, 'Feedback submitted');

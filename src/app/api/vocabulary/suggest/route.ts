@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { db } from '@/shared/db/db';
+import { getExistingWordSet } from '@/modules/vocabulary/services/vocabulary-service';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -29,12 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只能為自己的帳號獲取建議' }, { status: 403 });
     }
 
-    // 取得學生已有的生字（避免重複建議）
-    const existingVocab = await db.vocabItem.findMany({
-      where: { studentId },
-      select: { word: true },
-    });
-    const existingWords = new Set(existingVocab.map(v => v.word.toLowerCase()));
+    const existingWords = await getExistingWordSet(studentId);
 
     const systemPrompt = `你是一位香港中學英文教師，專注協助學生累積詞彙。
 請分析以下英文文本，找出 **3-5 個值得學生學習的單字**。

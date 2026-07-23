@@ -26,26 +26,26 @@ export async function GET(request: NextRequest) {
     const db = (await import('@/shared/db/db')).default;
 
     const [student, sessions, mistakes, vocab] = await Promise.all([
-      db.user.findUnique({
+      (await import('@/shared/db/db')).db.user.findUnique({
         where: { id: studentId },
         select: {
           nameZh: true, nameEn: true, level: true, overallAccuracy: true,
           xp: true, streakDays: true, class: { select: { name: true, gradeLevel: true } },
         },
       }),
-      db.practiceSession.findMany({
+      (await import('@/shared/db/db')).db.practiceSession.findMany({
         where: { studentId },
         orderBy: { startedAt: 'desc' },
         take: 30,
         select: { skillZh: true, totalQuestions: true, correctCount: true, startedAt: true },
       }),
-      db.mistake.findMany({
+      (await import('@/shared/db/db')).db.mistake.findMany({
         where: { studentId },
         orderBy: { createdAt: 'desc' },
         take: 50,
         select: { mistakeType: true, createdAt: true },
       }),
-      db.vocabItem.count({ where: { studentId } }),
+      (await import('@/shared/db/db')).db.vocabItem.count({ where: { studentId } }),
     ]);
 
     if (!student) {

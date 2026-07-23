@@ -5,9 +5,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { generateQuestions, type GeneratedQuestion } from '@/modules/ai/services/ai-service';
+import { getRecentDiagnostics } from '@/modules/student';
+import { listMistakes } from '@/modules/student';
+import { listPracticeSessions } from '@/modules/student';
 
 // 40 個 HKDSE 文法點（對應 ELE KLACG 2017 Appendix 4）
 const GRAMMAR_POINTS = [
@@ -70,17 +72,8 @@ export async function GET(request: NextRequest) {
   try {
     // 從 DiagnosticResult 和 Mistake 計算每個文法點的準確率
     const [diagnosticResults, mistakes] = await Promise.all([
-      db.diagnosticResult.findMany({
-        where: { studentId },
-        select: { weakAreas: true, recommendedGrammar: true, accuracy: true },
-        orderBy: { completedAt: 'desc' },
-        take: 5,
-      }),
-      db.mistake.findMany({
-        where: { studentId },
-        select: { mistakeType: true, studentAnswer: true, correctAnswer: true },
-        take: 200,
-      }),
+      getRecentDiagnostics(studentId, 5),
+      listMistakes(studentId, 200),
     ]);
 
     // Build grammar point accuracy map
@@ -90,11 +83,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 從 PracticeSession 中提取文法練習記錄
-    const sessions = await db.practiceSession.findMany({
-      where: { studentId },
-      select: { skill: true, totalQuestions: true, correctCount: true },
-      take: 100,
-    });
+    const sessions = await listPracticeSessions(studentId, 100);
 
     for (const s of sessions) {
       // map skill to grammar point id

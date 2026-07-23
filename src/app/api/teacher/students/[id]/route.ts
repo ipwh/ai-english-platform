@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { findUserByIdSelect, getStudentAnalytics, listTeacherClasses } from '@/modules/student';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 
@@ -17,7 +17,7 @@ async function getTeacherAuth(request: NextRequest): Promise<{ userId: string; i
   }
   const session = await auth();
   if (session?.user?.id) {
-    const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+    const user = await findUserByIdSelect(session.user.id, { role: true });
     if (user && (user.role === 'teacher' || user.role === 'admin')) {
       return { userId: session.user.id, isAdmin: user.role === 'admin' };
     }
@@ -41,17 +41,14 @@ export async function GET(
     }
 
     // 學生基本資料
-    const student = await db.user.findUnique({
-      where: { id: studentId },
-      select: {
-        id: true, email: true, nameZh: true, nameEn: true,
-        level: true, overallAccuracy: true, classNumber: true,
-        xp: true, badgeIds: true, streakDays: true, academicYear: true,
-        classId: true,
-        class: { select: { id: true, name: true, gradeLevel: true } },
-        studentClasses: { select: { classId: true } },
-      },
-    });
+    const student = await findUserByIdSelect(studentId as any, {
+      id: true, email: true, nameZh: true, nameEn: true,
+      level: true, overallAccuracy: true, classNumber: true,
+      xp: true, badgeIds: true, streakDays: true, academicYear: true,
+      classId: true,
+      class: { select: { id: true, name: true, gradeLevel: true } },
+      studentClasses: { select: { classId: true } },
+    } as any);
 
     if (!student) {
       return NextResponse.json({ error: '找不到學生' }, { status: 404 });
@@ -61,135 +58,27 @@ export async function GET(
     if (!teacherAuth.isAdmin) {
       const studentClassIds = [
         ...(student.classId ? [student.classId] : []),
-        ...(student.studentClasses?.map(sc => sc.classId) || []),
+        ...((student as any).studentClasses?.map((sc: any) => sc.classId) || []),
       ];
       if (studentClassIds.length === 0) {
         return NextResponse.json({ error: '學生未分配至任何班級' }, { status: 403 });
       }
       // Check if teacher teaches any of the student's classes
-      const teachingRelations = await db.teacherClass.findMany({
-        where: {
-          teacherId: teacherAuth.userId,
-          classId: { in: studentClassIds },
-        },
-        select: { classId: true },
-      });
-      if (teachingRelations.length === 0) {
+      const teachingRelations = await listTeacherClasses(teacherAuth.userId);
+      const teachingClassIds = teachingRelations.map((tc: any) => tc.classId);
+      if (!teachingClassIds.some((id: string) => studentClassIds.includes(id))) {
         return NextResponse.json({ error: '無權限查看此學生：不屬於您任教的班級' }, { status: 403 });
       }
     }
 
-    // 並行載入所有關聯數據
-    const [
-      rawPracticeSessions,
-      rawMistakes,
-      vocabCount,
-      vocabMastered,
-      writingDrafts,
-      xpTransactions,
-      weeklySnapshots,
-      submissions,
-    ] = await Promise.all([
-      db.practiceSession.findMany({
-        where: { studentId, source: { not: 'assignment' } },
-        orderBy: { startedAt: 'desc' },
-        take: 50,
-        include: { answers: { orderBy: { questionIndex: 'asc' } } },
-      }),
-      db.mistake.findMany({
-        where: { studentId },
-        orderBy: { createdAt: 'desc' },
-        take: 200,
-      }),
-      db.vocabItem.count({ where: { studentId } }),
-      db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
-      db.writingDraft.findMany({
-        where: { studentId },
-        orderBy: { updatedAt: 'desc' },
-        take: 20,
-        select: { id: true, title: true, prompt: true, status: true, aiSuggestions: true, teacherComment: true, createdAt: true, updatedAt: true },
-      }),
-      db.xpTransaction.findMany({
-        where: { userId: studentId },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      }),
-      db.weeklySnapshot.findMany({
-        where: { userId: studentId },
-        orderBy: { weekStart: 'desc' },
-        take: 12,
-      }),
-      db.submission.findMany({
-        where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } },
-        orderBy: { submittedAt: 'desc' },
-        take: 50,
-        select: {
-          id: true,
-          score: true,
-          submittedAt: true,
-          assignment: { select: { title: true, grammarItem: true, difficulty: true, questionCount: true } },
-        },
-      }),
-    ]);
-
-    // 錯題依 questionSummary 去重（同一題目文字只保留最新）
-    const seenSummaries = new Set<string>();
-    const mistakes = rawMistakes.filter(m => {
-      const key = m.questionSummary.trim().toLowerCase();
-      if (!key || seenSummaries.has(key)) return false;
-      seenSummaries.add(key);
-      return true;
-    });
-
-    const assignmentSessions = submissions.map(submission => {
-      const totalQuestions = submission.assignment.questionCount;
-      return {
-        id: `assignment-${submission.id}`,
-        skill: submission.assignment.grammarItem || 'assignment',
-        skillZh: submission.assignment.title,
-        difficulty: submission.assignment.difficulty,
-        totalQuestions,
-        correctCount: Math.round(((submission.score || 0) / 100) * totalQuestions),
-        source: 'assignment',
-        startedAt: submission.submittedAt!,
-        completedAt: submission.submittedAt!,
-        answers: [],
-      };
-    });
-
-    // 合併 + 智能去重：相同 (skill, totalQuestions, source) 且 startedAt 在 2 分鐘內 → 只保留 correctCount 最高者
-    type MergedSession = {
-      id: string; skill: string; skillZh: string; difficulty: string;
-      totalQuestions: number; correctCount: number; source: string;
-      startedAt: Date | string; completedAt?: Date | string | null;
-      answers?: unknown[];
-    };
-    const merged: MergedSession[] = [...rawPracticeSessions, ...assignmentSessions];
-    const mergedSessions = merged
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-      .reduce((acc, s) => {
-        const sTime = new Date(s.startedAt).getTime();
-        const dup = acc.find(x =>
-          x.skill === s.skill &&
-          x.totalQuestions === s.totalQuestions &&
-          x.source === s.source &&
-          Math.abs(new Date(x.startedAt).getTime() - sTime) < 120_000
-        );
-        if (dup) {
-          if (s.correctCount > dup.correctCount) Object.assign(dup, s);
-        } else {
-          acc.push(s);
-        }
-        return acc;
-      }, [] as MergedSession[]);
-
-    const practiceSessions = mergedSessions;
+    const analytics = await getStudentAnalytics(studentId);
+    const { sessions: rawPracticeSessions, mistakes, vocabTotal, vocabMastered, drafts: writingDrafts, xp: xpTransactions, snapshots: weeklySnapshots, submissions } = analytics;
 
     return NextResponse.json({
       student,
-      practiceSessions,
+      practiceSessions: rawPracticeSessions,
       mistakes,
-      vocab: { total: vocabCount, mastered: vocabMastered },
+      vocab: { total: vocabTotal, mastered: vocabMastered },
       writingDrafts,
       xpTransactions,
       weeklySnapshots,

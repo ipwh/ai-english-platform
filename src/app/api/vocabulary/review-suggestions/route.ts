@@ -4,10 +4,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { getDueCards, getDailyReviewTarget } from '@/modules/vocabulary/services/srs';
+import { getStudentWords } from '@/modules/vocabulary/services/vocabulary-service';
+import { listMistakesByType } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   // 🔒 Auth check
@@ -29,20 +30,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 1. Get all vocabulary items
-    const allVocab = await db.vocabItem.findMany({
-      where: { studentId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const allVocab = await getStudentWords(studentId);
 
     // 2. Get recent mistakes (vocabulary-related)
-    const vocabMistakes = await db.mistake.findMany({
-      where: {
-        studentId,
-        mistakeType: 'vocabulary',
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+    const vocabMistakes = await listMistakesByType(studentId, 'vocabulary', 50);
 
     // 3. Calculate SRS due cards
     const now = new Date();

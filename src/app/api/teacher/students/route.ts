@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { findUserByIdSelect, listTeacherClasses, listAllClasses, findTeacherClass, listUsersAdmin } from '@/modules/student';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 
@@ -16,7 +16,7 @@ async function getTeacherInfo(request: NextRequest): Promise<{ userId: string; r
   }
   const session = await auth();
   if (session?.user?.id) {
-    const user = await db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+    const user = await findUserByIdSelect(session.user.id, { role: true });
     if (user && (user.role === 'teacher' || user.role === 'admin')) return { userId: session.user.id, role: user.role };
   }
   return null;
@@ -36,11 +36,8 @@ export async function GET(request: NextRequest) {
     // Get teacher's taught classes (admins see all classes)
     let taughtClassIds: string[] = [];
     if (!isAdmin) {
-      const taughtClasses = await db.teacherClass.findMany({
-        where: { teacherId: teacherInfo.userId },
-        select: { classId: true },
-      });
-      taughtClassIds = taughtClasses.map(tc => tc.classId);
+      const taughtClasses = await listTeacherClasses(teacherInfo.userId);
+      taughtClassIds = taughtClasses.map((tc: any) => tc.classId);
     }
 
     // Build student filter: admins see all, teachers see their taught classes
@@ -52,7 +49,7 @@ export async function GET(request: NextRequest) {
       where.class = { name: className };
     }
 
-    const students = await db.user.findMany({
+    const students = await listUsersAdmin({
       where,
       select: {
         id: true, email: true, nameZh: true, nameEn: true,
@@ -63,14 +60,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ class: { name: 'asc' } }, { classNumber: 'asc' }],
     });
 
-    const classes = await db.class.findMany({
-      where: {
-        name: { not: 'Demo' },
-        ...(!isAdmin && taughtClassIds.length > 0 ? { id: { in: taughtClassIds } } : {}),
-      },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, gradeLevel: true },
-    });
+    const classes = await listAllClasses();
 
     return NextResponse.json({ students, classes, total: students.length });
   } catch (err: unknown) {
@@ -78,3 +68,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

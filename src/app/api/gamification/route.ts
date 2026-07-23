@@ -3,11 +3,15 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/modules/progress/services/gamification';
 import type { XpEvent } from '@/modules/progress/services/gamification';
+import { findUserByIdSelect, updateUser } from '@/modules/student';
+import { getLeaderboard, createXpTransaction } from '@/modules/student';
+import { listPracticeSessions, countPracticeSessions } from '@/modules/student';
+import { countVocab, getVocabStats } from '@/modules/student';
+import { countDrafts } from '@/modules/student';
 
 // GET — 取得學生 gamification 狀態
 export async function GET(req: NextRequest) {
@@ -32,20 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === 'leaderboard') {
-      const classId = searchParams.get('classId');
-      const where = classId ? { classId } : { role: 'student' };
-
-      const students = await db.user.findMany({
-        where: { ...where, role: 'student' },
-        select: {
-          id: true,
-          classNumber: true,
-          nameEn: true,
-          streakDays: true,
-          overallAccuracy: true,
-          xp: true,
-        },
-      });
+      const students = await getLeaderboard(50);
 
       const leaderboard = buildLeaderboard(
         students.map(s => ({
@@ -66,28 +57,19 @@ export async function GET(req: NextRequest) {
     let sessionsCount = 0;
 
     try {
-      student = await db.user.findUnique({
-        where: { id: studentId },
-        select: { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true },
-      });
+      student = await findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true });
     } catch {
       logger.error({ module: 'gamification', studentId }, 'Failed to fetch student with full columns, trying fallback');
-      student = await db.user.findUnique({
-        where: { id: studentId },
-        select: { streakDays: true, overallAccuracy: true },
-      }).catch(() => null);
+      student = await findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true }).catch(() => null);
     }
 
     try {
-      practiceSessions = await db.practiceSession.findMany({
-        where: { studentId },
-        select: { totalQuestions: true },
-      });
+      practiceSessions = await listPracticeSessions(studentId, 200);
     } catch { logger.error({ module: 'gamification', studentId }, 'Failed to fetch practiceSessions'); }
 
-    try { vocabMastered = await db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count vocabMastered'); }
-    try { writingCount = await db.writingDraft.count({ where: { studentId } }); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count writingDraft'); }
-    try { sessionsCount = await db.practiceSession.count({ where: { studentId } }); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count practiceSession'); }
+    try { const stats = await getVocabStats(studentId); vocabMastered = stats.mastered; } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count vocabMastered'); }
+    try { writingCount = await countDrafts(studentId); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count writingDraft'); }
+    try { sessionsCount = await countPracticeSessions(studentId); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count practiceSession'); }
 
     const totalQuestions = practiceSessions.reduce((sum, s) => sum + s.totalQuestions, 0);
 
@@ -118,10 +100,7 @@ export async function GET(req: NextRequest) {
     if (newBadges.length > 0) {
       try {
         const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map((b: { id: string }) => b.id)];
-        await db.user.update({
-          where: { id: studentId },
-          data: { badgeIds: JSON.stringify(updatedBadgeIds) },
-        });
+        await updateUser(studentId, { badgeIds: JSON.stringify(updatedBadgeIds) });
       } catch { logger.error({ module: 'gamification', studentId, newBadgeCount: newBadges.length }, 'Failed to persist newly earned badges'); }
     }
 
@@ -175,27 +154,18 @@ export async function POST(req: NextRequest) {
     if (event.type === 'dailyLogin') {
       updateData.streakDays = { increment: 1 };
     }
-    await db.user.update({
-      where: { id: studentId },
-      data: updateData as Record<string, unknown>,
-    });
+    await updateUser(studentId, updateData as Record<string, unknown>);
 
-    // XP 交易記錄（完整審計追蹤）
     try {
-      await db.xpTransaction.create({
-        data: {
-          userId: studentId,
-          event: event.type,
-          xpAmount: xpGained,
-          metadata: event.metadata ? JSON.stringify(event.metadata) : null,
-        },
+      await createXpTransaction({
+        userId: studentId,
+        event: event.type,
+        xpAmount: xpGained,
+        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
       });
     } catch { logger.error({ module: 'gamification', studentId, eventType: event.type }, 'XP transaction audit log failed — non-fatal'); }
 
-    const updated = await db.user.findUnique({
-      where: { id: studentId },
-      select: { xp: true, streakDays: true },
-    });
+    const updated = await findUserByIdSelect(studentId, { xp: true, streakDays: true });
     const levelInfo = getLevelInfo(updated?.xp ?? xpGained);
 
     // 檢查新徽章
@@ -227,3 +197,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '無法記錄 XP' }, { status: 500 });
   }
 }
+

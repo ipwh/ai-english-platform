@@ -91,7 +91,7 @@ export async function executePipeline(input: PipelineInput): Promise<AdaptiveLea
   const t4 = Date.now();
   const recommendations: AdaptiveLearningResult['recommendations'] = [];
   try {
-    // Use recommendation-v2 to generate recommendations from mastery + weakness
+    // Use recommendation engine to generate recommendations from mastery + weakness
     for (const w of weaknesses.slice(0, 3)) {
       recommendations.push({
         action: `Practice ${w.category}`,

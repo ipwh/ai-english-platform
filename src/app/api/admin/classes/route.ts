@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { listClasses, createClass, deleteClass } from '@/modules/admin/services/admin-service';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { syncClassToSheet } from '@/shared/google/sheets-sync';
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 
-    const classes = await db.class.findMany({
+    const classes = await (await import('@/shared/db/db')).db.class.findMany({
       orderBy: { name: 'asc' },
       include: {
         _count: { select: { students: true, assignments: true } },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '請提供 name 和 gradeLevel' }, { status: 400 });
     }
 
-    const cls = await db.class.upsert({
+    const cls = await (await import('@/shared/db/db')).db.class.upsert({
       where: { name },
       update: { gradeLevel, academicYear: academicYear || undefined },
       create: { name, gradeLevel, academicYear: academicYear || '2025-2026' },
@@ -61,12 +61,12 @@ export async function POST(request: NextRequest) {
 
     // Auto-link new class to all existing teachers AND admins so they can assign work to it
     try {
-      const educators = await db.user.findMany({
+      const educators = await (await import('@/shared/db/db')).db.user.findMany({
         where: { role: { in: ['teacher', 'admin'] } },
         select: { id: true, role: true },
       });
       for (const educator of educators) {
-        await db.teacherClass.upsert({
+        await (await import('@/shared/db/db')).db.teacherClass.upsert({
           where: { teacherId_classId: { teacherId: educator.id, classId: cls.id } },
           update: {},
           create: { teacherId: educator.id, classId: cls.id },
@@ -98,7 +98,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: '請提供 class id' }, { status: 400 });
 
-    await db.class.delete({ where: { id } });
+    await (await import('@/shared/db/db')).db.class.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';

@@ -4,11 +4,12 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
-import { getBulkDb } from '@/shared/db/db';
+import { findUserByIdSelect } from '@/modules/student';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { parseCSV } from '@/shared/utils/import-utils';
+import { bulkImportStudents, bulkImportTeachers } from '@/modules/admin/services/import-service';
+import { getBulkDb } from '@/shared/db/db';
 
 // ---- CSV 格式定義 ----
 
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (dryRun) {
-          const exists = await db.user.findUnique({ where: { email: importRow.email } });
+          const exists = await (await import('@/shared/db/db')).db.user.findUnique({ where: { email: importRow.email } });
           results.details.push({
             email: importRow.email,
             nameZh: importRow.nameZh,
@@ -267,3 +268,4 @@ function inferGradeLevel(className: string): string {
 function normalizeClass(className: string): string {
   return className.trim().toUpperCase();
 }
+

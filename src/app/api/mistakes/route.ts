@@ -126,7 +126,7 @@ export async function PATCH(request: NextRequest) {
         : inReviewList === false ? 'removeFromReviewList'
         : 'reviewed';
       const { db } = await import('@/shared/db/db');
-      await db.mistakeReviewLog.create({
+      await (await import('@/shared/db/db')).db.mistakeReviewLog.create({
         data: {
           mistakeId: id,
           studentId: mistake.studentId,

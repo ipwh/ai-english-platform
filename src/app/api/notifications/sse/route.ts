@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { db } from '@/shared/db/db';
+import { listNotifications, getUnreadNotificationCount, markNotificationsRead } from '@/modules/student';
 
 // Vercel: serverless functions don't support persistent SSE connections.
 // For production, consider using Vercel Edge + Streaming or a dedicated
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       where.createdAt = { gt: new Date(since) };
     }
 
-    const notifications = await db.notification.findMany({
+    const notifications = await (await import('@/shared/db/db')).db.notification.findMany({
       where,
       select: {
         id: true, type: true, title: true, message: true,
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       take: 20,
     });
 
-    const unreadCount = await db.notification.count({
+    const unreadCount = await (await import('@/shared/db/db')).db.notification.count({
       where: { userId: authResult.userId, read: false },
     });
 
@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest) {
     const { id, markAllRead } = body;
 
     if (markAllRead) {
-      await db.notification.updateMany({
+      await (await import('@/shared/db/db')).db.notification.updateMany({
         where: { userId: authResult.userId, read: false },
         data: { read: true },
       });
@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (id) {
-      await db.notification.update({
+      await (await import('@/shared/db/db')).db.notification.update({
         where: { id },
         data: { read: true },
       });
@@ -85,3 +85,4 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

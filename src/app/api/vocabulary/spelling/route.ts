@@ -5,10 +5,17 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
+import {
+  getVocabForSpelling,
+  createSpellingSession,
+  getWordById,
+  createSpellingAttempt,
+  updateVocabSRS,
+  completeSpellingSession,
+} from '@/modules/vocabulary/services/vocabulary-service';
 
 // ============================================
 // GET: 生成串字練習題目
@@ -35,45 +42,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '只能為自己的帳號生成串字練習' }, { status: 403 });
     }
 
-    // 根據模式選取生字
-    let orderBy: Record<string, string>;
-    let whereExtra: Record<string, unknown> = {};
-
-    switch (mode) {
-      case 'weakest':
-        orderBy = { masteryLevel: 'asc' };
-        break;
-      case 'new':
-        orderBy = { createdAt: 'desc' };
-        break;
-      case 'due':
-        orderBy = { masteryLevel: 'asc' };
-        whereExtra = { nextReviewDate: { lte: new Date() } };
-        break;
-      default:
-        orderBy = { createdAt: 'desc' };
-    }
-
-    // 自選單字模式：wordIds 優先
-    if (wordIdsParam) {
-      const ids = wordIdsParam.split(',').map(id => id.trim()).filter(Boolean);
-      if (ids.length > 0) {
-        whereExtra = { id: { in: ids } };
-      }
-    }
-
-    let vocabItems = await db.vocabItem.findMany({
-      where: { studentId, ...whereExtra },
-      orderBy,
-      take: wordIdsParam ? (wordIdsParam.split(',').length || 30) : (mode === 'random' ? 100 : count * 2),
-    });
-
-    // random 模式：隨機打亂後取前 count 個（wordIds 模式則保持原順序）
-    if (mode === 'random' && !wordIdsParam) {
-      vocabItems = vocabItems.sort(() => Math.random() - 0.5).slice(0, count);
-    } else {
-      vocabItems = vocabItems.slice(0, count);
-    }
+    const vocabItems = await getVocabForSpelling(studentId, count, mode, wordIdsParam || undefined);
 
     if (vocabItems.length === 0) {
       return NextResponse.json({
@@ -82,15 +51,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 建立新的串字練習 session
-    const session = await db.spellingSession.create({
-      data: {
-        studentId,
-        totalWords: vocabItems.length,
-        correctCount: 0,
-        status: 'in-progress',
-      },
-    });
+    const session = await createSpellingSession(studentId, vocabItems.length);
 
     const words = vocabItems.map((v) => {
       const deserialized = serializeVocab(v);
@@ -156,24 +117,17 @@ export async function POST(request: NextRequest) {
 
       if (isCorrect) correctCount++;
 
-      const record = await db.spellingAttempt.create({
-        data: {
-          sessionId,
-          vocabId: vocabId || null,
-          word: word.trim(),
-          meaningZh: meaningZh || '',
-          explanationEn: explanationEn || null,
-          studentInput: studentInput.trim(),
-          isCorrect,
-          attempts: attempt.attemptCount || 1,
-        },
+      const record = await createSpellingAttempt({
+        sessionId, vocabId: vocabId || null, word: word.trim(),
+        meaningZh: meaningZh || '', explanationEn: explanationEn || null,
+        studentInput: studentInput.trim(), isCorrect, attempts: attempt.attemptCount || 1,
       });
       records.push(record);
 
       // 更新生字的 SRS 資料
       if (vocabId) {
         try {
-          const vocab = await db.vocabItem.findUnique({ where: { id: vocabId } });
+          const vocab = await getWordById(vocabId);
           if (vocab) {
             const newMastery = isCorrect
               ? Math.min(5, (vocab.masteryLevel ?? 0) + 1)
@@ -184,19 +138,10 @@ export async function POST(request: NextRequest) {
             const nextReview = new Date();
             nextReview.setDate(nextReview.getDate() + newInterval);
 
-            await db.vocabItem.update({
-              where: { id: vocabId },
-              data: {
-                masteryLevel: newMastery,
-                reviewInterval: newInterval,
-                nextReviewDate: nextReview,
-                lastReviewedAt: new Date(),
-                familiarity:
-                  newMastery >= 5 ? 'mastered'
-                  : newMastery >= 3 ? 'familiar'
-                  : newMastery >= 1 ? 'learning'
-                  : 'new',
-              },
+            await updateVocabSRS(vocabId, {
+              masteryLevel: newMastery, reviewInterval: newInterval,
+              nextReviewDate: nextReview, lastReviewedAt: new Date(),
+              familiarity: newMastery >= 5 ? 'mastered' : newMastery >= 3 ? 'familiar' : newMastery >= 1 ? 'learning' : 'new',
             });
           }
         } catch {
@@ -206,14 +151,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 更新 session 狀態
-    await db.spellingSession.update({
-      where: { id: sessionId },
-      data: {
-        correctCount,
-        status: 'completed',
-        completedAt: new Date(),
-      },
-    });
+    await completeSpellingSession(sessionId, correctCount);
 
     return NextResponse.json({
       sessionId,
