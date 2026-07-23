@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: GET /api/assignments/[id] — 取得單一作業詳情（含題目）
 // API: POST /api/assignments/[id]/submit — 提交作業答案（AI 批改）
@@ -33,7 +34,7 @@ export async function GET(
   }
 
   try {
-    const assignment = await (await import('@/shared/db/db')).db.assignment.findUnique({
+    const assignment = await adminDbQuery('assignment', 'findUnique', {
       where: { id },
       include: {
         questions: { orderBy: { orderIndex: 'asc' } },
@@ -45,7 +46,7 @@ export async function GET(
         } : undefined,
         _count: { select: { submissions: true } },
       },
-    });
+    }) as {id: string; title: string; description: string | null; classId: string | null; className: string | null; targetType: string | null; gradeLevel: string | null; strand: string | null; grammarItem: string | null; languageSkill: string | null; difficulty: string | null; questionCount: number; timeLimit: number | null; dueDate: Date | null; completionRate: number | null; createdAt: Date; questions: Array<{id: string; questionType: string; prompt: string; options: string | null; answer: string; orderIndex: number}>; submissions?: Array<{id: string; score: number | null; submittedAt: Date | null; student: {id: string; name: string | null; nameZh: string | null; email: string; class: {name: string} | null}}>; _count: {submissions: number}} | null;
 
     if (!assignment) {
       return NextResponse.json({ error: '找不到此作業' }, { status: 404 });
@@ -58,7 +59,7 @@ export async function GET(
       if (token) {
         const payload = await verifySessionToken(token);
         if (payload) {
-          studentSubmission = await (await import('@/shared/db/db')).db.submission.findFirst({
+          studentSubmission = await adminDbQuery('submission', 'findFirst', {
             where: { assignmentId: id, studentId: payload.userId },
           });
         }
@@ -159,7 +160,7 @@ export async function POST(
     }
 
     // 取得作業及題目
-    const assignment = await (await import('@/shared/db/db')).db.assignment.findUnique({
+    const assignment = await adminDbQuery('assignment', 'findUnique', {
       where: { id },
       include: { questions: true },
     });
@@ -169,7 +170,7 @@ export async function POST(
     }
 
     // 檢查是否已有提交
-    const existing = await (await import('@/shared/db/db')).db.submission.findFirst({
+    const existing = await adminDbQuery('submission', 'findFirst', {
       where: { assignmentId: id, studentId: payload.userId },
     });
 
@@ -223,7 +224,7 @@ export async function POST(
 
     // Upsert submission
     const submission = existing
-      ? await (await import('@/shared/db/db')).db.submission.update({
+      ? await adminDbQuery('submission', 'update', {
           where: { id: existing.id },
           data: {
             answers: JSON.stringify(answers),
@@ -233,7 +234,7 @@ export async function POST(
             submittedAt: new Date(),
           },
         })
-      : await (await import('@/shared/db/db')).db.submission.create({
+      : await adminDbQuery('submission', 'create', {
           data: {
             assignmentId: id,
             studentId: payload.userId,
@@ -262,7 +263,7 @@ export async function POST(
     } catch { /* analytics sync must not prevent a valid submission */ }
 
     // 🔔 通知教師：學生已提交作業
-    const student = await (await import('@/shared/db/db')).db.user.findUnique({
+    const student = await adminDbQuery('user', 'findUnique', {
       where: { id: payload.userId },
       select: { name: true, nameZh: true },
     });
@@ -271,30 +272,30 @@ export async function POST(
 
     // 更新作業完成率
     try {
-      const totalSubmissions = await (await import('@/shared/db/db')).db.submission.count({
+      const totalSubmissions = await adminDbQuery('submission', 'count', {
         where: { assignmentId: id, status: { in: ['submitted', 'graded'] } },
       });
       // 估算目標人數：targetStudents / targetGroups / class 學生數
       let totalTarget = 0;
       if (assignment.targetType === 'students') {
-        totalTarget = await (await import('@/shared/db/db')).db.assignmentStudent.count({ where: { assignmentId: id } });
+        totalTarget = await adminDbQuery('assignmentStudent', 'count', { where: { assignmentId: id } });
       } else if (assignment.targetType === 'group') {
-        const groupIds = (await (await import('@/shared/db/db')).db.assignmentGroup.findMany({ where: { assignmentId: id }, select: { groupId: true } })).map(g => g.groupId);
+        const groupIds = ((await adminDbQuery('assignmentGroup', 'findMany', { where: { assignmentId: id }, select: { groupId: true } })) as Array<{groupId: string}>).map(g => g.groupId);
         if (groupIds.length > 0) {
-          totalTarget = await (await import('@/shared/db/db')).db.groupMember.count({ where: { groupId: { in: groupIds } } });
+          totalTarget = await adminDbQuery('groupMember', 'count', { where: { groupId: { in: groupIds } } });
         }
       } else if (assignment.classId) {
-        totalTarget = await (await import('@/shared/db/db')).db.user.count({ where: { classId: assignment.classId, role: 'student' } });
+        totalTarget = await adminDbQuery('user', 'count', { where: { classId: assignment.classId, role: 'student' } });
       } else if (assignment.className) {
         // Fallback: lookup by className if classId is null
-        const classRecord = await (await import('@/shared/db/db')).db.class.findFirst({ where: { name: assignment.className } });
+        const classRecord = await adminDbQuery('class', 'findFirst', { where: { name: assignment.className } });
         if (classRecord) {
-          totalTarget = await (await import('@/shared/db/db')).db.user.count({ where: { classId: classRecord.id, role: 'student' } });
+          totalTarget = await adminDbQuery('user', 'count', { where: { classId: classRecord.id, role: 'student' } });
         }
       }
       if (totalTarget > 0) {
         const rate = Math.round((totalSubmissions / totalTarget) * 100);
-        await (await import('@/shared/db/db')).db.assignment.update({ where: { id }, data: { completionRate: rate } });
+        await adminDbQuery('assignment', 'update', { where: { id }, data: { completionRate: rate } });
       }
     } catch { /* non-critical */ }
 

@@ -113,7 +113,18 @@ if (migrateResult.ok) {
   } else {
     // Dev: just warn and try db push
     console.warn('⚠️  prisma migrate deploy failed — falling back to prisma db push for local dev.');
-    run('npx --yes prisma db push', 'prisma db push (dev fallback)');
+    const devPushResult = run('npx --yes prisma db push', 'prisma db push (dev fallback)', { captureOutput: true });
+    if (!devPushResult.ok) {
+      const devPushOutput = devPushResult.output;
+      const isConnectionError = devPushOutput.includes('P1001') || devPushOutput.includes('P1002') || devPushOutput.includes('Timed out') || devPushOutput.includes('advisory lock');
+      if (isConnectionError) {
+        console.warn('⚠️  Database unreachable in dev — skipping db push. Build will succeed if schema is already deployed.');
+        // Dev build continues without DB — common in CI without DB access
+      } else {
+        console.warn('⚠️  prisma db push failed:', devPushOutput.slice(0, 300));
+        console.warn('   Continuing build anyway (dev mode)...');
+      }
+    }
   }
 }
 

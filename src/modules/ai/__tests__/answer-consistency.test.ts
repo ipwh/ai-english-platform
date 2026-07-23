@@ -316,7 +316,7 @@ describe('i18n — t() function', () => {
   it('should translate student pages', () => {
     expect(t('mistakes.title', 'en')).toBe('📝 My Mistakes');
     expect(t('vocab.title', 'en')).toBe('📚 Vocabulary');
-    expect(t('progress.title', 'en')).toBe('📊 My Progress');
+    expect(t('progress.title', 'en')).toBe('\u{1F4C8} Learning Progress');
   });
 
   it('should translate teacher pages', () => {
@@ -342,7 +342,7 @@ describe('i18n — t() function', () => {
   });
 
   it('should translate login labels', () => {
-    expect(t('login.title', 'en')).toBe('AI English Platform');
+    expect(t('login.title', 'en')).toBe('AI English Learning Platform');
     expect(t('login.signIn', 'en')).toBe('Sign In');
   });
 

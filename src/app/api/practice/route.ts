@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: /api/practice — 練習記錄（僅儲存，XP 由 gamification API 控制）
 // P1: Migrated to PracticeRepo + MistakeRepo
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     const [sessions, submissions] = await Promise.all([
       PracticeRepo.listPracticeSessions(studentId, 50),
-      (await import('@/shared/db/db')).db.submission.findMany({
+      adminDbQuery('submission', 'findMany', {
         where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } },
         orderBy: { submittedAt: 'desc' },
         take: 50,
@@ -134,19 +135,19 @@ export async function GET(request: NextRequest) {
           submittedAt: true,
           assignment: { select: { title: true, grammarItem: true, difficulty: true, questionCount: true } },
         },
-      }),
+      }) as Promise<Array<{id: string; score: number | null; submittedAt: Date | null; assignment: {title: string; grammarItem: string | null; difficulty: string | null; questionCount: number}}>>,
     ]);
 
     // 排除 source='assignment' 的 practiceSession，避免與下方 assignmentSessions 重複
     const filteredSessions = sessions.filter(s => s.source !== 'assignment');
 
-    const assignmentSessions = submissions.map(submission => {
+    const assignmentSessions: Array<{id: string; skill: string; skillZh: string; difficulty: string; totalQuestions: number; correctCount: number; source: string; startedAt: Date | null; completedAt: Date | null; answers: never[]}> = submissions.map(submission => {
       const totalQuestions = submission.assignment.questionCount;
       return {
         id: `assignment-${submission.id}`,
         skill: submission.assignment.grammarItem || 'assignment',
         skillZh: submission.assignment.title,
-        difficulty: submission.assignment.difficulty,
+        difficulty: submission.assignment.difficulty || 'core',
         totalQuestions,
         correctCount: Math.round(((submission.score || 0) / 100) * totalQuestions),
         source: 'assignment',

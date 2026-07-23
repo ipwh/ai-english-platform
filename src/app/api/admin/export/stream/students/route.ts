@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: GET /api/admin/export/stream/students
 // Streaming CSV export for large datasets
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await (await import('@/shared/db/db')).db.user.findMany({
+      const batch = await adminDbQuery('user', 'findMany', {
         where,
         select: {
           id: true, nameZh: true, nameEn: true, email: true,

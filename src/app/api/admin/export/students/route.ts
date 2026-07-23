@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/admin/export/students
 // 匯出完整學生資料（含進度、準確率、練習次數）
@@ -8,6 +9,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { logger } from '@/shared/logger/logger';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
@@ -32,7 +34,7 @@ async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized:
   try {
     const session = await auth();
     if (session?.user?.id) {
-      const user = await (await import('@/shared/db/db')).db.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+      const user = await adminDbQuery('user', 'findUnique', { where: { id: session.user.id }, select: { role: true } }) as {role: string} | null;
       if (user && (user.role === 'teacher' || user.role === 'admin')) {
         return { authorized: true, userId: session.user.id };
       }
@@ -61,7 +63,18 @@ export async function GET(request: NextRequest) {
     if (academicYear) where.academicYear = academicYear;
     if (className) where.class = { name: className };
 
-    const students = await (await import('@/shared/db/db')).db.user.findMany({
+    type StudentExportRow = {
+      id: string; email: string; nameZh: string | null; nameEn: string | null;
+      level: string | null; classNumber: number | null;
+      class: {name: string; gradeLevel: string; academicYear: string | null} | null;
+      overallAccuracy: number | null; streakDays: number;
+      academicYear: string | null; joinedAt: Date | null;
+      _count: {sessions: number; mistakes: number; vocabItems: number; submissions: number};
+      sessions: Array<{totalQuestions: number; correctCount: number}>;
+      submissions: Array<{score: number | null; assignment: {questionCount: number}}>;
+    };
+
+    const students = await adminDbQuery('user', 'findMany', {
       where,
       select: {
         id: true,
@@ -87,7 +100,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: [{ level: 'asc' }, { class: { name: 'asc' } }, { classNumber: 'asc' }],
-    });
+    }) as StudentExportRow[];
 
     // 計算每位學生的練習總次數與總題數
     const enriched = students.map(s => {

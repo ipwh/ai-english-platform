@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: GET /api/notifications/sse — Server-Sent Events stream
 // Real-time notification push replacing polling
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       where.createdAt = { gt: new Date(since) };
     }
 
-    const notifications = await (await import('@/shared/db/db')).db.notification.findMany({
+    const notifications = await adminDbQuery('notification', 'findMany', {
       where,
       select: {
         id: true, type: true, title: true, message: true,
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
       take: 20,
     });
 
-    const unreadCount = await (await import('@/shared/db/db')).db.notification.count({
+    const unreadCount = await adminDbQuery('notification', 'count', {
       where: { userId: authResult.userId, read: false },
     });
 
@@ -64,7 +65,7 @@ export async function PATCH(request: NextRequest) {
     const { id, markAllRead } = body;
 
     if (markAllRead) {
-      await (await import('@/shared/db/db')).db.notification.updateMany({
+      await adminDbQuery('notification', 'updateMany', {
         where: { userId: authResult.userId, read: false },
         data: { read: true },
       });
@@ -72,7 +73,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (id) {
-      await (await import('@/shared/db/db')).db.notification.update({
+      await adminDbQuery('notification', 'update', {
         where: { id },
         data: { read: true },
       });

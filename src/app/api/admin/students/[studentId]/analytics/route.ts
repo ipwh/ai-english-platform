@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/admin/students/[studentId]/analytics
 // 學生個人分析聚合數據（供管理員及教師使用）
@@ -22,7 +23,7 @@ export async function GET(
     const { studentId } = await params;
 
     // ---- 學生基本資料 ----
-    const student = await (await import('@/shared/db/db')).db.user.findUnique({
+    const student = await adminDbQuery('user', 'findUnique', {
       where: { id: studentId },
       select: {
         id: true,
@@ -51,7 +52,7 @@ export async function GET(
           },
         },
       },
-    });
+    }) as {id: string; email: string; nameZh: string | null; nameEn: string | null; role: string; level: string | null; classNumber: number | null; overallAccuracy: number | null; streakDays: number; xp: number; academicYear: string | null; badgeIds: string | null; createdAt: Date; class: {id: string; name: string; gradeLevel: string; academicYear: string | null} | null; _count: {sessions: number; mistakes: number; vocabItems: number; submissions: number; writingDrafts: number; listeningSessions: number; spellingSessions: number}} | null;
 
     if (!student || student.role !== 'student') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
@@ -81,7 +82,7 @@ export async function GET(
     // NOTE: 排除 source='assignment' 的 practiceSession，避免與 submission 重複
     // 放寬 completedAt 條件：優先取已完成，但也包含未標記完成的記錄
     const [recentSessions, recentSubmissions] = await Promise.all([
-      (await import('@/shared/db/db')).db.practiceSession.findMany({
+      adminDbQuery('practiceSession', 'findMany', {
         where: {
           studentId,
           source: { not: 'assignment' },
@@ -99,8 +100,8 @@ export async function GET(
           completedAt: true,
           source: true,
         },
-      }),
-      (await import('@/shared/db/db')).db.submission.findMany({
+      }) as Promise<Array<{id: string; skill: string; skillZh: string | null; difficulty: string | null; totalQuestions: number; correctCount: number; startedAt: Date; completedAt: Date | null; source: string}>>,
+      adminDbQuery('submission', 'findMany', {
         where: { studentId, submittedAt: { not: null } },
         orderBy: { submittedAt: 'desc' },
         take: 15,
@@ -115,7 +116,7 @@ export async function GET(
             select: { title: true, grammarItem: true, difficulty: true, questionCount: true },
           },
         },
-      }),
+      }) as Promise<Array<{id: string; assignmentId: string | null; score: number | null; status: string; submittedAt: Date | null; answers: string; assignment: {title: string; grammarItem: string | null; difficulty: string | null; questionCount: number} | null}>>,
     ]);
 
     // 合併練習記錄 + 任務提交，按完成時間排序，去重
@@ -128,8 +129,8 @@ export async function GET(
         id: s.id,
         type: 'practice' as const,
         skill: s.skill,
-        skillZh: s.skillZh,
-        difficulty: s.difficulty,
+        skillZh: s.skillZh || '',
+        difficulty: s.difficulty || 'core',
         totalQuestions: s.totalQuestions,
         correctCount: s.correctCount,
         accuracy: s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0,
@@ -178,7 +179,7 @@ export async function GET(
       .slice(0, 15);
 
     // 3. 最近錯題（去重：同一 questionId 只保留最新一筆）
-    const rawMistakes = await (await import('@/shared/db/db')).db.mistake.findMany({
+    const rawMistakes = await adminDbQuery('mistake', 'findMany', {
       where: { studentId },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -191,7 +192,7 @@ export async function GET(
         mistakeType: true,
         createdAt: true,
       },
-    });
+    }) as Array<{id: string; questionId: string | null; questionSummary: string; studentAnswer: string | null; correctAnswer: string | null; mistakeType: string; createdAt: Date}>;
 
     // 依 questionSummary 去重（同一題目文字只保留最新一筆）
     const seenSummaries = new Set<string>();
@@ -203,14 +204,14 @@ export async function GET(
     }).slice(0, 10);
 
     // 4. 詞彙概覽
-    const vocabStats = await (await import('@/shared/db/db')).db.vocabItem.groupBy({
+    const vocabStats = await adminDbQuery('vocabItem', 'groupBy', {
       by: ['familiarity'],
       where: { studentId },
       _count: { id: true },
-    });
+    }) as Array<{familiarity: number | null; _count: {id: number}}>;
 
     // 5. 寫作提交概覽
-    const writingStats = await (await import('@/shared/db/db')).db.writingDraft.findMany({
+    const writingStats = await adminDbQuery('writingDraft', 'findMany', {
       where: { studentId },
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -221,10 +222,10 @@ export async function GET(
         teacherComment: true,
         createdAt: true,
       },
-    });
+    }) as Array<{id: string; draft: string; revisedVersion: string | null; teacherComment: string | null; createdAt: Date}>;
 
     // 6. 每週快照數據 (Weekly snapshots)
-    const weeklySnapshots = await (await import('@/shared/db/db')).db.weeklySnapshot.findMany({
+    const weeklySnapshots = await adminDbQuery('weeklySnapshot', 'findMany', {
       where: { userId: studentId },
       orderBy: { weekStart: 'asc' },
       take: 24,
@@ -236,22 +237,22 @@ export async function GET(
         sessionsCount: true,
         xpGained: true,
       },
-    });
+    }) as Array<{weekStart: Date; totalQuestions: number; correctCount: number; accuracy: number | null; sessionsCount: number; xpGained: number}>;
 
     // 7. 總練習統計（按技能分類）
-    const sessionStatsBySkill = await (await import('@/shared/db/db')).db.practiceSession.groupBy({
+    const sessionStatsBySkill = await adminDbQuery('practiceSession', 'groupBy', {
       by: ['skill'],
       where: { studentId },
       _sum: { totalQuestions: true, correctCount: true },
       _count: { id: true },
-    });
+    }) as Array<{skill: string; _sum: {totalQuestions: number | null; correctCount: number | null}; _count: {id: number}}>;
 
     // 8. HKDSE 診斷結果
-    const diagnosticResults = await (await import('@/shared/db/db')).db.diagnosticResult.findMany({
+    const diagnosticResults = await adminDbQuery('diagnosticResult', 'findMany', {
       where: { studentId },
       orderBy: { completedAt: 'desc' },
       select: { skill: true, skillZh: true, accuracy: true, weakAreas: true },
-    });
+    }) as Array<{skill: string; skillZh: string | null; accuracy: number | null; weakAreas: string | null}>;
 
     return NextResponse.json({
       student: {
@@ -266,7 +267,7 @@ export async function GET(
         xp: student.xp,
         academicYear: student.academicYear,
         badgeIds: (() => {
-          try { return JSON.parse(student.badgeIds); } catch { return []; }
+          try { return JSON.parse(student.badgeIds ?? '[]'); } catch { return []; }
         })(),
         createdAt: student.createdAt,
         class: student.class,
@@ -301,7 +302,7 @@ export async function GET(
       })),
       diagnosticResults: diagnosticResults.map(d => {
         let parsedWeakAreas: string[] = [];
-        try { parsedWeakAreas = JSON.parse(d.weakAreas); } catch { /* keep empty */ }
+        try { parsedWeakAreas = JSON.parse(d.weakAreas ?? '[]'); } catch { /* keep empty */ }
         return {
           skill: d.skill,
           skillZh: d.skillZh,

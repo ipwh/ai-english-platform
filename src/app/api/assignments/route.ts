@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: /api/assignments — 課業 CRUD
 // ============================================
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
       where.className = authResult.userId;
     }
 
-    const assignments = await (await import('@/shared/db/db')).db.assignment.findMany({
+    const assignments = await adminDbQuery('assignment', 'findMany', {
       where,
       include: { _count: { select: { submissions: true } } },
       orderBy: { createdAt: 'desc' },
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     // 驗證教師權限 — use authResult.userId instead of body.createdBy
     if (resolvedTargetType === 'class' && resolvedClassName) {
-      const teacherClass = await (await import('@/shared/db/db')).db.teacherClass.findFirst({
+      const teacherClass = await adminDbQuery('teacherClass', 'findFirst', {
         where: { teacherId: authResult.userId, class: { name: resolvedClassName } },
       });
       if (!teacherClass) {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const assignment = await (await import('@/shared/db/db')).db.assignment.create({
+    const assignment = await adminDbQuery('assignment', 'create', {
       data: {
         title,
         description,
@@ -123,10 +124,10 @@ export async function POST(request: NextRequest) {
       notifyAssignmentCreated(title, resolvedClassName, classId || null, assignment.id);
     } else if (resolvedTargetType === 'group' && groupIds?.length) {
       // 通知組別內所有學生
-      const groupMembers = await (await import('@/shared/db/db')).db.groupMember.findMany({
+      const groupMembers = await adminDbQuery('groupMember', 'findMany', {
         where: { groupId: { in: groupIds } },
         select: { studentId: true },
-      });
+      }) as Array<{studentId: string}>;
       const { createBulkNotifications } = await import('@/shared/utils/notifications');
       await createBulkNotifications(
         groupMembers.map(m => m.studentId),

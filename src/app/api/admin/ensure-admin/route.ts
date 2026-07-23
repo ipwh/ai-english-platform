@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // POST /api/admin/ensure-admin — 確保管理員帳號存在
 // ⚠️ 僅供開發/初始化使用，生產環境自動禁用
@@ -29,14 +30,14 @@ export async function POST(_request?: NextRequest) {
   try {
     const adminEmail = process.env.ADMIN_EMAIL || 'ipwh@pochiu.edu.hk';
 
-    const existing = await (await import('@/shared/db/db')).db.user.findUnique({
+    const existing = await adminDbQuery('user', 'findUnique', {
       where: { email: adminEmail },
       select: { id: true, role: true },
     });
 
     if (existing) {
       // 確保 role 為 admin，並更新密碼
-      await (await import('@/shared/db/db')).db.user.update({
+      await adminDbQuery('user', 'update', {
         where: { email: adminEmail },
         data: {
           role: 'admin',
@@ -51,7 +52,7 @@ export async function POST(_request?: NextRequest) {
     }
 
     // 建立 admin 帳號
-    await (await import('@/shared/db/db')).db.user.create({
+    await adminDbQuery('user', 'create', {
       data: {
         email: adminEmail,
         passwordHash: hashPasswordSync(adminPassword),

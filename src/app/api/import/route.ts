@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // CSV/Excel 批量導入 API — 教師與學生資料
 // POST /api/import
@@ -9,7 +10,7 @@ import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { parseCSV } from '@/shared/utils/import-utils';
 import { bulkImportStudents, bulkImportTeachers } from '@/modules/admin/services/import-service';
-import { getBulkDb } from '@/shared/db/db';
+import { adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
 
 // ---- CSV 格式定義 ----
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (dryRun) {
-          const exists = await (await import('@/shared/db/db')).db.user.findUnique({ where: { email: importRow.email } });
+          const exists = await adminDbQuery('user', 'findUnique', { where: { email: importRow.email } });
           results.details.push({
             email: importRow.email,
             nameZh: importRow.nameZh,

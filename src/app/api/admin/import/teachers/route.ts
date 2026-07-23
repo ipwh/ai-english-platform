@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // POST /api/admin/import/teachers
 // 批量匯入教師資料 — 單一 transaction，高效批次處理
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Dry run: batch check
     if (dryRun) {
       const existingEmails = new Set(
-        (await (await import('@/shared/db/db')).db.user.findMany({ where: { email: { in: allEmails } }, select: { email: true } })).map(u => u.email)
+        (await adminDbQuery('user', 'findMany', { where: { email: { in: allEmails } }, select: { email: true } }) as Array<{email: string}>).map(u => u.email)
       );
       for (const { rowNum, data } of validRows) {
         const exists = existingEmails.has(data.email);
@@ -70,10 +71,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Phase 2: Batch upsert — 每批獨立 commit，避免 Vercel timeout
-    const existingUsers = await (await import('@/shared/db/db')).db.user.findMany({
+    const existingUsers = await adminDbQuery('user', 'findMany', {
       where: { email: { in: allEmails } },
       select: { id: true, email: true, role: true },
-    });
+    }) as Array<{id: string; email: string; role: string}>;
     const existingMap = new Map(existingUsers.map(u => [u.email, u]));
     const defaultPwHash = hashPasswordSync('teacher123');
     const BATCH_SIZE = 50;
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
 
         if (existing) {
           batchOps.push(
-            (await import('@/shared/db/db')).db.user.update({ where: { email: data.email }, data: userData }).then(() => {
+            adminDbQuery('user', 'update', { where: { email: data.email }, data: userData }).then(() => {
               result.updated++;
               result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'updated' });
             }).catch((err: Error) => {
@@ -115,13 +116,13 @@ export async function POST(request: NextRequest) {
           );
         } else {
           batchOps.push(
-            (await import('@/shared/db/db')).db.user.create({ data: { id: data.teacherId, ...userData } }).then(() => {
+            adminDbQuery('user', 'create', { data: { id: data.teacherId, ...userData } }).then(() => {
               result.success++;
               result.details.push({ row: rowNum, teacherId: data.teacherId, email: data.email, nameZh: data.nameZh, status: 'created' });
             }).catch(async (createErr: Error) => {
               if (createErr.message.includes('Unique constraint')) {
                 try {
-                  await (await import('@/shared/db/db')).db.user.create({ data: userData });
+                  await adminDbQuery('user', 'create', { data: userData });
                   result.success++;
                   result.details.push({ row: rowNum, teacherId: '(auto)', email: data.email, nameZh: data.nameZh, status: 'created' });
                 } catch (retryErr: unknown) {

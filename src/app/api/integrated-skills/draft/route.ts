@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: /api/integrated-skills/draft — 儲存與載入 Integrated Skills 草稿
 // GET:  載入草稿
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const userId = authResult.userId!;
   try {
 
-    const draft = await (await import('@/shared/db/db')).db.integratedSkillsDraft.findUnique({
+    const draft = await adminDbQuery('integratedSkillsDraft', 'findUnique', {
       where: { userId },
       select: {
         studentNotes: true,

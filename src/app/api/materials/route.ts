@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET/POST /api/materials — 教材列表與上傳
 // ============================================
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const material = await (await import('@/shared/db/db')).db.material.create({
+      const material = await adminDbQuery('material', 'create', {
         data: {
           title: file.name,
           type: ext,

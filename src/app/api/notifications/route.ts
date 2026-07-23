@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/notifications — 使用者通知列表
 // POST /api/notifications — 建立通知（系統內部用）
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // 標記全部已讀
     if (body.markAllRead) {
-      await (await import('@/shared/db/db')).db.notification.updateMany({
+      await adminDbQuery('notification', 'updateMany', {
         where: { userId, read: false },
         data: { read: true },
       });
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // 標記單一通知已讀
     if (body.notificationId) {
-      await (await import('@/shared/db/db')).db.notification.update({
+      await adminDbQuery('notification', 'update', {
         where: { id: body.notificationId, userId },
         data: { read: true },
       });
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // 建立新通知（由前端直接呼叫，如成就解鎖）
     if (body.type && body.title && body.message) {
-      const notification = await (await import('@/shared/db/db')).db.notification.create({
+      const notification = await adminDbQuery('notification', 'create', {
         data: {
           userId: body.userId || userId,
           type: body.type,

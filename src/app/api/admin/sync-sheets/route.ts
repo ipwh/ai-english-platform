@@ -20,7 +20,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/shared/db/db';
+import { adminDbDirect as db } from '@/modules/admin/services/admin-operations';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';

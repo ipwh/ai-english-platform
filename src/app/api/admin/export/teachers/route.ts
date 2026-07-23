@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/admin/export/teachers
 // 匯出完整教師資料
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const format = searchParams.get('format') || 'json';
 
     // ---- 查詢所有教師 ----
-    const teachers = await (await import('@/shared/db/db')).db.user.findMany({
+    const teachers = await adminDbQuery('user', 'findMany', {
       where: { role: 'teacher' },
       select: {
         id: true,
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       orderBy: { nameEn: 'asc' },
     });
 
-    const enriched = teachers.map(t => {
+    const enriched = (teachers as Array<{id: string; email: string; nameZh: string | null; nameEn: string | null; subjects: string | null; department: string | null; joinedAt: Date | null; taughtClasses: Array<{isFormTeacher: boolean; class: {name: string}}>; _count: {assignments: number; uploadedMaterials: number}}>).map(t => {
       const classes = t.taughtClasses.map(tc => tc.class.name);
       const formClass = t.taughtClasses.find(tc => tc.isFormTeacher)?.class.name || '';
 

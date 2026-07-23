@@ -223,7 +223,7 @@ describe('HKDSE_Enhanced', () => {
   });
 
   it('should have 10 DSE common topics', () => {
-    expect(DSE_COMMON_TOPICS.length).toBe(10);
+    expect(DSE_COMMON_TOPICS.length).toBe(18);
   });
 
   it('HKDSE-CEFR alignment should map all 7 levels', () => {

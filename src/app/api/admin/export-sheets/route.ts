@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // POST /api/admin/export-sheets — 匯出統計數據到 Google Sheets
 //
@@ -43,32 +44,32 @@ export async function POST(request: NextRequest) {
     // === 收集統計數據 ===
 
     // 1. 各班平均準確率
-    const classStats = await (await import('@/shared/db/db')).db.user.groupBy({
+    const classStats = await adminDbQuery('user', 'groupBy', {
       by: ['classId'],
       where: { role: 'student', classId: { not: null }, overallAccuracy: { not: null } },
       _avg: { overallAccuracy: true },
       _count: true,
-    });
+    }) as Array<{classId: string | null; _avg: {overallAccuracy: number | null}; _count: number}>;
 
-    const allClasses = await (await import('@/shared/db/db')).db.class.findMany({ select: { id: true, name: true } });
+    const allClasses = await adminDbQuery('class', 'findMany', { select: { id: true, name: true } }) as Array<{id: string; name: string}>;
     const classMap = new Map(allClasses.map(c => [c.id, c.name]));
 
     // 2. 各年級統計
-    const levelStats = await (await import('@/shared/db/db')).db.user.groupBy({
+    const levelStats = await adminDbQuery('user', 'groupBy', {
       by: ['level'],
       where: { role: 'student', level: { not: null }, overallAccuracy: { not: null } },
       _avg: { overallAccuracy: true },
       _count: true,
-    });
+    }) as Array<{level: string | null; _avg: {overallAccuracy: number | null}; _count: number}>;
 
     // 3. 最近練習活躍度（過去 30 天的 submissions）
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentSubmissions = await (await import('@/shared/db/db')).db.submission.count({
+    const recentSubmissions = await adminDbQuery('submission', 'count', {
       where: { createdAt: { gte: thirtyDaysAgo } },
     });
 
     // 4. 總學生數
-    const totalStudents = await (await import('@/shared/db/db')).db.user.count({ where: { role: 'student' } });
+    const totalStudents = await adminDbQuery('user', 'count', { where: { role: 'student' } });
 
     // === 認證並寫入 Google Sheets ===
     const credentials = JSON.parse(getServiceAccountCredentials());
@@ -189,7 +190,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch individual student data
-    const students = await (await import('@/shared/db/db')).db.user.findMany({
+    const students = await adminDbQuery('user', 'findMany', {
       where: { role: 'student', overallAccuracy: { not: null } },
       select: {
         id: true, email: true, nameZh: true, nameEn: true, level: true,
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
         _count: { select: { sessions: true, mistakes: true, vocabItems: true } },
       },
       orderBy: [{ class: { name: 'asc' } }, { classNumber: 'asc' }],
-    });
+    }) as Array<{class: {name: string; gradeLevel: string} | null; classNumber: number | null; nameZh: string | null; nameEn: string | null; level: string | null; overallAccuracy: number | null; streakDays: number; _count: {sessions: number; mistakes: number; vocabItems: number}}>;
 
     const studentRows = [
       [`=== 學生個人成績 ===`],

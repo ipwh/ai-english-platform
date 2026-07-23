@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // POST /api/admin/fix-classes — 一鍵修復所有學生班級關聯
 // 支援兩種模式：
@@ -56,12 +57,12 @@ export async function POST(request: NextRequest) {
     logger.info({ module: 'fix-classes', forceRedistribute, targetLevels: targetLevels.join(',') || 'all' }, 'Starting fix-classes');
 
     // Step 1: Ensure standard classes exist
-    const existingClasses = await (await import('@/shared/db/db')).db.class.findMany();
+    const existingClasses = await adminDbQuery('class', 'findMany', {}) as Array<{id: string; name: string; gradeLevel: string}>;
     const existingNames = new Set(existingClasses.map(c => c.name));
     let createdClasses = 0;
     for (const cls of STANDARD_CLASSES) {
       if (!existingNames.has(cls.name)) {
-        await (await import('@/shared/db/db')).db.class.create({ data: cls });
+        await adminDbQuery('class', 'create', { data: cls });
         createdClasses++;
       }
     }
@@ -69,11 +70,11 @@ export async function POST(request: NextRequest) {
     // Step 2: Ensure Demo class exists
     let demoClass = existingClasses.find(c => c.name === DEMO_CLASS_NAME);
     if (!demoClass) {
-      demoClass = await (await import('@/shared/db/db')).db.class.create({ data: { name: DEMO_CLASS_NAME, gradeLevel: 'Demo' } });
+      demoClass = await adminDbQuery('class', 'create', { data: { name: DEMO_CLASS_NAME, gradeLevel: 'Demo' } }) as {id: string; name: string; gradeLevel: string};
     }
 
     // Step 3: Move all @school.hk students to Demo class
-    const demosMoved = await (await import('@/shared/db/db')).db.user.updateMany({
+    const demosMoved = await adminDbQuery('user', 'updateMany', {
       where: { role: 'student', email: { contains: '@school.hk' } },
       data: { classId: demoClass.id, level: 'Demo' },
     });
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       if (targetLevels.length > 0) {
         clearWhere.level = { in: targetLevels };
       }
-      const cleared = await (await import('@/shared/db/db')).db.user.updateMany({
+      const cleared = await adminDbQuery('user', 'updateMany', {
         where: clearWhere,
         data: { classId: null },
       });
@@ -98,11 +99,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Reload classes
-    const allClasses = await (await import('@/shared/db/db')).db.class.findMany();
+    const allClasses = await adminDbQuery('class', 'findMany', {}) as Array<{id: string; name: string; gradeLevel: string}>;
 
     // === 輔助函數：將指定 level 的 classId=null 學生 round-robin 分配 ===
     async function redistributeLevel(level: string, classes: { id: string; name: string }[]): Promise<number> {
-      const students = await (await import('@/shared/db/db')).db.user.findMany({
+      const students = await adminDbQuery('user', 'findMany', {
         where: {
           role: 'student',
           level,
@@ -111,9 +112,9 @@ export async function POST(request: NextRequest) {
         },
         select: { id: true },
         orderBy: { classNumber: 'asc' },
-      });
+      }) as Array<{id: string}>;
       for (let i = 0; i < students.length; i++) {
-        await (await import('@/shared/db/db')).db.user.update({
+        await adminDbQuery('user', 'update', {
           where: { id: students[i].id },
           data: { classId: classes[i % classes.length].id },
         });
@@ -137,10 +138,10 @@ export async function POST(request: NextRequest) {
       classByLevel.get(c.gradeLevel)!.push({ id: c.id, name: c.name });
     }
 
-    const unassigned = await (await import('@/shared/db/db')).db.user.findMany({
+    const unassigned = await adminDbQuery('user', 'findMany', {
       where: { role: 'student', classId: null, email: { not: { contains: '@school.hk' } } },
       select: { id: true, email: true, level: true },
-    });
+    }) as Array<{id: string; email: string; level: string | null}>;
 
     let assigned = 0, skipped = 0;
     const levelIdx = new Map<string, number>();
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       const classes = classByLevel.get(level);
       if (classes && classes.length > 0) {
         const idx = levelIdx.get(level) || 0;
-        await (await import('@/shared/db/db')).db.user.update({ where: { id: s.id }, data: { classId: classes[idx % classes.length].id } });
+        await adminDbQuery('user', 'update', { where: { id: s.id }, data: { classId: classes[idx % classes.length].id } });
         levelIdx.set(level, idx + 1);
         assigned++;
       } else {
@@ -160,12 +161,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Final stats
-    const remaining = await (await import('@/shared/db/db')).db.user.count({ where: { role: 'student', classId: null } });
-    const distribution = await (await import('@/shared/db/db')).db.user.groupBy({
+    const remaining = await adminDbQuery('user', 'count', { where: { role: 'student', classId: null } });
+    const distribution = await adminDbQuery('user', 'groupBy', {
       by: ['classId'],
       where: { role: 'student', classId: { not: null } },
       _count: true,
-    });
+    }) as Array<{classId: string | null; _count: number}>;
     const classDist: Record<string, number> = {};
     for (const d of distribution) {
       const cls = allClasses.find(c => c.id === d.classId);

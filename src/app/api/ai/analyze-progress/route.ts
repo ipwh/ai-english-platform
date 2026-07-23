@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API Route: POST /api/ai/analyze-progress
 // 分析學生學習進度 — 從 DB 讀取真實歷史數據
@@ -45,24 +46,24 @@ export async function POST(request: NextRequest) {
       try {
         // 從 DB 讀取學生真實數據
         const [user, sessions, mistakes, vocabItems] = await Promise.all([
-          (await import('@/shared/db/db')).db.user.findUnique({
+          adminDbQuery('user', 'findUnique', {
             where: { id: studentId },
             select: { level: true, overallAccuracy: true, streakDays: true },
-          }),
-          (await import('@/shared/db/db')).db.practiceSession.findMany({
+          }) as Promise<{level: string | null; overallAccuracy: number | null; streakDays: number} | null>,
+          adminDbQuery('practiceSession', 'findMany', {
             where: { studentId },
             orderBy: { startedAt: 'desc' },
             take: 30,
             select: { skillZh: true, totalQuestions: true, correctCount: true, startedAt: true },
-          }),
-          (await import('@/shared/db/db')).db.mistake.findMany({
+          }) as Promise<Array<{skillZh: string | null; totalQuestions: number; correctCount: number; startedAt: Date}>>,
+          adminDbQuery('mistake', 'findMany', {
             where: { studentId },
             select: { mistakeType: true },
-          }),
-          (await import('@/shared/db/db')).db.vocabItem.findMany({
+          }) as Promise<Array<{mistakeType: string}>>,
+          adminDbQuery('vocabItem', 'findMany', {
             where: { studentId },
             select: { familiarity: true },
-          }),
+          }) as Promise<Array<{familiarity: number | null}>>,
         ]);
 
         if (user) {

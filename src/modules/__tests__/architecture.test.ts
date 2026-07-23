@@ -326,14 +326,10 @@ describe('v5: Route Layer Enforcement', () => {
   collectRoutes(routesDir);
 
   it('No API route imports Prisma or db directly', () => {
-    const ALLOWED_ADMIN = ['admin/import/students/', 'admin/sync-sheets/', 'api/import/'];
     for (const rf of allRouteFiles) {
       const content = readFileSync(rf, 'utf-8');
       if (content.includes("from '@/shared/db/db'") || content.includes('new PrismaClient')) {
-        const normalized = rf.replace(/\\/g, '/');
-        if (!ALLOWED_ADMIN.some(a => normalized.includes(a))) {
-          expect.fail(`Route imports db/Prisma directly: ${rf}`);
-        }
+        expect.fail(`Route imports db/Prisma directly: ${rf}`);
       }
     }
     expect(true).toBe(true);

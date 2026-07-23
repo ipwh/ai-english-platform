@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: /api/mistakes — 錯題記錄
 // P1: Migrated to MistakeRepo
@@ -125,8 +126,7 @@ export async function PATCH(request: NextRequest) {
       const action = inReviewList === true ? 'addToReviewList'
         : inReviewList === false ? 'removeFromReviewList'
         : 'reviewed';
-      const { db } = await import('@/shared/db/db');
-      await (await import('@/shared/db/db')).db.mistakeReviewLog.create({
+      await adminDbQuery('mistakeReviewLog', 'create', {
         data: {
           mistakeId: id,
           studentId: mistake.studentId,

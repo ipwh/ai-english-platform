@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: GET /api/parent-report — 家長報告（雙語）
 // Generates a simple printable HTML report for parents
@@ -23,29 +24,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = (await import('@/shared/db/db')).default;
-
     const [student, sessions, mistakes, vocab] = await Promise.all([
-      (await import('@/shared/db/db')).db.user.findUnique({
+      adminDbQuery('user', 'findUnique', {
         where: { id: studentId },
         select: {
           nameZh: true, nameEn: true, level: true, overallAccuracy: true,
           xp: true, streakDays: true, class: { select: { name: true, gradeLevel: true } },
         },
-      }),
-      (await import('@/shared/db/db')).db.practiceSession.findMany({
+      }) as Promise<{nameZh: string | null; nameEn: string | null; level: string | null; overallAccuracy: number | null; xp: number; streakDays: number; class: {name: string; gradeLevel: string} | null} | null>,
+      adminDbQuery('practiceSession', 'findMany', {
         where: { studentId },
         orderBy: { startedAt: 'desc' },
         take: 30,
         select: { skillZh: true, totalQuestions: true, correctCount: true, startedAt: true },
-      }),
-      (await import('@/shared/db/db')).db.mistake.findMany({
+      }) as Promise<Array<{skillZh: string | null; totalQuestions: number; correctCount: number; startedAt: Date}>>,
+      adminDbQuery('mistake', 'findMany', {
         where: { studentId },
         orderBy: { createdAt: 'desc' },
         take: 50,
         select: { mistakeType: true, createdAt: true },
-      }),
-      (await import('@/shared/db/db')).db.vocabItem.count({ where: { studentId } }),
+      }) as Promise<Array<{mistakeType: string; createdAt: Date}>>,
+      adminDbQuery('vocabItem', 'count', { where: { studentId } }) as Promise<number>,
     ]);
 
     if (!student) {

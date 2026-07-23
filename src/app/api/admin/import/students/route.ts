@@ -16,7 +16,7 @@ import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { syncStudentsToSheet } from '@/shared/google/sheets-sync';
 import { findExistingUsers, findExistingClasses, bulkImportStudents } from '@/modules/admin/services/import-service';
-import { db } from '@/shared/db/db';
+import { adminDb as db, adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       where: { name: { in: uniqueClassNames } },
       select: { id: true, name: true },
     });
-    const classMap = new Map(existingClasses.map(c => [c.name, c.id]));
+    const classMap = new Map(existingClasses.map((c: any) => [c.name, c.id]));
 
     for (const name of uniqueClassNames) {
       if (!classMap.has(name)) {
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       where: { email: { in: allEmails } },
       select: { id: true, email: true, role: true },
     });
-    const existingUserMap = new Map(existingUsers.map(u => [u.email, u]));
+    const existingUserMap = new Map(existingUsers.map((u: any) => [u.email, u]));
 
     // ---- Phase 5: 分批寫入（每批獨立 commit，避免 Vercel 10s timeout）----
     const BATCH_SIZE = 50;
@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
         const classId = classMap.get(data.className);
 
         // 跨角色衝突檢查
-        if (existing && existing.role !== 'student') {
-          const roleLabel = existing.role === 'teacher' ? '教師' : '管理員';
+        if (existing && (existing as any).role !== 'student') {
+          const roleLabel = (existing as any).role === 'teacher' ? '教師' : '管理員';
           result.failed++;
           result.errors.push(`第 ${rowNum} 列 (${data.email}): email 已被${roleLabel}使用`);
           result.details.push({ row: rowNum, email: data.email, nameZh: data.nameZh, status: 'error', reason: `email 已被${roleLabel}使用` });

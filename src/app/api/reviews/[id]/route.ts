@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // PATCH /api/reviews/[id] — 教師覆核提交
 // ============================================
@@ -58,14 +59,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    await (await import('@/shared/db/db')).db.submission.update({
+    await adminDbQuery('submission', 'update', {
       where: { id },
       data: updateData,
     });
 
     // 記錄到 Review 表
     if (body.teacherFeedback || body.teacherScore !== undefined) {
-      const submission = await (await import('@/shared/db/db')).db.submission.findUnique({
+      const submission = await adminDbQuery('submission', 'findUnique', {
         where: { id },
         select: {
           studentId: true,
@@ -91,7 +92,7 @@ export async function PATCH(
           }
         } catch { /* keep defaults */ }
 
-        await (await import('@/shared/db/db')).db.review.create({
+        await adminDbQuery('review', 'create', {
           data: {
             studentId: submission.studentId,
             teacherId: userId,

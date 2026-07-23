@@ -1,3 +1,4 @@
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // POST /api/diagnostic — 儲存診斷測驗結果
 // GET  /api/diagnostic?studentId=... — 讀取歷史診斷
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
         if (!masterySkill) continue;
         // Initialize mastery with the diagnostic accuracy as the baseline score
         // and a single practice entry to bootstrap the system
-        await (await import('@/shared/db/db')).db.studentMastery.upsert({
+        await adminDbQuery('studentMastery', 'upsert', {
           where: { studentId_skill_subSkill: { studentId, skill: masterySkill, subSkill: r.skill } },
           create: {
             studentId,
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '無權限查看其他用戶的診斷結果' }, { status: 403 });
     }
 
-    const results = await (await import('@/shared/db/db')).db.diagnosticResult.findMany({
+    const results = await adminDbQuery('diagnosticResult', 'findMany', {
       where: { studentId },
       orderBy: { completedAt: 'desc' },
       take: 20,
