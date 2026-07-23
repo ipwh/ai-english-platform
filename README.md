@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md) | [DEEP_AUDIT.md](docs/DEEP_AUDIT_2026-07-20.md)
-> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 97%** | **v4.3.3**
+> **Status**: 40 Sprints ✅ | 51 test files | 1,100+ tests | Build: ✅ | **Deployment Readiness: 97%** | **v4.3.4**
 
 ## 🏗️ Architecture Overview
 
@@ -53,7 +53,7 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 - **📝 生字簿 2.1 強化** — API 分頁支援（`page`/`limit`/`search`/`familiarity`/`pos`/`sort`）、`/api/vocabulary/suggest` 練習自動建議生字、`/api/vocabulary/example` 專用例句生成、`/api/vocabulary/quiz` 互動式詞彙測驗（MCQ + 配對題）、VocabCard 策略提示根據掌握度動態推導
 - **✏️ 串字練習 (Spelling Practice)** — 看中文意思及英文例句提示，自行輸入正確英文單詞；支援 4 種選字模式（最新/隨機/最弱/到期）、即時批改、錯誤重試、SRS 掌握度自動更新；完成後顯示成績及逐字結果回顧（`SpellingSession` + `SpellingAttempt` DB 模型）
 - **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕
-- **AI 求助助手** — 讀取學生弱項、近期錯題與表現後，對照 HKDSE 各卷別等級描述提供個人化英文學習建議；回答後可一鍵生成相關練習題目，即時練習改進
+- **AI 求助助手** — 🆕 **個人化求助與建議 v2**：讀取學生練習紀錄、錯題數據及連續學習天數後，自動計算**建議信心度**（0-100 分，四維度加權）；AI 對照 HKDSE 各卷別等級描述提供**具體量化**的個人化英文學習建議（含改善目標及時間表）；**弱項驅動 FAQ 動態排序**（文法/詞彙/寫作/閱讀分類按相關性自動排列，弱項類別標記 🔴 優先關注）；**AI 建議問題**（根據弱項自動生成 2-3 條建議提問，一鍵發問）；**個人化 FAQ**（從 AI 分析結果生成針對性 Q&A，附具體量化改善步驟）；**數據不足提示**（練習少於 3 次或作答少於 30 題時顯示基本英語提升建議，提示多用平台累積數據）；回答後可一鍵生成相關練習題目，即時練習改進
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、12 款成就徽章（連續學習、正確率、練習量、寫作、詞彙）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
@@ -127,15 +127,18 @@ Learning Pipeline: Student → Mastery → Mistakes → Knowledge Graph → Reco
 5. 頁面提供「立即開始弱項訓練」按鈕，會自動帶入推薦技能、難度、題型與年級到 `/student/practice`
 6. 練習頁收到診斷推薦參數後，直接為學生生成對應弱項訓練題組
 
-### AI 求助助手
+### AI 求助助手 v2
 
-`/student/help` 不再只是靜態 FAQ：
+`/student/help` 已全面升級，不再只是靜態 FAQ + AI 問答：
 
-- 先用學生自己的 `practice sessions`、`mistakes`、`level`、`streakDays` 建立個人化學習上下文
-- 自動生成個人化建議卡片與急需改善項目
-- 學生輸入問題後，系統會把問題連同弱項、近期錯題與近期表現送到 `/api/ai/study-help`
-- AI 回答會附帶後續建議（follow-up tips）與建議聚焦主題（recommended focus）
-- **🆕 即時練習生成**：AI 回答後，點擊「生成相關練習題」按鈕，系統根據學生問題自動生成 3 道相關練習題（MCQ），包含答案與解釋；亦可一鍵跳轉至完整練習模式
+- **建議信心度系統**：根據練習次數（30 分）、總作答題數（30 分）、技能覆蓋數（20 分）、連續使用天數（20 分）四維度計算 0-100 分信心度，分為高/中/低/不足四級
+- **數據不足智能提示**：當練習次數 < 3 或作答 < 30 題時，自動顯示基本英語提升建議（每日閱讀、每週寫作、錯題溫習、沉浸式學習），引導學生多用平台累積數據
+- **弱項驅動 FAQ 排序**：靜態 FAQ 四大分類按學生弱項相關性自動排序，相關分類標記 🔴 優先關注標籤
+- **AI 建議問題**：根據弱項自動生成 2-3 條建議提問（chip 形式），點擊即自動填入
+- **個人化 FAQ 生成**：AI 分析後自動生成 2-3 條針對性 Q&A，附具體量化改善目標及時間表
+- **個人化建議卡片**：先用學生自己的 `practice sessions`、`mistakes`、`level`、`streakDays` 建立學習上下文，自動生成個人化建議與急需改善項目
+- **AI 問答**：學生輸入問題後，系統把問題連同弱項、近期錯題與近期表現送到 `/api/ai/study-help`，AI 回答附帶後續建議（follow-up tips）與建議聚焦主題（recommended focus）
+- **即時練習生成**：AI 回答後，點擊「生成相關練習題」按鈕，系統根據學生問題自動生成 3 道相關練習題（MCQ），包含答案與解釋；亦可一鍵跳轉至完整練習模式
 
 ## 🚀 生產部署 Checklist
 

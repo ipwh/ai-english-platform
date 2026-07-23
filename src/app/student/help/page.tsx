@@ -3,17 +3,12 @@
 // ============================================
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Lightbulb, BookOpen, MessageCircle, ChevronRight, ChevronDown, ThumbsUp, Sparkles, Send, Loader2, Target, Play, ArrowRight } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
 import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
-
-interface QAItem {
-  q: string;
-  a: string;
-}
 
 interface StudentProfile {
   id: string;
@@ -24,6 +19,66 @@ interface StudentProfile {
 
 function getStudentLevel(profile: StudentProfile | null): string {
   return profile?.level || profile?.class?.gradeLevel || 'S4';
+}
+
+/** 計算建議信心度（0-100）及數據豐富度 */
+function calculateConfidence(
+  totalSessions: number,
+  totalQuestions: number,
+  totalMistakes: number,
+  skillCount: number,
+  streakDays: number
+): { score: number; level: 'high' | 'medium' | 'low' | 'insufficient'; totalQuestions: number; totalSessions: number; totalMistakes: number; skillCount: number } {
+  // Sessions: max 30 points (at 30+ sessions)
+  const sessionScore = Math.min(30, Math.round((totalSessions / 30) * 30));
+  // Questions: max 30 points (at 300+ questions)
+  const questionScore = Math.min(30, Math.round((totalQuestions / 300) * 30));
+  // Skills covered: max 20 points (5 per skill, max 4 skills)
+  const skillScore = Math.min(20, skillCount * 5);
+  // Streak: max 20 points (at 30+ days)
+  const streakScore = Math.min(20, Math.round((streakDays / 30) * 20));
+  
+  const score = sessionScore + questionScore + skillScore + streakScore;
+  
+  let level: 'high' | 'medium' | 'low' | 'insufficient';
+  if (totalSessions < 3 || totalQuestions < 30) {
+    level = 'insufficient';
+  } else if (score >= 60) {
+    level = 'high';
+  } else if (score >= 30) {
+    level = 'medium';
+  } else {
+    level = 'low';
+  }
+
+  return { score, level, totalQuestions, totalSessions, totalMistakes, skillCount };
+}
+
+/** 根據弱項類別判斷 FAQ 分類的相關性分數（越高越相關） */
+function getCategoryRelevanceScore(
+  catTitleKey: string,
+  weakSkills: WeakSkill[]
+): number {
+  const categorySkillMap: Record<string, string[]> = {
+    'help.catGrammar': ['grammar', '文法', 'tenses', 'conditional', 'sentence'],
+    'help.catVocab': ['vocabulary', 'vocab', '詞彙', '單詞', 'phrasal', 'collocation'],
+    'help.catWriting': ['writing', '寫作', '作文', 'essay', 'chinglish'],
+    'help.catReading': ['reading', '閱讀', 'comprehension', '理解'],
+  };
+
+  const keywords = categorySkillMap[catTitleKey] || [];
+  let score = 0;
+  for (const skill of weakSkills) {
+    const nameLower = skill.name.toLowerCase();
+    for (const kw of keywords) {
+      if (nameLower.includes(kw)) {
+        // 準確率越低，相關性分數越高（因為越需要關注）
+        score += Math.round((100 - skill.accuracy) / 10);
+        break;
+      }
+    }
+  }
+  return score;
 }
 
 const helpCategories: { titleKey: string; icon: React.ElementType; items: { qKey: string; aKey: string }[]; color: string }[] = [
@@ -90,6 +145,13 @@ export default function StudentHelpPage() {
   const [adviceSummary, setAdviceSummary] = useState('');
   const [adviceUrgent, setAdviceUrgent] = useState<string[]>([]);
   const [adviceLoading, setAdviceLoading] = useState(true);
+
+  // === 信心度 & 數據豐富度 ===
+  const [confidence, setConfidence] = useState<ReturnType<typeof calculateConfidence> | null>(null);
+  const [hasInsufficientData, setHasInsufficientData] = useState(false);
+
+  // === 個人化 FAQ ===
+  const [personalizedFaqItems, setPersonalizedFaqItems] = useState<{ q: string; a: string; skill: string; icon: string }[]>([]);
 
   // === AI 問答狀態 ===
   const [aiQuestion, setAiQuestion] = useState('');
@@ -189,6 +251,24 @@ export default function StudentHelpPage() {
         setRecentPerformance(derivedRecentPerformance);
         setRecentMistakes(mistakes.slice(0, 5));
 
+        // 計算信心度 & 數據豐富度
+        const totalSessions = sessions.length;
+        const totalQuestions = sessions.reduce((sum, s) => sum + (s.totalQuestions || 0), 0);
+        const totalMistakes = mistakes.length;
+        const skillCount = derivedWeakSkills.filter(w => w.accuracy > 0).length;
+        const confResult = calculateConfidence(totalSessions, totalQuestions, totalMistakes, skillCount, profile.streakDays ?? 0);
+        setConfidence(confResult);
+
+        // 判斷數據是否不足（少於 3 次練習 或 少於 30 題）
+        if (totalSessions < 3 || totalQuestions < 30) {
+          setHasInsufficientData(true);
+          if (cancelled) return;
+          setAdviceSummary(t('help.insufficientDataTitle'));
+          setAdviceLoading(false);
+          return; // 數據不足時不呼叫 AI，直接顯示基本建議
+        }
+        setHasInsufficientData(false);
+
         const analysisRes = await fetch('/api/ai/analyze-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -205,15 +285,89 @@ export default function StudentHelpPage() {
         if (!analysisRes.ok || !analysisJson.analysis) throw new Error(analysisJson.error || '無法取得個人化建議');
 
         if (cancelled) return;
-        setAdviceSummary(analysisJson.analysis.summary || '');
-        setAdviceUrgent(analysisJson.analysis.urgentAreas || []);
+        const analysis = analysisJson.analysis;
+        setAdviceSummary(analysis.summary || '');
+        setAdviceUrgent(analysis.urgentAreas || []);
         setAdviceCards(
-          (analysisJson.analysis.recommendedFocus || []).slice(0, 4).map((focus: { skill: string; reason: string; priority: string }, index: number) => ({
-            title: `${focus.skill}${focus.priority === 'high' ? '（優先）' : ''}`,
+          (analysis.recommendedFocus || []).slice(0, 4).map((focus: { skill: string; reason: string; priority: string }, index: number) => ({
+            title: `${focus.skill}${focus.priority === 'high' ? ` ${t('help.priority')}` : ''}`,
             desc: focus.reason,
             icon: ['🎯', '📘', '🧠', '🚀'][index] || '💡',
           }))
         );
+
+        // 從 AI 分析結果生成個人化 FAQ 項目
+        const faqItems: { q: string; a: string; skill: string; icon: string }[] = [];
+        
+        // 根據 urgentAreas 生成針對性問題
+        const urgentAreas = analysis.urgentAreas || [];
+        const recommendedFocus = analysis.recommendedFocus || [];
+        const studyPlan = analysis.studyPlan || '';
+        
+        for (const area of urgentAreas.slice(0, 2)) {
+          const areaLower = area.toLowerCase();
+          if (areaLower.includes('grammar') || areaLower.includes('文法')) {
+            faqItems.push({
+              q: `如何針對性改善${area}？`,
+              a: studyPlan || `建議：1) 每日做 10 題文法練習，聚焦${area}相關題型；2) 每題錯後必須查看詳解並記錄錯題；3) 每週重溫一次錯題庫；4) 兩週後自我檢測是否進步。`,
+              skill: 'grammar',
+              icon: '📝',
+            });
+          } else if (areaLower.includes('reading') || areaLower.includes('閱讀') || areaLower.includes('comprehension')) {
+            faqItems.push({
+              q: `如何提升${area}嘅成績？`,
+              a: studyPlan || `建議：1) 每日閱讀一篇英文文章（15 分鐘），練習略讀及掃讀技巧；2) 每週做 1 篇 DSE 閱讀模擬，記錄時間及正確率；3) 先看題目再讀文章，每題限時 1.5 分鐘；4) 持續四週後檢視進步幅度。`,
+              skill: 'reading',
+              icon: '📖',
+            });
+          } else if (areaLower.includes('vocab') || areaLower.includes('詞彙')) {
+            faqItems.push({
+              q: `如何有效擴充${area}？`,
+              a: studyPlan || `建議：1) 每日學習 5-10 個新詞彙，連同例句及 collocations 一齊記；2) 使用平台的詞彙學習功能，啟用間隔重溫（SRS）；3) 每週做一次詞彙測驗自檢；4) 嘗試在寫作中主動使用新詞彙。`,
+              skill: 'vocabulary',
+              icon: '📚',
+            });
+          } else if (areaLower.includes('writing') || areaLower.includes('寫作') || areaLower.includes('作文')) {
+            faqItems.push({
+              q: `點樣系統性提升${area}能力？`,
+              a: studyPlan || `建議：1) 每週寫一篇 200-300 字英文短文，使用平台 AI 批改；2) 學習 PEEL 段落結構（Point→Example→Explanation→Link）；3) 每次批改後針對 AI 建議修改，記錄常見錯誤；4) 每月比較前後作文，量化進步。`,
+              skill: 'writing',
+              icon: '✍️',
+            });
+          }
+        }
+
+        // 補充 recommendedFocus 中 priority=high 的項目
+        for (const focus of recommendedFocus) {
+          if (focus.priority === 'high' && faqItems.length < 3) {
+            const alreadyCovered = faqItems.some(f => 
+              f.skill.toLowerCase().includes(focus.skill.toLowerCase()) ||
+              focus.skill.toLowerCase().includes(f.skill.toLowerCase())
+            );
+            if (!alreadyCovered) {
+              faqItems.push({
+                q: `${focus.skill}方面應該點樣針對性練習？`,
+                a: focus.reason,
+                skill: focus.skill.toLowerCase(),
+                icon: '🎯',
+              });
+            }
+          }
+        }
+
+        // 若仍不足 2 條，從 weakSkills 生成
+        if (faqItems.length < 2 && derivedWeakSkills.length > 0) {
+          const topWeak = derivedWeakSkills[0];
+          const skillIcons: Record<string, string> = { grammar: '📝', vocabulary: '📚', reading: '📖', writing: '✍️' };
+          faqItems.push({
+            q: `我嘅${topWeak.nameZh}準確率只有 ${topWeak.accuracy}%，應該點改善？`,
+            a: `你嘅${topWeak.nameZh}目前準確率為 ${topWeak.accuracy}%，屬於薄弱環節。建議：1) 每日針對${topWeak.nameZh}做 10-15 題練習；2) 每題錯後記錄錯誤類型及原因；3) 每週末重溫該週所有${topWeak.nameZh}錯題；4) 目標：兩週內將準確率提升至 70% 以上。`,
+            skill: topWeak.name,
+            icon: skillIcons[topWeak.name] || '💡',
+          });
+        }
+
+        setPersonalizedFaqItems(faqItems);
       } catch {
         if (!cancelled) {
           setAdviceSummary(t('help.fallbackAdvice'));
@@ -227,6 +381,39 @@ export default function StudentHelpPage() {
     loadPersonalizedAdvice();
     return () => { cancelled = true; };
   }, []);
+
+  // === 根據弱項動態排序 FAQ 分類 ===
+  const sortedCategories = useMemo(() => {
+    if (weakSkills.length === 0) return helpCategories.map(cat => ({ ...cat, relevanceScore: 0, isPriority: false }));
+    return helpCategories.map(cat => {
+      const relevanceScore = getCategoryRelevanceScore(cat.titleKey, weakSkills);
+      // 分數 > 0 表示該類別與弱項相關
+      return { ...cat, relevanceScore, isPriority: relevanceScore > 0 };
+    }).sort((a, b) => b.relevanceScore - a.relevanceScore);
+  }, [weakSkills]);
+
+  // === 根據弱項生成建議問題 ===
+  const suggestedQuestions = useMemo(() => {
+    const suggestions: string[] = [];
+    for (const skill of weakSkills.slice(0, 3)) {
+      const name = skill.name.toLowerCase();
+      const nameZh = skill.nameZh;
+      if ((name.includes('grammar') || name.includes('文法')) && skill.accuracy < 70) {
+        suggestions.push(`${nameZh}成日錯，點樣系統性改善？`);
+      }
+      if ((name.includes('reading') || name.includes('閱讀')) && skill.accuracy < 70) {
+        suggestions.push(`做閱讀理解時間唔夠，有咩技巧可以加快？`);
+      }
+      if ((name.includes('vocab') || name.includes('詞彙')) && skill.accuracy < 70) {
+        suggestions.push(`點樣可以有效記住更多英文生字？`);
+      }
+      if ((name.includes('writing') || name.includes('寫作')) && skill.accuracy < 70) {
+        suggestions.push(`點樣避免 Chinglish，寫出更地道嘅英文？`);
+      }
+    }
+    // Deduplicate
+    return [...new Set(suggestions)].slice(0, 3);
+  }, [weakSkills]);
 
   const handleAskAI = async () => {
     if (!aiQuestion.trim()) return;
@@ -295,6 +482,21 @@ export default function StudentHelpPage() {
         </div>
         {aiError && (
           <p className="mt-3 text-sm text-red-500">{aiError}</p>
+        )}
+        {/* 根據弱項建議問題 */}
+        {suggestedQuestions.length > 0 && !aiAnswer && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400">{t('help.suggestedQuestionsLabel')}</span>
+            {suggestedQuestions.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => { setAiQuestion(q); }}
+                className="px-3 py-1.5 text-xs bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full border border-teal-200 dark:border-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         )}
         {aiAnswer && (
           <div className="mt-3 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -461,7 +663,51 @@ export default function StudentHelpPage() {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-yellow-500" /> {t('help.aiAdvice')}
         </h2>
-        {adviceSummary && (
+
+        {/* 數據不足時顯示提示及基本建議 */}
+        {hasInsufficientData && (
+          <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-5 border border-amber-200 dark:border-amber-700">
+            <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400 mb-2 text-sm">
+              <span className="text-lg">📊</span> {t('help.insufficientDataTitle')}
+            </div>
+            <p className="text-sm text-amber-600 dark:text-amber-300 mb-3">{t('help.insufficientDataDesc')}</p>
+            <ul className="space-y-2 text-sm text-amber-700 dark:text-amber-300">
+              <li>{t('help.insufficientDataAction1')}</li>
+              <li>{t('help.insufficientDataAction2')}</li>
+              <li>{t('help.insufficientDataAction3')}</li>
+              <li>{t('help.insufficientDataAction4')}</li>
+            </ul>
+            {confidence && (
+              <div className="mt-4 pt-3 border-t border-amber-200 dark:border-amber-700 flex items-center gap-2 text-xs text-amber-500">
+                <span>{t('help.confidenceLabel')}：</span>
+                <span className="font-medium">{confidence.score}/100 — {t('help.confidenceInsufficient')}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 數據不足時顯示基本建議 */}
+        {hasInsufficientData && (
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('help.basicAdviceTitle')}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { icon: '📖', text: t('help.basicAdvice1') },
+                { icon: '✍️', text: t('help.basicAdvice2') },
+                { icon: '🔄', text: t('help.basicAdvice3') },
+                { icon: '🎧', text: t('help.basicAdvice4') },
+              ].map((item, i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex gap-3">
+                  <span className="text-2xl">{item.icon}</span>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 有足夠數據時顯示 AI 分析 */}
+        {!hasInsufficientData && adviceSummary && (
           <div className="mb-3 bg-teal-50 dark:bg-teal-900/20 rounded-xl p-4 text-sm text-gray-700 dark:text-gray-300">
             <div className="flex items-center gap-2 font-medium text-teal-700 dark:text-teal-400 mb-1">
               <Target className="w-4 h-4" /> {t('help.personalizedAnalysis')}
@@ -470,6 +716,27 @@ export default function StudentHelpPage() {
             {adviceUrgent.length > 0 && (
               <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
                 {t('help.priorityImprove')}{adviceUrgent.join('、')}
+              </div>
+            )}
+            {/* 信心度顯示 */}
+            {confidence && (
+              <div className="mt-3 pt-2 border-t border-teal-200 dark:border-teal-700 flex items-center gap-2 text-xs">
+                <span className="text-teal-600 dark:text-teal-400 font-medium">{t('help.confidenceLabel')}：</span>
+                <span className={`font-semibold ${
+                  confidence.level === 'high' ? 'text-green-600' :
+                  confidence.level === 'medium' ? 'text-yellow-600' :
+                  'text-orange-500'
+                }`}>
+                  {confidence.score}/100 — {
+                    confidence.level === 'high' ? t('help.confidenceHigh') :
+                    confidence.level === 'medium' ? t('help.confidenceMedium') :
+                    t('help.confidenceLow')
+                  }
+                </span>
+                <span className="text-gray-400">|</span>
+                <span className="text-gray-500">
+                  {t('help.dataPoints', { sessions: confidence.totalSessions, questions: confidence.totalQuestions, mistakes: confidence.totalMistakes })}
+                </span>
               </div>
             )}
           </div>
@@ -487,19 +754,67 @@ export default function StudentHelpPage() {
         </div>
       </section>
 
-      {/* 常見學習困難（可展開答案） */}
+      {/* 常見學習困難（可展開答案）— 已按弱項動態排序 */}
       <section>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
           <MessageCircle className="w-5 h-5 text-teal-500" /> {t('help.commonQuestions')}
         </h2>
+
+        {/* 個人化 FAQ — 基於 AI 分析生成 */}
+        {personalizedFaqItems.length > 0 && (
+          <div className="mb-5">
+            <h3 className="text-sm font-medium text-teal-700 dark:text-teal-400 mb-3 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" /> {t('help.personalizedFaqTitle')}
+            </h3>
+            <div className="space-y-2">
+              {personalizedFaqItems.map((item, i) => {
+                const key = `personalized-${i}`;
+                const isOpen = expanded === key;
+                return (
+                  <div key={i} className="bg-gradient-to-r from-teal-50 to-teal-50/50 dark:from-teal-900/20 dark:to-teal-900/10 rounded-xl border border-teal-200 dark:border-teal-700 overflow-hidden">
+                    <button
+                      onClick={() => setExpanded(isOpen ? null : key)}
+                      className="w-full flex items-center gap-2 p-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-teal-100/50 dark:hover:bg-teal-800/20 transition-colors text-left"
+                    >
+                      <span className="text-lg">{item.icon}</span>
+                      <span className="flex-1 font-medium">{item.q}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800 text-teal-600 dark:text-teal-400">個人化</span>
+                      {isOpen ? <ChevronDown className="w-4 h-4 flex-shrink-0 text-teal-500" /> : <ChevronRight className="w-4 h-4 flex-shrink-0" />}
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 py-3 mx-2 mb-2 bg-white/80 dark:bg-gray-800/80 rounded-lg text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 排序提示 */}
+        {weakSkills.length > 0 && !hasInsufficientData && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('help.faqSortNotice')}</p>
+        )}
+
         <div className="space-y-3">
-          {helpCategories.map((cat, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          {sortedCategories.map((cat, i) => {
+            const showPriority = cat.isPriority && !hasInsufficientData;
+            return (
+            <div key={i} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-colors ${
+              showPriority ? 'border-amber-300 dark:border-amber-600 ring-1 ring-amber-200 dark:ring-amber-800' : 'border-gray-100 dark:border-gray-700'
+            }`}>
               <div className="p-4 flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cat.color}`}>
                   <cat.icon className="w-5 h-5" />
                 </div>
                 <h3 className="font-medium text-gray-900 dark:text-white">{t(cat.titleKey)}</h3>
+                {showPriority && (
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 font-medium">
+                    {t('help.priorityTag')}
+                  </span>
+                )}
               </div>
               <div className="px-4 pb-4 space-y-1">
                 {cat.items.map((item, j) => {
@@ -524,7 +839,8 @@ export default function StudentHelpPage() {
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

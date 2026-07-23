@@ -4,6 +4,80 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-23 — Help & Advice v2: Personalized FAQ, Confidence Scoring & i18n Fixes ★★★★
+
+### 🎯 Help & Advice Page — Full Personalization Overhaul
+
+The `/student/help` page has been completely reimagined from a static FAQ+AI Q&A page into a **data-driven, personalized learning advisor**:
+
+#### 🧠 Recommendation Confidence Score (New)
+- **4-dimension weighted scoring** (0-100): Sessions (30pts) + Questions (30pts) + Skill Coverage (20pts) + Streak Days (20pts)
+- **4 confidence levels**: High (≥60) / Medium (30-59) / Low (<30) / Insufficient (<3 sessions or <30 questions)
+- Displayed inline with data point counts (e.g. "基於 12 次練習、245 題作答、18 個錯題紀錄")
+- Color-coded: green (high) / yellow (medium) / orange (low)
+
+#### 📊 Insufficient Data Handling (New)
+- **Auto-detection**: When sessions < 3 OR total questions < 30, AI analysis is **skipped entirely** (save API costs)
+- **Amber warning banner**: Explains why personalized analysis isn't available yet
+- **4 actionable steps**: Complete 3+ practices, use vocabulary feature, submit an essay, use consistently for 1 week
+- **4 basic English improvement tips**: Daily reading, weekly writing, mistake review, immersive learning — shown as fallback cards
+
+#### 🔄 Dynamic FAQ Sorting (P1)
+- FAQ categories (Grammar/Vocab/Writing/Reading) now **auto-sorted by relevance** to student's weak skills
+- Relevance formula: $\sum \frac{100 - \text{skillAccuracy}}{10}$ per matching category
+- Priority categories get **amber border + 🔴 優先關注 badge**
+- Sort notice displayed: "(以下 FAQ 已按你的弱項自動排序)"
+
+#### 💬 AI Suggested Questions (P2)
+- 2-3 **personalized question chips** appear below the AI input box
+- Generated from weak skills (only when accuracy < 70%)
+- Click to auto-fill and submit — one-tap Q&A
+- Deduplicated, max 3 suggestions
+
+#### 🎯 Personalized FAQ Generation (P3)
+- After AI progress analysis, **2-3 personalized Q&A items** are auto-generated
+- Each item includes **specific, quantifiable improvement targets** (e.g. "目標：兩週內將準確率提升至 70% 以上")
+- Tagged with `個人化` badge, visually distinct from static FAQ
+- Generated from `urgentAreas` + `recommendedFocus` (priority=high) + `weakSkills` fallback
+- Personalized items shown **above** static FAQ section
+
+### 🐛 i18n Bug Fixes (3 raw-key displays fixed)
+
+Three i18n keys were missing from `i18n-common.ts`, causing raw key strings to render in the UI:
+
+| Raw Key Displayed | Root Cause | Fix |
+|---|---|---|
+| `help.aiIntro` | Key did not exist | Added zh+en translation for AI intro description |
+| `help.faq.reading.a1` | Key did not exist (q1 had no answer) | Added detailed reading time management tips (4 strategies) |
+| `help.advice.understand.desc` | Only `.title` existed, `.desc` was missing | Added description: "Don't memorize grammar rules blindly..." |
+
+### 🌐 New i18n Keys (22 added)
+- Confidence: `help.confidenceLabel`, `help.confidenceHigh/Medium/Low/Insufficient`, `help.dataPoints`
+- Insufficient data: `help.insufficientDataTitle/Desc`, `help.insufficientDataAction1-4`
+- Basic advice: `help.basicAdviceTitle`, `help.basicAdvice1-4`
+- Suggested questions: `help.suggestedQuestionsLabel`
+- FAQ personalization: `help.priorityTag`, `help.personalizedFaqTitle`, `help.faqSortNotice`
+
+### 📁 Files Changed (2 files)
+- `src/app/student/help/page.tsx` — Full rewrite: +2 utility functions (`calculateConfidence`, `getCategoryRelevanceScore`), +3 state variables, +2 `useMemo` hooks, redesigned Section 1 (suggested questions), Section 2 (confidence + insufficient data), Section 3 (sorted FAQ + personalized FAQ)
+- `src/shared/utils/i18n-common.ts` — +25 new translation keys (3 bug fixes + 22 new feature keys)
+
+### 📊 Architecture
+```
+Page Load
+  ├── GET /api/auth/profile → studentId, level, streakDays
+  ├── GET /api/practice + /api/mistakes → buildWeakSkills()
+  ├── calculateConfidence(sessions, questions, mistakes, skills, streak)
+  │     └── score < threshold? → show insufficient data UI (skip AI call)
+  └── POST /api/ai/analyze-progress → AI analysis
+        ├── confidence badge + data points
+        ├── sorted FAQ categories (useMemo)
+        ├── suggested questions (useMemo)
+        └── personalized FAQ items generation
+```
+
+---
+
 ## 2026-07-22 (night v2) — Difficulty Selector Standardization Across All Modules ★★★
 
 ### 🎯 UI/UX — Difficulty & Grade Consistency
