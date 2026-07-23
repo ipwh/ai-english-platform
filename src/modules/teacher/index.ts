@@ -11,3 +11,9 @@ export type {
   RiskPrediction, LearningSuggestion, LearningGap, AIReport,
   TeacherDashboardInput,
 } from '@/modules/teacher-analytics/types';
+
+// Sprint 66: Teacher Decision Support
+export { teacherDecisionEngine, TeacherDecisionEngine } from './decisions/TeacherDecisionEngine';
+export type {
+  TeacherDecision, ClassLearningSnapshot, StudentCluster, ClassAnalysis as TeacherClassAnalysis,
+} from './decisions/TeacherDecision';
