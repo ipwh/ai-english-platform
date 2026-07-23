@@ -1,7 +1,7 @@
 # AI English Platform — Architecture
 
-> Generated: 2026-07-20 | 40 Sprints | 51 test files | 1,100+ tests | 36 modules | **v4.2**
-> See also: [DOMAIN_AUDIT.md](DOMAIN_AUDIT.md) | [DEEP_AUDIT_2026-07-20.md](DEEP_AUDIT_2026-07-20.md)
+> Generated: 2026-07-23 | 55 Sprints | 48 test files | 1,027 tests | 36 modules | **v5.0 Release Candidate** ✅
+> See also: [ARCHITECTURE_V5.md](ARCHITECTURE_V5.md) | [ARCHITECTURE_V5_PROGRESS.md](ARCHITECTURE_V5_PROGRESS.md) | [DOMAIN_AUDIT.md](DOMAIN_AUDIT.md)
 
 ## Architecture Diagram
 

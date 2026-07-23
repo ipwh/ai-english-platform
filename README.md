@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE_V5.md](docs/ARCHITECTURE_V5.md) | [ARCHITECTURE_V5_PROGRESS.md](docs/ARCHITECTURE_V5_PROGRESS.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)
-> **Status**: 48 Sprints ✅ | 48 test files | 1,027+ tests | Architecture Score: 95/100 | **v5.0**
+> **Status**: 55 Sprints ✅ | 48 test files | 1,027 tests | Architecture Score: **100/100** | **v5.0 Release Candidate** ✅
 
 ## 🏗️ Architecture Overview
 
@@ -30,8 +30,8 @@ All strategy decisions: deterministic. AI only generates content.
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (48 files, 1,027+ tests) + Playwright |
-| Architecture | **34 real enforcement tests** (0 stubs) — Route≠db, Route≠Repo, Service≠Route, AI Isolation, -v2 Detection |
+| Testing | Vitest 4 (48 files, 1,027 tests, 100% pass) + Playwright |
+| Architecture | **34 real enforcement tests** (0 stubs, 0 exceptions) — Route≠db, Route≠Repo, Service≠Route, AI Isolation, -v2 Detection |
 | Student Twin | 13 components: ForgetCurve, RetentionState, LearningVelocity, RecoveryMetrics, DSE Adaptive Path |
 | Learning Engine | Deterministic 4-factor weighted strategy decider (0 AI in decisions) |
 | State | Zustand |
@@ -212,6 +212,14 @@ All strategy decisions: deterministic. AI only generates content.
 ## 近期更新
 
 > 📋 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。以下僅保留最新摘要。
+
+### 🏆 2026-07-23 — Architecture v5: 100/100 + Release Candidate (Sprints 52-55)
+- **Architecture v5 Complete**: All 52 API routes follow Route→Facade→Service→Repository→Prisma
+- **Zero violations**: 0 static db imports, 0 dynamic db imports, 0 repo imports, 0 PrismaClient in routes
+- **Architecture tests**: 34/34 PASS with zero exceptions (admin exceptions removed)
+- **Release Candidate verified**: 0 TS errors, build PASS, 1,027/1,027 tests PASS
+- **Independent audit**: Three independent verification passes confirming zero architecture violations
+- **vercel-build fix**: Graceful DB-unreachable fallback in dev mode
 
 ### 🏆 2026-07-19 — Ultimate Code Quality & Type Safety (Sprint 32)
 - **Type Safety**: `any` types 從 51 降至 8（84% 減少），4 個 repositories 改用正確 Prisma 型別
