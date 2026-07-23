@@ -1,17 +1,15 @@
 // ============================================
 // Gamification API — XP、徽章、排行榜
+// Sprint 61: Delegates to StudentStateMutationService (CQRS write path)
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, buildLeaderboard, type BadgeCheckStats } from '@/modules/progress/services/gamification';
+import { buildLeaderboard } from '@/modules/progress/services/gamification';
 import type { XpEvent } from '@/modules/progress/services/gamification';
-import { findUserByIdSelect, updateUser } from '@/modules/student';
-import { getLeaderboard, createXpTransaction } from '@/modules/student';
-import { listPracticeSessions, countPracticeSessions } from '@/modules/student';
-import { countVocab, getVocabStats } from '@/modules/student';
-import { countDrafts } from '@/modules/student';
+import { getLeaderboard } from '@/modules/student';
+import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
 
 // GET — 取得學生 gamification 狀態
 export async function GET(req: NextRequest) {
@@ -49,76 +47,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ leaderboard });
     }
 
-    // Default: student stats + badges — each query isolated to survive partial schema
-    let student: Record<string, unknown> | null = null;
-    let practiceSessions: { totalQuestions: number }[] = [];
-    let vocabMastered = 0;
-    let writingCount = 0;
-    let sessionsCount = 0;
-
-    try {
-      student = await findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true });
-    } catch {
-      logger.error({ module: 'gamification', studentId }, 'Failed to fetch student with full columns, trying fallback');
-      student = await findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true }).catch(() => null);
-    }
-
-    try {
-      practiceSessions = await listPracticeSessions(studentId, 200);
-    } catch { logger.error({ module: 'gamification', studentId }, 'Failed to fetch practiceSessions'); }
-
-    try { const stats = await getVocabStats(studentId); vocabMastered = stats.mastered; } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count vocabMastered'); }
-    try { writingCount = await countDrafts(studentId); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count writingDraft'); }
-    try { sessionsCount = await countPracticeSessions(studentId); } catch { logger.error({ module: 'gamification', studentId }, 'Failed to count practiceSession'); }
-
-    const totalQuestions = practiceSessions.reduce((sum, s) => sum + s.totalQuestions, 0);
-
-    const stats: BadgeCheckStats = {
-      totalQuestions,
-      overallAccuracy: (student?.overallAccuracy as number) ?? 0,
-      streakDays: (student?.streakDays as number) ?? 0,
-      sessionsCompleted: sessionsCount,
-      wordsMastered: vocabMastered,
-      writingSubmissions: writingCount,
-      diagnosticCompleted: false,
-      skillAccuracy: {},
-    };
-
-    const xp = (student?.xp as number) ?? 0;
-    const levelInfo = getLevelInfo(xp);
-
-    // Parse already-unlocked badge IDs
-    let alreadyUnlocked: string[] = [];
-    try {
-      alreadyUnlocked = student?.badgeIds ? JSON.parse(student.badgeIds as string) : [];
-    } catch { logger.error({ module: 'gamification', studentId }, 'Failed to parse badgeIds JSON'); alreadyUnlocked = []; }
-
-    const allBadges = getAllBadges(stats, alreadyUnlocked);
-
-    // Auto-award newly earned badges
-    const newBadges = checkNewBadges(stats, alreadyUnlocked);
-    if (newBadges.length > 0) {
-      try {
-        const updatedBadgeIds = [...alreadyUnlocked, ...newBadges.map((b: { id: string }) => b.id)];
-        await updateUser(studentId, { badgeIds: JSON.stringify(updatedBadgeIds) });
-      } catch { logger.error({ module: 'gamification', studentId, newBadgeCount: newBadges.length }, 'Failed to persist newly earned badges'); }
-    }
+    // Default: student stats + badges — delegated to mutation service
+    const { allBadges, newBadges } = await studentStateMutationService.checkAndAwardBadges(studentId);
+    const engagement = await studentStateMutationService.getEngagementStats(studentId);
 
     return NextResponse.json({
-      xp,
-      level: levelInfo,
+      xp: engagement.xp,
+      level: { level: engagement.level, title: `Level ${engagement.level}`, titleZh: `第 ${engagement.level} 級` },
       badges: allBadges,
-      stats,
+      stats: engagement.stats,
       newBadges: newBadges.length > 0 ? newBadges : undefined,
     });
   } catch (error) {
     logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification GET failed');
-    // Return a graceful fallback instead of 500
     return NextResponse.json({
       xp: 0,
-      level: getLevelInfo(0),
+      level: { level: 1, title: 'Level 1', titleZh: '第 1 級' },
       badges: [],
-      stats: { totalQuestions: 0, overallAccuracy: 0, streakDays: 0, sessionsCompleted: 0, wordsMastered: 0, writingSubmissions: 0, diagnosticCompleted: false, skillAccuracy: {} },
+      stats: { totalQuestions: 0, totalSessions: 0 },
     });
   }
 }
@@ -147,54 +93,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '只能記錄自己的 XP 事件' }, { status: 403 });
     }
 
-    const xpGained = calculateXp(event);
+    const { xpGained, newLevel } = await studentStateMutationService.awardXp(studentId, event);
 
-    // 持久化 XP + streakDays（每日登入時遞增）
-    const updateData: Record<string, unknown> = { xp: { increment: xpGained } };
-    if (event.type === 'dailyLogin') {
-      updateData.streakDays = { increment: 1 };
-    }
-    await updateUser(studentId, updateData as Record<string, unknown>);
-
-    try {
-      await createXpTransaction({
-        userId: studentId,
-        event: event.type,
-        xpAmount: xpGained,
-        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
-      });
-    } catch { logger.error({ module: 'gamification', studentId, eventType: event.type }, 'XP transaction audit log failed — non-fatal'); }
-
-    const updated = await findUserByIdSelect(studentId, { xp: true, streakDays: true });
-    const levelInfo = getLevelInfo(updated?.xp ?? xpGained);
-
-    // 檢查新徽章
-    let newBadges: { id: string; name: string; nameZh: string; icon: string }[] | undefined;
-    try {
-      const alreadyUnlocked: string[] = [];
-      newBadges = checkNewBadges({
-        totalQuestions: 0, overallAccuracy: 0,
-        streakDays: updated?.streakDays ?? 0,
-        sessionsCompleted: 0, wordsMastered: 0,
-        writingSubmissions: 0, diagnosticCompleted: false,
-        skillAccuracy: {},
-      }, alreadyUnlocked);
-    } catch { logger.error({ module: 'gamification', studentId }, 'Badge check after XP failed — non-fatal'); }
-
-    return NextResponse.json({
-      success: true,
-      xpGained,
-      totalXp: updated?.xp ?? xpGained,
-      level: levelInfo.level,
-      levelTitle: levelInfo.title,
-      xpToNext: levelInfo.xpToNext,
-      streakDays: updated?.streakDays ?? 0,
-      newBadges: newBadges?.length ? newBadges : undefined,
-      event: event.type,
-    });
+    return NextResponse.json({ xpGained, newLevel });
   } catch (error) {
     logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification POST failed');
-    return NextResponse.json({ error: '無法記錄 XP' }, { status: 500 });
+    return NextResponse.json({ error: '記錄 XP 失敗' }, { status: 500 });
   }
 }
 

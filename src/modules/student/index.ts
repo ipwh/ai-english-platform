@@ -79,6 +79,7 @@ export type {
 
 // Sprint 59: Canonical StudentState (ONE source of truth)
 export { studentStateBuilder } from './state/StudentStateBuilder';
+export { studentStateMutationService } from './state/StudentStateMutationService';
 export type { StudentState, StudentIdentity, StudentMemory,
   StudentMastery, StudentWeakness, StudentVocabulary,
   StudentEngagement, StudentPracticeSummary } from './state/StudentState';
