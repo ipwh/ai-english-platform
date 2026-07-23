@@ -6,7 +6,7 @@ const meta: Meta<typeof Toast> = {
   component: Toast,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],
-  decorators: [(Story) => <ToastProvider><Story /></ToastProvider>],
+  decorators: [(Story: React.FC) => <ToastProvider><Story /></ToastProvider>],
 };
 
 export default meta;

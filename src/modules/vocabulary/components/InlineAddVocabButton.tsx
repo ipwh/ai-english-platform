@@ -36,13 +36,10 @@ export function useTextSelectionVocab({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSelectionEnd = useCallback((e: MouseEvent | TouchEvent | PointerEvent) => {
-    if (DEV_LOG) console.log('[InlineVocab] handleSelectionEnd', e.type);
-
     // For touch/pointer events, validate there's a selection
     if (e.type === 'touchend' || e.type === 'pointerup') {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        if (DEV_LOG) console.log('[InlineVocab] no selection on', e.type);
         return;
       }
     }
@@ -66,7 +63,7 @@ export function useTextSelectionVocab({
         return;
       }
 
-      if (DEV_LOG) console.log('[InlineVocab] showing popup for:', text);
+      if (DEV_LOG) { /* debug: showing popup */ }
       setSelectedText(text);
       setAdded(false);
 
@@ -82,7 +79,7 @@ export function useTextSelectionVocab({
 
   const handleAddWord = useCallback(async () => {
     if (!selectedText || adding) return;
-    if (DEV_LOG) console.log('[InlineVocab] addWord:', selectedText);
+    if (DEV_LOG) { /* debug: addWord */ }
     setAdding(true);
     try {
       const res = await fetch('/api/vocabulary', {

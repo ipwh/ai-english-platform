@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Build scripts — not application code
     "scripts/**",
+    // Prisma seed — not application code
+    "prisma/seed.ts",
     // E2E test files
     "e2e/**",
     // Virtual env

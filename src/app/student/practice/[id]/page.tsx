@@ -169,7 +169,7 @@ export default function PracticeQuestionPage() {
   const hasSavedRef = useRef(false); // 防止重複 savePractice（完成時設為 true）
   const [sessionComplete, setSessionComplete] = useState(false);
   // 保存 session 快照，因為 completeSession() 會清空 currentSession
-  const completedSessionRef = useRef<typeof store.currentSession>(null);
+  const [completedSession, setCompletedSession] = useState<typeof store.currentSession>(null);
 
   // 失敗鼓勵語（DSE 正向引導）
   const ENCOURAGEMENTS = [
@@ -256,8 +256,8 @@ export default function PracticeQuestionPage() {
   }, [isSessionMode, hasNextSession, sessionIndex, sessionQuestions, question]);
   
   // 練習完成摘要 — 必須在 !question 檢查之前，因為 completeSession() 後 currentSession 為 null
-  if (sessionComplete && (store.currentSession || completedSessionRef.current)) {
-    const displaySession = store.currentSession || completedSessionRef.current!;
+  if (sessionComplete && (store.currentSession || completedSession)) {
+    const displaySession = store.currentSession || completedSession!;
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <SessionCompleteSummary
@@ -385,7 +385,7 @@ export default function PracticeQuestionPage() {
         hasSavedRef.current = true;
         const session = store.currentSession;
         // 保存快照以便 SessionCompleteSummary 使用（completeSession 會清空 currentSession）
-        completedSessionRef.current = { ...session };
+        setCompletedSession({ ...session });
         const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = session;
         const answerRecords = questions.map((q, idx) => ({
           questionIndex: idx,
@@ -409,7 +409,7 @@ export default function PracticeQuestionPage() {
         store.completeSession();
         awardXp('completeSession', difficulty);
       } else if (store.currentSession) {
-        completedSessionRef.current = { ...store.currentSession };
+        setCompletedSession({ ...store.currentSession });
         const sessionDiff = store.currentSession.difficulty;
         store.completeSession();
         awardXp('completeSession', sessionDiff);

@@ -47,12 +47,12 @@ export default function VocabEnabledText({
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
     pointerDownPos.current = { x: e.clientX, y: e.clientY };
     isTapRef.current = true;
-    if (DEV_LOG) console.log('[VocabText] pointerdown', e.pointerType, e.clientX, e.clientY);
+    if (DEV_LOG) { /* debug: pointerdown */ }
   }, []);
 
   // pointerup: trigger selection check with tap distance validation
   const handlePointerUp = useCallback((e: PointerEvent) => {
-    if (DEV_LOG) console.log('[VocabText] pointerup', e.pointerType);
+    if (DEV_LOG) { /* debug: pointerup */ }
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
 
     // Validate tap distance: skip if moved > 10px (was a scroll/drag)
@@ -61,7 +61,7 @@ export default function VocabEnabledText({
       const dx = Math.abs(e.clientX - downPos.x);
       const dy = Math.abs(e.clientY - downPos.y);
       if (dx > 10 || dy > 10) {
-        if (DEV_LOG) console.log('[VocabText] pointerup: moved too much, skipping', dx, dy);
+        if (DEV_LOG) { /* debug: pointerup moved too much */ }
         isTapRef.current = false;
         pointerDownPos.current = null;
         return;

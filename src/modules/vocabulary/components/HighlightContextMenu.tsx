@@ -40,23 +40,18 @@ export function useHighlightAddVocab(
   const showMenuForSelection = useCallback((x: number, y: number) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) {
-      if (DEV_LOG) console.log('[HighlightCM] showMenu: no selection or collapsed');
-      return;
+return;
     }
 
     const text = selection.toString().trim();
     const wordCount = text.split(/\s+/).length;
     if (wordCount > 3) {
-      if (DEV_LOG) console.log('[HighlightCM] showMenu: too many words', wordCount);
-      return;
+return;
     }
     if (!/^[a-zA-Z\s'-]+$/.test(text)) {
-      if (DEV_LOG) console.log('[HighlightCM] showMenu: non-English text', text);
-      return;
+return;
     }
-
-    if (DEV_LOG) console.log('[HighlightCM] showMenu:', text, 'at', x, y);
-    setSelectedWord(text);
+setSelectedWord(text);
     setMenuPos({ x, y });
   }, []);
 
@@ -71,13 +66,11 @@ export function useHighlightAddVocab(
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
     pointerDownPos.current = { x: e.clientX, y: e.clientY };
     touchMoved.current = false;
-    if (DEV_LOG) console.log('[HighlightCM] pointerdown', e.pointerType, e.clientX, e.clientY);
-  }, []);
+}, []);
 
   // pointerup: universal fallback for iPad/Android/Desktop
   const handlePointerUp = useCallback((e: PointerEvent) => {
-    if (DEV_LOG) console.log('[HighlightCM] pointerup', e.pointerType);
-    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
 
     // Validate tap distance: skip if moved > 10px
     const downPos = pointerDownPos.current;
@@ -85,15 +78,13 @@ export function useHighlightAddVocab(
       const dx = Math.abs(e.clientX - downPos.x);
       const dy = Math.abs(e.clientY - downPos.y);
       if (dx > 10 || dy > 10) {
-        if (DEV_LOG) console.log('[HighlightCM] pointerup: moved too much, skipping', dx, dy);
-        pointerDownPos.current = null;
+pointerDownPos.current = null;
         return;
       }
     }
 
     if (touchMoved.current) {
-      if (DEV_LOG) console.log('[HighlightCM] pointerup: touchMoved, skipping');
-      return;
+return;
     }
 
     // Prevent default to avoid double-fire on iPad
@@ -104,8 +95,7 @@ export function useHighlightAddVocab(
     setTimeout(() => {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || !selection.toString().trim()) {
-        if (DEV_LOG) console.log('[HighlightCM] pointerup: no selection after delay');
-        return;
+return;
       }
       showMenuForSelection(e.clientX, e.clientY);
     }, 350);
@@ -125,9 +115,7 @@ export function useHighlightAddVocab(
     if (!pos) return;
 
     // Only fire on short tap (long press fires separately)
-    if (DEV_LOG) console.log('[HighlightCM] touchend', pos.x, pos.y);
-
-    setTimeout(() => {
+setTimeout(() => {
       // Avoid double-fire if pointerup already handled it
       if (menuPos !== null) return;
       const selection = window.getSelection();
@@ -147,8 +135,7 @@ export function useHighlightAddVocab(
     longPressTimer.current = setTimeout(() => {
       const pos = lastTouchPos.current;
       if (pos && !touchMoved.current) {
-        if (DEV_LOG) console.log('[HighlightCM] longPress fired', pos.x, pos.y);
-        showMenuForSelection(pos.x, pos.y);
+showMenuForSelection(pos.x, pos.y);
       }
     }, 600);
   }, [showMenuForSelection]);
@@ -161,8 +148,7 @@ export function useHighlightAddVocab(
       const dy = Math.abs(touch.clientY - startPos.y);
       if (dx > 8 || dy > 8) {
         touchMoved.current = true;
-        if (DEV_LOG) console.log('[HighlightCM] touchMove: moved beyond threshold', dx, dy);
-      }
+}
     }
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);

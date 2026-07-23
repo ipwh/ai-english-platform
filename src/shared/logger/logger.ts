@@ -1,6 +1,7 @@
 // ============================================
 // 結構化日誌系統 — AI English Platform
 // 基於 Pino 的集中式日誌管理，取代分散的 console.log
+/* eslint-disable no-console -- this IS the console wrapper module */
 //
 // 使用方式：
 //   import { logger } from '@/shared/logger/logger';
