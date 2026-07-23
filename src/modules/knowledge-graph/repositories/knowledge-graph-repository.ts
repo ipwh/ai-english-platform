@@ -4,7 +4,7 @@ import type {
   KnowledgeNode, KnowledgeEdge, KnowledgeGraph,
   CEFRLevel, HKDSELevel,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import { getKnowledgeGraph, invalidateGraphCache } from '../services/knowledge-graph';
 
 class KnowledgeGraphRepository {

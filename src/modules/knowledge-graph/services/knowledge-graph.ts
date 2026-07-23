@@ -4,7 +4,7 @@ import type {
   KnowledgeNode, KnowledgeEdge, KnowledgeGraph, GraphMetadata,
   CEFRLevel, HKDSELevel,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import { GRAMMAR_GRAPH } from '@/modules/learning/services/knowledge-graph';
 
 // ============================================

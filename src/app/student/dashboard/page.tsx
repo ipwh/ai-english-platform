@@ -8,7 +8,7 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/shared/utils/utils';
-import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats } from '@/modules/progress/services/gamification';
+import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats } from '@/modules/student/progress/services/gamification';
 import { GamificationSkeleton } from '@/components/shared/Skeleton';
 import OnboardingGuard from '@/components/shared/OnboardingGuard';
 

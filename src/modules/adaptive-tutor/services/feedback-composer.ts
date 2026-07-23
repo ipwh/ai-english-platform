@@ -2,7 +2,7 @@
 import type {
   PersonalizationContext, FeedbackSpec, FeedbackLevel,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // FeedbackComposer

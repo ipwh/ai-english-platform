@@ -1,6 +1,6 @@
 // Sprint 4: Progress Service — aggregated progress, gamification, streaks
-import { calculateStudentStreak } from '@/modules/progress/services/streak-service';
-import { calculateXp, getLevelInfo, getDailyGoal, type XpEvent } from '@/modules/progress/services/gamification';
+import { calculateStudentStreak } from '@/modules/student/progress/services/streak-service';
+import { calculateXp, getLevelInfo, getDailyGoal, type XpEvent } from '@/modules/student/progress/services/gamification';
 import { updateUserXp } from '@/modules/student/repositories/student-repo';
 import { logger } from '@/shared/logger/logger';
 

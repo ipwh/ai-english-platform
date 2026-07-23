@@ -12,7 +12,7 @@ import type {
   KnowledgeNode, TopologicalOrder, DependencyResult,
   LearningPathResult, WeaknessLookupResult, UnlockResult,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 class KnowledgeGraphService {
   private graph = getKnowledgeGraph;

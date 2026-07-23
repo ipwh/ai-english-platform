@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { syncUserStreak } from '@/modules/progress/services/streak-service';
-import { calculateXp } from '@/modules/progress/services/gamification';
+import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
+import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { getTodaysXpTransaction, createXpTransaction } from '@/modules/student';
 import { updateUser } from '@/modules/student';
 
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'studentId required' }, { status: 400 });
   }
 
-  const { streakDays, lastActiveDate } = await import('@/modules/progress/services/streak-service').then(m =>
+  const { streakDays, lastActiveDate } = await import('@/modules/student/progress/services/streak-service').then(m =>
     m.calculateStudentStreak(studentId)
   );
 

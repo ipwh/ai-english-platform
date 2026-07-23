@@ -2,7 +2,7 @@
 // Returns full knowledge graph or filtered view
 import { NextRequest, NextResponse } from 'next/server';
 import { knowledgeGraphService } from '@/modules/knowledge-graph/services/knowledge-graph-service';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {

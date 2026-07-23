@@ -1,7 +1,7 @@
 // Sprint 37: GET /api/student/risk — risk assessment
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
 import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {

@@ -62,7 +62,7 @@ export async function GET(
 
     // 1. 學習掌握度 (Mastery)
     const { getLearningProfile } = await import(
-      '@/modules/student-mastery/services/student-mastery-service'
+      '@/modules/student/mastery/services/student-mastery-service'
     );
     const { buildWeaknessProfile } = await import(
       '@/modules/mistake/intelligence/services/mistake-intelligence-service'

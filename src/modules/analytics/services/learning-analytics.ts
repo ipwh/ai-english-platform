@@ -1,4 +1,4 @@
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 const SKILL_DIMS: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];
 // Sprint 23: Learning Analytics Service — main facade

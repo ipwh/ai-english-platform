@@ -1,15 +1,16 @@
 // Sprint 36: MemoryEngine — orchestrates full memory lifecycle
-import { memoryService, createEmptyMemory } from './memory-service';
-import { memoryRepo } from '../repositories/memory-repository';
+// Sprint 75: Uses IMemoryRepository interface (persistent by default via MemoryDbRepository)
+import { createEmptyMemory } from './memory-service';
 import { generateLearningContext, decayScore } from './memory-scoring';
 import { MemoryProfileGenerator } from './memory-profile';
 import { MemoryInfluenceEngine } from './memory-influence';
+import type { IMemoryRepository } from '../repositories/memory-repository-interface';
 import type {
   LearningMemory, LearningMemoryV2, LearningContext,
   ConfidenceMemory, MotivationMemory, LearningHabitsMemory,
   MemoryProfile, MemoryInfluence, DecayResult, RefreshResult,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // MemoryEngine
@@ -18,27 +19,18 @@ import type { SkillDimension } from '@/modules/profile/types';
 export class MemoryEngine {
   private profileGen = new MemoryProfileGenerator();
   private influenceEngine = new MemoryInfluenceEngine();
+  private repo: IMemoryRepository;
+
+  constructor(repo: IMemoryRepository) {
+    this.repo = repo;
+  }
 
   /** Get or initialize memory for a student */
   async get(studentId: string): Promise<LearningMemoryV2> {
-    let memory = memoryRepo.get(studentId);
-    if (!memory) {
-      try {
-        const { loadMemoryFromDb } = await import('../repositories/memory-db-repository');
-        const db = await loadMemoryFromDb(studentId);
-        if (db) {
-          memory = db as LearningMemoryV2;
-          memoryRepo.save(studentId, memory);
-        }
-      } catch { /* DB unavailable */ }
-    }
+    let memory = await this.repo.get(studentId);
     if (!memory) {
       memory = this.initializeV2(createEmptyMemory(studentId));
-      memoryRepo.save(studentId, memory);
-      try {
-        const { persistMemoryToDb } = await import('../repositories/memory-db-repository');
-        await persistMemoryToDb(studentId, memory);
-      } catch { /* DB unavailable */ }
+      await this.repo.save(studentId, memory);
     }
     return this.ensureV2(memory);
   }
@@ -178,11 +170,7 @@ export class MemoryEngine {
     memory.updatedAt = new Date();
     memory.version++;
 
-    memoryRepo.save(studentId, memory);
-    try {
-      const { persistMemoryToDb } = await import('../repositories/memory-db-repository');
-      await persistMemoryToDb(studentId, memory);
-    } catch { /* DB unavailable — in-memory only */ }
+    await this.repo.save(studentId, memory);
     return memory;
   }
 
@@ -211,11 +199,7 @@ export class MemoryEngine {
     memory.memoryFreshness = newFreshness;
     memory.lastDecayApplied = now.toISOString();
 
-    memoryRepo.save(studentId, memory);
-    try {
-      const { persistMemoryToDb } = await import('../repositories/memory-db-repository');
-      await persistMemoryToDb(studentId, memory);
-    } catch { /* DB unavailable */ }
+    await this.repo.save(studentId, memory);
 
     // Count decayed items
     const decayedItems = memory.grammar.strugglingTopics.length +
@@ -278,11 +262,7 @@ export class MemoryEngine {
     memory.updatedAt = new Date();
     memory.version++;
 
-    memoryRepo.save(studentId, memory);
-    try {
-      const { persistMemoryToDb } = await import('../repositories/memory-db-repository');
-      await persistMemoryToDb(studentId, memory);
-    } catch { /* DB unavailable */ }
+    await this.repo.save(studentId, memory);
 
     return {
       memoryId: studentId,
@@ -353,4 +333,16 @@ export class MemoryEngine {
   }
 }
 
-export const memoryEngine = new MemoryEngine();
+let _memoryEngine: MemoryEngine | null = null;
+
+export const memoryEngine: MemoryEngine = new Proxy({} as MemoryEngine, {
+  get(_, prop) {
+    if (!_memoryEngine) {
+      const { memoryDbRepo } = require('../repositories/memory-db-repository');
+      _memoryEngine = new MemoryEngine(memoryDbRepo);
+    }
+    const target = _memoryEngine as any;
+    const val = target[prop];
+    return typeof val === 'function' ? val.bind(target) : val;
+  },
+});

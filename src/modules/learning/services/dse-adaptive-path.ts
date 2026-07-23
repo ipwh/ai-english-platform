@@ -3,39 +3,17 @@
 // Produces a personalized study sequence optimized for exam performance.
 
 import type { KnowledgeNode } from '@/modules/knowledge-graph/types';
+import { CANONICAL_DSE_WEIGHTS, getCanonicalDSEWeight } from '@/modules/learning/decisions/LearningDecision';
 
 // ============================================
 // DSE Exam Importance Weights
-// Based on HKDSE Paper 1 & 2 frequency analysis (2012-2025)
+// Sprint 71: Re-exports from CANONICAL_DSE_WEIGHTS (single source of truth)
 // ============================================
 
-export const DSE_TOPIC_WEIGHTS: Record<string, number> = {
-  // Grammar (Paper 1 & 2)
-  'tenses': 1.00,           'subject-verb-agreement': 0.95,
-  'passive-voice': 0.85,    'conditionals': 0.85,
-  'relative-clauses': 0.80, 'connectors': 0.80,
-  'articles': 0.65,         'prepositions': 0.60,
-  'modal-verbs': 0.60,      'gerunds-infinitives': 0.55,
-  'reported-speech': 0.55,  'comparatives': 0.50,
-  'inversion': 0.35,        'phrasal-verbs': 0.30,
-  'subjunctive': 0.25,
-  // Writing (Paper 2)
-  'essay-structure': 0.90,  'argument-development': 0.85,
-  'coherence-cohesion': 0.80, 'tone-register': 0.70,
-  'letter-format': 0.60,    'report-format': 0.55,
-  'article-format': 0.50,
-  // Reading (Paper 1)
-  'skimming-scanning': 0.85, 'inference': 0.80,
-  'vocabulary-in-context': 0.75, 'tone-analysis': 0.65,
-  'summary-skills': 0.70,
-};
+export { CANONICAL_DSE_WEIGHTS as DSE_TOPIC_WEIGHTS };
 
-export function getDSEWeight(topicId: string): number {
-  for (const [key, weight] of Object.entries(DSE_TOPIC_WEIGHTS)) {
-    if (topicId.includes(key)) return weight;
-  }
-  return 0.40; // default moderate importance
-}
+/** @deprecated Use getCanonicalDSEWeight from '@/modules/learning/decisions/LearningDecision' */
+export const getDSEWeight = getCanonicalDSEWeight;
 
 // ============================================
 // Learning Path Types

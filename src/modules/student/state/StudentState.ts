@@ -5,7 +5,7 @@
 import type { LearningPersona, KnowledgeState, MotivationState,
   ConfidenceState, LearningHabit, TwinPredictions, RiskAssessment,
   RetentionState, ForgetCurve, LearningVelocity, RecoveryMetrics,
-  SkillRank } from '@/modules/student-twin/types';
+  SkillRank } from '@/modules/student/twin/types';
 
 // ============================================
 // StudentState — complete canonical state
@@ -91,6 +91,22 @@ export interface StudentMemory {
   };
 }
 
+/** Lightweight raw mastery entry for analytics (avoids importing MasteryEntry type) */
+export interface RawMasteryEntry {
+  id?: string;
+  studentId?: string;
+  skill: string;
+  subSkill: string;
+  masteryScore: number;
+  confidenceScore?: number;
+  retentionScore?: number;
+  lastPracticedAt?: string | null;
+  practiceCount: number;
+  mistakeCount: number;
+  correctCount: number;
+  updatedAt?: string;
+}
+
 export interface StudentMastery {
   overallScore: number; // 0-100
   bySkill: Record<string, {
@@ -99,6 +115,8 @@ export interface StudentMastery {
     mistakeCount: number;
     correctCount: number;
   }>;
+  /** Raw entries for analytics (trend computation) */
+  entries: RawMasteryEntry[];
   weakSkills: string[];
   strongSkills: string[];
   estimatedHkdseLevel: string;

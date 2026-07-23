@@ -2,7 +2,7 @@
 // Source: HKEAA — HKDSE English Language Assessment Framework
 
 import type { HKDSELevel, CEFRLevel } from '@/modules/knowledge-graph/types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // DSE Paper Weightings (HKEAA Official)

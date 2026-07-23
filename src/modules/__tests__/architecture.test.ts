@@ -36,9 +36,9 @@ function readModuleFiles(moduleName: string): { path: string; content: string }[
 
 describe('Architecture Rule: No Circular Dependencies', () => {
   const AI_MODULES = ['ai', 'ai-cost', 'llm-eval'];
-  const LEARNING_MODULES = ['learning', 'adaptive-learning', 'knowledge-graph', 'learning-memory', 'learning-science', 'mistake-intelligence', 'recommendation', 'student-mastery', 'curriculum'];
-  const STUDENT_MODULES = ['student', 'profile', 'progress', 'student-twin', 'vocabulary', 'vocabulary-intelligence', 'mistake-db'];
-  const TEACHER_MODULES = ['teacher-copilot', 'teacher-analytics'];
+  const LEARNING_MODULES = ['learning', 'knowledge-graph', 'curriculum', 'mistake'];
+  const STUDENT_MODULES = ['student', 'vocabulary'];
+  const TEACHER_MODULES = ['teacher'];
 
   function hasImport(files: { content: string }[], moduleName: string): boolean {
     return files.some(f => f.content.includes(`'@/modules/${moduleName}`) || f.content.includes(`"@/modules/${moduleName}`));
@@ -101,17 +101,17 @@ describe('Architecture Rule: No Circular Dependencies', () => {
 describe('Architecture Rule: Facade Usage', () => {
   it('StudentFacade exports all 5 sub-domains', () => {
     const content = readFileSync(join(MODULES_DIR, 'student', 'index.ts'), 'utf-8');
-    expect(content).toContain("from '@/modules/profile/");
-    expect(content).toContain("from '@/modules/student-mastery/");
+    expect(content).toContain("./profile/");
+    expect(content).toContain("./mastery/");
     expect(content).toContain("from '@/modules/learning/memory/");
-    expect(content).toContain("from '@/modules/progress/");
-    expect(content).toContain("from '@/modules/student-twin/");
+    expect(content).toContain("./progress/");
+    expect(content).toContain("./twin/");
   });
 
   it('LearningFacade exports all 5 sub-domains', () => {
     const content = readFileSync(join(MODULES_DIR, 'learning', 'index.ts'), 'utf-8');
-    expect(content).toContain("adaptive-learning");
-    expect(content).toContain("recommendation");
+    expect(content).toContain("./services/adaptive-learning-pipeline");
+    expect(content).toContain("./services/recommendation-engine");
     expect(content).toContain("knowledge-graph");
     expect(content).toContain("learning/science");
     expect(content).toContain("mistake/intelligence");
@@ -155,8 +155,8 @@ describe('Architecture Rule: Repository Isolation', () => {
           if (file.content.includes(`'@/modules/${otherMod}/repositories/`) ||
               file.content.includes(`"@/modules/${otherMod}/repositories/`)) {
             // Allow documented exceptions
-            if (mod === 'learning-science' && otherMod === 'learning-memory') continue;
-            if (mod === 'adaptive-learning') continue; // pipeline by design
+            // Sprint 72: learning-science/learning-memory modules deleted
+            // Sprint 72: adaptive-learning exception removed (module deleted)
             expect.fail(`${mod} service imports repository from ${otherMod}: ${file.path}`);
           }
         }
@@ -198,9 +198,7 @@ describe('Architecture Rule: Repository Isolation', () => {
 
 describe('v5: Learning Engine — AI Isolation', () => {
   const LEARNING_MODULES = [
-    'adaptive-learning', 'knowledge-graph', 'learning-memory',
-    'learning-science', 'mistake-intelligence', 'recommendation',
-    'student-mastery', 'curriculum',
+    'learning', 'knowledge-graph', 'curriculum', 'mistake',
   ];
 
   const FORBIDDEN_AI_IMPORTS = [
@@ -247,20 +245,16 @@ describe('v5: No Module Version Suffixes', () => {
 });
 
 // ============================================
-// v5: Learning Science Purity (P0-3)
-// learning-science/ must contain ONLY algorithms.
-// No API routes. No repositories with DB access.
-// ============================================
+// Sprint 72: learning-science/ moved into learning/science/ (subdirectory of learning module)
 
 describe('v5: Learning Science Purity', () => {
-  it('learning-science has no direct Prisma/db imports in service files', () => {
-    const files = readModuleFiles('learning-science');
-    const serviceFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
-    for (const file of serviceFiles) {
-      if (file.content.includes("from '@/shared/db/db'") || file.content.includes("import { db }")) {
-        // The repository file is the documented exception
+  it('learning/science has no direct Prisma/db imports', () => {
+    const files = readModuleFiles('learning');
+    const scienceFiles = files.filter(f => f.path.includes('/science/') && !f.path.includes('__tests__'));
+    for (const file of scienceFiles) {
+      if (file.content.includes("from '@/shared/db/db'") || file.content.includes('import { db }')) {
         if (!file.path.includes('/repositories/')) {
-          expect.fail(`learning-science service imports db: ${file.path}`);
+          expect.fail(`learning/science imports db: ${file.path}`);
         }
       }
     }
@@ -273,9 +267,9 @@ describe('v5: Learning Science Purity', () => {
 // ============================================
 
 describe('Architecture Rule: No Cross-Domain Repository Calls', () => {
-  const TEACHER_MODULES = ['teacher-copilot', 'teacher-analytics'];
-  const STUDENT_REPOS = ['student-mastery/repositories', 'student/repositories', 'progress/repositories', 'learning-memory/repositories'];
-  const LEARNING_REPOS = ['knowledge-graph/repositories', 'mistake-intelligence/repositories', 'recommendation/repositories'];
+  const TEACHER_MODULES = ['teacher'];
+  const STUDENT_REPOS = ['student/repositories', 'student/mastery/repositories', 'student/progress/repositories'];
+  const LEARNING_REPOS = ['knowledge-graph/repositories', 'mistake/intelligence/repositories'];
 
   it('Teacher modules do not import student repositories', () => {
     for (const tMod of TEACHER_MODULES) {
@@ -377,7 +371,7 @@ describe('Architecture Rule: Activity Update Chain', () => {
 
 describe('Architecture Rule: No Duplicate Logic', () => {
   it('No duplicate mastery calculations across modules', () => {
-    // Only student-mastery/services/mastery-formula.ts calculates mastery
+    // Sprint 72: mastery-formula.ts now in student/mastery/services/
     const modules = getModuleDirs();
     const masteryFiles: string[] = [];
     for (const mod of modules) {
@@ -446,5 +440,294 @@ describe('Facade Structure', () => {
     const expected = ['providers', 'generation', 'analysis', 'rag', 'tts', 'cache', 'cost', 'evaluation', 'experiment'];
     expect(expected).toHaveLength(9);
     expect(expected).toContain('providers');
+  });
+});
+
+// ============================================
+// Sprint 74: Canonical Student Runtime Enforcement
+// ============================================
+
+describe('v6: Canonical Student State Enforcement', () => {
+  it('learning/ services do not import student repositories directly', () => {
+    const files = readModuleFiles('learning');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+    for (const f of svcFiles) {
+      if (f.content.includes("student/repositories/") || f.content.includes("student-mastery/repositories")) {
+        // Only StudentStateMutationService is allowed (it's in student/, not learning/)
+        expect.fail(`learning service imports student repository: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('learning/ services do not import db or Prisma directly', () => {
+    const files = readModuleFiles('learning');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+    for (const f of svcFiles) {
+      if (f.content.includes("from '@/shared/db/db'") || f.content.includes('new PrismaClient')) {
+        expect.fail(`learning service imports db/Prisma: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('learning-analytics/ services do not import repositories', () => {
+    const files = readModuleFiles('learning-analytics');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+    for (const f of svcFiles) {
+      if (f.content.includes('/repositories/')) {
+        expect.fail(`learning-analytics service imports repository: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('learning-analytics/ services do not import db or Prisma directly', () => {
+    const files = readModuleFiles('learning-analytics');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+    for (const f of svcFiles) {
+      if (f.content.includes("from '@/shared/db/db'") || f.content.includes('new PrismaClient')) {
+        expect.fail(`learning-analytics service imports db/Prisma: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('StudentStateBuilder is the only file that imports student mastery repo', () => {
+    const files = readModuleFiles('student');
+    const nonBuilderFiles = files.filter(f =>
+      !f.path.includes('__tests__') &&
+      !f.path.includes('StudentStateBuilder') &&
+      !f.path.includes('StudentStateMutationService')
+    );
+    for (const f of nonBuilderFiles) {
+      if (f.path.includes('/services/') && f.content.includes("student/mastery/repositories")) {
+        expect.fail(`Non-builder student service imports mastery repo: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+});
+
+// ============================================
+// Sprint 76: Cache & Singleton Enforcement
+// ============================================
+
+describe('v7: Cache Layer Enforcement', () => {
+  it('Only cache/ module owns cache implementation', () => {
+    const cacheFiles = ['src/modules/cache/cache-service.ts'];
+    const forbidden = ['new Map<string, CacheEntry>', 'inMemoryStore = new Map'];
+    const modules = getModuleDirs();
+    for (const mod of modules) {
+      if (mod === 'cache') continue;
+      const files = readModuleFiles(mod);
+      const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+      for (const f of svcFiles) {
+        for (const pattern of forbidden) {
+          if (f.content.includes(pattern)) {
+            // ai-cache is the approved thin wrapper (delegates to cache-service)
+            if (f.path.includes('ai-cache')) continue;
+            expect.fail(`${mod} implements duplicate cache: ${f.path}`);
+          }
+        }
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('No singleton performs IO during module import', () => {
+    const forbidden = ["from '@/shared/db/db'", 'new PrismaClient'];
+    const modules = getModuleDirs();
+    for (const mod of modules) {
+      const files = readModuleFiles(mod);
+      const rootFiles = files.filter(f => {
+        const rel = f.path.replace(/\\/g, '/');
+        const depth = rel.split('/').length - rel.split('src/modules/')[1].split('/').length;
+        return depth <= 2 && !f.path.includes('__tests__') && !f.path.includes('/repositories/');
+      });
+      for (const f of rootFiles) {
+        for (const pattern of forbidden) {
+          if (f.content.includes(pattern)) {
+            // Admin operations and repositories are approved
+            if (f.path.includes('admin-operations')) continue;
+            if (f.path.includes('/repositories/')) continue;
+            if (f.path.includes('cache-service')) continue;
+            expect.fail(`${mod} performs IO during import: ${f.path}`);
+          }
+        }
+      }
+    }
+    expect(true).toBe(true);
+  });
+});
+
+// ============================================
+// Sprint 77: AI Domain Decomposition Enforcement
+// ============================================
+
+describe('v8: AI Domain Decomposition', () => {
+  it('AI services do not exceed 800 lines (enforce decomposition)', () => {
+    const files = readModuleFiles('ai');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__') && !f.path.includes('ai-legacy'));
+    for (const f of svcFiles) {
+      const lines = f.content.split('\n').length;
+      if (lines > 800) {
+        expect.fail(`AI service exceeds 800 lines: ${f.path} (${lines} lines). Split into bounded contexts.`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('Provider-specific code (fetch + API key) only in providers/ or ai-legacy', () => {
+    const files = readModuleFiles('ai');
+    const nonProviderFiles = files.filter(f =>
+      !f.path.includes('/providers/') && !f.path.includes('__tests__') &&
+      !f.path.includes('ai-legacy') && f.path.includes('/services/')
+    );
+    for (const f of nonProviderFiles) {
+      if (f.content.includes("config.deepseek.apiKey") || f.content.includes("config.gemini.apiKey") ||
+          f.content.includes("config.vertex.projectId") || f.content.includes("config.openai.apiKey") ||
+          f.content.includes("config.claude.apiKey")) {
+        expect.fail(`AI service has provider-specific logic outside providers/: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('AI services do not import Prisma directly', () => {
+    const files = readModuleFiles('ai');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+    for (const f of svcFiles) {
+      if (f.content.includes("from '@/shared/db/db'") || f.content.includes('new PrismaClient')) {
+        expect.fail(`AI service imports Prisma: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+});
+
+// ============================================
+// Sprint 78: Dependency Governance & Import Direction
+// ============================================
+
+describe('v9: Import Direction Enforcement', () => {
+  it('Student domain does not import from Admin', () => {
+    const files = readModuleFiles('student');
+    for (const f of files) {
+      if (f.content.includes("from '@/modules/admin/") && !f.path.includes('__tests__')) {
+        expect.fail(`Student imports Admin: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('Learning domain does not import from Admin', () => {
+    const files = readModuleFiles('learning');
+    for (const f of files) {
+      if (f.content.includes("from '@/modules/admin/") && !f.path.includes('__tests__')) {
+        expect.fail(`Learning imports Admin: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('Providers do not import Student modules', () => {
+    const modules = ['ai'];
+    for (const mod of modules) {
+      const files = readModuleFiles(mod);
+      const provFiles = files.filter(f => f.path.includes('/providers/') && !f.path.includes('__tests__'));
+      for (const f of provFiles) {
+        if (f.content.includes("from '@/modules/student/") || f.content.includes("from '@/modules/learning/")) {
+          expect.fail(`Provider imports student/learning: ${f.path}`);
+        }
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('Prompt templates do not import services', () => {
+    const files = readModuleFiles('ai');
+    const promptFiles = files.filter(f => f.path.includes('/prompts/') && !f.path.includes('__tests__'));
+    for (const f of promptFiles) {
+      if (f.content.includes("from '@/modules/ai/services/") || f.content.includes("from '../services/")) {
+        expect.fail(`Prompt template imports service: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('Repositories do not import services (except approved)', () => {
+    const modules = getModuleDirs();
+    for (const mod of modules) {
+      const files = readModuleFiles(mod);
+      const repoFiles = files.filter(f => f.path.includes('/repositories/') && !f.path.includes('__tests__'));
+      for (const f of repoFiles) {
+        if (f.content.includes("from '@/modules/") && f.content.includes("/services/")) {
+          // Allow self-references within same module's services
+          const selfRef = new RegExp(`from '@/modules/${mod}/services/`);
+          if (!selfRef.test(f.content)) {
+            // Allow mistake-db → mistake-intelligence (documented)
+            if (f.path.includes('mistake/db') && f.content.includes('mistake/intelligence')) continue;
+            expect.fail(`Repository imports external service: ${f.path}`);
+          }
+        }
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('No circular dependency: learning ↔ student (verified via facade only)', () => {
+    const files = readModuleFiles('learning');
+    const svcFiles = files.filter(f => f.path.includes('/services/') && !f.path.includes('__tests__'));
+    for (const f of svcFiles) {
+      // Learning services may use StudentStateBuilder (approved) but not student repos
+      if (f.content.includes("student/repositories/") || f.content.includes("student-mastery/repositories")) {
+        expect.fail(`Learning service imports student repository: ${f.path}`);
+      }
+    }
+    expect(true).toBe(true);
+  });
+});
+
+// ============================================
+// Sprint 78: Service Size Governance
+// ============================================
+
+describe('v10: Service Size Governance', () => {
+  const SIZE_LIMIT = 800;
+  const WHITELIST = ['ai-service.ts', 'experiment-engine.ts'];
+
+  it('No service file exceeds 800 lines unless whitelisted', () => {
+    const modules = getModuleDirs();
+    for (const mod of modules) {
+      const files = readModuleFiles(mod);
+      const svcFiles = files.filter(f =>
+        (f.path.includes('/services/') || f.path.includes('/usecases/')) &&
+        !f.path.includes('__tests__') && !f.path.includes('ai-legacy')
+      );
+      for (const f of svcFiles) {
+        const lines = f.content.split('\n').length;
+        const filename = f.path.split(/[\\/]/).pop() || '';
+        if (lines > SIZE_LIMIT && !WHITELIST.includes(filename)) {
+          expect.fail(`Service exceeds ${SIZE_LIMIT} lines (not whitelisted): ${f.path} (${lines} lines)`);
+        }
+      }
+    }
+    expect(true).toBe(true);
+  });
+
+  it('Whitelisted services are tracked for future reduction', () => {
+    const modules = getModuleDirs();
+    const found: string[] = [];
+    for (const mod of modules) {
+      const files = readModuleFiles(mod);
+      for (const f of files) {
+        const filename = f.path.split(/[\\/]/).pop() || '';
+        if (WHITELIST.includes(filename)) found.push(filename);
+      }
+    }
+    // These must exist and be tracked
+    expect(found).toContain('ai-service.ts');
+    expect(found).toContain('experiment-engine.ts');
   });
 });

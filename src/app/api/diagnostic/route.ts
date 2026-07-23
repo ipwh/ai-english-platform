@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { logger } from '@/shared/logger/logger';
-import { MASTERY_SKILLS } from '@/modules/student-mastery/types';
-import type { MasterySkill } from '@/modules/student-mastery/types';
+import { MASTERY_SKILLS } from '@/modules/student/mastery/types';
+import type { MasterySkill } from '@/modules/student/mastery/types';
 import { clearDiagnosticResults, createDiagnosticResult } from '@/modules/student';
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };

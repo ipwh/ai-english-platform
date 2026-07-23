@@ -318,11 +318,14 @@ export async function POST(request: NextRequest) {
     // 只建立不存在的班級
     const missingClasses = uniqueClasses.filter(c => !classMap.has(c));
     if (missingClasses.length > 0) {
-      await Promise.all(missingClasses.map(className =>
+      const results = await Promise.allSettled(missingClasses.map(className =>
         db.class.create({
           data: { name: className, gradeLevel: inferGradeLevel(className) },
-        }).then(cls => { classMap.set(className, cls.id); })
+        })
       ));
+      for (const r of results) {
+        if (r.status === 'fulfilled') classMap.set(r.value.name, r.value.id);
+      }
     }
 
     // 批量建立新學生

@@ -6,7 +6,7 @@ import type {
   TopologicalOrder, DependencyResult, LearningPathResult,
   WeaknessLookupResult, UnlockResult,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // Node Lookup Helpers

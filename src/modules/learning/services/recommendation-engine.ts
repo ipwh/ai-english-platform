@@ -2,7 +2,7 @@
 // NO repository imports. NO Prisma. NO db. NO scoring logic.
 // All priority computation is in LearningDecisionEngine.
 
-import type { ScoredRecommendation, RecommendationResult } from './recommendation-types';
+import type { ScoredRecommendation, RecommendationResult } from '../types/recommendation-types';
 import type { LearningDecision } from '@/modules/learning/decisions/LearningDecision';
 import { learningDecisionEngine } from '@/modules/learning/decisions/LearningDecisionEngine';
 import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';

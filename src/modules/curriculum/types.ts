@@ -1,5 +1,5 @@
 // Sprint 26: Curriculum Engine — types
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import type { CEFRLevel, HKDSELevel } from '@/modules/knowledge-graph/types';
 
 export type CurriculumType = 'hkdse' | 'cefr' | 'custom';

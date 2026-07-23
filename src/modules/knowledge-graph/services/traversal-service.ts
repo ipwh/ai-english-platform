@@ -4,7 +4,7 @@ import { topologicalSort } from './dependency-resolver';
 import type {
   KnowledgeGraph, TraversalStrategy, TraversalResult,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // KnowledgeTraversalService

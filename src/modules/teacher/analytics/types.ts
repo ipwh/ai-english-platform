@@ -1,5 +1,5 @@
 // Sprint 24: Teacher Intelligence Dashboard — types
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 export interface ClassOverview {
   classId: string;

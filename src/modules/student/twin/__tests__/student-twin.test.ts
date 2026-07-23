@@ -8,7 +8,7 @@ import type { StudentTwin } from '../types';
 const mockState: StudentState = {
   identity: { id: 's1', email: 's@test.hk', nameZh: '學生', nameEn: 'Student', role: 'student', level: 'S4', classId: null, className: null, gradeLevel: null, academicYear: null },
   memory: null,
-  mastery: { overallScore: 65, bySkill: {}, weakSkills: [], strongSkills: [], estimatedHkdseLevel: '3', estimatedCefrLevel: 'B1' },
+  mastery: { overallScore: 65, bySkill: {}, entries: [], weakSkills: [], strongSkills: [], estimatedHkdseLevel: '3', estimatedCefrLevel: 'B1' },
   weakness: null,
   vocabulary: null,
   engagement: { xp: 500, level: 2, streakDays: 3, badges: [], overallAccuracy: 70 },

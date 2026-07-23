@@ -1,5 +1,5 @@
 // Sprint 35: Adaptive AI Tutor — types
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import type { CEFRLevel, HKDSELevel } from '@/modules/knowledge-graph/types';
 import type { LearningMemory } from '@/modules/learning/memory/types';
 import type { ReviewScheduleEntry, LearningStrategy } from '@/modules/learning/science/types';

@@ -2,8 +2,8 @@
 // Sprint 59: Delegates to StudentStateBuilder (canonical assembler)
 // Split-brain eliminated: ALL state now comes from ONE builder
 import { logger } from '@/shared/logger/logger';
-import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
-import type { StudentState } from '@/modules/student/state/StudentState';
+import { studentStateBuilder } from '../../state/StudentStateBuilder';
+import type { StudentState } from '../../state/StudentState';
 import type {
   StudentTwin, LearningPersona, PersonaType,
   KnowledgeState, MotivationState, ConfidenceState, LearningHabit,

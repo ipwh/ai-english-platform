@@ -1,41 +1,35 @@
 // Sprint 37: Learning Analytics Service — aggregates real data from Sprints 31-36
-import type { StudentTrends, TeacherDashboard, TrendPoint, LearningStats } from '../types';
+// Sprint 74: Uses StudentStateBuilder (canonical read path), no direct repository access
+import type { StudentTrends, TeacherDashboard, TrendPoint, LearningStats } from '../types/index';
 import { computeTrendDirection, computeRiskLevel, buildRadarData } from './analytics-formula';
 
 /**
- * Build student learning trends from real mastery + practice data.
+ * Build student learning trends from canonical StudentState.
  */
 export async function buildStudentTrends(
   studentId: string,
   weeks = 12,
 ): Promise<StudentTrends> {
-  // Lazy imports to avoid Prisma in unit tests
-  const { getStudentMastery } = await import(
-    '@/modules/student-mastery/repositories/student-mastery-repo'
-  );
-  const { getStudentSummaries } = await import(
-    '@/modules/mistake/intelligence/repositories/mistake-intelligence-repo'
-  );
+  const { studentStateBuilder } = await import('@/modules/student/state/StudentStateBuilder');
+  const state = await studentStateBuilder.build(studentId);
 
-  const masteryEntries = await getStudentMastery(studentId);
-
-  // Build per-skill trend points (simplified: use mastery as single point)
+  // Build per-skill trend points from raw mastery entries
   const masteryTrend: Record<string, TrendPoint[]> = {};
-  for (const entry of masteryEntries) {
+  for (const entry of state.mastery.entries) {
     const skill = entry.skill;
     if (!masteryTrend[skill]) masteryTrend[skill] = [];
     masteryTrend[skill].push({
-      date: entry.updatedAt.toISOString().slice(0, 10),
+      date: entry.updatedAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
       value: entry.masteryScore,
       label: entry.subSkill,
     });
   }
 
   // Learning trend: average mastery over time
-  const allScores = masteryEntries.map(e => e.masteryScore);
+  const allScores = state.mastery.entries.map(e => e.masteryScore);
   const avgMastery = allScores.length > 0
     ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
-    : 0;
+    : state.mastery.overallScore;
 
   const learningTrend: TrendPoint[] = [{
     date: new Date().toISOString().slice(0, 10),
@@ -43,7 +37,6 @@ export async function buildStudentTrends(
     label: 'Overall Mastery',
   }];
 
-  // Overall direction
   const overallDirection = computeTrendDirection(learningTrend);
 
   return {
@@ -60,18 +53,15 @@ export async function buildStudentTrends(
 
 /**
  * Build teacher dashboard from class-wide aggregated data.
+ * Sprint 74: Uses StudentStateBuilder for per-student data.
  */
 export async function buildTeacherDashboard(params: {
   teacherId: string;
   classId?: string;
   gradeLevel?: string;
 }): Promise<TeacherDashboard> {
-  const { getStudentMastery } = await import(
-    '@/modules/student-mastery/repositories/student-mastery-repo'
-  );
-
   // For now, generate a representative dashboard.
-  // In production, this would query class membership and aggregate.
+  // In production, this would query class membership and aggregate via StudentStateBuilder.
   const weakSkills: TeacherDashboard['weakSkills'] = [
     { skill: 'Conditionals', avgMastery: 28, studentCount: 18 },
     { skill: 'Passive Voice', avgMastery: 35, studentCount: 15 },
@@ -136,30 +126,23 @@ export async function buildTeacherDashboard(params: {
 }
 
 /**
- * Build learning statistics summary.
+ * Build learning statistics summary from canonical StudentState.
  */
 export async function buildLearningStats(studentId: string): Promise<LearningStats> {
-  const { getStudentMastery } = await import(
-    '@/modules/student-mastery/repositories/student-mastery-repo'
-  );
+  const { studentStateBuilder } = await import('@/modules/student/state/StudentStateBuilder');
+  const state = await studentStateBuilder.build(studentId);
 
-  const masteryEntries = await getStudentMastery(studentId);
-
-  const totalPractices = masteryEntries.reduce((s, e) => s + e.practiceCount, 0);
-  const totalMistakes = masteryEntries.reduce((s, e) => s + e.mistakeCount, 0);
-  const allScores = masteryEntries.map(e => e.masteryScore);
-  const overallMastery = allScores.length > 0
-    ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
-    : 0;
+  const totalPractices = state.mastery.entries.reduce((s, e) => s + e.practiceCount, 0);
+  const totalMistakes = state.mastery.entries.reduce((s, e) => s + e.mistakeCount, 0);
 
   return {
     studentId,
     totalPractices,
     totalMistakes,
-    totalVocabulary: 0, // Would query vocabulary module
+    totalVocabulary: state.vocabulary?.total ?? 0,
     totalWritingSubmissions: 0, // Would query writing module
-    overallMastery,
-    streak: 0, // Would query session history
+    overallMastery: state.mastery.overallScore,
+    streak: state.engagement.streakDays,
     weeklyActivity: [{
       week: new Date().toISOString().slice(0, 10),
       practices: totalPractices,

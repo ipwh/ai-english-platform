@@ -2,20 +2,20 @@
 // Previously: src/modules/learning-facade/index.ts (Sprint 40)
 
 // === Learning Domain ===
-export { getLearningProfile, updateAfterExercise } from './student-mastery/services/student-mastery-service';
-export type { StudentLearningProfile, MasteryEntry, SkillGroupedMastery } from './student-mastery/types';
+export { getLearningProfile, updateAfterExercise } from './student/mastery/services/student-mastery-service';
+export type { StudentLearningProfile, MasteryEntry, SkillGroupedMastery } from './student/mastery/types';
 
 export { buildWeaknessProfile } from './mistake/intelligence/services/mistake-intelligence-service';
 export type { WeaknessProfile, WeaknessItem } from './mistake/intelligence/types';
 
-export { getFullRecommendations, recommendGrammar, recommendVocabulary, recommendWritingTopic } from './recommendation/services/recommendation-engine';
-export type { RecommendationResult, ScoredRecommendation } from './recommendation/types';
+export { getFullRecommendations, recommendGrammar, recommendVocabulary, recommendWritingTopic } from './learning/services/recommendation-engine';
+export type { RecommendationResult, ScoredRecommendation } from './learning/types/recommendation-types';
 
 export { knowledgeGraphService } from './knowledge-graph/services/knowledge-graph-service';
 export type { KnowledgeNode, LearningPathResult } from './knowledge-graph/types';
 
-export { executePipeline } from './adaptive-learning/services/adaptive-learning-pipeline';
-export type { AdaptiveLearningResult, PipelineStage } from './adaptive-learning/types';
+export { executePipeline } from './learning/services/adaptive-learning-pipeline';
+export type { AdaptiveLearningResult, PipelineStage } from './learning/types/adaptive-types';
 
 // === Student Domain ===
 export { buildVocabProfile } from './vocabulary/intelligence/services/vocabulary-intelligence-service';

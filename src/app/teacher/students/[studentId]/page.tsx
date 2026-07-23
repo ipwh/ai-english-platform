@@ -16,7 +16,7 @@ import { formatDate } from '@/shared/utils/utils';
 import { getGradeLabel } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
-import { getAllBadges } from '@/modules/progress/services/gamification';
+import { getAllBadges } from '@/modules/student/progress/services/gamification';
 
 interface StudentDetail {
   id: string; email: string; nameZh?: string; nameEn?: string;

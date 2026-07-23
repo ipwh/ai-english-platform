@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
-import { pipelineInputSchema } from '@/modules/adaptive-learning/schemas';
-import { executePipeline } from '@/modules/adaptive-learning/services/adaptive-learning-pipeline';
+import { pipelineInputSchema } from '@/modules/learning/schemas/pipeline-schema';
+import { executePipeline } from '@/modules/learning/services/adaptive-learning-pipeline';
 
 export async function POST(request: NextRequest) {
   const auth = await verifyApiAuth(request);

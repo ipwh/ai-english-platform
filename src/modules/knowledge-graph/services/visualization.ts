@@ -4,7 +4,7 @@ import { getKnowledgeGraph } from './knowledge-graph';
 import type {
   VisualNode, VisualEdge, VisualizationData, KnowledgeNode,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import type { MasteryData } from './dependency-resolver';
 import { topologicalSort } from './dependency-resolver';
 

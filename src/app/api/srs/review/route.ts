@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await Promise.all(updates);
+    await Promise.allSettled(updates);
 
     return NextResponse.json({ success: true, processed: results.length });
   } catch (error) {

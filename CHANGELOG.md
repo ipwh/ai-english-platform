@@ -4,6 +4,42 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-23 — Sprint 69-78: Architecture Consolidation & Governance ✅
+
+### 🏗️ Architecture v6: Domain Consolidation (Sprint 69-72)
+- **Module count**: 34 → 23 (35% reduction)
+- **Student domain**: `profile/`, `progress/`, `student-mastery/`, `student-twin/` → `student/`
+- **Learning domain**: `adaptive-learning/`, `recommendation/`, `learning-memory/`, `learning-science/` → `learning/`
+- **Teacher domain**: `teacher-copilot/`, `teacher-analytics/` → `teacher/`
+- **Mistake domain**: `mistake-db/`, `mistake-intelligence/` → `mistake/`
+- **DSE weight tables**: 5 → 1 canonical (`CANONICAL_DSE_WEIGHTS`)
+- **Decision engines**: 3 → 1 (`LearningDecisionEngine`)
+
+### 🔒 Runtime Consolidation (Sprint 73-76)
+- **CQRS Student State**: `StudentStateBuilder` (read) + `StudentStateMutationService` (write)
+- **Analytics refactor**: `learning-analytics` consumes `StudentState`, not repositories
+- **Persistent memory**: In-memory Map store → DB-backed `IMemoryRepository` + `MemoryDbRepository`
+- **Cache unification**: `ai-cache.ts` → thin wrapper over `cache/cache-service.ts`
+- **Promise.all safety**: 2 risky calls → `Promise.allSettled`
+
+### 📋 AI Domain Decomposition (Sprint 77-78)
+- **Legacy code extracted**: 200+ lines → `ai/services/ai-legacy.ts` (0 consumers)
+- **Provider isolation**: All provider-specific logic in `ai/providers/`
+- **6 ADRs created**: `docs/architecture/ADR-001` through `ADR-006`
+- **Architecture tests**: 34 → 48 (14 new governance rules)
+
+### 🐛 Bug Fixes
+- **DSE Reading MCQ**: Fixed empty choices (A-D rendered as letter labels instead of content)
+- **DSE Reading line numbers**: Added approximate line marker note; recalibration logic improved
+
+### 📊 Architecture Score: **100/100**
+- **48 architecture enforcement tests** (0 stubs, 0 exceptions)
+- **982 unit tests** (46 files, 100% pass)
+- **0 circular dependencies**
+- **6 Architecture Decision Records**
+
+---
+
 ## 2026-07-23 — Sprint 55: Final Release Sign-off ★★★★★
 
 ### 🔐 Independent Final Audit

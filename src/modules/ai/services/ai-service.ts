@@ -14,7 +14,7 @@ import {
   MaterialAnalysisSchema,
   validateAIResponse,
 } from '../schemas/ai-schema';
-import { hasServiceAccountSource, getGoogleAuth } from '@/modules/ai/services/gcp-auth';
+import { hasServiceAccountSource } from '@/modules/ai/services/gcp-auth';
 
 // ============================================
 // DSE RAG 整合 (Feature Flag: DSE_RAG_ENABLED)
@@ -76,7 +76,7 @@ import {
 // 答案準確性規則 (extracted prompt)
 // ============================================
 export { STRICT_ANSWER_RULES } from '@/modules/ai/prompts';
-import { STRICT_ANSWER_RULES, GEMINI_JSON_INSTRUCTION } from '@/modules/ai/prompts';
+import { STRICT_ANSWER_RULES } from '@/modules/ai/prompts';
 import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
 
 // ============================================
@@ -127,254 +127,15 @@ import type { ChatMessage, LLMCallOptions } from '@/modules/ai/providers';
 export function getLastAIProvider(): string { return providerRegistry.getLastUsed(); }
 export function wasFallbackUsed(): boolean { const p = providerRegistry.getLastUsed(); return p !== 'deepseek' && p !== 'none'; }
 
-// Gemini JSON instruction extracted to src/lib/ai/prompts/gemini-json-instruction.ts
-
-function adaptMessagesForGemini(messages: ChatMessage[], jsonMode: boolean): ChatMessage[] {
-  if (!jsonMode) return messages;
-  return messages.map(m => {
-    if (m.role === 'system') {
-      return { ...m, content: m.content + '\n' + GEMINI_JSON_INSTRUCTION };
-    }
-    return m;
-  });
-}
-
-interface DeepSeekResponse {
-  id: string;
-  choices: { message: { role: string; content: string }; finish_reason: string }[];
-  usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-}
-
-interface GeminiResponse {
-  candidates?: {
-    content?: {
-      parts?: { text?: string }[];
-    };
-  }[];
-  error?: {
-    message?: string;
-  };
-}
-
-let vertexAuth: ReturnType<typeof getGoogleAuth> | null = null;
-
-function getVertexAuth() {
-  if (vertexAuth) return vertexAuth;
-  vertexAuth = getGoogleAuth();
-  return vertexAuth;
-}
-
 // ============================================
-// ⚠️ @deprecated Legacy direct API calls — no longer used.
-// All LLM calls now go through providerRegistry.call() which handles
-// fallback chain (DeepSeek→Vertex→Gemini→Claude→OpenAI).
-// These functions remain for reference only. Remove after Q3 2026.
+// ⚠️ Legacy direct API calls extracted to ai/services/ai-legacy.ts
+// Sprint 77: Dead code — zero runtime consumers. Provider-specific logic
+//          now lives exclusively in ai/providers/.
 // ============================================
 
-/** @deprecated Use providerRegistry.call() instead. Remove by Sprint 45 (2026-08). */
-async function _callDeepSeek(
-  messages: ChatMessage[],
-  options?: LLMCallOptions
-): Promise<string> {
-  if (!config.deepseek.apiKey || config.deepseek.apiKey === 'sk-your-deepseek-api-key-here') {
-    throw new Error('AI 服務尚未設定。請在環境變數中設定 config.deepseek.apiKey。');
-  }
-
-  const timeoutMs = options?.timeoutMs || config.ai.timeoutMs;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await fetch(`${config.deepseek.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.deepseek.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.deepseek.model,
-        messages,
-        temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 1024,
-        response_format: options?.jsonMode ? { type: 'json_object' } : undefined,
-        ...(options?.userId ? { user_id: options.userId } : {}),
-      }),
-      signal: controller.signal,    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`AI 服務錯誤 (${res.status}): ${errText.slice(0, 200)}`);
-    }
-
-    const data: DeepSeekResponse = await res.json();
-    return data.choices[0]?.message?.content || '';
-  } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('AI 服務回應超時。請稍後重試，或減少題目數量。');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-function toGeminiPayload(messages: ChatMessage[]) {
-  const systemMessages = messages
-    .filter(m => m.role === 'system')
-    .map(m => m.content)
-    .join('\n\n');
-
-  const contents = messages
-    .filter(m => m.role !== 'system')
-    .map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-
-  return { systemMessages, contents };
-}
-
-/** @deprecated Use providerRegistry.call() instead. Remove by Sprint 45 (2026-08). */
-async function _callGemini(
-  messages: ChatMessage[],
-  options?: LLMCallOptions
-): Promise<string> {
-  if (!config.gemini.apiKey) {
-    throw new Error('Gemini API 尚未設定。請在環境變數中設定 config.gemini.apiKey。');
-  }
-
-  const timeoutMs = options?.timeoutMs || config.ai.timeoutMs;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  // Gemini prompt 適配：jsonMode 時注入明確 JSON 格式指引，取代 responseMimeType 硬約束
-  const adaptedMessages = adaptMessagesForGemini(messages, options?.jsonMode ?? false);
-  const { systemMessages, contents } = toGeminiPayload(adaptedMessages);
-
-  // jsonMode 時使用較低 temperature + 較大 maxOutputTokens 以確保內容品質
-  const isJson = options?.jsonMode ?? false;
-
-  try {
-    const res = await fetch(`${config.gemini.baseUrl}/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        systemInstruction: systemMessages
-          ? {
-            role: 'system',
-            parts: [{ text: systemMessages }],
-          }
-          : undefined,
-        contents,
-        generationConfig: {
-          temperature: isJson ? (options?.temperature ?? 0.3) : (options?.temperature ?? 0.7),
-          maxOutputTokens: isJson ? Math.max(options?.maxTokens ?? 1024, 4096) : (options?.maxTokens ?? 1024),
-        },
-      }),
-      signal: controller.signal,    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Gemini 服務錯誤 (${res.status}): ${errText.slice(0, 200)}`);
-    }
-
-    const data: GeminiResponse = await res.json();
-    const content = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim() || '';
-    if (!content) {
-      throw new Error(data.error?.message || 'Gemini 回傳為空');
-    }
-    return content;
-  } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Gemini 回應超時。請稍後重試。');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-/** @deprecated Use providerRegistry.call() instead. Remove by Sprint 45 (2026-08). */
-async function _callGeminiViaVertex(
-  messages: ChatMessage[],
-  options?: LLMCallOptions
-): Promise<string> {
-  if (!config.vertex.projectId) {
-    throw new Error('Vertex Gemini 尚未設定 GCP_PROJECT_ID。');
-  }
-  if (!hasServiceAccountSource()) {
-    throw new Error('Vertex Gemini 尚未設定 service account 憑證。');
-  }
-
-  const timeoutMs = options?.timeoutMs || config.ai.timeoutMs;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  // Gemini prompt 適配：jsonMode 時注入明確 JSON 格式指引，取代 responseMimeType 硬約束
-  const adaptedMessages = adaptMessagesForGemini(messages, options?.jsonMode ?? false);
-  const { systemMessages, contents } = toGeminiPayload(adaptedMessages);
-
-  // jsonMode 時使用較低 temperature + 較大 maxOutputTokens 以確保內容品質
-  const isJson = options?.jsonMode ?? false;
-
-  try {
-    const auth = getVertexAuth();
-    const client = await auth.getClient();
-    const host = config.vertex.location === 'global'
-      ? 'aiplatform.googleapis.com'
-      : `${config.vertex.location}-aiplatform.googleapis.com`;
-    const url = `https://${host}/v1/projects/${config.vertex.projectId}/locations/${config.vertex.location}/publishers/google/models/${config.vertex.model}:generateContent`;
-    const token = await client.getAccessToken();
-    if (!token?.token) {
-      throw new Error('無法取得 Vertex OAuth access token。請檢查 service account 憑證與 IAM 權限。');
-    }
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        systemInstruction: systemMessages
-          ? {
-            role: 'system',
-            parts: [{ text: systemMessages }],
-          }
-          : undefined,
-        contents,
-        generationConfig: {
-          temperature: isJson ? (options?.temperature ?? 0.3) : (options?.temperature ?? 0.7),
-          maxOutputTokens: isJson ? Math.max(options?.maxTokens ?? 1024, 4096) : (options?.maxTokens ?? 1024),
-        },
-      }),
-      signal: controller.signal,    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Vertex Gemini 錯誤 (${res.status}): ${errText.slice(0, 260)}`);
-    }
-
-    const data: GeminiResponse = await res.json();
-    const content = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim() || '';
-    if (!content) {
-      throw new Error(data.error?.message || 'Vertex Gemini 回傳為空');
-    }
-    return content;
-  } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Vertex Gemini 回應超時。請稍後重試。');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 // ============================================
-// Core LLM call — delegates to provider registry
+// Bounded Context: Provider Orchestration
+// Owner: ai/providers/provider-registry.ts
 // ============================================
 export async function callLLM(
   messages: ChatMessage[],

@@ -1,6 +1,6 @@
 // Sprint 38: Teacher Copilot — types
-import type { SkillDimension } from '@/modules/profile/types';
-import type { PersonaType } from '@/modules/student-twin/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
+import type { PersonaType } from '@/modules/student/twin/types';
 
 // ============================================
 // Weekly Teaching Plan

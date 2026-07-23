@@ -3,8 +3,8 @@
 // Architecture: Route → MutationService → Repository
 
 import { logger } from '@/shared/logger/logger';
-import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges } from '@/modules/progress/services/gamification';
-import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '@/modules/progress/services/gamification';
+import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges } from '../progress/services/gamification';
+import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '../progress/services/gamification';
 import { studentStateBuilder } from './StudentStateBuilder';
 
 // ============================================
@@ -19,7 +19,7 @@ export class StudentStateMutationService {
    */
   async awardXp(studentId: string, event: XpEvent): Promise<{ xpGained: number; newLevel: number }> {
     const { updateUser } = await import('@/modules/student/repositories/user-repo');
-    const { createXpTransaction } = await import('@/modules/progress/repositories/progress-repo');
+    const { createXpTransaction } = await import('../progress/repositories/progress-repo');
 
     const xpGained = calculateXp(event);
 
@@ -125,6 +125,113 @@ export class StudentStateMutationService {
         totalSessions: state.practice.totalSessions,
       },
     };
+  }
+  /**
+   * Update overall accuracy (called by analytics after activity sync).
+   */
+  async updateOverallAccuracy(studentId: string, accuracy: number): Promise<void> {
+    const { updateUser } = await import('@/modules/student/repositories/user-repo');
+    await updateUser(studentId, { overallAccuracy: accuracy });
+  }
+
+  /**
+   * Upsert weekly snapshot (called by analytics after activity sync).
+   */
+  async updateWeeklySnapshot(params: {
+    studentId: string;
+    weekStart: string;
+    totalQuestions: number;
+    correctCount: number;
+    accuracy: number;
+    sessionsCount: number;
+  }): Promise<void> {
+    const { db } = await import('@/shared/db/db');
+    await db.weeklySnapshot.upsert({
+      where: { userId_weekStart: { userId: params.studentId, weekStart: params.weekStart } },
+      create: {
+        userId: params.studentId,
+        weekStart: params.weekStart,
+        totalQuestions: params.totalQuestions,
+        correctCount: params.correctCount,
+        accuracy: params.accuracy,
+        sessionsCount: params.sessionsCount,
+        xpGained: 0,
+        streakDays: 0,
+        wordsLearned: 0,
+      },
+      update: {
+        totalQuestions: params.totalQuestions,
+        correctCount: params.correctCount,
+        accuracy: params.accuracy,
+        sessionsCount: params.sessionsCount,
+      },
+    });
+  }
+
+  /**
+   * Sync all student activity metrics: recompute accuracy from sessions/submissions,
+   * update user record, and upsert weekly snapshot.
+   * Canonical mutation path for activity-accounting-service.
+   */
+  async syncActivityMetrics(studentId: string): Promise<{ accuracy: number; weekStart: string }> {
+    const { db } = await import('@/shared/db/db');
+
+    const [sessions, submissions] = await Promise.all([
+      db.practiceSession.findMany({
+        where: { studentId },
+        select: { totalQuestions: true, correctCount: true, startedAt: true },
+      }),
+      db.submission.findMany({
+        where: {
+          studentId,
+          status: { in: ['submitted', 'graded'] },
+          submittedAt: { not: null },
+          score: { not: null },
+        },
+        select: {
+          score: true,
+          submittedAt: true,
+          assignment: { select: { questionCount: true } },
+        },
+      }),
+    ]);
+
+    type Activity = { totalQuestions: number; correctCount: number; completedAt: Date };
+    const activities: Activity[] = [
+      ...sessions.map(s => ({ totalQuestions: s.totalQuestions, correctCount: s.correctCount, completedAt: s.startedAt })),
+      ...submissions.map(s => ({ totalQuestions: s.assignment.questionCount, correctCount: Math.round((s.score! / 100) * s.assignment.questionCount), completedAt: s.submittedAt! })),
+    ];
+
+    const totalQuestions = activities.reduce((sum, a) => sum + a.totalQuestions, 0);
+    const correctCount = activities.reduce((sum, a) => sum + a.correctCount, 0);
+    const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+    // Update user record
+    const { updateUser } = await import('@/modules/student/repositories/user-repo');
+    await updateUser(studentId, { overallAccuracy: accuracy });
+
+    // Update weekly snapshot
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const weekStart = monday.toISOString().slice(0, 10);
+    const weekActs = activities.filter(a => {
+      const d = new Date(a.completedAt);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return d.toISOString().slice(0, 10) === weekStart;
+    });
+    const weekTotal = weekActs.reduce((sum, a) => sum + a.totalQuestions, 0);
+    const weekCorrect = weekActs.reduce((sum, a) => sum + a.correctCount, 0);
+
+    await db.weeklySnapshot.upsert({
+      where: { userId_weekStart: { userId: studentId, weekStart } },
+      create: { userId: studentId, weekStart, totalQuestions: weekTotal, correctCount: weekCorrect, accuracy: weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0, sessionsCount: weekActs.length, xpGained: 0, streakDays: 0, wordsLearned: 0 },
+      update: { totalQuestions: weekTotal, correctCount: weekCorrect, accuracy: weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0, sessionsCount: weekActs.length },
+    });
+
+    return { accuracy, weekStart };
   }
 }
 

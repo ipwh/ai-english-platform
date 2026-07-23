@@ -1,5 +1,5 @@
 // Sprint 23: Learning Analytics Platform — types
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // Time Granularity

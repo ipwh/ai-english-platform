@@ -3,9 +3,21 @@ import { describe, it, expect } from 'vitest';
 import { MemoryEngine } from '../services/memory-engine';
 import { MemoryProfileGenerator } from '../services/memory-profile';
 import { MemoryInfluenceEngine } from '../services/memory-influence';
-import { createEmptyMemory } from '../services/memory-service';
+import { createEmptyMemory, MemoryService } from '../services/memory-service';
+import type { IMemoryRepository } from '../repositories/memory-repository-interface';
+import type { LearningMemory } from '../types';
 
-const engine = new MemoryEngine();
+class TestRepo implements IMemoryRepository {
+  private s = new Map<string, LearningMemory>();
+  async get(id: string) { return this.s.get(id) ?? null; }
+  async save(id: string, m: LearningMemory) { m.updatedAt = new Date(); m.version++; this.s.set(id, m); }
+  async has(id: string) { return this.s.has(id); }
+  async delete(id: string) { return this.s.delete(id); }
+  async getAllStudentIds() { return [...this.s.keys()]; }
+  async count() { return this.s.size; }
+}
+
+const engine = new MemoryEngine(new TestRepo());
 const profileGen = new MemoryProfileGenerator();
 const influenceEngine = new MemoryInfluenceEngine();
 

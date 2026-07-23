@@ -9,16 +9,16 @@
 // Engine (S39) — adaptive learning pipeline
 // Sprint 64: LearningDecisionEngine is the canonical decision engine
 // ============================================
-import { executePipeline } from '@/modules/adaptive-learning/services/adaptive-learning-pipeline';
+import { executePipeline } from './services/adaptive-learning-pipeline';
 import { learningDecisionEngine, LearningDecisionEngine } from './decisions/LearningDecisionEngine';
 export { executePipeline, learningDecisionEngine, LearningDecisionEngine };
-export type { AdaptiveLearningResult, PipelineInput, PipelineStage } from '@/modules/adaptive-learning/types';
+export type { AdaptiveLearningResult, PipelineInput, PipelineStage } from './types/adaptive-types';
 
 // Deprecated but kept for backward compat (wraps LearningDecisionEngine)
-export { learningEngine, LearningEngine } from '@/modules/adaptive-learning/services/learning-engine';
-export type { StrategyDecision, LearningEngineInput } from '@/modules/adaptive-learning/services/learning-engine';
-export { buildDSEAdaptivePath } from '@/modules/adaptive-learning/services/dse-adaptive-path';
-export type { AdaptivePath, PathNode } from '@/modules/adaptive-learning/services/dse-adaptive-path';
+export { learningEngine, LearningEngine } from './services/learning-engine';
+export type { StrategyDecision, LearningEngineInput } from './services/learning-engine';
+export { buildDSEAdaptivePath } from './services/dse-adaptive-path';
+export type { AdaptivePath, PathNode } from './services/dse-adaptive-path';
 
 // Sprint 64: Canonical types
 export type { LearningDecision } from './decisions/LearningDecision';
@@ -38,7 +38,7 @@ import {
   recommendVocabulary,
   recommendWritingTopic,
   recommendNextExercise,
-} from '@/modules/recommendation/services/recommendation-engine';
+} from './services/recommendation-engine';
 export {
   getFullRecommendations,
   recommendGrammar,
@@ -50,7 +50,7 @@ export type {
   RecommendationResult,
   ScoredRecommendation,
   RecommendationCandidate,
-} from '@/modules/recommendation/types';
+} from './types/recommendation-types';
 
 // ============================================
 // Knowledge Graph (S21/34) — 52-node prerequisite DAG
@@ -177,21 +177,13 @@ export const LearningFacade = {
 /**
  * KNOWN OVERLAPS:
  *
- * 1. `learning/` (S7) vs `knowledge-graph/` (S21):
- *    - S7 has GRAMMAR_GRAPH (30 nodes) used as seed data by S21
- *    - S7 has topologicalSort, getDependents, getPrerequisites — all superseded
- *    - Migration: extract GRAMMAR_GRAPH into knowledge-graph/data/, then deprecate S7
+ * Sprint 72: All legacy modules removed.
+ * - recommendation-engine now owned by learning/services/
+ * - adaptive-learning-pipeline now owned by learning/services/
+ * - All DSE weights unified in CANONICAL_DSE_WEIGHTS (LearningDecision.ts)
  *
- * 2. `recommendation/` (S33): 4-factor weighted algorithm with DSE exam weights
- *
- * 3. `adaptive-learning/` (S39) vs `learning/` (S7):
- *    - Both are pipeline orchestrators
- *    - S7: weakness → learning path → recommendation
- *    - S39: mastery → mistakes → knowledge graph → recommendation → exercise
- *    - S39 supersedes S7 as the canonical pipeline
- *
- * CROSS-MODULE CALLS (to be migrated to LearningFacade):
- * - recommendation → student-mastery/repositories (should go through StudentFacade)
- * - recommendation → mistake-intelligence/repositories (should go through LearningFacade.mistakeIntel)
- * - adaptive-learning → student-mastery, mistake-intelligence, knowledge-graph (should go through facades)
+ * CROSS-MODULE CALLS (all through facades):
+ * - learning/services -> StudentFacade for mastery data
+ * - learning/services -> mistake/intelligence (through LearningFacade.mistakeIntel)
+ * - learning/services -> knowledge-graph (through LearningFacade.knowledgeGraph)
  */

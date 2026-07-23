@@ -13,11 +13,9 @@ export type {
 } from './types';
 
 export { memoryService, createEmptyMemory } from './services/memory-service';
-export { memoryRepo } from './repositories/memory-repository';
-export {
-  persistMemoryToDb, loadMemoryFromDb, deleteMemoryFromDb,
-  initMemoryPersistence, loadAllMemoriesFromDb,
-} from './repositories/memory-db-repository';
+export type { IMemoryRepository } from './repositories/memory-repository-interface';
+export { MemoryDbRepository, memoryDbRepo } from './repositories/memory-db-repository';
+export { MemoryCacheDecorator } from './repositories/memory-cache-decorator';
 export {
   decayScore, recencyScore, weaknessSeverity, strengthConfidence,
   generateLearningContext, shouldUpdateMemory, calculateMemoryFreshness,

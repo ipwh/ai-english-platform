@@ -2,25 +2,28 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE_V5.md](docs/ARCHITECTURE_V5.md) | [ARCHITECTURE_V5_PROGRESS.md](docs/ARCHITECTURE_V5_PROGRESS.md) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)
-> **Status**: 55 Sprints ✅ | 48 test files | 1,027 tests | Architecture Score: **100/100** | **v5.0 Release Candidate** ✅
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)
+> **Status**: 78 Sprints ✅ | 46 test files | 982 tests | Architecture Score: **100/100** | **v6.0** ✅
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes → Facade → Service → Repository → Prisma → PostgreSQL
+Routes → Facade → Builder → Service → MutationService → Repository → Prisma → PostgreSQL
 
-v5 Domain Architecture (5 Facades):
+v6 Domain Architecture (23 canonical modules, 5 Facades):
   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
   │ Student  │ │ Learning │ │ Teacher  │ │    AI    │ │ Platform │
   │ Facade   │ │ Facade   │ │ Facade   │ │  Facade  │ │  Facade  │
   └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
 
-Learning Pipeline: Student Twin → LearningEngine → DSE Adaptive Path → AI Exercise
-All strategy decisions: deterministic. AI only generates content.
+Student State: CQRS — StudentStateBuilder (READ) + StudentStateMutationService (WRITE)
+Learning Engine: Single canonical LearningDecisionEngine (3→1 engines merged)
+Memory: DB-backed IMemoryRepository (in-memory Map store eliminated)
+Cache: Single cache/cache-service.ts (duplicate ai-cache eliminated)
+DSE Weights: Single CANONICAL_DSE_WEIGHTS source (5→1 tables)
 ```
 
-> 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)
+> 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 
 | Layer | Technology |
 |-------|-----------|
@@ -30,10 +33,9 @@ All strategy decisions: deterministic. AI only generates content.
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (48 files, 1,027 tests, 100% pass) + Playwright |
-| Architecture | **34 real enforcement tests** (0 stubs, 0 exceptions) — Route≠db, Route≠Repo, Service≠Route, AI Isolation, -v2 Detection |
-| Student Twin | 13 components: ForgetCurve, RetentionState, LearningVelocity, RecoveryMetrics, DSE Adaptive Path |
-| Learning Engine | Deterministic 4-factor weighted strategy decider (0 AI in decisions) |
+| Testing | Vitest 4 (46 files, 982 tests, 100% pass) + Playwright |
+| Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
+| Documentation | 6 ADRs in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 

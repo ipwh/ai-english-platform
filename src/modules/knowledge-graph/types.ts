@@ -1,7 +1,7 @@
 // Sprint 21: Knowledge Graph Engine — types
 // Builds on top of learning module SkillNode, extends with full curriculum data
 
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // CEFR Levels (Common European Framework)

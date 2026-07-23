@@ -1,27 +1,16 @@
 // Sprint 25: AI Memory Integration — inject learning context into prompts
+// Sprint 75: Uses MemoryService (which delegates to persistent IMemoryRepository)
 import { memoryService } from '../services/memory-service';
-import { loadMemoryFromDb } from '../repositories/memory-db-repository';
-import { memoryRepo } from '../repositories/memory-repository';
 import type { LearningContext } from '../types';
 
 /**
  * Get the learning context for AI prompt injection.
- * Automatically loads from DB if not in memory.
- *
- * Usage in AI services:
- *   const ctx = await getMemoryContext(studentId);
- *   const systemPrompt = basePrompt + ctx.summary;
+ * MemoryService handles persistence through IMemoryRepository.
  */
 export async function getMemoryContext(
   studentId: string,
   options?: { recentAccuracy?: number; recentStreak?: number; recentQuestions?: number },
 ): Promise<LearningContext> {
-  // Try loading from DB first
-  if (!memoryRepo.has(studentId)) {
-    const dbMemory = await loadMemoryFromDb(studentId);
-    if (dbMemory) memoryRepo.save(studentId, dbMemory);
-  }
-
   return memoryService.getContext(
     studentId,
     options?.recentAccuracy ?? 0.7,
@@ -82,14 +71,8 @@ export async function recordAiInteraction(
     topicZh?: string;
   },
 ): Promise<void> {
-  // Load from DB if needed
-  if (!memoryRepo.has(studentId)) {
-    const dbMemory = await loadMemoryFromDb(studentId);
-    if (dbMemory) memoryRepo.save(studentId, dbMemory);
-  }
-
   if (interaction.type === 'exercise' && interaction.skill && interaction.correct !== undefined) {
-    memoryService.recordGrammarResult(
+    await memoryService.recordGrammarResult(
       studentId,
       interaction.skill,
       interaction.topicZh || interaction.skill,
@@ -98,5 +81,5 @@ export async function recordAiInteraction(
   }
 
   // Record as a session interaction
-  memoryService.recordSession(studentId, 1, 1);
+  await memoryService.recordSession(studentId, 1, 1);
 }

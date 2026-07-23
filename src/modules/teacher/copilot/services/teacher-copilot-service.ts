@@ -1,5 +1,5 @@
 // Sprint 38: TeacherCopilotService — full teacher intelligence suite
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import type {
   WeeklyTeachingPlan, DailyPlan, Activity, HomeworkItem,
   GrammarFocus, VocabularyFocus, WritingFocus,

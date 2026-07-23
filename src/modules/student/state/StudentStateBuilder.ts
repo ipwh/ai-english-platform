@@ -7,7 +7,7 @@ import type { StudentState, StudentIdentity, StudentMemory,
   StudentEngagement, StudentPracticeSummary } from './StudentState';
 import type { SkillRank, LearningPersona, MotivationState,
   ConfidenceState, LearningHabit, TwinPredictions, RiskAssessment,
-  LearningVelocity, RecoveryMetrics } from '@/modules/student-twin/types';
+  LearningVelocity, RecoveryMetrics } from '../twin/types';
 
 // ============================================
 // Internal types
@@ -173,9 +173,10 @@ export class StudentStateBuilder {
   /** CANONICAL mastery source: student-mastery service */
   private async loadMastery(studentId: string): Promise<StudentMastery> {
     try {
-      const { getLearningProfile } = await import('@/modules/student-mastery/services/student-mastery-service');
+      const { getLearningProfile } = await import('../mastery/services/student-mastery-service');
       const profile = await getLearningProfile(studentId);
       const bySkill: StudentMastery['bySkill'] = {};
+      const entries: StudentMastery['entries'] = [];
       for (const [skill, data] of Object.entries(profile.bySkill)) {
         bySkill[skill] = {
           score: (data as any).overallScore ?? 0,
@@ -183,17 +184,30 @@ export class StudentStateBuilder {
           mistakeCount: (data as any).totalMistakes ?? 0,
           correctCount: (data as any).totalCorrect ?? 0,
         };
+        // Collect raw sub-skill entries for analytics
+        for (const sub of ((data as any).subSkills ?? [])) {
+          entries.push({
+            skill: sub.skill ?? skill,
+            subSkill: sub.subSkill ?? '',
+            masteryScore: sub.masteryScore ?? 0,
+            practiceCount: sub.practiceCount ?? 0,
+            mistakeCount: sub.mistakeCount ?? 0,
+            correctCount: sub.correctCount ?? 0,
+            updatedAt: sub.updatedAt?.toISOString?.() ?? sub.updatedAt,
+          });
+        }
       }
       return {
         overallScore: profile.overallMastery,
         bySkill,
+        entries,
         weakSkills: (profile.weakestSkills as any[]).map(w => w.grammarItem || w.skill || ''),
         strongSkills: (profile.strongestSkills as any[]).map(s => s.grammarItem || s.skill || ''),
         estimatedHkdseLevel: '',
         estimatedCefrLevel: '',
       };
     } catch (err) { logger.error({ module: 'student-state', studentId, error: String(err) }, 'loadMastery failed');
-      return { overallScore: 0, bySkill: {}, weakSkills: [], strongSkills: [], estimatedHkdseLevel: '', estimatedCefrLevel: '' };
+      return { overallScore: 0, bySkill: {}, entries: [], weakSkills: [], strongSkills: [], estimatedHkdseLevel: '', estimatedCefrLevel: '' };
     }
   }
 

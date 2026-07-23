@@ -6,18 +6,18 @@
 // ============================================
 // Profile (identity, preferences, learning speed)
 // ============================================
-import { generateProfile } from '@/modules/profile/services/profile-service';
+import { generateProfile } from './profile/services/profile-service';
 export { generateProfile };
-export type { ProfileInput } from '@/modules/profile/services/profile-service';
-import { aggregateSkillStats, mapToDimension } from '@/modules/profile/services/skill-tracker';
+export type { ProfileInput } from './profile/services/profile-service';
+import { aggregateSkillStats, mapToDimension } from './profile/services/skill-tracker';
 export { aggregateSkillStats, mapToDimension };
-export type { PracticeRecord } from '@/modules/profile/services/skill-tracker';
-import { analyzeTopicPreferences } from '@/modules/profile/services/topic-preferences';
+export type { PracticeRecord } from './profile/services/skill-tracker';
+import { analyzeTopicPreferences } from './profile/services/topic-preferences';
 export { analyzeTopicPreferences };
-export type { TopicEngagement } from '@/modules/profile/services/topic-preferences';
-import { calculateLearningSpeed } from '@/modules/profile/services/learning-speed';
+export type { TopicEngagement } from './profile/services/topic-preferences';
+import { calculateLearningSpeed } from './profile/services/learning-speed';
 export { calculateLearningSpeed };
-export type { SessionRecord } from '@/modules/profile/services/learning-speed';
+export type { SessionRecord } from './profile/services/learning-speed';
 
 // ============================================
 // Mastery (S31) — SINGLE SOURCE OF TRUTH for ability
@@ -27,7 +27,7 @@ import {
   updateAfterExercise,
   updateAfterWriting,
   updateAfterVocabulary,
-} from '@/modules/student-mastery/services/student-mastery-service';
+} from './mastery/services/student-mastery-service';
 export {
   getLearningProfile,
   updateAfterExercise,
@@ -39,7 +39,7 @@ export type {
   MasteryEntry,
   SkillGroupedMastery,
   ExerciseResult,
-} from '@/modules/student-mastery/types';
+} from './mastery/types';
 
 // ============================================
 // Memory (S36) — learning memory lifecycle
@@ -52,30 +52,30 @@ export { memoryEngine };
 // ============================================
 // Progress — gamification, XP, streaks, badges, leaderboard
 // ============================================
-import { getStudentProgress, awardXp } from '@/modules/progress/services/progress-service';
+import { getStudentProgress, awardXp } from './progress/services/progress-service';
 export { getStudentProgress, awardXp };
-import { calculateStudentStreak, syncUserStreak } from '@/modules/progress/services/streak-service';
+import { calculateStudentStreak, syncUserStreak } from './progress/services/streak-service';
 export { calculateStudentStreak, syncUserStreak };
 import {
   calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
   getStudyRecommendation, buildLeaderboard, getDailyGoal,
-} from '@/modules/progress/services/gamification';
+} from './progress/services/gamification';
 export {
   calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
   getStudyRecommendation, buildLeaderboard, getDailyGoal,
 };
-export type { BadgeCheckStats, LeaderboardEntry, BadgeDefinition } from '@/modules/progress/services/gamification';
+export type { BadgeCheckStats, LeaderboardEntry, BadgeDefinition } from './progress/services/gamification';
 
 // ============================================
 // Twin (S20) — digital learning state
 // Sprint 59: Canonical StudentState + StudentStateBuilder
 // ============================================
-import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
+import { studentTwinService } from './twin/services/student-twin-service';
 export { studentTwinService };
 export type {
   StudentTwin, LearningPersona, PersonaType,
   KnowledgeState, TwinPredictions, RiskAssessment,
-} from '@/modules/student-twin/types';
+} from './twin/types';
 
 // Sprint 59: Canonical StudentState (ONE source of truth)
 export { studentStateBuilder } from './state/StudentStateBuilder';
@@ -106,13 +106,13 @@ export {
 
 // Re-export common repos through facade (Route ≠ Repository rule)
 export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions } from '@/modules/exercise/repositories/practice-repo';
-export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from '@/modules/progress/repositories/progress-repo';
+export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from './progress/repositories/progress-repo';
 export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';
 export { listMistakes, listMistakesByType, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake/db/repositories/mistake-repo';
 export { clearDiagnosticResults, createDiagnosticResult, getRecentDiagnostics, createFeedback } from '@/modules/assessment/repositories/diagnostic-repo';
 export { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks, countMaterials } from '@/modules/ai/repositories/material-repo';
-export { loadMemoryFromDb } from '@/modules/learning/memory/repositories/memory-db-repository';
+export { memoryDbRepo } from '@/modules/learning/memory/repositories/memory-db-repository';
 export { listNotifications, countUnreadNotifications, markNotificationRead, markNotificationsRead, createNotification } from '@/modules/notification/repositories/notification-repo';
 export { updateVocab } from '@/modules/vocabulary/repositories/vocabulary-repo';
 

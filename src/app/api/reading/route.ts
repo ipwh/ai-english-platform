@@ -731,6 +731,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       content: result,
       wordCount: totalWords,
       source: parsed.source || undefined,
+      lineNote: 'Line numbers are approximate (~11 words per line). Refer to paragraph numbers for precise location.',
     };
     delete response.readingContent;
 
@@ -753,8 +754,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (Array.isArray(q.choices)) {
           choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
           // Guard: if all choices are empty after stripping, use fallback labels
-          if (choices.every(c => c.trim() === '')) {
-            choices = ['A', 'B', 'C', 'D'].slice(0, choices.length || 4);
+          // Guard: reject choices that are just single letters or empty (AI hallucination)
+          const substantive = choices.filter(c => c.trim().length > 2);
+          if (substantive.length === 0) {
+            logger.warn({ module: 'reading', questionIndex: i, rawChoices: q.choices }, 'MCQ choices are all empty/single letters');
+            choices = undefined;
           }
         }
 
@@ -777,7 +781,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           question,
           questionZh,
           type: isMc ? 'mc' : 'short-answer',
-          choices: isMc ? (choices || ['A', 'B', 'C', 'D']) : undefined,
+          choices: isMc && choices ? choices : undefined,
           answer: (q.answer as string) || '',
           explanationZh: (q.explanationZh as string) || undefined,
           explanationEn: (q.explanationEn as string) || undefined,
@@ -801,8 +805,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (Array.isArray(q.choices)) {
           choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
           // Guard: if all choices are empty after stripping, use fallback labels
-          if (choices.every(c => c.trim() === '')) {
-            choices = ['A', 'B', 'C', 'D'].slice(0, choices.length || 4);
+          // Guard: reject choices that are just single letters or empty (AI hallucination)
+          const substantive = choices.filter(c => c.trim().length > 2);
+          if (substantive.length === 0) {
+            logger.warn({ module: 'reading', questionIndex: i, rawChoices: q.choices }, 'MCQ choices are all empty/single letters');
+            choices = undefined;
           }
         }
 
@@ -819,7 +826,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           question,
           questionZh,
           type: isMc ? 'mc' : 'short-answer',
-          choices: isMc ? (choices || ['A', 'B', 'C', 'D']) : undefined,
+          choices: isMc && choices ? choices : undefined,
           answer: (q.answer as string) || '',
           explanationZh: (q.explanationZh as string) || undefined,
           explanationEn: (q.explanationEn as string) || undefined,

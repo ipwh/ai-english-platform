@@ -1,9 +1,8 @@
-// Sprint 25: Learning Memory API — v4.1: uses service layer, not repos directly
+// Sprint 75: Learning Memory API — uses MemoryService (persistent via IMemoryRepository)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { memoryService } from '@/modules/learning/memory/services/memory-service';
 import { generateLearningContext } from '@/modules/learning/memory/services/memory-scoring';
-import { loadMemoryFromDb } from '@/modules/student';
 
 // GET /api/memory?action=context|memory|freshness
 export async function GET(request: NextRequest) {
@@ -16,19 +15,13 @@ export async function GET(request: NextRequest) {
   const action = searchParams.get('action') || 'context';
 
   try {
-    // Sync DB → in-memory (persistence layer concern)
-    const dbMemory = await loadMemoryFromDb(auth.userId);
-    if (dbMemory) {
-      memoryService.saveMemory(auth.userId, dbMemory);
-    }
-
     switch (action) {
       case 'context':
-        return NextResponse.json(memoryService.getContext(auth.userId));
+        return NextResponse.json(await memoryService.getContext(auth.userId));
       case 'memory':
-        return NextResponse.json(memoryService.getMemory(auth.userId));
+        return NextResponse.json(await memoryService.getMemory(auth.userId));
       case 'freshness':
-        return NextResponse.json({ freshnessHours: memoryService.getFreshness(auth.userId) });
+        return NextResponse.json({ freshnessHours: await memoryService.getFreshness(auth.userId) });
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }

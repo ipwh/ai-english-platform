@@ -1,7 +1,7 @@
 // Sprint 39: Adaptive Learning Engine — Facade Pipeline
 // Coordinates all modules (S31-S38) in a single pipeline.
 // PURE orchestration — no new business logic.
-import type { PipelineInput, PipelineStage, AdaptiveLearningResult } from '../types';
+import type { PipelineInput, PipelineStage, AdaptiveLearningResult } from '../types/adaptive-types';
 
 /**
  * Execute the full adaptive learning pipeline.
@@ -27,7 +27,7 @@ export async function executePipeline(input: PipelineInput): Promise<AdaptiveLea
   const t1 = Date.now();
   try {
     const { getLearningProfile } = await import(
-      '@/modules/student-mastery/services/student-mastery-service'
+      '@/modules/student/mastery/services/student-mastery-service'
     );
     const profile = await getLearningProfile(studentId);
     masteryProfile = {

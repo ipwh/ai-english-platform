@@ -2,7 +2,7 @@
 import type {
   PersonalizationContext, ExerciseSpec, ExerciseFormat, AdaptiveDifficulty,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 import { difficultyAdjuster } from '@/modules/learning/science/services/difficulty-adjuster';
 import type { ReviewScheduleEntry } from '@/modules/learning/science/types';
 import { weaknessLocator } from '@/modules/knowledge-graph/services/weakness-locator';

@@ -1,8 +1,9 @@
 // Sprint 25: Memory Service — business logic for learning memory
-import { memoryRepo } from '../repositories/memory-repository';
+// Sprint 75: Uses IMemoryRepository interface (not in-memory Map)
+import type { IMemoryRepository } from '../repositories/memory-repository-interface';
 import { generateLearningContext, shouldUpdateMemory, decayScore } from './memory-scoring';
 import type { LearningMemory, LearningContext, GrammarMemory, VocabularyMemory, WritingStyleMemory, ReadingPreferenceMemory, LearningSpeedMemory, PreferredTopicsMemory, WeaknessMemory, StrengthMemory, RecentErrorsMemory, ReviewHistoryMemory } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 export function createEmptyMemory(studentId: string): LearningMemory {
   return {
@@ -55,20 +56,35 @@ function createEmptyReviewHistory(): ReviewHistoryMemory {
 // Memory Service
 // ============================================
 
-class MemoryService {
+export class MemoryService {
+  private repo: IMemoryRepository;
+
+  constructor(repo: IMemoryRepository) {
+    this.repo = repo;
+  }
+
   /** Get or create memory for a student */
-  getMemory(studentId: string): LearningMemory {
-    return memoryRepo.get(studentId);
+  async getMemory(studentId: string): Promise<LearningMemory> {
+    const existing = await this.repo.get(studentId);
+    if (existing) return existing;
+    const empty = createEmptyMemory(studentId);
+    await this.repo.save(studentId, empty);
+    return empty;
   }
 
   /** Save updated memory */
-  saveMemory(studentId: string, memory: LearningMemory): void {
-    memoryRepo.save(studentId, memory);
+  async saveMemory(studentId: string, memory: LearningMemory): Promise<void> {
+    await this.repo.save(studentId, memory);
+  }
+
+  /** Delete memory */
+  async deleteMemory(studentId: string): Promise<void> {
+    await this.repo.delete(studentId);
   }
 
   /** Generate learning context for prompt injection */
-  getContext(studentId: string, recentAccuracy = 0.7, recentStreak = 0, recentQuestions = 0): LearningContext {
-    const memory = this.getMemory(studentId);
+  async getContext(studentId: string, recentAccuracy = 0.7, recentStreak = 0, recentQuestions = 0): Promise<LearningContext> {
+    const memory = await this.getMemory(studentId);
     return generateLearningContext(memory, recentAccuracy, recentStreak, recentQuestions);
   }
 
@@ -77,8 +93,8 @@ class MemoryService {
   // ============================================
 
   /** Record a grammar practice result */
-  recordGrammarResult(studentId: string, topic: string, topicZh: string, correct: boolean): void {
-    const mem = this.getMemory(studentId);
+  async recordGrammarResult(studentId: string, topic: string, topicZh: string, correct: boolean): Promise<void> {
+    const mem = await this.getMemory(studentId);
     const existing = mem.grammar.strugglingTopics.find(t => t.topic === topic);
     if (!correct) {
       if (existing) {
@@ -102,54 +118,54 @@ class MemoryService {
         }
       }
     }
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Record vocabulary learned */
-  recordVocabulary(studentId: string, word: string, masteryStars: number): void {
-    const mem = this.getMemory(studentId);
+  async recordVocabulary(studentId: string, word: string, masteryStars: number): Promise<void> {
+    const mem = await this.getMemory(studentId);
     mem.vocabulary.recentlyLearned.unshift({ word, addedAt: new Date().toISOString(), masteryStars });
     mem.vocabulary.recentlyLearned = mem.vocabulary.recentlyLearned.slice(0, 50);
     mem.vocabulary.knownWords++;
     if (masteryStars >= 3) mem.vocabulary.activeWords++;
     if (masteryStars < 3) mem.vocabulary.passiveWords++;
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Record a writing submission */
-  recordWriting(studentId: string, wordCount: number, textType: string): void {
-    const mem = this.getMemory(studentId);
+  async recordWriting(studentId: string, wordCount: number, textType: string): Promise<void> {
+    const mem = await this.getMemory(studentId);
     const prev = mem.writingStyle;
     const total = prev.averageEssayLength * 0.7 + wordCount * 0.3;
     mem.writingStyle.averageEssayLength = Math.round(total);
     if (!mem.writingStyle.preferredTextTypes.includes(textType)) {
       mem.writingStyle.preferredTextTypes.push(textType);
     }
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Record a reading session */
-  recordReading(studentId: string, topic: string, wpm: number): void {
-    const mem = this.getMemory(studentId);
+  async recordReading(studentId: string, topic: string, wpm: number): Promise<void> {
+    const mem = await this.getMemory(studentId);
     if (!mem.readingPreference.preferredTopics.includes(topic)) {
       mem.readingPreference.preferredTopics.push(topic);
     }
     mem.readingPreference.averageReadingSpeed = Math.round(mem.readingPreference.averageReadingSpeed * 0.7 + wpm * 0.3);
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Record learning session stats */
-  recordSession(studentId: string, durationMinutes: number, questionsAnswered: number): void {
-    const mem = this.getMemory(studentId);
+  async recordSession(studentId: string, durationMinutes: number, questionsAnswered: number): Promise<void> {
+    const mem = await this.getMemory(studentId);
     mem.learningSpeed.averageSessionDuration = Math.round(mem.learningSpeed.averageSessionDuration * 0.7 + durationMinutes * 0.3);
     mem.learningSpeed.questionsPerDay = Math.round(mem.learningSpeed.questionsPerDay * 0.7 + questionsAnswered * 0.3);
     mem.learningSpeed.sessionsPerWeek = Math.min(7, mem.learningSpeed.sessionsPerWeek + 1);
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Record an error */
-  recordError(studentId: string, question: string, studentAnswer: string, correctAnswer: string, category: string): void {
-    const mem = this.getMemory(studentId);
+  async recordError(studentId: string, question: string, studentAnswer: string, correctAnswer: string, category: string): Promise<void> {
+    const mem = await this.getMemory(studentId);
     mem.recentErrors.last10Errors.unshift({
       question: question.slice(0, 100), studentAnswer: studentAnswer.slice(0, 50),
       correctAnswer, category, timestamp: new Date().toISOString(),
@@ -157,12 +173,12 @@ class MemoryService {
     mem.recentErrors.last10Errors = mem.recentErrors.last10Errors.slice(0, 10);
     mem.recentErrors.errorFrequency[category] = (mem.recentErrors.errorFrequency[category] || 0) + 1;
     mem.recentErrors.mostRecentErrorCategory = category;
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Update weaknesses based on practice data */
-  updateWeaknesses(studentId: string, skillAccuracy: Record<SkillDimension, number>): void {
-    const mem = this.getMemory(studentId);
+  async updateWeaknesses(studentId: string, skillAccuracy: Record<SkillDimension, number>): Promise<void> {
+    const mem = await this.getMemory(studentId);
     const weakSkills: SkillDimension[] = [];
     for (const [skill, acc] of Object.entries(skillAccuracy) as [SkillDimension, number][]) {
       if (acc < 0.6) {
@@ -179,25 +195,30 @@ class MemoryService {
     mem.strengths.strongestSkills = (Object.entries(skillAccuracy) as [SkillDimension, number][])
       .filter(([, acc]) => acc >= 0.8)
       .map(([skill]) => skill);
-    this.saveMemory(studentId, mem);
+    await this.saveMemory(studentId, mem);
   }
 
   /** Check if memory needs refresh */
-  needsRefresh(studentId: string): boolean {
-    const mem = this.getMemory(studentId);
+  async needsRefresh(studentId: string): Promise<boolean> {
+    const mem = await this.getMemory(studentId);
     return shouldUpdateMemory(mem);
   }
 
   /** Get memory freshness score */
-  getFreshness(studentId: string): number {
-    const mem = this.getMemory(studentId);
+  async getFreshness(studentId: string): Promise<number> {
+    const mem = await this.getMemory(studentId);
     return Math.round((Date.now() - mem.updatedAt.getTime()) / 3600000);
-  }
-
-  /** Delete a student's memory */
-  deleteMemory(studentId: string): void {
-    memoryRepo.delete(studentId);
   }
 }
 
-export const memoryService = new MemoryService();
+let _memoryService: MemoryService | null = null;
+
+export const memoryService: MemoryService = new Proxy({} as MemoryService, {
+  get(_, prop) {
+    if (!_memoryService) {
+      const { memoryDbRepo } = require('../repositories/memory-db-repository');
+      _memoryService = new MemoryService(memoryDbRepo);
+    }
+    return (_memoryService as any)[prop];
+  },
+});

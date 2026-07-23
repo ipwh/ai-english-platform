@@ -6,8 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { buildLeaderboard } from '@/modules/progress/services/gamification';
-import type { XpEvent } from '@/modules/progress/services/gamification';
+import { buildLeaderboard } from '@/modules/student/progress/services/gamification';
+import type { XpEvent } from '@/modules/student/progress/services/gamification';
 import { getLeaderboard } from '@/modules/student';
 import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
 

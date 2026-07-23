@@ -1,6 +1,6 @@
 // Sprint 25: Memory Scoring — decay, relevance, and importance algorithms
 import type { LearningMemory, LearningContext } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // Decay Functions

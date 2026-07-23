@@ -1,5 +1,5 @@
 // Sprint 25: Long-term Learning Memory — types
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 export interface LearningMemory {
   studentId: string;

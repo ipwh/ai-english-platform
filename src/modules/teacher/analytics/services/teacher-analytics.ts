@@ -4,7 +4,7 @@ import type {
   RiskPrediction, LearningSuggestion, LearningGap, AIReport,
   TeacherDashboardInput, StudentData,
 } from '../types';
-import type { SkillDimension } from '@/modules/profile/types';
+import type { SkillDimension } from '@/modules/student/profile/types';
 
 // Single source: use MASTERY_SKILLS for canonical skill dimensions
 const SKILLS: SkillDimension[] = ['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'];

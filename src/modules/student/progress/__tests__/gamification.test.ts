@@ -9,8 +9,8 @@ import {
   getDailyGoal,
   getLevelInfo,
   BADGE_DEFINITIONS,
-} from '@/modules/progress/services/gamification';
-import type { XpEvent, BadgeCheckStats } from '@/modules/progress/services/gamification';
+} from '../services/gamification';
+import type { XpEvent, BadgeCheckStats } from '../services/gamification';
 
 // ============================================
 // XP Calculation Tests
