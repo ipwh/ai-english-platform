@@ -630,6 +630,49 @@ export class StudentTwinService {
       onTrack: reviewCompliance > 0.6,
     };
   }
+
+  // ============================================
+  // Sprint 58: Canonical delegation — all student state routes through Twin
+  // These methods delegate to specialized services but provide
+  // ONE canonical entry point for all student state queries.
+  // ============================================
+
+  /** Delegates to student-mastery service — canonical mastery profile */
+  async getMasteryProfile(studentId: string, skill?: string) {
+    const { getLearningProfile } = await import('@/modules/student-mastery/services/student-mastery-service');
+    return getLearningProfile(studentId);
+  }
+
+  /** Delegates to mistake-intelligence — canonical weakness profile */
+  async getWeaknessProfile(studentId: string, limit = 10, includeRecommendations = true) {
+    const { buildWeaknessProfile } = await import('@/modules/mistake-intelligence/services/mistake-intelligence-service');
+    return buildWeaknessProfile(studentId, limit, includeRecommendations);
+  }
+
+  /** Delegates to vocabulary-intelligence — canonical vocabulary profile */
+  async getVocabProfile(studentId: string) {
+    const { buildVocabProfile } = await import('@/modules/vocabulary-intelligence/services/vocabulary-intelligence-service');
+    return buildVocabProfile(studentId);
+  }
+
+  /** Delegates to recommendation-engine — canonical recommendations */
+  async getRecommendations(studentId: string, type?: string, limit = 5, _includeBreakdown = false) {
+    const { getFullRecommendations, recommendGrammar, recommendVocabulary, recommendWritingTopic } = await import('@/modules/recommendation/services/recommendation-engine');
+    if (type === 'grammar') return recommendGrammar(studentId, limit);
+    if (type === 'vocabulary') return recommendVocabulary(studentId, limit);
+    if (type === 'writing') return recommendWritingTopic(studentId, limit);
+    return getFullRecommendations(studentId, limit);
+  }
+
+  /** Delegates to learning-analytics — canonical analytics */
+  async getAnalytics(studentId: string, weeks?: number) {
+    const { buildStudentTrends, buildLearningStats } = await import('@/modules/learning-analytics/services/learning-analytics-service');
+    const [trends, stats] = await Promise.all([
+      buildStudentTrends(studentId, weeks ?? 12),
+      buildLearningStats(studentId),
+    ]);
+    return { trends, stats };
+  }
 }
 
 export const studentTwinService = new StudentTwinService();

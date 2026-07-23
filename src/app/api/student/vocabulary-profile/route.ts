@@ -1,11 +1,11 @@
 // Sprint 35: GET /api/student/vocabulary-profile
-// Returns full vocabulary profile with status breakdown, word families, review queue
+// Sprint 58: Delegates through StudentTwin (canonical entry point)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { vocabProfileQuerySchema } from '@/modules/vocabulary-intelligence/schemas';
-import { buildVocabProfile } from '@/modules/vocabulary-intelligence/services/vocabulary-intelligence-service';
+import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profile = await buildVocabProfile(studentId);
+    const profile = await studentTwinService.getVocabProfile(studentId);
 
     // Filter by status if requested
     if (status) {

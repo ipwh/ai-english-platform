@@ -1,16 +1,11 @@
 // Sprint 33: GET /api/student/recommendation
-// Returns adaptive recommendations based on mastery + weakness + exam weights
+// Sprint 58: Delegates through StudentTwin (canonical entry point)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { recommendationQuerySchema } from '@/modules/recommendation/schemas';
-import {
-  getFullRecommendations,
-  recommendGrammar,
-  recommendVocabulary,
-  recommendWritingTopic,
-} from '@/modules/recommendation/services/recommendation-engine';
+import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -35,40 +30,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Route to specific recommendation function based on type
-    if (type === 'grammar') {
-      const result = await recommendGrammar(studentId, limit);
-      return NextResponse.json({ studentId, type, recommendations: result, generatedAt: new Date() });
-    }
-
-    if (type === 'vocabulary') {
-      const result = await recommendVocabulary(studentId, limit);
-      return NextResponse.json({ studentId, type, recommendations: result, generatedAt: new Date() });
-    }
-
-    if (type === 'writing') {
-      const result = await recommendWritingTopic(studentId, limit);
-      return NextResponse.json({ studentId, type, recommendations: result, generatedAt: new Date() });
-    }
-
-    // Default: full recommendations
-    const result = await getFullRecommendations(studentId, limit);
-
-    if (!includeBreakdown) {
-      // Strip breakdown for lighter response
-      const stripBreakdown = (r: typeof result.topRecommendations) =>
-        r.map(({ candidate, totalScore, rank }) => ({ candidate, totalScore, rank }));
-      return NextResponse.json({
-        ...result,
-        topRecommendations: stripBreakdown(result.topRecommendations),
-        recommendedGrammar: stripBreakdown(result.recommendedGrammar),
-        recommendedVocabulary: stripBreakdown(result.recommendedVocabulary),
-        recommendedWriting: stripBreakdown(result.recommendedWriting),
-        recommendedExercise: stripBreakdown(result.recommendedExercise),
-      });
-    }
-
-    return NextResponse.json(result);
+    const result = await studentTwinService.getRecommendations(studentId, type, limit, includeBreakdown);
+    return NextResponse.json({ studentId, type: type || 'full', recommendations: result, generatedAt: new Date() });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'recommendation', error: message }, 'GET /api/student/recommendation failed');

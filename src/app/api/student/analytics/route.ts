@@ -1,10 +1,11 @@
 // Sprint 37: GET /api/student/analytics
+// Sprint 58: Delegates through StudentTwin (canonical entry point)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { studentAnalyticsQuerySchema } from '@/modules/learning-analytics/schemas';
-import { buildStudentTrends, buildLearningStats } from '@/modules/learning-analytics/services/learning-analytics-service';
+import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -21,10 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const [trends, stats] = await Promise.all([
-      buildStudentTrends(studentId, weeks),
-      buildLearningStats(studentId),
-    ]);
+    const { trends, stats } = await studentTwinService.getAnalytics(studentId, weeks);
 
     return NextResponse.json({ trends, stats });
   } catch (err: unknown) {

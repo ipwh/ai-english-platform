@@ -1,11 +1,11 @@
 // Sprint 32: GET /api/student/weakness
-// Returns top 10 weaknesses, most frequent mistakes, improvement trend, recommendations
+// Sprint 58: Delegates through StudentTwin (canonical entry point)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { weaknessQuerySchema } from '@/modules/mistake-intelligence/schemas';
-import { buildWeaknessProfile } from '@/modules/mistake-intelligence/services/mistake-intelligence-service';
+import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profile = await buildWeaknessProfile(studentId, limit, includeRecommendations);
+    const profile = await studentTwinService.getWeaknessProfile(studentId, limit, includeRecommendations);
 
     // If a specific category is requested, filter
     if (category) {

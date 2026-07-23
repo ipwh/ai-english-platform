@@ -1,11 +1,11 @@
 // Sprint 31: GET /api/student/mastery
-// Returns the student's learning profile with overall/grammar/writing/etc mastery
+// Sprint 58: Delegates through StudentTwin (canonical entry point)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { validateRequest, validateQuery } from '@/shared/validation/schemas';
+import { validateQuery } from '@/shared/validation/schemas';
 import { masteryQuerySchema } from '@/modules/student-mastery/schemas';
-import { getLearningProfile } from '@/modules/student-mastery/services/student-mastery-service';
+import { studentTwinService } from '@/modules/student-twin/services/student-twin-service';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'You can only view your own mastery data' }, { status: 403 });
     }
 
-    const profile = await getLearningProfile(studentId);
+    const profile = await studentTwinService.getMasteryProfile(studentId);
 
     // If a specific skill is requested, return only that skill's data
     if (skill) {
