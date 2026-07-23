@@ -91,7 +91,7 @@ export type {
 import {
   confidenceEstimator,
   difficultyAdjuster,
-} from '@/modules/learning-science';
+} from '@/modules/learning/science';
 export {
   confidenceEstimator,
   difficultyAdjuster,
@@ -100,9 +100,9 @@ export {
 // ============================================
 // Mistake Intelligence (S32) — longitudinal mistake patterns
 // ============================================
-import { buildWeaknessProfile } from '@/modules/mistake-intelligence/services/mistake-intelligence-service';
+import { buildWeaknessProfile } from '@/modules/mistake/intelligence/services/mistake-intelligence-service';
 export { buildWeaknessProfile };
-export type { WeaknessProfile, WeaknessItem } from '@/modules/mistake-intelligence/types';
+export type { WeaknessProfile, WeaknessItem } from '@/modules/mistake/intelligence/types';
 
 // ============================================
 // Unified Facade Object

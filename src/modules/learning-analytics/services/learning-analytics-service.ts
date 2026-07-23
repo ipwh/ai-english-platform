@@ -14,7 +14,7 @@ export async function buildStudentTrends(
     '@/modules/student-mastery/repositories/student-mastery-repo'
   );
   const { getStudentSummaries } = await import(
-    '@/modules/mistake-intelligence/repositories/mistake-intelligence-repo'
+    '@/modules/mistake/intelligence/repositories/mistake-intelligence-repo'
   );
 
   const masteryEntries = await getStudentMastery(studentId);

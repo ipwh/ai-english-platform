@@ -9,8 +9,8 @@ export async function aggregateMistakes(studentId: string) {
   });
 
   // Import dynamically to avoid circular deps in tests
-  const { extractGrammarPoint } = await import('@/modules/mistake-db/services/mistake-tracker');
-  const { classifySeverity } = await import('@/modules/mistake-db/services/mistake-tracker');
+  const { extractGrammarPoint } = await import('@/modules/mistake/db/services/mistake-tracker');
+  const { classifySeverity } = await import('@/modules/mistake/db/services/mistake-tracker');
   const { calculateTrend } = await import('../services/mistake-intelligence-formula');
 
   // Group by grammar category

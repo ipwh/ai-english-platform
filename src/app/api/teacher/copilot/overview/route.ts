@@ -1,7 +1,7 @@
 // Sprint 38: GET /api/teacher/copilot/overview — teacher dashboard overview
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { teacherCopilotService } from '@/modules/teacher-copilot/services/teacher-copilot-service';
+import { teacherCopilotService } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {

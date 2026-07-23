@@ -165,7 +165,7 @@ export class StudentStateBuilder {
 
   private async loadMemory(studentId: string): Promise<StudentMemory | null> {
     try {
-      const { memoryEngine } = await import('@/modules/learning-memory/services/memory-engine');
+      const { memoryEngine } = await import('@/modules/learning/memory/services/memory-engine');
       return await memoryEngine.get(studentId);
     } catch (err) { logger.error({ module: 'student-state', studentId, error: String(err) }, 'loadMemory failed'); return null; }
   }
@@ -199,7 +199,7 @@ export class StudentStateBuilder {
 
   private async loadWeakness(studentId: string): Promise<StudentWeakness | null> {
     try {
-      const { buildWeaknessProfile } = await import('@/modules/mistake-intelligence/services/mistake-intelligence-service');
+      const { buildWeaknessProfile } = await import('@/modules/mistake/intelligence/services/mistake-intelligence-service');
       const w = await buildWeaknessProfile(studentId, 10, true);
       return { topWeaknesses: w.topWeaknesses as any[], totalMistakes: (w as any).totalMistakes ?? 0, generatedAt: w.generatedAt };
     } catch { return null; }
@@ -207,7 +207,7 @@ export class StudentStateBuilder {
 
   private async loadVocabulary(studentId: string): Promise<StudentVocabulary | null> {
     try {
-      const { buildVocabProfile } = await import('@/modules/vocabulary-intelligence/services/vocabulary-intelligence-service');
+      const { buildVocabProfile } = await import('@/modules/vocabulary/intelligence/services/vocabulary-intelligence-service');
       const v = await buildVocabProfile(studentId);
       const byStatus: Record<string, number> = {};
       for (const key of ['known','learning','weak','forgotten','mastered','needReview']) {
@@ -243,7 +243,7 @@ export class StudentStateBuilder {
 
   private async loadReviewEntries(studentId: string): Promise<ReviewEntry[]> {
     try {
-      const { learningScienceRepo } = await import('@/modules/learning-memory/repositories/learning-science-repository');
+      const { learningScienceRepo } = await import('@/modules/learning/memory/repositories/learning-science-repository');
       return await learningScienceRepo.getByStudentId(studentId);
     } catch { return []; }
   }

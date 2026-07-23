@@ -1,7 +1,7 @@
 // Sprint 37: Student Digital Twin — types
 import type { SkillDimension } from '@/modules/profile/types';
 import type { CEFRLevel, HKDSELevel } from '@/modules/knowledge-graph/types';
-import type { ForgettingCurvePoint } from '@/modules/learning-science/types';
+import type { ForgettingCurvePoint } from '@/modules/learning/science/types';
 
 // ============================================
 // StudentTwin — complete digital representation

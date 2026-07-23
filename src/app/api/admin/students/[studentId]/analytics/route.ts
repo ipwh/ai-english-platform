@@ -65,7 +65,7 @@ export async function GET(
       '@/modules/student-mastery/services/student-mastery-service'
     );
     const { buildWeaknessProfile } = await import(
-      '@/modules/mistake-intelligence/services/mistake-intelligence-service'
+      '@/modules/mistake/intelligence/services/mistake-intelligence-service'
     );
     const { buildStudentTrends, buildLearningStats } = await import(
       '@/modules/learning-analytics/services/learning-analytics-service'

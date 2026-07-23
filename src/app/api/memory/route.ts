@@ -1,8 +1,8 @@
 // Sprint 25: Learning Memory API — v4.1: uses service layer, not repos directly
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { memoryService } from '@/modules/learning-memory/services/memory-service';
-import { generateLearningContext } from '@/modules/learning-memory/services/memory-scoring';
+import { memoryService } from '@/modules/learning/memory/services/memory-service';
+import { generateLearningContext } from '@/modules/learning/memory/services/memory-scoring';
 import { loadMemoryFromDb } from '@/modules/student';
 
 // GET /api/memory?action=context|memory|freshness

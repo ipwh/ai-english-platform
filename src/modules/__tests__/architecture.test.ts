@@ -103,7 +103,7 @@ describe('Architecture Rule: Facade Usage', () => {
     const content = readFileSync(join(MODULES_DIR, 'student', 'index.ts'), 'utf-8');
     expect(content).toContain("from '@/modules/profile/");
     expect(content).toContain("from '@/modules/student-mastery/");
-    expect(content).toContain("from '@/modules/learning-memory/");
+    expect(content).toContain("from '@/modules/learning/memory/");
     expect(content).toContain("from '@/modules/progress/");
     expect(content).toContain("from '@/modules/student-twin/");
   });
@@ -113,8 +113,8 @@ describe('Architecture Rule: Facade Usage', () => {
     expect(content).toContain("adaptive-learning");
     expect(content).toContain("recommendation");
     expect(content).toContain("knowledge-graph");
-    expect(content).toContain("learning-science");
-    expect(content).toContain("mistake-intelligence");
+    expect(content).toContain("learning/science");
+    expect(content).toContain("mistake/intelligence");
   });
 
   it('AIFacade exports providers sub-domain', () => {

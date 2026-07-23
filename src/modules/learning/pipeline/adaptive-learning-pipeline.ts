@@ -1,7 +1,7 @@
 // Sprint 39: Adaptive Learning Engine — Facade Pipeline
 // Coordinates all modules (S31-S38) in a single pipeline.
 // PURE orchestration — no new business logic.
-import type { PipelineInput, PipelineStage, AdaptiveLearningResult } from '../types';
+import type { PipelineInput, PipelineStage, AdaptiveLearningResult } from './adaptive-types';
 
 /**
  * Execute the full adaptive learning pipeline.

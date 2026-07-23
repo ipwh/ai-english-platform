@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
-import { copilotQuerySchema } from '@/modules/teacher-copilot/schemas';
-import { teacherCopilotService } from '@/modules/teacher-copilot/services/teacher-copilot-service';
+import { copilotQuerySchema } from '@/modules/teacher/copilot/schemas';
+import { teacherCopilotService } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request);

@@ -5,8 +5,8 @@
 export { getLearningProfile, updateAfterExercise } from './student-mastery/services/student-mastery-service';
 export type { StudentLearningProfile, MasteryEntry, SkillGroupedMastery } from './student-mastery/types';
 
-export { buildWeaknessProfile } from './mistake-intelligence/services/mistake-intelligence-service';
-export type { WeaknessProfile, WeaknessItem } from './mistake-intelligence/types';
+export { buildWeaknessProfile } from './mistake/intelligence/services/mistake-intelligence-service';
+export type { WeaknessProfile, WeaknessItem } from './mistake/intelligence/types';
 
 export { getFullRecommendations, recommendGrammar, recommendVocabulary, recommendWritingTopic } from './recommendation/services/recommendation-engine';
 export type { RecommendationResult, ScoredRecommendation } from './recommendation/types';
@@ -18,8 +18,8 @@ export { executePipeline } from './adaptive-learning/services/adaptive-learning-
 export type { AdaptiveLearningResult, PipelineStage } from './adaptive-learning/types';
 
 // === Student Domain ===
-export { buildVocabProfile } from './vocabulary-intelligence/services/vocabulary-intelligence-service';
-export type { VocabularyProfile, VocabWordProfile } from './vocabulary-intelligence/types';
+export { buildVocabProfile } from './vocabulary/intelligence/services/vocabulary-intelligence-service';
+export type { VocabularyProfile, VocabWordProfile } from './vocabulary/intelligence/types';
 
 export { analyzeEssay } from './writing-coach/services/writing-coach-heuristic';
 export type { WritingCoachResult, BandPrediction, WritingDimensions } from './writing-coach/types';
@@ -29,7 +29,7 @@ export { buildStudentTrends, buildTeacherDashboard, buildLearningStats } from '.
 export type { StudentTrends, TeacherDashboard } from './learning-analytics/types';
 
 // === Teacher Domain ===
-export { teacherCopilotService } from './teacher-copilot/services/teacher-copilot-service';
+export { teacherCopilotService } from './teacher/copilot/services/teacher-copilot-service';
 
 /**
  * AI English Platform v4.1 — Unified Module Barrel

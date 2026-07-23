@@ -30,4 +30,4 @@ export { DifficultyAdjuster, difficultyAdjuster } from './services/difficulty-ad
 export { ConfidenceEstimator, confidenceEstimator } from './services/confidence-estimator';
 export { LearningEffectivenessAnalyzer, learningEffectivenessAnalyzer } from './services/effectiveness-analyzer';
 export { ReflectionGenerator, reflectionGenerator } from './services/reflection-generator';
-export { learningScienceRepo } from '@/modules/learning-memory/repositories/learning-science-repository';
+export { learningScienceRepo } from '@/modules/learning/memory/repositories/learning-science-repository';

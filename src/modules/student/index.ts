@@ -44,9 +44,9 @@ export type {
 // ============================================
 // Memory (S36) — learning memory lifecycle
 // ============================================
-import { memoryService } from '@/modules/learning-memory/services/memory-service';
+import { memoryService } from '@/modules/learning/memory/services/memory-service';
 export { memoryService };
-import { memoryEngine } from '@/modules/learning-memory/services/memory-engine';
+import { memoryEngine } from '@/modules/learning/memory/services/memory-engine';
 export { memoryEngine };
 
 // ============================================
@@ -109,10 +109,10 @@ export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as 
 export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from '@/modules/progress/repositories/progress-repo';
 export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';
-export { listMistakes, listMistakesByType, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake-db/repositories/mistake-repo';
+export { listMistakes, listMistakesByType, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake/db/repositories/mistake-repo';
 export { clearDiagnosticResults, createDiagnosticResult, getRecentDiagnostics, createFeedback } from '@/modules/assessment/repositories/diagnostic-repo';
 export { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks, countMaterials } from '@/modules/ai/repositories/material-repo';
-export { loadMemoryFromDb } from '@/modules/learning-memory/repositories/memory-db-repository';
+export { loadMemoryFromDb } from '@/modules/learning/memory/repositories/memory-db-repository';
 export { listNotifications, countUnreadNotifications, markNotificationRead, markNotificationsRead, createNotification } from '@/modules/notification/repositories/notification-repo';
 export { updateVocab } from '@/modules/vocabulary/repositories/vocabulary-repo';
 

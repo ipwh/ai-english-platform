@@ -1,7 +1,7 @@
 // Sprint 33: Learning Science Repository — DB persistence for review schedules
 // v5: Moved from learning-science/ to learning-memory/ (Task 4 — remove DB from learning-science)
 import { db } from '@/shared/db/db';
-import type { ReviewScheduleEntry } from '@/modules/learning-science/types';
+import type { ReviewScheduleEntry } from '@/modules/learning/science/types';
 
 // ============================================
 // Repository — CRUD for LearningReviewSchedule

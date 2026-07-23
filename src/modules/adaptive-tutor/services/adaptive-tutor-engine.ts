@@ -8,7 +8,7 @@ import { hintGenerator } from './hint-generator';
 import { feedbackComposer } from './feedback-composer';
 import { explanationAdapter } from './explanation-adapter';
 import { challengeCurator } from './challenge-curator';
-import { confidenceEstimator } from '@/modules/learning-science/services/confidence-estimator';
+import { confidenceEstimator } from '@/modules/learning/science/services/confidence-estimator';
 import { learningPathGenerator } from '@/modules/knowledge-graph/services/learning-path-generator';
 
 // ============================================

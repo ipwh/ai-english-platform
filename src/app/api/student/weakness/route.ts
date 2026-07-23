@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
-import { weaknessQuerySchema } from '@/modules/mistake-intelligence/schemas';
+import { weaknessQuerySchema } from '@/modules/mistake/intelligence/schemas';
 import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
 
 export async function GET(request: NextRequest) {

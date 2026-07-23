@@ -5,8 +5,8 @@ import {
   analyzeClass, detectWeakSkills, rankWriting, rankReading,
   compareStudent, predictRisks, generateSuggestions,
   detectLearningGaps, generateAIReport,
-} from '@/modules/teacher-analytics/services/teacher-analytics';
-import type { TeacherDashboardInput } from '@/modules/teacher-analytics/types';
+} from '@/modules/teacher/analytics/services/teacher-analytics';
+import type { TeacherDashboardInput } from '@/modules/teacher/analytics/types';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request, ['teacher', 'admin']);
