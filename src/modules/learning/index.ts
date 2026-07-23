@@ -24,6 +24,11 @@ export type { AdaptivePath, PathNode } from '@/modules/adaptive-learning/service
 export type { LearningDecision } from './decisions/LearningDecision';
 export { CANONICAL_DSE_WEIGHTS, getCanonicalDSEWeight, DECISION_WEIGHTS, createLearningDecision } from './decisions/LearningDecision';
 
+// Sprint 65: Evidence-Based Learning
+export { evidenceEvaluationService, EvidenceEvaluationService } from './decisions/EvidenceEvaluationService';
+export type { LearningEvidence, LearningOutcome, EvidenceTimeline } from './decisions/LearningEvidence';
+export { generateDecisionId, extractBaseline, extractOutcome } from './decisions/LearningEvidence';
+
 // ============================================
 // Recommendation (S33) — weighted 4-factor algorithm
 // ============================================
