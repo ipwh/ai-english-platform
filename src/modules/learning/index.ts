@@ -7,15 +7,22 @@
 
 // ============================================
 // Engine (S39) — adaptive learning pipeline
-// v5: LearningEngine — deterministic strategy decider (NO AI, NO LLM)
+// Sprint 64: LearningDecisionEngine is the canonical decision engine
 // ============================================
 import { executePipeline } from '@/modules/adaptive-learning/services/adaptive-learning-pipeline';
-import { learningEngine, LearningEngine } from '@/modules/adaptive-learning/services/learning-engine';
-import { buildDSEAdaptivePath } from '@/modules/adaptive-learning/services/dse-adaptive-path';
-export { executePipeline, learningEngine, LearningEngine, buildDSEAdaptivePath };
+import { learningDecisionEngine, LearningDecisionEngine } from './decisions/LearningDecisionEngine';
+export { executePipeline, learningDecisionEngine, LearningDecisionEngine };
 export type { AdaptiveLearningResult, PipelineInput, PipelineStage } from '@/modules/adaptive-learning/types';
+
+// Deprecated but kept for backward compat (wraps LearningDecisionEngine)
+export { learningEngine, LearningEngine } from '@/modules/adaptive-learning/services/learning-engine';
 export type { StrategyDecision, LearningEngineInput } from '@/modules/adaptive-learning/services/learning-engine';
+export { buildDSEAdaptivePath } from '@/modules/adaptive-learning/services/dse-adaptive-path';
 export type { AdaptivePath, PathNode } from '@/modules/adaptive-learning/services/dse-adaptive-path';
+
+// Sprint 64: Canonical types
+export type { LearningDecision } from './decisions/LearningDecision';
+export { CANONICAL_DSE_WEIGHTS, getCanonicalDSEWeight, DECISION_WEIGHTS, createLearningDecision } from './decisions/LearningDecision';
 
 // ============================================
 // Recommendation (S33) — weighted 4-factor algorithm
