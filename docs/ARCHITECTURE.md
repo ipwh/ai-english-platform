@@ -1,32 +1,50 @@
 # AI English Platform — Architecture
 
-> Generated: 2026-07-23 | 55 Sprints | 48 test files | 1,027 tests | 36 modules | **v5.0 Release Candidate** ✅
-> See also: [ARCHITECTURE_V5.md](ARCHITECTURE_V5.md) | [ARCHITECTURE_V5_PROGRESS.md](ARCHITECTURE_V5_PROGRESS.md) | [DOMAIN_AUDIT.md](DOMAIN_AUDIT.md)
+> **v1.0 Release Candidate** ✅ | 100 Sprints | 46 test files | 1,054 tests | 22 modules | 120 architecture tests
+> See also: [ARCHITECTURE_V4.md](ARCHITECTURE_V4.md) | [Certification](architecture/architecture-certification.md) | [Production Readiness](production/production-readiness.md)
 
 ## Architecture Diagram
 
 ```mermaid
 graph TB
-    subgraph "Presentation Layer"
-        ROUTES[API Routes<br/>83 route files]
-        PAGES[Pages<br/>Next.js App Router]
+    subgraph "Presentation"
+        ROUTES[API Routes<br/>120+ routes]
     end
 
-    subgraph "Validation Layer"
-        ZOD[Zod Schemas<br/>17 validated routes]
+    subgraph "AI Facade (94 lines)"
+        FACADE[ai-service.ts<br/>pure delegation]
     end
 
-    subgraph "Service Layer"
-        AI[AI Services<br/>20 services]
-        LEARNING[Learning Engine<br/>6 services]
-        PROFILE[Student Profile<br/>5 services]
-        MISTAKE[Mistake DB<br/>4 services]
-        MISTAKE_INTEL[Mistake Intelligence<br/>2 services]
-        VOCAB[vocabulary<br/>2 services]
-        MASTERY[Student Mastery<br/>2 services]
-        RECO_V2[Recommendation V2<br/>2 services]
-        EVENTS[Domain Events<br/>pub/sub]
+    subgraph "Usecases (14 files)"
+        GEN[generate-questions]
+        ANS[analyze-answer]
+        WRT[analyze-writing]
+        MIS[explain-mistake]
+        WORD[analyze-word]
+        PROG[analyze-progress]
+        HELP[study-help]
+        MAT[analyze-material]
+        WPROMPT[writing-prompt]
+        WOUTLINE[writing-outline]
+        WGUIDE[writing-guide]
+        ISGEN[integrated-skills-gen]
+        ISANALYSIS[integrated-skills-analysis]
     end
+
+    subgraph "Workflows (13)"
+        WF[Workflow Engine<br/>Stage Library]
+    end
+
+    subgraph "AI Pipeline"
+        PIPELINE[ai-request-pipeline<br/>5 providers]
+    end
+
+    subgraph "Platform Infrastructure"
+        SRE[SLO, Error Budgets, Reliability]
+        RELEASE[Feature Flags, Deployment Validation]
+        BENCH[Benchmarks, Load Testing]
+    end
+
 
     subgraph "Repository Layer"
         REPO[Repositories<br/>7 repos]

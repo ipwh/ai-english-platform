@@ -4,39 +4,36 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-07-23 — Sprint 69-78: Architecture Consolidation & Governance ✅
+## 2026-07-24 — Sprint 100: Platform v1.0 Release Candidate 🎉
 
-### 🏗️ Architecture v6: Domain Consolidation (Sprint 69-72)
-- **Module count**: 34 → 23 (35% reduction)
-- **Student domain**: `profile/`, `progress/`, `student-mastery/`, `student-twin/` → `student/`
-- **Learning domain**: `adaptive-learning/`, `recommendation/`, `learning-memory/`, `learning-science/` → `learning/`
-- **Teacher domain**: `teacher-copilot/`, `teacher-analytics/` → `teacher/`
-- **Mistake domain**: `mistake-db/`, `mistake-intelligence/` → `mistake/`
-- **DSE weight tables**: 5 → 1 canonical (`CANONICAL_DSE_WEIGHTS`)
-- **Decision engines**: 3 → 1 (`LearningDecisionEngine`)
+### 🏆 Architecture Certification
+- **Architecture frozen**: All 9 layers certified (Facade, Usecase, Workflow, Event Bus, Plugin, Runtime, Pipeline, Provider, CQRS)
+- **v1.0 Release Candidate**: Platform certified as production-ready
+- **23 ADRs**: Complete architecture decision record history (ADR-001 through ADR-023)
+- **Architecture tests**: 120 enforcement tests (0 stubs, 0 exceptions)
+- **Total tests**: 1,054 tests (46 files, 100% pass)
+- **Certification docs**: [Architecture Certification](docs/architecture/architecture-certification.md), [Production Readiness](docs/production/production-readiness.md)
 
-### 🔒 Runtime Consolidation (Sprint 73-76)
-- **CQRS Student State**: `StudentStateBuilder` (read) + `StudentStateMutationService` (write)
-- **Analytics refactor**: `learning-analytics` consumes `StudentState`, not repositories
-- **Persistent memory**: In-memory Map store → DB-backed `IMemoryRepository` + `MemoryDbRepository`
-- **Cache unification**: `ai-cache.ts` → thin wrapper over `cache/cache-service.ts`
-- **Promise.all safety**: 2 risky calls → `Promise.allSettled`
-
-### 📋 AI Domain Decomposition (Sprint 77-78)
-- **Legacy code extracted**: 200+ lines → `ai/services/ai-legacy.ts` (0 consumers)
-- **Provider isolation**: All provider-specific logic in `ai/providers/`
-- **6 ADRs created**: `docs/architecture/ADR-001` through `ADR-006`
-- **Architecture tests**: 34 → 48 (14 new governance rules)
-
-### 🐛 Bug Fixes
-- **DSE Reading MCQ**: Fixed empty choices (A-D rendered as letter labels instead of content)
-- **DSE Reading line numbers**: Added approximate line marker note; recalibration logic improved
+### 📊 Sprints 79-99: Production Hardening
+- **Sprint 79**: Quality Gates — health checks, dashboard, `architecture:verify`
+- **Sprint 80-82**: Use Case Extraction — retry, context builder, response parser
+- **Sprint 83-84**: AI Pipeline + Runtime Governance — circuit breaker, budget, execution policies
+- **Sprint 85-86**: Platform Infrastructure — event bus (23 types), plugin architecture
+- **Sprint 87-90**: Workflow Engine — 13 workflows, stage library, workflow registry
+- **Sprint 91-94**: Facade Slimming — ai-service.ts 3,392→94 lines (97.2% reduction)
+- **Sprint 95**: Architecture Freeze — dead code removal, dependency audit
+- **Sprint 96**: Production Readiness — benchmarks, baselines, regression detection
+- **Sprint 97**: Scalability — load testing, capacity planning, saturation detection
+- **Sprint 98**: SRE — SLO tracking, error budgets, reliability scoring, runbooks
+- **Sprint 99**: Release Governance — feature flags, deployment validator, audit trail
 
 ### 📊 Architecture Score: **100/100**
-- **48 architecture enforcement tests** (0 stubs, 0 exceptions)
-- **982 unit tests** (46 files, 100% pass)
+- **120 architecture enforcement tests** (0 stubs, 0 exceptions)
+- **1,054 unit tests** (46 files, 100% pass)
 - **0 circular dependencies**
-- **6 Architecture Decision Records**
+- **23 Architecture Decision Records**
+- **ai-service.ts**: 3,392 → 94 lines (97.2% reduction)
+- **22 modules**, 111 service files, 14 usecases, 13 workflows, 5 providers
 
 ---
 

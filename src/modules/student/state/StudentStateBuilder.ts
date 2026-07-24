@@ -94,6 +94,22 @@ function calcDropoutRisk(sessionsPerWeek: number, consistency: number, burnoutRi
 }
 
 // ============================================
+// Level calculation — consistent with gamification.ts LEVEL_THRESHOLDS
+// ============================================
+
+const LEVEL_THRESHOLDS = [
+  0, 100, 250, 500, 800, 1200, 1700, 2300, 3000, 4000,
+  5000, 6200, 7500, 9000, 11000, 13000, 15500, 18000, 21000, 25000,
+];
+
+function getLevelFromXp(totalXp: number): number {
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalXp >= LEVEL_THRESHOLDS[i]) return i + 1;
+  }
+  return 1;
+}
+
+// ============================================
 // StudentStateBuilder
 // ============================================
 
@@ -239,7 +255,7 @@ export class StudentStateBuilder {
       try { badges = JSON.parse((u as any).badgeIds ?? '[]'); } catch { /* */ }
       return {
         xp: (u as any).xp ?? 0,
-        level: Math.floor(((u as any).xp ?? 0) / 500) + 1,
+        level: getLevelFromXp((u as any).xp ?? 0),
         streakDays: (u as any).streakDays ?? 0,
         badges,
         overallAccuracy: (u as any).overallAccuracy ?? null,

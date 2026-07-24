@@ -13,20 +13,7 @@ import type { PracticeQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
 import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
-
-const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
-
-function getMcqLetterByIndex(index: number): string {
-  return MCQ_LETTERS[index] || 'A';
-}
-
-function stripMcqPrefix(choice: string): string {
-  return choice
-    .trim()
-    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4]|T|F|True|False)\s*\)?\s*[\].:：)\-、]\s*/iu, '')
-    .replace(/^\s*\(?\s*(?:[A-Da-d]|[1-4])\s*\)?\s+/u, '')
-    .trim();
-}
+import { toMcqLetter, stripMcqPrefix, normalizeAnswer, MCQ_LETTERS } from '@/modules/ai/services/question-validator';
 
 interface DiagnosticResult {
   id: string;
@@ -172,12 +159,7 @@ export default function DiagnosticPage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [answeredCurrent, setAnsweredCurrent] = useState(false);
 
-  /** 正規化文字以進行精確比對 */
-  function normalizeAnswer(text: string): string {
-    return text.trim().toLowerCase().replace(/\s+/g, ' ').replace(/['']/g, "'").replace(/[""]/g, '"').replace(/[–—]/g, '-').replace(/[.!?,;:]$/g, '');
-  }
-
-  /** 智能答案比對（與練習頁面一致） */
+  /** 答案比對（使用 canonical question-validator 正規化） */
   function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
     if (type === 'mc') {
       const s = student.trim().toUpperCase();
@@ -599,7 +581,7 @@ export default function DiagnosticPage() {
           {currentQ.choices && currentQ.choices.length > 0 ? (
             <div className="space-y-3">
               {currentQ.choices.map((choice, index) => {
-                const choiceLetter = getMcqLetterByIndex(index);
+                const choiceLetter = toMcqLetter(index);
                 const choiceText = stripMcqPrefix(choice);
                 return (
                   <button key={`${index}-${choice}`} onClick={() => handleAnswer(choiceLetter)}

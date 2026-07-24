@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const { xpGained, newLevel } = await studentStateMutationService.awardXp(studentId, event);
 
-    return NextResponse.json({ xpGained, newLevel });
+    return NextResponse.json({ xpGained, level: newLevel });
   } catch (error) {
     logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification POST failed');
     return NextResponse.json({ error: '記錄 XP 失敗' }, { status: 500 });

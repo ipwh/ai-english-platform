@@ -2,25 +2,24 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)
-> **Status**: 78 Sprints ✅ | 46 test files | 982 tests | Architecture Score: **100/100** | **v6.0** ✅
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [Certification](docs/architecture/architecture-certification.md)
+> **Status**: **v1.0 Release Candidate** ✅ | 100 Sprints | 46 test files | 1,054 tests | Architecture Score: **100/100**
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes → Facade → Builder → Service → MutationService → Repository → Prisma → PostgreSQL
+Routes → Facade → Usecase → Workflow → AI Pipeline → Provider Registry → 5 Providers
 
-v6 Domain Architecture (23 canonical modules, 5 Facades):
+v1.0 Certified Architecture (22 modules, 113 architecture tests):
   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-  │ Student  │ │ Learning │ │ Teacher  │ │    AI    │ │ Platform │
-  │ Facade   │ │ Facade   │ │ Facade   │ │  Facade  │ │  Facade  │
+  │ Student  │ │ Learning │ │    AI    │ │ Platform │ │ Teacher  │
+  │ (CQRS)   │ │ Engine   │ │ (Facade) │ │ (SRE/Rel)│ │          │
   └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
 
-Student State: CQRS — StudentStateBuilder (READ) + StudentStateMutationService (WRITE)
-Learning Engine: Single canonical LearningDecisionEngine (3→1 engines merged)
-Memory: DB-backed IMemoryRepository (in-memory Map store eliminated)
-Cache: Single cache/cache-service.ts (duplicate ai-cache eliminated)
-DSE Weights: Single CANONICAL_DSE_WEIGHTS source (5→1 tables)
+AI Facade: 94-line pure delegation facade → 13 usecases → 13 workflows
+Runtime: Circuit breaker, execution policies, budget control, regression detection
+SRE: SLO tracking, error budgets, reliability scoring, incident classification
+Release: Feature flags, deployment validator, audit trail, rollout policies
 ```
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
