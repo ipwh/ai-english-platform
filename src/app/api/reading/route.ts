@@ -312,7 +312,30 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
   const analyses: AnswerAnalysis[] = questions.map(q => {
     const studentAnswer = (studentAnswers[q.index] || '').trim();
     const correctAnswer = q.answer.trim();
-    const isCorrect = studentAnswer.toLowerCase() === correctAnswer.toLowerCase();
+
+    // Sprint 102: Lenient short-answer matching
+    // Normalize: collapse whitespace, remove trailing punctuation, lowercase
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:'"]+$/g, '').trim();
+
+    const normStudent = normalize(studentAnswer);
+    const normCorrect = normalize(correctAnswer);
+
+    // Exact normalized match
+    const isExactMatch = normStudent === normCorrect;
+
+    // Keyword overlap: check if student answer contains key terms from correct answer
+    const correctKeywords = normCorrect.split(' ').filter(w => w.length > 3);
+    const studentWords = new Set(normStudent.split(' '));
+    const keywordOverlap = correctKeywords.filter(kw => studentWords.has(kw)).length;
+    const keywordRatio = correctKeywords.length > 0 ? keywordOverlap / correctKeywords.length : 0;
+
+    // Partial containment: student answer is contained in correct answer (or vice versa)
+    const isContained =
+      normCorrect.includes(normStudent) && normStudent.length > 5 ||
+      normStudent.includes(normCorrect) && normStudent.length < normCorrect.length * 1.5;
+
+    const isCorrect = isExactMatch || keywordRatio >= 0.6 || isContained;
 
     // Determine error type
     let errorType: ReadingErrorType | undefined;
@@ -320,7 +343,8 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
     let score = 0;
 
     if (isCorrect) {
-      score = q.marks;
+      score = isExactMatch ? q.marks : (keywordRatio >= 0.8 ? q.marks : Math.ceil(q.marks * 0.75));
+      isPartiallyCorrect = !isExactMatch && score < q.marks;
     } else {
       // Classify error
       if (q.type === 'referencing') {
@@ -329,12 +353,12 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
         errorType = 'inference_error';
       } else if (q.type === 'vocabularyInContext' || q.type === 'synonymSearch') {
         errorType = 'vocabulary_error';
-      } else if (q.type === 'trueFalseNG' && studentAnswer.toUpperCase() === 'F' && correctAnswer.toUpperCase() === 'NG') {
+      } else if (q.type === 'trueFalseNG' && normStudent === 'f' && normCorrect === 'ng') {
         errorType = 'false_vs_ng_confusion';
       } else if (q.type === 'summaryCloze' || q.type === 'shortAnswer') {
         if (q.wordLimit && studentAnswer.split(/\s+/).length > parseInt(q.wordLimit)) {
           errorType = 'word_limit_exceeded';
-        } else if (studentAnswer.length > 0 && correctAnswer.toLowerCase().includes(studentAnswer.toLowerCase())) {
+        } else if (keywordRatio >= 0.4) {
           isPartiallyCorrect = true;
           score = Math.ceil(q.marks / 2);
           errorType = 'partial_understanding';
@@ -346,6 +370,11 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       }
     }
 
+    // Build feedback with detail about the match type
+    const matchDetail = isExactMatch ? '' :
+      isContained ? ' (partial match — your answer overlaps with the correct answer)' :
+      keywordRatio >= 0.6 ? ` (keyword match: ${Math.round(keywordRatio * 100)}% overlap)` : '';
+
     return {
       questionIndex: q.index,
       studentAnswer,
@@ -355,13 +384,17 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       score,
       maxMarks: q.marks,
       errorType,
-      feedbackZh: isCorrect
+      feedbackZh: isCorrect && isExactMatch
         ? '✅ 正確！做得很好。'
+        : isCorrect
+        ? `✅ 答案可接受。你的回答「${studentAnswer}」與正確答案「${correctAnswer}」語意相符${matchDetail}。`
         : isPartiallyCorrect
-        ? `⚠️ 部分正確。你答了「${studentAnswer}」，正確答案是「${correctAnswer}」。你的答案方向正確但不夠完整。`
-        : `❌ 不正確。你的答案是「${studentAnswer}」，正確答案是「${correctAnswer}」。${q.explanationZh}`,
-      feedbackEn: isCorrect
+        ? `⚠️ 部分正確。你答了「${studentAnswer}」，正確答案是「${correctAnswer}」。方向正確但可更完整。`
+        : `❌ 不正確。你的答案是「${studentAnswer}」，正確答案是「${correctAnswer}」。${q.explanationZh || ''}`,
+      feedbackEn: isCorrect && isExactMatch
         ? 'Correct! Well done.'
+        : isCorrect
+        ? `Acceptable. Your answer "${studentAnswer}" matches the correct answer "${correctAnswer}" in meaning${matchDetail}.`
         : `Incorrect. Your answer was "${studentAnswer}". The correct answer is "${correctAnswer}". ${q.explanationEn || ''}`,
     };
   });
@@ -653,35 +686,73 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     // Step C: Recalculate and insert accurate [line N] markers
     // DSE standard: ~10-12 words per line, markers every 5 lines (~50-60 words)
+    // Bug fix (Sprint 102): Use paragraph-aware line counting for more accurate markers
     const WORDS_PER_LINE = 11;
     const MARKER_INTERVAL = 5; // every 5 lines
-    const words = content.split(/\s+/);
-    const totalLines = Math.ceil(words.length / WORDS_PER_LINE);
-    const totalWords = words.length;
 
-    // Build content with accurate line markers
-    const markerPositions = new Set<number>();
-    const newLineByWordPos = new Map<number, number>(); // wordPos → new line number
-    for (let line = MARKER_INTERVAL; line <= totalLines; line += MARKER_INTERVAL) {
-      const wp = line * WORDS_PER_LINE;
-      markerPositions.add(wp);
-      newLineByWordPos.set(wp, line);
+    // Split into paragraphs and count lines per paragraph
+    const paragraphs = content.split(/\n\n+/);
+    let result = '';
+    let globalWordCount = 0;
+    let globalLineCount = 0;
+
+    for (let pi = 0; pi < paragraphs.length; pi++) {
+      const para = paragraphs[pi];
+      if (!para.trim()) { result += '\n\n'; continue; }
+      const paraWords = para.split(/\s+/).filter(Boolean);
+      const paraLines = Math.ceil(paraWords.length / WORDS_PER_LINE);
+      const paraStartLine = globalLineCount + 1;
+
+      // Insert markers within this paragraph
+      let paraWordIdx = 0;
+      let paraLineNum = 1;
+      const chars = [...para];
+      let ci = 0;
+      while (ci < chars.length) {
+        const ch = chars[ci];
+        result += ch;
+        if (ch === ' ' || ch === '\n') {
+          paraWordIdx++;
+          globalWordCount++;
+          // Check if we've reached a marker position (every MARKER_INTERVAL lines)
+          if (paraWordIdx > 0 && paraWordIdx % (MARKER_INTERVAL * WORDS_PER_LINE) === 0) {
+            const markerLine = paraStartLine + Math.floor(paraWordIdx / WORDS_PER_LINE) - 1;
+            // Only insert if at a line boundary (roughly every MARKER_INTERVAL lines)
+            if (Math.floor(paraWordIdx / WORDS_PER_LINE) % MARKER_INTERVAL === 0) {
+              result += ` [line ${markerLine}] `;
+            }
+          }
+        }
+        ci++;
+      }
+      // Add paragraph separator
+      if (pi < paragraphs.length - 1) {
+        result += '\n\n';
+      }
+      globalLineCount += paraLines;
     }
 
-    let result = '';
-    let wordIndex = 0;
-    let charIndex = 0;
-    const chars = [...content];
-    while (charIndex < chars.length) {
-      const ch = chars[charIndex];
-      result += ch;
-      if (ch === ' ' || ch === '\n') {
-        wordIndex++;
-        if (markerPositions.has(wordIndex)) {
-          result += `[line ${Math.round(wordIndex / WORDS_PER_LINE)}] `;
+    // Recalculate total words and rebuild newLineByWordPos for question remapping
+    const totalWords = result.split(/\s+/).filter(w => !w.match(/^\[line\s+\d+\]$/i)).length;
+    const totalLines = globalLineCount || Math.ceil(totalWords / WORDS_PER_LINE);
+    const newLineByWordPos = new Map<number, number>();
+    {
+      let wc = 0;
+      const resultChars = [...result];
+      let i = 0;
+      while (i < resultChars.length) {
+        // Check for [line N] marker
+        const slice = resultChars.slice(i).join('');
+        const m = slice.match(/^\[line\s+(\d+)\]\s*/i);
+        if (m) {
+          newLineByWordPos.set(wc, parseInt(m[1], 10));
+          i += m[0].length;
+          continue;
         }
+        const ch = resultChars[i];
+        if (ch === ' ' || ch === '\n') wc++;
+        i++;
       }
-      charIndex++;
     }
 
     // Step D: Build old-line-number → new-line-number mapping for question remapping
@@ -753,13 +824,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         let choices: string[] | undefined;
         if (Array.isArray(q.choices)) {
           choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
-          // Guard: if all choices are empty after stripping, use fallback labels
-          // Guard: reject choices that are just single letters or empty (AI hallucination)
           const substantive = choices.filter(c => c.trim().length > 2);
-          if (substantive.length === 0) {
-            logger.warn({ module: 'reading', questionIndex: i, rawChoices: q.choices }, 'MCQ choices are all empty/single letters');
-            choices = undefined;
-          }
+          if (substantive.length === 0) choices = undefined;
+        }
+        // Sprint 102: Auto-provide TFNG choices when AI doesn't include them
+        if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
+          choices = ['True', 'False', 'Not Given'];
         }
 
         // Determine tier from question metadata or default based on position
@@ -804,13 +874,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         let choices: string[] | undefined;
         if (Array.isArray(q.choices)) {
           choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
-          // Guard: if all choices are empty after stripping, use fallback labels
-          // Guard: reject choices that are just single letters or empty (AI hallucination)
           const substantive = choices.filter(c => c.trim().length > 2);
-          if (substantive.length === 0) {
-            logger.warn({ module: 'reading', questionIndex: i, rawChoices: q.choices }, 'MCQ choices are all empty/single letters');
-            choices = undefined;
-          }
+          if (substantive.length === 0) choices = undefined;
+        }
+        // Sprint 102: Auto-provide TFNG choices when AI doesn't include them
+        if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
+          choices = ['True', 'False', 'Not Given'];
         }
 
         // Determine tier from question metadata or default based on position
