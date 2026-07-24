@@ -682,7 +682,8 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
 
     // Step B: Strip all AI-generated [line N] markers (they're often inaccurate)
-    content = content.replace(/\s*\[line\s+\d+\]\s*/gi, ' ');
+    // Sprint 102 fix: preserve paragraph breaks — replace marker only, keep surrounding newlines
+    content = content.replace(/\[line\s+\d+\]\s*/gi, ''); // remove marker + trailing spaces only
 
     // Step C: Recalculate and insert accurate [line N] markers
     // DSE standard: ~10-12 words per line, markers every 5 lines (~50-60 words)

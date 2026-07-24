@@ -1,6 +1,7 @@
 // Sprint 6: AI Request schemas — validate AI route request bodies
+// Sprint 102: userId made optional — routes inject from auth, not request body
 import { z } from 'zod';
-import { difficulty, gradeLevel, userId, optionalString } from './common.schema';
+import { difficulty, gradeLevel, optionalString } from './common.schema';
 
 export const generateQuestionsSchema = z.object({
   difficulty,
@@ -21,7 +22,7 @@ export const analyzeWritingSchema = z.object({
   prompt: optionalString,
   textType: optionalString,
   studentLevel: optionalString,
-  userId,
+  userId: optionalString,
 });
 
 export const analyzeAnswerSchema = z.object({
@@ -35,7 +36,7 @@ export const analyzeAnswerSchema = z.object({
   grammarItem: optionalString,
   grammarItemZh: optionalString,
   studentLevel: optionalString,
-  userId,
+  userId: optionalString,
 });
 
 export const explainMistakeSchema = z.object({
@@ -44,7 +45,7 @@ export const explainMistakeSchema = z.object({
   studentAnswer: z.string().min(1),
   grammarItemZh: optionalString,
   studentLevel: optionalString,
-  userId,
+  userId: optionalString,
 });
 
 export const generateIntegratedSkillsSchema = z.object({
@@ -52,7 +53,7 @@ export const generateIntegratedSkillsSchema = z.object({
   difficulty,
   taskType: z.enum(['summary', 'email-reply', 'short-article', 'report', 'speech', 'proposal', 'notice', 'press-release', 'letter-to-editor']),
   topicHint: optionalString,
-  userId,
+  userId: optionalString,
 });
 
 export const analyzeIntegratedSkillsSchema = z.object({
@@ -71,7 +72,7 @@ export const analyzeIntegratedSkillsSchema = z.object({
     relevantFor: z.array(z.number()),
     sourceDate: optionalString,
   })).optional(),
-  userId,
+  userId: optionalString,
 });
 
 export const generateWritingSchema = z.object({
@@ -82,17 +83,17 @@ export const generateWritingSchema = z.object({
   topicHint: optionalString,
   writingPrompt: z.string().optional(),
   lang: z.enum(['zh', 'en']).optional(),
-  userId,
+  userId: optionalString,
 });
 
 export const analyzeWordSchema = z.object({
   word: z.string().min(1, '單字為必填'),
   gradeLevel: gradeLevel.optional(),
-  userId,
+  userId: optionalString,
 });
 
 export const studyHelpSchema = z.object({
   question: z.string().min(1, '問題為必填'),
   studentLevel: z.string().min(1),
-  userId,
+  userId: optionalString,
 });
