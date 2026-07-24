@@ -118,20 +118,35 @@ function splitTFNGSubQuestions(
     if (subs.length <= 1) { result.push(q); continue; }
 
     // Parse per-sub-statement answers from the original answer field
-    // AI format: "(i) True (ii) Not Given (iii) True" or "True, Not Given, True"
+    // AI format: "(i) True (ii) Not Given (iii) True" or "True, Not Given, True" or "T, F, NG"
     const rawAnswer = (q.answer as string) || '';
     const subAnswers: Record<string, string> = {};
-    const answerSubRegex = /\(([ivx]+)\)\s*(True|False|Not Given)/gi;
+
+    // Try format "(i) True (ii) False (iii) NG"
+    const answerSubRegex = /\(([ivx]+)\)\s*(True|False|Not Given|T|F|NG)\b/gi;
     let am: RegExpExecArray | null;
     while ((am = answerSubRegex.exec(rawAnswer)) !== null) {
-      subAnswers[am[1].toLowerCase()] = am[2];
+      // Normalize: T→True, F→False, NG→Not Given
+      const val = am[2];
+      const normalized = val === 'T' ? 'True' : val === 'F' ? 'False' : val === 'NG' ? 'Not Given' : val;
+      subAnswers[am[1].toLowerCase()] = normalized;
     }
-    // Fallback: comma-separated
+
+    // Fallback 1: simple "True, False, NG" comma-separated
     if (Object.keys(subAnswers).length === 0) {
       const parts = rawAnswer.split(/[,;]\s*/);
       subs.forEach((sub, i) => {
-        if (parts[i]) subAnswers[sub.label.toLowerCase()] = parts[i].trim();
+        if (parts[i]) {
+          const v = parts[i].trim();
+          subAnswers[sub.label.toLowerCase()] = v === 'T' ? 'True' : v === 'F' ? 'False' : v === 'NG' ? 'Not Given' : v;
+        }
       });
+    }
+
+    // Fallback 2: if answer is just "True/False/NG", apply to first sub-statement only
+    if (Object.keys(subAnswers).length === 0 && /^(True|False|Not Given|T|F|NG)$/i.test(rawAnswer.trim())) {
+      const v = rawAnswer.trim();
+      subAnswers[subs[0].label.toLowerCase()] = v === 'T' ? 'True' : v === 'F' ? 'False' : v === 'NG' ? 'Not Given' : v;
     }
 
     // Extract question stem (text before first sub-statement)
@@ -390,7 +405,15 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
 
   // Sprint 102: Rubric-based semantic evaluation pipeline
   const analyses: AnswerAnalysis[] = questions.map(q => {
-    const studentAnswer = (studentAnswers[q.index] || '').trim();
+    // Try multiple index formats (TFNG split uses float indices like 2.0, 2.1)
+    let studentAnswer = (studentAnswers[q.index] || '').trim();
+    if (!studentAnswer) studentAnswer = ((studentAnswers as Record<string, string>)[String(q.index)] || '').trim();
+    if (!studentAnswer) studentAnswer = (studentAnswers[Math.floor(q.index)] || '').trim();
+
+    // Normalize TFNG answers: "T"/"F"/"NG" → "True"/"False"/"Not Given"
+    if (q.type === 'trueFalseNG') {
+      studentAnswer = studentAnswer === 'T' ? 'True' : studentAnswer === 'F' ? 'False' : studentAnswer === 'NG' ? 'Not Given' : studentAnswer;
+    }
     const rubric = (q as unknown as Record<string, unknown>).rubric as QuestionRubric | undefined;
 
     const result = evaluateAnswerLegacy(studentAnswer, q.answer, q.marks, rubric);
