@@ -21,6 +21,7 @@ import {
 } from '@/modules/ai/prompt-intelligence/feedback';
 import { getCalibrationMetrics } from '@/modules/ai/calibration';
 import { getFairnessMetrics } from '@/modules/ai/fairness';
+import { getQuestionQualityMetrics } from '@/modules/ai/question-quality';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -73,6 +74,9 @@ export function getFullRuntimeReport() {
     },
     fairness: {
       metrics: getFairnessMetrics(),
+    },
+    questionQuality: {
+      metrics: getQuestionQualityMetrics(),
     },
   };
 }
