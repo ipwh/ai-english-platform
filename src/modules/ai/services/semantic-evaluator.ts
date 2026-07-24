@@ -28,6 +28,9 @@ const COMMON_SYNONYMS: Record<string, string[]> = {
   'democratized': ['made accessible', 'made available to everyone', 'opened up', 'made open'],
   'influences': ['affects', 'shapes', 'changes', 'impacts', 'has an effect on'],
   'technology influences humans': ['tech affects people', 'technology shapes us', 'tech influences us', 'technology has an impact on people'],
+  'plastics': ['plastic', 'microplastics', 'microplastics'],
+  'biodegradable plastics': ['biodegradable plastic', 'plant-based plastics', 'bioplastics', 'eco-friendly plastics'],
+  'microplastics': ['micro plastics', 'micro-plastics', 'plastic particles', 'tiny plastic pieces'],
 };
 
 function findSynonyms(word: string): string[] {
@@ -221,9 +224,18 @@ export function evaluateAnswerLegacy(
     return { score: marks, isCorrect: true, isPartiallyCorrect: false, feedbackZh: '✅ 正確！', feedbackEn: '✅ Correct!' };
   }
 
-  // Check containment
-  if (normCorrect.includes(normStudent) && normStudent.length > 5) {
-    return { score: Math.ceil(marks / 2), isCorrect: false, isPartiallyCorrect: true, feedbackZh: `⚠️ 部分正確。你的答案「${studentAnswer}」方向正確但不完整。`, feedbackEn: '⚠️ Partially correct.' };
+  // Check containment — if student answer contains the correct answer, it's at least partial
+  if (normCorrect.includes(normStudent) && normStudent.length > 3) {
+    return { score: Math.ceil(marks / 2), isCorrect: false, isPartiallyCorrect: true, feedbackZh: `⚠️ 部分正確。你的答案方向正確但不完整。`, feedbackEn: '⚠️ Partially correct.' };
+  }
+  // Student's answer contains the correct answer (e.g. "microplastics" contains "plastics")
+  if (normStudent.includes(normCorrect) && normCorrect.length > 3) {
+    // Relaxed: if student answer is a reasonable expansion of the short correct answer
+    const isShortAnswer = normCorrect.length < 15;
+    if (isShortAnswer || normStudent.length <= normCorrect.length * 3) {
+      return { score: marks, isCorrect: true, isPartiallyCorrect: false, feedbackZh: `✅ 答案可接受。「${studentAnswer}」已涵蓋正確答案。`, feedbackEn: `✅ Acceptable. Your answer covers the key point.` };
+    }
+    return { score: Math.ceil(marks / 2), isCorrect: false, isPartiallyCorrect: true, feedbackZh: `⚠️ 部分正確。你的答案包含了正確內容但過於冗長。`, feedbackEn: '⚠️ Partially correct but too verbose.' };
   }
 
   // Keyword overlap
