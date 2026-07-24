@@ -42,6 +42,11 @@ interface AnswerState {
     answer: string;
     submitted: boolean;
     isCorrect?: boolean;
+    isPartiallyCorrect?: boolean;
+    score?: number;
+    maxScore?: number;
+    feedbackZh?: string;
+    feedbackEn?: string;
   };
 }
 
@@ -105,7 +110,8 @@ export default function ReadingPracticePage() {
       skillZh: 'DSE 閱讀模擬',
       difficulty,
       totalQuestions: data.questions.length,
-      correctCount,
+      correctCount: Object.values(answers).filter(a => a.isCorrect).length,
+      totalScore: Object.values(answers).reduce((s, a) => s + (a.score ?? (a.isCorrect ? 1 : 0)), 0),
       source: 'dse-reading',
       answers: data.questions.map((q, i) => ({
         questionIndex: i,
@@ -136,6 +142,7 @@ export default function ReadingPracticePage() {
       if (res.ok) {
         setData(json);
         setAnswers({});
+        setSeqOrders({});
       } else {
         setError(json.error || 'Generation failed');
       }
@@ -146,14 +153,135 @@ export default function ReadingPracticePage() {
     }
   }
 
+  const [evaluatingAI, setEvaluatingAI] = useState<Set<number>>(new Set());
+
+  // Sequencing order tracking
+  const [seqOrders, setSeqOrders] = useState<Record<number, string[]>>({});
+
   function submitAnswer(qIndex: number, answer: string) {
     if (!data) return;
     const q = data.questions[qIndex];
-    const isCorrect = answer.trim().toLowerCase() === q.answer.trim().toLowerCase();
+
+    // Sequencing: compare order strings
+    if (q.type === 'mc' && q.answer.includes(',') && /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question)) {
+      const normalizeOrder = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/,/g, ',');
+      const studentOrder = normalizeOrder(answer);
+      const correctOrder = normalizeOrder(q.answer);
+      const isCorrect = studentOrder === correctOrder;
+
+      setAnswers(prev => ({
+        ...prev,
+        [qIndex]: {
+          answer,
+          submitted: true,
+          isCorrect,
+          isPartiallyCorrect: false,
+          score: isCorrect ? 1 : 0,
+          maxScore: 1,
+          feedbackEn: isCorrect ? '✅ Correct order!' : `❌ Incorrect. The correct order is: ${q.answer}`,
+          feedbackZh: isCorrect ? '✅ 順序正確！' : `❌ 順序不正確。正確答案是：${q.answer}`,
+        },
+      }));
+      return;
+    }
+
+    // MCQ/TFNG: map letter to choice text, then compare
+    if (q.type === 'mc' && q.choices && q.choices.length > 0) {
+      const letterIndex = answer.trim().toUpperCase().charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+      const selectedChoice = (letterIndex >= 0 && letterIndex < q.choices.length)
+        ? q.choices[letterIndex].trim()
+        : '';
+      const correctChoice = q.answer.trim();
+      const isCorrect = selectedChoice.toLowerCase() === correctChoice.toLowerCase();
+
+      setAnswers(prev => ({
+        ...prev,
+        [qIndex]: {
+          answer,
+          submitted: true,
+          isCorrect,
+          isPartiallyCorrect: false,
+          score: isCorrect ? 1 : 0,
+          maxScore: 1,
+          feedbackEn: isCorrect ? '✅ Correct!' : `❌ Incorrect. The correct answer is: ${q.answer}`,
+          feedbackZh: isCorrect ? '✅ 正確！' : `❌ 不正確。正確答案是：${q.answer}`,
+        },
+      }));
+      return;
+    }
+
+    // Short-answer / other: use AI semantic evaluation
+    // First, mark as submitted with optimistic local check, then call AI
+    const localIsCorrect = answer.trim().toLowerCase() === q.answer.trim().toLowerCase();
     setAnswers(prev => ({
       ...prev,
-      [qIndex]: { answer, submitted: true, isCorrect },
+      [qIndex]: {
+        answer,
+        submitted: true,
+        isCorrect: localIsCorrect,
+        isPartiallyCorrect: false,
+        score: localIsCorrect ? 1 : 0,
+        maxScore: 1,
+        feedbackEn: localIsCorrect ? '✅ Correct!' : '⏳ Evaluating with AI...',
+        feedbackZh: localIsCorrect ? '✅ 正確！' : '⏳ 正在用AI評分...',
+      },
     }));
+
+    // Call AI evaluator asynchronously
+    if (!localIsCorrect) {
+      setEvaluatingAI(prev => new Set(prev).add(qIndex));
+      fetch('/api/reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'analyze-answers',
+          questions: [{
+            index: qIndex,
+            type: q.type === 'short-answer' ? 'shortAnswer' : q.type,
+            questionText: q.question,
+            answer: q.answer,
+            marks: 1,
+          }],
+          studentAnswers: { [qIndex]: answer },
+        }),
+      })
+        .then(r => r.json())
+        .then(result => {
+          const analysis = result.analyses?.[0];
+          if (analysis) {
+            setAnswers(prev => ({
+              ...prev,
+              [qIndex]: {
+                ...prev[qIndex],
+                isCorrect: analysis.isCorrect,
+                isPartiallyCorrect: analysis.isPartiallyCorrect,
+                score: analysis.score ?? (analysis.isCorrect ? 1 : 0),
+                maxScore: analysis.maxMarks ?? 1,
+                feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
+                feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,
+              },
+            }));
+          }
+        })
+        .catch(() => {
+          // AI unavailable — keep local result
+          setAnswers(prev => ({
+            ...prev,
+            [qIndex]: {
+              ...prev[qIndex],
+              feedbackEn: prev[qIndex].isCorrect ? '✅ Correct!' : '❌ Incorrect.',
+              feedbackZh: prev[qIndex].isCorrect ? '✅ 正確！' : '❌ 不正確。',
+            },
+          }));
+        })
+        .finally(() => {
+          setEvaluatingAI(prev => {
+            const next = new Set(prev);
+            next.delete(qIndex);
+            return next;
+          });
+        });
+    }
   }
 
   function getTierBadge(tier: string) {
@@ -165,7 +293,8 @@ export default function ReadingPracticePage() {
     }
   }
 
-  const totalScore = data ? Object.values(answers).filter(a => a.isCorrect).length : 0;
+  const totalScore = data ? Object.values(answers).reduce((sum, a) => sum + (a.score ?? (a.isCorrect ? 1 : 0)), 0) : 0;
+  const totalMaxScore = data ? data.questions.length : 0;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -317,7 +446,53 @@ export default function ReadingPracticePage() {
                   <p className="text-sm text-gray-900 dark:text-white">{q.question}</p>
                   {showQuestionZh && q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}
 
-                  {q.type === 'mc' && q.choices && (
+                  {/* Sprint 102.5: Sequencing / Ordering questions — render number dropdowns */}
+                  {q.type === 'mc' && q.choices && q.answer.includes(',') &&
+                   /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question) && (
+                    <div className="space-y-2">
+                      {q.choices.map((choice, ci) => {
+                        const letter = String.fromCharCode(65 + ci);
+                        const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
+                        const displayText = cleanChoice || `Option ${letter}`;
+                        const currentVal = (seqOrders[qi] || [])[ci] || '';
+                        return (
+                          <div key={ci} className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-400 w-6">{letter}.</span>
+                            <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{displayText}</span>
+                            <select
+                              className="w-16 p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-sm"
+                              disabled={ans?.submitted}
+                              value={currentVal}
+                              onChange={e => {
+                                const newOrder = [...(seqOrders[qi] || new Array(q.choices!.length).fill(''))];
+                                newOrder[ci] = e.target.value;
+                                setSeqOrders(prev => ({ ...prev, [qi]: newOrder }));
+                              }}
+                            >
+                              <option value="">-</option>
+                              {q.choices!.map((_, oi) => (
+                                <option key={oi} value={String.fromCharCode(65 + oi)}>{oi + 1}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                      {!ans?.submitted && (
+                        <button
+                          className="mt-2 w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors"
+                          onClick={() => {
+                            const order = (seqOrders[qi] || []).filter(Boolean).join(',');
+                            if (order) submitAnswer(qi, order);
+                          }}
+                        >
+                          {language === 'en' ? 'Submit Order' : '提交排序'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {q.type === 'mc' && q.choices && !(q.answer.includes(',') &&
+                   /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question)) && (
                     <div className="space-y-1.5">
                       {q.choices.map((choice, ci) => {
                         const letter = String.fromCharCode(65 + ci);
@@ -403,13 +578,39 @@ export default function ReadingPracticePage() {
                   )}
 
                   {ans?.submitted && (
-                    <div className={`flex items-start gap-2 text-sm ${ans.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                      {ans.isCorrect ? <CheckCircle className="w-4 h-4 mt-0.5" /> : <XCircle className="w-4 h-4 mt-0.5" />}
+                    <div className={`flex items-start gap-2 text-sm ${
+                      evaluatingAI.has(qi) ? 'text-amber-600' :
+                      ans.isPartiallyCorrect ? 'text-amber-600' :
+                      ans.isCorrect ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {evaluatingAI.has(qi) ? <Loader2 className="w-4 h-4 mt-0.5 animate-spin" /> :
+                       ans.isPartiallyCorrect ? <Sparkles className="w-4 h-4 mt-0.5" /> :
+                       ans.isCorrect ? <CheckCircle className="w-4 h-4 mt-0.5" /> :
+                       <XCircle className="w-4 h-4 mt-0.5" />}
                       <div>
-                        {!ans.isCorrect && <p className="font-medium">{language === 'en' ? 'Correct:' : '正確答案：'} {q.answer}</p>}
-                        <p className="text-gray-500 text-xs mt-1">
-                          {language === 'en' ? q.explanationEn : (showQuestionZh ? q.explanationZh : q.explanationEn)}
-                        </p>
+                        {!ans.isCorrect && !evaluatingAI.has(qi) && (
+                          <>
+                            <p className="font-medium">
+                              {language === 'en' ? 'Correct answer: ' : '正確答案：'}{q.answer}
+                            </p>
+                            {(ans.score ?? 0) > 0 && (
+                              <p className="text-amber-600 text-xs font-medium">
+                                {language === 'en' ? `Partial credit: ${ans.score}/${ans.maxScore ?? 1}` : `部分分數：${ans.score}/${ans.maxScore ?? 1}`}
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {/* AI feedback or explanation */}
+                        {ans.feedbackEn && (
+                          <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                            {language === 'en' ? ans.feedbackEn : (ans.feedbackZh || ans.feedbackEn)}
+                          </p>
+                        )}
+                        {!ans.feedbackEn && (
+                          <p className="text-gray-500 text-xs mt-1">
+                            {language === 'en' ? q.explanationEn : (showQuestionZh ? q.explanationZh : q.explanationEn)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -422,11 +623,11 @@ export default function ReadingPracticePage() {
           {data && Object.keys(answers).length === data.questions.length && Object.values(answers).every(a => a.submitted) && (
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white text-center">
               <Target className="w-10 h-10 mx-auto mb-2" />
-              <p className="text-2xl font-bold">{totalScore} / {data.questions.length}</p>
+              <p className="text-2xl font-bold">{totalScore} / {totalMaxScore}</p>
               <p className="text-indigo-100 text-sm">
-                {language === 'en' ? 'Reading Score' : '閱讀成績'} — {Math.round((totalScore / data.questions.length) * 100)}%
+                {language === 'en' ? 'Reading Score' : '閱讀成績'} — {Math.round((totalScore / totalMaxScore) * 100)}%
               </p>
-              <button onClick={() => { setData(null); setAnswers({}); savedRef.current = false; }}
+              <button onClick={() => { setData(null); setAnswers({}); setSeqOrders({}); savedRef.current = false; }}
                 className="mt-3 px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium">
                 {language === 'en' ? 'New Reading' : '新閱讀練習'}
               </button>
