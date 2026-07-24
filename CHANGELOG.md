@@ -4,6 +4,41 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-24 — Sprint 101-115: AI Quality Stack (14 New Modules, 100% Deterministic) 🧠
+
+### 🏗️ New Modules (under `src/modules/ai/`)
+
+| Sprint | Module | Files | Rules | Purpose |
+|--------|--------|-------|-------|---------|
+| 101-104 | `quality/` | 18 | 14 | Structural + content quality validation, self-healing repair pipeline |
+| 105 | `evaluation/` | 11 | 11 | 4 grading policies, answer normalization, semantic comparison |
+| 106 | `assessment/` | 6 | 13 | 5-dimension assessment with auto-registration |
+| 108 | `optimization/` | 6 | 12 | UX optimization (readability, wording, difficulty rebalance) |
+| 109 | `prompt-intelligence/` | 8 | — | Prompt builder, optimizer, self-reflection, 13 auto-injected constraints |
+| 110 | `prompt-intelligence/feedback/` | 10 | — | Closed-loop: failures→patterns→knowledge→dynamic constraints |
+| 111 | `calibration/` | 7 | 11 | Post-LLM calibration (answer expansion, LLM artifact removal, vocabulary) |
+| 112 | `fairness/` | 7 | 14 | 300+ British↔American, 1000+ synonyms, partial credit, keyword coverage |
+| 113 | `question-quality/` | 7 | 14 | Distractor plausibility, evidence support, CEFR alignment, variety |
+| 114 | `adaptive/` | 9 | 12 | Personalized difficulty, spaced repetition, session fatigue, challenge balance |
+| 115 | `human-review/` | 19 | 12 | Teacher-perspective validation (ambiguity, authenticity, student confusion) |
+
+### 📊 Pipeline (End-to-End)
+```
+Student Profile → Adaptive → Prompt Builder → LLM → Calibration → Question Quality →
+Self Reflection → Quality → Repair → Evaluation → Fairness → Assessment →
+Optimization → Human Review → Feedback → API Response
+```
+
+### ✅ Verification
+- **1,345/1,345 tests pass** (60 test files, +291 from new modules)
+- **0 TypeScript errors** (strict mode)
+- **36 ADRs** in `docs/architecture/`
+- **0 AI calls** in quality stack (100% deterministic)
+- **0 Provider/Workflow/Prisma imports** in new modules
+- **Public API unchanged** — additive architecture only
+
+---
+
 ## 2026-07-24 — Sprint 101-102: Production Hardening & Quality Assurance 🔒
 
 ### 🔒 Security & Auth

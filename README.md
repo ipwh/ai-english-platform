@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [Certification](docs/architecture/architecture-certification.md)
-> **Status**: **v1.0 Release Candidate** ✅ | 100 Sprints | 46 test files | 1,054 tests | Architecture Score: **100/100**
+> **Status**: **v1.0 Release Candidate** ✅ | 115 Sprints | 60 test files | 1,345 tests | Architecture Score: **100/100**
 
 ## 🏗️ Architecture Overview
 
@@ -20,6 +20,12 @@ AI Facade: 94-line pure delegation facade → 13 usecases → 13 workflows
 Runtime: Circuit breaker, execution policies, budget control, regression detection
 SRE: SLO tracking, error budgets, reliability scoring, incident classification
 Release: Feature flags, deployment validator, audit trail, rollout policies
+
+AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
+  Prompt Intelligence → Calibration → Question Quality → Self Reflection →
+  Quality → Repair → Evaluation → Fairness → Assessment → Optimization →
+  Human Review → Adaptive Learning → Feedback Learning (closed loop)
+  All layers: Open/Closed, zero AI calls, zero Provider/Workflow/Prisma imports
 ```
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
@@ -32,9 +38,9 @@ Release: Feature flags, deployment validator, audit trail, rollout policies
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (46 files, 982 tests, 100% pass) + Playwright |
+| Testing | Vitest 4 (60 files, 1,345 tests, 100% pass) + Playwright |
 | Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
-| Documentation | 6 ADRs in `docs/architecture/` |
+| Documentation | 36 ADRs in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 
@@ -213,6 +219,22 @@ Release: Feature flags, deployment validator, audit trail, rollout policies
 ## 近期更新
 
 > 📋 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。以下僅保留最新摘要。
+
+### 🏆 2026-07-24 — AI Quality Stack: 15 Sprints, 14 Modules, 100% Deterministic (Sprints 101-115)
+- **Sprint 101-104 — Quality & Self-Healing**: 7 structural + 7 content rules, auto-repair pipeline with patch/regenerate/reject strategies
+- **Sprint 105 — Evaluation**: 4 grading policies (strict/standard/lenient/custom), answer normalization, semantic comparison
+- **Sprint 106 — Assessment**: 5 dimensions, 13 rules, auto-registration
+- **Sprint 108 — Optimization**: 6 dimensions, 12 rules (student experience, readability, vocabulary smoothing)
+- **Sprint 109 — Prompt Intelligence**: Prompt builder with 13 auto-injected constraints, optimizer, self-reflection
+- **Sprint 110 — Adaptive Feedback**: Closed-loop learning — failures→patterns→knowledge→dynamic constraints → stronger prompts
+- **Sprint 111 — Calibration**: 11 post-LLM rules (answer expansion, explanation rewriting, MCQ balance, placeholder removal, LLM artifact cleanup, vocabulary naturalness)
+- **Sprint 112 — Fairness**: 14 grading rules — 300+ British↔American, 1000+ synonyms (12 categories), spelling tolerance, partial credit (90/80/70/50%)
+- **Sprint 113 — Question Quality**: 14 rules — distractor plausibility, answer uniqueness, evidence support, vocabulary/grammar level alignment, question variety
+- **Sprint 114 — Adaptive Learning**: 12 rules — difficulty adjustment by streaks, weak skill focus, spaced repetition, session fatigue, challenge balance (70/20/10)
+- **Sprint 115 — Human Review**: 12 rules — teacher-perspective validation (ambiguity, naturalness, explanation quality, authenticity, student confusion)
+- **Pipeline**: Student Profile → Adaptive → Prompt Builder → LLM → Calibration → Question Quality → Self Reflection → Quality → Repair → Evaluation → Fairness → Assessment → Optimization → Human Review → Feedback → API
+- **All 100% deterministic**: Zero AI calls, zero Provider/Workflow/Prisma imports, zero external dependencies
+- **1,345/1,345 tests pass** — +291 tests from 14 new modules, 0 TypeScript errors
 
 ### 🏆 2026-07-23 — Architecture v5: 100/100 + Release Candidate (Sprints 52-55)
 - **Architecture v5 Complete**: All 52 API routes follow Route→Facade→Service→Repository→Prisma
