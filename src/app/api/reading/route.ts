@@ -777,8 +777,8 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     // Step B: Strip all AI-generated [line N] markers + convert [N] paragraph markers
     // Sprint 102: preserve paragraph breaks, convert [N] to \n\n
     content = content.replace(/\[line\s+\d+\]\s*/gi, '');
-    // Convert standalone [N] paragraph markers to double newlines
-    content = content.replace(/\s*\[(\d+)\]\s*/g, '\n\n');
+    // Convert standalone [N] paragraph markers to labeled paragraph breaks
+    content = content.replace(/\s*\[(\d+)\]\s*/g, '\n\n[Paragraph $1] ');
 
     // Step C: Recalculate and insert accurate [line N] markers
     // DSE standard: ~10-12 words per line, markers every 5 lines (~50-60 words)

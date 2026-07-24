@@ -420,9 +420,13 @@ export default function ReadingPracticePage() {
             </button>
             {showPassage && (
               <div className="px-4 pb-4">
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {data.passage.content}
-                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{
+                    __html: data.passage.content
+                      .replace(/\[Paragraph (\d+)\]/g, '<span class="inline-block text-xs font-semibold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded mr-1">¶$1</span>')
+                      .replace(/\[line (\d+)\]/gi, '<span class="text-xs text-gray-400">[line $1]</span>')
+                  }}
+                />
                 {data.passage.source && (
                   <p className="text-xs text-gray-400 mt-2 italic">Source: {data.passage.source}</p>
                 )}
@@ -482,7 +486,9 @@ export default function ReadingPracticePage() {
                         {language === 'en' ? tier.en : tier.zh}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-400">¶{q.paragraphRef}</span>
+                    <span className="text-xs text-gray-400" title={language === 'en' ? `Paragraph ${q.paragraphRef}` : `第${q.paragraphRef}段`}>
+                      {language === 'en' ? `¶${q.paragraphRef}` : `第${q.paragraphRef}段`}
+                    </span>
                   </div>
                   <p className="text-sm text-gray-900 dark:text-white">{q.question}</p>
                   {showQuestionZh && q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}
@@ -561,6 +567,34 @@ export default function ReadingPracticePage() {
                           </button>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Fallback: MC type but no choices provided — render as short-answer */}
+                  {q.type === 'mc' && (!q.choices || q.choices.length === 0) && (
+                    <div>
+                      <input
+                        type="text"
+                        className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-sm"
+                        placeholder={language === 'en' ? 'Type your answer...' : '輸入你的答案...'}
+                        disabled={ans?.submitted}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !ans?.submitted) {
+                            submitAnswer(qi, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                      />
+                      {!ans?.submitted && (
+                        <button
+                          className="mt-2 px-4 py-1.5 bg-indigo-500 text-white rounded-lg text-xs"
+                          onClick={(e) => {
+                            const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                            if (input) submitAnswer(qi, input.value);
+                          }}
+                        >
+                          {language === 'en' ? 'Submit' : '提交'}
+                        </button>
+                      )}
                     </div>
                   )}
 
