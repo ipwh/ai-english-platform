@@ -9,10 +9,13 @@
 //   - Wrong answer analysis & classification
 //   - Summary Cloze / Paraphrase / Idiom training endpoints
 //   - Time management metadata
+//   - Sprint 102: Rubric-based semantic evaluation (HKDSE-examiner style)
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { evaluateAnswerLegacy } from '@/modules/ai/services/semantic-evaluator';
+import type { QuestionRubric } from '@/modules/ai/prompts/reading/types';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import {
   retrievePastPaperContent,
@@ -330,100 +333,42 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
     studentAnswers,
   } = body as {
     questions: DSEreadingQuestion[];
-    studentAnswers: Record<number, string>; // questionIndex → student's answer
+    studentAnswers: Record<number, string>;
   };
 
   if (!questions || !studentAnswers) {
     return NextResponse.json({ error: 'questions and studentAnswers are required' }, { status: 400 });
   }
 
+  // Sprint 102: Rubric-based semantic evaluation pipeline
   const analyses: AnswerAnalysis[] = questions.map(q => {
     const studentAnswer = (studentAnswers[q.index] || '').trim();
-    const correctAnswer = q.answer.trim();
+    const rubric = (q as unknown as Record<string, unknown>).rubric as QuestionRubric | undefined;
 
-    // Sprint 102: Lenient short-answer matching
-    // Normalize: collapse whitespace, remove trailing punctuation, lowercase
-    const normalize = (s: string) =>
-      s.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:'"]+$/g, '').trim();
+    const result = evaluateAnswerLegacy(studentAnswer, q.answer, q.marks, rubric);
 
-    const normStudent = normalize(studentAnswer);
-    const normCorrect = normalize(correctAnswer);
-
-    // Exact normalized match
-    const isExactMatch = normStudent === normCorrect;
-
-    // Keyword overlap: check if student answer contains key terms from correct answer
-    const correctKeywords = normCorrect.split(' ').filter(w => w.length > 3);
-    const studentWords = new Set(normStudent.split(' '));
-    const keywordOverlap = correctKeywords.filter(kw => studentWords.has(kw)).length;
-    const keywordRatio = correctKeywords.length > 0 ? keywordOverlap / correctKeywords.length : 0;
-
-    // Partial containment: student answer is contained in correct answer (or vice versa)
-    const isContained =
-      normCorrect.includes(normStudent) && normStudent.length > 5 ||
-      normStudent.includes(normCorrect) && normStudent.length < normCorrect.length * 1.5;
-
-    const isCorrect = isExactMatch || keywordRatio >= 0.6 || isContained;
-
-    // Determine error type
+    // Determine error type for analytics (legacy classification)
     let errorType: ReadingErrorType | undefined;
-    let isPartiallyCorrect = false;
-    let score = 0;
-
-    if (isCorrect) {
-      score = isExactMatch ? q.marks : (keywordRatio >= 0.8 ? q.marks : Math.ceil(q.marks * 0.75));
-      isPartiallyCorrect = !isExactMatch && score < q.marks;
-    } else {
-      // Classify error
-      if (q.type === 'referencing') {
-        errorType = 'reference_error';
-      } else if (q.type === 'inference' || q.type === 'toneAttitude') {
-        errorType = 'inference_error';
-      } else if (q.type === 'vocabularyInContext' || q.type === 'synonymSearch') {
-        errorType = 'vocabulary_error';
-      } else if (q.type === 'trueFalseNG' && normStudent === 'f' && normCorrect === 'ng') {
-        errorType = 'false_vs_ng_confusion';
-      } else if (q.type === 'summaryCloze' || q.type === 'shortAnswer') {
-        if (q.wordLimit && studentAnswer.split(/\s+/).length > parseInt(q.wordLimit)) {
-          errorType = 'word_limit_exceeded';
-        } else if (keywordRatio >= 0.4) {
-          isPartiallyCorrect = true;
-          score = Math.ceil(q.marks / 2);
-          errorType = 'partial_understanding';
-        } else {
-          errorType = 'not_in_passage';
-        }
-      } else {
-        errorType = studentAnswer.length === 0 ? 'incomplete_answer' : 'not_in_passage';
-      }
+    if (!result.isCorrect && !result.isPartiallyCorrect) {
+      if (q.type === 'referencing') errorType = 'reference_error';
+      else if (q.type === 'inference' || q.type === 'toneAttitude') errorType = 'inference_error';
+      else if (q.type === 'vocabularyInContext' || q.type === 'synonymSearch') errorType = 'vocabulary_error';
+      else if (q.type === 'trueFalseNG' && studentAnswer.toUpperCase() === 'F') errorType = 'false_vs_ng_confusion';
+      else if (studentAnswer.length === 0) errorType = 'incomplete_answer';
+      else errorType = 'not_in_passage';
     }
-
-    // Build feedback with detail about the match type
-    const matchDetail = isExactMatch ? '' :
-      isContained ? ' (partial match — your answer overlaps with the correct answer)' :
-      keywordRatio >= 0.6 ? ` (keyword match: ${Math.round(keywordRatio * 100)}% overlap)` : '';
 
     return {
       questionIndex: q.index,
       studentAnswer,
-      correctAnswer,
-      isCorrect,
-      isPartiallyCorrect,
-      score,
+      correctAnswer: q.answer,
+      isCorrect: result.isCorrect,
+      isPartiallyCorrect: result.isPartiallyCorrect,
+      score: result.score,
       maxMarks: q.marks,
       errorType,
-      feedbackZh: isCorrect && isExactMatch
-        ? '✅ 正確！做得很好。'
-        : isCorrect
-        ? `✅ 答案可接受。你的回答「${studentAnswer}」與正確答案「${correctAnswer}」語意相符${matchDetail}。`
-        : isPartiallyCorrect
-        ? `⚠️ 部分正確。你答了「${studentAnswer}」，正確答案是「${correctAnswer}」。方向正確但可更完整。`
-        : `❌ 不正確。你的答案是「${studentAnswer}」，正確答案是「${correctAnswer}」。${q.explanationZh || ''}`,
-      feedbackEn: isCorrect && isExactMatch
-        ? 'Correct! Well done.'
-        : isCorrect
-        ? `Acceptable. Your answer "${studentAnswer}" matches the correct answer "${correctAnswer}" in meaning${matchDetail}.`
-        : `Incorrect. Your answer was "${studentAnswer}". The correct answer is "${correctAnswer}". ${q.explanationEn || ''}`,
+      feedbackZh: result.feedbackZh,
+      feedbackEn: result.feedbackEn,
     };
   });
 

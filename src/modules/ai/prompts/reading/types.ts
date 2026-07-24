@@ -194,6 +194,36 @@ export interface AnswerAnalysis {
   feedbackEn: string;
 }
 
+// ============================================
+// Sprint 102: Rubric-Based Semantic Evaluation Types
+// ============================================
+
+export interface RubricConcept {
+  id: string;
+  description: string;
+  marks: number;
+  acceptedSynonyms: string[];
+  acceptedParaphrases: string[];
+}
+
+export interface QuestionRubric {
+  requiredConcepts: RubricConcept[];
+  optionalConcepts?: RubricConcept[];
+  partialCreditRules: { minRequiredForPartial: number; partialMarks: number };
+  commonMisconceptions?: string[];
+  maxMarks: number;
+}
+
+export interface RubricEvaluation {
+  score: number;
+  maxScore: number;
+  decision: 'correct' | 'partial' | 'incorrect';
+  matchedConcepts: string[];
+  missingConcepts: string[];
+  feedback: string;
+  feedbackEn?: string;
+}
+
 export type ReadingErrorType =
   | 'reference_error'        // Wrong referent for pronoun
   | 'paraphrase_error'       // Incorrect paraphrase
