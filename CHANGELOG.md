@@ -4,6 +4,38 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-24 — Sprint 101-102: Production Hardening & Quality Assurance 🔒
+
+### 🔒 Security & Auth
+- **`verifyStudentSelfAccess()`**: Lightweight ownership check — students can only access own data
+- **Config Zod validation**: `envSchema.parse(process.env)` crash-fast at startup on missing env vars
+- **Auth audit**: All routes use `verifyApiAuth()`, 0 `console.error/warn` in API routes
+
+### ✅ Quality Assurance
+- **Zod validation**: Wired `analyzeWritingSchema`, `analyzeAnswerSchema`, `explainMistakeSchema` into 3 core AI routes (was manual null-check)
+- **Circuit breaker fix**: Half-open logic now correctly tracks consecutive successes → transitions to closed
+- **N+1 fixes**: `sync-service.ts` batch query, `sync-sheets/route.ts` `createMany`
+- **Console→Logger**: 11 files migrated, 0 `console.error/warn` in API routes
+- **ESLint**: 705→604 warnings (-101), 41 files cleaned
+- **Smoke test**: 46/46 pass (fixed i18n aggregation)
+
+### 🌐 i18n
+- **60+ new keys** in `i18n-pages.ts` covering admin, student, teacher pages
+- **88→39 hardcoded Chinese** strings (-56%), 9 pages fully i18n-compliant
+- **i18n check allowlist** updated for AI usecase files
+
+### 🧹 Legacy Cleanup
+- **`admin-misc-repo.ts`**: 19 `(db as any)` → proper Prisma namespace types
+- **`ai-service.ts`**: `generateAdaptiveWritingGuide` extracted to `usecases/adaptive-writing-guide.ts`
+- **Unused imports**: 15+ route files cleaned (admin classes, fix-classes, import, export, sync-sheets, etc.)
+
+### 📋 Deployment Audit
+- **Build**: ✅ | **Tests**: 1,054/1,054 ✅ | **TSC**: 0 errors ✅
+- **DevOps**: 1 CRITICAL (SA file gitignored, local only)
+- **Deployment Readiness**: **91/100** — v1.0 RC certified
+
+---
+
 ## 2026-07-24 — Sprint 100: Platform v1.0 Release Candidate 🎉
 
 ### 🏆 Architecture Certification

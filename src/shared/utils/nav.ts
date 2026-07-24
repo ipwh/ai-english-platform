@@ -6,7 +6,7 @@ import {
   LayoutDashboard, BookOpen, AlertTriangle, BookMarked,
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
   User, Users, GraduationCap, Upload,
-  ClipboardCheck, BarChart3, Settings, Search, Headphones,
+  ClipboardCheck, Settings, Search, Headphones,
   Mic, Calendar, BookText, FileText,
   type LucideIcon
 } from 'lucide-react';

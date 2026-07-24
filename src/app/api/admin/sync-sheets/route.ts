@@ -24,7 +24,6 @@ import { adminDbDirect as db } from '@/modules/admin/services/admin-operations';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';
-import { syncSheetToDatabase, getCurrentRoster } from '@/modules/admin/services/sync-service';
 
 // ============================================
 // 類型定義
@@ -315,16 +314,22 @@ export async function POST(request: NextRequest) {
     });
     const classMap = new Map(existingClasses.map(c => [c.name, c.id]));
 
-    // 只建立不存在的班級
+    // 只建立不存在的班級 (use createMany for batch efficiency)
     const missingClasses = uniqueClasses.filter(c => !classMap.has(c));
     if (missingClasses.length > 0) {
-      const results = await Promise.allSettled(missingClasses.map(className =>
-        db.class.create({
-          data: { name: className, gradeLevel: inferGradeLevel(className) },
-        })
-      ));
-      for (const r of results) {
-        if (r.status === 'fulfilled') classMap.set(r.value.name, r.value.id);
+      await db.class.createMany({
+        data: missingClasses.map(className => ({
+          name: className,
+          gradeLevel: inferGradeLevel(className),
+        })),
+        skipDuplicates: true,
+      });
+      const newClasses = await db.class.findMany({
+        where: { name: { in: missingClasses } },
+        select: { id: true, name: true },
+      });
+      for (const c of newClasses) {
+        classMap.set(c.name, c.id);
       }
     }
 

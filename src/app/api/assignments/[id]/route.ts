@@ -11,6 +11,7 @@ import { verifySessionToken } from '@/shared/auth/jwt';
 import { analyzeAnswer } from '@/modules/ai/services/ai-service';
 import { notifySubmissionReceived } from '@/shared/utils/notifications';
 import { recordActivityMastery, syncStudentActivityMetrics } from '@/modules/learning-analytics/services/activity-accounting-service';
+import { logger } from '@/shared/logger/logger';
 
 // GET /api/assignments/[id]
 // ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）— 需教師/管理員身分
@@ -129,7 +130,7 @@ export async function GET(
     return NextResponse.json(responseData);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    console.error('[assignments/[id]] GET error:', msg);
+    logger.error({ module: 'assignments', method: 'GET', error: msg }, 'Assignment fetch failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -312,7 +313,7 @@ export async function POST(
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    console.error('[assignments/[id]] POST error:', msg);
+    logger.error({ module: 'assignments', method: 'POST', error: msg }, 'Assignment submission failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -11,7 +11,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
-import { exportSheetsData } from '@/modules/admin/services/export-service';
 import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';
 

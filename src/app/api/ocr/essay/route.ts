@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         .toBuffer();
     } catch {
       // 若 sharp 無法處理（罕見格式），使用原始圖片
-      console.warn('[ocr] sharp preprocessing failed, using original image');
+      logger.warn({ module: 'ocr' }, 'Sharp preprocessing failed, using original image');
     }
 
     // 呼叫 Google Cloud Vision API

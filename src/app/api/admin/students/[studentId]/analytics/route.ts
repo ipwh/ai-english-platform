@@ -5,7 +5,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByIdSelect, getStudentAnalytics } from '@/modules/admin/services/admin-service';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 

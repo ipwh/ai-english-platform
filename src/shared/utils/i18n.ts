@@ -22,6 +22,7 @@ import { progressTranslations } from './i18n-progress';
 import { mistakesTranslations } from './i18n-mistakes';
 import { gamificationTranslations } from './i18n-gamification';
 import { adminTranslations } from './i18n-admin';
+import { pagesTranslations } from './i18n-pages';
 
 const translations: Record<string, { zh: string; en: string }> = {
   // 模組化翻譯（來自 i18n-*.ts 拆分檔）
@@ -41,6 +42,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   ...progressTranslations,
   ...gamificationTranslations,
   ...adminTranslations,
+  ...pagesTranslations,
 };
 
 export function t(key: string, lang?: string, params?: Record<string, string | number>): string {

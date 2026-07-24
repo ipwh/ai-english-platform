@@ -410,11 +410,11 @@ export default function TeacherMaterialsPage() {
                 <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 pt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="text-xs text-gray-400">OCR 狀態</span>
+                      <span className="text-xs text-gray-400">{t('teacher.materials.ocrStatus')}</span>
                       <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${statusLabel[m.ocrStatus].color}`}>{statusLabel[m.ocrStatus].label}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400">RAG 狀態</span>
+                      <span className="text-xs text-gray-400">{t('teacher.materials.ragStatus')}</span>
                       <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${statusLabel[m.ragStatus].color}`}>{statusLabel[m.ragStatus].label}</span>
                     </div>
                   </div>
@@ -423,7 +423,7 @@ export default function TeacherMaterialsPage() {
                   {!aiResults[m.id] ? (
                     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-center">
                       <Sparkles className="w-6 h-6 text-purple-300 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500 mb-3">使用 AI 分析教材內容，提取關鍵詞彙及文法點</p>
+                      <p className="text-xs text-gray-500 mb-3">{t('teacher.materials.aiAnalyze')}</p>
                       {analyzeError[m.id] && <p className="text-xs text-red-500 mb-2">{analyzeError[m.id]}</p>}
                       <button
                         onClick={() => handleAIAnalyze(m.id, m.title, m.extractedText, m.fileType)}
@@ -431,14 +431,14 @@ export default function TeacherMaterialsPage() {
                         className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium inline-flex items-center gap-2"
                       >
                         {analyzingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        {analyzingId === m.id ? 'AI 分析中...' : 'AI 分析教材'}
+                        {analyzingId === m.id ? t('teacher.materials.processing') : t('teacher.materials.aiAnalyzeBtn')}
                       </button>
                     </div>
                   ) : (
                     <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 space-y-3 text-sm">
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-purple-500" />
-                        <span className="font-medium text-purple-700 dark:text-purple-300">AI 分析結果</span>
+                        <span className="font-medium text-purple-700 dark:text-purple-300">{t('teacher.materials.aiResult')}</span>
                       </div>
                       <p className="text-gray-600 dark:text-gray-400">{aiResults[m.id]!.summary}</p>
                       {aiResults[m.id]!.keyVocabulary.length > 0 && (

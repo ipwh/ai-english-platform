@@ -549,9 +549,9 @@ function ResetPasswordModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 text-center" onClick={e => e.stopPropagation()}>
           <div className="text-green-500 text-4xl mb-3">✓</div>
-          <p className="text-gray-900 dark:text-white font-medium">密碼已重設</p>
+          <p className="text-gray-900 dark:text-white font-medium">{t('admin.users.passwordResetDone')}</p>
           <p className="text-sm text-gray-500 mt-1">{user.email}</p>
-          <button onClick={onClose} className="mt-4 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg">確定</button>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg">{t('admin.users.ok')}</button>
         </div>
       </div>
     );
@@ -561,7 +561,7 @@ function ResetPasswordModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white">🔑 重設密碼</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white">{t('admin.users.passwordReset')}</h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-4 space-y-3">
@@ -571,7 +571,7 @@ function ResetPasswordModal({
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            placeholder="輸入新密碼（至少 6 字元）"
+            placeholder={t('admin.users.newPassword')}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
             onKeyDown={e => e.key === 'Enter' && handleReset()}
           />

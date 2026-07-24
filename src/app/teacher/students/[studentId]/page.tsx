@@ -231,7 +231,7 @@ export default function StudentDetailPage() {
             <Star className="w-4 h-4 text-amber-500" /> 徽章
           </h3>
           {badges.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-2">尚未獲得徽章</p>
+            <p className="text-xs text-gray-400 text-center py-2">{t('teacher.students.noBadges')}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {badges.map(b => (
@@ -276,8 +276,8 @@ export default function StudentDetailPage() {
           className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 shadow-sm border-2 border-purple-300 dark:border-purple-700 hover:border-purple-500 transition-colors flex flex-col items-center justify-center text-center gap-1.5"
         >
           <BarChart3 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-          <p className="text-sm font-bold text-purple-700 dark:text-purple-400">學生分析</p>
-          <p className="text-[10px] text-purple-500">完整診斷報告</p>
+          <p className="text-sm font-bold text-purple-700 dark:text-purple-400">{t('teacher.students.analytics')}</p>
+          <p className="text-[10px] text-purple-500">{t('teacher.students.fullReport')}</p>
         </Link>
       </div>
 
@@ -345,7 +345,7 @@ export default function StudentDetailPage() {
           <Clock className="w-5 h-5 text-blue-500" /> 最近練習紀錄
         </h3>
         {practiceSessions.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">尚無練習紀錄</p>
+          <p className="text-sm text-gray-400 text-center py-4">{t('teacher.students.noPractice')}</p>
         ) : (
           <div className="space-y-2">
             {practiceSessions.slice(0, 10).map((s) => (
@@ -359,7 +359,7 @@ export default function StudentDetailPage() {
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
                       {s.source === 'dse-reading' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">DSE</span>}
                       {s.source === 'ai-generated' && <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-600 rounded-full">AI</span>}
-                      {s.source === 'assignment' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-full">任務</span>}
+                      {s.source === 'assignment' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-full">{t('teacher.students.tasks')}</span>}
                     </div>
                     <p className="text-xs text-gray-400">{s.totalQuestions || 0} 題 · {formatDate(s.startedAt)} · {s.difficulty}</p>
                     {s.completedAt && (

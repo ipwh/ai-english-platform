@@ -1,6 +1,9 @@
 // Sprint 6: Validation barrel
 export { validateRequest, validateQuery } from '../validate';
 
+// Sprint 102: Re-export auth ownership helpers for convenience
+export { verifyStudentSelfAccess } from '@/shared/auth/api-auth';
+
 // Common
 export { studentId, userId, difficulty, gradeLevel, pagination } from './common.schema';
 

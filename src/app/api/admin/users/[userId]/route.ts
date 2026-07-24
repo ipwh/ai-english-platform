@@ -7,10 +7,10 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserById, updateUser, deleteUser, createTeacherClass, listTeacherClasses, findTeacherClass } from '@/modules/admin/services/admin-service';
 import { adminUserDeleteCascade } from '@/modules/admin/services/admin-operations';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPassword } from '@/shared/auth/crypto';
+import { logger } from '@/shared/logger/logger';
 
 export async function PUT(
   request: NextRequest,
@@ -91,7 +91,7 @@ export async function PUT(
     return NextResponse.json({ success: true, user: updated });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/users PUT] Error:', msg);
+    logger.error({ module: 'admin/users', method: 'PUT', error: msg }, 'Admin user update failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -125,7 +125,7 @@ export async function DELETE(
     return NextResponse.json({ success: true, deleted: { id: userId, email: existing.email } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/users DELETE] Error:', msg);
+    logger.error({ module: 'admin/users', method: 'DELETE', error: msg }, 'Admin user delete failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -160,7 +160,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, message: `已重設 ${existing.email} 的密碼` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
-    console.error('[admin/users PATCH] Error:', msg);
+    logger.error({ module: 'admin/users', method: 'PATCH', error: msg }, 'Admin user password reset failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

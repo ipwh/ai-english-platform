@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeAnswer, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { validateRequest, analyzeAnswerSchema } from '@/shared/validation/schemas';
 import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
@@ -35,14 +36,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { question, questionType, correctAnswer, studentAnswer, choices, listeningContent, readingContent, grammarItem, grammarItemZh, studentLevel } = body;
-
-    if (!question || !correctAnswer || !studentAnswer) {
-      return NextResponse.json(
-        { error: '請提供 question、correctAnswer 和 studentAnswer。' },
-        { status: 400 }
-      );
-    }
+    const parsed = validateRequest(analyzeAnswerSchema, body);
+    const { question, questionType, correctAnswer, studentAnswer, choices, listeningContent, readingContent, grammarItem, grammarItemZh, studentLevel } = parsed;
 
     const analysis = await analyzeAnswer({
       question: sanitizeForAI(question),

@@ -7,9 +7,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { Transform } from 'node:stream';
-import { exportStudentStream } from '@/modules/admin/services/export-service';
-import { pipeline } from 'node:stream/promises';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request, ['admin', 'teacher']);
@@ -19,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const className = searchParams.get('className');
-  const academicYear = searchParams.get('academicYear') || '2025-2026';
+  const _academicYear = searchParams.get('academicYear') || '2025-2026';
 
   try {
     const where: Record<string, unknown> = { role: 'student' };

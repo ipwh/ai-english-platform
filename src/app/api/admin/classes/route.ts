@@ -4,7 +4,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listClasses, createClass, deleteClass } from '@/modules/admin/services/admin-service';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { syncClassToSheet } from '@/shared/google/sheets-sync';

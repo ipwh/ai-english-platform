@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
             source: `從 ${vocabItems.length} 個生字中生成`,
           });
         } catch (aiErr) {
-          console.warn('[vocab-quiz] AI MCQ generation failed, falling back to match mode');
+          logger.warn({ module: 'vocab-quiz' }, 'AI MCQ generation failed, falling back to match mode');
         }
       }
     }

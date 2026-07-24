@@ -25,7 +25,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAsRead: (notificationId) => {
-    const { notifications, unreadCount } = get();
+    const { notifications } = get();
     const updated = notifications.map((n) =>
       n.id === notificationId ? { ...n, read: true } : n
     );

@@ -568,15 +568,15 @@ export default function WritingPage() {
           {(aiResult.contentScore != null || aiResult.languageScore != null || aiResult.organizationScore != null) && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-3 text-center border border-red-200 dark:border-red-800">
-                <p className="text-xs font-medium text-red-600 dark:text-red-400">Content 內容</p>
+                <p className="text-xs font-medium text-red-600 dark:text-red-400">{t('writing.content')}</p>
                 <p className="text-2xl font-bold text-red-700 dark:text-red-300">{aiResult.contentScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
               </div>
               <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-3 text-center border border-amber-200 dark:border-amber-800">
-                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Language 語言</p>
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{t('writing.language')}</p>
                 <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{aiResult.languageScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
               </div>
               <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 text-center border border-green-200 dark:border-green-800">
-                <p className="text-xs font-medium text-green-600 dark:text-green-400">Organization 組織</p>
+                <p className="text-xs font-medium text-green-600 dark:text-green-400">{t('writing.organization')}</p>
                 <p className="text-2xl font-bold text-green-700 dark:text-green-300">{aiResult.organizationScore?.toFixed(1) ?? '—'}<span className="text-sm font-normal">/7</span></p>
               </div>
             </div>
@@ -585,7 +585,7 @@ export default function WritingPage() {
           {/* CLO Total Score */}
           {aiResult.cloTotalScore != null && (
             <div className="flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg py-2 px-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">CLO 總分：</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{t('writing.cloTotal')}</span>
               <span className="text-lg font-bold text-purple-700 dark:text-purple-300">{aiResult.cloTotalScore.toFixed(1)}<span className="text-sm font-normal text-gray-500">/21</span></span>
               {aiResult.dseLevel && (
                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${

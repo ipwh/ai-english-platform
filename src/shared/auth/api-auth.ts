@@ -125,3 +125,32 @@ export async function verifyOwnership(
 
   return null;
 }
+
+/**
+ * Sprint 102: Lightweight student self-access check — no DB query required.
+ * For routes where a studentId param must match the authenticated user
+ * (unless the caller is teacher/admin).
+ *
+ * Usage in route handler:
+ *   const ownership = verifyStudentSelfAccess(authResult, params.studentId);
+ *   if (ownership) return ownership; // 403 response
+ *
+ * @returns NextResponse (403/401) if access denied, or null if allowed.
+ */
+export function verifyStudentSelfAccess(
+  authResult: AuthResult,
+  requestedStudentId: string,
+): NextResponse | null {
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: '請先登入' }, { status: 401 });
+  }
+  // Teachers and admins can access any student
+  if (authResult.role === 'teacher' || authResult.role === 'admin') {
+    return null;
+  }
+  // Students can only access their own data
+  if (authResult.userId !== requestedStudentId) {
+    return NextResponse.json({ error: '無權限存取其他學生資料' }, { status: 403 });
+  }
+  return null;
+}

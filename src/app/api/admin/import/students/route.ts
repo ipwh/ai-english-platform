@@ -11,11 +11,10 @@ import {
   inferGradeLevel,
   emptyImportResult,
 } from '@/shared/utils/import-utils';
-import type { ImportResult, ImportDetail } from '@/shared/utils/import-utils';
+import type { ImportResult } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { syncStudentsToSheet } from '@/shared/google/sheets-sync';
-import { findExistingUsers, findExistingClasses, bulkImportStudents } from '@/modules/admin/services/import-service';
 import { adminDb as db, adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
 
 export async function POST(request: NextRequest) {

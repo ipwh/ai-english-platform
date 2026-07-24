@@ -14,6 +14,7 @@
 // ============================================
 
 import { getKvClient } from '@/shared/db/vercel-kv';
+import { logger } from '@/shared/logger/logger';
 
 interface RateLimitEntry {
   count: number;
@@ -86,7 +87,7 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
       }
       return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
     } catch (err) {
-      console.error('[RateLimiter] KV error, falling back to in-memory:', err);
+      logger.error({ module: 'rate-limiter', error: String(err) }, 'KV error, falling back to in-memory');
       // Fall through to in-memory
     }
   }

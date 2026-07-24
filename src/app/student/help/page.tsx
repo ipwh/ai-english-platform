@@ -778,7 +778,7 @@ export default function StudentHelpPage() {
                     >
                       <span className="text-lg">{item.icon}</span>
                       <span className="flex-1 font-medium">{item.q}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800 text-teal-600 dark:text-teal-400">個人化</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800 text-teal-600 dark:text-teal-400">{t('help.personalized')}</span>
                       {isOpen ? <ChevronDown className="w-4 h-4 flex-shrink-0 text-teal-500" /> : <ChevronRight className="w-4 h-4 flex-shrink-0" />}
                     </button>
                     {isOpen && (

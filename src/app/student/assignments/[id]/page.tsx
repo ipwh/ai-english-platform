@@ -308,7 +308,7 @@ export default function AssignmentDetailPage() {
                       value={answers[q.id] || ''}
                       onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                       disabled={submitted}
-                      placeholder="請輸入你的答案..."
+                      placeholder={t('assignments.inputAnswer')}
                       rows={q.questionType === 'short-writing' ? 5 : 2}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-60 resize-none"
                     />
@@ -323,7 +323,7 @@ export default function AssignmentDetailPage() {
                     }`}>
                       <div className="flex items-center gap-1.5 mb-1">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span className="font-medium">AI 批改</span>
+                        <span className="font-medium">{t('assignments.submitForAI')}</span>
                       </div>
                       <p>{graded.feedback}</p>
                     </div>
@@ -348,9 +348,9 @@ export default function AssignmentDetailPage() {
               className="px-6 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white font-medium rounded-xl flex items-center gap-2 transition-colors"
             >
               {submitting ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> 批改中...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t('assignments.grading')}</>
               ) : (
-                <><Send className="w-4 h-4" /> 提交作業</>
+                <><Send className="w-4 h-4" /> {t('assignments.submitAssignment')}</>
               )}
             </button>
           </div>

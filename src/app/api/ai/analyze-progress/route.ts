@@ -8,7 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { findUserByIdSelect, getStudentAnalytics } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (studentId) {
       try {
         // 從 DB 讀取學生真實數據
-        const [user, sessions, mistakes, vocabItems] = await Promise.all([
+        const [user, sessions, mistakes, _vocabItems] = await Promise.all([
           adminDbQuery('user', 'findUnique', {
             where: { id: studentId },
             select: { level: true, overallAccuracy: true, streakDays: true },

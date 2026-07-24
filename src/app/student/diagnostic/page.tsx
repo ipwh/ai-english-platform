@@ -540,8 +540,8 @@ export default function DiagnosticPage() {
             <div className="mb-4 space-y-3">
               {currentQ.languageSkill === 'writing' || currentQ.type === 'short-writing' ? (
                 <div className="p-4 rounded-xl text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400">
-                  <p className="font-semibold mb-1">✍️ 寫作已提交</p>
-                  <p>你的文章將在完成診斷後由 AI 進行質性分析，不會以對錯計分。</p>
+                  <p className="font-semibold mb-1">{t('diagnostic.writingSubmitted')}</p>
+                  <p>{t('diagnostic.writingSubmittedDesc')}</p>
                 </div>
               ) : (
                 <div className={`p-4 rounded-xl text-sm ${
@@ -550,10 +550,10 @@ export default function DiagnosticPage() {
                     : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
                 }`}>
                   <p className="font-semibold mb-1">
-                    {lastAnswerCorrect ? '✅ 回答正確！' : `❌ 回答錯誤`}
+                    {lastAnswerCorrect ? t('diagnostic.correctBadge') : t('diagnostic.wrongBadge')}
                   </p>
                   {!lastAnswerCorrect && (
-                    <p className="mb-1">正確答案：<strong>{currentQ.answer}</strong></p>
+                    <p className="mb-1">{t('diagnostic.correctAnswer')}<strong>{currentQ.answer}</strong></p>
                   )}
                   {currentQ.explanationZh && (
                     <p className="text-xs mt-2 opacity-80">{currentQ.explanationZh}</p>
@@ -565,7 +565,7 @@ export default function DiagnosticPage() {
               )}
               <button onClick={handleNext}
                 className="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
-                {currentStep < totalSteps - 1 ? '下一題' : '查看結果'}
+                {currentStep < totalSteps - 1 ? t('diagnostic.nextQuestion') : t('diagnostic.viewResults')}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

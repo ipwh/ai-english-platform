@@ -67,7 +67,7 @@ const adminNavItems = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn, currentRole, initSession, userDisplayName, logout, toggleLanguage, language, isDarkMode, toggleDarkMode, notifications, unreadCount } = useAppStore();
+  const { isLoggedIn, currentRole, initSession, userDisplayName, logout, toggleLanguage, language, isDarkMode, toggleDarkMode, unreadCount } = useAppStore();
   const { t } = useT();
   const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
   const [authChecked, setAuthChecked] = useState(false);

@@ -161,7 +161,7 @@ export default function TeacherSettingsPage() {
             )}
             {teacherProfile.subjects && (
               <div>
-                <span className="text-xs text-gray-400 block">任教科目</span>
+                <span className="text-xs text-gray-400 block">{t('teacher.settings.subjects')}</span>
                 <span className="text-gray-700 dark:text-gray-300">
                   {(() => { try { return JSON.parse(teacherProfile.subjects).join('、'); } catch { return teacherProfile.subjects; } })()}
                 </span>
@@ -169,13 +169,13 @@ export default function TeacherSettingsPage() {
             )}
             {teacherProfile.formTeacherOf && (
               <div>
-                <span className="text-xs text-gray-400 block">班主任班別</span>
+                <span className="text-xs text-gray-400 block">{t('teacher.settings.formClass')}</span>
                 <span className="text-gray-700 dark:text-gray-300 font-medium">{teacherProfile.formTeacherOf}</span>
               </div>
             )}
             {teacherProfile.taughtClasses && teacherProfile.taughtClasses.length > 0 && (
               <div className="col-span-2">
-                <span className="text-xs text-gray-400 block">任教班別</span>
+                <span className="text-xs text-gray-400 block">{t('teacher.settings.teachingClasses')}</span>
                 <div className="flex gap-2 flex-wrap mt-1">
                   {teacherProfile.taughtClasses.map((tc, i) => (
                     <span key={i} className={`text-xs px-2 py-0.5 rounded-full ${tc.isFormTeacher ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
@@ -220,7 +220,7 @@ export default function TeacherSettingsPage() {
           {/* 自訂組別概覽 */}
           {customGroups.length > 0 && (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">自訂組別</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('teacher.settings.customGroups')}</label>
               <div className="flex gap-2 flex-wrap">
                 {customGroups.map(g => (
                   <span key={g.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">

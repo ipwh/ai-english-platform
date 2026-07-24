@@ -157,9 +157,9 @@ export default function NewAssignmentPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.targetType')}</label>
                 <select value={form.targetType} onChange={(e) => setForm({...form, targetType: e.target.value as typeof form.targetType})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none">
-                  <option value="class">📚 班級</option>
-                  <option value="group">👥 組別</option>
-                  <option value="students">👤 個別學生</option>
+                  <option value="class">{t('teacher.assignments.new.targetClass')}</option>
+                  <option value="group">{t('teacher.assignments.new.targetGroup')}</option>
+                  <option value="students">{t('teacher.assignments.new.targetStudent')}</option>
                 </select>
               </div>
               <div>

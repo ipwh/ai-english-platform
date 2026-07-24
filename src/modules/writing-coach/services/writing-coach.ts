@@ -2,15 +2,13 @@
 // RubricScorer, EssayReviewer, RevisionPlanner, VocabularyUpgrader, GrammarExplainer
 
 import type {
-  EssaySubmission, EssayReview, RubricScores, HKDSEScores, CEFRScores,
+  EssaySubmission, EssayReview, RubricScores, HKDSEScores,
   GrammarIssue, VocabularySuggestion, CoherenceAnalysis,
   TaskFulfillment, OrganizationAnalysis, StyleAnalysis,
   RevisionPlan, PriorityAction, RevisionComparison, RevisionHistory, EssayVersion,
 } from '../types';
 import type { CEFRLevel } from '@/modules/knowledge-graph/types';
-import {
-  DSE_LEVEL_DESCRIPTORS, DSE_TEXT_TYPES, HKDSE_CEFR_ALIGNMENT,
-} from '@/modules/curriculum/data/hkdse-enhanced';
+import { DSE_TEXT_TYPES } from '@/modules/curriculum/data/hkdse-enhanced';
 
 // ============================================
 // RubricScorer
@@ -80,7 +78,7 @@ export function scoreRubric(essay: EssaySubmission): RubricScores {
   };
 }
 
-function scoreContent(text: string, wordCount: number, textType: string): number {
+function scoreContent(text: string, wordCount: number, _textType: string): number {
   let score = 4;
   if (wordCount >= 400) score++;
   if (wordCount >= 250) score += 0.5;
@@ -107,7 +105,7 @@ function scoreLanguage(text: string, sentences: string[], words: string[]): numb
   return Math.max(1, Math.min(7, Math.round(score)));
 }
 
-function scoreOrganization(paragraphs: string[], text: string): number {
+function scoreOrganization(paragraphs: string[], _text: string): number {
   let score = 3;
   if (paragraphs.length >= 4) score++;
   if (paragraphs.length >= 5) score++;
@@ -162,7 +160,6 @@ export function reviewEssay(essay: EssaySubmission): EssayReview {
 
 function detectGrammarIssues(content: string): GrammarIssue[] {
   const issues: GrammarIssue[] = [];
-  let id = 0;
 
   for (const cp of CHINGLISH_PATTERNS) {
     const match = content.match(cp.pattern);
@@ -339,8 +336,6 @@ export function compareRevisions(original: EssaySubmission, revised: EssaySubmis
   const origReview = reviewEssay(original);
   const revReview = reviewEssay(revised);
 
-  const origWords = original.content.split(/\s+/);
-  const revWords = revised.content.split(/\s+/);
   const improvements: RevisionComparison['improvements'] = [];
 
   if (revReview.grammarIssues.length < origReview.grammarIssues.length) {
@@ -405,7 +400,6 @@ const CONNECTOR_LIBRARY = {
  * Validates letter format (formal and informal)
  */
 export function validateLetterFormat(content: string, isFormal: boolean): LetterFormatValidation {
-  const lower = content.toLowerCase();
   const checks: FormatCheck[] = [];
   const issues: FormatIssue[] = [];
 
@@ -990,7 +984,6 @@ export function estimateWritingTime(wordCount: number, isPartA: boolean): {
   suggestion: string;
   suggestionZh: string;
 } {
-  const targetWords = isPartA ? 200 : 400;
   const targetMinutes = isPartA ? 30 : 70;
   const wordsPerMinute = 13; // DSE average writing speed
 

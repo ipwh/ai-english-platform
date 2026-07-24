@@ -5,14 +5,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
 import {
   ArrowLeft, RefreshCw, TrendingUp, Target, AlertTriangle,
-  BookOpen, GraduationCap, Zap, Award, Clock,
-  BarChart3, CheckCircle2, XCircle, ChevronRight,
-  BrainCircuit, FileText, Volume2, MessageSquare, ClipboardList,
+  BookOpen, Zap, Award, Clock,
+  BarChart3, CheckCircle2, ChevronRight,
+  FileText, Volume2, MessageSquare, ClipboardList,
 } from 'lucide-react';
 
 // ============================================
@@ -233,15 +233,6 @@ const MISTAKE_LABELS: Record<string, { zh: string; en: string }> = {
 // Skill Icon Map
 // ============================================
 
-const SKILL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  grammar: BookOpen,
-  vocabulary: BookOpen,
-  reading: FileText,
-  writing: MessageSquare,
-  listening: Volume2,
-  speaking: Volume2,
-};
-
 // ============================================
 // Main Page
 // ============================================
@@ -249,7 +240,6 @@ const SKILL_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 export default function StudentAnalyticsPage() {
   const { t } = useT();
   const params = useParams();
-  const router = useRouter();
   const studentId = params.studentId as string;
 
   const [data, setData] = useState<StudentAnalytics | null>(null);
@@ -298,7 +288,7 @@ export default function StudentAnalyticsPage() {
 
   if (!data) return null;
 
-  const { student, mastery, weakness, trends, stats, recentSessions, recentMistakes, vocabStats, writingStats, weeklySnapshots, sessionStatsBySkill, diagnosticResults } = data;
+  const { student, mastery, weakness, stats, recentSessions, recentMistakes, vocabStats, writingStats, weeklySnapshots, sessionStatsBySkill, diagnosticResults } = data;
 
   // ---- Vocab summary ----
   const totalVocab = vocabStats.reduce((s, v) => s + v.count, 0);
@@ -370,20 +360,20 @@ export default function StudentAnalyticsPage() {
           color="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
         />
         <StatCard
-          label="連續學習"
+          label={t('admin.students.analytics.streak')}
           value={student.streakDays}
           icon={Zap}
           color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
-          unit="天"
+          unit={t('admin.students.analytics.days')}
         />
         <StatCard
-          label="經驗值"
+          label={t('admin.students.analytics.xp')}
           value={student.xp}
           icon={Award}
           color="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
         />
         <StatCard
-          label="詞彙量"
+          label={t('admin.students.analytics.vocabSize')}
           value={totalVocab}
           icon={BookOpen}
           color="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
@@ -396,14 +386,14 @@ export default function StudentAnalyticsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              技能掌握度
+              {t('admin.students.analytics.mastery')}
             </h3>
             {mastery && (
               <span className={`text-sm font-medium ${
                 mastery.overallMastery >= 70 ? 'text-green-600' :
                 mastery.overallMastery >= 50 ? 'text-yellow-600' : 'text-red-600'
               }`}>
-                總體 {mastery.overallMastery}%
+                {t('admin.students.analytics.overview')} {mastery.overallMastery}%
               </span>
             )}
           </div>
@@ -427,7 +417,7 @@ export default function StudentAnalyticsPage() {
                 />
               );
             }) : (
-              <p className="text-gray-400 text-center py-8">暫無掌握度數據</p>
+              <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noMastery')}</p>
             )}
           </div>
         </div>
@@ -436,7 +426,7 @@ export default function StudentAnalyticsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              弱點分析
+              {t('admin.students.analytics.weakness')}
             </h3>
             {weakness && (
               <TrendBadge trend={weakness.improvementTrend} />
@@ -462,7 +452,7 @@ export default function StudentAnalyticsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無弱點數據</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noWeakness')}</p>
           )}
         </div>
       </div>
@@ -472,7 +462,7 @@ export default function StudentAnalyticsPage() {
         {/* --- Weekly Activity --- */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            每週學習趨勢
+            {t('admin.students.analytics.weeklyTrend')}
           </h3>
           {weeklySnapshots.length > 0 ? (
             <div className="space-y-2">
@@ -502,24 +492,24 @@ export default function StudentAnalyticsPage() {
               })}
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無每週數據</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noWeekly')}</p>
           )}
         </div>
 
         {/* --- Session Stats by Skill --- */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            各技能練習統計
+            {t('admin.students.analytics.skillStats')}
           </h3>
           {sessionStatsBySkill.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left pb-2 font-medium text-gray-600 dark:text-gray-400">技能</th>
-                    <th className="text-center pb-2 font-medium text-gray-600 dark:text-gray-400">練習次數</th>
-                    <th className="text-center pb-2 font-medium text-gray-600 dark:text-gray-400">題數</th>
-                    <th className="text-center pb-2 font-medium text-gray-600 dark:text-gray-400">正確率</th>
+                    <th className="text-left pb-2 font-medium text-gray-600 dark:text-gray-400">{t('admin.students.analytics.tableSkill')}</th>
+                    <th className="text-center pb-2 font-medium text-gray-600 dark:text-gray-400">{t('admin.students.analytics.tableSessions')}</th>
+                    <th className="text-center pb-2 font-medium text-gray-600 dark:text-gray-400">{t('admin.students.analytics.tableQuestions')}</th>
+                    <th className="text-center pb-2 font-medium text-gray-600 dark:text-gray-400">{t('admin.students.analytics.tableAccuracy')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -542,7 +532,7 @@ export default function StudentAnalyticsPage() {
               </table>
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無練習記錄</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noWritingRecords')}</p>
           )}
         </div>
       </div>
@@ -634,7 +624,7 @@ export default function StudentAnalyticsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無錯題記錄</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noMistakeRecords')}</p>
           )}
         </div>
       </div>
@@ -703,7 +693,7 @@ export default function StudentAnalyticsPage() {
               </div>
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無詞彙數據</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noDiagnosticData')}</p>
           )}
         </div>
 

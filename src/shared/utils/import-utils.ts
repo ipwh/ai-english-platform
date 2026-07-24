@@ -3,6 +3,7 @@
 // ============================================
 
 import { z } from 'zod';
+import { logger } from '@/shared/logger/logger';
 
 // ============================================
 // CSV 解析（無外部依賴，支援引號欄位）
@@ -247,6 +248,6 @@ export function generateTeacherTemplate(): string {
 export function inferGradeLevel(className: string): string {
   const match = className.trim().match(/^(\d)/);
   if (match) return `S${match[1]}`;
-  console.warn(`⚠️ Cannot infer grade level from class name: "${className}", defaulting to S4`);
+  logger.warn({ module: 'import-utils', className }, 'Cannot infer grade level from class name, defaulting to S4');
   return 'S4';
 }

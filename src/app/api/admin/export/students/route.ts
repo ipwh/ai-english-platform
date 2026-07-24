@@ -14,7 +14,6 @@ import { logger } from '@/shared/logger/logger';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
-import { exportStudents } from '@/modules/admin/services/export-service';
 
 async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized: boolean; userId?: string; error?: string }> {
   // Try admin first

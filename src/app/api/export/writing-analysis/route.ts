@@ -215,7 +215,7 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
     }
   } catch (e) {
     // switchToPage 在 pdfkit 某些版本中可能失敗，略過頁尾（非關鍵功能）
-    console.warn('[export/writing-analysis] Footer skipped:', e instanceof Error ? e.message : String(e));
+    logger.warn({ module: 'export/writing-analysis', error: e instanceof Error ? e.message : String(e) }, 'Footer skipped');
   }
 
   return new Promise((resolve) => {

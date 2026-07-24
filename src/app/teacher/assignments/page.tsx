@@ -94,7 +94,7 @@ export default function TeacherAssignmentsPage() {
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {a.className}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">完成率</span>
+                  <span className="text-xs text-gray-400">{t('teacher.assignments.completionRate')}</span>
                   <div className="w-24">
                     <ProgressBar value={a.completionRate} size="sm" showPercentage={true} />
                   </div>

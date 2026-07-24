@@ -778,11 +778,13 @@ describe('v12: AI Facade Slimming (Sprint 91)', () => {
     expect(true).toBe(true);
   });
 
-  it('ai-service.ts uses canonical json-utils for JSON parsing', () => {
+  it('ai-service.ts is a pure delegation facade (json-utils used by usecases, not facade)', () => {
     const content = readFileSync(AI_SERVICE_PATH, 'utf-8');
-    expect(content).toContain("from './json-utils'");
-    // Must not define parseAIJSON inline
+    // Sprint 100: ai-service.ts is now pure delegation. json-utils is imported by usecases directly.
+    // The facade must NOT define parseAIJSON inline
     expect(content).not.toMatch(/^export function parseAIJSON/m);
+    // The facade must delegate to usecases (not implement AI logic)
+    expect(content).toContain('usecases/');
   });
 
   it('ai-service.ts uses canonical question-validator for MCQ helpers', () => {

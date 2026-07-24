@@ -9,7 +9,7 @@ import { useUIStore } from './uiStore';
 import { usePracticeStore } from './practiceStore';
 import type { PracticeSession as PSSession } from './practiceStore';
 import { useNotificationStore } from './notificationStore';
-import type { UserRole, Notification, PracticeQuestion, DifficultyLevel } from '@/shared/types/types';
+
 
 // 重新導出型別
 export type PracticeSession = PSSession;

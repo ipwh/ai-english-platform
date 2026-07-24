@@ -19,7 +19,7 @@ interface AuthState {
   setAuth: (auth: { userId: string; role: UserRole; displayName: string | null }) => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set, _get) => ({
   isLoggedIn: false,
   currentRole: null,
   userId: null,

@@ -770,7 +770,7 @@ export default function PracticeQuestionPage() {
             {aiLoading && (
               <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>AI 正在分析你的答案...</span>
+                <span>{t('practice.aiAnalyzing')}</span>
               </div>
             )}
 
@@ -785,13 +785,13 @@ export default function PracticeQuestionPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-purple-500" />
-                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">AI 智能分析</span>
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">{t('practice.aiSmartAnalysis')}</span>
                 </div>
 
                 {/* AI 評分 */}
                 {aiAnalysis.score != null && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">AI 評分：</span>
+                    <span className="text-xs text-gray-500">{t('practice.aiScore')}</span>
                     <span className={`text-sm font-bold ${(aiAnalysis.score ?? 0) >= 60 ? 'text-green-600' : 'text-red-600'}`}>
                       {aiAnalysis.score ?? '—'}/100
                     </span>

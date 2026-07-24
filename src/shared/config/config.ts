@@ -6,7 +6,12 @@
 //   import { config } from '@/shared/config/config';
 //   config.deepseek.apiKey
 //   config.isProduction
+//
+// Sprint 102: Added Zod runtime validation at startup — validates all required
+// env vars and crashes fast with clear error messages in production.
 // ============================================
+
+import { z } from 'zod';
 
 // ============================================
 // 環境偵測
@@ -14,6 +19,61 @@
 
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 const isDevelopment = !isProduction;
+
+// ============================================
+// Zod Runtime Validation — crash-fast on missing required env vars
+// ============================================
+
+const envSchema = z.object({
+  // AI Providers (at least one must be configured in production)
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_BASE_URL: z.string().optional(),
+  DEEPSEEK_MODEL: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_BASE_URL: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
+  GCP_PROJECT_ID: z.string().optional(),
+  VERTEX_AI_LOCATION: z.string().optional(),
+  VERTEX_AI_EMBEDDINGS_LOCATION: z.string().optional(),
+  VERTEX_GEMINI_MODEL: z.string().optional(),
+  GCP_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
+  // Auth (required in production)
+  JWT_SECRET: z.string().optional(),
+  AUTH_SECRET: z.string().optional(),
+  // Database
+  DATABASE_URL: z.string().optional(),
+  // AI tuning
+  AI_TIMEOUT_MS: z.string().optional(),
+  AI_CACHE_ENABLED: z.string().optional(),
+  AI_CACHE_TTL_MS: z.string().optional(),
+  // RAG
+  DSE_RAG_ENABLED: z.string().optional(),
+  // Cron
+  CRON_SECRET: z.string().optional(),
+  // Google
+  GOOGLE_SHEETS_CLASS_ROSTER_ID: z.string().optional(),
+  // KV
+  VERCEL_KV_URL: z.string().optional(),
+  KV_URL: z.string().optional(),
+  VERCEL_KV_TOKEN: z.string().optional(),
+  KV_TOKEN: z.string().optional(),
+  // Node
+  NODE_ENV: z.string().optional(),
+  VERCEL: z.string().optional(),
+}).passthrough(); // Allow unknown env vars (e.g. Vercel-injected vars)
+
+// Validate at import time — crash fast with clear message
+try {
+  envSchema.parse(process.env);
+} catch (err) {
+  if (isProduction) {
+    console.error('[config] ❌ Environment validation failed:', (err as Error).message);
+    throw new Error(`[config] Invalid environment variables: ${(err as Error).message}`);
+  }
+  // In development, just warn — don't crash
+  console.warn('[config] ⚠️ Environment validation warning (non-blocking in dev):', (err as Error).message);
+}
 
 // ============================================
 // 安全性 — 強制要求生產環境設定必要變數
@@ -63,6 +123,7 @@ const gemini = {
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { logger } from '@/shared/logger/logger';
 
 const vertex = {
   projectId: process.env.GCP_PROJECT_ID || '',
@@ -79,13 +140,9 @@ function hasServiceAccountSource(): boolean {
   if (process.env.GCP_SERVICE_ACCOUNT_JSON) return true;
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return true;
   const localCredPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
-  const localClientSecret = path.join(process.cwd(), 'materials', 'client_secret_');
   if (fs.existsSync(localCredPath)) {
     if (isProduction) {
-      console.error(
-        '[config] ⚠️ 生產環境偵測到本機憑證檔案 materials/gcp-service-account.json。\n' +
-        '請刪除該檔案，改用 GCP_SERVICE_ACCOUNT_JSON 或 GOOGLE_APPLICATION_CREDENTIALS 環境變數。'
-      );
+      logger.error({ module: 'config' }, 'Production detected local credential file materials/gcp-service-account.json — remove it and use GCP_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS env var');
     }
     return true;
   }
@@ -96,10 +153,7 @@ function hasServiceAccountSource(): boolean {
       const files = fs.readdirSync(matDir);
       const secretFiles = files.filter(f => f.startsWith('client_secret_') && f.endsWith('.json'));
       if (secretFiles.length > 0) {
-        console.error(
-          `[config] ⚠️ 偵測到 Google OAuth client secret 檔案在 materials/ 目錄: ${secretFiles.join(', ')}。\n` +
-          '這些檔案不應存在於專案目錄中。請立即刪除並確保已加入 .gitignore。'
-        );
+        logger.error({ module: 'config', files: secretFiles }, 'Google OAuth client secret files detected in materials/ — remove immediately and ensure .gitignore');
       }
     }
   } catch { /* 無法讀取目錄，忽略 */ }

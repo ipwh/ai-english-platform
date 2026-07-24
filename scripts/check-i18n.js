@@ -45,6 +45,14 @@ const ALLOWED_CHINESE_FILES = [
   'dse-writing-data.ts',  // Writing data with bilingual examples
   'writing-generation.ts', // Writing generation prompts
   'OnboardingGuard.tsx',  // First-run onboarding has intentional step-by-step Chinese
+  '/usecases/',           // Sprint 102: AI usecases contain intentional Chinese prompts for LLM
+  '\\usecases\\',          // Windows path variant
+  'question-normalizer.ts', // Question validation messages
+  'question-validator.ts',  // Question validation messages
+  'listening-normalizer.ts', // Listening content normalization
+  'writing-coach.ts',     // Writing coach analysis with Chinese output (AI-generated)
+  'writing-coach-pro.ts', // Writing coach pro analysis
+  'reflection-generator.ts', // AI-generated reflection prompts
 ];
 
 /** @typedef {{ file: string; line: number; text: string; type: 'jsx-text' | 'string-literal' | 'comment' | 'attribute' }} Finding */

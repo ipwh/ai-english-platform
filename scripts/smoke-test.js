@@ -130,13 +130,20 @@ check('verifyApiAuth exists', () => { if (!apiAuth.includes('export async functi
 check('JWT + NextAuth dual', () => { if (!apiAuth.includes('verifySessionToken') || !apiAuth.includes("auth()")) throw new Error('Missing dual auth'); });
 check('Role check', () => { if (!apiAuth.includes('allowedRoles')) throw new Error('Missing role check'); });
 
-// 8. i18n completeness
+// 8. i18n completeness (aggregate all i18n-*.ts module files)
 console.log('\n🌐 i18n:');
-const i18n = fs.readFileSync(path.join(ROOT, 'src/shared/utils/i18n.ts'), 'utf8');
-const zhEntries = (i18n.match(/zh:\s*'/g) || []).length;
-const enEntries = (i18n.match(/en:\s*'/g) || []).length;
+const i18nDir = path.join(ROOT, 'src/shared/utils');
+const i18nFiles = fs.readdirSync(i18nDir).filter(f => f.startsWith('i18n') && f.endsWith('.ts'));
+let zhEntries = 0;
+let enEntries = 0;
+for (const f of i18nFiles) {
+  const content = fs.readFileSync(path.join(i18nDir, f), 'utf8');
+  zhEntries += (content.match(/zh:\s*'/g) || []).length;
+  enEntries += (content.match(/en:\s*'/g) || []).length;
+}
 check(`zh entries (${zhEntries})`, () => { if (zhEntries < 100) throw new Error(`Only ${zhEntries} entries`); });
 check(`en entries (${enEntries})`, () => { if (enEntries < 100) throw new Error(`Only ${enEntries} entries`); });
+check(`zh/en parity`, () => { if (zhEntries !== enEntries) throw new Error(`Mismatch: ${zhEntries} zh vs ${enEntries} en`); });
 check('zh/en parity', () => { if (Math.abs(zhEntries - enEntries) > 5) throw new Error(`Mismatch: zh=${zhEntries} en=${enEntries}`); });
 
 // 9. CSS globals

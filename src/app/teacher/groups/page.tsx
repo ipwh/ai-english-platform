@@ -213,7 +213,7 @@ export default function TeacherGroupsPage() {
               <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
                 <p className="text-xs text-blue-600">{t('groups.pasteHint')}</p>
                 <textarea value={batchText} onChange={e => setBatchText(e.target.value)}
-                  rows={3} className="w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-gray-700" placeholder="陳大文, 李小明, mary@school.edu.hk" />
+                  rows={3} className="w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-gray-700" placeholder={t('teacher.groups.exampleMembers')} />
                 <div className="flex gap-2">
                   <button onClick={handleBatchImport} className="px-3 py-1 text-xs bg-blue-500 text-white rounded-lg">{t('groups.add')}</button>
                   <button onClick={() => setShowBatchImport(false)} className="px-3 py-1 text-xs border rounded-lg">{t('groups.cancel')}</button>

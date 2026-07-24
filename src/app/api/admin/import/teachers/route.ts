@@ -1,9 +1,3 @@
-import { adminDbQuery } from '@/modules/admin/services/admin-operations';
-// ============================================
-// POST /api/admin/import/teachers
-// 批量匯入教師資料 — 單一 transaction，高效批次處理
-// ============================================
-
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/shared/logger/logger';
 import {
@@ -14,7 +8,7 @@ import {
 import type { ImportResult } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
-import { findExistingUsers, bulkImportTeachers } from '@/modules/admin/services/import-service';
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 export async function POST(request: NextRequest) {
   const result: ImportResult = emptyImportResult();

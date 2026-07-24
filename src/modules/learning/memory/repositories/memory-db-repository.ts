@@ -5,6 +5,7 @@
 import { db } from '@/shared/db/db';
 import type { LearningMemory } from '../types';
 import type { IMemoryRepository } from './memory-repository-interface';
+import { logger } from '@/shared/logger/logger';
 
 export class MemoryDbRepository implements IMemoryRepository {
   async get(studentId: string): Promise<LearningMemory | null> {
@@ -16,7 +17,7 @@ export class MemoryDbRepository implements IMemoryRepository {
       parsed.updatedAt = new Date(parsed.updatedAt);
       return parsed;
     } catch (err) {
-      console.error('[memory-db] Failed to load:', (err as Error)?.message);
+      logger.error({ module: 'memory-db', error: (err as Error)?.message }, 'Failed to load learning memory');
       return null;
     }
   }
@@ -32,7 +33,7 @@ export class MemoryDbRepository implements IMemoryRepository {
         update: { memoryJson: json, version: memory.version },
       });
     } catch (err) {
-      console.error('[memory-db] Failed to persist:', (err as Error)?.message);
+      logger.error({ module: 'memory-db', error: (err as Error)?.message }, 'Failed to persist learning memory');
     }
   }
 

@@ -1,6 +1,6 @@
 // Sprint 42: Remaining API route schemas — batch P16
 import { z } from 'zod';
-import { difficulty, gradeLevel, studentId, userId, studentLevel } from './common.schema';
+import { difficulty, studentId, studentLevel } from './common.schema';
 
 // ============================================
 // AI Routes

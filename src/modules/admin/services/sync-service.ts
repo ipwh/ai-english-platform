@@ -8,8 +8,14 @@ export async function syncSheetToDatabase(rows: SheetRow[], dryRun = false) {
   const result = { created: 0, updated: 0, skipped: 0, errors: 0, details: [] as string[] };
 
   if (dryRun) {
+    const emails = rows.map(r => r.email);
+    const existingUsers = await db.user.findMany({
+      where: { email: { in: emails } },
+      select: { email: true, class: { select: { name: true } } },
+    });
+    const userMap = new Map(existingUsers.map(u => [u.email, u]));
     for (const row of rows) {
-      const user = await db.user.findUnique({ where: { email: row.email }, select: { id: true, class: { select: { name: true } } } });
+      const user = userMap.get(row.email);
       result.details.push(`${row.email}: ${user ? `exists (class: ${user.class?.name})` : 'would create'}`);
     }
     result.skipped = rows.length;

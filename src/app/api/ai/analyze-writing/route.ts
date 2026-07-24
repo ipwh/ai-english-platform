@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai/services/ai-service';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { validateRequest, analyzeWritingSchema } from '@/shared/validation/schemas';
 import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
@@ -35,14 +36,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, prompt, studentDraft, studentLevel, gradeLevel, difficulty, textType } = body;
-
-    if (!title || !studentDraft) {
-      return NextResponse.json(
-        { error: '請提供 title 和 studentDraft。' },
-        { status: 400 }
-      );
-    }
+    const parsed = validateRequest(analyzeWritingSchema, body);
+    const { title, prompt, studentDraft, studentLevel, textType } = parsed;
 
     // 限制草稿長度，防止 token 超限
     const MAX_DRAFT_LENGTH = 5000;
@@ -54,8 +49,7 @@ export async function POST(request: NextRequest) {
       title: sanitizeForAI(title),
       prompt: prompt ? sanitizeForAI(prompt) : '',
       studentDraft: sanitizeForAI(safeDraft),
-      studentLevel: studentLevel || gradeLevel,
-      difficulty,
+      studentLevel,
       textType,
       userId: authResult.userId,
     });

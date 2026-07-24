@@ -5,7 +5,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listLoginLogs, createLoginLog } from '@/modules/admin/services/admin-service';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 import { verifyAdmin } from '@/shared/auth/admin-auth';

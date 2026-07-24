@@ -4,7 +4,6 @@ import type {
   SentenceVarietyAnalysis, ToneRegisterAnalysis, LogicArgumentAnalysis,
   ExpressionUpgrade, ParagraphRewrite, SentenceRewrite,
   ProRevisionPlan, ProRevisionComparison, RevisionRecord,
-  GrammarIssue, VocabularySuggestion,
 } from '../types';
 
 // ============================================

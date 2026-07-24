@@ -11,6 +11,7 @@ import { hashPasswordSync } from '@/shared/auth/crypto';
 import { parseCSV } from '@/shared/utils/import-utils';
 import { bulkImportStudents, bulkImportTeachers } from '@/modules/admin/services/import-service';
 import { adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
+import { logger } from '@/shared/logger/logger';
 
 // ---- CSV 格式定義 ----
 
@@ -262,7 +263,7 @@ function normalizeRow(row: Record<string, string>, role: 'student' | 'teacher'):
 function inferGradeLevel(className: string): string {
   const match = className.trim().match(/^(\d)/);
   if (match) return `S${match[1]}`;
-  console.warn(`⚠️ Cannot infer grade level from class name: "${className}", defaulting to S4`);
+  logger.warn({ module: 'import', className }, 'Cannot infer grade level from class name, defaulting to S4');
   return 'S4';
 }
 

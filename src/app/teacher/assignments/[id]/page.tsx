@@ -269,7 +269,7 @@ export default function TeacherAssignmentDetailPage() {
                       <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg text-sm text-blue-700 dark:text-blue-400">
                         <div className="flex items-center gap-1.5 mb-1">
                           <Sparkles className="w-3.5 h-3.5" />
-                          <span className="font-medium">AI 批改反饋</span>
+                          <span className="font-medium">{t('teacher.assignments.aiFeedback')}</span>
                         </div>
                         <p className="whitespace-pre-wrap">{sub.aiFeedback}</p>
                       </div>

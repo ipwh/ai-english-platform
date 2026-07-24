@@ -542,7 +542,7 @@ function PracticeListPageContent() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900 dark:text-white">{s.skillZh || s.skill || ''}</span>
                       {s.source === 'ai-generated' && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">AI 生成</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">{t('practice.aiGenerated')}</span>
                       )}
                       <SkillChip difficulty={s.difficulty} />
                     </div>

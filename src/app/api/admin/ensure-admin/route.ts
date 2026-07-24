@@ -6,7 +6,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureAdmin } from '@/modules/admin/services/admin-service';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 
 export async function GET() {
