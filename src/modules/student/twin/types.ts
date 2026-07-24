@@ -235,6 +235,11 @@ export interface DashboardData {
     progress: number;
     estimatedDays: number;
   }>;
+  strengths: string[];
+  weaknesses: string[];
+  recentActivity: Array<{ action: string; timestamp: string }>;
+  suggestedActions: string[];
+  suggestedActionsZh: string[];
 }
 
 // ============================================
