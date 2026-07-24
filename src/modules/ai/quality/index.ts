@@ -70,3 +70,29 @@ export {
   ContentConsistencyRulePack,
   contentConsistencyRulePack,
 } from './rules/content';
+
+// Sprint 104: Self-Healing Repair Layer
+export {
+  RepairAction,
+  RepairCost,
+  RepairPlan,
+  repairPlanner,
+  repairPipeline,
+  createRepairBudget,
+  getBudgetUsage,
+  recordRepairAttempt,
+  recordRepairSuccess,
+  recordRepairFailure,
+  getRepairMetrics,
+  resetRepairMetrics,
+  logRepairHistory,
+  getRepairHistory,
+  generateRepairReport,
+  formatRepairSummary,
+  isDeterministicRepair,
+  type RepairStep,
+  type RepairBudget,
+  type RepairPipelineResult,
+  type RepairReport,
+  type RepairHistoryEntry,
+} from './repair';
