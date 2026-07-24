@@ -346,118 +346,27 @@ ${essayContent}
   const grammarUserPrompt = `${context}\n\n請只分析語言準確性（文法錯誤+中式英文+總分+總評）。`;
 
   // === Call 2：詞彙 + 結構 + 優缺點 + 修改版（寫作技巧） ===
-  const stylePrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，專注批改寫作技巧並提供修改範例。
-請嚴格依據以下 HKDSE Paper 2 Writing 官方 CLO 評分框架（Content / Language / Organization，每項 0-7 分，滿分 21 分）進行判斷。
-請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。${writingMSContext}
+  // Sprint 102: Trimmed prompt — CLO framework already in Call 1, focus only on style/improvement
+  const stylePrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員。請分析學生文章的寫作技巧並提供修改範例。${writingMSContext}
 
-═══════════════════════════════════════
-📋 CLO 評分基準回顧（0-7 分等級）
-═══════════════════════════════════════
-
-Content (C) 7 分制：
-7 — 內容完全貼題、豐富全面、觀點充分拓展、具創意想像力、高度受眾意識
-6 — 內容符合題目要求、幾乎全部相關、大部分觀點拓展、適時創意
-5 — 內容符合要求、大部分相關、多數觀點拓展、大部分創意
-4 — 內容大致符合、大部分相關、部分觀點拓展、數處創意
-3 — 內容僅部分滿足、有缺口/重複、部分觀點未充分拓展
-2 — 內容勉強滿足、間歇相關、少數觀點且未拓展
-1 — 內容不足、高度依賴提示字眼、極少觀點全未拓展
-0 — 完全不充分：離題/背誦/全抄
-
-Language (L) 7 分制：
-7 — 句型極多變、文法極精準（僅極輕微失誤）、選詞細膩精準、串字標點近乎完美、語域語氣風格完全配合文體
-6 — 廣泛句式準確、文法大致精準、詞彙廣泛且有進階用語、語域語氣風格配合文體
-5 — 多種句式準確、文法大致準確（錯誤不影響清晰）、詞彙適度廣泛恰當
-4 — 簡單句大致良好、偶有複雜句、結構傾向重複、文法錯誤有時影響理解、常用詞彙恰當
-3 — 簡短簡單句大致準確、零星嘗試複雜句、文法錯誤經常影響理解、簡單詞彙恰當
-2 — 部分簡短句準確、文法錯誤頻繁影響理解、非常簡單詞彙範圍有限
-1 — 多方面錯誤致使無法理解
-0 — 語言不足以評估
-
-Organization (O) 7 分制：
-7 — 結構極度有效、觀點邏輯層層展開、段落連貫性極強、cohesive ties 精妙多樣、完全符合文體
-6 — 結構有效、觀點邏輯展開、大部分連貫清晰、cohesive ties 穩健、配合文體
-5 — 結構大致有效、觀點邏輯展開、大部分連貫、cohesive ties 合理
-4 — 部分段落明確、部分連貫、部分 cohesive ties、大致連貫配合文體
-3 — 部分段落大致明確、簡單 cohesive ties、連貫性有時模糊
-2 — 部分段落反映組織嘗試、有限度 cohesive devices
-1 — 嘗試組織、極有限度 cohesive devices
-0 — Cohesive devices 幾乎完全欠缺
-
-═══════════════════════════════════════
-🧭 內容五大鋪墊法（Content 高分框架）
-═══════════════════════════════════════
-1. 現況切入（Context）— 描述現狀引入話題
-2. 他人意見（Others' Views）— 引用他人觀點/社會討論
-3. 表達立場（Position）— 清晰表明自己立場/Thesis Statement
-4. 理據支持（Reasons + Examples）— 提出 supporting reasons 及具體例子
-5. 讓步反駁（Concession + Rebuttal）— 先承認反方論點再逐一反駁
-
-═══════════════════════════════════════
-📝 DSE Writing 高分寫作策略
-═══════════════════════════════════════
-1. PEEL 結構: 每段 Point（論點）→ Explain（解釋）→ Example（例子）→ Link（連結下一段）
-2. Show, Don't Tell: 用具體描寫代替抽象陳述（❌"He was nervous" → ✅"His palms were sweaty and his heart raced"）
-3. 讓步反駁 (Concession + Rebuttal): 先承認反方觀點再反駁（"Admittedly... However..."），展現批判思維
-4. 詞彙多樣化: 避免重複 basic words，使用精確的進階詞彙
-5. 句式變化: 混合簡單句/複合句/倒裝句/強調句/分裂句
-   - 倒裝句: "Not only does this benefit students, but it also..."
-   - 強調句: "It is precisely because of this that..."
-   - 分裂句: "What concerns me most is..."
-6. 連接詞豐富化: Furthermore / Moreover / Nevertheless / Consequently / In stark contrast
-7. 首尾呼應: 開頭的 hook 與結尾互相呼應，但用詞有變化
-8. 強而有力的結論: 總結 → 擴展視野至更廣泛含義 → 留下深刻印象的最後一句
-
-═══════════════════════════════════════
-📊 詞彙升級建議清單
-═══════════════════════════════════════
-Important → crucial / vital / essential / paramount
-Good → beneficial / advantageous / favorable / commendable
-Bad → detrimental / harmful / adverse / undesirable
-Show → demonstrate / illustrate / reveal / indicate
-Many → numerous / a multitude of / a plethora of
-Big → substantial / considerable / significant / immense
-Because → due to / owing to / as a result of
-But → however / nevertheless / nonetheless
-So → consequently / therefore / thus / hence
-Very → exceedingly / remarkably / exceptionally
-
-═══════════════════════════════════════
-📄 文本類型特定格式檢查
-═══════════════════════════════════════
-- Formal Letter: 上款與下款配對（Dear Sir/Madam → Yours faithfully；Dear Mr. X → Yours sincerely）？無縮寫？地址格式？
-- Informal Letter: 語氣親切？有個人經歷分享？可用 short form？
-- Speech: 有開場問候（Good morning/afternoon）？有修辭問句？有 audience engagement？結尾有 Thank you？
-- Article: 有吸引標題？段落簡短？有個人風格？
-- Report: 有 Title/Introduction/Findings/Conclusion/Recommendations？用被動語態？客觀語氣？
-- Proposal: 有 Title/Background/Problem Analysis/Suggested Solution/Implementation Plan？SMART 目標？
-- Argumentative Essay: 有 thesis statement？3 reasons + counter-argument + rebuttal？PEEL？
-- Review: 有介紹 + 正反評價 + 總結推薦？informal/chatty style？
-
-═══════════════════════════════════════
-📊 JSON 回覆格式（必須嚴格遵守）
-═══════════════════════════════════════
-
+請以純 JSON 格式回覆：
 {
-  "strengths": ["優點1（繁體中文，對照 CLO 7 分制描述）", "優點2"],
-  "weaknesses": ["弱點1（繁體中文，對照 CLO 7 分制描述）", "弱點2"],
+  "strengths": ["優點1（繁體中文）", "優點2（最多3點）"],
+  "weaknesses": ["弱點1（繁體中文）", "弱點2（最多3點）"],
   "vocabularySuggestions": [
-    { "original": "原詞", "suggestion": "建議詞", "reason": "原因（繁體中文）" }
+    { "original": "原詞", "suggestion": "建議詞", "reason": "原因" }
   ],
-  "structureFeedback": "文章結構評語（繁體中文，50-100字，須指出 Organization 在 CLO 7 分制中的對應等級）",
-  "revisedVersion": "修正後的完整文章（保留原意，修正文法錯誤及 Chinglish，優化詞彙與句型，補足內容與細節以提升至更高 DSE Level，不可只做表面文法潤飾）"
+  "structureFeedback": "文章結構評語（繁體中文，50-80字）",
+  "revisedVersion": "修正後的完整文章（保留原意，優化詞彙與句型，補足內容細節以提升至更高 DSE Level）"
 }
 
-═══════════════════════════════════════
-📏 規則（嚴格執行）
-═══════════════════════════════════════
-- 若文章離題、欠缺內容重點、只列點無展開，weaknesses 必須明確指出「Content 任務完成不足（對應 CLO 1-3 分）」，不可僅評「文法可改善」。
-- strengths 最多 3 點，且必須對照上方 CLO 7 分制描述，不可虛高（例如 Level 1-2 文章不可稱「詞彙豐富」或「組織精緻」）。
-- revisedVersion 必須示範如何補足內容與細節以提升至更高 HKDSE Level（例如從 Level 3 提升至 Level 4-5），不可只做表面文法潤飾。
-- structureFeedback 必須明確指出文章在 Organization 向度的 CLO 等級及具體改善建議。
-- 文本類型格式錯誤（如 Letter 缺上下款、Speech 缺開場白）必須在 weaknesses 中明確指出。
-
-注意：只專注詞彙選擇、句子變化、段落結構、論點組織等寫作技巧，並提供一個流暢的修改版本。不需重複文法錯誤清單（已由另一分析處理）。`.trim();
+評分規則：
+- strengths 必須對照 CLO 7 分制，不可虛高
+- weaknesses 必須具體指出 Content/Organization 不足之處
+- vocabularySuggestions 提供 2-4 個詞彙升級建議
+- structureFeedback 指出 Organization 對應的 CLO 等級及改善建議
+- revisedVersion 需示範如何提升至更高 HKDSE Level，非僅文法潤飾
+- 注意文本類型格式要求（Letter 上下款、Speech 開場白等）`.trim();
 
   const styleUserPrompt = `${context}\n\n請分析寫作技巧並提供修改版（詞彙建議+結構評語+優點+弱點+修改版全文）。`;
 
@@ -471,7 +380,7 @@ Very → exceedingly / remarkably / exceptionally
               { role: 'system', content: grammarPrompt + writingMSContext },
               { role: 'user', content: grammarUserPrompt },
             ],
-            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 35000, userId: input.userId }
+            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId }
           );
         } catch (e) {
           if (attempt === 1) throw e;
@@ -485,7 +394,7 @@ Very → exceedingly / remarkably / exceptionally
         { role: 'system', content: stylePrompt + writingMSContext },
         { role: 'user', content: styleUserPrompt },
       ],
-      { temperature: 0.3, maxTokens: 6144, jsonMode: true, timeoutMs: 35000, userId: input.userId }
+      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId }
     ),
   ]);
 
