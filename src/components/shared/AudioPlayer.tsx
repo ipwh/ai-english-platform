@@ -14,6 +14,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Volume2, Pause, Play, Square, Loader2, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
+const IS_DEV = String(process.env.NODE_ENV) !== 'production';
+
 interface AudioPlayerProps {
   text: string;
   label?: string;
@@ -103,7 +105,7 @@ export async function prefetchTTSAudio(text: string, speakingRate = 0.9): Promis
     });
 
     if (!res.ok) {
-      if (process.env.NODE_ENV !== 'production') if (process.env.NODE_ENV !== 'production') console.warn('[TTS Prefetch] Failed:', res.status);
+      if (IS_DEV) console.warn('[TTS Prefetch] Failed:', res.status);
       return;
     }
 
@@ -465,7 +467,7 @@ export default function AudioPlayer({
       if (r.ok) setFeedbackSent(true);
       setTimeout(() => setFeedbackSent(false), 3000);
     }).catch(() => {});
-    if (process.env.NODE_ENV !== 'production') console.warn('[AudioPlayer] User reported audio issue:', payload);
+    if (IS_DEV) console.warn('[AudioPlayer] User reported audio issue:', payload);
   }, [text, cloudError, fallbackMode, speed]);
 
   // ============================================
@@ -545,7 +547,7 @@ export default function AudioPlayer({
       });
 
       if (!res.ok) {
-        if (process.env.NODE_ENV !== 'production') console.warn('[TTS Prefetch] Failed:', res.status);
+        if (IS_DEV) console.warn('[TTS Prefetch] Failed:', res.status);
         return;
       }
 
@@ -561,7 +563,7 @@ export default function AudioPlayer({
       cachedUrlRef.current = url;
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      if (process.env.NODE_ENV !== 'production') console.warn('[TTS Prefetch] Error:', err);
+      if (IS_DEV) console.warn('[TTS Prefetch] Error:', err);
     } finally {
       if (cloudAbortRef.current === controller) {
         cloudAbortRef.current = null;
@@ -607,7 +609,7 @@ export default function AudioPlayer({
     const lang: 'en' | 'zh' = cjkCount / Math.max(text.length, 1) > 0.3 ? 'zh' : 'en';
 
     const dialogue = parseDialogue(text);
-    if (process.env.NODE_ENV === 'development') {
+    if (IS_DEV) {
       /* AudioPlayer WebSpeech session debug info */
     }
 
@@ -757,7 +759,7 @@ export default function AudioPlayer({
       };
         audio.onended = () => { setPlaying(false); setProgress(100); onPlayEnd?.(); };
       audio.onerror = () => {
-        if (process.env.NODE_ENV !== 'production') console.error('[TTS] Cached audio playback error');
+        if (IS_DEV) console.error('[TTS] Cached audio playback error');
         TTS_CACHE.delete(cacheKey);
         setPlaying(false); setLoading(false);
         handlePlayWebSpeech();
@@ -791,13 +793,13 @@ export default function AudioPlayer({
         if (!res.ok) {
           const errorText = await res.text().catch(() => '');
           if (attempt === 2) {
-            if (process.env.NODE_ENV !== 'production') console.error('[TTS] Cloud TTS error (attempt', attempt, '):', res.status, errorText);
+            if (IS_DEV) console.error('[TTS] Cloud TTS error (attempt', attempt, '):', res.status, errorText);
             setCloudError(res.status === 503 ? 'TTS 服務未設定' : `TTS 錯誤 (${res.status})`);
             setCloudFetching(false); setLoading(false);
             handlePlayWebSpeech();
             return;
           }
-          if (process.env.NODE_ENV !== 'production') console.warn('[TTS] Retrying after error:', res.status);
+          if (IS_DEV) console.warn('[TTS] Retrying after error:', res.status);
           await new Promise(r => setTimeout(r, 1000));
           continue;
         }
@@ -835,7 +837,7 @@ export default function AudioPlayer({
         // Wrap audio playback in a promise to properly catch errors and handle retry
         const audioPlayResult = await new Promise<'ok' | 'retry' | 'error'>((resolve) => {
           audio.onerror = () => {
-            if (process.env.NODE_ENV !== 'production') console.error('[TTS] Audio playback error');
+            if (IS_DEV) console.error('[TTS] Audio playback error');
             if (attempt === 1) {
               TTS_CACHE.delete(cacheKey);
               URL.revokeObjectURL(url);
@@ -873,11 +875,11 @@ export default function AudioPlayer({
           return;
         }
         if (attempt === 1) {
-          if (process.env.NODE_ENV !== 'production') console.warn('[TTS] Fetch failed, retrying:', err);
+          if (IS_DEV) console.warn('[TTS] Fetch failed, retrying:', err);
           await new Promise(r => setTimeout(r, 1000));
           continue;
         }
-        if (process.env.NODE_ENV !== 'production') console.error('[TTS] Cloud TTS fetch failed:', err);
+        if (IS_DEV) console.error('[TTS] Cloud TTS fetch failed:', err);
         setCloudError('網絡連線失敗');
         setCloudFetching(false); setLoading(false);
         handlePlayWebSpeech();
