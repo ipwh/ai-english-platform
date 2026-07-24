@@ -881,9 +881,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // Remap line number references in question text to match recalculated passage
         const question = remapQuestionTextLineRefs(rawQuestion);
 
-        // Map AI question type to legacy type
+        // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
-        const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
+        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion'];
+        const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
         // Strip "A. " prefix from choices if present
         let choices: string[] | undefined;
@@ -932,9 +933,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const question = (q.questionText as string) || (q.question as string) || '';
         const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
 
-        // Map AI question type to legacy type
+        // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
-        const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
+        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion'];
+        const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
         // Strip "A. " prefix from choices if present
         let choices: string[] | undefined;
