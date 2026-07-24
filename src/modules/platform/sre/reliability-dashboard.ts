@@ -11,6 +11,7 @@ import { detectSaturation } from '@/modules/ai/runtime/saturation-detector';
 import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
 import { getQualityMetrics } from '@/modules/ai/quality';
 import { getRepairMetrics, getRepairHistory } from '@/modules/ai/quality/repair';
+import { getEvaluationMetrics } from '@/modules/ai/evaluation';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -46,5 +47,6 @@ export function getFullRuntimeReport() {
       metrics: getRepairMetrics(),
       history: getRepairHistory(20),
     },
+    evaluation: getEvaluationMetrics(),
   };
 }
