@@ -12,7 +12,7 @@ import { InlineWordBadge } from '@/modules/vocabulary/components/InlineAddVocabB
 import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import type { DifficultyLevel } from '@/shared/types/types';
-import type { WritingAnalysis } from '@/modules/ai/usecases/analyze-writing';
+import type { WritingAnalysisResult } from '@/shared/types/ai-response-types';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {
@@ -65,7 +65,7 @@ export default function WritingPage() {
   const [assistLoading, setAssistLoading] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<WritingAnalysis | null>(null);
+  const [aiResult, setAiResult] = useState<WritingAnalysisResult | null>(null);
   const [aiError, setAiError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
