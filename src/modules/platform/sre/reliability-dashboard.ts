@@ -19,6 +19,7 @@ import {
   getFeedbackMetrics, getFeedbackEventCount, detectPatterns,
   getKnowledgeState, getLearningHistory, generateFeedbackReport,
 } from '@/modules/ai/prompt-intelligence/feedback';
+import { getCalibrationMetrics } from '@/modules/ai/calibration';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -65,6 +66,9 @@ export function getFullRuntimeReport() {
       knowledge: getKnowledgeState(),
       learning: getLearningHistory(20),
       report: 'available (generateFeedbackReport)',
+    },
+    calibration: {
+      metrics: getCalibrationMetrics(),
     },
   };
 }
