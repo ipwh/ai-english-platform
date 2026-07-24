@@ -15,6 +15,10 @@ import { getEvaluationMetrics } from '@/modules/ai/evaluation';
 import { getAssessmentMetrics } from '@/modules/ai/assessment';
 import { getOptimizationMetrics } from '@/modules/ai/optimization';
 import { getPromptMetrics } from '@/modules/ai/prompt-intelligence';
+import {
+  getFeedbackMetrics, getFeedbackEventCount, detectPatterns,
+  getKnowledgeState, getLearningHistory, generateFeedbackReport,
+} from '@/modules/ai/prompt-intelligence/feedback';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -54,5 +58,13 @@ export function getFullRuntimeReport() {
     assessment: getAssessmentMetrics(),
     optimization: getOptimizationMetrics(),
     promptIntelligence: getPromptMetrics(),
+    feedback: {
+      metrics: getFeedbackMetrics(),
+      history: getFeedbackEventCount(),
+      patterns: detectPatterns().length,
+      knowledge: getKnowledgeState(),
+      learning: getLearningHistory(20),
+      report: 'available (generateFeedbackReport)',
+    },
   };
 }

@@ -5,6 +5,7 @@
 
 import type { PromptComponents, AssembledPrompt } from './prompt-types';
 import { DEFAULT_CONSTRAINTS } from './prompt-types';
+import { getDynamicConstraints } from './feedback/feedback-knowledge';
 
 /** Build an assembled prompt from components. Reuses existing prompt modules. */
 export function buildPrompt(components: PromptComponents): AssembledPrompt {
@@ -15,9 +16,15 @@ export function buildPrompt(components: PromptComponents): AssembledPrompt {
   if (components.questionTypePrompt) parts.push(`\n## Question Type Rules\n${components.questionTypePrompt}`);
   if (components.skillPrompt) parts.push(`\n## Skill Focus\n${components.skillPrompt}`);
 
-  // Inject quality constraints
-  const constraints = buildConstraintText();
-  parts.push(`\n## Quality Constraints (Auto-Injected)\n${constraints}`);
+  // Inject static quality constraints
+  const staticConstraints = buildStaticConstraintText();
+  parts.push(`\n## Quality Constraints (Auto-Injected)\n${staticConstraints}`);
+
+  // Inject dynamic adaptive constraints (from feedback learning)
+  const dynamicConstraints = buildDynamicConstraintText();
+  if (dynamicConstraints) {
+    parts.push(`\n## Learned Constraints (Adaptive)\n${dynamicConstraints}`);
+  }
 
   if (components.qualityRequirements) parts.push(`\n## Additional Requirements\n${components.qualityRequirements}`);
 
@@ -26,7 +33,8 @@ export function buildPrompt(components: PromptComponents): AssembledPrompt {
     ? `Student context: ${components.studentContext}\n\nGenerate questions following the system instructions above.`
     : 'Generate questions following the system instructions above.';
 
-  const constraintCount = constraints.split('\n').filter(l => l.startsWith('-')).length;
+  const staticCount = staticConstraints.split('\n').filter(l => l.startsWith('-')).length;
+  const dynamicCount = dynamicConstraints ? dynamicConstraints.split('\n').filter(l => l.startsWith('-')).length : 0;
 
   return {
     system,
@@ -34,14 +42,14 @@ export function buildPrompt(components: PromptComponents): AssembledPrompt {
     metadata: {
       componentCount: parts.length,
       totalLength: system.length + user.length,
-      constraintCount,
+      constraintCount: staticCount + dynamicCount,
       hasDSEContext: !!(components.domainPrompt && components.domainPrompt.includes('DSE')),
     },
   };
 }
 
-/** Generate constraint injection text from defaults. */
-function buildConstraintText(): string {
+/** Generate static constraint injection text from defaults. */
+function buildStaticConstraintText(): string {
   const c = DEFAULT_CONSTRAINTS;
   const lines: string[] = [];
   if (c.alwaysIncludeAnswer) lines.push('- Every question MUST include an answer field. Never omit the answer.');
@@ -58,6 +66,13 @@ function buildConstraintText(): string {
   if (c.writingRequiresPurpose) lines.push('- Writing prompts MUST state the purpose of writing.');
   if (c.writingRequiresWordLimit) lines.push('- Writing prompts MUST include a suggested word count.');
   return lines.join('\n');
+}
+
+/** Build dynamic constraint text from feedback-learned knowledge. */
+function buildDynamicConstraintText(): string {
+  const constraints = getDynamicConstraints();
+  if (constraints.length === 0) return '';
+  return constraints.map((c: { text: string }) => `- ${c.text}`).join('\n');
 }
 
 /** Estimate prompt complexity score (0-100). */
