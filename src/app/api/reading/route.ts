@@ -93,6 +93,55 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================
+// Sprint 102: TFNG Sub-statement Splitter
+// Splits "(i)...(ii)...(iii)..." trueFalseNG questions into individual sub-questions
+// ============================================
+function splitTFNGSubQuestions(
+  questions: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const result: Array<Record<string, unknown>> = [];
+
+  for (const q of questions) {
+    const aiType = (q.type as string) || '';
+    const questionText = (q.questionText as string) || (q.question as string) || '';
+
+    if (aiType !== 'trueFalseNG') { result.push(q); continue; }
+
+    // Match (i)...(ii)...(iii)... sub-statements
+    const subRegex = /\(([ivx]+)\)\s*(.+?)(?=\s*\([ivx]+\)|$)/gi;
+    const subs: { label: string; text: string }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = subRegex.exec(questionText)) !== null) {
+      subs.push({ label: m[1], text: m[2].trim() });
+    }
+
+    if (subs.length <= 1) { result.push(q); continue; }
+
+    // Extract question stem (text before first sub-statement)
+    const stemEnd = questionText.indexOf(`(${subs[0].label})`);
+    const stem = stemEnd > 0 ? questionText.slice(0, stemEnd).trim() : '';
+
+    // Split into individual sub-questions
+    let subIndex = 0;
+    for (const sub of subs) {
+      result.push({
+        ...q,
+        index: ((q.index as number) || 0) + subIndex * 0.1, // sub-index for uniqueness
+        question: stem ? `${stem}\n(${sub.label}) ${sub.text}` : `(${sub.label}) ${sub.text}`,
+        questionText: stem ? `${stem}\n(${sub.label}) ${sub.text}` : `(${sub.label}) ${sub.text}`,
+        marks: 1,
+        type: 'trueFalseNG',
+        choices: ['True', 'False', 'Not Given'],
+        _subLabel: sub.label,
+      });
+      subIndex++;
+    }
+  }
+
+  return result;
+}
+
+// ============================================
 // GET — 資源列表
 // ============================================
 export async function GET(_request: NextRequest) {
@@ -296,6 +345,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 
   // Sprint 102: Apply same question transform as legacy handler
   if (Array.isArray(parsed.questions)) {
+    parsed.questions = splitTFNGSubQuestions(parsed.questions as Array<Record<string, unknown>>);
     parsed.questions = (parsed.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>) => {
       const aiType = (q.type as string) || 'shortAnswer';
       const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
@@ -782,6 +832,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     // 2. Transform question format from v2 AI output to legacy frontend format
     if (Array.isArray(response.questions)) {
+      response.questions = splitTFNGSubQuestions(response.questions as Array<Record<string, unknown>>);
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
         // Map questionText → question
         let rawQuestion = (q.questionText as string) || (q.question as string) || '';
@@ -835,6 +886,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   } else {
     // 2. Transform question format from v2 AI output to legacy frontend format (no passage transform needed)
     if (Array.isArray(response.questions)) {
+      response.questions = splitTFNGSubQuestions(response.questions as Array<Record<string, unknown>>);
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
         // Map questionText → question
         const question = (q.questionText as string) || (q.question as string) || '';
