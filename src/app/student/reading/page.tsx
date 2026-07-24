@@ -205,8 +205,12 @@ export default function ReadingPracticePage() {
           isPartiallyCorrect: false,
           score: isCorrect ? 1 : 0,
           maxScore: 1,
-          feedbackEn: isCorrect ? '✅ Correct order!' : `❌ Incorrect. The correct order is: ${q.answer}`,
-          feedbackZh: isCorrect ? '✅ 順序正確！' : `❌ 順序不正確。正確答案是：${q.answer}`,
+          feedbackEn: isCorrect
+            ? '✅ Correct! See explanation below for details.'
+            : `❌ Incorrect. The correct answer is: ${q.answer}. See explanation below.`,
+          feedbackZh: isCorrect
+            ? '✅ 正確！請參閱下方解釋。'
+            : `❌ 不正確。正確答案是：${q.answer}。請參閱下方解釋。`,
         },
       }));
       return;
@@ -233,8 +237,12 @@ export default function ReadingPracticePage() {
           isPartiallyCorrect: false,
           score: isCorrect ? 1 : 0,
           maxScore: 1,
-          feedbackEn: isCorrect ? '✅ Correct!' : `❌ Incorrect. The correct answer is: ${q.answer}`,
-          feedbackZh: isCorrect ? '✅ 正確！' : `❌ 不正確。正確答案是：${q.answer}`,
+          feedbackEn: isCorrect
+            ? '✅ Correct! See explanation below for details.'
+            : `❌ Incorrect. The correct answer is: ${q.answer}. See explanation below.`,
+          feedbackZh: isCorrect
+            ? '✅ 正確！請參閱下方解釋。'
+            : `❌ 不正確。正確答案是：${q.answer}。請參閱下方解釋。`,
         },
       }));
       return;
@@ -252,8 +260,12 @@ export default function ReadingPracticePage() {
         isPartiallyCorrect: false,
         score: localIsCorrect ? 1 : 0,
         maxScore: 1,
-        feedbackEn: localIsCorrect ? '✅ Correct!' : '⏳ Evaluating with AI...',
-        feedbackZh: localIsCorrect ? '✅ 正確！' : '⏳ 正在用AI評分...',
+        feedbackEn: localIsCorrect
+          ? '✅ Correct! See explanation below for details.'
+          : '⏳ Evaluating with AI... See explanation below.',
+        feedbackZh: localIsCorrect
+          ? '✅ 正確！請參閱下方解釋。'
+          : '⏳ 正在用AI評分... 請參閱下方解釋。',
       },
     }));
 
@@ -301,7 +313,7 @@ export default function ReadingPracticePage() {
           }
         })
         .catch(() => {
-          // AI unavailable — keep local result
+          // AI unavailable — keep local result, explanation still shows below
           setAnswers(prev => ({
             ...prev,
             [qIndex]: {
@@ -741,10 +753,18 @@ export default function ReadingPracticePage() {
                             {language === 'en' ? ans.feedbackEn : (ans.feedbackZh || ans.feedbackEn)}
                           </p>
                         )}
-                        {!ans.feedbackEn && (
-                          <p className="text-gray-500 text-xs mt-1">
-                            {language === 'en' ? q.explanationEn : (showQuestionZh ? q.explanationZh : q.explanationEn)}
-                          </p>
+                        {/* Always show passage-based explanation */}
+                        {(q.explanationEn || q.explanationZh) && (
+                          <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                            <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
+                              {language === 'en' ? '📖 Explanation' : '📖 解釋'}
+                            </p>
+                            <p className="text-xs text-gray-700 dark:text-gray-300">
+                              {language === 'en'
+                                ? (q.explanationEn || q.explanationZh || '')
+                                : (q.explanationZh || q.explanationEn || '')}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
