@@ -14,7 +14,7 @@ interface UserProfile {
   id: string; email: string; nameZh?: string | null; nameEn?: string | null;
   role: string; level?: string | null; classId?: string | null;
   class?: { name?: string | null; gradeLevel?: string | null } | null;
-  academicYear?: string | null; image?: string | null;
+  academicYear?: string | null; image?: string | null; joinedAt?: string | null;
 }
 
 export default function StudentProfilePage() {
@@ -47,7 +47,7 @@ export default function StudentProfilePage() {
       const res = await fetch('/api/auth/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       if (res.ok) {
         const d = await res.json();
-        setProfile((p: Record<string, unknown>) => ({ ...p, ...(d.user as Record<string, unknown>) }));
+        setProfile((p) => ({ ...(p ?? {}), ...(d.user as Partial<UserProfile>) } as UserProfile));
         setEditing(false);
         setSaveMsg(t('profile.saveSuccess'));
       } else {

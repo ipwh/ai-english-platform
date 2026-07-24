@@ -11,7 +11,7 @@ import { useT } from '@/hooks/use-i18n';
 
 interface TeacherProfile {
   id: string; email: string; nameZh?: string | null; nameEn?: string | null;
-  role: string; department?: string | null; image?: string | null;
+  role: string; department?: string | null; image?: string | null; joinedAt?: string | null;
 }
 
 export default function TeacherProfilePage() {
@@ -43,7 +43,7 @@ export default function TeacherProfilePage() {
       });
       if (res.ok) {
         const d = await res.json();
-        setProfile((p: Record<string, unknown>) => ({ ...p, ...(d.user as Record<string, unknown>) }));
+        setProfile((p) => ({ ...(p ?? {}), ...(d.user as Partial<TeacherProfile>) } as TeacherProfile));
         setEditing(false);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
