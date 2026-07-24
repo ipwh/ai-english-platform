@@ -4,6 +4,29 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-24 — README Audit Fixes & Polish 🔧
+
+### 🎨 StreakFlame Animation (#15)
+- **New component**: `src/components/shared/StreakFlame.tsx` — CSS-animated flame with flicker effects
+- 3 flame levels: small (1-2 days), medium (3-6 days), large (7+ days)
+- Integrated into student dashboard header + gamification card
+- Replaces static emoji (🔥/✨/💪) with animated multi-layer flame
+
+### 📝 README Formula Correction (#24)
+- **Mastery model formula**: Updated from 45/20/20/15 (accuracy/frequency/recency/error-penalty) to **60/25/15** (accuracy/recency/volume) — matching actual implementation in `mastery-calculator.ts`
+
+### 🔊 TTS Fallback Verified (#64)
+- **Confirmed**: `AudioPlayer.tsx` already implements dual-mode TTS (Google Cloud TTS opt-in via `useCloudTTS` prop, Web Speech API as default)
+- Web Speech API fallback is the **default** mode — Cloud TTS is opt-in only
+- Cloud TTS failure → automatic Web Speech fallback with user-visible banner
+
+### 📋 README Cleanup
+- Removed "近期更新" sprint summary section (→ CHANGELOG.md, where detailed entries already exist)
+- Removed historical fix tables from Known Limitations (→ CHANGELOG.md)
+- README now points to CHANGELOG.md for all update history
+
+---
+
 ## 2026-07-24 — Sprint 116: Reading Layout Engine 📐
 
 ### 🏗️ New Module: `src/modules/reading/layout/`

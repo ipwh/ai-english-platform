@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Play, Sparkles, Loader2, Trophy, Flame, Star, TrendingUp } from 'lucide-react';
+import StreakFlame from '@/components/shared/StreakFlame';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
@@ -98,8 +99,8 @@ export default function StudentDashboardPage() {
         {/* 🔥 Streak + 每日目標 */}
         <div className="flex items-center gap-4 mt-3 text-teal-100 text-xs">
           {weeklyStats.streakDays > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="text-base">{weeklyStats.streakDays >= 7 ? '🔥' : weeklyStats.streakDays >= 3 ? '✨' : '💪'}</span>
+            <span className="flex items-center gap-1.5">
+              <StreakFlame streakDays={weeklyStats.streakDays} size="sm" />
               {t('student.dashboard.streak', { n: weeklyStats.streakDays })}
             </span>
           )}
@@ -166,11 +167,11 @@ export default function StudentDashboardPage() {
             </div>
           )}
 
-          {/* Streak Fire */}
+          {/* 🔥 Streak Fire 動畫 */}
           {weeklyStats.streakDays >= 3 && (
-            <div className="flex items-center gap-1 mt-2 text-xs text-orange-500 font-medium">
-              <Flame className="w-4 h-4" />
-              {t('student.dashboard.streak').replace('{n}', String(weeklyStats.streakDays))}
+            <div className="flex items-center gap-2 mt-2 text-xs text-orange-500 font-medium">
+              <StreakFlame streakDays={weeklyStats.streakDays} size="md" />
+              <span>{t('student.dashboard.streak').replace('{n}', String(weeklyStats.streakDays))} 🔥</span>
             </div>
           )}
 

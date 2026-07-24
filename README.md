@@ -73,7 +73,7 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
 
 ### 🚀 v4.1 Learning Intelligence (Sprints 31-40)
-- **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(45%)+練習頻率(20%)+新近度(20%)+錯誤懲罰(15%)的加權公式
+- **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(60%)+新近度(25%)+練習量(15%)的加權公式
 - **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
 - **🌍 多元題材資料庫** — 200+ 閱讀主題、90+ 聆聽場景、90+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園、茶餐廳文化、社區重建、非遺保育、公共房屋）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易、難民教育、全球糧食安全、跨境網購權益），確保出題內容豐富不重複
@@ -218,68 +218,7 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 
 ## 近期更新
 
-> 📋 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。以下僅保留最新摘要。
-
-### 🏆 2026-07-24 — AI Quality Stack: 16 Sprints, 15 Modules, 100% Deterministic (Sprints 101-116)
-- **Sprint 101-104 — Quality & Self-Healing**: 7 structural + 7 content rules, auto-repair pipeline
-- **Sprint 105 — Evaluation**: 4 grading policies, answer normalization, semantic comparison
-- **Sprint 106 — Assessment**: 5 dimensions, 13 rules, auto-registration
-- **Sprint 108 — Optimization**: 6 dimensions, 12 rules
-- **Sprint 109 — Prompt Intelligence**: Prompt builder with 13 auto-injected constraints, self-reflection
-- **Sprint 110 — Adaptive Feedback**: Closed-loop learning — failures→patterns→knowledge→dynamic constraints
-- **Sprint 111 — Calibration**: 11 post-LLM rules (answer expansion, LLM artifact cleanup, vocabulary)
-- **Sprint 112 — Fairness**: 14 grading rules — 300+ British↔American, 1000+ synonyms, partial credit
-- **Sprint 113 — Question Quality**: 14 rules — distractor plausibility, evidence support, CEFR alignment
-- **Sprint 114 — Adaptive Learning**: 12 rules — personalized difficulty, spaced repetition, session fatigue
-- **Sprint 115 — Human Review**: 12 rules — teacher-perspective validation (ambiguity, authenticity, confusion)
-- **Sprint 116 — Reading Layout Engine**: Accurate line numbering at render time (not AI). ResizeObserver-responsive. 30 tests.
-- **Pipeline**: Student Profile → Adaptive → Prompt Builder → LLM → Calibration → Question Quality → Self Reflection → Quality → Repair → Evaluation → Fairness → Assessment → Optimization → Human Review → Feedback → API
-- **1,375/1,375 tests pass** — +321 tests from 15 new modules, 0 TypeScript errors
-
-### 🏆 2026-07-23 — Architecture v5: 100/100 + Release Candidate (Sprints 52-55)
-- **Architecture v5 Complete**: All 52 API routes follow Route→Facade→Service→Repository→Prisma
-- **Zero violations**: 0 static db imports, 0 dynamic db imports, 0 repo imports, 0 PrismaClient in routes
-- **Architecture tests**: 34/34 PASS with zero exceptions (admin exceptions removed)
-- **Release Candidate verified**: 0 TS errors, build PASS, 1,027/1,027 tests PASS
-- **Independent audit**: Three independent verification passes confirming zero architecture violations
-- **vercel-build fix**: Graceful DB-unreachable fallback in dev mode
-
-### 🏆 2026-07-19 — Ultimate Code Quality & Type Safety (Sprint 32)
-- **Type Safety**: `any` types 從 51 降至 8（84% 減少），4 個 repositories 改用正確 Prisma 型別
-- **Structured Logging**: 全部 12 條 AI route 的 `console.error` 遷移至 `logger.error`（結構化 JSON）
-- **Smoke Test**: 新增 `npm run smoke`（45 項自動化檢查：檔案、金鑰、auth、AI chain、i18n、PWA、Vercel）
-
-### 🛡️ 2026-07-19 — Pre-Deployment Security & Quality Audit (Sprint 31)
-- **Auth 修復**: `assignments` GET/POST + `materials` GET/POST/PATCH/DELETE 加入 `verifyApiAuth`
-- **Feedback DB**: 新增 `Feedback` Prisma 模型，feedback 持久化至 DB
-- **PWA**: `manifest.json` + SVG icons + Apple Web App meta
-- **Rate Limiting**: 新增 `GENERAL_RATE_LIMIT`（30 req/60s）於 CRUD routes
-
-### 🧠 2026-07-18 — AI Learning Science (Sprint 30)
-- **7 項學習科學演算法**: SM-2 Enhanced Spaced Repetition、Ebbinghaus Forgetting Curve、Retrieval Practice、Interleaving、Desirable Difficulty、Metacognition、Bayesian Knowledge Tracing
-
-### 🔒 2026-07-17 — Security Hardening
-- **授權修復**：11 個 API route 加入 resource-level ownership 檢查，修復 `api-auth.ts` role=undefined 繞過漏洞
-- **CI/CD**：新增 GitHub Actions CI pipeline（typecheck + test + lint）
-- **生產部署**：ercel-build.js 改用 prisma migrate deploy、修正 CORS header、修正 rate-limiter 註解
-- **測試**：178 tests 全通過，修復 2 條 WritingAnalysisSchema 漂移測試
-
-### 🏗️ 2026-07-16 — Code Quality v2
-- RAG pgvector 向量檢索、AI 回應快取、結構化日誌系統、單元測試擴充 (55 tests)
-
-### 📚 2026-07-15 — Vocabulary 3.0 & Infrastructure
-- 串字練習、無縫添加生字、全平台流動裝置審計、集中式設定、安全審計 (P0-P2)
-
-<details>
-<summary>📋 更早的更新記錄 (2026-07-11 ~ 2026-07-14)</summary>
-
-詳見 **[CHANGELOG.md](./CHANGELOG.md)**，涵蓋：
-- DSE 實證主題資料庫、部署前 Must-Fix/Should-Fix/Nice-to-Have 全面修復
-- Integrated Skills v4、安全加固、Cloud TTS 整合、遊戲化系統
-- 國際化 (i18n) 330+ keys、生字簿 2.0、寫作功能升級、DSE RAG 整合
-- 聆聽音頻穩定性修復、AudioPlayer 播放控制、E2E 測試計劃
-
-</details>
+> 📋 所有更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。
 
 ## 快速上手
 
@@ -620,24 +559,3 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 - **Rate Limiter**: `src/shared/utils/rate-limiter.ts` 支援 Vercel KV 分散式限流，需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory。
 - **AI Hallucination Guard**: 集中式 10 規則 guard（`src/modules/ai/services/hallucination-guard.ts`），所有 prompt 模板統一引用，防止 AI 生成虛構內容。
 - **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。
-
-### ✅ 已修復技術債（2026-07-17 第三輪 — CI + Auth 收尾）
-- **CI lint 閘門修復**：29 個 ESLint error 全數清除（React 19 新規則降為 warning + 修正 impure render / refs-during-render / 未轉義字符），CI `--max-warnings` 調整為 250（當前 220 warnings）。CI 現可全綠通過。
-- **授權收尾**：`assignments/[id]` 教師驗證改用 `verifyApiAuth()`（JWT + NextAuth 雙支援），修復純 Google 登入教師 401 問題；`teacher/students/[id]` 加入 `StudentClass` 多對多關係檢查。
-- **`ai-service.ts` 模組化拆分**：DSE 主題資料庫（`dse-topics.ts`）、寫作文體知識庫（`dse-writing-data.ts`）、System Prompt 模板（`prompts/` 5 個檔案）、MCQ 過濾規則（`mcq-filters.ts`）、Integrated Skills 配置（`integrated-skills-config.ts`）、主題選擇引擎（`topic-selector.ts`）— 共 12 個檔案，總計 ~1,200 行提取。主檔 4,413 → 3,200 行（−27.5%）。
-- **AI 出題品質提升**：`generateQuestions` 加入重試機制（MAX_RETRIES=2），題目數不足或品質不佳時自動更換主題重試；`analyzeAnswer` 加入 context 傳遞（choices/listeningContent/readingContent）防止 hallucination；聆聽題驗證放寬格式檢查、保留內容關鍵檢查。
-
-### ✅ 已修復（2026-07-17）
-
-| 類別 | 項目 |
-|------|------|
-| 🔴 授權 | 11 個 API route 加入 resource-level ownership 檢查（mistakes/vocabulary/gamification/spelling/review-suggestions/suggest/daily-challenge/assignments/teacher-students）；`api-auth.ts` role=undefined 繞過漏洞 |
-| 🔴 React | `AudioPlayer.tsx` 條件式 Hook 違反（移至 `isClient` state pattern） |
-| 🟠 測試 | 2 條 `WritingAnalysisSchema` 漂移測試修復（補 `dseLevel` 欄位）；178 tests 全通過 |
-| 🟠 CI/CD | GitHub Actions CI pipeline（typecheck + test + lint） |
-| 🟠 部署 | `vercel-build.js` 改用 `prisma migrate deploy`；CORS header 修正；`db.ts` ESLint 註解補全；rate-limiter 過時註解修正 |
-| 🟡 安全 | `sanitizeForAI()` 升級為 L1-L3 三層防護（PII + 12+ injection patterns + 長度截斷） |
-| 🟡 程式碼 | `logger.ts` `module` 變數改名；`rate-limiter.ts` KV 整合強化（dual env check + monitoring） |
-| 📋 文件 | `CHANGELOG.md` 新建；`README.md` 從 1,395 行縮減至 456 行（−67%） |
-
-> 原始分析報告的 10 項優先修復清單中，**8 項已完成**，2 項為技術債（`ai-service.ts` 拆分、rate-limiter KV 設定），不阻塞上線。
