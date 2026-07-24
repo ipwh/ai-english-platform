@@ -23,6 +23,7 @@ import { getCalibrationMetrics } from '@/modules/ai/calibration';
 import { getFairnessMetrics } from '@/modules/ai/fairness';
 import { getQuestionQualityMetrics } from '@/modules/ai/question-quality';
 import { getAdaptiveMetrics } from '@/modules/ai/adaptive';
+import { getHumanReviewMetrics } from '@/modules/ai/human-review';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -81,6 +82,9 @@ export function getFullRuntimeReport() {
     },
     adaptive: {
       metrics: getAdaptiveMetrics(),
+    },
+    humanReview: {
+      metrics: getHumanReviewMetrics(),
     },
   };
 }
