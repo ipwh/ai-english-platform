@@ -4,12 +4,13 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/hooks/use-i18n';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
+import { layoutReadingText } from '@/modules/reading/layout';
 
 interface ReadingPassage {
   title: string;
@@ -94,6 +95,31 @@ export default function ReadingPracticePage() {
   const [showPassage, setShowPassage] = useState(true);
   const [showQuestionZh, setShowQuestionZh] = useState(false);
   const savedRef = useRef(false);
+  const passageRef = useRef<HTMLDivElement>(null);
+  const [passageWidth, setPassageWidth] = useState(700);
+
+  // Responsive passage width tracking for layout engine
+  useEffect(() => {
+    const el = passageRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width;
+      if (width && Math.abs(width - passageWidth) > 30) {
+        setPassageWidth(Math.floor(width));
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [passageWidth]);
+
+  // Layout engine: calculate line numbers from actual display metrics
+  const passageLayout = useMemo(() => {
+    if (!data?.passage?.content) return null;
+    return layoutReadingText(data.passage.content, {
+      containerWidth: passageWidth,
+      fontSize: 14,
+    });
+  }, [data?.passage?.content, passageWidth]);
 
   // Persist score when all questions are answered
   useEffect(() => {
@@ -419,14 +445,16 @@ export default function ReadingPracticePage() {
               {showPassage ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
             </button>
             {showPassage && (
-              <div className="px-4 pb-4">
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{
-                    __html: data.passage.content
-                      .replace(/\[Paragraph (\d+)\]/g, '<span class="inline-block text-xs font-semibold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded mr-1">¶$1</span>')
-                      .replace(/\[line (\d+)\]/gi, '<span class="text-xs text-gray-400">[line $1]</span>')
-                  }}
-                />
+              <div className="px-4 pb-4" ref={passageRef}>
+                {passageLayout ? (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300"
+                    dangerouslySetInnerHTML={{ __html: passageLayout.html }}
+                  />
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {data.passage.content}
+                  </div>
+                )}
                 {data.passage.source && (
                   <p className="text-xs text-gray-400 mt-2 italic">Source: {data.passage.source}</p>
                 )}

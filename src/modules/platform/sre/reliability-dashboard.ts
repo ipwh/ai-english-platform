@@ -24,6 +24,7 @@ import { getFairnessMetrics } from '@/modules/ai/fairness';
 import { getQuestionQualityMetrics } from '@/modules/ai/question-quality';
 import { getAdaptiveMetrics } from '@/modules/ai/adaptive';
 import { getHumanReviewMetrics } from '@/modules/ai/human-review';
+import { getLayoutMetrics } from '@/modules/reading/layout';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -85,6 +86,9 @@ export function getFullRuntimeReport() {
     },
     humanReview: {
       metrics: getHumanReviewMetrics(),
+    },
+    readingLayout: {
+      metrics: getLayoutMetrics(),
     },
   };
 }

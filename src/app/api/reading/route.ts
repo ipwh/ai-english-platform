@@ -740,39 +740,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     // Step A1: Ensure [N] paragraph markers have double newlines
 
-    // Step A2: Capture AI's [line N] markers BEFORE stripping, so we can remap question references
-    // Record each marker's line number and its word position in the text
-    interface AiMarker { lineNum: number; wordPos: number }
-    const aiMarkers: AiMarker[] = [];
-    // Pre-scan: count words up to each [line N] marker in the content (before stripping)
-    {
-      const preContent = content.replace(/\s*\[line\s+\d+\]\s*/gi, ' '); // temp strip for word counting
-      // Find marker positions in original content by scanning
-      let scanIdx = 0;
-      const markerRegex = /\[line\s+(\d+)\]/gi;
-      let match: RegExpExecArray | null;
-      // Count words up to each marker in the stripped version
-      const strippedWords = preContent.split(/\s+/);
-      // We estimate: each marker was at roughly (markerCharPos / totalChars) * totalWords position
-      // More accurate: find word index in content before stripping
-      let wordCount = 0;
-      let i = 0;
-      while (i < content.length) {
-        // Check for [line N] marker at this position
-        const slice = content.slice(i);
-        const m = slice.match(/^\[line\s+(\d+)\]\s*/i);
-        if (m) {
-          aiMarkers.push({ lineNum: parseInt(m[1], 10), wordPos: wordCount });
-          i += m[0].length;
-          continue;
-        }
-        const ch = content[i];
-        if (ch === ' ' || ch === '\n') {
-          wordCount++;
-        }
-        i++;
-      }
-    }
+    // Step A2: Strip [line N] markers — line numbering is now handled by the Layout Engine
+    // The AI should not generate line numbers; the rendering layer is responsible.
+    // We strip them here for backward compatibility with AI prompts that still include them.
+    content = content.replace(/\[line\s+\d+\]\s*/gi, '');
 
     // Step B: Strip all AI-generated [line N] markers + convert [N] paragraph markers
     // Sprint 102: preserve paragraph breaks, convert [N] to \n\n
@@ -780,165 +751,23 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     // Convert standalone [N] paragraph markers to labeled paragraph breaks
     content = content.replace(/\s*\[(\d+)\]\s*/g, '\n\n[Paragraph $1] ');
 
-    // Step C: Recalculate and insert accurate [line N] markers
-    // DSE standard: ~10-12 words per line, markers every 5 lines (~50-60 words)
-    // Bug fix (Sprint 102): Use paragraph-aware line counting for more accurate markers
-    const WORDS_PER_LINE = 11;
-    const MARKER_INTERVAL = 5; // every 5 lines
-
-    // Split into paragraphs and count lines per paragraph
+    // Step C: Build clean passage WITHOUT line markers.
+    // Line numbering is now handled by the Reading Layout Engine (src/modules/reading/layout/).
+    // The AI must never generate [line N] markers — the rendering layer owns this responsibility.
     const paragraphs = content.split(/\n\n+/);
-    let result = '';
-    let globalWordCount = 0;
-    let globalLineCount = 0;
-
-    // Sprint 102: Build lineMap — {line, startChar, endChar, text} for every line
-    interface LineMapEntry { line: number; startChar: number; endChar: number; text: string }
-    const lineMap: LineMapEntry[] = [];
-    let currentLineStart = 0;
-    let currentLineWords = 0;
-    let currentLineText = '';
-    let globalCharCount = 0;
-
-    const flushLine = () => {
-      if (currentLineText.trim()) {
-        lineMap.push({
-          line: lineMap.length + 1,
-          startChar: currentLineStart,
-          endChar: globalCharCount,
-          text: currentLineText.trim(),
-        });
-      }
-      currentLineStart = globalCharCount + 1;
-      currentLineWords = 0;
-      currentLineText = '';
-    };
-
+    let cleanContent = '';
     for (let pi = 0; pi < paragraphs.length; pi++) {
       const para = paragraphs[pi];
-      if (!para.trim()) { result += '\n\n'; continue; }
-      const paraWords = para.split(/\s+/).filter(Boolean);
-      const paraLines = Math.ceil(paraWords.length / WORDS_PER_LINE);
-
-      // Sprint 102.5: Add paragraph number marker and rebuild paragraph word-by-word
-      result += `[${pi + 1}] `;
-      globalCharCount += String(pi + 1).length + 3;
-
-      // Insert line markers at global word-count boundaries (paragraph-agnostic)
-      const words = para.split(/(\s+)/); // split but keep whitespace
-      let paraWordIdx = 0;
-      for (const token of words) {
-        result += token;
-        globalCharCount += token.length;
-        currentLineText += token;
-        if (/^\s+$/.test(token)) {
-          // Word boundary — count words in the preceding non-whitespace
-          // We count when we see whitespace after a word
-          continue; // whitespace tokens don't represent word count change here
-        }
-        // Non-whitespace token = a word
-        if (token.trim()) {
-          paraWordIdx++;
-          globalWordCount++;
-          currentLineWords++;
-          if (currentLineWords >= WORDS_PER_LINE) {
-            flushLine();
-          }
-          // Insert [line N] marker every MARKER_INTERVAL lines (based on global word count)
-          if (globalWordCount > 0 && globalWordCount % (MARKER_INTERVAL * WORDS_PER_LINE) === 0) {
-            const markerLine = Math.ceil(globalWordCount / WORDS_PER_LINE);
-            result += ` [line ${markerLine}] `;
-          }
-        }
-      }
-      // Add paragraph separator
-      if (pi < paragraphs.length - 1) {
-        result += '\n\n';
-        globalCharCount += 2;
-        currentLineText += '\n\n';
-      }
-      // Flush last line of paragraph
-      if (currentLineWords > 0) flushLine();
-      globalLineCount += paraLines;
+      if (!para.trim()) continue;
+      cleanContent += (cleanContent ? '\n\n' : '') + para.trim();
     }
-
-    // Recalculate total words and rebuild newLineByWordPos for question remapping
-    const totalWords = result.split(/\s+/).filter(w => !w.match(/^\[line\s+\d+\]$/i)).length;
-    const totalLines = globalLineCount || Math.ceil(totalWords / WORDS_PER_LINE);
-    const newLineByWordPos = new Map<number, number>();
-    {
-      let wc = 0;
-      const resultChars = [...result];
-      let i = 0;
-      while (i < resultChars.length) {
-        // Check for [line N] marker
-        const slice = resultChars.slice(i).join('');
-        const m = slice.match(/^\[line\s+(\d+)\]\s*/i);
-        if (m) {
-          newLineByWordPos.set(wc, parseInt(m[1], 10));
-          i += m[0].length;
-          continue;
-        }
-        const ch = resultChars[i];
-        if (ch === ' ' || ch === '\n') wc++;
-        i++;
-      }
-    }
-
-    // Step D: Build old-line-number → new-line-number mapping for question remapping
-    const oldToNewLine = new Map<number, number>();
-    for (const aiMarker of aiMarkers) {
-      const oldLine = aiMarker.lineNum;
-      const oldWordPos = aiMarker.wordPos;
-      // Find the closest new line marker to this word position
-      let bestNewLine = oldLine; // default: keep same (fallback)
-      let bestDist = Infinity;
-      for (const [newWp, newLine] of newLineByWordPos) {
-        const dist = Math.abs(newWp - oldWordPos);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestNewLine = newLine;
-        }
-      }
-      oldToNewLine.set(oldLine, bestNewLine);
-    }
-
-    // Helper: remap a line number reference with ±2 line tolerance
-    const remapLine = (oldLine: number): number => {
-      // Direct match first
-      if (oldToNewLine.has(oldLine)) return oldToNewLine.get(oldLine)!;
-      // ±2 tolerance: check neighboring lines
-      for (const delta of [1, -1, 2, -2]) {
-        const neighbor = oldLine + delta;
-        if (oldToNewLine.has(neighbor)) return oldToNewLine.get(neighbor)!;
-      }
-      // Proportional fallback
-      const maxOldLine = aiMarkers.length > 0
-        ? Math.max(...aiMarkers.map(m => m.lineNum))
-        : totalLines;
-      const ratio = totalLines / Math.max(maxOldLine, 1);
-      return Math.max(5, Math.round(oldLine * ratio / MARKER_INTERVAL) * MARKER_INTERVAL);
-    };
-
-    // Helper: remap (line X) or (lines X-Y) references in question text
-    const remapQuestionTextLineRefs = (text: string): string => {
-      return text.replace(/\(lines?\s+(\d+)(?:\s*[-–]\s*(\d+))?\s*\)/gi, (full, line1: string, line2?: string) => {
-        const new1 = remapLine(parseInt(line1, 10));
-        if (line2) {
-          const new2 = remapLine(parseInt(line2, 10));
-          return `(lines ${new1}-${new2})`;
-        }
-        return `(line ${new1})`;
-      });
-    };
+    const totalWords = cleanContent.split(/\s+/).filter(Boolean).length;
 
     response.passage = {
       title: topic ? `${topic.charAt(0).toUpperCase() + topic.slice(1)} Reading` : 'Reading Passage',
-      content: result,
+      content: cleanContent,
       wordCount: totalWords,
       source: parsed.source || undefined,
-      lineNote: 'Line numbers are approximate (~11 words per line). Refer to paragraph numbers for precise location.',
-      lineMap, // Sprint 102: {line, startChar, endChar, text} for every line
     };
     delete response.readingContent;
 
@@ -954,8 +783,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         let rawQuestion = (q.questionText as string) || (q.question as string) || '';
         const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
 
-        // Remap line number references in question text to match recalculated passage
-        const question = remapQuestionTextLineRefs(rawQuestion);
+        // Line number references are now handled by the Reading Layout Engine.
+        // The rendering layer inserts accurate [line N] markers at display time.
+        const question = rawQuestion;
 
         // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
@@ -977,13 +807,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // Determine tier from question metadata or default based on position
         const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
-        // Determine paragraph reference — remap using oldToNewLine if lineRef is present
+        // Determine paragraph reference from AI metadata
         let paragraphRef = (q.paragraphRef as number) || 1;
         if (!q.paragraphRef && q.lineRef) {
-          const oldLineRef = parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10);
-          const newLine = remapLine(oldLineRef);
-          // Estimate paragraph from new line number: each paragraph ~4-6 lines
-          paragraphRef = Math.max(1, Math.ceil(newLine / 5));
+          const lineNum = parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10);
+          paragraphRef = Math.max(1, Math.ceil(lineNum / 5));
         }
 
         return {
