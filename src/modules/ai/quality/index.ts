@@ -41,7 +41,11 @@ export {
 export {
   recordQualityExecution,
   recordQualityExecutionForType,
+  recordRuleExecution,
   getQualityMetrics,
+  getRuleStatistics,
+  getTopFailingRules,
+  getRuleHealth,
   resetQualityMetrics,
 } from './quality-metrics';
 
@@ -51,3 +55,9 @@ export {
   formatQualitySummary,
   type QualityReport,
 } from './quality-report';
+
+// Rule Packs
+export {
+  QuestionQualityRulePack,
+  questionQualityRulePack,
+} from './rules';

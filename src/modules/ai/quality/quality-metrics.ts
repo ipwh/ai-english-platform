@@ -28,6 +28,14 @@ interface QualityStats {
     repairsAttempted: number;
     repairsSucceeded: number;
   }>;
+  /** Per-rule statistics (Sprint 102) */
+  byRule: Record<string, {
+    passCount: number;
+    failCount: number;
+    repairCount: number;
+    totalExecutionTimeMs: number;
+    lastFailure?: string;
+  }>;
 }
 
 const stats: QualityStats = {
@@ -39,6 +47,7 @@ const stats: QualityStats = {
   totalWarnings: 0,
   totalExecutionTimeMs: 0,
   byOutputType: {},
+  byRule: {},
 };
 
 function ensureOutputType(type: string) {
@@ -75,6 +84,66 @@ export function recordQualityExecutionForType(outputType: string, metrics: Quali
   recordQualityExecution(metrics);
 }
 
+/** Record per-rule execution result. */
+export function recordRuleExecution(
+  ruleId: string,
+  passed: boolean,
+  executionTimeMs: number,
+  repaired: boolean = false,
+  failureMessage?: string,
+): void {
+  if (!stats.byRule[ruleId]) {
+    stats.byRule[ruleId] = {
+      passCount: 0,
+      failCount: 0,
+      repairCount: 0,
+      totalExecutionTimeMs: 0,
+    };
+  }
+  const r = stats.byRule[ruleId];
+  if (passed) r.passCount++; else r.failCount++;
+  if (repaired) r.repairCount++;
+  r.totalExecutionTimeMs += executionTimeMs;
+  if (failureMessage) r.lastFailure = failureMessage;
+}
+
+/** Get per-rule statistics. */
+export function getRuleStatistics() {
+  return Object.entries(stats.byRule).map(([ruleId, r]) => ({
+    ruleId,
+    passCount: r.passCount,
+    failCount: r.failCount,
+    passRate: (r.passCount + r.failCount) > 0
+      ? Math.round((r.passCount / (r.passCount + r.failCount)) * 100) / 100
+      : 0,
+    repairCount: r.repairCount,
+    avgExecutionTimeMs: (r.passCount + r.failCount) > 0
+      ? Math.round(r.totalExecutionTimeMs / (r.passCount + r.failCount))
+      : 0,
+    lastFailure: r.lastFailure,
+  }));
+}
+
+/** Get top failing rules (sorted by failure count descending). */
+export function getTopFailingRules(limit: number = 5) {
+  return getRuleStatistics()
+    .filter(r => r.failCount > 0)
+    .sort((a, b) => b.failCount - a.failCount)
+    .slice(0, limit);
+}
+
+/** Get ruled statistics formatted for health endpoint. */
+export function getRuleHealth() {
+  const all = getRuleStatistics();
+  return {
+    registeredRules: all.length,
+    ruleStatistics: all,
+    topFailures: getTopFailingRules(5),
+    repairCounts: all.reduce((acc, r) => acc + r.repairCount, 0),
+    totalRuleExecutions: all.reduce((acc, r) => acc + r.passCount + r.failCount, 0),
+  };
+}
+
 /** Get current quality metrics snapshot. */
 export function getQualityMetrics() {
   return {
@@ -98,6 +167,7 @@ export function getQualityMetrics() {
       avgScore: Math.round(s.avgScore * 100) / 100,
       repairRate: s.repairsAttempted > 0 ? Math.round((s.repairsSucceeded / s.repairsAttempted) * 100) / 100 : 0,
     })),
+    rules: getRuleHealth(),
   };
 }
 

@@ -8,7 +8,7 @@ import type { QualityRule, QualityResult, QualityContext, QualityMetrics } from 
 import { calculateQualityScore } from './quality-types';
 import { qualityRegistry } from './quality-registry';
 import { applyAllRepairs } from './repair-engine';
-import { recordQualityExecution } from './quality-metrics';
+import { recordQualityExecution, recordRuleExecution, getRuleHealth } from './quality-metrics';
 import { logger } from '@/shared/logger/logger';
 
 export type { QualityRule, QualityResult, QualityContext, QualityMetrics };
@@ -59,6 +59,7 @@ class QualityEngine {
     for (const [ruleId, result] of results) {
       const rule = qualityRegistry.getRule(ruleId);
       const priority = rule?.priority || 'low';
+      const ruleStartTime = Date.now();
 
       if (result.passed) {
         rulesPassed++;
@@ -79,6 +80,16 @@ class QualityEngine {
       }
 
       warnings.push(...result.warnings.map(w => `[${ruleId}] ${w}`));
+
+      // Track per-rule metrics (Sprint 102)
+      const wasRepaired = repairResults.some(r => r.ruleId === ruleId && r.result.repaired);
+      recordRuleExecution(
+        ruleId,
+        result.passed,
+        Date.now() - ruleStartTime,
+        wasRepaired,
+        result.passed ? undefined : result.failures[0]?.message,
+      );
     }
 
     // 3. Apply remaining safe repairs for any unfixed failures
@@ -179,11 +190,13 @@ class QualityEngine {
   getHealth(): {
     registeredRules: number;
     rules: Array<{ id: string; priority: string }>;
+    ruleHealth: ReturnType<typeof getRuleHealth>;
   } {
     const rules = qualityRegistry.listRules();
     return {
       registeredRules: rules.length,
       rules: rules.map(r => ({ id: r.id, priority: r.priority })),
+      ruleHealth: getRuleHealth(),
     };
   }
 }
