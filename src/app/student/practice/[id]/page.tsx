@@ -810,7 +810,7 @@ export default function PracticeQuestionPage() {
                 {/* AI 改進建議 */}
                 {!isCorrect && aiAnalysis.improvementTip && (
                   <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-800">
-                    <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">💡 AI 改進建議</p>
+                    <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">{t('practice.aiImprovementTips')}</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{aiAnalysis.improvementTip}</p>
                   </div>
                 )}
@@ -865,7 +865,7 @@ export default function PracticeQuestionPage() {
               className="flex items-center gap-2 px-6 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl transition-colors"
             >
               {!hasNextSession ? (
-                <>完成練習 ✓</>
+                <>{t('practice.completePractice')}</>
               ) : (
                 <>下一題 <ArrowRight className="w-4 h-4" /></>
               )}

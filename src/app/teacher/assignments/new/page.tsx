@@ -184,7 +184,7 @@ export default function NewAssignmentPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.selectGroups')}</label>
                 {groups.length === 0 ? (
-                  <p className="text-xs text-gray-400">暫無組別，請先在「組別管理」中建立。</p>
+                  <p className="text-xs text-gray-400">{t('teacher.assignments.new.noGroups')}</p>
                 ) : (
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {groups.map(g => (
@@ -318,8 +318,7 @@ function StudentSelector({
   students: { id: string; name: string; className: string }[];
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
-}) {
-  const [searchText, setSearchText] = useState('');
+}) {  const { t } = useT();  const [searchText, setSearchText] = useState('');
   const [classFilter, setClassFilter] = useState('');
 
   // 提取不重複班級列表
@@ -348,7 +347,7 @@ function StudentSelector({
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">選擇個別學生</label>
+      <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignments.new.selectStudents')}</label>
       {/* 搜尋 + 班級篩選 */}
       <div className="flex gap-2 mb-2">
         <div className="relative flex-1">
@@ -357,7 +356,7 @@ function StudentSelector({
             type="text"
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
-            placeholder="搜尋學生姓名..."
+            placeholder={t('teacher.assignments.new.searchStudents')}
             className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
           />
         </div>

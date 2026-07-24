@@ -573,7 +573,7 @@ export default function DiagnosticPage() {
 
           {currentQ.promptZh && (
             <details className="mb-4">
-              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">顯示中文提示</summary>
+              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">{t('diagnostic.showChineseHints')}</summary>
               <p className="text-sm text-gray-500 mt-1 italic">{currentQ.promptZh}</p>
             </details>
           )}
@@ -615,7 +615,7 @@ export default function DiagnosticPage() {
                       <strong>{writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0}</strong> words / {writingAnswer.length} chars
                     </span>
                     {writingAnswer.trim() && writingAnswer.trim().split(/\s+/).length < 30 && (
-                      <span className="text-xs text-amber-500">建議最少 30 字</span>
+                      <span className="text-xs text-amber-500">{t('diagnostic.minWordsSuggestion')}</span>
                     )}
                   </div>
                   <button onClick={() => handleAnswer(writingAnswer)} disabled={answeredCurrent || !writingAnswer.trim()}
@@ -682,7 +682,7 @@ export default function DiagnosticPage() {
             {r.id === 'writing' && (
               <div className="mt-2">
                 {writingLoading ? (
-                  <p className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> AI 正在批改寫作...</p>
+                  <p className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> {t('diagnostic.aiGradingWriting')}</p>
                 ) : writingAnalysis ? (
                   <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
                     <div className="flex items-center justify-between">

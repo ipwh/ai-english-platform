@@ -594,7 +594,7 @@ export default function StudentAnalyticsPage() {
               )})}
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無練習記錄</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noPracticeRecords')}</p>
           )}
         </div>
 
