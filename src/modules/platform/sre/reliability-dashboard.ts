@@ -20,6 +20,7 @@ import {
   getKnowledgeState, getLearningHistory, generateFeedbackReport,
 } from '@/modules/ai/prompt-intelligence/feedback';
 import { getCalibrationMetrics } from '@/modules/ai/calibration';
+import { getFairnessMetrics } from '@/modules/ai/fairness';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -69,6 +70,9 @@ export function getFullRuntimeReport() {
     },
     calibration: {
       metrics: getCalibrationMetrics(),
+    },
+    fairness: {
+      metrics: getFairnessMetrics(),
     },
   };
 }
