@@ -12,6 +12,7 @@ import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
 import { getQualityMetrics } from '@/modules/ai/quality';
 import { getRepairMetrics, getRepairHistory } from '@/modules/ai/quality/repair';
 import { getEvaluationMetrics } from '@/modules/ai/evaluation';
+import { getAssessmentMetrics } from '@/modules/ai/assessment';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -48,5 +49,6 @@ export function getFullRuntimeReport() {
       history: getRepairHistory(20),
     },
     evaluation: getEvaluationMetrics(),
+    assessment: getAssessmentMetrics(),
   };
 }

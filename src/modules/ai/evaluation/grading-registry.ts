@@ -3,7 +3,7 @@
 // Pluggable registry for evaluation rules.
 // ============================================
 
-import type { EvaluationRule, GradingPolicyConfig } from '../evaluation-types';
+import type { EvaluationRule, GradingPolicyConfig } from './evaluation-types';
 
 class GradingRegistry {
   private rules: Map<string, EvaluationRule> = new Map();
