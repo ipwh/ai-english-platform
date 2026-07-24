@@ -3,7 +3,7 @@
 // Generates structured quality reports from QualityResult.
 // ============================================
 
-import type { QualityResult, QualityMetrics } from './quality-types';
+import type { QualityResult, QualityMetrics, SeverityBreakdown } from './quality-types';
 
 export interface QualityReport {
   summary: {
@@ -11,6 +11,13 @@ export interface QualityReport {
     passed: boolean;
     grade: 'A' | 'B' | 'C' | 'D' | 'F';
     timestamp: string;
+    dimensions: {
+      structure: number;
+      consistency: number;
+      pedagogy: number;
+      assessment: number;
+      repairability: number;
+    };
   };
   details: {
     rulesChecked: number;
@@ -19,6 +26,7 @@ export interface QualityReport {
     warnings: string[];
     errors: string[];
     repairs: Array<{ ruleId: string; description: string; success: boolean }>;
+    severity: SeverityBreakdown;
   };
   metrics: QualityMetrics;
 }
@@ -44,6 +52,13 @@ export function generateQualityReport<T>(result: QualityResult<T>): QualityRepor
       passed: result.passed,
       grade: scoreToGrade(result.score),
       timestamp: new Date().toISOString(),
+      dimensions: result.dimensions || {
+        structure: result.score,
+        consistency: result.score,
+        pedagogy: result.score,
+        assessment: result.score,
+        repairability: result.score,
+      },
     },
     details: {
       rulesChecked: result.metrics.rulesChecked,
@@ -52,6 +67,7 @@ export function generateQualityReport<T>(result: QualityResult<T>): QualityRepor
       warnings: result.warnings,
       errors: result.errors,
       repairs: result.repairs,
+      severity: result.severity || { info: 0, warning: 0, error: 0, critical: 0, fatal: 0 },
     },
     metrics: result.metrics,
   };

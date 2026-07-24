@@ -9,13 +9,17 @@ export type {
   QualityResult,
   QualityContext,
   QualityMetrics,
+  QualityDimensions,
+  SeverityBreakdown,
+  QualitySeverity,
+  RuleCategory,
   RuleCheckResult,
   RuleFailure,
   RepairResult,
   RepairRecord,
   RulePriority,
 } from './quality-types';
-export { calculateQualityScore } from './quality-types';
+export { calculateQualityScore, calculateDimensionScore, createQualityDimensions, PRIORITY_TO_SEVERITY, DEFAULT_DIMENSION_WEIGHTS } from './quality-types';
 
 // Base class
 export { BaseQualityRule } from './quality-rule';
@@ -61,3 +65,8 @@ export {
   QuestionQualityRulePack,
   questionQualityRulePack,
 } from './rules';
+
+export {
+  ContentConsistencyRulePack,
+  contentConsistencyRulePack,
+} from './rules/content';

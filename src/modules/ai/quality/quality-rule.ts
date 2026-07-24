@@ -4,7 +4,7 @@
 // Provides sensible defaults so rule authors focus on logic.
 // ============================================
 
-import type { QualityRule, RuleCheckResult, RulePriority } from './quality-types';
+import type { QualityRule, RuleCheckResult, RulePriority, RuleCategory, QualityDimensions } from './quality-types';
 
 /**
  * Base class for quality rules. Extend this to create new rules.
@@ -29,6 +29,10 @@ export abstract class BaseQualityRule<TInput = unknown> implements QualityRule<T
 
   readonly priority: RulePriority = 'medium';
   readonly supportedTypes: string[] = [];
+  /** Sprint 103: validation category */
+  readonly category: RuleCategory = 'deterministic';
+  /** Sprint 103: which quality dimension this rule contributes to */
+  readonly dimension: keyof QualityDimensions = 'structure';
 
   /** Override to implement validation logic. */
   abstract validate(input: TInput): RuleCheckResult;

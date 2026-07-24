@@ -4,8 +4,8 @@
 // Pure delegation — no business logic, no domain knowledge.
 // ============================================
 
-import type { QualityRule, QualityResult, QualityContext, QualityMetrics } from './quality-types';
-import { calculateQualityScore } from './quality-types';
+import type { QualityRule, QualityResult, QualityContext, QualityMetrics, QualityDimensions, SeverityBreakdown } from './quality-types';
+import { calculateQualityScore, createQualityDimensions, PRIORITY_TO_SEVERITY } from './quality-types';
 import { qualityRegistry } from './quality-registry';
 import { applyAllRepairs } from './repair-engine';
 import { recordQualityExecution, recordRuleExecution, getRuleHealth } from './quality-metrics';
@@ -133,10 +133,42 @@ class QualityEngine {
     // 6. Record metrics
     recordQualityExecution(metrics);
 
-    // 7. Build and return result
+    // 7. Compute quality dimensions (Sprint 103)
+    const dimCounts = new Map<string, { pass: number; fail: number }>();
+    for (const [ruleId, result] of results) {
+      const rule = qualityRegistry.getRule(ruleId);
+      const dim = rule?.dimension || 'structure';
+      if (!dimCounts.has(dim)) dimCounts.set(dim, { pass: 0, fail: 0 });
+      const c = dimCounts.get(dim)!;
+      if (result.passed) c.pass++; else c.fail++;
+    }
+    const dimScore = (dim: string) => {
+      const c = dimCounts.get(dim);
+      if (!c || c.pass + c.fail === 0) return 100;
+      return Math.round((c.pass / (c.pass + c.fail)) * 100);
+    };
+    const dimensions = createQualityDimensions(
+      dimScore('structure'),
+      dimScore('consistency'),
+      dimScore('pedagogy'),
+      dimScore('assessment'),
+      dimScore('repairability'),
+    );
+
+    // 8. Compute severity breakdown
+    const severity: SeverityBreakdown = { info: 0, warning: 0, error: 0, critical: 0, fatal: 0 };
+    for (const [ruleId, result] of results) {
+      if (result.passed) continue;
+      const rule = qualityRegistry.getRule(ruleId);
+      const sev = PRIORITY_TO_SEVERITY[rule?.priority || 'low'];
+      const failCount = result.failures.length;
+      severity[sev] += failCount;
+    }
+
+    // 9. Build and return result
     const result: QualityResult<T> = {
-      score,
-      passed: criticalFailures === 0,
+      score: dimensions.overall, // use weighted dimension score
+      passed: severity.fatal === 0, // fatal failures cause overall failure
       warnings,
       errors,
       repairs: [
@@ -153,6 +185,8 @@ class QualityEngine {
       ],
       output: finalOutput,
       metrics,
+      dimensions,
+      severity,
     };
 
     logger.info({
