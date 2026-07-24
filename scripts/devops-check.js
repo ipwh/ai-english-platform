@@ -155,7 +155,7 @@ async function main() {
 
   let dbOk = false;
   try {
-    const dbModule = require('../src/lib/db');
+    const dbModule = require('../src/shared/db/db');
     const db = dbModule.default || dbModule.db;
 
     await db.$queryRawUnsafe('SELECT 1');
