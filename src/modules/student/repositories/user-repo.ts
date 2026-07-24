@@ -113,7 +113,7 @@ export async function getStudentAnalytics(studentId: string) {
     db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
     db.writingDraft.findMany({ where: { studentId }, select: { id: true, title: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 20 }),
     db.xpTransaction.findMany({ where: { userId: studentId }, select: { event: true, xpAmount: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 50 }),
-    db.weeklySnapshot.findMany({ where: { userId: studentId }, select: { weekStart: true, xpGained: true, sessionsCompleted: true, accuracy: true }, orderBy: { weekStart: 'desc' }, take: 20 }),
+    db.weeklySnapshot.findMany({ where: { userId: studentId }, select: { weekStart: true, xpGained: true, sessionsCount: true, accuracy: true }, orderBy: { weekStart: 'desc' }, take: 20 }),
     db.submission.findMany({ where: { studentId }, select: { id: true, score: true, status: true, submittedAt: true, assignment: { select: { title: true } } }, orderBy: { submittedAt: 'desc' }, take: 20 }),
   ]);
   return { sessions, mistakes, vocabTotal, vocabMastered, drafts, xp, snapshots, submissions };
