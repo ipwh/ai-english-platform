@@ -14,7 +14,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { evaluateAnswerLegacy } from '@/modules/ai/services/semantic-evaluator';
+import { evaluateWithAI } from '@/modules/ai/services/ai-evaluator';
+import type { AIEvaluationResult } from '@/modules/ai/services/ai-evaluator';
 import type { QuestionRubric } from '@/modules/ai/prompts/reading/types';
 import { callLLM } from '@/modules/ai/services/ai-service';
 import {
@@ -403,8 +404,11 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
     return NextResponse.json({ error: 'questions and studentAnswers are required' }, { status: 400 });
   }
 
-  // Sprint 102: Rubric-based semantic evaluation pipeline
-  const analyses: AnswerAnalysis[] = questions.map(q => {
+  // Sprint 102.5: AI-powered semantic evaluation for subjective questions
+  // Objective types (MCQ, TFNG) use fast exact matching
+  const OBJECTIVE_TYPES = new Set(['mcq', 'mcCloze', 'trueFalseNG', 'matching', 'sequencing', 'tableCompletion', 'summaryCloze']);
+
+  const analyses: AnswerAnalysis[] = await Promise.all(questions.map(async q => {
     // Try multiple index formats (TFNG split uses float indices like 2.0, 2.1)
     let studentAnswer = (studentAnswers[q.index] || '').trim();
     if (!studentAnswer) studentAnswer = ((studentAnswers as Record<string, string>)[String(q.index)] || '').trim();
@@ -414,11 +418,28 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
     if (q.type === 'trueFalseNG') {
       studentAnswer = studentAnswer === 'T' ? 'True' : studentAnswer === 'F' ? 'False' : studentAnswer === 'NG' ? 'Not Given' : studentAnswer;
     }
-    const rubric = (q as unknown as Record<string, unknown>).rubric as QuestionRubric | undefined;
 
-    const result = evaluateAnswerLegacy(studentAnswer, q.answer, q.marks, rubric);
+    let result: AIEvaluationResult;
+    if (OBJECTIVE_TYPES.has(q.type)) {
+      // Simple exact/semantic matching for objective questions — no AI needed
+      const normAns = studentAnswer.toLowerCase().trim();
+      const normCorrect = q.answer.toLowerCase().trim();
+      const isExact = normAns === normCorrect;
+      const isContained = normCorrect.includes(normAns) && normAns.length > 2;
+      result = {
+        score: isExact ? q.marks : isContained ? q.marks : 0,
+        maxScore: q.marks,
+        isCorrect: isExact || isContained,
+        isPartiallyCorrect: false,
+        feedbackZh: isExact ? '✅ 正確！' : isContained ? '✅ 正確！' : `❌ 不正確。參考答案：${q.answer}`,
+        feedbackEn: isExact ? '✅ Correct!' : isContained ? '✅ Correct!' : `❌ Incorrect. Expected: ${q.answer}`,
+      };
+    } else {
+      // Subjective types: use AI semantic evaluation
+      result = await evaluateWithAI(studentAnswer, q.answer, q.questionText || '', q.marks);
+    }
 
-    // Determine error type for analytics (legacy classification)
+    // Determine error type for analytics
     let errorType: ReadingErrorType | undefined;
     if (!result.isCorrect && !result.isPartiallyCorrect) {
       if (q.type === 'referencing') errorType = 'reference_error';
@@ -441,7 +462,7 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       feedbackZh: result.feedbackZh,
       feedbackEn: result.feedbackEn,
     };
-  });
+  }));
 
   // Aggregate error breakdown
   const errorBreakdown: Record<string, number> = {};

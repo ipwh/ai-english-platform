@@ -24,7 +24,7 @@ interface ReadingQuestion {
   paragraphRef: number;
   question: string;
   questionZh?: string;
-  type: 'mc' | 'short-answer';
+  type: 'mc' | 'short-answer' | string;
   choices?: string[];
   answer: string;
   explanationZh?: string;
@@ -348,6 +348,34 @@ export default function ReadingPracticePage() {
                   )}
 
                   {q.type === 'short-answer' && (
+                    <div>
+                      <input
+                        type="text"
+                        className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-sm"
+                        placeholder={language === 'en' ? 'Type your answer...' : '輸入你的答案...'}
+                        disabled={ans?.submitted}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !ans?.submitted) {
+                            submitAnswer(qi, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                      />
+                      {!ans?.submitted && (
+                        <button
+                          className="mt-2 px-4 py-1.5 bg-indigo-500 text-white rounded-lg text-xs"
+                          onClick={(e) => {
+                            const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                            if (input) submitAnswer(qi, input.value);
+                          }}
+                        >
+                          {language === 'en' ? 'Submit' : '提交'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Fallback for other types: sequencing, matching, tableCompletion, summaryCloze, etc. */}
+                  {q.type !== 'mc' && q.type !== 'short-answer' && (
                     <div>
                       <input
                         type="text"
