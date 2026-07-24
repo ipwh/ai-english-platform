@@ -903,6 +903,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     // 2. Transform question format from v2 AI output to legacy frontend format
     if (Array.isArray(response.questions)) {
       response.questions = splitTFNGSubQuestions(response.questions as Array<Record<string, unknown>>);
+      // Sprint 102: Trim to requested count after TFNG splitting
+      if ((response.questions as Array<Record<string, unknown>>).length > totalQ) {
+        response.questions = (response.questions as Array<Record<string, unknown>>).slice(0, totalQ);
+      }
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
         // Map questionText → question
         let rawQuestion = (q.questionText as string) || (q.question as string) || '';
@@ -958,6 +962,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     // 2. Transform question format from v2 AI output to legacy frontend format (no passage transform needed)
     if (Array.isArray(response.questions)) {
       response.questions = splitTFNGSubQuestions(response.questions as Array<Record<string, unknown>>);
+      // Sprint 102: Trim to requested count after TFNG splitting
+      if ((response.questions as Array<Record<string, unknown>>).length > totalQ) {
+        response.questions = (response.questions as Array<Record<string, unknown>>).slice(0, totalQ);
+      }
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
         // Map questionText → question
         const question = (q.questionText as string) || (q.question as string) || '';
