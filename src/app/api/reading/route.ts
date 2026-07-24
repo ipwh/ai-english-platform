@@ -117,6 +117,23 @@ function splitTFNGSubQuestions(
 
     if (subs.length <= 1) { result.push(q); continue; }
 
+    // Parse per-sub-statement answers from the original answer field
+    // AI format: "(i) True (ii) Not Given (iii) True" or "True, Not Given, True"
+    const rawAnswer = (q.answer as string) || '';
+    const subAnswers: Record<string, string> = {};
+    const answerSubRegex = /\(([ivx]+)\)\s*(True|False|Not Given)/gi;
+    let am: RegExpExecArray | null;
+    while ((am = answerSubRegex.exec(rawAnswer)) !== null) {
+      subAnswers[am[1].toLowerCase()] = am[2];
+    }
+    // Fallback: comma-separated
+    if (Object.keys(subAnswers).length === 0) {
+      const parts = rawAnswer.split(/[,;]\s*/);
+      subs.forEach((sub, i) => {
+        if (parts[i]) subAnswers[sub.label.toLowerCase()] = parts[i].trim();
+      });
+    }
+
     // Extract question stem (text before first sub-statement)
     const stemEnd = questionText.indexOf(`(${subs[0].label})`);
     const stem = stemEnd > 0 ? questionText.slice(0, stemEnd).trim() : '';
@@ -124,14 +141,16 @@ function splitTFNGSubQuestions(
     // Split into individual sub-questions
     let subIndex = 0;
     for (const sub of subs) {
+      const subAnswer = subAnswers[sub.label.toLowerCase()] || '';
       result.push({
         ...q,
-        index: ((q.index as number) || 0) + subIndex * 0.1, // sub-index for uniqueness
+        index: ((q.index as number) || 0) + subIndex * 0.1,
         question: stem ? `${stem}\n(${sub.label}) ${sub.text}` : `(${sub.label}) ${sub.text}`,
         questionText: stem ? `${stem}\n(${sub.label}) ${sub.text}` : `(${sub.label}) ${sub.text}`,
         marks: 1,
         type: 'trueFalseNG',
         choices: ['True', 'False', 'Not Given'],
+        answer: subAnswer,
         _subLabel: sub.label,
       });
       subIndex++;
@@ -343,34 +362,13 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 
   const parsed = JSON.parse(result);
 
-  // Sprint 102: Apply same question transform as legacy handler
-  if (Array.isArray(parsed.questions)) {
-    parsed.questions = splitTFNGSubQuestions(parsed.questions as Array<Record<string, unknown>>);
-    parsed.questions = (parsed.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>) => {
-      const aiType = (q.type as string) || 'shortAnswer';
-      const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
-      let choices: string[] | undefined;
-      if (Array.isArray(q.choices)) {
-        choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
-        if (choices.filter(c => c.trim().length > 2).length === 0) choices = undefined;
-      }
-      if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
-        choices = ['True', 'False', 'Not Given'];
-      }
-      return {
-        index: q.index || 0,
-        question: q.questionText || q.question || '',
-        questionZh: q.questionZh || undefined,
-        type: isMc ? 'mc' : 'short-answer',
-        choices: isMc ? choices : undefined,
-        answer: q.answer || '',
-        explanationZh: q.explanationZh || undefined,
-        explanationEn: q.explanationEn || undefined,
-        paragraphRef: q.paragraphRef || 1,
-        tier: q.tier || 'literal',
-      };
-    });
+  // Sprint 102: Route through legacy handler for full passage + question transformation
+  // This applies line markers, lineMap, TFNG splitting, question format transform
+  if (parsed.readingContent || parsed.questions) {
+    // Inject pre-parsed result and re-call legacy handler (skipping AI generation)
+    return handleLegacyGeneration({ ...body, _preParsedResult: parsed });
   }
+
   return NextResponse.json(parsed);
 }
 
@@ -606,6 +604,9 @@ async function handlePaperValidation(body: Record<string, unknown>) {
 // ============================================
 async function handleLegacyGeneration(body: Record<string, unknown>) {
   const startTime = Date.now();
+
+  // Sprint 102: If called from exercise handler with pre-parsed result, skip AI
+  const preParsed = body._preParsedResult as Record<string, unknown> | undefined;
   const { gradeLevel, topic, difficulty, questionCount } = body as {
     gradeLevel?: string;
     topic?: string;
@@ -638,16 +639,17 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
   const systemPrompt = buildReadingSectionPrompt();
 
-  const result = await callLLM([
-    { role: 'system', content: systemPrompt + dseContextBlock },
-    { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
-  ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
-
-  const parsed = JSON.parse(result);
+  // Sprint 102: Skip AI if pre-parsed result provided (from exercise handler)
+  const parsed: Record<string, unknown> = preParsed || JSON.parse(
+    await callLLM([
+      { role: 'system', content: systemPrompt + dseContextBlock },
+      { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
+    ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 })
+  );
 
   // Attach readability if passage content exists
-  if (parsed.readingContent || parsed.passage?.content) {
-    const content = parsed.readingContent || parsed.passage?.content;
+  if (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) {
+    const content = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
     const metrics = estimateReadability(content);
     const readabilityLevel = mapReadabilityToHKEAALevel(metrics);
     const hkCheck = checkHKLocalContent(content);
