@@ -4,6 +4,27 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-07-24 — Sprint 116: Reading Layout Engine 📐
+
+### 🏗️ New Module: `src/modules/reading/layout/`
+- **Layout Engine**: `layoutReadingText()` — deterministic line numbering at render time
+- **Line Calculator**: Splits paragraphs into display lines based on `charsPerLine` (estimated from container width + font size)
+- **Paragraph Layout**: Extracts `[Paragraph N]` markers, builds structured paragraph data
+- **Layout Renderer**: HTML with styled `[line N]` markers at configurable intervals (2/5/10)
+- **Responsive**: `recalculateLayout()` via ResizeObserver — no re-fetch needed
+- **Why**: AI-generated `[line N]` markers unreliable — browser wrapping, font size, container width, device differences affect display
+
+### 📝 Modified
+- `reading/route.ts`: Stripped ~120 lines of AI line marker generation; AI now outputs clean `[Paragraph N]` only
+- `reading/page.tsx`: Integrated layout engine with ResizeObserver
+
+### ✅ Verification
+- **1,375/1,375 tests pass** (61 test files)
+- **0 TypeScript errors**
+- **0 AI/Provider/Workflow/Prisma imports** in layout module
+
+---
+
 ## 2026-07-24 — Sprint 101-115: AI Quality Stack (14 New Modules, 100% Deterministic) 🧠
 
 ### 🏗️ New Modules (under `src/modules/ai/`)

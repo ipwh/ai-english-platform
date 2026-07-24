@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [Certification](docs/architecture/architecture-certification.md)
-> **Status**: **v1.0 Release Candidate** ✅ | 115 Sprints | 60 test files | 1,345 tests | Architecture Score: **100/100**
+> **Status**: **v1.0 Release Candidate** ✅ | 116 Sprints | 61 test files | 1,375 tests | Architecture Score: **100/100**
 
 ## 🏗️ Architecture Overview
 
@@ -38,9 +38,9 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (60 files, 1,345 tests, 100% pass) + Playwright |
+| Testing | Vitest 4 (61 files, 1,375 tests, 100% pass) + Playwright |
 | Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
-| Documentation | 36 ADRs in `docs/architecture/` |
+| Documentation | 37 ADRs in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 
@@ -220,21 +220,21 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 
 > 📋 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。以下僅保留最新摘要。
 
-### 🏆 2026-07-24 — AI Quality Stack: 15 Sprints, 14 Modules, 100% Deterministic (Sprints 101-115)
-- **Sprint 101-104 — Quality & Self-Healing**: 7 structural + 7 content rules, auto-repair pipeline with patch/regenerate/reject strategies
-- **Sprint 105 — Evaluation**: 4 grading policies (strict/standard/lenient/custom), answer normalization, semantic comparison
+### 🏆 2026-07-24 — AI Quality Stack: 16 Sprints, 15 Modules, 100% Deterministic (Sprints 101-116)
+- **Sprint 101-104 — Quality & Self-Healing**: 7 structural + 7 content rules, auto-repair pipeline
+- **Sprint 105 — Evaluation**: 4 grading policies, answer normalization, semantic comparison
 - **Sprint 106 — Assessment**: 5 dimensions, 13 rules, auto-registration
-- **Sprint 108 — Optimization**: 6 dimensions, 12 rules (student experience, readability, vocabulary smoothing)
-- **Sprint 109 — Prompt Intelligence**: Prompt builder with 13 auto-injected constraints, optimizer, self-reflection
-- **Sprint 110 — Adaptive Feedback**: Closed-loop learning — failures→patterns→knowledge→dynamic constraints → stronger prompts
-- **Sprint 111 — Calibration**: 11 post-LLM rules (answer expansion, explanation rewriting, MCQ balance, placeholder removal, LLM artifact cleanup, vocabulary naturalness)
-- **Sprint 112 — Fairness**: 14 grading rules — 300+ British↔American, 1000+ synonyms (12 categories), spelling tolerance, partial credit (90/80/70/50%)
-- **Sprint 113 — Question Quality**: 14 rules — distractor plausibility, answer uniqueness, evidence support, vocabulary/grammar level alignment, question variety
-- **Sprint 114 — Adaptive Learning**: 12 rules — difficulty adjustment by streaks, weak skill focus, spaced repetition, session fatigue, challenge balance (70/20/10)
-- **Sprint 115 — Human Review**: 12 rules — teacher-perspective validation (ambiguity, naturalness, explanation quality, authenticity, student confusion)
+- **Sprint 108 — Optimization**: 6 dimensions, 12 rules
+- **Sprint 109 — Prompt Intelligence**: Prompt builder with 13 auto-injected constraints, self-reflection
+- **Sprint 110 — Adaptive Feedback**: Closed-loop learning — failures→patterns→knowledge→dynamic constraints
+- **Sprint 111 — Calibration**: 11 post-LLM rules (answer expansion, LLM artifact cleanup, vocabulary)
+- **Sprint 112 — Fairness**: 14 grading rules — 300+ British↔American, 1000+ synonyms, partial credit
+- **Sprint 113 — Question Quality**: 14 rules — distractor plausibility, evidence support, CEFR alignment
+- **Sprint 114 — Adaptive Learning**: 12 rules — personalized difficulty, spaced repetition, session fatigue
+- **Sprint 115 — Human Review**: 12 rules — teacher-perspective validation (ambiguity, authenticity, confusion)
+- **Sprint 116 — Reading Layout Engine**: Accurate line numbering at render time (not AI). ResizeObserver-responsive. 30 tests.
 - **Pipeline**: Student Profile → Adaptive → Prompt Builder → LLM → Calibration → Question Quality → Self Reflection → Quality → Repair → Evaluation → Fairness → Assessment → Optimization → Human Review → Feedback → API
-- **All 100% deterministic**: Zero AI calls, zero Provider/Workflow/Prisma imports, zero external dependencies
-- **1,345/1,345 tests pass** — +291 tests from 14 new modules, 0 TypeScript errors
+- **1,375/1,375 tests pass** — +321 tests from 15 new modules, 0 TypeScript errors
 
 ### 🏆 2026-07-23 — Architecture v5: 100/100 + Release Candidate (Sprints 52-55)
 - **Architecture v5 Complete**: All 52 API routes follow Route→Facade→Service→Repository→Prisma
