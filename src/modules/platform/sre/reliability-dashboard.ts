@@ -13,6 +13,7 @@ import { getQualityMetrics } from '@/modules/ai/quality';
 import { getRepairMetrics, getRepairHistory } from '@/modules/ai/quality/repair';
 import { getEvaluationMetrics } from '@/modules/ai/evaluation';
 import { getAssessmentMetrics } from '@/modules/ai/assessment';
+import { getOptimizationMetrics } from '@/modules/ai/optimization';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -50,5 +51,6 @@ export function getFullRuntimeReport() {
     },
     evaluation: getEvaluationMetrics(),
     assessment: getAssessmentMetrics(),
+    optimization: getOptimizationMetrics(),
   };
 }
