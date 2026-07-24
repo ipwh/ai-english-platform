@@ -217,7 +217,11 @@ export default function WritingPage() {
           ));
         }
       }
-    } catch (e) { console.error('Failed to fetch writing assistance:', e); }
+    } catch (e) {
+      // Network/protocol errors — show friendly message instead of raw error
+      console.error('Writing assistance unavailable:', e instanceof Error ? e.message : String(e));
+      setSuggestions([t('writing.tipUnavailable') || (lang === 'zh' ? '寫作提示暫時無法載入，請稍後重試。' : 'Writing tips are temporarily unavailable. Please try again later.')]);
+    }
     finally { setAssistLoading(false); }
   }, [draft, generatedPrompt, showSuggestions, showVocabHelp, lang]);
 
@@ -426,7 +430,7 @@ export default function WritingPage() {
           <div className="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
             <p className="text-sm font-medium text-purple-800 dark:text-purple-200">{t('writing.yourPrompt')}</p>
             <p className="text-lg text-gray-900 dark:text-white mt-1">{realTopic}</p>
-            <p className="text-xs text-gray-500 mt-2">{t('writing.wordCount')}：{wordLimit} | {t('writing.type')}：{lang === 'zh' ? textTypes[textType].zh : textTypes[textType].en} | {t('writing.level')}：{gradeLevel}</p>
+            <p className="text-xs text-gray-500 mt-2">{t('writing.wordLimit')}：{wordLimit} | {t('writing.type')}：{lang === 'zh' ? textTypes[textType].zh : textTypes[textType].en} | {t('writing.level')}：{gradeLevel}</p>
           </div>
         )}
         {generatedOutline && (

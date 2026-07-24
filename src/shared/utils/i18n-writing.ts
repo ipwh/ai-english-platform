@@ -52,6 +52,7 @@ export const writingTranslations: Record<string, { zh: string; en: string }> = {
   'writing.simple': { zh: '簡潔', en: 'Simple' },
   'writing.applyRewrite': { zh: '採用改寫', en: 'Apply Rewrite' },
   'writing.connectionFailed': { zh: '連線失敗', en: 'Connection failed' },
+  'writing.tipUnavailable': { zh: '寫作提示暫時無法載入，請稍後重試。', en: 'Writing tips are temporarily unavailable. Please try again later.' },
   'writing.aiUnavailable': { zh: 'AI 分析暫時無法使用', en: 'AI analysis unavailable' },
   'writing.promptGenFailed': { zh: '⚠️ AI 未能生成題目，請重試。', en: '⚠️ Could not generate prompt. Please try again.' },
   'writing.promptGenError': { zh: '⚠️ 題目生成失敗，請檢查網絡。', en: '⚠️ Prompt generation failed.' },

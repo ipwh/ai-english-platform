@@ -188,12 +188,15 @@ export default function ReadingPracticePage() {
 
     // MCQ/TFNG: map letter to choice text, then compare
     if (q.type === 'mc' && q.choices && q.choices.length > 0) {
-      const letterIndex = answer.trim().toUpperCase().charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+      const studentLetter = answer.trim().toUpperCase().charAt(0); // A, B, C, D
+      const letterIndex = studentLetter.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
       const selectedChoice = (letterIndex >= 0 && letterIndex < q.choices.length)
         ? q.choices[letterIndex].trim()
         : '';
-      const correctChoice = q.answer.trim();
-      const isCorrect = selectedChoice.toLowerCase() === correctChoice.toLowerCase();
+
+      // Normalize: extract letter from correct answer (handles both "C" and "C. full text")
+      const correctLetter = extractMcqLetter(q.answer, q.choices);
+      const isCorrect = studentLetter === correctLetter;
 
       setAnswers(prev => ({
         ...prev,
@@ -299,6 +302,36 @@ export default function ReadingPracticePage() {
       case 'evaluative': return { zh: '評價', en: 'Evaluative', color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' };
       default: return { zh: tier, en: tier, color: '' };
     }
+  }
+
+  /**
+   * Extract the MCQ letter (A/B/C/D) from an answer that may be:
+   * - Just a letter: "C"
+   * - Full choice text: "C. It is a complex mental activity."
+   * - Choice text without prefix: "It is a complex mental activity."
+   * Falls back to finding which choice matches the answer text.
+   */
+  function extractMcqLetter(answer: string, choices: string[]): string {
+    const trimmed = answer.trim();
+    // If answer is a single letter A-D
+    if (/^[A-D]$/i.test(trimmed)) return trimmed.toUpperCase();
+    // If answer starts with a letter prefix like "C." or "C)"
+    const prefixMatch = trimmed.match(/^([A-D])[.)\s]/i);
+    if (prefixMatch) return prefixMatch[1].toUpperCase();
+    // Try matching the answer text against each choice
+    const lowerAnswer = trimmed.toLowerCase().replace(/^[A-D][.)\s]+/i, '').trim();
+    for (let i = 0; i < choices.length; i++) {
+      const cleanChoice = choices[i].replace(/^[A-D][.)\s]+/, '').trim().toLowerCase();
+      if (cleanChoice === lowerAnswer) return String.fromCharCode(65 + i);
+    }
+    // Last resort: partial match
+    for (let i = 0; i < choices.length; i++) {
+      const cleanChoice = choices[i].replace(/^[A-D][.)\s]+/, '').trim().toLowerCase();
+      if (cleanChoice.includes(lowerAnswer) || lowerAnswer.includes(cleanChoice)) {
+        return String.fromCharCode(65 + i);
+      }
+    }
+    return trimmed.charAt(0).toUpperCase(); // fallback to first char
   }
 
   const totalScore = data ? Object.values(answers).reduce((sum, a) => sum + (a.score ?? (a.isCorrect ? 1 : 0)), 0) : 0;
@@ -505,14 +538,15 @@ export default function ReadingPracticePage() {
                       {q.choices.map((choice, ci) => {
                         const letter = String.fromCharCode(65 + ci);
                         const isSelected = ans?.answer === letter;
-                        const isCorrect = letter === q.answer;
+                        const correctLetter = extractMcqLetter(q.answer, q.choices || []);
+                        const isCorrectChoice = letter === correctLetter;
                         // Strip any A. B. C. D. prefix that survived API processing
                         const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
                         const displayText = cleanChoice || `Option ${letter}`;
                         let cls = 'w-full text-left p-2.5 rounded-lg text-sm border transition-colors appearance-none ';
                         if (ans?.submitted) {
-                          if (isCorrect) cls += 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700';
-                          else if (isSelected) cls += 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700';
+                          if (isCorrectChoice) cls += 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700';
+                          else if (isSelected && !isCorrectChoice) cls += 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700';
                           else cls += 'border-gray-200 dark:border-gray-700 text-gray-400';
                         } else {
                           cls += 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 active:bg-indigo-50 text-gray-700 dark:text-gray-300';
@@ -557,8 +591,39 @@ export default function ReadingPracticePage() {
                     </div>
                   )}
 
-                  {/* Fallback for other types: sequencing, matching, tableCompletion, summaryCloze, etc. */}
-                  {q.type !== 'mc' && q.type !== 'short-answer' && (
+                  {/* Fallback for other types with choices (matching, etc.) */}
+                  {q.type !== 'mc' && q.type !== 'short-answer' && q.choices && q.choices.length > 0 && (
+                    <div className="space-y-1.5">
+                      {q.choices.map((choice, ci) => {
+                        const letter = String.fromCharCode(65 + ci);
+                        const isSelected = ans?.answer === letter;
+                        const correctLetter = extractMcqLetter(q.answer, q.choices || []);
+                        const isCorrectChoice = letter === correctLetter;
+                        const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
+                        const displayText = cleanChoice || `Option ${letter}`;
+                        let cls = 'w-full text-left p-2.5 rounded-lg text-sm border transition-colors appearance-none ';
+                        if (ans?.submitted) {
+                          if (isCorrectChoice) cls += 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700';
+                          else if (isSelected && !isCorrectChoice) cls += 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700';
+                          else cls += 'border-gray-200 dark:border-gray-700 text-gray-400';
+                        } else {
+                          cls += 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 active:bg-indigo-50 text-gray-700 dark:text-gray-300';
+                        }
+                        return (
+                          <button key={ci} className={cls}
+                            onClick={() => !ans?.submitted && submitAnswer(qi, letter)}
+                            disabled={ans?.submitted}
+                            type="button">
+                            <span className="font-semibold mr-2">{letter}.</span>
+                            {displayText}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Fallback for other types without choices (text input) */}
+                  {q.type !== 'mc' && q.type !== 'short-answer' && (!q.choices || q.choices.length === 0) && (
                     <div>
                       <input
                         type="text"
