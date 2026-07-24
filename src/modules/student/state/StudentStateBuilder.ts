@@ -295,20 +295,35 @@ export class StudentStateBuilder {
   private async loadWeakness(studentId: string): Promise<StudentWeakness | null> {
     try {
       const { buildWeaknessProfile } = await import('@/modules/mistake/intelligence/services/mistake-intelligence-service');
-      const w = await buildWeaknessProfile(studentId, 10, true) as RawWeaknessProfile;
-      return { topWeaknesses: w.topWeaknesses, totalMistakes: w.totalMistakes ?? 0, generatedAt: w.generatedAt };
+      const w = await buildWeaknessProfile(studentId, 10, true);
+      // Map WeaknessProfile → StudentWeakness shape (dynamic import loses type info)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const topWeaknesses = (w.topWeaknesses as any[]).map((item: any) => ({
+        name: item.grammarCategory ?? item.name ?? '',
+        nameZh: item.grammarCategoryZh ?? item.nameZh,
+        frequency: item.mistakeCount ?? item.frequency ?? 0,
+        accuracy: item.mastered ? 1 : (item.mistakeCount > 5 ? 0.3 : 0.6),
+        trend: item.trend ?? 'stable',
+        recommendation: item.recommendation,
+        recommendationZh: item.recommendationZh,
+      }));
+      return {
+        topWeaknesses,
+        totalMistakes: (w as any).totalMistakes ?? 0,
+        generatedAt: new Date(w.generatedAt),
+      };
     } catch { return null; }
   }
 
   private async loadVocabulary(studentId: string): Promise<StudentVocabulary | null> {
     try {
       const { buildVocabProfile } = await import('@/modules/vocabulary/intelligence/services/vocabulary-intelligence-service');
-      const v = await buildVocabProfile(studentId) as RawVocabProfile;
+      const v = await buildVocabProfile(studentId) as unknown as RawVocabProfile;
       const byStatus: Record<string, number> = {};
       for (const key of ['known','learning','weak','forgotten','mastered','needReview']) {
         byStatus[key] = (v[key as keyof RawVocabProfile] as unknown[] | undefined)?.length ?? 0;
       }
-      return { total: v.total ?? 0, byStatus, reviewQueue: v.reviewQueue?.length ?? 0, generatedAt: v.generatedAt };
+      return { total: v.total ?? 0, byStatus, reviewQueue: v.reviewQueue?.length ?? 0, generatedAt: new Date(v.generatedAt) };
     } catch { return null; }
   }
 
