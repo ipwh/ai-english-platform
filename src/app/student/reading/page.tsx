@@ -143,6 +143,7 @@ export default function ReadingPracticePage() {
         setData(json);
         setAnswers({});
         setSeqOrders({});
+        setEvaluatingAI(new Set());
       } else {
         setError(json.error || 'Generation failed');
       }
@@ -245,22 +246,29 @@ export default function ReadingPracticePage() {
           studentAnswers: { [qIndex]: answer },
         }),
       })
-        .then(r => r.json())
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
         .then(result => {
           const analysis = result.analyses?.[0];
           if (analysis) {
-            setAnswers(prev => ({
-              ...prev,
-              [qIndex]: {
-                ...prev[qIndex],
-                isCorrect: analysis.isCorrect,
-                isPartiallyCorrect: analysis.isPartiallyCorrect,
-                score: analysis.score ?? (analysis.isCorrect ? 1 : 0),
-                maxScore: analysis.maxMarks ?? 1,
-                feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
-                feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,
-              },
-            }));
+            setAnswers(prev => {
+              // Guard: only update if this question still exists in data
+              if (!prev[qIndex]) return prev;
+              return {
+                ...prev,
+                [qIndex]: {
+                  ...prev[qIndex],
+                  isCorrect: analysis.isCorrect,
+                  isPartiallyCorrect: analysis.isPartiallyCorrect,
+                  score: analysis.score ?? (analysis.isCorrect ? 1 : 0),
+                  maxScore: analysis.maxMarks ?? 1,
+                  feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
+                  feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,
+                },
+              };
+            });
           }
         })
         .catch(() => {
@@ -627,7 +635,7 @@ export default function ReadingPracticePage() {
               <p className="text-indigo-100 text-sm">
                 {language === 'en' ? 'Reading Score' : '閱讀成績'} — {Math.round((totalScore / totalMaxScore) * 100)}%
               </p>
-              <button onClick={() => { setData(null); setAnswers({}); setSeqOrders({}); savedRef.current = false; }}
+              <button onClick={() => { setData(null); setAnswers({}); setSeqOrders({}); setEvaluatingAI(new Set()); savedRef.current = false; }}
                 className="mt-3 px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium">
                 {language === 'en' ? 'New Reading' : '新閱讀練習'}
               </button>
