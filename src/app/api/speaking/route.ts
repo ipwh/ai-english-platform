@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { callLLM } from '@/modules/ai/services/ai-service';
+import { selectDiverseTopic, buildDiversityInstruction } from '@/modules/ai/services/topic-selector';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 
 const SPEAKING_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
     const difficultyDesc = diffMap[diffLabel] || diffMap['core'];
 
     if (mode === 'mock') {
+      // Diversity-aware topic selection
+      const userId = authResult.userId || 'anonymous';
+      const diverseTopic = topic || selectDiverseTopic({ userId, skill: 'speaking', gradeLevel: levelLabel });
+      const diversityInstruction = buildDiversityInstruction({ userId, skill: 'speaking', gradeLevel: levelLabel });
+
       // Generate a mock speaking prompt (Group Discussion or Individual Response)
       const prompt = await callLLM([
         {
@@ -70,6 +76,10 @@ export async function POST(request: NextRequest) {
           content: `You are an HKDSE English Speaking examiner. Generate ONE speaking practice question suitable for ${levelLabel} level Hong Kong students at ${difficultyDesc} difficulty.
 
 ${SPEAKING_RUBRIC}
+
+${diversityInstruction}
+
+⚠️ REQUIRED TOPIC: "${diverseTopic}" — You MUST design the speaking question around this specific topic.
 
 Return a JSON object:
 {
@@ -81,7 +91,7 @@ Return a JSON object:
   "timeLimit": 8
 }`,
         },
-        { role: 'user', content: `Generate a DSE Speaking mock question for ${levelLabel} students at ${difficultyDesc} difficulty. Topic area: ${topic || 'general'}.` },
+        { role: 'user', content: `Generate a DSE Speaking mock question for ${levelLabel} students at ${difficultyDesc} difficulty. Required topic: "${diverseTopic}".` },
       ], { temperature: 0.8, maxTokens: 1024, jsonMode: true, timeoutMs: 15000 });
 
       const parsed = safeJsonParse(prompt, 'mock prompt generation');

@@ -79,6 +79,15 @@ DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE
 ⚠️ CRITICAL: Strictly base your topics on real DSE past papers (2012-2024).
 ${dseTopics}
 
+═══════════════════════════════════════
+⚠️ TOPIC DIVERSITY ENFORCEMENT — 題材多元化強制規則
+═══════════════════════════════════════
+1. Each question MUST use a DIFFERENT scenario/theme — never repeat the same context across questions
+2. Avoid overused clichés: sports day tryouts, cinema schedules (3:30/4:00), library hours, bee conservation, school barbecue
+3. Rotate between: school life, social issues, technology, environment, culture, health, career, science, HK-local, daily-life
+4. For ${count} questions, use at least ${Math.min(count, 5)} different topic categories
+5. NEVER use the same category for consecutive questions
+
 HKDSE 等級對齊指引：
 - 補底(remedial) → Level 1-2：基礎詞彙、簡單句型、明示信息提取
 - 核心(core) → Level 3：中級詞彙、複合句、直接推論

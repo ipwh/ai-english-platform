@@ -522,15 +522,19 @@ export const READING_TOPICS_V2: TopicEntry[] = [
 /**
  * Get real DSE exam-style topic suggestions for prompt enrichment.
  * Draws from the empirical topic database built from 2012-2024 past papers.
+ *
+ * v3.0: Added diversity support — accepts excludeTopics to avoid repetition,
+ * and uses category rotation for better topic variety.
  */
 export function getDSEEmpiricalTopics(
   skill: 'writing' | 'reading' | 'listening',
   category?: string,
   count = 3,
+  excludeTopics?: string[],
 ): string[] {
   const pool = DSE_EMPIRICAL_TOPICS[skill];
   if (!pool) return [];
-  
+
   const allTopics: string[] = [];
   if (category && category in pool) {
     allTopics.push(...(pool[category as keyof typeof pool] as readonly string[]));
@@ -539,9 +543,61 @@ export function getDSEEmpiricalTopics(
       allTopics.push(...(cat as readonly string[]));
     }
   }
-  
-  const shuffled = [...allTopics].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+
+  const excludeSet = new Set((excludeTopics || []).map(t => t.toLowerCase()));
+
+  // Filter out excluded topics
+  let available = allTopics.filter(t => !excludeSet.has(t.toLowerCase()));
+
+  // If too many excluded, fall back to all
+  if (available.length < count) {
+    available = allTopics;
+  }
+
+  // Category rotation: group by category and pick one from each before repeating
+  const categories = Object.keys(pool);
+  const byCategory = new Map<string, string[]>();
+  for (const t of available) {
+    for (const cat of categories) {
+      const catTopics = pool[cat as keyof typeof pool] as readonly string[];
+      if (catTopics.includes(t)) {
+        if (!byCategory.has(cat)) byCategory.set(cat, []);
+        byCategory.get(cat)!.push(t);
+        break;
+      }
+    }
+  }
+
+  const result: string[] = [];
+  const catKeys = [...byCategory.keys()];
+
+  // Fisher-Yates shuffle on categories then round-robin pick
+  for (let i = catKeys.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [catKeys[i], catKeys[j]] = [catKeys[j], catKeys[i]];
+  }
+
+  let catIdx = 0;
+  const usedFromCat = new Map<string, number>();
+  while (result.length < count && catIdx < catKeys.length * 3) {
+    const cat = catKeys[catIdx % catKeys.length];
+    const topics = byCategory.get(cat) || [];
+    const used = usedFromCat.get(cat) || 0;
+    if (used < topics.length) {
+      result.push(topics[used]);
+      usedFromCat.set(cat, used + 1);
+    }
+    catIdx++;
+  }
+
+  // If still not enough, fill randomly
+  if (result.length < count) {
+    const remaining = available.filter(t => !result.includes(t));
+    const shuffled = [...remaining].sort(() => Math.random() - 0.5);
+    result.push(...shuffled.slice(0, count - result.length));
+  }
+
+  return result.slice(0, count);
 }
 
 // ============================================

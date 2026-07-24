@@ -76,5 +76,5 @@ export { DSE_TEXT_TYPE_GUIDE, VOCAB_UPGRADES, CHINGLISH_FIXES } from './dse-writ
 export { STRICT_ANSWER_RULES } from '@/modules/ai/prompts';
 export { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS } from './mcq-filters';
 export { INTEGRATED_SKILLS_DIFF_MAP, INTEGRATED_SKILLS_TASK_TYPE_MAP } from './integrated-skills-config';
-export { getRandomTopicV2 } from './topic-selector';
+export { getRandomTopicV2, selectDiverseTopic, selectDiverseTopics, buildDiversityInstruction, recordTopicUsage } from './topic-selector';
 export { GeneratedQuestionsArraySchema, validateAIResponse } from '../schemas/ai-schema';

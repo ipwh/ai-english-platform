@@ -10,39 +10,53 @@ interface OptMetrics {
   rules: Record<string, { passed: number; failed: number; repaired: number }>;
 }
 
-const m: OptMetrics = { total: 0, approved: 0, warned: 0, optimized: 0, regenLater: 0, rejected: 0, repairs: 0, totalLatencyMs: 0, cumulativeScore: 0, rules: {} };
+const metricsData: OptMetrics = { total: 0, approved: 0, warned: 0, optimized: 0, regenLater: 0, rejected: 0, repairs: 0, totalLatencyMs: 0, cumulativeScore: 0, rules: {} };
 
 export function recordOptimization(decision: OptimizationDecision, score: number, latencyMs: number, repairCount: number): void {
-  m.total++;
-  if (decision === 'approved') m.approved++; else if (decision === 'warning') m.warned++;
-  else if (decision === 'optimized') m.optimized++; else if (decision === 'regenerate_later') m.regenLater++;
-  else m.rejected++;
-  m.repairs += repairCount;
-  m.cumulativeScore += score;
-  m.totalLatencyMs += latencyMs;
+  metricsData.total++;
+  if (decision === 'approved') metricsData.approved++; else if (decision === 'warning') metricsData.warned++;
+  else if (decision === 'optimized') metricsData.optimized++; else if (decision === 'regenerate_later') metricsData.regenLater++;
+  else metricsData.rejected++;
+  metricsData.repairs += repairCount;
+  metricsData.cumulativeScore += score;
+  metricsData.totalLatencyMs += latencyMs;
 }
 
 export function recordRuleExecution(ruleId: string, passed: boolean, action: string): void {
-  if (!m.rules[ruleId]) m.rules[ruleId] = { passed: 0, failed: 0, repaired: 0 };
-  if (passed) m.rules[ruleId].passed++; else m.rules[ruleId].failed++;
-  if (action === 'repair' || action === 'normalize') m.rules[ruleId].repaired++;
+  if (!metricsData.rules[ruleId]) metricsData.rules[ruleId] = { passed: 0, failed: 0, repaired: 0 };
+  if (passed) metricsData.rules[ruleId].passed++; else metricsData.rules[ruleId].failed++;
+  if (action === 'repair' || action === 'normalize') metricsData.rules[ruleId].repaired++;
 }
 
 export function getOptimizationMetrics() {
-  const t = m.total || 1;
+  const t = metricsData.total || 1;
   return {
-    totalEvaluations: m.total, approved: m.approved, warned: m.warned, optimized: m.optimized, regenLater: m.regenLater, rejected: m.rejected,
-    repairs: m.repairs, avgScore: Math.round((m.cumulativeScore / t) * 100) / 100,
-    avgLatencyMs: Math.round(m.totalLatencyMs / t),
-    ruleStats: Object.entries(m.rules).map(([id, r]) => ({
+    totalEvaluations: metricsData.total,
+    approved: metricsData.approved,
+    warned: metricsData.warned,
+    optimized: metricsData.optimized,
+    regenLater: metricsData.regenLater,
+    rejected: metricsData.rejected,
+    repairs: metricsData.repairs,
+    avgScore: Math.round((metricsData.cumulativeScore / t) * 100) / 100,
+    avgLatencyMs: Math.round(metricsData.totalLatencyMs / t),
+    ruleStats: Object.entries(metricsData.rules).map(([id, r]) => ({
       ruleId: id, passed: r.passed, failed: r.failed, repaired: r.repaired,
       passRate: (r.passed + r.failed) > 0 ? Math.round((r.passed / (r.passed + r.failed)) * 100) / 100 : 0,
     })).sort((a, b) => b.failed - a.failed),
-    topOptimizations: Object.entries(m.rules).filter(([, r]) => r.repaired > 0).sort((a, b) => b[1].repaired - a[1].repaired).slice(0, 5).map(([id]) => id),
+    topOptimizations: Object.entries(metricsData.rules).filter(([, r]) => r.repaired > 0).sort((a, b) => b[1].repaired - a[1].repaired).slice(0, 5).map(([id]) => id),
   };
 }
 
 export function resetOptimizationMetrics(): void {
-  m.total = 0; m.approved = 0; m.warned = 0; m.optimized = 0; m.regenLater = 0; m.rejected = 0;
-  m.repairs = 0; m.totalLatencyMs = 0; m.cumulativeScore = 0; m.rules = {};
+  metricsData.total = 0;
+  metricsData.approved = 0;
+  metricsData.warned = 0;
+  metricsData.optimized = 0;
+  metricsData.regenLater = 0;
+  metricsData.rejected = 0;
+  metricsData.repairs = 0;
+  metricsData.totalLatencyMs = 0;
+  metricsData.cumulativeScore = 0;
+  metricsData.rules = {};
 }

@@ -241,6 +241,22 @@ export function buildFullDSEPaperPrompt(params: FullPaperPromptParams): string {
 
   const topicStr = topic || 'DSE-appropriate topic (rotate from DSE empirical topic database)';
 
+  // Topic diversity enforcement
+  const diversityRules = `
+## ⚠️ TOPIC DIVERSITY ENFORCEMENT — 題材多元化強制規則
+
+CRITICAL: You MUST ensure diverse, non-repeating topics across all generated content.
+
+### Topic Selection Rules:
+1. NEVER use overused clichés: sports day tryouts, cinema schedules, library opening hours, bee conservation, school barbecue
+2. Rotate between: HK-local topics (~40%), international/global topics (~60%)
+3. For multi-passage papers: each passage must have a DISTINCTLY DIFFERENT topic
+4. Vary topic categories — don't pick the same category (e.g., environment, technology) for multiple passages
+5. Prefer fresh, contemporary topics that reflect the breadth of real DSE papers (2012-2024)
+6. Draw from the DSE Empirical Topic Database for authentic topic variety
+7. Each passage should feel like it came from a DIFFERENT publication/source
+`.trim();
+
   return `${HALLUCINATION_GUARD}
 
 You are an HKDSE English Language Paper 1 examiner with 20 years of experience. Your task is to create a COMPLETE, exam-ready DSE Paper 1 Reading paper that is indistinguishable from a real HKEAA paper.
@@ -252,6 +268,8 @@ ${partMixPrompt}
 ${textTypePrompt}
 
 ${hkLocalPrompt}
+
+${diversityRules}
 
 ${MULTI_PASSAGE_PROMPT}
 

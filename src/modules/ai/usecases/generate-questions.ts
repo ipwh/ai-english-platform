@@ -9,7 +9,7 @@ import { HALLUCINATION_GUARD } from '../services/hallucination-guard';
 import { STRICT_ANSWER_RULES } from '../prompts';
 import { isDSERAGEnabled, retrievePastPaperContent, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '../services/rag-service';
 import { getDSEEmpiricalTopics, validateDSEtopicMatch } from '../services/dse-topics';
-import { getRandomTopicV2 } from '../services/topic-selector';
+import { getRandomTopicV2, selectDiverseTopic, buildDiversityInstruction } from '../services/topic-selector';
 import { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS, getFallbackFillers } from '../services/mcq-filters';
 import { normalizeGeneratedQuestions } from '../services/question-normalizer';
 import { validateAndFixQuestion } from '../services/question-validator';
@@ -113,8 +113,9 @@ HKDSE 等級對齊指引：
 - 難度：${diffMap[input.difficulty]}
 - 年級：${input.gradeLevel}
 - 題型：${effectiveQuestionType}
-- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${getRandomTopicV2(isListening, isReading || isWriting || isSpeaking, input.gradeLevel)}"
+- ⚠️ 題材強制多樣化：你必須使用以下隨機選定的情境主題來設計題目 — "${selectDiverseTopic({ userId: input.userId || 'anonymous', skill: isListening ? 'listening' : isReading ? 'reading' : isWriting ? 'writing' : isSpeaking ? 'speaking' : 'grammar', gradeLevel: input.gradeLevel })}"
   禁止使用你慣用的預設主題（如籃球選拔/蜜蜂/電影時間）。每題需有不同的對話場景。
+${buildDiversityInstruction({ userId: input.userId || 'anonymous', skill: isListening ? 'listening' : isReading ? 'reading' : isWriting ? 'writing' : isSpeaking ? 'speaking' : 'grammar', gradeLevel: input.gradeLevel })}
 ${input.topic ? `- 主題：${input.topic}` : ''}
 ${isListening ? `
 【DSE Paper 3 Listening 聆聽題 — v3.0 自然語速 + Intonation 強化版】
@@ -570,7 +571,9 @@ https://afterschool.com.hk/blog/242-dse-english-paper-3-listening/  },
   
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     // On retry: force different topic and slightly lower temperature
-    const retryTopic = attempt > 0 ? getRandomTopicV2(isListening, isReading, input.gradeLevel) : undefined;
+    const retryTopic = attempt > 0
+      ? selectDiverseTopic({ userId: input.userId || 'anonymous', skill: isListening ? 'listening' : isReading ? 'reading' : isWriting ? 'writing' : isSpeaking ? 'speaking' : 'grammar', gradeLevel: input.gradeLevel })
+      : undefined;
     const retryPrompt = attempt > 0
       ? `\n\n⚠️ RETRY INSTRUCTION: Previous attempt produced insufficient or low-quality questions. Please generate EXACTLY ${count} questions with COMPLETE fields. Use topic: "${retryTopic}". Ensure every question has a valid answer that appears verbatim in the listening/reading content.\n\nDO NOT use the same scenarios or topics as before.`
       : '';
