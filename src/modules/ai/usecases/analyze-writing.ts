@@ -576,13 +576,34 @@ Very → exceedingly / remarkably / exceptionally
     explanation: c.pattern,
   }));
   const mergedChinglish = [
-    ...(grammarAnalysis.chinglishWarnings || []),
+    ...(grammarAnalysis.chinglishWarnings || []).filter(c =>
+      // Sprint 102: Filter out false positives — original === suggestion means no actual chinglish found
+      c.original !== c.suggestion &&
+      c.original?.length > 0 &&
+      c.suggestion?.length > 0
+    ),
     ...ruleChinglishWarnings.filter(
       rw => !(grammarAnalysis.chinglishWarnings || []).some(
         gw => gw.original?.toLowerCase() === rw.original?.toLowerCase()
       )
     ),
   ];
+
+  // Sprint 102: Filter grammar false positives — remove entries where no actual error detected
+  const filteredGrammarErrors = (grammarAnalysis.grammarErrors || []).filter(g => {
+    if (!g.original || !g.correction) return false; // empty entries
+    if (g.original.trim() === g.correction.trim()) return false; // no actual change
+    if (g.explanation && /無誤|無錯誤|正確|no error|correct/i.test(g.explanation)) return false; // AI says it's correct
+    if (g.original.length < 3) return false; // too short to be meaningful
+    return true;
+  });
+
+  // Sprint 102: Filter chinglish false positives
+  const filteredChinglish = mergedChinglish.filter(c => {
+    if (!c.original || !c.suggestion) return false;
+    if (c.original.trim() === c.suggestion.trim()) return false;
+    return true;
+  });
 
   const combined: WritingAnalysis = {
     overallScore: normalizedOverall,
@@ -593,8 +614,8 @@ Very → exceedingly / remarkably / exceptionally
     dseLevel,
     strengths: styleAnalysis.strengths || [],
     weaknesses: styleAnalysis.weaknesses || [],
-    grammarErrors: grammarAnalysis.grammarErrors || [],
-    chinglishWarnings: mergedChinglish,
+    grammarErrors: filteredGrammarErrors,
+    chinglishWarnings: filteredChinglish,
     vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
     structureFeedback: styleAnalysis.structureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
     revisedVersion: styleAnalysis.revisedVersion || undefined,
