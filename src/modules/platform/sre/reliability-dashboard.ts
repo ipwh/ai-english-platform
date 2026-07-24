@@ -9,6 +9,7 @@ import { getPerformanceBaselineReport } from '@/modules/ai/services/performance-
 import { detectRegressions } from '@/modules/ai/runtime/regression-detector';
 import { detectSaturation } from '@/modules/ai/runtime/saturation-detector';
 import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
+import { getQualityMetrics } from '@/modules/ai/quality';
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -39,5 +40,6 @@ export function getFullRuntimeReport() {
     errorBudget: getAllBudgets(),
     incidents: classifyIncidents(),
     dashboard: getReliabilityDashboard(),
+    quality: getQualityMetrics(),
   };
 }
