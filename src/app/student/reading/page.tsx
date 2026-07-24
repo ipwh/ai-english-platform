@@ -753,17 +753,24 @@ export default function ReadingPracticePage() {
                             {language === 'en' ? ans.feedbackEn : (ans.feedbackZh || ans.feedbackEn)}
                           </p>
                         )}
-                        {/* Always show passage-based explanation */}
+                        {/* Always show passage-based explanation (bilingual) */}
                         {(q.explanationEn || q.explanationZh) && (
                           <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
                             <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
-                              {language === 'en' ? '📖 Explanation' : '📖 解釋'}
+                              {language === 'en' ? '📖 Explanation / 解釋' : '📖 解釋 / Explanation'}
                             </p>
-                            <p className="text-xs text-gray-700 dark:text-gray-300">
-                              {language === 'en'
-                                ? (q.explanationEn || q.explanationZh || '')
-                                : (q.explanationZh || q.explanationEn || '')}
-                            </p>
+                            {q.explanationEn && (
+                              <p className="text-xs text-gray-700 dark:text-gray-300 mb-1">
+                                <span className="text-indigo-400 font-medium">EN: </span>
+                                {q.explanationEn}
+                              </p>
+                            )}
+                            {q.explanationZh && (
+                              <p className="text-xs text-gray-700 dark:text-gray-300">
+                                <span className="text-indigo-400 font-medium">中文: </span>
+                                {q.explanationZh}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
