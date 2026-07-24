@@ -1,7 +1,7 @@
 // ============================================
 // Sprint 105: Synonym, Semantic, Keyword Rules
 // ============================================
-import type { EvaluationRule, GradingPolicyConfig } from '../../evaluation-types';
+import type { EvaluationRule, GradingPolicyConfig } from '../evaluation-types';
 import { areSynonyms } from '../accepted-answer';
 import { computeSemanticScore, computeKeywordScore } from '../semantic-comparator';
 

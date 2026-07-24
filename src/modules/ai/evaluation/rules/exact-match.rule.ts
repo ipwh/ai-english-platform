@@ -2,7 +2,7 @@
 // Sprint 105: Exact Match Rule
 // ============================================
 
-import type { EvaluationRule, GradingPolicyConfig } from '../../evaluation-types';
+import type { EvaluationRule, GradingPolicyConfig } from '../evaluation-types';
 
 export const exactMatchRule: EvaluationRule = {
   name: 'exact-match',

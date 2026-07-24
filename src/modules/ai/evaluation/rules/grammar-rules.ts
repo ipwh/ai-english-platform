@@ -2,7 +2,7 @@
 // Sprint 105: Evaluation Rules — Batch 1
 // Punctuation, Whitespace, Article, Plural, Tense, Spelling
 // ============================================
-import type { EvaluationRule, GradingPolicyConfig } from '../../evaluation-types';
+import type { EvaluationRule, GradingPolicyConfig } from '../evaluation-types';
 
 export const punctuationRule: EvaluationRule = {
   name: 'punctuation',
