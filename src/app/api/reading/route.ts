@@ -156,8 +156,25 @@ function splitTFNGSubQuestions(
 
     // Split into individual sub-questions
     let subIndex = 0;
+    // Also split the explanation per sub-statement
+    const rawExplanationZh = (q.explanationZh as string) || '';
+    const rawExplanationEn = (q.explanationEn as string) || '';
+    const subExplanationsZh: Record<string, string> = {};
+    const subExplanationsEn: Record<string, string> = {};
+    const explSubRegex = /\(([ivx]+)\)\s*(.+?)(?=\s*\([ivx]+\)|$)/gi;
+    let em: RegExpExecArray | null;
+    while ((em = explSubRegex.exec(rawExplanationZh)) !== null) {
+      subExplanationsZh[em[1].toLowerCase()] = em[2].trim();
+    }
+    while ((em = explSubRegex.exec(rawExplanationEn)) !== null) {
+      subExplanationsEn[em[1].toLowerCase()] = em[2].trim();
+    }
+
     for (const sub of subs) {
       const subAnswer = subAnswers[sub.label.toLowerCase()] || '';
+      const subLabel = sub.label.toLowerCase();
+      const subExpZh = subExplanationsZh[subLabel] || rawExplanationZh;
+      const subExpEn = subExplanationsEn[subLabel] || rawExplanationEn;
       result.push({
         ...q,
         index: ((q.index as number) || 0) + subIndex * 0.1,
@@ -167,6 +184,8 @@ function splitTFNGSubQuestions(
         type: 'trueFalseNG',
         choices: ['True', 'False', 'Not Given'],
         answer: subAnswer,
+        explanationZh: subExpZh || `(${sub.label}) ${subAnswer}`,
+        explanationEn: subExpEn || `(${sub.label}) ${subAnswer}`,
         _subLabel: sub.label,
       });
       subIndex++;
@@ -800,35 +819,37 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       if (!para.trim()) { result += '\n\n'; continue; }
       const paraWords = para.split(/\s+/).filter(Boolean);
       const paraLines = Math.ceil(paraWords.length / WORDS_PER_LINE);
-      const paraStartLine = globalLineCount + 1;
 
-      // Insert markers within this paragraph + build lineMap
+      // Sprint 102.5: Add paragraph number marker and rebuild paragraph word-by-word
+      result += `[${pi + 1}] `;
+      globalCharCount += String(pi + 1).length + 3;
+
+      // Insert line markers at global word-count boundaries (paragraph-agnostic)
+      const words = para.split(/(\s+)/); // split but keep whitespace
       let paraWordIdx = 0;
-      const chars = [...para];
-      let ci = 0;
-      while (ci < chars.length) {
-        const ch = chars[ci];
-        result += ch;
-        globalCharCount++;
-        currentLineText += ch;
-        if (ch === ' ' || ch === '\n') {
+      for (const token of words) {
+        result += token;
+        globalCharCount += token.length;
+        currentLineText += token;
+        if (/^\s+$/.test(token)) {
+          // Word boundary — count words in the preceding non-whitespace
+          // We count when we see whitespace after a word
+          continue; // whitespace tokens don't represent word count change here
+        }
+        // Non-whitespace token = a word
+        if (token.trim()) {
           paraWordIdx++;
           globalWordCount++;
           currentLineWords++;
-          // Flush line every WORDS_PER_LINE words
           if (currentLineWords >= WORDS_PER_LINE) {
             flushLine();
           }
-          // Check if we've reached a marker position (every MARKER_INTERVAL lines)
-          if (paraWordIdx > 0 && paraWordIdx % (MARKER_INTERVAL * WORDS_PER_LINE) === 0) {
-            const markerLine = paraStartLine + Math.floor(paraWordIdx / WORDS_PER_LINE) - 1;
-            // Only insert if at a line boundary (roughly every MARKER_INTERVAL lines)
-            if (Math.floor(paraWordIdx / WORDS_PER_LINE) % MARKER_INTERVAL === 0) {
-              result += ` [line ${markerLine}] `;
-            }
+          // Insert [line N] marker every MARKER_INTERVAL lines (based on global word count)
+          if (globalWordCount > 0 && globalWordCount % (MARKER_INTERVAL * WORDS_PER_LINE) === 0) {
+            const markerLine = Math.ceil(globalWordCount / WORDS_PER_LINE);
+            result += ` [line ${markerLine}] `;
           }
         }
-        ci++;
       }
       // Add paragraph separator
       if (pi < paragraphs.length - 1) {
