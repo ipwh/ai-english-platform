@@ -56,16 +56,16 @@ export class FactConsistencyRule extends BaseQualityRule<HasFacts> {
     }
 
     // Extract numbers from each text
-    const numberMap = new Map<string, Array<{ label: string; value: string }>>();
+    const numberMap = new Map<string, string[]>();
     for (const { label, text } of texts) {
       const numbers = extractNumbers(text);
       for (const n of numbers) {
-        if (!numberMap.has(n)) numberMap.set(n, new Map());
-        // Check against other texts
-        for (const [otherLabel, otherText] of texts) {
-          if (otherLabel === label) continue;
-          if (otherText.includes(n)) {
-            // Same number found — consistent
+        if (!numberMap.has(n)) numberMap.set(n, []);
+        // Check against other texts (Sprint 103: detect cross-text number consistency)
+        for (const other of texts) {
+          if (other.label === label) continue;
+          if (other.text.includes(n)) {
+            // Same number found elsewhere — consistent
           }
         }
       }

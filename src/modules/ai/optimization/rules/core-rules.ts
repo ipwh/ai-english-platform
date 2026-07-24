@@ -73,7 +73,7 @@ export const distractorRule: OptimizationRule = {
 
     // Shuffle answer position if answer is always A
     const answer = String(q.answer || '').toUpperCase();
-    if (answer === 'A' && q.choices && q.choices.length >= 3) {
+    if (answer === 'A' && Array.isArray(q.choices) && (q.choices as string[]).length >= 3) {
       // Swap A with a random later position
       const swapIdx = 1 + Math.floor(Math.random() * (result.length - 1));
       [result[0], result[swapIdx]] = [result[swapIdx], result[0]];

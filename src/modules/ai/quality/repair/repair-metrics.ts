@@ -84,7 +84,7 @@ export function getRepairMetrics() {
     totalRejects: overall.totalRejects,
     budgetExceededCount: overall.budgetExceededCount,
     avgRepairTimeMs: totalAttempts > 0
-      ? Math.round(perAction.reduce((s, a) => s + a.totalDurationMs, 0) / totalAttempts)
+      ? Math.round(Array.from(metrics.values()).reduce((s, m) => s + m.totalDurationMs, 0) / totalAttempts)
       : 0,
     perAction,
     topRepairActions: perAction.slice(0, 5).map(a => a.action),

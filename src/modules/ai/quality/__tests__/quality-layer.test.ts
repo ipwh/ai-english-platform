@@ -275,6 +275,8 @@ describe('Quality Report', () => {
         warningsCount: 1, errorsCount: 0,
         executionTimeMs: 10, score: 85,
       },
+      dimensions: { structure: 85, consistency: 85, pedagogy: 85, assessment: 85, repairability: 85, overall: 85 },
+      severity: { info: 0, warning: 1, error: 0, critical: 0, fatal: 0 },
     };
     const report = quality.generateQualityReport(result);
     expect(report.summary.score).toBe(85);
@@ -286,6 +288,8 @@ describe('Quality Report', () => {
     const result = {
       score: 85, passed: true, warnings: [], errors: [], repairs: [], output: {},
       metrics: { rulesChecked: 3, rulesPassed: 3, rulesFailed: 0, repairsAttempted: 1, repairsSucceeded: 1, warningsCount: 0, errorsCount: 0, executionTimeMs: 10, score: 85 },
+      dimensions: { structure: 85, consistency: 85, pedagogy: 85, assessment: 85, repairability: 85, overall: 85 },
+      severity: { info: 0, warning: 0, error: 0, critical: 0, fatal: 0 },
     };
     const summary = quality.formatQualitySummary(result);
     expect(summary).toContain('85/100');

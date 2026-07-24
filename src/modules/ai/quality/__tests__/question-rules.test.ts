@@ -50,8 +50,9 @@ describe('Question Quality Rules — Architecture', () => {
       expect(typeof rule.id).toBe('string');
       expect(typeof rule.name).toBe('string');
       expect(typeof rule.validate).toBe('function');
-      // BaseQualityRule provides pass/fail/warn helpers
-      expect(typeof (rule as BaseQualityRule).pass).toBe('function');
+      // BaseQualityRule provides category and dimension fields
+      expect(typeof rule.category).toBe('string');
+      expect(typeof rule.dimension).toBe('string');
     }
   });
 

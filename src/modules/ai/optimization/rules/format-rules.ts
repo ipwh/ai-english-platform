@@ -113,7 +113,7 @@ export const optionNaturalnessRule: OptimizationRule = {
       return cleaned;
     })];
 
-    const changed = result.some((c, i) => c !== String(q.choices?.[i] || ''));
+    const changed = result.some((c, i) => c !== String(((q.choices as string[])?.[i]) || ''));
     return {
       question: changed ? { ...q, choices: result } : q,
       check: changed ? fix(this.id, changes, 'low') : ok(this.id),
