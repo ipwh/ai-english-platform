@@ -290,6 +290,34 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
 
   const parsed = JSON.parse(result);
+
+  // Sprint 102: Apply same question transform as legacy handler
+  if (Array.isArray(parsed.questions)) {
+    parsed.questions = (parsed.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>) => {
+      const aiType = (q.type as string) || 'shortAnswer';
+      const isMc = ['mcq', 'mcCloze', 'trueFalseNG'].includes(aiType);
+      let choices: string[] | undefined;
+      if (Array.isArray(q.choices)) {
+        choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
+        if (choices.filter(c => c.trim().length > 2).length === 0) choices = undefined;
+      }
+      if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
+        choices = ['True', 'False', 'Not Given'];
+      }
+      return {
+        index: q.index || 0,
+        question: q.questionText || q.question || '',
+        questionZh: q.questionZh || undefined,
+        type: isMc ? 'mc' : 'short-answer',
+        choices: isMc ? choices : undefined,
+        answer: q.answer || '',
+        explanationZh: q.explanationZh || undefined,
+        explanationEn: q.explanationEn || undefined,
+        paragraphRef: q.paragraphRef || 1,
+        tier: q.tier || 'literal',
+      };
+    });
+  }
   return NextResponse.json(parsed);
 }
 
