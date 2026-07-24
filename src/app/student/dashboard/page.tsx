@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Play, Sparkles, Loader2, Trophy, Flame, Star, TrendingUp } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import StreakFlame from '@/components/shared/StreakFlame';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -58,7 +59,7 @@ export default function StudentDashboardPage() {
           .then(data => {
             if (data && !data.error) setGamification(data);
           })
-          .catch((e) => { console.error("[page] fetch failed", e) })
+          .catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Gamification fetch failed'); })
           .finally(() => setGamificationLoading(false));
 
         // 🎮 每日登入 XP（DB-based streak，取代 localStorage）
@@ -67,7 +68,7 @@ export default function StudentDashboardPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ studentId: userId }),
-          }).catch((e) => { console.error("[page] fetch failed", e) });
+          }).catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Streak POST failed'); });
         }
 
         return fetch(`/api/practice?studentId=${encodeURIComponent(userId)}`).then(r => r.json());
@@ -80,7 +81,7 @@ export default function StudentDashboardPage() {
           questionsDone: s.totalQuestions,
         })));
       }
-    }).catch((e) => { console.error("[page] fetch failed", e) });
+    }).catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Practice history fetch failed'); });
   }, [loadPracticeHistory, language]);
 
   const weeklyStats = getWeeklyStats();

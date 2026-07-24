@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, User, Settings, Shield, Mail, ChevronRight, Save, X } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/shared/utils/utils';
 import { useT } from '@/hooks/use-i18n';
@@ -27,7 +28,7 @@ export default function TeacherProfilePage() {
   useEffect(() => {
     fetch('/api/auth/profile').then(r => r.json()).then(d => {
       if (d.user) { setProfile(d.user); setForm({ nameZh: d.user.nameZh || '', nameEn: d.user.nameEn || '' }); }
-    }).catch((e) => { console.error('Failed to load teacher profile:', e); });
+    }).catch((e) => { logger.error({ module: 'teacher-profile', error: e instanceof Error ? e.message : String(e) }, 'Failed to load teacher profile'); });
   }, []);
 
   const handleSave = async () => {

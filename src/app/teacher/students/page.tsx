@@ -6,6 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Search, ChevronRight, RefreshCw, Users, X, Loader2, Check } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import { useT } from '@/hooks/use-i18n';
 import { gradeLabels } from '@/shared/utils/nav';
 
@@ -68,7 +69,7 @@ export default function TeacherStudentsPage() {
       setClasses((classData.classes || []).map((c: Record<string, unknown>) => c.name));
       setLoading(false);
     }).catch((e) => {
-      console.error('Failed to load students:', e);
+      logger.error({ module: 'teacher-students', error: e instanceof Error ? e.message : String(e) }, 'Failed to load students');
       setLoadError('無法載入學生資料，請檢查網絡後重試。');
       setLoading(false);
     });

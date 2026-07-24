@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, Mail, Save, X, GraduationCap } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { formatDate } from '@/shared/utils/utils';
@@ -36,7 +37,7 @@ export default function StudentProfilePage() {
           level: d.user.level || d.user.class?.gradeLevel || '',
         });
       }
-    }).catch((e) => { console.error('Failed to load student profile:', e); });
+    }).catch((e) => { logger.error({ module: 'student-profile', error: e instanceof Error ? e.message : String(e) }, 'Failed to load student profile'); });
   }, []);
 
   const handleSave = async () => {

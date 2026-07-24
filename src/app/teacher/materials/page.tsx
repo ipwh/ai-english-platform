@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2, Pencil, Trash2, Check, X } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 
 import { formatDate } from '@/shared/utils/utils';
 import { useT } from '@/hooks/use-i18n';
@@ -81,7 +82,7 @@ export default function TeacherMaterialsPage() {
       setTimeout(() => setSuccessMsg(''), 3000);
       loadMaterials();
     } catch (e) {
-      console.error('[Materials] Edit failed:', e);
+      logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Materials edit failed');
       setUploadError(t('teacher.materials.saveFailed'));
     } finally {
       setEditLoading(false);
@@ -103,7 +104,7 @@ export default function TeacherMaterialsPage() {
       setTimeout(() => setSuccessMsg(''), 3000);
       loadMaterials();
     } catch (e) {
-      console.error('[Materials] Delete failed:', e);
+      logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Materials delete failed');
       setUploadError(t('teacher.materials.deleteFailed'));
     }
     finally { setDeletingId(null); }
@@ -162,7 +163,7 @@ export default function TeacherMaterialsPage() {
     fetch('/api/materials')
       .then(r => r.json())
       .then(d => setMaterials(d.materials || []))
-      .catch((e) => { console.error('Failed to load materials:', e); setLoadError(true); })
+      .catch((e) => { logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Failed to load materials'); setLoadError(true); })
       .finally(() => setLoading(false));
   };
 
@@ -237,7 +238,7 @@ export default function TeacherMaterialsPage() {
                   setUploadError(t('teacher.materials.uploadFailed'));
                 }
               } catch (e) {
-                console.error('[Materials] Text upload failed:', e);
+                logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Materials text upload failed');
                 setUploadError(t('teacher.materials.uploadFailed'));
               }
             } else if (file.type.startsWith('image/')) {
@@ -263,7 +264,7 @@ export default function TeacherMaterialsPage() {
                   setUploadError(t('teacher.materials.ocrFailed'));
                 }
               } catch (e) {
-                console.error('[Materials] OCR upload failed:', e);
+                logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Materials OCR upload failed');
                 setUploadError(t('teacher.materials.uploadFailed'));
               }
             } else {

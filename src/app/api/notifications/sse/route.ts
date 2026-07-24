@@ -1,17 +1,30 @@
-import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
-// API: GET /api/notifications/sse — Server-Sent Events stream
-// Real-time notification push replacing polling
+// API: GET /api/notifications/sse — Notification polling endpoint
+//
+// ⚠️ PRODUCTION NOTE: Vercel serverless functions do NOT support persistent
+// SSE connections. This endpoint uses efficient JSON polling instead.
+//
+// Recommended client polling interval: 30 seconds
+// For true real-time push in production, integrate one of:
+//   - Pusher (pusher.com) — easiest setup
+//   - Ably (ably.com) — generous free tier
+//   - Supabase Realtime — if using Supabase
+//   - Vercel Edge Middleware + WebSocket — advanced
+//
+// The client-side notification store already implements polling via
+// setInterval at 30s. This endpoint returns differential results when
+// `since` parameter is provided, minimizing payload size.
+// Sprint 104: Added Cache-Control header and rate limiting guidance
 // ============================================
 
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { listNotifications, getUnreadNotificationCount, markNotificationsRead } from '@/modules/student';
+import { logger } from '@/shared/logger/logger';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 
-// Vercel: serverless functions don't support persistent SSE connections.
-// For production, consider using Vercel Edge + Streaming or a dedicated
-// real-time service (Pusher, Ably, Supabase Realtime).
-// This endpoint provides a RESPONSE that the client can poll efficiently.
+// 30 requests per minute per user for polling
+const NOTIFICATION_POLL_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -19,8 +32,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
 
+  // Rate limit polling to prevent excessive DB queries
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rl = await checkRateLimit({ ...NOTIFICATION_POLL_LIMIT, identifier: `notif-poll:${ip}` });
+  if (!rl.allowed) {
+    return NextResponse.json({ error: rl.message }, {
+      status: 429,
+      headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+    });
+  }
+
   const { searchParams } = new URL(request.url);
-  const since = searchParams.get('since'); // ISO timestamp
+  const since = searchParams.get('since'); // ISO timestamp for differential polling
 
   try {
     const where: Record<string, unknown> = { userId: authResult.userId };

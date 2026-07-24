@@ -1,14 +1,13 @@
 // ============================================
 // API: /api/groups — 教師自訂組別 CRUD
-// GET:   列出教師建立的組別（含成員人數）
-// POST:  建立新組別
-// PATCH: 編輯組別名稱/描述
-// DELETE: 刪除組別
+// Sprint 104: Added Zod validation for POST/PATCH
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { validateRequest } from '@/shared/validation/validate';
+import { groupCreateSchema, groupUpdateSchema } from '@/shared/validation/schemas/group.schema';
 import { listGroups, findGroupById, createGroup, updateGroup, deleteGroup } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
@@ -52,11 +51,8 @@ export async function POST(request: NextRequest) {
   try {
 
     const body = await request.json();
-    const { name, description, studentIds } = body;
-
-    if (!name?.trim()) {
-      return NextResponse.json({ error: '組別名稱為必填' }, { status: 400 });
-    }
+    // Sprint 104: Zod-validated input
+    const { name, description, studentIds } = validateRequest(groupCreateSchema, body);
 
     const group = await createGroup({ name: name.trim(), description: description || '', createdBy: teacherId });
 

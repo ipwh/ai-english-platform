@@ -37,10 +37,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ studentId, topWeaknesses: [], totalMistakes: 0 });
     }
 
-    // If a specific category is requested, filter
+    // If a specific category is requested, filter by name
     if (category) {
       const filtered = weakness.topWeaknesses.filter(
-        (w: { grammarCategory?: string }) => w.grammarCategory === category,
+        (w) => w.name === category,
       );
       return NextResponse.json({
         studentId,

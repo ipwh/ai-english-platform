@@ -1,11 +1,14 @@
 // ============================================
 // API: /api/vocabulary — 詞彙庫
+// Sprint 104: Added Zod validation for POST
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serializeVocab } from '@/shared/utils/utils';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { validateRequest } from '@/shared/validation/validate';
+import { vocabularyCreateSchema } from '@/shared/validation/schemas';
 import { cacheFor, CACHE_SHORT } from '@/shared/utils/api-cache';
 import {
   addWord,
@@ -22,12 +25,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, word, partOfSpeech, meaningZh, exampleSentence, familiarity, masteryLevel,
-      secondaryMeaningZh, synonyms, antonyms, collocations, allPartOfSpeech } = body;
-
-    if (!studentId || !word) {
-      return NextResponse.json({ error: 'studentId, word 為必填' }, { status: 400 });
-    }
+    // Sprint 104: Zod-validated input
+    const { studentId, word, partOfSpeech, translation: meaningZh, example: exampleSentence } =
+      validateRequest(vocabularyCreateSchema, body);
 
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
       return NextResponse.json({ error: '只能為自己的帳號新增單字' }, { status: 403 });

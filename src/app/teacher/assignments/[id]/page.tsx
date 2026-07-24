@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Loader2, Sparkles, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { formatDate } from '@/shared/utils/utils';
@@ -96,7 +97,7 @@ export default function TeacherAssignmentDetailPage() {
       const msg = e instanceof Error ? e.message : '儲存失敗，請重試';
       setFeedbackError(msg);
       setTimeout(() => setFeedbackError(null), 5000);
-      console.error('Failed to save teacher feedback:', e);
+      logger.error({ module: 'teacher-assignments-detail', error: e instanceof Error ? e.message : String(e) }, 'Failed to save teacher feedback');
     }
     finally { setSavingFeedback(null); }
   };

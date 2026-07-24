@@ -11,6 +11,7 @@ import {
   Search, Sparkles, Zap, Clock, RotateCcw, BookOpen, ClipboardList,
   Loader2, Target, ChevronDown, Play, BarChart3,
 } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
 import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel } from '@/shared/utils/nav';
@@ -85,7 +86,7 @@ function PracticeListPageContent() {
           setForm(prev => ({ ...prev, gradeLevel: studentLevel as GradeLevel }));
         }
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-practice', error: e instanceof Error ? e.message : String(e) }, 'Profile fetch failed'); });
   }, []);
 
   // === 載入練習歷史 ===
@@ -206,7 +207,7 @@ function PracticeListPageContent() {
       router.push(`/student/practice/${questions[0].id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('practice.networkError');
-      console.error('AI generate error:', msg);
+      logger.error({ module: 'student-practice', error: msg }, 'AI generate error');
       setGenError(t('practice.aiConnectionFailed', { msg }));
     } finally {
       setGenerating(false);

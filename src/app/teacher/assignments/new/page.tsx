@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Sparkles, Loader2, Search } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 
 import { skillLabels, difficultyLabels, gradeLabels, getSkillLabel, getDifficultyLabel, getGradeLabel } from '@/shared/utils/nav';
 import Modal from '@/components/shared/Modal';
@@ -49,7 +50,7 @@ export default function NewAssignmentPage() {
         setClasses(classData.classes || []);
         if (profileData?.user?.id) setTeacherId(profileData.user.id);
       })
-      .catch((e) => { console.error('Failed to load data:', e); });
+      .catch((e) => { logger.error({ module: 'teacher-assignments-new', error: e instanceof Error ? e.message : String(e) }, 'Failed to load data'); });
   }, []);
 
   // 當 targetType 變更時載入對應選項

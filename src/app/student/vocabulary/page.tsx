@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle, PencilLine } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 
 import VocabCard from '@/modules/vocabulary/components/VocabCard';
 import QuickAddVocab from '@/modules/vocabulary/components/QuickAddVocab';
@@ -13,7 +14,7 @@ import VocabFilterBar from '@/modules/vocabulary/components/VocabFilterBar';
 import BatchImportVocab from '@/modules/vocabulary/components/BatchImportVocab';
 import SpellingPractice from '@/modules/vocabulary/components/SpellingPractice';
 import { useAppStore } from '@/store/appStore';
-import type { Familiarity, VocabItem, MasteryLevel } from '@/shared/types/types';
+import type { Familiarity, VocabItem, MasteryLevel, VocabQuizQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 import { getFamiliarityLabel, getFamiliarityColor } from '@/shared/utils/utils';
 import { familiarityToQuality, calculateNextReview } from '@/modules/vocabulary/services/srs';
@@ -33,7 +34,7 @@ export default function VocabularyPage() {
   const [gradeLevel, setGradeLevel] = useState('S4');
 
   // SRS
-  const [srsDue, setSrsDue] = useState<any[]>([]);
+  const [srsDue, setSrsDue] = useState<VocabItem[]>([]);
   const [srsProgress, setSrsProgress] = useState<{ percentage: number; label: string } | null>(null);
 
   // Filters
@@ -47,11 +48,15 @@ export default function VocabularyPage() {
   const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
 
   interface ReviewSuggestion {
-  vocab?: Array<{ word: string; nextReview: string }>;
-  count?: number;
-  generatedAt?: string;
-  [key: string]: unknown;
-}
+    vocab?: Array<{ word: string; nextReview: string }>;
+    count?: number;
+    generatedAt?: string;
+    stats?: { streakRecommendation?: string };
+    priorities?: {
+      urgent?: Array<{ id: string; word: string; meaningZh?: string }>;
+      high?: Array<{ id: string; word: string }>;
+    };
+  }
 
 // Batch import & Review suggestions
   const [showBatchImport, setShowBatchImport] = useState(false);
@@ -62,7 +67,7 @@ export default function VocabularyPage() {
   const [showSpelling, setShowSpelling] = useState(false);
 
   // Quiz
-  const [quizQuestions, setQuizQuestions] = useState<any[] | null>(null);
+  const [quizQuestions, setQuizQuestions] = useState<VocabQuizQuestion[] | null>(null);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -85,7 +90,7 @@ export default function VocabularyPage() {
         const level = d?.user?.level || d?.user?.class?.gradeLevel;
         if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Profile fetch failed'); });
   }, [store.userId]);
 
   const loadVocab = useCallback(() => {
@@ -102,7 +107,7 @@ export default function VocabularyPage() {
           })));
         }
       })
-      .catch((e) => { console.error('Failed to load vocabulary:', e); setLoadError(true); });
+      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Failed to load vocabulary'); setLoadError(true); });
   }, [studentId]);
 
   const loadSrsReview = useCallback(() => {
@@ -115,7 +120,7 @@ export default function VocabularyPage() {
           setSrsProgress(d.progress?.vocab || null);
         }
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'SRS review fetch failed'); });
   }, [studentId]);
 
   useEffect(() => { loadVocab(); }, [loadVocab]);
@@ -127,7 +132,7 @@ export default function VocabularyPage() {
     fetch(`/api/vocabulary/review-suggestions?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
       .then(d => { if (!d.error) setReviewSuggestions(d); })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Review suggestions fetch failed'); });
   }, [studentId]);
 
   useEffect(() => { if (studentId) loadReviewSuggestions(); }, [studentId, loadReviewSuggestions]);
@@ -164,7 +169,7 @@ export default function VocabularyPage() {
         easeFactor: srsUpdate.easeFactor,
         lastReviewedAt: srsUpdate.lastReviewedAt,
       }),
-    }).catch((e) => { console.error("[page] fetch failed", e) });
+    }).catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Vocabulary familiarity PATCH failed'); });
 
     // 🎮 掌握單字 XP
     if (next === 'mastered' && store.userId) {
@@ -172,7 +177,7 @@ export default function VocabularyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: store.userId, event: { type: 'masterWord' } }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Gamification masterWord XP failed'); });
     }
   };
 
@@ -184,7 +189,7 @@ export default function VocabularyPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, masteryLevel: level }),
-    }).catch((e) => { console.error("[page] fetch failed", e) });
+    }).catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Vocabulary mastery PATCH failed'); });
   };
 
   const handleDelete = async (id: string) => {
@@ -237,7 +242,7 @@ export default function VocabularyPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId: store.userId, event: { type: 'learnWord' } }),
-        }).catch((e) => { console.error("[page] fetch failed", e) });
+        }).catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Gamification learnWord XP failed'); });
       }
     } else {
       loadVocab();
@@ -321,7 +326,7 @@ export default function VocabularyPage() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       })
-      .catch((e) => { console.error("[page] PDF export failed", e); });
+      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'PDF export failed'); });
   };
 
   // ============================================
@@ -757,19 +762,19 @@ export default function VocabularyPage() {
             {showReviewPanel ? <ChevronUp className="w-4 h-4 text-amber-500" /> : <ChevronDown className="w-4 h-4 text-amber-500" />}
           </button>
 
-          {showReviewPanel && (
+          {showReviewPanel && reviewSuggestions && (
             <div className="mt-4 space-y-3">
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 {reviewSuggestions.stats?.streakRecommendation || ''}
               </p>
 
-              {reviewSuggestions.priorities?.urgent?.length > 0 && (
+              {reviewSuggestions.priorities?.urgent && reviewSuggestions.priorities.urgent.length > 0 && (
                 <div>
                   <span className="text-xs font-semibold text-red-600 dark:text-red-400">
                     🔴 {language === 'en' ? 'URGENT' : '緊急'} ({reviewSuggestions.priorities.urgent.length})
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {reviewSuggestions.priorities.urgent.map((w: { id: string; word: string; meaningZh?: string }) => (
+                    {reviewSuggestions.priorities.urgent.map((w) => (
                       <span key={w.id} className="text-[10px] px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
                         {w.word} <span className="opacity-60">{w.meaningZh}</span>
                       </span>
@@ -778,13 +783,13 @@ export default function VocabularyPage() {
                 </div>
               )}
 
-              {reviewSuggestions.priorities?.high?.length > 0 && (
+              {reviewSuggestions.priorities?.high && reviewSuggestions.priorities.high.length > 0 && (
                 <div>
                   <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
                     🟠 {language === 'en' ? 'HIGH' : '高優先'} ({reviewSuggestions.priorities.high.length})
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {reviewSuggestions.priorities.high.map((w: { id: string; word: string }) => (
+                    {reviewSuggestions.priorities.high.map((w) => (
                       <span key={w.id} className="text-[10px] px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
                         {w.word}
                       </span>

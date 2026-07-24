@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { Save, Bell, Shield, BookOpen, Users, Sparkles, Loader2, CheckCircle, XCircle, User } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import AdvancedSettings from '@/components/shared/AdvancedSettings';
 import { GRAMMAR_ITEM_LABELS } from '@/shared/types/types';
 import { gradeLabels } from '@/shared/utils/nav';
@@ -62,18 +63,18 @@ export default function TeacherSettingsPage() {
     fetch('/api/classes')
       .then(r => r.json())
       .then(d => setClasses(d.classes || []))
-      .catch((e) => { console.error('Failed to load classes for settings:', e); });
+      .catch((e) => { logger.error({ module: 'teacher-settings', error: e instanceof Error ? e.message : String(e) }, 'Failed to load classes for settings'); });
     fetch('/api/auth/settings')
       .then(r => r.json())
       .then(d => {
         if (d.settings?.classIds) setSelectedClassIds(d.settings.classIds);
         if (d.profile) setTeacherProfile(d.profile);
       })
-      .catch((e) => { console.error('Failed to load auth settings:', e); });
+      .catch((e) => { logger.error({ module: 'teacher-settings', error: e instanceof Error ? e.message : String(e) }, 'Failed to load auth settings'); });
     fetch('/api/groups')
       .then(r => r.json())
       .then(d => setCustomGroups(d.groups || []))
-      .catch((e) => { console.error('Failed to load groups:', e); });
+      .catch((e) => { logger.error({ module: 'teacher-settings', error: e instanceof Error ? e.message : String(e) }, 'Failed to load groups'); });
 
     // Load local settings
     const local = loadLocalSettings();

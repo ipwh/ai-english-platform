@@ -16,7 +16,7 @@ async function getTeacherInfo(request: NextRequest): Promise<{ userId: string; r
   }
   const session = await auth();
   if (session?.user?.id) {
-    const user = await findUserByIdSelect(session.user.id, { role: true });
+    const user = await findUserByIdSelect(session.user.id, { role: true }) as { role: string } | null;
     if (user && (user.role === 'teacher' || user.role === 'admin')) return { userId: session.user.id, role: user.role };
   }
   return null;

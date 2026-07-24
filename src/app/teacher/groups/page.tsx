@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Users, Loader2, Sparkles, Upload, FileText } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import { useT } from '@/hooks/use-i18n';
 
 interface GroupData {
@@ -40,7 +41,7 @@ export default function TeacherGroupsPage() {
     fetch('/api/groups')
       .then(r => r.json())
       .then(d => setGroups(d.groups || []))
-      .catch((e) => { console.error('Failed to load groups:', e); })
+      .catch((e) => { logger.error({ module: 'teacher-groups', error: e instanceof Error ? e.message : String(e) }, 'Failed to load groups'); })
       .finally(() => setLoading(false));
   };
 

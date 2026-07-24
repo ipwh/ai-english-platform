@@ -1,6 +1,7 @@
 // ============================================
 // Next.js Middleware — 路由保護（Edge Runtime 安全）
 // 不引入 Prisma/NextAuth，僅使用 jose 驗證 JWT
+// Sprint 104: Added CSRF token cookie injection for mutation protection
 // ============================================
 
 import { NextResponse } from 'next/server';
@@ -9,6 +10,13 @@ import { verifySessionToken } from '@/shared/auth/jwt';
 import { jwtVerify } from 'jose';
 import { ALL_SESSION_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
 import { getEdgeAuthSecret, EDGE_PUBLIC_PATHS } from '@/shared/config/edge-config';
+
+// Edge-compatible CSRF token generation (no Node.js crypto)
+function generateEdgeCsrfToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const publicPaths = EDGE_PUBLIC_PATHS;
 
@@ -49,9 +57,21 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 允許 API 路由（由各 route handler 自行驗證）
+  // 允許 API 路由（由各 route handler 自行驗證，middleware 注入 CSRF cookie）
   if (pathname.startsWith('/api/')) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // Inject CSRF token cookie for API consumers (mutation endpoints validate it)
+    if (!request.cookies.has('csrf-token')) {
+      const csrfToken = generateEdgeCsrfToken();
+      response.cookies.set('csrf-token', csrfToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24,
+      });
+    }
+    return response;
   }
 
   // === Vercel Deployment Protection 處理 ===
@@ -65,12 +85,8 @@ export default async function middleware(request: NextRequest) {
   // 若只有 Vercel protection cookie 而沒有任何 auth cookie，
   // 且當前不是 auth 相關路徑 → 可能是 Vercel 驗證阻擋了正常登入流程
   if (isVercelProtected && !hasNextAuthCookie) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        '[middleware] ⚠️ Vercel Deployment Protection detected without auth cookies. ' +
-        'If users report login issues, consider disabling Deployment Protection in Vercel Dashboard → Settings → Deployment Protection.'
-      );
-    }
+    // Vercel Deployment Protection detected — non-blocking, just informational
+    // In production, this is expected behavior for protected preview deployments
   }
 
   if (hasNextAuthCookie) {
@@ -109,7 +125,18 @@ export default async function middleware(request: NextRequest) {
       }
     }
 
-    return NextResponse.next();
+    // Inject CSRF token for NextAuth-authenticated users
+    const nextAuthResponse = NextResponse.next();
+    if (!request.cookies.has('csrf-token')) {
+      nextAuthResponse.cookies.set('csrf-token', generateEdgeCsrfToken(), {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24,
+      });
+    }
+    return nextAuthResponse;
   }
 
   // JWT session token check（密碼登入）
@@ -131,7 +158,18 @@ export default async function middleware(request: NextRequest) {
         return NextResponse.redirect(forbiddenUrl);
       }
 
-      return NextResponse.next();
+      // Inject CSRF token cookie for authenticated users
+      const jwtResponse = NextResponse.next();
+      if (!request.cookies.has('csrf-token')) {
+        jwtResponse.cookies.set('csrf-token', generateEdgeCsrfToken(), {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 60 * 60 * 24,
+        });
+      }
+      return jwtResponse;
     }
   }
 

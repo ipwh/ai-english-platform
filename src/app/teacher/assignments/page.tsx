@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Clock, Users, ChevronRight, Loader2 } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
@@ -26,7 +27,7 @@ export default function TeacherAssignmentsPage() {
     fetch('/api/assignments')
       .then(r => r.json())
       .then(d => { if (d.assignments?.length) setAssignments(d.assignments); })
-      .catch((e) => { console.error('Failed to load assignments:', e); setLoadError(true); })
+      .catch((e) => { logger.error({ module: 'teacher-assignments', error: e instanceof Error ? e.message : String(e) }, 'Failed to load assignments'); setLoadError(true); })
       .finally(() => setLoading(false));
   };
 

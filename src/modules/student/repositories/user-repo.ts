@@ -1,11 +1,17 @@
 // v5: User Repository — data access for user/profile/class/group operations
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/shared/db/db';
+import type { Prisma } from '@prisma/client';
 
 export async function findUserById(id: string) {
   return db.user.findUnique({ where: { id } });
 }
 
-export async function findUserByIdSelect<T extends Record<string, boolean>>(id: string, select: T) {
+/** Flat boolean select (e.g. { id: true, role: true }) */
+export async function findUserByIdSelect<T extends Prisma.UserSelect>(
+  id: string,
+  select: T,
+) {
   return db.user.findUnique({ where: { id }, select });
 }
 

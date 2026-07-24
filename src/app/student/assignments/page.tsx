@@ -9,6 +9,7 @@ import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
+import { logger } from '@/shared/logger/logger';
 import { formatDate, daysRemaining, getStatusColor } from '@/shared/utils/utils';
 import { statusLabels, getStatusLabel } from '@/shared/utils/nav';
 import type { AssignmentStatus } from '@/shared/types/types';
@@ -52,7 +53,7 @@ export default function StudentAssignmentsPage() {
       });
       setAssignments(mapped);
     })
-    .catch((e) => { console.error('Failed to load assignments:', e); })
+    .catch((e) => { logger.error({ module: 'student-assignments', error: e instanceof Error ? e.message : String(e) }, 'Failed to load assignments'); })
     .finally(() => setLoading(false));
   }, []);
 

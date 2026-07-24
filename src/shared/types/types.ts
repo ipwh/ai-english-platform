@@ -374,6 +374,16 @@ export interface VocabItem {
   createdAt?: string;            // 加入生字簿日期
 }
 
+/** 詞彙測驗題目（AI 生成或本地配對） */
+export interface VocabQuizQuestion {
+  type: 'mc' | 'match';
+  promptZh: string;
+  choices: string[];
+  answer: string;
+  word: string;
+  meaningZh: string;
+}
+
 // ============================================
 // 十六、教材
 // ============================================

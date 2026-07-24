@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import type { PracticeQuestion } from '@/shared/types/types';
@@ -410,7 +411,7 @@ export default function DiagnosticPage() {
             recommendedSkill: r.id === 'reading' ? 'reading' : r.id === 'writing' ? 'writing' : undefined,
           })),
         }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Diagnostic save failed'); });
     }
 
     // 🎮 記錄診斷完成 XP
@@ -422,7 +423,7 @@ export default function DiagnosticPage() {
           studentId: studentProfile.id,
           event: { type: 'completeDiagnostic' },
         }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Gamification completeDiagnostic XP failed'); });
     }
 
     // AI 寫作批改（CLO 框架）
@@ -468,7 +469,7 @@ export default function DiagnosticPage() {
       if (res.ok && json.analysis) {
         setAiReport(json.analysis.summary || '');
       }
-    } catch (e) { console.error('Failed to analyze diagnostic progress:', e); }
+    } catch (e) { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Failed to analyze diagnostic progress'); }
     finally { setAiLoading(false); }
   };
 

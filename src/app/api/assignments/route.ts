@@ -1,11 +1,14 @@
-import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API: /api/assignments — 課業 CRUD
+// Sprint 104: Added Zod validation for POST
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 import { listAssignments, findTeacherClass, listGroupMembers, createAssignment, listNotifications } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
+import { validateRequest } from '@/shared/validation/validate';
+import { assignmentCreateSchema } from '@/shared/validation/schemas';
 import { checkRateLimit, GENERAL_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { notifyAssignmentCreated } from '@/shared/utils/notifications';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -61,15 +64,12 @@ export async function POST(request: NextRequest) {
     if (!rl.allowed) return NextResponse.json({ error: rl.message }, { status: 429 });
 
     const body = await request.json();
+    // Sprint 104: Zod-validated input
     const {
       title, description, className, classId, targetType, gradeLevel, strand,
       grammarItem, languageSkill, difficulty, questionCount, timeLimit, dueDate,
       questions, groupIds, studentIds,
-    } = body;
-
-    if (!title) {
-      return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
-    }
+    } = validateRequest(assignmentCreateSchema, body);
 
     const resolvedClassName = className || '';
     const resolvedTargetType = targetType || 'class';

@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { Check, X, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 
 import { formatDate } from '@/shared/utils/utils';
 import EmptyState from '@/components/shared/EmptyState';
@@ -25,7 +26,7 @@ export default function TeacherReviewPage() {
         setReviews(d.reviews || []);
         if (d.reviews?.length > 0) setSelectedReview(d.reviews[0]);
       })
-      .catch((e) => { console.error('Failed to load reviews:', e); })
+      .catch((e) => { logger.error({ module: 'teacher-review', error: e instanceof Error ? e.message : String(e) }, 'Failed to load reviews'); })
       .finally(() => setLoading(false));
   }, []);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');

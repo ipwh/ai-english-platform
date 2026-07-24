@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { useToast } from '@/components/shared/Toast';
@@ -11,6 +12,7 @@ import { InlineWordBadge } from '@/modules/vocabulary/components/InlineAddVocabB
 import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import type { DifficultyLevel } from '@/shared/types/types';
+import type { WritingAnalysis } from '@/modules/ai/usecases/analyze-writing';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {
@@ -20,19 +22,6 @@ const textTypes: Record<string, { zh: string; en: string }> = {
   review: { zh: 'Review 評論', en: 'Review' }, email: { zh: 'Email 電郵', en: 'Email' },
 };
 const wordLimits = [100, 150, 200, 300, 400, 500, 800];
-
-
-
-interface AIWritingResult {
-  summary?: string;
-  totalScore?: number;
-  rubricScores?: Record<string, { score: number; comment: string }>;
-  grammarIssues?: Array<{ text: string; correction: string; explanation: string }>;
-  vocabularySuggestions?: Array<{ original: string; suggestion: string }>;
-  strengths?: string[];
-  weaknesses?: string[];
-  [key: string]: unknown;
-}
 
 export default function WritingPage() {
   const { t, language } = useT();
@@ -52,7 +41,7 @@ export default function WritingPage() {
         const level = d?.user?.level || d?.user?.class?.gradeLevel;
         if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-writing', error: e instanceof Error ? e.message : String(e) }, 'Profile fetch failed'); });
   }, []);
   const [textType, setTextType] = useState('essay');
   const [wordLimit, setWordLimit] = useState(200);
@@ -76,7 +65,7 @@ export default function WritingPage() {
   const [assistLoading, setAssistLoading] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<AIWritingResult | null>(null);
+  const [aiResult, setAiResult] = useState<WritingAnalysis | null>(null);
   const [aiError, setAiError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
@@ -230,7 +219,7 @@ export default function WritingPage() {
       }
     } catch (e) {
       // Network/protocol errors — show friendly message instead of raw error
-      console.error('Writing assistance unavailable:', e instanceof Error ? e.message : String(e));
+      logger.error({ module: 'student-writing', error: e instanceof Error ? e.message : String(e) }, 'Writing assistance unavailable');
       setSuggestions([t('writing.tipUnavailable') || (lang === 'zh' ? '寫作提示暫時無法載入，請稍後重試。' : 'Writing tips are temporarily unavailable. Please try again later.')]);
     }
     finally { setAssistLoading(false); }
@@ -285,7 +274,7 @@ export default function WritingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: store.userId, event: { type: 'submitWriting' } }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-writing', error: e instanceof Error ? e.message : String(e) }, 'Gamification submitWriting XP failed'); });
     }
   };
 
@@ -297,7 +286,7 @@ export default function WritingPage() {
     setRewriteSummary([]);
     try {
       const feedbackText = aiResult
-        ? `Grammar errors: ${(aiResult.grammarErrors || []).map((e: Record<string, unknown>) => `${e.original} → ${e.correction}`).join('; ')}. Chinglish: ${(aiResult.chinglishWarnings || []).map((c: Record<string, unknown>) => c.original).join('; ')}`
+        ? `Grammar errors: ${(aiResult.grammarErrors || []).map((e) => `${e.original} → ${e.correction}`).join('; ')}. Chinglish: ${(aiResult.chinglishWarnings || []).map((c) => c.original).join('; ')}`
         : '';
       const res = await fetch('/api/ai/rewrite-writing', {
         method: 'POST',

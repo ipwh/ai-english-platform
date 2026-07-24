@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Loader2, AlertTriangle, GraduationCap } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import { useT } from '@/hooks/use-i18n';
 import { gradeLabels } from '@/shared/utils/nav';
 
@@ -24,7 +25,7 @@ export default function TeacherClassesPage() {
         studentCount: c._count?.students ?? 0,
         assignmentCount: c._count?.assignments ?? 0,
       }))))
-      .catch((e) => { console.error('Failed to load classes:', e); setLoadError(t('common.somethingWrong')); })
+      .catch((e) => { logger.error({ module: 'teacher-classes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load classes'); setLoadError(t('common.somethingWrong')); })
       .finally(() => setLoading(false));
   };
 

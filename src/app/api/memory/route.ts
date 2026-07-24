@@ -1,8 +1,9 @@
-// Sprint 75: Learning Memory API — uses MemoryService (persistent via IMemoryRepository)
+// Sprint 75: Learning Memory API — uses MemoryService (persistent via MemoryDbRepository)
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { memoryService } from '@/modules/learning/memory/services/memory-service';
 import { generateLearningContext } from '@/modules/learning/memory/services/memory-scoring';
+import { logger } from '@/shared/logger/logger';
 
 // GET /api/memory?action=context|memory|freshness
 export async function GET(request: NextRequest) {
@@ -65,16 +66,16 @@ export async function POST(request: NextRequest) {
         memoryService.updateWeaknesses(auth.userId, body.skillAccuracy);
         break;
       case 'persist': {
-        // TODO(Sprint 45): Implement memory persistence to DB
-        break;
+        // Verify memory is persisted (DB-backed repo is always auto-persisted)
+        const exists = await memoryService.getMemory(auth.userId);
+        logger.info({ module: 'memory', userId: auth.userId, version: exists.version }, 'Memory persistence verified');
+        return NextResponse.json({ success: true, persisted: true, version: exists.version });
       }
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
 
-    // Auto-persist after every update
-    // TODO(Sprint 45): Implement memory persistence to DB
-
+    // Memory is auto-persisted to DB by MemoryDbRepository after every update
     return NextResponse.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -90,11 +91,12 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    memoryService.deleteMemory(auth.userId);
-    // TODO(Sprint 45): Implement memory deletion from DB
-    return NextResponse.json({ success: true });
+    await memoryService.deleteMemory(auth.userId);
+    logger.info({ module: 'memory', userId: auth.userId }, 'Memory deleted');
+    return NextResponse.json({ success: true, deleted: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ module: 'memory', error: msg }, 'Memory deletion failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

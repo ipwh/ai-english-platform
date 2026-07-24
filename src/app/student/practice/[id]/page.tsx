@@ -11,6 +11,7 @@ import {
   ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
   BookMarked, Sparkles, Loader2, Flag, Zap, RotateCcw, Home,
 } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer, { prefetchTTSAudio } from '@/components/shared/AudioPlayer';
@@ -190,10 +191,10 @@ export default function PracticeQuestionPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        console.error('[practice] savePractice failed:', res.status, await res.text().catch(() => ''));
+        logger.error({ module: 'student-practice-detail', error: `Status ${res.status}: ${await res.text().catch(() => '')}` }, 'savePractice failed');
       }
     } catch (err) {
-      console.error('[practice] savePractice network error:', err);
+      logger.error({ module: 'student-practice-detail', error: err instanceof Error ? err.message : String(err) }, 'savePractice network error');
     }
   }, []);
 
@@ -249,7 +250,7 @@ export default function PracticeQuestionPage() {
     if (nextQ?.listeningContent && nextQ.languageSkill === 'listening') {
       // 延遲 1 秒載入，避免影響當前頁面渲染
       const timer = setTimeout(() => {
-        prefetchTTSAudio(nextQ.listeningContent!).catch((e) => { console.error("[page] fetch failed", e) });
+        prefetchTTSAudio(nextQ.listeningContent!).catch((e) => { logger.error({ module: 'student-practice-detail', error: e instanceof Error ? e.message : String(e) }, 'TTS audio prefetch failed'); });
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -364,7 +365,7 @@ export default function PracticeQuestionPage() {
           mistakeType: 'grammar',
           aiExplanation: '',
         }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-practice-detail', error: e instanceof Error ? e.message : String(e) }, 'Mistake record POST failed'); });
     }
   };
 

@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus } from 'lucide-react';
+import { logger } from '@/shared/logger/logger';
 
 import SkillChip from '@/components/shared/SkillChip';
 import QuickAddVocab from '@/modules/vocabulary/components/QuickAddVocab';
@@ -48,7 +49,7 @@ export default function MistakesPage() {
           setSrsMistakesDue(d.reviewCards.mistakes.length);
         }
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'SRS review fetch failed'); });
   }, [studentId]);
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function MistakesPage() {
         const level = d?.user?.level || d?.user?.class?.gradeLevel;
         if (level && ['S1','S2','S3','S4','S5','S6'].includes(level)) setGradeLevel(level);
       })
-      .catch((e) => { console.error("[page] fetch failed", e) });
+      .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Profile fetch failed'); });
   }, [store.userId]);
 
   const loadMistakes = () => {
@@ -69,7 +70,7 @@ export default function MistakesPage() {
     fetch(`/api/mistakes?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
       .then(d => { if (d.mistakes?.length) setMistakes(d.mistakes); })
-      .catch((e) => { console.error('Failed to load mistakes:', e); setLoadError(true); });
+      .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load mistakes'); setLoadError(true); });
   };
 
   useEffect(() => { loadMistakes(); }, [studentId]);
@@ -106,7 +107,7 @@ export default function MistakesPage() {
         setExplainError(prev => ({ ...prev, [m.id]: json.error || t('mistakes.aiExplainError') }));
       }
     } catch (e) {
-      console.error('Failed to fetch AI explanation:', e);
+      logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Failed to fetch AI explanation');
       setExplainError(prev => ({ ...prev, [m.id]: t('mistakes.aiExplainError') }));
     }
     finally { setExplainingId(null); }
@@ -123,7 +124,7 @@ export default function MistakesPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, inReviewList: !target.inReviewList }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Mistake review list PATCH failed'); });
     }
   };
 
@@ -138,14 +139,14 @@ export default function MistakesPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, reviewed: newReviewed }),
-      }).catch((e) => { console.error("[page] fetch failed", e) });
+      }).catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Mistake reviewed PATCH failed'); });
       // 🎮 重溫錯題 XP（僅標記已溫習時）
       if (newReviewed && store.userId) {
         fetch('/api/gamification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId: store.userId, event: { type: 'reviewMistake' } }),
-        }).catch((e) => { console.error("[page] fetch failed", e) });
+        }).catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Gamification reviewMistake XP failed'); });
       }
     }
   };

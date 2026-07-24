@@ -17,7 +17,7 @@ async function getTeacherAuth(request: NextRequest): Promise<{ userId: string; i
   }
   const session = await auth();
   if (session?.user?.id) {
-    const user = await findUserByIdSelect(session.user.id, { role: true });
+    const user = await findUserByIdSelect(session.user.id, { role: true }) as { role: string } | null;
     if (user && (user.role === 'teacher' || user.role === 'admin')) {
       return { userId: session.user.id, isAdmin: user.role === 'admin' };
     }
@@ -58,15 +58,15 @@ export async function GET(
     if (!teacherAuth.isAdmin) {
       const studentClassIds = [
         ...(student.classId ? [student.classId] : []),
-        ...(student.studentClasses?.map((sc: { classId: string }) => sc.classId) || []),
+        ...((student.studentClasses || []) as Array<{ classId: string }>).map((sc) => sc.classId),
       ];
       if (studentClassIds.length === 0) {
         return NextResponse.json({ error: '學生未分配至任何班級' }, { status: 403 });
       }
       // Check if teacher teaches any of the student's classes
       const teachingRelations = await listTeacherClasses(teacherAuth.userId);
-      const teachingClassIds = teachingRelations.map((tc: any) => tc.classId);
-      if (!teachingClassIds.some((id: string) => studentClassIds.includes(id))) {
+      const teachingClassIds = (teachingRelations as Array<{ classId: string }>).map((tc) => tc.classId);
+      if (!teachingClassIds.some((id) => studentClassIds.includes(id))) {
         return NextResponse.json({ error: '無權限查看此學生：不屬於您任教的班級' }, { status: 403 });
       }
     }
