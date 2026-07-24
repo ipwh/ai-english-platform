@@ -720,6 +720,28 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     let globalWordCount = 0;
     let globalLineCount = 0;
 
+    // Sprint 102: Build lineMap — {line, startChar, endChar, text} for every line
+    interface LineMapEntry { line: number; startChar: number; endChar: number; text: string }
+    const lineMap: LineMapEntry[] = [];
+    let currentLineStart = 0;
+    let currentLineWords = 0;
+    let currentLineText = '';
+    let globalCharCount = 0;
+
+    const flushLine = () => {
+      if (currentLineText.trim()) {
+        lineMap.push({
+          line: lineMap.length + 1,
+          startChar: currentLineStart,
+          endChar: globalCharCount,
+          text: currentLineText.trim(),
+        });
+      }
+      currentLineStart = globalCharCount + 1;
+      currentLineWords = 0;
+      currentLineText = '';
+    };
+
     for (let pi = 0; pi < paragraphs.length; pi++) {
       const para = paragraphs[pi];
       if (!para.trim()) { result += '\n\n'; continue; }
@@ -727,17 +749,23 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       const paraLines = Math.ceil(paraWords.length / WORDS_PER_LINE);
       const paraStartLine = globalLineCount + 1;
 
-      // Insert markers within this paragraph
+      // Insert markers within this paragraph + build lineMap
       let paraWordIdx = 0;
-      let paraLineNum = 1;
       const chars = [...para];
       let ci = 0;
       while (ci < chars.length) {
         const ch = chars[ci];
         result += ch;
+        globalCharCount++;
+        currentLineText += ch;
         if (ch === ' ' || ch === '\n') {
           paraWordIdx++;
           globalWordCount++;
+          currentLineWords++;
+          // Flush line every WORDS_PER_LINE words
+          if (currentLineWords >= WORDS_PER_LINE) {
+            flushLine();
+          }
           // Check if we've reached a marker position (every MARKER_INTERVAL lines)
           if (paraWordIdx > 0 && paraWordIdx % (MARKER_INTERVAL * WORDS_PER_LINE) === 0) {
             const markerLine = paraStartLine + Math.floor(paraWordIdx / WORDS_PER_LINE) - 1;
@@ -752,7 +780,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       // Add paragraph separator
       if (pi < paragraphs.length - 1) {
         result += '\n\n';
+        globalCharCount += 2;
+        currentLineText += '\n\n';
       }
+      // Flush last line of paragraph
+      if (currentLineWords > 0) flushLine();
       globalLineCount += paraLines;
     }
 
@@ -797,10 +829,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       oldToNewLine.set(oldLine, bestNewLine);
     }
 
-    // Helper: remap a line number reference, with clamping
+    // Helper: remap a line number reference with ±2 line tolerance
     const remapLine = (oldLine: number): number => {
       // Direct match first
       if (oldToNewLine.has(oldLine)) return oldToNewLine.get(oldLine)!;
+      // ±2 tolerance: check neighboring lines
+      for (const delta of [1, -1, 2, -2]) {
+        const neighbor = oldLine + delta;
+        if (oldToNewLine.has(neighbor)) return oldToNewLine.get(neighbor)!;
+      }
       // Proportional fallback
       const maxOldLine = aiMarkers.length > 0
         ? Math.max(...aiMarkers.map(m => m.lineNum))
@@ -827,6 +864,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       wordCount: totalWords,
       source: parsed.source || undefined,
       lineNote: 'Line numbers are approximate (~11 words per line). Refer to paragraph numbers for precise location.',
+      lineMap, // Sprint 102: {line, startChar, endChar, text} for every line
     };
     delete response.readingContent;
 
