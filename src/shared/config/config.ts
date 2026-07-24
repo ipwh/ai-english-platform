@@ -38,9 +38,9 @@ const envSchema = z.object({
   VERTEX_GEMINI_MODEL: z.string().optional(),
   GCP_SERVICE_ACCOUNT_JSON: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
-  // Auth (required in production)
-  JWT_SECRET: z.string().optional(),
-  AUTH_SECRET: z.string().optional(),
+  // Auth (required in production — minimum 32 chars for HS256)
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters for HS256').optional(),
+  AUTH_SECRET: z.string().min(32, 'AUTH_SECRET must be at least 32 characters').optional(),
   // Database
   DATABASE_URL: z.string().optional(),
   // AI tuning
@@ -78,6 +78,26 @@ try {
 // ============================================
 // 安全性 — 強制要求生產環境設定必要變數
 // ============================================
+
+// Production-critical env vars — crash fast if missing
+if (isProduction) {
+  const jwtSecret = process.env.JWT_SECRET || '';
+  const authSecret = process.env.AUTH_SECRET || '';
+  const missing: string[] = [];
+  if (!jwtSecret || jwtSecret.length < 32) {
+    missing.push('JWT_SECRET (min 32 chars)');
+  }
+  if (!authSecret || authSecret.length < 32) {
+    missing.push('AUTH_SECRET (min 32 chars)');
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `[config] 生產環境缺少必要安全變數: ${missing.join(', ')}。\n` +
+      '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
+      '這些變數必須為至少 32 字元的隨機字串。'
+    );
+  }
+}
 
 function requireEnv(key: string): string {
   const value = process.env[key];

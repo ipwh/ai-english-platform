@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     // If a specific category is requested, filter
     if (category) {
       const filtered = weakness.topWeaknesses.filter(
-        (w: any) => w.grammarCategory === category,
+        (w: { grammarCategory?: string }) => w.grammarCategory === category,
       );
       return NextResponse.json({
         studentId,

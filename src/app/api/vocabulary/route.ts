@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
     }, { headers: cacheFor(CACHE_SHORT) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load vocabulary';
+    // Intentional: return empty [] and default pagination so client renders graceful empty state
     logger.error({ module: 'vocabulary', error: err instanceof Error ? err.message : String(err) }, 'Vocabulary GET failed');
     return NextResponse.json({ error: message, vocab: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }, { status: 500 });
   }

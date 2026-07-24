@@ -1,6 +1,7 @@
 // Sprint 23: Learning Analytics API
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import {
   buildProgressTimeline, buildLearningStatistics,
   buildMasteryTrend, buildWeaknessTrend,
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ module: 'analytics', error: msg }, 'Analytics generation failed');
     return NextResponse.json({ error: `Analytics generation failed: ${msg}` }, { status: 500 });
   }
 }

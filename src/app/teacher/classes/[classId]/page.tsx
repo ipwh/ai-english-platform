@@ -22,12 +22,17 @@ interface RealStudent {
   _count?: { sessions: number; mistakes: number };
 }
 
+interface ClassDetail {
+  id: string; name: string; gradeLevel: string; academicYear?: string;
+  _count?: { students?: number; assignments?: number };
+}
+
 export default function ClassDetailPage() {
   const { t } = useT();
   const params = useParams();
   const classId = params.classId as string;
 
-  const [cls, setCls] = useState<any>(null);
+  const [cls, setCls] = useState<ClassDetail | null>(null);
   const [students, setStudents] = useState<RealStudent[]>([]);
   const [loading, setLoading] = useState(true);
 

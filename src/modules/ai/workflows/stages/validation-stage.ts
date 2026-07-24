@@ -9,7 +9,7 @@ export const ValidationStage: WorkflowStage<WorkflowContext> = {
   async execute(ctx) {
     // Validation is handled internally by executeAIPipeline via Zod schemas.
     // This stage exists for observability — tracking validation events.
-    const result = ctx.pipelineResult as any;
+    const result = ctx.pipelineResult;
     if (result && !result.data) {
       ctx.warnings.push('Pipeline result has no validated data');
     }

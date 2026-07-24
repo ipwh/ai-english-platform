@@ -8,7 +8,7 @@ import { JSON_EXECUTION_POLICY } from '@/modules/ai/runtime/execution-policy';
 export const GenerateQuestionsWorkflow = defineWorkflow({
   name: 'generate-questions',
   description: 'Generate DSE-aligned practice questions via AI',
-  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage] as any,
+  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage],
   executionPolicy: { ...JSON_EXECUTION_POLICY, maxTokens: 4096, timeoutMs: 25000 },
   tags: ['ai', 'questions', 'generation'],
 });

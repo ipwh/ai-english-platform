@@ -1,6 +1,7 @@
 // Sprint 24: Teacher Analytics API
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import {
   analyzeClass, detectWeakSkills, rankWriting, rankReading,
   compareStudent, predictRisks, generateSuggestions,
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ module: 'teacher-analytics', error: msg }, 'Teacher analytics failed');
     return NextResponse.json({ error: `Analytics failed: ${msg}` }, { status: 500 });
   }
 }

@@ -23,6 +23,17 @@ const wordLimits = [100, 150, 200, 300, 400, 500, 800];
 
 
 
+interface AIWritingResult {
+  summary?: string;
+  totalScore?: number;
+  rubricScores?: Record<string, { score: number; comment: string }>;
+  grammarIssues?: Array<{ text: string; correction: string; explanation: string }>;
+  vocabularySuggestions?: Array<{ original: string; suggestion: string }>;
+  strengths?: string[];
+  weaknesses?: string[];
+  [key: string]: unknown;
+}
+
 export default function WritingPage() {
   const { t, language } = useT();
   const { showToast } = useToast();
@@ -65,7 +76,7 @@ export default function WritingPage() {
   const [assistLoading, setAssistLoading] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiResult, setAiResult] = useState<AIWritingResult | null>(null);
   const [aiError, setAiError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');

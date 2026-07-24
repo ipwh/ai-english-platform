@@ -8,11 +8,16 @@ import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/shared/utils/utils';
 import { useT } from '@/hooks/use-i18n';
 
+interface TeacherProfile {
+  id: string; email: string; nameZh?: string | null; nameEn?: string | null;
+  role: string; department?: string | null; image?: string | null;
+}
+
 export default function TeacherProfilePage() {
   const { t } = useT();
   const router = useRouter();
   const { logout, userDisplayName } = useAppStore();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ nameZh: '', nameEn: '' });
   const [saving, setSaving] = useState(false);

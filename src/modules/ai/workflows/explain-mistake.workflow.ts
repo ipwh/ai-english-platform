@@ -7,7 +7,7 @@ import { JSON_EXECUTION_POLICY } from '@/modules/ai/runtime/execution-policy';
 export const ExplainMistakeWorkflow = defineWorkflow({
   name: 'explain-mistake',
   description: 'Explain student mistakes with grammar rules',
-  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage] as any,
+  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage],
   executionPolicy: { ...JSON_EXECUTION_POLICY, maxTokens: 2048 },
   tags: ['ai', 'mistake', 'explanation'],
 });

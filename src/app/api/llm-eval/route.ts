@@ -1,6 +1,7 @@
 // Sprint 28: LLM Evaluation API
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import {
   runEval, runConsistencyEval, benchmarkPrompt, benchmarkModel, rankModels,
   comparePromptVersions, compareProviders, generateReport, getEvalHistory, clearEvalHistory,
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ module: 'llm-eval', error: msg }, 'LLM evaluation failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

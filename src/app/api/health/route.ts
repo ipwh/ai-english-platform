@@ -1,5 +1,6 @@
 // Sprint 29/79/96/97/98/99/100: Health Check API — extended with architecture certification
 import { NextResponse } from 'next/server';
+import { logger } from '@/shared/logger/logger';
 import { healthCheck, readinessCheck } from '@/modules/production/services/production-ready';
 import { getAllFeatureFlags } from '@/modules/production/services/production-ready';
 import { runHealthCheck } from '@/modules/platform/health-check';
@@ -37,6 +38,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unknown check type' }, { status: 400 });
     }
   } catch (err) {
-    return NextResponse.json({ status: 'unhealthy', error: String(err) }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ module: 'health-check', error: msg }, 'Health check failed');
+    return NextResponse.json({ status: 'unhealthy', error: msg }, { status: 500 });
   }
 }

@@ -40,7 +40,7 @@ export function unblacklistProvider(provider: string): void {
 
 export function getAvailableProviders(): string[] {
   const available = providerRegistry.getAvailableProviders();
-  const names = available.map(p => (p as any).name || 'unknown');
+  const names = available.map(p => p.name || 'unknown');
   return names.filter(n => !currentPolicy.blacklist.includes(n));
 }
 

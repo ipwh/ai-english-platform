@@ -52,7 +52,9 @@ export default function TeacherReportsPage() {
       }
       setDone(type);
       setTimeout(() => setDone(null), 3000);
-    } catch (e) { console.error('Failed to generate report:', e); }
+    } catch (e) {
+      alert(t('teacher.reports.generateFailed') || 'Report generation failed. Please try again.');
+    }
     finally { setGenerating(null); }
   };
 

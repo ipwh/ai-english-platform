@@ -13,6 +13,7 @@ import { claudeProvider } from './claude-provider';
 import { openaiProvider } from './openai-provider';
 import { logger } from '@/shared/logger/logger';
 import { aiCache } from '@/modules/ai/services/ai-cache';
+import { isProviderAvailable as isCircuitOk, recordSuccess as cbRecordSuccess, recordFailure as cbRecordFailure } from '@/modules/ai/runtime/circuit-breaker';
 
 // ============================================
 // Provider registry with priority-ordered fallback
@@ -36,7 +37,7 @@ class ProviderRegistry {
   }
 
   getAvailableProviders(): AIProvider[] {
-    return this.providers.filter(p => isProviderAvailable(p));
+    return this.providers.filter(p => isProviderAvailable(p) && isCircuitOk(p.name));
   }
 
   getProvider(name: string): AIProvider | undefined {
@@ -79,6 +80,9 @@ class ProviderRegistry {
         const latencyMs = Date.now() - startTime;
         const fallback = i > 0;
 
+        // Record success with circuit breaker
+        cbRecordSuccess(provider.name);
+
         logger.info({
           module: 'ai-provider', event: 'call_success', provider: provider.name, latencyMs, fallback,
         }, `AI call succeeded via ${provider.name}`);
@@ -90,6 +94,8 @@ class ProviderRegistry {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         errors.push(`${provider.name}: ${msg}`);
+        // Record failure with circuit breaker
+        cbRecordFailure(provider.name);
         if (i < available.length - 1) {
           logger.warn({ module: 'ai-provider', provider: provider.name, error: msg }, `Falling back to next provider`);
         }

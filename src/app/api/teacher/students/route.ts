@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     let taughtClassIds: string[] = [];
     if (!isAdmin) {
       const taughtClasses = await listTeacherClasses(teacherInfo.userId);
-      taughtClassIds = taughtClasses.map((tc: any) => tc.classId);
+      taughtClassIds = taughtClasses.map((tc: { classId: string }) => tc.classId);
     }
 
     // Build student filter: admins see all, teachers see their taught classes

@@ -20,12 +20,21 @@ interface GamificationData {
   stats: Record<string, number>;
 }
 
+interface AIInsight {
+  summary?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  recommendations?: string[];
+  estimatedHkdseLevel?: string;
+  estimatedCefrLevel?: string;
+}
+
 export default function StudentDashboardPage() {
   const { userDisplayName, getWeeklyStats, getMasteryBySkill, loadPracticeHistory, language, userId } = useAppStore();
   const { t } = useT();
   const displayName = userDisplayName || t('common.studentFallback');
   const [studentId, setStudentId] = useState('');
-  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [aiInsight, setAiInsight] = useState<AIInsight | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [studentLevel, setStudentLevel] = useState('S4');

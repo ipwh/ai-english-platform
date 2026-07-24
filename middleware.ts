@@ -65,10 +65,12 @@ export default async function middleware(request: NextRequest) {
   // 若只有 Vercel protection cookie 而沒有任何 auth cookie，
   // 且當前不是 auth 相關路徑 → 可能是 Vercel 驗證阻擋了正常登入流程
   if (isVercelProtected && !hasNextAuthCookie) {
-    console.warn(
-      '[middleware] ⚠️ Vercel Deployment Protection detected without auth cookies. ' +
-      'If users report login issues, consider disabling Deployment Protection in Vercel Dashboard → Settings → Deployment Protection.'
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[middleware] ⚠️ Vercel Deployment Protection detected without auth cookies. ' +
+        'If users report login issues, consider disabling Deployment Protection in Vercel Dashboard → Settings → Deployment Protection.'
+      );
+    }
   }
 
   if (hasNextAuthCookie) {

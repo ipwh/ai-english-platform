@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { curriculumEngine } from '@/modules/curriculum/services/curriculum-engine';
+import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ module: 'curriculum', error: msg }, 'Curriculum fetch failed');
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

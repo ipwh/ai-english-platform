@@ -9,7 +9,7 @@ export const ParserStage: WorkflowStage<WorkflowContext> = {
   async execute(ctx) {
     // Parsing is handled internally by executeAIPipeline via response-parser.ts.
     // This stage exists for observability — tracking parse/repair events.
-    if (ctx.pipelineResult && (ctx.pipelineResult as any).repaired) {
+    if (ctx.pipelineResult?.repaired) {
       ctx.warnings.push('AI response was repaired (truncated JSON)');
     }
     return ctx;

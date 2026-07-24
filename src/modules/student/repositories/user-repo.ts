@@ -107,7 +107,7 @@ export async function getStudentAnalytics(studentId: string) {
     db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),
     db.writingDraft.findMany({ where: { studentId }, select: { id: true, title: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 20 }),
     db.xpTransaction.findMany({ where: { userId: studentId }, select: { event: true, xpAmount: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 50 }),
-    db.weeklySnapshot.findMany({ where: { studentId } as any, select: { weekStart: true, xpGained: true, sessionsCompleted: true, accuracy: true } as any, orderBy: { weekStart: 'desc' }, take: 20 }),
+    db.weeklySnapshot.findMany({ where: { userId: studentId }, select: { weekStart: true, xpGained: true, sessionsCompleted: true, accuracy: true }, orderBy: { weekStart: 'desc' }, take: 20 }),
     db.submission.findMany({ where: { studentId }, select: { id: true, score: true, status: true, submittedAt: true, assignment: { select: { title: true } } }, orderBy: { submittedAt: 'desc' }, take: 20 }),
   ]);
   return { sessions, mistakes, vocabTotal, vocabMastered, drafts, xp, snapshots, submissions };
@@ -135,18 +135,18 @@ export async function findReviewsBySubmissions(submissionIds: string[]) {
   return db.review.findMany({ where: { submissionId: { in: submissionIds } }, select: { submissionId: true, teacherScore: true, teacherFeedback: true, status: true } });
 }
 export async function createReview(data: { submissionId: string; teacherScore?: number; teacherFeedback?: string; status?: string }) {
-  return db.review.create({ data } as any);
+  return db.review.create({ data } as Parameters<typeof db.review.create>[0]);
 }
 
 // Integrated Skills drafts
 export async function findIntegratedSkillsDraft(studentId: string) {
-  return db.integratedSkillsDraft.findUnique({ where: { studentId } as any });
+  return db.integratedSkillsDraft.findUnique({ where: { userId: studentId } });
 }
 export async function upsertIntegratedSkillsDraft(studentId: string, data: Record<string, unknown>) {
-  return db.integratedSkillsDraft.upsert({ where: { studentId } as any, update: data, create: { studentId, ...data } as any });
+  return db.integratedSkillsDraft.upsert({ where: { userId: studentId }, update: data, create: { userId: studentId, ...data } });
 }
 export async function deleteIntegratedSkillsDraft(userId: string) {
-  return (db as any).integratedSkillsDraft.deleteMany({ where: { userId } });
+  return db.integratedSkillsDraft.deleteMany({ where: { userId } });
 }
 
 // Assignment queries
@@ -154,7 +154,7 @@ export async function listAssignments(where: Record<string, unknown>) {
   return db.assignment.findMany({ where, include: { _count: { select: { submissions: true } } }, orderBy: { createdAt: 'desc' } });
 }
 export async function findAssignmentById(id: string) {
-  return db.assignment.findUnique({ where: { id } }) as any;
+  return db.assignment.findUnique({ where: { id } });
 }
 export async function findAssignmentSubmissions(assignmentId: string) {
   return db.submission.findMany({ where: { assignmentId }, select: { studentId: true, status: true } });

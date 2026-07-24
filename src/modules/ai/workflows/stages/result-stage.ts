@@ -8,7 +8,7 @@ import type { WorkflowResult } from '../workflow-engine';
 export const ResultStage: WorkflowStage<WorkflowContext> = {
   name: 'result',
   async execute(ctx) {
-    const result = ctx.pipelineResult as any;
+    const result = ctx.pipelineResult;
     ctx.response = {
       success: !!(result?.data),
       data: result?.data,
@@ -17,7 +17,7 @@ export const ResultStage: WorkflowStage<WorkflowContext> = {
       totalLatencyMs: result?.totalLatencyMs || 0,
       retryCount: ctx.retryCount,
       warnings: ctx.warnings,
-    } as any;
+    } satisfies Partial<WorkflowResult>;
     return ctx;
   },
 };

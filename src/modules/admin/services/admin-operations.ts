@@ -15,7 +15,7 @@ export async function adminDeleteClass(id: string) {
 }
 export async function adminLinkEducators(cls: any, educators: any[]) {
   for (const educator of educators) {
-    await (db as any).teacherClass.upsert({ where: { teacherId_classId: { teacherId: educator.id, classId: cls.id } }, update: {}, create: { teacherId: educator.id, classId: cls.id } });
+    await db.teacherClass.upsert({ where: { teacherId_classId: { teacherId: educator.id, classId: cls.id } }, update: {}, create: { teacherId: educator.id, classId: cls.id } });
   }
 }
 export async function adminFindEducators() {
@@ -56,7 +56,7 @@ export async function adminCleanupDeleteSubmissions(studentIds: string[]) {
   return db.submission.deleteMany({ where: { studentId: { in: studentIds } } });
 }
 export async function adminCleanupDeleteAccounts(userIds: string[]) {
-  return (db as any).account.deleteMany({ where: { userId: { in: userIds } } });
+  return db.account.deleteMany({ where: { userId: { in: userIds } } });
 }
 export async function adminCleanupDeleteSessions(userIds: string[]) {
   return db.practiceSession.deleteMany({ where: { studentId: { in: userIds } } });
@@ -116,7 +116,7 @@ export async function adminLoginLogsCount() { return db.loginLog.count(); }
 export async function adminLoginLogsCreate(data: any) { return db.loginLog.create({ data }); }
 
 // ── admin/stats ──
-export async function adminStatsGroupUsers(args: any) { return (db.user as any).groupBy(args); }
+export async function adminStatsGroupUsers(args: any) { return db.user.groupBy(args); }
 export async function adminStatsCountUsers(where: any) { return db.user.count({ where }); }
 export async function adminStatsCountClasses() { return db.class.count(); }
 export async function adminStatsCountAssignments() { return db.assignment.count(); }
@@ -142,7 +142,7 @@ export async function adminAnalyticsFindXp(userId: string) {
   return db.xpTransaction.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 100 });
 }
 export async function adminAnalyticsFindSnapshots(studentId: string) {
-  return (db as any).weeklySnapshot.findMany({ where: { studentId }, orderBy: { weekStart: 'desc' }, take: 12 });
+  return db.weeklySnapshot.findMany({ where: { userId: studentId }, orderBy: { weekStart: 'desc' }, take: 12 });
 }
 export async function adminAnalyticsFindSubmissions(studentId: string) {
   return db.submission.findMany({ where: { studentId }, orderBy: { submittedAt: 'desc' }, take: 50 });
@@ -157,18 +157,18 @@ export async function adminUserUpdate(id: string, data: any) { return db.user.up
 export async function adminUserDeleteCascade(userId: string) {
   await db.$transaction([
     db.submission.deleteMany({ where: { studentId: userId } }),
-    (db as any).review.deleteMany({ where: { OR: [{ studentId: userId }, { teacherId: userId }] } }),
+    db.review.deleteMany({ where: { OR: [{ studentId: userId }, { teacherId: userId }] } }),
     db.assignment.deleteMany({ where: { createdBy: userId } }),
     db.material.deleteMany({ where: { uploadedBy: userId } }),
-    (db as any).group.deleteMany({ where: { createdBy: userId } }),
-    (db as any).groupMember.deleteMany({ where: { studentId: userId } }),
-    (db as any).assignmentStudent.deleteMany({ where: { studentId: userId } }),
-    (db as any).account.deleteMany({ where: { userId } }),
-    (db as any).session.deleteMany({ where: { userId } }),
+    db.group.deleteMany({ where: { createdBy: userId } }),
+    db.groupMember.deleteMany({ where: { studentId: userId } }),
+    db.assignmentStudent.deleteMany({ where: { studentId: userId } }),
+    db.account.deleteMany({ where: { userId } }),
+    db.session.deleteMany({ where: { userId } }),
     db.practiceSession.deleteMany({ where: { studentId: userId } }),
-    (db as any).integratedSkillsDraft.deleteMany({ where: { studentId: userId } }),
-    (db as any).userPreferences.deleteMany({ where: { userId } }),
-    (db as any).studentClass.deleteMany({ where: { studentId: userId } }),
+    db.integratedSkillsDraft.deleteMany({ where: { userId } }),
+    db.userPreferences.deleteMany({ where: { userId } }),
+    db.studentClass.deleteMany({ where: { studentId: userId } }),
   ]);
   return db.user.delete({ where: { id: userId } });
 }

@@ -6,7 +6,7 @@ import { JSON_EXECUTION_POLICY } from '@/modules/ai/runtime/execution-policy';
 export const StudyHelpWorkflow = defineWorkflow({
   name: 'study-help',
   description: 'AI-powered study help and tutoring',
-  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage] as any,
+  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage],
   executionPolicy: { ...JSON_EXECUTION_POLICY, maxTokens: 4096 },
   tags: ['ai', 'help', 'tutoring'],
 });

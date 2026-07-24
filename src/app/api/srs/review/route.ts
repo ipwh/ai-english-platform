@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '缺少必要參數' }, { status: 400 });
     }
 
-    const updates: Promise<any>[] = [];
+    const updates: Promise<unknown>[] = [];
 
     for (const r of results) {
       if (r.type === 'vocab') {

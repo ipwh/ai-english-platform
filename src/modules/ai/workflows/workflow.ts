@@ -1,6 +1,7 @@
 // Sprint 87: Workflow Definition — declarative workflow configuration
 
 import type { WorkflowStage } from './workflow-stage';
+import type { WorkflowContext } from './workflow-context';
 import type { ExecutionPolicy } from '@/modules/ai/runtime/execution-policy';
 import type { ZodSchema } from 'zod';
 
@@ -10,7 +11,7 @@ export interface WorkflowDefinition<TInput = unknown, TOutput = unknown> {
   /** Human-readable description */
   description: string;
   /** Ordered stages to execute */
-  stages: WorkflowStage[];
+  stages: WorkflowStage<WorkflowContext>[];
   /** Default execution policy */
   executionPolicy: ExecutionPolicy;
   /** Output schema for validation */

@@ -8,7 +8,7 @@ export async function listMaterials(filters?: Prisma.MaterialWhereInput) { retur
 export async function listMaterialsFull(args: { where?: Prisma.MaterialWhereInput; select?: Prisma.MaterialSelect; include?: Prisma.MaterialInclude; take?: number; orderBy?: Prisma.MaterialOrderByWithRelationInput }) {
   return db.material.findMany({ where: args.where ?? {}, ...args });
 }
-export async function createMaterial(data: Prisma.MaterialCreateInput) { return db.material.create({ data }); }
+export async function createMaterial(data: Prisma.MaterialUncheckedCreateInput) { return db.material.create({ data }); }
 export async function deleteMaterial(id: string) { return db.material.delete({ where: { id } }); }
 export async function deleteMaterialChunks(materialId: string) { return db.materialChunk.deleteMany({ where: { materialId } }); }
 export async function createMaterialChunk(data: Prisma.MaterialChunkUncheckedCreateInput) { return db.materialChunk.create({ data }); }

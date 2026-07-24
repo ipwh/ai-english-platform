@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       bySkill: mastery.bySkill,
       weakestSkills: mastery.weakSkills,
       strongestSkills: mastery.strongSkills,
-      totalPractices: Object.values(mastery.bySkill).reduce((s: number, sk: any) => s + sk.practiceCount, 0),
+      totalPractices: Object.values(mastery.bySkill).reduce((s: number, sk: { practiceCount: number }) => s + sk.practiceCount, 0),
       generatedAt: state.generatedAt,
     });
   } catch (err: unknown) {

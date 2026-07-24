@@ -1,6 +1,6 @@
 // Sprint 39: WritingCoachPro — enhanced analysis + revision engine
 import type {
-  EssaySubmission, EssayReview, ProRubricScores, IELTSScores,
+  EssaySubmission, EssayReview, ProRubricScores, IELTSScores, CEFRScores,
   SentenceVarietyAnalysis, ToneRegisterAnalysis, LogicArgumentAnalysis,
   ExpressionUpgrade, ParagraphRewrite, SentenceRewrite,
   ProRevisionPlan, ProRevisionComparison, RevisionRecord,
@@ -368,9 +368,9 @@ export class WritingCoachPro {
     };
   }
 
-  private scoreCefr(sub: EssaySubmission): { overall: any; subScores: Record<string, any> } {
+  private scoreCefr(sub: EssaySubmission): CEFRScores {
     const words = sub.wordCount || 150;
-    const level = words > 300 ? 'B2' : words > 150 ? 'B1' : 'A2';
+    const level = words > 300 ? 'B2' as const : words > 150 ? 'B1' as const : 'A2' as const;
     return { overall: level, subScores: { grammar: level, vocabulary: level, coherence: level } };
   }
 

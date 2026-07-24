@@ -199,7 +199,8 @@ export async function POST(request: NextRequest) {
       uploadedBy: userId,
       ocrStatus: 'none',
       ragStatus: 'none',
-    } as any);
+    });
+    // Note: createMaterial accepts MaterialUncheckedCreateInput — no relation required
 
     return NextResponse.json({ material }, { status: 201 });
   } catch (err: unknown) {
@@ -231,7 +232,7 @@ export async function PATCH(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
-    if (authResult.role !== 'admin' && (existing as any).uploadedBy && (existing as any).uploadedBy !== userId) {
+    if (authResult.role !== 'admin' && existing.uploadedBy && existing.uploadedBy !== userId) {
       return NextResponse.json({ error: 'Unauthorized — not the uploader' }, { status: 403 });
     }
 
@@ -246,7 +247,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    const material = await updateMaterial(id, updateData as any);
+    const material = await updateMaterial(id, updateData);
     return NextResponse.json({ material });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
@@ -277,7 +278,7 @@ export async function DELETE(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
-    if (authResult.role !== 'admin' && (existing as any).uploadedBy && (existing as any).uploadedBy !== userId) {
+    if (authResult.role !== 'admin' && existing.uploadedBy && existing.uploadedBy !== userId) {
       return NextResponse.json({ error: 'Unauthorized — not the uploader' }, { status: 403 });
     }
 

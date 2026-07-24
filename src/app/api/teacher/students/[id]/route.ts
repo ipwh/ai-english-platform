@@ -41,14 +41,14 @@ export async function GET(
     }
 
     // 學生基本資料
-    const student = await findUserByIdSelect(studentId as any, {
+    const student = await findUserByIdSelect(studentId, {
       id: true, email: true, nameZh: true, nameEn: true,
       level: true, overallAccuracy: true, classNumber: true,
       xp: true, badgeIds: true, streakDays: true, academicYear: true,
       classId: true,
       class: { select: { id: true, name: true, gradeLevel: true } },
       studentClasses: { select: { classId: true } },
-    } as any);
+    });
 
     if (!student) {
       return NextResponse.json({ error: '找不到學生' }, { status: 404 });
@@ -58,7 +58,7 @@ export async function GET(
     if (!teacherAuth.isAdmin) {
       const studentClassIds = [
         ...(student.classId ? [student.classId] : []),
-        ...((student as any).studentClasses?.map((sc: any) => sc.classId) || []),
+        ...(student.studentClasses?.map((sc: { classId: string }) => sc.classId) || []),
       ];
       if (studentClassIds.length === 0) {
         return NextResponse.json({ error: '學生未分配至任何班級' }, { status: 403 });

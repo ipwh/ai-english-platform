@@ -31,8 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    // Graceful fallback: if DB fails, still acknowledge the feedback
     logger.error({ module: 'feedback', error: msg }, 'Failed to persist feedback');
-    return NextResponse.json({ success: true, warning: 'Feedback received but could not be saved' });
+    return NextResponse.json({ error: 'Feedback could not be saved. Please try again.' }, { status: 500 });
   }
 }

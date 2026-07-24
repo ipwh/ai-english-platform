@@ -60,12 +60,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification GET failed');
-    return NextResponse.json({
-      xp: 0,
-      level: { level: 1, title: 'Level 1', titleZh: '第 1 級' },
-      badges: [],
-      stats: { totalQuestions: 0, totalSessions: 0 },
-    });
+    return NextResponse.json({ error: 'Failed to load gamification data' }, { status: 500 });
   }
 }
 

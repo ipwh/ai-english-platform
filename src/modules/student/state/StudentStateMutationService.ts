@@ -8,6 +8,23 @@ import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '../progress/serv
 import { studentStateBuilder } from './StudentStateBuilder';
 
 // ============================================
+// Local types for repository select results
+// ============================================
+
+interface UserSelectResult {
+  streakDays?: number | null;
+  overallAccuracy?: number | null;
+  xp?: number | null;
+  badgeIds?: string | null;
+}
+
+interface VocabStatsResult {
+  mastered?: number;
+  total?: number;
+  [key: string]: unknown;
+}
+
+// ============================================
 // StudentStateMutationService
 // ============================================
 
@@ -34,10 +51,10 @@ export class StudentStateMutationService {
     try {
       await createXpTransaction({
         userId: studentId,
-        amount: xpGained,
-        source: event.type,
-        metadata: event.metadata || {},
-      } as any);
+        event: event.type,
+        xpAmount: xpGained,
+        metadata: JSON.stringify(event.metadata || {}),
+      });
     } catch (err) {
       logger.error({ module: 'mutation', studentId, error: String(err) }, 'Failed to create XpTransaction');
     }
@@ -54,9 +71,9 @@ export class StudentStateMutationService {
    */
   async incrementStreak(studentId: string): Promise<number> {
     const { updateUser, findUserByIdSelect } = await import('@/modules/student/repositories/user-repo');
-    await updateUser(studentId, { streakDays: { increment: 1 } } as any);
-    const user = await findUserByIdSelect(studentId, { streakDays: true });
-    return (user as any)?.streakDays ?? 0;
+    await updateUser(studentId, { streakDays: { increment: 1 } });
+    const user = await findUserByIdSelect(studentId, { streakDays: true }) as UserSelectResult | null;
+    return user?.streakDays ?? 0;
   }
 
   /**
@@ -73,9 +90,9 @@ export class StudentStateMutationService {
     const { countDrafts } = await import('@/modules/writing-coach/repositories/writing-draft-repo');
 
     const [student, sessions, vocab, writingCount, sessionsCount] = await Promise.all([
-      findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true }).catch(() => null),
+      findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true }).catch(() => null) as Promise<UserSelectResult | null>,
       listPracticeSessions(studentId, 200).catch(() => [] as { totalQuestions: number }[]),
-      getVocabStats(studentId).catch(() => ({ mastered: 0 })),
+      getVocabStats(studentId).catch(() => ({ mastered: 0 })) as Promise<VocabStatsResult>,
       countDrafts(studentId).catch(() => 0),
       countPracticeSessions(studentId).catch(() => 0),
     ]);
@@ -84,10 +101,10 @@ export class StudentStateMutationService {
 
     const stats: BadgeCheckStats = {
       totalQuestions,
-      overallAccuracy: (student as any)?.overallAccuracy ?? 0,
-      streakDays: (student as any)?.streakDays ?? 0,
+      overallAccuracy: student?.overallAccuracy ?? 0,
+      streakDays: student?.streakDays ?? 0,
       sessionsCompleted: sessionsCount as number,
-      wordsMastered: (vocab as any).mastered ?? 0,
+      wordsMastered: vocab.mastered ?? 0,
       writingSubmissions: writingCount as number,
       diagnosticCompleted: false,
       skillAccuracy: {},
@@ -95,7 +112,7 @@ export class StudentStateMutationService {
 
     let alreadyUnlocked: string[] = [];
     try {
-      alreadyUnlocked = (student as any)?.badgeIds ? JSON.parse((student as any).badgeIds) : [];
+      alreadyUnlocked = student?.badgeIds ? JSON.parse(student.badgeIds) : [];
     } catch { alreadyUnlocked = []; }
 
     const allBadges = getAllBadges(stats, alreadyUnlocked);

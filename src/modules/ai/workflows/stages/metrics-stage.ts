@@ -9,7 +9,7 @@ import { recordStage } from '@/modules/ai/services/ai-observability';
 export const MetricsStage: WorkflowStage<WorkflowContext> = {
   name: 'metrics',
   async execute(ctx) {
-    const result = ctx.pipelineResult as any;
+    const result = ctx.pipelineResult;
     if (result) {
       recordProviderCall(result.provider || 'unknown', true, result.totalLatencyMs || 0);
       recordStage('pipeline', result.totalLatencyMs || 0, !!(result.data));

@@ -9,9 +9,8 @@ export const RetryStage: WorkflowStage<WorkflowContext> = {
   async execute(ctx) {
     // Retry is handled internally by executeAIPipeline via retry.ts.
     // This stage exists for observability — tracking retry decisions.
-    // If pipelineResult exists, capture retry count from there.
-    if (ctx.pipelineResult && (ctx.pipelineResult as any).retryCount > 0) {
-      ctx.retryCount = (ctx.pipelineResult as any).retryCount;
+    if (ctx.pipelineResult?.retryCount && ctx.pipelineResult.retryCount > 0) {
+      ctx.retryCount = ctx.pipelineResult.retryCount;
     }
     return ctx;
   },

@@ -19,6 +19,70 @@ interface ReviewEntry {
   evidenceCount?: number; retentionProbability?: number;
 }
 
+/** Minimal user shape from Prisma — what loaders actually access */
+interface RawUser {
+  id: string;
+  email?: string | null;
+  nameZh?: string | null;
+  nameEn?: string | null;
+  role?: string | null;
+  level?: string | null;
+  classId?: string | null;
+  class?: { name?: string | null; gradeLevel?: string | null } | null;
+  academicYear?: string | null;
+  xp?: number | null;
+  streakDays?: number | null;
+  badgeIds?: string | null;
+  overallAccuracy?: number | null;
+}
+
+/** Skill data from getLearningProfile().bySkill entries */
+interface RawSkillData {
+  overallScore?: number;
+  totalPractices?: number;
+  totalMistakes?: number;
+  totalCorrect?: number;
+  subSkills?: RawSubSkill[];
+}
+
+interface RawSubSkill {
+  skill?: string;
+  subSkill?: string;
+  masteryScore?: number;
+  practiceCount?: number;
+  mistakeCount?: number;
+  correctCount?: number;
+  updatedAt?: string | { toISOString?: () => string };
+}
+
+/** Weakness profile from buildWeaknessProfile() */
+interface RawWeaknessProfile {
+  topWeaknesses: Array<{ grammarItem?: string; skill?: string; [k: string]: unknown }>;
+  totalMistakes?: number;
+  generatedAt: string;
+}
+
+/** Vocab profile from buildVocabProfile() */
+interface RawVocabProfile {
+  known?: unknown[];
+  learning?: unknown[];
+  weak?: unknown[];
+  forgotten?: unknown[];
+  mastered?: unknown[];
+  needReview?: unknown[];
+  total?: number;
+  reviewQueue?: unknown[];
+  generatedAt: string;
+}
+
+/** Learning profile from getLearningProfile() */
+interface RawLearningProfile {
+  overallMastery: number;
+  bySkill: Record<string, RawSkillData>;
+  weakestSkills: Array<{ grammarItem?: string; skill?: string }>;
+  strongestSkills: Array<{ grammarItem?: string; skill?: string }>;
+}
+
 type HkdseLevel = 'U' | '1' | '2' | '3' | '4' | '5' | '5*' | '5**';
 type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type Trend = 'improving' | 'stable' | 'declining';
@@ -164,18 +228,18 @@ export class StudentStateBuilder {
 
   private async loadIdentity(studentId: string): Promise<StudentIdentity> {
     const { findUserById } = await import('@/modules/student/repositories/user-repo');
-    const u = await findUserById(studentId);
+    const u = await findUserById(studentId) as RawUser | null;
     return {
       id: studentId,
-      email: (u as any).email ?? '',
-      nameZh: (u as any).nameZh ?? null,
-      nameEn: (u as any).nameEn ?? null,
-      role: (u as any).role ?? 'student',
-      level: (u as any).level ?? null,
-      classId: (u as any).classId ?? null,
-      className: (u as any).class?.name ?? null,
-      gradeLevel: (u as any).class?.gradeLevel ?? null,
-      academicYear: (u as any).academicYear ?? null,
+      email: u?.email ?? '',
+      nameZh: u?.nameZh ?? null,
+      nameEn: u?.nameEn ?? null,
+      role: (u?.role ?? 'student') as StudentIdentity['role'],
+      level: u?.level ?? null,
+      classId: u?.classId ?? null,
+      className: u?.class?.name ?? null,
+      gradeLevel: u?.class?.gradeLevel ?? null,
+      academicYear: u?.academicYear ?? null,
     };
   }
 
@@ -190,18 +254,19 @@ export class StudentStateBuilder {
   private async loadMastery(studentId: string): Promise<StudentMastery> {
     try {
       const { getLearningProfile } = await import('../mastery/services/student-mastery-service');
-      const profile = await getLearningProfile(studentId);
+      const profile = await getLearningProfile(studentId) as RawLearningProfile;
       const bySkill: StudentMastery['bySkill'] = {};
       const entries: StudentMastery['entries'] = [];
       for (const [skill, data] of Object.entries(profile.bySkill)) {
+        const sd = data as RawSkillData;
         bySkill[skill] = {
-          score: (data as any).overallScore ?? 0,
-          practiceCount: (data as any).totalPractices ?? 0,
-          mistakeCount: (data as any).totalMistakes ?? 0,
-          correctCount: (data as any).totalCorrect ?? 0,
+          score: sd.overallScore ?? 0,
+          practiceCount: sd.totalPractices ?? 0,
+          mistakeCount: sd.totalMistakes ?? 0,
+          correctCount: sd.totalCorrect ?? 0,
         };
         // Collect raw sub-skill entries for analytics
-        for (const sub of ((data as any).subSkills ?? [])) {
+        for (const sub of (sd.subSkills ?? [])) {
           entries.push({
             skill: sub.skill ?? skill,
             subSkill: sub.subSkill ?? '',
@@ -209,7 +274,7 @@ export class StudentStateBuilder {
             practiceCount: sub.practiceCount ?? 0,
             mistakeCount: sub.mistakeCount ?? 0,
             correctCount: sub.correctCount ?? 0,
-            updatedAt: sub.updatedAt?.toISOString?.() ?? sub.updatedAt,
+            updatedAt: typeof sub.updatedAt === 'object' && sub.updatedAt?.toISOString ? sub.updatedAt.toISOString() : (sub.updatedAt as string | undefined),
           });
         }
       }
@@ -217,8 +282,8 @@ export class StudentStateBuilder {
         overallScore: profile.overallMastery,
         bySkill,
         entries,
-        weakSkills: (profile.weakestSkills as any[]).map(w => w.grammarItem || w.skill || ''),
-        strongSkills: (profile.strongestSkills as any[]).map(s => s.grammarItem || s.skill || ''),
+        weakSkills: (profile.weakestSkills ?? []).map(w => w.grammarItem || w.skill || ''),
+        strongSkills: (profile.strongestSkills ?? []).map(s => s.grammarItem || s.skill || ''),
         estimatedHkdseLevel: '',
         estimatedCefrLevel: '',
       };
@@ -230,35 +295,35 @@ export class StudentStateBuilder {
   private async loadWeakness(studentId: string): Promise<StudentWeakness | null> {
     try {
       const { buildWeaknessProfile } = await import('@/modules/mistake/intelligence/services/mistake-intelligence-service');
-      const w = await buildWeaknessProfile(studentId, 10, true);
-      return { topWeaknesses: w.topWeaknesses as any[], totalMistakes: (w as any).totalMistakes ?? 0, generatedAt: w.generatedAt };
+      const w = await buildWeaknessProfile(studentId, 10, true) as RawWeaknessProfile;
+      return { topWeaknesses: w.topWeaknesses, totalMistakes: w.totalMistakes ?? 0, generatedAt: w.generatedAt };
     } catch { return null; }
   }
 
   private async loadVocabulary(studentId: string): Promise<StudentVocabulary | null> {
     try {
       const { buildVocabProfile } = await import('@/modules/vocabulary/intelligence/services/vocabulary-intelligence-service');
-      const v = await buildVocabProfile(studentId);
+      const v = await buildVocabProfile(studentId) as RawVocabProfile;
       const byStatus: Record<string, number> = {};
       for (const key of ['known','learning','weak','forgotten','mastered','needReview']) {
-        byStatus[key] = ((v as any)[key]?.length ?? 0) as number;
+        byStatus[key] = (v[key as keyof RawVocabProfile] as unknown[] | undefined)?.length ?? 0;
       }
-      return { total: (v as any).total ?? 0, byStatus, reviewQueue: (v as any).reviewQueue?.length ?? 0, generatedAt: v.generatedAt };
+      return { total: v.total ?? 0, byStatus, reviewQueue: v.reviewQueue?.length ?? 0, generatedAt: v.generatedAt };
     } catch { return null; }
   }
 
   private async loadEngagement(studentId: string): Promise<StudentEngagement> {
     try {
       const { findUserByIdSelect } = await import('@/modules/student/repositories/user-repo');
-      const u = await findUserByIdSelect(studentId, { xp: true, streakDays: true, badgeIds: true, overallAccuracy: true });
+      const u = await findUserByIdSelect(studentId, { xp: true, streakDays: true, badgeIds: true, overallAccuracy: true }) as RawUser | null;
       let badges: string[] = [];
-      try { badges = JSON.parse((u as any).badgeIds ?? '[]'); } catch { /* */ }
+      try { badges = JSON.parse(u?.badgeIds ?? '[]'); } catch { /* */ }
       return {
-        xp: (u as any).xp ?? 0,
-        level: getLevelFromXp((u as any).xp ?? 0),
-        streakDays: (u as any).streakDays ?? 0,
+        xp: u?.xp ?? 0,
+        level: getLevelFromXp(u?.xp ?? 0),
+        streakDays: u?.streakDays ?? 0,
         badges,
-        overallAccuracy: (u as any).overallAccuracy ?? null,
+        overallAccuracy: u?.overallAccuracy ?? null,
       };
     } catch { return { xp: 0, level: 1, streakDays: 0, badges: [], overallAccuracy: null }; }
   }
@@ -297,7 +362,7 @@ export class StudentStateBuilder {
       strongSkills: rankSkills(r, true),
       weakSkills: rankSkills(r, false),
       estimatedHkdseLevel: estimateHkdse(r),
-      estimatedCefrLevel: estimateCefr(r) as any,
+      estimatedCefrLevel: estimateCefr(r),
       nodesMastered: mastered, totalNodes: entries.length,
       learningVelocity: entries.length > 0 ? Math.round(mastered / entries.length * 1000) / 10 : 0,
       retentionRate: entries.filter(e => (e.retentionProbability ?? 0) > 0.5).length / Math.max(1, entries.length),
@@ -322,7 +387,7 @@ export class StudentStateBuilder {
       'curious-explorer': ['好奇探索者', '興趣廣泛，探索式學習'],
     };
     const [zh, desc] = labels[type] ?? ['',''];
-    return { type: type as any, typeZh: zh, description: desc, descriptionZh: desc, traits: [], traitsZh: [], recommendedApproach: '', recommendedApproachZh: '' };
+    return { type: type as LearningPersona['type'], typeZh: zh, description: desc, descriptionZh: desc, traits: [], traitsZh: [], recommendedApproach: '', recommendedApproachZh: '' };
   }
 
   private deriveMotivation(memory: StudentMemory | null, _entries: ReviewEntry[]): MotivationState {
@@ -333,7 +398,7 @@ export class StudentStateBuilder {
     return {
       overallScore: m?.motivationLevel ?? 0.5, intrinsic: m?.intrinsicMotivation ?? 0.5,
       extrinsic: m?.extrinsicMotivation ?? 0.5,
-      trend: (m?.motivationTrend as any) ?? 'stable',
+      trend: (m?.motivationTrend as MotivationState['trend']) ?? 'stable',
       engagementLevel: m?.engagementScore ?? 0.5, consistencyScore: consistency,
       burnoutRisk: m?.burnoutRisk ?? 0,
       dropoutRisk: calcDropoutRisk(sessionsPerWeek, consistency, m?.burnoutRisk ?? 0),
@@ -349,7 +414,7 @@ export class StudentStateBuilder {
       perSkill: c?.confidenceBySkill ?? {},
       calibrationAccuracy: c?.calibrationAccuracy ?? 0,
       overconfidentIn: [], underconfidentIn: [],
-      confidenceTrend: (c?.confidenceTrend as any) ?? 'stable',
+      confidenceTrend: (c?.confidenceTrend as ConfidenceState['confidenceTrend']) ?? 'stable',
       suggestedConfidenceBoosters: [], suggestedConfidenceBoostersZh: [],
     };
   }
@@ -357,7 +422,7 @@ export class StudentStateBuilder {
   private deriveHabits(memory: StudentMemory | null, _entries: ReviewEntry[]): LearningHabit {
     const h = memory?.learningHabits; const s = memory?.learningSpeed;
     return {
-      preferredTime: (h?.preferredTimeOfDay as any) ?? 'evening',
+      preferredTime: (h?.preferredTimeOfDay as LearningHabit['preferredTime']) ?? 'evening',
       sessionsPerWeek: s?.sessionsPerWeek ?? 2,
       avgSessionMinutes: s?.averageSessionDuration ?? 20,
       completionRate: s?.completionRate ?? 0.5,
@@ -378,7 +443,7 @@ export class StudentStateBuilder {
       predictedHkdseLevel: estimateHkdse(mastery),
       predictedExamScore: Math.round(avg * 100),
       examScoreRange: { low: Math.round(avg*100)-10, high: Math.round(avg*100)+10, confidence: 0.7 },
-      predictedCefrLevel: estimateCefr(mastery) as any,
+      predictedCefrLevel: estimateCefr(mastery),
       skillPredictions: Object.entries(mastery).map(([skill, score]) => ({
         skill, currentScore: score,
         predictedScore: Math.min(1, score+0.1),

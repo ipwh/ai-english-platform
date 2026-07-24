@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (err) {
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups GET failed');
     return NextResponse.json({ error: 'Server error', groups: [] }, { status: 500 });
   }
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups POST failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
@@ -93,6 +95,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ group });
   } catch (err) {
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups PATCH failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
@@ -122,6 +125,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'groups', error: err instanceof Error ? err.message : String(err) }, 'Groups DELETE failed');
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

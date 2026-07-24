@@ -9,11 +9,18 @@ import { useT } from '@/hooks/use-i18n';
 import { formatDate } from '@/shared/utils/utils';
 import { gradeLabels, getGradeLabel } from '@/shared/utils/nav';
 
+interface UserProfile {
+  id: string; email: string; nameZh?: string | null; nameEn?: string | null;
+  role: string; level?: string | null; classId?: string | null;
+  class?: { name?: string | null; gradeLevel?: string | null } | null;
+  academicYear?: string | null; image?: string | null;
+}
+
 export default function StudentProfilePage() {
   const router = useRouter();
   const { t } = useT();
   const { logout, userDisplayName, language } = useAppStore();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ nameZh: '', nameEn: '', level: '' });
   const [saving, setSaving] = useState(false);

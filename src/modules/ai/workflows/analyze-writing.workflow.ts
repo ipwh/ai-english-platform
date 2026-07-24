@@ -7,7 +7,7 @@ import { JSON_EXECUTION_POLICY } from '@/modules/ai/runtime/execution-policy';
 export const AnalyzeWritingWorkflow = defineWorkflow({
   name: 'analyze-writing',
   description: 'Analyze student writing with DSE grading',
-  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage] as any,
+  stages: [ContextStage, ProviderStage, MetricsStage, ResultStage],
   executionPolicy: { ...JSON_EXECUTION_POLICY, maxTokens: 4096 },
   tags: ['ai', 'writing', 'analysis'],
 });

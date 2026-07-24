@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ classes }, { headers: cacheFor(CACHE_MEDIUM) });
   } catch (err: unknown) {
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'classes', error: err instanceof Error ? err.message : String(err) }, 'Classes GET failed');
     return NextResponse.json({ error: 'Failed to load classes', classes: [] }, { status: 500 });
   }

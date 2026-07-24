@@ -59,7 +59,9 @@ export async function POST(request: NextRequest) {
     if (answers && Array.isArray(answers) && answers.length > 0) {
       try {
         await PracticeRepo.createPracticeAnswers(session.id, answers);
-      } catch { /* 答案儲存非致命錯誤，session 已儲存 */ }
+      } catch (err) {
+        logger.warn({ module: 'practice', sessionId: session.id, error: err instanceof Error ? err.message : String(err) }, 'Answer storage failed (non-fatal, session saved)');
+      }
 
       // === Auto-mistake sync: 錯誤答案自動記錄到錯題本 ===
       try {
@@ -78,7 +80,9 @@ export async function POST(request: NextRequest) {
             });
           }
         }
-      } catch { /* mistake sync non-critical */ }
+      } catch (err) {
+        logger.warn({ module: 'practice', studentId, error: err instanceof Error ? err.message : String(err) }, 'Auto-mistake sync failed (non-fatal)');
+      }
     }
 
     // 同步所有衍生數據：整體正確率、週統計及掌握度。

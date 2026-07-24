@@ -46,9 +46,16 @@ export default function VocabularyPage() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [aiExamples, setAiExamples] = useState<Record<string, string>>({});
 
-  // Batch import & Review suggestions
+  interface ReviewSuggestion {
+  vocab?: Array<{ word: string; nextReview: string }>;
+  count?: number;
+  generatedAt?: string;
+  [key: string]: unknown;
+}
+
+// Batch import & Review suggestions
   const [showBatchImport, setShowBatchImport] = useState(false);
-  const [reviewSuggestions, setReviewSuggestions] = useState<any>(null);
+  const [reviewSuggestions, setReviewSuggestions] = useState<ReviewSuggestion | null>(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
 
   // Spelling Practice

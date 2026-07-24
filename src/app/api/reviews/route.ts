@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // 從 Submission 表中提取需要教師覆核的記錄
     const submissions = await listSubmissionsForReview(50);
-    const reviewRecords = await findReviewsBySubmissions(submissions.map((s: any) => s.id));
+    const reviewRecords = await findReviewsBySubmissions(submissions.map((s: { id: string }) => s.id));
     const reviewMap = new Map(reviewRecords.map(r => [r.submissionId, r]));
 
     const reviews = submissions.map(s => {

@@ -8,6 +8,25 @@ import type {
 } from '../types';
 
 // ============================================
+// Internal types
+// ============================================
+
+interface ClassDataSnapshot {
+  avgMastery: number;
+  avgAccuracy: number;
+  avgVelocity: number;
+  participation: number;
+  readingScore: number;
+  writingScore: number;
+  grammarErrors: string[];
+  grammarErrorsZh: string[];
+  reviewDue: number;
+  studentCount: number;
+  skillAvgs: Record<string, number>;
+  studentScores: Array<Record<string, number>>;
+}
+
+// ============================================
 // TeacherCopilotService
 // ============================================
 
@@ -247,7 +266,7 @@ export class TeacherCopilotService {
   // Private helpers
   // ============================================
 
-  private async loadClassData(classId: string): Promise<any> {
+  private async loadClassData(classId: string): Promise<ClassDataSnapshot> {
     // In production, this would load from StudentTwin + LearningScience
     const hash = classId.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
     const seed = (hash % 100) / 100;
@@ -277,7 +296,7 @@ export class TeacherCopilotService {
     };
   }
 
-  private selectFocusSkills(data: any): SkillDimension[] {
+  private selectFocusSkills(data: ClassDataSnapshot): SkillDimension[] {
     const skills: SkillDimension[] = [];
     const sorted = Object.entries(data.skillAvgs).sort(([, a], [, b]) => (a as number) - (b as number));
     for (const [skill] of sorted.slice(0, 2)) skills.push(skill as SkillDimension);

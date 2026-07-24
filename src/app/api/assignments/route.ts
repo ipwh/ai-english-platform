@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ assignments });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'assignments', error: msg }, 'Assignments GET failed');
     return NextResponse.json({ error: msg, assignments: [] }, { status: 500 });
   }
@@ -150,6 +151,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ assignment }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
+    // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'assignments', error: message }, 'Assignments POST failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }
