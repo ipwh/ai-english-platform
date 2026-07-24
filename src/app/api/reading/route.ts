@@ -670,7 +670,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     let content = response.readingContent as string;
 
     // Step A: Add paragraph breaks before [N] markers if not already present
+    // Also handle [N] paragraph markers (AI uses both [N] and [line N])
     content = content.replace(/([^\n])\s*\[(\d+)\]/g, '$1\n\n[$2]');
+    // Ensure first paragraph marker gets a break too
+    content = content.replace(/^\s*\[(\d+)\]/, '[$1]');
+
+    // Step A1: Ensure [N] paragraph markers have double newlines
 
     // Step A2: Capture AI's [line N] markers BEFORE stripping, so we can remap question references
     // Record each marker's line number and its word position in the text
@@ -706,9 +711,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       }
     }
 
-    // Step B: Strip all AI-generated [line N] markers (they're often inaccurate)
-    // Sprint 102 fix: preserve paragraph breaks — replace marker only, keep surrounding newlines
-    content = content.replace(/\[line\s+\d+\]\s*/gi, ''); // remove marker + trailing spaces only
+    // Step B: Strip all AI-generated [line N] markers + convert [N] paragraph markers
+    // Sprint 102: preserve paragraph breaks, convert [N] to \n\n
+    content = content.replace(/\[line\s+\d+\]\s*/gi, '');
+    // Convert standalone [N] paragraph markers to double newlines
+    content = content.replace(/\s*\[(\d+)\]\s*/g, '\n\n');
 
     // Step C: Recalculate and insert accurate [line N] markers
     // DSE standard: ~10-12 words per line, markers every 5 lines (~50-60 words)
@@ -883,7 +890,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
         // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
-        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion'];
+        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
         const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
         // Strip "A. " prefix from choices if present
@@ -935,7 +942,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
         // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
-        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion'];
+        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
         const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
         // Strip "A. " prefix from choices if present
