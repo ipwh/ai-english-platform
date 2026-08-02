@@ -180,7 +180,7 @@ ${PASSAGE_QUALITY_STANDARDS}
 - 篇章類型：根據 DSE 12+ 文本類型庫選擇（feature article, newspaper article, interview, blog post, etc.）
 - 提供 readingContentZh 繁體中文輔助說明
 - 題目必須混合多種題型，模仿真實 DSE Paper 1 格式
-- 每題必須標註 marks (1-6)。使用 targetPhrase 標記目標詞彙。每個問題必須在題目中明確註明段落號（如 "in paragraph 3"）。題目必須涵蓋所有段落。代名詞（it/this/they）必須標明段落
+- 每題必須標註 marks (1-6)。使用 targetPhrase 標記目標詞彙。每個問題必須在題目中明確註明段落號（如 \"in paragraph 3\"）。代名詞（it/this/they）必須標明段落。不要寫 (line N) — 行號由前端渲染時自動顯示
 - 使用真實 DSE 出題句式（參考 Question Wording Templates）
 
 【期望 JSON schema — 完整題型支援 v2】
