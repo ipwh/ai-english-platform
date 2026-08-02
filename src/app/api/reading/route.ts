@@ -773,32 +773,53 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       for (const q of questionsRaw) {
         const questionText = (q.questionText || q.question || '') as string;
 
-        // Priority 1: targetPhrase mapping (trust real text search over AI hallucination)
+        // Extract AI's stated paragraph intent (if any)
+        const aiParaMatch = questionText.match(/paragraph\s+(\d+)/i);
+        const aiParagraph = aiParaMatch ? parseInt(aiParaMatch[1], 10) : undefined;
+
+        // Extract targetPhrase
         let targetPhrase = (q.targetPhrase as string)?.trim();
         if (!targetPhrase) {
           const quotedMatch = questionText.match(/['\u2018\u2019\u201C\u201D"]([^'\u2018\u2019\u201C\u201D"]{3,60})['\u2018\u2019\u201C\u201D"]/);
           if (quotedMatch) targetPhrase = quotedMatch[1];
         }
+
         if (targetPhrase) {
+          let bestMatch: { para: number; line: string } | null = null;
+          let aiMatch: { para: number; line: string } | null = null;
+
           for (const para of layout.paragraphs) {
             const paraText = para.lines.map(l => l.text).join(' ');
             if (paraText.includes(targetPhrase)) {
-              q._computedParagraph = para.paragraphNumber;
+              const match = {
+                para: para.paragraphNumber,
+                line: '',
+              };
               for (const line of para.lines) {
                 if (line.text.includes(targetPhrase)) {
-                  q._computedLine = String(line.line);
+                  match.line = String(line.line);
                   break;
                 }
               }
-              break;
+              // Prefer AI's stated paragraph if target phrase is there
+              if (aiParagraph && para.paragraphNumber === aiParagraph) {
+                aiMatch = match;
+              }
+              if (!bestMatch) bestMatch = match;
             }
+          }
+
+          // Use AI's stated paragraph if target phrase exists there; otherwise first match
+          const chosen = aiMatch || bestMatch;
+          if (chosen) {
+            q._computedParagraph = chosen.para;
+            q._computedLine = chosen.line;
           }
         }
 
-        // Fallback: extract paragraph number from question text (AI's intent)
-        if (!q._computedParagraph) {
-          const paraMatch = questionText.match(/paragraph\s+(\d+)/i);
-          if (paraMatch) q._computedParagraph = parseInt(paraMatch[1], 10);
+        // Fallback: use AI's paragraph number from question text
+        if (!q._computedParagraph && aiParagraph) {
+          q._computedParagraph = aiParagraph;
         }
       }
     }
