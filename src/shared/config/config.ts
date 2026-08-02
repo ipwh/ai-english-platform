@@ -117,7 +117,7 @@ function requireEnv(key: string): string {
 const deepseek = {
   apiKey: process.env.DEEPSEEK_API_KEY || '',
   baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
-  model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
+  model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
   /** 是否已正確設定 */
   get isConfigured(): boolean {
     return !!this.apiKey && this.apiKey !== 'sk-your-deepseek-api-key-here';
