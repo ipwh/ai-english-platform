@@ -5,7 +5,7 @@ export const description = 'HKDSE Writing prompts: CLO grammar, style, outline, 
 export const updatedAt = '2026-07-22';
 export const author = 'AI English Platform';
 
-import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
+import { HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 
 // ============================================
 // Writing CLO Grammar Analysis (from writing-clo-grammar.ts)
@@ -287,89 +287,28 @@ export interface IntegratedSkillsGenPromptParams {
 
 export function buildIntegratedSkillsGenPrompt(params: IntegratedSkillsGenPromptParams): string {
   const { gradeLevel, taskType, topicHint, dseTopics, diffLines, diffTraps, diffWordLimit, diffLabel, taskInfoName, taskInfoNameZh, taskInfoFormatHint, diffDataFilePages, diffSpeakerCount, taskRequiredElements } = params;
-  return `${HALLUCINATION_GUARD}
-你是一位香港 DSE English Paper 3 評卷專家，專門設計 Integrated Skills 練習題。
-⚠️ 原創性要求：必須生成 100% 原創內容，嚴禁複製或改寫任何真實 HKDSE 試題。
+  return `${HALLUCINATION_GUARD_LITE}
+You are a Hong Kong DSE English Paper 3 examiner. Generate an Integrated Skills task (DSE Paper 3 Part B: Listen → Note → Write). Original content only.
 
-請生成一個完整的 Integrated Skills 任務，模擬 DSE Paper 3 Part B「聽 → 記 → 寫」的真實考試流程。
+DSE Paper 3 topics: ${dseTopics}
 
-═══════════════════════════════════════
-零、DSE EMPIRICAL TOPIC DATABASE — MANDATORY REFERENCE
-═══════════════════════════════════════
+─── Requirements ───
+- Data File: ${diffDataFilePages} sources (email/memo/report-excerpt/webpage/statistics/notice), each with relevantFor indices. Include distractors and info conflicts.
+- Listening: ${diffLines}, ${diffSpeakerCount} speakers (Woman/Man/Boy/Girl only), natural speech (gonna/wanna/um/well/self-correction). ${diffTraps}
+- Note-taking guide: 4-5 guiding questions with shorthand symbols (+ − → ∵ $ # @ ≈) and signal word hints.
+- Writing task (${taskInfoName} / ${taskInfoNameZh}): CONTEXT + ROLE + AUDIENCE + TASK + 3-4 REQUIREMENTS + WORD LIMIT (~${diffWordLimit} words).
+  Required elements: ${taskRequiredElements.join(', ')}. ${taskInfoFormatHint}
+${taskType === 'speech' ? '- Speech: greeting line by seniority (guests→Principal→teachers→students), comma-separated.' : ''}
+${taskType === 'report' ? '- Report: 3+ sub-headings (Background/Findings/Recommendations).' : ''}
+${taskType === 'email-reply' ? '- Email Reply: address each point from the source email.' : ''}
+${taskType === 'proposal' ? '- Proposal: include timeline and budget.' : ''}
+- expectedContentPoints: 5-7 points, label source (listening/data file/both).
+- listeningAnswers: standard answers for each note-taking question.
 
-⚠️ CRITICAL: Strictly base the listening scenario and writing task on real DSE Paper 3 past paper topics.
-Real DSE Paper 3 reference topics:
-${dseTopics}
+Output: pure JSON (no markdown). Fields: listeningContent, listeningTopicZh, dataFile { sources[] }, noteTakingGuide[{question,hint}], writingTask, expectedContentPoints[], listeningAnswers[{question,answer}].
 
-═══════════════════════════════════════
-一、Data File 設計規則（模擬真實 Paper 3 資料夾）
-═══════════════════════════════════════
-- 必須生成 ${diffDataFilePages} 個獨立的 data file 來源（sources）
-- 每個來源模擬以下 DSE 常見格式：email / memo / report-excerpt / webpage / statistics / notice
-- 每個來源標記 relevantFor（該資料用於哪些 expectedContentPoints 索引）
-- 部分來源應包含干擾資訊（distractor）
-- 來源之間可有資訊衝突（舊資訊已被新資訊更新）
-
-═══════════════════════════════════════
-二、聆聽材料 (listeningContent) 設計規則
-═══════════════════════════════════════
-- 結構與長度：${diffLines}
-- 角色數量：${diffSpeakerCount} 位說話者
-- 角色標籤：Woman:/Man:/Boy/Girl:（TTS 相容，禁用 A/B/Speaker 標籤）
-- 內容密度：每 3-4 行必須包含一個可提取的 Content Point
-- 陷阱設計：${diffTraps}
-- 自然口語：linking (gonna/wanna)、reduction、hesitation (Um.../Well...)、self-correction
-- ⚠️ 聆聽和 Data File 互補：部分資訊只出現在其中一方
-
-三、Note-taking 指引 — 提供 4-5 個引導問題
-hint 中融入速記符號提示：+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓
-信號詞提示：注意 "importantly", "however", "statistics show", "in conclusion"
-
-四、寫作任務 (writingTask) — DSE Paper 3 Part B 標準
-任務類型：${taskInfoName} (${taskInfoNameZh})
-必須包含：CONTEXT + ROLE + AUDIENCE + TASK + REQUIREMENTS (3-4個) + WORD LIMIT (~${diffWordLimit} words) + FORMAT NOTES
-${taskInfoFormatHint}
-
-⚠️ ${taskInfoNameZh} 必須包含的格式元素：
-${taskRequiredElements.map((el, i) => `${i + 1}. ${el}`).join('\n')}
-
-${taskType === 'speech' ? 'Speech 特別要求：greeting line 按輩份排序（guests → Principal → teachers → students），以逗號結尾。' : ''}
-${taskType === 'proposal' ? 'Proposal 特別要求：包含 timeline 和 budget considerations。' : ''}
-${taskType === 'notice' ? 'Notice 特別要求：正文簡潔（時間+地點+事項+對象），不需長篇論述。' : ''}
-${taskType === 'press-release' ? 'Press Release 特別要求：lead 含 5W1H，加入模擬 quote。' : ''}
-${taskType === 'letter-to-editor' ? 'Letter to Editor 特別要求：回應一篇假設已發表的文章，可用 rebuttal。' : ''}
-${taskType === 'email-reply' ? 'Email Reply 特別要求：回覆 data file 中的電郵，逐一引用原文要點回應。' : ''}
-${taskType === 'report' ? 'Report 特別要求：至少 3 個 sub-headings（Background / Findings / Recommendations）。' : ''}
-${taskType === 'summary' ? 'Summary 特別要求：用自己的文字概括，不可直接抄襲。' : ''}
-${taskType === 'short-article' ? 'Article 特別要求：標題吸引、開頭 hook、結尾 concluding remark。' : ''}
-
-五、預期內容要點 (expectedContentPoints) — 5-7 個要點，標註來源（listening / data file / both）
-
-六、答案參考 (listeningAnswers) — 為每個 note-taking 引導問題提供標準答案
-
-輸出格式（純 JSON，不要 Markdown 代碼塊）：
-{
-  "listeningContent": "Woman: ...\\nMan: ...",
-  "listeningTopicZh": "繁體中文主題簡介",
-  "dataFile": {
-    "sources": [
-      {
-        "type": "email|memo|report-excerpt|webpage|statistics|notice",
-        "title": "資料標題",
-        "content": "資料內容（50-150字）",
-        "relevantFor": [0, 1, 2],
-        "sourceDate": "日期"
-      }
-    ]
-  },
-  "noteTakingGuide": [{ "question": "...?", "hint": "符號提示+信號詞" }],
-  "writingTask": "完整的寫作任務說明...",
-  "expectedContentPoints": ["要點1", "要點2", "要點3", "要點4", "要點5"],
-  "listeningAnswers": [{ "question": "...", "answer": "..." }]
-}
-
-年級：${gradeLevel} | 難度：${diffLabel}${topicHint ? ` | 主題：${topicHint}` : ''}
-所有中文使用繁體中文。`;
+Grade: ${gradeLevel} | Difficulty: ${diffLabel}${topicHint ? ` | Topic: ${topicHint}` : ''}
+Use Traditional Chinese for Chinese fields.`;
 }
 
 // ============================================
