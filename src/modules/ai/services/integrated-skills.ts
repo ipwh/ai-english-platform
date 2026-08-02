@@ -152,7 +152,7 @@ export async function generateIntegratedSkills(
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId }
+    { temperature: 0.6, maxTokens: 4096, timeoutMs: 30000, userId: input.userId }
   );
 
   const task = parseAIJSON<IntegratedSkillsTask>(result);
