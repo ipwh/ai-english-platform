@@ -100,10 +100,15 @@ export async function POST(request: NextRequest) {
     } else {
       message = String(err);
     }
-    logger.error({ module: 'generate-questions', error: message, deepseekConfigured: isDeepSeekConfigured() }, 'AI generation failed');
+    logger.error({ module: 'generate-questions', error: message, deepseekConfigured: isDeepSeekConfigured(), stack: err instanceof Error ? (err.stack || '').slice(0, 500) : undefined }, 'AI generation failed');
     return NextResponse.json({
       error: `AI 生成失敗：${message}`,
-      _meta: { provider: getLastAIProvider(), deepseekConfigured: isDeepSeekConfigured() },
+      _diagnostic: {
+        provider: getLastAIProvider(),
+        deepseekConfigured: isDeepSeekConfigured(),
+        isVercelPro: process.env.VERCEL === '1',
+        region: process.env.VERCEL_REGION || 'unknown',
+      },
     }, {
       status: 500,
       headers: { 'X-AI-Provider': getLastAIProvider() },
