@@ -881,8 +881,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       // If no targetPhrase, try to extract quoted text from question
       if (!targetPhrase) {
         const questionText = (q.questionText || q.question || '') as string;
-        const quotedMatch = questionText.match(/['""]([^'""]{3,60})['""]/);
+        const quotedMatch = questionText.match(/['\u2018\u2019\u201C\u201D"]([^'\u2018\u2019\u201C\u201D"]{3,60})['\u2018\u2019\u201C\u201D"]/);
         if (quotedMatch) targetPhrase = quotedMatch[1];
+      }
+      // Fallback: extract paragraph number from question text like "paragraph 2"
+      if (!targetPhrase && !q.paragraphRef) {
+        const questionText = (q.questionText || q.question || '') as string;
+        const paraMatch = questionText.match(/paragraph\s+(\d+)/i);
+        if (paraMatch) q.paragraphRef = parseInt(paraMatch[1], 10);
       }
       if (targetPhrase && !q.paragraphRef) {
         const searchPhrase = targetPhrase;
