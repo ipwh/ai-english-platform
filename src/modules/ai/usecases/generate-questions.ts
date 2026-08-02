@@ -121,21 +121,28 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 
     logger.info({ module: 'generate-questions', resultLen: result.length, resultPreview: result.slice(0, 300), attempt }, 'LLM response received');
 
-  const tryValidate = (rawText: string) => {
+  const tryValidate = (rawText: string, label: string = '') => {
+    const prefix = label ? `[${label}] ` : '';
     const parsed = parseGeneratedQuestions(rawText);
-    logger.info({ module: 'generate-questions', parsedCount: parsed.length, parsedTypes: parsed.map(q => q.type) }, 'Questions parsed');
+    logger.info({ module: 'generate-questions', parsedCount: parsed.length, parsedTypes: parsed.map(q => q.type), label }, 'Questions parsed');
+    if (parsed.length === 0) {
+      throw new Error(`${prefix}AI 回傳無法解析為題目陣列（原始回應前 500 字：${rawText.slice(0, 500)}）`);
+    }
     const normalized = normalizeGeneratedQuestions(parsed);
-    logger.info({ module: 'generate-questions', normalizedCount: normalized.length, parsedCount: parsed.length }, 'Questions normalized (before Zod)');
+    logger.info({ module: 'generate-questions', normalizedCount: normalized.length, parsedCount: parsed.length, label }, 'Questions normalized');
+    if (normalized.length === 0) {
+      throw new Error(`${prefix}所有題目在標準化過程中被過濾（原始題目數：${parsed.length}，範例：${JSON.stringify(parsed[0]).slice(0, 200)}）`);
+    }
     const validated = validateAIResponse(GeneratedQuestionsArraySchema, normalized);
     if (!validated.success) {
       logger.error({ module: 'generate-questions', zodError: validated.error, normalizedCount: normalized.length }, 'Zod validation failed');
-      throw new Error(validated.error);
+      throw new Error(`${prefix}${validated.error}`);
     }
     return validated.data;
   };
 
   try {
-    const questions = tryValidate(result);
+    const questions = tryValidate(result, `attempt${attempt + 1}`);
     // 後驗證：逐題一致性檢查與自動修正
     const allWarnings: string[] = [];
     const fixedQuestions = questions.map((q, i) => {
@@ -229,7 +236,7 @@ ${result.slice(0, 12000)}`;
       { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 15000, userId: input.userId }
     );
 
-    const repairedQuestions = tryValidate(repaired);
+    const repairedQuestions = tryValidate(repaired, 'repair');
     if (repairedQuestions.length === 0) {
       throw new Error('AI 回傳格式修復後仍未產生有效題目');
     }
