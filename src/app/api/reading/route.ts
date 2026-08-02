@@ -382,7 +382,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   const targetLevel = platformDifficultyToHKEAALevel(difficulty, validatedPart);
 
   const prompt = buildReadingExercisePrompt({
-    count: Math.min(count, 7),
+    count: Math.min(count, 10),
     difficultyLabel: { remedial: '補底', core: '核心', challenge: '挑戰' }[difficulty],
     gradeLevel,
     topic: topic || 'DSE-appropriate topic',
@@ -550,7 +550,7 @@ async function handleSummaryClozeTraining(body: Record<string, unknown>) {
   const prompt = buildSummaryClozeTrainingPrompt({
     targetLevel,
     focusArea,
-    count: Math.min(count, 7),
+    count: Math.min(count, 10),
   });
 
   const result = await callLLM([
@@ -583,7 +583,7 @@ async function handleParaphraseTraining(body: Record<string, unknown>) {
   const prompt = buildParaphraseTrainingPrompt({
     targetLevel,
     focusArea,
-    count: Math.min(count, 7),
+    count: Math.min(count, 10),
   });
 
   const result = await callLLM([
@@ -616,7 +616,7 @@ async function handleIdiomTraining(body: Record<string, unknown>) {
   const prompt = buildIdiomTrainingPrompt({
     targetLevel,
     strategy,
-    count: Math.min(count, 7),
+    count: Math.min(count, 10),
   });
 
   const result = await callLLM([

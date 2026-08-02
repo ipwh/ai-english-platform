@@ -427,7 +427,7 @@ export default function ReadingPracticePage() {
           </div>
           <div className="flex items-center gap-3">
             <label className="text-xs font-medium text-gray-500">{language === 'en' ? 'Questions' : '題數'}</label>
-            <input type="range" min={3} max={7} value={questionCount} onChange={e => setQuestionCount(Number(e.target.value))}
+            <input type="range" min={3} max={10} value={questionCount} onChange={e => setQuestionCount(Number(e.target.value))}
               className="flex-1 accent-indigo-500" />
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{questionCount}</span>
           </div>
