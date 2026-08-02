@@ -66,14 +66,19 @@ class ProviderRegistry {
     const errors: string[] = [];
     const startTime = Date.now();
 
+    // Vercel Pro: 60s function limit. Reserve 5s for overhead.
+    const TOTAL_BUDGET_MS = 55_000;
     for (let i = 0; i < available.length; i++) {
       const provider = available[i];
       const isFallback = i > 0;
-      // Vercel Pro: 60s function limit — no artificial cap needed.
-      // Fallbacks get proportionally less timeout to fail fast.
-      const adjustedOptions = isFallback && options?.timeoutMs
-        ? { ...options, timeoutMs: Math.max(5000, Math.floor(options.timeoutMs / (i + 1))) }
-        : options;
+      let adjustedOptions = options;
+      if (isFallback && options?.timeoutMs) {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, TOTAL_BUDGET_MS - elapsed);
+        // Give fallback at least 15s, but don't exceed remaining budget
+        const fallbackTimeout = Math.min(remaining, Math.max(15_000, Math.floor(options.timeoutMs / (i + 1))));
+        adjustedOptions = { ...options, timeoutMs: fallbackTimeout };
+      }
       try {
         const text = await provider.call(messages, adjustedOptions);
         this.lastUsed = provider.name;
