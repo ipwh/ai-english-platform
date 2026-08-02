@@ -21,6 +21,7 @@ export async function GET() {
   // Test DeepSeek directly
   if (isDeepSeekConfigured()) {
     const startTime = Date.now();
+    let deepseekTest: Record<string, unknown>;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -42,7 +43,7 @@ export async function GET() {
       clearTimeout(timeoutId);
 
       const latencyMs = Date.now() - startTime;
-      results.deepseekTest = {
+      deepseekTest = {
         model: config.deepseek.model,
         baseUrl: config.deepseek.baseUrl,
         status: res.status,
@@ -51,16 +52,17 @@ export async function GET() {
       };
       if (!res.ok) {
         const errText = await res.text();
-        results.deepseekTest.error = errText.slice(0, 300);
+        deepseekTest.error = errText.slice(0, 300);
       }
     } catch (err) {
-      results.deepseekTest = {
+      deepseekTest = {
         model: config.deepseek.model,
         baseUrl: config.deepseek.baseUrl,
         error: err instanceof Error ? err.message : String(err),
         latencyMs: Date.now() - startTime,
       };
     }
+    results.deepseekTest = deepseekTest!;
   } else {
     results.deepseekTest = { error: 'DeepSeek not configured (API key missing or placeholder)' };
   }
