@@ -13,6 +13,6 @@ export async function generateWritingOutline(input: GenerateWritingOutlineInput)
   const systemPrompt = getWritingOutlineSystemPrompt({ gradeLevel: input.gradeLevel, difficulty: input.difficulty, textType: input.textType, guideName: guide?.name || input.textType, wordLimit: input.wordLimit, writingPrompt: input.writingPrompt, topicHint: input.topicHint, structureGuide, commonErrors, weakSkillHint });
   const userPrompt = buildWritingOutlineUserPrompt({ guideName: guide?.name || input.textType, textType: input.textType, gradeLevel: input.gradeLevel, difficulty: input.difficulty, wordLimit: input.wordLimit, writingPrompt: input.writingPrompt });
 
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.7, maxTokens: 4096, timeoutMs: 12000, userId: input.userId });
+  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.7, maxTokens: 4096, timeoutMs: 25000, userId: input.userId });
   return result.trim();
 }
