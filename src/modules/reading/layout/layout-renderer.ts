@@ -18,14 +18,14 @@ export function renderToHtml(
   let lastParagraph = -1;
 
   for (const line of allLines) {
-    // Paragraph break
+    // Paragraph break — clear visual separation
     if (line.paragraph !== lastParagraph && lastParagraph >= 0 && !line.isBlank) {
-      htmlParts.push('<div class="h-3"></div>');
+      htmlParts.push('<div class="my-4 border-t border-gray-200 dark:border-gray-600"></div>');
       textParts.push('');
     }
     lastParagraph = line.paragraph;
 
-    // Skip blank spacer lines — paragraph breaks handled below
+    // Skip blank spacer lines
     if (line.isBlank) {
       textParts.push('');
       continue;
@@ -35,12 +35,12 @@ export function renderToHtml(
     const needsMarker = shouldInsertMarker(line.line, options.markerInterval);
     if (needsMarker) markerLines.add(line.line);
 
-    // Build line HTML
-    let lineHtml = '<div class="flex gap-2 items-start">';
+    // Build line HTML with line marker in fixed left column
+    let lineHtml = '<div class="flex gap-3 items-start">';
 
-    // Line number column — w-16 (64px) fits [line XX] at text-xs
+    // Line number column — fixed width, does not affect text flow
     if (needsMarker) {
-      lineHtml += `<span class="text-xs text-indigo-400 dark:text-indigo-500 font-mono w-16 shrink-0 text-right select-none whitespace-nowrap">[line ${line.line}]</span>`;
+      lineHtml += `<span class="text-[10px] text-indigo-400 dark:text-indigo-500 font-mono w-16 shrink-0 text-right select-none whitespace-nowrap pt-0.5">[${line.line}]</span>`;
     } else {
       lineHtml += '<span class="w-16 shrink-0"></span>';
     }
