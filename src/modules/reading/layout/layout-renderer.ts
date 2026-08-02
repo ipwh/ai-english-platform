@@ -25,9 +25,8 @@ export function renderToHtml(
     }
     lastParagraph = line.paragraph;
 
-    // Blank spacer line — visual only, use CSS margin instead of content gap
+    // Skip blank spacer lines — paragraph breaks handled below
     if (line.isBlank) {
-      htmlParts.push('<div style="margin-bottom:0.25rem"></div>');
       textParts.push('');
       continue;
     }
@@ -39,11 +38,11 @@ export function renderToHtml(
     // Build line HTML
     let lineHtml = '<div class="flex gap-2 items-start">';
 
-    // Line number column
+    // Line number column — w-16 (64px) fits [line XX] at text-xs
     if (needsMarker) {
-      lineHtml += `<span class="text-xs text-indigo-400 dark:text-indigo-500 font-mono w-12 shrink-0 text-right select-none">[line ${line.line}]</span>`;
+      lineHtml += `<span class="text-xs text-indigo-400 dark:text-indigo-500 font-mono w-16 shrink-0 text-right select-none whitespace-nowrap">[line ${line.line}]</span>`;
     } else {
-      lineHtml += '<span class="w-12 shrink-0"></span>';
+      lineHtml += '<span class="w-16 shrink-0"></span>';
     }
 
     // Text

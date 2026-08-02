@@ -71,19 +71,6 @@ export function calculateTotalLines(
   for (let pi = 0; pi < paragraphs.length; pi++) {
     const para = paragraphs[pi];
 
-    // Add paragraph break marker (visual only — does NOT affect line numbering)
-    if (options.includeParagraphSpacing && pi > 0 && allLines.length > 0) {
-      allLines.push({
-        line: -1, // negative = visual spacer, not a text line
-        paragraph: pi - 1,
-        paragraphLine: 0,
-        text: '',
-        hasMarker: false,
-        isBlank: true,
-      });
-      // Do NOT increment globalLine — spacers don't count toward line numbers
-    }
-
     const paraLines = calculateParagraphLines(
       para.text, pi, para.number, globalLine, options,
     );
