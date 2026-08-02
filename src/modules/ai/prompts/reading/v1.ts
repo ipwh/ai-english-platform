@@ -1,7 +1,7 @@
 // Sprint 5: Reading Prompts v2 — Major DSE Paper 1 overhaul
 // HKDSE Paper 1 Reading comprehension prompts with ALL DSE question types
 // v2.0: 19 question types, DSE wording templates, HKEAA level descriptors, multi-text support
-import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
+import { HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 import { DSE_QUESTION_TEMPLATES, DSE_PART_QUESTION_MIX, DSE_RUBRIC_PHRASES } from './dse-question-templates';
 import { buildHKEAALevelPrompt } from './dse-level-descriptors';
 import { buildTextTypePrompt, buildHKLocalPrompt } from './text-types';
@@ -169,7 +169,7 @@ const PASSAGE_QUALITY_STANDARDS = `
 // Main Prompt Builder (Single Passage — backward compatible)
 // ============================================
 export function buildReadingSectionPrompt(): string {
-  return `${HALLUCINATION_GUARD}
+  return `${HALLUCINATION_GUARD_LITE}
 ${DSE_PAPER1_ALL_QUESTION_TYPES}
 ${buildDSEWordingPrompt()}
 ${PASSAGE_QUALITY_STANDARDS}
@@ -257,7 +257,7 @@ CRITICAL: You MUST ensure diverse, non-repeating topics across all generated con
 7. Each passage should feel like it came from a DIFFERENT publication/source
 `.trim();
 
-  return `${HALLUCINATION_GUARD}
+  return `${HALLUCINATION_GUARD_LITE}
 
 You are an HKDSE English Language Paper 1 examiner with 20 years of experience. Your task is to create a COMPLETE, exam-ready DSE Paper 1 Reading paper that is indistinguishable from a real HKEAA paper.
 
@@ -322,7 +322,7 @@ export function buildReadingExercisePrompt(params: {
   const partMix = DSE_PART_QUESTION_MIX[partLabel];
   const questionTypes = partMix.recommendedTypes.slice(0, 8).join(', ');
 
-  return `${HALLUCINATION_GUARD}
+  return `${HALLUCINATION_GUARD_LITE}
 
 ${levelPrompt}
 
