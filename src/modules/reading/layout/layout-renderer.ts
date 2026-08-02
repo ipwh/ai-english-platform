@@ -18,9 +18,12 @@ export function renderToHtml(
   let lastParagraph = -1;
 
   for (const line of allLines) {
-    // Paragraph break — clear visual separation
-    if (line.paragraph !== lastParagraph && lastParagraph >= 0 && !line.isBlank) {
-      htmlParts.push('<div class="my-4 border-t border-gray-200 dark:border-gray-600"></div>');
+    const isNewParagraph = line.paragraph !== lastParagraph && lastParagraph >= 0 && !line.isBlank;
+    const isFirstLineOfParagraph = line.paragraph !== lastParagraph && !line.isBlank;
+
+    // Paragraph break — pure whitespace (no border, DSE-authentic)
+    if (isNewParagraph) {
+      htmlParts.push('<div class="h-6"></div>');
       textParts.push('');
     }
     lastParagraph = line.paragraph;
@@ -35,19 +38,20 @@ export function renderToHtml(
     const needsMarker = shouldInsertMarker(line.line, options.markerInterval);
     if (needsMarker) markerLines.add(line.line);
 
-    // Build line HTML with line marker in fixed left column
+    // Build line HTML with line marker in fixed left gutter
     let lineHtml = '<div class="flex gap-3 items-start">';
 
-    // Line number column — fixed width, does not affect text flow
+    // Line number column — subtle gray, DSE-style
     if (needsMarker) {
-      lineHtml += `<span class="text-[10px] text-indigo-400 dark:text-indigo-500 font-mono w-16 shrink-0 text-right select-none whitespace-nowrap pt-0.5">[${line.line}]</span>`;
+      lineHtml += `<span class="text-[11px] text-gray-400 dark:text-gray-500 font-mono w-12 shrink-0 text-right select-none whitespace-nowrap pt-[2px]">[${line.line}]</span>`;
     } else {
-      lineHtml += '<span class="w-16 shrink-0"></span>';
+      lineHtml += '<span class="w-12 shrink-0"></span>';
     }
 
-    // Text
+    // Text — with first-line indent for new paragraphs
     const escaped = escapeHtml(line.text);
-    lineHtml += `<span class="flex-1">${escaped}</span>`;
+    const indentClass = isFirstLineOfParagraph ? 'pl-6' : '';
+    lineHtml += `<span class="flex-1 text-[15px] ${indentClass}">${escaped}</span>`;
     lineHtml += '</div>';
 
     htmlParts.push(lineHtml);

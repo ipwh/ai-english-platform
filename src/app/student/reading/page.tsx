@@ -115,11 +115,7 @@ export default function ReadingPracticePage() {
   // Layout engine: calculate line numbers from actual display metrics
   const passageLayout = useMemo(() => {
     if (!data?.passage?.content) return null;
-    // Strip AI-generated line markers before layout
-    const cleanContent = data.passage.content
-      .replace(/\[line\s+\d+\]\s*/gi, '')
-      .replace(/\s*\[\d+\]\s*/g, ' ');
-    return layoutReadingText(cleanContent, {
+    return layoutReadingText(data.passage.content, {
       containerWidth: passageWidth,
       fontSize: 14,
     });
@@ -463,7 +459,7 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-4 pb-4" ref={passageRef}>
                 {passageLayout ? (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300"
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm leading-[2] text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (
@@ -531,8 +527,9 @@ export default function ReadingPracticePage() {
                       </span>
                     </div>
                     {q.paragraphRef ? (
-                      <span className="text-xs text-gray-400" title={language === 'en' ? `Paragraph ${q.paragraphRef}` : `第${q.paragraphRef}段`}>
-                        {language === 'en' ? `¶${q.paragraphRef}` : `第${q.paragraphRef}段`}
+                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                        <BookOpen className="w-3 h-3" />
+                        {language === 'en' ? `Para ${q.paragraphRef}` : `第 ${q.paragraphRef} 段`}
                       </span>
                     ) : null}
                   </div>
