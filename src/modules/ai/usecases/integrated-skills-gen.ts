@@ -44,7 +44,7 @@ Note-taking 指引：提供 4-5 個引導問題（Who/What/When/Where/Why/How）
 
   const userPrompt = `生成一個 DSE Paper 3 Part B Integrated Skills 練習：任務類型：${taskInfo.name}，年級：${input.gradeLevel}，難度：${input.difficulty}，字數要求：約 ${diff.wordLimit} words。必要主題："${diverseTopics[0]}"。`;
 
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 8000, userId: input.userId });
+  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 15000, userId: input.userId });
   const task = parseAIJSON<IntegratedSkillsTask>(result);
   if (!task.listeningContent || !task.writingTask) throw new Error('AI 生成的 Integrated Skills 任務不完整');
 

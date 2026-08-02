@@ -71,9 +71,20 @@ class ProviderRegistry {
       // Primary provider gets full timeout; fallbacks get proportionally less
       // to stay within Vercel's 10s function limit
       const isFallback = i > 0;
-      const adjustedOptions = isFallback && options?.timeoutMs
-        ? { ...options, timeoutMs: Math.max(3000, Math.floor(options.timeoutMs / (i + 2))) }
+      // Calculate remaining budget: hard cap at 9s for Vercel Hobby (10s - 1s buffer)
+      const elapsed = Date.now() - startTime;
+      const MAX_FUNCTION_MS = 9000;
+      const remainingBudget = Math.max(1000, MAX_FUNCTION_MS - elapsed);
+      const fallbackTimeout = isFallback
+        ? Math.min(remainingBudget, Math.max(2000, Math.floor((options?.timeoutMs || 15000) / (i + 2))))
+        : Math.min(remainingBudget, options?.timeoutMs || 15000);
+      const adjustedOptions = isFallback || (options?.timeoutMs && options.timeoutMs > remainingBudget)
+        ? { ...options, timeoutMs: fallbackTimeout }
         : options;
+      if (elapsed > MAX_FUNCTION_MS) {
+        errors.push(`${provider.name}: skipped (function time budget exhausted at ${elapsed}ms)`);
+        continue;
+      }
       try {
         const text = await provider.call(messages, adjustedOptions);
         this.lastUsed = provider.name;
