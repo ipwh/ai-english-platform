@@ -392,7 +392,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 
   const result = await callLLM([
     { role: 'system', content: prompt },
-    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Return JSON.` },
+    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Spread questions across ALL paragraphs evenly. Return JSON.` },
   ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 30000 });
 
   const parsed = JSON.parse(result);

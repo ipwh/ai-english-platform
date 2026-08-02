@@ -342,7 +342,7 @@ Recommended question types: ${questionTypes}
 ### Question Requirements:
 - Generate exactly ${count} questions
 - Mix at least 4 different question types from the recommended list
-- Distribute questions across ALL paragraphs — every paragraph must have at least 1 question
+- CRITICAL: Distribute questions evenly across ALL paragraphs. With ${count} questions and the passage paragraphs, assign roughly 1 question per paragraph. Do NOT cluster multiple questions in the same paragraph while leaving others empty.
 - Every question must use EXACT DSE wording
 - Every question must include marks (1-4) and word limits where applicable
 - Pronoun references (it/this/they/its) MUST specify the paragraph number in the question text
