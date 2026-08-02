@@ -115,7 +115,13 @@ export default function ReadingPracticePage() {
   // Layout engine: calculate line numbers from actual display metrics
   const passageLayout = useMemo(() => {
     if (!data?.passage?.content) return null;
-    return layoutReadingText(data.passage.content, {
+    // Strip AI-generated line markers before layout
+    const cleanContent = data.passage.content
+      .replace(/\[line\s+\d+\]\s*/gi, '')
+      .replace(/([a-zA-Z])\s*\[\d+\]\s*/g, '$1 ')
+      .replace(/^\s*\[\d+\]\s*/gm, '')
+      .replace(/\n{3,}/g, '\n\n');
+    return layoutReadingText(cleanContent, {
       containerWidth: passageWidth,
       fontSize: 14,
     });
