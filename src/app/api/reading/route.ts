@@ -304,7 +304,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
   const result = await callLLM([
     { role: 'system', content: systemPrompt + dseContextBlock },
     { role: 'user', content: `Generate a complete DSE Paper 1 Part ${validatedPart} paper for ${gradeLevel} students (target Level ${resolvedLevel}) about "${topic || 'DSE-appropriate topic'}". Return the complete JSON paper object.` },
-  ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 45000 });
+  ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 30000 });
 
   const paper = JSON.parse(result) as DSEreadingPaper;
 
