@@ -382,7 +382,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   const targetLevel = platformDifficultyToHKEAALevel(difficulty, validatedPart);
 
   const prompt = buildReadingExercisePrompt({
-    count: Math.min(count, 10),
+    count: Math.min(count, 7),
     difficultyLabel: { remedial: '補底', core: '核心', challenge: '挑戰' }[difficulty],
     gradeLevel,
     topic: topic || 'DSE-appropriate topic',
@@ -396,6 +396,32 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
 
   const parsed = JSON.parse(result);
+
+  // Compute paragraph/line references from targetPhrase using layout engine
+  if (parsed.readingContent && parsed.questions) {
+    const { layoutReadingText } = await import('@/modules/reading/layout');
+    const layout = layoutReadingText(parsed.readingContent);
+    for (const q of parsed.questions) {
+      if (q.targetPhrase && !q.paragraphRef) {
+        const phrase = q.targetPhrase.trim();
+        // Find which paragraph and line contains this phrase
+        for (const para of layout.paragraphs) {
+          const paraText = para.lines.map(l => l.text).join(' ');
+          if (paraText.includes(phrase)) {
+            q.paragraphRef = para.paragraphNumber;
+            // Find exact line
+            for (const line of para.lines) {
+              if (line.text.includes(phrase)) {
+                q.lineRef = String(line.line);
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
 
   // Sprint 102: Route through legacy handler for full passage + question transformation
   // This applies line markers, lineMap, TFNG splitting, question format transform
@@ -543,7 +569,7 @@ async function handleSummaryClozeTraining(body: Record<string, unknown>) {
   const prompt = buildSummaryClozeTrainingPrompt({
     targetLevel,
     focusArea,
-    count: Math.min(count, 10),
+    count: Math.min(count, 7),
   });
 
   const result = await callLLM([
@@ -576,7 +602,7 @@ async function handleParaphraseTraining(body: Record<string, unknown>) {
   const prompt = buildParaphraseTrainingPrompt({
     targetLevel,
     focusArea,
-    count: Math.min(count, 10),
+    count: Math.min(count, 7),
   });
 
   const result = await callLLM([
@@ -609,7 +635,7 @@ async function handleIdiomTraining(body: Record<string, unknown>) {
   const prompt = buildIdiomTrainingPrompt({
     targetLevel,
     strategy,
-    count: Math.min(count, 10),
+    count: Math.min(count, 7),
   });
 
   const result = await callLLM([

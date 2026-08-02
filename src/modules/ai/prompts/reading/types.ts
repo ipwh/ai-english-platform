@@ -77,6 +77,7 @@ export interface DSEreadingQuestion {
   type: DSEreadingQuestionType;
   paragraphRef?: number;
   lineRef?: string;
+  targetPhrase?: string; // Key phrase the question references — system computes paragraph/line from this
   questionText: string;
   questionTextZh?: string;
   marks: number; // 1-6
@@ -490,8 +491,8 @@ export function validateQuestionQuality(questions: DSEreadingQuestion[], part: D
     issues.push('Questions requiring word limits are missing wordLimit field');
   }
 
-  const hasParagraphRefs = questions.every(q => q.paragraphRef || q.lineRef);
-  if (!hasParagraphRefs) issues.push('Some questions missing paragraph/line references');
+  const hasParagraphRefs = questions.every(q => q.paragraphRef || q.lineRef || q.targetPhrase);
+  if (!hasParagraphRefs) issues.push('Some questions missing paragraph/line/targetPhrase references');
 
   return {
     passed: issues.length === 0,

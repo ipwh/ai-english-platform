@@ -197,8 +197,7 @@ ${PASSAGE_QUALITY_STANDARDS}
     {
       "index": 1,
       "type": "mcq|trueFalseNG|matching|summaryCloze|mcCloze|errorCorrectionSummary|shortAnswer|referencing|inference|toneAttitude|sequencing|synonymSearch|phraseSearch|negativeInference|tableCompletion|causeEffectCompletion|exampleFinding|authorIntention|vocabularyInContext",
-      "paragraphRef": 2,
-      "lineRef": "line 5-8",
+      "targetPhrase": "exact phrase from passage this question references",
       "questionText": "DSE-style question with EXACT wording",
       "questionTextZh": "繁體中文題目翻譯",
       "marks": 1,
