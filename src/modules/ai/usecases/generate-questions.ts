@@ -647,6 +647,9 @@ https://afterschool.com.hk/blog/242-dse-english-paper-3-listening/  },
     const needsRetry = actualCount < count || hasCriticalFailures;
     
     if (!needsRetry || attempt >= MAX_RETRIES - 1) {
+      if (actualCount === 0) {
+        throw new Error(`AI generated 0 valid questions after ${attempt + 1} attempt(s). Last error: ${lastError || 'all questions rejected by quality checks'}`);
+      }
       if (actualCount < count && attempt > 0) {
         logger.warn({ module: 'ai-service', attempts: attempt + 1, actualCount, expectedCount: count, lastError: lastError || undefined }, 'Returning best effort after retry attempts');
       }
@@ -694,8 +697,8 @@ ${result.slice(0, 12000)}`;
   }
   } // end retry loop
 
-  // Fallback (shouldn't normally be reached)
-  return [];
+  // All retries exhausted or unreachable
+  throw new Error(`AI question generation failed after ${MAX_RETRIES} attempts. ${lastError ? 'Last error: ' + lastError : 'No valid questions produced.'}`);
 }
 
 /**
