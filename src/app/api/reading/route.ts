@@ -757,49 +757,94 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     };
     delete response.readingContent;
 
-    // 2. Transform question format from v2 AI output to legacy frontend format
+    // ── Phase 1: Compute real paragraph/line refs using layout engine ──
+    const questionsRaw = response.questions as Array<Record<string, unknown>> | undefined;
+    const passageContent = cleanContent;
+    if (questionsRaw && passageContent) {
+      const { layoutReadingText } = await import('@/modules/reading/layout');
+      const layout = layoutReadingText(passageContent);
+      for (const q of questionsRaw) {
+        const questionText = (q.questionText || q.question || '') as string;
+
+        // Priority 1: targetPhrase mapping (trust real text search over AI hallucination)
+        let targetPhrase = (q.targetPhrase as string)?.trim();
+        if (!targetPhrase) {
+          const quotedMatch = questionText.match(/['\u2018\u2019\u201C\u201D"]([^'\u2018\u2019\u201C\u201D"]{3,60})['\u2018\u2019\u201C\u201D"]/);
+          if (quotedMatch) targetPhrase = quotedMatch[1];
+        }
+        if (targetPhrase) {
+          for (const para of layout.paragraphs) {
+            const paraText = para.lines.map(l => l.text).join(' ');
+            if (paraText.includes(targetPhrase)) {
+              q._computedParagraph = para.paragraphNumber;
+              for (const line of para.lines) {
+                if (line.text.includes(targetPhrase)) {
+                  q._computedLine = String(line.line);
+                  break;
+                }
+              }
+              break;
+            }
+          }
+        }
+
+        // Fallback: extract paragraph number from question text (AI's intent)
+        if (!q._computedParagraph) {
+          const paraMatch = questionText.match(/paragraph\s+(\d+)/i);
+          if (paraMatch) q._computedParagraph = parseInt(paraMatch[1], 10);
+        }
+      }
+    }
+
+    // ── Phase 2: Transform questions with computed refs ──
     if (Array.isArray(response.questions)) {
       response.questions = splitTFNGSubQuestions(response.questions as Array<Record<string, unknown>>);
-      // Sprint 102: Trim to requested count after TFNG splitting
       if ((response.questions as Array<Record<string, unknown>>).length > totalQ) {
         response.questions = (response.questions as Array<Record<string, unknown>>).slice(0, totalQ);
       }
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
-        // Map questionText → question, strip AI-guessed line numbers
         let rawQuestion = (q.questionText as string) || (q.question as string) || '';
         const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
 
-        // Strip AI-guessed (line N) references — system computes actual line numbers
         let question = rawQuestion.replace(/\s*\(line\s+\d+(-\d+)?\)\s*/gi, ' ');
-        // If system computed lineRef from targetPhrase, inject it
-        if (q.lineRef && q.targetPhrase) {
-          const phrase = String(q.targetPhrase).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const lineRefRe = new RegExp(`('${phrase}'|"${phrase}")\\s*`, 'gi');
-          question = question.replace(lineRefRe, `$&(line ${q.lineRef}) `);
+
+        // Correct AI's wrong paragraph reference with computed value
+        const computedPara = q._computedParagraph as number | undefined;
+        if (computedPara) {
+          q.paragraphRef = computedPara;
+          question = question.replace(
+            /(According to|With reference to)\s+paragraph\s+\d+/gi,
+            `$1 paragraph ${computedPara}`,
+          );
+        }
+
+        // Inject system-computed line number (now available from Phase 1)
+        const computedLine = q._computedLine as string | undefined;
+        const targetPhrase = (q.targetPhrase as string)?.trim();
+        if (computedLine && targetPhrase) {
+          const escaped = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const lineRefRe = new RegExp(`('${escaped}'|"${escaped}")\\s*`, 'gi');
+          question = question.replace(lineRefRe, `$&(line ${computedLine}) `);
         }
         question = question.replace(/\s+/g, ' ').trim();
 
-        // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
         const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
         const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
-        // Strip "A. " prefix from choices if present
         let choices: string[] | undefined;
         if (Array.isArray(q.choices)) {
           choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
           const substantive = choices.filter(c => c.trim().length > 2);
           if (substantive.length === 0) choices = undefined;
         }
-        // Sprint 102: Auto-provide TFNG choices when AI doesn't include them
         if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
           choices = ['True', 'False', 'Not Given'];
         }
 
-        // Determine tier from question metadata or default based on position
         const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
-        // Use system-computed paragraphRef from targetPhrase mapping (set upstream)
+        // Use system-computed paragraphRef from Phase 1
         let paragraphRef = (q.paragraphRef as number) || undefined;
 
         return {
@@ -868,46 +913,6 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
   }
   response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
-
-  // Compute paragraph/line references from targetPhrase using layout engine
-  const questions = response.questions as Array<Record<string, unknown>> | undefined;
-  const passageContent = (response.passage as Record<string, unknown> | undefined)?.content as string
-    || response.readingContent as string;
-  if (questions && passageContent) {
-    const { layoutReadingText } = await import('@/modules/reading/layout');
-    const layout = layoutReadingText(passageContent);
-    for (const q of questions) {
-      // Priority 1: Extract explicit paragraph number from question text (AI's intent)
-      const questionText = (q.questionText || q.question || '') as string;
-      const paraMatch = questionText.match(/paragraph\s+(\d+)/i);
-      if (paraMatch && !q.paragraphRef) {
-        q.paragraphRef = parseInt(paraMatch[1], 10);
-      }
-
-      // Priority 2: Use targetPhrase mapping (only if no explicit paragraph ref)
-      let targetPhrase = (q.targetPhrase as string)?.trim();
-      if (!targetPhrase) {
-        const quotedMatch = questionText.match(/['\u2018\u2019\u201C\u201D"]([^'\u2018\u2019\u201C\u201D"]{3,60})['\u2018\u2019\u201C\u201D"]/);
-        if (quotedMatch) targetPhrase = quotedMatch[1];
-      }
-      if (targetPhrase && !q.paragraphRef) {
-        const searchPhrase = targetPhrase;
-        for (const para of layout.paragraphs) {
-          const paraText = para.lines.map(l => l.text).join(' ');
-          if (paraText.includes(searchPhrase)) {
-            q.paragraphRef = para.paragraphNumber;
-            for (const line of para.lines) {
-              if (line.text.includes(searchPhrase)) {
-                q.lineRef = String(line.line);
-                break;
-              }
-            }
-            break; // Stop at first match — don't overwrite with later occurrences
-          }
-        }
-      }
-    }
-  }
 
   return NextResponse.json(response);
 }
