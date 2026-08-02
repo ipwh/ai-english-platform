@@ -1,7 +1,11 @@
 // ============================================
-// GET /api/auth/csrf — Get CSRF token for client-side use
+// GET /api/auth/app-csrf — Get CSRF token for client-side use
 // Client reads this token and sends it as X-CSRF-Token header
 // on mutation requests (POST/PUT/PATCH/DELETE)
+//
+// NOTE: This endpoint was moved from /api/auth/csrf to avoid
+// conflicting with NextAuth.js v5's built-in CSRF endpoint.
+// NextAuth uses /api/auth/csrf internally for Google OAuth flow.
 // ============================================
 
 import { type NextRequest, NextResponse } from 'next/server';
