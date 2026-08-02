@@ -45,7 +45,7 @@ export async function analyzeProgress(input: AnalyzeProgressInput): Promise<Prog
   const weakSkillsDesc = input.weakSkills.map(s => `${s.nameZh} (正確率: ${s.accuracy}%)`).join('、');
   const recentDesc = input.recentPerformance.map(p => `${p.date}: 正確率${p.accuracy}%, ${p.questionsDone}題`).join('\n');
   const userPrompt = buildProgressAnalysisUserPrompt({ studentLevel: input.studentLevel, overallAccuracy: input.overallAccuracy, streakDays: input.streakDays, weakSkillsDesc, recentDesc });
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.6, maxTokens: 2048, jsonMode: true, timeoutMs: 15000, userId: input.userId });
+  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.6, maxTokens: 2048, jsonMode: true, timeoutMs: 8000, userId: input.userId });
   const progress = parseAIJSON<ProgressAnalysis>(result);
   const validated = validateAIResponse(ProgressAnalysisSchema, progress);
   if (!validated.success) throw new Error(validated.error);

@@ -585,7 +585,7 @@ https://afterschool.com.hk/blog/242-dse-english-paper-3-listening/  },
       { role: 'system', content: effectiveSystemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 25000, userId: input.userId }
+    { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 8000, userId: input.userId }
   );
 
   const tryValidate = (rawText: string) => {
@@ -687,7 +687,7 @@ ${result.slice(0, 12000)}`;
         { role: 'system', content: repairSystemPrompt },
         { role: 'user', content: repairUserPrompt },
       ],
-      { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 15000, userId: input.userId }
+      { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 5000, userId: input.userId }
     );
 
     return tryValidate(repaired);

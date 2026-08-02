@@ -51,7 +51,7 @@ export async function generateAdaptiveWritingGuide(
         temperature: 0.4,
         maxTokens: 1024,
         jsonMode: true,
-        timeoutMs: 15000,
+        timeoutMs: 8000,
         userId: input.userId,
       },
     );

@@ -380,7 +380,7 @@ ${essayContent}
               { role: 'system', content: grammarPrompt + writingMSContext },
               { role: 'user', content: grammarUserPrompt },
             ],
-            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId }
+            { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 8000, userId: input.userId }
           );
         } catch (e) {
           if (attempt === 1) throw e;
@@ -394,7 +394,7 @@ ${essayContent}
         { role: 'system', content: stylePrompt + writingMSContext },
         { role: 'user', content: styleUserPrompt },
       ],
-      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId }
+      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 8000, userId: input.userId }
     ),
   ]);
 

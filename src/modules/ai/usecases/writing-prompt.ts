@@ -64,7 +64,7 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels. Just the compl
 
   const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}.${input.difficulty ? ` Difficulty: ${input.difficulty}.` : ''} Word limit: ${input.wordLimit} words. Required topic: "${diverseTopics[0]}".`;
 
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000, userId: input.userId });
+  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.8, maxTokens: 1024, timeoutMs: 8000, userId: input.userId });
   const prompt = result.trim();
 
   // Record the topic as used

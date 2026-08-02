@@ -38,7 +38,7 @@ export async function analyzeWord(input: AnalyzeWordInput): Promise<import('@/mo
 
   const result = await callLLM(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: `請分析以下英文單字：${word}\n學生年級：${gradeLevel}` }],
-    { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 15000, userId: input.userId }
+    { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 8000, userId: input.userId }
   );
   const data = parseAIJSON(result);
   const validated = validateAIResponse(WordAnalysisSchema, data);
