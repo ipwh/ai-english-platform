@@ -877,20 +877,29 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     const { layoutReadingText } = await import('@/modules/reading/layout');
     const layout = layoutReadingText(passageContent);
     for (const q of questions) {
-      const targetPhrase = q.targetPhrase as string | undefined;
+      let targetPhrase = (q.targetPhrase as string)?.trim();
+      // If no targetPhrase, try to extract quoted text from question
+      if (!targetPhrase) {
+        const questionText = (q.questionText || q.question || '') as string;
+        const quotedMatch = questionText.match(/['""]([^'""]{3,60})['""]/);
+        if (quotedMatch) targetPhrase = quotedMatch[1];
+      }
       if (targetPhrase && !q.paragraphRef) {
-        const phrase = targetPhrase.trim();
+        const phrase = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // For short/common words like "it", require longer context
+        const searchPhrase = targetPhrase;
         for (const para of layout.paragraphs) {
           const paraText = para.lines.map(l => l.text).join(' ');
-          if (paraText.includes(phrase)) {
+          if (paraText.includes(searchPhrase)) {
             q.paragraphRef = para.paragraphNumber;
             for (const line of para.lines) {
-              if (line.text.includes(phrase)) {
+              if (line.text.includes(searchPhrase)) {
                 q.lineRef = String(line.line);
                 break;
               }
             }
-            break;
+            // For common words, only match once (first occurrence in paragraph)
+            if (searchPhrase.length <= 3) break;
           }
         }
       }
