@@ -175,8 +175,7 @@ ${buildDSEWordingPrompt()}
 ${PASSAGE_QUALITY_STANDARDS}
 
 【閱讀理解題特別要求】
-- readingContent: 完整的英文閱讀篇章（Part A: 700-1000 words; Part B1: 400-700 words; Part B2: 700-1000 words）
-- 包含 [paragraph number] 每段開頭標記（無需 [line N]，行號由系統自動渲染）
+- readingContent: 完整的英文閱讀篇章。必須用 [Paragraph 1] [Paragraph 2] 等標記明確分隔每個段落。嚴禁使用 [line N] 或 [N] 行號標記。
 - 所有題目必須基於此閱讀篇章，答案必須能在文中找到
 - 篇章類型：根據 DSE 12+ 文本類型庫選擇（feature article, newspaper article, interview, blog post, etc.）
 - 提供 readingContentZh 繁體中文輔助說明
@@ -186,7 +185,7 @@ ${PASSAGE_QUALITY_STANDARDS}
 
 【期望 JSON schema — 完整題型支援 v2】
 {
-  "readingContent": "Full English passage (700-1000 words for Part A/B2, 400-700 for B1). Use [Paragraph N] at the start of each paragraph. Do NOT include any line numbers or [N] markers.",
+  "readingContent": "[Paragraph 1] Full English passage text here...\n\n[Paragraph 2] Next paragraph text...",
   "readingContentZh": "繁體中文輔助說明",
   "partLabel": "A|B1|B2",
   "textType": "feature_article|newspaper_article|restaurant_review|interview|informational_webpage|government_guide|job_advertisement|blog_post|literary_excerpt|letter_to_editor|advertisement_poster|argumentative_essay",

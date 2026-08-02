@@ -736,25 +736,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     content = content.replace(/\[line\s+\d+\]\s*/gi, '');
     content = content.replace(/\s*\[\d+\]\s*/g, ' ');
 
-    // Step B: Split into paragraphs — prefer existing breaks, detect from topic shifts
+    // Step B: Split into paragraphs — only use explicit [Paragraph N] markers or natural double newlines
+    // Do NOT guess paragraph boundaries from transition words — that creates false breaks
     let parts = content.split(/\n\n+/).filter(p => p.trim().length > 30);
-    // If no natural paragraph breaks, detect from transition words
+    // If only 1 block, try splitting on [Paragraph N] markers
     if (parts.length <= 1) {
-      const sentences = content.split(/(?<=\.)\s+(?=[A-Z])/);
-      parts = [];
-      let current = '';
-      for (const s of sentences) {
-        const trimmed = s.trim();
-        if (!trimmed) continue;
-        if (current && /^(However|Moreover|Nevertheless|Furthermore|In contrast|Conversely|Thus|Therefore|Consequently|As a result|In conclusion|In summary|On the other hand|Despite|Yet|But|So)\b/i.test(trimmed)) {
-          parts.push(current.trim());
-          current = trimmed;
-        } else {
-          current += (current ? ' ' : '') + trimmed;
-        }
-      }
-      if (current.trim()) parts.push(current.trim());
+      const markerSplit = content.split(/\[Paragraph\s+\d+\]/gi);
+      parts = markerSplit.filter(p => p.trim().length > 30);
     }
+    // Fallback: if still one block, keep as-is — don't guess paragraph boundaries
 
     const cleanContent = parts.join('\n\n');
     const totalWords = cleanContent.split(/\s+/).filter(Boolean).length;
