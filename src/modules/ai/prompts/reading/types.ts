@@ -96,7 +96,7 @@ export interface DSEreadingQuestion {
 export interface DSEreadingPassage {
   textNumber: number; // Text 1, Text 2, etc.
   title: string;
-  content: string; // Full passage text with [line N] and [paragraph] markers
+  content: string; // Full passage text — line numbers are rendered by layout engine
   wordCount: number;
   textType: DSEtextTypeId;
   source: string; // "adapted from The Guardian"

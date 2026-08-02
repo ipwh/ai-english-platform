@@ -125,7 +125,7 @@ Generate as a "paper" object containing an array of passages:
     {
       "textNumber": 1,
       "title": "...",
-      "content": "Full passage with [line N] markers every 5 lines...",
+      "content": "Full passage text — no line markers needed (rendered by system)",
       "wordCount": 850,
       "textType": "feature_article",
       "source": "adapted from The Guardian",
@@ -150,7 +150,7 @@ const PASSAGE_QUALITY_STANDARDS = `
 - TOTAL across all passages in a part: aim for ~1500-2000 words
 
 ### Content Quality:
-1. Include [line N] markers every 5 lines (e.g., [line 5], [line 10], [line 15]...)
+1. Use [Paragraph N] at the start of each paragraph. Do NOT include [line N] or [N] markers — line numbers are rendered by the system.
 2. Include paragraph numbers [1], [2], [3]... at the start of each paragraph
 3. Use authentic publication source: "adapted from [real publication name]"
 4. Ensure the topic aligns with DSE empirical topics (HK-local ~40%, global ~60%)
@@ -186,7 +186,7 @@ ${PASSAGE_QUALITY_STANDARDS}
 
 【期望 JSON schema — 完整題型支援 v2】
 {
-  "readingContent": "Full English passage (700-1000 words for Part A/B2, 400-700 for B1) with [line N] and [paragraph] markers",
+  "readingContent": "Full English passage (700-1000 words for Part A/B2, 400-700 for B1). Use [Paragraph N] at the start of each paragraph. Do NOT include any line numbers or [N] markers.",
   "readingContentZh": "繁體中文輔助說明",
   "partLabel": "A|B1|B2",
   "textType": "feature_article|newspaper_article|restaurant_review|interview|informational_webpage|government_guide|job_advertisement|blog_post|literary_excerpt|letter_to_editor|advertisement_poster|argumentative_essay",
@@ -289,7 +289,7 @@ Topic area: "${topicStr}"
 4. Mix at least 6 different question types from the recommended list
 5. Each passage must have its own set of questions
 6. Every question must include: type, questionText (DSE phrasing), marks, wordLimit (if applicable), answer, explanationZh
-7. Include [line N] markers every 5 lines in ALL passages
+7. Use [Paragraph N] at the start of each paragraph. Do NOT include [line N] markers.
 8. Include paragraph numbers [1], [2], [3]... at the start of EACH paragraph
 9. Provide a complete marking scheme with model answers and "accept also" alternatives for open-ended questions
 10. The paper must feel AUTHENTIC — a student should not be able to tell it was AI-generated
@@ -336,7 +336,7 @@ Recommended question types: ${questionTypes}
 
 ### Passage Requirements:
 - Generate a reading passage of 500-800 words (Part ${partLabel})
-- Include [line N] markers every 5 lines and [paragraph number] markers
+- Include [Paragraph N] markers at the start of each paragraph. Do NOT include [line N] markers.
 - Use a DSE-appropriate text type
 - Include 3-5 vocabulary hints with Chinese meanings
 
