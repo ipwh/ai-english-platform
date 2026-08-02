@@ -25,9 +25,9 @@ export function renderToHtml(
     }
     lastParagraph = line.paragraph;
 
-    // Blank spacer line
+    // Blank spacer line — visual only, use CSS margin instead of content gap
     if (line.isBlank) {
-      htmlParts.push('<div class="h-2"></div>');
+      htmlParts.push('<div style="margin-bottom:0.25rem"></div>');
       textParts.push('');
       continue;
     }

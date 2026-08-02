@@ -42,7 +42,7 @@ export function buildParagraphLayouts(
   const layouts: LayoutParagraph[] = [];
 
   for (let pi = 0; pi < paragraphs.length; pi++) {
-    const paraLines = allLines.filter(l => l.paragraph === pi && !l.isBlank);
+    const paraLines = allLines.filter(l => l.paragraph === pi && !l.isBlank && l.line > 0);
     if (paraLines.length === 0) continue;
 
     layouts.push({
