@@ -580,6 +580,8 @@ https://afterschool.com.hk/blog/242-dse-english-paper-3-listening/  },
     
     const effectiveSystemPrompt = finalSystemPrompt + retryPrompt;
 
+    logger.info({ module: 'generate-questions', attempt, systemPromptLen: effectiveSystemPrompt.length, userPromptLen: userPrompt.length, estimatedTokens: Math.ceil((effectiveSystemPrompt.length + userPrompt.length) / 4), skill: input.languageSkill, difficulty: input.difficulty }, 'Calling LLM for question generation');
+
   const result = await callLLM(
     [
       { role: 'system', content: effectiveSystemPrompt },

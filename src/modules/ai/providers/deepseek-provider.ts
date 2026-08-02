@@ -23,6 +23,9 @@ export class DeepSeekProvider implements AIProvider {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+    const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+    logger.info({ module: 'deepseek', model: config.deepseek.model, baseUrl: config.deepseek.baseUrl, timeoutMs, totalChars, estimatedTokens: Math.ceil(totalChars / 4), jsonMode: options?.jsonMode }, 'DeepSeek API call');
+
     try {
       const res = await fetch(`${config.deepseek.baseUrl}/chat/completions`, {
         method: 'POST',
