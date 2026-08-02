@@ -213,16 +213,19 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     // Continue to next iteration of retry loop
   } catch (firstErr: unknown) {
     const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+    // Include raw output snippet in error for debugging
+    const rawSnippet = result.slice(0, 500);
+    const enrichedMsg = `${firstMsg} [原始回應：${rawSnippet}]`;
     if (!/AI 回傳格式無法解析|AI 回傳資料格式異常|JSON/i.test(firstMsg)) {
-      throw firstErr;
+      throw new Error(enrichedMsg);
     }
 
     // 第二階段：請模型只做「格式修復」，避免偶發非 JSON 輸出導致 500
-    const repairSystemPrompt = `你是 JSON 格式修復器。請將輸入內容轉為有效 JSON 陣列。
+    const repairSystemPrompt = `你是 JSON 格式修復器。請將輸入內容轉為有效 JSON 物件，格式為 {"questions": [...]}。
 不要新增或刪除題目，只修正格式。
-回覆必須是純 JSON 陣列，不可包含任何其他文字。`;
+回覆必須是純 JSON 物件，以 { 開頭，以 } 結尾，不可包含任何其他文字。`;
 
-    const repairUserPrompt = `請把以下內容轉成有效 JSON 陣列，每題需包含：
+    const repairUserPrompt = `請把以下內容轉成有效 JSON 物件 {"questions": [...]}，每題需包含：
 type, prompt, promptZh, choices, answer, explanationZh, explanationEn, commonMistake, grammarPoint
 
 原始內容：
