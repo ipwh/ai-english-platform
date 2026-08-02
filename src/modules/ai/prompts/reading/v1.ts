@@ -176,12 +176,12 @@ ${PASSAGE_QUALITY_STANDARDS}
 
 【閱讀理解題特別要求】
 - readingContent: 完整的英文閱讀篇章（Part A: 700-1000 words; Part B1: 400-700 words; Part B2: 700-1000 words）
-- 包含 [line N] 每5行標記 + [paragraph number] 每段開頭標記
+- 包含 [paragraph number] 每段開頭標記（無需 [line N]，行號由系統自動渲染）
 - 所有題目必須基於此閱讀篇章，答案必須能在文中找到
 - 篇章類型：根據 DSE 12+ 文本類型庫選擇（feature article, newspaper article, interview, blog post, etc.）
 - 提供 readingContentZh 繁體中文輔助說明
 - 題目必須混合多種題型，模仿真實 DSE Paper 1 格式
-- 每題必須標註 marks (1-6) 和 word limit（如適用）
+- 每題必須標註 marks (1-6) 和 paragraphRef（段落編號）。無需 lineRef — 行號由系統自動計算
 - 使用真實 DSE 出題句式（參考 Question Wording Templates）
 
 【期望 JSON schema — 完整題型支援 v2】

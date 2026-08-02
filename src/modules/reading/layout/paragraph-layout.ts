@@ -7,10 +7,13 @@ import type { LayoutParagraph, DisplayLine } from './reading-layout-types';
 
 /** Extract paragraphs from raw passage text with [N] markers */
 export function extractParagraphs(rawText: string): { text: string; number: number }[] {
+  // Strip AI-generated [line N] markers — line numbers are a rendering concern
+  const cleaned = rawText.replace(/\[line\s+\d+\]\s*/gi, '');
+  
   // Split on [Paragraph N] or [N] markers
   const paragraphs: { text: string; number: number }[] = [];
   const regex = /\[Paragraph\s+(\d+)\]\s*/gi;
-  const parts = rawText.split(regex);
+  const parts = cleaned.split(regex);
 
   // parts will be: ['', '2', ' text...', '3', ' text...', ...]
   for (let i = 1; i < parts.length; i += 2) {
