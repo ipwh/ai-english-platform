@@ -74,8 +74,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!questions) {
-      throw (lastErr instanceof Error ? lastErr : new Error('AI 題目生成失敗'));
+    if (!questions || (Array.isArray(questions) && questions.length === 0)) {
+      if (lastErr) throw (lastErr instanceof Error ? lastErr : new Error(String(lastErr)));
+      throw new Error('AI 題目生成失敗：返回空結果，請更換文法項目或調整設定後重試');
     }
 
     return NextResponse.json({
