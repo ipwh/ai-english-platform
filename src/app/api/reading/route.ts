@@ -393,7 +393,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   const result = await callLLM([
     { role: 'system', content: prompt },
     { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Spread questions across ALL paragraphs evenly. Return JSON.` },
-  ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 30000 });
+  ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 30000 });
 
   const parsed = JSON.parse(result);
 
@@ -714,7 +714,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     await callLLM([
       { role: 'system', content: systemPrompt + dseContextBlock },
       { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
-    ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 })
+    ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 25000 })
   );
 
   // Attach readability if passage content exists
