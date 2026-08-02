@@ -451,7 +451,13 @@ ${essayContent}
           ? -8
           : 0;
 
+  // Calculate score from CLO subscores (more reliable than LLM's own calculation)
+  const computedCloScore = (contentScore != null && languageScore != null && organizationScore != null)
+    ? Math.round((contentScore + languageScore + organizationScore) / 21 * 100)
+    : null;
   const llmBaseScore = typeof grammarAnalysis.overallScore === 'number' ? grammarAnalysis.overallScore : 70;
+  // Prefer computed CLO score over LLM's potentially inaccurate overallScore
+  const baseScore = computedCloScore ?? llmBaseScore;
   const llmLengthPenalty = typeof grammarAnalysis.lengthPenalty === 'number' ? grammarAnalysis.lengthPenalty : 0;
   const llmOffTopicPenalty = typeof grammarAnalysis.offTopicPenalty === 'number' ? grammarAnalysis.offTopicPenalty : 0;
   const contentScore = typeof grammarAnalysis.contentScore === 'number' ? grammarAnalysis.contentScore : undefined;
@@ -471,7 +477,7 @@ ${essayContent}
     : 'U'
     : undefined;
   const normalizedOverall = clamp(
-    Math.round(llmBaseScore + Math.min(llmLengthPenalty, deterministicLengthPenalty) + llmOffTopicPenalty),
+    Math.round(baseScore + Math.min(llmLengthPenalty, deterministicLengthPenalty) + llmOffTopicPenalty),
     0,
     100
   );
