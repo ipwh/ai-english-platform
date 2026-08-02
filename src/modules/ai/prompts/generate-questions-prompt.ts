@@ -59,6 +59,8 @@ export function buildCompactSystemPrompt(input: GenerateQuestionsInput, dseConte
   // ── Assemble ──
   return `You are a Hong Kong secondary school English teacher. Generate ${count} English ${skillDesc} practice questions aligned to HKDSE ${input.gradeLevel} standards at ${diffMap[input.difficulty]} difficulty (${effectiveQuestionType} format).
 
+CRITICAL: Your ENTIRE response must be a pure JSON array starting with [ and ending with ]. No markdown, no code blocks, no explanatory text before or after the JSON.
+
 ${dseTopics}
 Topic: "${topic}" — DO NOT use default topics like basketball tryouts/bees/movie time.
 ${diversity}

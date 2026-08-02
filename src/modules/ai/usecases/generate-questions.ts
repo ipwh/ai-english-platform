@@ -229,7 +229,11 @@ ${result.slice(0, 12000)}`;
       { temperature: 0, maxTokens: 4096, timeoutMs: 15000, userId: input.userId }
     );
 
-    return tryValidate(repaired);
+    const repairedQuestions = tryValidate(repaired);
+    if (repairedQuestions.length === 0) {
+      throw new Error('AI 回傳格式修復後仍未產生有效題目');
+    }
+    return repairedQuestions;
   }
   } // end retry loop
 
