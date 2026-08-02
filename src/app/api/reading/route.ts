@@ -392,10 +392,17 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 
   const result = await callLLM([
     { role: 'system', content: prompt },
-    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". Include the reading passage. Return JSON.` },
-  ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
+    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Return JSON.` },
+  ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 30000 });
 
   const parsed = JSON.parse(result);
+
+  // Validate minimum passage length
+  const passageText = parsed.readingContent as string || '';
+  const wordCount = passageText.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 200) {
+    throw new Error(`Generated passage too short: ${wordCount} words (minimum 500 required). Please retry.`);
+  }
 
   // Route through legacy handler for full passage + question transformation
   // This applies line markers, lineMap, TFNG splitting, question format transform
