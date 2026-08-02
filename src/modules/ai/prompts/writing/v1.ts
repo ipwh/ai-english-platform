@@ -5,7 +5,7 @@ export const description = 'HKDSE Writing prompts: CLO grammar, style, outline, 
 export const updatedAt = '2026-07-22';
 export const author = 'AI English Platform';
 
-import { HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
+import { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 
 // ============================================
 // Writing CLO Grammar Analysis (from writing-clo-grammar.ts)
