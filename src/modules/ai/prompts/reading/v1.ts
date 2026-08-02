@@ -181,7 +181,7 @@ ${PASSAGE_QUALITY_STANDARDS}
 - 篇章類型：根據 DSE 12+ 文本類型庫選擇（feature article, newspaper article, interview, blog post, etc.）
 - 提供 readingContentZh 繁體中文輔助說明
 - 題目必須混合多種題型，模仿真實 DSE Paper 1 格式
-- 每題必須標註 marks (1-6) 和 paragraphRef（段落編號）。無需 lineRef — 行號由系統自動計算
+- 每題必須標註 marks (1-6)。使用 targetPhrase 標記目標詞彙，不要在手動問題文字中寫入 (line N) — 行號由系統自動計算並注入
 - 使用真實 DSE 出題句式（參考 Question Wording Templates）
 
 【期望 JSON schema — 完整題型支援 v2】
@@ -345,7 +345,7 @@ Recommended question types: ${questionTypes}
 - Mix at least 4 different question types from the recommended list
 - Every question must use EXACT DSE wording
 - Every question must include marks (1-4) and word limits where applicable
-- Every question must reference specific paragraph/line numbers
+- Use targetPhrase field to mark key vocabulary — do NOT write (line N) in question text
 
 Return JSON array of questions with embedded readingContent.`;
 }

@@ -775,13 +775,19 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         response.questions = (response.questions as Array<Record<string, unknown>>).slice(0, totalQ);
       }
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
-        // Map questionText → question
+        // Map questionText → question, strip AI-guessed line numbers
         let rawQuestion = (q.questionText as string) || (q.question as string) || '';
         const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
 
-        // Line number references are now handled by the Reading Layout Engine.
-        // The rendering layer inserts accurate [line N] markers at display time.
-        const question = rawQuestion;
+        // Strip AI-guessed (line N) references — system computes actual line numbers
+        let question = rawQuestion.replace(/\s*\(line\s+\d+(-\d+)?\)\s*/gi, ' ');
+        // If system computed lineRef from targetPhrase, inject it
+        if (q.lineRef && q.targetPhrase) {
+          const phrase = String(q.targetPhrase).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const lineRefRe = new RegExp(`('${phrase}'|"${phrase}")\\s*`, 'gi');
+          question = question.replace(lineRefRe, `$&(line ${q.lineRef}) `);
+        }
+        question = question.replace(/\s+/g, ' ').trim();
 
         // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
