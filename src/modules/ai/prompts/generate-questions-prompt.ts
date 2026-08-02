@@ -78,6 +78,9 @@ ${isListening ? '- listeningContent: independent short dialogue per question (Bo
 MCQ rules: 4 complete options, same category, no "All/None of the above", no time fragments like "00 PM".
 ${isListening ? 'Time must be spelled out: "three o\'clock", NOT "3:00".' : ''}
 
+Example JSON format:
+[{"type":"mc","prompt":"Choose the correct word: If I ___ rich, I would travel.","promptZh":"選擇正確的詞語","choices":["am","was","were","will be"],"answer":"C","explanationZh":"第二類條件句be動詞用were。","explanationEn":"Type 2 conditional uses 'were'.","commonMistake":"學生常誤用was。","grammarPoint":"Type 2 Conditional"}]
+
 ${STRICT_ANSWER_RULES}
 ${HALLUCINATION_GUARD_LITE}
 ${dseContextPrompt}`;

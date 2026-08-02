@@ -73,7 +73,7 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
     const isReading = !!base.readingContent;
 
     const validChoices = punctuatedChoices.filter(c => {
-      if (c.length < 3) return false;
+      if (c.length < 1) return false;
       if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false;
       if (BANNED_PATTERNS.some(p => p.test(c))) {
         logger.warn({ module: 'question-normalizer', choice: c }, 'Filtered banned choice');
