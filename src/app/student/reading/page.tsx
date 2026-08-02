@@ -118,9 +118,7 @@ export default function ReadingPracticePage() {
     // Strip AI-generated line markers before layout
     const cleanContent = data.passage.content
       .replace(/\[line\s+\d+\]\s*/gi, '')
-      .replace(/([a-zA-Z])\s*\[\d+\]\s*/g, '$1 ')
-      .replace(/^\s*\[\d+\]\s*/gm, '')
-      .replace(/\n{3,}/g, '\n\n');
+      .replace(/\s*\[\d+\]\s*/g, ' ');
     return layoutReadingText(cleanContent, {
       containerWidth: passageWidth,
       fontSize: 14,

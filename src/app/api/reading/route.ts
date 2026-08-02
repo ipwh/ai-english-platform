@@ -728,33 +728,35 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   // but frontend expects { passage: { title, content, wordCount } } and questions with { question, type: "mc", choices: ["..."] }
   const response: Record<string, unknown> = { ...parsed };
 
-  // 1. Transform passage format + add paragraph breaks + fix line markers
+  // 1. Transform passage format: strip markers, build clean paragraphs
   if (!response.passage && response.readingContent) {
     let content = response.readingContent as string;
 
-    // Step A: Add paragraph breaks before [N] markers if not already present
-    // Also handle [N] paragraph markers (AI uses both [N] and [line N])
-    content = content.replace(/([^\n])\s*\[(\d+)\]/g, '$1\n\n[$2]');
-    // Ensure first paragraph marker gets a break too
-    content = content.replace(/^\s*\[(\d+)\]/, '[$1]');
-
-    // Step A1: Ensure [N] paragraph markers have double newlines
-
-    // Strip ALL numeric markers — line numbers are a rendering concern
-    // Both [line N] and bare [N] are AI line markers, not paragraph markers
+    // Step A: Strip ALL AI line markers
     content = content.replace(/\[line\s+\d+\]\s*/gi, '');
     content = content.replace(/\s*\[\d+\]\s*/g, ' ');
 
-    // Step C: Build clean passage WITHOUT line markers.
-    // Line numbering is now handled by the Reading Layout Engine (src/modules/reading/layout/).
-    // The AI must never generate [line N] markers — the rendering layer owns this responsibility.
-    const paragraphs = content.split(/\n\n+/);
-    let cleanContent = '';
-    for (let pi = 0; pi < paragraphs.length; pi++) {
-      const para = paragraphs[pi];
-      if (!para.trim()) continue;
-      cleanContent += (cleanContent ? '\n\n' : '') + para.trim();
+    // Step B: Split into paragraphs — prefer existing breaks, detect from topic shifts
+    let parts = content.split(/\n\n+/).filter(p => p.trim().length > 30);
+    // If no natural paragraph breaks, detect from transition words
+    if (parts.length <= 1) {
+      const sentences = content.split(/(?<=\.)\s+(?=[A-Z])/);
+      parts = [];
+      let current = '';
+      for (const s of sentences) {
+        const trimmed = s.trim();
+        if (!trimmed) continue;
+        if (current && /^(However|Moreover|Nevertheless|Furthermore|In contrast|Conversely|Thus|Therefore|Consequently|As a result|In conclusion|In summary|On the other hand|Despite|Yet|But|So)\b/i.test(trimmed)) {
+          parts.push(current.trim());
+          current = trimmed;
+        } else {
+          current += (current ? ' ' : '') + trimmed;
+        }
+      }
+      if (current.trim()) parts.push(current.trim());
     }
+
+    const cleanContent = parts.join('\n\n');
     const totalWords = cleanContent.split(/\s+/).filter(Boolean).length;
 
     response.passage = {
