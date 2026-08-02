@@ -59,7 +59,7 @@ export function buildCompactSystemPrompt(input: GenerateQuestionsInput, dseConte
   // ── Assemble ──
   return `You are a Hong Kong secondary school English teacher. Generate ${count} English ${skillDesc} practice questions aligned to HKDSE ${input.gradeLevel} standards at ${diffMap[input.difficulty]} difficulty (${effectiveQuestionType} format).
 
-CRITICAL: Your ENTIRE response must be a pure JSON array starting with [ and ending with ]. No markdown, no code blocks, no explanatory text before or after the JSON.
+CRITICAL: Your ENTIRE response must be a JSON object: {"questions": [...]}. The 'questions' field contains the array of question objects. Start with { and end with }. No markdown, no code blocks, no text outside the JSON.
 
 ${dseTopics}
 Topic: "${topic}" — DO NOT use default topics like basketball tryouts/bees/movie time.
@@ -81,7 +81,7 @@ MCQ rules: 4 complete options, same category, no "All/None of the above", no tim
 ${isListening ? 'Time must be spelled out: "three o\'clock", NOT "3:00".' : ''}
 
 Example JSON format:
-[{"type":"mc","prompt":"Choose the correct word: If I ___ rich, I would travel.","promptZh":"選擇正確的詞語","choices":["am","was","were","will be"],"answer":"C","explanationZh":"第二類條件句be動詞用were。","explanationEn":"Type 2 conditional uses 'were'.","commonMistake":"學生常誤用was。","grammarPoint":"Type 2 Conditional"}]
+{"questions":[{"type":"mc","prompt":"Choose the correct word: If I ___ rich, I would travel.","promptZh":"選擇正確的詞語","choices":["am","was","were","will be"],"answer":"C","explanationZh":"第二類條件句be動詞用were。","explanationEn":"Type 2 conditional uses 'were'.","commonMistake":"學生常誤用was。","grammarPoint":"Type 2 Conditional"}]}
 
 ${STRICT_ANSWER_RULES}
 ${HALLUCINATION_GUARD_LITE}

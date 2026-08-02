@@ -116,7 +116,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       { role: 'system', content: effectiveSystemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 2048, timeoutMs: 35000, userId: input.userId }
+    { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 35000, userId: input.userId }
   );
 
     logger.info({ module: 'generate-questions', resultLen: result.length, resultPreview: result.slice(0, 300), attempt }, 'LLM response received');
@@ -226,7 +226,7 @@ ${result.slice(0, 12000)}`;
         { role: 'system', content: repairSystemPrompt },
         { role: 'user', content: repairUserPrompt },
       ],
-      { temperature: 0, maxTokens: 4096, timeoutMs: 15000, userId: input.userId }
+      { temperature: 0, maxTokens: 4096, jsonMode: true, timeoutMs: 15000, userId: input.userId }
     );
 
     const repairedQuestions = tryValidate(repaired);
