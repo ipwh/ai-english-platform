@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       questions,
       _meta: {
         provider: getLastAIProvider(),
+        count: questions.length,
         ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），生成品質可能略有差異。' } : {}),
       },
     }, {

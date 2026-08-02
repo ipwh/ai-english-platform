@@ -78,7 +78,14 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     dseContextPrompt = '';
   }
 
-  const systemPrompt = buildCompactSystemPrompt(input, dseContextPrompt);
+  const systemPrompt = (() => {
+    try {
+      return buildCompactSystemPrompt(input, dseContextPrompt);
+    } catch (err) {
+      logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'buildCompactSystemPrompt failed');
+      throw err;
+    }
+  })();
 
   const userPrompt = `請生成 ${count} 道 ${skillDesc}（${diffMap[input.difficulty]}程度，${input.gradeLevel}）的${effectiveQuestionType === 'mc' ? '選擇題' : effectiveQuestionType === 'fill-blank' ? '填充題' : effectiveQuestionType === 'error-correction' ? '改錯題' : effectiveQuestionType === 'short-writing' ? '短文寫作題' : '練習題'}。`;
 
@@ -112,11 +119,16 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 2048, timeoutMs: 35000, userId: input.userId }
   );
 
+    logger.info({ module: 'generate-questions', resultLen: result.length, resultPreview: result.slice(0, 300), attempt }, 'LLM response received');
+
   const tryValidate = (rawText: string) => {
     const parsed = parseGeneratedQuestions(rawText);
+    logger.info({ module: 'generate-questions', parsedCount: parsed.length, parsedTypes: parsed.map(q => q.type) }, 'Questions parsed');
     const normalized = normalizeGeneratedQuestions(parsed);
+    logger.info({ module: 'generate-questions', normalizedCount: normalized.length, parsedCount: parsed.length }, 'Questions normalized (before Zod)');
     const validated = validateAIResponse(GeneratedQuestionsArraySchema, normalized);
     if (!validated.success) {
+      logger.error({ module: 'generate-questions', zodError: validated.error, normalizedCount: normalized.length }, 'Zod validation failed');
       throw new Error(validated.error);
     }
     return validated.data;
