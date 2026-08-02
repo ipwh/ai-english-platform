@@ -451,6 +451,12 @@ ${essayContent}
           ? -8
           : 0;
 
+  const llmLengthPenalty = typeof grammarAnalysis.lengthPenalty === 'number' ? grammarAnalysis.lengthPenalty : 0;
+  const llmOffTopicPenalty = typeof grammarAnalysis.offTopicPenalty === 'number' ? grammarAnalysis.offTopicPenalty : 0;
+  const contentScore = typeof grammarAnalysis.contentScore === 'number' ? grammarAnalysis.contentScore : undefined;
+  const languageScore = typeof grammarAnalysis.languageScore === 'number' ? grammarAnalysis.languageScore : undefined;
+  const organizationScore = typeof grammarAnalysis.organizationScore === 'number' ? grammarAnalysis.organizationScore : undefined;
+
   // Calculate score from CLO subscores (more reliable than LLM's own calculation)
   const computedCloScore = (contentScore != null && languageScore != null && organizationScore != null)
     ? Math.round((contentScore + languageScore + organizationScore) / 21 * 100)
@@ -458,11 +464,6 @@ ${essayContent}
   const llmBaseScore = typeof grammarAnalysis.overallScore === 'number' ? grammarAnalysis.overallScore : 70;
   // Prefer computed CLO score over LLM's potentially inaccurate overallScore
   const baseScore = computedCloScore ?? llmBaseScore;
-  const llmLengthPenalty = typeof grammarAnalysis.lengthPenalty === 'number' ? grammarAnalysis.lengthPenalty : 0;
-  const llmOffTopicPenalty = typeof grammarAnalysis.offTopicPenalty === 'number' ? grammarAnalysis.offTopicPenalty : 0;
-  const contentScore = typeof grammarAnalysis.contentScore === 'number' ? grammarAnalysis.contentScore : undefined;
-  const languageScore = typeof grammarAnalysis.languageScore === 'number' ? grammarAnalysis.languageScore : undefined;
-  const organizationScore = typeof grammarAnalysis.organizationScore === 'number' ? grammarAnalysis.organizationScore : undefined;
   const cloTotalScore = (contentScore != null && languageScore != null && organizationScore != null)
     ? contentScore + languageScore + organizationScore
     : undefined;
