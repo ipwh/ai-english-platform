@@ -87,6 +87,7 @@ ${input.textType ? `文本類型：${input.textType}` : ''}
 ${input.studentLevel ? `學生年級：${input.studentLevel}` : ''}
 ${targetWords ? `建議字數：${targetWords} words` : ''}
 實際字數（系統計算）：${studentWordCount} words
+⚠️ 系統驗證：學生文章為完整作品（字數 ${studentWordCount}、結構完整）。請勿輸出「文章未完成」/「結尾中斷」/「截斷」等與事實不符的評語。
 
 學生作文內容：
 """
@@ -521,6 +522,13 @@ ${essayContent}
     return true;
   });
 
+  // Filter false "incomplete essay" hallucinations from weaknesses
+  const INCOMPLETE_PATTERNS = /文章未完成|結尾.*中斷|截斷|incomplete|abruptly.*(cut|end|stop)|essay.*not.*(finish|complete)/i;
+  const filteredWeaknesses = (styleAnalysis.weaknesses || []).filter(w => !INCOMPLETE_PATTERNS.test(w));
+  const filteredStructureFeedback = styleAnalysis.structureFeedback && INCOMPLETE_PATTERNS.test(styleAnalysis.structureFeedback)
+    ? ''
+    : styleAnalysis.structureFeedback;
+
   const combined: WritingAnalysis = {
     overallScore: normalizedOverall,
     contentScore,
@@ -529,13 +537,19 @@ ${essayContent}
     cloTotalScore,
     dseLevel,
     strengths: styleAnalysis.strengths || [],
-    weaknesses: styleAnalysis.weaknesses || [],
+    weaknesses: filteredWeaknesses,
     grammarErrors: filteredGrammarErrors,
     chinglishWarnings: filteredChinglish,
     vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
-    structureFeedback: styleAnalysis.structureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
+    structureFeedback: filteredStructureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
     revisedVersion: styleAnalysis.revisedVersion || undefined,
-    generalComment: grammarAnalysis.generalComment || (grammarFailed ? '⚠️ 語言準確性分析暫時無法生成，請重試。' : ''),
+    generalComment: (() => {
+      const raw = grammarAnalysis.generalComment || (grammarFailed ? '⚠️ 語言準確性分析暫時無法生成，請重試。' : '');
+      if (INCOMPLETE_PATTERNS.test(raw)) {
+        return raw.replace(/文章未完成[^。]*。?/g, '').replace(/結尾[^。]*中斷[^。]*。?/g, '').replace(/截斷[^。]*。?/g, '').trim() || raw;
+      }
+      return raw;
+    })(),
   };
 
   // 記錄部分失敗供前端顯示
