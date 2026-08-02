@@ -22,7 +22,7 @@ interface ReadingPassage {
 interface ReadingQuestion {
   index: number;
   tier: 'literal' | 'inferential' | 'evaluative';
-  paragraphRef: number;
+  paragraphRef?: number;
   question: string;
   questionZh?: string;
   type: 'mc' | 'short-answer' | string;
@@ -526,9 +526,11 @@ export default function ReadingPracticePage() {
                         {language === 'en' ? tier.en : tier.zh}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-400" title={language === 'en' ? `Paragraph ${q.paragraphRef}` : `第${q.paragraphRef}段`}>
-                      {language === 'en' ? `¶${q.paragraphRef}` : `第${q.paragraphRef}段`}
-                    </span>
+                    {q.paragraphRef ? (
+                      <span className="text-xs text-gray-400" title={language === 'en' ? `Paragraph ${q.paragraphRef}` : `第${q.paragraphRef}段`}>
+                        {language === 'en' ? `¶${q.paragraphRef}` : `第${q.paragraphRef}段`}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="text-sm text-gray-900 dark:text-white">{q.question}</p>
                   {showQuestionZh && q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}

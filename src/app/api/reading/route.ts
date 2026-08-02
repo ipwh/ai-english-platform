@@ -397,33 +397,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 
   const parsed = JSON.parse(result);
 
-  // Compute paragraph/line references from targetPhrase using layout engine
-  if (parsed.readingContent && parsed.questions) {
-    const { layoutReadingText } = await import('@/modules/reading/layout');
-    const layout = layoutReadingText(parsed.readingContent);
-    for (const q of parsed.questions) {
-      if (q.targetPhrase && !q.paragraphRef) {
-        const phrase = q.targetPhrase.trim();
-        // Find which paragraph and line contains this phrase
-        for (const para of layout.paragraphs) {
-          const paraText = para.lines.map(l => l.text).join(' ');
-          if (paraText.includes(phrase)) {
-            q.paragraphRef = para.paragraphNumber;
-            // Find exact line
-            for (const line of para.lines) {
-              if (line.text.includes(phrase)) {
-                q.lineRef = String(line.line);
-                break;
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // Sprint 102: Route through legacy handler for full passage + question transformation
+  // Route through legacy handler for full passage + question transformation
   // This applies line markers, lineMap, TFNG splitting, question format transform
   if (parsed.readingContent || parsed.questions) {
     // Inject pre-parsed result and re-call legacy handler (skipping AI generation)
@@ -766,16 +740,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     // Step A1: Ensure [N] paragraph markers have double newlines
 
-    // Step A2: Strip [line N] markers — line numbering is now handled by the Layout Engine
-    // The AI should not generate line numbers; the rendering layer is responsible.
-    // We strip them here for backward compatibility with AI prompts that still include them.
+    // Strip ALL numeric markers — line numbers are a rendering concern
+    // Both [line N] and bare [N] are AI line markers, not paragraph markers
     content = content.replace(/\[line\s+\d+\]\s*/gi, '');
-
-    // Step B: Strip all AI-generated [line N] markers + convert [N] paragraph markers
-    // Sprint 102: preserve paragraph breaks, convert [N] to \n\n
-    content = content.replace(/\[line\s+\d+\]\s*/gi, '');
-    // Convert standalone [N] paragraph markers to labeled paragraph breaks
-    content = content.replace(/\s*\[(\d+)\]\s*/g, '\n\n[Paragraph $1] ');
+    content = content.replace(/\s*\[\d+\]\s*/g, ' ');
 
     // Step C: Build clean passage WITHOUT line markers.
     // Line numbering is now handled by the Reading Layout Engine (src/modules/reading/layout/).
@@ -833,17 +801,13 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // Determine tier from question metadata or default based on position
         const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
-        // Determine paragraph reference from AI metadata
-        let paragraphRef = (q.paragraphRef as number) || 1;
-        if (!q.paragraphRef && q.lineRef) {
-          const lineNum = parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10);
-          paragraphRef = Math.max(1, Math.ceil(lineNum / 5));
-        }
+        // Use system-computed paragraphRef from targetPhrase mapping (set upstream)
+        let paragraphRef = (q.paragraphRef as number) || undefined;
 
         return {
           index: (q.index as number) || i + 1,
           tier,
-          paragraphRef: Math.min(paragraphRef, 7), // clamp to passage paragraphs
+          paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
           question,
           questionZh,
           type: isMc ? 'mc' : 'short-answer',
@@ -887,13 +851,13 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // Determine tier from question metadata or default based on position
         const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
-        // Determine paragraph reference
-        const paragraphRef = (q.paragraphRef as number) || (q.lineRef ? parseInt(String(q.lineRef).match(/\d+/)?.[0] || '1', 10) : 1);
+        // Use system-computed paragraphRef (set below via targetPhrase mapping)
+        const paragraphRef = (q.paragraphRef as number) || undefined;
 
         return {
           index: (q.index as number) || i + 1,
           tier,
-          paragraphRef: Math.min(paragraphRef, 7),
+          paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
           question,
           questionZh,
           type: isMc ? 'mc' : 'short-answer',
@@ -906,6 +870,34 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
   }
   response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
+
+  // Compute paragraph/line references from targetPhrase using layout engine
+  const questions = response.questions as Array<Record<string, unknown>> | undefined;
+  const passageContent = (response.passage as Record<string, unknown> | undefined)?.content as string
+    || response.readingContent as string;
+  if (questions && passageContent) {
+    const { layoutReadingText } = await import('@/modules/reading/layout');
+    const layout = layoutReadingText(passageContent);
+    for (const q of questions) {
+      const targetPhrase = q.targetPhrase as string | undefined;
+      if (targetPhrase && !q.paragraphRef) {
+        const phrase = targetPhrase.trim();
+        for (const para of layout.paragraphs) {
+          const paraText = para.lines.map(l => l.text).join(' ');
+          if (paraText.includes(phrase)) {
+            q.paragraphRef = para.paragraphNumber;
+            for (const line of para.lines) {
+              if (line.text.includes(phrase)) {
+                q.lineRef = String(line.line);
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
 
   return NextResponse.json(response);
 }
