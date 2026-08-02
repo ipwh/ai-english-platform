@@ -167,7 +167,7 @@ export async function generateIntegratedSkills(
     listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務',
     dataFile: task.dataFile,
     noteTakingGuide: task.noteTakingGuide || [],
-    writingTask: task.writingTask,
+    writingTask: normalizeWritingTask(task.writingTask),
     taskType: input.taskType,
     wordLimit: diff.wordLimit,
     expectedContentPoints: task.expectedContentPoints || [],
@@ -259,5 +259,25 @@ ${sanitizedWriting}
 // ============================================
 // 八、輔助函數
 // ============================================
+
+/** 將 writingTask 正規化為字串（deepseek-chat 可能輸出物件格式） */
+function normalizeWritingTask(writingTask: unknown): string {
+  if (typeof writingTask === 'string') return writingTask;
+  if (writingTask && typeof writingTask === 'object') {
+    const wt = writingTask as Record<string, unknown>;
+    const parts: string[] = [];
+    if (wt.context) parts.push(`Context: ${wt.context}`);
+    if (wt.role) parts.push(`Role: ${wt.role}`);
+    if (wt.audience) parts.push(`Audience: ${wt.audience}`);
+    if (wt.task) parts.push(`Task: ${wt.task}`);
+    if (wt.requirements) {
+      const reqs = Array.isArray(wt.requirements) ? wt.requirements : [wt.requirements];
+      parts.push(`Requirements:\n${reqs.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}`);
+    }
+    if (wt.wordLimit) parts.push(`Word limit: ${wt.wordLimit} words`);
+    return parts.join('\n\n');
+  }
+  return String(writingTask || '');
+}
 
 /** 檢查 DeepSeek API 是否已設定 */

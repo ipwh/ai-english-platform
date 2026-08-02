@@ -296,7 +296,7 @@ DSE Paper 3 topics: ${dseTopics}
 - Data File: ${diffDataFilePages} sources (email/memo/report-excerpt/webpage/statistics/notice), each with relevantFor indices. Include distractors and info conflicts.
 - Listening: ${diffLines}, ${diffSpeakerCount} speakers (Woman/Man/Boy/Girl only), natural speech (gonna/wanna/um/well/self-correction). ${diffTraps}
 - Note-taking guide: 4-5 guiding questions with shorthand symbols (+ − → ∵ $ # @ ≈) and signal word hints.
-- Writing task (${taskInfoName} / ${taskInfoNameZh}): CONTEXT + ROLE + AUDIENCE + TASK + 3-4 REQUIREMENTS + WORD LIMIT (~${diffWordLimit} words).
+- Writing task (${taskInfoName} / ${taskInfoNameZh}): a SINGLE STRING paragraph containing CONTEXT + ROLE + AUDIENCE + TASK + 3-4 REQUIREMENTS + WORD LIMIT (~${diffWordLimit} words). Do NOT output as an object — it must be a plain text string.
   Required elements: ${taskRequiredElements.join(', ')}. ${taskInfoFormatHint}
 ${taskType === 'speech' ? '- Speech: greeting line by seniority (guests→Principal→teachers→students), comma-separated.' : ''}
 ${taskType === 'report' ? '- Report: 3+ sub-headings (Background/Findings/Recommendations).' : ''}
