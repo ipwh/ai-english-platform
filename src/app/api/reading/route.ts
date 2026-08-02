@@ -885,8 +885,6 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (quotedMatch) targetPhrase = quotedMatch[1];
       }
       if (targetPhrase && !q.paragraphRef) {
-        const phrase = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // For short/common words like "it", require longer context
         const searchPhrase = targetPhrase;
         for (const para of layout.paragraphs) {
           const paraText = para.lines.map(l => l.text).join(' ');
@@ -898,8 +896,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
                 break;
               }
             }
-            // For common words, only match once (first occurrence in paragraph)
-            if (searchPhrase.length <= 3) break;
+            break; // Stop at first match — don't overwrite with later occurrences
           }
         }
       }
