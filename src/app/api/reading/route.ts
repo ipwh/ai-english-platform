@@ -68,6 +68,10 @@ import type { PaperReview } from '@/modules/reading/review/paper-reviewer-types'
 import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';
 import { DSE_TEXT_TYPES, DSE_PUBLICATION_SOURCES } from '@/modules/ai/prompts/reading/text-types';
 import {
+  validateReadingQuestionSet,
+  type ReadingValidationResult,
+} from '@/modules/ai/prompts/reading/reading-validator';
+import {
   requiresApiEvaluation,
   estimateCopyingRatio,
   classifyCopyingLevel,
@@ -1142,33 +1146,92 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
   }
 
-  // Phase 3A.1: Retry loop — if critical blueprint failures, regenerate once
-  let blueprintRetried = false;
+  // ══════════════════════════════════════════
+  // Phase 4F: Validator-based quality gate — up to 2 regeneration attempts
+  // Replaces the old blueprint-only retry with comprehensive validation.
+  // ══════════════════════════════════════════
+  let validatorRetries = 0;
+  const MAX_VALIDATOR_RETRIES = 2;
+  let validatorResult: ReadingValidationResult | null = null;
+
   if (!preParsed) {
     const content = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
-    const firstQuestions = (parsed.questions as DSEreadingQuestion[]) || [];
+    let questions = (parsed.questions as DSEreadingQuestion[]) || [];
     const paraCount = Math.max((content?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
-    const firstCheck = validateQuestionSetBlueprint(firstQuestions, paraCount, { mode: 'legacy' });
 
-    if (shouldRetryBlueprint(firstCheck)) {
-      logger.warn({ module: 'reading-api', criticalIssues: firstCheck.issues.filter(i => i.severity === 'critical').map(i => i.code) }, 'Blueprint critical failure — retrying');
-      blueprintRetried = true;
-      const retryInstruction = buildBlueprintRetryInstruction(firstCheck);
+    validatorResult = validateReadingQuestionSet(questions, {
+      readingContent: content,
+      paragraphCount: paraCount,
+    });
+
+    while (!validatorResult.isValid && validatorRetries < MAX_VALIDATOR_RETRIES) {
+      const errorCodes = validatorResult.issues
+        .filter(i => i.severity === 'error')
+        .map(i => i.code);
+      logger.warn({
+        module: 'reading-api',
+        attempt: validatorRetries + 1,
+        errorCodes,
+        metrics: validatorResult.metrics,
+      }, 'Validator found errors — regenerating');
+
+      const errorMessages = validatorResult.issues
+        .filter(i => i.severity === 'error')
+        .map(i => `- [${i.code}] ${i.message}`)
+        .join('\n');
+      const retryPrompt = `\n\n## ⚠️ REGENERATION REQUIRED — Fix ALL of these issues:\n${errorMessages}\n\nReturn JSON with the corrected question set.`;
+
       try {
         const retryRaw = await callLLM([
-          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: `Regenerate the question set. Fix the critical blueprint issues. Passage must be 500-800 words. Return JSON.` },
-        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+          { role: 'system', content: systemPrompt + dseContextBlock + retryPrompt },
+          { role: 'user', content: `Regenerate the question set. Fix ALL of the issues listed above. Passage must be 500-800 words. Return JSON.` },
+        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: 40000 });
 
-        const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-blueprint-retry');
+        const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-validator-retry');
         if (retryParse.data && !retryParse.error) {
           parsed = retryParse.data;
+          const newContent = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
+          questions = (parsed.questions as DSEreadingQuestion[]) || [];
+          const newParaCount = Math.max((newContent?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
+          validatorResult = validateReadingQuestionSet(questions, {
+            readingContent: newContent || content,
+            paragraphCount: Math.max(newParaCount, paraCount),
+          });
         } else {
-          logger.warn({ module: 'reading-api', error: retryParse.error }, 'Blueprint retry parse failed — using original');
+          logger.warn({ module: 'reading-api', error: retryParse.error }, 'Validator retry parse failed — stopping');
+          break;
         }
-      } catch (retryErr: unknown) {
-        logger.warn({ module: 'reading-api', error: (retryErr as Error).message }, 'Blueprint retry AI call failed — using original');
+      } catch (retryErr) {
+        logger.warn({ module: 'reading-api', error: (retryErr as Error).message }, 'Validator retry AI call failed — stopping');
+        break;
       }
+      validatorRetries++;
+    }
+
+    // If still invalid after all retries, return structured 422
+    if (validatorResult && !validatorResult.isValid) {
+      const codes = validatorResult.issues
+        .filter(i => i.severity === 'error')
+        .map(i => i.code);
+      const messages = validatorResult.issues
+        .filter(i => i.severity === 'error')
+        .slice(0, 5)
+        .map(i => i.message);
+      logger.error({
+        module: 'reading-api',
+        attempts: validatorRetries + 1,
+        errorCodes: codes,
+        metrics: validatorResult.metrics,
+      }, 'Validator still failing after max retries');
+      return NextResponse.json(
+        apiError(
+          `Generated reading content does not meet quality standards: ${messages.join('; ')}`,
+          'VALIDATOR_FAILED',
+          true,
+          JSON.stringify({ errorCodes: codes, attempts: validatorRetries + 1 }),
+        ),
+        { status: 422 },
+      );
     }
   }
 
@@ -1181,12 +1244,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     parsed._readability = { ...metrics, estimatedHKEAALevel: readabilityLevel };
     parsed._hkLocal = hkCheck;
 
-    // Phase 3A: Blueprint validation on legacy generation
+    // Phase 3A: Blueprint validation on legacy generation (backward compat)
     const legacyQuestions = (parsed.questions as DSEreadingQuestion[]) || [];
     if (legacyQuestions.length > 0) {
       const paraCount = Math.max((content.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
       const bpCheck = validateQuestionSetBlueprint(legacyQuestions, paraCount, { mode: 'legacy' });
-      // Phase 3C.1: Merge MC distractor issues
       const mcIssues = validateAllMCDistractors(legacyQuestions);
       const combined = [...bpCheck.issues, ...mcIssues];
       const combinedCheck = {
@@ -1198,7 +1260,19 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       if (!combinedCheck.passed) {
         logger.warn({ module: 'reading-api', issues: combinedCheck.issueMessages }, 'Blueprint + MC validation warnings');
       }
-      parsed._blueprintQuality = toBlueprintQualityMeta(combinedCheck, blueprintRetried);
+      const retried = validatorRetries > 0;
+      parsed._blueprintQuality = toBlueprintQualityMeta(combinedCheck, retried);
+
+      // Phase 4F: Attach new validator result for diagnostics
+      if (validatorResult) {
+        parsed._validatorQuality = {
+          isValid: validatorResult.isValid,
+          retries: validatorRetries,
+          errorCodes: validatorResult.issues.filter(i => i.severity === 'error').map(i => i.code),
+          warningCodes: validatorResult.issues.filter(i => i.severity === 'warning').map(i => i.code),
+          metrics: validatorResult.metrics,
+        };
+      }
     } else {
       parsed._blueprintQuality = {
         passed: true, retried: false, degraded: false, validated: false, issues: [],

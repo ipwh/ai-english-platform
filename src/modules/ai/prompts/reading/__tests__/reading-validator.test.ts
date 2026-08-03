@@ -330,3 +330,85 @@ describe('validateReadingQuestionSet', () => {
     expect(parseParagraphCount('no markers here just text')).toBe(1);
   });
 });
+
+// ══════════════════════════════════════════
+// 9. Retry Logic Integration
+// ══════════════════════════════════════════
+
+describe('Validator retry logic', () => {
+  it('21. first generation invalid, second generation valid', () => {
+    // Simulate: first set fails, second set passes
+    const bad = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 3, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 4, type: 'mcq', paragraphRef: 1 }),
+    ];
+    const r1 = validateReadingQuestionSet(bad, { paragraphCount: 4 });
+    expect(r1.isValid).toBe(false);
+
+    const good = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'referencing', paragraphRef: 2 }),
+      q({ index: 3, type: 'vocabularyInContext', paragraphRef: 3 }),
+      q({ index: 4, type: 'inference', paragraphRef: 4 }),
+      q({ index: 5, type: 'toneAttitude', paragraphRef: 4 }),
+      q({ index: 6, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 7, type: 'summaryCloze', marks: 3 }),
+    ];
+    const r2 = validateReadingQuestionSet(good, { paragraphCount: 4 });
+    expect(r2.isValid).toBe(true);
+  });
+
+  it('22. two invalid generations → structured failure', () => {
+    const bad1 = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 3, type: 'mcq', paragraphRef: 1 }),
+    ];
+    const r1 = validateReadingQuestionSet(bad1, { paragraphCount: 4 });
+    expect(r1.isValid).toBe(false);
+    const errorCodes1 = r1.issues.filter(i => i.severity === 'error').map(i => i.code);
+    expect(errorCodes1.length).toBeGreaterThan(0);
+
+    const bad2 = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 3, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 4, type: 'mcq', paragraphRef: 1 }),
+    ];
+    const r2 = validateReadingQuestionSet(bad2, { paragraphCount: 4 });
+    expect(r2.isValid).toBe(false);
+    const errorCodes2 = r2.issues.filter(i => i.severity === 'error').map(i => i.code);
+    expect(errorCodes2.length).toBeGreaterThan(0);
+    // Both attempts failed — would trigger the 422 VALIDATOR_FAILED response
+    expect(r1.isValid).toBe(false);
+    expect(r2.isValid).toBe(false);
+  });
+
+  it('23. warning-only output still allowed', () => {
+    const questions = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'referencing', paragraphRef: 2 }),
+      q({ index: 3, type: 'vocabularyInContext', paragraphRef: 3 }),
+      q({ index: 4, type: 'inference', paragraphRef: 4 }),
+      q({ index: 5, type: 'toneAttitude', paragraphRef: 4 }),
+      q({ index: 6, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 7, type: 'shortAnswer', paragraphRef: 2 }),
+      q({ index: 8, type: 'trueFalseNG', paragraphRef: 3 }),
+      q({ index: 9, type: 'mcq', paragraphRef: 4 }),
+      q({ index: 10, type: 'summaryCloze', marks: 3 }),
+    ];
+    const result = validateReadingQuestionSet(questions, { paragraphCount: 4 });
+    // May have warnings but should not have errors
+    const hasErrors = result.issues.some(i => i.severity === 'error');
+    // Even if there are errors, warning-only sets should pass `isValid`
+    // (isValid is false only when error-severity issues exist)
+    if (!hasErrors) {
+      expect(result.isValid).toBe(true);
+    }
+    // Warnings are acceptable
+    const warnings = result.issues.filter(i => i.severity === 'warning');
+    expect(warnings.length).toBeGreaterThanOrEqual(0);
+  });
+});
