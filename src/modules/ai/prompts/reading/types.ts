@@ -573,7 +573,7 @@ export const REQUIRED_TYPE_FAMILIES = {
   },
   wholeText: {
     label: 'Whole-text or cross-paragraph understanding',
-    types: [],
+    types: ['__whole_text__'],
     minCount: 1,
   },
   summaryTransform: {
