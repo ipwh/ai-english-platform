@@ -1,5 +1,5 @@
 // ============================================
-// Sprint 116: Layout Metrics
+// Sprint 116 / Phase 1A: Layout Metrics (v2)
 // ============================================
 
 import type { LayoutMetrics } from './reading-layout-types';

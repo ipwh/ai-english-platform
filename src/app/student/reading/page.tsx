@@ -26,6 +26,26 @@ interface ReadingQuestion {
   question: string;
   questionZh?: string;
   type: 'mc' | 'short-answer' | string;
+  /** Phase 1B: Preserved DSE question type (snake_case) */
+  dseType?:
+    | 'multiple_choice'
+    | 'true_false_not_given'
+    | 'reference'
+    | 'vocabulary_in_context'
+    | 'inference'
+    | 'tone_attitude'
+    | 'summary_cloze'
+    | 'sentence_transformation';
+  /** DSE marks for this question (default 1) */
+  marks?: number;
+  /** DSE word limit string, e.g. "ONE word", "no more than THREE words" */
+  wordLimit?: string;
+  /** Alternative acceptable answers */
+  acceptAlso?: string[];
+  /** Paragraphs this question covers */
+  paragraphCoverage?: number[];
+  /** Whether this question requires whole-text understanding */
+  wholeText?: boolean;
   choices?: string[];
   answer: string;
   explanationZh?: string;
@@ -116,8 +136,11 @@ export default function ReadingPracticePage() {
   const passageLayout = useMemo(() => {
     if (!data?.passage?.content) return null;
     return layoutReadingText(data.passage.content, {
-      containerWidth: passageWidth,
-      fontSize: 14,
+      maxCharsPerLine: Math.floor((passageWidth - 80) / 8.5), // ~8.5px avg char width
+      lineNumberInterval: 5,
+      lineNumberStyle: 'gutter',
+      showParagraphLabels: true,
+      paragraphLabelMode: 'paragraph',
     });
   }, [data?.passage?.content, passageWidth]);
 
@@ -145,6 +168,8 @@ export default function ReadingPracticePage() {
         correctAnswer: q.answer,
         isCorrect: answers[i]?.isCorrect || false,
         questionPrompt: q.question,
+        dseType: q.dseType,
+        marks: q.marks,
       })),
     };
 
@@ -459,9 +484,52 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-4 pb-4" ref={passageRef}>
                 {passageLayout ? (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm leading-[2] text-gray-800 dark:text-gray-200"
-                    dangerouslySetInnerHTML={{ __html: passageLayout.html }}
-                  />
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm text-gray-800 dark:text-gray-200">
+                    <style>{`
+                      .dse-reading-layout {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.35rem;
+                      }
+                      .dse-paragraph {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.1rem;
+                        margin-bottom: 0.5rem;
+                      }
+                      .dse-line {
+                        display: grid;
+                        grid-template-columns: 2.5rem 1fr;
+                        align-items: start;
+                      }
+                      .dse-line-gutter {
+                        text-align: right;
+                        padding-right: 0.75rem;
+                        color: #9ca3af;
+                        font-size: 0.75rem;
+                        font-family: ui-monospace, monospace;
+                        user-select: none;
+                        line-height: 1.75;
+                      }
+                      .dse-line-number {
+                        font-variant-numeric: tabular-nums;
+                      }
+                      .dse-line-text {
+                        white-space: pre-wrap;
+                        line-height: 1.75;
+                      }
+                      .dse-paragraph-label {
+                        font-weight: 600;
+                        margin-right: 0.5rem;
+                        color: #374151;
+                      }
+                      .dark .dse-line-gutter { color: #6b7280; }
+                      .dark .dse-paragraph-label { color: #d1d5db; }
+                    `}</style>
+                    <div className="dse-reading-layout"
+                      dangerouslySetInnerHTML={{ __html: passageLayout.html }}
+                    />
+                  </div>
                 ) : (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                     {data.passage.content}
@@ -525,13 +593,32 @@ export default function ReadingPracticePage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full ${tier.color}`}>
                         {language === 'en' ? tier.en : tier.zh}
                       </span>
+                      {/* Phase 1B: DSE type badge */}
+                      {q.dseType && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-medium">
+                          {q.dseType.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                      {q.marks !== undefined && q.marks > 0 && (
+                        <span className="text-[10px] text-gray-400 font-mono">{q.marks}m</span>
+                      )}
+                      {q.wordLimit && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">{q.wordLimit}</span>
+                      )}
                     </div>
-                    {q.paragraphRef ? (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
-                        <BookOpen className="w-3 h-3" />
-                        {language === 'en' ? `Para ${q.paragraphRef}` : `第 ${q.paragraphRef} 段`}
-                      </span>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      {q.wholeText && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                          {language === 'en' ? 'Whole Text' : '全文'}
+                        </span>
+                      )}
+                      {q.paragraphRef ? (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                          <BookOpen className="w-3 h-3" />
+                          {language === 'en' ? `Para ${q.paragraphRef}` : `第 ${q.paragraphRef} 段`}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <p className="text-sm text-gray-900 dark:text-white">{q.question}</p>
                   {showQuestionZh && q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}

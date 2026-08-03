@@ -1,81 +1,122 @@
 // ============================================
-// Sprint 116: Reading Layout Types
+// Sprint 116 / Phase 1A: Reading Layout Types (v2)
 // Deterministic layout engine. No AI, no browser DOM.
+// v2: Gutter-based line numbers, paragraph labels, clean text/metadata separation
 // ============================================
+
+/** A single display line — pure metadata, text has NO inline markers */
+export interface DisplayLine {
+  /** 0-based index across all lines in the layout */
+  lineIndex: number;
+  /** Display line number (undefined if this line is not a numbered interval) */
+  lineNumber?: number;
+  /** 0-based paragraph index this line belongs to */
+  paragraphIndex: number;
+  /** Clean prose text — NEVER contains [N] or [line N] markers */
+  text: string;
+  /** Whether this line is the first line of its paragraph */
+  isParagraphStart: boolean;
+  /** Paragraph label for the first line of a paragraph (e.g. "Paragraph 1" / "1") */
+  paragraphLabel?: string;
+}
+
+/** A paragraph after layout computation */
+export interface LayoutParagraph {
+  /** 0-based paragraph index */
+  paragraphIndex: number;
+  /** Paragraph label string (e.g. "Paragraph 1" or "1") */
+  label: string;
+  /** 1-based convenience: paragraph number (backward compat) */
+  paragraphNumber: number;
+  /** Original source text for this paragraph */
+  sourceText: string;
+  /** Display lines in this paragraph */
+  lines: DisplayLine[];
+  /** 0-based index (backward compat alias for paragraphIndex) */
+  index: number;
+  /** First global line number (backward compat) */
+  startLine?: number;
+  /** Last global line number (backward compat) */
+  endLine?: number;
+}
 
 /** Options for the layout engine */
 export interface LayoutOptions {
-  /** Characters per visual line (default 65 for desktop, ~50 for mobile) */
+  /** Characters per visual line (default 65) */
+  maxCharsPerLine?: number;
+  /** Line number interval — show number every N lines (default 5) */
+  lineNumberInterval?: number;
+  /** Whether to show paragraph labels (default true) */
+  showParagraphLabels?: boolean;
+  /** Paragraph label format: "Paragraph 1" or just "1" (default "paragraph") */
+  paragraphLabelMode?: 'numeric' | 'paragraph';
+  /** Line number display style (default "gutter") */
+  lineNumberStyle?: 'gutter' | 'none';
+
+  // ── Backward-compat aliases ──
+  /** @deprecated Use maxCharsPerLine */
   charsPerLine?: number;
-  /** Line marker interval — insert [line N] every N lines (default 5) */
+  /** @deprecated Use lineNumberInterval */
   markerInterval?: number;
-  /** Container width in pixels (for responsive estimation) */
+  /** @deprecated Container width for responsive estimation */
   containerWidth?: number;
-  /** Font size in pixels (default 14) */
+  /** @deprecated Font size for responsive estimation */
   fontSize?: number;
-  /** Whether to include paragraph breaks as blank lines */
+  /** @deprecated Whether to include paragraph breaks as blank lines */
   includeParagraphSpacing?: boolean;
 }
 
-export const DEFAULT_LAYOUT_OPTIONS: Required<LayoutOptions> = {
-  charsPerLine: 65,
-  markerInterval: 5,
-  containerWidth: 700,
-  fontSize: 14,
-  includeParagraphSpacing: true,
-};
-
-/** A single display line after layout calculation */
-export interface DisplayLine {
-  /** Global line number (1-based) */
-  line: number;
-  /** Paragraph index (0-based) */
-  paragraph: number;
-  /** Paragraph-relative line number (1-based) */
-  paragraphLine: number;
-  /** The text on this line */
-  text: string;
-  /** Whether this line has a marker */
-  hasMarker: boolean;
-  /** Whether this is a blank/spacer line between paragraphs */
-  isBlank: boolean;
+/** Resolved options with all defaults applied */
+export interface ResolvedLayoutOptions {
+  maxCharsPerLine: number;
+  lineNumberInterval: number;
+  showParagraphLabels: boolean;
+  paragraphLabelMode: 'numeric' | 'paragraph';
+  lineNumberStyle: 'gutter' | 'none';
 }
 
-/** A paragraph after layout */
-export interface LayoutParagraph {
-  /** Paragraph index (0-based) */
-  index: number;
-  /** Original paragraph number from [N] marker */
-  paragraphNumber: number;
-  /** Lines in this paragraph */
-  lines: DisplayLine[];
-  /** First global line number */
-  startLine: number;
-  /** Last global line number */
-  endLine: number;
+export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
+  maxCharsPerLine: 65,
+  lineNumberInterval: 5,
+  showParagraphLabels: true,
+  paragraphLabelMode: 'paragraph',
+  lineNumberStyle: 'gutter',
+};
+
+/** Resolve partial options against defaults (also handles backward-compat aliases) */
+export function resolveLayoutOptions(raw?: Partial<LayoutOptions>): ResolvedLayoutOptions {
+  return {
+    maxCharsPerLine: raw?.maxCharsPerLine ?? raw?.charsPerLine ?? DEFAULT_LAYOUT_OPTIONS.maxCharsPerLine,
+    lineNumberInterval: raw?.lineNumberInterval ?? raw?.markerInterval ?? DEFAULT_LAYOUT_OPTIONS.lineNumberInterval,
+    showParagraphLabels: raw?.showParagraphLabels ?? DEFAULT_LAYOUT_OPTIONS.showParagraphLabels,
+    paragraphLabelMode: raw?.paragraphLabelMode ?? DEFAULT_LAYOUT_OPTIONS.paragraphLabelMode,
+    lineNumberStyle: raw?.lineNumberStyle ?? DEFAULT_LAYOUT_OPTIONS.lineNumberStyle,
+  };
 }
 
 /** Full layout result */
 export interface LayoutResult {
-  /** Rendered HTML string with line markers */
-  html: string;
-  /** Plain text with line markers */
-  renderedText: string;
-  /** Full line map for question reference resolution */
-  lineMap: DisplayLine[];
-  /** Paragraph breakdown */
+  /** Paragraphs with computed display lines */
   paragraphs: LayoutParagraph[];
-  /** Total display lines (including blank lines) */
+  /** Rendered HTML with gutter line numbers */
+  html: string;
+  /** Total display lines */
   totalLines: number;
-  /** Total substantive (non-blank) lines */
-  substantiveLines: number;
-  /** Marker positions (global line numbers) */
-  markers: number[];
-  /** Options used */
-  options: Required<LayoutOptions>;
+
+  // ── Backward-compat fields ──
+  /** Plain text with line markers (backward compat) */
+  renderedText?: string;
+  /** Substantive (non-empty) lines (backward compat) */
+  lineMap?: DisplayLine[];
+  /** Line numbers that have markers (backward compat) */
+  markers?: number[];
+  /** Options used to produce this layout (backward compat) */
+  options?: Record<string, unknown>;
+  /** Count of substantive lines (backward compat) */
+  substantiveLines?: number;
 }
 
-/** Metrics collected during layout */
+/** Metrics collected during layout (unchanged from v1) */
 export interface LayoutMetrics {
   totalLayouts: number;
   totalLines: number;

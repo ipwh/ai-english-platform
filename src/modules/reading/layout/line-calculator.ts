@@ -1,44 +1,46 @@
 // ============================================
-// Sprint 116: Line Calculator
-// Splits text into display lines based on chars-per-line.
+// Sprint 116 / Phase 1A: Line Calculator (v2)
+// Splits text into display lines based on max-chars-per-line.
+// Never injects line markers into text — that's the renderer's job.
 // ============================================
 
-import type { DisplayLine, LayoutOptions } from './reading-layout-types';
-import { DEFAULT_LAYOUT_OPTIONS } from './reading-layout-types';
+import type { DisplayLine, ResolvedLayoutOptions } from './reading-layout-types';
 
 /** Calculate display lines for a single paragraph of text */
 export function calculateParagraphLines(
   text: string,
   paragraphIndex: number,
   paragraphNumber: number,
-  startGlobalLine: number,
-  options: Required<LayoutOptions>,
+  startLineIndex: number,
+  options: ResolvedLayoutOptions,
+  label: string,
 ): DisplayLine[] {
   const lines: DisplayLine[] = [];
   const words = text.trim().split(/\s+/);
   if (words.length === 0 || (words.length === 1 && words[0] === '')) return lines;
 
   let currentLine = '';
-  let paraLine = 1;
+  let localLineIndex = 0;
 
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
+  for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word;
 
-    if (testLine.length <= options.charsPerLine) {
+    if (testLine.length <= options.maxCharsPerLine) {
       currentLine = testLine;
     } else {
       // Flush current line
       if (currentLine) {
-        const globalLine = startGlobalLine + lines.length;
+        const globalIndex = startLineIndex + localLineIndex;
+        const lineNumber = shouldShowLineNumber(globalIndex + 1, options.lineNumberInterval);
         lines.push({
-          line: globalLine + 1,
-          paragraph: paragraphIndex,
-          paragraphLine: paraLine++,
+          lineIndex: globalIndex,
+          lineNumber: lineNumber ? globalIndex + 1 : undefined,
+          paragraphIndex,
           text: currentLine,
-          hasMarker: false,
-          isBlank: false,
+          isParagraphStart: localLineIndex === 0,
+          paragraphLabel: localLineIndex === 0 ? label : undefined,
         });
+        localLineIndex++;
       }
       currentLine = word;
     }
@@ -46,15 +48,17 @@ export function calculateParagraphLines(
 
   // Flush last line
   if (currentLine) {
-    const globalLine = startGlobalLine + lines.length;
+    const globalIndex = startLineIndex + localLineIndex;
+    const lineNumber = shouldShowLineNumber(globalIndex + 1, options.lineNumberInterval);
     lines.push({
-      line: globalLine + 1,
-      paragraph: paragraphIndex,
-      paragraphLine: paraLine,
+      lineIndex: globalIndex,
+      lineNumber: lineNumber ? globalIndex + 1 : undefined,
+      paragraphIndex,
       text: currentLine,
-      hasMarker: false,
-      isBlank: false,
+      isParagraphStart: localLineIndex === 0,
+      paragraphLabel: localLineIndex === 0 ? label : undefined,
     });
+    localLineIndex++;
   }
 
   return lines;
@@ -62,44 +66,45 @@ export function calculateParagraphLines(
 
 /** Calculate total visual lines for a passage */
 export function calculateTotalLines(
-  paragraphs: { text: string; number: number }[],
-  options: Required<LayoutOptions>,
+  paragraphs: { text: string; number: number; label: string }[],
+  options: ResolvedLayoutOptions,
 ): DisplayLine[] {
   const allLines: DisplayLine[] = [];
-  let globalLine = 0;
+  let globalIndex = 0;
 
-  for (let pi = 0; pi < paragraphs.length; pi++) {
-    const para = paragraphs[pi];
-
+  for (const para of paragraphs) {
     const paraLines = calculateParagraphLines(
-      para.text, pi, para.number, globalLine, options,
+      para.text, para.number - 1, para.number, globalIndex, options, para.label,
     );
     allLines.push(...paraLines);
-    globalLine += paraLines.length;
+    globalIndex += paraLines.length;
   }
 
   return allLines;
 }
 
-/** Estimate chars per line from container width and font size */
-export function estimateCharsPerLine(containerWidth: number, fontSize: number): number {
-  // Average character width is ~0.55 * fontSize for proportional fonts
-  const avgCharWidth = fontSize * 0.55;
-  return Math.floor(containerWidth / avgCharWidth) - 2; // -2 for padding
+/** Whether a 1-based line number should show a gutter number */
+function shouldShowLineNumber(lineNum: number, interval: number): boolean {
+  if (interval <= 0) return false;
+  return lineNum % interval === 0;
 }
 
-/** Recalculate layout for new container dimensions */
+/** Estimate chars per line from container width and font size (backward compat) */
+export function estimateCharsPerLine(containerWidth: number, fontSize: number): number {
+  const avgCharWidth = fontSize * 0.55;
+  return Math.floor(containerWidth / avgCharWidth) - 2;
+}
+
+/** Recalculate layout for new container dimensions (backward compat) */
 export function recalculateCharsPerLine(
-  options: Required<LayoutOptions>,
+  options: ResolvedLayoutOptions,
   newWidth?: number,
   newFontSize?: number,
-): Required<LayoutOptions> {
-  const width = newWidth ?? options.containerWidth;
-  const fontSize = newFontSize ?? options.fontSize;
+): ResolvedLayoutOptions {
+  const width = newWidth ?? 700;
+  const fontSize = newFontSize ?? 14;
   return {
     ...options,
-    containerWidth: width,
-    fontSize,
-    charsPerLine: estimateCharsPerLine(width, fontSize),
+    maxCharsPerLine: estimateCharsPerLine(width, fontSize),
   };
 }

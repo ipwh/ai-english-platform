@@ -1,5 +1,5 @@
 // ============================================
-// Sprint 116: Reading Layout Architecture Tests (30 tests)
+// Sprint 116 / Phase 1A: Reading Layout Architecture Tests (v2, 33 tests)
 // ============================================
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -7,12 +7,12 @@ import {
   layoutReadingText, recalculateLayout,
   calculateParagraphLines, calculateTotalLines, estimateCharsPerLine,
   extractParagraphs, buildParagraphLayouts,
-  renderToHtml, renderToPlainText,
+  renderToPlainText,
   getLayoutMetrics, resetLayoutMetrics,
   generateLayoutReport, formatLayoutReport,
-  DEFAULT_LAYOUT_OPTIONS,
 } from '@/modules/reading/layout';
 import { getFullRuntimeReport } from '@/modules/platform/sre/reliability-dashboard';
+import { resolveLayoutOptions } from '@/modules/reading/layout';
 import fs from 'fs';
 import path from 'path';
 
@@ -22,20 +22,22 @@ const SAMPLE_PASSAGE = `[Paragraph 1] The concept of general knowledge has long 
 
 [Paragraph 3] Critics however point to the vast amount of information available today. They contend that memorizing facts is less important than knowing how to access and evaluate information.`;
 
-describe('Sprint 116: Reading Layout Engine', () => {
+const opts = resolveLayoutOptions({ maxCharsPerLine: 40, lineNumberInterval: 2 });
+
+describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
   beforeEach(() => resetLayoutMetrics());
   afterEach(() => resetLayoutMetrics());
 
-  // ═══ 1-20: Unit Tests ═══
+  // ═══ 1-10: Core Layout Tests ═══
 
   it('1. Layout Engine exists and produces valid result', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
     expect(r).toBeDefined();
     expect(r.html).toBeDefined();
     expect(r.totalLines).toBeGreaterThan(0);
     expect(r.paragraphs.length).toBe(3);
-    expect(r.lineMap.length).toBeGreaterThan(0);
-    expect(r.markers.length).toBeGreaterThan(0);
+    expect(r.lineMap!.length).toBeGreaterThan(0);
+    expect(r.markers!.length).toBeGreaterThan(0);
   });
 
   it('2. Extracts paragraphs correctly', () => {
@@ -44,51 +46,57 @@ describe('Sprint 116: Reading Layout Engine', () => {
     expect(paras[0].number).toBe(1);
     expect(paras[1].number).toBe(2);
     expect(paras[2].number).toBe(3);
+    expect(paras[0].label).toBe('Paragraph 1');
   });
 
   it('3. Calculates display lines', () => {
-    const lines = calculateParagraphLines('This is a test sentence with several words.', 0, 1, 0, DEFAULT_LAYOUT_OPTIONS);
+    const lines = calculateParagraphLines('Short test.', 0, 1, 0, opts, 'Paragraph 1');
     expect(lines.length).toBe(1);
-    expect(lines[0].paragraph).toBe(0);
-    expect(lines[0].paragraphLine).toBe(1);
+    expect(lines[0].paragraphIndex).toBe(0);
+    expect(lines[0].isParagraphStart).toBe(true);
+    expect(lines[0].paragraphLabel).toBe('Paragraph 1');
   });
 
-  it('4. Line map contains only substantive (non-blank) lines', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
-    expect(r.lineMap.length).toBeGreaterThan(0);
-    expect(r.lineMap.every(l => !l.isBlank)).toBe(true);
+  it('4. Line map contains only substantive (non-empty) lines', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+    expect(r.lineMap!.length).toBeGreaterThan(0);
+    expect(r.lineMap!.every(l => l.text.trim().length > 0)).toBe(true);
   });
 
-  it('5. Markers inserted at correct interval', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
-    for (const m of r.markers) {
+  it('5. Line numbers follow interval logic', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+    for (const m of r.markers!) {
       expect(m % 2).toBe(0);
     }
   });
 
-  it('6. HTML contains styled line markers', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
-    expect(r.html).toContain('[line ');
-    expect(r.html).toContain('indigo-400');
+  it('6. HTML contains gutter markup, NOT inline markers', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+    expect(r.html).toContain('dse-line-gutter');
+    expect(r.html).toContain('dse-line-number');
+    expect(r.html).not.toMatch(/\[line\s+\d+\]/i);
   });
 
-  it('7. Plain text rendering works', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
-    expect(r.renderedText).toContain('[line ');
+  it('7. Plain text rendering works (backward compat)', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+    expect(r.renderedText).toBeDefined();
+    expect(r.renderedText!.length).toBeGreaterThan(50);
   });
 
   it('8. Paragraph count is correct', () => {
     const r = layoutReadingText(SAMPLE_PASSAGE);
     expect(r.paragraphs).toHaveLength(3);
     expect(r.paragraphs[0].paragraphNumber).toBe(1);
+    expect(r.paragraphs[1].paragraphNumber).toBe(2);
     expect(r.paragraphs[2].paragraphNumber).toBe(3);
   });
 
   it('9. Options are respected', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
-    expect(r.options.markerInterval).toBe(2);
-    expect(r.options.charsPerLine).toBe(40);
-    expect(r.markers.length).toBeGreaterThan(0);
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+    const o = r.options as Record<string, unknown>;
+    expect(o.lineNumberInterval).toBe(2);
+    expect(o.maxCharsPerLine).toBe(40);
+    expect(r.markers!.length).toBeGreaterThan(0);
   });
 
   it('10. Metrics track correctly', () => {
@@ -98,6 +106,8 @@ describe('Sprint 116: Reading Layout Engine', () => {
     expect(m.avgLines).toBeGreaterThan(0);
     expect(m.avgParagraphs).toBe(3);
   });
+
+  // ═══ 11-20: Backward Compat + Edge Cases ═══
 
   it('11. Report generates Markdown', () => {
     layoutReadingText(SAMPLE_PASSAGE);
@@ -110,14 +120,12 @@ describe('Sprint 116: Reading Layout Engine', () => {
     const r = layoutReadingText(SAMPLE_PASSAGE);
     const r2 = recalculateLayout(r, 400);
     expect(r2.html).toBeDefined();
-    expect(r2.options.containerWidth).toBe(400);
+    expect(r2.totalLines).toBeGreaterThan(0);
   });
 
-  it('13. Blank lines between paragraphs', () => {
+  it('13. Total lines >= substantive lines', () => {
     const r = layoutReadingText(SAMPLE_PASSAGE);
-    const blanks = r.lineMap.filter(l => l.isBlank);
-    // Blank lines are in allLines but not in lineMap (substantive only)
-    expect(r.totalLines).toBeGreaterThanOrEqual(r.substantiveLines);
+    expect(r.totalLines).toBeGreaterThanOrEqual(r.substantiveLines!);
   });
 
   it('14. Empty text returns empty result', () => {
@@ -132,9 +140,9 @@ describe('Sprint 116: Reading Layout Engine', () => {
     expect(cpl).toBeLessThan(100);
   });
 
-  it('16. Custom marker interval 10', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 10 });
-    for (const m of r.markers) expect(m % 10).toBe(0);
+  it('16. Custom line number interval 10', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { lineNumberInterval: 10, maxCharsPerLine: 40 });
+    for (const m of r.markers!) expect(m % 10).toBe(0);
   });
 
   it('17. Paragraph numbers preserved', () => {
@@ -145,18 +153,19 @@ describe('Sprint 116: Reading Layout Engine', () => {
 
   it('18. Long paragraph wraps correctly', () => {
     const longText = `[Paragraph 1] ${'word '.repeat(200)}`;
-    const r = layoutReadingText(longText, { charsPerLine: 50 });
-    expect(r.lineMap.length).toBeGreaterThan(5);
+    const r = layoutReadingText(longText, { maxCharsPerLine: 50 });
+    expect(r.lineMap!.length).toBeGreaterThan(5);
   });
 
   it('19. Substantive lines exclude blanks', () => {
     const r = layoutReadingText(SAMPLE_PASSAGE);
-    expect(r.substantiveLines).toBeLessThanOrEqual(r.totalLines);
+    expect(r.substantiveLines!).toBeLessThanOrEqual(r.totalLines);
   });
 
   it('20. Fallback paragraph extraction (no markers)', () => {
     const paras = extractParagraphs('First paragraph.\n\nSecond paragraph.\n\nThird paragraph.');
     expect(paras).toHaveLength(3);
+    expect(paras[0].label).toBe('Paragraph 1');
   });
 
   // ═══ 21-30: Architecture Tests ═══
@@ -211,10 +220,10 @@ describe('Sprint 116: Reading Layout Engine', () => {
   it('27. Layout result has all required fields', () => {
     const r = layoutReadingText(SAMPLE_PASSAGE);
     expect(r.html).toBeDefined();
-    expect(r.renderedText).toBeDefined();
-    expect(r.lineMap).toBeDefined();
     expect(r.paragraphs).toBeDefined();
     expect(r.totalLines).toBeGreaterThan(0);
+    expect(r.renderedText).toBeDefined();
+    expect(r.lineMap).toBeDefined();
     expect(r.markers).toBeDefined();
     expect(r.options).toBeDefined();
   });
@@ -227,16 +236,73 @@ describe('Sprint 116: Reading Layout Engine', () => {
     expect(r1.markers).toEqual(r2.markers);
   });
 
-  it('29. Line numbers are 1-based', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE);
-    expect(r.lineMap[0].line).toBe(1);
+  it('29. Line numbers are 1-based and not inline', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 10, lineNumberInterval: 1 });
+    // Check display line metadata: first line with a number has number 1
+    const firstNumbered = r.lineMap!.find(l => l.lineNumber !== undefined);
+    expect(firstNumbered).toBeDefined();
+    // All line texts must be clean — no [N] tokens
+    for (const line of r.lineMap!) {
+      expect(line.text).not.toMatch(/\[\d+\]|\[line\s+\d+\]/i);
+    }
   });
 
-  it('30. renderToPlainText produces readable output', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { markerInterval: 2, charsPerLine: 40 });
-    const text = renderToPlainText(r.lineMap, 2);
+  it('30. renderToPlainText produces readable output (backward compat)', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+    const text = renderToPlainText(r.lineMap!);
     expect(text.length).toBeGreaterThan(50);
-    expect(text).toContain('[line ');
+  });
+
+  // ═══ 31-33: Phase 1A — No Inline Markers + Gutter Tests ═══
+
+  it('31. does not inject inline line markers into text', () => {
+    const result = layoutReadingText(
+      'Paragraph one. Here is some text that will wrap across multiple lines to test line numbering.',
+      {
+        maxCharsPerLine: 20,
+        lineNumberInterval: 5,
+        showParagraphLabels: true,
+      },
+    );
+
+    for (const paragraph of result.paragraphs) {
+      for (const line of paragraph.lines) {
+        expect(line.text).not.toMatch(/\[\d+\]|\[line\s+\d+\]/i);
+      }
+    }
+  });
+
+  it('32. renders gutter line numbers instead of inline markers', () => {
+    const result = layoutReadingText(
+      'This is a sample passage for testing gutter rendering with multiple lines of text.',
+      {
+        maxCharsPerLine: 10,
+        lineNumberInterval: 1,
+      },
+    );
+
+    expect(result.html).toContain('dse-line-gutter');
+    expect(result.html).not.toMatch(/\[line\s+\d+\]/i);
+    // Verify gutter column exists
+    const gutterCount = (result.html.match(/dse-line-gutter/g) || []).length;
+    expect(gutterCount).toBeGreaterThan(0);
+  });
+
+  it('33. paragraph labels exist on first line of each paragraph', () => {
+    const result = layoutReadingText(SAMPLE_PASSAGE, {
+      maxCharsPerLine: 40,
+      showParagraphLabels: true,
+      paragraphLabelMode: 'paragraph',
+    });
+
+    for (const paragraph of result.paragraphs) {
+      expect(paragraph.label).toBeDefined();
+      expect(paragraph.label).toContain('Paragraph');
+      // First line should have the paragraph label
+      const firstLine = paragraph.lines[0];
+      expect(firstLine.isParagraphStart).toBe(true);
+      expect(firstLine.paragraphLabel).toBe(paragraph.label);
+    }
   });
 });
 

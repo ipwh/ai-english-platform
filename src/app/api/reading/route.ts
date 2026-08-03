@@ -55,6 +55,42 @@ import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/pro
 import { DSE_TEXT_TYPES, DSE_PUBLICATION_SOURCES } from '@/modules/ai/prompts/reading/text-types';
 
 // ============================================
+// Phase 1B: DSE Type Mapping (camelCase backend → snake_case frontend)
+// Preserves all 19 DSE question types end-to-end.
+// ============================================
+
+/** Maps backend camelCase DSE question types to frontend snake_case display types */
+const DSE_TYPE_MAP: Record<string, string> = {
+  mcq: 'multiple_choice',
+  mcCloze: 'multiple_choice',
+  negativeInference: 'multiple_choice',
+  authorIntention: 'multiple_choice',
+  trueFalseNG: 'true_false_not_given',
+  referencing: 'reference',
+  vocabularyInContext: 'vocabulary_in_context',
+  synonymSearch: 'vocabulary_in_context',
+  phraseSearch: 'vocabulary_in_context',
+  inference: 'inference',
+  toneAttitude: 'tone_attitude',
+  summaryCloze: 'summary_cloze',
+  tableCompletion: 'summary_cloze',
+  causeEffectCompletion: 'summary_cloze',
+  shortAnswer: 'sentence_transformation',
+  matching: 'sentence_transformation',
+  sequencing: 'sentence_transformation',
+  exampleFinding: 'sentence_transformation',
+  errorCorrectionSummary: 'sentence_transformation',
+};
+
+function mapDseTypeToFrontend(aiType: string): string {
+  return DSE_TYPE_MAP[aiType] || 'sentence_transformation';
+}
+
+function isMcLikeDseType(dseType: string): boolean {
+  return dseType === 'multiple_choice' || dseType === 'true_false_not_given';
+}
+
+// ============================================
 // POST — 路由分派（根據 action 參數）
 // ============================================
 export async function POST(request: NextRequest) {
@@ -846,7 +882,8 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
         // Use system-computed paragraphRef from Phase 1
-        let paragraphRef = (q.paragraphRef as number) || undefined;
+        const paragraphRef = (q.paragraphRef as number) || undefined;
+        const dseType = mapDseTypeToFrontend(aiType);
 
         return {
           index: (q.index as number) || i + 1,
@@ -854,8 +891,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
           question,
           questionZh,
-          type: isMc ? 'mc' : 'short-answer',
-          choices: isMc && choices ? choices : undefined,
+          type: isMcLikeDseType(dseType) ? 'mc' : 'short-answer',
+          dseType,
+          marks: (q.marks as number) || 1,
+          wordLimit: (q.wordLimit as string) || undefined,
+          acceptAlso: Array.isArray(q.acceptAlso) ? q.acceptAlso as string[] : [],
+          paragraphCoverage: paragraphRef ? [paragraphRef] : [],
+          wholeText: false,
+          choices: isMcLikeDseType(dseType) && choices ? choices : undefined,
           answer: (q.answer as string) || '',
           explanationZh: (q.explanationZh as string) || undefined,
           explanationEn: (q.explanationEn as string) || undefined,
@@ -897,6 +940,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
         // Use system-computed paragraphRef (set below via targetPhrase mapping)
         const paragraphRef = (q.paragraphRef as number) || undefined;
+        const dseType2 = mapDseTypeToFrontend(aiType);
 
         return {
           index: (q.index as number) || i + 1,
@@ -904,8 +948,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
           question,
           questionZh,
-          type: isMc ? 'mc' : 'short-answer',
-          choices: isMc && choices ? choices : undefined,
+          type: isMcLikeDseType(dseType2) ? 'mc' : 'short-answer',
+          dseType: dseType2,
+          marks: (q.marks as number) || 1,
+          wordLimit: (q.wordLimit as string) || undefined,
+          acceptAlso: Array.isArray(q.acceptAlso) ? q.acceptAlso as string[] : [],
+          paragraphCoverage: paragraphRef ? [paragraphRef] : [],
+          wholeText: false,
+          choices: isMcLikeDseType(dseType2) && choices ? choices : undefined,
           answer: (q.answer as string) || '',
           explanationZh: (q.explanationZh as string) || undefined,
           explanationEn: (q.explanationEn as string) || undefined,

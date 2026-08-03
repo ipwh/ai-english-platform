@@ -1,78 +1,44 @@
 // ============================================
-// Sprint 116: Layout Renderer
-// Inserts [line N] markers into HTML at configurable intervals.
+// Sprint 116 / Phase 1A: Layout Renderer (v2)
+// Renders paragraphs to gutter-based HTML.
+// Line numbers are in a separate gutter column — NEVER inline in text.
 // ============================================
 
-import type { DisplayLine, LayoutOptions } from './reading-layout-types';
-import { DEFAULT_LAYOUT_OPTIONS } from './reading-layout-types';
+import type { LayoutParagraph } from './reading-layout-types';
 
-/** Render display lines to HTML with line markers */
-export function renderToHtml(
-  allLines: DisplayLine[],
-  options: Required<LayoutOptions>,
-): { html: string; plainText: string; markers: number[] } {
-  const markerLines = new Set<number>();
-  const htmlParts: string[] = [];
-  const textParts: string[] = [];
-
-  let lastParagraph = -1;
-
-  for (const line of allLines) {
-    const isNewParagraph = line.paragraph !== lastParagraph && lastParagraph >= 0 && !line.isBlank;
-    const isFirstLineOfParagraph = line.paragraph !== lastParagraph && !line.isBlank;
-
-    // Paragraph break — pure whitespace (no border, DSE-authentic)
-    if (isNewParagraph) {
-      htmlParts.push('<div class="h-6"></div>');
-      textParts.push('');
-    }
-    lastParagraph = line.paragraph;
-
-    // Skip blank spacer lines
-    if (line.isBlank) {
-      textParts.push('');
-      continue;
-    }
-
-    // Determine if this line needs a marker
-    const needsMarker = shouldInsertMarker(line.line, options.markerInterval);
-    if (needsMarker) markerLines.add(line.line);
-
-    // Build line HTML with line marker in fixed left gutter
-    let lineHtml = '<div class="flex gap-3 items-start">';
-
-    // Line number column — subtle gray, DSE-style
-    if (needsMarker) {
-      lineHtml += `<span class="text-[11px] text-gray-400 dark:text-gray-500 font-mono w-12 shrink-0 text-right select-none whitespace-nowrap pt-[2px]">[${line.line}]</span>`;
-    } else {
-      lineHtml += '<span class="w-12 shrink-0"></span>';
-    }
-
-    // Text — with first-line indent for new paragraphs
-    const escaped = escapeHtml(line.text);
-    const indentClass = isFirstLineOfParagraph ? 'pl-6' : '';
-    lineHtml += `<span class="flex-1 text-[15px] ${indentClass}">${escaped}</span>`;
-    lineHtml += '</div>';
-
-    htmlParts.push(lineHtml);
-    textParts.push(needsMarker ? `[line ${line.line}] ${line.text}` : line.text);
-  }
-
-  return {
-    html: htmlParts.join('\n'),
-    plainText: textParts.join('\n'),
-    markers: [...markerLines].sort((a, b) => a - b),
-  };
-}
-
-/** Determine if a line number should have a marker */
-function shouldInsertMarker(lineNum: number, interval: number): boolean {
-  if (interval <= 0) return false;
-  return lineNum % interval === 0;
+/** Render layout paragraphs to DSE-authentic gutter HTML */
+export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
+  return paragraphs
+    .map(
+      (paragraph) => `
+        <div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">
+          ${paragraph.lines
+            .map(
+              (line) => `
+                <div class="dse-line">
+                  <div class="dse-line-gutter">
+                    ${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}
+                  </div>
+                  <div class="dse-line-text">
+                    ${
+                      line.isParagraphStart && line.paragraphLabel
+                        ? `<span class="dse-paragraph-label">${escapeHtml(line.paragraphLabel)}</span>`
+                        : ''
+                    }
+                    <span>${escapeHtml(line.text)}</span>
+                  </div>
+                </div>
+              `
+            )
+            .join('')}
+        </div>
+      `
+    )
+    .join('');
 }
 
 /** Escape HTML special characters */
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -80,16 +46,34 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Render to plain text only (for line map export) */
+/** Escape for HTML attribute values */
+function escapeAttr(text: string): string {
+  return text.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+/** Render to plain text with line markers (backward compat) */
 export function renderToPlainText(
-  allLines: DisplayLine[],
-  markerInterval: number,
+  allLines: { lineNumber?: number; text: string }[],
+  _interval?: number,
 ): string {
   return allLines
-    .filter(l => !l.isBlank)
+    .filter(l => l.text.trim().length > 0)
     .map(l => {
-      const marker = l.line % markerInterval === 0 ? `[line ${l.line}] ` : '';
+      const marker = l.lineNumber !== undefined ? `[${l.lineNumber}] ` : '';
       return `${marker}${l.text}`;
     })
     .join('\n');
+}
+
+// ── Backward-compat: old renderToHtml renamed ──
+/** @deprecated Use renderLayoutToHtml instead */
+export function renderToHtml(
+  _allLines: unknown[],
+  _options: unknown,
+): { html: string; plainText: string; markers: number[] } {
+  // This function is no longer used internally but kept for backward compat.
+  // Callers should migrate to renderLayoutToHtml + using LayoutResult directly.
+  throw new Error(
+    'renderToHtml is deprecated. Use layoutReadingText() which returns LayoutResult.html directly.',
+  );
 }

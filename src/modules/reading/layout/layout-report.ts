@@ -1,5 +1,5 @@
 // ============================================
-// Sprint 116: Layout Report
+// Sprint 116 / Phase 1A: Layout Report (v2)
 // ============================================
 
 import type { LayoutResult } from './reading-layout-types';
@@ -32,12 +32,13 @@ export function formatLayoutReport(report?: LayoutReport & { lastResult?: Layout
   lines.push('');
 
   if (r.lastResult) {
+    const opts = (r.lastResult.options ?? {}) as Record<string, unknown>;
     lines.push('## Last Layout');
     lines.push(`- Total Lines: ${r.lastResult.totalLines}`);
-    lines.push(`- Substantive Lines: ${r.lastResult.substantiveLines}`);
+    lines.push(`- Substantive Lines: ${r.lastResult.substantiveLines ?? r.lastResult.totalLines}`);
     lines.push(`- Paragraphs: ${r.lastResult.paragraphs.length}`);
-    lines.push(`- Markers: ${r.lastResult.markers.length} (interval: ${r.lastResult.options.markerInterval})`);
-    lines.push(`- Chars/Line: ${r.lastResult.options.charsPerLine}`);
+    lines.push(`- Markers: ${r.lastResult.markers?.length ?? 0} (interval: ${opts.lineNumberInterval ?? opts.markerInterval ?? 'N/A'})`);
+    lines.push(`- Chars/Line: ${opts.maxCharsPerLine ?? opts.charsPerLine ?? 'N/A'}`);
   }
 
   return lines.join('\n');
