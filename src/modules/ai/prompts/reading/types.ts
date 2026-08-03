@@ -126,6 +126,10 @@ export interface DSEreadingQuestion {
   explanationZh: string;
   explanationEn?: string;
   commonMistake?: string; // Common student error
+  /** Phase 4F: Whether this question requires synthesizing the entire passage */
+  wholeText?: boolean;
+  /** Phase 4F: Paragraphs this question covers (for cross-paragraph items) */
+  paragraphCoverage?: number[];
 }
 
 // ============================================
