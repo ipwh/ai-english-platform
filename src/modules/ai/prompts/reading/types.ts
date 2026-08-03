@@ -541,6 +541,225 @@ export function validateQuestionQuality(questions: DSEreadingQuestion[], part: D
 }
 
 // ============================================
+// Phase 4B: Skill Boundary Definitions — Whole-Text, Stance, Cross-Paragraph
+// ============================================
+
+/**
+ * Reading skill categories for DSE Paper 1 question classification.
+ * Each question maps to exactly ONE primary skill category.
+ * These are used to ensure skill diversity and prevent overlap.
+ */
+export type ReadingSkillCategory =
+  | 'factual'           // Literal comprehension; answer directly stated
+  | 'reference'         // Pronoun/noun-phrase referent resolution
+  | 'vocabulary'        // Word/phrase meaning in context
+  | 'inference'         // Implied meaning beyond stated facts (within one paragraph)
+  | 'crossParagraph'    // Requires connecting 2+ paragraphs to answer
+  | 'wholeText'         // Requires synthesizing the entire passage
+  | 'toneStance'        // Author's attitude, tone, stance, purpose
+  | 'paragraphFunction' // Why a paragraph exists; its rhetorical role
+  | 'mainIdea'          // Central thesis or gist of the passage
+  | 'summaryTransform'; // Cloze, table, error-correction summary
+
+/** Skill boundary definitions with DSE-typical features */
+export interface SkillBoundary {
+  category: ReadingSkillCategory;
+  label: string;
+  /** What this skill tests that others don't */
+  distinctFrom: string;
+  /** Common confusions — skills often mistaken for this one */
+  notToBeConfusedWith: ReadingSkillCategory[];
+  /** Minimum paragraph span required (1 = single para ok) */
+  minParagraphSpan: number;
+  /** Typical marks in DSE */
+  typicalMarks: number;
+  /** Question stem patterns characteristic of this skill */
+  stemPatterns: string[];
+}
+
+/**
+ * Hard boundaries between skill categories.
+ * Used by validators to detect overlap and by prompts to guide generation.
+ */
+export const READING_SKILL_BOUNDARIES: Record<ReadingSkillCategory, SkillBoundary> = {
+  factual: {
+    category: 'factual',
+    label: 'Factual / Literal',
+    distinctFrom: 'Tests ability to locate explicitly stated information in a single paragraph.',
+    notToBeConfusedWith: ['inference', 'wholeText'],
+    minParagraphSpan: 1,
+    typicalMarks: 1,
+    stemPatterns: [
+      'According to paragraph X',
+      'What is stated about',
+      'Which of the following is true',
+      'Complete the following using',
+    ],
+  },
+  reference: {
+    category: 'reference',
+    label: 'Reference / Pronoun Resolution',
+    distinctFrom: 'Tests ability to identify what a pronoun or demonstrative refers to — NOT comprehension of meaning.',
+    notToBeConfusedWith: ['vocabulary', 'inference'],
+    minParagraphSpan: 1,
+    typicalMarks: 1,
+    stemPatterns: [
+      'What does \'it\' refer to',
+      'Who or what does \'they\' refer to',
+      'What does \'this\' (line X) refer to',
+    ],
+  },
+  vocabulary: {
+    category: 'vocabulary',
+    label: 'Vocabulary in Context',
+    distinctFrom: 'Tests word/phrase meaning as used in the passage — NOT general dictionary definition.',
+    notToBeConfusedWith: ['reference', 'inference'],
+    minParagraphSpan: 1,
+    typicalMarks: 1,
+    stemPatterns: [
+      'What does \'X\' mean',
+      'Find a word that means',
+      'Which phrase describes',
+      'What does the expression suggest',
+    ],
+  },
+  inference: {
+    category: 'inference',
+    label: 'Inference / Implied Meaning',
+    distinctFrom: 'Tests reading between the lines within a single paragraph — NOT whole-text synthesis.',
+    notToBeConfusedWith: ['factual', 'crossParagraph', 'wholeText', 'toneStance'],
+    minParagraphSpan: 1,
+    typicalMarks: 2,
+    stemPatterns: [
+      'What does X imply',
+      'Why does the writer mention',
+      'What can be inferred from',
+      'Explain why',
+    ],
+  },
+  crossParagraph: {
+    category: 'crossParagraph',
+    label: 'Cross-Paragraph Reasoning',
+    distinctFrom: 'Tests ability to connect claims, evidence, or developments ACROSS 2+ paragraphs — NOT single-paragraph inference.',
+    notToBeConfusedWith: ['inference', 'wholeText'],
+    minParagraphSpan: 2,
+    typicalMarks: 2,
+    stemPatterns: [
+      'How does paragraph X develop the idea in paragraph Y',
+      'Compare the views expressed in paragraphs X and Y',
+      'How does the writer build the argument from paragraph X to paragraph Y',
+      'What change occurs between paragraphs X and Y',
+    ],
+  },
+  wholeText: {
+    category: 'wholeText',
+    label: 'Whole-Text Synthesis',
+    distinctFrom: 'Tests ability to integrate information from the ENTIRE passage — NOT summary, not single-paragraph, not cross-paragraph only.',
+    notToBeConfusedWith: ['summaryTransform', 'crossParagraph', 'mainIdea', 'inference'],
+    minParagraphSpan: 3,
+    typicalMarks: 2,
+    stemPatterns: [
+      'What is the overall message',
+      'How does the passage as a whole present',
+      'What conclusion can be drawn from the entire passage',
+      'Which statement best captures the passage\'s overall',
+    ],
+  },
+  toneStance: {
+    category: 'toneStance',
+    label: 'Tone / Attitude / Stance',
+    distinctFrom: 'Tests recognition of authorial voice through word choice, hedging, contrast, and structure — NOT factual content or simple positive/negative labeling.',
+    notToBeConfusedWith: ['factual', 'inference', 'mainIdea'],
+    minParagraphSpan: 1,
+    typicalMarks: 2,
+    stemPatterns: [
+      'What is the writer\'s attitude toward',
+      'The tone of the passage can best be described as',
+      'What stance does the author take on',
+      'How does the writer feel about',
+      'What is the writer\'s purpose in',
+    ],
+  },
+  paragraphFunction: {
+    category: 'paragraphFunction',
+    label: 'Paragraph Function / Rhetorical Role',
+    distinctFrom: 'Tests why a paragraph exists — its rhetorical job in the passage structure — NOT what it says.',
+    notToBeConfusedWith: ['factual', 'mainIdea', 'crossParagraph'],
+    minParagraphSpan: 1,
+    typicalMarks: 1,
+    stemPatterns: [
+      'What is the function of paragraph X',
+      'What purpose does paragraph X serve',
+      'Why does the writer include paragraph X',
+      'How does paragraph X contribute to the passage',
+    ],
+  },
+  mainIdea: {
+    category: 'mainIdea',
+    label: 'Main Idea / Central Thesis',
+    distinctFrom: 'Tests identification of the passage\'s central argument or gist — NOT paragraph function, NOT whole-text detail synthesis.',
+    notToBeConfusedWith: ['wholeText', 'paragraphFunction', 'factual'],
+    minParagraphSpan: 3,
+    typicalMarks: 1,
+    stemPatterns: [
+      'What is the main idea of the passage',
+      'The passage is mainly about',
+      'Which of the following best summarizes the passage',
+      'The writer\'s main point is',
+    ],
+  },
+  summaryTransform: {
+    category: 'summaryTransform',
+    label: 'Summary Cloze / Transformation',
+    distinctFrom: 'Tests ability to complete structured summaries — NOT open-ended synthesis.',
+    notToBeConfusedWith: ['wholeText', 'factual'],
+    minParagraphSpan: 1,
+    typicalMarks: 1,
+    stemPatterns: [
+      'Complete the summary',
+      'Complete the following',
+      'Fill in the blanks',
+    ],
+  },
+};
+
+/** Map DSE question type to its primary skill category */
+export function mapTypeToSkillCategory(type: DSEreadingQuestionType): ReadingSkillCategory {
+  const mapping: Partial<Record<DSEreadingQuestionType, ReadingSkillCategory>> = {
+    mcq: 'factual',
+    trueFalseNG: 'factual',
+    matching: 'factual',
+    shortAnswer: 'factual',
+    negativeInference: 'factual',
+    referencing: 'reference',
+    vocabularyInContext: 'vocabulary',
+    synonymSearch: 'vocabulary',
+    phraseSearch: 'vocabulary',
+    inference: 'inference',
+    authorIntention: 'inference',
+    toneAttitude: 'toneStance',
+    sequencing: 'crossParagraph',
+    exampleFinding: 'factual',
+    summaryCloze: 'summaryTransform',
+    mcCloze: 'summaryTransform',
+    tableCompletion: 'summaryTransform',
+    causeEffectCompletion: 'summaryTransform',
+    errorCorrectionSummary: 'summaryTransform',
+  };
+  return mapping[type] ?? 'factual';
+}
+
+/** Constants for skill distribution in question sets */
+export const SKILL_DISTRIBUTION = {
+  /** Maximum ratio of questions that should be single-paragraph factual */
+  maxFactualRatio: 0.55,
+  /** Minimum higher-order skills (crossParagraph + wholeText + toneStance + paragraphFunction + mainIdea) for passages with 4+ paragraphs */
+  minHigherOrderRatio: 0.20,
+  /** Maximum same-skill repetition (prevent all questions being same category) */
+  maxSameSkillRatio: 0.40,
+} as const;
+
+// ============================================
 // Phase 3A: Question Quality Blueprint & Hardened Validators
 // ============================================
 
@@ -715,6 +934,111 @@ export function validateQuestionSetBlueprint(
     issues.push({ code: 'FLAT_PROGRESSION', severity: 'warning', message: 'Difficulty progression is flat' });
   }
 
+  // ══════════════════════════════════════════
+  // Phase 4B: Skill Boundary & Overlap Checks
+  // ══════════════════════════════════════════
+
+  const skillCategories = questions.map(q => mapTypeToSkillCategory(q.type));
+  const skillCounts = new Map<ReadingSkillCategory, number>();
+  for (const sc of skillCategories) {
+    skillCounts.set(sc, (skillCounts.get(sc) ?? 0) + 1);
+  }
+
+  // ── 8. Skill distribution: too many factual items ──
+  const factualCount = skillCounts.get('factual') ?? 0;
+  if (questions.length >= 6 && factualCount / questions.length > SKILL_DISTRIBUTION.maxFactualRatio) {
+    issues.push({
+      code: 'SKILL_OVERLOAD_FACTUAL',
+      severity: 'warning',
+      message: `${factualCount}/${questions.length} (${Math.round(factualCount / questions.length * 100)}%) items are factual — too many; need more higher-order skills`,
+    });
+  }
+
+  // ── 9. Higher-order skill ratio ──
+  const higherOrderCount = (skillCounts.get('crossParagraph') ?? 0) +
+    (skillCounts.get('wholeText') ?? 0) +
+    (skillCounts.get('toneStance') ?? 0) +
+    (skillCounts.get('paragraphFunction') ?? 0) +
+    (skillCounts.get('mainIdea') ?? 0);
+  if (paragraphCount >= 4 && questions.length >= 6 &&
+      higherOrderCount / questions.length < SKILL_DISTRIBUTION.minHigherOrderRatio) {
+    issues.push({
+      code: 'SKILL_LOW_HIGHER_ORDER',
+      severity: 'warning',
+      message: `Only ${higherOrderCount}/${questions.length} higher-order items — need ≥${Math.ceil(SKILL_DISTRIBUTION.minHigherOrderRatio * questions.length)} for passages with ${paragraphCount} paragraphs`,
+    });
+  }
+
+  // ── 10. Same-skill repetition ──
+  for (const [skill, count] of skillCounts) {
+    if (count > 0 && count / questions.length > SKILL_DISTRIBUTION.maxSameSkillRatio && questions.length >= 6) {
+      issues.push({
+        code: 'SKILL_REPETITION',
+        severity: 'warning',
+        message: `Skill "${READING_SKILL_BOUNDARIES[skill]?.label ?? skill}" used ${count}/${questions.length} times — exceeds ${Math.round(SKILL_DISTRIBUTION.maxSameSkillRatio * 100)}% maximum`,
+      });
+      break; // Report only the worst offender
+    }
+  }
+
+  // ── 11. Tone/stance questions too close to factual (heuristic) ──
+  const toneItems = questions.filter(q => q.type === 'toneAttitude');
+  for (const tq of toneItems) {
+    const text = (tq.questionText + ' ' + (tq.answer || '')).toLowerCase();
+    const hasToneVocabulary = /attitude|tone|stance|feel|purpose|view|position|perspective|regard|consider|critic|praise|skeptic|ironic|humorous|serious|objective|subjective/.test(text);
+    const isSimpleLabel = /^(positive|negative|neutral|optimistic|pessimistic)$/.test(tq.answer?.toLowerCase().trim() ?? '');
+    if (!hasToneVocabulary && !isSimpleLabel) {
+      issues.push({
+        code: 'TONE_TOO_FACTUAL',
+        severity: 'info',
+        message: `Tone/attitude question #${tq.index} may be too close to factual — lacks tone-specific vocabulary or nuanced stance`,
+      });
+      break;
+    }
+  }
+
+  // ── 12. Whole-text questions that can be answered from one paragraph ──
+  const wholeTextQuestions = questions.filter(q => !q.paragraphRef);
+  for (const wtq of wholeTextQuestions) {
+    // Heuristic: if a non-paragraphRef question mentions a specific paragraph in its text, it's actually local
+    const mentionsSingleParagraph = /\bparagraph\s+\d+\b/i.test(wtq.questionText) &&
+      !/(?:paragraphs?\s+\d+\s*(?:and|through|to|–|-)\s*\d+|entire\s+passage|whole\s+passage|as\s+a\s+whole|overall)/i.test(wtq.questionText);
+    if (mentionsSingleParagraph) {
+      issues.push({
+        code: 'WHOLE_TEXT_LOCAL',
+        severity: 'warning',
+        message: `Question #${wtq.index} has no paragraphRef but mentions a single paragraph — may be answerable from one paragraph only`,
+      });
+      break;
+    }
+  }
+
+  // ── 13. Cross-paragraph questions that are single-paragraph ──
+  const crossParaTypes: DSEreadingQuestionType[] = ['sequencing'];
+  const crossParaItems = questions.filter(q => crossParaTypes.includes(q.type));
+  for (const cp of crossParaItems) {
+    // Sequencing should typically reference multiple paragraphs
+    if (cp.paragraphRef && !/\b(?:paragraphs?|paras?)\s*\d+\s*(?:-|to|through|and)\s*\d+/i.test(cp.questionText)) {
+      issues.push({
+        code: 'CROSS_PARA_SINGLE',
+        severity: 'info',
+        message: `Cross-paragraph question #${cp.index} references only paragraph ${cp.paragraphRef} — may not require cross-paragraph reasoning`,
+      });
+      break;
+    }
+  }
+
+  // ── 14. Skill overlap: whole-text vs summary ──
+  const hasWholeText = wholeTextQuestions.length > 0;
+  const hasSummaryTransform = skillCounts.get('summaryTransform') ?? 0 > 0;
+  if (hasWholeText && hasSummaryTransform && questions.length <= 6 && paragraphCount < 4) {
+    issues.push({
+      code: 'SKILL_OVERLAP_WHOLE_TEXT_SUMMARY',
+      severity: 'info',
+      message: 'Short passage has both whole-text and summary items — ensure they test different skills',
+    });
+  }
+
   return {
     passed: !issues.some(i => i.severity === 'critical'),
     retryable: issues.some(i => i.severity === 'critical'),
@@ -753,6 +1077,14 @@ const RETRY_GUIDANCE_BY_CODE: Record<string, string> = {
   MC_NO_TRAP_STRUCTURE: 'Revise distractors so at least one is almost right but wrong in scope/tone/reference/degree/logic.',
   MC_DUPLICATE_DISTRACTORS: 'Ensure distractors are distinct — no near-duplicate wrong ideas.',
   MC_STYLISTIC_OUTLIER: 'Make correct answer and distractors similar in length/tone/style.',
+  // Phase 4B: Skill boundary retry guidance
+  SKILL_OVERLOAD_FACTUAL: 'Reduce factual items; add more higher-order questions (cross-paragraph, whole-text, tone/stance, paragraph function).',
+  SKILL_LOW_HIGHER_ORDER: 'Add higher-order questions: cross-paragraph reasoning, whole-text synthesis, tone/stance, or paragraph function.',
+  SKILL_REPETITION: 'Diversify question skills — too many questions test the same skill category.',
+  TONE_TOO_FACTUAL: 'Make tone/attitude questions rely on word choice, hedging, contrast — not simple positive/negative labels.',
+  WHOLE_TEXT_LOCAL: 'Ensure whole-text question requires integrating information from 3+ paragraphs — not answerable from one paragraph.',
+  CROSS_PARA_SINGLE: 'Ensure cross-paragraph question requires connecting claims across 2+ paragraphs.',
+  SKILL_OVERLAP_WHOLE_TEXT_SUMMARY: 'Differentiate whole-text synthesis from summary cloze — they test different reading skills.',
 };
 
 export function buildBlueprintRetryInstruction(check: QuestionSetQualityCheck): string {

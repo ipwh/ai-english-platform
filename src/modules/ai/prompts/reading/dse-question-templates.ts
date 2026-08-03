@@ -111,11 +111,15 @@ export const DSE_QUESTION_TEMPLATES: Record<string, { pattern: string; examples:
   // 8. Tone/Attitude/Purpose — 語氣/態度/目的
   // ==========================================
   toneAttitude: {
-    pattern: 'What is the author\'s tone/attitude/purpose in paragraph X?',
+    pattern: 'What is the author\'s tone/attitude/stance/purpose? Must rely on word choice, hedging, or structure — NOT simple positive/negative labeling.',
     examples: [
-      'What is the writer\'s attitude toward the renovation project?',
+      'What is the writer\'s attitude toward the renovation project? Explain with reference to specific words or phrases.',
       'What is the purpose of paragraph 5 in relation to the whole passage?',
-      'The tone of the passage can best be described as...',
+      'The tone of the passage can best be described as...\nA. cautiously optimistic\nB. bitterly sarcastic\nC. neutrally informative\nD. enthusiastically promotional',
+      'How does the writer feel about the proposed policy? Support your answer with evidence from the passage.',
+      'What stance does the author take on the issue? Is it straightforward or qualified? Explain.',
+      'The writer uses phrases like "promising yet unproven" and "potential pitfalls remain." What does this suggest about the writer\'s overall position?',
+      'Read lines 25-30. What is the writer\'s tone when discussing the government\'s response?',
     ],
     marks: 2,
   },

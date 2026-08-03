@@ -191,20 +191,102 @@ const PASSAGE_QUALITY_STANDARDS = `
 `;
 
 // ============================================
-// Phase 3A: Question Blueprint & Distractor Quality
+// Phase 4B: Skill Boundary Prompt — Differentiating Question Types
+// ============================================
+
+const SKILL_BOUNDARY_PROMPT = `
+## ⚠️ CRITICAL: Question Skill Boundaries — Do NOT Confuse These
+
+Each question tests exactly ONE reading skill. You MUST ensure questions for different skills are genuinely different.
+
+### Skill Differentiation Table:
+
+| Skill | Tests... | Does NOT test... | Must reference |
+|-------|----------|------------------|----------------|
+| **Factual** | Locating explicitly stated info | Inference, tone, whole-text | Single paragraph |
+| **Reference** | What pronoun/noun refers to | Meaning, inference | Single word/phrase |
+| **Vocabulary** | Word meaning in context | General dictionary meaning | Single word/phrase |
+| **Inference** | Reading between lines in ONE paragraph | Whole-text, cross-paragraph | Single paragraph |
+| **Cross-Paragraph** | Connecting claims across 2+ paragraphs | Single-paragraph inference | 2+ paragraphs |
+| **Whole-Text** | Synthesizing the ENTIRE passage | Summary, single para, cross-para only | 3+ paragraphs / entire passage |
+| **Tone/Stance** | Author's voice via word choice, hedging | Factual content, simple +/- label | Word choice patterns |
+| **Paragraph Function** | WHY a paragraph exists (rhetorical role) | WHAT it says | Single paragraph's role |
+| **Main Idea** | Central thesis/gist of passage | Paragraph function, detail synthesis | Entire passage |
+| **Summary/Transform** | Completing structured summaries | Open-ended synthesis | Specified paragraphs |
+
+### ⚠️ Key Rules to Avoid Skill Overlap:
+
+1. **Whole-text ≠ Summary**: A whole-text question requires the student to form their own synthesis. A summary provides the structure. Do not label a summary cloze as whole-text.
+
+2. **Tone/Stance ≠ Inference**: A tone question MUST depend on word choice, hedging, contrast, or structure — not just "what can be inferred." If the answer is simply "positive" or "negative" without nuance, it's too factual.
+
+3. **Cross-Paragraph ≠ Inference**: If a question can be answered by reading ONE paragraph, it is NOT cross-paragraph — even if the question text mentions two paragraphs.
+
+4. **Paragraph Function ≠ Main Idea**: "What is the function of paragraph 3?" asks about rhetorical role (e.g., "provides a counterexample"). "What is the main idea?" asks about the central argument.
+
+5. **Main Idea ≠ Whole-Text**: Main idea is the central thesis (one sentence). Whole-text requires integrating details from across the passage.
+
+### ⚠️ Tone/Stance Question Quality:
+
+Tone and stance questions MUST:
+- Depend on word choice (e.g., "merely," "supposedly," "in fact"), hedging ("may," "appears to"), contrast structures ("While X... Y...")
+- Distinguish attitude from factual description
+- Avoid answers that are just "positive" / "negative" / "neutral"
+- Use nuanced tone labels: "skeptical," "cautiously optimistic," "subtly critical," "wryly humorous," "respectfully dismissive"
+- Reference specific language from the passage as evidence
+
+BAD: "What is the writer's attitude? → Positive"
+GOOD: "What is the writer's attitude toward the renovation? → Cautiously optimistic, as shown by phrases like 'promising yet unproven' and 'potential pitfalls remain'"
+
+### ⚠️ Whole-Text Question Quality:
+
+A valid whole-text question:
+- CANNOT be answered from a single paragraph
+- Requires integrating information from 3+ paragraphs
+- Asks about the passage's overall message, argument development, or cumulative effect
+- Is NOT a summary cloze, NOT a main idea question, NOT a cross-paragraph comparison
+
+BAD: "What is the passage about?" (main idea, not whole-text)
+GOOD: "How does the writer build the argument that X, and what evidence from different parts of the passage supports this?"
+
+### ⚠️ Cross-Paragraph Question Quality:
+
+A valid cross-paragraph question:
+- Requires connecting claims, evidence, or developments from 2+ paragraphs
+- Cannot be answered by reading just one paragraph
+- Involves comparison, development tracking, or synthesis across paragraphs
+
+BAD: "According to paragraphs 2 and 3, what is X?" (factual, not cross-paragraph)
+GOOD: "How does the argument in paragraph 3 modify the claim made in paragraph 2?"
+`;
+
+// ============================================
+// Phase 3A + 4B: Question Blueprint & Distractor Quality
 // ============================================
 
 const QUESTION_BLUEPRINT_PROMPT = `
 ## ⚠️ MANDATORY Question Type Mix (MUST FOLLOW)
 
 Your question set MUST include ALL of these type families:
-1. **Factual/Literal** (≥2 items): mcq, trueFalseNG, shortAnswer, mcCloze, negativeInference
+1. **Factual/Literal** (≥2 items, ≤55% of total): mcq, trueFalseNG, shortAnswer, mcCloze, negativeInference
 2. **Reference** (≥1 item): referencing — "What does 'it' refer to?"
 3. **Vocabulary in context** (≥1 item): vocabularyInContext, synonymSearch, phraseSearch
 4. **Inference** (≥1 item): inference, authorIntention
-5. **Tone/Attitude/Stance** (≥1 item): toneAttitude
-6. **Whole-text** (≥1 item): A question requiring understanding across 2+ paragraphs or the entire passage
+5. **Tone/Attitude/Stance** (≥1 item): toneAttitude — MUST use nuanced tone vocabulary
+6. **Whole-text synthesis** (≥1 item for 4+ paragraph passages): A question requiring integration across 3+ paragraphs or the entire passage
 7. **Summary cloze or transformation** (≥1 item): summaryCloze, mcCloze, tableCompletion, causeEffectCompletion
+
+### ⚠️ Skill Distribution Rules (MANDATORY):
+
+For passages with 4+ paragraphs and 7+ questions:
+- **Factual items**: ≤55% of questions (too many factual = too easy)
+- **Higher-order skills** (cross-paragraph, whole-text, tone/stance, paragraph function, main idea): ≥20% of questions
+- **No single skill category** should exceed 40% of questions
+- Include at least ONE of: cross-paragraph reasoning, paragraph function, or main idea question
+
+For shorter passages (≤3 paragraphs):
+- Focus on factual, inference, vocabulary, reference
+- Whole-text and cross-paragraph questions are optional but welcome
 
 ### ⚠️ Distractor Quality Rules (MANDATORY):
 - ALL MCQ distractors must be PLAUSIBLE — a student should need to read the passage to eliminate them
@@ -231,9 +313,10 @@ Your question set MUST include ALL of these type families:
 ### ⚠️ Coverage & Progression (MANDATORY):
 - Ensure EVERY paragraph has at least one question
 - Early questions (first 40%): literal comprehension, easy to locate
-- Middle questions (40-70%): inference, vocabulary, reference
-- Late questions (last 30%): tone/attitude, whole-text, summary/transformation
-- Reserve the last 1-2 items for whole-text synthesis
+- Middle questions (40-70%): inference, vocabulary, reference, paragraph function
+- Late questions (last 30%): tone/attitude, whole-text, cross-paragraph, summary/transformation
+- Reserve the last 1-2 items for whole-text synthesis or main idea
+- Place cross-paragraph questions where students have read all relevant paragraphs
 `;
 
 // ============================================
@@ -244,6 +327,7 @@ export function buildReadingSectionPrompt(): string {
 ${DSE_PAPER1_ALL_QUESTION_TYPES}
 ${buildDSEWordingPrompt()}
 ${QUESTION_BLUEPRINT_PROMPT}
+${SKILL_BOUNDARY_PROMPT}
 ${PASSAGE_QUALITY_STANDARDS}
 
 【閱讀理解題特別要求】
@@ -347,6 +431,8 @@ ${buildDSEWordingPrompt()}
 
 ${QUESTION_BLUEPRINT_PROMPT}
 
+${SKILL_BOUNDARY_PROMPT}
+
 ${PASSAGE_QUALITY_STANDARDS}
 
 ## Paper Generation Instructions
@@ -401,6 +487,8 @@ ${levelPrompt}
 ${buildDSEWordingPrompt()}
 
 ${QUESTION_BLUEPRINT_PROMPT}
+
+${SKILL_BOUNDARY_PROMPT}
 
 ## Reading Exercise Generation
 Generate ${count} reading comprehension questions for ${gradeLevel} (${difficultyLabel}) students.
