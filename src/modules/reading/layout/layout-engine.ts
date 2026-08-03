@@ -70,7 +70,7 @@ export function layoutReadingText(
 /** Compute layout quality warnings */
 function computeLayoutWarnings(
   allLines: { text: string; lineNumber?: number; paragraphLabel?: string }[],
-  paragraphs: { lines: { text: string }[]; label: string }[],
+  paragraphs: { lines: { text: string; lineNumber?: number; paragraphLabel?: string }[]; label: string }[],
   charsPerLine: number,
   viewportMode: string,
 ): LayoutWarnings {
