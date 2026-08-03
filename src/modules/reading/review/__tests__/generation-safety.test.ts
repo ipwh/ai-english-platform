@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateGate } from '@/modules/reading/review/paper-reviewer-gate';
 import { validateReviewStructure } from '@/modules/reading/review/paper-reviewer-types';
-import type { PaperReview } from '@/modules/reading/review/paper-reviewer-types';
+import type { PaperReview, ItemNote, PriorityFix } from '@/modules/reading/review/paper-reviewer-types';
 
 // ══════════════════════════════════════════
 // A: Reviewer Safety — missing/null/malformed
@@ -40,8 +40,8 @@ describe('Phase 4D.3-A: Reviewer Safety', () => {
       majorStrengths: [],
       majorRisks: [],
       sectionReviews: [],
-      itemNotes: null as unknown as undefined,
-      priorityFixes: null as unknown as undefined,
+      itemNotes: null as unknown as ItemNote[],
+      priorityFixes: null as unknown as PriorityFix[],
     } as PaperReview;
     // Null arrays fail structure validation → gate falls back to publish
     const result = evaluateGate(true, review);
@@ -73,7 +73,7 @@ describe('Phase 4D.3-B: Malformed AI Output', () => {
       sectionReviews: [],
       itemNotes: [],
       priorityFixes: [],
-    } as PaperReview;
+    } as unknown as PaperReview;
     // validateReviewStructure checks for verdict
     expect(validateReviewStructure(review)).toBe(false);
     // gate treats invalid review as no-review → publish

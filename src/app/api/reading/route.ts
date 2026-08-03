@@ -28,6 +28,7 @@ import { logger } from '@/shared/logger/logger';
 import {
   buildFullDSEPaperPrompt,
   buildReadingSectionPrompt,
+  buildReadingSectionPromptLite,
   buildReadingExercisePrompt,
 } from '@/modules/ai/prompts/reading/v1';
 import { buildSummaryClozeTrainingPrompt, getSummaryClozeTips, COMMON_CLOZE_TRAP_WORDS } from '@/modules/ai/prompts/reading/training-summary-cloze';
@@ -1093,7 +1094,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
   const dseContextBlock = dseContext ? `\n\n=== DSE Real Past Paper Reference ===\n${dseContext}\n=== End DSE Reference ===\n` : '';
 
-  const systemPrompt = buildReadingSectionPrompt();
+  // Use lite prompt for legacy path — the full prompt with SKILL_BOUNDARY,
+  // SUMMARY_CLOZE, and QUESTION_BLUEPRINT is too large and causes timeouts
+  const systemPrompt = buildReadingSectionPromptLite();
 
   // Sprint 102: Skip AI if pre-parsed result provided (from exercise handler)
   let parsed: Record<string, unknown>;
@@ -1102,10 +1105,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   } else {
     let rawResult: string;
     try {
+      // Increased timeout: 40s for legacy (was 25s) to handle longer prompts on Vercel
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
-        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
-      ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
+      ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: 40000 });
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
       logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
@@ -1123,6 +1127,19 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       );
     }
     parsed = parseResult.data;
+
+    // Phase 4D.3: Passage length guard for legacy path
+    const passageContent = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
+    if (passageContent) {
+      const wordCount = passageContent.split(/\s+/).filter(Boolean).length;
+      if (wordCount < 250) {
+        logger.warn({ module: 'reading-api', wordCount, minRequired: 250 }, 'Generated passage too short — rejecting');
+        return NextResponse.json(
+          apiError(`Generated passage too short: ${wordCount} words (minimum 250 required). Please try again with a different topic.`, 'PASSAGE_TOO_SHORT', true),
+          { status: 422 },
+        );
+      }
+    }
   }
 
   // Phase 3A.1: Retry loop — if critical blueprint failures, regenerate once

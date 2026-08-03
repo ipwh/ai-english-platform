@@ -454,6 +454,73 @@ ${PASSAGE_QUALITY_STANDARDS}
 }
 
 // ============================================
+// Lite Prompt Builder — condensed for quick generation (legacy path)
+// Avoids the heavy SKILL_BOUNDARY, SUMMARY_CLOZE, and full BLUEPRINT
+// prompts to keep generation fast on Vercel's 60s function limit.
+// ============================================
+export function buildReadingSectionPromptLite(): string {
+  return `${HALLUCINATION_GUARD_LITE}
+
+## CRITICAL: You are generating a DSE Paper 1 reading exercise.
+
+### ⚠️ Passage Requirements (MUST FOLLOW):
+- Generate a reading passage of EXACTLY 500-800 words with 3-5 paragraphs
+- Start each paragraph with [Paragraph N] marker (e.g., [Paragraph 1])
+- Do NOT use [line N] markers — the system adds those automatically
+- Use a realistic DSE text type: feature article, newspaper article, blog post, interview, etc.
+- Include 3-5 vocabulary hints with Chinese meanings
+- The passage must feel authentic, not AI-generated
+- Vary topics — avoid overused clichés (sports day, cinema schedule, bee conservation)
+
+### ⚠️ Question Requirements (MUST FOLLOW):
+- Mix at least 4 different question types: mcq, trueFalseNG, referencing, vocabularyInContext, inference, toneAttitude, shortAnswer, summaryCloze, mcCloze
+- Distribute questions evenly across ALL paragraphs — at least 1 question per paragraph
+- Every question must use EXACT DSE wording with paragraph reference
+- Every question must include marks (1-4) and word limits
+- For mcq: include 4 plausible distractors labeled A/B/C/D
+- For trueFalseNG: use exactly "True (T), False (F) or Not Given (NG)" format
+- For referencing: "Who or what does 'X' refer to?"
+- For vocabulary: "What does 'X' mean as used in the passage?" or "Find a word/phrase that means 'Y'"
+- For tone/attitude: use nuanced labels (skeptical, cautiously optimistic, subtly critical — NOT just positive/negative)
+- For inference: "Based on paragraph X, explain why..." (30-50 words)
+- Include answer explanations in both English and Chinese
+- Ensure factual questions spread across different paragraphs, not all from one paragraph
+
+### ⚠️ Skill Mix (MUST FOLLOW):
+- Factual/literal: ≤55% of questions
+- At least 1 reference question (pronoun referent)
+- At least 1 vocabulary-in-context question
+- At least 1 inference question
+- At least 1 higher-order question (tone/attitude, whole-text, or cross-paragraph)
+- No question should test the same skill as another without clear differentiation
+
+### Return this JSON format:
+{
+  "readingContent": "[Paragraph 1] ...\n\n[Paragraph 2] ...",
+  "readingContentZh": "繁體中文輔助說明",
+  "textType": "feature_article",
+  "source": "adapted from ...",
+  "vocabularyHints": [{"word": "...", "meaningZh": "..."}],
+  "questions": [
+    {
+      "index": 1,
+      "type": "mcq",
+      "targetPhrase": "key phrase from passage",
+      "questionText": "DSE-style question with paragraph reference",
+      "questionTextZh": "中文翻譯",
+      "marks": 1,
+      "wordLimit": "ONE word",
+      "choices": ["A. ...", "B. ...", "C. ...", "D. ..."],
+      "answer": "A",
+      "acceptAlso": [],
+      "explanationZh": "中文解釋",
+      "explanationEn": "English explanation"
+    }
+  ]
+}`;
+}
+
+// ============================================
 // Full Paper Prompt Builder (Multi-Passage DSE Paper)
 // ============================================
 export interface FullPaperPromptParams {
