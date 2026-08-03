@@ -27,7 +27,6 @@ export interface DSEtextType {
   /** Degree of subjectivity expected (0-1) */
   subjectivity?: number;
 }
-}
 
 export const DSE_TEXT_TYPES: DSEtextType[] = [
   {
@@ -73,6 +72,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'straightforward',
     typicalPart: ['A', 'B1'],
     features: ['Descriptive language', 'Personal opinion', 'Rating/verdict', 'Price information', 'Atmosphere description'],
+    voice: 'Evaluative and sensory. Use vivid descriptions of taste, texture, and atmosphere. Include personal judgement with specific examples. Balance positive and critical observations. End with a clear recommendation.',
+    stanceStrength: 0.7,
+    paragraphMovement: 'Setting/atmosphere → food description → service → standout dish → minor criticism → overall verdict',
+    subjectivity: 0.8,
   },
   {
     id: 'interview',
@@ -85,6 +88,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'fairly complex',
     typicalPart: ['B2'],
     features: ['Q&A format or narrative profile', 'Direct quotes', 'Personal anecdotes', 'Background context', 'Tone/voice of interviewee'],
+    voice: 'Conversational and revealing. Use direct quotes to convey personality. Include biographical context. Show the interviewee\'s unique perspective through their own words. Balance narration with quotation.',
+    stanceStrength: 0.3,
+    paragraphMovement: 'Introduction of subject → background → key quote/insight → contrasting view → personal anecdote → closing reflection',
+    subjectivity: 0.4,
   },
   {
     id: 'informational_webpage',
@@ -97,6 +104,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'straightforward',
     typicalPart: ['B1'],
     features: ['Menu/navigation headers', 'Bullet points', 'Tips/suggestions', 'Clear section headings', 'Practical instructions'],
+    voice: 'Helpful and instructional. Address the reader directly. Use clear section headings and practical examples. Include warnings or cautions where appropriate. Sound like a well-organised guide, not an essay.',
+    stanceStrength: 0.1,
+    paragraphMovement: 'Purpose/overview → key information → practical steps → tips/warnings → additional resources',
+    subjectivity: 0.2,
   },
   {
     id: 'government_guide',
@@ -109,6 +120,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'straightforward',
     typicalPart: ['B1'],
     features: ['Official tone', 'Numbered sections', 'Definitions', 'Call to action', 'Formal language'],
+    voice: 'Formal and authoritative. Use precise definitions and numbered sections. Present facts and procedures without personal opinion. Include a clear call to action. Maintain an official but accessible tone.',
+    stanceStrength: 0.05,
+    paragraphMovement: 'Policy context → definitions → procedures/guidelines → responsibilities → compliance → further information',
+    subjectivity: 0.05,
   },
   {
     id: 'job_advertisement',
@@ -121,6 +136,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'simple',
     typicalPart: ['B1'],
     features: ['Job title/company', 'Requirements', 'Responsibilities', 'How to apply', 'Bullet-point format'],
+    voice: 'Concise and professional. Use short paragraphs and bullet points. State requirements clearly. Include company context briefly. Sound like a real job posting, not a descriptive article.',
+    stanceStrength: 0.05,
+    paragraphMovement: 'Company intro → role summary → responsibilities → requirements → benefits → how to apply',
+    subjectivity: 0.05,
   },
   {
     id: 'blog_post',
@@ -133,6 +152,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'straightforward',
     typicalPart: ['A', 'B1'],
     features: ['Personal voice', 'Opinions', 'Comments section reference', 'Informal tone possible', 'First-person narrative'],
+    voice: 'Personal and reflective. Write in first person. Share a personal experience or observation. Use a conversational but articulate tone. Include reflective insights. Sound like a thoughtful individual, not an institution.',
+    stanceStrength: 0.6,
+    paragraphMovement: 'Personal hook → background/context → key insight or experience → reflection → takeaway for readers',
+    subjectivity: 0.7,
   },
   {
     id: 'literary_excerpt',
@@ -145,6 +168,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'complex',
     typicalPart: ['B2'],
     features: ['Narrative style', 'Character development', 'Descriptive passages', 'Figurative language', 'Dialogue'],
+    voice: 'Narrative and immersive. Use descriptive language that evokes mood and setting. Include dialogue or internal monologue. Show rather than tell. Develop character through action and detail, not explanation.',
+    stanceStrength: 0.4,
+    paragraphMovement: 'Scene-setting → action/dialogue → internal reflection → complication → resolution or cliffhanger',
+    subjectivity: 0.5,
   },
   {
     id: 'letter_to_editor',
@@ -157,6 +184,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'straightforward',
     typicalPart: ['A', 'B1'],
     features: ['Salutation/closing', 'Opinion/argument', 'Reference to previous article', 'Formal register', 'Persuasive language'],
+    voice: 'Persuasive and personal. Open with a salutation and reference to the issue. State a clear position. Use reasoned arguments and personal conviction. End with a call for action or reflection. Sound like a concerned citizen, not a journalist.',
+    stanceStrength: 0.9,
+    paragraphMovement: 'Salutation + issue reference → personal stance → supporting argument → counter-point acknowledgment → closing appeal',
+    subjectivity: 0.9,
   },
   {
     id: 'advertisement_poster',
@@ -169,6 +200,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'simple',
     typicalPart: ['A', 'B1'],
     features: ['Visual layout', 'Slogans/taglines', 'Call to action', 'Date/time/venue', 'Persuasive language'],
+    voice: 'Persuasive and energetic. Use short, punchy sentences and slogans. Highlight benefits over features. Include a clear call to action. Sound exciting and inviting, not clinical or analytical.',
+    stanceStrength: 0.5,
+    paragraphMovement: 'Attention-grabbing headline → key benefit → supporting details → testimonials/endorsements → call to action with details',
+    subjectivity: 0.6,
   },
   {
     id: 'argumentative_essay',
