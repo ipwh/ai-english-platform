@@ -1109,12 +1109,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   } else {
     let rawResult: string;
     try {
-      // Timeout: 30s for initial generation (Vercel 60s budget)
-      // Reduced maxTokens: 4096 is sufficient for 500-800 word passage + 10 questions
+      // Reduced maxTokens: 6144 is sufficient for 500-800 word passage + 10 questions
+      // (4096 caused mid-JSON truncation; 8192 causes timeout on Vercel)
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
         { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
-      ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 30000 });
+      ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 30000 });
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
       logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
@@ -1186,7 +1186,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryPrompt },
           { role: 'user', content: `Regenerate the question set. Fix ALL of the issues listed above. Passage must be 500-800 words. Return JSON.` },
-        ], { temperature: 0.40, maxTokens: 4096, jsonMode: true, timeoutMs: 15000 });
+        ], { temperature: 0.40, maxTokens: 6144, jsonMode: true, timeoutMs: 15000 });
 
         const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-validator-retry');
         if (retryParse.data && !retryParse.error) {
