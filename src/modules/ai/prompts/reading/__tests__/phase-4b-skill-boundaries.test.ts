@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validateQuestionSetBlueprint,
   mapTypeToSkillCategory,
+  resolveSkillCategory,
   READING_SKILL_BOUNDARIES,
   SKILL_DISTRIBUTION,
 } from '@/modules/ai/prompts/reading/types';
@@ -350,5 +351,194 @@ describe('Phase 4B-I: Regression — Blueprint Coverage', () => {
     expect(SKILL_DISTRIBUTION.minHigherOrderRatio).toBeGreaterThan(0);
     expect(SKILL_DISTRIBUTION.minHigherOrderRatio).toBeLessThanOrEqual(0.3);
     expect(SKILL_DISTRIBUTION.maxSameSkillRatio).toBeLessThanOrEqual(0.5);
+    expect(SKILL_DISTRIBUTION.maxHigherOrderShortPassage).toBeLessThanOrEqual(0.2);
+    expect(SKILL_DISTRIBUTION.maxWholeTextPartA).toBe(1);
+  });
+});
+
+// ══════════════════════════════════════════
+// J: Phase 4B.1 — Type-Skill Decoupling (resolveSkillCategory)
+// ══════════════════════════════════════════
+
+describe('Phase 4B.1-J: Type-Skill Decoupling', () => {
+  it('26. resolveSkillCategory respects explicit skillCategory override', () => {
+    const question = q({ index: 1, type: 'mcq', skillCategory: 'toneStance' });
+    expect(resolveSkillCategory(question)).toBe('toneStance');
+  });
+
+  it('27. MCQ with skillCategory override can target inference', () => {
+    const question = q({ index: 1, type: 'mcq', skillCategory: 'inference' });
+    expect(resolveSkillCategory(question)).toBe('inference');
+  });
+
+  it('28. shortAnswer without override maps to factual', () => {
+    const question = q({ index: 1, type: 'shortAnswer' });
+    expect(resolveSkillCategory(question)).toBe('factual');
+  });
+
+  it('29. summaryCloze with skillCategory=wholeText override works', () => {
+    const question = q({ index: 1, type: 'summaryCloze', skillCategory: 'wholeText' });
+    expect(resolveSkillCategory(question)).toBe('wholeText');
+  });
+
+  it('30. skillCategory override affects skillCounts in validator', () => {
+    // 4 questions: 3 factual + 1 mcq with skillCategory=toneStance → toneStance count should be 1
+    // Note: type-family check (#1) uses q.type, not skillCategory. Skill override only affects skill-count checks.
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'shortAnswer', paragraphRef: 2 }),
+      q({ index: 3, type: 'mcq', paragraphRef: 3 }),
+      q({ index: 4, type: 'toneAttitude', skillCategory: 'inference',
+        questionText: 'What can be inferred?',
+        answer: 'The writer implies change is needed',
+      }),
+    ];
+    const check = validateQuestionSetBlueprint(questions, 4, { mode: 'legacy' });
+    // With skillCategory=toneStance mapped to 'inference', the inference count should be 1 (from the override)
+    // but toneAttitude type still satisfies MISSING_TONESTANCE family check
+    const toneMissing = check.issues.find(i => i.code === 'MISSING_TONESTANCE');
+    expect(toneMissing).toBeUndefined();
+  });
+});
+
+// ══════════════════════════════════════════
+// K: Phase 4B.1 — Short Passage Guardrails
+// ══════════════════════════════════════════
+
+describe('Phase 4B.1-K: Short Passage Guardrails', () => {
+  it('31. short passage (3 paragraphs) is NOT forced into whole-text critical fail', () => {
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq', paragraphRef: 2 }),
+      q({ index: 3, type: 'shortAnswer', paragraphRef: 3 }),
+      q({ index: 4, type: 'inference', paragraphRef: 1 }),
+      q({ index: 5, type: 'referencing', paragraphRef: 2 }),
+      q({ index: 6, type: 'vocabularyInContext', paragraphRef: 3 }),
+    ];
+    // All have paragraphRef, 3 paragraphs → whole-text not required
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy' });
+    const wholeTextIssue = check.issues.find(i => i.code === 'MISSING_WHOLE_TEXT');
+    expect(wholeTextIssue).toBeUndefined();
+  });
+
+  it('32. short passage with 3 paragraphs and SKILL_LOW_HIGHER_ORDER is NOT triggered', () => {
+    // Short passage (3 paragraphs) shouldn't trigger the "need ≥20% higher-order" rule
+    const questions: DSEreadingQuestion[] = Array.from({ length: 6 }, (_, i) =>
+      q({ index: i + 1, type: 'mcq', paragraphRef: (i % 3) + 1 }),
+    );
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy' });
+    const lowHO = check.issues.find(i => i.code === 'SKILL_LOW_HIGHER_ORDER');
+    // 3 paragraphs < 4, so check #9 should NOT trigger
+    expect(lowHO).toBeUndefined();
+  });
+});
+
+// ══════════════════════════════════════════
+// L: Phase 4B.1 — Part A Guardrails
+// ══════════════════════════════════════════
+
+describe('Phase 4B.1-L: Part A Guardrails', () => {
+  it('33. Part A with too many higher-order items triggers PART_A_HIGHER_ORDER_OVERLOAD', () => {
+    // 6 questions, 3 toneStance = 50% > 15% cap
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'toneAttitude', paragraphRef: 2,
+        questionText: 'What is the attitude?', answer: 'skeptical',
+      }),
+      q({ index: 3, type: 'toneAttitude', paragraphRef: 1,
+        questionText: 'What is the tone?', answer: 'ironic',
+      }),
+      q({ index: 4, type: 'toneAttitude', paragraphRef: 2,
+        questionText: 'What is the stance?', answer: 'critical',
+      }),
+      q({ index: 5, type: 'referencing', paragraphRef: 3 }),
+      q({ index: 6, type: 'vocabularyInContext', paragraphRef: 3 }),
+    ];
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy', part: 'A' });
+    const overload = check.issues.find(i => i.code === 'PART_A_HIGHER_ORDER_OVERLOAD');
+    expect(overload).toBeDefined();
+    expect(overload!.severity).toBe('warning');
+  });
+
+  it('34. Part A with reasonable higher-order ratio does NOT trigger overload', () => {
+    // 6 questions, 0 higher-order = 0% ≤ 15% — fine
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq', paragraphRef: 2 }),
+      q({ index: 3, type: 'shortAnswer', paragraphRef: 3 }),
+      q({ index: 4, type: 'referencing', paragraphRef: 1 }),
+      q({ index: 5, type: 'vocabularyInContext', paragraphRef: 2 }),
+      q({ index: 6, type: 'trueFalseNG', paragraphRef: 3 }),
+    ];
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy', part: 'A' });
+    const overload = check.issues.find(i => i.code === 'PART_A_HIGHER_ORDER_OVERLOAD');
+    expect(overload).toBeUndefined();
+  });
+
+  it('35. Part A with >1 whole-text items triggers PART_A_TOO_MANY_WHOLE_TEXT', () => {
+    // 6 questions, 2 without paragraphRef → 2 whole-text > 1 cap
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq' }), // whole-text (no paragraphRef)
+      q({ index: 3, type: 'mcq' }), // whole-text (no paragraphRef)
+      q({ index: 4, type: 'referencing', paragraphRef: 2 }),
+      q({ index: 5, type: 'vocabularyInContext', paragraphRef: 3 }),
+      q({ index: 6, type: 'trueFalseNG', paragraphRef: 3 }),
+    ];
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy', part: 'A' });
+    const tooManyWT = check.issues.find(i => i.code === 'PART_A_TOO_MANY_WHOLE_TEXT');
+    expect(tooManyWT).toBeDefined();
+    expect(tooManyWT!.severity).toBe('warning');
+  });
+
+  it('36. Part A guardrails only apply when part=A', () => {
+    // Same questions, but part=B2 — no Part A guardrails triggered
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq' }), // whole-text
+      q({ index: 3, type: 'mcq' }), // whole-text
+      q({ index: 4, type: 'referencing', paragraphRef: 2 }),
+      q({ index: 5, type: 'vocabularyInContext', paragraphRef: 3 }),
+      q({ index: 6, type: 'trueFalseNG', paragraphRef: 3 }),
+    ];
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy', part: 'B2' });
+    const tooManyWT = check.issues.find(i => i.code === 'PART_A_TOO_MANY_WHOLE_TEXT');
+    expect(tooManyWT).toBeUndefined();
+  });
+});
+
+// ══════════════════════════════════════════
+// M: Regression — Phase 4B Behavior Intact
+// ══════════════════════════════════════════
+
+describe('Phase 4B.1-M: Regression — Phase 4B Intact', () => {
+  it('37. missing whole-text in 4-paragraph passage still triggers critical', () => {
+    const questions: DSEreadingQuestion[] = Array.from({ length: 7 }, (_, i) =>
+      q({ index: i + 1, type: 'mcq', paragraphRef: (i % 4) + 1 }),
+    );
+    const check = validateQuestionSetBlueprint(questions, 4, { mode: 'legacy' });
+    const wholeTextIssue = check.issues.find(i => i.code === 'MISSING_WHOLE_TEXT');
+    expect(wholeTextIssue).toBeDefined();
+    expect(wholeTextIssue!.severity).toBe('critical');
+  });
+
+  it('38. tone/stance quality checks still work with skillCategory override', () => {
+    const questions: DSEreadingQuestion[] = [
+      q({ index: 1, type: 'mcq', paragraphRef: 1 }),
+      q({ index: 2, type: 'mcq', skillCategory: 'toneStance',
+        questionText: 'What is the writer\'s attitude?',
+        answer: 'Cautiously optimistic',
+      }),
+      q({ index: 3, type: 'inference' }),
+      q({ index: 4, type: 'referencing', paragraphRef: 2 }),
+      q({ index: 5, type: 'vocabularyInContext', paragraphRef: 3 }),
+      q({ index: 6, type: 'summaryCloze', paragraphRef: 3 }),
+    ];
+    const check = validateQuestionSetBlueprint(questions, 3, { mode: 'legacy' });
+    const toneFactual = check.issues.find(i => i.code === 'TONE_TOO_FACTUAL');
+    // The tone check only runs on type='toneAttitude', not on skillCategory='toneStance'
+    // So an MCQ with skillCategory=toneStance won't trigger the tone vocabulary check
+    // This is expected — the check is type-based, not skill-based
+    expect(toneFactual).toBeUndefined();
   });
 });

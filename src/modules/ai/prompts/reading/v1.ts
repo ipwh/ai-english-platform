@@ -258,6 +258,20 @@ A valid cross-paragraph question:
 
 BAD: "According to paragraphs 2 and 3, what is X?" (factual, not cross-paragraph)
 GOOD: "How does the argument in paragraph 3 modify the claim made in paragraph 2?"
+
+### ⚠️ Part A & Short-Passage Guardrails:
+
+For Part A papers or passages with ≤3 paragraphs:
+- Whole-text and cross-paragraph questions are OPTIONAL, not required
+- At most 15% of questions should be higher-order (tone/stance, cross-paragraph, whole-text, paragraph function, main idea)
+- At most 1 whole-text item per Part A paper
+- Focus on factual, reference, vocabulary, and simple inference
+- Part A is designed to be accessible — do not overload with complex reasoning
+
+For Part B1/B2 or passages with 4+ paragraphs:
+- Higher-order skills should be ≥20% of questions
+- Whole-text synthesis is expected
+- Cross-paragraph reasoning is appropriate
 `;
 
 // ============================================

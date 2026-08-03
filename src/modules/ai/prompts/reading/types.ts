@@ -107,6 +107,9 @@ export interface VocabularyHint {
 export interface DSEreadingQuestion {
   index: number;
   type: DSEreadingQuestionType;
+  /** Phase 4B.1: Explicit skill category override. When set, this takes priority over type-based mapping.
+   *  Allows e.g. an MCQ to target 'toneStance', or a shortAnswer to target 'inference'. */
+  skillCategory?: ReadingSkillCategory;
   paragraphRef?: number;
   lineRef?: string;
   targetPhrase?: string; // Key phrase the question references — system computes paragraph/line from this
@@ -723,8 +726,14 @@ export const READING_SKILL_BOUNDARIES: Record<ReadingSkillCategory, SkillBoundar
   },
 };
 
-/** Map DSE question type to its primary skill category */
-export function mapTypeToSkillCategory(type: DSEreadingQuestionType): ReadingSkillCategory {
+/** Map DSE question type to its primary skill category, respecting explicit overrides.
+ *  Phase 4B.1: Accepts optional skillCategory from the question for type-skill decoupling.
+ */
+export function mapTypeToSkillCategory(
+  type: DSEreadingQuestionType,
+  explicitSkill?: ReadingSkillCategory,
+): ReadingSkillCategory {
+  if (explicitSkill) return explicitSkill;
   const mapping: Partial<Record<DSEreadingQuestionType, ReadingSkillCategory>> = {
     mcq: 'factual',
     trueFalseNG: 'factual',
@@ -749,6 +758,11 @@ export function mapTypeToSkillCategory(type: DSEreadingQuestionType): ReadingSki
   return mapping[type] ?? 'factual';
 }
 
+/** Phase 4B.1: Resolve the effective skill category for a question, respecting explicit override. */
+export function resolveSkillCategory(q: DSEreadingQuestion): ReadingSkillCategory {
+  return mapTypeToSkillCategory(q.type, q.skillCategory);
+}
+
 /** Constants for skill distribution in question sets */
 export const SKILL_DISTRIBUTION = {
   /** Maximum ratio of questions that should be single-paragraph factual */
@@ -757,6 +771,10 @@ export const SKILL_DISTRIBUTION = {
   minHigherOrderRatio: 0.20,
   /** Maximum same-skill repetition (prevent all questions being same category) */
   maxSameSkillRatio: 0.40,
+  /** Phase 4B.1: Maximum higher-order ratio for short passages (≤3 paragraphs) — keep it lighter */
+  maxHigherOrderShortPassage: 0.15,
+  /** Phase 4B.1: Maximum whole-text items for Part A (typically 1-2 short passages) */
+  maxWholeTextPartA: 1,
 } as const;
 
 // ============================================
@@ -835,11 +853,13 @@ export interface QuestionSetQualityCheck {
 export function validateQuestionSetBlueprint(
   questions: DSEreadingQuestion[],
   paragraphCount: number,
-  opts?: { mode?: 'full-paper' | 'exercise' | 'legacy' },
+  opts?: { mode?: 'full-paper' | 'exercise' | 'legacy'; part?: DSEpart },
 ): QuestionSetQualityCheck {
   const issues: BlueprintIssue[] = [];
   const mode = opts?.mode ?? 'legacy';
+  const part = opts?.part;
   const isShortSet = questions.length <= 6;
+  const isPartA = part === 'A';
 
   // ── 1. Type family coverage ──
   const typeFamilyCoverage: Record<string, { required: number; actual: number; ok: boolean }> = {};
@@ -938,7 +958,7 @@ export function validateQuestionSetBlueprint(
   // Phase 4B: Skill Boundary & Overlap Checks
   // ══════════════════════════════════════════
 
-  const skillCategories = questions.map(q => mapTypeToSkillCategory(q.type));
+  const skillCategories = questions.map(q => resolveSkillCategory(q));
   const skillCounts = new Map<ReadingSkillCategory, number>();
   for (const sc of skillCategories) {
     skillCounts.set(sc, (skillCounts.get(sc) ?? 0) + 1);
@@ -967,6 +987,27 @@ export function validateQuestionSetBlueprint(
       severity: 'warning',
       message: `Only ${higherOrderCount}/${questions.length} higher-order items — need ≥${Math.ceil(SKILL_DISTRIBUTION.minHigherOrderRatio * questions.length)} for passages with ${paragraphCount} paragraphs`,
     });
+  }
+
+  // ── 9b. Phase 4B.1: Part A guardrail — cap higher-order items for short passages ──
+  if (isPartA && paragraphCount <= 3 && questions.length >= 4 &&
+      higherOrderCount / questions.length > SKILL_DISTRIBUTION.maxHigherOrderShortPassage) {
+    issues.push({
+      code: 'PART_A_HIGHER_ORDER_OVERLOAD',
+      severity: 'warning',
+      message: `Part A with ${paragraphCount} paragraphs has ${higherOrderCount}/${questions.length} higher-order items — exceeds ${Math.round(SKILL_DISTRIBUTION.maxHigherOrderShortPassage * 100)}% cap for short passages`,
+    });
+  }
+
+  // ── 9c. Phase 4B.1: Part A guardrail — max whole-text items ──
+  if (isPartA) {
+    if (wholeTextItems.length > SKILL_DISTRIBUTION.maxWholeTextPartA) {
+      issues.push({
+        code: 'PART_A_TOO_MANY_WHOLE_TEXT',
+        severity: 'warning',
+        message: `Part A has ${wholeTextItems.length} whole-text items — exceeds maximum of ${SKILL_DISTRIBUTION.maxWholeTextPartA} for Part A`,
+      });
+    }
   }
 
   // ── 10. Same-skill repetition ──
@@ -1085,6 +1126,9 @@ const RETRY_GUIDANCE_BY_CODE: Record<string, string> = {
   WHOLE_TEXT_LOCAL: 'Ensure whole-text question requires integrating information from 3+ paragraphs — not answerable from one paragraph.',
   CROSS_PARA_SINGLE: 'Ensure cross-paragraph question requires connecting claims across 2+ paragraphs.',
   SKILL_OVERLAP_WHOLE_TEXT_SUMMARY: 'Differentiate whole-text synthesis from summary cloze — they test different reading skills.',
+  // Phase 4B.1: Part A guardrails
+  PART_A_HIGHER_ORDER_OVERLOAD: 'Reduce higher-order questions in this Part A paper — short passages should focus on factual, reference, and vocabulary items.',
+  PART_A_TOO_MANY_WHOLE_TEXT: 'Reduce whole-text items in Part A — at most 1 whole-text synthesis question per Part A paper.',
 };
 
 export function buildBlueprintRetryInstruction(check: QuestionSetQualityCheck): string {
