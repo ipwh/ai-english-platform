@@ -997,7 +997,7 @@ export default function ReadingPracticePage() {
                         </button>
                       )}
                     </div>
-                  )}
+                  ))}
 
                   {ans?.submitted && (
                     <div className={`flex items-start gap-2 text-sm ${

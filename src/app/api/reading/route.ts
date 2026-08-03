@@ -548,14 +548,17 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     questions: allQuestions,
     paragraphCount: Math.max(totalParagraphs, 3),
     regenerate: async (retryInstruction: string) => {
-      const retryJson = JSON.parse(
-        await callLLM([
-          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: `Regenerate the question set for Part ${validatedPart}. Fix critical blueprint issues while preserving passage quality. Return the complete JSON paper object.` },
-        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'full-paper', maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }) }) })
-      ) as DSEreadingPaper;
-      // Update paper reference and re-compute allQuestions
-      Object.assign(paper, retryJson);
+      const retryRaw = await callLLM([
+        { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
+        { role: 'user', content: `Regenerate the question set for Part ${validatedPart}. Fix critical blueprint issues while preserving passage quality. Return the complete JSON paper object.` },
+      ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'full-paper', maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }) }) });
+
+      const retryParse = safeJsonParse<DSEreadingPaper>(retryRaw, 'full-paper-blueprint-retry');
+      if (retryParse.data && !retryParse.error) {
+        Object.assign(paper, retryParse.data);
+      } else {
+        logger.warn({ module: 'reading-api', error: retryParse.error }, 'Blueprint retry parse failed — using original');
+      }
       return paper.passages.flatMap(p => p.questions);
     },
   });
@@ -659,7 +662,14 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
     { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Spread questions across ALL paragraphs evenly. Return JSON.` },
   ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'exercise', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'exercise', maxTokens: getReadingMaxTokens({ mode: 'exercise', estimatedWords: 800 }) }) });
 
-  const parsed = JSON.parse(result);
+  const parseResult = safeJsonParse<Record<string, unknown>>(result, 'exercise-generation');
+  if (!parseResult.data || parseResult.error) {
+    return NextResponse.json(
+      apiError('AI generated malformed reading content', 'MALFORMED_AI_OUTPUT', true, parseResult.error ?? undefined),
+      { status: 422 },
+    );
+  }
+  const parsed = parseResult.data;
 
   // Validate minimum passage length
   const passageText = parsed.readingContent as string || '';
@@ -1086,12 +1096,24 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   const systemPrompt = buildReadingSectionPrompt();
 
   // Sprint 102: Skip AI if pre-parsed result provided (from exercise handler)
-  let parsed: Record<string, unknown> = preParsed as Record<string, unknown> || JSON.parse(
-    await callLLM([
+  let parsed: Record<string, unknown>;
+  if (preParsed) {
+    parsed = preParsed as Record<string, unknown>;
+  } else {
+    const rawResult = await callLLM([
       { role: 'system', content: systemPrompt + dseContextBlock },
       { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
-    ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) })
-  );
+    ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+
+    const parseResult = safeJsonParse<Record<string, unknown>>(rawResult, 'legacy-generation');
+    if (!parseResult.data || parseResult.error) {
+      return NextResponse.json(
+        apiError('AI generated malformed reading content', 'MALFORMED_AI_OUTPUT', true, parseResult.error ?? undefined),
+        { status: 422 },
+      );
+    }
+    parsed = parseResult.data;
+  }
 
   // Phase 3A.1: Retry loop — if critical blueprint failures, regenerate once
   let blueprintRetried = false;
@@ -1105,12 +1127,17 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       logger.warn({ module: 'reading-api', criticalIssues: firstCheck.issues.filter(i => i.severity === 'critical').map(i => i.code) }, 'Blueprint critical failure — retrying');
       blueprintRetried = true;
       const retryInstruction = buildBlueprintRetryInstruction(firstCheck);
-      parsed = JSON.parse(
-        await callLLM([
-          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: `Regenerate the question set. Fix the critical blueprint issues. Passage must be 500-800 words. Return JSON.` },
-        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) })
-      );
+      const retryRaw = await callLLM([
+        { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
+        { role: 'user', content: `Regenerate the question set. Fix the critical blueprint issues. Passage must be 500-800 words. Return JSON.` },
+      ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+
+      const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-blueprint-retry');
+      if (retryParse.data && !retryParse.error) {
+        parsed = retryParse.data;
+      } else {
+        logger.warn({ module: 'reading-api', error: retryParse.error }, 'Blueprint retry parse failed — using original');
+      }
     }
   }
 
