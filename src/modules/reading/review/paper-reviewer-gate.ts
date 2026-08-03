@@ -49,6 +49,7 @@ export function evaluateGate(
       validatorPassed: false,
       reviewerRan: false,
       warnings: ['Blueprint validation failed with critical issues.'],
+      includeReviewerFeedback: false,
     };
   }
 
@@ -59,6 +60,7 @@ export function evaluateGate(
       validatorPassed: true,
       reviewerRan: false,
       warnings: reviewerResult ? ['Reviewer output malformed — falling back to validator-only path.'] : [],
+      includeReviewerFeedback: false,
     };
   }
 
