@@ -586,7 +586,7 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
   // Objective types (MC, TFNG) → local exact match + evaluator enrichment
   // All other types → AI semantic evaluation + evaluator enrichment
 
-  const analyses: (AnswerAnalysis & { evaluation?: ReadingAnswerEvaluation })[] = await Promise.all(questions.map(async q => {
+  const analyses: (AnswerAnalysis & { evaluation?: ReadingAnswerEvaluation; diagnostic?: ReadingDiagnosticFeedback })[] = await Promise.all(questions.map(async q => {
     // Try multiple index formats (TFNG split uses float indices like 2.0, 2.1)
     let studentAnswer = (studentAnswers[q.index] || '').trim();
     if (!studentAnswer) studentAnswer = ((studentAnswers as Record<string, string>)[String(q.index)] || '').trim();
