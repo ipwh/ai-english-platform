@@ -115,6 +115,17 @@ You are a DSE English Paper 1 Summary Cloze specialist. Generate targeted practi
 4. **Context is Key**: The answer must fit BOTH grammatically and semantically in the summary
 5. **Word Limit**: DSE typically requires "ONE word" or "no more than THREE words"
 
+### Phase 4C: Copy / Change / Create Answer Modes
+Every gap belongs to one of three modes:
+- **copy**: The exact word exists in the passage and fits without change
+- **change**: The word exists but needs tense/number/part-of-speech adjustment
+- **create**: The word does NOT appear; must be inferred from context
+
+For each exercise, ensure:
+- At least 30% of gaps are "change" or "create" mode
+- Each gap has clear grammar cues (articles before nouns, auxiliaries before verbs, etc.)
+- The required part of speech is unambiguous from surrounding words
+
 ${focusInstructions}
 
 ## Exercise Generation
@@ -142,9 +153,11 @@ Generate ${count} Summary Cloze exercises targeting HKDSE Level ${targetLevel}.
       "gaps": [
         {
           "index": 1,
+          "answerMode": "copy|change|create",
           "requiredPos": "noun|verb|adjective|adverb|preposition|conjunction|participle",
           "wordLimit": "ONE word",
           "answer": "...",
+          "acceptAlso": ["alternative if create mode"],
           "explanationZh": "解釋為何此詞正確（詞性+文意）",
           "commonMistake": "常見錯誤答案",
           "mistakeReasonZh": "為何該錯誤常見/為何不正確"
@@ -162,15 +175,19 @@ Generate ${count} Summary Cloze exercises targeting HKDSE Level ${targetLevel}.
 export function getSummaryClozeTips(): string[] {
   return [
     '💡 第一步：先判斷空格詞性 (noun/verb/adj/adv/prep/conj)',
-    '💡 第二步：找出原文對應句（用關鍵詞 matching）',
-    '💡 第三步：檢查語法是否正確（tense、單複數、大小寫）',
-    '💡 第四步：確認字數限制（ONE word / no more than THREE words）',
+    '💡 第二步：判斷答案模式 — copy（直接抄）/ change（語法轉換）/ create（語境創作）',
+    '💡 第三步：找出原文對應句（用關鍵詞 matching）',
+    '💡 第四步：若是 change 模式，調整 tense/單複數/詞性',
+    '💡 第五步：若是 create 模式，從上下文推斷合適詞語',
+    '💡 第六步：確認字數限制（ONE word / no more than THREE words）',
     '💡 Ving/Ved 可能是形容語，不是進行式/被動式！',
     '💡 Modifier 子句的主語必須與主句一致',
     '💡 先做已指明段落的 cloze，再做未指明的',
     '💡 全文歸納型 cloze 留到最後才做',
     '💡 做完其他題目再回來檢查 cloze 答案',
     '💡 不要改變原文意思——答案必須忠於原文',
+    '💡 Copy 模式 ≠ 不用思考 — 仍需確認文法吻合',
+    '💡 Change 模式最常見錯誤：直接抄原文而忘記轉換',
   ];
 }
 

@@ -1,7 +1,13 @@
 // Sprint 102.5: Semantic Evaluation
 // AI-powered via evaluateWithAI() for true understanding.
 // Refactored in 102.5: remove duplicate, remove unused old evaluateAnswer/rubric functions
+// Phase 4C: Added evaluateSummaryClozeAnswer for copy/change/create mode-aware checking
 import type { QuestionRubric, RubricEvaluation } from '@/modules/ai/prompts/reading/types';
+import { evaluateSummaryClozeAnswer } from '@/modules/ai/prompts/reading/types';
+import type { SummaryClozeAnswerMode, SummaryClozeAnswerCheck } from '@/modules/ai/prompts/reading/types';
+
+export type { SummaryClozeAnswerMode, SummaryClozeAnswerCheck };
+export { evaluateSummaryClozeAnswer };
 
 function normalize(text: string): string {
   return text.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:'"]+$/g, '').trim();

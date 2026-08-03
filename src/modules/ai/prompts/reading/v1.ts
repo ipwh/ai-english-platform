@@ -275,6 +275,63 @@ For Part B1/B2 or passages with 4+ paragraphs:
 `;
 
 // ============================================
+// Phase 4C: Summary Cloze Sophistication — Copy / Change / Create
+// ============================================
+
+const SUMMARY_CLOZE_SOPHISTICATION_PROMPT = `
+## ⚠️ CRITICAL: Summary Cloze & Transformation Quality Rules
+
+Summary cloze, table completion, cause-effect completion, and sentence transformation items MUST follow these rules.
+
+### Answer Mode: Copy / Change / Create
+
+Every gap in a summary cloze or transformation item belongs to ONE of three modes:
+
+| Mode | Rule | Example |
+|------|------|---------|
+| **copy** | The exact word exists in the passage and fits without change. | Passage: "It was completed in 2010." → Gap: "It was _____ in 2010." → "completed" |
+| **change** | The word exists but needs tense/number/part-of-speech adjustment. | Passage: "They decided to expand." → Gap: "The _____ to expand was unanimous." → "decision" (NOT "decided") |
+| **create** | The word does NOT appear; must be inferred from context. | Passage: "The project faced many obstacles." → Gap: "The project was _____ from the start." → "problematic" or "difficult" |
+
+### ⚠️ Mode Distribution Rules:
+
+1. **Never make ALL gaps "copy"** — at least 30% of gaps must be "change" or "create"
+2. For a 4-gap summary: at least 1 gap should require change (grammar) and at least 1 should be create (inference)
+3. For a 3-gap summary: at least 1 gap should require change
+4. "Create" mode gaps should have clear context clues in the surrounding text
+5. Annotate each gap with its mode in the answer metadata
+
+### ⚠️ Grammar-Aware Gap Design:
+
+- Surrounding words MUST provide part-of-speech cues (articles before nouns, auxiliaries before verbs, etc.)
+- If a gap needs a past participle, the helper "has/have/had/been" must appear nearby
+- If a gap needs a noun, an article (a/an/the) or quantifier must appear before it
+- If a gap needs a gerund (-ing), a preposition or "by" must precede it
+- Do NOT leave grammar cues ambiguous — the required part of speech should be clear
+
+### ⚠️ Distinguish Summary Cloze from Other Skills:
+
+- Summary cloze tests: comprehension + grammar + controlled transformation
+- Vocabulary-in-context tests: word meaning only (NOT grammar adjustment)
+- Inference tests: implied meaning (NOT structural completion)
+- Do NOT make summary gaps that are just vocabulary lookups — require grammatical engagement
+
+### ⚠️ Sentence Transformation Quality:
+
+Sentence transformation items (causeEffectCompletion, errorCorrectionSummary, etc.) must:
+- Preserve the original meaning exactly
+- Force grammatical restructuring (voice, clause type, tense, modality)
+- NOT be solvable by just copying words in a different order
+- Include clear grammatical constraints in the instruction
+
+BAD: "Complete: Knowing the _____ of kite flying will make it more enjoyable." (just vocabulary lookup)
+GOOD: "Complete using ONE word: Knowing the _____ of kite flying will make it more enjoyable. You must change the form of a word found in paragraph 1." (forces change mode)
+
+BAD: "Rewrite: 'The committee approved the plan.' → 'The plan _____ by the committee.'" (trivial passive)
+GOOD: "Rewrite using 'approval': 'The committee approved the plan.' → 'The plan received _____ from the committee.'" (forces word-form change + structure change)
+`;
+
+// ============================================
 // Phase 3A + 4B: Question Blueprint & Distractor Quality
 // ============================================
 
@@ -341,6 +398,7 @@ export function buildReadingSectionPrompt(): string {
 ${DSE_PAPER1_ALL_QUESTION_TYPES}
 ${buildDSEWordingPrompt()}
 ${QUESTION_BLUEPRINT_PROMPT}
+${SUMMARY_CLOZE_SOPHISTICATION_PROMPT}
 ${SKILL_BOUNDARY_PROMPT}
 ${PASSAGE_QUALITY_STANDARDS}
 
@@ -445,6 +503,8 @@ ${buildDSEWordingPrompt()}
 
 ${QUESTION_BLUEPRINT_PROMPT}
 
+${SUMMARY_CLOZE_SOPHISTICATION_PROMPT}
+
 ${SKILL_BOUNDARY_PROMPT}
 
 ${PASSAGE_QUALITY_STANDARDS}
@@ -501,6 +561,8 @@ ${levelPrompt}
 ${buildDSEWordingPrompt()}
 
 ${QUESTION_BLUEPRINT_PROMPT}
+
+${SUMMARY_CLOZE_SOPHISTICATION_PROMPT}
 
 ${SKILL_BOUNDARY_PROMPT}
 

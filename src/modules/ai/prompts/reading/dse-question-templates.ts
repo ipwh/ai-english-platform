@@ -55,12 +55,12 @@ export const DSE_QUESTION_TEMPLATES: Record<string, { pattern: string; examples:
   // 4. Summary Cloze — 撮要填充（填空式）
   // ==========================================
   summaryCloze: {
-    pattern: 'Complete the summary using words/phrases from the specified paragraph(s).',
+    pattern: 'Complete the summary using words from the passage. Some answers may need grammatical adjustment (change mode) or inference (create mode) — not all are direct copies.',
     examples: [
       'Complete the summary of paragraph 1 by selecting the best option from the choices below. (3 marks)',
-      'Complete the summary of paragraph 8 by using ONE word taken from paragraph 8 for each gap. (4 marks)',
+      'Complete the summary of paragraph 8 by using ONE word taken from paragraph 8 for each gap. You may need to change the form of the word. (4 marks)',
       'Complete the following information about the new arts pavilion by using a word or phrase taken from paragraphs 4-6 for each gap. Write no more than THREE words for each gap. (6 marks)',
-      'Using the information in paragraphs 2-6, complete the following Troubleshooting Guide. For each gap use ONE word taken from paragraphs 2-6. (5 marks)',
+      'Using the information in paragraphs 2-6, complete the following Troubleshooting Guide. For each gap use ONE word taken from paragraphs 2-6. Some answers require grammatical adjustment. (5 marks)',
     ],
     marks: 1,
     wordLimit: 'ONE word OR no more than THREE words per gap — MUST specify',
@@ -224,9 +224,9 @@ export const DSE_QUESTION_TEMPLATES: Record<string, { pattern: string; examples:
   // 17. Cause-Effect Completion — 因果完成題（NEW）
   // ==========================================
   causeEffectCompletion: {
-    pattern: 'Complete the following sentence using ONE word taken from paragraph X.',
+    pattern: 'Complete the sentence using ONE word. You may need to change the form of a word found in paragraph X (change mode) or infer from context (create mode).',
     examples: [
-      'Complete the following sentence using ONE word taken from paragraph 1.\nKnowing the _____ of kite flying will make it more enjoyable.',
+      'Complete the following sentence using ONE word taken from paragraph 1. You may need to change the form.\nKnowing the _____ of kite flying will make it more enjoyable.',
       'Use ONE word to complete the following statement based on the information in paragraph 6.\nIt\'s the _____ noticed by readers between the serious and silly that makes the serious problems stand out.',
     ],
     marks: 1,

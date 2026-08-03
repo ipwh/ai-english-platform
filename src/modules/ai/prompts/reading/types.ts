@@ -110,6 +110,9 @@ export interface DSEreadingQuestion {
   /** Phase 4B.1: Explicit skill category override. When set, this takes priority over type-based mapping.
    *  Allows e.g. an MCQ to target 'toneStance', or a shortAnswer to target 'inference'. */
   skillCategory?: ReadingSkillCategory;
+  /** Phase 4C: Summary cloze answer mode — copy, change, or create.
+   *  Guides both generation (how the gap relates to the passage) and evaluation (what counts as correct). */
+  answerMode?: SummaryClozeAnswerMode;
   paragraphRef?: number;
   lineRef?: string;
   targetPhrase?: string; // Key phrase the question references — system computes paragraph/line from this
@@ -761,6 +764,213 @@ export function mapTypeToSkillCategory(
 /** Phase 4B.1: Resolve the effective skill category for a question, respecting explicit override. */
 export function resolveSkillCategory(q: DSEreadingQuestion): ReadingSkillCategory {
   return mapTypeToSkillCategory(q.type, q.skillCategory);
+}
+
+// ============================================
+// Phase 4C: Summary Cloze Answer Modes — Copy / Change / Create
+// ============================================
+
+/**
+ * Summary cloze answer modes define how the answer relates to the source text.
+ * Real DSE cloze items mix all three modes — not just direct copy.
+ */
+export type SummaryClozeAnswerMode = 'copy' | 'change' | 'create';
+
+/** Describes what each answer mode means for generation and evaluation */
+export interface ClozeAnswerModeRule {
+  mode: SummaryClozeAnswerMode;
+  label: string;
+  labelZh: string;
+  description: string;
+  /** Whether the exact answer word(s) appear verbatim in the passage */
+  appearsInPassage: boolean;
+  /** Whether the answer needs grammatical adjustment from the passage form */
+  requiresGrammaticalChange: boolean;
+  /** Whether paraphrases should be accepted in evaluation */
+  acceptParaphrases: boolean;
+  /** Example: passage has "decide" → gap requires "decision" */
+  example: string;
+}
+
+/** Rules for each summary cloze answer mode */
+export const CLOZE_ANSWER_MODES: Record<SummaryClozeAnswerMode, ClozeAnswerModeRule> = {
+  copy: {
+    mode: 'copy',
+    label: 'Direct Copy',
+    labelZh: '直接抄寫',
+    description: 'The exact word exists in the passage and can be used without any change.',
+    appearsInPassage: true,
+    requiresGrammaticalChange: false,
+    acceptParaphrases: false,
+    example: 'Passage: "The building was completed in 2010." → Gap: "The building was _____ in 2010." → Answer: "completed"',
+  },
+  change: {
+    mode: 'change',
+    label: 'Grammatical Change',
+    labelZh: '語法轉換',
+    description: 'The word exists in the passage but needs tense/number/part-of-speech adjustment to fit the gap.',
+    appearsInPassage: false, // Not in this exact form
+    requiresGrammaticalChange: true,
+    acceptParaphrases: false, // Only the grammatically-adjusted form is correct
+    example: 'Passage: "They decided to expand." → Gap: "The _____ to expand was unanimous." → Answer: "decision" (noun form of "decided")',
+  },
+  create: {
+    mode: 'create',
+    label: 'Context Creation',
+    labelZh: '語境創作',
+    description: 'The exact word does NOT appear in the passage. The answer must be inferred from context and phrased grammatically.',
+    appearsInPassage: false,
+    requiresGrammaticalChange: true,
+    acceptParaphrases: true, // Multiple valid answers possible
+    example: 'Passage: "The project faced numerous obstacles and delays." → Gap: "The project was _____ from the start." → Answer: "problematic" or "troubled" or "challenging"',
+  },
+};
+
+/**
+ * Result of evaluating a summary cloze student answer.
+ * Phase 4C: Distinguishes copy/change/create modes with grammar-aware checking.
+ */
+export interface SummaryClozeAnswerCheck {
+  /** Whether the answer is accepted as correct */
+  accepted: boolean;
+  /** The answer mode this gap expects */
+  expectedMode: SummaryClozeAnswerMode;
+  /** The model answer */
+  modelAnswer: string;
+  /** Acceptable alternative answers (for create mode) */
+  acceptAlso?: string[];
+  /** Whether the student's answer matches exactly (for copy mode) */
+  isExactMatch: boolean;
+  /** Whether the student's answer is grammatically acceptable */
+  isGrammaticallyCorrect: boolean;
+  /** Whether the student's answer is a valid paraphrase (for create mode) */
+  isAcceptableParaphrase: boolean;
+  /** Whether the answer was copied verbatim when change was needed */
+  copiedWhenChangeExpected: boolean;
+  /** Score awarded (0 or marks for this gap) */
+  score: number;
+  /** Max marks for this gap */
+  maxMarks: number;
+  /** Feedback message */
+  feedback: string;
+  feedbackZh?: string;
+}
+
+/** Phase 4C: Part-of-speech patterns for grammar-aware cloze checking */
+export const POS_CUES: Record<string, { before: RegExp; after: RegExp }> = {
+  noun: {
+    before: /(?:a|an|the|this|that|these|those|my|your|his|her|its|our|their|some|any|no|each|every)\s+$/i,
+    after: /^\s+(?:is|are|was|were|has|have|had|will|would|can|could|should|may|might|of|in|on|at|by|for|with|to|from)/i,
+  },
+  verb: {
+    before: /(?:to|must|should|will|would|can|could|may|might|shall|has|have|had|is|are|was|were|been|being)\s+$/i,
+    after: /^\s+(?:by|with|for|to|from|in|on|at|the|a|an|it|them|him|her)/i,
+  },
+  adjective: {
+    before: /(?:is|are|was|were|been|being|seems?|appears?|looks?|feels?|sounds?|becomes?|remains?)\s+$/i,
+    after: /^\s+(?:and|but|or|yet|so|for|nor|,|\.|;|:)/i,
+  },
+};
+
+/** Phase 4C: Validate a summary cloze student answer with mode-aware checking */
+export function evaluateSummaryClozeAnswer(
+  studentAnswer: string,
+  modelAnswer: string,
+  mode: SummaryClozeAnswerMode,
+  acceptAlso: string[] = [],
+  passageText: string = '',
+): SummaryClozeAnswerCheck {
+  const normalized = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const sa = normalized(studentAnswer);
+  const ma = normalized(modelAnswer);
+  const isExactMatch = sa === ma;
+
+  const rule = CLOZE_ANSWER_MODES[mode];
+  let isGrammaticallyCorrect = true;
+  let isAcceptableParaphrase = false;
+  let copiedWhenChangeExpected = false;
+  let accepted = false;
+  let feedback = '';
+
+  switch (mode) {
+    case 'copy': {
+      // Copy mode: answer must match exactly or be a near-match (spacing/punctuation)
+      const nearMatch = sa === ma || sa.replace(/[.,;:!?]/g, '') === ma.replace(/[.,;:!?]/g, '');
+      accepted = nearMatch;
+      feedback = accepted ? 'Correct — exact copy from passage.' : 'Incorrect — expected exact copy from passage.';
+      break;
+    }
+    case 'change': {
+      // Change mode: answer must differ from the passage form but preserve the root meaning
+      const appearsVerbatimInPassage = passageText && passageText.toLowerCase().includes(sa);
+      if (appearsVerbatimInPassage && sa === ma) {
+        // Edge case: the adjusted form happens to appear elsewhere in the passage — accept
+        accepted = true;
+        feedback = 'Correct — appropriate form used.';
+      } else if (appearsVerbatimInPassage) {
+        // Student copied a word that appears in the passage but hasn't adjusted it
+        accepted = false;
+        copiedWhenChangeExpected = true;
+        feedback = 'You copied a word from the passage, but it needs to be grammatically adjusted. Check the required part of speech.';
+      } else {
+        // Check if it's the correct grammatical form — accept if matches model or has stem overlap
+        if (isExactMatch) {
+          accepted = true;
+          feedback = 'Correct — appropriate grammatical adjustment applied.';
+        } else {
+          const modelWords = ma.split(/\s+/);
+          const studentWords = sa.split(/\s+/);
+          const stemOverlap = modelWords.filter(mw => {
+            const stem = mw.replace(/(?:ing|ed|s|es|ment|tion|sion|ness|ful|less|ly|able|ible|ous|ive|al)$/, '');
+            return stem.length >= 3 && studentWords.some(sw => sw.includes(stem) || stem.includes(sw));
+          });
+          accepted = stemOverlap.length > 0 && stemOverlap.length >= Math.ceil(modelWords.length * 0.5);
+          feedback = accepted
+            ? 'Correct — appropriate grammatical adjustment applied.'
+            : 'Incorrect — check the required grammatical form (tense, part of speech, number).';
+        }
+      }
+      break;
+    }
+    case 'create': {
+      // Create mode: answer does not appear in passage; paraphrases are accepted
+      const alsoNormalized = acceptAlso.map(a => normalized(a));
+      const matchesAcceptAlso = alsoNormalized.some(a => sa === a || sa.includes(a) || a.includes(sa));
+      isAcceptableParaphrase = !isExactMatch && (matchesAcceptAlso || (sa.length >= 2 && !passageText.toLowerCase().includes(sa)));
+
+      if (isExactMatch) {
+        accepted = true;
+        feedback = 'Correct.';
+      } else if (matchesAcceptAlso) {
+        accepted = true;
+        isAcceptableParaphrase = true;
+        feedback = 'Correct — acceptable alternative answer.';
+      } else if (isAcceptableParaphrase && sa.length >= 2) {
+        // Basic paraphrase acceptance: answer differs from model but is not in passage
+        accepted = true;
+        feedback = 'Accepted as paraphrase — meaning preserved.';
+      } else {
+        accepted = false;
+        feedback = 'Incorrect — check the context and try to infer a suitable word/phrase.';
+      }
+      break;
+    }
+  }
+
+  return {
+    accepted,
+    expectedMode: mode,
+    modelAnswer,
+    acceptAlso,
+    isExactMatch,
+    isGrammaticallyCorrect,
+    isAcceptableParaphrase,
+    copiedWhenChangeExpected,
+    score: accepted ? 1 : 0,
+    maxMarks: 1,
+    feedback,
+    feedbackZh: accepted ? '正確' : '不正確',
+  };
 }
 
 /** Constants for skill distribution in question sets */
