@@ -87,14 +87,14 @@ export interface ResolvedLayoutOptions {
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
-  maxCharsPerLine: 68,
+  maxCharsPerLine: 72,
   lineNumberInterval: 5,
   showParagraphLabels: true,
   paragraphLabelMode: 'numeric',
   lineNumberStyle: 'gutter',
   viewportMode: 'desktop',
   fixedReadingMeasure: true,
-  preferredCharsPerLine: 66,
+  preferredCharsPerLine: 70,
 };
 
 /** Resolve partial options against defaults (also handles backward-compat aliases) */
@@ -114,18 +114,18 @@ export function resolveLayoutOptions(raw?: Partial<LayoutOptions>): ResolvedLayo
 /**
  * Phase 1C / 4D.2: Resolve stable chars-per-line based on viewport mode.
  * When fixedReadingMeasure is true, uses predetermined caps per viewport
- * (more conservative than previous — better for HKDSE exam-like density).
+ * (60-75 chars for desktop — matching HKDSE exam-like density).
  * Otherwise falls back to maxCharsPerLine as a hard upper limit.
  */
 export function resolveCharsPerLine(opts: ResolvedLayoutOptions): number {
   if (opts.fixedReadingMeasure) {
     switch (opts.viewportMode) {
-      case 'desktop': return Math.min(opts.preferredCharsPerLine, 68);
-      case 'tablet':  return Math.min(opts.preferredCharsPerLine, 58);
-      case 'mobile':  return Math.min(opts.preferredCharsPerLine, 40);
+      case 'desktop': return Math.min(opts.preferredCharsPerLine, 72);
+      case 'tablet':  return Math.min(opts.preferredCharsPerLine, 60);
+      case 'mobile':  return Math.min(opts.preferredCharsPerLine, 42);
     }
   }
-  return Math.min(opts.maxCharsPerLine, 68);
+  return Math.min(opts.maxCharsPerLine, 72);
 }
 
 /** Layout quality warnings computed during layout */

@@ -204,18 +204,18 @@ export default function ReadingPracticePage() {
   }
 
   /** Phase 4D.3: Granular chars-per-line tiers for student split-view.
-   *  mobile≈40, tablet≈56, narrow desktop≈60, medium desktop≈64, wide desktop≈66. */
+   *  mobile≈42, tablet≈60, narrow desktop≈64, medium desktop≈68, wide desktop≈70. */
   function getPreferredCharsPerLine(params: {
     viewportMode: 'mobile' | 'tablet' | 'desktop';
     paneWidth?: number;
   }): number {
     const { viewportMode, paneWidth } = params;
-    if (viewportMode === 'mobile') return 40;
-    if (viewportMode === 'tablet') return 56;
+    if (viewportMode === 'mobile') return 42;
+    if (viewportMode === 'tablet') return 60;
     // Desktop: three granular tiers
-    if (!paneWidth || paneWidth < 640) return 60;   // narrow pane
-    if (paneWidth < 860) return 64;                  // medium pane
-    return 66;                                        // wide pane
+    if (!paneWidth || paneWidth < 640) return 64;   // narrow pane
+    if (paneWidth < 860) return 68;                  // medium pane
+    return 70;                                        // wide pane
   }
 
   const isSplitView = windowWidth >= 1024;
@@ -608,7 +608,7 @@ export default function ReadingPracticePage() {
             }
 
             .dse-reading-layout {
-              max-width: 66ch;
+              max-width: 72ch;
               display: flex;
               flex-direction: column;
               gap: 0.35rem;
@@ -618,12 +618,12 @@ export default function ReadingPracticePage() {
               display: flex;
               flex-direction: column;
               gap: 0.05rem;
-              margin-bottom: 0.4rem;
+              margin-bottom: 1rem;
             }
 
             .dse-line {
               display: grid;
-              grid-template-columns: 2.25rem 1fr;
+              grid-template-columns: 2.5rem 1fr;
               column-gap: 0.625rem;
               align-items: start;
               margin: 0;
@@ -634,7 +634,7 @@ export default function ReadingPracticePage() {
               margin: 0;
               padding: 0.05rem 0 0 0;
               text-align: right;
-              line-height: 1.5;
+              line-height: 1.55;
               font-size: 0.75rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
@@ -684,9 +684,9 @@ export default function ReadingPracticePage() {
               {showPassage ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
             </button>
             {showPassage && (
-              <div className="px-4 pb-4">
+              <div className="px-2 pb-4">
                 {passageLayout ? (
-                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-4 py-5 text-sm text-gray-800 dark:text-gray-200"
+                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-2 py-4 text-sm text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (
