@@ -166,7 +166,7 @@ function safeJsonParse<T>(raw: string, label: string): { data: T | null; error: 
 
 /** Phase 4D.3: Minimum passage word count for DSE-style question support */
 const MIN_PASSAGE_WORDS = {
-  fullPaper: 400,  // per passage in full-paper mode
+  'full-paper': 400,
   exercise: 350,
   legacy: 250,
 } as const;
@@ -507,7 +507,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     if (!passage || !passage.content) continue;
 
     // Phase 4D.3: Passage-length guardrail
-    const lengthWarning = checkPassageLength(passage.content, 'fullPaper', pi);
+    const lengthWarning = checkPassageLength(passage.content, 'full-paper', pi);
     if (lengthWarning) warnings.push(lengthWarning);
     const pqCheck = validatePassageQuality(passage, validatedPart);
     if (!pqCheck.passed) {

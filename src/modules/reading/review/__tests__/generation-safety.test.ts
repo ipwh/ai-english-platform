@@ -87,15 +87,15 @@ describe('Phase 4D.3-B: Malformed AI Output', () => {
 // ══════════════════════════════════════════
 
 describe('Phase 4D.3-C: Passage Length Guardrails', () => {
-  it('7. short passage (<400 words) would be flagged in fullPaper mode', () => {
+  it('7. short passage (<400 words) would be flagged in full-paper mode', () => {
     const shortContent = 'word '.repeat(150);
     const wordCount = shortContent.split(/\s+/).filter(Boolean).length;
     expect(wordCount).toBe(150);
-    // 150 < 400 (MIN_PASSAGE_WORDS.fullPaper) → should warn
+    // 150 < 400 (MIN_PASSAGE_WORDS['full-paper']) → should warn
     expect(wordCount).toBeLessThan(400);
   });
 
-  it('8. adequate passage (500+ words) passes fullPaper threshold', () => {
+  it('8. adequate passage (500+ words) passes full-paper threshold', () => {
     const content = 'word '.repeat(500);
     const wordCount = content.split(/\s+/).filter(Boolean).length;
     expect(wordCount).toBe(500);
