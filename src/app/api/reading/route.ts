@@ -58,6 +58,12 @@ import {
   type BlueprintQualityMeta,
 } from '@/modules/ai/prompts/reading/types';
 import { DSE_PART_QUESTION_MIX } from '@/modules/ai/prompts/reading/dse-question-templates';
+
+// Phase 4D.1: Paper reviewer integration
+import { buildPaperReviewPrompt } from '@/modules/reading/review/paper-reviewer';
+import { evaluateGate, buildReviewerRetryFeedback, buildReviewMetadata } from '@/modules/reading/review/paper-reviewer-gate';
+import { validateReviewStructure } from '@/modules/reading/review/paper-reviewer-types';
+import type { PaperReview } from '@/modules/reading/review/paper-reviewer-types';
 import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';
 import { DSE_TEXT_TYPES, DSE_PUBLICATION_SOURCES } from '@/modules/ai/prompts/reading/text-types';
 import {
@@ -196,6 +202,8 @@ export async function POST(request: NextRequest) {
         return handleIdiomTraining(body);
       case 'validate-paper':
         return handlePaperValidation(body);
+      case 'review':
+        return handlePaperReview(body);
       default:
         // Backward compat: single passage generation
         return handleLegacyGeneration(body);
@@ -495,6 +503,35 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
   const elapsed = Date.now() - startTime;
   logger.info({ module: 'reading-api', part: validatedPart, level: resolvedLevel, passages: paper.passages.length, questions: allQuestions.length, elapsed, warnings: warnings.length }, 'Full paper generated');
 
+  // Phase 4D.1: Optional paper review (controlled by request parameter)
+  const requestReview = body.review === true || body.review === 'true';
+  let reviewResult: PaperReview | null = null;
+  let gateResult = evaluateGate(blueprintMeta.passed, null);
+
+  if (requestReview) {
+    try {
+      const reviewPrompt = buildPaperReviewPrompt(JSON.stringify(paper, null, 2));
+      const reviewRaw = await callLLM([
+        { role: 'system', content: reviewPrompt },
+      ], { temperature: 0.25, maxTokens: 4096, jsonMode: true, timeoutMs: 60000 });
+      const parsed = typeof reviewRaw === 'string' ? JSON.parse(reviewRaw) : reviewRaw;
+      if (validateReviewStructure(parsed)) {
+        reviewResult = parsed as PaperReview;
+        gateResult = evaluateGate(blueprintMeta.passed, reviewResult);
+        if (gateResult.warnings.length > 0) {
+          warnings.push(...gateResult.warnings.filter(w => !warnings.includes(w)));
+        }
+      } else {
+        warnings.push('Reviewer output failed structure validation.');
+      }
+    } catch (reviewErr) {
+      logger.error({ module: 'reading-api', error: String(reviewErr) }, 'Paper review failed');
+      warnings.push('Paper review encountered an error — results may be incomplete.');
+    }
+  }
+
+  const reviewMeta = buildReviewMetadata(gateResult, reviewResult);
+
   return NextResponse.json({
     paper,
     metadata: {
@@ -506,6 +543,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
       totalMarks: qqCheck.totalMarks,
       warnings: warnings.length > 0 ? warnings : undefined,
       blueprintQuality: blueprintMeta,
+      review: reviewMeta,
     },
   });
 }
@@ -853,6 +891,78 @@ async function handlePaperValidation(body: Record<string, unknown>) {
     passageResults: results,
     questionQuality: qqCheck,
     overallPassed: results.every(r => r.passageQuality.passed) && qqCheck.passed,
+  });
+}
+
+// ============================================
+// Phase 4D.1: Action: review — 獨立論文評審
+// ============================================
+async function handlePaperReview(body: Record<string, unknown>) {
+  const { paper, part } = body as { paper: DSEreadingPaper; part?: DSEpart };
+
+  if (!paper || !paper.passages) {
+    return NextResponse.json({ error: 'paper with passages array is required' }, { status: 400 });
+  }
+
+  const validatedPart: DSEpart = part && ['A', 'B1', 'B2'].includes(part as string) ? part as DSEpart : 'A';
+
+  // Run blueprint validation first
+  const allQuestions = paper.passages.flatMap(p => p.questions);
+  const totalParagraphs = paper.passages.reduce((s, p) => s + (p.content.match(/\[Paragraph\s+\d+\]/gi) || []).length, 0);
+  const bpCheck = validateQuestionSetBlueprint(allQuestions, Math.max(totalParagraphs, 3), { mode: 'full-paper', part: validatedPart });
+  const validatorPassed = bpCheck.passed;
+
+  // Run paper reviewer
+  let reviewResult: PaperReview | null = null;
+  let reviewerError: string | null = null;
+
+  try {
+    const reviewPrompt = buildPaperReviewPrompt(JSON.stringify(paper, null, 2));
+    const reviewRaw = await callLLM([
+      { role: 'system', content: reviewPrompt },
+    ], { temperature: 0.25, maxTokens: 4096, jsonMode: true, timeoutMs: 60000 });
+    const parsed = typeof reviewRaw === 'string' ? JSON.parse(reviewRaw) : reviewRaw;
+    if (validateReviewStructure(parsed)) {
+      reviewResult = parsed as PaperReview;
+    } else {
+      reviewerError = 'Reviewer output failed structure validation.';
+    }
+  } catch (err) {
+    reviewerError = `Reviewer error: ${err instanceof Error ? err.message : 'Unknown'}`;
+    logger.error({ module: 'reading-api', error: reviewerError }, 'Paper review failed');
+  }
+
+  // Gate
+  const gateResult = evaluateGate(validatorPassed, reviewResult);
+  const reviewMeta = buildReviewMetadata(gateResult, reviewResult);
+
+  return NextResponse.json({
+    gate: {
+      action: gateResult.action,
+      validatorPassed,
+      reviewerRan: gateResult.reviewerRan,
+      reviewerVerdict: gateResult.reviewerVerdict,
+      reviewerScore: gateResult.reviewerScore,
+      includeReviewerFeedback: gateResult.includeReviewerFeedback,
+      warnings: gateResult.warnings,
+    },
+    validator: {
+      passed: validatorPassed,
+      issues: bpCheck.issues.slice(0, 10),
+      typeFamilyCoverage: bpCheck.typeFamilyCoverage,
+    },
+    review: reviewResult ? {
+      overallScore: reviewResult.overallScore,
+      verdict: reviewResult.verdict,
+      summary: reviewResult.summary,
+      majorStrengths: reviewResult.majorStrengths,
+      majorRisks: reviewResult.majorRisks.slice(0, 10),
+      sectionReviews: reviewResult.sectionReviews,
+      itemNotes: reviewResult.itemNotes?.slice(0, 20),
+      priorityFixes: reviewResult.priorityFixes,
+    } : null,
+    reviewerError,
+    metadata: reviewMeta,
   });
 }
 
