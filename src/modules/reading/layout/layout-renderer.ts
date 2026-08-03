@@ -22,7 +22,7 @@ export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
                   <div class="dse-line-text">
                     ${
                       line.isParagraphStart && line.paragraphLabel
-                        ? `<span class="dse-paragraph-label">${escapeHtml(line.paragraphLabel)}</span>`
+                        ? `<span class="dse-paragraph-label">[${escapeHtml(line.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</span>`
                         : ''
                     }
                     <span>${escapeHtml(line.text)}</span>

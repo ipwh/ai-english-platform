@@ -1232,6 +1232,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
     // Fallback: if still one block, keep as-is — don't guess paragraph boundaries
 
+    // ⚠️ CRITICAL: Normalize single newlines within each paragraph to spaces.
+    // The AI wraps lines at ~60-70 chars in its JSON output, producing hard breaks
+    // that destroy the reading flow. Each paragraph must be continuous prose.
+    parts = parts.map(p => p.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim());
+
     const cleanContent = parts.join('\n\n');
     const totalWords = cleanContent.split(/\s+/).filter(Boolean).length;
 
@@ -1299,11 +1304,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
         // Correct AI's wrong paragraph reference with computed value
         const computedPara = q._computedParagraph as number | undefined;
-        if (computedPara) {
-          q.paragraphRef = computedPara;
+        // Fallback: parse paragraph number from question text if computed value is missing
+        const textParaMatch = rawQuestion.match(/(?:paragraph|para\.?)\s*(\d+)/i);
+        const textPara = textParaMatch ? parseInt(textParaMatch[1], 10) : undefined;
+        const resolvedPara = computedPara || textPara;
+        if (resolvedPara) {
+          q.paragraphRef = resolvedPara;
           question = question.replace(
-            /(According to|With reference to)\s+paragraph\s+\d+/gi,
-            `$1 paragraph ${computedPara}`,
+            /(According to|With reference to|Based on|In)\s+paragraph\s+\d+/gi,
+            `$1 paragraph ${resolvedPara}`,
           );
         }
         question = question.replace(/\s+/g, ' ').trim();

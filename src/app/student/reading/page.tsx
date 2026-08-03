@@ -225,7 +225,7 @@ export default function ReadingPracticePage() {
     if (!data?.passage?.content) return null;
     const mode = getViewportMode(windowWidth);
     const preferredChars = getPreferredCharsPerLine({ viewportMode: mode, paneWidth });
-    return layoutReadingText(data.passage.content, {
+    const layout = layoutReadingText(data.passage.content, {
       viewportMode: mode,
       fixedReadingMeasure: true,
       preferredCharsPerLine: preferredChars,
@@ -235,7 +235,43 @@ export default function ReadingPracticePage() {
       paragraphLabelMode: 'numeric',
       lineNumberStyle: 'gutter',
     });
-  }, [data?.passage?.content, windowWidth, paneWidth]);
+
+    // Phase 4E: Highlight target phrases from questions in the passage HTML.
+    // Extracts key terms (targetPhrase, quoted phrases, vocabulary words) and
+    // wraps them in <strong> tags for DSE exam-like keyword emphasis.
+    let html = layout.html;
+    if (data.questions && data.questions.length > 0) {
+      const targets = new Set<string>();
+      for (const q of data.questions) {
+        // Collect from targetPhrase field (may exist on raw API response)
+        const rawQ = q as unknown as Record<string, unknown>;
+        if (typeof rawQ.targetPhrase === 'string') {
+          targets.add((rawQ.targetPhrase as string).trim());
+        }
+        // Collect quoted phrases from question text
+        const quotedMatches = q.question.match(/['\u2018\u2019\u201C\u201D]([^'\u2018\u2019\u201C\u201D]{3,40})['\u2018\u2019\u201C\u201D]/g);
+        if (quotedMatches) {
+          for (const m of quotedMatches) {
+            targets.add(m.replace(/['\u2018\u2019\u201C\u201D]/g, '').trim());
+          }
+        }
+      }
+      // Apply highlighting (only within text, not inside HTML tags)
+      for (const phrase of targets) {
+        if (phrase.length < 3) continue;
+        // Escape special regex chars in the phrase
+        const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Only replace if the phrase appears outside HTML tags (between > and <)
+        html = html.replace(
+          new RegExp(`(>)([^<]*?)(${escaped})([^<]*?)(<)`, 'gi'),
+          (_full, gt, prefix, matched, suffix, lt) =>
+            `${gt}${prefix}<strong class="dse-target-phrase">${matched}</strong>${suffix}${lt}`,
+        );
+      }
+    }
+
+    return { ...layout, html };
+  }, [data?.passage?.content, data?.questions, windowWidth, paneWidth]);
 
   // Persist score when all questions are answered
   useEffect(() => {
@@ -621,6 +657,11 @@ export default function ReadingPracticePage() {
               margin-bottom: 1rem;
             }
 
+            /* First paragraph line: subtle text indent (DSE exam convention) */
+            .dse-paragraph .dse-line:first-child .dse-line-text {
+              text-indent: 0;
+            }
+
             .dse-line {
               display: grid;
               grid-template-columns: 2.5rem 1fr;
@@ -660,12 +701,27 @@ export default function ReadingPracticePage() {
 
             .dse-paragraph-label {
               font-weight: 600;
-              margin-right: 0.5rem;
-              color: #374151;
+              margin-right: 0.75rem;
+              font-size: 0.75rem;
+              color: #6b7280;
+              font-family: ui-monospace, monospace;
             }
 
             .dark .dse-line-gutter { color: #6b7280; }
-            .dark .dse-paragraph-label { color: #d1d5db; }
+            .dark .dse-paragraph-label { color: #9ca3af; }
+
+            .dse-target-phrase {
+              font-weight: 600;
+              color: #1e40af;
+              background: #dbeafe;
+              padding: 0 0.125rem;
+              border-radius: 0.125rem;
+            }
+
+            .dark .dse-target-phrase {
+              color: #93c5fd;
+              background: #1e3a5f;
+            }
           `}</style>
 
           <div className="reading-workspace">
