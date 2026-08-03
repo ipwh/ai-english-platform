@@ -68,6 +68,18 @@ interface AnswerState {
     maxScore?: number;
     feedbackZh?: string;
     feedbackEn?: string;
+    diagnostic?: {
+      verdict: string;
+      skillTarget: string;
+      locatingClue?: string;
+      evidenceSummary?: string;
+      errorType?: string;
+      improvementAdvice?: string;
+      paraphraseAdvice?: string;
+      grammarAdvice?: string;
+      distractorNotes?: string[];
+      confidence?: string;
+    };
   };
 }
 
@@ -326,6 +338,7 @@ export default function ReadingPracticePage() {
         maxScore: 1,
         feedbackEn: '⏳ Evaluating with AI...',
         feedbackZh: '⏳ 正在用AI評分...',
+        diagnostic: undefined,
       },
     }));
 
@@ -352,6 +365,7 @@ export default function ReadingPracticePage() {
       })
       .then(result => {
         const analysis = result.analyses?.[0];
+        const diagnostic = result.diagnostics?.[0];
         if (analysis) {
           setAnswers(prev => {
             if (!prev[qIndex]) return prev;
@@ -365,6 +379,7 @@ export default function ReadingPracticePage() {
                 maxScore: analysis.maxMarks ?? 1,
                 feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
                 feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,
+                diagnostic,
               },
             };
           });
@@ -934,6 +949,69 @@ export default function ReadingPracticePage() {
                           <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
                             {language === 'en' ? ans.feedbackEn : (ans.feedbackZh || ans.feedbackEn)}
                           </p>
+                        )}
+                        {/* Phase 2B: Diagnostic feedback */}
+                        {ans.diagnostic && !ans.feedbackEn?.includes('⏳') && (
+                          <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 text-xs space-y-1">
+                            <p className="font-semibold text-amber-700 dark:text-amber-300">
+                              🔍 {language === 'en' ? 'Diagnostic Feedback' : '診斷回饋'}
+                              {ans.diagnostic.verdict && (
+                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
+                                  ans.diagnostic.verdict === 'correct' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                  ans.diagnostic.verdict === 'partially_correct' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>
+                                  {ans.diagnostic.verdict.replace(/_/g, ' ')}
+                                </span>
+                              )}
+                            </p>
+                            {ans.diagnostic.skillTarget && (
+                              <p className="text-amber-600 dark:text-amber-400">
+                                <span className="font-medium">{language === 'en' ? 'Skill: ' : '技能：'}</span>
+                                {ans.diagnostic.skillTarget}
+                              </p>
+                            )}
+                            {ans.diagnostic.locatingClue && (
+                              <p className="text-amber-600 dark:text-amber-400">
+                                <span className="font-medium">{language === 'en' ? '📍 Locating clue: ' : '📍 定位提示：'}</span>
+                                {ans.diagnostic.locatingClue}
+                              </p>
+                            )}
+                            {ans.diagnostic.errorType && (
+                              <p className="text-red-600 dark:text-red-400">
+                                <span className="font-medium">{language === 'en' ? '⚠️ Issue: ' : '⚠️ 問題：'}</span>
+                                {ans.diagnostic.errorType.replace(/_/g, ' ')}
+                              </p>
+                            )}
+                            {ans.diagnostic.improvementAdvice && (
+                              <p className="text-green-700 dark:text-green-400">
+                                <span className="font-medium">{language === 'en' ? '💡 Improvement: ' : '💡 改進：'}</span>
+                                {ans.diagnostic.improvementAdvice}
+                              </p>
+                            )}
+                            {ans.diagnostic.paraphraseAdvice && (
+                              <p className="text-amber-600 dark:text-amber-400">
+                                <span className="font-medium">{language === 'en' ? '📝 Paraphrase: ' : '📝 改寫：'}</span>
+                                {ans.diagnostic.paraphraseAdvice}
+                              </p>
+                            )}
+                            {ans.diagnostic.grammarAdvice && (
+                              <p className="text-amber-600 dark:text-amber-400">
+                                <span className="font-medium">{language === 'en' ? '📐 Grammar: ' : '📐 文法：'}</span>
+                                {ans.diagnostic.grammarAdvice}
+                              </p>
+                            )}
+                            {ans.diagnostic.distractorNotes && ans.diagnostic.distractorNotes.length > 0 && (
+                              <div>
+                                <p className="font-medium text-amber-600 dark:text-amber-400">
+                                  {language === 'en' ? '🎯 Distractor notes:' : '🎯 干擾項分析：'}
+                                </p>
+                                {ans.diagnostic.distractorNotes.map((note: string, di: number) => (
+                                  <p key={di} className="text-amber-600 dark:text-amber-400 ml-2">• {note}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                         {/* Always show passage-based explanation (bilingual) */}
                         {(q.explanationEn || q.explanationZh) && (

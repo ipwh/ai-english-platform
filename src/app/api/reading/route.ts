@@ -49,6 +49,11 @@ import {
   checkHKLocalContent,
   validatePassageQuality,
   validateQuestionQuality,
+  validateQuestionSetBlueprint,
+  shouldRetryBlueprint,
+  buildBlueprintRetryInstruction,
+  toBlueprintQualityMeta,
+  validateAllMCDistractors,
 } from '@/modules/ai/prompts/reading/types';
 import { DSE_PART_QUESTION_MIX } from '@/modules/ai/prompts/reading/dse-question-templates';
 import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';
@@ -65,6 +70,8 @@ import {
   buildEvaluation,
 } from '@/modules/reading/evaluation';
 import type { ReadingAnswerEvaluation } from '@/modules/reading/evaluation';
+import { buildReadingDiagnosticFeedback } from '@/modules/reading/feedback';
+import type { ReadingDiagnosticFeedback } from '@/modules/reading/feedback';
 
 // ============================================
 // Phase 1B: DSE Type Mapping (camelCase backend → snake_case frontend)
@@ -116,6 +123,47 @@ function getReadingMaxTokens(params: {
 function getReadingTimeout(params: { mode: string; maxTokens: number }): number {
   // Proportional timeout: ~2.5ms per token, min 25s, max 60s
   return Math.min(60000, Math.max(25000, Math.ceil(params.maxTokens * 0.0025)));
+}
+
+// ============================================
+// Phase 3A.2: Shared Blueprint Retry Helper
+// ============================================
+
+interface BlueprintRetryResult {
+  final: DSEreadingQuestion[];
+  check: QuestionSetQualityCheck;
+  retried: boolean;
+  firstCheck?: QuestionSetQualityCheck;
+}
+
+async function enforceBlueprintWithSingleRetry(params: {
+  mode: 'legacy' | 'exercise' | 'full-paper';
+  questions: DSEreadingQuestion[];
+  paragraphCount: number;
+  regenerate: (retryInstruction: string) => Promise<DSEreadingQuestion[]>;
+}): Promise<BlueprintRetryResult> {
+  const firstCheck = validateQuestionSetBlueprint(params.questions, params.paragraphCount, { mode: params.mode });
+
+  if (!shouldRetryBlueprint(firstCheck)) {
+    return { final: params.questions, check: firstCheck, retried: false };
+  }
+
+  logger.warn({
+    module: 'reading-api',
+    mode: params.mode,
+    criticalIssues: firstCheck.issues.filter(i => i.severity === 'critical').map(i => i.code),
+  }, 'Blueprint critical failure — retrying');
+
+  const retryInstruction = buildBlueprintRetryInstruction(firstCheck);
+  const regenerated = await params.regenerate(retryInstruction);
+  const secondCheck = validateQuestionSetBlueprint(regenerated, params.paragraphCount, { mode: params.mode });
+
+  return {
+    final: regenerated,
+    check: secondCheck,
+    retried: true,
+    firstCheck,
+  };
 }
 
 // ============================================
@@ -407,6 +455,40 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     warnings.push(...qqCheck.issues);
   }
 
+  // Phase 3A.2: Blueprint validation with retry for full-paper
+  const totalParagraphs = paper.passages.reduce((s, p) => s + (p.content.match(/\[Paragraph\s+\d+\]/gi) || []).length, 0);
+  const bpResult = await enforceBlueprintWithSingleRetry({
+    mode: 'full-paper',
+    questions: allQuestions,
+    paragraphCount: Math.max(totalParagraphs, 3),
+    regenerate: async (retryInstruction: string) => {
+      const retryJson = JSON.parse(
+        await callLLM([
+          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
+          { role: 'user', content: `Regenerate the question set for Part ${validatedPart}. Fix critical blueprint issues while preserving passage quality. Return the complete JSON paper object.` },
+        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'full-paper', maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }) }) })
+      ) as DSEreadingPaper;
+      // Update paper reference and re-compute allQuestions
+      Object.assign(paper, retryJson);
+      return paper.passages.flatMap(p => p.questions);
+    },
+  });
+
+  if (!bpResult.check.passed) {
+    warnings.push(...bpResult.check.issueMessages);
+  }
+
+  // Phase 3C.1: MC distractor quality check
+  const mcDistractorIssues = validateAllMCDistractors(allQuestions);
+  const combinedIssues = [...bpResult.check.issues, ...mcDistractorIssues];
+  const combinedPassed = !combinedIssues.some(i => i.severity === 'critical');
+  const blueprintMeta: BlueprintQualityMeta = {
+    passed: combinedPassed,
+    retried: bpResult.retried,
+    degraded: !combinedPassed,
+    issues: combinedIssues,
+  };
+
   const elapsed = Date.now() - startTime;
   logger.info({ module: 'reading-api', part: validatedPart, level: resolvedLevel, passages: paper.passages.length, questions: allQuestions.length, elapsed, warnings: warnings.length }, 'Full paper generated');
 
@@ -420,6 +502,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
       questionTypesUsed: qqCheck.typesUsed,
       totalMarks: qqCheck.totalMarks,
       warnings: warnings.length > 0 ? warnings : undefined,
+      blueprintQuality: blueprintMeta,
     },
   });
 }
@@ -560,6 +643,17 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       else errorType = 'not_in_passage';
     }
 
+    // Phase 2B: Build diagnostic feedback from evaluation signals
+    const diagnostic = buildReadingDiagnosticFeedback({
+      dseType,
+      questionText: q.questionText || '',
+      studentAnswer,
+      expectedAnswer: q.answer,
+      choices: q.choices,
+      evaluation,
+      paragraphRef: q.paragraphRef,
+    });
+
     return {
       questionIndex: q.index,
       studentAnswer,
@@ -572,6 +666,7 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       feedbackZh: result.feedbackZh,
       feedbackEn: result.feedbackEn,
       evaluation,
+      diagnostic,
     };
   }));
 
@@ -603,8 +698,10 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
 
   return NextResponse.json({
     analyses,
-    // Phase 2A: Structured evaluations alongside standard analyses
+    // Phase 2A: Structured evaluations
     evaluations: analyses.map(a => a.evaluation).filter(Boolean),
+    // Phase 2B: Diagnostic feedback
+    diagnostics: analyses.map(a => a.diagnostic).filter(Boolean),
     summary: {
       totalMarks,
       scoredMarks,
@@ -797,12 +894,33 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   const systemPrompt = buildReadingSectionPrompt();
 
   // Sprint 102: Skip AI if pre-parsed result provided (from exercise handler)
-  const parsed: Record<string, unknown> = preParsed || JSON.parse(
+  let parsed: Record<string, unknown> = preParsed as Record<string, unknown> || JSON.parse(
     await callLLM([
       { role: 'system', content: systemPrompt + dseContextBlock },
       { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
     ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) })
   );
+
+  // Phase 3A.1: Retry loop — if critical blueprint failures, regenerate once
+  let blueprintRetried = false;
+  if (!preParsed) {
+    const content = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
+    const firstQuestions = (parsed.questions as DSEreadingQuestion[]) || [];
+    const paraCount = Math.max((content?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
+    const firstCheck = validateQuestionSetBlueprint(firstQuestions, paraCount, { mode: 'legacy' });
+
+    if (shouldRetryBlueprint(firstCheck)) {
+      logger.warn({ module: 'reading-api', criticalIssues: firstCheck.issues.filter(i => i.severity === 'critical').map(i => i.code) }, 'Blueprint critical failure — retrying');
+      blueprintRetried = true;
+      const retryInstruction = buildBlueprintRetryInstruction(firstCheck);
+      parsed = JSON.parse(
+        await callLLM([
+          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
+          { role: 'user', content: `Regenerate the question set. Fix the critical blueprint issues. Passage must be 500-800 words. Return JSON.` },
+        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) })
+      );
+    }
+  }
 
   // Attach readability if passage content exists
   if (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) {
@@ -812,6 +930,30 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     const hkCheck = checkHKLocalContent(content);
     parsed._readability = { ...metrics, estimatedHKEAALevel: readabilityLevel };
     parsed._hkLocal = hkCheck;
+
+    // Phase 3A: Blueprint validation on legacy generation
+    const legacyQuestions = (parsed.questions as DSEreadingQuestion[]) || [];
+    if (legacyQuestions.length > 0) {
+      const paraCount = Math.max((content.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
+      const bpCheck = validateQuestionSetBlueprint(legacyQuestions, paraCount, { mode: 'legacy' });
+      // Phase 3C.1: Merge MC distractor issues
+      const mcIssues = validateAllMCDistractors(legacyQuestions);
+      const combined = [...bpCheck.issues, ...mcIssues];
+      const combinedCheck = {
+        ...bpCheck,
+        issues: combined,
+        passed: !combined.some(i => i.severity === 'critical'),
+        issueMessages: combined.map(i => `[${i.severity}] ${i.code}: ${i.message}`),
+      };
+      if (!combinedCheck.passed) {
+        logger.warn({ module: 'reading-api', issues: combinedCheck.issueMessages }, 'Blueprint + MC validation warnings');
+      }
+      parsed._blueprintQuality = toBlueprintQualityMeta(combinedCheck, blueprintRetried);
+    } else {
+      parsed._blueprintQuality = {
+        passed: true, retried: false, degraded: false, validated: false, issues: [],
+      };
+    }
   }
 
   const elapsed = Date.now() - startTime;

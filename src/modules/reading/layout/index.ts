@@ -7,7 +7,7 @@ export type {
 } from './reading-layout-types';
 export { DEFAULT_LAYOUT_OPTIONS, resolveLayoutOptions, resolveCharsPerLine } from './reading-layout-types';
 
-export { layoutReadingText, recalculateLayout, type LayoutWarnings } from './layout-engine';
+export { layoutReadingText, recalculateLayout } from './layout-engine';
 export { calculateParagraphLines, calculateTotalLines, estimateCharsPerLine, recalculateCharsPerLine } from './line-calculator';
 export { extractParagraphs, buildParagraphLayouts } from './paragraph-layout';
 export { renderLayoutToHtml, renderToPlainText, escapeHtml, renderToHtml } from './layout-renderer';

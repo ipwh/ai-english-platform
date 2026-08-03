@@ -166,12 +166,59 @@ const PASSAGE_QUALITY_STANDARDS = `
 `;
 
 // ============================================
+// Phase 3A: Question Blueprint & Distractor Quality
+// ============================================
+
+const QUESTION_BLUEPRINT_PROMPT = `
+## ⚠️ MANDATORY Question Type Mix (MUST FOLLOW)
+
+Your question set MUST include ALL of these type families:
+1. **Factual/Literal** (≥2 items): mcq, trueFalseNG, shortAnswer, mcCloze, negativeInference
+2. **Reference** (≥1 item): referencing — "What does 'it' refer to?"
+3. **Vocabulary in context** (≥1 item): vocabularyInContext, synonymSearch, phraseSearch
+4. **Inference** (≥1 item): inference, authorIntention
+5. **Tone/Attitude/Stance** (≥1 item): toneAttitude
+6. **Whole-text** (≥1 item): A question requiring understanding across 2+ paragraphs or the entire passage
+7. **Summary cloze or transformation** (≥1 item): summaryCloze, mcCloze, tableCompletion, causeEffectCompletion
+
+### ⚠️ Distractor Quality Rules (MANDATORY):
+- ALL MCQ distractors must be PLAUSIBLE — a student should need to read the passage to eliminate them
+- Include HALF-TRUE traps: options that are mostly correct but have one wrong detail
+- Include SCOPE-SHIFT traps: options that are true but about a different paragraph/section
+- Include CONTRAST-MISS traps: options that reverse a relationship (e.g., "increases" vs "decreases")
+- Include CAUSE-EFFECT-SWAP traps: options that mix up cause and effect from the passage
+- Include REFERENCE-CONFUSION traps: options that attribute a statement to the wrong person/thing
+- Include TONE traps: options with correct content but overstated, understated, or wrong attitude
+- Include QUALIFIER-MISS traps: options that drop important qualifiers (e.g., "may" → "will", "some" → "all")
+- Include NEGATION-MISS traps: options that miss a negative (e.g., "not necessary" → "necessary")
+- NEVER use absurd or obviously wrong distractors
+- NEVER use "All of the above" / "None of the above" — these are NOT DSE-compatible
+- Each distractor should be similar in length and complexity to the correct answer
+- The correct answer must NOT stand out by length, style, or phrasing patterns
+- At least one distractor must be "almost right" — a student who reads shallowly should find it plausible
+
+### ⚠️ Wording Realism (MANDATORY):
+- Do NOT over-guide students: avoid stems that give away the answer
+- Paraphrase the passage in question stems where possible — don't just quote
+- For vocabulary questions: prefer "What does X mean as used in the passage?" over "Find a synonym for X"
+- Avoid asking about a word that is directly defined in the next sentence
+
+### ⚠️ Coverage & Progression (MANDATORY):
+- Ensure EVERY paragraph has at least one question
+- Early questions (first 40%): literal comprehension, easy to locate
+- Middle questions (40-70%): inference, vocabulary, reference
+- Late questions (last 30%): tone/attitude, whole-text, summary/transformation
+- Reserve the last 1-2 items for whole-text synthesis
+`;
+
+// ============================================
 // Main Prompt Builder (Single Passage — backward compatible)
 // ============================================
 export function buildReadingSectionPrompt(): string {
   return `${HALLUCINATION_GUARD_LITE}
 ${DSE_PAPER1_ALL_QUESTION_TYPES}
 ${buildDSEWordingPrompt()}
+${QUESTION_BLUEPRINT_PROMPT}
 ${PASSAGE_QUALITY_STANDARDS}
 
 【閱讀理解題特別要求】
@@ -273,6 +320,8 @@ ${MULTI_PASSAGE_PROMPT}
 
 ${buildDSEWordingPrompt()}
 
+${QUESTION_BLUEPRINT_PROMPT}
+
 ${PASSAGE_QUALITY_STANDARDS}
 
 ## Paper Generation Instructions
@@ -325,6 +374,8 @@ export function buildReadingExercisePrompt(params: {
 ${levelPrompt}
 
 ${buildDSEWordingPrompt()}
+
+${QUESTION_BLUEPRINT_PROMPT}
 
 ## Reading Exercise Generation
 Generate ${count} reading comprehension questions for ${gradeLevel} (${difficultyLabel}) students.

@@ -31,6 +31,38 @@ export const DSE_READING_QUESTION_TYPES = [
 export type DSEreadingQuestionType = typeof DSE_READING_QUESTION_TYPES[number];
 
 // ============================================
+// Phase 3C: MC Distractor Intelligence Types
+// ============================================
+
+/** DSE-style distractor trap categories */
+export type DistractorTrapType =
+  | 'half_true'
+  | 'scope_shift'
+  | 'contrast_miss'
+  | 'cause_effect_swap'
+  | 'reference_confusion'
+  | 'tone_overstatement'
+  | 'tone_understatement'
+  | 'detail_from_wrong_paragraph'
+  | 'qualifier_miss'
+  | 'negation_miss';
+
+/** Optional quality metadata for MC options */
+export interface MCOptionQualityMeta {
+  distractorType?: DistractorTrapType;
+  sourceParagraph?: number;
+  trapBasis?: string;
+  evidenceHint?: string;
+}
+
+/** A single MC option with optional quality metadata */
+export interface MCOption {
+  label: string;
+  text: string;
+  meta?: MCOptionQualityMeta;
+}
+
+// ============================================
 // DSE Part Labels
 // ============================================
 export type DSEpart = 'A' | 'B1' | 'B2';
@@ -506,4 +538,429 @@ export function validateQuestionQuality(questions: DSEreadingQuestion[], part: D
     usesDSEwording: true, // Assumed from prompt
     issues,
   };
+}
+
+// ============================================
+// Phase 3A: Question Quality Blueprint & Hardened Validators
+// ============================================
+
+/** Required question type families for a balanced DSE Paper 1 set */
+export const REQUIRED_TYPE_FAMILIES = {
+  factual: {
+    label: 'Factual / Literal comprehension',
+    types: ['mcq', 'trueFalseNG', 'shortAnswer', 'mcCloze', 'negativeInference'],
+    minCount: 2,
+  },
+  reference: {
+    label: 'Reference / Pronoun resolution',
+    types: ['referencing'],
+    minCount: 1,
+  },
+  vocabulary: {
+    label: 'Vocabulary in context',
+    types: ['vocabularyInContext', 'synonymSearch', 'phraseSearch'],
+    minCount: 1,
+  },
+  inference: {
+    label: 'Inference / Implied meaning',
+    types: ['inference', 'authorIntention'],
+    minCount: 1,
+  },
+  toneStance: {
+    label: 'Tone / Attitude / Stance',
+    types: ['toneAttitude'],
+    minCount: 1,
+  },
+  wholeText: {
+    label: 'Whole-text or cross-paragraph understanding',
+    types: [],
+    minCount: 1,
+  },
+  summaryTransform: {
+    label: 'Summary cloze or sentence transformation',
+    types: ['summaryCloze', 'mcCloze', 'tableCompletion', 'causeEffectCompletion', 'errorCorrectionSummary'],
+    minCount: 1,
+  },
+};
+
+/** Phase 3A.3: Issue severity levels */
+export type QualitySeverity = 'info' | 'warning' | 'critical';
+
+/** A single blueprint validation issue with severity */
+export interface BlueprintIssue {
+  code: string;
+  severity: QualitySeverity;
+  message: string;
+}
+
+/** Standardized blueprint quality metadata across all generation paths */
+export interface BlueprintQualityMeta {
+  passed: boolean;
+  retried: boolean;
+  degraded: boolean;
+  /** Whether full validation was actually performed (false for preParsed/skipped paths) */
+  validated: boolean;
+  /** Compact issue list: code, severity, message */
+  issues: { code: string; severity: QualitySeverity; message: string }[];
+}
+
+/** Post-generation quality check result */
+export interface QuestionSetQualityCheck {
+  passed: boolean;
+  retryable: boolean;
+  issues: BlueprintIssue[];
+  typeFamilyCoverage: Record<string, { required: number; actual: number; ok: boolean }>;
+  issueMessages: string[];
+}
+
+export function validateQuestionSetBlueprint(
+  questions: DSEreadingQuestion[],
+  paragraphCount: number,
+  opts?: { mode?: 'full-paper' | 'exercise' | 'legacy' },
+): QuestionSetQualityCheck {
+  const issues: BlueprintIssue[] = [];
+  const mode = opts?.mode ?? 'legacy';
+  const isShortSet = questions.length <= 6;
+
+  // ── 1. Type family coverage ──
+  const typeFamilyCoverage: Record<string, { required: number; actual: number; ok: boolean }> = {};
+  for (const [key, family] of Object.entries(REQUIRED_TYPE_FAMILIES)) {
+    if (key === 'wholeText') continue;
+    if (key === 'summaryTransform' && isShortSet && mode !== 'full-paper') continue;
+    const actual = questions.filter(q => family.types.includes(q.type)).length;
+    const ok = actual >= family.minCount;
+    typeFamilyCoverage[key] = { required: family.minCount, actual, ok };
+    if (!ok) {
+      const isCritical = key === 'inference' || key === 'toneStance' || (key === 'factual' && actual === 0);
+      issues.push({
+        code: `MISSING_${key.toUpperCase()}`,
+        severity: isCritical ? 'critical' : 'warning',
+        message: `Type family "${family.label}" has ${actual}/${family.minCount} items`,
+      });
+    }
+  }
+
+  // ── 2. Whole-text check ──
+  const wholeTextItems = questions.filter(q => !q.paragraphRef);
+  typeFamilyCoverage['wholeText'] = {
+    required: paragraphCount >= 3 ? 1 : 0, actual: wholeTextItems.length, ok: wholeTextItems.length >= 1 || paragraphCount < 3,
+  };
+  if (wholeTextItems.length === 0 && paragraphCount >= 3 && !isShortSet) {
+    issues.push({ code: 'MISSING_WHOLE_TEXT', severity: 'critical', message: 'No whole-text or cross-paragraph item in multi-paragraph passage' });
+  }
+
+  // ── 3. Summary/transformation (context-aware) ──
+  const summaryItems = questions.filter(q => REQUIRED_TYPE_FAMILIES.summaryTransform.types.includes(q.type));
+  typeFamilyCoverage['summaryTransform'] = {
+    required: mode === 'full-paper' ? 1 : 0, actual: summaryItems.length, ok: summaryItems.length >= 1 || mode !== 'full-paper',
+  };
+  if (summaryItems.length === 0 && mode === 'full-paper') {
+    issues.push({ code: 'MISSING_SUMMARY_TRANSFORM', severity: 'critical', message: 'No summary cloze or transformation item in full paper' });
+  } else if (summaryItems.length === 0 && !isShortSet && mode !== 'full-paper') {
+    issues.push({ code: 'MISSING_SUMMARY_TRANSFORM', severity: 'warning', message: 'No summary cloze or transformation item (recommended)' });
+  }
+
+  // ── 4. Distractor quality ──
+  let distractorCount = 0;
+  for (const q of questions) {
+    if (!q.choices || q.choices.length < 3) continue;
+    for (let ci = 0; ci < q.choices.length; ci++) {
+      const choice = q.choices[ci].replace(/^[A-D][.)\s]+/, '').trim();
+      if (choice.length < 4 && choice.length > 0) distractorCount++;
+      const avgLen = q.choices.reduce((s, c) => s + c.length, 0) / q.choices.length;
+      if (choice.length > avgLen * 2 && avgLen > 10) distractorCount++;
+      if (/all\s*of\s*the\s*above|none\s*of\s*the\s*above/i.test(choice)) distractorCount++;
+    }
+  }
+  if (distractorCount >= 3) {
+    issues.push({ code: 'WEAK_DISTRACTORS', severity: 'warning', message: `${distractorCount} distractor quality issue(s)` });
+  } else if (distractorCount > 0) {
+    issues.push({ code: 'WEAK_DISTRACTORS', severity: 'info', message: `${distractorCount} minor distractor issue(s)` });
+  }
+
+  // ── 5. Paragraph coverage (content-bearing, >30% threshold) ──
+  const usedParagraphs = new Set<number>();
+  for (const q of questions) { if (q.paragraphRef) usedParagraphs.add(q.paragraphRef); }
+  const uncovered: number[] = [];
+  for (let p = 1; p <= paragraphCount; p++) { if (!usedParagraphs.has(p)) uncovered.push(p); }
+  if (uncovered.length > paragraphCount * 0.3 && paragraphCount >= 4) {
+    issues.push({ code: 'UNCOVERED_PARAGRAPHS', severity: 'warning', message: `Paragraph(s) ${uncovered.join(', ')} have no questions` });
+  } else if (uncovered.length > 0 && paragraphCount >= 4) {
+    issues.push({ code: 'UNCOVERED_PARAGRAPHS', severity: 'info', message: `Paragraph(s) ${uncovered.join(', ')} lightly covered` });
+  }
+
+  // ── 6. Paraphrase demand ──
+  let lowParaCount = 0;
+  for (const q of questions) {
+    if (q.type === 'mcq' || q.type === 'trueFalseNG' || q.type === 'referencing') continue;
+    if (q.answer && q.questionText) {
+      const answerWords = new Set(q.answer.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+      const questionWords = new Set(q.questionText.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+      let overlap = 0; for (const w of answerWords) if (questionWords.has(w)) overlap++;
+      const ratio = answerWords.size > 0 ? overlap / answerWords.size : 0;
+      if (ratio > 0.6 && answerWords.size >= 3) lowParaCount++;
+    }
+  }
+  if (lowParaCount > questions.length * 0.5) {
+    issues.push({ code: 'LOW_PARAPHRASE_DEMAND', severity: 'warning', message: `${lowParaCount}/${questions.length} items have low paraphrase demand` });
+  } else if (lowParaCount > 0) {
+    issues.push({ code: 'LOW_PARAPHRASE_DEMAND', severity: 'info', message: `${lowParaCount} item(s) have low paraphrase demand` });
+  }
+
+  // ── 7. Difficulty progression ──
+  const midPoint = Math.floor(questions.length * 0.6);
+  const earlyComplex = questions.slice(0, midPoint).filter(q => ['inference', 'toneAttitude', 'authorIntention'].includes(q.type));
+  const lateSimple = questions.slice(midPoint).filter(q => ['mcq', 'trueFalseNG', 'shortAnswer'].includes(q.type) && (q.marks || 1) <= 1);
+  if (earlyComplex.length >= 3 || lateSimple.length >= 3) {
+    issues.push({ code: 'FLAT_PROGRESSION', severity: 'warning', message: 'Difficulty progression is flat' });
+  }
+
+  return {
+    passed: !issues.some(i => i.severity === 'critical'),
+    retryable: issues.some(i => i.severity === 'critical'),
+    issues,
+    typeFamilyCoverage,
+    issueMessages: issues.map(i => `[${i.severity}] ${i.code}: ${i.message}`),
+  };
+}
+
+export function shouldRetryBlueprint(check: QuestionSetQualityCheck): boolean {
+  return check.retryable && check.issues.some(i => i.severity === 'critical');
+}
+
+/** Phase 3A.3: Convert blueprint check result to standardized metadata */
+export function toBlueprintQualityMeta(
+  check: QuestionSetQualityCheck,
+  retried: boolean,
+  validated = true,
+): BlueprintQualityMeta {
+  return {
+    passed: check.passed,
+    retried,
+    degraded: !check.passed,
+    validated,
+    issues: check.issues.map(i => ({ code: i.code, severity: i.severity, message: i.message })),
+  };
+}
+
+/** Phase 3C.2: Per-code retry guidance for targeted regeneration */
+const RETRY_GUIDANCE_BY_CODE: Record<string, string> = {
+  MISSING_INFERENCE: 'Add at least one inference-based question requiring reading beyond stated facts.',
+  MISSING_TONESTANCE: 'Add at least one tone/attitude/stance question requiring whole-text judgement.',
+  MISSING_WHOLE_TEXT: 'Add at least one whole-text or cross-paragraph question.',
+  MISSING_SUMMARY_TRANSFORM: 'Add a summary cloze or sentence transformation item.',
+  MC_BANNED_PATTERN: 'Remove banned option patterns (all/none of the above). Use plausible distractors.',
+  MC_NO_TRAP_STRUCTURE: 'Revise distractors so at least one is almost right but wrong in scope/tone/reference/degree/logic.',
+  MC_DUPLICATE_DISTRACTORS: 'Ensure distractors are distinct — no near-duplicate wrong ideas.',
+  MC_STYLISTIC_OUTLIER: 'Make correct answer and distractors similar in length/tone/style.',
+};
+
+export function buildBlueprintRetryInstruction(check: QuestionSetQualityCheck): string {
+  const criticalCodes = check.issues
+    .filter(i => i.severity === 'critical')
+    .map(i => {
+      const guidance = RETRY_GUIDANCE_BY_CODE[i.code] || '';
+      return `- ${i.code}: ${i.message}${guidance ? `\n  → ${guidance}` : ''}`;
+    });
+
+  return `
+⚠️ RETRY INSTRUCTION — Fix these CRITICAL failures:
+${criticalCodes.join('\n')}
+
+Requirements:
+- Preserve passage quality and readability
+- Fix question type balance and distractor quality
+- Ensure at least one distractor per MC item is "almost right"
+- Keep same overall question count and marks distribution
+`;
+}
+
+// ============================================
+// Phase 3C: MC Distractor Quality Validators
+// ============================================
+
+/** Banned option patterns (not DSE-compatible) */
+const BANNED_OPTION_PATTERNS = [
+  /all\s*of\s*the\s*above/i,
+  /none\s*of\s*the\s*above/i,
+  /both\s+A\s+and\s+B/i,
+  /all\s+these\s+answers/i,
+];
+
+export interface MCDistractorCheck {
+  passed: boolean;
+  issues: string[];
+  hasPlausibleTrap: boolean;
+  stylisticOutlier: boolean;
+  duplicateDistractors: boolean;
+  bannedPatternFound: boolean;
+}
+
+/**
+ * Phase 3C: Validate a single MC question's distractor quality.
+ */
+export function validateMCDistractors(
+  choices: string[],
+  correctAnswer: string,
+): MCDistractorCheck {
+  const issues: string[] = [];
+  const cleaned = choices.map(c => c.replace(/^[A-D][.)\s]+/, '').trim());
+  const correctIdx = choices.findIndex(c =>
+    c.replace(/^[A-D][.)\s]+/, '').trim().toLowerCase() === correctAnswer.toLowerCase() ||
+    /^[A-D]$/i.test(correctAnswer) && c.trim().toUpperCase().startsWith(correctAnswer.toUpperCase()),
+  );
+
+  // ── 1. Banned patterns ──
+  let bannedPatternFound = false;
+  for (const choice of cleaned) {
+    for (const pattern of BANNED_OPTION_PATTERNS) {
+      if (pattern.test(choice)) {
+        bannedPatternFound = true;
+        issues.push(`Banned pattern in option: "${choice.slice(0, 40)}"`);
+        break;
+      }
+    }
+  }
+
+  // ── 2. Length outliers ──
+  const lengths = cleaned.map(c => c.length);
+  const avgLen = lengths.reduce((s, l) => s + l, 0) / lengths.length;
+  let stylisticOutlier = false;
+  if (correctIdx >= 0 && avgLen > 15) {
+    const correctLen = lengths[correctIdx];
+    // Correct option is much longer or shorter than others
+    const othersAvg = (lengths.reduce((s, l) => s + l, 0) - correctLen) / (lengths.length - 1);
+    if (correctLen > othersAvg * 1.8 || correctLen < othersAvg * 0.4) {
+      stylisticOutlier = true;
+      issues.push(`Correct option length (${correctLen}) is a stylistic outlier vs others avg (${Math.round(othersAvg)})`);
+    }
+  }
+
+  // ── 3. Duplicate-like distractors ──
+  let duplicateDistractors = false;
+  for (let i = 0; i < cleaned.length; i++) {
+    for (let j = i + 1; j < cleaned.length; j++) {
+      const a = cleaned[i].toLowerCase().replace(/\s+/g, ' ');
+      const b = cleaned[j].toLowerCase().replace(/\s+/g, ' ');
+      if (i !== correctIdx && j !== correctIdx) {
+        // Two distractors share >70% word overlap
+        const aWords = new Set(a.split(' '));
+        const bWords = b.split(' ');
+        const overlap = bWords.filter(w => aWords.has(w)).length;
+        const ratio = Math.min(bWords.length, aWords.size) > 0 ? overlap / Math.min(bWords.length, aWords.size) : 0;
+        if (ratio >= 0.5 && bWords.length >= 3) {
+          duplicateDistractors = true;
+          issues.push(`Distractors ${String.fromCharCode(65 + i)} and ${String.fromCharCode(65 + j)} are near-duplicates`);
+        }
+      }
+    }
+  }
+
+  // ── 4. Trap presence heuristic ──
+  // At least one distractor must differ from the correct answer on a meaningful dimension
+  let hasPlausibleTrap = false;
+  if (cleaned.length >= 4 && correctIdx >= 0) {
+    const correctText = cleaned[correctIdx].toLowerCase();
+    const distractors = cleaned.filter((_, i) => i !== correctIdx);
+
+    for (const d of distractors) {
+      const dLower = d.toLowerCase();
+      // Check for half-true: shares >30% content words but differs
+      const cWords = new Set(correctText.split(/\s+/).filter(w => w.length > 3));
+      const dWords = dLower.split(/\s+/).filter(w => w.length > 3);
+      const shared = dWords.filter(w => cWords.has(w)).length;
+      const shareRatio = Math.min(cWords.size, dWords.length) > 0 ? shared / Math.min(cWords.size, dWords.length) : 0;
+
+      // Check for contrast/negation cues
+      const hasContrast = /\b(but|however|although|not|never|unlike|whereas|rather|instead|only|except)\b/i.test(dLower);
+
+      if (shareRatio >= 0.3 || hasContrast) {
+        hasPlausibleTrap = true;
+        break;
+      }
+    }
+  }
+
+  if (!hasPlausibleTrap && cleaned.length >= 3) {
+    issues.push('No plausible trap structure detected — distractors may be too weak');
+  }
+
+  return {
+    passed: issues.length === 0,
+    issues,
+    hasPlausibleTrap,
+    stylisticOutlier,
+    duplicateDistractors,
+    bannedPatternFound,
+  };
+}
+
+/**
+ * Phase 3C.1: Run MC distractor validation across all questions.
+ * Returns BlueprintIssue[] for integration into the blueprint quality pipeline.
+ */
+export function validateAllMCDistractors(questions: DSEreadingQuestion[]): BlueprintIssue[] {
+  const issues: BlueprintIssue[] = [];
+  let mcCount = 0;
+  let noTrapCount = 0;
+  let bannedCount = 0;
+
+  for (const q of questions) {
+    if (!q.choices || q.choices.length < 3) continue;
+    // Only check MCQ-type questions
+    if (!['mcq', 'mcCloze', 'negativeInference', 'authorIntention'].includes(q.type)) continue;
+    mcCount++;
+
+    const check = validateMCDistractors(q.choices, q.answer);
+
+    // Banned patterns → critical
+    if (check.bannedPatternFound) {
+      bannedCount++;
+      issues.push({
+        code: 'MC_BANNED_PATTERN',
+        severity: 'critical',
+        message: `Q${q.index}: MC item uses banned distractor pattern (all/none of the above)`,
+      });
+    }
+
+    // No plausible trap → warning (critical if >50% of MC items lack traps)
+    if (!check.hasPlausibleTrap) {
+      noTrapCount++;
+    }
+
+    // Duplicate distractors → warning
+    if (check.duplicateDistractors) {
+      issues.push({
+        code: 'MC_DUPLICATE_DISTRACTORS',
+        severity: 'warning',
+        message: `Q${q.index}: MC item has near-duplicate distractors`,
+      });
+    }
+
+    // Stylistic outlier → warning
+    if (check.stylisticOutlier) {
+      issues.push({
+        code: 'MC_STYLISTIC_OUTLIER',
+        severity: 'warning',
+        message: `Q${q.index}: Correct option is a stylistic outlier (length/specificity)`,
+      });
+    }
+  }
+
+  // No plausible trap across multiple MC items → critical if pervasive
+  if (mcCount > 0 && noTrapCount > mcCount * 0.5) {
+    issues.push({
+      code: 'MC_NO_TRAP_STRUCTURE',
+      severity: noTrapCount === mcCount ? 'critical' : 'warning',
+      message: `${noTrapCount}/${mcCount} MC items lack plausible trap structure`,
+    });
+  } else if (noTrapCount > 0) {
+    issues.push({
+      code: 'MC_NO_TRAP_STRUCTURE',
+      severity: 'warning',
+      message: `${noTrapCount} MC item(s) lack plausible trap structure`,
+    });
+  }
+
+  return issues;
 }
