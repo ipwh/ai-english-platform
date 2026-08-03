@@ -1114,7 +1114,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
         { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
-      ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 30000 });
+      ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 25000 });
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
       logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
@@ -1152,7 +1152,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   // Replaces the old blueprint-only retry with comprehensive validation.
   // ══════════════════════════════════════════
   let validatorRetries = 0;
-  const MAX_VALIDATOR_RETRIES = 2;
+  const MAX_VALIDATOR_RETRIES = 1; // Vercel budget: 25s init + 20s retry = 45s max
   let validatorResult: ReadingValidationResult | null = null;
 
   if (!preParsed) {
@@ -1186,7 +1186,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryPrompt },
           { role: 'user', content: `Regenerate the question set. Fix ALL of the issues listed above. Passage must be 500-800 words. Return JSON.` },
-        ], { temperature: 0.40, maxTokens: 6144, jsonMode: true, timeoutMs: 15000 });
+        ], { temperature: 0.40, maxTokens: 6144, jsonMode: true, timeoutMs: 20000 });
 
         const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-validator-retry');
         if (retryParse.data && !retryParse.error) {
@@ -1199,12 +1199,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
             paragraphCount: Math.max(newParaCount, paraCount),
           });
         } else {
-          logger.warn({ module: 'reading-api', error: retryParse.error }, 'Validator retry parse failed — stopping');
-          break;
+          logger.warn({ module: 'reading-api', error: retryParse.error }, 'Validator retry parse failed — will retry if attempts remain');
+          // Don't break — let the loop try again
         }
       } catch (retryErr) {
-        logger.warn({ module: 'reading-api', error: (retryErr as Error).message }, 'Validator retry AI call failed — stopping');
-        break;
+        logger.warn({ module: 'reading-api', error: (retryErr as Error).message }, 'Validator retry AI call failed — will retry if attempts remain');
+        // Don't break — let the loop try again
       }
       validatorRetries++;
     }
