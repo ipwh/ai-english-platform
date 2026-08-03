@@ -115,34 +115,73 @@ export default function ReadingPracticePage() {
   const [showPassage, setShowPassage] = useState(true);
   const [showQuestionZh, setShowQuestionZh] = useState(false);
   const savedRef = useRef(false);
-  const passageRef = useRef<HTMLDivElement>(null);
-  const [passageWidth, setPassageWidth] = useState(700);
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1024,
+  );
+  const readingPaneRef = useRef<HTMLDivElement | null>(null);
+  const [paneWidth, setPaneWidth] = useState<number>(0);
 
-  // Responsive passage width tracking for layout engine
+  // Phase 1C.1: Viewport bucket tracking (coarse, debounced)
   useEffect(() => {
-    const el = passageRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(entries => {
-      const width = entries[0]?.contentRect.width;
-      if (width && Math.abs(width - passageWidth) > 30) {
-        setPassageWidth(Math.floor(width));
-      }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [passageWidth]);
+    let timer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setWindowWidth(window.innerWidth), 200);
+    };
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); clearTimeout(timer); };
+  }, []);
 
-  // Layout engine: calculate line numbers from actual display metrics
+  // Phase 1C.1: Pane-based width for fine-grained reading measure
+  useEffect(() => {
+    if (!readingPaneRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setPaneWidth(entry.contentRect.width);
+    });
+    observer.observe(readingPaneRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  /** Phase 1C.1: Coarse device bucket from viewport width */
+  function getViewportMode(width: number): 'mobile' | 'tablet' | 'desktop' {
+    if (width >= 1280) return 'desktop';
+    if (width >= 768) return 'tablet';
+    return 'mobile';
+  }
+
+  /** Phase 1C.1: Fine-grained chars-per-line using pane width within the bucket */
+  function getPreferredCharsPerLine(params: {
+    viewportMode: 'mobile' | 'tablet' | 'desktop';
+    paneWidth?: number;
+  }): number {
+    const { viewportMode, paneWidth } = params;
+    if (viewportMode === 'mobile') return 42;
+    if (viewportMode === 'tablet') return 58;
+    // Desktop: shrink within the 60-66 band based on actual pane width
+    if (paneWidth && paneWidth < 760) return 60;
+    return 66;
+  }
+
+  const isSplitView = windowWidth >= 1024;
+
+  // Layout engine: stable width model — pane-aware, no fluid reflow drift
   const passageLayout = useMemo(() => {
     if (!data?.passage?.content) return null;
+    const mode = getViewportMode(windowWidth);
+    const preferredChars = getPreferredCharsPerLine({ viewportMode: mode, paneWidth });
     return layoutReadingText(data.passage.content, {
-      maxCharsPerLine: Math.floor((passageWidth - 80) / 8.5), // ~8.5px avg char width
+      viewportMode: mode,
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: preferredChars,
+      maxCharsPerLine: preferredChars,
       lineNumberInterval: 5,
-      lineNumberStyle: 'gutter',
       showParagraphLabels: true,
-      paragraphLabelMode: 'paragraph',
+      paragraphLabelMode: 'numeric',
+      lineNumberStyle: 'gutter',
     });
-  }, [data?.passage?.content, passageWidth]);
+  }, [data?.passage?.content, windowWidth, paneWidth]);
 
   // Persist score when all questions are answered
   useEffect(() => {
@@ -210,11 +249,19 @@ export default function ReadingPracticePage() {
   // Sequencing order tracking
   const [seqOrders, setSeqOrders] = useState<Record<number, string[]>>({});
 
+  /** Phase 2A: Only truly objective types get local grading */
+  function shouldUseApiEvaluation(q: ReadingQuestion): boolean {
+    if (q.dseType === 'multiple_choice') return false;
+    if (q.dseType === 'true_false_not_given') return false;
+    return true;
+  }
+
   function submitAnswer(qIndex: number, answer: string) {
     if (!data) return;
     const q = data.questions[qIndex];
+    const needsApi = shouldUseApiEvaluation(q);
 
-    // Sequencing: compare order strings
+    // Sequencing: compare order strings (always local)
     if (q.type === 'mc' && q.answer.includes(',') && /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question)) {
       const normalizeOrder = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/,/g, ',');
       const studentOrder = normalizeOrder(answer);
@@ -241,15 +288,9 @@ export default function ReadingPracticePage() {
       return;
     }
 
-    // MCQ/TFNG: map letter to choice text, then compare
-    if (q.type === 'mc' && q.choices && q.choices.length > 0) {
-      const studentLetter = answer.trim().toUpperCase().charAt(0); // A, B, C, D
-      const letterIndex = studentLetter.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
-      const selectedChoice = (letterIndex >= 0 && letterIndex < q.choices.length)
-        ? q.choices[letterIndex].trim()
-        : '';
-
-      // Normalize: extract letter from correct answer (handles both "C" and "C. full text")
+    // MCQ/TFNG (objective types): instant local grading
+    if (!needsApi && q.type === 'mc' && q.choices && q.choices.length > 0) {
+      const studentLetter = answer.trim().toUpperCase().charAt(0);
       const correctLetter = extractMcqLetter(q.answer, q.choices);
       const isCorrect = studentLetter === correctLetter;
 
@@ -273,89 +314,79 @@ export default function ReadingPracticePage() {
       return;
     }
 
-    // Short-answer / other: use AI semantic evaluation
-    // First, mark as submitted with optimistic local check, then call AI
-    const localIsCorrect = answer.trim().toLowerCase() === q.answer.trim().toLowerCase();
+    // Phase 2A: Semi-subjective types — ALWAYS use API, never optimistic local grading
     setAnswers(prev => ({
       ...prev,
       [qIndex]: {
         answer,
         submitted: true,
-        isCorrect: localIsCorrect,
+        isCorrect: false,
         isPartiallyCorrect: false,
-        score: localIsCorrect ? 1 : 0,
+        score: 0,
         maxScore: 1,
-        feedbackEn: localIsCorrect
-          ? '✅ Correct! See explanation below for details.'
-          : '⏳ Evaluating with AI... See explanation below.',
-        feedbackZh: localIsCorrect
-          ? '✅ 正確！請參閱下方解釋。'
-          : '⏳ 正在用AI評分... 請參閱下方解釋。',
+        feedbackEn: '⏳ Evaluating with AI...',
+        feedbackZh: '⏳ 正在用AI評分...',
       },
     }));
 
-    // Call AI evaluator asynchronously
-    if (!localIsCorrect) {
-      setEvaluatingAI(prev => new Set(prev).add(qIndex));
-      fetch('/api/reading', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'analyze-answers',
-          questions: [{
-            index: qIndex,
-            type: q.type === 'short-answer' ? 'shortAnswer' : q.type,
-            questionText: q.question,
-            answer: q.answer,
-            marks: 1,
-          }],
-          studentAnswers: { [qIndex]: answer },
-        }),
+    setEvaluatingAI(prev => new Set(prev).add(qIndex));
+    fetch('/api/reading', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'analyze-answers',
+        questions: [{
+          index: qIndex,
+          type: q.type === 'short-answer' ? 'shortAnswer' : q.type,
+          questionText: q.question,
+          answer: q.answer,
+          marks: 1,
+        }],
+        studentAnswers: { [qIndex]: answer },
+        passageContent: data.passage.content,
+      }),
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then(result => {
-          const analysis = result.analyses?.[0];
-          if (analysis) {
-            setAnswers(prev => {
-              // Guard: only update if this question still exists in data
-              if (!prev[qIndex]) return prev;
-              return {
-                ...prev,
-                [qIndex]: {
-                  ...prev[qIndex],
-                  isCorrect: analysis.isCorrect,
-                  isPartiallyCorrect: analysis.isPartiallyCorrect,
-                  score: analysis.score ?? (analysis.isCorrect ? 1 : 0),
-                  maxScore: analysis.maxMarks ?? 1,
-                  feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
-                  feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,
-                },
-              };
-            });
-          }
-        })
-        .catch(() => {
-          // AI unavailable — keep local result, explanation still shows below
-          setAnswers(prev => ({
-            ...prev,
-            [qIndex]: {
-              ...prev[qIndex],
-              feedbackEn: prev[qIndex].isCorrect ? '✅ Correct!' : '❌ Incorrect.',
-              feedbackZh: prev[qIndex].isCorrect ? '✅ 正確！' : '❌ 不正確。',
-            },
-          }));
-        })
-        .finally(() => {
-          setEvaluatingAI(prev => {
-            const next = new Set(prev);
-            next.delete(qIndex);
-            return next;
+      .then(result => {
+        const analysis = result.analyses?.[0];
+        if (analysis) {
+          setAnswers(prev => {
+            if (!prev[qIndex]) return prev;
+            return {
+              ...prev,
+              [qIndex]: {
+                ...prev[qIndex],
+                isCorrect: analysis.isCorrect,
+                isPartiallyCorrect: analysis.isPartiallyCorrect,
+                score: analysis.score ?? (analysis.isCorrect ? 1 : 0),
+                maxScore: analysis.maxMarks ?? 1,
+                feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
+                feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,
+              },
+            };
           });
+        }
+      })
+      .catch(() => {
+        setAnswers(prev => ({
+          ...prev,
+          [qIndex]: {
+            ...prev[qIndex],
+            feedbackEn: '❌ AI evaluation unavailable.',
+            feedbackZh: '❌ AI 評估暫時無法使用。',
+          },
+        }));
+      })
+      .finally(() => {
+        setEvaluatingAI(prev => {
+          const next = new Set(prev);
+          next.delete(qIndex);
+          return next;
         });
-    }
+      });
   }
 
   function getTierBadge(tier: string) {
@@ -468,8 +499,108 @@ export default function ReadingPracticePage() {
       {/* Reading Passage + Questions */}
       {data && (
         <>
-          {/* Passage Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
+          {/* Phase 1C: Split-view CSS + stable alignment */}
+          <style>{`
+            .reading-workspace {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 1.5rem;
+            }
+
+            @media (min-width: 1024px) {
+              .reading-workspace {
+                grid-template-columns: minmax(420px, 52rem) minmax(380px, 1fr);
+                align-items: start;
+              }
+            }
+
+            .reading-pane {
+              min-width: 0;
+            }
+
+            .questions-pane {
+              min-width: 0;
+            }
+
+            @media (min-width: 1024px) {
+              .questions-pane {
+                position: sticky;
+                top: 1rem;
+                max-height: calc(100vh - 2rem);
+                overflow-y: auto;
+              }
+            }
+
+            .reading-passage-shell {
+              max-width: 72ch;
+              margin: 0 auto;
+            }
+
+            .dse-reading-layout {
+              max-width: 72ch;
+              display: flex;
+              flex-direction: column;
+              gap: 0.35rem;
+            }
+
+            .dse-paragraph {
+              display: flex;
+              flex-direction: column;
+              gap: 0.1rem;
+              margin-bottom: 0.5rem;
+            }
+
+            .dse-line {
+              display: grid;
+              grid-template-columns: 2.75rem 1fr;
+              column-gap: 0.5rem;
+              align-items: start;
+              margin: 0;
+              padding: 0;
+            }
+
+            .dse-line-gutter {
+              margin: 0;
+              padding: 0.05rem 0 0 0;
+              text-align: right;
+              line-height: 1.75;
+              font-size: 0.75rem;
+              font-family: ui-monospace, monospace;
+              color: #9ca3af;
+              user-select: none;
+            }
+
+            .dse-line-number {
+              font-variant-numeric: tabular-nums;
+            }
+
+            .dse-line-text {
+              margin: 0;
+              padding: 0;
+              line-height: 1.75;
+              white-space: pre-wrap;
+              word-break: normal;
+            }
+
+            .dse-line-text > span,
+            .dse-paragraph-label {
+              line-height: inherit;
+            }
+
+            .dse-paragraph-label {
+              font-weight: 600;
+              margin-right: 0.5rem;
+              color: #374151;
+            }
+
+            .dark .dse-line-gutter { color: #6b7280; }
+            .dark .dse-paragraph-label { color: #d1d5db; }
+          `}</style>
+
+          <div className="reading-workspace">
+            {/* Left pane: Reading Passage */}
+            <div className="reading-pane" ref={readingPaneRef}>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
             <button
               onClick={() => setShowPassage(!showPassage)}
               className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -482,54 +613,11 @@ export default function ReadingPracticePage() {
               {showPassage ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
             </button>
             {showPassage && (
-              <div className="px-4 pb-4" ref={passageRef}>
+              <div className="px-4 pb-4">
                 {passageLayout ? (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm text-gray-800 dark:text-gray-200">
-                    <style>{`
-                      .dse-reading-layout {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0.35rem;
-                      }
-                      .dse-paragraph {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0.1rem;
-                        margin-bottom: 0.5rem;
-                      }
-                      .dse-line {
-                        display: grid;
-                        grid-template-columns: 2.5rem 1fr;
-                        align-items: start;
-                      }
-                      .dse-line-gutter {
-                        text-align: right;
-                        padding-right: 0.75rem;
-                        color: #9ca3af;
-                        font-size: 0.75rem;
-                        font-family: ui-monospace, monospace;
-                        user-select: none;
-                        line-height: 1.75;
-                      }
-                      .dse-line-number {
-                        font-variant-numeric: tabular-nums;
-                      }
-                      .dse-line-text {
-                        white-space: pre-wrap;
-                        line-height: 1.75;
-                      }
-                      .dse-paragraph-label {
-                        font-weight: 600;
-                        margin-right: 0.5rem;
-                        color: #374151;
-                      }
-                      .dark .dse-line-gutter { color: #6b7280; }
-                      .dark .dse-paragraph-label { color: #d1d5db; }
-                    `}</style>
-                    <div className="dse-reading-layout"
-                      dangerouslySetInnerHTML={{ __html: passageLayout.html }}
-                    />
-                  </div>
+                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm text-gray-800 dark:text-gray-200"
+                    dangerouslySetInnerHTML={{ __html: passageLayout.html }}
+                  />
                 ) : (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                     {data.passage.content}
@@ -541,6 +629,10 @@ export default function ReadingPracticePage() {
               </div>
             )}
           </div>
+            </div>{/* End reading-pane */}
+
+            {/* Right pane: Questions */}
+            <div className="questions-pane">
 
           {/* Vocabulary Hints */}
           {data.vocabularyHints && data.vocabularyHints.length > 0 && (
@@ -885,6 +977,8 @@ export default function ReadingPracticePage() {
               </button>
             </div>
           )}
+            </div>{/* End questions-pane */}
+          </div>{/* End reading-workspace */}
         </>
       )}
     </div>

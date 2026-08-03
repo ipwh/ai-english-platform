@@ -53,6 +53,18 @@ import {
 import { DSE_PART_QUESTION_MIX } from '@/modules/ai/prompts/reading/dse-question-templates';
 import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';
 import { DSE_TEXT_TYPES, DSE_PUBLICATION_SOURCES } from '@/modules/ai/prompts/reading/text-types';
+import {
+  requiresApiEvaluation,
+  estimateCopyingRatio,
+  classifyCopyingLevel,
+  classifyParaphraseQuality,
+  detectLexicalShift,
+  detectStructuralShift,
+  detectGrammarFit,
+  assessCompleteness,
+  buildEvaluation,
+} from '@/modules/reading/evaluation';
+import type { ReadingAnswerEvaluation } from '@/modules/reading/evaluation';
 
 // ============================================
 // Phase 1B: DSE Type Mapping (camelCase backend → snake_case frontend)
@@ -88,6 +100,22 @@ function mapDseTypeToFrontend(aiType: string): string {
 
 function isMcLikeDseType(dseType: string): boolean {
   return dseType === 'multiple_choice' || dseType === 'true_false_not_given';
+}
+
+// Phase 1C.1: Conditional token allocation by generation mode
+function getReadingMaxTokens(params: {
+  mode: 'full-paper' | 'exercise' | 'legacy';
+  estimatedWords?: number;
+}): number {
+  const { mode, estimatedWords = 0 } = params;
+  if (mode === 'full-paper') return estimatedWords > 1400 ? 16384 : 12288;
+  if (mode === 'exercise') return estimatedWords > 900 ? 12288 : 8192;
+  return estimatedWords > 900 ? 12288 : 8192;
+}
+
+function getReadingTimeout(params: { mode: string; maxTokens: number }): number {
+  // Proportional timeout: ~2.5ms per token, min 25s, max 60s
+  return Math.min(60000, Math.max(25000, Math.ceil(params.maxTokens * 0.0025)));
 }
 
 // ============================================
@@ -340,7 +368,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
   const result = await callLLM([
     { role: 'system', content: systemPrompt + dseContextBlock },
     { role: 'user', content: `Generate a complete DSE Paper 1 Part ${validatedPart} paper for ${gradeLevel} students (target Level ${resolvedLevel}) about "${topic || 'DSE-appropriate topic'}". Return the complete JSON paper object.` },
-  ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 30000 });
+  ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'full-paper', maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }) }) });
 
   const paper = JSON.parse(result) as DSEreadingPaper;
 
@@ -429,7 +457,7 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   const result = await callLLM([
     { role: 'system', content: prompt },
     { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Spread questions across ALL paragraphs evenly. Return JSON.` },
-  ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 30000 });
+  ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'exercise', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'exercise', maxTokens: getReadingMaxTokens({ mode: 'exercise', estimatedWords: 800 }) }) });
 
   const parsed = JSON.parse(result);
 
@@ -457,20 +485,22 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
   const {
     questions,
     studentAnswers,
+    passageContent,
   } = body as {
     questions: DSEreadingQuestion[];
     studentAnswers: Record<number, string>;
+    passageContent?: string;
   };
 
   if (!questions || !studentAnswers) {
     return NextResponse.json({ error: 'questions and studentAnswers are required' }, { status: 400 });
   }
 
-  // Sprint 102.5: AI-powered semantic evaluation for subjective questions
-  // Objective types (MCQ, TFNG) use fast exact matching
-  const OBJECTIVE_TYPES = new Set(['mcq', 'mcCloze', 'trueFalseNG', 'matching', 'sequencing', 'tableCompletion', 'summaryCloze']);
+  // Phase 2A: Route evaluation through new evaluator
+  // Objective types (MC, TFNG) → local exact match + evaluator enrichment
+  // All other types → AI semantic evaluation + evaluator enrichment
 
-  const analyses: AnswerAnalysis[] = await Promise.all(questions.map(async q => {
+  const analyses: (AnswerAnalysis & { evaluation?: ReadingAnswerEvaluation })[] = await Promise.all(questions.map(async q => {
     // Try multiple index formats (TFNG split uses float indices like 2.0, 2.1)
     let studentAnswer = (studentAnswers[q.index] || '').trim();
     if (!studentAnswer) studentAnswer = ((studentAnswers as Record<string, string>)[String(q.index)] || '').trim();
@@ -481,9 +511,14 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       studentAnswer = studentAnswer === 'T' ? 'True' : studentAnswer === 'F' ? 'False' : studentAnswer === 'NG' ? 'Not Given' : studentAnswer;
     }
 
+    // Determine the frontend DSE type for routing
+    const dseType = mapDseTypeToFrontend(q.type);
+    const useApi = requiresApiEvaluation(dseType);
+
     let result: AIEvaluationResult;
-    if (OBJECTIVE_TYPES.has(q.type)) {
-      // Simple exact/semantic matching for objective questions — no AI needed
+
+    if (!useApi) {
+      // Objective: simple exact/semantic matching — no AI needed
       const normAns = studentAnswer.toLowerCase().trim();
       const normCorrect = q.answer.toLowerCase().trim();
       const isExact = normAns === normCorrect;
@@ -497,9 +532,22 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
         feedbackEn: isExact ? '✅ Correct!' : isContained ? '✅ Correct!' : `❌ Incorrect. Expected: ${q.answer}`,
       };
     } else {
-      // Subjective types: use AI semantic evaluation
+      // Subjective: use AI semantic evaluation
       result = await evaluateWithAI(studentAnswer, q.answer, q.questionText || '', q.marks);
     }
+
+    // Phase 2A: Build structured evaluation (all types get this)
+    const evidence = passageContent || q.questionText || '';
+    const evaluation = buildEvaluation({
+      isCorrect: result.isCorrect,
+      maxScore: q.marks,
+      studentAnswer,
+      evidence,
+      questionPrompt: q.questionText || '',
+      expectedAnswer: q.answer,
+      dseType,
+      aiScoreAwarded: result.score,
+    });
 
     // Determine error type for analytics
     let errorType: ReadingErrorType | undefined;
@@ -523,6 +571,7 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       errorType,
       feedbackZh: result.feedbackZh,
       feedbackEn: result.feedbackEn,
+      evaluation,
     };
   }));
 
@@ -554,6 +603,8 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
 
   return NextResponse.json({
     analyses,
+    // Phase 2A: Structured evaluations alongside standard analyses
+    evaluations: analyses.map(a => a.evaluation).filter(Boolean),
     summary: {
       totalMarks,
       scoredMarks,
@@ -750,7 +801,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     await callLLM([
       { role: 'system', content: systemPrompt + dseContextBlock },
       { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
-    ], { temperature: 0.45, maxTokens: 8192, jsonMode: true, timeoutMs: 25000 })
+    ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) })
   );
 
   // Attach readability if passage content exists

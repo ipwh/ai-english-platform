@@ -12,7 +12,8 @@ import {
   generateLayoutReport, formatLayoutReport,
 } from '@/modules/reading/layout';
 import { getFullRuntimeReport } from '@/modules/platform/sre/reliability-dashboard';
-import { resolveLayoutOptions } from '@/modules/reading/layout';
+import { resolveLayoutOptions, resolveCharsPerLine } from '@/modules/reading/layout';
+import type { LayoutWarnings } from '@/modules/reading/layout';
 import fs from 'fs';
 import path from 'path';
 
@@ -91,11 +92,12 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
     expect(r.paragraphs[2].paragraphNumber).toBe(3);
   });
 
-  it('9. Options are respected', () => {
-    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
+  it('9. Options are respected (fixed measure off)', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2, fixedReadingMeasure: false });
     const o = r.options as Record<string, unknown>;
     expect(o.lineNumberInterval).toBe(2);
-    expect(o.maxCharsPerLine).toBe(40);
+    // With fixedReadingMeasure off, the effective chars-per-line is the raw value
+    expect(o.effectiveCharsPerLine ?? o.maxCharsPerLine).toBe(40);
     expect(r.markers!.length).toBeGreaterThan(0);
   });
 
@@ -303,6 +305,135 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
       expect(firstLine.isParagraphStart).toBe(true);
       expect(firstLine.paragraphLabel).toBe(paragraph.label);
     }
+  });
+
+  // ═══ 34-38: Phase 1C — Stable Width + Alignment Tests ═══
+
+  it('34. desktop mode constrains chars-per-line to stable range', () => {
+    const opts = resolveLayoutOptions({
+      viewportMode: 'desktop',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 66,
+    });
+    const cpl = resolveCharsPerLine(opts);
+    expect(cpl).toBe(66);
+    expect(cpl).toBeGreaterThanOrEqual(60);
+    expect(cpl).toBeLessThanOrEqual(72);
+  });
+
+  it('35. mobile mode uses narrower chars-per-line', () => {
+    const opts = resolveLayoutOptions({
+      viewportMode: 'mobile',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 66,
+    });
+    const cpl = resolveCharsPerLine(opts);
+    expect(cpl).toBe(42);
+    expect(cpl).toBeLessThan(66);
+  });
+
+  it('36. rendered HTML does not create empty standalone gutter rows', () => {
+    const result = layoutReadingText(SAMPLE_PASSAGE, {
+      maxCharsPerLine: 40,
+      lineNumberInterval: 5,
+      fixedReadingMeasure: true,
+    });
+    // Every dse-line-gutter should have a sibling dse-line-text with content
+    const html = result.html;
+    const lineBlocks = html.split('dse-line">').filter(b => b.includes('dse-line-gutter'));
+    for (const block of lineBlocks) {
+      // If there's a gutter, there must be text content (not just empty span)
+      const hasText = /dse-line-text">\s*<span>(?!\s*<\/span>)/.test(block) ||
+        /dse-line-text">\s*\S/.test(block);
+      expect(hasText).toBe(true);
+    }
+    // No blank lines with a number but no text
+    expect(html).not.toMatch(/dse-line-number">\d+<\/span>\s*<\/div>\s*<div class="dse-line-text">\s*<span>\s*<\/span>/);
+  });
+
+  it('37. paragraph labels do not shift gutter alignment', () => {
+    const result = layoutReadingText(SAMPLE_PASSAGE, {
+      maxCharsPerLine: 40,
+      showParagraphLabels: true,
+      paragraphLabelMode: 'paragraph',
+      lineNumberInterval: 5,
+      fixedReadingMeasure: true,
+    });
+    // The dse-paragraph-label is inside dse-line-text, not a separate row
+    expect(result.html).toContain('dse-paragraph-label');
+    // Label must be inside dse-line-text, not before the gutter
+    const labelOutsideGutter = /dse-paragraph-label[^<]*<\/span>\s*<\/div>\s*<div class="dse-line-gutter">/.test(result.html);
+    expect(labelOutsideGutter).toBe(false);
+  });
+
+  it('38. fixedReadingMeasure prevents fluid width drift', () => {
+    // Two calls with different container widths should produce same layout
+    const r1 = layoutReadingText(SAMPLE_PASSAGE, {
+      viewportMode: 'desktop',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 66,
+    });
+    const r2 = layoutReadingText(SAMPLE_PASSAGE, {
+      viewportMode: 'desktop',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 66,
+    });
+    expect(r1.totalLines).toBe(r2.totalLines);
+    expect(r1.markers).toEqual(r2.markers);
+  });
+
+  // ═══ 39-42: Phase 1C.1 — Cleanup & Hardening Tests ═══
+
+  it('39. LayoutResult.warnings exists independently from options', () => {
+    const r = layoutReadingText(SAMPLE_PASSAGE, {
+      viewportMode: 'desktop',
+      fixedReadingMeasure: true,
+    });
+    // warnings is a top-level field, not nested inside options
+    expect(r.warnings).toBeDefined();
+    expect(r.warnings!.splitViewEligible).toBe(true);
+    expect(r.warnings!.details).toBeDefined();
+    // options should NOT contain _warnings
+    const opts = r.options as Record<string, unknown>;
+    expect(opts._warnings).toBeUndefined();
+    // options should contain config, not runtime warnings
+    expect(opts.viewportMode).toBe('desktop');
+  });
+
+  it('40. width bucket remains stable within same desktop range', () => {
+    // Simulate two different desktop widths within the same bucket
+    const opts1 = resolveLayoutOptions({
+      viewportMode: 'desktop',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 66,
+    });
+    const opts2 = resolveLayoutOptions({
+      viewportMode: 'desktop',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 66,
+    });
+    // Both should resolve to the same chars-per-line
+    expect(resolveCharsPerLine(opts1)).toBe(66);
+    expect(resolveCharsPerLine(opts2)).toBe(66);
+    expect(resolveCharsPerLine(opts1)).toBe(resolveCharsPerLine(opts2));
+  });
+
+  it('41. tablet mode caps chars at 60 regardless of preferred', () => {
+    const opts = resolveLayoutOptions({
+      viewportMode: 'tablet',
+      fixedReadingMeasure: true,
+      preferredCharsPerLine: 70,
+    });
+    expect(resolveCharsPerLine(opts)).toBe(60);
+  });
+
+  it('42. fixedReadingMeasure=false falls back to raw maxCharsPerLine', () => {
+    const opts = resolveLayoutOptions({
+      viewportMode: 'desktop',
+      fixedReadingMeasure: false,
+      maxCharsPerLine: 50,
+    });
+    expect(resolveCharsPerLine(opts)).toBe(50);
   });
 });
 

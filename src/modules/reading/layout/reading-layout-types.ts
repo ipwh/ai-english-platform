@@ -53,6 +53,14 @@ export interface LayoutOptions {
   /** Line number display style (default "gutter") */
   lineNumberStyle?: 'gutter' | 'none';
 
+  // ── Phase 1C: Stable reading measure ──
+  /** Viewport category for width selection (default auto-detected) */
+  viewportMode?: 'mobile' | 'tablet' | 'desktop';
+  /** When true, use preferredCharsPerLine instead of fluid container-based calc */
+  fixedReadingMeasure?: boolean;
+  /** Target characters per line for fixed-measure mode (overrides maxCharsPerLine) */
+  preferredCharsPerLine?: number;
+
   // ── Backward-compat aliases ──
   /** @deprecated Use maxCharsPerLine */
   charsPerLine?: number;
@@ -73,6 +81,9 @@ export interface ResolvedLayoutOptions {
   showParagraphLabels: boolean;
   paragraphLabelMode: 'numeric' | 'paragraph';
   lineNumberStyle: 'gutter' | 'none';
+  viewportMode: 'mobile' | 'tablet' | 'desktop';
+  fixedReadingMeasure: boolean;
+  preferredCharsPerLine: number;
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
@@ -81,6 +92,9 @@ export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
   showParagraphLabels: true,
   paragraphLabelMode: 'paragraph',
   lineNumberStyle: 'gutter',
+  viewportMode: 'desktop',
+  fixedReadingMeasure: true,
+  preferredCharsPerLine: 66,
 };
 
 /** Resolve partial options against defaults (also handles backward-compat aliases) */
@@ -91,7 +105,35 @@ export function resolveLayoutOptions(raw?: Partial<LayoutOptions>): ResolvedLayo
     showParagraphLabels: raw?.showParagraphLabels ?? DEFAULT_LAYOUT_OPTIONS.showParagraphLabels,
     paragraphLabelMode: raw?.paragraphLabelMode ?? DEFAULT_LAYOUT_OPTIONS.paragraphLabelMode,
     lineNumberStyle: raw?.lineNumberStyle ?? DEFAULT_LAYOUT_OPTIONS.lineNumberStyle,
+    viewportMode: raw?.viewportMode ?? DEFAULT_LAYOUT_OPTIONS.viewportMode,
+    fixedReadingMeasure: raw?.fixedReadingMeasure ?? DEFAULT_LAYOUT_OPTIONS.fixedReadingMeasure,
+    preferredCharsPerLine: raw?.preferredCharsPerLine ?? DEFAULT_LAYOUT_OPTIONS.preferredCharsPerLine,
   };
+}
+
+/**
+ * Phase 1C: Resolve stable chars-per-line based on viewport mode.
+ * When fixedReadingMeasure is true, uses predetermined values per viewport.
+ * Otherwise falls back to maxCharsPerLine.
+ */
+export function resolveCharsPerLine(opts: ResolvedLayoutOptions): number {
+  if (opts.fixedReadingMeasure) {
+    switch (opts.viewportMode) {
+      case 'desktop': return opts.preferredCharsPerLine;
+      case 'tablet': return Math.min(opts.preferredCharsPerLine, 60);
+      case 'mobile': return Math.min(opts.preferredCharsPerLine, 42);
+    }
+  }
+  return opts.maxCharsPerLine;
+}
+
+/** Layout quality warnings computed during layout */
+export interface LayoutWarnings {
+  overWideLines: boolean;
+  unstableLineCount: boolean;
+  gutterAlignmentRisk: boolean;
+  splitViewEligible: boolean;
+  details: string[];
 }
 
 /** Full layout result */
@@ -102,6 +144,8 @@ export interface LayoutResult {
   html: string;
   /** Total display lines */
   totalLines: number;
+  /** Phase 1C.1: Runtime diagnostics, separate from config */
+  warnings?: LayoutWarnings;
 
   // ── Backward-compat fields ──
   /** Plain text with line markers (backward compat) */
