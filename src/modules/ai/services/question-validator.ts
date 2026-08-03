@@ -104,7 +104,31 @@ export function validateAndFixQuestion(
     const letterIndex = MCQ_LETTERS.indexOf(answerLetter as typeof MCQ_LETTERS[number]);
 
     if (letterIndex >= 0 && letterIndex < fixed.choices.length) {
-      // valid letter
+      // valid letter — answer points to an existing choice
+    } else if (letterIndex >= 0 && letterIndex >= fixed.choices.length) {
+      // ⚠️ Answer letter is out of range (e.g., "D" but only 3 choices A/B/C)
+      // This is a data integrity issue — the answer references a non-existent choice.
+      // Try to auto-fix by matching the answer text, otherwise reject.
+      const normAnswer = normalizeAnswer(answerRaw);
+      const matchIndex = fixed.choices.findIndex(
+        c => normalizeAnswer(stripMcqPrefix(c)) === normAnswer,
+      );
+      if (matchIndex >= 0) {
+        fixed.answer = toMcqLetter(matchIndex);
+        warnings.push(`Q${index}: answer letter "${answerLetter}" out of range (only ${fixed.choices.length} choices), auto-fixed to "${fixed.answer}" via text match`);
+      } else {
+        // Log as error (not just warning) — this question has broken data
+        logger.error({
+          module: 'question-validator',
+          questionIndex: index,
+          answer: answerRaw,
+          choicesCount: fixed.choices.length,
+          choices: fixed.choices.map(c => c.slice(0, 40)).join('|'),
+        }, `Q${index}: answer "${answerLetter}" out of range (${fixed.choices.length} choices), cannot fix`);
+        warnings.push(`Q${index}: CRITICAL — answer "${answerLetter}" references non-existent choice (only ${fixed.choices.length} choices available: ${MCQ_LETTERS.slice(0, fixed.choices.length).join('/')})`);
+        // Fallback: default to first choice to prevent UI breakage, but mark as rejected
+        fixed.answer = toMcqLetter(0);
+      }
     } else {
       const normAnswer = normalizeAnswer(answerRaw);
       const matchIndex = fixed.choices.findIndex(

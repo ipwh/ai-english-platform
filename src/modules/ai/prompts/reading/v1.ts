@@ -464,7 +464,7 @@ export function buildReadingSectionPromptLite(): string {
 ## CRITICAL: You are generating a DSE Paper 1 reading exercise.
 
 ### ⚠️ Passage Requirements (MUST FOLLOW):
-- Generate a reading passage of 350-500 words with 3-4 paragraphs
+- Generate a reading passage of EXACTLY 500-800 words with 3-5 paragraphs
 - Start each paragraph with [Paragraph N] marker (e.g., [Paragraph 1])
 - Do NOT use [line N] markers — the system adds those automatically
 - Use a realistic DSE text type: feature article, newspaper article, blog post, interview, etc.

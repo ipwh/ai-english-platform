@@ -102,6 +102,31 @@ HKDSE 對齊規則：
 
   const studentWordCount = (input.studentAnswer.match(/[A-Za-z0-9][A-Za-z0-9'\-]*/g) || []).length;
 
+  // ⚠️ Normalize correctAnswer: if it's a letter out of range for available choices,
+  // resolve it to prevent AI hallucination (the AI would see A/B/C but answer "D")
+  const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
+  let normalizedCorrectAnswer = input.correctAnswer;
+  if (input.choices && input.choices.length > 0) {
+    const answerUpper = input.correctAnswer.trim().toUpperCase();
+    const answerIdx = MCQ_LETTERS.indexOf(answerUpper as typeof MCQ_LETTERS[number]);
+    if (answerIdx >= 0 && answerIdx >= input.choices.length) {
+      // Answer letter references a non-existent choice — log and fall back to first choice
+      logger.warn({
+        module: 'analyze-answer',
+        correctAnswer: input.correctAnswer,
+        choicesCount: input.choices.length,
+        choices: input.choices.map(c => c.slice(0, 40)).join('|'),
+      }, 'correctAnswer letter out of range, normalizing for AI prompt');
+      // Try text-based matching first
+      const textMatchIdx = input.choices.findIndex(
+        c => c.trim().toLowerCase() === input.correctAnswer.trim().toLowerCase(),
+      );
+      normalizedCorrectAnswer = textMatchIdx >= 0
+        ? MCQ_LETTERS[textMatchIdx]
+        : MCQ_LETTERS[0];
+    }
+  }
+
   let contextBlock = '';
   if (input.listeningContent) {
     contextBlock += `\n【聆聽內容】\n${input.listeningContent.slice(0, 2000)}\n`;
@@ -116,7 +141,7 @@ HKDSE 對齊規則：
 
   const userPrompt = `題目：${sanitizeForAI(input.question)}
 題型：${input.questionType}
-正確答案：${sanitizeForAI(input.correctAnswer)}
+正確答案：${sanitizeForAI(normalizedCorrectAnswer)}
 學生答案：${sanitizeForAI(input.studentAnswer)}
 學生答案詞數（系統計算）：${studentWordCount}
 ${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}

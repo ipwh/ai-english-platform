@@ -135,12 +135,26 @@ function getFullAnswerText(question: PracticeQuestion): string {
   if (question.choices && question.choices.length > 0) {
     const answerLetter = question.answer.trim().toUpperCase();
     const answerIndex = MCQ_LETTERS.indexOf(answerLetter as (typeof MCQ_LETTERS)[number]);
-    if (answerIndex >= 0 && question.choices[answerIndex]) {
+    if (answerIndex >= 0 && answerIndex < question.choices.length && question.choices[answerIndex]) {
       return stripMcqPrefix(question.choices[answerIndex]);
     }
 
+    // ⚠️ Answer letter out of range (e.g., "D" but only 3 choices) — try text match
     const textMatch = question.choices.find(c => stripMcqPrefix(c).toLowerCase() === question.answer.trim().toLowerCase());
-    return textMatch ? stripMcqPrefix(textMatch) : question.answer;
+    if (textMatch) return stripMcqPrefix(textMatch);
+
+    // ⚠️ Fallback: return the first choice's text + letter annotation to avoid showing bare letters
+    if (answerIndex >= question.choices.length) {
+      logger.warn({
+        module: 'student-practice-detail',
+        questionId: question.id,
+        answer: question.answer,
+        choicesCount: question.choices.length,
+      }, 'getFullAnswerText: answer letter out of range, falling back to first choice');
+      return stripMcqPrefix(question.choices[0] || question.answer);
+    }
+
+    return question.answer;
   }
   return question.answer;
 }
@@ -324,13 +338,38 @@ export default function PracticeQuestionPage() {
     setAiLoading(true);
     setAiError('');
     try {
+      // ⚠️ Validate correctAnswer against choices before sending to AI
+      // If correctAnswer is a letter out of range (e.g., "D" but only 3 choices),
+      // normalize it to prevent AI hallucination
+      let normalizedCorrectAnswer = question.answer;
+      if (question.choices && question.choices.length > 0) {
+        const answerUpper = question.answer.trim().toUpperCase();
+        const answerIdx = MCQ_LETTERS.indexOf(answerUpper as (typeof MCQ_LETTERS)[number]);
+        if (answerIdx >= 0 && answerIdx >= question.choices.length) {
+          // Answer letter out of range — log and normalize to first choice as safe fallback
+          logger.warn({
+            module: 'student-practice-detail',
+            questionId: question.id,
+            answer: question.answer,
+            choicesCount: question.choices.length,
+          }, 'Correct answer letter out of range, normalizing for AI analysis');
+          // Try text-based match first
+          const textMatchIdx = question.choices.findIndex(
+            c => stripMcqPrefix(c).toLowerCase() === question.answer.trim().toLowerCase()
+          );
+          normalizedCorrectAnswer = textMatchIdx >= 0
+            ? getMcqLetterByIndex(textMatchIdx)
+            : getMcqLetterByIndex(0);
+        }
+      }
+
       const res = await fetch('/api/ai/analyze-answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question: question.prompt,
           questionType: question.type,
-          correctAnswer: question.answer,
+          correctAnswer: normalizedCorrectAnswer,
           studentAnswer: selectedAnswer,
           choices: question.choices || undefined,
           listeningContent: question.listeningContent || undefined,

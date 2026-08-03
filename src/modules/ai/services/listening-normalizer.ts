@@ -156,6 +156,15 @@ export function validateListeningConsistency(
       const letterMatch = q.answer.trim().match(/^[A-D]$/i);
       if (letterMatch) {
         const idx = letterMatch[0].toUpperCase().charCodeAt(0) - 65;
+        // ⚠️ Guard: answer letter out of range (e.g., "D" but only 3 choices)
+        if (idx >= q.choices.length) {
+          const letter = letterMatch[0].toUpperCase();
+          errors.push(
+            `${prefix} answer letter "${letter}" out of range — only ${q.choices.length} choices available (${['A','B','C','D'].slice(0, q.choices.length).join('/')})`,
+          );
+          retryIndices.push(i);
+          continue;
+        }
         const answerText = q.choices[idx] || '';
         const normContent = q.listeningContent.toLowerCase().replace(/\s+/g, ' ');
         const normAnswer = answerText
