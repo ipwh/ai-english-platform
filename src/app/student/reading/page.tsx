@@ -163,18 +163,19 @@ export default function ReadingPracticePage() {
     return 'mobile';
   }
 
-  /** Phase 4D.2: Fine-grained chars-per-line using pane width within the bucket.
-   *  Caps align with resolveCharsPerLine: desktop≤68, tablet≤58, mobile≤40. */
+  /** Phase 4D.3: Granular chars-per-line tiers for student split-view.
+   *  mobile≈40, tablet≈56, narrow desktop≈60, medium desktop≈64, wide desktop≈66. */
   function getPreferredCharsPerLine(params: {
     viewportMode: 'mobile' | 'tablet' | 'desktop';
     paneWidth?: number;
   }): number {
     const { viewportMode, paneWidth } = params;
     if (viewportMode === 'mobile') return 40;
-    if (viewportMode === 'tablet') return 58;
-    // Desktop: narrow panes get 62, wide panes capped at 68
-    if (paneWidth && paneWidth < 760) return 62;
-    return 66;
+    if (viewportMode === 'tablet') return 56;
+    // Desktop: three granular tiers
+    if (!paneWidth || paneWidth < 640) return 60;   // narrow pane
+    if (paneWidth < 860) return 64;                  // medium pane
+    return 66;                                        // wide pane
   }
 
   const isSplitView = windowWidth >= 1024;
@@ -448,7 +449,7 @@ export default function ReadingPracticePage() {
   const totalMaxScore = data ? data.questions.length : 0;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -525,7 +526,8 @@ export default function ReadingPracticePage() {
 
             @media (min-width: 1024px) {
               .reading-workspace {
-                grid-template-columns: minmax(420px, 52rem) minmax(380px, 1fr);
+                grid-template-columns: 1.3fr 1fr;
+                gap: 2rem;
                 align-items: start;
               }
             }
@@ -548,12 +550,11 @@ export default function ReadingPracticePage() {
             }
 
             .reading-passage-shell {
-              max-width: 68ch;
               margin: 0 auto;
             }
 
             .dse-reading-layout {
-              max-width: 68ch;
+              max-width: 66ch;
               display: flex;
               flex-direction: column;
               gap: 0.35rem;
@@ -562,14 +563,14 @@ export default function ReadingPracticePage() {
             .dse-paragraph {
               display: flex;
               flex-direction: column;
-              gap: 0.1rem;
-              margin-bottom: 0.5rem;
+              gap: 0.05rem;
+              margin-bottom: 0.4rem;
             }
 
             .dse-line {
               display: grid;
-              grid-template-columns: 2.75rem 1fr;
-              column-gap: 0.5rem;
+              grid-template-columns: 2.25rem 1fr;
+              column-gap: 0.625rem;
               align-items: start;
               margin: 0;
               padding: 0;
@@ -631,7 +632,7 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-4 pb-4">
                 {passageLayout ? (
-                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm text-gray-800 dark:text-gray-200"
+                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-4 py-5 text-sm text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (
