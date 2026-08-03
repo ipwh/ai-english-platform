@@ -134,6 +134,58 @@ function getReadingTimeout(params: { mode: string; maxTokens: number }): number 
 }
 
 // ============================================
+// Phase 4D.3: Generation Safety — Safe Parse + Structured Errors
+// ============================================
+
+/** Structured error for API responses — user-safe message + dev-facing details */
+interface ApiError {
+  error: string;
+  code: string;
+  recoverable: boolean;
+  details?: string;
+}
+
+function apiError(message: string, code: string, recoverable = false, details?: string): ApiError {
+  return { error: message, code, recoverable, details };
+}
+
+/** Safely parse AI JSON output, returning null on failure instead of throwing */
+function safeJsonParse<T>(raw: string, label: string): { data: T | null; error: string | null } {
+  try {
+    const data = JSON.parse(raw) as T;
+    if (!data || typeof data !== 'object') {
+      return { data: null, error: `${label}: parsed value is not an object` };
+    }
+    return { data, error: null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown parse error';
+    logger.warn({ module: 'reading-api', label, error: msg }, 'AI JSON parse failed');
+    return { data: null, error: `${label}: ${msg}` };
+  }
+}
+
+/** Phase 4D.3: Minimum passage word count for DSE-style question support */
+const MIN_PASSAGE_WORDS = {
+  fullPaper: 400,  // per passage in full-paper mode
+  exercise: 350,
+  legacy: 250,
+} as const;
+
+/** Check if a passage is too short and return a warning if so */
+function checkPassageLength(
+  content: string,
+  mode: 'full-paper' | 'exercise' | 'legacy',
+  passageIndex: number,
+): string | null {
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const min = MIN_PASSAGE_WORDS[mode];
+  if (wordCount < min) {
+    return `Passage ${passageIndex + 1} is too short: ${wordCount} words (minimum ${min} for ${mode} mode). Questions may lack sufficient context.`;
+  }
+  return null;
+}
+
+// ============================================
 // Phase 3A.2: Shared Blueprint Retry Helper
 // ============================================
 
@@ -211,7 +263,10 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     logger.error({ module: 'reading-api', error: msg }, 'Reading API error');
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      apiError(msg, 'INTERNAL_ERROR', false, err instanceof Error ? err.stack : undefined),
+      { status: 500 },
+    );
   }
 }
 
@@ -428,11 +483,32 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     { role: 'user', content: `Generate a complete DSE Paper 1 Part ${validatedPart} paper for ${gradeLevel} students (target Level ${resolvedLevel}) about "${topic || 'DSE-appropriate topic'}". Return the complete JSON paper object.` },
   ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'full-paper', maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }) }) });
 
-  const paper = JSON.parse(result) as DSEreadingPaper;
+  const paperParse = safeJsonParse<DSEreadingPaper>(result, 'full-paper-generation');
+  if (!paperParse.data || paperParse.error) {
+    return NextResponse.json(
+      apiError('AI generated malformed paper JSON', 'MALFORMED_AI_OUTPUT', true, paperParse.error ?? undefined),
+      { status: 422 },
+    );
+  }
+  const paper = paperParse.data;
+
+  // Guard: ensure passages array exists
+  if (!paper.passages || !Array.isArray(paper.passages) || paper.passages.length === 0) {
+    return NextResponse.json(
+      apiError('Generated paper has no passages', 'EMPTY_PAPER', true),
+      { status: 422 },
+    );
+  }
 
   // Post-generation quality validation
   const warnings: string[] = [];
-  for (const passage of paper.passages) {
+  for (let pi = 0; pi < paper.passages.length; pi++) {
+    const passage = paper.passages[pi];
+    if (!passage || !passage.content) continue;
+
+    // Phase 4D.3: Passage-length guardrail
+    const lengthWarning = checkPassageLength(passage.content, 'fullPaper', pi);
+    if (lengthWarning) warnings.push(lengthWarning);
     const pqCheck = validatePassageQuality(passage, validatedPart);
     if (!pqCheck.passed) {
       warnings.push(`Passage ${passage.textNumber}: ${pqCheck.issues.join('; ')}`);
@@ -589,7 +665,10 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
   const passageText = parsed.readingContent as string || '';
   const wordCount = passageText.split(/\s+/).filter(Boolean).length;
   if (wordCount < 200) {
-    throw new Error(`Generated passage too short: ${wordCount} words (minimum 500 required). Please retry.`);
+    return NextResponse.json(
+      apiError(`Generated passage too short: ${wordCount} words (minimum 200 required). Please retry with a different topic.`, 'PASSAGE_TOO_SHORT', true),
+      { status: 422 },
+    );
   }
 
   // Route through legacy handler for full passage + question transformation
