@@ -42,13 +42,13 @@ export interface LayoutParagraph {
 
 /** Options for the layout engine */
 export interface LayoutOptions {
-  /** Characters per visual line (default 65) */
+  /** Characters per visual line — hard upper cap (default 68) */
   maxCharsPerLine?: number;
   /** Line number interval — show number every N lines (default 5) */
   lineNumberInterval?: number;
   /** Whether to show paragraph labels (default true) */
   showParagraphLabels?: boolean;
-  /** Paragraph label format: "Paragraph 1" or just "1" (default "paragraph") */
+  /** Paragraph label format: "Paragraph 1" or just "1" (default "numeric") */
   paragraphLabelMode?: 'numeric' | 'paragraph';
   /** Line number display style (default "gutter") */
   lineNumberStyle?: 'gutter' | 'none';
@@ -58,7 +58,7 @@ export interface LayoutOptions {
   viewportMode?: 'mobile' | 'tablet' | 'desktop';
   /** When true, use preferredCharsPerLine instead of fluid container-based calc */
   fixedReadingMeasure?: boolean;
-  /** Target characters per line for fixed-measure mode (overrides maxCharsPerLine) */
+  /** Target characters per line for fixed-measure mode (default 66) */
   preferredCharsPerLine?: number;
 
   // ── Backward-compat aliases ──
@@ -87,14 +87,14 @@ export interface ResolvedLayoutOptions {
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
-  maxCharsPerLine: 70,
+  maxCharsPerLine: 68,
   lineNumberInterval: 5,
   showParagraphLabels: true,
-  paragraphLabelMode: 'paragraph',
+  paragraphLabelMode: 'numeric',
   lineNumberStyle: 'gutter',
   viewportMode: 'desktop',
   fixedReadingMeasure: true,
-  preferredCharsPerLine: 70,
+  preferredCharsPerLine: 66,
 };
 
 /** Resolve partial options against defaults (also handles backward-compat aliases) */
@@ -112,19 +112,20 @@ export function resolveLayoutOptions(raw?: Partial<LayoutOptions>): ResolvedLayo
 }
 
 /**
- * Phase 1C: Resolve stable chars-per-line based on viewport mode.
- * When fixedReadingMeasure is true, uses predetermined values per viewport.
- * Otherwise falls back to maxCharsPerLine.
+ * Phase 1C / 4D.2: Resolve stable chars-per-line based on viewport mode.
+ * When fixedReadingMeasure is true, uses predetermined caps per viewport
+ * (more conservative than previous — better for HKDSE exam-like density).
+ * Otherwise falls back to maxCharsPerLine as a hard upper limit.
  */
 export function resolveCharsPerLine(opts: ResolvedLayoutOptions): number {
   if (opts.fixedReadingMeasure) {
     switch (opts.viewportMode) {
-      case 'desktop': return opts.preferredCharsPerLine;
-      case 'tablet': return Math.min(opts.preferredCharsPerLine, 60);
-      case 'mobile': return Math.min(opts.preferredCharsPerLine, 42);
+      case 'desktop': return Math.min(opts.preferredCharsPerLine, 68);
+      case 'tablet':  return Math.min(opts.preferredCharsPerLine, 58);
+      case 'mobile':  return Math.min(opts.preferredCharsPerLine, 40);
     }
   }
-  return opts.maxCharsPerLine;
+  return Math.min(opts.maxCharsPerLine, 68);
 }
 
 /** Layout quality warnings computed during layout */

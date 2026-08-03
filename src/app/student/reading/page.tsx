@@ -163,17 +163,18 @@ export default function ReadingPracticePage() {
     return 'mobile';
   }
 
-  /** Phase 1C.1: Fine-grained chars-per-line using pane width within the bucket */
+  /** Phase 4D.2: Fine-grained chars-per-line using pane width within the bucket.
+   *  Caps align with resolveCharsPerLine: desktop≤68, tablet≤58, mobile≤40. */
   function getPreferredCharsPerLine(params: {
     viewportMode: 'mobile' | 'tablet' | 'desktop';
     paneWidth?: number;
   }): number {
     const { viewportMode, paneWidth } = params;
-    if (viewportMode === 'mobile') return 42;
+    if (viewportMode === 'mobile') return 40;
     if (viewportMode === 'tablet') return 58;
-    // Desktop: narrow panes get 62, wide panes get full 70 chars
+    // Desktop: narrow panes get 62, wide panes capped at 68
     if (paneWidth && paneWidth < 760) return 62;
-    return 70;
+    return 66;
   }
 
   const isSplitView = windowWidth >= 1024;
@@ -547,12 +548,12 @@ export default function ReadingPracticePage() {
             }
 
             .reading-passage-shell {
-              max-width: 78ch;
+              max-width: 68ch;
               margin: 0 auto;
             }
 
             .dse-reading-layout {
-              max-width: 78ch;
+              max-width: 68ch;
               display: flex;
               flex-direction: column;
               gap: 0.35rem;
