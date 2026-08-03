@@ -102,36 +102,37 @@ function mapReadingApiError(
   status: number,
   payload: Record<string, unknown> | undefined,
   language: 'en' | 'zh',
-): { message: string; recoverable: boolean; code?: string } {
+): { message: string; recoverable: boolean; code?: string; debugInfo?: string } {
   const code = typeof payload?.code === 'string' ? payload.code : undefined;
   const recoverable = Boolean(payload?.recoverable);
+  const details = typeof payload?.details === 'string' ? payload.details : undefined;
 
   if (status === 422) {
     switch (code) {
       case 'PASSAGE_TOO_SHORT':
-        return { code, recoverable: true, message: language === 'en'
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The system did not generate a passage long enough. Please try again.'
           : '系統暫時未生成足夠長的篇章，請再試一次。' };
       case 'MALFORMED_AI_OUTPUT':
-        return { code, recoverable: true, message: language === 'en'
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The system could not generate valid reading content. Please try again.'
           : '系統暫時未能生成有效內容，請再試一次。' };
       case 'EMPTY_PAPER':
-        return { code, recoverable: true, message: language === 'en'
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The system did not generate a complete reading task. Please generate again.'
           : '系統未生成完整閱讀內容，請重新生成。' };
       case 'AI_PROVIDER_ERROR':
-        return { code, recoverable: true, message: language === 'en'
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The AI service is temporarily busy. Please wait a moment and try again.'
           : 'AI 服務暫時繁忙，請稍候再試。' };
       default:
-        return { code, recoverable, message: language === 'en'
+        return { code, recoverable, debugInfo: details, message: language === 'en'
           ? 'The request was understood, but the content could not be processed. Please try again.'
           : '系統收到請求，但未能處理內容，請重試。' };
     }
   }
 
-  return { code, recoverable: false, message: language === 'en'
+  return { code, recoverable: false, debugInfo: details, message: language === 'en'
     ? 'A system error occurred. Please try again later.'
     : '系統暫時發生錯誤，請稍後再試。' };
 }
@@ -295,7 +296,12 @@ export default function ReadingPracticePage() {
               ? ' You can press "Generate Reading Task" to try again.'
               : ' 你可以直接按「生成閱讀練習」再試一次。')
           : '';
-        setError(mapped.message + retryHint);
+        const debugSuffix = mapped.debugInfo
+          ? (language === 'en'
+              ? ` [Debug: ${mapped.debugInfo.slice(0, 120)}]`
+              : ` [除錯：${mapped.debugInfo.slice(0, 120)}]`)
+          : '';
+        setError(mapped.message + retryHint + debugSuffix);
       }
     } catch {
       setError(language === 'en' ? 'Network error' : '網絡錯誤');
@@ -557,7 +563,7 @@ export default function ReadingPracticePage() {
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {loading ? (language === 'en' ? 'Generating...' : '生成中...') : (language === 'en' ? 'Generate Reading Task' : '生成閱讀練習')}
           </button>
-          {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+          {error && <p className="text-sm text-red-500 text-center whitespace-pre-wrap break-all">{error}</p>}
         </div>
       )}
 
