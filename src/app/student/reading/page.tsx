@@ -273,6 +273,30 @@ export default function ReadingPracticePage() {
     return { ...layout, html };
   }, [data?.passage?.content, data?.questions, windowWidth, paneWidth]);
 
+  // ══════════════════════════════════════════
+  // Question distribution check — warns when questions cluster in one paragraph
+  // ══════════════════════════════════════════
+  const paragraphDistribution = useMemo(() => {
+    if (!data?.questions) return null;
+    const counts: Record<number, number> = {};
+    const total = data.questions.length;
+    for (const q of data.questions) {
+      const refs = q.paragraphRef ? [q.paragraphRef] : q.paragraphCoverage || [];
+      for (const ref of refs) {
+        counts[ref] = (counts[ref] || 0) + 1;
+      }
+    }
+    const paras = Object.keys(counts).map(Number).sort((a, b) => a - b);
+    if (paras.length === 0) return null;
+    const maxCount = Math.max(...Object.values(counts));
+    const maxParas = paras.filter(p => counts[p] === maxCount);
+    const uncovered = paras.length > 0
+      ? Array.from({ length: Math.max(...paras) }, (_, i) => i + 1).filter(p => !(p in counts))
+      : [];
+    const isImbalanced = maxCount > Math.ceil(total / paras.length) + 1 || uncovered.length > 0;
+    return { counts, total, paras, maxCount, maxParas, uncovered, isImbalanced };
+  }, [data?.questions]);
+
   // Persist score when all questions are answered
   useEffect(() => {
     if (!data || savedRef.current) return;
@@ -616,7 +640,7 @@ export default function ReadingPracticePage() {
 
             @media (min-width: 1024px) {
               .reading-workspace {
-                grid-template-columns: 1.5fr 1fr;
+                grid-template-columns: 1.6fr 1fr;
                 gap: 1.5rem;
                 align-items: start;
               }
@@ -646,14 +670,14 @@ export default function ReadingPracticePage() {
             .dse-reading-layout {
               display: flex;
               flex-direction: column;
-              gap: 0.1rem;
+              gap: 0;
             }
 
             .dse-paragraph {
               display: flex;
               flex-direction: column;
               gap: 0;
-              margin-bottom: 0.75rem;
+              margin-bottom: 0.6rem;
             }
 
             /* First paragraph line: subtle text indent (DSE exam convention) */
@@ -665,7 +689,7 @@ export default function ReadingPracticePage() {
               display: grid;
               grid-template-columns: 2.5rem 1fr;
               column-gap: 0.625rem;
-              align-items: start;
+              align-items: baseline;
               margin: 0;
               padding: 0;
             }
@@ -739,9 +763,9 @@ export default function ReadingPracticePage() {
               {showPassage ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
             </button>
             {showPassage && (
-              <div className="px-2 pb-4">
+              <div className="px-0 pb-2">
                 {passageLayout ? (
-                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-1 py-3 text-sm text-gray-800 dark:text-gray-200"
+                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-0 py-3 text-sm text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (
@@ -800,6 +824,31 @@ export default function ReadingPracticePage() {
                 {language === 'en' ? 'Show Chinese' : '顯示中文翻譯'}
               </button>
             </div>
+            {/* Phase 4F: Paragraph distribution warning */}
+            {paragraphDistribution?.isImbalanced && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800 text-xs space-y-1">
+                <p className="font-semibold text-amber-700 dark:text-amber-300">
+                  ⚠️ {language === 'en' ? 'Uneven paragraph coverage' : '段落分佈不均'}
+                </p>
+                {paragraphDistribution.maxCount > Math.ceil(paragraphDistribution.total / paragraphDistribution.paras.length) + 1 && (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    {language === 'en'
+                      ? `Paragraph${paragraphDistribution.maxParas.length > 1 ? 's' : ''} ${paragraphDistribution.maxParas.join(', ')} ${paragraphDistribution.maxParas.length > 1 ? 'have' : 'has'} ${paragraphDistribution.maxCount} questions — too many for one paragraph.`
+                      : `第 ${paragraphDistribution.maxParas.join('、')} 段各有 ${paragraphDistribution.maxCount} 題，過於集中。`}
+                  </p>
+                )}
+                {paragraphDistribution.uncovered.length > 0 && (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    {language === 'en'
+                      ? `Paragraph${paragraphDistribution.uncovered.length > 1 ? 's' : ''} ${paragraphDistribution.uncovered.join(', ')} ${paragraphDistribution.uncovered.length > 1 ? 'have' : 'has'} no questions.`
+                      : `第 ${paragraphDistribution.uncovered.join('、')} 段沒有任何題目。`}
+                  </p>
+                )}
+                <p className="text-amber-500 dark:text-amber-500 text-[10px]">
+                  {language === 'en' ? 'Consider regenerating for better distribution.' : '建議重新生成以獲得更平均的分佈。'}
+                </p>
+              </div>
+            )}
             {data.questions.map((q, qi) => {
               const tier = getTierBadge(q.tier);
               const ans = answers[qi];
