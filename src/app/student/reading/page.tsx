@@ -171,9 +171,9 @@ export default function ReadingPracticePage() {
     const { viewportMode, paneWidth } = params;
     if (viewportMode === 'mobile') return 42;
     if (viewportMode === 'tablet') return 58;
-    // Desktop: shrink within the 60-66 band based on actual pane width
-    if (paneWidth && paneWidth < 760) return 60;
-    return 66;
+    // Desktop: narrow panes get 62, wide panes get full 70 chars
+    if (paneWidth && paneWidth < 760) return 62;
+    return 70;
   }
 
   const isSplitView = windowWidth >= 1024;
@@ -547,12 +547,12 @@ export default function ReadingPracticePage() {
             }
 
             .reading-passage-shell {
-              max-width: 72ch;
+              max-width: 78ch;
               margin: 0 auto;
             }
 
             .dse-reading-layout {
-              max-width: 72ch;
+              max-width: 78ch;
               display: flex;
               flex-direction: column;
               gap: 0.35rem;
@@ -578,7 +578,7 @@ export default function ReadingPracticePage() {
               margin: 0;
               padding: 0.05rem 0 0 0;
               text-align: right;
-              line-height: 1.75;
+              line-height: 1.5;
               font-size: 0.75rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
@@ -592,7 +592,7 @@ export default function ReadingPracticePage() {
             .dse-line-text {
               margin: 0;
               padding: 0;
-              line-height: 1.75;
+              line-height: 1.55;
               white-space: pre-wrap;
               word-break: normal;
             }

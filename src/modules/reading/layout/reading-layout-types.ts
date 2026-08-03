@@ -87,14 +87,14 @@ export interface ResolvedLayoutOptions {
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
-  maxCharsPerLine: 65,
+  maxCharsPerLine: 70,
   lineNumberInterval: 5,
   showParagraphLabels: true,
   paragraphLabelMode: 'paragraph',
   lineNumberStyle: 'gutter',
   viewportMode: 'desktop',
   fixedReadingMeasure: true,
-  preferredCharsPerLine: 66,
+  preferredCharsPerLine: 70,
 };
 
 /** Resolve partial options against defaults (also handles backward-compat aliases) */
