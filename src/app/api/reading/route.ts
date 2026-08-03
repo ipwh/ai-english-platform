@@ -54,6 +54,7 @@ import {
   buildBlueprintRetryInstruction,
   toBlueprintQualityMeta,
   validateAllMCDistractors,
+  type QuestionSetQualityCheck,
 } from '@/modules/ai/prompts/reading/types';
 import { DSE_PART_QUESTION_MIX } from '@/modules/ai/prompts/reading/dse-question-templates';
 import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';

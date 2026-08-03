@@ -150,19 +150,44 @@ const PASSAGE_QUALITY_STANDARDS = `
 - TOTAL across all passages in a part: aim for ~1500-2000 words
 
 ### Content Quality:
-1. Use [Paragraph N] at the start of each paragraph. Do NOT include [line N] or [N] markers — line numbers are rendered by the system.
-2. Include paragraph numbers [1], [2], [3]... at the start of each paragraph
-3. Use authentic publication source: "adapted from [real publication name]"
-4. Ensure the topic aligns with DSE empirical topics (HK-local ~40%, global ~60%)
-5. Vocabulary level must match target HKEAA level
-6. Include a mix of sentence structures (simple, compound, complex)
-7. Use transition words appropriately (however, although, in contrast, furthermore, therefore)
-8. Include at least 2-3 idiomatic expressions or figurative language where level-appropriate
+1. Use [Paragraph N] at the start of each paragraph. Do NOT include [line N] or [N] markers.
+2. Use authentic publication source: "adapted from [real publication name]"
+3. Ensure the topic aligns with DSE empirical topics (HK-local ~40%, global ~60%)
+4. Vocabulary level must match target HKEAA level
+5. Include at least 2-3 idiomatic expressions or figurative language where level-appropriate
+
+### Phase 4A: Passage Voice & Naturalness (MANDATORY)
+
+#### Voice & Stance:
+- Every passage MUST have a clear authorial voice — avoid robotic, textbook-like neutrality
+- Where the topic invites it, include a subtle stance, opinion, or evaluative perspective
+- Include caveats, limitations, or contrasting viewpoints to create intellectual tension
+- Do NOT sound like an encyclopedia entry or a student summary
+- Opening paragraph should engage the reader, not just state facts
+
+#### Paragraph Progression:
+- Each paragraph must serve a distinct rhetorical purpose
+- Paragraphs should flow naturally, not read like isolated factual blocks
+- Use organic transitions (not just "Furthermore" / "Moreover" on repeat)
+- The passage should have shape: opening, development, nuance/contrast, closing
+- Later paragraphs should build on earlier ones for cross-paragraph reasoning
+
+#### Sentence Variety:
+- Vary sentence length: mix short (5-10 words) with longer complex ones (20-35 words)
+- Vary sentence openings — do NOT start 3+ consecutive sentences the same way
+- Use a mix of simple, compound, and complex structures naturally
+
+#### Inference Space:
+- Leave some ideas IMPLIED rather than explicitly stated
+- Do not over-explain every point; trust the reader to connect ideas
+- Make tone/attitude detectable through word choice, not stated directly
+- The passage should naturally support inference and tone questions
 
 ### Prohibited Content:
 - Do NOT use fabricated statistics, studies, or citations
 - Do NOT include political content beyond what appears in real DSE papers
 - Do NOT use overly specialized jargon without context clues
+- Do NOT write passages that sound AI-generated or template-driven
 `;
 
 // ============================================

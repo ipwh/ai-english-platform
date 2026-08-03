@@ -12,12 +12,21 @@ export interface DSEtextType {
   nameEn: string;
   nameZh: string;
   description: string;
-  dseAppearances: string[]; // 年份 + 描述
+  dseAppearances: string[];
   typicalSources: string[];
   wordCountRange: string;
   complexity: 'simple' | 'straightforward' | 'fairly complex' | 'complex';
   typicalPart: ('A' | 'B1' | 'B2')[];
   features: string[];
+  /** Phase 4A.1: Expected authorial voice for this text type */
+  voice?: string;
+  /** How strong the authorial stance should be (0-1) */
+  stanceStrength?: number;
+  /** Expected paragraph movement pattern */
+  paragraphMovement?: string;
+  /** Degree of subjectivity expected (0-1) */
+  subjectivity?: number;
+}
 }
 
 export const DSE_TEXT_TYPES: DSEtextType[] = [
@@ -32,6 +41,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'fairly complex',
     typicalPart: ['A', 'B2'],
     features: ['Headings and subheadings', 'Expert quotes', 'Statistics/data', 'Narrative opening', 'Multiple viewpoints'],
+    voice: 'Engaging, journalistic. Open with a specific example or anecdote. Include expert perspectives and data. Maintain a balanced but engaging tone.',
+    stanceStrength: 0.4,
+    paragraphMovement: 'Hook/anecdote → background → data/evidence → expert view → contrasting perspective → forward-looking closing',
+    subjectivity: 0.3,
   },
   {
     id: 'newspaper_article',
@@ -44,6 +57,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'straightforward',
     typicalPart: ['B1', 'B2'],
     features: ['Headline + byline', 'Inverted pyramid', 'Factual reporting', 'Direct quotes', 'Date/place dateline'],
+    voice: 'Factual and objective. Lead with the most important facts. Include quotes from involved parties. Maintain neutral tone but may include mild evaluative language in feature-news hybrids.',
+    stanceStrength: 0.1,
+    paragraphMovement: 'Key facts → supporting details → quotes → background context → forward look',
+    subjectivity: 0.1,
   },
   {
     id: 'restaurant_review',
@@ -164,6 +181,10 @@ export const DSE_TEXT_TYPES: DSEtextType[] = [
     complexity: 'complex',
     typicalPart: ['B2'],
     features: ['Thesis statement', 'Counter-arguments', 'Evidence/reasoning', 'Formal register', 'Conclusion/recommendation'],
+    voice: 'Analytical and persuasive. State a clear position early, then develop arguments with evidence. Include and rebut counter-arguments. End with a reasoned conclusion.',
+    stanceStrength: 0.8,
+    paragraphMovement: 'Thesis → argument 1 → argument 2 → counter-argument + rebuttal → nuanced conclusion',
+    subjectivity: 0.7,
   },
 ];
 
@@ -215,7 +236,7 @@ export function buildTextTypePrompt(selectedTypes: string[]): string {
 - Typical sources: ${t.typicalSources.join(', ')}
 - Complexity: ${t.complexity}
 - Key features: ${t.features.join('; ')}
-- Word count: ${t.wordCountRange}`
+- Word count: ${t.wordCountRange}${t.voice ? `\n- Voice: ${t.voice}` : ''}${t.paragraphMovement ? `\n- Paragraph movement: ${t.paragraphMovement}` : ''}`
   ).join('\n\n');
 
   return `
