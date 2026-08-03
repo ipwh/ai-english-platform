@@ -3,15 +3,8 @@
 // Connects the paper reviewer to generation, validation, and retry flows.
 // ============================================
 
-import type {
-  PaperReview,
-  ReviewerVerdict,
-  BlueprintQualityMeta,
-} from '@/modules/ai/prompts/reading/types';
-import {
-  validateReviewStructure,
-  scoreToVerdict,
-} from './paper-reviewer-types';
+import type { PaperReview, ReviewerVerdict } from './paper-reviewer-types';
+import { validateReviewStructure } from './paper-reviewer-types';
 
 /** Gating policy: how reviewer verdict combines with validator results */
 export interface ReviewGateResult {
