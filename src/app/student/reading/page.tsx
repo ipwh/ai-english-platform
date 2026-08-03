@@ -309,6 +309,8 @@ export default function ReadingPracticePage() {
   function shouldUseApiEvaluation(q: ReadingQuestion): boolean {
     if (q.dseType === 'multiple_choice') return false;
     if (q.dseType === 'true_false_not_given') return false;
+    // mcCloze / summary_cloze with letter answers are also objective
+    if (q.choices && q.choices.length > 0 && /^[A-D]$/i.test(q.answer?.trim())) return false;
     return true;
   }
 
@@ -344,8 +346,8 @@ export default function ReadingPracticePage() {
       return;
     }
 
-    // MCQ/TFNG (objective types): instant local grading
-    if (!needsApi && q.type === 'mc' && q.choices && q.choices.length > 0) {
+    // MCQ/TFNG / mcCloze with choices (objective types): instant local grading
+    if (!needsApi && q.choices && q.choices.length > 0) {
       const studentLetter = answer.trim().toUpperCase().charAt(0);
       const correctLetter = extractMcqLetter(q.answer, q.choices);
       const isCorrect = studentLetter === correctLetter;
@@ -939,6 +941,38 @@ export default function ReadingPracticePage() {
 
                   {/* Fallback for other types without choices (text input) */}
                   {q.type !== 'mc' && q.type !== 'short-answer' && (!q.choices || q.choices.length === 0) && (
+                    /^[A-D]$/i.test(q.answer?.trim()) ? (
+                      /* Letter answer without rendered choices — show a hint suggesting retry */
+                      <div>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                          {language === 'en'
+                            ? '⚠️ This question expects a multiple-choice answer. If you see a text box, please regenerate.'
+                            : '⚠️ 此題目為選擇題。如只看見文字輸入框，請重新生成。'}
+                        </p>
+                        <input
+                          type="text"
+                          className="w-full p-2.5 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-sm"
+                          placeholder={language === 'en' ? 'Type A, B, C, or D...' : '輸入 A、B、C 或 D...'}
+                          disabled={ans?.submitted}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !ans?.submitted) {
+                              submitAnswer(qi, (e.target as HTMLInputElement).value.toUpperCase().charAt(0));
+                            }
+                          }}
+                        />
+                        {!ans?.submitted && (
+                          <button
+                            className="mt-2 px-4 py-1.5 bg-amber-500 text-white rounded-lg text-xs"
+                            onClick={(e) => {
+                              const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                              if (input) submitAnswer(qi, input.value.toUpperCase().charAt(0));
+                            }}
+                          >
+                            {language === 'en' ? 'Submit' : '提交'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
                     <div>
                       <input
                         type="text"
