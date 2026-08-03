@@ -204,18 +204,18 @@ export default function ReadingPracticePage() {
   }
 
   /** Phase 4D.3: Granular chars-per-line tiers for student split-view.
-   *  mobile≈42, tablet≈60, narrow desktop≈64, medium desktop≈68, wide desktop≈70. */
+   *  mobile≈44, tablet≈64, narrow desktop≈68, medium desktop≈72, wide desktop≈76. */
   function getPreferredCharsPerLine(params: {
     viewportMode: 'mobile' | 'tablet' | 'desktop';
     paneWidth?: number;
   }): number {
     const { viewportMode, paneWidth } = params;
-    if (viewportMode === 'mobile') return 42;
-    if (viewportMode === 'tablet') return 60;
+    if (viewportMode === 'mobile') return 44;
+    if (viewportMode === 'tablet') return 64;
     // Desktop: three granular tiers
-    if (!paneWidth || paneWidth < 640) return 64;   // narrow pane
-    if (paneWidth < 860) return 68;                  // medium pane
-    return 70;                                        // wide pane
+    if (!paneWidth || paneWidth < 640) return 68;   // narrow pane
+    if (paneWidth < 860) return 72;                  // medium pane
+    return 76;                                        // wide pane
   }
 
   const isSplitView = windowWidth >= 1024;
@@ -616,8 +616,8 @@ export default function ReadingPracticePage() {
 
             @media (min-width: 1024px) {
               .reading-workspace {
-                grid-template-columns: 1.3fr 1fr;
-                gap: 2rem;
+                grid-template-columns: 1.5fr 1fr;
+                gap: 1.5rem;
                 align-items: start;
               }
             }
@@ -640,21 +640,20 @@ export default function ReadingPracticePage() {
             }
 
             .reading-passage-shell {
-              margin: 0 auto;
+              width: 100%;
             }
 
             .dse-reading-layout {
-              max-width: 72ch;
               display: flex;
               flex-direction: column;
-              gap: 0.35rem;
+              gap: 0.1rem;
             }
 
             .dse-paragraph {
               display: flex;
               flex-direction: column;
-              gap: 0.05rem;
-              margin-bottom: 1rem;
+              gap: 0;
+              margin-bottom: 0.75rem;
             }
 
             /* First paragraph line: subtle text indent (DSE exam convention) */
@@ -673,10 +672,10 @@ export default function ReadingPracticePage() {
 
             .dse-line-gutter {
               margin: 0;
-              padding: 0.05rem 0 0 0;
+              padding: 0 0 0 0;
               text-align: right;
-              line-height: 1.55;
-              font-size: 0.75rem;
+              line-height: 1.45;
+              font-size: 0.7rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
               user-select: none;
@@ -689,7 +688,7 @@ export default function ReadingPracticePage() {
             .dse-line-text {
               margin: 0;
               padding: 0;
-              line-height: 1.55;
+              line-height: 1.45;
               white-space: pre-wrap;
               word-break: normal;
             }
@@ -742,7 +741,7 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-2 pb-4">
                 {passageLayout ? (
-                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-2 py-4 text-sm text-gray-800 dark:text-gray-200"
+                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-1 py-3 text-sm text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (

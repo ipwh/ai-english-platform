@@ -474,7 +474,8 @@ export function buildReadingSectionPromptLite(): string {
 
 ### ⚠️ Question Requirements (MUST FOLLOW):
 - Mix at least 4 different question types: mcq, trueFalseNG, referencing, vocabularyInContext, inference, toneAttitude, shortAnswer, summaryCloze, mcCloze
-- Distribute questions evenly across ALL paragraphs — at least 1 question per paragraph
+- ⛔ CRITICAL: Distribute questions EVENLY across ALL paragraphs. If you have 4 paragraphs and 10 questions, each paragraph gets 2-3 questions MAX. NEVER put 4+ questions in one paragraph while leaving another paragraph with 0-1.
+- ⛔ BEFORE outputting, COUNT questions per paragraph. If any paragraph has more than 3 questions, REDISTRIBUTE.
 - Every question must use EXACT DSE wording with paragraph reference
 - Every question must include marks (1-4) and word limits
 - For mcq: include 4 plausible distractors labeled A/B/C/D
@@ -484,7 +485,6 @@ export function buildReadingSectionPromptLite(): string {
 - For tone/attitude: use nuanced labels (skeptical, cautiously optimistic, subtly critical — NOT just positive/negative)
 - For inference: "Based on paragraph X, explain why..." (30-50 words)
 - Include answer explanations in both English and Chinese
-- Ensure factual questions spread across different paragraphs, not all from one paragraph
 
 ### ⚠️ Skill Mix (MUST FOLLOW):
 - Factual/literal: ≤55% of questions

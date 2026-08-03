@@ -318,7 +318,7 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
     const cpl = resolveCharsPerLine(opts);
     expect(cpl).toBe(66);
     expect(cpl).toBeGreaterThanOrEqual(60);
-    expect(cpl).toBeLessThanOrEqual(72);
+    expect(cpl).toBeLessThanOrEqual(78);
   });
 
   it('35. mobile mode uses narrower chars-per-line', () => {
@@ -328,8 +328,8 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
       preferredCharsPerLine: 66,
     });
     const cpl = resolveCharsPerLine(opts);
-    expect(cpl).toBe(42);
-    expect(cpl).toBeLessThan(60);
+    expect(cpl).toBe(44);
+    expect(cpl).toBeLessThan(64);
   });
 
   it('36. rendered HTML does not create empty standalone gutter rows', () => {
@@ -418,13 +418,13 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
     expect(resolveCharsPerLine(opts1)).toBe(resolveCharsPerLine(opts2));
   });
 
-  it('41. tablet mode caps chars at 60 regardless of preferred', () => {
+  it('41. tablet mode caps chars at 64 regardless of preferred', () => {
     const opts = resolveLayoutOptions({
       viewportMode: 'tablet',
       fixedReadingMeasure: true,
       preferredCharsPerLine: 70,
     });
-    expect(resolveCharsPerLine(opts)).toBe(60);
+    expect(resolveCharsPerLine(opts)).toBe(64);
   });
 
   it('42. fixedReadingMeasure=false falls back to raw maxCharsPerLine', () => {

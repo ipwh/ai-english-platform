@@ -87,14 +87,14 @@ export interface ResolvedLayoutOptions {
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: ResolvedLayoutOptions = {
-  maxCharsPerLine: 72,
+  maxCharsPerLine: 78,
   lineNumberInterval: 5,
   showParagraphLabels: true,
   paragraphLabelMode: 'numeric',
   lineNumberStyle: 'gutter',
   viewportMode: 'desktop',
   fixedReadingMeasure: true,
-  preferredCharsPerLine: 70,
+  preferredCharsPerLine: 76,
 };
 
 /** Resolve partial options against defaults (also handles backward-compat aliases) */
@@ -120,12 +120,12 @@ export function resolveLayoutOptions(raw?: Partial<LayoutOptions>): ResolvedLayo
 export function resolveCharsPerLine(opts: ResolvedLayoutOptions): number {
   if (opts.fixedReadingMeasure) {
     switch (opts.viewportMode) {
-      case 'desktop': return Math.min(opts.preferredCharsPerLine, 72);
-      case 'tablet':  return Math.min(opts.preferredCharsPerLine, 60);
-      case 'mobile':  return Math.min(opts.preferredCharsPerLine, 42);
+      case 'desktop': return Math.min(opts.preferredCharsPerLine, 78);
+      case 'tablet':  return Math.min(opts.preferredCharsPerLine, 64);
+      case 'mobile':  return Math.min(opts.preferredCharsPerLine, 44);
     }
   }
-  return Math.min(opts.maxCharsPerLine, 72);
+  return Math.min(opts.maxCharsPerLine, 78);
 }
 
 /** Layout quality warnings computed during layout */
