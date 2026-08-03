@@ -1109,12 +1109,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   } else {
     let rawResult: string;
     try {
-      // Reduced maxTokens: 6144 is sufficient for 500-800 word passage + 10 questions
-      // (4096 caused mid-JSON truncation; 8192 causes timeout on Vercel)
+      // maxTokens: 4096 — sufficient for 350-500 word passage + questions (faster than 6144 on Vercel)
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
-        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
-      ], { temperature: 0.45, maxTokens: 6144, jsonMode: true, timeoutMs: 25000 });
+        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions. Passage: 350-500 words, 3-4 paragraphs. Spread questions evenly — max 3 per paragraph. Return JSON.` },
+      ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 25000 });
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
       logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
@@ -1137,10 +1136,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     const passageContent = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
     if (passageContent) {
       const wordCount = passageContent.split(/\s+/).filter(Boolean).length;
-      if (wordCount < 250) {
-        logger.warn({ module: 'reading-api', wordCount, minRequired: 250 }, 'Generated passage too short — rejecting');
+      if (wordCount < 200) {
+        logger.warn({ module: 'reading-api', wordCount, minRequired: 200 }, 'Generated passage too short — rejecting');
         return NextResponse.json(
-          apiError(`Generated passage too short: ${wordCount} words (minimum 250 required). Please try again with a different topic.`, 'PASSAGE_TOO_SHORT', true),
+          apiError(`Generated passage too short: ${wordCount} words (minimum 200 required). Please try again with a different topic.`, 'PASSAGE_TOO_SHORT', true),
           { status: 422 },
         );
       }
@@ -1185,8 +1184,8 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       try {
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryPrompt },
-          { role: 'user', content: `Regenerate the question set. Fix ALL of the issues listed above. Passage must be 500-800 words. Return JSON.` },
-        ], { temperature: 0.40, maxTokens: 6144, jsonMode: true, timeoutMs: 20000 });
+          { role: 'user', content: `Regenerate the question set. Fix ALL issues listed above. Passage: 350-500 words. Return JSON.` },
+        ], { temperature: 0.40, maxTokens: 4096, jsonMode: true, timeoutMs: 20000 });
 
         const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-validator-retry');
         if (retryParse.data && !retryParse.error) {
