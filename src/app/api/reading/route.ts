@@ -488,6 +488,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     passed: combinedPassed,
     retried: bpResult.retried,
     degraded: !combinedPassed,
+    validated: true,
     issues: combinedIssues,
   };
 
