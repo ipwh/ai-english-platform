@@ -1100,10 +1100,20 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   if (preParsed) {
     parsed = preParsed as Record<string, unknown>;
   } else {
-    const rawResult = await callLLM([
-      { role: 'system', content: systemPrompt + dseContextBlock },
-      { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
-    ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+    let rawResult: string;
+    try {
+      rawResult = await callLLM([
+        { role: 'system', content: systemPrompt + dseContextBlock },
+        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. Passage must be 500-800 words.` },
+      ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+    } catch (aiErr: unknown) {
+      const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
+      logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
+      return NextResponse.json(
+        apiError('The AI service is temporarily unavailable. Please try again in a moment.', 'AI_PROVIDER_ERROR', true, aiMsg),
+        { status: 422 },
+      );
+    }
 
     const parseResult = safeJsonParse<Record<string, unknown>>(rawResult, 'legacy-generation');
     if (!parseResult.data || parseResult.error) {
@@ -1127,16 +1137,20 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       logger.warn({ module: 'reading-api', criticalIssues: firstCheck.issues.filter(i => i.severity === 'critical').map(i => i.code) }, 'Blueprint critical failure — retrying');
       blueprintRetried = true;
       const retryInstruction = buildBlueprintRetryInstruction(firstCheck);
-      const retryRaw = await callLLM([
-        { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-        { role: 'user', content: `Regenerate the question set. Fix the critical blueprint issues. Passage must be 500-800 words. Return JSON.` },
-      ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
+      try {
+        const retryRaw = await callLLM([
+          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
+          { role: 'user', content: `Regenerate the question set. Fix the critical blueprint issues. Passage must be 500-800 words. Return JSON.` },
+        ], { temperature: 0.40, maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'legacy', maxTokens: getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 }) }) });
 
-      const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-blueprint-retry');
-      if (retryParse.data && !retryParse.error) {
-        parsed = retryParse.data;
-      } else {
-        logger.warn({ module: 'reading-api', error: retryParse.error }, 'Blueprint retry parse failed — using original');
+        const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-blueprint-retry');
+        if (retryParse.data && !retryParse.error) {
+          parsed = retryParse.data;
+        } else {
+          logger.warn({ module: 'reading-api', error: retryParse.error }, 'Blueprint retry parse failed — using original');
+        }
+      } catch (retryErr: unknown) {
+        logger.warn({ module: 'reading-api', error: (retryErr as Error).message }, 'Blueprint retry AI call failed — using original');
       }
     }
   }

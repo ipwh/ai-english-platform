@@ -120,6 +120,10 @@ function mapReadingApiError(
         return { code, recoverable: true, message: language === 'en'
           ? 'The system did not generate a complete reading task. Please generate again.'
           : '系統未生成完整閱讀內容，請重新生成。' };
+      case 'AI_PROVIDER_ERROR':
+        return { code, recoverable: true, message: language === 'en'
+          ? 'The AI service is temporarily busy. Please wait a moment and try again.'
+          : 'AI 服務暫時繁忙，請稍候再試。' };
       default:
         return { code, recoverable, message: language === 'en'
           ? 'The request was understood, but the content could not be processed. Please try again.'
