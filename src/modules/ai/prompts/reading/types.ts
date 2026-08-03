@@ -872,7 +872,50 @@ export const POS_CUES: Record<string, { before: RegExp; after: RegExp }> = {
   },
 };
 
-/** Phase 4C: Validate a summary cloze student answer with mode-aware checking */
+/** Phase 4C.1: Common derivational morphology suffixes for change-mode checking.
+ *  Maps common suffix pairs: passage form suffix → expected adjusted suffix.
+ *  Used to verify that the student actually changed the word form, not just copied. */
+const DERIVATIONAL_PAIRS: [RegExp, string][] = [
+  // Verb → Noun
+  [/ment$/, 'ment'], [/tion$/, 'tion'], [/sion$/, 'sion'], [/ance$/, 'ance'], [/ence$/, 'ence'],
+  [/al$/, 'al'], [/ure$/, 'ure'], [/age$/, 'age'],
+  // Adjective → Noun
+  [/ness$/, 'ness'], [/ity$/, 'ity'], [/cy$/, 'cy'],
+  // Verb → Adjective
+  [/ing$/, 'ing'], [/ed$/, 'ed'], [/ive$/, 'ive'], [/able$/, 'able'], [/ible$/, 'ible'],
+  // Noun → Adjective
+  [/ous$/, 'ous'], [/ful$/, 'ful'], [/less$/, 'less'], [/ish$/, 'ish'], [/ic$/, 'ic'],
+  // Adjective → Adverb
+  [/ly$/, 'ly'],
+  // Verb forms
+  [/s$/, 's'], [/es$/, 'es'],
+];
+
+/** Phase 4C.1: Check if two words share a morphological root (common derivational family) */
+function shareMorphologyRoot(a: string, b: string): boolean {
+  // Strip common suffixes from both words and compare the stems
+  const stripSuffixes = (w: string) => {
+    let stem = w;
+    for (const [pattern] of DERIVATIONAL_PAIRS) {
+      const match = stem.match(new RegExp(`^(.+)${pattern.source}$`));
+      if (match && match[1].length >= 3) {
+        stem = match[1];
+        break;
+      }
+    }
+    // Also try stripping basic inflections
+    stem = stem.replace(/(?:ing|ed|s|es)$/, '');
+    return stem;
+  };
+  const stemA = stripSuffixes(a);
+  const stemB = stripSuffixes(b);
+  // Stems must share at least 3 characters and one must contain the other
+  return stemA.length >= 3 && stemB.length >= 3 &&
+    (stemA.includes(stemB) || stemB.includes(stemA));
+}
+
+/** Phase 4C: Validate a summary cloze student answer with mode-aware checking.
+ *  Phase 4C.1: Tightened create-mode (rejects random non-passage words), improved change-mode (morphology-aware). */
 export function evaluateSummaryClozeAnswer(
   studentAnswer: string,
   modelAnswer: string,
@@ -884,8 +927,8 @@ export function evaluateSummaryClozeAnswer(
   const sa = normalized(studentAnswer);
   const ma = normalized(modelAnswer);
   const isExactMatch = sa === ma;
+  const passageLower = passageText.toLowerCase();
 
-  const rule = CLOZE_ANSWER_MODES[mode];
   let isGrammaticallyCorrect = true;
   let isAcceptableParaphrase = false;
   let copiedWhenChangeExpected = false;
@@ -894,49 +937,45 @@ export function evaluateSummaryClozeAnswer(
 
   switch (mode) {
     case 'copy': {
-      // Copy mode: answer must match exactly or be a near-match (spacing/punctuation)
       const nearMatch = sa === ma || sa.replace(/[.,;:!?]/g, '') === ma.replace(/[.,;:!?]/g, '');
       accepted = nearMatch;
       feedback = accepted ? 'Correct — exact copy from passage.' : 'Incorrect — expected exact copy from passage.';
       break;
     }
     case 'change': {
-      // Change mode: answer must differ from the passage form but preserve the root meaning
-      const appearsVerbatimInPassage = passageText && passageText.toLowerCase().includes(sa);
-      if (appearsVerbatimInPassage && sa === ma) {
-        // Edge case: the adjusted form happens to appear elsewhere in the passage — accept
+      const appearsVerbatimInPassage = !!passageText && passageLower.includes(sa);
+
+      if (isExactMatch) {
+        // Student answer matches model — check if model form appears in passage (edge: adjusted form happens to exist)
         accepted = true;
-        feedback = 'Correct — appropriate form used.';
-      } else if (appearsVerbatimInPassage) {
-        // Student copied a word that appears in the passage but hasn't adjusted it
-        accepted = false;
+        feedback = appearsVerbatimInPassage
+          ? 'Correct — appropriate form used (also appears in passage).'
+          : 'Correct — appropriate grammatical adjustment applied.';
+      } else if (appearsVerbatimInPassage && !isExactMatch) {
+        // Student copied a word verbatim from passage that doesn't match the model
         copiedWhenChangeExpected = true;
-        feedback = 'You copied a word from the passage, but it needs to be grammatically adjusted. Check the required part of speech.';
+        accepted = false;
+        feedback = 'You copied a word from the passage, but it needs grammatical adjustment. Check the required part of speech or tense.';
       } else {
-        // Check if it's the correct grammatical form — accept if matches model or has stem overlap
-        if (isExactMatch) {
+        // Student answer is not in passage and doesn't match model — check morphology
+        const hasMorphologyRelation = shareMorphologyRoot(sa, ma);
+        if (hasMorphologyRelation) {
           accepted = true;
           feedback = 'Correct — appropriate grammatical adjustment applied.';
         } else {
-          const modelWords = ma.split(/\s+/);
-          const studentWords = sa.split(/\s+/);
-          const stemOverlap = modelWords.filter(mw => {
-            const stem = mw.replace(/(?:ing|ed|s|es|ment|tion|sion|ness|ful|less|ly|able|ible|ous|ive|al)$/, '');
-            return stem.length >= 3 && studentWords.some(sw => sw.includes(stem) || stem.includes(sw));
-          });
-          accepted = stemOverlap.length > 0 && stemOverlap.length >= Math.ceil(modelWords.length * 0.5);
-          feedback = accepted
-            ? 'Correct — appropriate grammatical adjustment applied.'
-            : 'Incorrect — check the required grammatical form (tense, part of speech, number).';
+          accepted = false;
+          feedback = 'Incorrect — check the required grammatical form (tense, part of speech, number).';
         }
       }
       break;
     }
     case 'create': {
-      // Create mode: answer does not appear in passage; paraphrases are accepted
+      // Phase 4C.1: Strict create-mode — must match model, acceptAlso, or show morphological relation.
+      // Random non-passage words are NOT accepted.
       const alsoNormalized = acceptAlso.map(a => normalized(a));
-      const matchesAcceptAlso = alsoNormalized.some(a => sa === a || sa.includes(a) || a.includes(sa));
-      isAcceptableParaphrase = !isExactMatch && (matchesAcceptAlso || (sa.length >= 2 && !passageText.toLowerCase().includes(sa)));
+      const matchesAcceptAlso = alsoNormalized.some(a => sa === a);
+      const hasMorphologyRelation = shareMorphologyRoot(sa, ma);
+      const appearsInPassage = !!passageText && passageLower.includes(sa);
 
       if (isExactMatch) {
         accepted = true;
@@ -945,13 +984,19 @@ export function evaluateSummaryClozeAnswer(
         accepted = true;
         isAcceptableParaphrase = true;
         feedback = 'Correct — acceptable alternative answer.';
-      } else if (isAcceptableParaphrase && sa.length >= 2) {
-        // Basic paraphrase acceptance: answer differs from model but is not in passage
+      } else if (hasMorphologyRelation && !appearsInPassage) {
+        // Morphologically related to model AND not copied from passage
         accepted = true;
-        feedback = 'Accepted as paraphrase — meaning preserved.';
-      } else {
+        isAcceptableParaphrase = true;
+        feedback = 'Accepted — related word form with appropriate meaning.';
+      } else if (appearsInPassage) {
+        // Word appears in passage — rejected in create mode (student just copied)
         accepted = false;
-        feedback = 'Incorrect — check the context and try to infer a suitable word/phrase.';
+        feedback = 'This word appears in the passage. Create mode requires you to infer a word not directly copied from the text.';
+      } else {
+        // Word not in passage, not in acceptAlso, not morphologically related → reject
+        accepted = false;
+        feedback = 'Incorrect — this does not match the expected answer or any acceptable alternative. Check the context clues.';
       }
       break;
     }
@@ -972,6 +1017,32 @@ export function evaluateSummaryClozeAnswer(
     feedbackZh: accepted ? '正確' : '不正確',
   };
 }
+
+/** Phase 4C.1: Sentence transformation quality rules.
+ *  Used to validate that transformation items require genuine restructuring, not trivial word swap. */
+export const SENTENCE_TRANSFORMATION_RULES = {
+  /** Minimum types of structural change required for a valid transformation */
+  requiredChanges: [
+    'voice',        // Active ↔ Passive
+    'clauseType',   // Relative clause, conditional, subordinate
+    'wordForm',     // Noun ↔ Verb ↔ Adjective ↔ Adverb
+    'modality',     // Change of modal verb or expression
+    'sentenceType', // Statement ↔ Question ↔ Imperative
+  ] as const,
+  /** Patterns that indicate WEAK transformation (just word replacement, no structure change) */
+  weakPatterns: [
+    /^rewrite\s+(?:the\s+)?sentence\s+using\s+(?:the\s+)?word\s+/i,  // "Rewrite using X" without structural change
+    /^replace\s+(?:the\s+)?(?:word|phrase)\s+/i,                       // Pure word replacement
+    /^change\s+(?:the\s+)?(?:tense|form)\s+of\s+/i,                    // Only tense change, no structural change
+  ],
+  /** Patterns that indicate STRONG transformation */
+  strongPatterns: [
+    /rewrite.*(?:passive|active|indirect|reported|conditional|subordinate|relative clause)/i,
+    /transform.*(?:into|to).*(?:noun|verb|adjective|adverb|phrase|clause)/i,
+    /combine.*(?:sentences?|clauses?)/i,
+    /restructure/i,
+  ],
+} as const;
 
 /** Constants for skill distribution in question sets */
 export const SKILL_DISTRIBUTION = {

@@ -329,7 +329,21 @@ GOOD: "Complete using ONE word: Knowing the _____ of kite flying will make it mo
 
 BAD: "Rewrite: 'The committee approved the plan.' → 'The plan _____ by the committee.'" (trivial passive)
 GOOD: "Rewrite using 'approval': 'The committee approved the plan.' → 'The plan received _____ from the committee.'" (forces word-form change + structure change)
-`;
+### ⚠️ Phase 4C.1: Sentence Transformation Guardrails
+
+Sentence transformation items (causeEffectCompletion, errorCorrectionSummary, tableCompletion) must:
+1. **Preserve meaning exactly** — the transformed sentence must convey the same information as the original
+2. **Force structural change** — at least ONE of: voice change, clause restructuring, word-form conversion, or modality change
+3. **NOT be solvable by just replacing one word** — if the answer is just substituting a synonym, it's too weak
+
+STRONG transformation: "Rewrite in the passive voice" / "Combine using a relative clause" / "Transform the adjective into a noun"
+WEAK transformation: "Rewrite using the word X" without structural change / "Replace the word Y" / "Change the tense"
+
+### ⚠️ Sentence Transformation Answer Format:
+
+For transformation items, include BOTH:
+- The model answer (the correctly transformed sentence)
+- 1-2 common student errors where the meaning is distorted or structure unchanged`;
 
 // ============================================
 // Phase 3A + 4B: Question Blueprint & Distractor Quality
