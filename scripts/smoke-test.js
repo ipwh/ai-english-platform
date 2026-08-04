@@ -109,10 +109,11 @@ check('Has Notification model', () => { if (!schema.includes('model Notification
 console.log('\n🤖 AI Provider chain:');
 const registry = fs.readFileSync(path.join(ROOT, 'src/modules/ai/providers/provider-registry.ts'), 'utf8');
 check('DeepSeek registered', () => { if (!registry.includes('deepseekProvider')) throw new Error('Missing'); });
-check('Vertex Gemini registered', () => { if (!registry.includes('vertexGeminiProvider')) throw new Error('Missing'); });
-check('Gemini API registered', () => { if (!registry.includes('geminiProvider')) throw new Error('Missing'); });
-check('Claude registered', () => { if (!registry.includes('claudeProvider')) throw new Error('Missing'); });
-check('OpenAI registered', () => { if (!registry.includes('openaiProvider')) throw new Error('Missing'); });
+check('Gemini Flash registered', () => { if (!registry.includes('geminiProvider')) throw new Error('Missing'); });
+check('Gemini Flash-Lite registered', () => { if (!registry.includes('geminiFlashLiteProvider')) throw new Error('Missing'); });
+check('Grok registered', () => { if (!registry.includes('grokProvider')) throw new Error('Missing'); });
+check('Claude placeholder registered', () => { if (!registry.includes('claudeProvider')) throw new Error('Missing'); });
+check('OpenAI placeholder registered', () => { if (!registry.includes('openaiProvider')) throw new Error('Missing'); });
 check('Cache integration', () => { if (!registry.includes('aiCache')) throw new Error('Missing'); });
 check('Fallback loop', () => { if (!registry.includes('getAvailableProviders')) throw new Error('Missing'); });
 

@@ -1109,11 +1109,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   } else {
     let rawResult: string;
     try {
-      // Lightweight call: 4096 tokens, 15s timeout — avoids DeepSeek 503 overload
+      // Use calibrated token/timeout values to prevent JSON truncation and timeouts
+      // 8192 tokens for full passage + questions + bilingual explanations
+      const legacyMaxTokens = getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 });
+      const legacyTimeout = getReadingTimeout({ mode: 'legacy', maxTokens: legacyMaxTokens });
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
         { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
-      ], { temperature: 0.45, maxTokens: 4096, jsonMode: true, timeoutMs: 15000 });
+      ], { temperature: 0.45, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
       logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
@@ -1263,8 +1266,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     const questionsRaw = response.questions as Array<Record<string, unknown>> | undefined;
     const passageContent = cleanContent;
     if (questionsRaw && passageContent) {
-      const { layoutReadingText } = await import('@/modules/reading/layout');
-      const layout = layoutReadingText(passageContent);
+      let layout: Awaited<ReturnType<typeof import('@/modules/reading/layout')['layoutReadingText']>>;
+      try {
+        const { layoutReadingText: doLayout } = await import('@/modules/reading/layout');
+        layout = doLayout(passageContent);
+      } catch (layoutErr) {
+        logger.warn({ module: 'reading-api', error: (layoutErr as Error).message }, 'Layout engine failed — skipping paragraph ref computation');
+        layout = null as unknown as typeof layout;
+      }
+      if (layout) {
       for (const q of questionsRaw) {
         const questionText = (q.questionText || q.question || '') as string;
 
@@ -1299,6 +1309,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           q._computedParagraph = aiParagraph;
         }
       }
+      } // close if (layout)
     }
 
     // ── Phase 2: Transform questions with computed refs ──

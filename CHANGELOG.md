@@ -4,12 +4,22 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-04 (evening) — Reading API Legacy Handler Fix 🔧
+
+### 🐛 Critical Fix: `handleLegacyGeneration` Token & Timeout
+- **Root cause**: `/student/reading` page failed to generate exercises because `handleLegacyGeneration` hardcoded `maxTokens: 4096` and `timeoutMs: 15000` — too low for full passage + questions + bilingual explanations
+- **Fix**: Now uses `getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 })` → **8192 tokens** and `getReadingTimeout(...)` → **25000ms** (matching the utility functions already used by `handleExerciseGeneration`)
+- **Additional**: Added try-catch around `layoutReadingText()` call to prevent unhandled exceptions from crashing the API
+- **Impact**: JSON truncation prevented, fewer timeout failures, graceful layout degradation
+
+---
+
 ## 2026-08-04 — AI Provider Hardening & Fallback Chain 🔧
 
 ### 🆕 Gemini 2.5 Flash-Lite Provider
 - **New provider**: `GeminiFlashLiteProvider` — uses `gemini-2.5-flash-lite` ($0.10/M input, $0.40/M output)
 - **New config**: `config.geminiLite` with `GEMINI_LITE_MODEL` and `GEMINI_LITE_API_KEY` env vars
-- **Chain order**: DeepSeek → Vertex Gemini → Gemini API → **Gemini Flash-Lite** → Claude → OpenAI
+- **Chain order**: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok → Claude → OpenAI (Claude/OpenAI are placeholders, `isConfigured()=false`)
 
 ### 🔧 Reading Pipeline Hardening
 - **safeJsonParse**: All generation paths protected against malformed AI JSON

@@ -36,7 +36,7 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 | Language | TypeScript 5 (strict) |
 | Database | PostgreSQL (Neon) + Prisma 7 |
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
-| AI | DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback) |
+| AI | DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholder) |
 | Validation | Zod v4 |
 | Testing | Vitest 4 (61 files, 1,375 tests, 100% pass) + Playwright |
 | Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
