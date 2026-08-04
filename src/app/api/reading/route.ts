@@ -1169,6 +1169,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     let rawResult: string;
     let parseResult: { data: Record<string, unknown> | null; error: string | null };
+    let passageWordCount = 0;
     try {
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
@@ -1178,22 +1179,45 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       // ── Parse with repair ──
       const repairResult = repairAiJson(rawResult);
       parseResult = safeJsonParse<Record<string, unknown>>(repairResult.repaired, 'legacy-generation');
+
+      // Check passage length from first attempt
+      if (parseResult.data) {
+        const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
+        passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
+      }
       
-      // If repair didn't help, retry once with a JSON-focused instruction
-      if ((!parseResult.data || parseResult.error) && !preParsed) {
+      // Retry if JSON malformed OR passage too short
+      const needsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250));
+      if (needsRetry && !preParsed) {
+        const retryReason = !parseResult.data || parseResult.error
+          ? 'invalid JSON syntax'
+          : `passage too short (${passageWordCount} words, minimum 250 required)`;
+        
         logger.warn({ 
           module: 'reading-api', 
           wasRepaired: repairResult.wasRepaired,
-          originalError: parseResult.error,
-        }, 'JSON parse failed after repair — retrying with stricter JSON instruction');
+          parseError: parseResult.error,
+          passageWordCount,
+          retryReason,
+        }, `Retrying legacy generation — ${retryReason}`);
+        
+        const retryInstruction = (!parseResult.data || parseResult.error)
+          ? '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.'
+          : `\n⚠️ CRITICAL: Your previous passage was only ${passageWordCount} words. You MUST generate a passage of AT LEAST 500 words. Count the words before outputting.`;
         
         const retryRaw = await callLLM([
-          { role: 'system', content: systemPrompt + dseContextBlock + '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.' },
-          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions. Output ONLY the JSON object.` },
+          { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
+          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words.` },
         ], { temperature: 0.35, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
         
         const retryRepair = repairAiJson(retryRaw);
         parseResult = safeJsonParse<Record<string, unknown>>(retryRepair.repaired, 'legacy-generation-retry');
+
+        // Re-check passage length after retry
+        if (parseResult.data) {
+          const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
+          passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
+        }
       }
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
@@ -1212,17 +1236,13 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
     parsed = parseResult.data;
 
-    // Phase 4D.3: Passage length guard for legacy path
-    const passageContent = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
-    if (passageContent) {
-      const wordCount = passageContent.split(/\s+/).filter(Boolean).length;
-      if (wordCount < 250) {
-        logger.warn({ module: 'reading-api', wordCount, minRequired: 250 }, 'Generated passage too short — rejecting');
-        return NextResponse.json(
-          apiError(`Generated passage too short: ${wordCount} words (minimum 250 required). Please try again with a different topic.`, 'PASSAGE_TOO_SHORT', true),
-          { status: 422 },
-        );
-      }
+    // Phase 4D.3: Passage length guard for legacy path (uses pre-computed word count)
+    if (passageWordCount > 0 && passageWordCount < 250) {
+      logger.warn({ module: 'reading-api', wordCount: passageWordCount, minRequired: 250 }, 'Generated passage too short after retry — rejecting');
+      return NextResponse.json(
+        apiError(`Generated passage too short: ${passageWordCount} words (minimum 250 required). Please try again with a different topic.`, 'PASSAGE_TOO_SHORT', true),
+        { status: 422 },
+      );
     }
   }
 
