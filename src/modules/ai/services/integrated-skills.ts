@@ -260,7 +260,7 @@ ${sanitizedWriting}
 // 八、輔助函數
 // ============================================
 
-/** 將 writingTask 正規化為字串（deepseek-chat 可能輸出物件格式） */
+/** 將 writingTask 正規化為字串（deepseek-v4-flash 可能輸出物件格式） */
 function normalizeWritingTask(writingTask: unknown): string {
   if (typeof writingTask === 'string') return writingTask;
   if (writingTask && typeof writingTask === 'object') {

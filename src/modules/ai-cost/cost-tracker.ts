@@ -7,7 +7,8 @@ import { logger } from '@/shared/logger/logger';
 // ============================================
 
 const PRICING: Record<AIModel, ModelPricing> = {
-  'deepseek-chat': { model: 'deepseek-chat', inputPricePer1K: 0.00014, outputPricePer1K: 0.00028 },
+  'deepseek-v4-flash': { model: 'deepseek-v4-flash', inputPricePer1K: 0.00014, outputPricePer1K: 0.00028 },
+  'deepseek-v4-pro': { model: 'deepseek-v4-pro', inputPricePer1K: 0.00055, outputPricePer1K: 0.00219 },
   'deepseek-reasoner': { model: 'deepseek-reasoner', inputPricePer1K: 0.00055, outputPricePer1K: 0.00219 },
   'gemini-2.0-flash': { model: 'gemini-2.0-flash', inputPricePer1K: 0.00010, outputPricePer1K: 0.00040 },
   'gemini-2.5-flash': { model: 'gemini-2.5-flash', inputPricePer1K: 0.00015, outputPricePer1K: 0.00060 },

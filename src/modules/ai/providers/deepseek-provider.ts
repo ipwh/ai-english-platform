@@ -1,5 +1,5 @@
 // ============================================
-// DeepSeekProvider — DeepSeek API (primary provider)
+// DeepSeekProvider — DeepSeek V4 Flash (primary provider, fastest)
 // Sprint 3: AI Provider Abstraction
 // ============================================
 

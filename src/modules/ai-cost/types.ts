@@ -1,6 +1,6 @@
 // Sprint 13: AI Cost Optimization — types
 
-export type AIModel = 'deepseek-chat' | 'deepseek-reasoner' | 'gemini-2.0-flash' | 'gemini-2.5-flash' | 'vertex-gemini';
+export type AIModel = 'deepseek-v4-flash' | 'deepseek-v4-pro' | 'deepseek-reasoner' | 'gemini-2.0-flash' | 'gemini-2.5-flash' | 'vertex-gemini';
 
 export interface TokenUsage {
   promptTokens: number;

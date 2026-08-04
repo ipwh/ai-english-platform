@@ -19,13 +19,13 @@ const sampleTestCases = [
 ];
 
 const samplePromptVariants = [
-  { name: 'Baseline', version: 'v1.0', prompt: 'You are an English teacher. Explain: {{input}}', modelProvider: 'deepseek', modelName: 'deepseek-chat', temperature: 0.3 },
-  { name: 'Detailed', version: 'v2.0', prompt: 'You are an expert English teacher with 20 years of experience. Provide a detailed, student-friendly explanation with examples for: {{input}}', modelProvider: 'deepseek', modelName: 'deepseek-chat', temperature: 0.5 },
-  { name: 'Concise', version: 'v3.0', prompt: 'Be brief and clear. Explain in 2-3 sentences: {{input}}', modelProvider: 'deepseek', modelName: 'deepseek-chat', temperature: 0.3 },
+  { name: 'Baseline', version: 'v1.0', prompt: 'You are an English teacher. Explain: {{input}}', modelProvider: 'deepseek', modelName: 'deepseek-v4-flash', temperature: 0.3 },
+  { name: 'Detailed', version: 'v2.0', prompt: 'You are an expert English teacher with 20 years of experience. Provide a detailed, student-friendly explanation with examples for: {{input}}', modelProvider: 'deepseek', modelName: 'deepseek-v4-flash', temperature: 0.5 },
+  { name: 'Concise', version: 'v3.0', prompt: 'Be brief and clear. Explain in 2-3 sentences: {{input}}', modelProvider: 'deepseek', modelName: 'deepseek-v4-flash', temperature: 0.3 },
 ];
 
 const sampleModels = [
-  { provider: 'deepseek', modelName: 'deepseek-chat', temperature: 0.3 },
+  { provider: 'deepseek', modelName: 'deepseek-v4-flash', temperature: 0.3 },
   { provider: 'gemini', modelName: 'gemini-pro', temperature: 0.3 },
   { provider: 'openai', modelName: 'gpt-4o', temperature: 0.3 },
 ];
@@ -194,7 +194,7 @@ describe('ExperimentService — Temperature Experiment', () => {
       name: 'Temperature Sweep',
       description: 'Find optimal temperature',
       modelProvider: 'deepseek',
-      modelName: 'deepseek-chat',
+      modelName: 'deepseek-v4-flash',
       temperatures: sampleTemperatures,
       testCases: sampleTestCases,
     });
@@ -209,7 +209,7 @@ describe('ExperimentService — Temperature Experiment', () => {
       name: 'Temperature Sweep',
       description: 'Find optimal',
       modelProvider: 'deepseek',
-      modelName: 'deepseek-chat',
+      modelName: 'deepseek-v4-flash',
       temperatures: sampleTemperatures,
       testCases: sampleTestCases,
     });
@@ -233,7 +233,7 @@ describe('ExperimentService — Temperature Experiment', () => {
       name: 'Balance Test',
       description: 'Testing',
       modelProvider: 'deepseek',
-      modelName: 'deepseek-chat',
+      modelName: 'deepseek-v4-flash',
       temperatures: [0.1, 0.5, 0.9],
       testCases: sampleTestCases,
     });
@@ -625,7 +625,7 @@ describe('ExperimentService — Edge Cases', () => {
       name: 'Single Temp',
       description: 'One temperature',
       modelProvider: 'deepseek',
-      modelName: 'deepseek-chat',
+      modelName: 'deepseek-v4-flash',
       temperatures: [0.5],
       testCases: sampleTestCases,
     });

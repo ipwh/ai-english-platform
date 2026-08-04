@@ -168,7 +168,7 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 | `GEMINI_API_KEY` | Gemini API key (fallback) | ⬜ |
 | `VERTEX_AI_LOCATION` | Vertex AI region (預設 `global`) | ⬜ |
 | `DEEPSEEK_BASE_URL` | DeepSeek base URL (預設 `https://api.deepseek.com/v1`) | ⬜ |
-| `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |
+| `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-v4-flash`) | ⬜ |
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |

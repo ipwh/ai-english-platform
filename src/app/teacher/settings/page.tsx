@@ -284,7 +284,7 @@ export default function TeacherSettingsPage() {
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">{t('teacher.settings.aiModel')}</label>
-            <input type="text" value="DeepSeek Chat (deepseek-chat)" readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-400 outline-none cursor-not-allowed" />
+            <input type="text" value="DeepSeek V4 Flash (deepseek-v4-flash)" readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-400 outline-none cursor-not-allowed" />
             <p className="text-[10px] text-gray-400 mt-1">{t('teacher.settings.aiModelNote')}</p>
           </div>
           <div>
