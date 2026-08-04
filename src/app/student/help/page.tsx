@@ -178,12 +178,14 @@ export default function StudentHelpPage() {
     const topic = aiQuestion.trim();
     setGenTopic(topic);
 
-    // 根據問題關鍵字判斷技能類型
+    // 根據問題關鍵字判斷技能類型（API 僅接受 reading|writing|listening|speaking|integrated）
     const q = topic.toLowerCase();
-    const skill = q.includes('寫') || q.includes('write') || q.includes('essay') || q.includes('作文') ? 'writing'
-      : q.includes('讀') || q.includes('read') || q.includes('理解') || q.includes('comprehension') ? 'reading'
-      : q.includes('聽') || q.includes('listen') ? 'listening'
-      : 'grammar';
+    const skill = q.includes('寫') || q.includes('write') || q.includes('essay') || q.includes('作文') || q.includes('writing') ? 'writing'
+      : q.includes('聽') || q.includes('listen') || q.includes('listening') ? 'listening'
+      : q.includes('說') || q.includes('speak') || q.includes('口語') || q.includes('speaking') ? 'speaking'
+      : q.includes('讀') || q.includes('read') || q.includes('理解') || q.includes('comprehension') || q.includes('詞彙') || q.includes('vocab') ? 'reading'
+      : q.includes('文法') || q.includes('grammar') ? 'writing'   // DSE grammar assessed via writing
+      : 'reading';  // safe default
     setGenSkill(skill);
 
     try {
