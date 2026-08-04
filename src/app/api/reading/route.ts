@@ -291,6 +291,45 @@ function generateToneAttitudeChoices(answerText: string): { choices: string[]; a
   return { choices: rotated, answer: correctLetter };
 }
 
+/**
+ * Normalize the user-selected topic. When "general" / "綜合" is selected,
+ * pick a random DSE-appropriate topic to ensure diversity instead of
+ * generating passages ABOUT the word "general".
+ */
+const DIVERSE_DSE_TOPICS = [
+  'the science of sleep and its effect on learning',
+  'how artificial intelligence is changing education',
+  'marine life conservation and coral reefs',
+  'the impact of fast fashion on the environment',
+  'how social media affects teenage mental health',
+  'the psychology behind procrastination',
+  'urban farming and green cities',
+  'the rise of e-sports and competitive gaming',
+  'the future of electric and autonomous vehicles',
+  'endangered species and wildlife protection',
+  'the role of public libraries in the digital age',
+  'volunteer tourism and its pros and cons',
+  'space exploration and Mars colonization',
+  'the science behind cooking and food chemistry',
+  'renewable energy solutions in Hong Kong',
+  'deep-sea exploration and undiscovered species',
+  'food sustainability and the future of meat alternatives',
+  'the gig economy and its impact on young workers',
+  'microplastics in the ocean and their effects on the food chain',
+  'how 3D printing is revolutionizing medicine',
+];
+
+let _topicIndex = Math.floor(Math.random() * DIVERSE_DSE_TOPICS.length);
+
+function normalizeTopic(topic?: string): string {
+  if (!topic || topic === 'general' || topic === '綜合' || topic === 'general interest') {
+    const chosen = DIVERSE_DSE_TOPICS[_topicIndex % DIVERSE_DSE_TOPICS.length];
+    _topicIndex++;
+    return chosen;
+  }
+  return topic;
+}
+
 /** Phase 4D.3: Minimum passage word count for DSE-style question support */
 const MIN_PASSAGE_WORDS = {
   'full-paper': 400,
@@ -561,6 +600,8 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     textTypes?: string[];
   };
 
+  const resolvedTopic = normalizeTopic(topic);
+
   // Validate part
   const validatedPart: DSEpart = ['A', 'B1', 'B2'].includes(part as string) ? part as DSEpart : 'A';
 
@@ -579,7 +620,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
   try {
     if (isDSERAGEnabled()) {
       const [pastPapers, markingSchemes] = await Promise.all([
-        retrievePastPaperContent('Reading', topic || 'general interest', undefined, gradeLevel, 3),
+        retrievePastPaperContent('Reading', resolvedTopic, undefined, gradeLevel, 3),
         retrieveMarkingScheme('Reading', 2),
       ]);
       dseContext = buildDSEContextPrompt(
@@ -588,7 +629,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
         'generate_questions',
       );
       if (dseContext) {
-        logger.info({ module: 'reading-api', topic, paperCount: pastPapers.length }, 'DSE RAG context built for full paper');
+        logger.info({ module: 'reading-api', topic: resolvedTopic, paperCount: pastPapers.length }, 'DSE RAG context built for full paper');
       }
     }
   } catch (ragErr) {
@@ -599,7 +640,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     gradeLevel,
     part: validatedPart,
     targetLevel: resolvedLevel,
-    topic: topic as string | undefined,
+    topic: resolvedTopic,
     textTypes: textTypes as string[] | undefined,
   });
 
@@ -607,7 +648,7 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
 
   const result = await callLLM([
     { role: 'system', content: systemPrompt + dseContextBlock },
-    { role: 'user', content: `Generate a complete DSE Paper 1 Part ${validatedPart} paper for ${gradeLevel} students (target Level ${resolvedLevel}) about "${topic || 'DSE-appropriate topic'}". Return the complete JSON paper object.` },
+    { role: 'user', content: `Generate a complete DSE Paper 1 Part ${validatedPart} paper for ${gradeLevel} students (target Level ${resolvedLevel}) about "${resolvedTopic}". Return the complete JSON paper object.` },
   ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'full-paper', maxTokens: getReadingMaxTokens({ mode: 'full-paper', estimatedWords: 1600 }) }) });
 
   const paperParse = safeJsonParse<DSEreadingPaper>(result, 'full-paper-generation');
@@ -772,6 +813,8 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
     partLabel?: DSEpart;
   };
 
+  const resolvedTopic = normalizeTopic(topic);
+
   const validatedPart: DSEpart = ['A', 'B1', 'B2'].includes(partLabel as string) ? partLabel as DSEpart : 'A';
   const targetLevel = platformDifficultyToHKEAALevel(difficulty, validatedPart);
 
@@ -779,14 +822,14 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
     count: Math.min(count, 10),
     difficultyLabel: { remedial: '補底', core: '核心', challenge: '挑戰' }[difficulty],
     gradeLevel,
-    topic: topic || 'DSE-appropriate topic',
+    topic: resolvedTopic,
     partLabel: validatedPart,
     targetLevel,
   });
 
   const result = await callLLM([
     { role: 'system', content: prompt },
-    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${topic || 'general interest'}". The reading passage MUST be 500-800 words. Spread questions across ALL paragraphs evenly. Return JSON.` },
+    { role: 'user', content: `Generate ${count} DSE Paper 1 Part ${validatedPart} reading questions (${difficulty} level, ${gradeLevel}) about "${resolvedTopic}". The reading passage MUST be 500-800 words. Spread questions across ALL paragraphs evenly. Return JSON.` },
   ], { temperature: 0.45, maxTokens: getReadingMaxTokens({ mode: 'exercise', estimatedWords: 800 }), jsonMode: true, timeoutMs: getReadingTimeout({ mode: 'exercise', maxTokens: getReadingMaxTokens({ mode: 'exercise', estimatedWords: 800 }) }) });
 
   const parseResult = safeJsonParse<Record<string, unknown>>(result, 'exercise-generation');
@@ -1199,13 +1242,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
   const level = gradeLevel || 'S4';
   const totalQ = Math.min(questionCount || 6, 10);
+  const resolvedTopic = normalizeTopic(topic);
 
   // DSE RAG
   let dseContext = '';
   try {
     if (isDSERAGEnabled()) {
       const [pastPapers, markingSchemes] = await Promise.all([
-        retrievePastPaperContent('Reading', topic || 'general interest', difficulty, level, 3),
+        retrievePastPaperContent('Reading', resolvedTopic, difficulty, level, 3),
         retrieveMarkingScheme('Reading', 2),
       ]);
       dseContext = buildDSEContextPrompt(
@@ -1238,7 +1282,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     try {
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
-        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
+        { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
       ], { temperature: 0.45, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
 
       // ── Parse with repair ──
@@ -1272,7 +1316,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words.` },
+          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words.` },
         ], { temperature: 0.35, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
         
         const retryRepair = repairAiJson(retryRaw);
@@ -1417,7 +1461,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     const totalWords = cleanContent.split(/\s+/).filter(Boolean).length;
 
     response.passage = {
-      title: topic ? `${topic.charAt(0).toUpperCase() + topic.slice(1)} Reading` : 'Reading Passage',
+      title: topic ? `${resolvedTopic.charAt(0).toUpperCase() + resolvedTopic.slice(1)} Reading` : 'Reading Passage',
       content: cleanContent,
       wordCount: totalWords,
       source: parsed.source || undefined,
