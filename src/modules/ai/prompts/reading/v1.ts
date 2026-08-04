@@ -487,29 +487,39 @@ ABSOLUTE RULES (zero tolerance):
 - 🚫 NO paragraph shall have more than 3 questions
 - 🚫 Difference between the paragraph with most questions and the paragraph with fewest questions MUST be ≤ 1
 
-╔══════════════════════════════════════════════════╗
-║  MANDATORY SELF-CHECK (do BEFORE outputting):   ║
-║  Fill in actual counts:                          ║
-║    Paragraph 1 has ___ questions                 ║
-║    Paragraph 2 has ___ questions                 ║
-║    Paragraph 3 has ___ questions                 ║
-║    Paragraph 4 has ___ questions                 ║
-║  Check:                                          ║
-║    ☐ EVERY paragraph has ≥ 2 questions?          ║
-║    ☐ NO paragraph has ≥ 4 questions?             ║
-║    ☐ The counts differ by ≤ 1?                   ║
-║  If ANY box is unchecked → FIX before output.    ║
-╚══════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║  MANDATORY SELF-CHECK (do BEFORE outputting JSON):          ║
+║                                                              ║
+║  For 4 paragraphs with 10 questions, the ONLY acceptable     ║
+║  distributions are: [3,2,3,2] or [2,3,2,3] or [3,3,2,2]    ║
+║  or [2,2,3,3] or [2,3,3,2]. ANY other pattern is WRONG.    ║
+║                                                              ║
+║  Fill in YOUR actual counts below:                           ║
+║    Paragraph 1 has ___ questions (must be 2 or 3)            ║
+║    Paragraph 2 has ___ questions (must be 2 or 3)            ║
+║    Paragraph 3 has ___ questions (must be 2 or 3)            ║
+║    Paragraph 4 has ___ questions (must be 2 or 3)            ║
+║    TOTAL: ___ (must be exactly 10)                           ║
+║                                                              ║
+║  Verify ALL boxes before output:                             ║
+║    ☐ Every paragraph has 2 or 3 questions?                   ║
+║    ☐ NO paragraph has 0, 1, or 4+ questions?                 ║
+║    ☐ Total sums to exactly 10?                               ║
+║    ☐ Max count − Min count ≤ 1?                              ║
+║                                                              ║
+║  ⛔ If ANY box is unchecked → DELETE and REDISTRIBUTE        ║
+║     questions BEFORE outputting. This is NON-NEGOTIABLE.     ║
+╚══════════════════════════════════════════════════════════════╝
 
 ### ⚠️ Question Requirements (MUST FOLLOW):
 - Mix at least 4 different question types: mcq, trueFalseNG, referencing, vocabularyInContext, inference, toneAttitude, shortAnswer, summaryCloze, mcCloze
 - Every question must use EXACT DSE wording with paragraph reference
 - Every question must include marks (1-4) and word limits
 - For mcq: include 4 plausible distractors labeled A/B/C/D
+- For toneAttitude: ⛔ MUST include 4 choices labeled A/B/C/D in the "choices" array. Use nuanced labels (skeptical, cautiously optimistic, subtly critical, reservedly hopeful, mildly apprehensive — NEVER just "positive" or "negative"). toneAttitude is ALWAYS an MCQ — never an open-ended question.
 - For trueFalseNG: use exactly "True (T), False (F) or Not Given (NG)" format
 - For referencing: "Who or what does 'X' refer to?"
 - For vocabulary: "What does 'X' mean as used in the passage?" or "Find a word/phrase that means 'Y'"
-- For tone/attitude: use nuanced labels (skeptical, cautiously optimistic, subtly critical — NOT just positive/negative)
 - For inference: "Based on paragraph X, explain why..." (30-50 words)
 - Include answer explanations in both English and Chinese
 
