@@ -190,11 +190,11 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
   }
 
   // 1.5 Fix stray unescaped quotes before paragraph markers inside string values
-  // AI sometimes outputs: ...text\n\n"[Paragraph 2]... — the " breaks the JSON string
-  // Only fix quotes NOT preceded by colon (": "[Paragraph 1] is valid JSON)
-  const strayQuoteFixed = text.replace(/([^:])\s*"(\[Paragraph\s+\d+\])/g, '$1$2');
-  if (strayQuoteFixed !== text) {
-    text = strayQuoteFixed;
+  // AI sometimes outputs: ...text\n\n"[Paragraph 2]... — the stray " terminates the JSON string
+  // Fix: escape the quote (\") when NOT preceded by colon (which is the legit opening "value")
+  const escaped = text.replace(/([^:])\s*"(\[Paragraph\s+\d+\])/g, '$1\\"$2');
+  if (escaped !== text) {
+    text = escaped;
     wasRepaired = true;
   }
 
