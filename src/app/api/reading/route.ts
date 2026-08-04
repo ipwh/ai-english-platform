@@ -1408,18 +1408,21 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           ? `\n⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`
           : `\n⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`;
 
-        // Adjust retry params: for short passages, use higher temp + more tokens
-        const retryTemp = passageWordCount < 250 ? 0.55 : 0.35;
-        const retryMaxTokens = passageWordCount < 250 ? Math.floor(legacyMaxTokens * 1.3) : legacyMaxTokens;
-        const retryTimeout = passageWordCount < 250
-          ? getReadingTimeout({ mode: 'legacy', maxTokens: retryMaxTokens })
-          : legacyTimeout;
+        // Adjust retry params based on failure type:
+        // - JSON errors: low temp (0.35) for precise syntax
+        // - Content issues (short passage, few paragraphs, bad distribution): higher temp + more tokens
+        const isJsonRetry = !parseResult.data || !!parseResult.error;
+        const retryTemp = isJsonRetry ? 0.35 : 0.55;
+        const retryMaxTokens = isJsonRetry ? legacyMaxTokens : Math.floor(legacyMaxTokens * 1.3);
+        const retryTimeout = isJsonRetry
+          ? legacyTimeout
+          : getReadingTimeout({ mode: 'legacy', maxTokens: retryMaxTokens });
         
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: passageWordCount < 250
-            ? `Write a DSE ${level} reading comprehension passage about "${resolvedTopic}". The passage MUST be 500-800 words. Write at least 500 words — add details, examples, and explanations. Include ${totalQ} progressive questions. Output ONLY the JSON object.`
-            : `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words and questions are EVENLY distributed (2-3 per paragraph).`
+          { role: 'user', content: isJsonRetry
+            ? `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object.`
+            : `Write a DSE ${level} reading comprehension passage about "${resolvedTopic}". The passage MUST be 500-800 words. Write at least 500 words — add details, examples, and explanations. Include ${totalQ} progressive questions with EVEN distribution (2-3 per paragraph). Output ONLY the JSON object.`
           },
         ], { temperature: retryTemp, maxTokens: retryMaxTokens, jsonMode: true, timeoutMs: retryTimeout });
         
