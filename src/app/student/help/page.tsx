@@ -315,7 +315,7 @@ export default function StudentHelpPage() {
             });
           } else if (areaLower.includes('reading') || areaLower.includes('閱讀') || areaLower.includes('comprehension')) {
             faqItems.push({
-              q: `如何提升${area}嘅成績？`,
+              q: `如何提升${area}的成績？`,
               a: studyPlan || `建議：1) 每日閱讀一篇英文文章（15 分鐘），練習略讀及掃讀技巧；2) 每週做 1 篇 DSE 閱讀模擬，記錄時間及正確率；3) 先看題目再讀文章，每題限時 1.5 分鐘；4) 持續四週後檢視進步幅度。`,
               skill: 'reading',
               icon: '📖',
@@ -323,13 +323,13 @@ export default function StudentHelpPage() {
           } else if (areaLower.includes('vocab') || areaLower.includes('詞彙')) {
             faqItems.push({
               q: `如何有效擴充${area}？`,
-              a: studyPlan || `建議：1) 每日學習 5-10 個新詞彙，連同例句及 collocations 一齊記；2) 使用平台的詞彙學習功能，啟用間隔重溫（SRS）；3) 每週做一次詞彙測驗自檢；4) 嘗試在寫作中主動使用新詞彙。`,
+              a: studyPlan || `建議：1) 每日學習 5-10 個新詞彙，連同例句及 collocations 一起記；2) 使用平台的詞彙學習功能，啟用間隔重溫（SRS）；3) 每週做一次詞彙測驗自檢；4) 嘗試在寫作中主動使用新詞彙。`,
               skill: 'vocabulary',
               icon: '📚',
             });
           } else if (areaLower.includes('writing') || areaLower.includes('寫作') || areaLower.includes('作文')) {
             faqItems.push({
-              q: `點樣系統性提升${area}能力？`,
+              q: `如何系統性提升${area}能力？`,
               a: studyPlan || `建議：1) 每週寫一篇 200-300 字英文短文，使用平台 AI 批改；2) 學習 PEEL 段落結構（Point→Example→Explanation→Link）；3) 每次批改後針對 AI 建議修改，記錄常見錯誤；4) 每月比較前後作文，量化進步。`,
               skill: 'writing',
               icon: '✍️',
@@ -346,7 +346,7 @@ export default function StudentHelpPage() {
             );
             if (!alreadyCovered) {
               faqItems.push({
-                q: `${focus.skill}方面應該點樣針對性練習？`,
+                q: `${focus.skill}方面應該如何針對性練習？`,
                 a: focus.reason,
                 skill: focus.skill.toLowerCase(),
                 icon: '🎯',
@@ -360,8 +360,8 @@ export default function StudentHelpPage() {
           const topWeak = derivedWeakSkills[0];
           const skillIcons: Record<string, string> = { grammar: '📝', vocabulary: '📚', reading: '📖', writing: '✍️' };
           faqItems.push({
-            q: `我嘅${topWeak.nameZh}準確率只有 ${topWeak.accuracy}%，應該點改善？`,
-            a: `你嘅${topWeak.nameZh}目前準確率為 ${topWeak.accuracy}%，屬於薄弱環節。建議：1) 每日針對${topWeak.nameZh}做 10-15 題練習；2) 每題錯後記錄錯誤類型及原因；3) 每週末重溫該週所有${topWeak.nameZh}錯題；4) 目標：兩週內將準確率提升至 70% 以上。`,
+            q: `我的${topWeak.nameZh}準確率只有 ${topWeak.accuracy}%，應該如何改善？`,
+            a: `你的${topWeak.nameZh}目前準確率為 ${topWeak.accuracy}%，屬於薄弱環節。建議：1) 每日針對${topWeak.nameZh}做 10-15 題練習；2) 每題錯後記錄錯誤類型及原因；3) 每週末重溫該週所有${topWeak.nameZh}錯題；4) 目標：兩週內將準確率提升至 70% 以上。`,
             skill: topWeak.name,
             icon: skillIcons[topWeak.name] || '💡',
           });
