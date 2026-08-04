@@ -147,11 +147,13 @@ const geminiLite = {
   },
 };
 
-// xAI Grok: OpenAI-compatible, grok-4.3 for speed/cost balance
+// xAI Grok: OpenAI-compatible, non-reasoning model for content generation
+// grok-4.3 (reasoning) wastes ~66% tokens on internal thinking → NOT for generation
+// grok-4.20-0309-non-reasoning: same price, all tokens go to output
 const grok = {
   apiKey: process.env.XAI_API_KEY || '',
   baseUrl: process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
-  model: process.env.XAI_MODEL || 'grok-4.3',
+  model: process.env.XAI_MODEL || 'grok-4.20-0309-non-reasoning',
   get isConfigured(): boolean {
     return !!this.apiKey;
   },
