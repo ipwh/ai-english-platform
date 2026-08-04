@@ -490,15 +490,18 @@ ABSOLUTE RULES (zero tolerance):
 ╔══════════════════════════════════════════════════════════════╗
 ║  MANDATORY SELF-CHECK (do BEFORE outputting JSON):          ║
 ║                                                              ║
-║  For 4 paragraphs with 10 questions, the ONLY acceptable     ║
-║  distributions are: [3,2,3,2] or [2,3,2,3] or [3,3,2,2]    ║
-║  or [2,2,3,3] or [2,3,3,2]. ANY other pattern is WRONG.    ║
+║  ACCEPTABLE distributions by paragraph count:                ║
+║    4 paragraphs: [3,2,3,2] [2,3,2,3] [3,3,2,2] [2,2,3,3]   ║
+║                  [2,3,3,2]. ANY other pattern is WRONG.     ║
+║    5 paragraphs: ONLY [2,2,2,2,2] is acceptable.            ║
+║                  ANY other pattern is WRONG.                ║
 ║                                                              ║
 ║  Fill in YOUR actual counts below:                           ║
 ║    Paragraph 1 has ___ questions (must be 2 or 3)            ║
 ║    Paragraph 2 has ___ questions (must be 2 or 3)            ║
 ║    Paragraph 3 has ___ questions (must be 2 or 3)            ║
 ║    Paragraph 4 has ___ questions (must be 2 or 3)            ║
+║    Paragraph 5 has ___ questions (must be 2 if exists)       ║
 ║    TOTAL: ___ (must be exactly 10)                           ║
 ║                                                              ║
 ║  Verify ALL boxes before output:                             ║
