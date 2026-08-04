@@ -208,10 +208,17 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
   }
 
   // 3.5 Fix missing colons after property names: {"key" "value"} → {"key": "value"}
-  // The "Expected ':' after property name" error — AI sometimes skips the colon
-  const missingColonFixed = text.replace(
-    /([,{]\s*)"(\w+)"\s+"/g,
+  // The "Expected ':' after property name" error — AI sometimes skips the colon.
+  // Matches: any quoted string followed by whitespace and another quote (no colon between).
+  // First pass: standard case: {"word" "value"}
+  let missingColonFixed = text.replace(
+    /([,{]\s*)"([^"]+)"\s+"/g,
     '$1"$2": "'
+  );
+  // Second pass: edge case where the key-value pair spans a newline
+  missingColonFixed = missingColonFixed.replace(
+    /"([^"]+)"\n\s*"/g,
+    '"$1": "'
   );
   if (missingColonFixed !== text) {
     text = missingColonFixed;
