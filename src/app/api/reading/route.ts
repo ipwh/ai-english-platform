@@ -330,6 +330,48 @@ function normalizeTopic(topic?: string): string {
   return topic;
 }
 
+/**
+ * Check if questions are evenly distributed across paragraphs.
+ * Returns { valid, counts, message } for use in retry decisions.
+ */
+function checkParagraphDistribution(
+  questions: Array<Record<string, unknown>>,
+  paragraphCount: number,
+): { valid: boolean; counts: number[]; message: string } {
+  const counts = new Array(paragraphCount).fill(0);
+  
+  for (const q of questions) {
+    const qText = (q.questionText as string) || (q.question as string) || '';
+    // Try explicit paragraphRef first, then parse from question text
+    const ref = (q.paragraphRef as number) || undefined;
+    if (ref && ref >= 1 && ref <= paragraphCount) {
+      counts[ref - 1]++;
+      continue;
+    }
+    // Parse "paragraph X" from question text
+    const match = qText.match(/paragraph\s+(\d+)/i);
+    if (match) {
+      const p = parseInt(match[1], 10);
+      if (p >= 1 && p <= paragraphCount) counts[p - 1]++;
+      continue;
+    }
+    // Whole-text or cross-paragraph questions — count as paragraph 0 (neutral)
+  }
+  
+  const min = Math.min(...counts);
+  const max = Math.max(...counts);
+  const hasZero = counts.some(c => c === 0);
+  const hasOverThree = counts.some(c => c > 3);
+  const valid = !hasZero && !hasOverThree && (max - min <= 1);
+  
+  const distroStr = counts.map((c, i) => `P${i + 1}:${c}`).join(', ');
+  const message = valid
+    ? `Distribution OK: [${distroStr}]`
+    : `BAD distribution [${distroStr}] — ${hasZero ? 'has 0-question paragraph(s)' : ''}${hasOverThree ? 'has 4+ question paragraph(s)' : ''}${!hasZero && !hasOverThree ? `gap too large (${max} vs ${min})` : ''}`;
+  
+  return { valid, counts, message };
+}
+
 /** Phase 4D.3: Minimum passage word count for DSE-style question support */
 const MIN_PASSAGE_WORDS = {
   'full-paper': 400,
@@ -1289,18 +1331,34 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       const repairResult = repairAiJson(rawResult);
       parseResult = safeJsonParse<Record<string, unknown>>(repairResult.repaired, 'legacy-generation');
 
-      // Check passage length from first attempt
+      // Check passage length and paragraph distribution from first attempt
+      let distributionBad = false;
+      let distroMessage = '';
       if (parseResult.data) {
         const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
         passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
+        
+        // Check paragraph distribution
+        const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+        const paraCount = Math.max((pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
+        if (questions.length > 0 && paraCount >= 3) {
+          const distro = checkParagraphDistribution(questions, paraCount);
+          distributionBad = !distro.valid;
+          distroMessage = distro.message;
+          if (distributionBad) {
+            logger.warn({ module: 'reading-api', distribution: distro.counts, paraCount }, distroMessage);
+          }
+        }
       }
       
-      // Retry if JSON malformed OR passage too short
-      const needsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250));
+      // Retry if JSON malformed OR passage too short OR distribution bad
+      const needsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || distributionBad);
       if (needsRetry && !preParsed) {
         const retryReason = !parseResult.data || parseResult.error
           ? 'invalid JSON syntax'
-          : `passage too short (${passageWordCount} words, minimum 250 required)`;
+          : passageWordCount < 250
+          ? `passage too short (${passageWordCount} words, minimum 250 required)`
+          : `bad paragraph distribution — ${distroMessage}`;
         
         logger.warn({ 
           module: 'reading-api', 
@@ -1312,11 +1370,13 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         
         const retryInstruction = (!parseResult.data || parseResult.error)
           ? '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.'
-          : `\n⚠️ CRITICAL: Your previous passage was only ${passageWordCount} words. You MUST generate a passage of AT LEAST 500 words. Count the words before outputting.`;
+          : passageWordCount < 250
+          ? `\n⚠️ CRITICAL: Your previous passage was only ${passageWordCount} words. You MUST generate a passage of AT LEAST 500 words. Count the words before outputting.`
+          : `\n⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`;
         
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words.` },
+          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words and questions are EVENLY distributed (2-3 per paragraph).` },
         ], { temperature: 0.35, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
         
         const retryRepair = repairAiJson(retryRaw);
