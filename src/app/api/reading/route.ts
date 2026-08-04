@@ -134,8 +134,11 @@ function getReadingMaxTokens(params: {
 }
 
 function getReadingTimeout(params: { mode: string; maxTokens: number }): number {
-  // Proportional timeout: ~2.5ms per token, min 25s, max 60s
-  return Math.min(60000, Math.max(25000, Math.ceil(params.maxTokens * 0.0025)));
+  // Proportional timeout: ~5ms per token (empirical from Grok/DeepSeek latency data)
+  // Grok: ~5ms/token avg, DeepSeek: often 8-12ms/token under load
+  // Min 35s (was 25s — too short for 3000+ token JSON output)
+  // Max 55s (Vercel Pro 60s limit, reserve 5s for overhead)
+  return Math.min(55000, Math.max(35000, Math.ceil(params.maxTokens * 0.005)));
 }
 
 // ============================================

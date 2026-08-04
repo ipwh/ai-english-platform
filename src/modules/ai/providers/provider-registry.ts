@@ -77,8 +77,9 @@ class ProviderRegistry {
       if (isFallback && options?.timeoutMs) {
         const elapsed = Date.now() - startTime;
         const remaining = Math.max(0, TOTAL_BUDGET_MS - elapsed);
-        // Give fallback at least 15s, but don't exceed remaining budget
-        const fallbackTimeout = Math.min(remaining, Math.max(15_000, Math.floor(options.timeoutMs / (i + 1))));
+        // Each fallback gets 50% of original timeout, min 20s (was 15s — too short for 3000+ token JSON)
+        // Grok empirical: 2700 tokens in ~14s, but 1500 tokens truncated at 15s under load
+        const fallbackTimeout = Math.min(remaining, Math.max(20_000, Math.floor(options.timeoutMs / 2)));
         adjustedOptions = { ...options, timeoutMs: fallbackTimeout };
       }
       try {
