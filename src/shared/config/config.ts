@@ -147,6 +147,16 @@ const geminiLite = {
   },
 };
 
+// xAI Grok: OpenAI-compatible, grok-4.3 for speed/cost balance
+const grok = {
+  apiKey: process.env.XAI_API_KEY || '',
+  baseUrl: process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
+  model: process.env.XAI_MODEL || 'grok-4.3',
+  get isConfigured(): boolean {
+    return !!this.apiKey;
+  },
+};
+
 // ============================================
 // Vertex AI (GCP) 設定
 // ============================================
@@ -322,6 +332,7 @@ export const config = {
   deepseek,
   gemini,
   geminiLite,
+  grok,
   vertex,
   jwt,
   auth,

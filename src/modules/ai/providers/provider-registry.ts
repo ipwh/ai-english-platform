@@ -7,9 +7,9 @@ import type { AIProvider } from './provider-interface';
 import { isProviderAvailable } from './provider-interface';
 import type { ChatMessage, LLMCallOptions, ProviderCallResult } from './types';
 import { deepseekProvider } from './deepseek-provider';
-import { vertexGeminiProvider } from './vertex-gemini-provider';
 import { geminiProvider } from './gemini-provider';
 import { geminiFlashLiteProvider } from './gemini-flash-lite-provider';
+import { grokProvider } from './grok-provider';
 import { claudeProvider } from './claude-provider';
 import { openaiProvider } from './openai-provider';
 import { logger } from '@/shared/logger/logger';
@@ -25,11 +25,11 @@ class ProviderRegistry {
   private lastUsed: string = 'none';
 
   constructor() {
-    // Priority order: DeepSeek → Vertex Gemini → Gemini API → Gemini Flash-Lite → Claude → OpenAI
+    // Priority: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok → Claude → OpenAI
     this.register(deepseekProvider);
-    this.register(vertexGeminiProvider);
     this.register(geminiProvider);
     this.register(geminiFlashLiteProvider);
+    this.register(grokProvider);
     this.register(claudeProvider);
     this.register(openaiProvider);
   }
@@ -156,4 +156,4 @@ class ProviderRegistry {
 export const providerRegistry = new ProviderRegistry();
 
 // Re-export individual providers for direct access
-export { deepseekProvider, vertexGeminiProvider, geminiProvider, claudeProvider, openaiProvider };
+export { deepseekProvider, geminiProvider, geminiFlashLiteProvider, grokProvider, claudeProvider, openaiProvider };

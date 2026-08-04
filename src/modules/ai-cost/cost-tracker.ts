@@ -14,6 +14,7 @@ const PRICING: Record<AIModel, ModelPricing> = {
   'gemini-2.0-flash': { model: 'gemini-2.0-flash', inputPricePer1K: 0.00010, outputPricePer1K: 0.00040 },
   'gemini-2.5-flash': { model: 'gemini-2.5-flash', inputPricePer1K: 0.00015, outputPricePer1K: 0.00060 },
   'gemini-2.5-flash-lite': { model: 'gemini-2.5-flash-lite', inputPricePer1K: 0.00010, outputPricePer1K: 0.00040 },
+  'grok-4.3': { model: 'grok-4.3', inputPricePer1K: 0.00125, outputPricePer1K: 0.00250 },
   'vertex-gemini': { model: 'vertex-gemini', inputPricePer1K: 0.0000375, outputPricePer1K: 0.00015 },
 };
 
