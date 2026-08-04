@@ -5,14 +5,16 @@ See AGENTS.md for shared agent instructions.
 ## Project: AI English Platform
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
-- **AI**: DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI (5-provider fallback chain)
+- **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain, Grok added Sprint 110)
 - **Testing**: Vitest 4, 1,054 tests, 46 test files (100% pass)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 30 under `src/modules/`
 - **API routes**: 120 under `src/app/api/`
 - **Architecture**: v5 100/100 — Facade→UseCase→Service→Repository→Prisma, 120 enforcement tests, 0 exceptions
 - **i18n**: 1,360+ keys, 15 module files, check: `node scripts/check-i18n.js`
-- **Deployment Readiness**: 91/100 (v1.0 RC certified — Sprint 102)
+- **Deployment Readiness**: 96/100 (v1.0 RC certified — Sprint 110)
+- **AI Quality**: DSE reading generation 8.2/10 avg — 4-tier retry (JSON/words/paragraphs/distribution), JSON auto-repair pipeline, toneAttitude auto-choices, topic diversification
+- **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging
 
 ## Conventions
 - All API routes use `verifyApiAuth()` for auth, `logger.error()` for errors
