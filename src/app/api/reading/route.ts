@@ -1677,6 +1677,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         question = question.replace(/\s+/g, ' ').trim();
 
         const aiType = (q.type as string) || 'shortAnswer';
+
+        // Sprint 110: Fix summaryCloze single-paragraph references — they always span the whole passage
+        if (aiType === 'summaryCloze') {
+          question = question.replace(
+            /(according to|with reference to|based on|in|complete the following summary of)\s+paragraph\s+\d+/gi,
+            '$1 the passage'
+          );
+        }
+
         const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
         const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
@@ -1739,6 +1748,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
         // Map AI question type to legacy type (Sprint 102: expanded MCQ types)
         const aiType = (q.type as string) || 'shortAnswer';
+
+        // Sprint 110: Fix summaryCloze single-paragraph references — they always span the whole passage
+        const questionFixed = aiType === 'summaryCloze'
+          ? question.replace(
+              /(according to|with reference to|based on|in|complete the following summary of)\s+paragraph\s+\d+/gi,
+              '$1 the passage'
+            )
+          : question;
+
         const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
         const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
 
@@ -1773,7 +1791,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           index: (q.index as number) || i + 1,
           tier,
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
-          question,
+          question: questionFixed,
           questionZh,
           type: isMcLikeDseType(dseType2) ? 'mc' : 'short-answer',
           dseType: dseType2,

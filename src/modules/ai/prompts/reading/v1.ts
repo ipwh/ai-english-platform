@@ -536,6 +536,7 @@ ABSOLUTE RULES:
 
 ### ⚠️ Question Requirements (MUST FOLLOW):
 - Mix at least 4 different question types: mcq, trueFalseNG, referencing, vocabularyInContext, inference, toneAttitude, shortAnswer, summaryCloze, mcCloze
+- For summaryCloze: the summary ALWAYS covers multiple paragraphs or the whole passage. Use "Complete the following summary of the passage" or "Complete the following summary of paragraphs X-Y" — NEVER cite a single paragraph like "paragraph 1" for a summaryCloze question.
 - Every question must use EXACT DSE wording with paragraph reference
 - Every question must include marks (1-4) and word limits
 - For mcq: include 4 plausible distractors labeled A/B/C/D
