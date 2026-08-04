@@ -116,7 +116,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       { role: 'system', content: effectiveSystemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 2048, jsonMode: true, timeoutMs: 30000, userId: input.userId }
+    { temperature: attempt > 0 ? Math.max(0.3, qTemperature - 0.15) : qTemperature, maxTokens: isListening ? 4096 : 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId }
   );
 
     logger.info({ module: 'generate-questions', resultLen: result.length, resultPreview: result.slice(0, 300), attempt }, 'LLM response received');
