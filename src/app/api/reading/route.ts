@@ -1148,16 +1148,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   }
 
   // ══════════════════════════════════════════
-  // Phase 4F: Validator-based quality gate — up to 2 regeneration attempts
-  // Replaces the old blueprint-only retry with comprehensive validation.
+  // Phase 4F: Run validator for diagnostic metadata (non-blocking).
+  // Skipping retry loop to stay under Vercel 60s limit.
   // ══════════════════════════════════════════
-  let validatorRetries = 0;
-  const MAX_VALIDATOR_RETRIES = 1; // Vercel budget: 25s init + 20s retry = 45s max
   let validatorResult: ReadingValidationResult | null = null;
 
   if (!preParsed) {
     const content = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
-    let questions = (parsed.questions as DSEreadingQuestion[]) || [];
+    const questions = (parsed.questions as DSEreadingQuestion[]) || [];
     const paraCount = Math.max((content?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
 
     validatorResult = validateReadingQuestionSet(questions, {
@@ -1165,74 +1163,13 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       paragraphCount: paraCount,
     });
 
-    while (!validatorResult.isValid && validatorRetries < MAX_VALIDATOR_RETRIES) {
-      const errorCodes = validatorResult.issues
-        .filter(i => i.severity === 'error')
-        .map(i => i.code);
+    if (!validatorResult.isValid) {
+      const codes = validatorResult.issues.filter(i => i.severity === 'error').map(i => i.code);
       logger.warn({
         module: 'reading-api',
-        attempt: validatorRetries + 1,
-        errorCodes,
-        metrics: validatorResult.metrics,
-      }, 'Validator found errors — regenerating');
-
-      const errorMessages = validatorResult.issues
-        .filter(i => i.severity === 'error')
-        .map(i => `- [${i.code}] ${i.message}`)
-        .join('\n');
-      const retryPrompt = `\n\n## ⚠️ REGENERATION REQUIRED — Fix ALL of these issues:\n${errorMessages}\n\nReturn JSON with the corrected question set.`;
-
-      try {
-        const retryRaw = await callLLM([
-          { role: 'system', content: systemPrompt + dseContextBlock + retryPrompt },
-          { role: 'user', content: `Regenerate the question set. Fix ALL of the issues listed above. Passage must be 500-800 words. Return JSON.` },
-        ], { temperature: 0.40, maxTokens: 6144, jsonMode: true, timeoutMs: 20000 });
-
-        const retryParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-validator-retry');
-        if (retryParse.data && !retryParse.error) {
-          parsed = retryParse.data;
-          const newContent = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
-          questions = (parsed.questions as DSEreadingQuestion[]) || [];
-          const newParaCount = Math.max((newContent?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
-          validatorResult = validateReadingQuestionSet(questions, {
-            readingContent: newContent || content,
-            paragraphCount: Math.max(newParaCount, paraCount),
-          });
-        } else {
-          logger.warn({ module: 'reading-api', error: retryParse.error }, 'Validator retry parse failed — will retry if attempts remain');
-          // Don't break — let the loop try again
-        }
-      } catch (retryErr) {
-        logger.warn({ module: 'reading-api', error: (retryErr as Error).message }, 'Validator retry AI call failed — will retry if attempts remain');
-        // Don't break — let the loop try again
-      }
-      validatorRetries++;
-    }
-
-    // If still invalid after all retries, return structured 422
-    if (validatorResult && !validatorResult.isValid) {
-      const codes = validatorResult.issues
-        .filter(i => i.severity === 'error')
-        .map(i => i.code);
-      const messages = validatorResult.issues
-        .filter(i => i.severity === 'error')
-        .slice(0, 5)
-        .map(i => i.message);
-      logger.error({
-        module: 'reading-api',
-        attempts: validatorRetries + 1,
         errorCodes: codes,
         metrics: validatorResult.metrics,
-      }, 'Validator still failing after max retries');
-      return NextResponse.json(
-        apiError(
-          `Generated reading content does not meet quality standards: ${messages.join('; ')}`,
-          'VALIDATOR_FAILED',
-          true,
-          JSON.stringify({ errorCodes: codes, attempts: validatorRetries + 1 }),
-        ),
-        { status: 422 },
-      );
+      }, 'Validator issues found (non-blocking — returning output anyway)');
     }
   }
 
@@ -1261,14 +1198,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       if (!combinedCheck.passed) {
         logger.warn({ module: 'reading-api', issues: combinedCheck.issueMessages }, 'Blueprint + MC validation warnings');
       }
-      const retried = validatorRetries > 0;
+      const retried = false; // No retry in non-blocking validator mode
       parsed._blueprintQuality = toBlueprintQualityMeta(combinedCheck, retried);
 
       // Phase 4F: Attach new validator result for diagnostics
       if (validatorResult) {
         parsed._validatorQuality = {
           isValid: validatorResult.isValid,
-          retries: validatorRetries,
+          retries: 0,
           errorCodes: validatorResult.issues.filter(i => i.severity === 'error').map(i => i.code),
           warningCodes: validatorResult.issues.filter(i => i.severity === 'warning').map(i => i.code),
           metrics: validatorResult.metrics,

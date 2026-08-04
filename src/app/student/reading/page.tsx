@@ -125,10 +125,6 @@ function mapReadingApiError(
         return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The AI service is temporarily busy. Please wait a moment and try again.'
           : 'AI 服務暫時繁忙，請稍候再試。' };
-      case 'VALIDATOR_FAILED':
-        return { code, recoverable: true, debugInfo: details, message: language === 'en'
-          ? 'The generated content does not meet quality standards. Please try again.'
-          : '生成內容未達質量標準，請再試一次。' };
       default:
         return { code, recoverable, debugInfo: details, message: language === 'en'
           ? 'The request was understood, but the content could not be processed. Please try again.'
