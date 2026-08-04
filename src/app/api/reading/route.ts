@@ -1403,15 +1403,25 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const retryInstruction = (!parseResult.data || parseResult.error)
           ? '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.'
           : passageWordCount < 250
-          ? `\n⚠️ CRITICAL: Your previous passage was only ${passageWordCount} words. You MUST generate a passage of AT LEAST 500 words. Count the words before outputting.`
+          ? `\n⛔ CRITICAL: Your previous passage was ONLY ${passageWordCount} words. You MUST write a passage of 500-800 words. Write MORE content — add examples, details, quotes, and explanations. DO NOT stop early. Count your words before finishing.`
           : paragraphCountBad
           ? `\n⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`
           : `\n⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`;
+
+        // Adjust retry params: for short passages, use higher temp + more tokens
+        const retryTemp = passageWordCount < 250 ? 0.55 : 0.35;
+        const retryMaxTokens = passageWordCount < 250 ? Math.floor(legacyMaxTokens * 1.3) : legacyMaxTokens;
+        const retryTimeout = passageWordCount < 250
+          ? getReadingTimeout({ mode: 'legacy', maxTokens: retryMaxTokens })
+          : legacyTimeout;
         
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words and questions are EVENLY distributed (2-3 per paragraph).` },
-        ], { temperature: 0.35, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
+          { role: 'user', content: passageWordCount < 250
+            ? `Write a DSE ${level} reading comprehension passage about "${resolvedTopic}". The passage MUST be 500-800 words. Write at least 500 words — add details, examples, and explanations. Include ${totalQ} progressive questions. Output ONLY the JSON object.`
+            : `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object. Ensure the passage is 500-800 words and questions are EVENLY distributed (2-3 per paragraph).`
+          },
+        ], { temperature: retryTemp, maxTokens: retryMaxTokens, jsonMode: true, timeoutMs: retryTimeout });
         
         const retryRepair = repairAiJson(retryRaw);
         parseResult = safeJsonParse<Record<string, unknown>>(retryRepair.repaired, 'legacy-generation-retry');
