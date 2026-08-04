@@ -1354,9 +1354,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       let distributionBad = false;
       let distroMessage = '';
       let paragraphCountBad = false;
+      let passageTooLong = false;
       if (parseResult.data) {
         const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
         passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
+        passageTooLong = passageWordCount > 800;
         
         // Check actual paragraph count (must be 3-5)
         actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
@@ -1385,7 +1387,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       // BUT only if we have enough time budget remaining (Vercel Pro 120s maxDuration)
       const elapsed = Date.now() - startTime;
       const MIN_RETRY_BUDGET_MS = 25_000; // need at least 25s for a retry to be worthwhile
-      const contentNeedsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || paragraphCountBad || distributionBad);
+      const contentNeedsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || passageTooLong || paragraphCountBad || distributionBad);
       const hasRetryBudget = elapsed < (115_000 - MIN_RETRY_BUDGET_MS); // 115s budget, reserve 5s from 120s
       const needsRetry = contentNeedsRetry && hasRetryBudget;
 
@@ -1417,25 +1419,31 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const retryInstruction = (!parseResult.data || parseResult.error)
           ? '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.'
           : passageWordCount < 250
-          ? `\n⛔ CRITICAL: Your previous passage was ONLY ${passageWordCount} words. You MUST write a passage of 500-800 words. Write MORE content — add examples, details, quotes, and explanations. DO NOT stop early. Count your words before finishing.`
+          ? `\n⛔ CRITICAL: Your previous passage was ONLY ${passageWordCount} words. You MUST write 500-800 words. Write MORE content — add examples, details, quotes. DO NOT stop early.`
+          : passageTooLong
+          ? `\n⛔ CRITICAL: Your previous passage was ${passageWordCount} words — TOO LONG (max 800). You MUST shorten to 500-800 words. Remove filler phrases like "This paragraph sets the stage..." and meta-commentary. Be concise.`
           : paragraphCountBad
           ? `\n⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`
           : `\n⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`;
 
         // Adjust retry params based on failure type:
         // - JSON errors: low temp (0.35) for precise syntax
-        // - Content issues (short passage, few paragraphs, bad distribution): higher temp + more tokens
+        // - Passage too long: standard params (concise output)
+        // - Content issues (short, few paragraphs, bad distribution): higher temp + more tokens
         const isJsonRetry = !parseResult.data || !!parseResult.error;
-        const retryTemp = isJsonRetry ? 0.35 : 0.55;
-        const retryMaxTokens = isJsonRetry ? legacyMaxTokens : Math.floor(legacyMaxTokens * 1.3);
-        const retryTimeout = isJsonRetry
-          ? legacyTimeout
-          : getReadingTimeout({ mode: 'legacy', maxTokens: retryMaxTokens });
+        const needsBoost = !isJsonRetry && !passageTooLong;
+        const retryTemp = isJsonRetry || passageTooLong ? 0.35 : 0.55;
+        const retryMaxTokens = needsBoost ? Math.floor(legacyMaxTokens * 1.3) : legacyMaxTokens;
+        const retryTimeout = needsBoost
+          ? getReadingTimeout({ mode: 'legacy', maxTokens: retryMaxTokens })
+          : legacyTimeout;
         
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
           { role: 'user', content: isJsonRetry
             ? `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object.`
+            : passageTooLong
+            ? `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. The passage MUST be 500-800 words — be concise, avoid filler. Output ONLY the JSON object.`
             : `Write a DSE ${level} reading comprehension passage about "${resolvedTopic}". The passage MUST be 500-800 words. Write at least 500 words — add details, examples, and explanations. Include ${totalQ} progressive questions with EVEN distribution (2-3 per paragraph). Output ONLY the JSON object.`
           },
         ], { temperature: retryTemp, maxTokens: retryMaxTokens, jsonMode: true, timeoutMs: retryTimeout });
@@ -1481,6 +1489,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       logger.warn({ module: 'reading-api', paragraphCount: actualParagraphCount, minRequired: 3 }, 'Generated passage has too few paragraphs after retry — rejecting');
       return NextResponse.json(
         apiError(`Generated passage has only ${actualParagraphCount} paragraph(s) (minimum 3 required). Please try again.`, 'PASSAGE_TOO_SHORT', true),
+        { status: 422 },
+      );
+    }
+
+    // Phase 4D.5: Upper word limit guard — reject passages exceeding 800 words
+    if (passageWordCount > 800) {
+      logger.warn({ module: 'reading-api', wordCount: passageWordCount, maxAllowed: 800 }, 'Generated passage too long after retry — rejecting');
+      return NextResponse.json(
+        apiError(`Generated passage too long: ${passageWordCount} words (maximum 800 allowed). Please try again.`, 'PASSAGE_TOO_LONG', true),
         { status: 422 },
       );
     }
