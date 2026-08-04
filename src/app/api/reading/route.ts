@@ -1358,6 +1358,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       // ── Parse with repair ──
       const repairResult = repairAiJson(rawResult);
       parseResult = safeJsonParse<Record<string, unknown>>(repairResult.repaired, 'legacy-generation');
+      
+      // Fallback: if repair made things worse, try raw text
+      if ((!parseResult.data || parseResult.error) && repairResult.wasRepaired) {
+        const rawParse = safeJsonParse<Record<string, unknown>>(rawResult, 'legacy-generation-raw');
+        if (rawParse.data) {
+          parseResult = rawParse;
+          logger.info({ module: 'reading-api' }, 'JSON repair failed but raw parse succeeded — using raw output');
+        }
+      }
 
       // Check passage length, paragraph count, and distribution from first attempt
       let distributionBad = false;
@@ -1459,6 +1468,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         
         const retryRepair = repairAiJson(retryRaw);
         parseResult = safeJsonParse<Record<string, unknown>>(retryRepair.repaired, 'legacy-generation-retry');
+
+        // Fallback: if repair made things worse, try raw retry text
+        if ((!parseResult.data || parseResult.error) && retryRepair.wasRepaired) {
+          const rawParse = safeJsonParse<Record<string, unknown>>(retryRaw, 'legacy-generation-retry-raw');
+          if (rawParse.data) {
+            parseResult = rawParse;
+            logger.info({ module: 'reading-api' }, 'Retry JSON repair failed but raw parse succeeded — using raw output');
+          }
+        }
 
         // Re-check passage length and paragraph count after retry
         if (parseResult.data) {
