@@ -511,6 +511,26 @@ ABSOLUTE RULES (zero tolerance):
 ║     questions BEFORE outputting. This is NON-NEGOTIABLE.     ║
 ╚══════════════════════════════════════════════════════════════╝
 
+### ⛔ PARAGRAPH REFERENCE ACCURACY (MANDATORY — VIOLATION = REJECTION)
+
+Every question that references a paragraph MUST have its answer VERIFIABLY located in that exact paragraph.
+
+ABSOLUTE RULES:
+- If a question says "According to paragraph 2", the answer MUST be found in paragraph 2 — NOT in paragraph 1, 3, or any other paragraph.
+- If the answer spans multiple paragraphs, use "Based on the passage" or "According to paragraphs 1-2" instead of citing a single paragraph.
+- Questions about the whole passage must say "According to the passage" or "In the passage as a whole" — NOT cite a specific paragraph.
+
+╔══════════════════════════════════════════════════════════════╗
+║  PARAGRAPH VERIFICATION (for EACH question):               ║
+║                                                              ║
+║  Q___ says "paragraph ___"                                   ║
+║    → The answer appears in paragraph ___.                    ║
+║    → Do these match? ☐                                       ║
+║                                                              ║
+║  Repeat for EVERY question. If ANY mismatch → FIX the       ║
+║  question's paragraph reference BEFORE outputting JSON.      ║
+╚══════════════════════════════════════════════════════════════╝
+
 ### ⚠️ Question Requirements (MUST FOLLOW):
 - Mix at least 4 different question types: mcq, trueFalseNG, referencing, vocabularyInContext, inference, toneAttitude, shortAnswer, summaryCloze, mcCloze
 - Every question must use EXACT DSE wording with paragraph reference
