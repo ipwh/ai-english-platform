@@ -189,6 +189,15 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
     wasRepaired = true;
   }
 
+  // 1.5 Fix stray unescaped quotes before paragraph markers inside string values
+  // AI sometimes outputs: "...text\"\n\n"[Paragraph 2]..." — the stray " breaks the JSON string
+  // Pattern: a quote immediately before [Paragraph (not preceded by a colon or comma)
+  const strayQuoteFixed = text.replace(/"(\[Paragraph\s+\d+\])/g, '$1');
+  if (strayQuoteFixed !== text) {
+    text = strayQuoteFixed;
+    wasRepaired = true;
+  }
+
   // 2. Remove trailing commas before closing braces/brackets
   const trailingCommaFixed = text.replace(/,(\s*[}\]])/g, '$1');
   if (trailingCommaFixed !== text) {
