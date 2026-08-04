@@ -86,14 +86,14 @@ describe('EvaluationEngine', () => {
 describe('Benchmarking', () => {
   it('should benchmark a prompt', () => {
     const metrics = { latencyMs: 200, costUsd: 0.002, hallucinationRisk: 0.1, consistency: 0.8, jsonValidity: 0.9, rubricScore: 75 };
-    const result = benchmarkPrompt('p1', 'Test Prompt', 'v1', 'deepseek', 'deepseek-v4-flash', metrics, []);
+    const result = benchmarkPrompt('p1', 'Test Prompt', 'v1', 'deepseek', 'deepseek-chat', metrics, []);
     expect(result.passed).toBe(true);
     expect(result.promptId).toBe('p1');
   });
 
   it('should fail benchmark with issues', () => {
     const metrics = { latencyMs: 200, costUsd: 0.002, hallucinationRisk: 0.1, consistency: 0.8, jsonValidity: 0.5, rubricScore: 40 };
-    const result = benchmarkPrompt('p1', 'Bad Prompt', 'v1', 'deepseek', 'deepseek-v4-flash', metrics, ['Low rubric score']);
+    const result = benchmarkPrompt('p1', 'Bad Prompt', 'v1', 'deepseek', 'deepseek-chat', metrics, ['Low rubric score']);
     expect(result.passed).toBe(false);
   });
 

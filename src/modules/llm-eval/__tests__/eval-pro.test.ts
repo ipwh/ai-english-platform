@@ -9,7 +9,7 @@ beforeEach(() => {
 });
 
 const sampleRun = {
-  runId: 'r1', promptVersion: 'v1.0', modelProvider: 'deepseek', modelName: 'deepseek-v4-flash',
+  runId: 'r1', promptVersion: 'v1.0', modelProvider: 'deepseek', modelName: 'deepseek-chat',
   input: 'What is the past tense of go?',
   output: 'The past tense of "go" is "went".',
   expectedOutput: 'The past tense of go is went.',

@@ -24,7 +24,7 @@ describe('CostTracker', () => {
 
   it('should calculate cost for DeepSeek', () => {
     const usage = { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 };
-    const cost = calculateCost('deepseek-v4-flash', usage);
+    const cost = calculateCost('deepseek-chat', usage);
     // 1000/1000 * 0.00014 + 500/1000 * 0.00028 = 0.00014 + 0.00014 = 0.00028
     expect(cost).toBeCloseTo(0.00028, 5);
   });
@@ -37,9 +37,9 @@ describe('CostTracker', () => {
 
   it('should record and summarize costs', () => {
     const longPrompt = 'This is a much longer prompt that will generate more tokens for cost estimation purposes';
-    recordCost({ model: 'deepseek-v4-flash', prompt: longPrompt, promptHash: 'abc', cached: false });
-    recordCost({ model: 'deepseek-v4-flash', prompt: longPrompt + ' variation', promptHash: 'def', cached: false });
-    recordCost({ model: 'deepseek-v4-flash', prompt: longPrompt + ' cached', promptHash: 'ghi', cached: true });
+    recordCost({ model: 'deepseek-chat', prompt: longPrompt, promptHash: 'abc', cached: false });
+    recordCost({ model: 'deepseek-chat', prompt: longPrompt + ' variation', promptHash: 'def', cached: false });
+    recordCost({ model: 'deepseek-chat', prompt: longPrompt + ' cached', promptHash: 'ghi', cached: true });
 
     const summary = getCostSummary();
     expect(summary.totalRequests).toBe(3);
@@ -51,7 +51,7 @@ describe('CostTracker', () => {
 
   it('should filter by days', () => {
     // All entries are from now, so filtering by 7 days should include them
-    recordCost({ model: 'deepseek-v4-flash', prompt: 'test', promptHash: 'abc' });
+    recordCost({ model: 'deepseek-chat', prompt: 'test', promptHash: 'abc' });
     const summary = getCostSummary(7);
     expect(summary.totalRequests).toBe(1);
   });
@@ -59,8 +59,8 @@ describe('CostTracker', () => {
   it('should compare model costs', () => {
     const usage = { promptTokens: 100000, completionTokens: 50000, totalTokens: 150000 };
     const comparison = compareCost(usage);
-    expect(comparison['deepseek-v4-flash']).toBeGreaterThan(0);
-    expect(comparison['vertex-gemini']).toBeLessThan(comparison['deepseek-v4-flash']); // Vertex is cheaper
+    expect(comparison['deepseek-chat']).toBeGreaterThan(0);
+    expect(comparison['vertex-gemini']).toBeLessThan(comparison['deepseek-chat']); // Vertex is cheaper
   });
 
   it('should estimate usage', () => {
@@ -91,29 +91,29 @@ describe('PromptDeduplicator', () => {
 
   it('should detect duplicates', () => {
     const prompt = 'What is the capital of France?';
-    recordCost({ model: 'deepseek-v4-flash', prompt, promptHash: hashPrompt(normalizePrompt(prompt)) });
+    recordCost({ model: 'deepseek-chat', prompt, promptHash: hashPrompt(normalizePrompt(prompt)) });
 
-    const result = checkDuplicate(prompt, 'deepseek-v4-flash');
+    const result = checkDuplicate(prompt, 'deepseek-chat');
     expect(result.isDuplicate).toBe(true);
   });
 
   it('should not flag different prompts as duplicates', () => {
-    recordCost({ model: 'deepseek-v4-flash', prompt: 'prompt A', promptHash: hashPrompt('prompt A') });
+    recordCost({ model: 'deepseek-chat', prompt: 'prompt A', promptHash: hashPrompt('prompt A') });
 
-    const result = checkDuplicate('prompt B', 'deepseek-v4-flash');
+    const result = checkDuplicate('prompt B', 'deepseek-chat');
     expect(result.isDuplicate).toBe(false);
   });
 
   it('should generate cache keys', () => {
-    const key = dedupCacheKey('deepseek-v4-flash', 'test prompt');
-    expect(key).toMatch(/^ai:dedup:deepseek-v4-flash:/);
+    const key = dedupCacheKey('deepseek-chat', 'test prompt');
+    expect(key).toMatch(/^ai:dedup:deepseek-chat:/);
   });
 
   it('should detect batch candidates', () => {
     const prompts = [
-      { prompt: 'Hello world test one. Additional text here for similarity matching.', model: 'deepseek-v4-flash' as const },
-      { prompt: 'Hello world test one. Additional text here for similarity matching with more.', model: 'deepseek-v4-flash' as const },
-      { prompt: 'Completely different prompt here for testing purposes.', model: 'deepseek-v4-flash' as const },
+      { prompt: 'Hello world test one. Additional text here for similarity matching.', model: 'deepseek-chat' as const },
+      { prompt: 'Hello world test one. Additional text here for similarity matching with more.', model: 'deepseek-chat' as const },
+      { prompt: 'Completely different prompt here for testing purposes.', model: 'deepseek-chat' as const },
     ];
     const batches = detectBatchCandidates(prompts);
     expect(batches.length).toBeGreaterThanOrEqual(1);
@@ -126,18 +126,18 @@ describe('PromptDeduplicator', () => {
 
 describe('UsageReport', () => {
   it('should generate a report', () => {
-    recordCost({ model: 'deepseek-v4-flash', prompt: 'test', promptHash: 'abc', cached: false });
+    recordCost({ model: 'deepseek-chat', prompt: 'test', promptHash: 'abc', cached: false });
     recordCost({ model: 'gemini-2.0-flash', prompt: 'test2', promptHash: 'def', cached: true });
 
     const report = generateReport();
     expect(report).toContain('AI Usage Report');
-    expect(report).toContain('deepseek-v4-flash');
+    expect(report).toContain('deepseek-chat');
     expect(report).toContain('gemini-2.0-flash');
     expect(report).toContain('Total Cost');
   });
 
   it('should generate quick summary', () => {
-    recordCost({ model: 'deepseek-v4-flash', prompt: 'test', promptHash: 'abc' });
+    recordCost({ model: 'deepseek-chat', prompt: 'test', promptHash: 'abc' });
     const summary = quickSummary();
     expect(summary).toContain('req');
     expect(summary).toContain('$');
@@ -146,8 +146,8 @@ describe('UsageReport', () => {
 
   it('should project monthly costs', () => {
     const projection = projectMonthlyCost(100, 500, 200, 0.3);
-    expect(projection['deepseek-v4-flash']).toBeDefined();
-    expect(projection['deepseek-v4-flash'].monthlyCost).toBeGreaterThan(0);
-    expect(projection['deepseek-v4-flash'].monthlyTokens).toBeGreaterThan(0);
+    expect(projection['deepseek-chat']).toBeDefined();
+    expect(projection['deepseek-chat'].monthlyCost).toBeGreaterThan(0);
+    expect(projection['deepseek-chat'].monthlyTokens).toBeGreaterThan(0);
   });
 });
