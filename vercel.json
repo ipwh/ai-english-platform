@@ -5,15 +5,15 @@
       "memory": 1024
     },
     "src/app/api/reading/**/*.ts": {
-      "maxDuration": 60,
+      "maxDuration": 120,
       "memory": 1024
     },
     "src/app/api/writing/**/*.ts": {
-      "maxDuration": 60,
+      "maxDuration": 120,
       "memory": 1024
     },
     "src/app/api/speaking/**/*.ts": {
-      "maxDuration": 60,
+      "maxDuration": 120,
       "memory": 1024
     },
     "src/app/api/vocabulary/**/*.ts": {

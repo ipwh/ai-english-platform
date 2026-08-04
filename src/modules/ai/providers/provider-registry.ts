@@ -68,8 +68,8 @@ class ProviderRegistry {
     const errors: string[] = [];
     const startTime = Date.now();
 
-    // Vercel Pro: 60s function limit. Reserve 5s for overhead.
-    const TOTAL_BUDGET_MS = 55_000;
+    // Vercel Pro: 120s function limit. Reserve 5s for overhead.
+    const TOTAL_BUDGET_MS = 115_000;
     for (let i = 0; i < available.length; i++) {
       const provider = available[i];
       const isFallback = i > 0;

@@ -135,10 +135,10 @@ function getReadingMaxTokens(params: {
 
 function getReadingTimeout(params: { mode: string; maxTokens: number }): number {
   // Proportional timeout: 5ms per token (empirical from Grok/DeepSeek latency data)
-  // 8192 tokens × 5ms = ~41s, 12288 tokens × 5ms = ~61s → capped at 55s
-  // Min 35s, Max 55s (Vercel Pro 60s limit, reserve 5s for overhead)
+  // 8192 tokens × 5ms = ~41s, 12288 tokens × 5ms = ~61s
+  // Min 35s, Max 115s (Vercel Pro 120s maxDuration, reserve 5s)
   const proportional = params.maxTokens * 5; // 5ms per token → milliseconds
-  return Math.min(55000, Math.max(35000, proportional));
+  return Math.min(115_000, Math.max(35_000, proportional));
 }
 
 // ============================================
@@ -1382,11 +1382,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       }
       
       // Retry if JSON malformed OR passage too short OR too few paragraphs OR distribution bad
-      // BUT only if we have enough time budget remaining (Vercel 60s limit)
+      // BUT only if we have enough time budget remaining (Vercel Pro 120s maxDuration)
       const elapsed = Date.now() - startTime;
-      const MIN_RETRY_BUDGET_MS = 20_000; // need at least 20s for a retry to be worthwhile
+      const MIN_RETRY_BUDGET_MS = 25_000; // need at least 25s for a retry to be worthwhile
       const contentNeedsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || paragraphCountBad || distributionBad);
-      const hasRetryBudget = elapsed < (55_000 - MIN_RETRY_BUDGET_MS); // Vercel Pro 60s limit, reserve 5s
+      const hasRetryBudget = elapsed < (115_000 - MIN_RETRY_BUDGET_MS); // 115s budget, reserve 5s from 120s
       const needsRetry = contentNeedsRetry && hasRetryBudget;
 
       if (contentNeedsRetry && !hasRetryBudget) {
