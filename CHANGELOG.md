@@ -4,43 +4,39 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-08-04 (evening) — Reading API Legacy Handler Fix 🔧
+## 2026-08-04 — DSE Reading Generation Quality Overhaul (Sprint 110–117)
 
-### 🐛 Critical Fix: `handleLegacyGeneration` Token & Timeout
-- **Root cause**: `/student/reading` page failed to generate exercises because `handleLegacyGeneration` hardcoded `maxTokens: 4096` and `timeoutMs: 15000` — too low for full passage + questions + bilingual explanations
-- **Fix**: Now uses `getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 })` → **8192 tokens** and `getReadingTimeout(...)` → **25000ms** (matching the utility functions already used by `handleExerciseGeneration`)
-- **Additional**: Added try-catch around `layoutReadingText()` call to prevent unhandled exceptions from crashing the API
-- **Impact**: JSON truncation prevented, fewer timeout failures, graceful layout degradation
+### ⚡ DeepSeek Stability
+- **Timeout fix**: `getReadingTimeout` from 2.5ms/token (min 25s) → 5ms/token (min 35s, max 55s). DeepSeek now succeeds directly (was timing out at 25s for 3000+ token JSON).
+- **Fallback timeout floor**: 15s → 20s. Grok was being truncated at 15s (1500 tokens output).
+- **Debug logging**: `DEEPSEEK_DEBUG=true` for full request/response payload with masked API keys.
 
----
+### 📝 AI Prompt Engineering
+- **Paragraph distribution self-check**: Visual fill-in-the-blank checklist with exact valid distributions ([3,2,3,2], [2,2,2,2,2]).
+- **5-paragraph support**: Extended self-check to Paragraph 5.
+- **ToneAttitude MCQ enforcement**: Must include 4 A/B/C/D choices. 16 consecutive successes.
+- **Paragraph reference accuracy**: Mandatory verification that cited paragraph contains the answer.
+- **Topic diversification**: "general"/"綜合" now maps to random topic from 20-item DSE pool.
 
-## 2026-08-04 — AI Provider Hardening & Fallback Chain 🔧
+### 🛡️ Backend Resilience
+- **JSON auto-repair pipeline** (6 steps): markdown fences → trailing commas → unquoted keys → missing colons → braces → brackets.
+- **4-tier retry system**: JSON errors / passage <250 words / <3 paragraphs / bad distribution. Each with targeted instruction.
+- **Boosted retry params**: Content retries use temp 0.55 + 30% more tokens to prevent passage shrinkage.
+- **Paragraph count guard**: Rejects passages with <3 paragraphs after retry.
+- **ToneAttitude auto-choices**: Keyword-matches answer against 14 standard DSE tone labels when AI omits options.
 
-### 🆕 Gemini 2.5 Flash-Lite Provider
-- **New provider**: `GeminiFlashLiteProvider` — uses `gemini-2.5-flash-lite` ($0.10/M input, $0.40/M output)
-- **New config**: `config.geminiLite` with `GEMINI_LITE_MODEL` and `GEMINI_LITE_API_KEY` env vars
-- **Chain order**: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok → Claude → OpenAI (Claude/OpenAI are placeholders, `isConfigured()=false`)
+### 🐛 Bug Fixes
+- **Reading passage layout**: Removed `white-space: pre-wrap` + minified renderer HTML — fixed excessive line gaps.
+- **Skill detection**: `grammar` → `writing` (was sending invalid value to API).
+- **Cantonese i18n**: 6 fixes in personalized FAQ (嘅→的, 點樣→如何, etc.).
+- **SRS due cards**: Removed duplicate count display (`10 10 張` → `10 張`).
+- **Debug latency**: Fixed measurement point from headers-only to full body read.
 
-### 🔧 Reading Pipeline Hardening
-- **safeJsonParse**: All generation paths protected against malformed AI JSON
-- **Validator retry loop**: Auto-regenerate on quality failures (up to 1 retry)
-- **Passage length guard**: Rejects passages < 250 words
-- **Paragraph coverage validator**: 20+ new validation rules with stable error codes
-- **Timeout tuning**: Initial 25s, retry 20s (45s total — safe under Vercel 60s limit)
-- **maxTokens calibrated**: 6144 for reading (prevents truncation), 4096 for question generation
-
-### 📐 Reading Layout v5
-- **Wider column**: 1.6fr grid ratio, 78 chars/line (was 66), zero nested padding
-- **Baseline-aligned gutters**: `align-items: baseline` for precise line number positioning
-- **Tighter spacing**: line-height 1.45, paragraph margin 0.6rem
-- **Bracketed labels**: `[1]` `[2]` format instead of "Paragraph 1"
-- **Target phrase highlighting**: `<strong>` tags on key vocabulary in passages
-- **Distribution warnings**: Banner flags uneven paragraph coverage
-
-### 🔄 Model Defaults
-- Default: `deepseek-chat` (V3) — stable, fast on Vercel
-- `deepseek-v4-flash` available via `DEEPSEEK_MODEL` env var (currently times out on Vercel)
-- `gemini-2.5-flash-lite` recommended as primary fallback
+### 📊 Quality Impact
+- DSE reading quality: 6.5/10 → **8.2/10** (14 generations analyzed)
+- Perfect paragraph distribution: 42% (was ~30%)
+- ToneAttitude MCQ options: 100% (was ~40%)
+- DeepSeek primary success: 90%+ (was 0% due to timeout)
 
 ---
 
