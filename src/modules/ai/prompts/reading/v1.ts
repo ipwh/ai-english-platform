@@ -472,10 +472,37 @@ export function buildReadingSectionPromptLite(): string {
 - The passage must feel authentic, not AI-generated
 - Vary topics — avoid overused clichés (sports day, cinema schedule, bee conservation)
 
+### ⛔ PARAGRAPH DISTRIBUTION (MANDATORY — VIOLATION = REJECTION)
+
+You MUST follow this EXACT distribution based on your paragraph count:
+
+| Paragraphs | Questions | REQUIRED Distribution |
+|------------|-----------|----------------------|
+| 3 paragraphs | 10 questions | P1:3, P2:4, P3:3 |
+| 4 paragraphs | 10 questions | P1:2-3, P2:2-3, P3:2-3, P4:2-3 |
+| 5 paragraphs | 10 questions | P1:2, P2:2, P3:2, P4:2, P5:2 |
+
+ABSOLUTE RULES (zero tolerance):
+- 🚫 NO paragraph shall have 0 questions — EVERY paragraph MUST be tested
+- 🚫 NO paragraph shall have more than 3 questions
+- 🚫 Difference between the paragraph with most questions and the paragraph with fewest questions MUST be ≤ 1
+
+╔══════════════════════════════════════════════════╗
+║  MANDATORY SELF-CHECK (do BEFORE outputting):   ║
+║  Fill in actual counts:                          ║
+║    Paragraph 1 has ___ questions                 ║
+║    Paragraph 2 has ___ questions                 ║
+║    Paragraph 3 has ___ questions                 ║
+║    Paragraph 4 has ___ questions                 ║
+║  Check:                                          ║
+║    ☐ EVERY paragraph has ≥ 2 questions?          ║
+║    ☐ NO paragraph has ≥ 4 questions?             ║
+║    ☐ The counts differ by ≤ 1?                   ║
+║  If ANY box is unchecked → FIX before output.    ║
+╚══════════════════════════════════════════════════╝
+
 ### ⚠️ Question Requirements (MUST FOLLOW):
 - Mix at least 4 different question types: mcq, trueFalseNG, referencing, vocabularyInContext, inference, toneAttitude, shortAnswer, summaryCloze, mcCloze
-- ⛔ CRITICAL: Distribute questions EVENLY across ALL paragraphs. If you have 4 paragraphs and 10 questions, each paragraph gets 2-3 questions MAX. NEVER put 4+ questions in one paragraph while leaving another paragraph with 0-1.
-- ⛔ BEFORE outputting, COUNT questions per paragraph. If any paragraph has more than 3 questions, REDISTRIBUTE.
 - Every question must use EXACT DSE wording with paragraph reference
 - Every question must include marks (1-4) and word limits
 - For mcq: include 4 plausible distractors labeled A/B/C/D
