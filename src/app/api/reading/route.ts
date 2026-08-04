@@ -207,6 +207,17 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
     wasRepaired = true;
   }
 
+  // 3.5 Fix missing colons after property names: {"key" "value"} → {"key": "value"}
+  // The "Expected ':' after property name" error — AI sometimes skips the colon
+  const missingColonFixed = text.replace(
+    /([,{]\s*)"(\w+)"\s+"/g,
+    '$1"$2": "'
+  );
+  if (missingColonFixed !== text) {
+    text = missingColonFixed;
+    wasRepaired = true;
+  }
+
   // 4. Balance braces: if opening > closing, append missing }
   const openBraces = (text.match(/{/g) || []).length;
   const closeBraces = (text.match(/}/g) || []).length;
