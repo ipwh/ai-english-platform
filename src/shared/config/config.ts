@@ -137,6 +137,16 @@ const gemini = {
   },
 };
 
+// Gemini Flash-Lite: fastest/cheapest Gemini model, shares API key
+const geminiLite = {
+  apiKey: process.env.GEMINI_LITE_API_KEY || process.env.GEMINI_API_KEY || '',
+  baseUrl: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta',
+  model: process.env.GEMINI_LITE_MODEL || 'gemini-2.5-flash-lite',
+  get isConfigured(): boolean {
+    return !!this.apiKey;
+  },
+};
+
 // ============================================
 // Vertex AI (GCP) 設定
 // ============================================
@@ -311,6 +321,7 @@ export const config = {
   isDevelopment,
   deepseek,
   gemini,
+  geminiLite,
   vertex,
   jwt,
   auth,

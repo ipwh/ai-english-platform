@@ -166,6 +166,8 @@ AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
 | `GCP_PROJECT_ID` | Google Cloud Project ID | ⬜ |
 | `GCP_SERVICE_ACCOUNT_JSON` | GCP Service Account JSON (Base64) | ⬜ |
 | `GEMINI_API_KEY` | Gemini API key (fallback) | ⬜ |
+| `GEMINI_MODEL` | Gemini model (預設 `gemini-2.5-flash`) | ⬜ |
+| `GEMINI_LITE_MODEL` | Gemini Flash-Lite model (預設 `gemini-2.5-flash-lite`) | ⬜ |
 | `VERTEX_AI_LOCATION` | Vertex AI region (預設 `global`) | ⬜ |
 | `DEEPSEEK_BASE_URL` | DeepSeek base URL (預設 `https://api.deepseek.com/v1`) | ⬜ |
 | `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |

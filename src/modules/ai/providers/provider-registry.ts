@@ -9,6 +9,7 @@ import type { ChatMessage, LLMCallOptions, ProviderCallResult } from './types';
 import { deepseekProvider } from './deepseek-provider';
 import { vertexGeminiProvider } from './vertex-gemini-provider';
 import { geminiProvider } from './gemini-provider';
+import { geminiFlashLiteProvider } from './gemini-flash-lite-provider';
 import { claudeProvider } from './claude-provider';
 import { openaiProvider } from './openai-provider';
 import { logger } from '@/shared/logger/logger';
@@ -24,10 +25,11 @@ class ProviderRegistry {
   private lastUsed: string = 'none';
 
   constructor() {
-    // Priority order: DeepSeek → Vertex Gemini → Gemini API → Claude → OpenAI
+    // Priority order: DeepSeek → Vertex Gemini → Gemini API → Gemini Flash-Lite → Claude → OpenAI
     this.register(deepseekProvider);
     this.register(vertexGeminiProvider);
     this.register(geminiProvider);
+    this.register(geminiFlashLiteProvider);
     this.register(claudeProvider);
     this.register(openaiProvider);
   }

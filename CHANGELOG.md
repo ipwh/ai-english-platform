@@ -4,6 +4,36 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-04 — AI Provider Hardening & Fallback Chain 🔧
+
+### 🆕 Gemini 2.5 Flash-Lite Provider
+- **New provider**: `GeminiFlashLiteProvider` — uses `gemini-2.5-flash-lite` ($0.10/M input, $0.40/M output)
+- **New config**: `config.geminiLite` with `GEMINI_LITE_MODEL` and `GEMINI_LITE_API_KEY` env vars
+- **Chain order**: DeepSeek → Vertex Gemini → Gemini API → **Gemini Flash-Lite** → Claude → OpenAI
+
+### 🔧 Reading Pipeline Hardening
+- **safeJsonParse**: All generation paths protected against malformed AI JSON
+- **Validator retry loop**: Auto-regenerate on quality failures (up to 1 retry)
+- **Passage length guard**: Rejects passages < 250 words
+- **Paragraph coverage validator**: 20+ new validation rules with stable error codes
+- **Timeout tuning**: Initial 25s, retry 20s (45s total — safe under Vercel 60s limit)
+- **maxTokens calibrated**: 6144 for reading (prevents truncation), 4096 for question generation
+
+### 📐 Reading Layout v5
+- **Wider column**: 1.6fr grid ratio, 78 chars/line (was 66), zero nested padding
+- **Baseline-aligned gutters**: `align-items: baseline` for precise line number positioning
+- **Tighter spacing**: line-height 1.45, paragraph margin 0.6rem
+- **Bracketed labels**: `[1]` `[2]` format instead of "Paragraph 1"
+- **Target phrase highlighting**: `<strong>` tags on key vocabulary in passages
+- **Distribution warnings**: Banner flags uneven paragraph coverage
+
+### 🔄 Model Defaults
+- Default: `deepseek-chat` (V3) — stable, fast on Vercel
+- `deepseek-v4-flash` available via `DEEPSEEK_MODEL` env var (currently times out on Vercel)
+- `gemini-2.5-flash-lite` recommended as primary fallback
+
+---
+
 ## 2026-07-24 — README Audit Fixes & Polish 🔧
 
 ### 🎨 StreakFlame Animation (#15)
