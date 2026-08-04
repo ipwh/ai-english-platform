@@ -1323,6 +1323,8 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
   // Sprint 102: Skip AI if pre-parsed result provided (from exercise handler)
   let parsed: Record<string, unknown>;
+  let passageWordCount = 0;
+  let actualParagraphCount = 0;
   if (preParsed) {
     parsed = preParsed as Record<string, unknown>;
   } else {
@@ -1331,7 +1333,6 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
     let rawResult: string;
     let parseResult: { data: Record<string, unknown> | null; error: string | null };
-    let passageWordCount = 0;
     try {
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
@@ -1342,33 +1343,46 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       const repairResult = repairAiJson(rawResult);
       parseResult = safeJsonParse<Record<string, unknown>>(repairResult.repaired, 'legacy-generation');
 
-      // Check passage length and paragraph distribution from first attempt
+      // Check passage length, paragraph count, and distribution from first attempt
       let distributionBad = false;
       let distroMessage = '';
+      let paragraphCountBad = false;
       if (parseResult.data) {
         const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
         passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
         
-        // Check paragraph distribution
-        const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
-        const paraCount = Math.max((pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length, 3);
-        if (questions.length > 0 && paraCount >= 3) {
-          const distro = checkParagraphDistribution(questions, paraCount);
-          distributionBad = !distro.valid;
-          distroMessage = distro.message;
-          if (distributionBad) {
-            logger.warn({ module: 'reading-api', distribution: distro.counts, paraCount }, distroMessage);
+        // Check actual paragraph count (must be 3-5)
+        actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
+        paragraphCountBad = actualParagraphCount < 3;
+        
+        // Check paragraph distribution (only if we have enough paragraphs)
+        if (!paragraphCountBad) {
+          const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+          const paraCount = Math.max(actualParagraphCount, 3);
+          if (questions.length > 0) {
+            const distro = checkParagraphDistribution(questions, paraCount);
+            distributionBad = !distro.valid;
+            distroMessage = distro.message;
+            if (distributionBad) {
+              logger.warn({ module: 'reading-api', distribution: distro.counts, paraCount }, distroMessage);
+            }
           }
+        }
+        
+        if (paragraphCountBad) {
+          logger.warn({ module: 'reading-api', actualParagraphCount, minRequired: 3 }, 'Too few paragraphs — needs retry');
         }
       }
       
-      // Retry if JSON malformed OR passage too short OR distribution bad
-      const needsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || distributionBad);
+      // Retry if JSON malformed OR passage too short OR too few paragraphs OR distribution bad
+      const needsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || paragraphCountBad || distributionBad);
       if (needsRetry && !preParsed) {
         const retryReason = !parseResult.data || parseResult.error
           ? 'invalid JSON syntax'
           : passageWordCount < 250
           ? `passage too short (${passageWordCount} words, minimum 250 required)`
+          : paragraphCountBad
+          ? `too few paragraphs (${actualParagraphCount}, minimum 3 required)`
           : `bad paragraph distribution — ${distroMessage}`;
         
         logger.warn({ 
@@ -1383,6 +1397,8 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           ? '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.'
           : passageWordCount < 250
           ? `\n⚠️ CRITICAL: Your previous passage was only ${passageWordCount} words. You MUST generate a passage of AT LEAST 500 words. Count the words before outputting.`
+          : paragraphCountBad
+          ? `\n⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`
           : `\n⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`;
         
         const retryRaw = await callLLM([
@@ -1393,10 +1409,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const retryRepair = repairAiJson(retryRaw);
         parseResult = safeJsonParse<Record<string, unknown>>(retryRepair.repaired, 'legacy-generation-retry');
 
-        // Re-check passage length after retry
+        // Re-check passage length and paragraph count after retry
         if (parseResult.data) {
           const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
           passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
+          actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
         }
       }
     } catch (aiErr: unknown) {
@@ -1421,6 +1438,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       logger.warn({ module: 'reading-api', wordCount: passageWordCount, minRequired: 250 }, 'Generated passage too short after retry — rejecting');
       return NextResponse.json(
         apiError(`Generated passage too short: ${passageWordCount} words (minimum 250 required). Please try again with a different topic.`, 'PASSAGE_TOO_SHORT', true),
+        { status: 422 },
+      );
+    }
+
+    // Phase 4D.4: Paragraph count guard — reject passages with fewer than 3 paragraphs
+    if (actualParagraphCount > 0 && actualParagraphCount < 3) {
+      logger.warn({ module: 'reading-api', paragraphCount: actualParagraphCount, minRequired: 3 }, 'Generated passage has too few paragraphs after retry — rejecting');
+      return NextResponse.json(
+        apiError(`Generated passage has only ${actualParagraphCount} paragraph(s) (minimum 3 required). Please try again.`, 'PASSAGE_TOO_SHORT', true),
         { status: 422 },
       );
     }
