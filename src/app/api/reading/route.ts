@@ -172,6 +172,60 @@ function safeJsonParse<T>(raw: string, label: string): { data: T | null; error: 
   }
 }
 
+/**
+ * Attempt to repair common AI-generated JSON errors before parsing.
+ * Handles: markdown fences, trailing commas, unquoted property names,
+ * missing closing braces, and truncated JSON.
+ * Returns repaired string (may still be invalid) and whether any repair was applied.
+ */
+function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
+  let text = raw.trim();
+  let wasRepaired = false;
+
+  // 1. Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    text = fenceMatch[1].trim();
+    wasRepaired = true;
+  }
+
+  // 2. Remove trailing commas before closing braces/brackets
+  const trailingCommaFixed = text.replace(/,(\s*[}\]])/g, '$1');
+  if (trailingCommaFixed !== text) {
+    text = trailingCommaFixed;
+    wasRepaired = true;
+  }
+
+  // 3. Fix unquoted property names: {key: "value"} → {"key": "value"}
+  // Matches patterns like `  key: ` or `\nkey: ` where key is a word
+  const unquotedKeyFixed = text.replace(
+    /([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g,
+    '$1"$2"$3'
+  );
+  if (unquotedKeyFixed !== text) {
+    text = unquotedKeyFixed;
+    wasRepaired = true;
+  }
+
+  // 4. Balance braces: if opening > closing, append missing }
+  const openBraces = (text.match(/{/g) || []).length;
+  const closeBraces = (text.match(/}/g) || []).length;
+  if (openBraces > closeBraces) {
+    text += '}'.repeat(openBraces - closeBraces);
+    wasRepaired = true;
+  }
+
+  // 5. Balance brackets
+  const openBrackets = (text.match(/\[/g) || []).length;
+  const closeBrackets = (text.match(/\]/g) || []).length;
+  if (openBrackets > closeBrackets) {
+    text += ']'.repeat(openBrackets - closeBrackets);
+    wasRepaired = true;
+  }
+
+  return { repaired: text, wasRepaired };
+}
+
 /** Phase 4D.3: Minimum passage word count for DSE-style question support */
 const MIN_PASSAGE_WORDS = {
   'full-paper': 400,
@@ -1110,16 +1164,37 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   if (preParsed) {
     parsed = preParsed as Record<string, unknown>;
   } else {
+    const legacyMaxTokens = getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 });
+    const legacyTimeout = getReadingTimeout({ mode: 'legacy', maxTokens: legacyMaxTokens });
+
     let rawResult: string;
+    let parseResult: { data: Record<string, unknown> | null; error: string | null };
     try {
-      // Use calibrated token/timeout values to prevent JSON truncation and timeouts
-      // 8192 tokens for full passage + questions + bilingual explanations
-      const legacyMaxTokens = getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 });
-      const legacyTimeout = getReadingTimeout({ mode: 'legacy', maxTokens: legacyMaxTokens });
       rawResult = await callLLM([
         { role: 'system', content: systemPrompt + dseContextBlock },
         { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions using authentic DSE question wording. CRITICAL: The passage MUST be 500-800 words with at least 3 paragraphs. Spread questions across ALL paragraphs — no paragraph should have more than 3 questions.` },
       ], { temperature: 0.45, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
+
+      // ── Parse with repair ──
+      const repairResult = repairAiJson(rawResult);
+      parseResult = safeJsonParse<Record<string, unknown>>(repairResult.repaired, 'legacy-generation');
+      
+      // If repair didn't help, retry once with a JSON-focused instruction
+      if ((!parseResult.data || parseResult.error) && !preParsed) {
+        logger.warn({ 
+          module: 'reading-api', 
+          wasRepaired: repairResult.wasRepaired,
+          originalError: parseResult.error,
+        }, 'JSON parse failed after repair — retrying with stricter JSON instruction');
+        
+        const retryRaw = await callLLM([
+          { role: 'system', content: systemPrompt + dseContextBlock + '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.' },
+          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${topic || 'general interest'}" with ${totalQ} progressive questions. Output ONLY the JSON object.` },
+        ], { temperature: 0.35, maxTokens: legacyMaxTokens, jsonMode: true, timeoutMs: legacyTimeout });
+        
+        const retryRepair = repairAiJson(retryRaw);
+        parseResult = safeJsonParse<Record<string, unknown>>(retryRepair.repaired, 'legacy-generation-retry');
+      }
     } catch (aiErr: unknown) {
       const aiMsg = aiErr instanceof Error ? aiErr.message : 'AI provider error';
       logger.error({ module: 'reading-api', error: aiMsg }, 'AI call failed in legacy generation');
@@ -1129,7 +1204,6 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       );
     }
 
-    const parseResult = safeJsonParse<Record<string, unknown>>(rawResult, 'legacy-generation');
     if (!parseResult.data || parseResult.error) {
       return NextResponse.json(
         apiError('AI generated malformed reading content', 'MALFORMED_AI_OUTPUT', true, parseResult.error ?? undefined),
