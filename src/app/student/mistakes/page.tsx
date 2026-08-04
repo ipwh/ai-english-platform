@@ -178,7 +178,7 @@ export default function MistakesPage() {
             <Brain className="w-5 h-5 text-amber-600" />
             <div>
               <p className="text-sm font-medium text-amber-800 dark:text-amber-200">{t('srs.dailyReview')}</p>
-              <p className="text-xs text-amber-600 dark:text-amber-400">{srsMistakesDue} {t('srs.dueCards').replace('{n}', String(srsMistakesDue))}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{t('srs.dueCards').replace('{n}', String(srsMistakesDue))}</p>
             </div>
           </div>
           <button
