@@ -358,8 +358,8 @@ export default function ReadingPracticePage() {
           : '';
         const debugSuffix = mapped.debugInfo
           ? (language === 'en'
-              ? ` [Debug: ${mapped.debugInfo.slice(0, 300)}]`
-              : ` [除錯：${mapped.debugInfo.slice(0, 300)}]`)
+              ? ` [Debug: ${mapped.debugInfo.slice(0, 500)}]`
+              : ` [除錯：${mapped.debugInfo.slice(0, 500)}]`)
           : '';
         setError(mapped.message + retryHint + debugSuffix);
       }
