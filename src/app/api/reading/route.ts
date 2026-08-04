@@ -119,7 +119,7 @@ function mapDseTypeToFrontend(aiType: string): string {
 }
 
 function isMcLikeDseType(dseType: string): boolean {
-  return dseType === 'multiple_choice' || dseType === 'true_false_not_given';
+  return dseType === 'multiple_choice' || dseType === 'true_false_not_given' || dseType === 'tone_attitude';
 }
 
 // Phase 1C.1: Conditional token allocation by generation mode
@@ -224,6 +224,71 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
   }
 
   return { repaired: text, wasRepaired };
+}
+
+/**
+ * Generate standard DSE tone/attitude MCQ choices when AI omits them.
+ * Searches the answer text for known attitude keywords to determine the correct option.
+ * Returns null if the answer doesn't contain any recognizable tone label.
+ */
+const DSE_TONE_LABELS = [
+  'Cautiously optimistic',
+  'Skeptical',
+  'Enthusiastic and supportive',
+  'Neutral and objective',
+  'Subtly critical',
+  'Concerned but hopeful',
+  'Dismissive',
+  'Admiring and respectful',
+  'Open-minded but wary',
+  'Mildly apprehensive',
+  'Reservedly hopeful',
+  'Strongly disapproving',
+  'Balanced and fair-minded',
+  'Cautiously pessimistic',
+] as const;
+
+function generateToneAttitudeChoices(answerText: string): { choices: string[]; answer: string } | null {
+  if (!answerText) return null;
+  const answerLower = answerText.toLowerCase();
+  
+  // Try to find a matching tone label from the standard set
+  let bestMatch: string | null = null;
+  let bestScore = 0;
+  
+  for (const label of DSE_TONE_LABELS) {
+    const keywords = label.toLowerCase().split(/\s+/);
+    const score = keywords.filter(k => answerLower.includes(k)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = label;
+    }
+  }
+  
+  if (!bestMatch || bestScore === 0) {
+    // No keyword match — use the answer text directly as one option
+    const shortAnswer = answerText.length < 45 ? answerText : answerText.slice(0, 42) + '...';
+    const distractors = [...DSE_TONE_LABELS].sort(() => 0.5 - Math.random()).slice(0, 3);
+    const allChoices = [shortAnswer, ...distractors];
+    // Stable shuffle using simple Fisher-Yates with deterministic seed (index-based)
+    for (let i = allChoices.length - 1; i > 0; i--) {
+      const j = (i * 7 + 3) % (i + 1); // Deterministic pseudo-shuffle
+      [allChoices[i], allChoices[j]] = [allChoices[j], allChoices[i]];
+    }
+    const correctLetter = String.fromCharCode(65 + allChoices.indexOf(shortAnswer));
+    return { choices: allChoices, answer: correctLetter };
+  }
+  
+  // Best match found — build 4 choices with it included
+  const others = DSE_TONE_LABELS
+    .filter(l => l !== bestMatch)
+    .slice(0, 3);
+  const allChoices = [bestMatch!, ...others];
+  // Rotate so correct answer isn't always A
+  const rotateBy = (answerText.length % 4);
+  const rotated = [...allChoices.slice(rotateBy), ...allChoices.slice(0, rotateBy)];
+  const correctLetter = String.fromCharCode(65 + rotated.indexOf(bestMatch!));
+  return { choices: rotated, answer: correctLetter };
 }
 
 /** Phase 4D.3: Minimum passage word count for DSE-style question support */
@@ -1449,6 +1514,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
           choices = ['True', 'False', 'Not Given'];
         }
+        // Sprint 110: Auto-provide tone/attitude choices when AI omits them
+        if ((aiType === 'toneAttitude' || aiType === 'authorIntention') && (!choices || choices.length < 2)) {
+          const generated = generateToneAttitudeChoices((q.answer as string) || '');
+          if (generated) {
+            choices = generated.choices;
+            q.answer = generated.answer;
+          }
+        }
 
         const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
@@ -1504,6 +1577,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // Sprint 102: Auto-provide TFNG choices when AI doesn't include them
         if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
           choices = ['True', 'False', 'Not Given'];
+        }
+        // Sprint 110: Auto-provide tone/attitude choices when AI omits them
+        if ((aiType === 'toneAttitude' || aiType === 'authorIntention') && (!choices || choices.length < 2)) {
+          const generated = generateToneAttitudeChoices((q.answer as string) || '');
+          if (generated) {
+            choices = generated.choices;
+            q.answer = generated.answer;
+          }
         }
 
         // Determine tier from question metadata or default based on position
