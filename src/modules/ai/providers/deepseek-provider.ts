@@ -84,10 +84,9 @@ export class DeepSeekProvider implements AIProvider {
         signal: controller.signal,
       });
 
-      const latencyMs = Date.now() - startTime;
-
       if (!res.ok) {
         const errText = await res.text();
+        const latencyMs = Date.now() - startTime;
 
         // ── DEBUG: Error response log ──
         debugLog(`ERROR RESPONSE (${res.status})`, {
@@ -110,6 +109,7 @@ export class DeepSeekProvider implements AIProvider {
       };
 
       const content = data.choices?.[0]?.message?.content || '';
+      const latencyMs = Date.now() - startTime;
 
       // ── DEBUG: Full response log ──
       if (DEBUG) {

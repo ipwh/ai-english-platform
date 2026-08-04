@@ -10,29 +10,18 @@ import type { LayoutParagraph } from './reading-layout-types';
 export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
   return paragraphs
     .map(
-      (paragraph) => `
-        <div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">
-          ${paragraph.lines
-            .map(
-              (line) => `
-                <div class="dse-line">
-                  <div class="dse-line-gutter">
-                    ${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}
-                  </div>
-                  <div class="dse-line-text">
-                    ${
-                      line.isParagraphStart && line.paragraphLabel
-                        ? `<span class="dse-paragraph-label">[${escapeHtml(line.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</span>`
-                        : ''
-                    }
-                    <span>${escapeHtml(line.text)}</span>
-                  </div>
-                </div>
-              `
-            )
-            .join('')}
-        </div>
-      `
+      (paragraph) =>
+        `<div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">` +
+        paragraph.lines
+          .map(
+            (line) =>
+              `<div class="dse-line">` +
+              `<div class="dse-line-gutter">${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}</div>` +
+              `<div class="dse-line-text">${line.isParagraphStart && line.paragraphLabel ? `<span class="dse-paragraph-label">[${escapeHtml(line.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</span>` : ''}<span>${escapeHtml(line.text)}</span></div>` +
+              `</div>`
+          )
+          .join('') +
+        `</div>`
     )
     .join('');
 }

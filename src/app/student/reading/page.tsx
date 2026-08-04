@@ -713,8 +713,6 @@ export default function ReadingPracticePage() {
               margin: 0;
               padding: 0;
               line-height: 1.45;
-              white-space: pre-wrap;
-              word-break: normal;
             }
 
             .dse-line-text > span,
