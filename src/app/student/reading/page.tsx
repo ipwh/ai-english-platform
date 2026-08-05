@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
@@ -274,37 +274,45 @@ export default function ReadingPracticePage() {
 
   // ── Client-side gutter sync: align line numbers with actual rendered text ──
   const passageRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!passageLayout || !passageRef.current) return;
     const shell = passageRef.current;
-    // Double rAF ensures browser has completed layout + paint
-    let raf1: number, raf2: number;
-    raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        const bodies = shell.querySelectorAll<HTMLElement>('.dse-para-body');
-        bodies.forEach((body) => {
-          const textEl = body.querySelector<HTMLElement>('.dse-para-text');
-          const gutterEl = body.querySelector<HTMLElement>('.dse-line-gutters');
-          if (!textEl || !gutterEl) return;
-          const textLineHeight = parseFloat(getComputedStyle(textEl).lineHeight);
-          if (!textLineHeight || textLineHeight <= 0) return;
-          const actualLines = Math.round(textEl.offsetHeight / textLineHeight);
-          if (actualLines <= 0) return;
-          // Sync gutter line-height to match text (they have different font-sizes!)
-          gutterEl.style.lineHeight = textLineHeight + 'px';
-          // Rebuild gutter spans to match actual line count
-          const interval = 5;
-          const spans: string[] = [];
-          for (let i = 1; i <= actualLines; i++) {
-            spans.push(`<span>${i % interval === 0 ? i : ''}</span>`);
-          }
-          gutterEl.innerHTML = spans.join('');
-        });
+    let ran = false;
+    const sync = () => {
+      if (ran) return;
+      const bodies = shell.querySelectorAll<HTMLElement>('.dse-para-body');
+      if (bodies.length === 0) return;
+      const firstText = bodies[0].querySelector<HTMLElement>('.dse-para-text');
+      if (!firstText || firstText.offsetHeight === 0) return; // not yet laid out
+      ran = true;
+      bodies.forEach((body) => {
+        const textEl = body.querySelector<HTMLElement>('.dse-para-text');
+        const gutterEl = body.querySelector<HTMLElement>('.dse-line-gutters');
+        if (!textEl || !gutterEl) return;
+        const textLineHeight = parseFloat(getComputedStyle(textEl).lineHeight);
+        if (!textLineHeight || textLineHeight <= 0) return;
+        const actualLines = Math.max(1, Math.round(textEl.offsetHeight / textLineHeight));
+        // Sync gutter line-height to match text
+        gutterEl.style.lineHeight = textLineHeight + 'px';
+        // Build spans
+        const interval = 5;
+        let html = '';
+        for (let i = 1; i <= actualLines; i++) {
+          html += `<span>${i % interval === 0 ? i : ''}</span>`;
+        }
+        gutterEl.innerHTML = html;
       });
-    });
+    };
+    // Try immediately (useLayoutEffect may have already laid out)
+    sync();
+    // Also observe for when layout completes
+    const observer = new ResizeObserver(() => sync());
+    observer.observe(shell);
+    // Fallback timer
+    const timer = setTimeout(sync, 200);
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
+      observer.disconnect();
+      clearTimeout(timer);
     };
   }, [passageLayout]);
 
@@ -694,7 +702,7 @@ export default function ReadingPracticePage() {
 
             .reading-passage-shell {
               width: 100%;
-              padding: 1rem 1.5rem;
+              padding: 1.25rem 2rem;
             }
 
             .dse-reading-layout {

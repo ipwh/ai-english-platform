@@ -18,14 +18,8 @@ export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
           ? `<div class="dse-paragraph-label">[${escapeHtml(firstLine.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</div>`
           : '';
 
-        // Gutter column: one span per line number
-        const gutters = paragraph.lines
-          .map((line) =>
-            line.lineNumber !== undefined
-              ? `<span>${line.lineNumber}</span>`
-              : `<span></span>`
-          )
-          .join('');
+        // Gutter column: empty — populated client-side by JS sync
+        const gutters = '';
 
         // Text column: single continuous block for justify to work
         const text = paragraph.lines
