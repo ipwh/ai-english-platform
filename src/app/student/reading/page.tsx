@@ -277,27 +277,35 @@ export default function ReadingPracticePage() {
   useLayoutEffect(() => {
     if (!passageLayout || !passageRef.current) return;
     const shell = passageRef.current;
-    // Small delay for browser to finish layout
-    const timer = setTimeout(() => {
-      const bodies = shell.querySelectorAll<HTMLElement>('.dse-para-body');
-      bodies.forEach((body) => {
-        const textEl = body.querySelector<HTMLElement>('.dse-para-text');
-        const gutterEl = body.querySelector<HTMLElement>('.dse-line-gutters');
-        if (!textEl || !gutterEl) return;
-        const lineHeight = parseFloat(getComputedStyle(textEl).lineHeight);
-        if (!lineHeight || lineHeight <= 0) return;
-        const actualLines = Math.round(textEl.offsetHeight / lineHeight);
-        if (actualLines <= 0) return;
-        // Rebuild gutter spans to match actual line count
-        const interval = 5;
-        const spans: string[] = [];
-        for (let i = 1; i <= actualLines; i++) {
-          spans.push(`<span>${i % interval === 0 ? i : ''}</span>`);
-        }
-        gutterEl.innerHTML = spans.join('');
+    // Double rAF ensures browser has completed layout + paint
+    let raf1: number, raf2: number;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const bodies = shell.querySelectorAll<HTMLElement>('.dse-para-body');
+        bodies.forEach((body) => {
+          const textEl = body.querySelector<HTMLElement>('.dse-para-text');
+          const gutterEl = body.querySelector<HTMLElement>('.dse-line-gutters');
+          if (!textEl || !gutterEl) return;
+          const textLineHeight = parseFloat(getComputedStyle(textEl).lineHeight);
+          if (!textLineHeight || textLineHeight <= 0) return;
+          const actualLines = Math.round(textEl.offsetHeight / textLineHeight);
+          if (actualLines <= 0) return;
+          // Sync gutter line-height to match text (they have different font-sizes!)
+          gutterEl.style.lineHeight = textLineHeight + 'px';
+          // Rebuild gutter spans to match actual line count
+          const interval = 5;
+          const spans: string[] = [];
+          for (let i = 1; i <= actualLines; i++) {
+            spans.push(`<span>${i % interval === 0 ? i : ''}</span>`);
+          }
+          gutterEl.innerHTML = spans.join('');
+        });
       });
-    }, 50);
-    return () => clearTimeout(timer);
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [passageLayout]);
 
   // ══════════════════════════════════════════
@@ -686,7 +694,7 @@ export default function ReadingPracticePage() {
 
             .reading-passage-shell {
               width: 100%;
-              padding: 0.75rem 1rem;
+              padding: 1rem 1.5rem;
             }
 
             .dse-reading-layout {
@@ -723,12 +731,12 @@ export default function ReadingPracticePage() {
               width: 2.5rem;
               flex-shrink: 0;
               text-align: right;
-              line-height: 1.45;
               font-size: 0.7rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
               user-select: none;
               font-variant-numeric: tabular-nums;
+              /* line-height set dynamically via JS to match .dse-para-text */
             }
             .dse-line-gutters span {
               display: block;
