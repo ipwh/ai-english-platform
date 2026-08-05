@@ -457,6 +457,13 @@ function verifyParagraphReferences(
     const paraText = paraBlocks[citedPara - 1];
     if (!paraText) continue;
     
+    // Skip question types where targetPhrase is a concept label, not a passage word
+    if (qType === 'toneAttitude' || qType === 'tone_attitude' ||
+        qType === 'summaryCloze' || qType === 'summary_cloze' ||
+        qType === 'mcCloze' || qType === 'mc_cloze') {
+      continue;
+    }
+    
     // For reference questions, check the referent word (e.g., "they", "it", "this")
     if (qType === 'referencing' || qType === 'reference') {
       // Extract the quoted word/phrase from question text
@@ -1484,7 +1491,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       if (parseResult.data) {
         const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
         passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
-        passageTooLong = passageWordCount > 800;
+        passageTooLong = passageWordCount > 810; // 800 + small buffer for AI imprecision
         
         // Check actual paragraph count (must be 3-5)
         actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
@@ -1568,7 +1575,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           retryInstructions.push(`⛔ CRITICAL: Your previous passage was ONLY ${passageWordCount} words. You MUST write 500-800 words. Write MORE content — add examples, details, quotes. DO NOT stop early.`);
         }
         if (passageTooLong) {
-          retryInstructions.push(`⛔ CRITICAL: Your previous passage was ${passageWordCount} words — TOO LONG (max 800). You MUST shorten to 500-800 words. Remove filler phrases like "This paragraph sets the stage..." and meta-commentary. Be concise.`);
+          retryInstructions.push(`⛔ CRITICAL: Your previous passage was ${passageWordCount} words — TOO LONG (max 800). You MUST shorten to 500-800 words. Remove filler phrases and meta-commentary. Be concise.`);
         }
         if (paragraphCountBad) {
           retryInstructions.push(`⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`);
@@ -1676,9 +1683,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       );
     }
 
-    // Phase 4D.5: Upper word limit guard — reject passages exceeding 800 words
-    if (passageWordCount > 800) {
-      logger.warn({ module: 'reading-api', wordCount: passageWordCount, maxAllowed: 800 }, 'Generated passage too long after retry — rejecting');
+    // Phase 4D.5: Upper word limit guard — reject passages exceeding 810 words (800 + buffer)
+    if (passageWordCount > 810) {
+      logger.warn({ module: 'reading-api', wordCount: passageWordCount, maxAllowed: 810 }, 'Generated passage too long after retry — rejecting');
       return NextResponse.json(
         apiError(`Generated passage too long: ${passageWordCount} words (maximum 800 allowed). Please try again.`, 'PASSAGE_TOO_LONG', true),
         { status: 422 },
