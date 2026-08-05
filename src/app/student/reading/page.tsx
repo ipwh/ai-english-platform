@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
@@ -271,6 +271,34 @@ export default function ReadingPracticePage() {
 
     return { ...layout, html };
   }, [data?.passage?.content, data?.questions, windowWidth, paneWidth]);
+
+  // ── Client-side gutter sync: align line numbers with actual rendered text ──
+  const passageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!passageLayout || !passageRef.current) return;
+    const shell = passageRef.current;
+    // Small delay for browser to finish layout
+    const timer = setTimeout(() => {
+      const bodies = shell.querySelectorAll<HTMLElement>('.dse-para-body');
+      bodies.forEach((body) => {
+        const textEl = body.querySelector<HTMLElement>('.dse-para-text');
+        const gutterEl = body.querySelector<HTMLElement>('.dse-line-gutters');
+        if (!textEl || !gutterEl) return;
+        const lineHeight = parseFloat(getComputedStyle(textEl).lineHeight);
+        if (!lineHeight || lineHeight <= 0) return;
+        const actualLines = Math.round(textEl.offsetHeight / lineHeight);
+        if (actualLines <= 0) return;
+        // Rebuild gutter spans to match actual line count
+        const interval = 5;
+        const spans: string[] = [];
+        for (let i = 1; i <= actualLines; i++) {
+          spans.push(`<span>${i % interval === 0 ? i : ''}</span>`);
+        }
+        gutterEl.innerHTML = spans.join('');
+      });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [passageLayout]);
 
   // ══════════════════════════════════════════
   // Question distribution check — warns when questions cluster in one paragraph
@@ -658,6 +686,7 @@ export default function ReadingPracticePage() {
 
             .reading-passage-shell {
               width: 100%;
+              padding: 0.75rem 1rem;
             }
 
             .dse-reading-layout {
@@ -747,7 +776,7 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-0 pb-2">
                 {passageLayout ? (
-                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl px-0 py-3 text-sm text-gray-800 dark:text-gray-200"
+                  <div ref={passageRef} className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (
