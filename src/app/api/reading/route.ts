@@ -410,6 +410,88 @@ function checkParagraphDistribution(
   return { valid, counts, message };
 }
 
+/**
+ * Verify that each question's paragraph reference is ACCURATE:
+ * the targetPhrase (or key content) must actually appear in the cited paragraph.
+ * Returns array of mismatch warnings. Empty array = all good.
+ */
+function verifyParagraphReferences(
+  questions: Array<Record<string, unknown>>,
+  passageContent: string,
+): string[] {
+  const warnings: string[] = [];
+  
+  // Split passage into paragraphs by [Paragraph N] markers
+  const paraBlocks = passageContent.split(/\[Paragraph\s+\d+\]/gi)
+    .map(b => b.trim())
+    .filter(Boolean);
+  if (paraBlocks.length === 0) return warnings;
+
+  for (const q of questions) {
+    const qText = (q.questionText as string) || (q.question as string) || '';
+    const targetPhrase = (q.targetPhrase as string) || '';
+    const qType = (q.type as string) || '';
+    
+    // Parse paragraph number from question text
+    const match = qText.match(/\bparagraph\s+(\d+)\b(?!\s*[-–]\s*\d)/i);
+    if (!match) continue; // Cross-paragraph or whole-passage — skip
+    
+    const citedPara = parseInt(match[1], 10);
+    if (citedPara < 1 || citedPara > paraBlocks.length) continue;
+    
+    const paraText = paraBlocks[citedPara - 1];
+    if (!paraText) continue;
+    
+    // For reference questions, check the referent word (e.g., "they", "it", "this")
+    if (qType === 'referencing' || qType === 'reference') {
+      // Extract the quoted word/phrase from question text
+      const refMatch = qText.match(/['"」「](.+?)['"」「]/);
+      const refWord = refMatch ? refMatch[1] : targetPhrase;
+      if (refWord && refWord.length >= 2) {
+        const wordRegex = new RegExp('\\b' + refWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+        if (!wordRegex.test(paraText)) {
+          warnings.push(`Q${q.index}: "${refWord}" (reference) NOT found in paragraph ${citedPara} — but question cites it`);
+        }
+      }
+      continue;
+    }
+    
+    // For vocabulary-in-context, the target word must appear in the cited paragraph
+    if (qType === 'vocabularyInContext' || qType === 'vocabulary') {
+      if (targetPhrase && targetPhrase.length >= 2) {
+        const wordRegex = new RegExp('\\b' + targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+        if (!wordRegex.test(paraText)) {
+          warnings.push(`Q${q.index}: "${targetPhrase}" (vocabulary) NOT found in paragraph ${citedPara} — but question cites it`);
+        }
+      }
+      continue;
+    }
+    
+    // For all other types, check if targetPhrase appears in cited paragraph
+    if (targetPhrase && targetPhrase.length >= 3) {
+      // Multi-word phrases: check if at least 50% of significant words appear
+      const words = targetPhrase.split(/\s+/).filter(w => w.length > 2);
+      if (words.length >= 2) {
+        const foundCount = words.filter(w => {
+          const wRegex = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+          return wRegex.test(paraText);
+        }).length;
+        if (foundCount < Math.ceil(words.length * 0.5)) {
+          warnings.push(`Q${q.index}: "${targetPhrase}" has low overlap with paragraph ${citedPara} (${foundCount}/${words.length} words found)`);
+        }
+      } else {
+        // Single word or short phrase
+        const phraseRegex = new RegExp(targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        if (!phraseRegex.test(paraText)) {
+          warnings.push(`Q${q.index}: "${targetPhrase}" NOT found in paragraph ${citedPara} — but question cites it`);
+        }
+      }
+    }
+  }
+  
+  return warnings;
+}
+
 /** Phase 4D.3: Minimum passage word count for DSE-style question support */
 const MIN_PASSAGE_WORDS = {
   'full-paper': 400,
@@ -1410,6 +1492,16 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (paragraphCountBad) {
           logger.warn({ module: 'reading-api', actualParagraphCount, minRequired: 3 }, 'Too few paragraphs — needs retry');
         }
+        
+        // ── Verify paragraph reference accuracy ──
+        const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+        if (pc && questions.length > 0) {
+          const refWarnings = verifyParagraphReferences(questions, pc);
+          if (refWarnings.length > 0) {
+            logger.warn({ module: 'reading-api', warnings: refWarnings }, 'Paragraph reference mismatch(es) detected');
+            // Store for potential retry instruction (but don't block — one mismatch isn't fatal if distribution/word count OK)
+          }
+        }
       }
       
       // Retry if JSON malformed OR passage too short OR too few paragraphs OR distribution bad
@@ -1521,6 +1613,15 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
                 distributionBad = false;
                 logger.info({ module: 'reading-api', distribution: retryDistro.counts }, 'Retry fixed distribution');
               }
+            }
+          }
+          
+          // Re-check paragraph reference accuracy after retry
+          const retryQuestions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+          if (pc && retryQuestions.length > 0) {
+            const refWarnings = verifyParagraphReferences(retryQuestions, pc);
+            if (refWarnings.length > 0) {
+              logger.warn({ module: 'reading-api', warnings: refWarnings, stage: 'after-retry' }, 'Retry still has paragraph reference mismatch(es)');
             }
           }
         }

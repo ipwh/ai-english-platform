@@ -511,6 +511,8 @@ ABSOLUTE RULES (zero tolerance):
 ║    ☐ Max count − Min count ≤ 1?                              ║
 ║    ☐ [5-paragraph] ALL questions reference a paragraph?      ║
 ║      (No "passage as a whole" — it leaves P5 untested!)      ║
+║    ☐ EVERY referencing Q: quoted word appears in cited para? ║
+║      (e.g., Q: "paragraph 1" + "'they'" → "they" IS in P1?)  ║
 ║                                                              ║
 ║  ⛔ If ANY box is unchecked → DELETE and REDISTRIBUTE        ║
 ║     questions BEFORE outputting. This is NON-NEGOTIABLE.     ║
@@ -525,6 +527,7 @@ ABSOLUTE RULES:
 - If the answer spans multiple paragraphs, use "Based on the passage" or "According to paragraphs 1-2" instead of citing a single paragraph.
 - Questions about the whole passage must say "According to the passage" or "In the passage as a whole" — NOT cite a specific paragraph.
 - ⛔ EXCEPTION for [2,2,2,2,2] (5 paragraphs): ALL 10 questions MUST reference a specific paragraph. "Passage as a whole" is FORBIDDEN because it leaves one paragraph untested. For toneAttitude, reference the LAST paragraph: "According to paragraph 5, what is the author's attitude...". For summaryCloze in 5-paragraph mode, use "Complete the following summary of paragraphs 1-5".
+- ⛔ REFERENCING questions: The word/phrase being referenced (e.g., 'they', 'it', 'this', 'such tools') MUST physically appear in the paragraph cited. For example, if Q3 asks "In paragraph 1, what does 'they' refer to?", the word 'they' MUST be present in paragraph 1 — DO NOT cite paragraph 1 if 'they' only appears in paragraph 2. ALWAYS check: does the quoted word actually exist in the cited paragraph?
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  PARAGRAPH VERIFICATION (for EACH question):               ║
