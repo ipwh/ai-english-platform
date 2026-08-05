@@ -245,6 +245,21 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
     wasRepaired = true;
   }
 
+  // 3.7 Fix prematurely-closed readingContent: merge standalone [Paragraph N] strings back
+  // DeepSeek sometimes closes readingContent at paragraph boundaries, creating:
+  //   "readingContent": "...[Para 1].",\n"[Paragraph 2] ...",\n"[Paragraph 3] ..."
+  // These standalone paragraph strings break JSON — merge them back into readingContent.
+  // Strategy: replace `",\n"[Paragraph N]` with `\n\n[Paragraph N]` inside the string.
+  let prevMerge: string;
+  do {
+    prevMerge = text;
+    // Match: closing quote + comma + whitespace + opening quote + [Paragraph N]
+    text = text.replace(/"\s*,\s*"(\[Paragraph\s+\d+\])/g, '\\n\\n$1');
+  } while (text !== prevMerge);
+  if (text !== missingColonFixed) {
+    wasRepaired = true;
+  }
+
   // 4. Balance braces: if opening > closing, append missing }
   const openBraces = (text.match(/{/g) || []).length;
   const closeBraces = (text.match(/}/g) || []).length;
