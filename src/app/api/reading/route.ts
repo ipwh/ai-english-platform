@@ -189,14 +189,17 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
     wasRepaired = true;
   }
 
-  // 1.5 Fix stray unescaped quotes before paragraph markers inside string values
-  // AI sometimes outputs: ...text\n\n"[Paragraph 2]... — the stray " terminates the JSON string
-  // Fix: escape the quote (\") when NOT preceded by colon (which is the legit opening "value")
-  const escaped = text.replace(/([^:])\s*"(\[Paragraph\s+\d+\])/g, '$1\\"$2');
-  if (escaped !== text) {
-    text = escaped;
+  // 1.2 Fix unescaped control characters inside string values
+  // "Bad control character in string literal" — literal tabs, carriage returns
+  let cleanControls = text.replace(/\t/g, '\\t');
+  cleanControls = cleanControls.replace(/\r(?!\n)/g, '');
+  if (cleanControls !== text) {
+    text = cleanControls;
     wasRepaired = true;
   }
+
+  // 1.5 [DISABLED] Stray quote escape was causing false JSON errors.
+  // Raw fallback handles valid JSON; step 1.2 handles control chars.
 
   // 2. Remove trailing commas before closing braces/brackets
   const trailingCommaFixed = text.replace(/,(\s*[}\]])/g, '$1');
