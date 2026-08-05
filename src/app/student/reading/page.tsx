@@ -144,7 +144,6 @@ export default function ReadingPracticePage() {
   const [grade, setGrade] = useState<string>('S4');
   const [difficulty, setDifficulty] = useState<string>('core');
   const [topic, setTopic] = useState<string>('general');
-  const [questionCount, setQuestionCount] = useState(6);
 
   // Auto-load grade from student profile
   useEffect(() => {
@@ -340,7 +339,7 @@ export default function ReadingPracticePage() {
       const res = await fetch('/api/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeLevel: grade, difficulty, topic, questionCount }),
+        body: JSON.stringify({ gradeLevel: grade, difficulty, topic, questionCount: 10 }),
       });
       const json = await res.json();
       if (res.ok) {
@@ -611,12 +610,6 @@ export default function ReadingPracticePage() {
                 </button>
               ))}
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-500">{language === 'en' ? 'Questions' : '題數'}</label>
-            <input type="range" min={3} max={10} value={questionCount} onChange={e => setQuestionCount(Number(e.target.value))}
-              className="flex-1 accent-indigo-500" />
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{questionCount}</span>
           </div>
           <button onClick={generate} disabled={loading}
             className="w-full py-3 bg-indigo-500 text-white rounded-xl font-medium hover:bg-indigo-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
