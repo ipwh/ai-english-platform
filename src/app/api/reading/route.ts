@@ -1708,7 +1708,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // Correct AI's wrong paragraph reference with computed value
         const computedPara = q._computedParagraph as number | undefined;
         // Fallback: parse paragraph number from question text if computed value is missing
-        const textParaMatch = rawQuestion.match(/(?:paragraph|para\.?)\s*(\d+)/i);
+        // Skip for summaryCloze — they span the whole passage
+        const isSummary = (q.type as string) === 'summaryCloze';
+        const textParaMatch = isSummary ? null : rawQuestion.match(/(?:paragraph|para\.?)\s*(\d+)/i);
         const textPara = textParaMatch ? parseInt(textParaMatch[1], 10) : undefined;
         const resolvedPara = computedPara || textPara;
         if (resolvedPara) {
@@ -1751,7 +1753,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           }
         }
 
-        const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
+        const tier = (q.tier as string)
+          || (aiType === 'inference' || aiType === 'toneAttitude' ? 'inferential'
+          : aiType === 'summaryCloze' || aiType === 'authorIntention' ? 'evaluative'
+          : i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
         // Use system-computed paragraphRef from Phase 1
         const paragraphRef = (q.paragraphRef as number) || undefined;
@@ -1825,7 +1830,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         }
 
         // Determine tier from question metadata or default based on position
-        const tier = (q.tier as string) || (i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
+        const tier = (q.tier as string)
+          || (aiType === 'inference' || aiType === 'toneAttitude' ? 'inferential'
+          : aiType === 'summaryCloze' || aiType === 'authorIntention' ? 'evaluative'
+          : i < totalQ / 3 ? 'literal' : i < (totalQ * 2) / 3 ? 'inferential' : 'evaluative');
 
         // Use system-computed paragraphRef (set below via targetPhrase mapping)
         const paragraphRef = (q.paragraphRef as number) || undefined;
