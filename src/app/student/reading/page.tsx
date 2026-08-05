@@ -680,9 +680,9 @@ export default function ReadingPracticePage() {
               margin-bottom: 0.6rem;
             }
 
-            /* First paragraph line: subtle text indent (DSE exam convention) */
+            /* First paragraph line: 2-character indent (DSE exam convention) */
             .dse-paragraph .dse-line:first-child .dse-line-text {
-              text-indent: 0;
+              text-indent: 2em;
             }
 
             .dse-line {
@@ -713,6 +713,7 @@ export default function ReadingPracticePage() {
               margin: 0;
               padding: 0;
               line-height: 1.45;
+              text-align: justify;
             }
 
             .dse-line-text > span,
@@ -767,7 +768,7 @@ export default function ReadingPracticePage() {
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-justify" style={{ textIndent: '2em' }}>
                     {data.passage.content}
                   </div>
                 )}
