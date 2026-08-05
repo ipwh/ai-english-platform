@@ -21,11 +21,13 @@ export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
           label +
           paragraph.lines
             .map(
-              (line) =>
-                `<div class="dse-line">` +
+              (line, i) => {
+                const isLast = i === paragraph.lines.length - 1;
+                return `<div class="dse-line${isLast ? ' dse-line-last' : ''}">` +
                 `<div class="dse-line-gutter">${line.lineNumber !== undefined ? line.lineNumber : ''}</div>` +
                 `<div class="dse-line-text"><span>${escapeHtml(line.text)}</span></div>` +
-                `</div>`
+                `</div>`;
+              }
             )
             .join('') +
           `</div>`;
