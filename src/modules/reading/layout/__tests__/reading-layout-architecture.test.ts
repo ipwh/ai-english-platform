@@ -338,20 +338,16 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
       lineNumberInterval: 5,
       fixedReadingMeasure: true,
     });
-    // Every dse-line-gutter should have a sibling dse-line-text with content
+    // Every .dse-line-gutter should be followed by .dse-line-text with content
     const html = result.html;
-    const lineBlocks = html.split('dse-line">').filter(b => b.includes('dse-line-gutter'));
-    for (const block of lineBlocks) {
-      // If there's a gutter, there must be text content (not just empty span)
-      const hasText = /dse-line-text">\s*<span>(?!\s*<\/span>)/.test(block) ||
-        /dse-line-text">\s*\S/.test(block);
-      expect(hasText).toBe(true);
-    }
-    // No blank lines with a number but no text
-    expect(html).not.toMatch(/dse-line-number">\d+<\/span>\s*<\/div>\s*<div class="dse-line-text">\s*<span>\s*<\/span>/);
+    const gutterCount = (html.match(/dse-line-gutter/g) || []).length;
+    const textCount = (html.match(/dse-line-text/g) || []).length;
+    expect(gutterCount).toBe(textCount);
+    // No empty line text spans
+    expect(html).not.toMatch(/dse-line-text">\s*<\/span>/);
   });
 
-  it('37. paragraph labels do not shift gutter alignment', () => {
+  it('37. paragraph labels are above the text, not inline', () => {
     const result = layoutReadingText(SAMPLE_PASSAGE, {
       maxCharsPerLine: 40,
       showParagraphLabels: true,
@@ -359,11 +355,11 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
       lineNumberInterval: 5,
       fixedReadingMeasure: true,
     });
-    // The dse-paragraph-label is inside dse-line-text, not a separate row
+    // .dse-paragraph-label is a standalone div above .dse-lines
     expect(result.html).toContain('dse-paragraph-label');
-    // Label must be inside dse-line-text, not before the gutter
-    const labelOutsideGutter = /dse-paragraph-label[^<]*<\/span>\s*<\/div>\s*<div class="dse-line-gutter">/.test(result.html);
-    expect(labelOutsideGutter).toBe(false);
+    expect(result.html).toContain('dse-lines');
+    // Label appears before .dse-lines, not inside it
+    expect(result.html).toMatch(/dse-paragraph-label.*dse-lines/s);
   });
 
   it('38. fixedReadingMeasure prevents fluid width drift', () => {

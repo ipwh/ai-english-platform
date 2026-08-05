@@ -673,34 +673,34 @@ export default function ReadingPracticePage() {
               margin-bottom: 0.6rem;
             }
 
-            /* First paragraph line: 2-character indent (DSE exam convention)
-               Label div is the first child, so the first text line is nth-child(2) */
-            .dse-paragraph > .dse-line:nth-child(2) .dse-line-text {
-              text-indent: 2em;
-            }
-            /* Edge case: no label (very short paragraphs), first child is the line */
-            .dse-paragraph > .dse-line:first-child .dse-line-text {
-              text-indent: 2em;
+            .dse-paragraph-label {
+              font-weight: 600;
+              font-size: 0.75rem;
+              color: #6b7280;
+              font-family: ui-monospace, monospace;
+              margin-bottom: 0.15rem;
+              /* Align with text: gutter width + gap */
+              padding-left: calc(2.5rem + 0.625rem);
             }
 
-            .dse-line {
-              display: grid;
-              grid-template-columns: 2.5rem 1fr;
-              column-gap: 0.625rem;
-              align-items: baseline;
-              margin: 0;
-              padding: 0;
+            .dse-lines {
+              text-align: justify;
+              line-height: 1.45;
             }
 
             .dse-line-gutter {
-              margin: 0;
-              padding: 0 0 0 0;
+              display: inline-block;
+              width: 2.5rem;
               text-align: right;
-              line-height: 1.45;
+              margin: 0;
+              margin-right: 0.625rem;
+              padding: 0;
+              line-height: inherit;
               font-size: 0.7rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
               user-select: none;
+              vertical-align: top;
             }
 
             .dse-line-number {
@@ -708,26 +708,20 @@ export default function ReadingPracticePage() {
             }
 
             .dse-line-text {
+              display: inline;
               margin: 0;
               padding: 0;
-              line-height: 1.45;
-              text-align: justify;
-            }
-
-            .dse-line-text > span {
               line-height: inherit;
             }
 
-            .dse-paragraph-label {
-              font-weight: 600;
-              font-size: 0.75rem;
-              color: #6b7280;
-              font-family: ui-monospace, monospace;
-              margin-bottom: 0.15rem;
+            /* First line of each paragraph: 2em indent */
+            .dse-paragraph > .dse-lines > .dse-line-text:first-of-type {
+              /* The gutter counts as the first child; text is second.
+                 Indent applied via padding-left on the paragraph instead */
             }
-
-            .dark .dse-line-gutter { color: #6b7280; }
-            .dark .dse-paragraph-label { color: #9ca3af; }
+            .dse-paragraph > .dse-lines {
+              text-indent: 2em;
+            }
 
             .dse-target-phrase {
               font-weight: 600;
@@ -741,6 +735,8 @@ export default function ReadingPracticePage() {
               color: #93c5fd;
               background: #1e3a5f;
             }
+            .dark .dse-line-gutter { color: #6b7280; }
+            .dark .dse-paragraph-label { color: #9ca3af; }
           `}</style>
 
           <div className="reading-workspace">

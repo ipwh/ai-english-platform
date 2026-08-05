@@ -1,7 +1,7 @@
 // ============================================
-// Sprint 116 / Phase 1A: Layout Renderer (v2)
-// Renders paragraphs to gutter-based HTML.
-// Line numbers are in a separate gutter column — NEVER inline in text.
+// Sprint 116 / Phase 1A: Layout Renderer (v3)
+// Renders paragraphs to inline-based HTML for text-align:justify support.
+// Line numbers are inline-block gutters alongside flowing text.
 // ============================================
 
 import type { LayoutParagraph } from './reading-layout-types';
@@ -11,22 +11,22 @@ export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
   return paragraphs
     .map(
       (paragraph) => {
-        // Build paragraph label above the lines (not inline)
+        // Paragraph label above the text
         const firstLine = paragraph.lines[0];
         const label = firstLine?.isParagraphStart && firstLine.paragraphLabel
           ? `<div class="dse-paragraph-label">[${escapeHtml(firstLine.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</div>`
           : '';
+        // Lines as inline spans inside a justify container
+        const linesHtml = paragraph.lines
+          .map(
+            (line) =>
+              `<span class="dse-line-gutter">${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}</span>` +
+              `<span class="dse-line-text">${escapeHtml(line.text)}</span>`
+          )
+          .join('');
         return `<div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">` +
           label +
-          paragraph.lines
-            .map(
-              (line) =>
-                `<div class="dse-line">` +
-                `<div class="dse-line-gutter">${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}</div>` +
-                `<div class="dse-line-text"><span>${escapeHtml(line.text)}</span></div>` +
-                `</div>`
-            )
-            .join('') +
+          `<div class="dse-lines">${linesHtml}</div>` +
           `</div>`;
       }
     )
