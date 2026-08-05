@@ -517,6 +517,8 @@ ABSOLUTE RULES (zero tolerance):
 ║      (Avoid "it"/"they" if used multiple times — ambiguous!)  ║
 ║    ☐ [WL] wordLimit matches answer word count?                ║
 ║      (2-word answer → "TWO words", NOT "ONE word")            ║
+║    ☐ [VOCAB] Target word has SINGLE meaning in cited para?    ║
+║      (If "harbor"=noun AND verb → specify which usage!)        ║
 ║                                                              ║
 ║  ⛔ If ANY box is unchecked → DELETE and REDISTRIBUTE        ║
 ║     questions BEFORE outputting. This is NON-NEGOTIABLE.     ║
@@ -554,7 +556,7 @@ ABSOLUTE RULES:
 - For toneAttitude: ⛔ MUST include 4 choices labeled A/B/C/D in the "choices" array. Use nuanced labels (skeptical, cautiously optimistic, subtly critical, reservedly hopeful, mildly apprehensive — NEVER just "positive" or "negative"). toneAttitude is ALWAYS an MCQ — never an open-ended question.
 - For trueFalseNG: use exactly "True (T), False (F) or Not Given (NG)" format
 - For referencing: "Who or what does 'X' refer to?" ⛔ CRITICAL: The quoted word/phrase (X) must appear EXACTLY ONCE in the cited paragraph. If it appears multiple times (e.g., "it" appears 3 times in a paragraph), the reference is AMBIGUOUS and will confuse students. Instead, pick a UNIQUE phrase like "this phenomenon", "such tools", "this approach". ALWAYS count occurrences of X in the cited paragraph before using it.
-- For vocabulary: "What does 'X' mean as used in the passage?" or "Find a word/phrase that means 'Y'"
+- For vocabulary: "What does 'X' mean as used in the passage?" or "Find a word/phrase that means 'Y'". ⛔ CRITICAL: The target word (X) must appear EXACTLY ONCE in the cited paragraph with a SINGLE meaning. If the word appears multiple times with different meanings (e.g., "harbor" as noun=港口 vs verb=懷有), the question is AMBIGUOUS — specify which usage: "What does 'harbor' mean in the phrase 'harbor reservations'?"
 - For inference: "Based on paragraph X, explain why..." (30-50 words)
 - Include answer explanations in both English and Chinese
 
