@@ -190,19 +190,17 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
   }
 
   // 1.2 Fix unescaped control characters inside string values
-  // "Bad control character in string literal" — literal tabs, newlines, carriage returns, etc.
-  // Replace any literal control char (0x00-0x1F) with its JSON escape sequence.
-  // Safe: only matches literal control chars, NOT already-escaped sequences like \n.
-  const cleanControls = text.replace(/[\x00-\x1F]/g, (ch) => {
-    switch (ch) {
-      case '\b': return '\\b';
-      case '\f': return '\\f';
-      case '\n': return '\\n';
-      case '\r': return '\\r';
-      case '\t': return '\\t';
-      default: return '\\u' + ('000' + ch.charCodeAt(0).toString(16)).slice(-4);
-    }
-  });
+  // CRITICAL: \t \n \r are VALID JSON whitespace between tokens — do NOT escape them there.
+  // But inside string values they are INVALID. Since DeepSeek uses json_mode
+  // (no tabs for indentation), any literal tab likely comes from AI text content.
+  // Strategy: escape only tabs (safe in json_mode) + never-valid control chars (0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F).
+  // Leave \n and \r alone — they are valid JSON whitespace.
+  let cleanControls = text.replace(/\t/g, '\\t');
+  cleanControls = cleanControls.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, (ch) =>
+    '\\u' + ('000' + ch.charCodeAt(0).toString(16)).slice(-4)
+  );
+  // Remove standalone \r (Windows artifacts) — \r\n pairs are fine
+  cleanControls = cleanControls.replace(/\r(?!\n)/g, '');
   if (cleanControls !== text) {
     text = cleanControls;
     wasRepaired = true;
@@ -388,8 +386,8 @@ function checkParagraphDistribution(
       counts[ref - 1]++;
       continue;
     }
-    // Parse "paragraph X" from question text
-    const match = qText.match(/paragraph\s+(\d+)/i);
+    // Parse "paragraph X" from question text (but NOT "paragraphs 1-4" ranges)
+    const match = qText.match(/\bparagraph\s+(\d+)\b(?!\s*[-–]\s*\d)/i);
     if (match) {
       const p = parseInt(match[1], 10);
       if (p >= 1 && p <= paragraphCount) counts[p - 1]++;
