@@ -1491,11 +1491,28 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           }
         }
 
-        // Re-check passage length and paragraph count after retry
+        // Re-check passage length, paragraph count, AND distribution after retry
         if (parseResult.data) {
           const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
           passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
           actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
+          
+          // Re-check distribution — retry may still produce bad distribution
+          if (!paragraphCountBad && actualParagraphCount >= 3) {
+            const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+            const paraCount = Math.max(actualParagraphCount, 3);
+            if (questions.length > 0) {
+              const retryDistro = checkParagraphDistribution(questions, paraCount);
+              if (!retryDistro.valid) {
+                distributionBad = true;
+                distroMessage = retryDistro.message;
+                logger.warn({ module: 'reading-api', distribution: retryDistro.counts, paraCount, stage: 'after-retry' }, `Retry still has ${retryDistro.message}`);
+              } else {
+                distributionBad = false;
+                logger.info({ module: 'reading-api', distribution: retryDistro.counts }, 'Retry fixed distribution');
+              }
+            }
+          }
         }
       }
     } catch (aiErr: unknown) {

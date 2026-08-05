@@ -509,6 +509,8 @@ ABSOLUTE RULES (zero tolerance):
 ║    ☐ NO paragraph has 0, 1, or 4+ questions?                 ║
 ║    ☐ Total sums to exactly 10?                               ║
 ║    ☐ Max count − Min count ≤ 1?                              ║
+║    ☐ [5-paragraph] ALL questions reference a paragraph?      ║
+║      (No "passage as a whole" — it leaves P5 untested!)      ║
 ║                                                              ║
 ║  ⛔ If ANY box is unchecked → DELETE and REDISTRIBUTE        ║
 ║     questions BEFORE outputting. This is NON-NEGOTIABLE.     ║
@@ -522,6 +524,7 @@ ABSOLUTE RULES:
 - If a question says "According to paragraph 2", the answer MUST be found in paragraph 2 — NOT in paragraph 1, 3, or any other paragraph.
 - If the answer spans multiple paragraphs, use "Based on the passage" or "According to paragraphs 1-2" instead of citing a single paragraph.
 - Questions about the whole passage must say "According to the passage" or "In the passage as a whole" — NOT cite a specific paragraph.
+- ⛔ EXCEPTION for [2,2,2,2,2] (5 paragraphs): ALL 10 questions MUST reference a specific paragraph. "Passage as a whole" is FORBIDDEN because it leaves one paragraph untested. For toneAttitude, reference the LAST paragraph: "According to paragraph 5, what is the author's attitude...". For summaryCloze in 5-paragraph mode, use "Complete the following summary of paragraphs 1-5".
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  PARAGRAPH VERIFICATION (for EACH question):               ║
