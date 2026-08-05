@@ -513,6 +513,10 @@ ABSOLUTE RULES (zero tolerance):
 ║      (No "passage as a whole" — it leaves P5 untested!)      ║
 ║    ☐ EVERY referencing Q: quoted word appears in cited para? ║
 ║      (e.g., Q: "paragraph 1" + "'they'" → "they" IS in P1?)  ║
+║    ☐ [REF] Referencing word appears ONLY ONCE in paragraph?   ║
+║      (Avoid "it"/"they" if used multiple times — ambiguous!)  ║
+║    ☐ [WL] wordLimit matches answer word count?                ║
+║      (2-word answer → "TWO words", NOT "ONE word")            ║
 ║                                                              ║
 ║  ⛔ If ANY box is unchecked → DELETE and REDISTRIBUTE        ║
 ║     questions BEFORE outputting. This is NON-NEGOTIABLE.     ║
@@ -545,10 +549,11 @@ ABSOLUTE RULES:
 - For summaryCloze: the summary ALWAYS covers multiple paragraphs or the whole passage. Use "Complete the following summary of the passage" or "Complete the following summary of paragraphs X-Y" — NEVER cite a single paragraph like "paragraph 1" for a summaryCloze question.
 - Every question must use EXACT DSE wording with paragraph reference
 - Every question must include marks (1-4) and word limits
+- ⛔ wordLimit MUST match the answer word count: count the words in your answer and set wordLimit accordingly (e.g., answer "balanced approach" → "TWO words"; answer "eroding" → "ONE word"). NEVER set "ONE word" when the answer is multiple words.
 - For mcq: include 4 plausible distractors labeled A/B/C/D
 - For toneAttitude: ⛔ MUST include 4 choices labeled A/B/C/D in the "choices" array. Use nuanced labels (skeptical, cautiously optimistic, subtly critical, reservedly hopeful, mildly apprehensive — NEVER just "positive" or "negative"). toneAttitude is ALWAYS an MCQ — never an open-ended question.
 - For trueFalseNG: use exactly "True (T), False (F) or Not Given (NG)" format
-- For referencing: "Who or what does 'X' refer to?"
+- For referencing: "Who or what does 'X' refer to?" ⛔ CRITICAL: The quoted word/phrase (X) must appear EXACTLY ONCE in the cited paragraph. If it appears multiple times (e.g., "it" appears 3 times in a paragraph), the reference is AMBIGUOUS and will confuse students. Instead, pick a UNIQUE phrase like "this phenomenon", "such tools", "this approach". ALWAYS count occurrences of X in the cited paragraph before using it.
 - For vocabulary: "What does 'X' mean as used in the passage?" or "Find a word/phrase that means 'Y'"
 - For inference: "Based on paragraph X, explain why..." (30-50 words)
 - Include answer explanations in both English and Chinese
