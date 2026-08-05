@@ -708,11 +708,6 @@ export default function ReadingPracticePage() {
               padding: 0;
               line-height: 1.45;
               text-align: justify;
-              text-align-last: justify;
-            }
-            /* Last line of paragraph: don't stretch */
-            .dse-line-last .dse-line-text {
-              text-align-last: left;
             }
 
             .dse-line-text > span {
