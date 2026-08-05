@@ -190,9 +190,19 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
   }
 
   // 1.2 Fix unescaped control characters inside string values
-  // "Bad control character in string literal" — literal tabs, carriage returns
-  let cleanControls = text.replace(/\t/g, '\\t');
-  cleanControls = cleanControls.replace(/\r(?!\n)/g, '');
+  // "Bad control character in string literal" — literal tabs, newlines, carriage returns, etc.
+  // Replace any literal control char (0x00-0x1F) with its JSON escape sequence.
+  // Safe: only matches literal control chars, NOT already-escaped sequences like \n.
+  const cleanControls = text.replace(/[\x00-\x1F]/g, (ch) => {
+    switch (ch) {
+      case '\b': return '\\b';
+      case '\f': return '\\f';
+      case '\n': return '\\n';
+      case '\r': return '\\r';
+      case '\t': return '\\t';
+      default: return '\\u' + ('000' + ch.charCodeAt(0).toString(16)).slice(-4);
+    }
+  });
   if (cleanControls !== text) {
     text = cleanControls;
     wasRepaired = true;
