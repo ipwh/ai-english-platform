@@ -4,6 +4,40 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-05 — Layout v5, Prompt Rules, Distribution Relax (Sprint 118)
+
+### 🎨 Reading Layout v5
+- **Grid-based per-line rendering**: Reverted from v3/v4 inline/continuous-text experiments. Each line is a `.dse-line` grid row (gutter number + text). Guarantees line number alignment.
+- **Paragraph labels above text**: `[P1]`, `[P2]` rendered as standalone `<div>` above each paragraph, not inline in first line.
+- **Justify text**: `text-align: justify` on `.dse-line-text` for natural word spacing. No `text-align-last` (avoided excessive gaps).
+- **2em first-line indent** per paragraph (DSE exam convention).
+- **Symmetric padding**: `.reading-passage-shell` with `padding: 1.25rem 2rem`.
+
+### 🛡️ Backend Resilience
+- **JSON repair step 1.2**: Escape unescaped control chars (`\t` + 0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F). Leaves `\n`/`\r` alone (valid JSON whitespace).
+- **JSON repair step 3.7**: Merge prematurely-closed `readingContent` paragraphs. DeepSeek sometimes closes the JSON string at paragraph boundaries, creating standalone `"[Paragraph N]"` values.
+- **Markdown strip**: `**bold**` and `*italic*` markers stripped from `readingContent` post-parse.
+- **Cumulative retry instruction**: Addresses ALL issues simultaneously (too long + too few paragraphs + bad distribution) instead of only the first.
+- **Relaxed distribution check**: Only rejects zero-question paragraphs. Uneven distribution and >3 per paragraph are warnings only.
+- **Word count buffer**: 800→810 tolerance to avoid rejecting borderline cases.
+- **Paragraph reference verification** (`verifyParagraphReferences`): Runtime check that `targetPhrase` appears in cited paragraph. Skips toneAttitude/summaryCloze types.
+
+### 📝 Prompt Rules
+- **Referencing**: Quoted word must appear EXACTLY ONCE in cited paragraph. Avoids ambiguous "it"/"they" when used multiple times.
+- **Vocabulary**: Target word must have SINGLE meaning in cited paragraph. If "harbor" appears as both noun and verb, specify which usage.
+- **Word limit consistency**: `wordLimit` must match answer word count (e.g., "balanced approach"→"TWO words", not "ONE word").
+- **5-paragraph whole-passage ban**: All 10 questions must reference specific paragraphs. "Passage as a whole" forbidden.
+
+### 🎛️ UI
+- **Question count slider removed**: Hardcoded to 10 questions.
+- **Dark mode**: Updated gutter/paragraph-label color rules.
+
+### 🧪 Testing
+- 1,586 tests, 74 test files, 100% pass
+- Layout tests (42) updated for v5 structure
+
+---
+
 ## 2026-08-04 — DSE Reading Generation Quality Overhaul (Sprint 110–117)
 
 ### ⚡ DeepSeek Stability
