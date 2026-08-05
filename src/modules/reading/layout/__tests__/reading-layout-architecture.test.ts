@@ -73,8 +73,8 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
 
   it('6. HTML contains gutter markup, NOT inline markers', () => {
     const r = layoutReadingText(SAMPLE_PASSAGE, { maxCharsPerLine: 40, lineNumberInterval: 2 });
-    expect(r.html).toContain('dse-line-gutters');
-    expect(r.html).toContain('dse-para-text');
+    expect(r.html).toContain('dse-line-gutter');
+    expect(r.html).toContain('dse-line-text');
     expect(r.html).not.toMatch(/\[line\s+\d+\]/i);
   });
 
@@ -283,10 +283,10 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
       },
     );
 
-    expect(result.html).toContain('dse-line-gutters');
+    expect(result.html).toContain('dse-line-gutter');
     expect(result.html).not.toMatch(/\[line\s+\d+\]/i);
     // Verify gutter column exists
-    const gutterCount = (result.html.match(/dse-line-gutters/g) || []).length;
+    const gutterCount = (result.html.match(/dse-line-gutter/g) || []).length;
     expect(gutterCount).toBeGreaterThan(0);
   });
 
@@ -332,22 +332,20 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
     expect(cpl).toBeLessThan(64);
   });
 
-  it('36. rendered HTML uses two-column flex layout with gutters and justified text', () => {
+  it('36. rendered HTML uses per-line grid layout with gutters', () => {
     const result = layoutReadingText(SAMPLE_PASSAGE, {
       maxCharsPerLine: 40,
       lineNumberInterval: 5,
       fixedReadingMeasure: true,
     });
-    // v4: two-column layout
-    expect(result.html).toContain('dse-para-body');
-    expect(result.html).toContain('dse-line-gutters');
-    expect(result.html).toContain('dse-para-text');
-    // Gutters should contain spans
-    const gutterCount = (result.html.match(/dse-line-gutters/g) || []).length;
+    // v5: grid-based per-line layout
+    expect(result.html).toContain('dse-line-gutter');
+    expect(result.html).toContain('dse-line-text');
+    const gutterCount = (result.html.match(/dse-line-gutter/g) || []).length;
     expect(gutterCount).toBeGreaterThan(0);
   });
 
-  it('37. paragraph labels are above the text, not inline', () => {
+  it('37. paragraph labels are above the text, not inline in the first line', () => {
     const result = layoutReadingText(SAMPLE_PASSAGE, {
       maxCharsPerLine: 40,
       showParagraphLabels: true,
@@ -355,11 +353,10 @@ describe('Sprint 116 / Phase 1A: Reading Layout Engine (v2)', () => {
       lineNumberInterval: 5,
       fixedReadingMeasure: true,
     });
-    // .dse-paragraph-label is a standalone div above .dse-para-body
+    // .dse-paragraph-label is a standalone div above .dse-line
     expect(result.html).toContain('dse-paragraph-label');
-    expect(result.html).toContain('dse-para-body');
-    // Label appears before .dse-para-body
-    expect(result.html).toMatch(/dse-paragraph-label.*dse-para-body/s);
+    // Label appears before the first .dse-line
+    expect(result.html).toMatch(/dse-paragraph-label.*dse-line/s);
   });
 
   it('38. fixedReadingMeasure prevents fluid width drift', () => {

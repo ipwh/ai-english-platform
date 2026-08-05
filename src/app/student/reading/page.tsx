@@ -272,50 +272,6 @@ export default function ReadingPracticePage() {
     return { ...layout, html };
   }, [data?.passage?.content, data?.questions, windowWidth, paneWidth]);
 
-  // ── Client-side gutter sync: align line numbers with actual rendered text ──
-  const passageRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!passageLayout || !passageRef.current) return;
-    const shell = passageRef.current;
-    let ran = false;
-    const sync = () => {
-      if (ran) return;
-      const bodies = shell.querySelectorAll<HTMLElement>('.dse-para-body');
-      if (bodies.length === 0) return;
-      const firstText = bodies[0].querySelector<HTMLElement>('.dse-para-text');
-      if (!firstText || firstText.offsetHeight === 0) return; // not yet laid out
-      ran = true;
-      bodies.forEach((body) => {
-        const textEl = body.querySelector<HTMLElement>('.dse-para-text');
-        const gutterEl = body.querySelector<HTMLElement>('.dse-line-gutters');
-        if (!textEl || !gutterEl) return;
-        const textLineHeight = parseFloat(getComputedStyle(textEl).lineHeight);
-        if (!textLineHeight || textLineHeight <= 0) return;
-        const actualLines = Math.max(1, Math.round(textEl.offsetHeight / textLineHeight));
-        // Sync gutter line-height to match text
-        gutterEl.style.lineHeight = textLineHeight + 'px';
-        // Build spans
-        const interval = 5;
-        let html = '';
-        for (let i = 1; i <= actualLines; i++) {
-          html += `<span>${i % interval === 0 ? i : ''}</span>`;
-        }
-        gutterEl.innerHTML = html;
-      });
-    };
-    // Try immediately (useLayoutEffect may have already laid out)
-    sync();
-    // Also observe for when layout completes
-    const observer = new ResizeObserver(() => sync());
-    observer.observe(shell);
-    // Fallback timer
-    const timer = setTimeout(sync, 200);
-    return () => {
-      observer.disconnect();
-      clearTimeout(timer);
-    };
-  }, [passageLayout]);
-
   // ══════════════════════════════════════════
   // Question distribution check — warns when questions cluster in one paragraph
   // ══════════════════════════════════════════
@@ -716,7 +672,6 @@ export default function ReadingPracticePage() {
               flex-direction: column;
               gap: 0;
               margin-bottom: 0.6rem;
-              padding: 0 0.25rem;
             }
 
             .dse-paragraph-label {
@@ -725,37 +680,38 @@ export default function ReadingPracticePage() {
               color: #6b7280;
               font-family: ui-monospace, monospace;
               margin-bottom: 0.15rem;
-              /* Align with text: gutter width + gap */
+              /* Align with text column (past gutter) */
               padding-left: calc(2.5rem + 0.625rem);
             }
 
-            .dse-para-body {
-              display: flex;
-              gap: 0.625rem;
-              align-items: flex-start;
+            .dse-line {
+              display: grid;
+              grid-template-columns: 2.5rem 1fr;
+              column-gap: 0.625rem;
+              align-items: baseline;
+              margin: 0;
+              padding: 0;
             }
 
-            .dse-line-gutters {
-              width: 2.5rem;
-              flex-shrink: 0;
+            .dse-line-gutter {
               text-align: right;
+              line-height: 1.45;
               font-size: 0.7rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
               user-select: none;
               font-variant-numeric: tabular-nums;
-              /* line-height set dynamically via JS to match .dse-para-text */
-            }
-            .dse-line-gutters span {
-              display: block;
             }
 
-            .dse-para-text {
-              flex: 1;
-              text-align: justify;
+            .dse-line-text {
+              margin: 0;
+              padding: 0;
               line-height: 1.45;
-              text-indent: 2em;
-              min-width: 0;
+              text-align: justify;
+            }
+
+            .dse-line-text > span {
+              line-height: inherit;
             }
 
             .dse-target-phrase {
@@ -770,7 +726,7 @@ export default function ReadingPracticePage() {
               color: #93c5fd;
               background: #1e3a5f;
             }
-            .dark .dse-line-gutters { color: #6b7280; }
+            .dark .dse-line-gutter { color: #6b7280; }
             .dark .dse-paragraph-label { color: #9ca3af; }
           `}</style>
 
@@ -792,7 +748,7 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-0 pb-2">
                 {passageLayout ? (
-                  <div ref={passageRef} className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
+                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ __html: passageLayout.html }}
                   />
                 ) : (

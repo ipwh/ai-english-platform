@@ -1,8 +1,8 @@
 // ============================================
-// Sprint 116 / Phase 1A: Layout Renderer (v4)
-// Two-column layout: gutter numbers (left) + continuous justified text (right).
-// Text is a single block per paragraph so text-align:justify works properly.
-// Line numbers align via matching line-height.
+// Sprint 116 / Phase 1A: Layout Renderer (v5)
+// Grid-based per-line layout — guarantees gutter alignment.
+// Each line is a grid row: gutter number (left) + text (right).
+// Paragraph labels rendered above text as separate element.
 // ============================================
 
 import type { LayoutParagraph } from './reading-layout-types';
@@ -12,26 +12,22 @@ export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
   return paragraphs
     .map(
       (paragraph) => {
-        // Paragraph label above the text
+        // Paragraph label above the lines
         const firstLine = paragraph.lines[0];
         const label = firstLine?.isParagraphStart && firstLine.paragraphLabel
           ? `<div class="dse-paragraph-label">[${escapeHtml(firstLine.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</div>`
           : '';
-
-        // Gutter column: empty — populated client-side by JS sync
-        const gutters = '';
-
-        // Text column: single continuous block for justify to work
-        const text = paragraph.lines
-          .map((line) => line.text)
-          .join(' ');
-
         return `<div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">` +
           label +
-          `<div class="dse-para-body">` +
-          `<div class="dse-line-gutters">${gutters}</div>` +
-          `<div class="dse-para-text">${escapeHtml(text)}</div>` +
-          `</div>` +
+          paragraph.lines
+            .map(
+              (line) =>
+                `<div class="dse-line">` +
+                `<div class="dse-line-gutter">${line.lineNumber !== undefined ? line.lineNumber : ''}</div>` +
+                `<div class="dse-line-text"><span>${escapeHtml(line.text)}</span></div>` +
+                `</div>`
+            )
+            .join('') +
           `</div>`;
       }
     )
