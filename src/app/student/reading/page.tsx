@@ -673,8 +673,13 @@ export default function ReadingPracticePage() {
               margin-bottom: 0.6rem;
             }
 
-            /* First paragraph line: 2-character indent (DSE exam convention) */
-            .dse-paragraph .dse-line:first-child .dse-line-text {
+            /* First paragraph line: 2-character indent (DSE exam convention)
+               Label div is the first child, so the first text line is nth-child(2) */
+            .dse-paragraph > .dse-line:nth-child(2) .dse-line-text {
+              text-indent: 2em;
+            }
+            /* Edge case: no label (very short paragraphs), first child is the line */
+            .dse-paragraph > .dse-line:first-child .dse-line-text {
               text-indent: 2em;
             }
 
@@ -709,17 +714,16 @@ export default function ReadingPracticePage() {
               text-align: justify;
             }
 
-            .dse-line-text > span,
-            .dse-paragraph-label {
+            .dse-line-text > span {
               line-height: inherit;
             }
 
             .dse-paragraph-label {
               font-weight: 600;
-              margin-right: 0.75rem;
               font-size: 0.75rem;
               color: #6b7280;
               font-family: ui-monospace, monospace;
+              margin-bottom: 0.15rem;
             }
 
             .dark .dse-line-gutter { color: #6b7280; }

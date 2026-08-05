@@ -10,18 +10,25 @@ import type { LayoutParagraph } from './reading-layout-types';
 export function renderLayoutToHtml(paragraphs: LayoutParagraph[]): string {
   return paragraphs
     .map(
-      (paragraph) =>
-        `<div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">` +
-        paragraph.lines
-          .map(
-            (line) =>
-              `<div class="dse-line">` +
-              `<div class="dse-line-gutter">${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}</div>` +
-              `<div class="dse-line-text">${line.isParagraphStart && line.paragraphLabel ? `<span class="dse-paragraph-label">[${escapeHtml(line.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</span>` : ''}<span>${escapeHtml(line.text)}</span></div>` +
-              `</div>`
-          )
-          .join('') +
-        `</div>`
+      (paragraph) => {
+        // Build paragraph label above the lines (not inline)
+        const firstLine = paragraph.lines[0];
+        const label = firstLine?.isParagraphStart && firstLine.paragraphLabel
+          ? `<div class="dse-paragraph-label">[${escapeHtml(firstLine.paragraphLabel.replace(/Paragraph\s*/i, ''))}]</div>`
+          : '';
+        return `<div class="dse-paragraph" data-paragraph="${paragraph.paragraphIndex}" data-paragraph-label="${escapeAttr(paragraph.label)}">` +
+          label +
+          paragraph.lines
+            .map(
+              (line) =>
+                `<div class="dse-line">` +
+                `<div class="dse-line-gutter">${line.lineNumber !== undefined ? `<span class="dse-line-number">${line.lineNumber}</span>` : ''}</div>` +
+                `<div class="dse-line-text"><span>${escapeHtml(line.text)}</span></div>` +
+                `</div>`
+            )
+            .join('') +
+          `</div>`;
+      }
     )
     .join('');
 }
