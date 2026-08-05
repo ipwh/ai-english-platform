@@ -415,7 +415,9 @@ function checkParagraphDistribution(
   const max = Math.max(...counts);
   const hasZero = counts.some(c => c === 0);
   const hasOverThree = counts.some(c => c > 3);
-  const valid = !hasZero && !hasOverThree && (max - min <= 1);
+  // Only reject if a paragraph has ZERO questions (user requirement).
+  // Uneven distribution and >3 per paragraph are warnings, not blockers.
+  const valid = !hasZero;
   
   const distroStr = counts.map((c, i) => `P${i + 1}:${c}`).join(', ');
   const message = valid
