@@ -671,6 +671,7 @@ export default function ReadingPracticePage() {
               flex-direction: column;
               gap: 0;
               margin-bottom: 0.6rem;
+              padding: 0 0.25rem;
             }
 
             .dse-paragraph-label {
@@ -683,44 +684,33 @@ export default function ReadingPracticePage() {
               padding-left: calc(2.5rem + 0.625rem);
             }
 
-            .dse-lines {
-              text-align: justify;
-              line-height: 1.45;
+            .dse-para-body {
+              display: flex;
+              gap: 0.625rem;
+              align-items: flex-start;
             }
 
-            .dse-line-gutter {
-              display: inline-block;
+            .dse-line-gutters {
               width: 2.5rem;
+              flex-shrink: 0;
               text-align: right;
-              margin: 0;
-              margin-right: 0.625rem;
-              padding: 0;
-              line-height: inherit;
+              line-height: 1.45;
               font-size: 0.7rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
               user-select: none;
-              vertical-align: top;
-            }
-
-            .dse-line-number {
               font-variant-numeric: tabular-nums;
             }
-
-            .dse-line-text {
-              display: inline;
-              margin: 0;
-              padding: 0;
-              line-height: inherit;
+            .dse-line-gutters span {
+              display: block;
             }
 
-            /* First line of each paragraph: 2em indent */
-            .dse-paragraph > .dse-lines > .dse-line-text:first-of-type {
-              /* The gutter counts as the first child; text is second.
-                 Indent applied via padding-left on the paragraph instead */
-            }
-            .dse-paragraph > .dse-lines {
+            .dse-para-text {
+              flex: 1;
+              text-align: justify;
+              line-height: 1.45;
               text-indent: 2em;
+              min-width: 0;
             }
 
             .dse-target-phrase {
@@ -735,7 +725,7 @@ export default function ReadingPracticePage() {
               color: #93c5fd;
               background: #1e3a5f;
             }
-            .dark .dse-line-gutter { color: #6b7280; }
+            .dark .dse-line-gutters { color: #6b7280; }
             .dark .dse-paragraph-label { color: #9ca3af; }
           `}</style>
 
