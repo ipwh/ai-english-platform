@@ -1421,21 +1421,28 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       const needsRetry = contentNeedsRetry && hasRetryBudget;
 
       if (contentNeedsRetry && !hasRetryBudget) {
+        const skipReasons: string[] = [];
+        if (!parseResult.data || parseResult.error) skipReasons.push('invalid JSON');
+        if (passageWordCount > 0 && passageWordCount < 250) skipReasons.push('passage too short');
+        if (passageTooLong) skipReasons.push('passage too long');
+        if (paragraphCountBad) skipReasons.push('too few paragraphs');
+        if (distributionBad) skipReasons.push(`bad distribution — ${distroMessage}`);
         logger.warn({
           module: 'reading-api',
           elapsed,
           retrySkipped: true,
-          reason: distributionBad ? `bad distribution — ${distroMessage}` : paragraphCountBad ? 'too few paragraphs' : 'passage too short',
+          reason: skipReasons.join('; '),
         }, 'Skipping retry — insufficient time budget remaining');
       }
       if (needsRetry && !preParsed) {
-        const retryReason = !parseResult.data || parseResult.error
-          ? 'invalid JSON syntax'
-          : passageWordCount < 250
-          ? `passage too short (${passageWordCount} words, minimum 250 required)`
-          : paragraphCountBad
-          ? `too few paragraphs (${actualParagraphCount}, minimum 3 required)`
-          : `bad paragraph distribution — ${distroMessage}`;
+        // Build a cumulative retry reason (log ALL issues, not just the first)
+        const issues: string[] = [];
+        if (!parseResult.data || parseResult.error) issues.push('invalid JSON syntax');
+        if (passageWordCount > 0 && passageWordCount < 250) issues.push(`passage too short (${passageWordCount} words, min 250)`);
+        if (passageTooLong) issues.push(`passage too long (${passageWordCount} words, max 800)`);
+        if (paragraphCountBad) issues.push(`too few paragraphs (${actualParagraphCount}, min 3)`);
+        if (distributionBad) issues.push(`bad paragraph distribution — ${distroMessage}`);
+        const retryReason = issues.join('; ');
         
         logger.warn({ 
           module: 'reading-api', 
@@ -1445,22 +1452,32 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           retryReason,
         }, `Retrying legacy generation — ${retryReason}`);
         
-        const retryInstruction = (!parseResult.data || parseResult.error)
-          ? '\n⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.'
-          : passageWordCount < 250
-          ? `\n⛔ CRITICAL: Your previous passage was ONLY ${passageWordCount} words. You MUST write 500-800 words. Write MORE content — add examples, details, quotes. DO NOT stop early.`
-          : passageTooLong
-          ? `\n⛔ CRITICAL: Your previous passage was ${passageWordCount} words — TOO LONG (max 800). You MUST shorten to 500-800 words. Remove filler phrases like "This paragraph sets the stage..." and meta-commentary. Be concise.`
-          : paragraphCountBad
-          ? `\n⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`
-          : `\n⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`;
+        // Build cumulative retry instruction (address ALL issues simultaneously)
+        const retryInstructions: string[] = [];
+        if (!parseResult.data || parseResult.error) {
+          retryInstructions.push('⚠️ CRITICAL: Your previous response had invalid JSON syntax. You MUST output ONLY valid JSON — no markdown fences, no trailing commas, all property names quoted, all strings properly escaped.');
+        }
+        if (passageWordCount > 0 && passageWordCount < 250) {
+          retryInstructions.push(`⛔ CRITICAL: Your previous passage was ONLY ${passageWordCount} words. You MUST write 500-800 words. Write MORE content — add examples, details, quotes. DO NOT stop early.`);
+        }
+        if (passageTooLong) {
+          retryInstructions.push(`⛔ CRITICAL: Your previous passage was ${passageWordCount} words — TOO LONG (max 800). You MUST shorten to 500-800 words. Remove filler phrases like "This paragraph sets the stage..." and meta-commentary. Be concise.`);
+        }
+        if (paragraphCountBad) {
+          retryInstructions.push(`⛔ CRITICAL: Your passage only has ${actualParagraphCount} paragraph(s). You MUST generate EXACTLY 3-5 paragraphs, each starting with [Paragraph N] (e.g., [Paragraph 1], [Paragraph 2], [Paragraph 3]). Split your content into separate paragraphs NOW.`);
+        }
+        if (distributionBad) {
+          retryInstructions.push(`⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`);
+        }
+        const retryInstruction = retryInstructions.length > 0
+          ? '\n' + retryInstructions.join('\n')
+          : '';
 
-        // Adjust retry params based on failure type:
-        // - JSON errors: low temp (0.35) for precise syntax
-        // - Passage too long: standard params (concise output)
+        // Adjust retry params:
+        // - JSON errors OR too-long: low temp (0.35) for precise output
         // - Content issues (short, few paragraphs, bad distribution): higher temp + more tokens
         const isJsonRetry = !parseResult.data || !!parseResult.error;
-        const needsBoost = !isJsonRetry && !passageTooLong;
+        const needsBoost = !isJsonRetry && !passageTooLong && (passageWordCount < 250 || paragraphCountBad || distributionBad);
         const retryTemp = isJsonRetry || passageTooLong ? 0.35 : 0.55;
         const retryMaxTokens = needsBoost ? Math.floor(legacyMaxTokens * 1.3) : legacyMaxTokens;
         const retryTimeout = needsBoost
@@ -1469,12 +1486,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         
         const retryRaw = await callLLM([
           { role: 'system', content: systemPrompt + dseContextBlock + retryInstruction },
-          { role: 'user', content: isJsonRetry
-            ? `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. Output ONLY the JSON object.`
-            : passageTooLong
-            ? `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. The passage MUST be 500-800 words — be concise, avoid filler. Output ONLY the JSON object.`
-            : `Write a DSE ${level} reading comprehension passage about "${resolvedTopic}". The passage MUST be 500-800 words. Write at least 500 words — add details, examples, and explanations. Include ${totalQ} progressive questions with EVEN distribution (2-3 per paragraph). Output ONLY the JSON object.`
-          },
+          { role: 'user', content: `Generate a DSE ${level} reading comprehension passage about "${resolvedTopic}" with ${totalQ} progressive questions. The passage MUST be 500-800 words with 3-5 paragraphs, each marked [Paragraph N]. Questions MUST be evenly distributed (2-3 per paragraph). Output ONLY the JSON object.` },
         ], { temperature: retryTemp, maxTokens: retryMaxTokens, jsonMode: true, timeoutMs: retryTimeout });
         
         const retryRepair = repairAiJson(retryRaw);
