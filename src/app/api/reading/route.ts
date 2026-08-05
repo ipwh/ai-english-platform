@@ -1665,6 +1665,24 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     }
     parsed = parseResult.data;
 
+    // Strip markdown bold/italic markers from readingContent (DeepSeek adds **word**)
+    const rcKey = parsed.readingContent ? 'readingContent' : 'passage' in parsed ? 'passage' : null;
+    if (rcKey) {
+      const rcVal = (rcKey === 'passage'
+        ? (parsed.passage as Record<string, unknown>)?.content
+        : parsed.readingContent) as string;
+      if (rcVal && typeof rcVal === 'string') {
+        const stripped = rcVal.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
+        if (stripped !== rcVal) {
+          if (rcKey === 'passage') {
+            (parsed.passage as Record<string, unknown>).content = stripped;
+          } else {
+            parsed.readingContent = stripped;
+          }
+        }
+      }
+    }
+
     // Phase 4D.3: Passage length guard for legacy path (uses pre-computed word count)
     if (passageWordCount > 0 && passageWordCount < 250) {
       logger.warn({ module: 'reading-api', wordCount: passageWordCount, minRequired: 250 }, 'Generated passage too short after retry — rejecting');
