@@ -78,9 +78,11 @@ Output pure JSON (start with {, end with }, no markdown):
   "listeningTopicZh": "主題名稱（繁體中文）",
   "noteTakingGuide": [{ "question": "學生抵達日期是？", "hint": "留意日期，可能有更改" }],
   "writingTask": "You are... Write a...",
-  "expectedContentPoints": ["Point 1", "Point 2"],
+  "expectedContentPoints": ["Content point as a plain string", "Another content point as a plain string"],
   "listeningAnswers": [{ "question": "...", "answer": "..." }]
 }
+
+⚠️ IMPORTANT: expectedContentPoints MUST be an array of plain strings, NOT objects with {point, source} keys.
 
 Grade: ${input.gradeLevel} | Difficulty: ${diff.label}${input.topicHint ? ` | Topic: ${input.topicHint}` : ''}
 All Chinese text (listeningTopicZh, noteTakingGuide hints, etc.) must use Traditional Chinese (繁體中文).`;

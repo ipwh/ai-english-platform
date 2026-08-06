@@ -77,14 +77,8 @@ export default function IntegratedSkillsPage() {
         s.setTask(json.task);
         s.setStage('listening');
         s.setStudentNotes(''); s.setStudentWriting(''); s.setAnalysis(null);
-        try {
-          const raw = localStorage.getItem(DRAFT_KEY);
-          if (raw) {
-            const d = JSON.parse(raw);
-            if (d.studentNotes) s.setStudentNotes(d.studentNotes);
-            if (d.studentWriting) s.setStudentWriting(d.studentWriting);
-          }
-        } catch { /* ignore */ }
+        // Clear old draft so new task starts with blank fields
+        localStorage.removeItem(DRAFT_KEY);
       } else {
         s.setError(json.error || t('is.generateFailed'));
       }

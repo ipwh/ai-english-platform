@@ -361,9 +361,19 @@ ${essayContent}
   "revisedVersion": "修正後的完整文章（保留原意，優化詞彙與句型，補足內容細節以提升至更高 DSE Level）"
 }
 
+═══════════════════════════════════════
+🚫 禁止事項 — 必須嚴格遵守
+═══════════════════════════════════════
+- ❌ 禁止輸出「文章未完成」「內容突然中斷」「結尾截斷」「文章不完整」等與事實不符的評語。系統已驗證學生文章字數充足、結構完整。
+- ❌ 禁止憑空捏造弱點（fabricated weaknesses）。每項 weakness 必須引用文章中的具體句子作為證據。
+- ❌ 禁止將「內容可進一步拓展」曲解為「內容不完整」——兩者截然不同。
+- ❌ 禁止重複 Call 1 已分析的文法錯誤（grammarErrors）。
+- ✅ 弱點必須基於文章實際存在的不足：論點薄弱、缺乏例子、邏輯跳躍、段落結構混亂、格式不當等。
+- ✅ 若文章確實沒有明顯弱點，strengths 應多於 weaknesses，而非強行湊數。
+
 評分規則：
 - strengths 必須對照 CLO 7 分制，不可虛高
-- weaknesses 必須具體指出 Content/Organization 不足之處
+- weaknesses 必須具體指出 Content/Organization 不足之處，每項附帶文章引用
 - vocabularySuggestions 提供 2-4 個詞彙升級建議
 - structureFeedback 指出 Organization 對應的 CLO 等級及改善建議
 - revisedVersion 需示範如何提升至更高 HKDSE Level，非僅文法潤飾

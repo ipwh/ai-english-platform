@@ -302,10 +302,10 @@ ${taskType === 'speech' ? '- Speech: greeting line by seniority (guests→Princi
 ${taskType === 'report' ? '- Report: 3+ sub-headings (Background/Findings/Recommendations).' : ''}
 ${taskType === 'email-reply' ? '- Email Reply: address each point from the source email.' : ''}
 ${taskType === 'proposal' ? '- Proposal: include timeline and budget.' : ''}
-- expectedContentPoints: 5-7 points, label source (listening/data file/both).
+- expectedContentPoints: 5-7 plain strings. Each is a single sentence describing one content point. Do NOT use objects with {point, source} — output a flat string array like ["The event is on 15th August", "Budget is $5,000"].
 - listeningAnswers: standard answers for each note-taking question.
 
-Output: pure JSON (no markdown). Fields: listeningContent, listeningTopicZh, dataFile { sources[] }, noteTakingGuide[{question,hint}], writingTask, expectedContentPoints[], listeningAnswers[{question,answer}].
+Output: pure JSON (no markdown). Fields: listeningContent, listeningTopicZh, dataFile { sources[] }, noteTakingGuide[{question,hint}], writingTask, expectedContentPoints (string[] only), listeningAnswers[{question,answer}].
 
 Grade: ${gradeLevel} | Difficulty: ${diffLabel}${topicHint ? ` | Topic: ${topicHint}` : ''}
 Use Traditional Chinese for Chinese fields.`;

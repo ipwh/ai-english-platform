@@ -867,12 +867,20 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
             </button>
             {s.showContentPoints && (
               <ul className="px-4 pb-4 space-y-1.5">
-                {task.expectedContentPoints.map((pt, i) => (
-                  <li key={i} className="text-xs text-green-700 dark:text-green-400 flex items-start gap-1.5">
-                    <span className="text-green-500 mt-0.5 font-bold shrink-0">{i + 1}.</span>
-                    <span>{pt}</span>
-                  </li>
-                ))}
+                {task.expectedContentPoints.map((pt, i) => {
+                  // Defensive: AI may return {point, source} object instead of plain string
+                  const text = typeof pt === 'string' ? pt : (pt as Record<string, unknown>)?.point as string || JSON.stringify(pt);
+                  const source = typeof pt === 'string' ? undefined : (pt as Record<string, unknown>)?.source as string | undefined;
+                  return (
+                    <li key={i} className="text-xs text-green-700 dark:text-green-400 flex items-start gap-1.5">
+                      <span className="text-green-500 mt-0.5 font-bold shrink-0">{i + 1}.</span>
+                      <span>
+                        {text}
+                        {source && <span className="text-green-400/60 ml-1 italic">({source})</span>}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
