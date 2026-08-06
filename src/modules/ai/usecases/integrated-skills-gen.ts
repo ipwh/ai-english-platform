@@ -54,15 +54,29 @@ Man: Thank you for coming. Today we'll discuss the programme.
 
 Listening design rules: ${diff.lines}, use at least 2 different speakers from {Woman, Man, Boy, Girl}.
 Trap design: ${diff.traps} — use number confusion (e.g. 5432 vs 5423) and date corrections.
-Note-taking guide: provide 4-5 guiding questions (Who/What/When/Where/Why/How).
-Use symbol system: $=money #=number !=important @=time.
+
+═══════════════════════════════════════
+CRITICAL: Note-taking Guide — HINTS ONLY, NEVER ANSWERS
+═══════════════════════════════════════
+The noteTakingGuide is for STUDENTS to fill in during listening.
+It MUST contain guiding questions with HINTS — NEVER the actual answers.
+Hints should tell students WHAT to listen for (e.g. "Listen for the date"),
+NOT what the answer is (e.g. DO NOT write "August 15th").
+The note-taking textarea is blank — students write their own notes.
+Use Traditional Chinese for question and hint text.
+Use symbol system: $=money #=number !=important @=time in hints.
+Example of CORRECT hint: "留意日期，可能有更改" (tells student to listen for date, not the date itself)
+Example of WRONG hint: "答案是8月15日" (reveals the answer — FORBIDDEN)
+Example of CORRECT hint: "注意金額和用途限制" (tells student to listen for money, not the amount)
+Example of WRONG hint: "津貼是$2,500" (reveals the answer — FORBIDDEN)
+
 Writing task: ${taskInfo.name} (${taskInfo.nameZh}), format: ${taskInfo.formatHint}, approximately ${diff.wordLimit} words.
 
 Output pure JSON (start with {, end with }, no markdown):
 {
   "listeningContent": "Woman: Hello...\\nMan: Yes...\\nWoman: Also...",
   "listeningTopicZh": "主題名稱（繁體中文）",
-  "noteTakingGuide": [{ "question": "What is the arrival date?", "hint": "Listen for date changes" }],
+  "noteTakingGuide": [{ "question": "學生抵達日期是？", "hint": "留意日期，可能有更改" }],
   "writingTask": "You are... Write a...",
   "expectedContentPoints": ["Point 1", "Point 2"],
   "listeningAnswers": [{ "question": "...", "answer": "..." }]
