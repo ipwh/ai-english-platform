@@ -23,7 +23,7 @@ export async function adminCountLoginLogs(args?: Prisma.LoginLogCountArgs) { ret
 
 export async function adminCountVocab(args?: Prisma.VocabItemCountArgs) { return db.vocabItem.count(args!); }
 export async function adminFindVocab(args: Prisma.VocabItemFindManyArgs) { return db.vocabItem.findMany(args); }
-export async function adminGroupVocab(args: Prisma.VocabItemGroupByArgs) { return db.vocabItem.groupBy(args!); }
+export async function adminGroupVocab(args: Prisma.VocabItemGroupByArgs) { return (db.vocabItem as any).groupBy(args); }
 
 export async function adminCountMistakes(args?: Prisma.MistakeCountArgs) { return db.mistake.count(args!); }
 export async function adminFindMistakes(args: Prisma.MistakeFindManyArgs) { return db.mistake.findMany(args); }

@@ -42,7 +42,7 @@ export async function bulkImportStudents(rows: Array<{
         result.updated++;
       } else {
         await bulkDb.user.create({
-          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'student', classNumber: row.classNumber, level: row.level, class: { connect: { name: row.className } } } as Prisma.UserCreateInput,
+          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'student', classNumber: row.classNumber, level: row.level, class: { connect: { name: row.className } } } as unknown as Prisma.UserCreateInput,
         });
         result.created++;
       }
@@ -69,7 +69,7 @@ export async function bulkImportTeachers(rows: Array<{
         result.updated++;
       } else {
         const teacher = await bulkDb.user.create({
-          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'teacher' } as Prisma.UserCreateInput,
+          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'teacher' } as unknown as Prisma.UserCreateInput,
         });
         // Link classes
         for (const className of row.classes) {

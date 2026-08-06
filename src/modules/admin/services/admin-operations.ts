@@ -116,7 +116,7 @@ export async function adminLoginLogsCount() { return db.loginLog.count(); }
 export async function adminLoginLogsCreate(data: any) { return db.loginLog.create({ data }); }
 
 // ── admin/stats ──
-export async function adminStatsGroupUsers(args: any) { return db.user.groupBy(args); }
+export async function adminStatsGroupUsers(args: any) { return (db.user as any).groupBy(args); }
 export async function adminStatsCountUsers(where: any) { return db.user.count({ where }); }
 export async function adminStatsCountClasses() { return db.class.count(); }
 export async function adminStatsCountAssignments() { return db.assignment.count(); }

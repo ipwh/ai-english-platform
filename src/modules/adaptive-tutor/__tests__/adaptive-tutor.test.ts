@@ -41,9 +41,9 @@ function makeContext(overrides: Partial<PersonalizationContext> = {}): Personali
 describe('AdaptiveTutorEngine', () => {
   const engine = new AdaptiveTutorEngine();
 
-  it('should generate exercise output', () => {
+  it('should generate exercise output', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'exercise');
+    const output = await engine.generate(ctx, 'exercise');
     expect(output.action).toBe('exercise');
     expect(output.content).toBeTruthy();
     expect(output.contentZh).toBeTruthy();
@@ -53,9 +53,9 @@ describe('AdaptiveTutorEngine', () => {
     expect(output.personalization.difficulty.level).toBeDefined();
   });
 
-  it('should generate hint output', () => {
+  it('should generate hint output', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'hint');
+    const output = await engine.generate(ctx, 'hint');
     expect(output.action).toBe('hint');
     expect(output.content).toBeTruthy();
     expect(output.personalization.hintLevel).toBeDefined();
@@ -63,67 +63,67 @@ describe('AdaptiveTutorEngine', () => {
     expect(output.personalization.hintLevel!.level).toBeLessThanOrEqual(3);
   });
 
-  it('should generate feedback output', () => {
+  it('should generate feedback output', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'feedback');
+    const output = await engine.generate(ctx, 'feedback');
     expect(output.action).toBe('feedback');
     expect(output.content).toBeTruthy();
     expect(output.contentZh).toBeTruthy();
   });
 
-  it('should generate explanation output', () => {
+  it('should generate explanation output', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'explanation');
+    const output = await engine.generate(ctx, 'explanation');
     expect(output.action).toBe('explanation');
     expect(output.content).toContain('Examples');
     expect(output.contentZh).toContain('例子');
     expect(output.followUp).toBeDefined();
   });
 
-  it('should generate review output with due items', () => {
+  it('should generate review output with due items', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'review');
+    const output = await engine.generate(ctx, 'review');
     expect(output.action).toBe('review');
     expect(output.content).toContain('due for review');
     expect(output.confidence).toBeGreaterThan(0.9);
   });
 
-  it('should generate challenge output', () => {
+  it('should generate challenge output', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'challenge');
+    const output = await engine.generate(ctx, 'challenge');
     expect(output.action).toBe('challenge');
     expect(output.content).toBeTruthy();
     expect(output.contentZh).toBeTruthy();
   });
 
-  it('should generate support output', () => {
+  it('should generate support output', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx, 'support');
+    const output = await engine.generate(ctx, 'support');
     expect(output.action).toBe('support');
     expect(output.content).toBeTruthy();
   });
 
-  it('should auto-select action when none specified', () => {
+  it('should auto-select action when none specified', async () => {
     const ctx = makeContext();
-    const output = engine.generate(ctx);
+    const output = await engine.generate(ctx);
     expect(output.action).toBeDefined();
     expect(output.content).toBeTruthy();
   });
 
-  it('should include followUp for most actions', () => {
+  it('should include followUp for most actions', async () => {
     const ctx = makeContext();
     const actions: Array<'exercise' | 'hint' | 'explanation' | 'challenge' | 'support'> = ['exercise', 'hint', 'explanation', 'challenge', 'support'];
     for (const action of actions) {
-      const output = engine.generate(ctx, action);
+      const output = await engine.generate(ctx, action);
       expect(output.followUp?.nextAction).toBeDefined();
     }
   });
 
-  it('should personalize difficulty based on mastery', () => {
+  it('should personalize difficulty based on mastery', async () => {
     const ctxStrong = makeContext({
       masteryScores: { 'tenses-simple': 95, 'tenses-continuous': 90 },
     });
-    const output = engine.generate(ctxStrong, 'exercise');
+    const output = await engine.generate(ctxStrong, 'exercise');
     expect(output.personalization.difficulty.level).toBeDefined();
   });
 });

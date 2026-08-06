@@ -40,7 +40,7 @@ export async function syncSheetToDatabase(rows: SheetRow[], dryRun = false) {
         result.updated++;
       } else {
         await db.user.create({
-          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, role: 'student', classNumber: row.classNumber, level: row.level, classId: cls.id } as Prisma.UserCreateInput,
+          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, role: 'student', classNumber: row.classNumber, level: row.level, classId: cls.id } as unknown as Prisma.UserCreateInput,
         });
         result.created++;
       }

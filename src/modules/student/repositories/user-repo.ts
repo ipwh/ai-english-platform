@@ -199,7 +199,7 @@ export async function listLoginLogs(take = 100) {
   return db.loginLog.findMany({ orderBy: { loginAt: 'desc' }, take });
 }
 export async function createLoginLog(data: { userId: string }) {
-  return db.loginLog.create({ data: { userId: data.userId, loginAt: new Date() } } satisfies Parameters<typeof db.loginLog.create>[0]);
+  return db.loginLog.create({ data: { userId: data.userId, loginAt: new Date() } } as any);
 }
 export async function getAdminStats() {
   const [totalUsers, totalStudents, totalTeachers, totalClasses, totalAssignments, totalSubmissions] = await Promise.all([

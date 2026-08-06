@@ -302,8 +302,8 @@ export class StudentStateBuilder {
         name: item.grammarCategory ?? item.name ?? '',
         nameZh: item.grammarCategoryZh ?? item.nameZh,
         frequency: item.mistakeCount ?? item.frequency ?? 0,
-        accuracy: item.mastered ? 1 : (item.mistakeCount > 5 ? 0.3 : 0.6),
-        trend: item.trend ?? 'stable',
+        accuracy: item.mastered ? 1 : ((item.mistakeCount ?? 0) > 5 ? 0.3 : 0.6),
+        trend: (item.trend ?? 'stable') as 'improving' | 'stable' | 'declining',
         recommendation: item.recommendation,
         recommendationZh: item.recommendationZh,
       }));

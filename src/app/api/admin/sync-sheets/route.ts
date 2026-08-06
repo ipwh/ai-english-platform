@@ -421,7 +421,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 計算最終班別分布
-    const distribution = await db.user.groupBy({
+    const distribution = await (db.user as any).groupBy({
       by: ['classId'],
       where: { role: 'student', classId: { not: null } },
       _count: true,
