@@ -1,10 +1,9 @@
 // Sprint 92: Mistake Explanation Use Case — canonical implementation
 // Physically extracted from ai-service.ts
 
-import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
+import { executeAI } from '../services/ai-execution';
 import { sanitizeForAI } from '../services/sanitizer';
-import { validateAIResponse, MistakeExplanationSchema } from '../schemas/ai-schema';
+import { MistakeExplanationSchema } from '../schemas/ai-schema';
 import { getExplainMistakeSystemPrompt, buildExplainMistakeUserPrompt } from '../prompts';
 import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '../services/rag-service';
 import { logger } from '@/shared/logger/logger';
