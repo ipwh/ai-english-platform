@@ -8,7 +8,7 @@ export async function adminUpdateUser(args: Prisma.UserUpdateArgs) { return db.u
 export async function adminCreateUser(args: Prisma.UserCreateArgs) { return db.user.create(args); }
 export async function adminDeleteUsers(args: Prisma.UserDeleteManyArgs) { return db.user.deleteMany(args); }
 export async function adminCountUsers(args?: Prisma.UserCountArgs) { return db.user.count(args!); }
-export async function adminGroupUsers(args: Prisma.UserGroupByArgs) { return db.user.groupBy(args!); }
+export async function adminGroupUsers(args: Prisma.UserGroupByArgs) { return (db.user as any).groupBy(args); }
 
 export async function adminFindPracticeSessions(args: Prisma.PracticeSessionFindManyArgs) { return db.practiceSession.findMany(args); }
 export async function adminCountPracticeSessions(args?: Prisma.PracticeSessionCountArgs) { return db.practiceSession.count(args!); }
