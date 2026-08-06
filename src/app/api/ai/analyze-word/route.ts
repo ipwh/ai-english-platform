@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeWord, sanitizeForAI } from '@/modules/ai/services/ai-service';
+import { analyzeWord, sanitizeForAI } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';

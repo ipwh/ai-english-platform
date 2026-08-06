@@ -3,6 +3,8 @@
 // Deterministic question quality validation. No AI.
 // ============================================
 
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
+
 export type QualityDecision = 'excellent' | 'good' | 'acceptable' | 'needs_improvement';
 
 export interface QualityDimensions {
@@ -70,16 +72,8 @@ export interface QualityContext {
 }
 
 export function calculateQualityScore(dims: Omit<QualityDimensions, 'overall'>): QualityDimensions {
-  const overall = Math.round(
-    dims.questionDesign * QUALITY_WEIGHTS.questionDesign +
-    dims.distractorQuality * QUALITY_WEIGHTS.distractorQuality +
-    dims.evidenceSupport * QUALITY_WEIGHTS.evidenceSupport +
-    dims.difficulty * QUALITY_WEIGHTS.difficulty +
-    dims.clarity * QUALITY_WEIGHTS.clarity +
-    dims.pedagogy * QUALITY_WEIGHTS.pedagogy +
-    dims.variety * QUALITY_WEIGHTS.variety,
-  );
-  return { ...dims, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dims as Record<string, number>, QUALITY_WEIGHTS as Record<string, number>);
+  return { ...dims, overall };
 }
 
 export function determineQualityDecision(score: number): QualityDecision {

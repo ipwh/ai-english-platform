@@ -1,7 +1,6 @@
 // Sprint 94: Progress Analysis Use Case
-import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
-import { validateAIResponse, ProgressAnalysisSchema } from '../schemas/ai-schema';
+import { executeAI } from '../services/ai-execution';
+import { ProgressAnalysisSchema } from '../schemas/ai-schema';
 import { isDSERAGEnabled, retrievePastPaperContent, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '../services/rag-service';
 import { getProgressAnalysisSystemPrompt, buildProgressAnalysisUserPrompt } from '../prompts';
 import { logger } from '@/shared/logger/logger';
@@ -45,9 +44,10 @@ export async function analyzeProgress(input: AnalyzeProgressInput): Promise<Prog
   const weakSkillsDesc = input.weakSkills.map(s => `${s.nameZh} (正確率: ${s.accuracy}%)`).join('、');
   const recentDesc = input.recentPerformance.map(p => `${p.date}: 正確率${p.accuracy}%, ${p.questionsDone}題`).join('\n');
   const userPrompt = buildProgressAnalysisUserPrompt({ studentLevel: input.studentLevel, overallAccuracy: input.overallAccuracy, streakDays: input.streakDays, weakSkillsDesc, recentDesc });
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.6, maxTokens: 2048, jsonMode: true, timeoutMs: 12000, userId: input.userId });
-  const progress = parseAIJSON<ProgressAnalysis>(result);
-  const validated = validateAIResponse(ProgressAnalysisSchema, progress);
-  if (!validated.success) throw new Error(validated.error);
-  return validated.data;
+  return executeAI({
+    context: { feature: 'Learning', useCase: 'AnalyzeProgress', promptName: 'ProgressAnalysis' },
+    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+    options: { temperature: 0.6, maxTokens: 2048, jsonMode: true, timeoutMs: 12000, userId: input.userId },
+    schema: ProgressAnalysisSchema,
+  });
 }

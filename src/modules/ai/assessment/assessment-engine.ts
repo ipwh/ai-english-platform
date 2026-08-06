@@ -13,12 +13,10 @@ import {
   integratedSkillsQualityRule,
 } from './rules';
 import { logger } from '@/shared/logger/logger';
+import { BaseRuleEngine } from '../core/base-engine';
 
-class AssessmentEngine {
-  private initialized = false;
-
-  init(): this {
-    if (this.initialized) return this;
+class AssessmentEngine extends BaseRuleEngine {
+  protected registerRules(): void {
     assessmentRegistry
       .register(mcqQualityRule)
       .register(distractorQualityRule)
@@ -33,11 +31,10 @@ class AssessmentEngine {
       .register(grammarQualityRule)
       .register(writingPromptQualityRule)
       .register(integratedSkillsQualityRule);
-    this.initialized = true;
-    return this;
   }
 
   assess(question: Record<string, unknown>, context?: AssessmentContext): AssessmentResult {
+    this.init();
     const startTime = Date.now();
     const checks = assessmentRegistry.assessAll(question, context);
 

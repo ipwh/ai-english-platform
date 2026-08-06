@@ -14,16 +14,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { evaluateWithAI } from '@/modules/ai/services/ai-evaluator';
-import type { AIEvaluationResult } from '@/modules/ai/services/ai-evaluator';
+import { callLLM, ragService, evaluateWithAI, type AIEvaluationResult } from '@/modules/ai';
 import type { QuestionRubric } from '@/modules/ai/prompts/reading/types';
-import { callLLM } from '@/modules/ai/services/ai-service';
-import {
-  retrievePastPaperContent,
-  retrieveMarkingScheme,
-  buildDSEContextPrompt,
-  isDSERAGEnabled,
-} from '@/modules/ai/services/rag-service';
 import { logger } from '@/shared/logger/logger';
 import {
   buildFullDSEPaperPrompt,
@@ -804,12 +796,12 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
   // DSE RAG
   let dseContext = '';
   try {
-    if (isDSERAGEnabled()) {
+    if (ragService.isDSERAGEnabled()) {
       const [pastPapers, markingSchemes] = await Promise.all([
-        retrievePastPaperContent('Reading', resolvedTopic, undefined, gradeLevel, 3),
-        retrieveMarkingScheme('Reading', 2),
+        ragService.retrievePastPaperContent('Reading', resolvedTopic, undefined, gradeLevel, 3),
+        ragService.retrieveMarkingScheme('Reading', 2),
       ]);
-      dseContext = buildDSEContextPrompt(
+      dseContext = ragService.buildDSEContextPrompt(
         pastPapers.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
         markingSchemes.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
         'generate_questions',
@@ -1433,12 +1425,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   // DSE RAG
   let dseContext = '';
   try {
-    if (isDSERAGEnabled()) {
+    if (ragService.isDSERAGEnabled()) {
       const [pastPapers, markingSchemes] = await Promise.all([
-        retrievePastPaperContent('Reading', resolvedTopic, difficulty, level, 3),
-        retrieveMarkingScheme('Reading', 2),
+        ragService.retrievePastPaperContent('Reading', resolvedTopic, difficulty, level, 3),
+        ragService.retrieveMarkingScheme('Reading', 2),
       ]);
-      dseContext = buildDSEContextPrompt(
+      dseContext = ragService.buildDSEContextPrompt(
         pastPapers.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
         markingSchemes.map(r => ({ content: r.chunk.content, title: r.materialTitle, score: r.score })),
         'generate_questions',

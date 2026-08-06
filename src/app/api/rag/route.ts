@@ -7,7 +7,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { retrieveRelevantChunks, buildRAGPrompt, indexMaterial, getRAGStats } from '@/modules/ai/services/rag-service';
+import { ragService } from '@/modules/ai';
 import { getEmbedding, searchSimilarChunks } from '@/modules/ai/services/vertex-embeddings';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const action = url.searchParams.get('action');
   if (action === 'stats') {
     try {
-      const stats = await getRAGStats();
+      const stats = await ragService.getRAGStats();
       return NextResponse.json(stats);
     } catch {
       return NextResponse.json({ error: 'RAG 未初始化' }, { status: 503 });
@@ -66,7 +66,7 @@ async function handleQuery(request: NextRequest) {
       return NextResponse.json({ error: '請提供 query 參數' }, { status: 400 });
     }
 
-    const { systemPrompt, retrievedContexts } = await buildRAGPrompt(
+    const { systemPrompt, retrievedContexts } = await ragService.buildRAGPrompt(
       query,
       contextType || 'general',
       topK || 3
@@ -92,7 +92,7 @@ async function handleIndex(request: NextRequest) {
       return NextResponse.json({ error: '請提供 materialId' }, { status: 400 });
     }
 
-    const result = await indexMaterial(materialId);
+    const result = await ragService.indexMaterial(materialId);
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '索引建立失敗';

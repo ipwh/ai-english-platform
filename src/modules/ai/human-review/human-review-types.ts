@@ -3,6 +3,8 @@
 // Simulates teacher-quality review. 100% deterministic.
 // ============================================
 
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
+
 export type HumanReviewDecision = 'excellent' | 'good' | 'acceptable' | 'needs_improvement' | 'reject';
 
 export interface HumanReviewDimensions {
@@ -71,15 +73,8 @@ export interface HumanReviewContext {
 }
 
 export function calculateHumanReviewScore(dims: Omit<HumanReviewDimensions, 'overall'>): HumanReviewDimensions {
-  const overall = Math.round(
-    dims.studentExperience * HUMAN_REVIEW_WEIGHTS.studentExperience +
-    dims.naturalness * HUMAN_REVIEW_WEIGHTS.naturalness +
-    dims.teachingValue * HUMAN_REVIEW_WEIGHTS.teachingValue +
-    dims.authenticity * HUMAN_REVIEW_WEIGHTS.authenticity +
-    dims.fairness * HUMAN_REVIEW_WEIGHTS.fairness +
-    dims.confidence * HUMAN_REVIEW_WEIGHTS.confidence,
-  );
-  return { ...dims, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dims as Record<string, number>, HUMAN_REVIEW_WEIGHTS as Record<string, number>);
+  return { ...dims, overall };
 }
 
 export function determineHumanReviewDecision(score: number): HumanReviewDecision {

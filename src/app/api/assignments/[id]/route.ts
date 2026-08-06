@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findAssignmentById, findAssignmentSubmissions } from '@/modules/student';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { analyzeAnswer } from '@/modules/ai/services/ai-service';
+import { analyzeAnswer } from '@/modules/ai';
 import { notifySubmissionReceived } from '@/shared/utils/notifications';
 import { recordActivityMastery, syncStudentActivityMetrics } from '@/modules/learning-analytics/services/activity-accounting-service';
 import { logger } from '@/shared/logger/logger';

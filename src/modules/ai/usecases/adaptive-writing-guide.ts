@@ -3,6 +3,7 @@
 
 import { callLLM } from '../services/llm-call';
 import { parseAIJSON } from '../services/json-utils';
+import { validateAIResponse, AdaptiveWritingGuideOutputSchema } from '../schemas/ai-schema';
 import { DSE_TEXT_TYPE_GUIDE } from '../services/dse-writing-data';
 import { logger } from '@/shared/logger/logger';
 
@@ -55,7 +56,12 @@ export async function generateAdaptiveWritingGuide(
         userId: input.userId,
       },
     );
-    return parseAIJSON<AdaptiveWritingGuideOutput>(result);
+    const parsed = parseAIJSON<AdaptiveWritingGuideOutput>(result);
+
+    const validated = validateAIResponse(AdaptiveWritingGuideOutputSchema, parsed);
+    if (!validated.success) throw new Error(validated.error);
+
+    return validated.data;
   } catch {
     logger.warn({ module: 'live-writing-coach' }, 'Live writing coach failed');
     return {

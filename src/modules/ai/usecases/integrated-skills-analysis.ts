@@ -1,6 +1,6 @@
 // Sprint 94: Integrated Skills Analysis Use Case
-import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
+import { executeAI } from '../services/ai-execution';
+import { IntegratedSkillsAnalysisSchema } from '../schemas/ai-schema';
 import { sanitizeForAI } from '../services/sanitizer';
 import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt } from '../services/rag-service';
 import { logger } from '@/shared/logger/logger';
@@ -32,8 +32,10 @@ DSE Paper 3 官方評分標準：Listening 理解 (40%) + Language 語言 (35%) 
   const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');
   const userPrompt = `【聆聽材料】\n${input.listeningContent.slice(0, 3000)}\n\n【Note-taking 指引】\n${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}\n\n【預期內容要點】\n${expectedPointsText}\n\n【寫作任務】\n${input.writingTask}\n\n【學生 Note-taking】\n${input.studentNotes || '(未填寫)'}\n\n【學生寫作】\n"""\n${sanitizedWriting}\n"""\n\n請批改此 Integrated Skills 答案。`;
 
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId });
-  const analysis = parseAIJSON<IntegratedSkillsAnalysis>(result);
-  if (!analysis.overallScore && analysis.overallScore !== 0) throw new Error('AI Integrated Skills 分析不完整');
-  return analysis;
+  return executeAI({
+    context: { feature: 'Listening', useCase: 'AnalyzeIntegratedSkills', promptName: 'IntegratedSkillsAnalysis' },
+    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+    options: { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId },
+    schema: IntegratedSkillsAnalysisSchema,
+  });
 }

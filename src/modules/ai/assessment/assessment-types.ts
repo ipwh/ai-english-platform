@@ -3,6 +3,7 @@
 // ============================================
 
 import type { QualityRule } from '../quality/quality-types';
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
 
 /** Assessment decision for a generated question */
 export type AssessmentDecision = 'approved' | 'warning' | 'repair_required' | 'rejected';
@@ -71,14 +72,8 @@ export interface AssessmentContext {
 
 /** Compute dimension scores from checks */
 export function calculateAssessmentScore(dimensions: Omit<AssessmentDimensions, 'overall'>): AssessmentDimensions {
-  const overall = Math.round(
-    dimensions.validity * ASSESSMENT_WEIGHTS.validity +
-    dimensions.reliability * ASSESSMENT_WEIGHTS.reliability +
-    dimensions.fairness * ASSESSMENT_WEIGHTS.fairness +
-    dimensions.difficulty * ASSESSMENT_WEIGHTS.difficulty +
-    dimensions.pedagogy * ASSESSMENT_WEIGHTS.pedagogy
-  );
-  return { ...dimensions, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dimensions as Record<string, number>, ASSESSMENT_WEIGHTS as Record<string, number>);
+  return { ...dimensions, overall };
 }
 
 /** Determine decision from score and critical failures */

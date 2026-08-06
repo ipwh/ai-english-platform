@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { synthesizeSpeech } from '@/modules/ai/services/tts-service';
+import { ttsService } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       logger.debug({ module: 'tts', textLen: trimmedText.length, multiSpeaker, voiceTier, speakingRate }, 'TTS request');
     }
 
-    const result = await synthesizeSpeech({
+    const result = await ttsService.synthesizeSpeech({
       text: trimmedText,
       voiceName,
       voiceTier: ['default', 'wavenet', 'neural'].includes(voiceTier) ? voiceTier : 'default',

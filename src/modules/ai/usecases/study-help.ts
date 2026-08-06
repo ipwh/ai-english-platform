@@ -1,8 +1,7 @@
 // Sprint 94: Study Help Use Case
-import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
+import { executeAI } from '../services/ai-execution';
 import { sanitizeForAI } from '../services/sanitizer';
-import { validateAIResponse, StudyHelpResponseSchema } from '../schemas/ai-schema';
+import { StudyHelpResponseSchema } from '../schemas/ai-schema';
 import { HALLUCINATION_GUARD } from '../services/hallucination-guard';
 import { isDSERAGEnabled, retrievePastPaperContent, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '../services/rag-service';
 import { logger } from '@/shared/logger/logger';
@@ -55,9 +54,10 @@ ${recentDesc || '暫無'}
 
 請根據以上學生背景，提供個人化建議。`;
 
-  const result = await callLLM([{ role: 'system', content: systemPrompt + dseContextPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId });
-  const help = parseAIJSON<StudyHelpResponse>(result);
-  const validated = validateAIResponse(StudyHelpResponseSchema, help);
-  if (!validated.success) throw new Error(validated.error);
-  return validated.data;
+  return executeAI({
+    context: { feature: 'Learning', useCase: 'StudyHelp', promptName: 'StudyHelpResponse' },
+    messages: [{ role: 'system', content: systemPrompt + dseContextPrompt }, { role: 'user', content: userPrompt }],
+    options: { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId },
+    schema: StudyHelpResponseSchema,
+  });
 }

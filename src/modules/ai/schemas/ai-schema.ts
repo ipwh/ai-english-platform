@@ -172,6 +172,71 @@ export const WordAnalysisSchema = z.object({
 export type WordAnalysis = z.infer<typeof WordAnalysisSchema>;
 
 // ============================================
+// 八、Integrated Skills 任務生成
+// ============================================
+
+export const IntegratedSkillsTaskSchema = z.object({
+  listeningContent: z.string().min(1),
+  listeningTopicZh: z.string(),
+  noteTakingGuide: z.array(z.object({
+    question: z.string(),
+    hint: z.string(),
+  })),
+  writingTask: z.string().min(1),
+  taskType: z.string(),
+  wordLimit: z.number(),
+  expectedContentPoints: z.array(z.string()),
+  listeningAnswers: z.array(z.object({
+    question: z.string(),
+    answer: z.string(),
+  })),
+});
+
+// ============================================
+// 九、Integrated Skills 答案分析
+// ============================================
+
+export const IntegratedSkillsAnalysisSchema = z.object({
+  overallScore: z.number().min(0).max(100),
+  listeningAccuracy: z.number().min(0).max(100),
+  writingQuality: z.number().min(0).max(100),
+  contentCompleteness: z.number().min(0).max(100),
+  languageAccuracy: z.number().min(0).max(100),
+  organizationClarity: z.number().min(0).max(100),
+  capturedPoints: z.array(z.string()),
+  missedPoints: z.array(z.string()),
+  overCopyWarnings: z.array(z.object({
+    original: z.string(),
+    suggestion: z.string(),
+  })),
+  grammarErrors: z.array(z.object({
+    original: z.string(),
+    correction: z.string(),
+    explanation: z.string(),
+  })),
+  vocabularySuggestions: z.array(z.object({
+    original: z.string(),
+    suggestion: z.string(),
+    reason: z.string(),
+  })),
+  structureFeedback: z.string(),
+  generalComment: z.string(),
+  improvementTips: z.array(z.string()),
+  estimatedLevel: z.string(),
+});
+
+// ============================================
+// 十、自適應寫作指導
+// ============================================
+
+export const AdaptiveWritingGuideOutputSchema = z.object({
+  personalizedTips: z.array(z.string()),
+  structureIssues: z.array(z.string()),
+  suggestedNextParagraph: z.string(),
+  missingElements: z.array(z.string()),
+});
+
+// ============================================
 // 輔助：安全驗證（不回傳完整 error details 給 client）
 // ============================================
 

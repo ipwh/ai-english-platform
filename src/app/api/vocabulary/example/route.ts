@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/modules/ai/services/ai-service';
+import { callLLM } from '@/modules/ai';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';

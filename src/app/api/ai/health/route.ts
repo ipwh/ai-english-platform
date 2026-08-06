@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextResponse } from 'next/server';
-import { isAIConfigured, getAIProviders, isDeepSeekConfigured } from '@/modules/ai/services/ai-service';
+import { isAIConfigured, getAIProviders, isDeepSeekConfigured } from '@/modules/ai';
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
 

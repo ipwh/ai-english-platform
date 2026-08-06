@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { generateQuestions, type GeneratedQuestion } from '@/modules/ai/services/ai-service';
+import { generateQuestions, type GeneratedQuestion } from '@/modules/ai';
 import { getRecentDiagnostics } from '@/modules/student';
 import { listMistakes } from '@/modules/student';
 import { listPracticeSessions } from '@/modules/student';

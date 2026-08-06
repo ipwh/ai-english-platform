@@ -10,6 +10,7 @@ import type { StudentState } from '@/modules/student/state/StudentState';
 import type { LearningDecision } from '@/modules/learning/decisions/LearningDecision';
 import type { LearningOutcome } from '@/modules/learning/decisions/LearningEvidence';
 import { evidenceEvaluationService } from '@/modules/learning/decisions/EvidenceEvaluationService';
+import { skillLabelZh } from '@/shared/utils/skill-labels';
 import type {
   TeacherDecision, ClassLearningSnapshot,
   StudentCluster, ClassAnalysis,
@@ -100,7 +101,7 @@ export class TeacherDecisionEngine {
     const weaknesses = Array.from(skillMap.entries())
       .map(([skill, data]) => ({
         skill,
-        skillZh: this.skillLabelZh(skill),
+        skillZh: skillLabelZh(skill),
         averageMastery: Math.round(data.total / data.count),
         affectedStudentCount: data.students.size,
         severity: data.total / data.count < 30 ? 'critical' as const :
@@ -243,7 +244,7 @@ export class TeacherDecisionEngine {
       const avgMastery = Math.round(relevant.reduce((a, s) => a + (s.mastery.bySkill[skill]?.score ?? 0), 0) / relevant.length);
       trends.push({
         skill,
-        skillZh: this.skillLabelZh(skill),
+        skillZh: skillLabelZh(skill),
         averageMastery: avgMastery,
         averageGain: 0,
         trend: avgMastery > 65 ? 'improving' : avgMastery > 40 ? 'stable' : 'declining',
@@ -364,24 +365,8 @@ export class TeacherDecisionEngine {
   }
 
   // ============================================
-  // Helpers
+  // Helpers — skillLabelZh imported from @/shared/utils/skill-labels
   // ============================================
-
-  private skillLabelZh(skill: string): string {
-    const labels: Record<string, string> = {
-      tenses: '時態', 'subject-verb-agreement': '主謂一致',
-      'passive-voice': '被動語態', conditionals: '條件句',
-      'relative-clauses': '關係子句', connectors: '連接詞',
-      articles: '冠詞', prepositions: '介詞',
-      'modal-verbs': '情態動詞', 'gerunds-infinitives': '動名詞與不定詞',
-      'reported-speech': '轉述句', comparatives: '比較級',
-      inversion: '倒裝句', 'phrasal-verbs': '片語動詞',
-      subjunctive: '虛擬語氣', grammar: '文法',
-      vocabulary: '詞彙', writing: '寫作',
-      reading: '閱讀', listening: '聆聽', speaking: '說話',
-    };
-    return labels[skill] ?? skill;
-  }
 }
 
 export const teacherDecisionEngine = new TeacherDecisionEngine();

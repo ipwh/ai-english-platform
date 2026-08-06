@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAIProviders, isDeepSeekConfigured } from '@/modules/ai/services/ai-service';
+import { getAIProviders, isDeepSeekConfigured } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 export async function GET(request: NextRequest) {

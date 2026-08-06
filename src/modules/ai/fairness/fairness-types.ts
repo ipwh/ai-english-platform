@@ -3,6 +3,8 @@
 // Deterministic fairness evaluation. No AI calls.
 // ============================================
 
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
+
 /** Fairness decision */
 export type FairnessDecision = 'correct' | 'accept' | 'partially_correct' | 'incorrect';
 
@@ -115,14 +117,8 @@ export const DEFAULT_FAIRNESS_CONTEXT: FairnessContext = {
 export function calculateFairnessScore(
   dims: Omit<FairnessDimensions, 'overall'>,
 ): FairnessDimensions {
-  const overall = Math.round(
-    dims.semanticFairness * FAIRNESS_WEIGHTS.semanticFairness +
-    dims.languageFairness * FAIRNESS_WEIGHTS.languageFairness +
-    dims.spellingFairness * FAIRNESS_WEIGHTS.spellingFairness +
-    dims.grammarFairness * FAIRNESS_WEIGHTS.grammarFairness +
-    dims.keywordCoverage * FAIRNESS_WEIGHTS.keywordCoverage,
-  );
-  return { ...dims, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dims as Record<string, number>, FAIRNESS_WEIGHTS as Record<string, number>);
+  return { ...dims, overall };
 }
 
 /** Determine decision from score */

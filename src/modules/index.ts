@@ -22,6 +22,7 @@ export { buildVocabProfile } from './vocabulary/intelligence/services/vocabulary
 export type { VocabularyProfile, VocabWordProfile } from './vocabulary/intelligence/types';
 
 export { analyzeEssay } from './writing-coach/services/writing-coach-heuristic';
+export { writingCoachService } from './writing-coach/services/writing-coach-service';
 export type { WritingCoachResult, BandPrediction, WritingDimensions } from './writing-coach/types';
 
 // === Analytics Domain ===

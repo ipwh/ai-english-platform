@@ -121,6 +121,14 @@ export interface TutorOutput {
   content: string;
   contentZh: string;
 
+  // AI-generated questions (when action is 'exercise')
+  questions?: Array<{
+    question: string;
+    options?: string[];
+    answer: string;
+    explanation?: string;
+  }>;
+
   // Personalization metadata
   personalization: {
     difficulty: AdaptiveDifficulty;

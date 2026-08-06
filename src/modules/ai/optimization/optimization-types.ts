@@ -3,6 +3,8 @@
 // Deterministic UX optimization layer.
 // ============================================
 
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
+
 /** Optimization decision */
 export type OptimizationDecision = 'approved' | 'warning' | 'optimized' | 'regenerate_later' | 'reject';
 
@@ -57,15 +59,8 @@ export interface OptimizationRule {
 
 /** Calculate optimization score from dimension scores. */
 export function calculateOptimizationScore(dims: Omit<OptimizationDimensions, 'overall'>): OptimizationDimensions {
-  const overall = Math.round(
-    dims.studentExperience * OPTIMIZATION_WEIGHTS.studentExperience +
-    dims.assessment * OPTIMIZATION_WEIGHTS.assessment +
-    dims.readability * OPTIMIZATION_WEIGHTS.readability +
-    dims.consistency * OPTIMIZATION_WEIGHTS.consistency +
-    dims.difficulty * OPTIMIZATION_WEIGHTS.difficulty +
-    dims.repairability * OPTIMIZATION_WEIGHTS.repairability,
-  );
-  return { ...dims, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dims as Record<string, number>, OPTIMIZATION_WEIGHTS as Record<string, number>);
+  return { ...dims, overall };
 }
 
 /** Determine decision from score and critical failures. */

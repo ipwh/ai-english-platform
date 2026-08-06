@@ -1,6 +1,7 @@
 // Sprint 94: Integrated Skills Generation Use Case
 import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
+import { parseAndValidateAIResponse } from '../services/response-pipeline';
+import { validateAIResponse, IntegratedSkillsTaskSchema } from '../schemas/ai-schema';
 import { getDSEEmpiricalTopics } from '../services/dse-topics';
 import { selectDiverseTopics, buildDiversityInstruction, recordTopicUsage } from '../services/topic-selector';
 import { INTEGRATED_SKILLS_DIFF_MAP, INTEGRATED_SKILLS_TASK_TYPE_MAP } from '../services/integrated-skills-config';
@@ -45,13 +46,12 @@ Note-taking 指引：提供 4-5 個引導問題（Who/What/When/Where/Why/How）
   const userPrompt = `生成一個 DSE Paper 3 Part B Integrated Skills 練習：任務類型：${taskInfo.name}，年級：${input.gradeLevel}，難度：${input.difficulty}，字數要求：約 ${diff.wordLimit} words。必要主題："${diverseTopics[0]}"。`;
 
   const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId });
-  const task = parseAIJSON<IntegratedSkillsTask>(result);
-  if (!task.listeningContent || !task.writingTask) throw new Error('AI 生成的 Integrated Skills 任務不完整');
+  const task = parseAndValidateAIResponse(result, IntegratedSkillsTaskSchema);
 
   // Record the topic as used
   if (input.userId && diverseTopics[0]) {
     recordTopicUsage(input.userId, diverseTopics[0], 'school', 'listening');
   }
 
-  return { listeningContent: normalizeListeningContent(task.listeningContent), listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: task.noteTakingGuide || [], writingTask: task.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: task.expectedContentPoints || [], listeningAnswers: task.listeningAnswers || [] };
+  return { listeningContent: normalizeListeningContent(validated.data.listeningContent), listeningTopicZh: validated.data.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: validated.data.noteTakingGuide || [], writingTask: validated.data.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: validated.data.expectedContentPoints || [], listeningAnswers: validated.data.listeningAnswers || [] };
 }

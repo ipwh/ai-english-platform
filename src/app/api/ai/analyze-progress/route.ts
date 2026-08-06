@@ -5,7 +5,7 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai/services/ai-service';
+import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';

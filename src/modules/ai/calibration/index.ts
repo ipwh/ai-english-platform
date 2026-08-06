@@ -1,3 +1,4 @@
+// @deprecated Sprint 111: Not needed for single-school. Fix prompts instead of post-processing.
 // ============================================
 // Sprint 111: Output Calibration — Barrel Export
 // ============================================

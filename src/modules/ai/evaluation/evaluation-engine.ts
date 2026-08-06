@@ -10,6 +10,11 @@ import { GRADING_POLICIES } from './evaluation-types';
 import { normalizeAnswer } from './answer-normalizer';
 import { gradingRegistry } from './grading-registry';
 import { computeKeywordScore } from './semantic-comparator';
+// Lazy import for embedding fallback (avoids loading Vertex AI module on every import)
+async function getEmbeddingComparator() {
+  const { computeSemanticScoreWithEmbedding } = await import('./semantic-comparator');
+  return computeSemanticScoreWithEmbedding;
+}
 import {
   exactMatchRule, caseInsensitiveRule, punctuationRule, whitespaceRule,
   articleRule, pluralRule, tenseRule, spellingRule, synonymRule,
@@ -17,13 +22,11 @@ import {
 } from './rules';
 import { recordEvaluation, recordGrading, recordRuleUsage } from './evaluation-metrics';
 import { logger } from '@/shared/logger/logger';
+import { BaseRuleEngine } from '../core/base-engine';
 
-class EvaluationEngine {
-  private initialized = false;
-
-  /** Register all built-in evaluation rules. Idempotent. */
-  init(): this {
-    if (this.initialized) return this;
+class EvaluationEngine extends BaseRuleEngine {
+  /** Register all built-in evaluation rules. */
+  protected registerRules(): void {
     gradingRegistry
       .register(exactMatchRule)
       .register(caseInsensitiveRule)
@@ -36,8 +39,6 @@ class EvaluationEngine {
       .register(synonymRule)
       .register(semanticRule)
       .register(keywordRule);
-    this.initialized = true;
-    return this;
   }
 
   /** Evaluate a student answer against a reference. */
@@ -138,6 +139,83 @@ class EvaluationEngine {
     }, 'Answer evaluated');
 
     return output;
+  }
+
+  /**
+   * Evaluate with embedding fallback for borderline cases.
+   * When keyword matching gives a low score but the student may have paraphrased well,
+   * this method uses Vertex AI embeddings to detect semantic similarity.
+   *
+   * Educational benefit: Students who use different wording to express the same
+   * meaning should NOT lose marks. This rewards paraphrasing — a key DSE skill.
+   *
+   * Performance: Only calls embedding API when decision is 'partially_correct'
+   * AND semanticScore < 0.5. Fast path returns the synchronous result directly.
+   */
+  async evaluateWithEmbedding(input: EvaluationInput): Promise<EvaluationOutput> {
+    // Fast path: run synchronous evaluation first
+    const result = this.evaluate(input);
+
+    // Only attempt embedding if the decision is borderline
+    if (result.decision !== 'partially_correct') {
+      return result;
+    }
+
+    // Only if keyword-based semantic score is low enough that paraphrasing might be missed
+    if (result.semanticScore >= 0.5) {
+      return result;
+    }
+
+    try {
+      const computeWithEmbedding = await getEmbeddingComparator();
+      const { score: boostedScore, usedEmbedding, embeddingScore } =
+        await computeWithEmbedding(input.studentAnswer, input.referenceAnswer);
+
+      if (usedEmbedding && embeddingScore && embeddingScore > 0.65) {
+        // Embedding detected semantic similarity — the student likely paraphrased well
+        const newOverallScore = Math.round(
+          (result.exactMatch ? 1 : 0) * 0.15 * 100 +
+          (result.caseInsensitiveMatch ? 1 : 0) * 0.05 * 100 +
+          boostedScore * 0.45 * 100 +
+          result.keywordScore * 0.25 * 100 +
+          result.grammarScore * 0.10 * 100,
+        ) / 100;
+
+        // If boosted score crosses the threshold, upgrade to correct
+        const newDecision: GradingDecision =
+          boostedScore >= 0.5 ? 'correct' : 'partially_correct';
+
+        logger.info({
+          module: 'evaluation-engine',
+          originalDecision: result.decision,
+          newDecision,
+          originalScore: result.overallScore,
+          newOverallScore,
+          embeddingScore,
+        }, 'Embedding fallback upgraded answer');
+
+        return {
+          ...result,
+          semanticScore: Math.round(boostedScore * 100) / 100,
+          overallScore: newOverallScore,
+          decision: newDecision,
+          embeddingUsed: true,
+          embeddingScore: Math.round(embeddingScore * 100) / 100,
+          details: {
+            ...result.details,
+            embeddingNote: 'Score boosted by semantic embedding similarity',
+          },
+        };
+      }
+    } catch (err) {
+      // Embedding unavailable — silently return original result
+      logger.warn({
+        module: 'evaluation-engine',
+        error: String(err),
+      }, 'Embedding fallback failed, using keyword score');
+    }
+
+    return result;
   }
 }
 

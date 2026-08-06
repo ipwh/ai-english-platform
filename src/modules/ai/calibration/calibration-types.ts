@@ -3,6 +3,8 @@
 // Deterministic post-LLM content improvement.
 // ============================================
 
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
+
 /** Calibration decision after scoring */
 export type CalibrationDecision = 'PASS' | 'MINOR_CALIBRATION' | 'MAJOR_CALIBRATION' | 'REJECT';
 
@@ -77,15 +79,8 @@ export interface CalibrationRule {
 export function calculateCalibrationScore(
   dims: Omit<CalibrationDimensions, 'overall'>,
 ): CalibrationDimensions {
-  const overall = Math.round(
-    dims.completeness * CALIBRATION_WEIGHTS.completeness +
-    dims.naturalness * CALIBRATION_WEIGHTS.naturalness +
-    dims.readability * CALIBRATION_WEIGHTS.readability +
-    dims.balance * CALIBRATION_WEIGHTS.balance +
-    dims.pedagogy * CALIBRATION_WEIGHTS.pedagogy +
-    dims.supportability * CALIBRATION_WEIGHTS.supportability,
-  );
-  return { ...dims, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dims as Record<string, number>, CALIBRATION_WEIGHTS as Record<string, number>);
+  return { ...dims, overall };
 }
 
 /** Determine calibration decision from score */

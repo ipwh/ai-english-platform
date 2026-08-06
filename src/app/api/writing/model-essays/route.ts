@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { callLLM } from '@/modules/ai/services/ai-service';
+import { callLLM } from '@/modules/ai';
 
 const HKDSE_WRITING_RUBRIC = `
 HKDSE English Language Writing Level Descriptors:

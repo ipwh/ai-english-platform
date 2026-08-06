@@ -1,7 +1,6 @@
 // Sprint 94: Material Analysis Use Case
-import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
-import { validateAIResponse, MaterialAnalysisSchema } from '../schemas/ai-schema';
+import { executeAI } from '../services/ai-execution';
+import { MaterialAnalysisSchema } from '../schemas/ai-schema';
 import { HALLUCINATION_GUARD } from '../services/hallucination-guard';
 
 export interface AnalyzeMaterialInput { userId?: string; title: string; content: string; gradeLevel?: string; }
@@ -35,12 +34,10 @@ ${input.content.slice(0, 8000)}
 
 請分析這份教材。`;
 
-  const result = await callLLM(
-    [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    { temperature: 0.4, maxTokens: 4096, jsonMode: true, userId: input.userId }
-  );
-  const material = parseAIJSON<MaterialAnalysis>(result);
-  const validated = validateAIResponse(MaterialAnalysisSchema, material);
-  if (!validated.success) throw new Error(validated.error);
-  return validated.data;
+  return executeAI({
+    context: { feature: 'Reading', useCase: 'AnalyzeMaterial', promptName: 'MaterialAnalysis' },
+    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+    options: { temperature: 0.4, maxTokens: 4096, jsonMode: true, userId: input.userId },
+    schema: MaterialAnalysisSchema,
+  });
 }

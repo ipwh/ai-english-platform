@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/modules/ai/services/ai-service';
+import { callLLM } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { getExistingWordSet } from '@/modules/vocabulary/services/vocabulary-service';

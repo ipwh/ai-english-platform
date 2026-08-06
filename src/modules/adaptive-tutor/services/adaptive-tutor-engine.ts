@@ -1,4 +1,10 @@
-// Sprint 35: AdaptiveTutorEngine — orchestrates all personalization
+// Sprint 111: AdaptiveTutorEngine — now wired to AI generation
+// Previously returned prompt strings like "Generate 5 mcq questions."
+// Now actually calls AI to generate real exercises, feedback, and explanations.
+//
+// Educational benefit: Students receive actual personalized exercises
+// instead of placeholder prompts. The adaptive tutor becomes real.
+
 import type {
   PersonalizationContext, TutorOutput, TutorActionType,
   TutorSessionRecord,
@@ -9,7 +15,75 @@ import { feedbackComposer } from './feedback-composer';
 import { explanationAdapter } from './explanation-adapter';
 import { challengeCurator } from './challenge-curator';
 import { confidenceEstimator } from '@/modules/learning/science/services/confidence-estimator';
-import { learningPathGenerator } from '@/modules/knowledge-graph/services/learning-path-generator';
+import { logger } from '@/shared/logger/logger';
+
+// Lazy imports for AI generation (avoid loading AI module until needed)
+async function generateAIQuestions(params: {
+  topic: string;
+  count: number;
+  difficulty: 'remedial' | 'core' | 'challenge';
+  gradeLevel: string;
+}) {
+  const { generateQuestions } = await import('@/modules/ai/usecases/generate-questions');
+  return generateQuestions({
+    grammarItem: params.topic,
+    difficulty: params.difficulty,
+    gradeLevel: params.gradeLevel,
+    count: params.count,
+    questionType: 'mc',
+  });
+}
+
+async function generateAIExplanation(params: {
+  question: string;
+  studentAnswer: string;
+  correctAnswer: string;
+  studentLevel: string;
+}) {
+  const { explainMistake } = await import('@/modules/ai/usecases/explain-mistake');
+  const result = await explainMistake({
+    question: params.question,
+    studentAnswer: params.studentAnswer,
+    correctAnswer: params.correctAnswer,
+    studentLevel: params.studentLevel,
+  });
+  return {
+    reasonEn: result.reasonEn,
+    reasonZh: result.reasonZh,
+  };
+}
+
+/**
+ * Build actual exercise content from AI-generated questions.
+ */
+function formatExerciseContent(questions: Array<{
+  prompt: string;
+  choices?: string[];
+  answer: string;
+  explanationEn?: string;
+}>): { content: string; contentZh: string } {
+  const lines: string[] = [];
+  const linesZh: string[] = [];
+
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    lines.push(`**Question ${i + 1}.** ${q.prompt}`);
+    linesZh.push(`**第 ${i + 1} 題.** ${q.prompt}`);
+
+    if (q.choices && q.choices.length > 0) {
+      const letters = ['A', 'B', 'C', 'D'];
+      for (let j = 0; j < q.choices.length; j++) {
+        lines.push(`  ${letters[j]}. ${q.choices[j]}`);
+      }
+    }
+    lines.push('');
+  }
+
+  return {
+    content: lines.join('\n'),
+    contentZh: linesZh.join('\n'),
+  };
+}
 
 // ============================================
 // AdaptiveTutorEngine
@@ -18,23 +92,33 @@ import { learningPathGenerator } from '@/modules/knowledge-graph/services/learni
 export class AdaptiveTutorEngine {
 
   /**
-   * Generate a personalized tutor action.
-   * This is the main entry point — it selects the right action type
-   * and delegates to the appropriate sub-service.
+   * Generate a personalized tutor action. NOW ASYNC — calls AI for real content.
    */
-  generate(ctx: PersonalizationContext, requestedAction?: TutorActionType): TutorOutput {
+  async generate(ctx: PersonalizationContext, requestedAction?: TutorActionType): Promise<TutorOutput> {
     const action = requestedAction || this.selectAction(ctx);
     const sessionId = `tutor_${Date.now()}`;
 
-    switch (action) {
-      case 'exercise': return this.generateExercise(ctx, sessionId);
-      case 'hint': return this.generateHint(ctx, sessionId);
-      case 'feedback': return this.generateFeedback(ctx, sessionId);
-      case 'explanation': return this.generateExplanation(ctx, sessionId);
-      case 'review': return this.generateReview(ctx, sessionId);
-      case 'challenge': return this.generateChallenge(ctx, sessionId);
-      case 'support': return this.generateSupport(ctx, sessionId);
-      default: return this.generateExercise(ctx, sessionId);
+    try {
+      switch (action) {
+        case 'exercise': return await this.generateExercise(ctx, sessionId);
+        case 'hint': return this.generateHint(ctx, sessionId);
+        case 'feedback': return this.generateFeedback(ctx, sessionId);
+        case 'explanation': return await this.generateExplanation(ctx, sessionId);
+        case 'review': return this.generateReview(ctx, sessionId);
+        case 'challenge': return this.generateChallenge(ctx, sessionId);
+        case 'support': return this.generateSupport(ctx, sessionId);
+        default: return await this.generateExercise(ctx, sessionId);
+      }
+    } catch (err) {
+      logger.error({
+        module: 'adaptive-tutor',
+        action,
+        studentId: ctx.studentId,
+        error: String(err),
+      }, 'AI generation failed, returning fallback');
+
+      // Fallback: return prompt-based output if AI fails
+      return this.generateFallback(ctx, action, sessionId);
     }
   }
 
@@ -42,50 +126,78 @@ export class AdaptiveTutorEngine {
    * Select the best action type based on the student's context
    */
   private selectAction(ctx: PersonalizationContext): TutorActionType {
-    // If no recent sessions → diagnostic exercise
     if (ctx.recentSessions.length === 0) return 'exercise';
 
-    // If many due reviews → review
     const dueCount = ctx.reviewSchedule.filter(r =>
       new Date(r.nextReviewAt) <= new Date() && !r.isMastered
     ).length;
     if (dueCount > 5) return 'review';
-
-    // If many recent mistakes → explanation
     if (ctx.recentMistakes.length > 5) return 'explanation';
-
-    // If low mood → challenge (gamification boost)
     if (ctx.mood !== undefined && ctx.mood <= 2) return 'challenge';
 
-    // Default: exercise
     const lastAction = ctx.recentSessions[0];
     if (lastAction && lastAction.correctCount / Math.max(1, lastAction.totalCount) > 0.8) {
       return 'challenge';
     }
-
     return 'exercise';
   }
 
   // ============================================
-  // Action generators
+  // Action generators — now call AI for real content
   // ============================================
 
-  private generateExercise(ctx: PersonalizationContext, sessionId: string): TutorOutput {
+  private async generateExercise(ctx: PersonalizationContext, sessionId: string): Promise<TutorOutput> {
     const spec = exerciseSelector.select(ctx);
     const difficulty = exerciseSelector.getDifficultyRecommendation(ctx);
 
-    const content = `Generate ${spec.questionCount} ${spec.format} questions on ${spec.topicNodeId} at ${spec.difficulty} difficulty.`;
-    const contentZh = `生成 ${spec.questionCount} 題${spec.format}練習，主題為 ${spec.topicNodeId}，難度為 ${spec.difficulty}。`;
+    // Call AI to generate actual questions
+    let aiQuestions: Array<{
+      prompt: string;
+      choices?: string[];
+      answer: string;
+      explanationEn?: string;
+    }> = [];
+
+    try {
+      const result = await generateAIQuestions({
+        topic: spec.topicNodeId,
+        count: spec.questionCount,
+        difficulty: spec.difficulty as 'remedial' | 'core' | 'challenge',
+        gradeLevel: ctx.gradeLevel,
+      });
+      aiQuestions = result.map(q => ({
+        prompt: q.prompt,
+        choices: q.choices,
+        answer: q.answer,
+        explanationEn: q.explanationEn,
+      }));
+    } catch {
+      // Fall back to template-based content
+    }
+
+    const formatted = aiQuestions.length > 0
+      ? formatExerciseContent(aiQuestions)
+      : {
+          content: `Practice ${spec.questionCount} ${spec.format} questions on ${spec.topicNodeId} at ${spec.difficulty} difficulty.`,
+          contentZh: `練習 ${spec.questionCount} 題${spec.format}，主題：${spec.topicNodeId}，難度：${spec.difficulty}。`,
+        };
 
     return {
       studentId: ctx.studentId, sessionId,
       generatedAt: new Date().toISOString(),
       action: 'exercise',
-      content, contentZh,
+      content: formatted.content,
+      contentZh: formatted.contentZh,
+      questions: aiQuestions.length > 0 ? aiQuestions.map(q => ({
+        question: q.prompt,
+        options: q.choices,
+        answer: q.answer,
+        explanation: q.explanationEn,
+      })) : undefined,
       personalization: { difficulty },
-      confidence: 0.85,
-      reason: `Selected ${spec.format} format based on skill focus (${spec.skillFocus}) and energy level`,
-      reasonZh: `根據技能重點（${spec.skillFocus}）和精力水平選擇 ${spec.format} 格式`,
+      confidence: aiQuestions.length > 0 ? 0.9 : 0.6,
+      reason: `Generated ${spec.questionCount} ${spec.format} questions on ${spec.topicNodeId}`,
+      reasonZh: `已生成 ${spec.questionCount} 題關於 ${spec.topicNodeId} 的 ${spec.format} 練習`,
       learningGain: this.estimateGain('exercise', spec.difficulty),
       estimatedCompletionTime: spec.estimatedTime,
       followUp: {
@@ -102,14 +214,12 @@ export class AdaptiveTutorEngine {
     const questionZh = lastMistake?.questionTextZh;
 
     const hint = hintGenerator.generate({
-      question,
-      questionZh,
+      question, questionZh,
       correctAnswer: lastMistake?.correctAnswer || '',
       studentAnswer: lastMistake?.studentAnswer,
       studentLevel: ctx.gradeLevel,
       mistakeType: lastMistake?.mistakeType,
-      currentAttempt: 1,
-      ctx,
+      currentAttempt: 1, ctx,
     });
 
     return {
@@ -118,13 +228,10 @@ export class AdaptiveTutorEngine {
       action: 'hint',
       content: hint.hint,
       contentZh: hint.hintZh,
-      personalization: {
-        difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 },
-        hintLevel: hint,
-      },
+      personalization: { difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 }, hintLevel: hint },
       confidence: 0.9,
-      reason: `Level ${hint.level} hint based on ${ctx.recentMistakes.length} recent mistakes`,
-      reasonZh: `根據 ${ctx.recentMistakes.length} 個近期錯誤提供第 ${hint.level} 級提示`,
+      reason: `Level ${hint.level} hint — ${ctx.recentMistakes.length} recent mistakes`,
+      reasonZh: `第 ${hint.level} 級提示 — ${ctx.recentMistakes.length} 個近期錯誤`,
       learningGain: 0.3,
       estimatedCompletionTime: 1,
       followUp: {
@@ -155,25 +262,57 @@ export class AdaptiveTutorEngine {
       action: 'feedback',
       content: fb.feedback,
       contentZh: fb.feedbackZh,
-      personalization: {
-        difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 },
-      },
+      personalization: { difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 } },
       confidence: 0.9,
-      reason: `${fb.level} feedback level — ${ctx.recentMistakes.length} recent mistakes`,
+      reason: `${fb.level} feedback — ${ctx.recentMistakes.length} recent mistakes`,
       reasonZh: `${fb.level === 'detailed' ? '詳細' : fb.level === 'balanced' ? '均衡' : '簡潔'}反饋 — ${ctx.recentMistakes.length} 個近期錯誤`,
       learningGain: fb.spec.includeModelAnswer ? 0.5 : 0.3,
       estimatedCompletionTime: 2,
     };
   }
 
-  private generateExplanation(ctx: PersonalizationContext, sessionId: string): TutorOutput {
+  private async generateExplanation(ctx: PersonalizationContext, sessionId: string): Promise<TutorOutput> {
     const lastMistake = ctx.recentMistakes[0];
     const topic = lastMistake?.mistakeType || 'grammar';
 
+    // Try AI-powered explanation first
+    let aiExplanation: { reasonEn?: string; reasonZh?: string } | null = null;
+    try {
+      aiExplanation = await generateAIExplanation({
+        question: lastMistake?.questionText || topic,
+        studentAnswer: lastMistake?.studentAnswer || '',
+        correctAnswer: lastMistake?.correctAnswer || '',
+        studentLevel: ctx.gradeLevel,
+      });
+    } catch {
+      // Fall through to template-based explanation
+    }
+
+    // If AI explanation available, use it
+    if (aiExplanation?.reasonEn) {
+      return {
+        studentId: ctx.studentId, sessionId,
+        generatedAt: new Date().toISOString(),
+        action: 'explanation',
+        content: aiExplanation.reasonEn,
+        contentZh: aiExplanation.reasonZh || aiExplanation.reasonEn,
+        personalization: { difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 } },
+        confidence: 0.9,
+        reason: `AI-generated explanation for ${topic}`,
+        reasonZh: `AI 生成的 ${topic} 解釋`,
+        learningGain: 0.5,
+        estimatedCompletionTime: 3,
+        followUp: {
+          nextAction: 'exercise',
+          nextActionDescription: 'Practice with exercises to apply what you learned',
+          nextActionDescriptionZh: '練習題目以應用所學',
+        },
+      };
+    }
+
+    // Fallback: template-based explanation
     const exp = explanationAdapter.adapt({
-      ctx,
-      topic,
-      topicZh: topic,
+      ctx, topic, topicZh: topic,
       concept: lastMistake?.questionText || topic,
       conceptZh: lastMistake?.questionTextZh,
       mistakeType: lastMistake?.mistakeType,
@@ -185,12 +324,10 @@ export class AdaptiveTutorEngine {
       action: 'explanation',
       content: `${exp.explanation}\n\nExamples:\n${exp.examples.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n\n${exp.memoryTip}`,
       contentZh: `${exp.explanationZh}\n\n例子：\n${exp.examplesZh.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n\n${exp.memoryTipZh}`,
-      personalization: {
-        difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 },
-      },
-      confidence: 0.85,
+      personalization: { difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 } },
+      confidence: 0.7,
       reason: `${exp.complexity} complexity — adapted to ${ctx.cefrLevel || ctx.gradeLevel} level`,
-      reasonZh: `${exp.complexity === 'basic' ? '基礎' : exp.complexity === 'intermediate' ? '中級' : '進階'}複雜度 — 根據 ${ctx.cefrLevel || ctx.gradeLevel} 水平調整`,
+      reasonZh: `${exp.complexity === 'basic' ? '基礎' : exp.complexity === 'intermediate' ? '中級' : '進階'}複雜度`,
       learningGain: 0.4,
       estimatedCompletionTime: 3,
       followUp: {
@@ -206,23 +343,21 @@ export class AdaptiveTutorEngine {
       new Date(r.nextReviewAt) <= new Date() && !r.isMastered
     );
 
-    const content = `You have ${dueItems.length} items due for review. ` +
-      `Prioritized list:\n${dueItems.slice(0, 5).map((r, i) =>
+    const content = `You have ${dueItems.length} items due for review.\nPrioritized list:\n${
+      dueItems.slice(0, 5).map((r, i) =>
         `${i + 1}. ${r.title || r.itemId} (urgency: ${r.reviewUrgency}, retention: ${Math.round(r.retentionProbability * 100)}%)`
       ).join('\n')}`;
 
-    const contentZh = `你有 ${dueItems.length} 個項目需要複習。\n優先列表：\n${dueItems.slice(0, 5).map((r, i) =>
-      `${i + 1}. ${r.titleZh || r.itemId}（緊急度：${r.reviewUrgency}，保留率：${Math.round(r.retentionProbability * 100)}%）`
-    ).join('\n')}`;
+    const contentZh = `你有 ${dueItems.length} 個項目需要複習。\n優先列表：\n${
+      dueItems.slice(0, 5).map((r, i) =>
+        `${i + 1}. ${r.titleZh || r.itemId}（緊急度：${r.reviewUrgency}，保留率：${Math.round(r.retentionProbability * 100)}%）`
+      ).join('\n')}`;
 
     return {
       studentId: ctx.studentId, sessionId,
       generatedAt: new Date().toISOString(),
-      action: 'review',
-      content, contentZh,
-      personalization: {
-        difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 },
-      },
+      action: 'review', content, contentZh,
+      personalization: { difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 } },
       confidence: 0.95,
       reason: `${dueItems.length} items due, ${dueItems.filter(r => r.reviewUrgency === 'critical').length} critical`,
       reasonZh: `${dueItems.length} 個項目到期，${dueItems.filter(r => r.reviewUrgency === 'critical').length} 個緊急`,
@@ -262,20 +397,16 @@ export class AdaptiveTutorEngine {
   }
 
   private generateSupport(ctx: PersonalizationContext, sessionId: string): TutorOutput {
-    const weakness = ctx.learningMemory?.weaknesses;
-    const weakTopics = weakness?.persistentWeaknesses?.slice(0, 3).map(w => w.topic).join(', ') || 'various topics';
+    const weakTopics = ctx.learningMemory?.weaknesses
+      ?.persistentWeaknesses?.slice(0, 3).map(w => w.topic).join(', ') || 'various topics';
 
     return {
       studentId: ctx.studentId, sessionId,
       generatedAt: new Date().toISOString(),
       action: 'support',
-      content: `Based on your learning profile, I recommend focusing on: ${weakTopics}. ` +
-        `You've made progress in ${ctx.recentSessions.filter(s => s.correctCount / Math.max(1, s.totalCount) > 0.7).length} out of ${Math.max(1, ctx.recentSessions.length)} recent sessions. Keep going!`,
-      contentZh: `根據你的學習檔案，建議專注於：${weakTopics}。` +
-        `你在最近 ${ctx.recentSessions.length} 次練習中，有 ${ctx.recentSessions.filter(s => s.correctCount / Math.max(1, s.totalCount) > 0.7).length} 次表現良好。繼續努力！`,
-      personalization: {
-        difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 },
-      },
+      content: `Based on your learning profile, I recommend focusing on: ${weakTopics}. You've made progress in ${ctx.recentSessions.filter(s => s.correctCount / Math.max(1, s.totalCount) > 0.7).length} out of ${Math.max(1, ctx.recentSessions.length)} recent sessions. Keep going!`,
+      contentZh: `根據你的學習檔案，建議專注於：${weakTopics}。你在最近 ${ctx.recentSessions.length} 次練習中，有 ${ctx.recentSessions.filter(s => s.correctCount / Math.max(1, s.totalCount) > 0.7).length} 次表現良好。繼續努力！`,
+      personalization: { difficulty: { level: 'core', reason: '', reasonZh: '', targetAccuracy: 0.8 } },
       confidence: 0.8,
       reason: 'Support based on learning memory and recent performance',
       reasonZh: '根據學習記憶和近期表現提供支援',
@@ -286,6 +417,25 @@ export class AdaptiveTutorEngine {
         nextActionDescription: 'Start a focused exercise on your weak topics',
         nextActionDescriptionZh: '開始弱項主題的針對性練習',
       },
+    };
+  }
+
+  /**
+   * Fallback when AI generation fails — returns template-based output.
+   */
+  private generateFallback(ctx: PersonalizationContext, action: TutorActionType, sessionId: string): TutorOutput {
+    return {
+      studentId: ctx.studentId, sessionId,
+      generatedAt: new Date().toISOString(),
+      action,
+      content: `${action} content will be available shortly. Please try again.`,
+      contentZh: `${action} 內容即將可用，請重試。`,
+      personalization: { difficulty: { level: 'core', reason: 'AI unavailable, using default', reasonZh: 'AI 暫時不可用', targetAccuracy: 0.7 } },
+      confidence: 0.3,
+      reason: 'AI generation temporarily unavailable',
+      reasonZh: 'AI 生成暫時不可用',
+      learningGain: 0.1,
+      estimatedCompletionTime: 5,
     };
   }
 

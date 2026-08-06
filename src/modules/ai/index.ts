@@ -12,21 +12,75 @@ export type { AIProvider } from '@/modules/ai/providers/provider-interface';
 // Core AI service — question generation, writing analysis, TTS
 import {
   generateQuestions,
+  type GeneratedQuestion,
+  type GenerateQuestionsInput,
   callLLM,
   sanitizeForAI,
   isDeepSeekConfigured,
+  isAIConfigured,
+  getAIProviders,
   getLastAIProvider,
   wasFallbackUsed,
   getRetryStats,
+  analyzeAnswer,
+  type AnalyzeAnswerInput,
+  type AnswerAnalysis,
+  analyzeWriting,
+  type AnalyzeWritingInput,
+  type WritingAnalysis,
+  explainMistake,
+  type ExplainMistakeInput,
+  type MistakeExplanation,
+  analyzeWord,
+  analyzeProgress,
+  answerStudyHelp,
+  type StudyHelpInput,
+  type StudyHelpResponse,
+  analyzeMaterial,
+  generateWritingPrompt,
+  generateWritingOutline,
+  generateWritingGuide,
+  generateIntegratedSkills,
+  type GenerateIntegratedSkillsInput,
+  analyzeIntegratedSkills,
+  selectDiverseTopic,
+  buildDiversityInstruction,
 } from '@/modules/ai/services/ai-service';
 export {
   generateQuestions,
+  type GeneratedQuestion,
+  type GenerateQuestionsInput,
   callLLM,
   sanitizeForAI,
   isDeepSeekConfigured,
+  isAIConfigured,
+  getAIProviders,
   getLastAIProvider,
   wasFallbackUsed,
   getRetryStats,
+  analyzeAnswer,
+  type AnalyzeAnswerInput,
+  type AnswerAnalysis,
+  analyzeWriting,
+  type AnalyzeWritingInput,
+  type WritingAnalysis,
+  explainMistake,
+  type ExplainMistakeInput,
+  type MistakeExplanation,
+  analyzeWord,
+  analyzeProgress,
+  answerStudyHelp,
+  type StudyHelpInput,
+  type StudyHelpResponse,
+  analyzeMaterial,
+  generateWritingPrompt,
+  generateWritingOutline,
+  generateWritingGuide,
+  generateIntegratedSkills,
+  type GenerateIntegratedSkillsInput,
+  analyzeIntegratedSkills,
+  selectDiverseTopic,
+  buildDiversityInstruction,
 };
 
 // RAG — DSE past paper retrieval
@@ -37,23 +91,14 @@ export { ragService };
 import * as ttsService from '@/modules/ai/services/tts-service';
 export { ttsService };
 
-// Writing
-import { analyzeWriting } from '@/modules/ai/services/writing-analysis';
-export { analyzeWriting };
-import { generateWritingPrompt } from '@/modules/ai/services/writing-generation';
-export { generateWritingPrompt };
+// Hallucination guard
+export { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 
-// Integrated Skills (DSE Paper 3 Part B)
-import {
-  generateIntegratedSkills,
-  analyzeIntegratedSkills,
-} from '@/modules/ai/services/integrated-skills';
-export {
-  generateIntegratedSkills,
-  analyzeIntegratedSkills,
-};
+// AI Evaluator (reading answer evaluation)
+export { evaluateWithAI, type AIEvaluationResult } from '@/modules/ai/services/ai-evaluator';
+
+// Integrated Skills config constants (not in ai-service re-exports)
 export type {
-  GenerateIntegratedSkillsInput,
   IntegratedSkillsTask,
   AnalyzeIntegratedSkillsInput,
   IntegratedSkillsAnalysis,

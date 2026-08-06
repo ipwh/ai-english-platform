@@ -59,16 +59,13 @@ export async function explainMistake(input: ExplainMistakeInput): Promise<Mistak
     studentLevel: input.studentLevel,
   });
 
-  const result = await callLLM(
-    [
+  return executeAI({
+    context: { feature: 'Learning', useCase: 'ExplainMistake', promptName: 'MistakeExplanation' },
+    messages: [
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId }
-  );
-
-  const explanation = parseAIJSON<MistakeExplanation>(result);
-  const validated = validateAIResponse(MistakeExplanationSchema, explanation);
-  if (!validated.success) throw new Error(validated.error);
-  return validated.data;
+    options: { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId },
+    schema: MistakeExplanationSchema,
+  });
 }

@@ -3,6 +3,8 @@
 // Deterministic personalized learning. No AI.
 // ============================================
 
+import { computeWeightedScore } from '@/shared/utils/weighted-score';
+
 export type SkillDomain = 'reading' | 'listening' | 'grammar' | 'vocabulary' | 'writing' | 'integrated';
 
 export type DifficultyLevel = 'remedial' | 'foundation' | 'core' | 'challenge' | 'stretch';
@@ -125,15 +127,8 @@ export interface AdaptiveContext {
 }
 
 export function calculateAdaptiveScore(dims: Omit<AdaptiveDimensions, 'overall'>): AdaptiveDimensions {
-  const overall = Math.round(
-    dims.difficultyMatching * ADAPTIVE_WEIGHTS.difficultyMatching +
-    dims.weakSkillCoverage * ADAPTIVE_WEIGHTS.weakSkillCoverage +
-    dims.learningProgression * ADAPTIVE_WEIGHTS.learningProgression +
-    dims.variety * ADAPTIVE_WEIGHTS.variety +
-    dims.studentConfidence * ADAPTIVE_WEIGHTS.studentConfidence +
-    dims.pedagogicalBalance * ADAPTIVE_WEIGHTS.pedagogicalBalance,
-  );
-  return { ...dims, overall: Math.max(0, Math.min(100, overall)) };
+  const overall = computeWeightedScore(dims as Record<string, number>, ADAPTIVE_WEIGHTS as Record<string, number>);
+  return { ...dims, overall };
 }
 
 export function determineAdaptiveDecision(score: number): AdaptiveDecision {

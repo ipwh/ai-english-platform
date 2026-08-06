@@ -3,8 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM, sanitizeForAI } from '@/modules/ai/services/ai-service';
-import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
+import { callLLM, sanitizeForAI, HALLUCINATION_GUARD } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 

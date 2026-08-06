@@ -6,8 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { answerStudyHelp } from '@/modules/ai/services/ai-service';
-import type { StudyHelpInput } from '@/modules/ai/services/ai-service';
+import { answerStudyHelp } from '@/modules/ai';
+import type { StudyHelpInput } from '@/modules/ai';
 
 // GET — Retrieve conversation history
 // Currently managed client-side via localStorage. Server endpoint exists for

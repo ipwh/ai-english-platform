@@ -160,12 +160,10 @@ ${input.questionType === 'error-correction' ? `⚠️ 改錯題特別說明：�
     { temperature: 0.3, maxTokens: 2048, jsonMode: true, userId: input.userId }
   );
 
-  const analysis = parseAIJSON<AnswerAnalysis>(result);
-  const validated = validateAIResponse(AnswerAnalysisSchema, analysis);
-  if (!validated.success) throw new Error(validated.error);
+  const validated = parseAndValidateAIResponse(result, AnswerAnalysisSchema);
 
   if (input.questionType === 'mc') {
-    validated.data.score = validated.data.isCorrect ? 100 : 0;
+    validated.score = validated.isCorrect ? 100 : 0;
   }
 
   return validated.data;

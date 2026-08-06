@@ -116,6 +116,10 @@ export interface EvaluationOutput {
   missingKeywords: string[];
   triggeredRules: string[];
   details: Record<string, unknown>;
+  /** Whether embedding-based similarity was used to boost the score */
+  embeddingUsed?: boolean;
+  /** The raw embedding similarity score (0-1), if used */
+  embeddingScore?: number;
 }
 
 /** Result of a single evaluation rule */

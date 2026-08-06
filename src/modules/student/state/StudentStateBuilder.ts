@@ -245,8 +245,8 @@ export class StudentStateBuilder {
 
   private async loadMemory(studentId: string): Promise<StudentMemory | null> {
     try {
-      const { memoryEngine } = await import('@/modules/learning/memory/services/memory-engine');
-      return await memoryEngine.get(studentId);
+      const { memoryService } = await import('@/modules/learning/memory/memory-service-simple');
+      return await memoryService.get(studentId);
     } catch (err) { logger.error({ module: 'student-state', studentId, error: String(err) }, 'loadMemory failed'); return null; }
   }
 

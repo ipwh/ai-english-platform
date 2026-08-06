@@ -1,10 +1,11 @@
 // ============================================
-// Sprint 105: Semantic Comparator
-// Heuristic-based semantic comparison without LLM.
-// Uses token overlap, keyword similarity, normalized phrase comparison.
+// Sprint 111: Semantic Comparator with Embedding Fallback
+// When keyword matching gives a low score, use embedding similarity
+// to detect good paraphrasing. Rewards students who rephrase correctly.
 // ============================================
 
 import { areSynonyms } from './accepted-answer';
+import { logger } from '@/shared/logger/logger';
 
 /** Token-based similarity score between two normalized strings. */
 export function computeSemanticScore(
@@ -58,13 +59,95 @@ export function computeSemanticScore(
   // Character-level similarity (normalized Levenshtein)
   const charSim = computeCharSimilarity(studentAnswer, referenceAnswer);
 
-  // Weighted combination
-  return (
+  // Weighted combination (keyword-based)
+  const keywordScore =
     exactScore * 0.35 +
     synonymScore * 0.25 +
     bigramScore * 0.15 +
-    charSim * 0.25
+    charSim * 0.25;
+
+  return Math.round(keywordScore * 100) / 100;
+}
+
+/**
+ * Semantic score WITH embedding fallback.
+ * When the keyword-based score is low (< 0.5), this function
+ * attempts embedding-based similarity to detect good paraphrasing.
+ *
+ * Educational benefit: Students who use different wording to express
+ * the same meaning should NOT lose marks. This rewards paraphrasing,
+ * which is a key DSE Paper 1 skill.
+ *
+ * Returns: { score, usedEmbedding, embeddingScore }
+ */
+export async function computeSemanticScoreWithEmbedding(
+  studentAnswer: string,
+  referenceAnswer: string,
+): Promise<{ score: number; usedEmbedding: boolean; embeddingScore?: number }> {
+  // First, compute the keyword-based score
+  const keywordScore = computeSemanticScore(studentAnswer, referenceAnswer);
+
+  // If keyword score is good enough, return it directly (fast path)
+  if (keywordScore >= 0.65) {
+    return { score: keywordScore, usedEmbedding: false };
+  }
+
+  // If keyword score is very low, try embedding similarity
+  if (keywordScore < 0.5) {
+    try {
+      const embeddingScore = await computeEmbeddingSimilarity(studentAnswer, referenceAnswer);
+
+      // If embedding score is high, the student likely paraphrased well
+      if (embeddingScore > 0.80) {
+        // Boost the score significantly — good paraphrase detected
+        const boostedScore = Math.max(keywordScore, embeddingScore * 0.9);
+        logger.info({
+          module: 'semantic-comparator',
+          keywordScore,
+          embeddingScore,
+          boostedScore: Math.round(boostedScore * 100) / 100,
+        }, 'Embedding fallback: detected good paraphrase');
+        return {
+          score: Math.round(boostedScore * 100) / 100,
+          usedEmbedding: true,
+          embeddingScore,
+        };
+      }
+
+      if (embeddingScore > 0.65) {
+        // Moderate embedding match — partial boost
+        const blendedScore = keywordScore * 0.4 + embeddingScore * 0.6;
+        return {
+          score: Math.round(blendedScore * 100) / 100,
+          usedEmbedding: true,
+          embeddingScore,
+        };
+      }
+    } catch (err) {
+      // Embedding service unavailable — fall back to keyword score silently
+      logger.warn({
+        module: 'semantic-comparator',
+        error: String(err),
+      }, 'Embedding fallback failed, using keyword score');
+    }
+  }
+
+  return { score: keywordScore, usedEmbedding: false };
+}
+
+/** Compute cosine similarity between two texts using Vertex AI embeddings. */
+async function computeEmbeddingSimilarity(textA: string, textB: string): Promise<number> {
+  // Lazy import to avoid loading embeddings module when not needed
+  const { getEmbedding, cosineSimilarity } = await import(
+    '@/modules/ai/services/vertex-embeddings'
   );
+
+  const [embA, embB] = await Promise.all([
+    getEmbedding(textA),
+    getEmbedding(textB),
+  ]);
+
+  return cosineSimilarity(embA, embB);
 }
 
 /** Compute keyword coverage score. */

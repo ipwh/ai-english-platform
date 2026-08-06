@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { generateQuestions } from '@/modules/ai/services/ai-service';
+import { generateQuestions } from '@/modules/ai';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
 import { findTodaySession, createPracticeSession } from '@/modules/student';

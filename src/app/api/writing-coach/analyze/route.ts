@@ -1,11 +1,11 @@
-// Sprint 36: POST /api/writing-coach/analyze
-// Formula-based writing analysis: 8 dimensions + band prediction + checklist
+// Sprint 111: POST /api/writing-coach/analyze
+// Now uses AI-powered WritingCoachService for deep analysis
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
 import { writingCoachV2Schema } from '@/modules/writing-coach/schemas';
-import { analyzeEssay } from '@/modules/writing-coach/services/writing-coach-heuristic';
+import { writingCoachService } from '@/modules/writing-coach/services/writing-coach-service';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -26,7 +26,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const result = analyzeEssay(parsed);
+    // Use AI-powered analysis
+    const essay = {
+      studentId: parsed.studentId,
+      essayId: parsed.essayId,
+      title: parsed.title,
+      content: parsed.text,
+      textType: parsed.textType || 'essay',
+      gradeLevel: 'S4',
+      wordCount: parsed.text.split(/\s+/).length,
+      submittedAt: new Date().toISOString(),
+    };
+
+    const result = await writingCoachService.analyzeEssay(essay);
 
     return NextResponse.json(result);
   } catch (err: unknown) {

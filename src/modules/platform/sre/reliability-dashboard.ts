@@ -13,18 +13,48 @@ import { getQualityMetrics } from '@/modules/ai/quality';
 import { getRepairMetrics, getRepairHistory } from '@/modules/ai/quality/repair';
 import { getEvaluationMetrics } from '@/modules/ai/evaluation';
 import { getAssessmentMetrics } from '@/modules/ai/assessment';
-import { getOptimizationMetrics } from '@/modules/ai/optimization';
 import { getPromptMetrics } from '@/modules/ai/prompt-intelligence';
 import {
   getFeedbackMetrics, getFeedbackEventCount, detectPatterns,
   getKnowledgeState, getLearningHistory, generateFeedbackReport,
 } from '@/modules/ai/prompt-intelligence/feedback';
-import { getCalibrationMetrics } from '@/modules/ai/calibration';
-import { getFairnessMetrics } from '@/modules/ai/fairness';
 import { getQuestionQualityMetrics } from '@/modules/ai/question-quality';
 import { getAdaptiveMetrics } from '@/modules/ai/adaptive';
 import { getHumanReviewMetrics } from '@/modules/ai/human-review';
 import { getLayoutMetrics } from '@/modules/reading/layout';
+
+// ============================================
+// Stubs for deprecated modules (calibration, fairness, optimization)
+// These modules are not used in runtime AI pipelines for single-school deployment.
+// Stubs preserve the JSON structure of getFullRuntimeReport() for API consumers.
+// ============================================
+
+function getCalibrationMetricsStub() {
+  return {
+    totalCalibrations: 0, totalQuestions: 0,
+    avgCalibrationScore: 0, avgAnswerLength: 0, avgExplanationLength: 0,
+    totalChanges: 0, mostCommonRule: null,
+    improvementRate: 0, ruleStatistics: [],
+  };
+}
+
+function getFairnessMetricsStub() {
+  return {
+    totalEvaluations: 0, avgScore: 0, avgConfidence: 0,
+    correctRate: 0, acceptRate: 0, partialRate: 0, incorrectRate: 0,
+    falseNegativeReduction: 100, partialCreditFrequency: 0,
+    mostTriggeredRule: null, ruleStatistics: [],
+  };
+}
+
+function getOptimizationMetricsStub() {
+  return {
+    totalEvaluations: 0, approved: 0, warned: 0, optimized: 0,
+    regenLater: 0, rejected: 0, repairs: 0,
+    avgScore: 0, avgLatencyMs: 0,
+    ruleStats: [], topOptimizations: [],
+  };
+}
 
 export function getReliabilityDashboard(): PlatformReliabilityDashboard {
   const reliability = computeReliabilityScore();
@@ -62,7 +92,7 @@ export function getFullRuntimeReport() {
     },
     evaluation: getEvaluationMetrics(),
     assessment: getAssessmentMetrics(),
-    optimization: getOptimizationMetrics(),
+    optimization: getOptimizationMetricsStub(),
     promptIntelligence: getPromptMetrics(),
     feedback: {
       metrics: getFeedbackMetrics(),
@@ -73,10 +103,10 @@ export function getFullRuntimeReport() {
       report: 'available (generateFeedbackReport)',
     },
     calibration: {
-      metrics: getCalibrationMetrics(),
+      metrics: getCalibrationMetricsStub(),
     },
     fairness: {
-      metrics: getFairnessMetrics(),
+      metrics: getFairnessMetricsStub(),
     },
     questionQuality: {
       metrics: getQuestionQualityMetrics(),

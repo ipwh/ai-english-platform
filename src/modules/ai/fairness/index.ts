@@ -1,3 +1,4 @@
+// @deprecated Sprint 111: Not needed for single-school. Teacher reviews all content.
 // ============================================
 // Sprint 112: Grading Fairness — Barrel Export
 // ============================================
