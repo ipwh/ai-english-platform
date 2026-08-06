@@ -45,7 +45,7 @@ export async function analyzeProgress(input: AnalyzeProgressInput): Promise<Prog
   const recentDesc = input.recentPerformance.map(p => `${p.date}: 正確率${p.accuracy}%, ${p.questionsDone}題`).join('\n');
   const userPrompt = buildProgressAnalysisUserPrompt({ studentLevel: input.studentLevel, overallAccuracy: input.overallAccuracy, streakDays: input.streakDays, weakSkillsDesc, recentDesc });
   return executeAI({
-    context: { feature: 'Learning', useCase: 'AnalyzeProgress', promptName: 'ProgressAnalysis' },
+    context: { feature: 'Learning', useCase: 'AnalyzeProgress', promptName: 'ProgressAnalysis', promptVersion: 'v1' },
     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
     options: { temperature: 0.6, maxTokens: 2048, jsonMode: true, timeoutMs: 12000, userId: input.userId },
     schema: ProgressAnalysisSchema,

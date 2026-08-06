@@ -9,25 +9,35 @@ import { getPerformanceBaselineReport } from '@/modules/ai/services/performance-
 import { detectRegressions } from '@/modules/ai/runtime/regression-detector';
 import { detectSaturation } from '@/modules/ai/runtime/saturation-detector';
 import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
-import { getQualityMetrics } from '@/modules/ai/quality';
-import { getRepairMetrics, getRepairHistory } from '@/modules/ai/quality/repair';
 import { getEvaluationMetrics } from '@/modules/ai/evaluation';
 import { getAssessmentMetrics } from '@/modules/ai/assessment';
-import { getPromptMetrics } from '@/modules/ai/prompt-intelligence';
-import {
-  getFeedbackMetrics, getFeedbackEventCount, detectPatterns,
-  getKnowledgeState, getLearningHistory, generateFeedbackReport,
-} from '@/modules/ai/prompt-intelligence/feedback';
-import { getQuestionQualityMetrics } from '@/modules/ai/question-quality';
-import { getAdaptiveMetrics } from '@/modules/ai/adaptive';
-import { getHumanReviewMetrics } from '@/modules/ai/human-review';
 import { getLayoutMetrics } from '@/modules/reading/layout';
 
 // ============================================
-// Stubs for deprecated modules (calibration, fairness, optimization)
-// These modules are not used in runtime AI pipelines for single-school deployment.
-// Stubs preserve the JSON structure of getFullRuntimeReport() for API consumers.
+// Stubs for deleted modules
+// These modules (quality, prompt-intelligence, question-quality, adaptive,
+// human-review, calibration, fairness, optimization) were speculative
+// and never had runtime consumers. Stubs preserve the JSON structure
+// of getFullRuntimeReport() for API consumers.
 // ============================================
+
+function getQualityMetricsStub() {
+  return { totalQuestions: 0, avgScore: 0, scoreDistribution: {}, dimensionScores: {}, trendData: [] };
+}
+function getRepairMetricsStub() { return { totalRepairs: 0, successRate: 0, avgLatencyMs: 0 }; }
+function getRepairHistoryStub(_limit?: number) { return []; }
+function getPromptMetricsStub() {
+  return { totalPrompts: 0, avgLatencyMs: 0, avgTokens: 0, responseCount: 0, errorRate: 0, cacheHitRate: 0, promptVersionDistribution: {} };
+}
+function getFeedbackMetricsStub() { return { totalFeedback: 0, positiveRate: 0, negativeRate: 0, avgRating: 0 }; }
+function getFeedbackEventCountStub() { return 0; }
+function detectPatternsStub() { return []; }
+function getKnowledgeStateStub() { return {}; }
+function getLearningHistoryStub(_limit?: number) { return []; }
+function generateFeedbackReportStub() { return 'No feedback data available.'; }
+function getQuestionQualityMetricsStub() { return { totalQuestions: 0, approved: 0, warned: 0, rejected: 0, repaired: 0, avgScore: 0 }; }
+function getAdaptiveMetricsStub() { return { totalSessions: 0, avgMasteryGain: 0, recommendationAccuracy: 0 }; }
+function getHumanReviewMetricsStub() { return { totalReviews: 0, pending: 0, approved: 0, rejected: 0, avgReviewTimeMs: 0 }; }
 
 function getCalibrationMetricsStub() {
   return {
@@ -85,22 +95,22 @@ export function getFullRuntimeReport() {
     errorBudget: getAllBudgets(),
     incidents: classifyIncidents(),
     dashboard: getReliabilityDashboard(),
-    quality: getQualityMetrics(),
+    quality: getQualityMetricsStub(),
     repair: {
-      metrics: getRepairMetrics(),
-      history: getRepairHistory(20),
+      metrics: getRepairMetricsStub(),
+      history: getRepairHistoryStub(20),
     },
     evaluation: getEvaluationMetrics(),
     assessment: getAssessmentMetrics(),
     optimization: getOptimizationMetricsStub(),
-    promptIntelligence: getPromptMetrics(),
+    promptIntelligence: getPromptMetricsStub(),
     feedback: {
-      metrics: getFeedbackMetrics(),
-      history: getFeedbackEventCount(),
-      patterns: detectPatterns().length,
-      knowledge: getKnowledgeState(),
-      learning: getLearningHistory(20),
-      report: 'available (generateFeedbackReport)',
+      metrics: getFeedbackMetricsStub(),
+      history: getFeedbackEventCountStub(),
+      patterns: detectPatternsStub().length,
+      knowledge: getKnowledgeStateStub(),
+      learning: getLearningHistoryStub(20),
+      report: 'available (generateFeedbackReportStub)',
     },
     calibration: {
       metrics: getCalibrationMetricsStub(),
@@ -109,13 +119,13 @@ export function getFullRuntimeReport() {
       metrics: getFairnessMetricsStub(),
     },
     questionQuality: {
-      metrics: getQuestionQualityMetrics(),
+      metrics: getQuestionQualityMetricsStub(),
     },
     adaptive: {
-      metrics: getAdaptiveMetrics(),
+      metrics: getAdaptiveMetricsStub(),
     },
     humanReview: {
-      metrics: getHumanReviewMetrics(),
+      metrics: getHumanReviewMetricsStub(),
     },
     readingLayout: {
       metrics: getLayoutMetrics(),

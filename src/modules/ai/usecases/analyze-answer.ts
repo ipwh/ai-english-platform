@@ -1,8 +1,7 @@
 // Sprint 92: Answer Analysis Use Case — canonical implementation
 // Physically extracted from ai-service.ts
 
-import { callLLM } from '../services/llm-call';
-import { parseAndValidateAIResponse } from '../services/response-pipeline';
+import { executeAI } from '../services/ai-execution';
 import { sanitizeForAI } from '../services/sanitizer';
 import { AnswerAnalysisSchema } from '../schemas/ai-schema';
 import { HALLUCINATION_GUARD } from '../services/hallucination-guard';
@@ -152,15 +151,15 @@ ${input.questionType === 'error-correction' ? `⚠️ 改錯題特別說明：�
 
 請分析學生的答案。`;
 
-  const result = await callLLM(
-    [
+  const validated = await executeAI({
+    context: { feature: 'Reading', useCase: 'AnalyzeAnswer', promptName: 'AnswerAnalysis', promptVersion: 'v1' },
+    messages: [
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    { temperature: 0.3, maxTokens: 2048, jsonMode: true, userId: input.userId }
-  );
-
-  const validated = parseAndValidateAIResponse(result, AnswerAnalysisSchema);
+    options: { temperature: 0.3, maxTokens: 2048, jsonMode: true, userId: input.userId },
+    schema: AnswerAnalysisSchema,
+  });
 
   if (input.questionType === 'mc') {
     validated.score = validated.isCorrect ? 100 : 0;

@@ -1,5 +1,5 @@
 // Sprint 94: Writing Prompt Generation Use Case
-import { callLLM } from '../services/llm-call';
+import { executeAIRaw } from '../services/ai-execution';
 import { DSE_TEXT_TYPE_GUIDE } from '../services/dse-writing-data';
 import { getDSEEmpiricalTopics, validateDSEtopicMatch } from '../services/dse-topics';
 import { selectDiverseTopics, buildDiversityInstruction, recordTopicUsage } from '../services/topic-selector';
@@ -64,8 +64,11 @@ CRITICAL: Output ONLY the writing prompt. No headings, no labels. Just the compl
 
   const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}.${input.difficulty ? ` Difficulty: ${input.difficulty}.` : ''} Word limit: ${input.wordLimit} words. Required topic: "${diverseTopics[0]}".`;
 
-  const result = await callLLM([{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000, userId: input.userId });
-  const prompt = result.trim();
+  const prompt = await executeAIRaw({
+    context: { feature: 'Writing', useCase: 'GenerateWritingPrompt', promptName: 'WritingPromptGeneration', promptVersion: 'v1' },
+    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+    options: { temperature: 0.8, maxTokens: 1024, timeoutMs: 25000, userId: input.userId },
+  });
 
   // Record the topic as used
   if (input.userId && diverseTopics[0]) {

@@ -1,73 +1,40 @@
-// Sprint 96: Benchmark Types — shared interfaces for AI benchmarking
-
-export type BenchmarkScenarioName =
-  | 'generateQuestions'
-  | 'analyzeAnswer'
-  | 'analyzeWriting'
-  | 'explainMistake';
+// ============================================
+// Benchmark Types — shared types for AI benchmarking
+// Used by: scripts/benchmark-ai.ts (CLI tool)
+// Classification: TOOLING — developer benchmarking infrastructure
+// ============================================
 
 export interface BenchmarkScenario {
-  name: BenchmarkScenarioName;
+  name: string;
   description: string;
-  input: Record<string, unknown>;
-  /** Number of warm-up runs (excluded from metrics) */
-  warmupRuns: number;
-  /** Number of measured runs */
-  measuredRuns: number;
+  category: 'latency' | 'quality' | 'reliability' | 'cost';
+  iterations: number;
+  warmupIterations?: number;
 }
 
 export interface BenchmarkResult {
-  scenario: BenchmarkScenarioName;
-  runs: RunMetrics[];
-  aggregate: AggregateMetrics;
-  providerDistribution: Record<string, number>;
-}
-
-export interface RunMetrics {
-  runIndex: number;
-  latencyMs: number;
-  tokenUsage: { input: number; output: number; total: number };
-  retryCount: number;
-  providerUsed: string;
-  fallbackCount: number;
-  cacheHit: boolean;
-  jsonRepairCount: number;
-  validationFailed: boolean;
-  success: boolean;
-  error?: string;
-}
-
-export interface AggregateMetrics {
-  count: number;
+  scenario: string;
+  category: string;
+  iterations: number;
+  totalDurationMs: number;
+  avgDurationMs: number;
+  minDurationMs: number;
+  maxDurationMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
   successCount: number;
   failureCount: number;
-  p50LatencyMs: number;
-  p90LatencyMs: number;
-  p95LatencyMs: number;
-  avgLatencyMs: number;
-  minLatencyMs: number;
-  maxLatencyMs: number;
-  avgTokens: { input: number; output: number; total: number };
-  totalRetries: number;
-  totalFallbacks: number;
-  cacheHitRatio: number;
-  jsonRepairRate: number;
-  validationFailureRate: number;
+  errors: string[];
 }
 
-export interface BenchmarkSuite {
-  suiteName: string;
-  startedAt: string;
-  completedAt?: string;
+export interface BenchmarkReport {
+  timestamp: string;
+  totalScenarios: number;
   results: BenchmarkResult[];
-  summary: BenchmarkSummary;
-}
-
-export interface BenchmarkSummary {
-  totalRuns: number;
-  totalFailures: number;
-  overallP50Ms: number;
-  overallP95Ms: number;
-  providerComparison: Record<string, { calls: number; avgMs: number; fallbackRate: number }>;
-  scenarioComparison: Record<string, { avgMs: number; successRate: number }>;
+  summary: {
+    totalDurationMs: number;
+    overallSuccessRate: number;
+    scenariosByCategory: Record<string, number>;
+  };
 }

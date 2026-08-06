@@ -1,40 +1,39 @@
-// Sprint 96: Benchmark Report — generates Markdown summaries from benchmark suites
-import type { BenchmarkSuite, BenchmarkResult } from './benchmark-types';
+// ============================================
+// Benchmark Report — result formatting
+// Used by: scripts/benchmark-ai.ts (CLI tool)
+// Classification: TOOLING — developer benchmarking infrastructure
+// ============================================
 
-export function generateMarkdownReport(suite: BenchmarkSuite): string {
+import type { BenchmarkResult, BenchmarkReport } from './benchmark-types';
+
+export function generateMarkdownReport(report: BenchmarkReport): string {
   const lines: string[] = [
-    `# AI Benchmark Report: ${suite.suiteName}`,
+    `# AI Benchmark Report`,
+    `**Generated**: ${report.timestamp}`,
+    `**Scenarios**: ${report.totalScenarios}`,
     '',
-    `- **Started**: ${suite.startedAt}`,
-    `- **Completed**: ${suite.completedAt || 'N/A'}`,
-    `- **Total Runs**: ${suite.summary.totalRuns}`,
-    `- **Total Failures**: ${suite.summary.totalFailures}`,
-    `- **Overall P50**: ${suite.summary.overallP50Ms}ms`,
-    `- **Overall P95**: ${suite.summary.overallP95Ms}ms`,
-    '',
-    '## Scenario Comparison',
-    '',
-    '| Scenario | Avg Latency | Success Rate |',
-    '|----------|------------|--------------|',
+    '| Scenario | Category | Avg (ms) | P95 (ms) | Success Rate |',
+    '|----------|----------|----------|----------|-------------|',
   ];
 
-  for (const [name, comp] of Object.entries(suite.summary.scenarioComparison)) {
-    lines.push(`| ${name} | ${comp.avgMs}ms | ${(comp.successRate * 100).toFixed(0)}% |`);
+  for (const r of report.results) {
+    const rate = r.iterations > 0
+      ? `${Math.round((r.successCount / r.iterations) * 100)}%`
+      : 'N/A';
+    lines.push(
+      `| ${r.scenario} | ${r.category} | ${r.avgDurationMs.toFixed(1)} | ${r.p95Ms.toFixed(1)} | ${rate} |`,
+    );
   }
 
-  lines.push('', '## Provider Comparison', '', '| Provider | Calls | Avg Latency | Fallback Rate |', '|----------|-------|-------------|---------------|');
-  for (const [name, comp] of Object.entries(suite.summary.providerComparison)) {
-    lines.push(`| ${name} | ${comp.calls} | ${comp.avgMs}ms | ${(comp.fallbackRate * 100).toFixed(0)}% |`);
-  }
-
-  lines.push('', '## Per-Scenario Details', '');
-  for (const result of suite.results) {
-    lines.push(`### ${result.scenario}`, '', `- P50: ${result.aggregate.p50LatencyMs}ms`, `- P95: ${result.aggregate.p95LatencyMs}ms`, `- Avg: ${result.aggregate.avgLatencyMs}ms`, `- Success: ${result.aggregate.successCount}/${result.aggregate.count}`, `- Avg Tokens: ${result.aggregate.avgTokens.total}`, `- Retries: ${result.aggregate.totalRetries}`, '');
-  }
+  lines.push(
+    '',
+    `**Overall Success Rate**: ${(report.summary.overallSuccessRate * 100).toFixed(1)}%`,
+    `**Total Duration**: ${report.summary.totalDurationMs}ms`,
+  );
 
   return lines.join('\n');
 }
 
-export function generateJsonReport(suite: BenchmarkSuite): string {
-  return JSON.stringify(suite, null, 2);
+export function generateJsonReport(report: BenchmarkReport): string {
+  return JSON.stringify(report, null, 2);
 }

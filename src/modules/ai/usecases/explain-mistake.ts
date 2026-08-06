@@ -59,7 +59,7 @@ export async function explainMistake(input: ExplainMistakeInput): Promise<Mistak
   });
 
   return executeAI({
-    context: { feature: 'Learning', useCase: 'ExplainMistake', promptName: 'MistakeExplanation' },
+    context: { feature: 'Learning', useCase: 'ExplainMistake', promptName: 'MistakeExplanation', promptVersion: 'v1' },
     messages: [
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },

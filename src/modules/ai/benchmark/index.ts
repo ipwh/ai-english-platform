@@ -1,8 +1,15 @@
-// Sprint 96: AI Benchmark Framework — barrel exports
+// ============================================
+// Benchmark Module — barrel export
+// Classification: TOOLING — developer benchmarking infrastructure
+// Used by: scripts/benchmark-ai.ts (CLI tool)
+// ============================================
+
 export type {
-  BenchmarkScenario, BenchmarkScenarioName, BenchmarkResult,
-  RunMetrics, AggregateMetrics, BenchmarkSuite, BenchmarkSummary,
+  BenchmarkScenario,
+  BenchmarkResult,
+  BenchmarkReport,
 } from './benchmark-types';
+
 export { BENCHMARK_SCENARIOS } from './benchmark-scenarios';
-export { runBenchmarkScenario, runBenchmarkSuite } from './benchmark-runner';
+export { runBenchmarkSuite } from './benchmark-runner';
 export { generateMarkdownReport, generateJsonReport } from './benchmark-report';

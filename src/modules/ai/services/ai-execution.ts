@@ -1,19 +1,28 @@
 // ============================================
 // AI Execution Pipeline — callLLM + parseAndValidate in one call
-// Replaces the duplicated pattern in simple use cases:
 //
-//   const result = await callLLM([...messages], {...options});
-//   return parseAndValidateAIResponse(result, schema);
+// Now delegates to the composable middleware pipeline:
 //
-// With:
-//   return executeAI({ messages, options, schema });
+//   executeAI()
+//       ↓
+//   AIExecutionPipeline.run(context)
+//       ↓
+//   CallLLMMiddleware  → context.rawResponse
+//       ↓
+//   ParseMiddleware    → context.parsed
+//       ↓
+//   ValidationMiddleware → context.result
+//       ↓
+//   return context.result as T
+//
 // ============================================
 
 import type { ZodSchema } from 'zod';
 import type { ChatMessage, LLMCallOptions } from '@/modules/ai/providers';
 import type { ExecutionContext } from './execution-context';
-import { callLLM } from './llm-call';
-import { parseAndValidateAIResponse } from './response-pipeline';
+import { AIExecutionPipeline } from './middleware/pipeline';
+import { CallLLMMiddleware, ParseMiddleware, ValidationMiddleware } from './middleware/built-in';
+import type { AIExecutionContext } from './middleware/middleware';
 
 export interface ExecuteAIOptions<T> {
   /** Execution metadata for future telemetry/tracing */
@@ -26,8 +35,16 @@ export interface ExecuteAIOptions<T> {
   schema: ZodSchema<T>;
 }
 
+// Default pipeline — CallLLM → Parse → Validate
+const defaultPipeline = new AIExecutionPipeline([
+  CallLLMMiddleware,
+  ParseMiddleware,
+  ValidationMiddleware,
+]);
+
 /**
- * Execute a complete AI call: LLM → parse → validate → return typed result.
+ * Execute a complete AI call through the middleware pipeline.
+ * Byte-identical to the previous inline implementation.
  *
  * @example
  * const analysis = await executeAI({
@@ -43,6 +60,57 @@ export interface ExecuteAIOptions<T> {
 export async function executeAI<T>(
   opts: ExecuteAIOptions<T>,
 ): Promise<T> {
-  const result = await callLLM(opts.messages, opts.options);
-  return parseAndValidateAIResponse(result, opts.schema);
+  const context: AIExecutionContext = {
+    messages: opts.messages,
+    options: opts.options,
+    schema: opts.schema as ZodSchema,
+    executionContext: opts.context,
+    rawResponse: null,
+    parsed: null,
+    validated: null,
+    result: null,
+  };
+
+  await defaultPipeline.run(context);
+
+  return context.result as T;
+}
+
+// ============================================
+// executeAIRaw — for string-output use cases
+// ============================================
+
+export interface ExecuteAIRawOptions {
+  /** Execution metadata */
+  context: ExecutionContext;
+  /** Chat messages */
+  messages: ChatMessage[];
+  /** LLM call options */
+  options?: LLMCallOptions;
+}
+
+/** Pipeline with only CallLLM — no parsing, no validation */
+const rawPipeline = new AIExecutionPipeline([CallLLMMiddleware]);
+
+/**
+ * Execute an AI call that returns raw text (not JSON).
+ * Used by writing-prompt and writing-outline use cases.
+ */
+export async function executeAIRaw(
+  opts: ExecuteAIRawOptions,
+): Promise<string> {
+  const context: AIExecutionContext = {
+    messages: opts.messages,
+    options: opts.options,
+    schema: undefined as unknown as ZodSchema,
+    executionContext: opts.context,
+    rawResponse: null,
+    parsed: null,
+    validated: null,
+    result: null,
+  };
+
+  await rawPipeline.run(context);
+
+  return context.rawResponse ?? '';
 }

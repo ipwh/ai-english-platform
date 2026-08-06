@@ -2,7 +2,6 @@
 // Sprint 106: Assessment Types
 // ============================================
 
-import type { QualityRule } from '../quality/quality-types';
 import { computeWeightedScore } from '@/shared/utils/weighted-score';
 
 /** Assessment decision for a generated question */

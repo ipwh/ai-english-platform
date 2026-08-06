@@ -1,6 +1,5 @@
 // Sprint 94: Word Analysis Use Case
-import { callLLM } from '../services/llm-call';
-import { parseAndValidateAIResponse } from '../services/response-pipeline';
+import { executeAI } from '../services/ai-execution';
 import { sanitizeForAI } from '../services/sanitizer';
 import { HALLUCINATION_GUARD } from '../services/hallucination-guard';
 
@@ -35,10 +34,13 @@ export async function analyzeWord(input: AnalyzeWordInput): Promise<import('@/mo
 - collocations 格式: "動詞 + 名詞" 或常見片語
 - 不要輸出 markdown，只輸出純 JSON`;
 
-  const result = await callLLM(
-    [{ role: 'system', content: systemPrompt }, { role: 'user', content: `請分析以下英文單字：${word}\n學生年級：${gradeLevel}` }],
-    { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 10000, userId: input.userId }
-  );
-  const data = parseAndValidateAIResponse(result, WordAnalysisSchema);
-  return data;
+  return executeAI({
+    context: { feature: 'Vocabulary', useCase: 'AnalyzeWord', promptName: 'WordAnalysis', promptVersion: 'v1' },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `請分析以下英文單字：${word}\n學生年級：${gradeLevel}` },
+    ],
+    options: { temperature: 0.3, maxTokens: 1024, jsonMode: true, timeoutMs: 10000, userId: input.userId },
+    schema: WordAnalysisSchema,
+  });
 }

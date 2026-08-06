@@ -2,30 +2,25 @@
 
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
-> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [Certification](docs/architecture/architecture-certification.md)
-> **Status**: **v1.0 Release Candidate** ✅ | 119 Sprints | 61 test files | 1,375 tests | Architecture Score: **100/100** | AI Quality: **8.2/10**
+> **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
+> **Status**: **v1.0 Production Ready** ✅ | 120 Sprints | 60/61 test files pass | 1,317 tests | Architecture Score: **8.5/10** | AI Quality: **8.2/10**
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes → Facade → Usecase → Workflow → AI Pipeline → Provider Registry → 6 Providers
+Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+                 ├─ Prompts (PromptRegistry + builders)
+                 ├─ Providers (6-model chain + circuit-breaker)
+                 ├─ Services (RAG, TTS, evaluator)
+                 └─ Schemas (Zod validation)
 
-v1.0 Certified Architecture (22 modules, 113 architecture tests):
-  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-  │ Student  │ │ Learning │ │    AI    │ │ Platform │ │ Teacher  │
-  │ (CQRS)   │ │ Engine   │ │ (Facade) │ │ (SRE/Rel)│ │          │
-  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+Supporting modules:
+  student/ — mastery, profile (canonical owner)
+  learning/ — decisions, pipeline (canonical owner)
+  curriculum/ — HKDSE data (canonical owner)
+  adaptive-tutor/ — AdaptiveTutorEngine (canonical owner)
 
-AI Facade: 94-line pure delegation facade → 13 usecases → 13 workflows
-Runtime: Circuit breaker, execution policies, budget control, regression detection
-SRE: SLO tracking, error budgets, reliability scoring, incident classification
-Release: Feature flags, deployment validator, audit trail, rollout policies
-
-AI Quality Stack (Sprints 101-115, 14 new modules, 100% deterministic):
-  Prompt Intelligence → Calibration → Question Quality → Self Reflection →
-  Quality → Repair → Evaluation → Fairness → Assessment → Optimization →
-  Human Review → Adaptive Learning → Feedback Learning (closed loop)
-  All layers: Open/Closed, zero AI calls, zero Provider/Workflow/Prisma imports
+AI module: 13 directories, 127 files — single pipeline, single owner per responsibility
 ```
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)

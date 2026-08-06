@@ -14,9 +14,6 @@ import { learningDecisionEngine, LearningDecisionEngine } from './decisions/Lear
 export { executePipeline, learningDecisionEngine, LearningDecisionEngine };
 export type { AdaptiveLearningResult, PipelineInput, PipelineStage } from './types/adaptive-types';
 
-// Deprecated but kept for backward compat (wraps LearningDecisionEngine)
-export { learningEngine, LearningEngine } from './services/learning-engine';
-export type { StrategyDecision, LearningEngineInput } from './services/learning-engine';
 export { buildDSEAdaptivePath } from './services/dse-adaptive-path';
 export type { AdaptivePath, PathNode } from './services/dse-adaptive-path';
 

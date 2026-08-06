@@ -11,6 +11,14 @@ export const VALID_SPEAKERS = ['Woman', 'Man', 'Boy', 'Girl'] as const;
 export const VALID_SPEAKER_SET: Set<string> = new Set(VALID_SPEAKERS);
 export const SPEAKER_LINE_RE_STRICT = /^(Woman|Man|Boy|Girl)\s*:\s*(.+)$/i;
 
+/** Map single-letter abbreviations to full speaker labels */
+const SPEAKER_EXPANSION: Record<string, string> = {
+  w: 'Woman',
+  m: 'Man',
+  b: 'Boy',
+  g: 'Girl',
+};
+
 /**
  * Sanitize a single listening dialogue line.
  * Normalizes speaker label format without changing speaker identity.
@@ -28,8 +36,9 @@ export function sanitizeListeningLine(line: string): string {
   const rawSpeaker = looseMatch[1];
   const rest = cleaned.slice(looseMatch[0].length);
 
-  const normalized =
-    rawSpeaker.charAt(0).toUpperCase() + rawSpeaker.slice(1).toLowerCase();
+  // Expand single-letter abbreviations: W→Woman, M→Man, B→Boy, G→Girl
+  const normalized = SPEAKER_EXPANSION[rawSpeaker.toLowerCase()]
+    || (rawSpeaker.charAt(0).toUpperCase() + rawSpeaker.slice(1).toLowerCase());
 
   if (!rest.trim()) return '';
   return `${normalized}: ${rest.trim()}`;

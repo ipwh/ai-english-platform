@@ -834,13 +834,13 @@ describe('v13: AI Use Case Extraction (Sprint 92)', () => {
   it('explain-mistake.ts contains implementation (not just re-export)', () => {
     const content = readFileSync(join(USECASE_DIR, 'explain-mistake.ts'), 'utf-8');
     expect(content).toContain('export async function explainMistake');
-    expect(content).toContain("import { callLLM } from");
+    expect(content).toContain("import { executeAI } from");
   });
 
   it('analyze-answer.ts contains implementation (not just re-export)', () => {
     const content = readFileSync(join(USECASE_DIR, 'analyze-answer.ts'), 'utf-8');
     expect(content).toContain('export async function analyzeAnswer');
-    expect(content).toContain("import { callLLM } from");
+    expect(content).toContain("import { executeAI } from");
   });
 
   it('analyze-writing.ts contains implementation (not just re-export)', () => {

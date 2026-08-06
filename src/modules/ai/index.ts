@@ -150,6 +150,26 @@ import { experimentService as experimentEngine } from '@/modules/experiment/serv
 export { experimentEngine };
 
 // ============================================
+// Prompt Registry — centralized prompt discovery & versioning
+// ============================================
+import {
+  registerPrompt,
+  getPrompt,
+  listPrompts,
+} from '@/modules/ai/prompts/prompt-registry';
+export type { PromptDefinition } from '@/modules/ai/prompts/prompt-registry';
+export {
+  registerPrompt,
+  getPrompt,
+  listPrompts,
+};
+
+// ============================================
+// Student Enrichment — shared prompt enrichment from StudentProfile
+// ============================================
+export { buildStudentContextSection } from '@/modules/ai/services/student-enrichment';
+
+// ============================================
 // Unified Facade Object
 // ============================================
 

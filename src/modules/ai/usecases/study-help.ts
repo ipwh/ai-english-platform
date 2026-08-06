@@ -55,7 +55,7 @@ ${recentDesc || '暫無'}
 請根據以上學生背景，提供個人化建議。`;
 
   return executeAI({
-    context: { feature: 'Learning', useCase: 'StudyHelp', promptName: 'StudyHelpResponse' },
+    context: { feature: 'Learning', useCase: 'StudyHelp', promptName: 'StudyHelpResponse', promptVersion: 'v1' },
     messages: [{ role: 'system', content: systemPrompt + dseContextPrompt }, { role: 'user', content: userPrompt }],
     options: { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId },
     schema: StudyHelpResponseSchema,

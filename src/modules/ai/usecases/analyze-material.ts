@@ -35,7 +35,7 @@ ${input.content.slice(0, 8000)}
 請分析這份教材。`;
 
   return executeAI({
-    context: { feature: 'Reading', useCase: 'AnalyzeMaterial', promptName: 'MaterialAnalysis' },
+    context: { feature: 'Reading', useCase: 'AnalyzeMaterial', promptName: 'MaterialAnalysis', promptVersion: 'v1' },
     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
     options: { temperature: 0.4, maxTokens: 4096, jsonMode: true, userId: input.userId },
     schema: MaterialAnalysisSchema,
