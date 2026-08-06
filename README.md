@@ -3,25 +3,36 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | 120 Sprints | 60/61 test files pass | 1,317 tests | Architecture Score: **8.5/10** | AI Quality: **8.2/10**
+> **Status**: **v1.0 Production Ready** ✅ | 120 Sprints | 60/61 test files pass | 1,317 tests | Architecture Score: **8.5/10**
+> **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
+> **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
+> **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
 
 ## 🏗️ Architecture Overview
 
 ```
 Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw
-                 ├─ Prompts (PromptRegistry + builders)
-                 ├─ Providers (6-model chain + circuit-breaker)
-                 ├─ Services (RAG, TTS, evaluator)
+                 ├─ Prompts (PromptRegistry: 12 prompts)
+                 ├─ Providers (6-model chain + circuit-breaker + budget)
+                 ├─ Services (RAG, TTS, evaluator, enrichment)
                  └─ Schemas (Zod validation)
-
-Supporting modules:
-  student/ — mastery, profile (canonical owner)
-  learning/ — decisions, pipeline (canonical owner)
-  curriculum/ — HKDSE data (canonical owner)
-  adaptive-tutor/ — AdaptiveTutorEngine (canonical owner)
 
 AI module: 13 directories, 127 files — single pipeline, single owner per responsibility
 ```
+
+## 📋 Architecture Decisions
+
+| ADR | Decision | Status |
+|---|---|---|
+| ADR-001 | Single AI pipeline (`executeAI` + `executeAIRaw`) | ✅ Accepted |
+| ADR-002 | No application service layer (Route → Facade → UseCase) | ✅ Accepted |
+| ADR-003 | Hardcoded providers, not config-based | ✅ Accepted |
+| ADR-004 | RAG is optional enhancement (graceful degradation) | ✅ Accepted |
+| ADR-005 | Centralized schemas, not split by skill | ✅ Accepted |
+| ADR-006 | TypeScript prompt builders, not structured templates | ✅ Accepted |
+| ADR-007 | Hardcoded rule engines, not plugin-based | ✅ Accepted |
+| ADR-008 | LLM budget enforcement required | ✅ Accepted (d3e6f41) |
+| ADR-009 | Manual barrel exports, not auto-discovery | ✅ Accepted |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 

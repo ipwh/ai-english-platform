@@ -6,23 +6,28 @@ All notable changes to the AI English Platform are documented here.
 
 ## 2026-08-06 — Architecture Simplification (Sprint 120)
 
-### 🗑️ Dead Code Removal (181 files, ~8,000 LOC)
+### 🗑️ Dead Code Removal (181 files, ~18,000 LOC)
 - **Workflow system**: Deleted `ai/workflows/` (22 files) — old `WorkflowEngine` + `WorkflowRegistry`, never used by routes
 - **Old pipeline**: Deleted `ai/pipeline/` (4 files) — `executeAIPipeline()` replaced by `executeAI()`
 - **Unnecessary wrappers**: Deleted `ai/application/` (6 files) — `TutorFacade` + `StudentLearningService` added no value
 - **Duplicate domain models**: Deleted `ai/student/` (6 files) and `ai/curriculum/` (6 files) — duplicates of `src/modules/student/` and `src/modules/curriculum/`
 - **Duplicate adaptive engine**: Deleted `ai/adaptive/` (10 files) — duplicates `src/modules/adaptive-tutor/`
 - **Duplicate pipeline**: Deleted `ai/learning/` (2 files) — stages duplicated `src/modules/learning/`
-- **Speculative quality modules**: Deleted `ai/benchmark/`, `ai/calibration/`, `ai/fairness/`, `ai/human-review/`, `ai/optimization/`, `ai/prompt-intelligence/`, `ai/quality/`, `ai/question-quality/` (119 files) — zero runtime consumers
-- **Dead service files**: Deleted `writing-generation.ts`, `response-parser.ts`, `response-pipeline.ts`, `semantic-evaluator.ts`, `question-analysis.ts` (5 files)
-- **Dead runtime files**: Deleted `execution-policy.ts`, `timeout-policy.ts` (2 files)
-- **Deprecated engine**: Deleted `learning/services/learning-engine.ts` (deprecated wrapper for `LearningDecisionEngine`)
+- **Speculative quality modules**: Deleted 8 directories (119 files) — zero runtime consumers
+- **Dead service files**: Deleted 5 files (`writing-generation.ts`, `response-parser.ts`, `response-pipeline.ts`, `semantic-evaluator.ts`, `question-analysis.ts`)
+- **Dead runtime files**: Deleted 2 files (`execution-policy.ts`, `timeout-policy.ts`)
+- **Deprecated engine**: Deleted `learning/services/learning-engine.ts`
 - **Restored**: `ai/benchmark/` (5 files) — developer tooling used by `scripts/benchmark-ai.ts`
 
 ### 🔧 AI Pipeline Consolidation
 - **Single pipeline**: `executeAI()` for JSON output, `executeAIRaw()` for raw text — 11/13 use cases migrated
 - **2 justified exceptions**: `analyze-writing` (dual LLM), `generate-questions` (custom retry)
 - **`callLLM()`** remains internal — not called directly by any route
+
+### 🛡️ Production Safety (Sprint 120)
+- **LLM Budget Enforcement** (P1): `isBudgetExceeded()` now checked before every LLM call in `provider-registry.ts`. `recordTokenUsage()` tracks estimated tokens.
+- **Retry Pattern** (P2): Broadened to catch network errors (`ECONNRESET`, `ETIMEDOUT`, `ENOTFOUND`, `Unexpected token`)
+- **Integrated Skills Fix**: Note-taking guide hints must not reveal answers — added CRITICAL rule with correct/incorrect examples
 
 ### 🏗️ Architecture Achievements
 - **Single owner** for every responsibility: AdaptiveTutorEngine, LearningDecisionEngine, StudentMastery, Curriculum
@@ -35,7 +40,18 @@ All notable changes to the AI English Platform are documented here.
 - **`executeAIRaw()`**: Thin pipeline for string-output use cases (writing-prompt, writing-outline)
 - **`student-enrichment.ts`**: Shared helper for building student context from `StudentLearningProfile`
 - **`PromptRegistry`**: Centralized prompt discovery — 12 prompts registered
-- **`chatMessage` speaker normalization**: Single-letter abbreviations (W:/M:) expanded to full words for TTS
+- **Speaker normalization**: Single-letter abbreviations (W:/M:) expanded to full words for TTS
+
+### 📋 Architecture Decisions (9 ADRs)
+- ADR-001: Single AI pipeline
+- ADR-002: No application service layer
+- ADR-003: Hardcoded providers
+- ADR-004: RAG is optional enhancement
+- ADR-005: Centralized schemas
+- ADR-006: TypeScript prompt builders
+- ADR-007: Hardcoded rule engines
+- ADR-008: LLM budget enforcement
+- ADR-009: Manual barrel exports
 
 ---
 
