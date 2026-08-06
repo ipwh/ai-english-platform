@@ -4,6 +4,56 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-06 — Architecture Safety Refactor (Sprint 119)
+
+### 🛡️ AI Response Validation (100% Coverage)
+- **3 new Zod schemas**: `IntegratedSkillsTaskSchema`, `IntegratedSkillsAnalysisSchema`, `AdaptiveWritingGuideOutputSchema`
+- All 10/10 JSON-returning AI use cases now call `validateAIResponse()` after `parseAIJSON()`
+- Previously 3 use cases had only manual null checks — now have full structural validation
+
+### 🔧 AI Pipeline Consolidation
+- **`parseAndValidateAIResponse()`**: Combines `parseAIJSON()` + `validateAIResponse()` into one call. 9 use cases migrated.
+- **`executeAI()`**: Combines `callLLM()` + `parseAndValidateAIResponse()` into canonical execution pipeline. 5 use cases migrated.
+- **`ExecutionContext`**: Metadata (feature, useCase, promptName, promptVersion) carried through pipeline for future telemetry.
+- **`BaseRuleEngine`**: Shared base class for EvaluationEngine and AssessmentEngine — idempotent `init()` + abstract `registerRules()`.
+
+### 📊 Shared Weighted Score
+- **`computeWeightedScore()`**: Extracted from 7 duplicated `calculate*Score()` implementations across quality sub-modules.
+- Quality/calibration/fairness/optimization/adaptive/human-review/question-quality all use the shared helper.
+
+### 🏗️ AI Facade Migration
+- Facade expanded from 7 to 32+ exported symbols (all AI use case functions, types, hallucination guard, ai-evaluator, topic-selector)
+- **26 API routes** migrated from `ai/services/*` imports to `@/modules/ai` facade
+- 4 routes (rag, reading, speaking, tts) consolidated from 5 direct imports to 1 facade import each
+- Only remaining direct import: `vertex-embeddings` (raw GCP API — intentionally excluded from facade)
+
+### 🗑️ Deprecated Module Cleanup
+- `reliability-dashboard.ts`: Removed runtime deps on `calibration/`, `fairness/`, `optimization/`
+- Replaced with zero-value stubs — identical JSON output, no behavior change
+- 3 deprecated modules now have 0 external runtime consumers
+
+### 📝 CLO Rubric Consolidation
+- Created `prompts/writing/writing-rubric.ts` as single source of truth for HKDSE CLO (Content/Language/Organization) rubric
+- `v2.ts` imports from shared rubric instead of defining inline
+
+### 🧠 Writing Coach & Adaptive Tutor
+- **Unified `WritingCoachService`**: AI-powered analysis replaces 24 hardcoded regex patterns
+- Format validators (letter, speech, proposal, etc.) remain rule-based
+- Revision history moved into `WritingCoachService`
+- **`AdaptiveTutorEngine`**: Wired to AI question generation — `generate()` now async, returns actual exercises
+- **Embedding fallback**: `EvaluationEngine.evaluateWithEmbedding()` rewards good paraphrasing via Vertex AI similarity
+
+### 🔨 Code Quality
+- **Memory module**: Collapsed from 10 files (interface → db repo → cache decorator → engine → service → scoring → profile → influence → AI integration) to 1 `memory-service-simple.ts`
+- **`skillLabelZh()`**: Extracted from 2 duplicated copies (LearningDecisionEngine 45 entries + TeacherDecisionEngine 22 entries) into `shared/utils/skill-labels.ts`
+- **Enhanced writing prompt**: `writing/v2.ts` with HKDSE CLO rubric, HK student error patterns, evidence spans, bilingual feedback
+
+### 📊 Stats
+- 70 files changed (60 modified, 10 new)
+- 0 TypeScript errors
+- 0 API changes | 0 prompt changes | 0 behavior changes
+- ~200 lines duplicated code removed | ~1,950 lines dead code identified
+
 ## 2026-08-05 — Layout v5, Prompt Rules, Distribution Relax (Sprint 118)
 
 ### 🎨 Reading Layout v5

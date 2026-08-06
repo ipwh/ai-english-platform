@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/) | [Certification](docs/architecture/architecture-certification.md)
-> **Status**: **v1.0 Release Candidate** ✅ | 117+ Sprints | 61 test files | 1,375 tests | Architecture Score: **100/100** | AI Quality: **8.2/10**
+> **Status**: **v1.0 Release Candidate** ✅ | 119 Sprints | 61 test files | 1,375 tests | Architecture Score: **100/100** | AI Quality: **8.2/10**
 
 ## 🏗️ Architecture Overview
 
