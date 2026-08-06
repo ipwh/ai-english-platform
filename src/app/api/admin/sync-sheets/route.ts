@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDbDirect as db } from '@/modules/admin/services/admin-operations';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { logger } from '@/shared/logger/logger';
 import { GoogleAuth } from 'google-auth-library';
 
@@ -209,6 +210,19 @@ export async function POST(request: NextRequest) {
     const auth = await verifyAdmin(request);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
+    }
+
+    // Rate limiting: 3 sync operations per 60 seconds per IP
+    const rateLimit = await checkRateLimit({
+      maxRequests: 3,
+      windowMs: 60_000,
+      identifier: `sync-sheets:${request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'}`,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: rateLimit.message || '請求過於頻繁，請稍後重試' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      );
     }
 
     // 解析請求參數

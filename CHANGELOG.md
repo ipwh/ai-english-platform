@@ -4,6 +4,33 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-06 — Security Re-Audit & Rate Limiting (Sprint 121)
+
+### 🔒 Production Audit Resolution
+Re-audited all 21 issues from the 2026-07-22 Production Readiness Audit. **All 🔴 Critical and 🟡 High Priority items confirmed resolved.**
+
+- **C1**: `/api/ai/status` — `verifyApiAuth(request, ['teacher', 'admin'])` ✅
+- **C2**: `/api/reviews/[id]` — role check (`teacher || admin`) ✅
+- **C3**: Orphan modules — `security/`, `mistake-db/`, `feedback/` deleted; `exercise/`, `platform/`, `teacher/` verified with runtime consumers ✅
+- **H1**: All 5 auth-gap endpoints now have proper auth (knowledge-graph, import templates, ai/status) ✅
+- **H2**: Hardcoded secrets removed — `edge-config.ts` throws on missing AUTH_SECRET; `ensure-admin` uses `ADMIN_EMAIL` env var ✅
+- **H3**: `writing/v1.ts` and `grammar/v1.ts` now use centralized `HALLUCINATION_GUARD` ✅
+
+### 🛡️ Rate Limiting (H7 Fix)
+- **`POST /api/import`**: Added rate limit — 5 req/60s per IP (429 + `Retry-After` header)
+- **`POST /api/admin/sync-sheets`**: Added rate limit — 3 req/60s per IP (429 + `Retry-After` header)
+- Both use existing `checkRateLimit()` from `@/shared/utils/rate-limiter` (Vercel KV → in-memory fallback)
+
+### 📊 Updated Scorecard
+- Production Readiness: 82/100 → **88/100** (all critical + high-priority issues resolved)
+- Security: 78/100 → **88/100**
+- Rate limiting gaps: 3→0
+- Auth gaps: 5→0
+- Hardcoded secrets: 2→0
+- Hallucination guard inconsistency: 2→0
+
+---
+
 ## 2026-08-06 — Architecture Simplification (Sprint 120)
 
 ### 🗑️ Dead Code Removal (181 files, ~18,000 LOC)

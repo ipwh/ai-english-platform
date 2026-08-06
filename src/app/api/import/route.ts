@@ -9,6 +9,7 @@ import { findUserByIdSelect } from '@/modules/student';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { parseCSV } from '@/shared/utils/import-utils';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { bulkImportStudents, bulkImportTeachers } from '@/modules/admin/services/import-service';
 import { adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
 import { logger } from '@/shared/logger/logger';
@@ -68,6 +69,19 @@ export async function POST(request: NextRequest) {
   }
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
+  }
+
+  // Rate limiting: 5 bulk imports per 60 seconds per IP
+  const rateLimit = await checkRateLimit({
+    maxRequests: 5,
+    windowMs: 60_000,
+    identifier: `import:${request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'}`,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: rateLimit.message || '請求過於頻繁，請稍後重試' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+    );
   }
 
   const results: ImportResult = {
