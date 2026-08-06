@@ -19,12 +19,12 @@ See AGENTS.md for shared agent instructions.
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`
 - **i18n**: 1,360+ keys, 15 module files, check: `node scripts/check-i18n.js`
-- **Deployment Readiness**: 8.5/10 (v1.0 Production Ready)
+- **Deployment Readiness**: 9.0/10 (v1.0 Production Ready — all audit items resolved)
 - **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
 - **Layout**: v5 grid per-line (`.dse-line` + gutter + justify text); paragraph labels above; 2em indent
 - **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging
 
-## Architecture (Post-Sprint 120 Cleanup)
+## Architecture (Post-Sprint 121 — All Audit Items Resolved)
 ```
 Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)

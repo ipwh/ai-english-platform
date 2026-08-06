@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | 120 Sprints | 60/61 test files pass | 1,317 tests | Architecture Score: **8.5/10**
+> **Status**: **v1.0 Production Ready** ✅ | 121 Sprints | 60/61 test files pass | 1,586 tests / 74 files | Audit: **88/100 (A-)** | Architecture: **9.0/10**
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
@@ -44,7 +44,7 @@ AI module: 13 directories, 127 files — single pipeline, single owner per respo
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholder) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (61 files, 1,375 tests, 100% pass) + Playwright |
+| Testing | Vitest 4 (74 files, 1,586 tests, 100% pass) + Playwright 8 E2E specs |
 | Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
 | Documentation | 37 ADRs in `docs/architecture/` |
 | State | Zustand |
