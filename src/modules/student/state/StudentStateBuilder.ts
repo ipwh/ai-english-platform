@@ -298,7 +298,7 @@ export class StudentStateBuilder {
       const w = await buildWeaknessProfile(studentId, 10, true);
       // Map WeaknessProfile → StudentWeakness shape (dynamic import loses type info)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const topWeaknesses = (w.topWeaknesses as any[]).map((item: any) => ({
+      const topWeaknesses = (w.topWeaknesses as Array<{ grammarCategory?: string; grammarCategoryZh?: string; name?: string; nameZh?: string; mistakeCount?: number; frequency?: number; mastered?: boolean; trend?: string; recommendation?: string; recommendationZh?: string }>).map((item) => ({
         name: item.grammarCategory ?? item.name ?? '',
         nameZh: item.grammarCategoryZh ?? item.nameZh,
         frequency: item.mistakeCount ?? item.frequency ?? 0,
@@ -309,7 +309,7 @@ export class StudentStateBuilder {
       }));
       return {
         topWeaknesses,
-        totalMistakes: (w as any).totalMistakes ?? 0,
+        totalMistakes: (w as { totalMistakes?: number }).totalMistakes ?? 0,
         generatedAt: new Date(w.generatedAt),
       };
     } catch { return null; }

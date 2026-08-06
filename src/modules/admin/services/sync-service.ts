@@ -1,5 +1,6 @@
 // v5: Admin Sync Service — Google Sheets sync operations
 import { db } from '@/shared/db/db';
+import type { Prisma } from '@prisma/client';
 import { logger } from '@/shared/logger/logger';
 
 export interface SheetRow { email: string; class: string; classNumber: number; nameZh: string; nameEn: string; level: string; }
@@ -34,12 +35,12 @@ export async function syncSheetToDatabase(rows: SheetRow[], dryRun = false) {
       if (existing) {
         await db.user.update({
           where: { email: row.email },
-          data: { name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, classNumber: row.classNumber, level: row.level, classId: cls.id } as any,
+          data: { name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, classNumber: row.classNumber, level: row.level, classId: cls.id } as Prisma.UserUpdateInput,
         });
         result.updated++;
       } else {
         await db.user.create({
-          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, role: 'student', classNumber: row.classNumber, level: row.level, classId: cls.id } as any,
+          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, role: 'student', classNumber: row.classNumber, level: row.level, classId: cls.id } as Prisma.UserCreateInput,
         });
         result.created++;
       }

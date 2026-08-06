@@ -443,6 +443,7 @@ export interface DSERetrievalFilter {
   category?: MaterialCategory;
   part?: 'Part A' | 'Part B1' | 'Part B2';
   gradeLevel?: string;
+  /** Year range filter (e.g. "2020-2025") — declared but not yet applied in filter logic. Planned for future sprint. */
   yearRange?: string;
 }
 

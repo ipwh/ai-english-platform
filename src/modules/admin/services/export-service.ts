@@ -1,5 +1,6 @@
 // v5: Admin Export Service — all export queries centralized
 import { db } from '@/shared/db/db';
+import type { Prisma } from '@prisma/client';
 
 export async function exportStudents(filters?: { academicYear?: string; className?: string }) {
   const where: Record<string, unknown> = { role: 'student' };
@@ -14,7 +15,7 @@ export async function exportStudents(filters?: { academicYear?: string; classNam
 export async function exportTeachers(filters?: { academicYear?: string }) {
   return db.user.findMany({
     where: { role: 'teacher' },
-    select: { id: true, name: true, nameZh: true, nameEn: true, email: true, class: { select: { name: true } } } as any,
+    select: { id: true, name: true, nameZh: true, nameEn: true, email: true, class: { select: { name: true } } } satisfies Prisma.UserSelect,
     orderBy: { name: 'asc' },
   });
 }

@@ -99,7 +99,7 @@ export default function VocabEnabledText({
   return (
     <>
       <Tag
-        ref={containerRef as any}
+        ref={containerRef as React.RefObject<HTMLDivElement>}
         className={className}
         style={{ touchAction: 'manipulation', WebkitUserSelect: 'text', userSelect: 'text' }}
       >

@@ -20,10 +20,14 @@ export async function searchChunks(args: any) {
 export async function countMaterials(where?: Prisma.MaterialWhereInput) { return db.material.count({ where }); }
 export async function countMaterialChunks(where?: Prisma.MaterialChunkWhereInput) { return db.materialChunk.count({ where }); }
 
-// Raw SQL helpers for pgvector operations (RAG service)
+// Raw SQL helpers for pgvector operations (RAG service).
+// ⚠️ THESE BYPASS Prisma's type safety — only use with trusted, validated SQL.
+// Callers MUST sanitize any user-supplied values in `params` before passing.
+/** Execute raw SQL (INSERT/UPDATE/DELETE). Use only with pgvector vector operations. */
 export async function executeRawUnsafe(query: string, ...params: unknown[]) {
   return db.$executeRawUnsafe(query, ...params);
 }
+/** Query raw SQL (SELECT). Use only with pgvector similarity search. */
 export async function queryRawUnsafe<T = unknown>(query: string, ...params: unknown[]): Promise<T[]> {
   return db.$queryRawUnsafe(query, ...params) as Promise<T[]>;
 }

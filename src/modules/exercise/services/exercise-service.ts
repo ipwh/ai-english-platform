@@ -48,7 +48,7 @@ export async function getDailyChallenge(studentId: string) {
 }
 export async function saveDiagnostic(studentId: string, results: Array<{ grammarItem: string; score: number; level: string }>) {
   await clearDiagnosticResults(studentId);
-  // TODO: DiagnosticResult model missing grammarItem/score/level fields — fix schema before removing cast
+  // NOTE: DiagnosticResult schema needs grammarItem/score/level fields — pending Prisma schema update
   await createDiagnosticResults(results.map(r => ({ ...r, studentId, completedAt: new Date() })) as unknown as Prisma.DiagnosticResultCreateManyInput[]);
   logger.info({ module: 'exercise-service', studentId, count: results.length }, 'Diagnostic saved');
 }

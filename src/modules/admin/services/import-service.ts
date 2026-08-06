@@ -1,5 +1,6 @@
 // v5: Admin Import Service — bulk import operations
 import { db, getBulkDb } from '@/shared/db/db';
+import type { Prisma } from '@prisma/client';
 
 export async function findExistingUsers(emails: string[]) {
   return db.user.findMany({ where: { email: { in: emails } }, select: { email: true } });
@@ -41,7 +42,7 @@ export async function bulkImportStudents(rows: Array<{
         result.updated++;
       } else {
         await bulkDb.user.create({
-          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'student', classNumber: row.classNumber, level: row.level, class: { connect: { name: row.className } } } as any,
+          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'student', classNumber: row.classNumber, level: row.level, class: { connect: { name: row.className } } } as Prisma.UserCreateInput,
         });
         result.created++;
       }
@@ -68,7 +69,7 @@ export async function bulkImportTeachers(rows: Array<{
         result.updated++;
       } else {
         const teacher = await bulkDb.user.create({
-          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'teacher' } as any,
+          data: { email: row.email, name: row.nameEn, nameZh: row.nameZh, nameEn: row.nameEn, password: row.password, role: 'teacher' } as Prisma.UserCreateInput,
         });
         // Link classes
         for (const className of row.classes) {

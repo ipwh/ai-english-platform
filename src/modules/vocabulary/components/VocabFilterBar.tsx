@@ -122,7 +122,7 @@ export default function VocabFilterBar({
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
-            {f === 'all' ? t('vocab.filterAll') : t(`vocab.filter${f.charAt(0).toUpperCase() + f.slice(1)}` as any)}
+            {f === 'all' ? t('vocab.filterAll') : t(`vocab.filter${f.charAt(0).toUpperCase() + f.slice(1)}` as keyof typeof import('@/shared/utils/i18n').translations)}
           </button>
         ))}
 

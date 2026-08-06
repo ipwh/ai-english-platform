@@ -176,7 +176,7 @@ export async function markNotificationsRead(userId: string, ids: string[]) {
 
 // Assignment mutations
 export async function createAssignment(data: Record<string, unknown>) {
-  return db.assignment.create({ data: data as any });
+  return db.assignment.create({ data } as Parameters<typeof db.assignment.create>[0]);
 }
 
 // Bulk DB operations (import)
@@ -199,7 +199,7 @@ export async function listLoginLogs(take = 100) {
   return db.loginLog.findMany({ orderBy: { loginAt: 'desc' }, take });
 }
 export async function createLoginLog(data: { userId: string }) {
-  return db.loginLog.create({ data: { userId: data.userId, loginAt: new Date() } } as any);
+  return db.loginLog.create({ data: { userId: data.userId, loginAt: new Date() } } satisfies Parameters<typeof db.loginLog.create>[0]);
 }
 export async function getAdminStats() {
   const [totalUsers, totalStudents, totalTeachers, totalClasses, totalAssignments, totalSubmissions] = await Promise.all([

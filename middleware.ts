@@ -144,8 +144,8 @@ export default async function middleware(request: NextRequest) {
   if (token) {
     const payload = await verifySessionToken(token);
     if (payload) {
-      // === Admin 路由保護：僅 role === 'admin' 可存取 /admin ===
-      if (pathname.startsWith('/admin') && payload.role !== 'admin') {
+      // === Admin 路由保護：admin 或 teacher 可存取（teacher 用於學生分析子頁面）===
+      if (pathname.startsWith('/admin') && payload.role !== 'admin' && payload.role !== 'teacher') {
         const forbiddenUrl = new URL('/login', request.url);
         forbiddenUrl.searchParams.set('error', 'admin_only');
         return NextResponse.redirect(forbiddenUrl);
