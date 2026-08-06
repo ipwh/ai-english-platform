@@ -15,7 +15,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
   maxRetries: 2,
   baseDelayMs: 500,
   maxDelayMs: 5000,
-  retryableErrorPattern: /AI 回傳格式無法解析|AI 回傳資料格式異常|JSON|timeout|rate.?limit|503|429/i,
+  retryableErrorPattern: /AI 回傳格式無法解析|AI 回傳資料格式異常|JSON|timeout|rate.?limit|503|429|Unexpected token|ECONNRESET|ETIMEDOUT|ENOTFOUND|malformed|fetch failed/i,
   onRetry: () => {},
 };
 

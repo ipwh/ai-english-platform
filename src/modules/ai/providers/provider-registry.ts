@@ -15,6 +15,7 @@ import { openaiProvider } from './openai-provider';
 import { logger } from '@/shared/logger/logger';
 import { aiCache } from '@/modules/ai/services/ai-cache';
 import { isProviderAvailable as isCircuitOk, recordSuccess as cbRecordSuccess, recordFailure as cbRecordFailure } from '@/modules/ai/runtime/circuit-breaker';
+import { isBudgetExceeded, recordTokenUsage } from '@/modules/ai/runtime/budget-policy';
 
 // ============================================
 // Provider registry with priority-ordered fallback
@@ -53,6 +54,11 @@ class ProviderRegistry {
    * Uses AI cache for deterministic (low-temperature) requests.
    */
   async call(messages: ChatMessage[], options?: LLMCallOptions): Promise<ProviderCallResult> {
+    // Enforce budget before any LLM call
+    if (isBudgetExceeded()) {
+      throw new Error('Daily AI budget exceeded. Please try again tomorrow or contact support.');
+    }
+
     const available = this.getAvailableProviders();
     if (available.length === 0) {
       throw new Error('No AI provider configured. Set DEEPSEEK_API_KEY or GEMINI_API_KEY.');
@@ -90,6 +96,12 @@ class ProviderRegistry {
 
         // Record success with circuit breaker
         cbRecordSuccess(provider.name);
+
+        // Track token usage (estimated: 1 token ≈ 4 chars)
+        const estimatedTokens = Math.ceil(
+          messages.reduce((sum, m) => sum + (m.content?.length || 0), 0) / 4
+        );
+        recordTokenUsage(estimatedTokens);
 
         logger.info({
           module: 'ai-provider', event: 'call_success', provider: provider.name, latencyMs, fallback,
