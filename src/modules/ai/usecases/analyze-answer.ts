@@ -2,9 +2,9 @@
 // Physically extracted from ai-service.ts
 
 import { callLLM } from '../services/llm-call';
-import { parseAIJSON } from '../services/json-utils';
+import { parseAndValidateAIResponse } from '../services/response-pipeline';
 import { sanitizeForAI } from '../services/sanitizer';
-import { validateAIResponse, AnswerAnalysisSchema } from '../schemas/ai-schema';
+import { AnswerAnalysisSchema } from '../schemas/ai-schema';
 import { HALLUCINATION_GUARD } from '../services/hallucination-guard';
 import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from '../services/rag-service';
 import { logger } from '@/shared/logger/logger';
@@ -166,5 +166,5 @@ ${input.questionType === 'error-correction' ? `⚠️ 改錯題特別說明：�
     validated.score = validated.isCorrect ? 100 : 0;
   }
 
-  return validated.data;
+  return validated;
 }

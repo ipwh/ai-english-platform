@@ -53,5 +53,5 @@ Note-taking 指引：提供 4-5 個引導問題（Who/What/When/Where/Why/How）
     recordTopicUsage(input.userId, diverseTopics[0], 'school', 'listening');
   }
 
-  return { listeningContent: normalizeListeningContent(validated.data.listeningContent), listeningTopicZh: validated.data.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: validated.data.noteTakingGuide || [], writingTask: validated.data.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: validated.data.expectedContentPoints || [], listeningAnswers: validated.data.listeningAnswers || [] };
+  return { listeningContent: normalizeListeningContent(task.listeningContent), listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: task.noteTakingGuide || [], writingTask: task.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: task.expectedContentPoints || [], listeningAnswers: task.listeningAnswers || [] };
 }
