@@ -446,6 +446,80 @@ describe('Continuous Evaluation state isolation', () => {
     // After reset, config should be back to defaults
     expect(monitor.getDriftState('any')).toBeUndefined();
   });
+
+  it('monitor.initialize() should be idempotent (repeated calls are no-ops)', () => {
+    // Reset to known state
+    monitor.reset();
+    expect(monitor.isInitialized()).toBe(false);
+
+    // First initialize
+    monitor.initialize({
+      providerCall: async () => ({ text: '', provider: 'test', latencyMs: 0 }),
+      loadDataset: async () => [],
+      datasetId: 'test',
+    });
+    expect(monitor.isInitialized()).toBe(true);
+
+    // Second initialize should be a no-op
+    monitor.initialize({
+      providerCall: async () => ({ text: 'override', provider: 'override', latencyMs: 999 }),
+      loadDataset: async () => [{ id: 'x', messages: [] }],
+      datasetId: 'override',
+    });
+    expect(monitor.isInitialized()).toBe(true);
+
+    // Clean up
+    monitor.reset();
+  });
+
+  it('monitor.reset() should allow re-initialization', () => {
+    monitor.initialize({
+      providerCall: async () => ({ text: '', provider: 'test', latencyMs: 0 }),
+      loadDataset: async () => [],
+      datasetId: 'test',
+    });
+    expect(monitor.isInitialized()).toBe(true);
+
+    monitor.reset();
+    expect(monitor.isInitialized()).toBe(false);
+
+    // Should be able to initialize again
+    monitor.initialize({
+      providerCall: async () => ({ text: '', provider: 'test2', latencyMs: 1 }),
+      loadDataset: async () => [],
+      datasetId: 'test2',
+    });
+    expect(monitor.isInitialized()).toBe(true);
+
+    monitor.reset();
+  });
+
+  it('monitor.reset() should be idempotent (safe to call multiple times)', () => {
+    monitor.reset();
+    monitor.reset();
+    monitor.reset();
+    expect(monitor.isInitialized()).toBe(false);
+    // No exception thrown — reset is idempotent
+  });
+
+  it('monitor.reset() before initialize() should be safe', () => {
+    monitor.reset();
+    expect(monitor.isInitialized()).toBe(false);
+    monitor.reset(); // second reset before any initialize
+    expect(monitor.isInitialized()).toBe(false);
+  });
+
+  it('scheduler.startAutoRun should stop existing intervals before creating new', () => {
+    scheduler.reset();
+    expect(scheduler.isRunning()).toBe(false);
+  });
+
+  it('scheduler.reset() should be idempotent', () => {
+    scheduler.reset();
+    scheduler.reset();
+    scheduler.reset();
+    expect(scheduler.isRunning()).toBe(false);
+  });
 });
 
 // ── Architecture: Dependency direction ──

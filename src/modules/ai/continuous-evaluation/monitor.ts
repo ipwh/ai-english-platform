@@ -81,12 +81,21 @@ class Monitor {
   }>>;
   private datasetId = 'default';
 
+  /** Whether the monitor has been initialized */
+  private initialized = false;
+
   /** Last drift report per prompt (for comparison) */
   private lastDriftReport = new Map<string, DriftReport>();
 
   // ── Initialize ──
 
+  /**
+   * Initialize the monitor. Idempotent — repeated calls are no-ops.
+   * Call {@link reset} to re-enable initialization.
+   */
   initialize(options: MonitorOptions): void {
+    if (this.initialized) return;
+
     this.config = { ...DEFAULT_CONTINUOUS_EVAL_CONFIG, ...options.config };
     this.providerCall = options.providerCall;
     this.loadDataset = options.loadDataset;
@@ -98,6 +107,12 @@ class Monitor {
     };
 
     scheduler.startAutoRun(callback);
+    this.initialized = true;
+  }
+
+  /** Whether the monitor has been initialized */
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
   // ── Run Evaluation ──
@@ -325,12 +340,15 @@ class Monitor {
    * Reset the monitor to its uninitialized state.
    * Stops the scheduler, clears drift reports, and resets configuration.
    * Does NOT reset external singletons (scoreHistory, baselineManager, alertEngine).
+   * After reset, {@link initialize} can be called again.
+   * Idempotent — safe to call multiple times.
    */
   reset(): void {
     scheduler.stopAutoRun();
     this.lastDriftReport.clear();
     this.config = { ...DEFAULT_CONTINUOUS_EVAL_CONFIG };
     this.datasetId = 'default';
+    this.initialized = false;
   }
 }
 
