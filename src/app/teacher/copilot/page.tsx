@@ -458,12 +458,12 @@ export default function TeacherCopilotPage() {
           </div>
           {studentAnalysis.skillDetails.map((sd, i) => (
             <div key={i} className="flex items-center gap-3">
-              <span className="text-sm text-gray-700 dark:text-gray-300 w-24 capitalize">{sd.skill}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300 w-24">{skillLabel(sd.skill)}</span>
               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${sd.score}%` }} />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white w-10">{sd.score}%</span>
-              <span className="text-xs text-gray-500">{sd.percentile}%ile</span>
+              <span className="text-xs text-gray-500" title={`勝過 ${sd.percentile}% 同級同學`}>PR{sd.percentile}</span>
             </div>
           ))}
           {studentAnalysis.recentProgress && (
@@ -482,6 +482,9 @@ export default function TeacherCopilotPage() {
                   })()}
             </div>
           )}
+          <div className="text-[11px] text-gray-400 leading-relaxed border-t pt-3 mt-2">
+            💡 分數 = 該技能掌握度（0-100%）。PR = 百分位排名（數值愈高代表勝過愈多同級同學）。
+          </div>
         </div>
       )}
     </div>
