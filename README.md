@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | 124 Sprints | 60/61 test files pass | 1,586 tests / 74 files | Audit: **88/100 (A-)** | Architecture: **9.5/10**
+> **Status**: **v1.0 Production Ready** ✅ | Sprint 128 | 78/78 test files pass | 1,715 tests | Architecture: **9.8/10** | Durability: Hardened
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)

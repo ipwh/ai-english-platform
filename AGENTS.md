@@ -13,13 +13,16 @@ See `CLAUDE.md` for full architecture documentation.
 2. Read `CHANGELOG.md` for Sprint 124 changes (latest)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 78/78 pass (1,607 tests, 78 files; fully green)
+5. Run `npm test` — expect 78/78 pass (1,715 tests, 78 files; fully green)
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions
    - `npm run prompt:states` — release lifecycle states
    - `npm run evaluate:reading` — run regression evaluation
    - `npm run prompt:experiment list` — list experiments
    - `npm run prompt:monitor dashboard` — live monitoring dashboard
+   - `npm run prompt:monitor recover` — crash recovery after restart
+   - `npm run prompt:monitor recover --dry-run` — preview recovery
+   - `npm run prompt:monitor recovery-report` — last recovery report
 
 ## Key Rules
 - **Single pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. Never create another pipeline.

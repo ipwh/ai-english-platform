@@ -4,6 +4,65 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-07 — Continuous Evaluation Production Hardening (Sprints 126-128)
+
+### 🔒 Evaluation Idempotency & Exactly-Once Side Effects
+- **Evaluation identity**: Stable `evaluationId` (`ce-{prompt}-{dataset}-g{gen}-{counter}-{timestamp}`), passed through to `ScoreRecord.id`
+- **Exactly-once finalization**: `finalizedEvaluations: Set<string>` in Monitor, cleared on `reset()`
+- **Generation guard**: All side effects gated by `this.generation === startGeneration` — stale evaluations emit abort event only
+- **Score history idempotency**: `records.has(record.id)` guard in `scoreHistory.add()`
+- **21 new tests** (Section L in promptops-integration.test.ts)
+
+### 🔄 Crash Recovery & Durability
+- **`EvaluationRecord`** (`evaluation-record.ts`): Durable lifecycle state with `status`, `result`, `error`, `sideEffects` flags
+- **`EvaluationStore`** (`evaluation-store.ts`): Wraps Foundation `Repository`/`MemoryStore` with typed CRUD, transition validation, defensive copies
+- **`evaluation-recovery.ts`**: `recoverPendingEvaluations()` — deterministic side-effect replay (history→baseline→metrics→event), generation-aware (only aborts stale pending), recovery serialization lock, dry-run mode
+- **3 durability points** in `doRunSingle()`: (1) pending before provider, (2) terminal result before side effects, (3) side-effect flags after all complete
+- **CLI**: `npm run prompt:monitor recover`, `recover --dry-run`, `recovery-report`
+- **15 durability tests** (Section M in promptops-integration.test.ts)
+
+### 🩺 Production Correctness Audit (Findings & Fixes)
+- **CRITICAL**: Recovery `buildReplaySteps` used raw `incSuccessCounter`/`incFailureCounter` (no dedup) → fixed to use `incSuccessCounterDedup`/`incFailureCounterDedup`
+- **BUG**: Evaluator didn't propagate fixture `errorMessage` to aggregate `ScoreRecord` → monitor couldn't distinguish `timed_out`/`aborted`/`failed`
+- **Semantic**: `timed_out`/`aborted` statuses now persisted correctly (were always `failed`)
+- **State machine**: `isTerminalStatus()`, `canTransition()`, `validTransitions()` — terminal→anything rejected
+- **Race**: Recovery now accepts `currentGeneration` filter — only aborts pending from STALE generations
+- **26 reliability tests** (Section N in promptops-integration.test.ts)
+
+### 📊 Long-Running Process Safety
+- **Resource audit**: 12 long-lived structures audited — all bounded or generation-scoped
+- **`metricsDedup`**: Tied cleanup to `monitor.reset()` (generation-scoped)
+- **Score history**: Capped at 1000 entries via `enforceRetention()`
+- **Repository contract**: Single-writer-per-ID invariant verified — no CAS needed
+
+### 🗄️ Persistence Contract Hardening
+- **`EvaluationStore.create()`**: Added `repo.exists()` guard — prevents silent overwrite
+- **Store failure observability**: All `.catch()` handlers now `console.error()` store failures
+- **Recovery ordering**: Verified order-independent (baseline uses `scoreHistory.getLatest()`)
+
+### 🎧 Listening Script Quality
+- **Dialogue format enforcement**: Prompts now FORBID narrative summaries ("Two students discuss...") — must be dialogue lines with speaker labels
+- **`ListeningScript` component**: Shared component with ♀/♂ icons, colored backgrounds per speaker (pink/blue/cyan/purple)
+- **TTS defense-in-depth**: `parseDialogueForTTS()` handles abbreviated labels (W:/M:) as safety net
+- **`cleanListeningContent()`**: Step 0 expands W:/M: before sending to TTS API
+- **Dialogue length increased**: remedial 14-20, core 20-28, challenge 28-40 lines; 8-25 words/line required
+
+### 📸 OCR Photo Upload
+- **Multi-photo support**: Auto-reset file input after each OCR; photo counter; 1.5s done→idle transition
+
+### 📊 Current Baseline
+```
+TypeScript:       0 errors
+Test Files:       78 passed (78)
+Tests:            1715 passed (1715)
+Architecture:     9 passed (9)
+Foundation→PromptOps: 0 imports
+Circular deps:    0
+External deps:    0 added
+```
+
+---
+
 ## 2026-08-07 — Shared PromptOps Foundation & Production Hardening (Sprint 125)
 
 ### 🏗️ Shared PromptOps Foundation (New)
