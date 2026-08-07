@@ -4,6 +4,66 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-07 — Writing Analysis Pipeline Hardening (Sprints 126-129)
+
+### 🏗️ Architecture: Semantic / Task-Coverage Evaluator (Phase 1-2)
+- **NEW**: `semantic-evaluator.ts` — extracts task requirements from writing prompts, detects evidence in student essays, outputs structured `SemanticEvaluation` (requirements, status, evidence, overallCoverage)
+- **Two-stage pipeline**: Stage A (Semantic + Style concurrently) → Stage B (Grammar/CLO with semantic evidence)
+- **Types**: `TaskRequirementEvidence` (requirement, status: satisfied|partial|missing|unclear, evidence, explanation), `SemanticEvaluation` (taskSummary, requirements, overallCoverage: high|medium|low)
+- **Schema**: `SemanticEvaluationSchema` in `ai-schema.ts`
+
+### 🛡️ Evidence-Backed Feedback (Phase 3)
+- **NEW**: `assessment-feedback.ts` — `EvidenceBackedFeedback` interface (dimension, kind, claim, evidence, recommendation, confidence)
+- `buildFeedbackFromEvidence()` + `filterUnsupportedFeedback()` + `evidenceAppearsInEssay()` — deterministic evidence verification
+- Missing task requirements preserved even without evidence (absence IS the signal)
+- Unverifiable style feedback NOT promoted to evidence-backed (wasteful generation removed)
+
+### ✍️ Revision Separation (Phase 4)
+- `faithfulCorrection` (grammar/spelling/punctuation only, preserves ideas) vs `enhancedVersion` (teaching demonstration with added development)
+- `WritingRevision` type + `WritingRevisionSchema`; `WritingAnalysis.revision?: WritingRevision`
+- Backward compat: `revisedVersion` populated from `faithfulCorrection ?? enhancedVersion`
+- Style prompt updated to request both revision modes separately
+
+### 📋 Rubric Versioning (Phase 5)
+- **NEW**: `rubric-version.ts` — `WRITING_RUBRIC_VERSION = "HKDSE-P2-CLO-v1"`, `WritingRubricMetadata`, `CalibrationMetadata`, `createRubricMetadata()`
+- `WritingAnalysis.rubric?: WritingRubricMetadata` — platform version, NOT official HKEAA
+- Single source of truth for rubric identity
+
+### 🔒 Adversarial Audit & Hardening (Phase 6)
+- **P0 FIX**: Length penalty `Math.min` → `Math.max` — LLM can no longer exceed deterministic policy
+- **P1 FIX**: Missing requirement feedback survives `filterUnsupportedFeedback()` (was silently dropped)
+- **P1 FIX**: Removed wasteful style→feedback generation (always filtered out)
+- `writing-rubric.ts`: Removed `5**`/`5*` level mapping, added disclaimer about internal estimate
+- `ai-response-types.ts`: Synced with canonical `WritingAnalysis` (feedback, revision, rubric fields)
+- **73 new tests** across `analyze-writing.test.ts` (34) and `semantic-evaluator.test.ts` (17)
+
+### 🛡️ Deterministic Semantic Content Guard (Phase 7)
+- **NEW**: `deriveSemanticContentGuard()` — pure deterministic function, no LLM/DB/side effects
+- Content score ceiling based on task-coverage evidence: 2+ missing → ≤2, 1 missing → ≤4, 2+ partial → ≤5, ≥50% unclear → ≤5
+- `unclear` is NOT treated as `missing`; semantic failure → guard empty → Content unchanged
+- Guard only LOWERS Content, never increases; Language and Organization remain independent
+- Grammar/CLO prompt: added SEMANTIC CONTENT GUARD section
+- `v2.ts`: cleaned `5*`/`5**` from estimatedLevel example
+- **11 new guard tests** (off-topic, task-incomplete, guard direction, dimension isolation)
+
+### 📊 Diagnostic Overhaul
+- Writing: 2 tasks (email + short article) instead of 1; vocab: context-cloze (fill-blank) instead of phrasal-verbs MCQ
+- Added listening comprehension (2 questions); writing score now purely CLO-based (not pass/fail)
+- All 5 skills tested (grammar, vocabulary, reading, listening, writing)
+- Grade-level peer comparison: `DiagnosticStats` DB model + `/api/diagnostic/stats` endpoint
+
+### 🔧 Bug Fixes
+- Integrated Skills: `q.questionType` → `q.type` in diagnostic `addQuestions()` (writing was always 0%)
+- IS generation: route switched to canonical `executeAI` pipeline (Zod validation)
+- IS generation: `normalizeListeningContent()` defensive type coercion for non-string inputs
+- TTS multi-speaker: orphan silence bug fixed; consecutive failure detection (aborts after 2)
+- TTS multi-speaker: voice mapping fallback for unknown speaker labels
+
+### 📈 Test Coverage
+- **1784/1784 tests** (80 files) — up from 1,715
+- TypeScript: no errors
+- No `5**`/`5*` in active scoring paths
+
 ## 2026-08-07 — Continuous Evaluation Production Hardening (Sprints 126-128)
 
 ### 🔒 Evaluation Idempotency & Exactly-Once Side Effects

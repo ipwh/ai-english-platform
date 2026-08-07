@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 78/78 test files pass (1,715 tests, 78 files — fully green)
+- **Testing**: Vitest 4, 80/80 test files pass (1,784 tests, 80 files — fully green)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 28 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 120 under `src/app/api/`
@@ -23,6 +23,7 @@ See AGENTS.md for shared agent instructions.
 - **i18n**: ~710 keys, 17 module files, check: `node scripts/check-i18n.js`
 - **Deployment Readiness**: 9.8/10 (v1.0 Production Ready — all audit items resolved, AI infra complete, CE durability hardened)
 - **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
+- **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), deterministic Content guard, evidence-backed feedback, revision separation, rubric versioning (Phases 1-7 hardened)
 - **Continuous Evaluation Durability**: EvaluationStore (MemoryStore/Repository), crash recovery with at-least-once replay + idempotent side effects, generation-scoped exactly-once, metrics dedup, terminal-state immutability, recovery serialization, 165+ CE integration tests
 - **Layout**: v5 grid per-line (`.dse-line` + gutter + justify text); paragraph labels above; 2em indent
 - **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging

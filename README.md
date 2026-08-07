@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | Sprint 128 | 78/78 test files pass | 1,715 tests | Architecture: **9.8/10** | Durability: Hardened
+> **Status**: **v1.0 Production Ready** ✅ | Sprint 129 | 80/80 test files pass | 1,784 tests | Architecture: **9.8/10** | Writing Pipeline: Phases 1-7 Hardened
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
@@ -64,7 +64,7 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 - **🎧✍️ Integrated Skills 綜合訓練 v5** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**（Summary / Email Reply / Short Article / Report / Speech / Proposal / Notice / Press Release / Letter to Editor）、**Data File 資料夾模擬**（email, memo, report-excerpt, webpage, statistics, notice — 含干擾資訊與來源日期）、**HKEAA 官方三維評分**（Listening 40% + Language 35% + Organization 25%，含 DSE Level 5**~1 對照）、**5 種真實考試陷阱**（Self-correction / Synonym Replacement / Speaker Attitude / Numerical Precision / Distraction）、**12 種速記符號面板**（+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓）、**抄襲偵測強化**（≥8 連續詞 + Data File 比對 + 中式英文 10 項檢測）、步驟鎖定（聆聽→筆記→寫作）、AudioPlayer 播放控制、Note-taking 引導問題、7 種 AI 分析結果展示（文法錯誤/中式英文/詞彙升級/筆記評估/Data Manipulation/改進建議/評分明細）、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分，含五大鋪墊法（現況切入→他人意見→表達立場→理據→讓步）、評卷員雙關卡流程（Layout & Clarity → CLO 三維評分）、中式英文 10 項高頻檢測、詞彙升級建議、結構評語、文體格式驗證、HKDSE Level 對應（1→5**）及 100 分制換算，前端顯示 CLO 三維評分卡片及 DSE Level 徽章
+- **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分。**Phase 1-7 全面強化**：Semantic Task-Coverage Evaluator 自動提取題目要求並檢測學生文章中的 evidence；Deterministic Content Guard 防止 LLM 對離題/不完整作文給予過高 Content 分數；Evidence-Backed Feedback 確保每項評語有事實依據；Revision Separation 區分忠實修正（faithfulCorrection）與示範強化（enhancedVersion）；Rubric Versioning 支援未來校準。含中式英文檢測、詞彙升級建議、結構評語、文體格式驗證、內部 HKDSE Level 估算（1-5），前端顯示 CLO 三維評分卡片及 DSE Level 徽章
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
