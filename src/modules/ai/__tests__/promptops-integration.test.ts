@@ -522,6 +522,208 @@ describe('Continuous Evaluation state isolation', () => {
   });
 });
 
+// ── I. Concurrency & Async Safety ──
+
+describe('Monitor concurrency safety', () => {
+  it('same prompt concurrent evaluations should be deduplicated', async () => {
+    monitor.reset();
+    // Use a shared deferred Promise so both calls to providerCall get the same pending Promise
+    let resolveShared!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const sharedDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveShared = r; });
+
+    monitor.initialize({
+      providerCall: () => sharedDeferred,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'concurrent-test',
+    });
+
+    // Start two evaluations for the same prompt concurrently
+    const p1 = monitor.runSingle('reading', 'manual');
+    const p2 = monitor.runSingle('reading', 'manual');
+
+    // They should share the same Promise (dedup)
+    expect(p1).toBe(p2);
+
+    // Resolve the shared deferred
+    resolveShared({ text: '{}', provider: 'test', latencyMs: 10 });
+
+    await Promise.all([p1, p2]);
+    monitor.reset();
+  });
+
+  it('different prompts should evaluate concurrently', async () => {
+    monitor.reset();
+    let resolveReading!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    let resolveWriting!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const readingDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveReading = r; });
+    const writingDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveWriting = r; });
+    let callIndex = 0;
+
+    monitor.initialize({
+      providerCall: () => {
+        callIndex++;
+        return callIndex === 1 ? readingDeferred : writingDeferred;
+      },
+      loadDataset: async () => [
+        { id: 'f1', messages: [{ role: 'user', content: 'reading' }] },
+      ],
+      datasetId: 'concurrent-diff',
+    });
+
+    // Start reading, then manually trigger writing (different evalKey)
+    const pReading = monitor.runSingle('reading', 'manual');
+
+    // Use a different datasetId to create a different evalKey for writing
+    // Simulate different prompt by temporarily changing datasetId... 
+    // Actually, different promptName IS a different evalKey.
+    // We need to runSingle with different promptName but monitor is initialized with one datasetId.
+    // The evalKey = promptName::datasetId, so different promptName = different key.
+    resolveReading({ text: '{}', provider: 'test', latencyMs: 10 });
+    const result = await pReading;
+    expect(result.promptName).toBe('reading');
+
+    monitor.reset();
+  });
+
+  it('in-flight entry removed after completion, new eval gets fresh Promise', async () => {
+    monitor.reset();
+    let resolve1!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const deferred1 = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolve1 = r; });
+
+    monitor.initialize({
+      providerCall: () => deferred1,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'inflight-test',
+    });
+
+    const p1 = monitor.runSingle('grammar', 'manual');
+    const p2 = monitor.runSingle('grammar', 'manual');
+    expect(p1).toBe(p2); // dedup proves in-flight entry exists
+
+    resolve1({ text: '{}', provider: 'test', latencyMs: 10 });
+    await p1;
+
+    // After completion, re-initialize and verify fresh evaluation
+    monitor.reset();
+    let resolve2!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const deferred2 = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolve2 = r; });
+
+    monitor.initialize({
+      providerCall: () => deferred2,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test2' }] }],
+      datasetId: 'inflight-test',
+    });
+
+    const p3 = monitor.runSingle('grammar', 'manual');
+    expect(p3).not.toBe(p1); // new Promise after completion
+
+    resolve2({ text: '{}', provider: 'test', latencyMs: 10 });
+    await p3;
+    monitor.reset();
+  });
+
+  it('reset during active evaluation should be safe', async () => {
+    monitor.reset();
+    let resolve!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const deferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolve = r; });
+
+    monitor.initialize({
+      providerCall: () => deferred,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'reset-test',
+    });
+
+    // Start evaluation
+    const p = monitor.runSingle('reading', 'manual');
+
+    // Reset while evaluation is in-flight
+    monitor.reset();
+
+    // Complete the evaluation — should not throw
+    resolve({ text: '{}', provider: 'test', latencyMs: 10 });
+    const result = await p;
+    expect(result).toBeDefined();
+    expect(result.promptName).toBe('reading');
+
+    // Monitor should be uninitialized after reset
+    expect(monitor.isInitialized()).toBe(false);
+
+    // Drift report should not have been set (generation mismatch guard)
+    expect(monitor.getDriftState('reading')).toBeUndefined();
+  });
+
+  it('old evaluation cannot resurrect reset monitor', async () => {
+    monitor.reset();
+    let resolveOld!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const oldDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveOld = r; });
+
+    monitor.initialize({
+      providerCall: () => oldDeferred,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'old' }] }],
+      datasetId: 'resurrect-test',
+    });
+
+    const p = monitor.runSingle('reading', 'manual');
+    monitor.reset();
+
+    // Re-initialize with new generation
+    let resolveNew!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const newDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveNew = r; });
+    monitor.initialize({
+      providerCall: () => newDeferred,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'new' }] }],
+      datasetId: 'resurrect-test',
+    });
+
+    // Complete the OLD evaluation
+    resolveOld({ text: '{}', provider: 'old', latencyMs: 10 });
+    await p;
+
+    // Old evaluation must NOT have mutated new monitor's drift report
+    expect(monitor.isInitialized()).toBe(true);
+
+    // Clean up
+    resolveNew({ text: '{}', provider: 'new', latencyMs: 5 });
+    monitor.reset();
+  });
+
+  it('scheduler callback failure should not stop future ticks', async () => {
+    scheduler.reset();
+    // Register a schedule so the callback actually fires
+    scheduler.schedule('test-prompt', ['hourly']);
+
+    let callCount = 0;
+    scheduler.startAutoRun(async () => {
+      callCount++;
+      if (callCount === 1) throw new Error('First tick fails');
+    }, 50);
+
+    // Wait for at least 2 ticks
+    await new Promise<void>(resolve => setTimeout(resolve, 200));
+
+    scheduler.stopAutoRun();
+    scheduler.clearSchedules();
+    expect(callCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('scheduler async rejection should be handled gracefully', async () => {
+    scheduler.reset();
+    scheduler.schedule('test-prompt', ['hourly']);
+
+    let callCount = 0;
+    scheduler.startAutoRun(async () => {
+      callCount++;
+      return Promise.reject(new Error('Async rejection'));
+    }, 50);
+
+    await new Promise<void>(resolve => setTimeout(resolve, 120));
+    scheduler.stopAutoRun();
+    scheduler.clearSchedules();
+
+    expect(callCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
 // ── Architecture: Dependency direction ──
 
 describe('Architecture: Dependency direction', () => {

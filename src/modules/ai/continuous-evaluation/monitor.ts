@@ -84,6 +84,12 @@ class Monitor {
   /** Whether the monitor has been initialized */
   private initialized = false;
 
+  /** Monotonically increasing generation counter for lifecycle isolation */
+  private generation = 0;
+
+  /** In-flight evaluations: key → Promise. Prevents duplicate concurrent evals. */
+  private inFlight = new Map<string, Promise<MonitorRun>>();
+
   /** Last drift report per prompt (for comparison) */
   private lastDriftReport = new Map<string, DriftReport>();
 
@@ -96,6 +102,7 @@ class Monitor {
   initialize(options: MonitorOptions): void {
     if (this.initialized) return;
 
+    this.generation++;
     this.config = { ...DEFAULT_CONTINUOUS_EVAL_CONFIG, ...options.config };
     this.providerCall = options.providerCall;
     this.loadDataset = options.loadDataset;
@@ -119,10 +126,49 @@ class Monitor {
 
   /**
    * Run full evaluation pipeline for a single prompt.
+   * Deduplicates concurrent evaluations for the same prompt+datasetId:
+   * if an evaluation is already in-flight, reuses the existing Promise.
    */
-  async runSingle(
+  runSingle(
     promptName: string,
     triggerType: string = 'manual',
+  ): Promise<MonitorRun> {
+    const evalKey = `${promptName}::${this.datasetId}`;
+    const generationAtStart = this.generation;
+
+    // Deduplicate: reuse existing in-flight Promise for same key
+    const existing = this.inFlight.get(evalKey);
+    if (existing) return existing;
+
+    // Create the evaluation Promise, attach cleanup, and register atomically
+    const promise = this.doRunSingle(promptName, triggerType, generationAtStart)
+      .then(
+        result => {
+          if (this.inFlight.get(evalKey) === promise) {
+            this.inFlight.delete(evalKey);
+          }
+          return result;
+        },
+        error => {
+          if (this.inFlight.get(evalKey) === promise) {
+            this.inFlight.delete(evalKey);
+          }
+          throw error;
+        },
+      );
+
+    this.inFlight.set(evalKey, promise);
+    return promise;
+  }
+
+  /**
+   * Internal evaluation implementation with generation guard.
+   * If the monitor was reset during execution, silently discards state mutations.
+   */
+  private async doRunSingle(
+    promptName: string,
+    triggerType: string,
+    startGeneration: number,
   ): Promise<MonitorRun> {
     // 1. Run evaluation
     const record = await continuousEvaluator.evaluate({
@@ -134,21 +180,23 @@ class Monitor {
       triggerType,
     });
 
-    // 2. Drift detection
+    // 2. Drift detection — only update Monitor-owned state if generation matches
     let drift: DriftReport | undefined;
     const baseline = baselineManager.getComparisonBaseline(promptName);
     if (baseline) {
       drift = detectDrift(record, baseline.record, this.config.driftThresholds);
 
-      // Compare with previous drift
-      const previousDrift = this.lastDriftReport.get(promptName);
-      if (previousDrift && drift) {
-        const worsened = compareDrift(previousDrift, drift);
-        if (worsened.worsened && drift.overallSeverity !== 'none') {
-          // Drift is worsening — could escalate alerts
+      // Compare with previous drift (only if still same generation)
+      if (this.generation === startGeneration) {
+        const previousDrift = this.lastDriftReport.get(promptName);
+        if (previousDrift && drift) {
+          const worsened = compareDrift(previousDrift, drift);
+          if (worsened.worsened && drift.overallSeverity !== 'none') {
+            // Drift is worsening — could escalate alerts
+          }
         }
+        this.lastDriftReport.set(promptName, drift);
       }
-      this.lastDriftReport.set(promptName, drift);
     }
 
     // 3. Regression check
@@ -338,13 +386,17 @@ class Monitor {
 
   /**
    * Reset the monitor to its uninitialized state.
-   * Stops the scheduler, clears drift reports, and resets configuration.
+   * Stops the scheduler, clears drift reports, resets configuration,
+   * bumps the generation counter (invalidating in-flight evaluations),
+   * and clears the in-flight registry.
    * Does NOT reset external singletons (scoreHistory, baselineManager, alertEngine).
    * After reset, {@link initialize} can be called again.
    * Idempotent — safe to call multiple times.
    */
   reset(): void {
     scheduler.stopAutoRun();
+    this.generation++;
+    this.inFlight.clear();
     this.lastDriftReport.clear();
     this.config = { ...DEFAULT_CONTINUOUS_EVAL_CONFIG };
     this.datasetId = 'default';

@@ -156,17 +156,22 @@ class Scheduler {
   ): void {
     this.stopAutoRun(); // Stop existing intervals
 
-    const interval = setInterval(async () => {
-      const due = this.getDuePrompts();
-
-      for (const { promptName, schedule } of due) {
+    const interval = setInterval(() => {
+      void (async () => {
         try {
-          await callback(promptName, schedule);
-          this.markRun(promptName, schedule);
+          const due = this.getDuePrompts();
+          for (const { promptName, schedule } of due) {
+            try {
+              await callback(promptName, schedule);
+              this.markRun(promptName, schedule);
+            } catch (err) {
+              console.error(`Scheduled eval failed for ${promptName} (${schedule}):`, err);
+            }
+          }
         } catch (err) {
-          console.error(`Scheduled eval failed for ${promptName} (${schedule}):`, err);
+          console.error('Scheduler tick failed:', err);
         }
-      }
+      })();
     }, checkIntervalMs);
 
     this.intervals.push(interval);
