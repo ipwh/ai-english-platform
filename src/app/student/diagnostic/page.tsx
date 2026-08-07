@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target } from 'lucide-react';
+import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target, Headphones } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
@@ -46,80 +46,93 @@ interface DiagnosticPlan {
   grammarItemZh?: string;
   languageSkill?: string;
   languageSkillZh?: string;
-  skillCategory: 'grammar' | 'vocabulary' | 'reading' | 'writing'; // ✅ for scoring
-  questionType: 'mc' | 'short-writing';
+  skillCategory: 'grammar' | 'vocabulary' | 'reading' | 'writing' | 'listening';
+  questionType: 'mc' | 'short-writing' | 'fill-blank';
   count: number;
   difficulty: 'remedial' | 'core' | 'challenge';
+  topic?: string;
 }
 
 function getStudentLevel(profile: StudentProfile | null): string {
   return profile?.level || profile?.class?.gradeLevel || 'S4';
 }
 
-function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): DiagnosticPlan[] {
-  const overall = weakSkills.reduce((sum, item) => sum + item.accuracy, 0) / Math.max(1, weakSkills.length);
-  const difficulty: 'remedial' | 'core' | 'challenge' = overall < 45 ? 'remedial' : overall < 75 ? 'core' : 'challenge';
-  const weakest = weakSkills[0]?.name;
-  const second = weakSkills[1]?.name;
+function getLevelLabel(scores: { correct: number; total: number } | undefined): string {
+  if (!scores || scores.total === 0) return '';
+  const pct = scores.correct / scores.total;
+  if (pct >= 0.8) return '挑戰';
+  if (pct >= 0.5) return '核心';
+  return '補底';
+}
+
+function buildDiagnosticPlans(level: string, _weakSkills: WeakSkill[]): DiagnosticPlan[] {
+  // Diagnostic always uses 'core' difficulty for consistent baseline assessment
+  const difficulty: 'remedial' | 'core' | 'challenge' = 'core';
   const junior = ['S1', 'S2', 'S3'].includes(level);
 
   const plans: DiagnosticPlan[] = [];
 
-  if (weakest === 'grammar' || second === 'grammar') {
-    plans.push({
-      grammarItem: junior ? 'subject-verb-agreement' : 'tenses',
-      grammarItemZh: junior ? '主謂一致' : '時態',
-      skillCategory: 'grammar',
-      questionType: 'mc',
-      count: 3,
-      difficulty,
-    });
-  }
+  // ── Grammar: 2 MCQ (baseline) ──
+  plans.push({
+    grammarItem: junior ? 'subject-verb-agreement' : 'tenses',
+    grammarItemZh: junior ? '主謂一致' : '時態',
+    skillCategory: 'grammar',
+    questionType: 'mc',
+    count: 2,
+    difficulty,
+  });
 
-  if (weakest === 'vocabulary' || second === 'vocabulary') {
-    plans.push({
-      grammarItem: 'phrasal-verbs',
-      grammarItemZh: '詞彙搭配與片語動詞',
-      skillCategory: 'vocabulary',
-      questionType: 'mc',
-      count: 2,
-      difficulty,
-    });
-  }
+  // ── Vocabulary: 1 context-cloze (fill-blank) for active vocabulary ──
+  plans.push({
+    languageSkill: 'vocabulary',
+    languageSkillZh: '詞彙應用',
+    skillCategory: 'vocabulary',
+    questionType: 'fill-blank',
+    count: 1,
+    difficulty,
+  });
 
-  // Always include at least 1 vocabulary question for baseline assessment
-  if (!plans.some(p => p.skillCategory === 'vocabulary')) {
-    plans.push({
-      grammarItem: 'phrasal-verbs',
-      grammarItemZh: '詞彙搭配與片語動詞',
-      skillCategory: 'vocabulary',
-      questionType: 'mc',
-      count: 1,
-      difficulty,
-    });
-  }
+  // ── Reading: 2 MCQ ──
+  plans.push({
+    languageSkill: 'reading',
+    languageSkillZh: '閱讀理解',
+    skillCategory: 'reading',
+    questionType: 'mc',
+    count: 2,
+    difficulty,
+  });
 
-  if (weakest === 'reading' || second === 'reading' || plans.length < 2) {
-    plans.push({
-      languageSkill: 'reading',
-      languageSkillZh: '閱讀',
-      skillCategory: 'reading',
-      questionType: 'mc',
-      count: 2,
-      difficulty,
-    });
-  }
+  // ── Listening: 2 MCQ ──
+  plans.push({
+    languageSkill: 'listening',
+    languageSkillZh: '聆聽理解',
+    skillCategory: 'listening',
+    questionType: 'mc',
+    count: 2,
+    difficulty,
+  });
 
+  // ── Writing: 2 tasks — email + short article ──
   plans.push({
     languageSkill: 'writing',
-    languageSkillZh: '寫作',
+    languageSkillZh: '寫作（電郵）',
     skillCategory: 'writing',
     questionType: 'short-writing',
     count: 1,
-    difficulty: difficulty === 'challenge' ? 'core' : difficulty,
+    difficulty,
+    topic: 'email',
+  });
+  plans.push({
+    languageSkill: 'writing',
+    languageSkillZh: '寫作（短文）',
+    skillCategory: 'writing',
+    questionType: 'short-writing',
+    count: 1,
+    difficulty,
+    topic: 'short article',
   });
 
-  return plans.slice(0, 4);
+  return plans;
 }
 
 function buildPracticeRecommendation(results: DiagnosticResult[], level: string): PracticeRecommendation {
@@ -243,6 +256,7 @@ export default function DiagnosticPage() {
                 gradeLevel: studentLevel,
                 count: plan.count,
                 questionType: plan.questionType,
+                topic: plan.topic,
               }),
             })
               .then(r => r.json())
@@ -265,7 +279,7 @@ export default function DiagnosticPage() {
               grammarItem: grammar as PracticeQuestion['grammarItem'],
               languageSkill: skill as PracticeQuestion['languageSkill'],
               subSkill: skillCategory || grammar || skill || 'diagnostic',
-              subSkillZh: grammarZh || (grammar === 'tenses' ? '時態' : grammar === 'phrasal-verbs' ? '詞彙' : skill === 'reading' ? '閱讀理解' : skill === 'writing' ? '寫作' : '診斷測試'),
+              subSkillZh: grammarZh || (grammar === 'tenses' ? '時態' : grammar === 'phrasal-verbs' ? '詞彙' : skill === 'reading' ? '閱讀理解' : skill === 'writing' ? '寫作' : skill === 'listening' ? '聆聽理解' : skill === 'vocabulary' ? '詞彙應用' : '診斷測試'),
               difficulty: 'core',
               gradeLevel: 'S4',
               keyStage: 'KS4',
@@ -298,12 +312,12 @@ export default function DiagnosticPage() {
       .finally(() => setLoadingQuestions(false));
   }, []);
 
-  // Update writing score when CLO analysis completes (replaces simple pass/fail)
+  // Update writing score when CLO analysis completes (replaces placeholder -1)
   useEffect(() => {
     if (!writingAnalysis || !completed) return;
     setResults(prev => prev.map(r => {
       if (r.id !== 'writing') return r;
-      // Convert CLO scores (each /7) to percentage: average × (100/7) ≈ ×14.3
+      // Convert CLO scores (each /7) to percentage
       const { contentScore, languageScore, organizationScore } = writingAnalysis;
       const scores = [contentScore, languageScore, organizationScore].filter((s): s is number => typeof s === 'number' && s > 0);
       if (scores.length === 0) return r;
@@ -312,7 +326,7 @@ export default function DiagnosticPage() {
       return {
         ...r,
         score: percentage,
-        level: percentage >= 70 ? t('diagnostic.levelChallenge') : percentage >= 50 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
+        level: percentage >= 80 ? t('diagnostic.levelChallenge') : percentage >= 50 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
       };
     }));
   }, [writingAnalysis, completed, t]);
@@ -354,6 +368,7 @@ export default function DiagnosticPage() {
     { id: 'grammar', labelKey: 'diagnostic.skillGrammar', icon: BookOpen, descriptionKey: 'diagnostic.grammarDesc' },
     { id: 'vocabulary', labelKey: 'diagnostic.skillVocab', icon: BookOpen, descriptionKey: 'diagnostic.vocabDesc' },
     { id: 'reading', labelKey: 'diagnostic.skillReading', icon: FileText, descriptionKey: 'diagnostic.readingDesc' },
+    { id: 'listening', labelKey: 'diagnostic.skillListening', icon: Headphones, descriptionKey: 'diagnostic.listeningDesc' },
     { id: 'writing', labelKey: 'diagnostic.skillWriting', icon: Pencil, descriptionKey: 'diagnostic.writingDesc' },
   ];
 
@@ -405,28 +420,36 @@ export default function DiagnosticPage() {
         id: 'grammar', label: t('diagnostic.skillGrammar'),
         score: skillScores.grammar ? Math.round((skillScores.grammar.correct / skillScores.grammar.total) * 100) : 0,
         totalQuestions: skillScores.grammar?.total ?? 0,
-        level: (skillScores.grammar?.correct || 0) >= 3 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
+        level: getLevelLabel(skillScores.grammar),
         suggestion: '',
       },
       {
         id: 'vocabulary', label: t('diagnostic.skillVocab'),
         score: skillScores.vocabulary ? Math.round((skillScores.vocabulary.correct / skillScores.vocabulary.total) * 100) : 0,
         totalQuestions: skillScores.vocabulary?.total ?? 0,
-        level: (skillScores.vocabulary?.correct || 0) >= 2 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
+        level: getLevelLabel(skillScores.vocabulary),
         suggestion: '',
       },
       {
         id: 'reading', label: t('diagnostic.skillReading'),
         score: skillScores.reading ? Math.round((skillScores.reading.correct / skillScores.reading.total) * 100) : 0,
         totalQuestions: skillScores.reading?.total ?? 0,
-        level: (skillScores.reading?.correct || 0) >= 2 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
+        level: getLevelLabel(skillScores.reading),
+        suggestion: '',
+      },
+      {
+        id: 'listening', label: t('diagnostic.skillListening'),
+        score: skillScores.listening ? Math.round((skillScores.listening.correct / skillScores.listening.total) * 100) : 0,
+        totalQuestions: skillScores.listening?.total ?? 0,
+        level: getLevelLabel(skillScores.listening),
         suggestion: '',
       },
       {
         id: 'writing', label: t('diagnostic.skillWriting'),
-        score: skillScores.writing ? Math.round((skillScores.writing.correct / skillScores.writing.total) * 100) : 0,
+        // Writing is purely CLO-based (qualitative) — show placeholder until AI analysis completes
+        score: -1, // -1 = pending CLO analysis
         totalQuestions: skillScores.writing?.total ?? 0,
-        level: (skillScores.writing?.correct || 0) >= 1 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
+        level: t('diagnostic.levelPending'),
         suggestion: '',
       },
     ];
@@ -564,7 +587,7 @@ export default function DiagnosticPage() {
             <SkillChip grammarItem={currentQ.grammarItem} languageSkill={currentQ.languageSkill} subSkill={currentQ.subSkill} />
           </div>
 
-          {/* 閱讀篇章 / 題目內文 */}
+          {/* 閱讀篇章 / 聆聽內容 / 題目內文 */}
           {(currentQ.languageSkill === 'reading' || currentQ.readingContent) && (
             <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700">
               <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
@@ -572,6 +595,15 @@ export default function DiagnosticPage() {
               </p>
               <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">{currentQ.readingContent}</p>
               {currentQ.readingContentZh && <p className="text-xs text-indigo-500 mt-1 italic">{currentQ.readingContentZh}</p>}
+            </div>
+          )}
+          {(currentQ.languageSkill === 'listening' || currentQ.listeningContent) && (
+            <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-700">
+              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1">
+                🎧 {t('diagnostic.skillListening')}
+              </p>
+              <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed whitespace-pre-line">{currentQ.listeningContent}</p>
+              {currentQ.listeningContentZh && <p className="text-xs text-purple-500 mt-1 italic">{currentQ.listeningContentZh}</p>}
             </div>
           )}
 
@@ -686,8 +718,10 @@ export default function DiagnosticPage() {
 
   // ====== 結果畫面 ======
   const testedResults = results.filter(r => r.totalQuestions > 0);
-  const overallScore = testedResults.length > 0
-    ? Math.round(testedResults.reduce((s, r) => s + r.score, 0) / testedResults.length)
+  // Exclude writing (score === -1 means pending CLO) from overall average
+  const quantResults = testedResults.filter(r => r.id !== 'writing' || r.score >= 0);
+  const overallScore = quantResults.length > 0
+    ? Math.round(quantResults.reduce((s, r) => s + r.score, 0) / quantResults.length)
     : 0;
   const recommendation = buildPracticeRecommendation(results, getStudentLevel(studentProfile));
   const practiceHref = `/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(recommendation.grammarItem || '')}&languageSkill=${encodeURIComponent(recommendation.languageSkill || '')}&difficulty=${recommendation.difficulty}&questionType=${recommendation.questionType}&questionCount=${recommendation.questionCount}&gradeLevel=${encodeURIComponent(getStudentLevel(studentProfile))}&weakLabel=${encodeURIComponent(recommendation.weakLabel)}`;
@@ -732,6 +766,10 @@ export default function DiagnosticPage() {
             {r.totalQuestions === 0 ? (
               <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                 <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full" style={{ width: '0%' }} />
+              </div>
+            ) : r.score < 0 ? (
+              <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <div className="h-2 bg-blue-300 dark:bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }} />
               </div>
             ) : (
               <ProgressBar value={r.score} size="sm" showPercentage={true} />
