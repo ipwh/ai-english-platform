@@ -100,14 +100,9 @@ export default function QuickAddVocab({
           studentId,
           word: analysis.word,
           partOfSpeech: analysis.partOfSpeech,
-          allPartOfSpeech: analysis.allPartOfSpeech,
-          meaningZh: analysis.meaningZh,
-          secondaryMeaningZh: analysis.secondaryMeaningZh,
-          exampleSentence: analysis.exampleSentence,
-          exampleZh: analysis.exampleZh,
-          synonyms: analysis.synonyms,
-          antonyms: analysis.antonyms,
-          collocations: analysis.collocations,
+          translation: analysis.meaningZh,
+          example: analysis.exampleSentence,
+          source: 'quick-add',
         }),
       });
 

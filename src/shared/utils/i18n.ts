@@ -15,6 +15,7 @@ import { roleTranslations } from './i18n-role';
 import { practiceTranslations } from './i18n-practice';
 import { writingTranslations } from './i18n-writing';
 import { vocabTranslations } from './i18n-vocab';
+import { speakingTranslations } from './i18n-speaking';
 import { studentTranslations } from './i18n-student';
 import { progressTranslations } from './i18n-progress';
 
@@ -39,6 +40,7 @@ const translations: Record<string, { zh: string; en: string }> = {
   ...practiceTranslations,
   ...mistakesTranslations,
   ...vocabTranslations,
+  ...speakingTranslations,
   ...progressTranslations,
   ...gamificationTranslations,
   ...adminTranslations,

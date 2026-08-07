@@ -584,28 +584,34 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   </h3>
 
                   {/* Note-taking guide */}
-                  {s.showNotesGuide && task.noteTakingGuide.length > 0 && (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800 mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                          <Target className="w-4 h-4" /> {t('is.noteGuide')}
-                        </h4>
-                        <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
-                          {t('is.hide')}
-                        </button>
+                  {task.noteTakingGuide.length > 0 && (
+                    s.showNotesGuide ? (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800 mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                            <Target className="w-4 h-4" /> {t('is.noteGuide')}
+                          </h4>
+                          <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
+                            {t('is.hide')}
+                          </button>
+                        </div>
+                        <ul className="space-y-2">
+                          {task.noteTakingGuide.map((item, i) => (
+                            <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                              <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
+                              <div>
+                                <span className="font-medium">{item.question}</span>
+                                <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <ul className="space-y-2">
-                        {task.noteTakingGuide.map((item, i) => (
-                          <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
-                            <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
-                            <div>
-                              <span className="font-medium">{item.question}</span>
-                              <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    ) : (
+                      <button onClick={s.toggleNotesGuide} className="mb-3 text-xs text-amber-500 hover:text-amber-600 hover:underline flex items-center gap-1">
+                        <Target className="w-3.5 h-3.5" /> {t('is.show')} {t('is.noteGuide')}
+                      </button>
+                    )
                   )}
 
                   {/* Shorthand symbols reference */}
@@ -692,28 +698,34 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
             {s.activeStep === 2 && canAccessNotes && (
               <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
                 {/* Note-taking guide */}
-                {s.showNotesGuide && task.noteTakingGuide.length > 0 && (
-                  <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                        <Target className="w-4 h-4" /> {t('is.noteGuide')}
-                      </h4>
-                      <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
-                        {t('is.hide')}
-                      </button>
+                {task.noteTakingGuide.length > 0 && (
+                  s.showNotesGuide ? (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                          <Target className="w-4 h-4" /> {t('is.noteGuide')}
+                        </h4>
+                        <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
+                          {t('is.hide')}
+                        </button>
+                      </div>
+                      <ul className="space-y-2">
+                        {task.noteTakingGuide.map((item, i) => (
+                          <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                            <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
+                            <div>
+                              <span className="font-medium">{item.question}</span>
+                              <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <ul className="space-y-2">
-                      {task.noteTakingGuide.map((item, i) => (
-                        <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
-                          <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
-                          <div>
-                            <span className="font-medium">{item.question}</span>
-                            <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  ) : (
+                    <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:text-amber-600 hover:underline flex items-center gap-1">
+                      <Target className="w-3.5 h-3.5" /> {t('is.show')} {t('is.noteGuide')}
+                    </button>
+                  )
                 )}
 
                 {/* Notes textarea */}

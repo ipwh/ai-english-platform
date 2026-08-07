@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Target, Lightbulb, Play, Square, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
+import { useT } from '@/hooks/use-i18n';
 
 interface SpeakingQuestion {
   topic: string;
@@ -28,21 +29,12 @@ interface SpeakingAnalysis {
 }
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
-const DIFFICULTIES = [
-  { value: 'remedial' as const, zh: '補底', en: 'Remedial' },
-  { value: 'core' as const, zh: '核心', en: 'Core' },
-  { value: 'challenge' as const, zh: '挑戰', en: 'Challenge' },
-];
-const TOPICS_AREA = [
-  { value: 'general', zh: '綜合', en: 'General' },
-  { value: 'school', zh: '學校', en: 'School' },
-  { value: 'social', zh: '社會', en: 'Social Issues' },
-  { value: 'technology', zh: '科技', en: 'Technology' },
-  { value: 'environment', zh: '環境', en: 'Environment' },
-] as const;
+const DIFFICULTIES = ['remedial', 'core', 'challenge'] as const;
+const TOPICS_AREA = ['general', 'school', 'social', 'technology', 'environment'] as const;
 
 export default function SpeakingPracticePage() {
   const { language, userId } = useAppStore();
+  const { t } = useT();
 
   const [grade, setGrade] = useState<string>('S4');
   const [difficulty, setDifficulty] = useState<string>('core');
@@ -111,10 +103,10 @@ export default function SpeakingPracticePage() {
       if (res.ok && json.mockQuestion) {
         setQuestion(json.mockQuestion);
       } else {
-        setError(json.error || 'Generation failed');
+        setError(json.error || t('speaking.generationFailed'));
       }
     } catch {
-      setError(language === 'en' ? 'Network error' : '網絡錯誤');
+      setError(t('speaking.networkError'));
     } finally {
       setLoading(false);
     }
@@ -143,10 +135,10 @@ export default function SpeakingPracticePage() {
           }).catch(() => {});
         }
       } else {
-        setError(json.error || 'Analysis failed');
+        setError(json.error || t('speaking.analysisFailed'));
       }
     } catch {
-      setError(language === 'en' ? 'Network error' : '網絡錯誤');
+      setError(t('speaking.networkError'));
     } finally {
       setAnalyzing(false);
     }
@@ -168,10 +160,10 @@ export default function SpeakingPracticePage() {
       {/* Header */}
       <div className="bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Mic className="w-6 h-6" /> {language === 'en' ? 'Speaking Practice' : '會話練習'}
+          <Mic className="w-6 h-6" /> {t('speaking.title')}
         </h1>
         <p className="text-pink-100 text-sm mt-1">
-          {language === 'en' ? 'DSE Paper 4 — Group Discussion & Individual Response' : 'DSE Paper 4 — 小組討論與個人回應'}
+          {t('speaking.subtitle')}
         </p>
       </div>
 
@@ -180,12 +172,12 @@ export default function SpeakingPracticePage() {
         <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
         <div className="text-sm text-amber-800 dark:text-amber-300">
           <p className="font-medium mb-1">
-            {language === 'en' ? '⚠️ Current Limitations' : '⚠️ 目前限制'}
+            {t('speaking.limitationTitle')}
           </p>
           <ul className="list-disc list-inside space-y-0.5 text-amber-700 dark:text-amber-400">
-            <li>{language === 'en' ? 'Cannot simulate real-time human-machine conversation' : '未能做到即時人機對答'}</li>
-            <li>{language === 'en' ? 'Cannot fully simulate a live DSE Paper 4 oral exam (Group Discussion + Individual Response)' : '未能完整模擬 DSE Paper 4 口語考試（小組討論 + 個人回應）'}</li>
-            <li>{language === 'en' ? 'Practice by typing your response; AI will analyze your text for grammar, vocabulary, and content quality' : '請以文字輸入你的回應，AI 將分析你的文法、詞彙及內容質素'}</li>
+            <li>{t('speaking.limitation1')}</li>
+            <li>{t('speaking.limitation2')}</li>
+            <li>{t('speaking.limitation3')}</li>
           </ul>
         </div>
       </div>
@@ -195,7 +187,7 @@ export default function SpeakingPracticePage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Grade' : '年級'}</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('speaking.grade')}</label>
               <div className="flex flex-wrap gap-1">
                 {GRADES.map(g => (
                   <button key={g} onClick={() => setGrade(g)}
@@ -206,24 +198,24 @@ export default function SpeakingPracticePage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Difficulty' : '難度'}</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('speaking.difficulty')}</label>
               <div className="flex flex-wrap gap-1">
                 {DIFFICULTIES.map(d => (
-                  <button key={d.value} onClick={() => setDifficulty(d.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${difficulty === d.value ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                    {getDifficultyLabel(d.value, language)}
+                  <button key={d} onClick={() => setDifficulty(d)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${difficulty === d ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                    {getDifficultyLabel(d, language)}
                   </button>
                 ))}
               </div>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Topic Area' : '話題範圍'}</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('speaking.topicArea')}</label>
             <div className="flex flex-wrap gap-1">
               {TOPICS_AREA.map(tp => (
-                <button key={tp.value} onClick={() => setTopic(tp.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${topic === tp.value ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-                  {language === 'en' ? tp.en : tp.zh}
+                <button key={tp} onClick={() => setTopic(tp)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${topic === tp ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                  {t(`speaking.topic.${tp}`)}
                 </button>
               ))}
             </div>
@@ -231,7 +223,7 @@ export default function SpeakingPracticePage() {
           <button onClick={generateQuestion} disabled={loading}
             className="w-full py-3 bg-pink-500 text-white rounded-xl font-medium hover:bg-pink-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? (language === 'en' ? 'Generating...' : '生成中...') : (language === 'en' ? 'Generate Speaking Question' : '生成會話題目')}
+            {loading ? t('speaking.generating') : t('speaking.generate')}
           </button>
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
         </div>
@@ -249,7 +241,7 @@ export default function SpeakingPracticePage() {
             {/* Discussion Questions */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-gray-500 uppercase">
-                {language === 'en' ? 'Discussion Questions' : '討論問題'}
+                {t('speaking.discussionQuestions')}
               </p>
               {question.discussionQuestions.map((q, i) => (
                 <div key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -262,7 +254,7 @@ export default function SpeakingPracticePage() {
             {/* Individual Question */}
             <div className="bg-pink-50 dark:bg-pink-900/20 rounded-xl p-4 border border-pink-200 dark:border-pink-800">
               <p className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1">
-                {language === 'en' ? 'Individual Response' : '個人回應'}
+                {t('speaking.individualResponse')}
               </p>
               <p className="text-sm text-gray-700 dark:text-gray-300">{question.individualQuestion}</p>
             </div>
@@ -271,7 +263,7 @@ export default function SpeakingPracticePage() {
             <button onClick={() => setShowHints(!showHints)}
               className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors">
               <Lightbulb className="w-3 h-3" />
-              {language === 'en' ? 'Vocabulary Hints' : '詞彙提示'} ({question.vocabularyHints.length})
+              {t('speaking.vocabularyHints')} ({question.vocabularyHints.length})
               {showHints ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
             {showHints && (
@@ -327,23 +319,21 @@ export default function SpeakingPracticePage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4">
             <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <MessageCircle className="w-5 h-5 text-pink-500" />
-              {language === 'en' ? 'Your Speaking Transcript' : '你的口語記錄'}
+              {t('speaking.transcriptLabel')}
             </h3>
             <p className="text-xs text-gray-500">
-              {language === 'en'
-                ? 'Type what you said during practice (or use voice typing on your device)'
-                : '輸入你在練習時說的內容（或使用裝置語音輸入）'}
+              {t('speaking.transcriptHint')}
             </p>
             <textarea
               value={transcript}
               onChange={e => setTranscript(e.target.value)}
               className="w-full min-h-[120px] p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-sm resize-y"
-              placeholder={language === 'en' ? 'Paste your transcript here...' : '在此貼上你的說話記錄...'}
+              placeholder={t('speaking.transcriptPlaceholder')}
             />
             <button onClick={analyzeTranscript} disabled={analyzing || !transcript.trim()}
               className="w-full py-2.5 bg-pink-500 text-white rounded-xl font-medium hover:bg-pink-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
               {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {analyzing ? (language === 'en' ? 'Analyzing...' : '分析中...') : (language === 'en' ? 'AI Analyze My Speaking' : 'AI 分析我的口語')}
+              {analyzing ? t('speaking.analyzing') : t('speaking.analyze')}
             </button>
           </div>
 
@@ -355,18 +345,16 @@ export default function SpeakingPracticePage() {
                 <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                    {language === 'en' ? '⚠️ Content-Only Analysis' : '⚠️ 僅內容分析（非完整口語評估）'}
+                    {t('speaking.analysisContentOnly')}
                   </p>
                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                    {analysis.limitationNote || (language === 'en'
-                      ? 'AI can only analyze grammar, vocabulary, and content from your text transcript. Fluency, pronunciation, and interaction cannot be assessed without audio recording.'
-                      : 'AI 只能從文字記錄分析文法、詞彙及內容相關性。由於無法聆聽錄音，無法評估流暢度、發音及互動表現。')}
+                    {analysis.limitationNote || t('speaking.analysisContentNote')}
                   </p>
                 </div>
               </div>
 
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                {language === 'en' ? 'AI Content Analysis' : 'AI 內容分析'}
+                {t('speaking.analysisTitle')}
               </h3>
 
               {(['grammarAccuracy', 'vocabularyRange', 'contentRelevance'] as const).map(dim => (
@@ -388,7 +376,7 @@ export default function SpeakingPracticePage() {
               {analysis.improvementTips && analysis.improvementTips.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-gray-500 mb-2">
-                    {language === 'en' ? 'Improvement Tips' : '改善建議'}
+                    {t('speaking.improvementTips')}
                   </p>
                   <ul className="space-y-1">
                     {analysis.improvementTips.map((tip, i) => (
@@ -402,7 +390,7 @@ export default function SpeakingPracticePage() {
 
               <button onClick={resetAll}
                 className="w-full py-2.5 border border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400 rounded-xl text-sm font-medium hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors">
-                {language === 'en' ? 'New Practice' : '新練習'}
+                {t('speaking.newPractice')}
               </button>
             </div>
           )}

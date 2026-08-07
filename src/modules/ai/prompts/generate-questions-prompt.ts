@@ -49,11 +49,11 @@ export function buildCompactSystemPrompt(input: GenerateQuestionsInput, dseConte
   if (isListening) {
     skillSection = buildListeningSection(count, input.difficulty, input.gradeLevel);
   } else if (isReading) {
-    skillSection = buildReadingSection();
+    skillSection = buildReadingSection(input.difficulty, input.gradeLevel);
   } else if (isWriting) {
-    skillSection = buildWritingSection();
+    skillSection = buildWritingSection(input.difficulty, input.gradeLevel);
   } else if (isSpeaking) {
-    skillSection = buildSpeakingSection();
+    skillSection = buildSpeakingSection(input.difficulty, input.gradeLevel);
   }
 
   // ── Assemble ──
@@ -101,20 +101,47 @@ Each dialogue needs 1-3 info points (NOT just time/numbers — include locations
 Answer MUST appear verbatim in listeningContent. Verify before output.`;
 }
 
-function buildReadingSection(): string {
+function buildReadingSection(difficulty: string, gradeLevel: string): string {
+  const wordRange = difficulty === 'remedial' ? '60-120 words' : difficulty === 'core' ? '100-180 words' : '150-250 words';
+  const passageType = (gradeLevel === 'S1' || gradeLevel === 'S2')
+    ? 'stories, letters, posters, notices'
+    : (gradeLevel === 'S3' || gradeLevel === 'S4')
+      ? 'news articles, opinion pieces, informational texts'
+      : 'complex editorials, literary extracts, academic articles';
+  const questionFocus = difficulty === 'remedial'
+    ? 'Focus on explicit information, simple vocabulary-in-context, and factual questions.'
+    : difficulty === 'challenge'
+      ? 'Include inference questions, author attitude/tone, figurative language, and cross-paragraph reasoning.'
+      : 'Mix of explicit and implicit questions with straightforward inferences.';
   return `─── DSE Paper 1 Reading ───
-Provide a readingContent passage (80-200 words). All questions must be answerable from this passage.
-Passage types by grade: S1-S3 → stories, letters, posters; S4-S6 → news, opinion, informational articles.`;
+Provide a readingContent passage (${wordRange}). All questions must be answerable from this passage.
+Passage types for ${gradeLevel}: ${passageType}.
+${questionFocus}`;
 }
 
-function buildWritingSection(): string {
+function buildWritingSection(difficulty: string, gradeLevel: string): string {
+  const promptRange = difficulty === 'remedial' ? '20-40 words' : difficulty === 'core' ? '40-60 words' : '50-80 words';
+  const answerRange = difficulty === 'remedial' ? '60-100 words' : difficulty === 'core' ? '100-150 words' : '150-200 words';
+  const complexity = difficulty === 'remedial'
+    ? 'Simple scenario, basic vocabulary, straightforward task.'
+    : difficulty === 'challenge'
+      ? 'Complex scenario with nuanced requirements, advanced vocabulary expectations, multi-perspective task.'
+      : 'Standard DSE scenario with moderate complexity.';
   return `─── DSE Paper 2 Writing ───
-Generate a short writing prompt (30-80 words) with scenario, role, task, and specific requirements.
-Answer field: model answer (80-150 words). Choices: []. Topics close to HK student life experience.`;
+Generate a short writing prompt (${promptRange}) with scenario, role, task, and specific requirements.
+Answer field: model answer (${answerRange}). Choices: []. Grade: ${gradeLevel}. ${complexity}
+Topics close to HK student life experience.`;
 }
 
-function buildSpeakingSection(): string {
+function buildSpeakingSection(difficulty: string, gradeLevel: string): string {
+  const promptRange = difficulty === 'remedial' ? '15-30 words' : difficulty === 'core' ? '25-40 words' : '35-50 words';
+  const depth = difficulty === 'remedial'
+    ? 'Simple discussion topic with basic opinion-sharing.'
+    : difficulty === 'challenge'
+      ? 'Complex discussion topic requiring critical analysis, comparison of viewpoints, and justification.'
+      : 'Standard discussion topic with structured argumentation.';
   return `─── DSE Paper 4 Speaking ───
-Generate a discussion topic or individual response prompt (20-50 words).
+Generate a discussion topic or individual response prompt (${promptRange}). Grade: ${gradeLevel}.
+${depth}
 Answer field: 3-5 bullet points (not full answer). Choices: [].`;
 }

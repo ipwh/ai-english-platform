@@ -89,9 +89,8 @@ export function useTextSelectionVocab({
           studentId,
           word: selectedText,
           partOfSpeech: 'unknown',
-          meaningZh: '',
-          familiarity: 'new',
-          masteryLevel: 0,
+          translation: '',
+          source: 'inline-selection',
         }),
       });
 

@@ -129,17 +129,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, grammarPointIds, gradeLevel } = body as {
+    const { studentId, grammarPointIds, gradeLevel, difficulty } = body as {
       studentId: string;
       grammarPointIds: string[];
       gradeLevel?: string;
+      difficulty?: string;
     };
 
     if (!studentId || !grammarPointIds?.length) {
       return NextResponse.json({ error: 'studentId and grammarPointIds required' }, { status: 400 });
     }
 
-    // 每個文法點生成 3 題 MCQ
+    // 每個文法點生成 3 題 MCQ，難度預設 core，可由請求參數覆蓋
     const grammarPoint = GRAMMAR_POINTS.find(g => g.id === grammarPointIds[0]) || GRAMMAR_POINTS[0];
     const questions = await generateQuestions({
       count: 3,
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
       grammarItem: grammarPoint.cat,
       grammarItemZh: grammarPoint.nameZh,
       questionType: 'mc',
-      difficulty: 'core',
+      difficulty: (difficulty as 'remedial' | 'core' | 'challenge') || 'core',
     });
 
     return NextResponse.json({

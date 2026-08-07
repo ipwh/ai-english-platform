@@ -10,6 +10,7 @@ export const navTranslations: Record<string, { zh: string; en: string }> = {
   'nav.dailyChallenge': { zh: '每日挑戰', en: 'Daily Challenge' },
   'nav.reading': { zh: 'DSE閱讀理解', en: 'DSE Reading' },
   'nav.speaking': { zh: '會話練習', en: 'Speaking' },
+  'nav.knowledgeGraph': { zh: '知識圖譜', en: 'Knowledge Graph' },
   'nav.assignments': { zh: '我的作業', en: 'My Assignments' },
 
   'nav.diagnostic': { zh: '診斷測驗', en: 'Diagnostic Test' },

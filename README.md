@@ -3,7 +3,7 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | 121 Sprints | 60/61 test files pass | 1,586 tests / 74 files | Audit: **88/100 (A-)** | Architecture: **9.0/10**
+> **Status**: **v1.0 Production Ready** ✅ | 122 Sprints | 60/61 test files pass | 1,586 tests / 74 files | Audit: **88/100 (A-)** | Architecture: **9.0/10**
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
@@ -77,6 +77,7 @@ AI module: 13 directories, 127 files — single pipeline, single owner per respo
 - **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
+- **🗺️ 知識圖譜視覺化** — 互動式 DAG 節點圖，SVG 連線顯示前置/強化/延伸關聯，支援技能篩選、縮放、節點點擊展開詳情（學習目標 + 前置/後續知識），自動載入學生掌握度數據，顏色標記已掌握/未解鎖狀態
 
 ### 🚀 v4.1 Learning Intelligence (Sprints 31-40)
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(60%)+新近度(25%)+練習量(15%)的加權公式
@@ -84,11 +85,11 @@ AI module: 13 directories, 127 files — single pipeline, single owner per respo
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
 - **🌍 多元題材資料庫** — 200+ 閱讀主題、90+ 聆聽場景、90+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園、茶餐廳文化、社區重建、非遺保育、公共房屋）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易、難民教育、全球糧食安全、跨境網購權益），確保出題內容豐富不重複
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
-- **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints
+- **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
 - **✍️ 寫作教練 2.0 (S36)** — 8 維度啟發式評分（Grammar/Vocabulary/SentenceVariety/Coherence/Cohesion/Organization/TaskResponse/Tone）、DSE Band 預測（U→5**）
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
-- **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測
+- **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
 - **🏛️ 統一 LearningFacade (S40)** — 所有學習模組的單一入口點，零重複業務邏輯
 
@@ -99,6 +100,7 @@ AI module: 13 directories, 127 files — single pipeline, single owner per respo
 - **學生詳情** — 個別學生完整學習數據：XP/徽章/技能準確率/錯題分布/每週趨勢/逐題答案/CSV 匯出
 - **課業管理** — 指派練習、查看完成狀況
 - **成績報告** — 班級及個別學生成績分析
+- **🆕 AI Copilot 教學助手** — 專屬前端頁面（`/teacher/copilot`），6 大功能分頁：概覽（班級狀態 + 緊急行動）、教案生成（一週教學計劃含每日活動與家課）、班級分析（技能分佈 + 風險學生 + 建議）、考試預測（DSE 合格率 + 各卷預測 + 學生等級預測）、教材生成（工作紙/家課/小測/溫習卷/補底練習）、學生分析（個人技能詳情 + 進度 + 百分位）
 
 ### 🛡️ 管理員後台（`/admin`）
 - **Google Sheets 同步** — 一鍵從 Google Sheets 同步全校學生班別名單（真相來源），支援 dry-run 預覽；**自動反向同步**：在平台新增班級或學生時，自動寫入 Google Sheets（班級列表 + 學生名單分頁），支援批量匯入批次同步

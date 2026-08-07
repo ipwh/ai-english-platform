@@ -82,7 +82,7 @@ export const adminTranslations: Record<string, { zh: string; en: string }> = {
   'admin.classes.gradeLevel': { zh: '年級', en: 'Grade' },
   'admin.classes.academicYear': { zh: '學年', en: 'Academic Year' },
   'admin.classes.classUnit': { zh: '班', en: 'class' },
-  'admin.classes.studentUnit': { zh: '人', en: '' },
+  'admin.classes.studentUnit': { zh: '人', en: 'students' },
   'admin.classes.classLabel': { zh: '班級', en: 'Class' },
   'admin.classes.assignmentCount': { zh: '作業數', en: 'Assignments' },
   'admin.classes.actions': { zh: '操作', en: 'Actions' },

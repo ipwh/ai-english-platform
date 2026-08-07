@@ -101,5 +101,33 @@ All Chinese text (listeningTopicZh, noteTakingGuide hints, etc.) must use Tradit
     recordTopicUsage(input.userId, diverseTopics[0], 'school', 'listening');
   }
 
-  return { listeningContent: normalizeListeningContent(task.listeningContent), listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: task.noteTakingGuide || [], writingTask: task.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: task.expectedContentPoints || [], listeningAnswers: task.listeningAnswers || [] };
+  return { listeningContent: normalizeListeningContent(task.listeningContent), listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: sanitizeNoteGuide(task.noteTakingGuide || []), writingTask: task.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: task.expectedContentPoints || [], listeningAnswers: task.listeningAnswers || [] };
+}
+
+/**
+ * Sanitize note-taking guide hints to remove answer-like content.
+ * The LLM occasionally leaks actual answers into hints despite prompt instructions.
+ * This post-processing redacts hints that look like answers (dates, dollar amounts, etc.)
+ */
+function sanitizeNoteGuide(guide: Array<{ question: string; hint: string }>): Array<{ question: string; hint: string }> {
+  return guide.map(item => {
+    let hint = item.hint;
+    // Redact patterns that look like answers rather than hints:
+    // - Dollar amounts: $500, $2,500, HKD 100, etc.
+    hint = hint.replace(/\$[\d,]+(\s*(HKD|USD|港元|元))?/g, '【金額】');
+    hint = hint.replace(/HKD\s*\$?[\d,]+/gi, '【金額】');
+    // - Dates: Aug 15, 15th August, 2024-08-15, etc.
+    hint = hint.replace(/\b\d{1,2}(st|nd|rd|th)?\s*(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, '【日期】');
+    hint = hint.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s*\d{1,2}(st|nd|rd|th)?\b/gi, '【日期】');
+    // - Times: 3:00pm, 14:00, etc.
+    hint = hint.replace(/\b\d{1,2}:\d{2}\s*(am|pm|AM|PM)?\b/g, '【時間】');
+    // - Phone numbers / specific numbers with 4+ digits
+    hint = hint.replace(/\b\d{4,}\b/g, '【數字】');
+    // - Email addresses
+    hint = hint.replace(/[\w.-]+@[\w.-]+\.\w+/g, '【電郵】');
+    // - Phrases that explicitly reveal answers
+    hint = hint.replace(/答案(是|為|：|:)\s*.+/g, '答案請自行從錄音中找出');
+    hint = hint.replace(/answer\s*(is|:)\s*.+/gi, 'Listen to the recording for the answer');
+    return { question: item.question, hint };
+  });
 }

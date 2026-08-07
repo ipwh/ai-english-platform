@@ -4,6 +4,37 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-07 — i18n Completion, Grade/Difficulty Fixes & Missing Features (Sprint 122)
+
+### 🐛 Bug Fixes
+- **Quick-add vocab "未知錯誤"**: Fixed field name mismatch in `QuickAddVocab.tsx` and `InlineAddVocabButton.tsx` (`meaningZh`→`translation`, `exampleSentence`→`example`). Fixed `POST /api/vocabulary` catch block to re-throw `NextResponse` from Zod validation instead of swallowing it as "未知錯誤".
+- **Integrated Skills note guide**: Fixed hide button making the guide permanently disappear — now shows a "顯示 筆記指引" toggle button when hidden. Added `sanitizeNoteGuide()` post-processor to redact answer-like content (dates, amounts, times) from AI-generated hints.
+- **Login page text**: Changed email placeholder to "請輸入電郵地址" and Google sign-in button to "以學校的Google帳戶登入".
+
+### 🎯 Grade/Difficulty Differentiation (3 Gaps Fixed)
+- **Reading section** (`buildReadingSection`): Now accepts `difficulty` + `gradeLevel` — controls word range (60-120/100-180/150-250), passage type by grade, and question focus (explicit→inference).
+- **Writing section** (`buildWritingSection`): Now accepts `difficulty` + `gradeLevel` — controls prompt length, answer length, and complexity level.
+- **Speaking section** (`buildSpeakingSection`): Now accepts `difficulty` + `gradeLevel` — controls prompt length and discussion depth.
+- **Diagnostic grammar**: `difficulty` no longer hardcoded to `'core'` — now accepts optional parameter from request body.
+
+### 🌐 i18n Coverage (Complete)
+- **Created `i18n-speaking.ts`** (30 keys) and fully migrated `speaking/page.tsx` from 35+ inline ternary patterns to `t()`.
+- **Fixed 2 empty English values**: `admin.classes.studentUnit` → `'students'`, `teacher.studentDetail.sessionsUnit` → `'sessions'`.
+- **Result**: 40/40 pages use `t()`, 17 i18n files, ~710 keys, 0 empty values.
+
+### 🆕 New Features
+- **Knowledge Graph Visualization** (`/student/knowledge-graph`): Interactive DAG node graph with SVG edges, skill filtering, zoom controls, node click detail panel (learning objectives + prerequisites/successors), auto-loaded student mastery data with color-coded status (mastered/locked/unlocked).
+- **Teacher AI Copilot Page** (`/teacher/copilot`): 6-tab UI (Overview/Lesson Plan/Class Analysis/Exam Prediction/Generate Materials/Student Analysis) using existing 8 copilot API routes. Added to teacher sidebar navigation.
+
+### 📊 Updated Metrics
+- i18n: 15 module files → **17** | 1,360+ strings → **~1,420 strings** (~710 keys × 2 languages)
+- Student pages: 17 → **18** (added knowledge-graph)
+- Teacher pages: 14 → **15** (added copilot)
+- API routes: 120 (unchanged)
+- Navigation items: student +1 (knowledge graph), teacher +1 (copilot)
+
+---
+
 ## 2026-08-06 — Security Re-Audit & Rate Limiting (Sprint 121)
 
 ### 🔒 Production Audit Resolution

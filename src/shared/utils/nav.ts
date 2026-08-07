@@ -7,7 +7,7 @@ import {
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
   User, Users, GraduationCap, Upload,
   ClipboardCheck, Settings, Search, Headphones,
-  Mic, Calendar, BookText, FileText,
+  Mic, Calendar, BookText, FileText, GitBranch, Brain,
   type LucideIcon
 } from 'lucide-react';
 import { t } from '@/shared/utils/i18n';
@@ -47,6 +47,7 @@ export const studentNavItems: NavItem[] = [
   { label: 'DSE寫作支援', i18nKey: 'nav.writing', href: '/student/writing', icon: PencilLine },
   { label: 'DSE Integrated Skills', i18nKey: 'nav.integratedSkills', href: '/student/integrated-skills', icon: Headphones },
   { label: '會話練習', i18nKey: 'nav.speaking', href: '/student/speaking', icon: Mic },
+  { label: '知識圖譜', i18nKey: 'nav.knowledgeGraph', href: '/student/knowledge-graph', icon: GitBranch },
   { label: '生字簿', i18nKey: 'nav.vocabulary', href: '/student/vocabulary', icon: BookMarked },
   { label: '我的錯題', i18nKey: 'nav.mistakes', href: '/student/mistakes', icon: AlertTriangle },
   { label: '我的進度', i18nKey: 'nav.progress', href: '/student/progress', icon: TrendingUp },
@@ -82,6 +83,7 @@ export const teacherNavSections: NavSection[] = [
       { label: '任務派發', i18nKey: 'teacher.assignments', href: '/teacher/assignments', icon: ClipboardList },
       { label: '教材中心', i18nKey: 'teacher.materials', href: '/teacher/materials', icon: Upload },
       { label: 'AI 批改覆核', i18nKey: 'teacher.review', href: '/teacher/review', icon: ClipboardCheck },
+      { label: 'AI Copilot', i18nKey: 'teacher.copilot', href: '/teacher/copilot', icon: Brain },
     ],
   },
   {
