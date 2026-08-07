@@ -136,6 +136,7 @@ export default function TeacherCopilotPage() {
         <div className="mt-3 pt-3 border-t border-violet-400/30 text-xs text-violet-200 space-y-1">
           <p>💡 <strong>概覽</strong>：查看所有班級狀態 · <strong>教案</strong>：輸入班級生成一週教學計劃 · <strong>班級分析</strong>：查看班級技能分佈及風險學生</p>
           <p>💡 <strong>考試預測</strong>：預測 DSE 合格率 · <strong>生成教材</strong>：AI 製作工作紙/家課/測驗卷 · <strong>學生分析</strong>：輸入學生姓名查看個人進度</p>
+          <p className="text-amber-200 mt-1">⚠️ 此頁面目前顯示示範數據。需接入 StudentTwin + LearningScience 模組後才有真正個人化內容。</p>
         </div>
       </div>
 
