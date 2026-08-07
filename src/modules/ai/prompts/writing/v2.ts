@@ -106,7 +106,7 @@ Return ONLY valid JSON matching this schema:
     "contentScore": 0,         // 0-7
     "languageScore": 0,        // 0-7
     "organizationScore": 0,    // 0-7
-    "estimatedLevel": "string", // e.g. "4", "5*", "5**"
+    "estimatedLevel": "string", // internal estimate e.g. "4", "5"
     "summary": "string",       // One paragraph summarizing overall quality (English)
     "summaryZh": "string"      // 繁體中文總評
   },

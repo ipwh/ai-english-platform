@@ -180,6 +180,89 @@ Remember:
 }
 
 // ============================================
+// Phase 7: Deterministic Semantic Content Guard
+// ============================================
+
+/**
+ * Result of applying the semantic content guard.
+ * The guard provides a ceiling on Content score based on task coverage.
+ * It does NOT produce a score — it only constrains the LLM's Content score.
+ */
+export interface SemanticContentGuardResult {
+  /** Maximum allowed Content score (0–7, half-point increments). */
+  maxContentScore?: number;
+  /** Human-readable reason for the constraint. */
+  reason?: string;
+}
+
+/**
+ * Derive a deterministic Content score ceiling from semantic evaluation.
+ *
+ * PURE FUNCTION — no LLM, no DB, no side effects.
+ *
+ * Rules:
+ * - No semantic result → no guard (semantic evaluator failed or unavailable)
+ * - 2+ missing requirements → Content ≤ 2
+ * - 1 missing requirement → Content ≤ 4
+ * - 2+ partial requirements → Content ≤ 5
+ * - ≥50% unclear → Content ≤ 5 (conservative: cannot reliably assess)
+ * - "unclear" is NOT treated as "missing"
+ * - Guard only LOWERS Content, never increases it
+ *
+ * Semantic failure MUST NOT reduce Content score.
+ */
+export function deriveSemanticContentGuard(
+  semantic?: SemanticEvaluation,
+): SemanticContentGuardResult {
+  if (!semantic) {
+    return {};
+  }
+
+  const requirements = semantic.requirements ?? [];
+  if (requirements.length === 0) {
+    return {};
+  }
+
+  const missing = requirements.filter((r) => r.status === "missing").length;
+  const partial = requirements.filter((r) => r.status === "partial").length;
+  const unclear = requirements.filter((r) => r.status === "unclear").length;
+
+  // Multiple core requirements missing → strong ceiling
+  if (missing >= 2) {
+    return {
+      maxContentScore: 2,
+      reason: `Multiple task requirements are missing (${missing}/${requirements.length}).`,
+    };
+  }
+
+  // One core requirement missing → moderate ceiling
+  if (missing === 1) {
+    return {
+      maxContentScore: 4,
+      reason: `A core task requirement is missing (1/${requirements.length}).`,
+    };
+  }
+
+  // Multiple partial requirements → conservative ceiling
+  if (partial >= 2) {
+    return {
+      maxContentScore: 5,
+      reason: `Multiple task requirements are only partially addressed (${partial}/${requirements.length}).`,
+    };
+  }
+
+  // Majority unclear → cannot reliably assess, be conservative
+  if (unclear >= Math.ceil(requirements.length / 2)) {
+    return {
+      maxContentScore: 5,
+      reason: `Task coverage could not be reliably established (${unclear}/${requirements.length} unclear).`,
+    };
+  }
+
+  return {};
+}
+
+// ============================================
 // Semantic evidence → prompt context helper
 // ============================================
 

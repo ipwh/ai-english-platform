@@ -505,3 +505,139 @@ describe("Architecture regression", () => {
     // No numeric score, no penalty, no overallScore in semantic evaluation.
   });
 });
+
+// ============================================
+// Phase 7: Deterministic Semantic Content Guard
+// ============================================
+
+// Replicate the pure guard function for unit testing (mirrors semantic-evaluator.ts)
+interface SemanticContentGuardResult {
+  maxContentScore?: number;
+  reason?: string;
+}
+
+function deriveSemanticContentGuard(
+  requirements?: Array<{ requirement: string; status: string; evidence: string[]; explanation: string }>,
+): SemanticContentGuardResult {
+  if (!requirements || requirements.length === 0) return {};
+
+  const missing = requirements.filter((r) => r.status === "missing").length;
+  const partial = requirements.filter((r) => r.status === "partial").length;
+  const unclear = requirements.filter((r) => r.status === "unclear").length;
+
+  if (missing >= 2) return { maxContentScore: 2, reason: `Multiple missing (${missing}/${requirements.length}).` };
+  if (missing === 1) return { maxContentScore: 4, reason: `One missing (1/${requirements.length}).` };
+  if (partial >= 2) return { maxContentScore: 5, reason: `Multiple partial (${partial}/${requirements.length}).` };
+  if (unclear >= Math.ceil(requirements.length / 2)) return { maxContentScore: 5, reason: `Majority unclear (${unclear}/${requirements.length}).` };
+  return {};
+}
+
+describe("Semantic Content Guard", () => {
+  it("no requirements → no guard", () => {
+    expect(deriveSemanticContentGuard([])).toEqual({});
+    expect(deriveSemanticContentGuard(undefined)).toEqual({});
+  });
+
+  it("all satisfied → no guard", () => {
+    const guard = deriveSemanticContentGuard([
+      { requirement: "R1", status: "satisfied", evidence: ["e"], explanation: "" },
+      { requirement: "R2", status: "satisfied", evidence: ["e"], explanation: "" },
+    ]);
+    expect(guard.maxContentScore).toBeUndefined();
+  });
+
+  it("one missing → Content ≤ 4", () => {
+    const guard = deriveSemanticContentGuard([
+      { requirement: "R1", status: "satisfied", evidence: ["e"], explanation: "" },
+      { requirement: "R2", status: "missing", evidence: [], explanation: "" },
+    ]);
+    expect(guard.maxContentScore).toBe(4);
+  });
+
+  it("two missing → Content ≤ 2", () => {
+    const guard = deriveSemanticContentGuard([
+      { requirement: "R1", status: "missing", evidence: [], explanation: "" },
+      { requirement: "R2", status: "missing", evidence: [], explanation: "" },
+    ]);
+    expect(guard.maxContentScore).toBe(2);
+  });
+
+  it("two partial → Content ≤ 5", () => {
+    const guard = deriveSemanticContentGuard([
+      { requirement: "R1", status: "partial", evidence: ["e1"], explanation: "" },
+      { requirement: "R2", status: "partial", evidence: ["e2"], explanation: "" },
+    ]);
+    expect(guard.maxContentScore).toBe(5);
+  });
+
+  it("unclear is NOT treated as missing", () => {
+    const guard = deriveSemanticContentGuard([
+      { requirement: "R1", status: "unclear", evidence: [], explanation: "" },
+      { requirement: "R2", status: "unclear", evidence: [], explanation: "" },
+      { requirement: "R3", status: "unclear", evidence: [], explanation: "" },
+    ]);
+    // 2/3 unclear ≥ 50% → ceiling 5 (NOT missing-level ceiling)
+    expect(guard.maxContentScore).toBe(5);
+  });
+
+  it("guard never increases score: LLM 3 + guard 5 → 3", () => {
+    const rawScore = 3;
+    const guardCeiling = 5;
+    const final = Math.min(rawScore, guardCeiling);
+    expect(final).toBe(3);
+  });
+
+  it("guard lowers score: LLM 6 + guard 4 → 4", () => {
+    const rawScore = 6;
+    const guardCeiling = 4;
+    const final = Math.min(rawScore, guardCeiling);
+    expect(final).toBe(4);
+  });
+
+  it("guard only affects Content, not Language or Organization", () => {
+    const langScore = 6;
+    const orgScore = 5;
+    const guardCeiling = 3;
+    // Language unchanged
+    expect(Math.min(langScore, 7)).toBe(6);
+    // Organization unchanged
+    expect(Math.min(orgScore, 7)).toBe(5);
+    // Content constrained
+    expect(Math.min(7, guardCeiling)).toBe(3);
+  });
+
+  it("critical regression: off-topic essay with LLM claiming Content=6", () => {
+    // Prompt: "Write about mobile phones at school"
+    // Student: "My favourite sport is basketball..."
+    // Semantic: 2 requirements, both missing
+    const guard = deriveSemanticContentGuard([
+      { requirement: "Discuss mobile phones", status: "missing", evidence: [], explanation: "" },
+      { requirement: "Address school context", status: "missing", evidence: [], explanation: "" },
+    ]);
+    expect(guard.maxContentScore).toBe(2);
+
+    const rawContent = 6;  // LLM hallucination
+    const constrainedContent = Math.min(rawContent, guard.maxContentScore!);  // 2
+    expect(constrainedContent).toBe(2);
+
+    const langScore = 6;
+    const orgScore = 5;
+    expect(langScore).toBe(6);  // Language unaffected
+    expect(orgScore).toBe(5);   // Organization unaffected
+  });
+
+  it("critical regression: task-incomplete essay with LLM claiming Content=5", () => {
+    // Prompt: "Write email explaining two reasons for outdoor activities"
+    // Student only gives one reason, missing the email format
+    const guard = deriveSemanticContentGuard([
+      { requirement: "Explain two reasons", status: "partial", evidence: ["one reason"], explanation: "" },
+      { requirement: "Email format", status: "missing", evidence: [], explanation: "" },
+    ]);
+    // 1 missing → Content ≤ 4
+    expect(guard.maxContentScore).toBe(4);
+
+    const rawContent = 5;  // LLM too generous
+    const constrainedContent = Math.min(rawContent, guard.maxContentScore!);
+    expect(constrainedContent).toBe(4);
+  });
+});

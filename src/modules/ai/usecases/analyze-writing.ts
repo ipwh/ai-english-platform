@@ -18,6 +18,7 @@ import { logger } from "@/shared/logger/logger";
 import {
   evaluateTaskCoverage,
   buildSemanticEvidencePrompt,
+  deriveSemanticContentGuard,
 } from "./semantic-evaluator";
 import type { SemanticEvaluation } from "../schemas/ai-schema";
 import type { EvidenceBackedFeedback } from "../types/assessment-feedback";
@@ -519,7 +520,26 @@ Organization 評估範圍：
 - 若字數少於建議字數 50%，lengthPenalty 至少 -15；少於 30% 時至少 -25。
 - 不可僅因文法正確而給高分；內容空泛、論點不足、未展開支持細節，contentScore 必須偏低（最多 3）。
 - 若學生文字極短（少於 30 詞），必須在 generalComment 清楚說明扣分原因，且 overallScore 不得高於 20。
-- 複合句及句式多樣性歸 Language 評分，不作為 Organization 的主要評分依據。`.trim();
+- 複合句及句式多樣性歸 Language 評分，不作為 Organization 的主要評分依據。
+
+═══════════════════════════════════════
+🛡️ SEMANTIC CONTENT GUARD
+═══════════════════════════════════════
+
+The system uses a separate semantic evaluator to check task coverage.
+Its findings are provided below as TASK-COVERAGE EVIDENCE.
+
+Important rules when using this evidence for Content scoring:
+- Do NOT equate high task coverage with high Content.
+  A task-complete essay may still receive a low/moderate Content score
+  if ideas are poorly developed.
+- Do NOT give a high Content score (≥5) when a core task requirement
+  is explicitly marked "missing".
+- Do NOT give a Content score ≥3 when two or more requirements are missing.
+- "unclear" is NOT equivalent to "missing" — do not penalize for it.
+- Language and Organization must remain independent from task coverage.
+- Do not use semantic coverage to increase Content score.
+- The evidence constrains Content only — it does not replace the CLO rubric.`.trim();
 
   const grammarUserPrompt = `${context}
 
@@ -773,9 +793,20 @@ Content / Organization 分數亦需按 system rubric 評分，
   const appliedLengthPenalty = Math.max(llmLengthPenalty, deterministicLengthPenalty);
 
   // CLO scores: normalize to half-point increments (0, 0.5, 1, ..., 7)
-  const contentScore = normalizeRubricScore(grammarAnalysis.contentScore);
+  const rawContentScore = normalizeRubricScore(grammarAnalysis.contentScore);
   const languageScore = normalizeRubricScore(grammarAnalysis.languageScore);
   const organizationScore = normalizeRubricScore(grammarAnalysis.organizationScore);
+
+  // Phase 7: Deterministic semantic content guard.
+  // Semantic evaluator provides task-coverage evidence. The guard applies
+  // a Content score ceiling when task requirements are missing or unclear.
+  // The guard only LOWERS Content — it never increases it.
+  // Semantic failure → guard is empty → Content unchanged.
+  const semanticGuard = deriveSemanticContentGuard(semanticAnalysis);
+  const contentScore =
+    rawContentScore != null && semanticGuard.maxContentScore != null
+      ? (Math.min(rawContentScore, semanticGuard.maxContentScore) as number)
+      : rawContentScore;
 
   const cloTotalScore = (contentScore != null && languageScore != null && organizationScore != null)
     ? contentScore + languageScore + organizationScore
