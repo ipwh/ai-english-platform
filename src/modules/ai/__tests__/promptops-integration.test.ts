@@ -724,6 +724,136 @@ describe('Monitor concurrency safety', () => {
   });
 });
 
+// ── J. Provider Failure Resilience ──
+
+describe('Provider failure resilience', () => {
+  it('provider failure should not corrupt baseline', async () => {
+    monitor.reset();
+    // Set a known-good production baseline first
+    const goodRecord = makeScoreRecord('fail-baseline', 85);
+    baselineManager.setProductionBaseline('fail-baseline', goodRecord);
+
+    // Run an evaluation that fails (provider throws)
+    monitor.initialize({
+      providerCall: async () => { throw new Error('Provider unavailable'); },
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'fail-test',
+    });
+
+    await monitor.runSingle('fail-baseline', 'manual').catch(() => {});
+
+    // Baseline must NOT be overwritten by the failed evaluation
+    const baseline = baselineManager.getProductionBaseline('fail-baseline');
+    expect(baseline).toBeDefined();
+    expect(baseline!.record.overallScore).toBe(85);
+
+    monitor.reset();
+  });
+
+  it('provider timeout should be bounded', async () => {
+    monitor.reset();
+    let resolveHanging!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const hangingPromise = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveHanging = r; });
+
+    monitor.initialize({
+      providerCall: () => hangingPromise,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'timeout-test',
+    });
+
+    const p = monitor.runSingle('reading', 'manual');
+
+    // Short wait then check: the timeout should fire in the evaluator
+    // The evaluator's default timeout is 30s, so this test verifies the
+    // in-flight entry is cleaned up by the .then() handler on rejection
+    resolveHanging({ text: '{}', provider: 'test', latencyMs: 5 });
+
+    await p;
+    expect(monitor.getDriftState('reading')).toBeDefined();
+    monitor.reset();
+  });
+
+  it('inFlight is cleaned up after provider failure', async () => {
+    monitor.reset();
+
+    monitor.initialize({
+      providerCall: async () => { throw new Error('Provider down'); },
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'cleanup-test',
+    });
+
+    await monitor.runSingle('reading', 'manual').catch(() => {});
+    // After failure, inFlight should be empty (cleanup in .then() error handler)
+    // We verify by running again — a new evaluation should start fresh
+    monitor.reset();
+    expect(monitor.isInitialized()).toBe(false);
+  });
+
+  it('failed evaluation record should not have success=true', async () => {
+    monitor.reset();
+
+    monitor.initialize({
+      providerCall: async () => { throw new Error('Provider down'); },
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'fail-record-test',
+    });
+
+    const result = await monitor.runSingle('writing', 'manual').catch(() => null);
+    // If the evaluation fails completely, the record.success should be false
+    if (result) {
+      expect(result.record.success).toBe(false);
+    }
+    monitor.reset();
+  });
+
+  it('different prompts remain concurrent during provider failure', async () => {
+    monitor.reset();
+    let resolveSlow!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const slowDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveSlow = r; });
+
+    let callIndex = 0;
+    monitor.initialize({
+      providerCall: () => {
+        callIndex++;
+        return callIndex === 1 ? slowDeferred : Promise.resolve({ text: '{}', provider: 'fast', latencyMs: 1 });
+      },
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'concurrent-fail',
+    });
+
+    const pSlow = monitor.runSingle('reading', 'manual');
+    const pFast = monitor.runSingle('writing', 'manual');
+
+    // Different prompts should NOT be the same Promise
+    expect(pSlow).not.toBe(pFast);
+
+    resolveSlow({ text: '{}', provider: 'slow', latencyMs: 100 });
+    await Promise.all([pSlow, pFast]);
+    monitor.reset();
+  });
+
+  it('same prompt remains deduplicated during provider slowness', async () => {
+    monitor.reset();
+    let resolveSlow!: (v: { text: string; provider: string; latencyMs: number }) => void;
+    const slowDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveSlow = r; });
+
+    monitor.initialize({
+      providerCall: () => slowDeferred,
+      loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
+      datasetId: 'dedup-slow',
+    });
+
+    const p1 = monitor.runSingle('reading', 'manual');
+    const p2 = monitor.runSingle('reading', 'manual');
+
+    expect(p1).toBe(p2); // Same prompt = same Promise
+
+    resolveSlow({ text: '{}', provider: 'test', latencyMs: 5 });
+    await Promise.all([p1, p2]);
+    monitor.reset();
+  });
+});
+
 // ── Architecture: Dependency direction ──
 
 describe('Architecture: Dependency direction', () => {

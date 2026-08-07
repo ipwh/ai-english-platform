@@ -49,17 +49,22 @@ export interface EvaluatorOptions {
   promptVersion: string;
   /** What triggered this evaluation */
   triggerType: string;
+  /** Timeout per fixture provider call in ms (default 30_000) */
+  timeoutMs?: number;
 }
 
 // ── Evaluator ──
 
 class ContinuousEvaluator {
+  /** Default timeout for provider calls (30 seconds) */
+  private static DEFAULT_TIMEOUT_MS = 30_000;
   /**
    * Run a single continuous evaluation cycle for one prompt.
    * Returns the aggregated score record.
    */
   async evaluate(options: EvaluatorOptions): Promise<ScoreRecord> {
     const { providerCall, loadDataset, datasetId, promptName, promptVersion, triggerType } = options;
+    const timeoutMs = options.timeoutMs ?? ContinuousEvaluator.DEFAULT_TIMEOUT_MS;
     const startTime = Date.now();
 
     // Load fixtures
@@ -69,7 +74,7 @@ class ContinuousEvaluator {
       throw new Error(`No fixtures found in dataset: ${datasetId}`);
     }
 
-    // Run evaluation on each fixture
+    // Run evaluation on each fixture with timeout protection
     const results: Array<{
       overallScore: number;
       rubricScore: number;
@@ -89,10 +94,15 @@ class ContinuousEvaluator {
 
     for (const fixture of fixtures) {
       try {
-        const response = await providerCall(fixture.messages, {
-          temperature: 0.3,
-          jsonMode: true,
-        });
+        // Wrap provider call with timeout
+        const response = await withTimeout(
+          providerCall(fixture.messages, {
+            temperature: 0.3,
+            jsonMode: true,
+          }),
+          timeoutMs,
+          `Provider call timed out after ${timeoutMs}ms`,
+        );
 
         // Estimate scores from response (in production, wire to regression evaluator)
         const scores = this.estimateScores(response.text);
@@ -159,8 +169,11 @@ class ContinuousEvaluator {
       datasetId,
     };
 
-    // Store in history
-    scoreHistory.add(record);
+    // Only store successful evaluations in history — failures must not
+    // be represented as score=0 records, which would corrupt baselines
+    if (record.success) {
+      scoreHistory.add(record);
+    }
 
     return record;
   }
@@ -191,6 +204,28 @@ class ContinuousEvaluator {
 }
 
 // ── Helpers ──
+
+/**
+ * Race a Promise against a timeout. If the timeout fires first,
+ * the original Promise continues (cannot be cancelled), but the
+ * caller gets a clear timeout error.
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 function mean(values: number[]): number {
   if (values.length === 0) return 0;

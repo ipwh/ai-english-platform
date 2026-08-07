@@ -231,21 +231,23 @@ class Monitor {
       alerts.push(...alert.filter(a => a.category === 'overall_drop'));
     }
 
-    // 5. Update baselines
-    if (baselineManager.getLatestBaseline(promptName)) {
-      baselineManager.updateLatestBaseline(promptName, triggerType);
-    } else {
-      // Set initial production baseline if none exists
-      if (!baselineManager.getProductionBaseline(promptName)) {
-        baselineManager.setProductionBaseline(promptName, record, 'auto-init');
+    // 5. Update baselines — only if evaluation succeeded (prevents
+    //    provider failure from corrupting production/golden baselines)
+    if (record.success) {
+      if (baselineManager.getLatestBaseline(promptName)) {
+        baselineManager.updateLatestBaseline(promptName, triggerType);
+      } else {
+        if (!baselineManager.getProductionBaseline(promptName)) {
+          baselineManager.setProductionBaseline(promptName, record, 'auto-init');
+        }
+        baselineManager.updateLatestBaseline(promptName, triggerType);
       }
-      baselineManager.updateLatestBaseline(promptName, triggerType);
-    }
 
-    // 6. Auto-update baseline if improved and configured
-    if (this.config.autoUpdateBaseline && baseline) {
-      if (record.overallScore > baseline.record.overallScore + 2) {
-        baselineManager.updateProductionBaseline(promptName, 'Auto-updated: score improved');
+      // 6. Auto-update baseline if improved and configured
+      if (this.config.autoUpdateBaseline && baseline) {
+        if (record.overallScore > baseline.record.overallScore + 2) {
+          baselineManager.updateProductionBaseline(promptName, 'Auto-updated: score improved');
+        }
       }
     }
 
