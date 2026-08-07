@@ -22,6 +22,8 @@
     "prompt:diff": "npx tsx scripts/prompt-version.ts diff",
     "prompt:snapshot": "npx tsx scripts/prompt-version.ts snapshot",
     "prompt:changelog": "npx tsx scripts/prompt-version.ts changelog",
+    "prompt:release": "npx tsx scripts/prompt-version.ts release",
+    "prompt:states": "npx tsx scripts/prompt-version.ts states",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "db:generate": "prisma generate",

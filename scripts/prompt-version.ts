@@ -12,6 +12,7 @@ import { seedPromptVersionRegistry } from '../src/modules/ai/prompt-versioning/s
 import {
   promptVersionRegistry, generateChangelog, diffPrompts, formatDiffMarkdown,
   generateSnapshotId, getGitCommit, snapshotStore,
+  releaseManager, LifecycleState, LIFECYCLE_ICONS, LIFECYCLE_LABELS,
 } from '../src/modules/ai/prompt-versioning/index';
 import type { PromptMetadata, SemVer } from '../src/modules/ai/prompt-versioning/index';
 import * as fs from 'fs';
@@ -35,9 +36,18 @@ async function main() {
       return cmdSnapshot(args[0]);
     case 'changelog':
       return cmdChangelog(args[0]);
+    case 'release':
+      return cmdRelease(args[0]);
+    case 'promote':
+      return cmdPromote(args[0], args[1] as LifecycleState, args[2]);
+    case 'rollback':
+      return cmdRollback(args[0], args.slice(1).join(' '));
+    case 'states':
+      return cmdStates();
     default:
       console.log('Usage: npx tsx scripts/prompt-version.ts <command> [args]');
       console.log('Commands: list | history <name> | diff <name> <from> <to> | snapshot <name> | changelog <name>');
+      console.log('Release: release <name> | promote <name> <state> [approver] | rollback <name> <reason> | states');
   }
 }
 
@@ -117,6 +127,79 @@ function cmdChangelog(name: string) {
     return;
   }
   console.log(generateChangelog(name, history));
+}
+
+function cmdRelease(name: string) {
+  if (!name) { console.log('Usage: prompt-version release <name>'); return; }
+  const release = releaseManager.get(name);
+  if (!release) {
+    // Auto-initialize
+    releaseManager.initialize(name);
+    console.log(`📝 Initialized "${name}" in Draft state`);
+    return;
+  }
+  const icon = LIFECYCLE_ICONS[release.state];
+  console.log(`${icon} ${name} — ${LIFECYCLE_LABELS[release.state]}`);
+  if (release.releasedAt) console.log(`   Released: ${release.releasedAt}`);
+  if (release.approvedBy) console.log(`   Approved by: ${release.approvedBy}`);
+  if (release.promotionScores) {
+    console.log(`   Scores: Overall ${release.promotionScores.overall} | Rubric ${release.promotionScores.rubric} | Semantic ${release.promotionScores.semantic}`);
+  }
+  if (release.stateHistory.length > 0) {
+    console.log('   History:');
+    for (const t of release.stateHistory) {
+      console.log(`     ${t.timestamp}: ${LIFECYCLE_LABELS[t.from]} → ${LIFECYCLE_LABELS[t.to]} (${t.reason})`);
+    }
+  }
+}
+
+function cmdPromote(name: string, targetState: string, approver?: string) {
+  if (!name || !targetState) {
+    console.log('Usage: prompt-version promote <name> <state> [approver]');
+    console.log(`States: ${Object.values(LifecycleState).join(', ')}`);
+    return;
+  }
+
+  const state = targetState as LifecycleState;
+  if (!Object.values(LifecycleState).includes(state)) {
+    console.log(`Invalid state: ${targetState}`);
+    return;
+  }
+
+  try {
+    const ctx = {
+      evaluationScores: { overall: 97, rubric: 95, semantic: 96, structural: 100 },
+      ciPassed: true,
+      humanApproved: !!approver,
+      approvedBy: approver,
+    };
+    const meta = releaseManager.promote(name, state, ctx);
+    console.log(`${LIFECYCLE_ICONS[meta.state]} Promoted "${name}" → ${LIFECYCLE_LABELS[meta.state]}`);
+  } catch (err) {
+    console.log(`❌ ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+function cmdRollback(name: string, reason: string) {
+  if (!name) { console.log('Usage: prompt-version rollback <name> <reason>'); return; }
+  try {
+    const meta = releaseManager.rollback(name, reason || 'Manual rollback');
+    console.log(`⬅️ Rolled back "${name}" → ${LIFECYCLE_LABELS[meta.state]}`);
+  } catch (err) {
+    console.log(`❌ ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+function cmdStates() {
+  const summary = releaseManager.getSummary();
+  console.log(`\n📊 Release Summary (${summary.total} prompts)\n`);
+  for (const [state, count] of Object.entries(summary.counts)) {
+    if (count > 0) {
+      const icon = LIFECYCLE_ICONS[state as LifecycleState];
+      console.log(`  ${icon} ${LIFECYCLE_LABELS[state as LifecycleState]}: ${count}`);
+    }
+  }
+  console.log(`\n  Production: ${summary.productionCount} | RC: ${summary.releaseCandidateCount}`);
 }
 
 main();

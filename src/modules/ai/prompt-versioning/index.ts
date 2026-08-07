@@ -27,3 +27,13 @@ export {
   diffPrompts, formatDiffMarkdown,
 } from './diff';
 export type { PromptDiff } from './diff';
+
+export {
+  LifecycleState, ALLOWED_TRANSITIONS, DEFAULT_PROMOTION_RULES,
+  LIFECYCLE_LABELS, LIFECYCLE_ICONS,
+  isActive, isStable, canTransition,
+} from './release-lifecycle';
+export type { PromotionRule, PromotionContext, PromotionCheckResult } from './release-lifecycle';
+
+export { releaseManager } from './release-manager';
+export type { ReleaseMetadata, StateTransition, ReleaseSummary } from './release-manager';
