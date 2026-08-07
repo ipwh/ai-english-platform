@@ -108,26 +108,51 @@ All Chinese text (listeningTopicZh, noteTakingGuide hints, etc.) must use Tradit
  * Sanitize note-taking guide hints to remove answer-like content.
  * The LLM occasionally leaks actual answers into hints despite prompt instructions.
  * This post-processing redacts hints that look like answers (dates, dollar amounts, etc.)
+ * in BOTH English and Traditional Chinese.
  */
 function sanitizeNoteGuide(guide: Array<{ question: string; hint: string }>): Array<{ question: string; hint: string }> {
   return guide.map(item => {
     let hint = item.hint;
-    // Redact patterns that look like answers rather than hints:
-    // - Dollar amounts: $500, $2,500, HKD 100, etc.
+    // ── English patterns ──
+    // Dollar amounts: $500, $2,500, HKD 100, etc.
     hint = hint.replace(/\$[\d,]+(\s*(HKD|USD|港元|元))?/g, '【金額】');
     hint = hint.replace(/HKD\s*\$?[\d,]+/gi, '【金額】');
-    // - Dates: Aug 15, 15th August, 2024-08-15, etc.
+    // Dates: Aug 15, 15th August, 2024-08-15, etc.
     hint = hint.replace(/\b\d{1,2}(st|nd|rd|th)?\s*(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, '【日期】');
     hint = hint.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s*\d{1,2}(st|nd|rd|th)?\b/gi, '【日期】');
-    // - Times: 3:00pm, 14:00, etc.
+    // Times: 3:00pm, 14:00, etc.
     hint = hint.replace(/\b\d{1,2}:\d{2}\s*(am|pm|AM|PM)?\b/g, '【時間】');
-    // - Phone numbers / specific numbers with 4+ digits
+    // Phone numbers / specific numbers with 4+ digits
     hint = hint.replace(/\b\d{4,}\b/g, '【數字】');
-    // - Email addresses
+    // Email addresses
     hint = hint.replace(/[\w.-]+@[\w.-]+\.\w+/g, '【電郵】');
-    // - Phrases that explicitly reveal answers
+    // Percentages: 60%, 80 percent
+    hint = hint.replace(/\b\d{1,3}\s*(%|percent)\b/gi, '【百分比】');
+    // Parenthetical examples that leak answers: (e.g., 'Beach Clean-up'), (例如：'...')
+    hint = hint.replace(/\(e\.g\.,?\s*['"][^'"]+['"]\s*\)/gi, '(e.g., 【例子】)');
+    hint = hint.replace(/\(例如[：:]\s*['"][^'"]+['"]\s*\)/g, '(例如：【例子】)');
+
+    // ── Traditional Chinese patterns ──
+    // Chinese dates: 8月15日, 7月20日, 二零二四年八月
+    hint = hint.replace(/\d{1,2}\s*月\s*\d{1,2}\s*日/g, '【日期】');
+    hint = hint.replace(/\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/g, '【日期】');
+    // Chinese times: 上午9時, 下午1時, 9點
+    hint = hint.replace(/[上下]午\s*\d{1,2}\s*[時點]/g, '【時間】');
+    hint = hint.replace(/\d{1,2}[：:]\d{2}/g, '【時間】');
+    // Chinese dollar amounts: $500, 500元, 2,500港元
+    hint = hint.replace(/\d{1,3}(,\d{3})*\s*(元|港元|美元)/g, '【金額】');
+    // Chinese percentages: 60%
+    hint = hint.replace(/\d{1,3}\s*%/g, '【百分比】');
+    // Chinese age/qualification leaks: 16歲, 年滿16
+    hint = hint.replace(/\d{1,2}\s*歲/g, '【年齡】');
+    // Chinese name/proper noun leaks: 'Beach Clean-up' in Chinese context
+    hint = hint.replace(/['"][^'"]{3,}['"]/g, '【名稱】');
+    // Explicit answer phrases in Chinese
     hint = hint.replace(/答案(是|為|：|:)\s*.+/g, '答案請自行從錄音中找出');
     hint = hint.replace(/answer\s*(is|:)\s*.+/gi, 'Listen to the recording for the answer');
+    // e.g. patterns in Chinese
+    hint = hint.replace(/例如[：:]\s*.+/g, '例如：【請從錄音中找出】');
+
     return { question: item.question, hint };
   });
 }

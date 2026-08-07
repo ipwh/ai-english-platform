@@ -101,35 +101,37 @@ class ScoreHistoryStore {
 
   // ── Query ──
 
-  /** Get all records for a prompt */
+  /** Get all records for a prompt (defensive copies) */
   getByPrompt(promptName: string): ScoreRecord[] {
-    return this.byPrompt.get(promptName) ?? [];
+    return (this.byPrompt.get(promptName) ?? []).map(r => structuredClone(r));
   }
 
-  /** Get records in a time window */
+  /** Get records in a time window (defensive copies) */
   getByWindow(
     promptName: string,
     startDate: Date,
     endDate: Date = new Date(),
   ): ScoreRecord[] {
     const records = this.byPrompt.get(promptName) ?? [];
-    return records.filter(r => {
-      const ts = new Date(r.timestamp);
-      return ts >= startDate && ts <= endDate;
-    });
+    return records
+      .filter(r => {
+        const ts = new Date(r.timestamp);
+        return ts >= startDate && ts <= endDate;
+      })
+      .map(r => structuredClone(r));
   }
 
-  /** Get the N most recent records for a prompt */
+  /** Get the N most recent records for a prompt (defensive copies) */
   getRecent(promptName: string, n: number = 10): ScoreRecord[] {
     const records = this.byPrompt.get(promptName) ?? [];
-    return records.slice(0, n);
+    return records.slice(0, n).map(r => structuredClone(r));
   }
 
-  /** Get the most recent record for a prompt */
+  /** Get the most recent record for a prompt (defensive copy) */
   getLatest(promptName: string): ScoreRecord | undefined {
     const records = this.byPrompt.get(promptName);
     if (!records || records.length === 0) return undefined;
-    return records[0]; // Sorted newest first
+    return structuredClone(records[0]); // Sorted newest first
   }
 
   /** Get summary for a window */

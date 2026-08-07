@@ -13,7 +13,7 @@ See `CLAUDE.md` for full architecture documentation.
 2. Read `CHANGELOG.md` for Sprint 124 changes (latest)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 60/61 pass (1,586 tests, 74 files; adaptive-tutor.test.ts has 10 pre-existing failures from Sprint 111)
+5. Run `npm test` — expect 78/78 pass (1,607 tests, 78 files; fully green)
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions
    - `npm run prompt:states` — release lifecycle states

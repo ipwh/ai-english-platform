@@ -8,6 +8,16 @@
 import type { RubricScore, ExpectedCharacteristics } from './types';
 
 /**
+ * Clamp a score to 0-100, guarding against NaN and Infinity.
+ * NaN and Infinity are replaced with 0 to prevent corrupt scores
+ * from propagating into reports and release decisions.
+ */
+function clampScore(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+/**
  * Compute rubric score from generated output against expected characteristics.
  */
 export function computeRubricScore(
@@ -29,10 +39,9 @@ export function computeRubricScore(
 
   // Weight each dimension equally within the rubric category
   const dims = Object.values(dimensions);
-  const score = Math.round(dims.reduce((a, b) => a + b, 0) / dims.length * 10);
 
   return {
-    score: Math.min(100, Math.max(0, score)),
+    score: clampScore(dims.reduce((a, b) => a + b, 0) / dims.length * 10),
     weight: 0.40,
     dimensions,
   };

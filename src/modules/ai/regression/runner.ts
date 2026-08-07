@@ -2,6 +2,9 @@
 // Regression Runner — orchestrates full evaluation pipeline
 //
 // Fixture → Prompt Builder → AI Provider → Scoring → Report
+//
+// Built on the shared PromptOps Foundation's BaseRunner
+// for consistent lifecycle management.
 // ============================================
 
 import * as fs from 'fs';
@@ -14,6 +17,11 @@ import { DEFAULT_REGRESSION_CONFIG, SCORE_WEIGHTS } from './types';
 import { computeRubricScore } from './rubric-score';
 import { computeSemanticScore } from './semantic-score';
 import { computeStructuralScore } from './structural-score';
+import {
+  BaseRunner,
+  type RunnerContext,
+  type RunnerResult,
+} from '../foundation';
 
 /** Provider call signature — injected so runner doesn't depend on AI module */
 export type EvalProviderCall = (
@@ -35,68 +43,100 @@ export interface RunOptions {
 }
 
 /**
+ * Internal runner class that extends BaseRunner for lifecycle consistency.
+ * The public API remains the `runRegression()` function.
+ */
+class RegressionRunnerImpl extends BaseRunner<RunOptions, RegressionReport> {
+  protected async execute(
+    _context: RunnerContext,
+    input: RunOptions,
+  ): Promise<RegressionReport> {
+    const config = input.config ?? DEFAULT_REGRESSION_CONFIG;
+    const fixtures = loadFixtures(input.fixturesDir, input.filter);
+
+    const results: EvalResult[] = [];
+    let totalLatency = 0;
+    let totalTokens = 0;
+
+    for (const fixture of fixtures) {
+      const result = await evaluateFixture(fixture, input);
+      results.push(result);
+      totalLatency += result.latencyMs;
+      totalTokens += result.tokensUsed ?? 0;
+    }
+
+    // Compute regression analysis
+    const passed = results.filter(r => r.passed);
+    const failed = results.filter(r => !r.passed);
+    const overallScore = results.length > 0
+      ? Math.round(results.reduce((s, r) => s + r.scores.overall, 0) / results.length)
+      : 0;
+
+    const previousReport = loadPreviousReport(input.reportsDir);
+    const previousOverallScore = previousReport?.summary.overallScore;
+
+    const sortedByScore = [...results].sort((a, b) => a.scores.overall - b.scores.overall);
+    const worstRegressions = sortedByScore.slice(0, 5);
+    const addedStrengths = sortedByScore.reverse().slice(0, 5);
+    const removedCapabilities = results.filter(r => {
+      const prev = previousReport?.results.find(pr => pr.fixtureId === r.fixtureId);
+      return prev?.passed && !r.passed;
+    });
+
+    const report: RegressionReport = {
+      summary: {
+        totalFixtures: fixtures.length,
+        passed: passed.length,
+        failed: failed.length,
+        overallScore,
+        previousOverallScore,
+        scoreDelta: previousOverallScore ? overallScore - previousOverallScore : undefined,
+        provider: results[0]?.provider ?? 'unknown',
+        totalLatencyMs: totalLatency,
+        totalTokensUsed: totalTokens,
+        evaluatedAt: new Date().toISOString(),
+      },
+      results,
+      worstRegressions,
+      addedStrengths,
+      removedCapabilities,
+    };
+
+    return report;
+  }
+
+  protected async afterRun(
+    context: RunnerContext,
+    output: RegressionReport,
+  ): Promise<void> {
+    const reportsDir = context.metadata['reportsDir'] as string | undefined;
+    if (reportsDir) {
+      writeReport(output, reportsDir);
+    }
+  }
+}
+
+const regressionRunnerImpl = new RegressionRunnerImpl();
+
+/**
  * Run the full regression evaluation suite.
+ *
+ * Internally delegates to a BaseRunner subclass for consistent
+ * lifecycle management (beforeRun → execute → afterRun → cleanup).
  */
 export async function runRegression(options: RunOptions): Promise<RegressionReport> {
-  const config = options.config ?? DEFAULT_REGRESSION_CONFIG;
-  const fixtures = loadFixtures(options.fixturesDir, options.filter);
-
-  const results: EvalResult[] = [];
-  let totalLatency = 0;
-  let totalTokens = 0;
-
-  for (const fixture of fixtures) {
-    const result = await evaluateFixture(fixture, options);
-    results.push(result);
-    totalLatency += result.latencyMs;
-    totalTokens += result.tokensUsed ?? 0;
-  }
-
-  // Compute regression analysis
-  const passed = results.filter(r => r.passed);
-  const failed = results.filter(r => !r.passed);
-  const overallScore = results.length > 0
-    ? Math.round(results.reduce((s, r) => s + r.scores.overall, 0) / results.length)
-    : 0;
-
-  // Load previous report for delta comparison
-  const previousReport = loadPreviousReport(options.reportsDir);
-  const previousOverallScore = previousReport?.summary.overallScore;
-
-  // Sort by score delta for regression analysis
-  const sortedByScore = [...results].sort((a, b) => a.scores.overall - b.scores.overall);
-  const worstRegressions = sortedByScore.slice(0, 5);
-  const addedStrengths = sortedByScore.reverse().slice(0, 5);
-  const removedCapabilities = results.filter(r => {
-    const prev = previousReport?.results.find(pr => pr.fixtureId === r.fixtureId);
-    return prev?.passed && !r.passed;
+  const result: RunnerResult<RegressionReport> = await regressionRunnerImpl.run({
+    input: options,
+    metadata: { reportsDir: options.reportsDir },
   });
 
-  const report: RegressionReport = {
-    summary: {
-      totalFixtures: fixtures.length,
-      passed: passed.length,
-      failed: failed.length,
-      overallScore,
-      previousOverallScore,
-      scoreDelta: previousOverallScore ? overallScore - previousOverallScore : undefined,
-      provider: results[0]?.provider ?? 'unknown',
-      totalLatencyMs: totalLatency,
-      totalTokensUsed: totalTokens,
-      evaluatedAt: new Date().toISOString(),
-    },
-    results,
-    worstRegressions,
-    addedStrengths,
-    removedCapabilities,
-  };
-
-  // Write report if output directory specified
-  if (options.reportsDir) {
-    writeReport(report, options.reportsDir);
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message ?? 'Regression run failed');
   }
 
-  return report;
+  // Report is already written by afterRun() hook — no duplicate write needed
+
+  return result.data;
 }
 
 /**

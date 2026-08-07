@@ -143,24 +143,28 @@ class BaselineManager {
 
   // ── Get Baselines ──
 
-  /** Get the production baseline for a prompt */
+  /** Get the production baseline for a prompt (defensive copy) */
   getProductionBaseline(promptName: string): Baseline | undefined {
-    return this.productionBaselines.get(promptName);
+    const baseline = this.productionBaselines.get(promptName);
+    return baseline ? structuredClone(baseline) : undefined;
   }
 
-  /** Get the latest baseline for a prompt */
+  /** Get the latest baseline for a prompt (defensive copy) */
   getLatestBaseline(promptName: string): Baseline | undefined {
-    return this.latestBaselines.get(promptName);
+    const baseline = this.latestBaselines.get(promptName);
+    return baseline ? structuredClone(baseline) : undefined;
   }
 
-  /** Get all historical baselines for a prompt */
+  /** Get all historical baselines for a prompt (defensive copies) */
   getHistoricalBaselines(promptName: string): Baseline[] {
-    return this.historicalBaselines.get(promptName) ?? [];
+    return (this.historicalBaselines.get(promptName) ?? [])
+      .map(b => structuredClone(b));
   }
 
-  /** Get a specific baseline by ID */
+  /** Get a specific baseline by ID (defensive copy) */
   getBaseline(id: string): Baseline | undefined {
-    return this.baselines.get(id);
+    const baseline = this.baselines.get(id);
+    return baseline ? structuredClone(baseline) : undefined;
   }
 
   /** Get the best baseline to compare against */

@@ -14,7 +14,7 @@ import {
 import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
-import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel } from '@/shared/utils/nav';
+import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel, getSkillLabel } from '@/shared/utils/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { PracticePageSkeleton } from '@/components/shared/Skeleton';
@@ -123,9 +123,9 @@ function PracticeListPageContent() {
 
     try {
       const grammarKey = activeForm.grammarItem;
-      const grammarZh = skillLabels[grammarKey] || grammarKey;
+      const grammarZh = getSkillLabel(grammarKey, store.language) || grammarKey;
       const langKey = activeForm.languageSkill;
-      const langZh = skillLabels[langKey] || langKey;
+      const langZh = getSkillLabel(langKey, store.language) || langKey;
       const skillKey = grammarKey || langKey;
       const skillZh = grammarZh || langZh;
 
@@ -367,7 +367,7 @@ function PracticeListPageContent() {
                   <option value="">{t('practice.noGrammar')}</option>
                   {Object.entries(skillLabels).filter(([k]) =>
                     ['tenses','conditionals','passive-voice','reported-speech','relative-clauses','modals','prepositions','connectives','gerunds-infinitives','phrasal-verbs'].includes(k)
-                  ).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  ).map(([k]) => <option key={k} value={k}>{getSkillLabel(k, store.language)}</option>)}
                 </select>
               </div>
 

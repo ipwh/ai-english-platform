@@ -38,4 +38,6 @@ export const progressTranslations: Record<string, { zh: string; en: string }> = 
   'progress.aiClickToAnalyze': { zh: '點擊生成 AI 分析報告', en: 'Click to generate AI analysis' },
   'progress.urgentAreas': { zh: '🔴 急需改善', en: '🔴 Urgent Areas' },
   'progress.studyPlan': { zh: '📋 學習計劃', en: '📋 Study Plan' },
+  'progress.questionsSuffix': { zh: ' 題', en: ' Q' },
+  'progress.accuracyChart': { zh: '正確率', en: 'Accuracy' },
 };

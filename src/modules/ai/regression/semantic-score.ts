@@ -45,10 +45,10 @@ export function computeSemanticScore(
   };
 
   const dims = Object.values(dimensions);
-  const score = Math.round(dims.reduce((a, b) => a + b, 0) / dims.length * 10);
+  const rawScore = dims.reduce((a, b) => a + b, 0) / dims.length * 10;
 
   return {
-    score: Math.min(100, Math.max(0, score)),
+    score: Number.isFinite(rawScore) ? Math.min(100, Math.max(0, Math.round(rawScore))) : 0,
     weight: 0.35,
     dimensions,
   };

@@ -6,15 +6,16 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 60/61 test files pass (1,586 tests, 74 files — 1 pre-existing file: `adaptive-tutor.test.ts`)
+- **Testing**: Vitest 4, 78/78 test files pass (1,607 tests, 78 files — fully green)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
-- **Key modules**: 27 under `src/modules/` (including 4 new AI infra modules)
+- **Key modules**: 28 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 120 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` internal only.
 - **AI Facade**: 32+ exported symbols — all API routes use `@/modules/ai` (no direct service imports)
 - **Prompt Registry**: 12 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
-- **AI Module**: 16 directories, ~200 files (expanded from 13/127 with new infra: prompt-versioning, regression, experiments, continuous-evaluation)
+- **AI Module**: 21 directories, ~250 files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
+- **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 21 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 6 files — circuit-breaker, budget-policy, capacity-planner, provider-policy, regression-detector, saturation-detector
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`
@@ -25,7 +26,7 @@ See AGENTS.md for shared agent instructions.
 - **Layout**: v5 grid per-line (`.dse-line` + gutter + justify text); paragraph labels above; 2em indent
 - **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging
 
-## Architecture (Post-Sprint 124 — AI Infrastructure Complete)
+## Architecture (Post-Sprint 125 — Foundation Hardened, Production-Ready)
 ```
 Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)
@@ -39,7 +40,19 @@ Supporting modules:
   curriculum/ — HKDSE data (canonical owner)
   adaptive-tutor/ — AdaptiveTutorEngine (canonical owner)
 
-AI Infrastructure (new in Sprint 122-124):
+Shared PromptOps Foundation (new in Sprint 125):
+  ai/foundation/ — 21 files, 0 deps, strict PromptOps→Foundation direction
+    registry/ — BaseRegistry<T>, VersionedRegistry<T>, HistoryRegistry<T>
+    runner/ — BaseRunner, PipelineRunner
+    lifecycle/ — LifecycleEngine<S>, StandardLifecycleState
+    report/ — ReportBuilder, MarkdownRenderer, JSONRenderer, ConsoleRenderer
+    events/ — EventBus, EventDispatcher, 12 typed PromptOps events
+    metrics/ — MetricsCollector, Counter, Gauge, Histogram, Timer, RollingAverage
+    storage/ — Repository<T>, MemoryStore<T>
+    validation/ — validate(), assert(), collectErrors(), common rules
+    types.ts, index.ts — barrel exports, SemVer, Identifiable, Versioned, etc.
+
+AI Infrastructure (Sprint 122-124, hardened in Sprint 125):
   ai/prompt-versioning/ — PromptVersionRegistry, SemVer, lifecycle (7 states), release management, diff, changelog, snapshots
   ai/regression/ — RegressionRunner, rubric/semantic/structural scoring, golden fixtures, evaluation reports
   ai/experiments/ — ExperimentRunner (A/B/C, cross-provider/version/temperature/dataset/seed), statistics engine, winner selection, confidence scoring

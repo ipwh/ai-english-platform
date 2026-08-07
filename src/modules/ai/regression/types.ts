@@ -217,3 +217,24 @@ export const SCORE_WEIGHTS = {
   semantic: 0.35,
   structural: 0.25,
 } as const;
+
+/**
+ * Validate SCORE_WEIGHTS at module initialization time.
+ * Ensures weights are finite, non-negative, and sum to 1.0.
+ */
+function assertValidScoreWeights(weights: Record<string, number>): void {
+  const values = Object.values(weights);
+
+  if (values.some(v => !Number.isFinite(v) || v < 0)) {
+    throw new Error('SCORE_WEIGHTS must contain only finite non-negative values');
+  }
+
+  const total = values.reduce((sum, v) => sum + v, 0);
+
+  if (Math.abs(total - 1) >= 1e-9) {
+    throw new Error(`SCORE_WEIGHTS must sum to 1.0; received ${total}`);
+  }
+}
+
+// Validate at module load — catches configuration errors immediately
+assertValidScoreWeights(SCORE_WEIGHTS);

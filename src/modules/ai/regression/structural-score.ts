@@ -28,7 +28,9 @@ export function computeStructuralScore(
   };
 
   const passed = Object.values(checks).filter(Boolean).length;
-  const score = Math.round((passed / Object.keys(checks).length) * 100);
+  const total = Object.keys(checks).length;
+  const rawScore = total > 0 ? (passed / total) * 100 : 0;
+  const score = Number.isFinite(rawScore) ? Math.round(rawScore) : 0;
 
   return { score, weight: 0.25, checks };
 }

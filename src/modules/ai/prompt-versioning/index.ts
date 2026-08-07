@@ -32,6 +32,7 @@ export {
   LifecycleState, ALLOWED_TRANSITIONS, DEFAULT_PROMOTION_RULES,
   LIFECYCLE_LABELS, LIFECYCLE_ICONS,
   isActive, isStable, canTransition,
+  promptLifecycleEngine,
 } from './release-lifecycle';
 export type { PromotionRule, PromotionContext, PromotionCheckResult } from './release-lifecycle';
 

@@ -2,20 +2,41 @@
 // Experiment Registry — persistent storage and
 // retrieval of experiment configurations and results.
 //
+// Built on the shared PromptOps Foundation's
+// BaseRegistry for consistent CRUD operations.
 // Integrates with PromptVersionRegistry and
 // ReleaseManager for full traceability.
 // ============================================
 
+import { BaseRegistry } from '../foundation';
 import type {
   ExperimentConfig, ExperimentResult, ExperimentRecord, ExperimentStatus,
 } from './experiment';
 import { getGitCommit } from '../prompt-versioning/snapshot';
 
+/**
+ * Internal wrapper that adapts ExperimentRecord to satisfy Identifiable
+ * so it can be stored in the foundation BaseRegistry.
+ */
+interface ExperimentRecordEntry extends ExperimentRecord {
+  /** Satisfies Identifiable for BaseRegistry */
+  id: string;
+}
+
+function toEntry(record: ExperimentRecord): ExperimentRecordEntry {
+  return { ...record, id: record.experimentId };
+}
+
+function fromEntry(entry: ExperimentRecordEntry): ExperimentRecord {
+  const { id: _id, ...record } = entry;
+  return record as ExperimentRecord;
+}
+
 // ── Experiment Registry ──
 
 class ExperimentRegistry {
-  /** All experiments, keyed by experimentId */
-  private experiments = new Map<string, ExperimentRecord>();
+  /** Foundation-backed storage for all experiments */
+  private store = new BaseRegistry<ExperimentRecordEntry>();
 
   /** History per prompt name */
   private promptHistory = new Map<string, ExperimentRecord[]>();
@@ -24,55 +45,57 @@ class ExperimentRegistry {
 
   /** Register a new experiment configuration */
   register(config: ExperimentConfig): ExperimentRecord {
-    const id = config.id;
+    const experimentId = config.id;
 
-    if (this.experiments.has(id)) {
-      throw new Error(`Experiment "${id}" already exists. Use update() to modify.`);
+    if (this.store.exists(experimentId)) {
+      throw new Error(`Experiment "${experimentId}" already exists. Use update() to modify.`);
     }
 
     const record: ExperimentRecord = {
-      experimentId: id,
-      config,
+      experimentId,
+      config: structuredClone(config),
       status: 'draft',
       createdAt: new Date().toISOString(),
       gitCommit: getGitCommit(),
-      tags: config.tags,
+      tags: config.tags ? [...config.tags] : undefined,
     };
 
-    this.experiments.set(id, record);
+    this.store.register(toEntry(record));
 
-    // Update prompt history
+    // Store defensive copy in prompt history to prevent external mutation
     const hist = this.promptHistory.get(config.promptName) ?? [];
-    hist.push(record);
+    hist.push(structuredClone(record));
     this.promptHistory.set(config.promptName, hist);
 
-    return record;
+    return structuredClone(record);
   }
 
   /** Update an existing experiment (e.g. attach results) */
   update(experimentId: string, updates: Partial<ExperimentRecord>): ExperimentRecord {
-    const existing = this.experiments.get(experimentId);
-    if (!existing) {
+    const existingEntry = this.store.get(experimentId);
+    if (!existingEntry) {
       throw new Error(`Experiment "${experimentId}" not found`);
     }
 
+    const existing = fromEntry(existingEntry);
     const updated: ExperimentRecord = { ...existing, ...updates };
-    this.experiments.set(experimentId, updated);
+    this.store.update(experimentId, toEntry(updated) as Partial<ExperimentRecordEntry>);
 
-    // Update in prompt history
+    // Update in prompt history with defensive copy
     const hist = this.promptHistory.get(existing.config.promptName) ?? [];
     const idx = hist.findIndex(r => r.experimentId === experimentId);
-    if (idx !== -1) hist[idx] = updated;
+    if (idx !== -1) hist[idx] = structuredClone(updated);
     this.promptHistory.set(existing.config.promptName, hist);
 
-    return updated;
+    return structuredClone(updated);
   }
 
   /** Set experiment status */
   setStatus(experimentId: string, status: ExperimentStatus): void {
-    const record = this.experiments.get(experimentId);
-    if (!record) throw new Error(`Experiment "${experimentId}" not found`);
+    const entry = this.store.get(experimentId);
+    if (!entry) throw new Error(`Experiment "${experimentId}" not found`);
 
+    const record = fromEntry(entry);
     record.status = status;
     if (status === 'running' && !record.startedAt) {
       record.startedAt = new Date().toISOString();
@@ -80,45 +103,49 @@ class ExperimentRegistry {
     if (status === 'completed' || status === 'failed') {
       record.completedAt = new Date().toISOString();
     }
+    this.store.update(experimentId, toEntry(record) as Partial<ExperimentRecordEntry>);
   }
 
   /** Attach results to an experiment */
   attachResult(experimentId: string, result: ExperimentResult): void {
-    const record = this.experiments.get(experimentId);
-    if (!record) throw new Error(`Experiment "${experimentId}" not found`);
+    const entry = this.store.get(experimentId);
+    if (!entry) throw new Error(`Experiment "${experimentId}" not found`);
 
+    const record = fromEntry(entry);
     record.result = result;
     record.status = 'completed';
     record.completedAt = new Date().toISOString();
+    this.store.update(experimentId, toEntry(record) as Partial<ExperimentRecordEntry>);
   }
 
   // ── Retrieval ──
 
   /** Get an experiment by ID */
   get(experimentId: string): ExperimentRecord | undefined {
-    return this.experiments.get(experimentId);
+    const entry = this.store.get(experimentId);
+    return entry ? fromEntry(entry) : undefined;
   }
 
   /** List all experiments */
   list(): ExperimentRecord[] {
-    return [...this.experiments.values()];
+    return this.store.list().map(fromEntry);
   }
 
   /** List experiments by status */
   listByStatus(status: ExperimentStatus): ExperimentRecord[] {
-    return [...this.experiments.values()].filter(e => e.status === status);
+    return this.store.find(e => e.status === status).map(fromEntry);
   }
 
-  /** Get experiment history for a prompt */
+  /** Get experiment history for a prompt (defensive copies) */
   history(promptName: string): ExperimentRecord[] {
-    return this.promptHistory.get(promptName) ?? [];
+    return (this.promptHistory.get(promptName) ?? []).map(r => structuredClone(r));
   }
 
   /** Get the latest experiment for a prompt */
   latest(promptName: string): ExperimentRecord | undefined {
     const hist = this.promptHistory.get(promptName);
     if (!hist || hist.length === 0) return undefined;
-    return hist[hist.length - 1];
+    return structuredClone(hist[hist.length - 1]);
   }
 
   /** Get the latest completed experiment for a prompt */
@@ -126,30 +153,27 @@ class ExperimentRegistry {
     const hist = this.promptHistory.get(promptName);
     if (!hist) return undefined;
 
-    // Return most recent completed
     const completed = hist.filter(e => e.status === 'completed' && e.result);
-    return completed.length > 0 ? completed[completed.length - 1] : undefined;
+    return completed.length > 0 ? structuredClone(completed[completed.length - 1]) : undefined;
   }
 
   /** List experiments by tag */
   listByTag(tag: string): ExperimentRecord[] {
-    return [...this.experiments.values()].filter(
-      e => e.tags?.includes(tag),
-    );
+    return this.store.find(e => Boolean(e.tags?.includes(tag))).map(fromEntry);
   }
 
   /** Get experiments that include a specific prompt version */
   findByPromptVersion(promptVersion: string): ExperimentRecord[] {
-    return [...this.experiments.values()].filter(e =>
+    return this.store.find(e =>
       e.config.variants.some(v => v.promptVersion === promptVersion),
-    );
+    ).map(fromEntry);
   }
 
   /** Get experiments that tested a specific provider */
   findByProvider(provider: string): ExperimentRecord[] {
-    return [...this.experiments.values()].filter(e =>
+    return this.store.find(e =>
       e.config.providers.includes(provider),
-    );
+    ).map(fromEntry);
   }
 
   /** Count experiments by status */
@@ -161,7 +185,7 @@ class ExperimentRegistry {
       failed: 0,
       archived: 0,
     };
-    for (const e of this.experiments.values()) {
+    for (const e of this.store.list()) {
       counts[e.status]++;
     }
     return counts;
@@ -169,11 +193,11 @@ class ExperimentRegistry {
 
   // ── Query ──
 
-  /** Get all completed experiments with results */
+  /** Get all completed experiments with results (defensive copies) */
   getCompletedResults(): Array<{ config: ExperimentConfig; result: ExperimentResult }> {
-    return [...this.experiments.values()]
+    return this.store.list()
       .filter(e => e.status === 'completed' && e.result)
-      .map(e => ({ config: e.config, result: e.result! }));
+      .map(e => ({ config: structuredClone(e.config), result: structuredClone(e.result!) }));
   }
 
   /** Compare the same prompt across multiple experiments (trend) */
@@ -194,22 +218,24 @@ class ExperimentRegistry {
 
   /** Archive an experiment */
   archive(experimentId: string): void {
-    const record = this.experiments.get(experimentId);
-    if (!record) throw new Error(`Experiment "${experimentId}" not found`);
+    const entry = this.store.get(experimentId);
+    if (!entry) throw new Error(`Experiment "${experimentId}" not found`);
+    const record = fromEntry(entry);
     record.status = 'archived';
+    this.store.update(experimentId, toEntry(record) as Partial<ExperimentRecordEntry>);
   }
 
   /** Delete an experiment (only draft or archived) */
   delete(experimentId: string): boolean {
-    const record = this.experiments.get(experimentId);
-    if (!record) return false;
-    if (record.status === 'running') {
+    const entry = this.store.get(experimentId);
+    if (!entry) return false;
+    if (entry.status === 'running') {
       throw new Error('Cannot delete a running experiment');
     }
-    this.experiments.delete(experimentId);
+    this.store.remove(experimentId);
 
     // Remove from prompt history
-    const hist = this.promptHistory.get(record.config.promptName);
+    const hist = this.promptHistory.get(entry.config.promptName);
     if (hist) {
       const idx = hist.findIndex(r => r.experimentId === experimentId);
       if (idx !== -1) hist.splice(idx, 1);

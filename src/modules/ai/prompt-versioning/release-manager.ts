@@ -68,12 +68,13 @@ class ReleaseManager {
       releaseNotes: notes,
     };
     this.releases.set(promptId, meta);
-    return meta;
+    return structuredClone(meta);
   }
 
-  /** Get release metadata for a prompt version */
+  /** Get release metadata for a prompt version (defensive copy) */
   get(promptId: string): ReleaseMetadata | undefined {
-    return this.releases.get(promptId);
+    const meta = this.releases.get(promptId);
+    return meta ? structuredClone(meta) : undefined;
   }
 
   /** Get the current lifecycle state */
@@ -171,7 +172,7 @@ class ReleaseManager {
     }
 
     this.releases.set(promptId, release);
-    return release;
+    return structuredClone(release);
   }
 
   // ── Rollback ──
@@ -213,7 +214,7 @@ class ReleaseManager {
     release.state = targetState;
     release.stateEnteredAt = transition.timestamp;
     this.releases.set(promptId, release);
-    return release;
+    return structuredClone(release);
   }
 
   // ── Queries ──

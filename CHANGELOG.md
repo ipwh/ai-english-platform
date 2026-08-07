@@ -4,6 +4,59 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-07 — Shared PromptOps Foundation & Production Hardening (Sprint 125)
+
+### 🏗️ Shared PromptOps Foundation (New)
+- **Created `src/modules/ai/foundation/`** — reusable infrastructure layer (21 files, 0 external deps):
+  - `registry/` — `BaseRegistry<T>`, `VersionedRegistry<T>`, `HistoryRegistry<T>` (generic, strongly-typed, deep-cloned reads)
+  - `runner/` — `BaseRunner` (beforeRun→execute→afterRun→error→cleanup), `PipelineRunner` (validate→prepare→execute→aggregate→persist→report)
+  - `lifecycle/` — `LifecycleEngine<S>` (configurable states, transition validation, rollback, history)
+  - `report/` — `ReportBuilder` with `MarkdownRenderer`, `JSONRenderer`, `ConsoleRenderer`
+  - `events/` — `EventBus` (typed, priority-ordered, once, wildcard), `EventDispatcher`, 12 typed PromptOps events
+  - `metrics/` — `MetricsCollector`, `Counter`, `Gauge`, `Histogram` (p50/p90/p95/p99), `Timer`, `RollingAverage`
+  - `storage/` — `Repository<T>` (abstract), `MemoryStore<T>`
+  - `validation/` — `validate()`, `assert()`, `collectErrors()`, common rules
+  - `types.ts`, `index.ts` — barrel exports, SemVer parsing/comparison, core interfaces
+- **256 contract tests** across 14 test files + 9 architecture enforcement tests
+
+### 🔧 Migration to Foundation
+- **`prompt-versioning/prompt-registry.ts`** — migrated to `VersionedRegistry` via composition
+- **`experiments/experiment-registry.ts`** — migrated to `BaseRegistry` via composition
+- **`regression/runner.ts`** — wrapped with `BaseRunner` subclass
+- **`prompt-versioning/release-lifecycle.ts`** — exported `promptLifecycleEngine` using `LifecycleEngine`
+- **`prompt-versioning/index.ts`** — added `promptLifecycleEngine` barrel export
+
+### 🔒 Immutability Hardening
+- All Foundation registries use `structuredClone()` for deep-cloned reads
+- **`VersionedRegistry`**: `latest()`, `previous()`, `getVersion()`, `rollbackTarget()` now return defensive copies
+- **`ReleaseManager`**: `initialize()`, `get()`, `promote()`, `rollback()` return `structuredClone` copies
+- **`SnapshotStore`**: `get()`, `toJSON()` return defensive copies
+- **`ExperimentRegistry`**: `history()`, `latest()`, `latestCompleted()`, `getCompletedResults()` return defensive copies
+- **`BaselineManager`**: all 5 read methods (`getProductionBaseline`, `getLatestBaseline`, `getHistoricalBaselines`, `getBaseline`, `getComparisonBaseline`) return defensive copies
+- **`ScoreHistoryStore`**: `getByPrompt()`, `getByWindow()`, `getRecent()`, `getLatest()` return defensive copies
+
+### 🧪 Deterministic Testing
+- **Flaky test fixed**: `experiment-engine.test.ts > should run a prompt experiment` — root cause was `Math.random()` producing zero-rounding boundary values; fixed with epsilon clamping in 5 simulation methods and `buildABComparison`
+- **30/30 isolated runs pass**, 3 full-suite runs at 78/78
+- **17 PromptOps integration tests** added (cross-module contracts)
+
+### 🛡️ Evaluation Safety
+- **NaN/Infinity protection**: Added `Number.isFinite()` guards in rubric, semantic, and structural scorers
+- **SCORE_WEIGHTS runtime validation**: Module-level assertion that weights are finite, non-negative, and sum to 1.0
+
+### 🌐 i18n Fixes
+- Added missing `progress.questionsSuffix`, `progress.accuracyChart` keys
+- Grammar dropdown now uses bilingual `getSkillLabel()` instead of Chinese-only `skillLabels`
+- Integrated Skills hint sanitizer enhanced with Traditional Chinese patterns (dates, amounts, percentages, ages, names)
+
+### 📊 Final State
+- **78/78 test files, 1,607/1,607 tests pass**
+- **TypeScript strict: zero errors**
+- **No new external dependencies**
+- **Foundation dependency direction enforced**: PromptOps → Foundation, never reverse
+
+---
+
 ## 2026-08-07 — AI Infrastructure Complete: Release, Experiments, Continuous Evaluation (Sprint 124)
 
 ### 🚀 Prompt Release Management

@@ -68,9 +68,10 @@ class SnapshotStore {
     this.snapshots.set(snapshot.snapshotId, snapshot);
   }
 
-  /** Get a snapshot by ID */
+  /** Get a snapshot by ID (defensive copy) */
   get(snapshotId: string): PromptSnapshot | undefined {
-    return this.snapshots.get(snapshotId);
+    const snap = this.snapshots.get(snapshotId);
+    return snap ? structuredClone(snap) : undefined;
   }
 
   /** List all snapshot summaries (newest first) */
@@ -96,9 +97,9 @@ class SnapshotStore {
     return this.snapshots.size;
   }
 
-  /** Export all snapshots as JSON */
+  /** Export all snapshots as JSON (defensive copies) */
   toJSON(): PromptSnapshot[] {
-    return Array.from(this.snapshots.values());
+    return Array.from(this.snapshots.values()).map(s => structuredClone(s));
   }
 }
 

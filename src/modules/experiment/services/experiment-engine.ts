@@ -734,8 +734,8 @@ export class ExperimentService {
     const baseCost = 0.0001 + variant.temperature * 0.0001;
 
     return testCases.map((_, i) => ({
-      score: this.round(baseScore + (Math.random() - 0.5) * 0.2),
-      latency: Math.round(baseLatency + (Math.random() - 0.5) * 200),
+      score: Math.max(0.01, this.round(baseScore + (Math.random() - 0.5) * 0.2)),
+      latency: Math.max(1, Math.round(baseLatency + (Math.random() - 0.5) * 200)),
       cost: this.round(baseCost + Math.random() * 0.0001, 5),
       consistency: this.round(0.7 + Math.random() * 0.2),
       hallucinationRisk: this.round(Math.random() * 0.2),
@@ -754,8 +754,8 @@ export class ExperimentService {
     const baseCost = isPremium ? 0.001 : 0.0003;
 
     return testCases.map(() => ({
-      score: this.round(baseScore + (Math.random() - 0.5) * 0.15),
-      latency: Math.round(baseLatency + (Math.random() - 0.5) * 300),
+      score: Math.max(0.01, this.round(baseScore + (Math.random() - 0.5) * 0.15)),
+      latency: Math.max(1, Math.round(baseLatency + (Math.random() - 0.5) * 300)),
       cost: this.round(baseCost + Math.random() * 0.0005, 5),
       consistency: this.round(0.72 + Math.random() * 0.2),
       hallucinationRisk: this.round(0.05 + Math.random() * 0.15),
@@ -773,8 +773,8 @@ export class ExperimentService {
     const score = (creativity * 0.4 + coherence * 0.6);
 
     return testCases.map(() => ({
-      score: this.round(score + (Math.random() - 0.5) * 0.15),
-      latency: Math.round(350 + Math.random() * 200),
+      score: Math.max(0.01, this.round(score + (Math.random() - 0.5) * 0.15)),
+      latency: Math.max(1, Math.round(350 + Math.random() * 200)),
       cost: this.round(0.0003 + temp * 0.0001, 5),
       creativity: this.round(creativity + (Math.random() - 0.5) * 0.1),
       coherence: this.round(coherence + (Math.random() - 0.5) * 0.1),
@@ -811,7 +811,7 @@ export class ExperimentService {
       metricsA,
       metricsB,
       winner,
-      confidence: this.round(Math.min(0.95, Math.abs(diff) * 10)),
+      confidence: Math.max(0.01, this.round(Math.min(0.95, Math.abs(diff) * 10))),
       pValue: this.round(0.05 / Math.max(1, Math.abs(diff) * 20)),
       effectSize,
       recommendation: winner === 'A'

@@ -194,3 +194,34 @@ export function isStable(state: LifecycleState): boolean {
 export function canTransition(from: LifecycleState, to: LifecycleState): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+// ── Foundation Integration ──
+
+import { LifecycleEngine } from '../foundation';
+
+/**
+ * Pre-configured LifecycleEngine for prompt release lifecycle.
+ *
+ * Built on the shared PromptOps Foundation's LifecycleEngine.
+ * Provides transition(), rollback(), history(), and canTransition()
+ * with the standard PromptOps states and transitions.
+ *
+ * @example
+ * ```ts
+ * import { promptLifecycleEngine } from './release-lifecycle';
+ *
+ * // Check if a transition is allowed
+ * const canPromote = promptLifecycleEngine.canTransition('production');
+ *
+ * // Execute a transition
+ * const result = promptLifecycleEngine.transition('production', {
+ *   ciPassed: true,
+ *   evaluationScores: { overall: 95, rubric: 90, semantic: 92, structural: 100 },
+ * });
+ * ```
+ */
+export const promptLifecycleEngine = new LifecycleEngine<LifecycleState>({
+  initialState: LifecycleState.Draft,
+  transitions: ALLOWED_TRANSITIONS,
+  labels: LIFECYCLE_LABELS,
+});
