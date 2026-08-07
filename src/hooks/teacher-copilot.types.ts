@@ -57,8 +57,10 @@ export interface ExamPrediction {
 }
 
 export interface StudentAnalysisData {
-  personaType: string; skillDetails: { skill: string; score: number; classAverage: number; percentile: number; trend: string }[];
-  recentProgress: string; teacherNotes: string;
+  personaType: string;
+  skillDetails: { skill: string; score: number; classAverage: number; percentile: number; trend: string }[];
+  recentProgress: string | { sessionsThisWeek?: number; accuracyTrend?: string; masteryGained?: number; timeSpent?: number };
+  teacherNotes: string | { strengths?: string[]; weaknesses?: string[]; suggestedFocus?: string[] };
 }
 
 export interface LoadingMap {

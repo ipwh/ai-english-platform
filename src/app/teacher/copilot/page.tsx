@@ -435,7 +435,18 @@ export default function TeacherCopilotPage() {
           ))}
           {studentAnalysis.recentProgress && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-300">近期進度:</span> {studentAnalysis.recentProgress}
+              <span className="font-medium text-gray-700 dark:text-gray-300">近期進度:</span>{' '}
+              {typeof studentAnalysis.recentProgress === 'string'
+                ? studentAnalysis.recentProgress
+                : (() => {
+                    const rp = studentAnalysis.recentProgress as Record<string, unknown>;
+                    const parts = [];
+                    if (rp.sessionsThisWeek !== undefined) parts.push(`本週 ${rp.sessionsThisWeek} 次練習`);
+                    if (rp.accuracyTrend) parts.push(`準確度趨勢: ${rp.accuracyTrend}`);
+                    if (rp.masteryGained !== undefined) parts.push(`掌握度提升: ${rp.masteryGained}`);
+                    if (rp.timeSpent !== undefined) parts.push(`學習時間: ${rp.timeSpent} 分鐘`);
+                    return parts.join(' · ');
+                  })()}
             </div>
           )}
         </div>
