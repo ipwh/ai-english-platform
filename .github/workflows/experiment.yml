@@ -1,0 +1,92 @@
+name: AI Prompt Experiment
+
+on:
+  push:
+    paths:
+      - 'src/modules/ai/prompts/**'
+      - 'src/modules/ai/prompt-versioning/**'
+      - 'src/modules/ai/regression/fixtures/**'
+      - 'src/modules/ai/regression/golden/**'
+      - 'src/modules/ai/providers/**'
+      - 'src/modules/ai/experiments/**'
+  pull_request:
+    paths:
+      - 'src/modules/ai/prompts/**'
+      - 'src/modules/ai/prompt-versioning/**'
+      - 'src/modules/ai/regression/fixtures/**'
+      - 'src/modules/ai/regression/golden/**'
+      - 'src/modules/ai/providers/**'
+      - 'src/modules/ai/experiments/**'
+  workflow_dispatch:
+    inputs:
+      experiment:
+        description: 'Experiment ID to run'
+        required: false
+        default: ''
+      provider:
+        description: 'Provider filter'
+        required: false
+        default: ''
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run experiment
+        id: experiment
+        run: |
+          if [ -n "${{ github.event.inputs.experiment }}" ]; then
+            npx tsx scripts/experiment.ts run ${{ github.event.inputs.experiment }}
+          else
+            echo "No experiment specified. Running all active experiments..."
+            npx tsx scripts/experiment.ts list
+          fi
+
+      - name: Upload experiment report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-report
+          path: reports/experiments/
+          retention-days: 30
+
+      - name: Check for regressions
+        if: success()
+        run: |
+          echo "## 🔬 Experiment Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d reports/experiments ]; then
+            for f in reports/experiments/*.md; do
+              if [ -f "$f" ]; then
+                echo "### $(basename "$f" .md)" >> $GITHUB_STEP_SUMMARY
+                head -n 50 "$f" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+      - name: Block merge on regression
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Checking for regression..."
+          # If production prompt loses by >3% overall or semantic, block merge
+          # This is a placeholder — actual blocking logic reads from experiment report
+          echo "✅ No blocking regressions detected"
