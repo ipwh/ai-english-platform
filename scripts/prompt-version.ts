@@ -1,0 +1,122 @@
+// ============================================
+// CLI: Prompt Version Management
+//
+// Usage:
+//   npx tsx scripts/prompt-version.ts list
+//   npx tsx scripts/prompt-version.ts history <name>
+//   npx tsx scripts/prompt-version.ts diff <name> <fromVer> <toVer>
+//   npx tsx scripts/prompt-version.ts snapshot <name>
+// ============================================
+
+import { seedPromptVersionRegistry } from '../src/modules/ai/prompt-versioning/seed';
+import {
+  promptVersionRegistry, generateChangelog, diffPrompts, formatDiffMarkdown,
+  generateSnapshotId, getGitCommit, snapshotStore,
+} from '../src/modules/ai/prompt-versioning/index';
+import type { PromptMetadata, SemVer } from '../src/modules/ai/prompt-versioning/index';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const command = process.argv[2];
+const args = process.argv.slice(3);
+
+// Seed first
+seedPromptVersionRegistry();
+
+async function main() {
+  switch (command) {
+    case 'list':
+      return cmdList();
+    case 'history':
+      return cmdHistory(args[0]);
+    case 'diff':
+      return cmdDiff(args[0], args[1] as SemVer, args[2] as SemVer);
+    case 'snapshot':
+      return cmdSnapshot(args[0]);
+    case 'changelog':
+      return cmdChangelog(args[0]);
+    default:
+      console.log('Usage: npx tsx scripts/prompt-version.ts <command> [args]');
+      console.log('Commands: list | history <name> | diff <name> <from> <to> | snapshot <name> | changelog <name>');
+  }
+}
+
+function cmdList() {
+  const prompts = promptVersionRegistry.list();
+  console.log(`\n📋 Registered Prompts (${prompts.length} latest versions, ${promptVersionRegistry.totalVersions} total)\n`);
+  for (const p of prompts) {
+    const score = p.evaluationScores?.overall;
+    const scoreStr = score !== undefined ? ` [Score: ${score}]` : '';
+    console.log(`  ${p.name}@${p.version} — ${p.category}${scoreStr}`);
+    console.log(`    ${p.description}`);
+  }
+}
+
+function cmdHistory(name: string) {
+  if (!name) { console.log('Usage: prompt-version history <name>'); return; }
+  const history = promptVersionRegistry.getHistory(name);
+  if (history.length === 0) {
+    console.log(`No history found for "${name}"`);
+    return;
+  }
+  console.log(`\n📜 History: ${name} (${history.length} versions)\n`);
+  for (const v of history) {
+    console.log(`  ${v.version} — ${v.lastModified}${v.gitCommit ? ` (${v.gitCommit})` : ''}`);
+  }
+  // Generate changelog
+  const changelog = generateChangelog(name, history);
+  const dir = path.resolve(__dirname, '../src/modules/ai/prompt-versioning/changelogs');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${name}.md`), changelog, 'utf-8');
+  console.log(`\n📄 Changelog saved: changelogs/${name}.md`);
+}
+
+function cmdDiff(name: string, fromVer: SemVer, toVer: SemVer) {
+  if (!name || !fromVer || !toVer) {
+    console.log('Usage: prompt-version diff <name> <fromVersion> <toVersion>');
+    return;
+  }
+  const from = promptVersionRegistry.get(name, fromVer);
+  const to = promptVersionRegistry.get(name, toVer);
+  if (!from) { console.log(`Version ${fromVer} not found for "${name}"`); return; }
+  if (!to) { console.log(`Version ${toVer} not found for "${name}"`); return; }
+
+  const diff = diffPrompts(from, to);
+  console.log(formatDiffMarkdown(diff));
+}
+
+function cmdSnapshot(name: string) {
+  if (!name) { console.log('Usage: prompt-version snapshot <name>'); return; }
+  const prompt = promptVersionRegistry.get(name);
+  if (!prompt) { console.log(`Prompt "${name}" not found`); return; }
+
+  const snapshot = {
+    snapshotId: generateSnapshotId(),
+    promptId: prompt.id,
+    promptVersion: prompt.version,
+    promptText: `[Prompt text for ${prompt.name}@${prompt.version}]`,
+    builderName: prompt.builderName || 'inline',
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    temperature: 0.3,
+    maxTokens: 4096,
+    gitCommit: getGitCommit(),
+    timestamp: new Date().toISOString(),
+  };
+
+  snapshotStore.save(snapshot);
+  console.log(`📸 Snapshot saved: ${snapshot.snapshotId}`);
+  console.log(JSON.stringify(snapshot, null, 2));
+}
+
+function cmdChangelog(name: string) {
+  if (!name) { console.log('Usage: prompt-version changelog <name>'); return; }
+  const history = promptVersionRegistry.getHistory(name);
+  if (history.length === 0) {
+    console.log(`No history found for "${name}"`);
+    return;
+  }
+  console.log(generateChangelog(name, history));
+}
+
+main();
