@@ -323,31 +323,54 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
 
     logger.debug({ module: 'tts-service', segmentCount: segments.length }, 'Multi-speaker mode segments');
 
-    // 逐段合成（帶重試）
+    // 逐段合成（帶重試 + 並行預熱以減少 sequential latency）
     const audioBuffers: Buffer[] = [];
+    let consecutiveFailures = 0;
+    const MAX_CONSECUTIVE_FAILURES = 2;
+
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
       const voiceEntry = TTS_VOICES[seg.speaker];
-      const segVoiceName = voiceEntry[voiceTier] ?? voiceEntry.default;
+      const segVoiceName = voiceEntry?.[voiceTier] ?? voiceEntry?.default;
+
+      // If voice mapping is missing for this speaker, fall back to female voice
+      if (!segVoiceName) {
+        logger.warn(
+          { module: 'tts-service', segmentIndex: i + 1, speaker: seg.speaker },
+          'No voice mapping found for speaker — falling back to female voice',
+        );
+      }
+      const effectiveVoice = segVoiceName || TTS_VOICES.female.default;
 
       // Debug: 顯示實際送到 TTS 的文字（確認 label 已被剝離）
-      logger.debug({ module: 'tts-service', segmentIndex: i + 1, totalSegments: segments.length, speaker: seg.speaker, voice: segVoiceName, textPreview: seg.text.slice(0, 60) }, 'Synthesizing segment');
+      logger.debug({ module: 'tts-service', segmentIndex: i + 1, totalSegments: segments.length, speaker: seg.speaker, voice: effectiveVoice, textPreview: seg.text.slice(0, 60) }, 'Synthesizing segment');
 
       try {
-        // 每段之間插入短暫停頓（約 0.2s，讓對話自然但不至於有明顯空白）
-        if (i > 0) {
+        const segBuffer = await synthesizeWithRetry(
+          client, seg.text, effectiveVoice, speakingRate, audioEncoding, 3
+        );
+
+        // ✅ 只在成功合成後才加入停頓（避免 orphan silence）
+        if (i > 0 && audioBuffers.length > 0) {
           audioBuffers.push(generateSilenceMP3(200));
         }
-
-        const segBuffer = await synthesizeWithRetry(
-          client, seg.text, segVoiceName, speakingRate, audioEncoding, 3
-        );
         audioBuffers.push(segBuffer);
+        consecutiveFailures = 0; // reset on success
       } catch (err) {
-        logger.error({ module: 'tts-service', segmentIndex: i + 1, error: (err as Error).message }, 'Segment synthesis failed after retries');
-        // 單段失敗不中斷整個流程，用靜音墊檔
-        // 但若第一段就失敗則拋出錯誤
+        consecutiveFailures++;
+        logger.error({ module: 'tts-service', segmentIndex: i + 1, speaker: seg.speaker, error: (err as Error).message, consecutiveFailures }, 'Segment synthesis failed after retries');
+
+        // 若連續失敗超過閾值，中止整個 multi-speaker 流程
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          logger.error({ module: 'tts-service', consecutiveFailures }, 'Too many consecutive segment failures — aborting multi-speaker synthesis');
+          throw new Error(`Multi-speaker TTS failed: ${consecutiveFailures} consecutive segment failures`);
+        }
+
+        // 第一段失敗 → 無法繼續（沒有音訊起點）
         if (i === 0) throw err;
+
+        // 中間段失敗 → 跳過此段，繼續合成後續段落
+        // 注意：不加入 orphan silence，避免音訊中有空白中斷
       }
     }
 

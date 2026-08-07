@@ -87,6 +87,19 @@ Listening design rules: ${diff.lines}, use at least 2 different speakers from {W
 Trap design: ${diff.traps} — use number confusion (e.g. 5432 vs 5423) and date corrections.
 
 ═══════════════════════════════════════
+Data File Requirements
+═══════════════════════════════════════
+Generate ${diff.dataFilePages} Data File sources (email/memo/report-excerpt/webpage/statistics/notice).
+Each source must have:
+- type: one of email, memo, report-excerpt, webpage, statistics, notice
+- title: a descriptive title for the source
+- content: the actual text content of the source
+- relevantFor: array of question indices (1-based) this source helps answer
+- sourceDate (optional): date of the source if applicable
+Include at least 1 distractor source not relevant to any question.
+Include subtle info conflicts between sources (e.g., different dates for same event).
+
+═══════════════════════════════════════
 CRITICAL: Note-taking Guide — HINTS ONLY, NEVER ANSWERS
 ═══════════════════════════════════════
 The noteTakingGuide is for STUDENTS to fill in during listening.
@@ -107,6 +120,7 @@ Output pure JSON (start with {, end with }, no markdown):
 {
   "listeningContent": "Woman: Hello...\\nMan: Yes...\\nWoman: Also...",
   "listeningTopicZh": "主題名稱（繁體中文）",
+  "dataFile": { "sources": [{ "type": "email", "title": "...", "content": "...", "relevantFor": [1, 2], "sourceDate": "2024-03-15" }] },
   "noteTakingGuide": [{ "question": "學生抵達日期是？", "hint": "留意日期，可能有更改" }],
   "writingTask": "You are... Write a...",
   "expectedContentPoints": ["Content point as a plain string", "Another content point as a plain string"],
@@ -139,7 +153,7 @@ CRITICAL REQUIREMENTS:
     recordTopicUsage(input.userId, diverseTopics[0], 'school', 'listening');
   }
 
-  return { listeningContent: normalizeListeningContent(task.listeningContent), listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務', noteTakingGuide: sanitizeNoteGuide(task.noteTakingGuide || []), writingTask: task.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: task.expectedContentPoints || [], listeningAnswers: task.listeningAnswers || [] };
+  return { listeningContent: normalizeListeningContent(task.listeningContent), listeningTopicZh: task.listeningTopicZh || 'Integrated Skills 聆聽任務', dataFile: task.dataFile, noteTakingGuide: sanitizeNoteGuide(task.noteTakingGuide || []), writingTask: task.writingTask, taskType: input.taskType, wordLimit: diff.wordLimit, expectedContentPoints: task.expectedContentPoints || [], listeningAnswers: task.listeningAnswers || [] };
 }
 
 /**

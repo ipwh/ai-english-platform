@@ -1,6 +1,7 @@
 // Sprint 94: Integrated Skills shared types
 export interface IntegratedSkillsTask {
   listeningContent: string; listeningTopicZh: string;
+  dataFile?: { sources: Array<{ type: string; title: string; content: string; relevantFor: number[]; sourceDate?: string }> };
   noteTakingGuide: { question: string; hint: string }[]; writingTask: string;
   taskType: string; wordLimit: number; expectedContentPoints: string[];
   listeningAnswers: { question: string; answer: string }[];

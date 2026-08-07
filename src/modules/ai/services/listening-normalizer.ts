@@ -110,11 +110,42 @@ export function validateListeningContent(
  * - Deduplicates blank lines
  * - Validates in development mode
  */
-export function normalizeListeningContent(raw: string): string {
+export function normalizeListeningContent(raw: unknown): string {
   if (!raw) return '';
 
+  // ── Defensive guard: coerce non-string values ──
+  let content: string;
+  if (typeof raw === 'string') {
+    content = raw;
+  } else if (Array.isArray(raw)) {
+    // LLM occasionally returns an array of lines instead of a string
+    content = raw.map(item => (typeof item === 'string' ? item : String(item))).join('\n');
+    logger.warn(
+      { module: 'listening-normalizer', arrayLength: raw.length },
+      'listeningContent was an array — coerced to string',
+    );
+  } else if (typeof raw === 'object' && raw !== null) {
+    // LLM might return { lines: [...] } or similar nested structure
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.lines)) {
+      content = (obj.lines as unknown[]).map(item => String(item)).join('\n');
+    } else if (typeof obj.text === 'string') {
+      content = obj.text;
+    } else if (typeof obj.content === 'string') {
+      content = obj.content;
+    } else {
+      content = JSON.stringify(raw);
+    }
+    logger.warn(
+      { module: 'listening-normalizer', objectKeys: Object.keys(obj) },
+      'listeningContent was an object — coerced to string',
+    );
+  } else {
+    content = String(raw);
+  }
+
   // ── Guard: Detect narrative summaries (no speaker labels) ──
-  const rawLines = raw.split(/\n/).filter(l => l.trim());
+  const rawLines = content.split(/\n/).filter(l => l.trim());
   const hasSpeakerLabels = rawLines.some(l => /^(Woman|Man|Boy|Girl|W|M|B|G)\s*[:：]/.test(l.trim()));
   if (!hasSpeakerLabels && rawLines.length > 0) {
     // This looks like a narrative summary, not dialogue — log critical warning
@@ -122,16 +153,16 @@ export function normalizeListeningContent(raw: string): string {
       {
         module: 'listening-normalizer',
         lineCount: rawLines.length,
-        preview: raw.slice(0, 200),
+        preview: content.slice(0, 200),
         allLinesNarrative: true,
       },
       'CRITICAL: listeningContent appears to be a narrative summary, NOT dialogue lines. Prompt may need strengthening.',
     );
     // Return as-is so it's visible in the UI for debugging — but mark clearly
-    return `⚠️ NARRATIVE SUMMARY DETECTED (should be dialogue lines):\n${raw}`;
+    return `⚠️ NARRATIVE SUMMARY DETECTED (should be dialogue lines):\n${content}`;
   }
 
-  let content = raw
+  content = content
     .replace(/([^\n])\b(Woman|Man|Boy|Girl)\s*:/gi, '$1\n$2:')
     .replace(/([^\n])(Speaker\s*[AB12]?)\s*:/gi, '$1\n$2:');
 

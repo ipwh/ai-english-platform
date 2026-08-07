@@ -178,6 +178,15 @@ export type WordAnalysis = z.infer<typeof WordAnalysisSchema>;
 export const IntegratedSkillsTaskSchema = z.object({
   listeningContent: z.string().min(1),
   listeningTopicZh: z.string(),
+  dataFile: z.object({
+    sources: z.array(z.object({
+      type: z.string(),
+      title: z.string(),
+      content: z.string(),
+      relevantFor: z.array(z.number()),
+      sourceDate: z.string().optional(),
+    })),
+  }).optional(),
   noteTakingGuide: z.array(z.object({
     question: z.string(),
     hint: z.string(),
