@@ -43,6 +43,23 @@ DO NOT generate Chinese dialogue. DO NOT mix languages.
 The characters speak English. The conversation sounds like a real DSE recording.
 
 ═══════════════════════════════════════
+CRITICAL: listeningContent FORMAT — DIALOGUE LINES ONLY
+═══════════════════════════════════════
+The listeningContent MUST be actual dialogue lines with speaker labels.
+Each line MUST start with "Woman: " or "Man: " or "Boy: " or "Girl: ".
+NEVER output a narrative summary like "Two students discuss..."
+NEVER output paragraph-style descriptions of what was said.
+ALWAYS output the exact words the speakers say, line by line.
+
+CORRECT format (dialogue):
+Woman: Good morning everyone. I'm Ms. Chan, your activity coordinator.
+Man: Thank you for coming. Today we'll discuss the details of our school programme.
+Woman: First, let me share the key dates for this year's charity event.
+
+WRONG format (summary — FORBIDDEN):
+Two students, Emily and Jason, discuss the upcoming charity walkathon with their teacher. They talk about event details and fundraising goals.
+
+═══════════════════════════════════════
 CRITICAL: Dialogue Quality & Length
 ═══════════════════════════════════════
 Each speaker line MUST be a complete, meaningful sentence (8-25 English words).

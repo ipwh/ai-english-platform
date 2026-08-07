@@ -305,6 +305,23 @@ ${taskType === 'proposal' ? '- Proposal: include timeline and budget.' : ''}
 - expectedContentPoints: 5-7 plain strings. Each is a single sentence describing one content point. Do NOT use objects with {point, source} — output a flat string array like ["The event is on 15th August", "Budget is $5,000"].
 - listeningAnswers: standard answers for each note-taking question.
 
+═══════════════════════════════════════
+CRITICAL: listeningContent FORMAT — DIALOGUE LINES ONLY
+═══════════════════════════════════════
+The listeningContent MUST be actual dialogue lines with speaker labels.
+Each line MUST start with "Woman: " or "Man: " or "Boy: " or "Girl: ".
+NEVER output a narrative summary like "Two students discuss..."
+NEVER output paragraph-style descriptions of what was said.
+ALWAYS output the exact words the speakers say, line by line.
+
+CORRECT format (dialogue):
+Woman: Good morning everyone. I'm Ms. Chan, your activity coordinator.
+Man: Thank you for coming. Today we'll discuss the details of our school programme.
+Woman: First, let me share the key dates for this year's charity event.
+
+WRONG format (summary — FORBIDDEN):
+Two students, Emily and Jason, discuss the upcoming charity walkathon with their teacher. They talk about event details and fundraising goals.
+
 DIALOGUE QUALITY:
 - Each line must be a complete, meaningful English sentence (8-25 words)
 - NO single-word or fragment responses (e.g., "Yes.", "Okay.", "Right.")

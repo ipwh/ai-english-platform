@@ -93,6 +93,7 @@ function buildListeningSection(count: number, difficulty: string, gradeLevel: st
   return `─── DSE Paper 3 Listening ───
 Each question has its OWN independent listeningContent (short dialogue, ${lineGuide} per question).
 Roles: ONLY Boy/Girl/Man/Woman. Format: "Role: dialogue" (one per line, real \\n separators).
+CRITICAL: listeningContent MUST be actual dialogue lines, NEVER a narrative summary like "Two students discuss...".
 Speech: natural English with occasional fillers ("um", "well"), linking ("gonna", "wanna"), and self-corrections.
 ${difficulty === 'challenge' ? 'Include inference traps, speaker attitude shifts, synonym distractors.' : ''}
 ${difficulty === 'remedial' ? 'Slow clear speech, simple vocabulary, obvious wrong choices.' : ''}

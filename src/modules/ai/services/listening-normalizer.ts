@@ -113,6 +113,24 @@ export function validateListeningContent(
 export function normalizeListeningContent(raw: string): string {
   if (!raw) return '';
 
+  // ── Guard: Detect narrative summaries (no speaker labels) ──
+  const rawLines = raw.split(/\n/).filter(l => l.trim());
+  const hasSpeakerLabels = rawLines.some(l => /^(Woman|Man|Boy|Girl|W|M|B|G)\s*[:：]/.test(l.trim()));
+  if (!hasSpeakerLabels && rawLines.length > 0) {
+    // This looks like a narrative summary, not dialogue — log critical warning
+    logger.error(
+      {
+        module: 'listening-normalizer',
+        lineCount: rawLines.length,
+        preview: raw.slice(0, 200),
+        allLinesNarrative: true,
+      },
+      'CRITICAL: listeningContent appears to be a narrative summary, NOT dialogue lines. Prompt may need strengthening.',
+    );
+    // Return as-is so it's visible in the UI for debugging — but mark clearly
+    return `⚠️ NARRATIVE SUMMARY DETECTED (should be dialogue lines):\n${raw}`;
+  }
+
   let content = raw
     .replace(/([^\n])\b(Woman|Man|Boy|Girl)\s*:/gi, '$1\n$2:')
     .replace(/([^\n])(Speaker\s*[AB12]?)\s*:/gi, '$1\n$2:');
