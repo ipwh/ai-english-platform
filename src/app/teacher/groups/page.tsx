@@ -36,6 +36,7 @@ export default function TeacherGroupsPage() {
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [batchText, setBatchText] = useState('');
   const batchFileRef = useRef<HTMLInputElement>(null);
+  const [classFilter, setClassFilter] = useState('');
 
   const fetchGroups = () => {
     fetch('/api/groups')
@@ -171,7 +172,9 @@ export default function TeacherGroupsPage() {
             const res = await fetch('/api/teacher/students');
             const d = await res.json();
             setStudents((d.students || []).map((s: Record<string, unknown>) => ({
-              id: s.id, name: s.nameZh || s.name || s.email, className: s.className || '',
+              id: s.id,
+              name: s.nameZh || s.name || s.email,
+              className: (s.class as { name?: string })?.name || (s.className as string) || '',
             })));
           }}
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-xl font-medium flex items-center gap-2"
@@ -221,8 +224,19 @@ export default function TeacherGroupsPage() {
                 </div>
               </div>
             )}
+            {/* 班級篩選 */}
+            {(() => {
+              const classList = [...new Set(students.map(s => s.className).filter(Boolean))].sort();
+              return classList.length > 0 ? (
+                <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 mb-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none">
+                  <option value="">全部班級</option>
+                  {classList.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              ) : null;
+            })()}
             <div className="max-h-48 overflow-y-auto space-y-1">
-              {students.map(s => (
+              {students.filter(s => !classFilter || s.className === classFilter).map(s => (
                 <label key={s.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
                   <input
                     type="checkbox"
@@ -240,7 +254,7 @@ export default function TeacherGroupsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border rounded-lg text-sm">{t('groups.cancel')}</button>
+            <button onClick={() => { setShowCreate(false); setClassFilter(''); }} className="px-4 py-2 border rounded-lg text-sm">{t('groups.cancel')}</button>
             <button
               onClick={handleCreate}
               disabled={creating || !newName.trim()}

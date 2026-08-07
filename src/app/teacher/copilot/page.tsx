@@ -133,6 +133,10 @@ export default function TeacherCopilotPage() {
         <p className="text-violet-100 text-sm mt-1">
           AI 教學助手 — 教案、分析、預測、教材生成
         </p>
+        <div className="mt-3 pt-3 border-t border-violet-400/30 text-xs text-violet-200 space-y-1">
+          <p>💡 <strong>概覽</strong>：查看所有班級狀態 · <strong>教案</strong>：輸入班級生成一週教學計劃 · <strong>班級分析</strong>：查看班級技能分佈及風險學生</p>
+          <p>💡 <strong>考試預測</strong>：預測 DSE 合格率 · <strong>生成教材</strong>：AI 製作工作紙/家課/測驗卷 · <strong>學生分析</strong>：輸入學生姓名查看個人進度</p>
+        </div>
       </div>
 
       {/* Tab Bar */}

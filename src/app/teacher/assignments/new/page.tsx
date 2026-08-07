@@ -61,7 +61,9 @@ export default function NewAssignmentPage() {
     } else if (form.targetType === 'students') {
       fetch('/api/teacher/students').then(r => r.json()).then(d =>
         setStudents((d.students || []).map((s: Record<string, unknown>) => ({
-          id: s.id, name: s.nameZh || s.name || s.email, className: s.className || '',
+          id: s.id,
+          name: s.nameZh || s.name || s.email,
+          className: (s.class as { name?: string })?.name || (s.className as string) || '',
         })))
       ).catch(() => {});
     }
