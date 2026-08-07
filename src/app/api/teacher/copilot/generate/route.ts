@@ -16,11 +16,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = generationRequestSchema.parse(body);
-    const { type, teacherId, gradeLevel, topic, topicZh, questionCount, difficulty } = parsed;
+    const { type, teacherId, classId, gradeLevel, topic, topicZh, questionCount, difficulty } = parsed;
 
     // Route to appropriate service method
     let result: unknown;
-    const classId = teacherId; // Use teacherId as classId for now
+    const effectiveClassId = classId || teacherId; // Use classId from frontend, fallback to teacherId
 
     switch (type) {
       case 'homework':
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       case 'class-quiz':
       case 'revision-paper':
       case 'remedial-exercises':
-        result = await teacherCopilotService.generateAssignments(classId);
+        result = await teacherCopilotService.generateAssignments(effectiveClassId);
         break;
       default:
         result = {

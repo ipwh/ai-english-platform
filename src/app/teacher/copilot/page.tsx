@@ -85,6 +85,12 @@ export default function TeacherCopilotPage() {
     else if (activeTab === 'student-analysis') fetchStudentAnalysis(studentId, classId);
   };
 
+  const selectClass = (c: { classId: string; className: string }) => {
+    setClassId(c.classId);
+    setClassName(c.className);
+    setActiveTab('class-analysis');
+  };
+
   const trendIcon = (trend: string) =>
     trend === 'up' ? <ArrowUp className="w-3 h-3 text-green-500" /> :
     trend === 'down' ? <ArrowDown className="w-3 h-3 text-red-500" /> :
@@ -133,9 +139,9 @@ export default function TeacherCopilotPage() {
           </div>
           {activeTab === 'student-analysis' && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">學生 ID</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">學生 ID 或姓名</label>
               <input value={studentId} onChange={e => setStudentId(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm w-48" placeholder="e.g. student-001" />
+                className="px-3 py-2 border rounded-lg text-sm w-48" placeholder="e.g. student-001 或 Chan Tai Man" />
             </div>
           )}
           <button onClick={handleLoad}
@@ -192,15 +198,20 @@ export default function TeacherCopilotPage() {
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-3">班級概覽</h3>
                   <div className="space-y-2">
                     {overview.classes.map(c => (
-                      <div key={c.classId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                      <button
+                        key={c.classId}
+                        onClick={() => selectClass(c)}
+                        className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors text-left cursor-pointer"
+                      >
                         <div>
                           <span className="font-medium text-gray-900 dark:text-white">{c.className}</span>
                           <span className="text-xs text-gray-500 ml-2">{c.studentCount} 人</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm text-gray-600 dark:text-gray-400">掌握度: {Math.round(c.averageMastery)}%</span>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
