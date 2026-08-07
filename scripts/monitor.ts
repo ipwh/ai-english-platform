@@ -9,6 +9,9 @@
 //   npm run prompt:monitor alerts
 //   npm run prompt:monitor trend <prompt-name>
 //   npm run prompt:monitor providers
+//   npm run prompt:monitor recover
+//   npm run prompt:monitor recover --dry-run
+//   npm run prompt:monitor recovery-report
 // ============================================
 
 import {
@@ -17,6 +20,7 @@ import {
   computeQualityTrend, getAllTrends,
   computeAllProviderHealth,
   generateContinuousReport, generateDashboard, renderDashboardMarkdown,
+  recoverPendingEvaluations, EvaluationStore,
 } from '../src/modules/ai/continuous-evaluation/index';
 import type {
   ContinuousEvalConfig, ScoreRecord, MonitorRun,
@@ -51,6 +55,10 @@ async function main() {
       return cmdProviders();
     case 'history':
       return cmdHistory(args[0]);
+    case 'recover':
+      return cmdRecover(args.includes('--dry-run'));
+    case 'recovery-report':
+      return cmdRecoveryReport();
     default:
       console.log('Usage: npx tsx scripts/monitor.ts <command> [args]');
       console.log('');
@@ -64,8 +72,9 @@ async function main() {
       console.log('  alerts            List open alerts');
       console.log('  trend <prompt>    Show quality trend');
       console.log('  providers         Show provider health');
-      console.log('  history <prompt>  Show evaluation history');
-  }
+      console.log('  history <prompt>  Show evaluation history');      console.log('  recover            Recover pending evaluations after restart');
+      console.log('  recover --dry-run  Preview recovery without mutations');
+      console.log('  recovery-report    Show last recovery report');  }
 }
 
 // ── Init ──
@@ -311,6 +320,70 @@ function saveReport(results: MonitorRun[]) {
   const reportPath = path.join(reportsDir, filename);
   fs.writeFileSync(reportPath, report);
   console.log(`\n📄 Report saved: ${reportPath}`);
+}
+
+async function cmdRecover(dryRun: boolean) {
+  const mode = dryRun ? 'DRY-RUN (no mutations)' : 'LIVE';
+  console.log(`\n🔧 Recovery: ${mode}\n`);
+
+  const store = monitor.getStore();
+  const report = await recoverPendingEvaluations(store, monitor.events, { dryRun });
+
+  console.log(`  Attempted : ${report.attempted}`);
+  console.log(`  Recovered : ${report.recovered}`);
+  console.log(`  Aborted   : ${report.aborted}`);
+  console.log(`  Failed    : ${report.failed}`);
+  console.log(`  Side effects replayed: ${report.replayedSideEffects}`);
+
+  if (report.evaluations.length > 0) {
+    console.log('\n  ── Details ──');
+    for (const ev of report.evaluations) {
+      const flag = ev.error ? '❌' : ev.finalStatus === 'aborted' ? '⚠️' : '✅';
+      console.log(`  ${flag} ${ev.evaluationId}`);
+      console.log(`     ${ev.previousStatus} → ${ev.finalStatus}`);
+      if (ev.sideEffectsReplayed.length > 0) {
+        console.log(`     Replayed: ${ev.sideEffectsReplayed.join(', ')}`);
+      }
+      if (ev.error) {
+        console.log(`     Error: ${ev.error}`);
+      }
+    }
+  }
+
+  console.log('');
+}
+
+function cmdRecoveryReport() {
+  const report = monitor.getLastRecoveryReport();
+
+  if (!report) {
+    console.log('\n📋 No recovery has been run yet.\n');
+    return;
+  }
+
+  console.log('\n📋 Last Recovery Report\n');
+  console.log(`  Attempted : ${report.attempted}`);
+  console.log(`  Recovered : ${report.recovered}`);
+  console.log(`  Aborted   : ${report.aborted}`);
+  console.log(`  Failed    : ${report.failed}`);
+  console.log(`  Side effects replayed: ${report.replayedSideEffects}`);
+
+  if (report.evaluations.length > 0) {
+    console.log('\n  ── Details ──');
+    for (const ev of report.evaluations) {
+      const flag = ev.error ? '❌' : ev.finalStatus === 'aborted' ? '⚠️' : '✅';
+      console.log(`  ${flag} ${ev.promptName} (${ev.evaluationId})`);
+      console.log(`     ${ev.previousStatus} → ${ev.finalStatus}`);
+      if (ev.sideEffectsReplayed.length > 0) {
+        console.log(`     Replayed: ${ev.sideEffectsReplayed.join(', ')}`);
+      }
+      if (ev.error) {
+        console.log(`     Error: ${ev.error}`);
+      }
+    }
+  }
+
+  console.log('');
 }
 
 main().catch(console.error);

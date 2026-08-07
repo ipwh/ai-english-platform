@@ -11,6 +11,9 @@ export const VALID_SPEAKERS = ['Woman', 'Man', 'Boy', 'Girl'] as const;
 export const VALID_SPEAKER_SET: Set<string> = new Set(VALID_SPEAKERS);
 export const SPEAKER_LINE_RE_STRICT = /^(Woman|Man|Boy|Girl)\s*:\s*(.+)$/i;
 
+/** Pattern that catches abbreviated labels like "W:", "M:", "B:", "G:" before normalization */
+const ABBREVIATED_LABEL_RE = /^([WwMmBbGg])\s*[:：\-–—]\s*/;
+
 /** Map single-letter abbreviations to full speaker labels */
 const SPEAKER_EXPANSION: Record<string, string> = {
   w: 'Woman',
@@ -62,6 +65,15 @@ export function validateListeningContent(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Detect abbreviated labels (W:, M:, B:, G:) — these should have been normalized
+    if (ABBREVIATED_LABEL_RE.test(line)) {
+      errors.push(
+        `Line ${i + 1}: ABBREVIATED speaker label detected — use full words Woman/Man/Boy/Girl, not W/M/B/G → "${line.slice(0, 40)}"`,
+      );
+      continue;
+    }
+
     const match = line.match(SPEAKER_LINE_RE_STRICT);
     if (!match) {
       errors.push(

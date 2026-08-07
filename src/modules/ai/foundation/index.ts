@@ -114,6 +114,11 @@ export type {
   AlertResolvedEvent,
   ProviderChangedEvent,
   ProviderHealthChangedEvent,
+  ContinuousEvalStartedEvent,
+  ContinuousEvalCompletedEvent,
+  ContinuousEvalFailedEvent,
+  ContinuousEvalTimedOutEvent,
+  ContinuousEvalAbortedEvent,
 } from './events/event-types';
 
 // ── Metrics ──

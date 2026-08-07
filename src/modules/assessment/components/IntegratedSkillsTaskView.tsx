@@ -12,6 +12,7 @@ import {
   ArrowLeft, Eye, EyeOff,
 } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
+import ListeningScript from '@/components/shared/ListeningScript';
 import { useAppStore } from '@/store/appStore';
 import { useIntegratedSkillsStore, type IntegratedTaskData, type TaskStep } from '@/store/integratedSkillsStore';
 import { useT } from '@/hooks/use-i18n';
@@ -561,14 +562,18 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                     )}
                   </button>
                   {s.showListeningText && (
-                    <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line max-h-56 overflow-y-auto border border-gray-100 dark:border-gray-600">
-                      {appStore.userId ? (
-                        <VocabEnabledText studentId={appStore.userId} gradeLevel={s.gradeLevel || 'S4'}>
-                          {task.listeningContent}
-                        </VocabEnabledText>
-                      ) : (
-                        task.listeningContent
-                      )}
+                    <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm leading-relaxed max-h-56 overflow-y-auto border border-gray-100 dark:border-gray-600">
+                      <ListeningScript
+                        content={task.listeningContent}
+                        renderText={appStore.userId
+                          ? (text) => (
+                            <VocabEnabledText studentId={appStore.userId!} gradeLevel={s.gradeLevel || 'S4'}>
+                              {text}
+                            </VocabEnabledText>
+                          )
+                          : undefined
+                        }
+                      />
                     </div>
                   )}
                 </div>

@@ -225,6 +225,11 @@ function getSpeakerPitch(speaker: string | null): number {
 export function cleanListeningContent(text: string): string {
   if (!text) return '';
   return text
+    // Step 0: 擴展單字母縮寫（W: → Woman:, M: → Man:）— 防禦性安全網
+    .replace(/^[Ww]\s*[:：]\s*/gm, 'Woman: ')
+    .replace(/^[Mm]\s*[:：]\s*/gm, 'Man: ')
+    .replace(/^[Bb]\s*[:：]\s*/gm, 'Boy: ')
+    .replace(/^[Gg]\s*[:：]\s*/gm, 'Girl: ')
     // Step 1: 正規化角色標籤格式（保留 speaker 身分，只修正格式）
     // 移除引號/括號/全形冒號/多餘空白 → 統一為 "Speaker: text"
     .replace(/^["'\[]?\s*(Woman|Man|Boy|Girl)\s*["'\]]?\s*[:：]\s*/gim, '$1: ')

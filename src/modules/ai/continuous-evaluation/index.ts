@@ -47,8 +47,8 @@ export type { Alert, AlertSummary, AlertCategory } from './alert';
 export { ALERT_CATEGORY_LABELS } from './alert';
 
 // ── Evaluator ──
-export { continuousEvaluator } from './evaluator';
-export type { ContinuousEvalProviderCall, EvaluatorOptions } from './evaluator';
+export { continuousEvaluator, incSuccessCounter, incFailureCounter, incSuccessCounterDedup, incFailureCounterDedup, resetMetricsDedup } from './evaluator';
+export type { ContinuousEvalProviderCall, EvaluatorOptions, EvaluationErrorCode } from './evaluator';
 
 // ── Scheduler ──
 export { scheduler } from './scheduler';
@@ -57,6 +57,26 @@ export type { ScheduleEntry, ScheduledEvalCallback } from './scheduler';
 // ── Monitor ──
 export { monitor } from './monitor';
 export type { MonitorRun, MonitorOptions } from './monitor';
+
+// ── Evaluation Durability ──
+export { EvaluationStore } from './evaluation-store';
+export { recoverPendingEvaluations } from './evaluation-recovery';
+export {
+  createEvaluationRecord,
+  emptySideEffects,
+  emptyRecoveryReport,
+  SIDE_EFFECT_KEYS,
+  isTerminalStatus,
+  canTransition,
+  validTransitions,
+} from './evaluation-record';
+export type {
+  EvaluationRecord,
+  EvaluationStatus,
+  SideEffectFlags,
+  RecoveryReport,
+  RecoveryReportEntry,
+} from './evaluation-record';
 
 // ── Report ──
 export { generateContinuousReport } from './report';

@@ -15,6 +15,7 @@ import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import AudioPlayer, { prefetchTTSAudio } from '@/components/shared/AudioPlayer';
+import ListeningScript from '@/components/shared/ListeningScript';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import type { AnswerAnalysis } from '@/modules/ai/services/ai-service';
@@ -550,12 +551,11 @@ export default function PracticeQuestionPage() {
 
             {/* 聆聽文字：根據狀態顯示/隱藏 */}
             <div className={!listeningRevealed && !submitted ? 'hidden' : ''}>
-              <p
-                className="text-sm text-teal-800 dark:text-teal-200 leading-relaxed whitespace-pre-line cursor-help"
-                title={question.listeningContentZh || t('practice.question.listeningContentText')}
-              >
-                {question.listeningContent || question.prompt}
-              </p>
+              <ListeningScript
+                content={question.listeningContent || question.prompt}
+                textColor="text-teal-800"
+                textColorDark="dark:text-teal-200"
+              />
               {question.listeningContentZh && (
                 <p className="text-xs text-teal-500 mt-1">{question.listeningContentZh}</p>
               )}

@@ -285,6 +285,8 @@ export const commonTranslations: Record<string, { zh: string; en: string }> = {
   'ocr.processingFailed': { zh: 'OCR 處理失敗', en: 'OCR processing failed' },
   'ocr.failed': { zh: 'OCR 失敗', en: 'OCR failed' },
   'ocr.charsRecognized': { zh: '{n} 字元已辨識', en: '{n} characters recognized' },
+  'ocr.chars': { zh: '字', en: 'chars' },
+  'ocr.photos': { zh: '張已辨識', en: 'photos scanned' },
   'help.personalizedAnalysis': { zh: '個人化分析', en: 'Personalized Analysis' },
   'help.priorityImprove': { zh: '目前優先改善：', en: 'Priority: ' },
   'help.confidenceLabel': { zh: '建議信心度', en: 'Confidence Level' },

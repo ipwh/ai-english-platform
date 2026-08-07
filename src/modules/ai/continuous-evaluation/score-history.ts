@@ -80,8 +80,11 @@ class ScoreHistoryStore {
 
   // ── Write ──
 
-  /** Add a score record */
+  /** Add a score record (idempotent — same id cannot be added twice) */
   add(record: ScoreRecord): void {
+    // Idempotency guard: if a record with this ID already exists, skip
+    if (this.records.has(record.id)) return;
+
     this.records.set(record.id, record);
 
     const promptRecords = this.byPrompt.get(record.promptName) ?? [];

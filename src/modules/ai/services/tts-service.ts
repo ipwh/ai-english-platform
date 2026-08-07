@@ -87,6 +87,14 @@ export interface DialogueSegment {
 
 const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl)\s*[:：\-–—]\s*(.+)$/i;
 
+/** Catch abbreviated labels (W:, M:, B:, G:) that slipped past normalization */
+const ABBREVIATED_SPEAKER_RE = /^([WwMmBbGg])\s*[:：\-–—]\s*(.+)$/;
+
+/** Expand single-letter abbreviation to full speaker label */
+const SPEAKER_ABBREV_MAP: Record<string, 'woman' | 'man' | 'boy' | 'girl'> = {
+  w: 'woman', m: 'man', b: 'boy', g: 'girl',
+};
+
 export function parseDialogueForTTS(text: string): DialogueSegment[] {
   const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
   const segments: DialogueSegment[] = [];
@@ -98,8 +106,16 @@ export function parseDialogueForTTS(text: string): DialogueSegment[] {
       const spokenText = match[2].trim();
       segments.push({ speaker, text: spokenText });
     } else {
-      // 沒有角色標籤的行 → 用預設女聲
-      segments.push({ speaker: 'woman', text: line });
+      // Check for abbreviated labels (W:, M:, B:, G:) that escaped normalization
+      const abbrevMatch = line.match(ABBREVIATED_SPEAKER_RE);
+      if (abbrevMatch) {
+        const speaker = SPEAKER_ABBREV_MAP[abbrevMatch[1].toLowerCase()] || 'woman';
+        const spokenText = abbrevMatch[2].trim();
+        segments.push({ speaker, text: spokenText });
+      } else {
+        // 沒有角色標籤的行 → 用預設女聲
+        segments.push({ speaker: 'woman', text: line });
+      }
     }
   }
 

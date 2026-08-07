@@ -173,6 +173,69 @@ export interface ProviderHealthChangedEvent extends BaseEvent {
   errorRate: number;
 }
 
+// ── Continuous Evaluation Events ──
+
+/**
+ * Fired when a continuous evaluation starts.
+ */
+export interface ContinuousEvalStartedEvent extends BaseEvent {
+  type: 'continuous-eval:started';
+  evaluationId: string;
+  promptName: string;
+  datasetId: string;
+  triggerType: string;
+}
+
+/**
+ * Fired when a continuous evaluation completes successfully.
+ */
+export interface ContinuousEvalCompletedEvent extends BaseEvent {
+  type: 'continuous-eval:completed';
+  evaluationId: string;
+  promptName: string;
+  datasetId: string;
+  triggerType: string;
+  overallScore: number;
+  provider: string;
+  model: string;
+  latencyMs: number;
+}
+
+/**
+ * Fired when a continuous evaluation fails.
+ */
+export interface ContinuousEvalFailedEvent extends BaseEvent {
+  type: 'continuous-eval:failed';
+  evaluationId: string;
+  promptName: string;
+  datasetId: string;
+  triggerType: string;
+  errorCode: string;
+  errorMessage: string;
+}
+
+/**
+ * Fired when a continuous evaluation times out.
+ */
+export interface ContinuousEvalTimedOutEvent extends BaseEvent {
+  type: 'continuous-eval:timedOut';
+  evaluationId: string;
+  promptName: string;
+  datasetId: string;
+  triggerType: string;
+}
+
+/**
+ * Fired when a continuous evaluation is aborted.
+ */
+export interface ContinuousEvalAbortedEvent extends BaseEvent {
+  type: 'continuous-eval:aborted';
+  evaluationId: string;
+  promptName: string;
+  datasetId: string;
+  triggerType: string;
+}
+
 // ── Union Type ──
 
 /**
@@ -191,7 +254,12 @@ export type PromptOpsEvent =
   | AlertRaisedEvent
   | AlertResolvedEvent
   | ProviderChangedEvent
-  | ProviderHealthChangedEvent;
+  | ProviderHealthChangedEvent
+  | ContinuousEvalStartedEvent
+  | ContinuousEvalCompletedEvent
+  | ContinuousEvalFailedEvent
+  | ContinuousEvalTimedOutEvent
+  | ContinuousEvalAbortedEvent;
 
 /**
  * Map of event type string → event interface.
@@ -210,6 +278,11 @@ export interface PromptOpsEventMap {
   'alert:resolved': AlertResolvedEvent;
   'provider:changed': ProviderChangedEvent;
   'provider:healthChanged': ProviderHealthChangedEvent;
+  'continuous-eval:started': ContinuousEvalStartedEvent;
+  'continuous-eval:completed': ContinuousEvalCompletedEvent;
+  'continuous-eval:failed': ContinuousEvalFailedEvent;
+  'continuous-eval:timedOut': ContinuousEvalTimedOutEvent;
+  'continuous-eval:aborted': ContinuousEvalAbortedEvent;
 }
 
 /**

@@ -43,14 +43,28 @@ DO NOT generate Chinese dialogue. DO NOT mix languages.
 The characters speak English. The conversation sounds like a real DSE recording.
 
 ═══════════════════════════════════════
+CRITICAL: Dialogue Quality & Length
+═══════════════════════════════════════
+Each speaker line MUST be a complete, meaningful sentence (8-25 English words).
+DO NOT produce single-word or fragment responses (e.g., "Yes.", "Okay.", "Right.").
+The conversation must include:
+- Rich contextual details: dates, numbers, names, places, amounts, reasons
+- Natural back-and-forth: questions followed by answers, opinions, clarifications
+- Sufficient content for students to extract 4-6 distinct information points
+The dialogue should sound like a REAL DSE Paper 3 recording:
+- Authentic Hong Kong school/community context
+- Clear speaker roles (teacher/student, organizer/participant, etc.)
+- Realistic scenario with a beginning, middle, and conclusion
+
+═══════════════════════════════════════
 CRITICAL: Speaker Labels — FULL WORDS ONLY
 ═══════════════════════════════════════
 Speaker labels MUST be FULL English words: Woman, Man, Boy, Girl.
-NEVER use abbreviations like W:, M:, B:, G:, W:, M: — these cause TTS errors.
+NEVER use abbreviations like W:, M:, B:, G: — these are FORBIDDEN.
 Each line must start with "Woman: " or "Man: " or "Boy: " or "Girl: ".
 Example of CORRECT format:
-Woman: Good morning everyone. I'm Ms. Chan.
-Man: Thank you for coming. Today we'll discuss the programme.
+Woman: Good morning everyone. I'm Ms. Chan, your activity coordinator.
+Man: Thank you for coming. Today we'll discuss the details of our school programme.
 
 Listening design rules: ${diff.lines}, use at least 2 different speakers from {Woman, Man, Boy, Girl}.
 Trap design: ${diff.traps} — use number confusion (e.g. 5432 vs 5423) and date corrections.
@@ -87,12 +101,19 @@ Output pure JSON (start with {, end with }, no markdown):
 Grade: ${input.gradeLevel} | Difficulty: ${diff.label}${input.topicHint ? ` | Topic: ${input.topicHint}` : ''}
 All Chinese text (listeningTopicZh, noteTakingGuide hints, etc.) must use Traditional Chinese (繁體中文).`;
 
-  const userPrompt = `Generate a DSE Paper 3 Part B Integrated Skills exercise: task type: ${taskInfo.name}, grade: ${input.gradeLevel}, difficulty: ${input.difficulty}, approximately ${diff.wordLimit} words. Required topic: "${diverseTopics[0]}". Remember: listeningContent MUST be in English with full speaker labels (Woman:/Man:/Boy:/Girl:).`;
+  const userPrompt = `Generate a DSE Paper 3 Part B Integrated Skills exercise: task type: ${taskInfo.name}, grade: ${input.gradeLevel}, difficulty: ${input.difficulty}, approximately ${diff.wordLimit} words. Required topic: "${diverseTopics[0]}".
+
+CRITICAL REQUIREMENTS:
+- listeningContent MUST be a substantial English dialogue (${diff.lines})
+- Each speaker line MUST be 8-25 English words — NO single-word responses
+- Speaker labels MUST be FULL words: Woman:/Man:/Boy:/Girl: — NEVER W:/M:
+- Include rich details: dates, numbers, names, places, reasons
+- The dialogue must sound like a REAL DSE Paper 3 recording`;
 
   const task = await executeAI({
     context: { feature: 'Listening', useCase: 'GenerateIntegratedSkills', promptName: 'IntegratedSkillsGeneration', promptVersion: 'v1' },
     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    options: { temperature: 0.6, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId },
+    options: { temperature: 0.6, maxTokens: 8192, jsonMode: true, timeoutMs: 45000, userId: input.userId },
     schema: IntegratedSkillsTaskSchema,
   });
 

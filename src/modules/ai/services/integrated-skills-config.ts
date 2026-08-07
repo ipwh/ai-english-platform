@@ -17,7 +17,7 @@ export interface DifficultyConfig {
 export const INTEGRATED_SKILLS_DIFF_MAP: Record<string, DifficultyConfig> = {
   remedial: {
     label: '補底 (Level 1-2)',
-    lines: '一段短對話，8-12 行，2 位說話者',
+    lines: '一段完整對話，14-20 行，2 位說話者，內容需包含充足的資訊細節（日期、數字、地點、人名等），每句對話至少 8-15 個英文單詞',
     traps: '無需刻意加入陷阱',
     wordLimit: 80,
     dataFilePages: 2,
@@ -26,7 +26,7 @@ export const INTEGRATED_SKILLS_DIFF_MAP: Record<string, DifficultyConfig> = {
   },
   core: {
     label: '核心 (Level 3)',
-    lines: '一段中等對話，12-18 行，2-3 位說話者，含 1-2 個 distraction',
+    lines: '一段完整對話，20-28 行，2-3 位說話者，含充足的情境背景和細節討論，每句對話至少 10-20 個英文單詞，含 1-2 個 distraction',
     traps: '必須包含 1 個 distraction (說了又改) + 1 個 synonym replacement',
     wordLimit: 120,
     dataFilePages: 4,
@@ -35,7 +35,7 @@ export const INTEGRATED_SKILLS_DIFF_MAP: Record<string, DifficultyConfig> = {
   },
   challenge: {
     label: '挑戰 (Level 4-5)',
-    lines: '一段長對話或 2 段相關對話，18-30 行，2-3 位說話者',
+    lines: '一段完整長對話或 2 段相關對話，28-40 行，2-3 位說話者，內容豐富包含背景介紹、討論、決定過程，每句對話至少 12-25 個英文單詞',
     traps: '必須包含 2+ 個陷阱：distraction + synonym + speaker attitude + numerical precision',
     wordLimit: 180,
     dataFilePages: 6,

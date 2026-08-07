@@ -294,7 +294,7 @@ DSE Paper 3 topics: ${dseTopics}
 
 ─── Requirements ───
 - Data File: ${diffDataFilePages} sources (email/memo/report-excerpt/webpage/statistics/notice), each with relevantFor indices. Include distractors and info conflicts.
-- Listening: ${diffLines}, ${diffSpeakerCount} speakers (Woman/Man/Boy/Girl only), natural speech (gonna/wanna/um/well/self-correction). ${diffTraps}
+- Listening: ${diffLines}, ${diffSpeakerCount} speakers (Woman/Man/Boy/Girl only — FULL WORDS, NEVER W:/M:). Natural speech with complete sentences (8-25 words per line). Rich details: dates, numbers, names, places, reasons. ${diffTraps}
 - Note-taking guide: 4-5 guiding questions with shorthand symbols (+ − → ∵ $ # @ ≈) and signal word hints.
 - Writing task (${taskInfoName} / ${taskInfoNameZh}): a SINGLE STRING paragraph containing CONTEXT + ROLE + AUDIENCE + TASK + 3-4 REQUIREMENTS + WORD LIMIT (~${diffWordLimit} words). Do NOT output as an object — it must be a plain text string.
   Required elements: ${taskRequiredElements.join(', ')}. ${taskInfoFormatHint}
@@ -304,6 +304,13 @@ ${taskType === 'email-reply' ? '- Email Reply: address each point from the sourc
 ${taskType === 'proposal' ? '- Proposal: include timeline and budget.' : ''}
 - expectedContentPoints: 5-7 plain strings. Each is a single sentence describing one content point. Do NOT use objects with {point, source} — output a flat string array like ["The event is on 15th August", "Budget is $5,000"].
 - listeningAnswers: standard answers for each note-taking question.
+
+DIALOGUE QUALITY:
+- Each line must be a complete, meaningful English sentence (8-25 words)
+- NO single-word or fragment responses (e.g., "Yes.", "Okay.", "Right.")
+- Include rich contextual details: dates, numbers, names, places, amounts, reasons
+- Natural back-and-forth: questions followed by answers, opinions, clarifications
+- The dialogue should sound like a REAL DSE Paper 3 recording
 
 Output: pure JSON (no markdown). Fields: listeningContent, listeningTopicZh, dataFile { sources[] }, noteTakingGuide[{question,hint}], writingTask, expectedContentPoints (string[] only), listeningAnswers[{question,answer}].
 
