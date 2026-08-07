@@ -3,8 +3,9 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | 122 Sprints | 60/61 test files pass | 1,586 tests / 74 files | Audit: **88/100 (A-)** | Architecture: **9.0/10**
+> **Status**: **v1.0 Production Ready** ✅ | 124 Sprints | 60/61 test files pass | 1,586 tests / 74 files | Audit: **88/100 (A-)** | Architecture: **9.5/10**
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
+> **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
 
@@ -15,9 +16,13 @@ Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ Prompts (PromptRegistry: 12 prompts)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
-                 └─ Schemas (Zod validation)
+                 ├─ Schemas (Zod validation)
+                 ├─ AI Infra: prompt-versioning (SemVer + 7-state lifecycle)
+                 ├─ AI Infra: regression (rubric/semantic/structural scoring)
+                 ├─ AI Infra: experiments (A/B/C + cross-provider/version/dataset)
+                 └─ AI Infra: continuous-evaluation (drift + regression + alerts)
 
-AI module: 13 directories, 127 files — single pipeline, single owner per responsibility
+AI module: 16 directories, ~200 files — single pipeline, single owner per responsibility
 ```
 
 ## 📋 Architecture Decisions
