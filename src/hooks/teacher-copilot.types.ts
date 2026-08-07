@@ -7,10 +7,18 @@
 // ============================================
 
 export interface ClassInfo {
-  id: string; name: string; gradeLevel: string; studentCount: number;
-  averageMastery: number; riskCount: number;
+  classId: string; className: string; studentCount: number;
+  averageMastery: number;
+  topConcern?: string; topConcernZh?: string;
+  nextAction?: string; nextActionZh?: string;
 }
-export interface UrgentAction { type: string; message: string; priority: 'high' | 'medium'; }
+export interface UrgentAction {
+  type: string;
+  description: string;
+  descriptionZh?: string;
+  classId?: string;
+  className?: string;
+}
 export interface WeeklySummary { totalStudents: number; assignmentsDue: number; newRisksDetected: number; }
 export interface CopilotOverview { classes: ClassInfo[]; urgentActions: UrgentAction[]; weeklySummary: WeeklySummary; }
 

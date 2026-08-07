@@ -192,18 +192,13 @@ export default function TeacherCopilotPage() {
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-3">班級概覽</h3>
                   <div className="space-y-2">
                     {overview.classes.map(c => (
-                      <div key={c.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                      <div key={c.classId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                         <div>
-                          <span className="font-medium text-gray-900 dark:text-white">{c.name}</span>
-                          <span className="text-xs text-gray-500 ml-2">{c.gradeLevel} · {c.studentCount} 人</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{c.className}</span>
+                          <span className="text-xs text-gray-500 ml-2">{c.studentCount} 人</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm text-gray-600 dark:text-gray-400">掌握度: {Math.round(c.averageMastery)}%</span>
-                          {c.riskCount > 0 && (
-                            <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs font-medium">
-                              {c.riskCount} 風險
-                            </span>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -220,11 +215,11 @@ export default function TeacherCopilotPage() {
                   <div className="space-y-2">
                     {overview.urgentActions.map((a, i) => (
                       <div key={i} className={`p-3 rounded-xl text-sm ${
-                        a.priority === 'high'
+                        a.type === 'risk'
                           ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
                           : 'bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
                       }`}>
-                        <span className="font-medium">{a.type}:</span> {a.message}
+                        <span className="font-medium">{a.type}:</span> {a.description}
                       </div>
                     ))}
                   </div>
