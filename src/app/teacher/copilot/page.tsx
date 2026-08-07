@@ -82,7 +82,7 @@ export default function TeacherCopilotPage() {
     if (activeTab === 'lesson-plan') fetchLessonPlan(classId, className);
     else if (activeTab === 'class-analysis') fetchClassAnalysis(classId, className);
     else if (activeTab === 'exam-prediction') fetchExamPrediction(classId);
-    else if (activeTab === 'student-analysis') fetchStudentAnalysis(studentId, classId);
+    else if (activeTab === 'student-analysis') fetchStudentAnalysis(studentId, classId || '');
   };
 
   const selectClass = (c: { classId: string; className: string }) => {
@@ -152,13 +152,15 @@ export default function TeacherCopilotPage() {
       </div>
 
       {/* Class/Student Selector (shared) */}
-      {activeTab !== 'overview' && (
+      {activeTab !== 'overview' && activeTab !== 'generate' && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border flex flex-wrap gap-3 items-end">
+          {activeTab !== 'student-analysis' && (
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">班級</label>
             <input value={className || classId} onChange={e => { setClassName(e.target.value); setClassId(e.target.value); }}
               className="px-3 py-2 border rounded-lg text-sm w-40" placeholder="e.g. 4A" />
           </div>
+          )}
           {activeTab === 'student-analysis' && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">學生 ID 或姓名</label>
@@ -166,13 +168,11 @@ export default function TeacherCopilotPage() {
                 className="px-3 py-2 border rounded-lg text-sm w-48" placeholder="e.g. student-001 或 Chan Tai Man" />
             </div>
           )}
-          {activeTab !== 'generate' && (
           <button onClick={handleLoad}
-            disabled={isLoading || !classId || (activeTab === 'student-analysis' && !studentId)}
+            disabled={isLoading || (activeTab !== 'student-analysis' && !classId) || (activeTab === 'student-analysis' && !studentId)}
             className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors">
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '載入'}
           </button>
-          )}
         </div>
       )}
 
@@ -322,7 +322,8 @@ export default function TeacherCopilotPage() {
             {/* Skill Breakdown */}
             <div className="space-y-2">
               {classAnalysis.skillBreakdown.map((sk, i) => {
-                const avg = (sk.averageScore ?? sk.classAverage ?? 0) * 100;
+                const raw = sk.averageScore ?? sk.classAverage ?? 0;
+                const avg = raw > 1 ? raw : raw * 100; // API may return 0-1 or 0-100
                 const trend = sk.trend || 'stable';
                 const label = sk.skillZh || skillLabel(sk.skill);
                 return (

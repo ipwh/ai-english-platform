@@ -12,6 +12,7 @@ export const groupsTranslations: Record<string, { zh: string; en: string }> = {
   'groups.cancel': { zh: '取消', en: 'Cancel' },
   'groups.createBtn': { zh: '建立', en: 'Create' },
   'groups.empty': { zh: '暫無組別', en: 'No groups yet' },
+  'groups.emptyHint': { zh: '建立組別以便向特定學生群組派發練習', en: 'Create groups to assign practices to specific student cohorts' },
   'groups.edit': { zh: '編輯', en: 'Edit' },
   'groups.delete': { zh: '刪除', en: 'Delete' },
   'groups.members': { zh: '{n} 人', en: '{n} members' },
