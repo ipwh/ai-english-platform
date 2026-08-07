@@ -1,0 +1,91 @@
+name: Continuous Prompt Evaluation
+
+on:
+  schedule:
+    # Daily at 02:00 UTC
+    - cron: '0 2 * * *'
+    # Weekly on Monday at 03:00 UTC
+    - cron: '0 3 * * 1'
+  push:
+    paths:
+      - 'src/modules/ai/prompts/**'
+      - 'src/modules/ai/prompt-versioning/**'
+      - 'src/modules/ai/providers/**'
+      - 'src/modules/ai/continuous-evaluation/**'
+      - 'src/modules/ai/regression/fixtures/**'
+  pull_request:
+    paths:
+      - 'src/modules/ai/prompts/**'
+      - 'src/modules/ai/prompt-versioning/**'
+      - 'src/modules/ai/providers/**'
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Monitor command'
+        required: false
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - report
+          - dashboard
+          - alerts
+          - providers
+
+jobs:
+  continuous-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run continuous evaluation
+        id: monitor
+        run: |
+          COMMAND="${{ github.event.inputs.command || 'daily' }}"
+          echo "Running: npx tsx scripts/monitor.ts $COMMAND"
+          npx tsx scripts/monitor.ts $COMMAND
+
+      - name: Upload monitor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-report
+          path: reports/continuous-evaluation/
+          retention-days: 90
+
+      - name: Post results to summary
+        if: always()
+        run: |
+          echo "## 📡 Continuous Evaluation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d reports/continuous-evaluation ]; then
+            LATEST=$(ls -t reports/continuous-evaluation/*.md 2>/dev/null | head -1)
+            if [ -n "$LATEST" ]; then
+              echo "### Latest Report" >> $GITHUB_STEP_SUMMARY
+              head -n 80 "$LATEST" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "[Full report]($LATEST)" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Alert on critical findings
+        if: failure()
+        run: |
+          echo "⚠️ Continuous evaluation detected issues."
+          echo "Check the monitor report artifact for details."
