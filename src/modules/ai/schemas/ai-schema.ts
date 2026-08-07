@@ -192,8 +192,6 @@ export const IntegratedSkillsTaskSchema = z.object({
     hint: z.string(),
   })),
   writingTask: z.string().min(1),
-  taskType: z.string(),
-  wordLimit: z.number(),
   expectedContentPoints: z.array(z.string()),
   listeningAnswers: z.array(z.object({
     question: z.string(),
