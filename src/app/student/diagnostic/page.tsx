@@ -87,6 +87,18 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
     });
   }
 
+  // Always include at least 1 vocabulary question for baseline assessment
+  if (!plans.some(p => p.skillCategory === 'vocabulary')) {
+    plans.push({
+      grammarItem: 'phrasal-verbs',
+      grammarItemZh: '詞彙搭配與片語動詞',
+      skillCategory: 'vocabulary',
+      questionType: 'mc',
+      count: 1,
+      difficulty,
+    });
+  }
+
   if (weakest === 'reading' || second === 'reading' || plans.length < 2) {
     plans.push({
       languageSkill: 'reading',
@@ -241,11 +253,11 @@ export default function DiagnosticPage() {
         const allQuestions: PracticeQuestion[] = [];
         let questionId = 0;
 
-        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; questionType?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, skillCategory?: string, grammar?: string, grammarZh?: string) => {
+        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; type?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, skillCategory?: string, grammar?: string, grammarZh?: string) => {
           (res.questions || []).forEach((q) => {
             allQuestions.push({
               id: `diag-${++questionId}`,
-              type: (q.questionType || 'mc') as PracticeQuestion['type'],
+              type: (q.type || 'mc') as PracticeQuestion['type'],
               strand: 'knowledge',
               prompt: q.prompt,
               choices: q.choices || undefined,
@@ -285,6 +297,25 @@ export default function DiagnosticPage() {
       })
       .finally(() => setLoadingQuestions(false));
   }, []);
+
+  // Update writing score when CLO analysis completes (replaces simple pass/fail)
+  useEffect(() => {
+    if (!writingAnalysis || !completed) return;
+    setResults(prev => prev.map(r => {
+      if (r.id !== 'writing') return r;
+      // Convert CLO scores (each /7) to percentage: average × (100/7) ≈ ×14.3
+      const { contentScore, languageScore, organizationScore } = writingAnalysis;
+      const scores = [contentScore, languageScore, organizationScore].filter((s): s is number => typeof s === 'number' && s > 0);
+      if (scores.length === 0) return r;
+      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const percentage = Math.round((avgScore / 7) * 100);
+      return {
+        ...r,
+        score: percentage,
+        level: percentage >= 70 ? t('diagnostic.levelChallenge') : percentage >= 50 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
+      };
+    }));
+  }, [writingAnalysis, completed, t]);
 
   // 載入中
   if (loadingQuestions) {
