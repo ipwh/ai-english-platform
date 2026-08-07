@@ -105,6 +105,24 @@ export default function TeacherCopilotPage() {
     return map[skill] || skill;
   };
 
+  /** Format a focus value that may be string or object */
+  const fmtFocus = (f: unknown): string => {
+    if (typeof f === 'string') return f;
+    if (typeof f === 'object' && f !== null) {
+      const obj = f as Record<string, unknown>;
+      if (obj.topics && Array.isArray(obj.topics)) return (obj.topics as Array<{topicZh?: string; topic?: string}>).map(t => t.topicZh || t.topic).join('、');
+      if (obj.themes && Array.isArray(obj.themes)) return (obj.themes as string[]).join('、');
+      if (obj.textTypes && Array.isArray(obj.textTypes)) return (obj.textTypes as Array<{typeZh?: string; type?: string}>).map(t => t.typeZh || t.type).join('、');
+    }
+    return '';
+  };
+
+  /** Format a homework item that may be string or object */
+  const fmtHw = (h: string | Record<string, unknown>): string => {
+    if (typeof h === 'string') return h;
+    return (h.descriptionZh as string) || (h.description as string) || '';
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
       {/* Header */}
@@ -148,11 +166,13 @@ export default function TeacherCopilotPage() {
                 className="px-3 py-2 border rounded-lg text-sm w-48" placeholder="e.g. student-001 或 Chan Tai Man" />
             </div>
           )}
+          {activeTab !== 'generate' && (
           <button onClick={handleLoad}
             disabled={isLoading || !classId || (activeTab === 'student-analysis' && !studentId)}
             className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors">
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '載入'}
           </button>
+          )}
         </div>
       )}
 
@@ -259,17 +279,22 @@ export default function TeacherCopilotPage() {
               <div key={i} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                 <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{day.day} <span className="text-xs text-gray-500">{day.date}</span></h4>
                 <ul className="mt-2 space-y-1">
-                  {day.activities.map((a, j) => (
+                  {day.activities.map((a, j) => {
+                    const act = a as unknown as Record<string, unknown>;
+                    return (
                     <li key={j} className="text-xs text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">{a.title}</span> ({a.duration}) — {a.description}
+                      <span className="font-medium">{a.title || act.type as string || ''}</span>
+                      {a.duration ? ` (${a.duration})` : act.durationMinutes != null ? ` (${act.durationMinutes}分鐘)` : ''}
+                      {' — '}{a.description || act.descriptionZh as string || ''}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
                 {day.homework.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
                     <span className="text-xs font-medium text-gray-500">家課:</span>
                     {day.homework.map((h, j) => (
-                      <span key={j} className="text-xs text-gray-600 dark:text-gray-400 ml-1">{h}</span>
+                      <span key={j} className="text-xs text-gray-600 dark:text-gray-400 ml-1">{fmtHw(h)}</span>
                     ))}
                   </div>
                 )}
@@ -277,9 +302,9 @@ export default function TeacherCopilotPage() {
             ))}
           </div>
           <div className="text-xs text-gray-500 grid grid-cols-3 gap-2">
-            <div><span className="font-medium">文法:</span> {lessonPlan.grammarFocus}</div>
-            <div><span className="font-medium">詞彙:</span> {lessonPlan.vocabularyFocus}</div>
-            <div><span className="font-medium">寫作:</span> {lessonPlan.writingFocus}</div>
+            <div><span className="font-medium">文法:</span> {fmtFocus(lessonPlan.grammarFocus)}</div>
+            <div><span className="font-medium">詞彙:</span> {fmtFocus(lessonPlan.vocabularyFocus)}</div>
+            <div><span className="font-medium">寫作:</span> {fmtFocus(lessonPlan.writingFocus)}</div>
           </div>
         </div>
       )}
@@ -420,7 +445,15 @@ export default function TeacherCopilotPage() {
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-lg text-gray-900 dark:text-white">學生分析</h3>
             <span className="px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium">
-              {studentAnalysis.personaType}
+              {(() => {
+                const p = studentAnalysis.personaType;
+                const map: Record<string, string> = {
+                  'steady-grinder': '穩定努力型', 'rapid-riser': '快速進步型',
+                  'struggling': '需要幫助型', 'advanced': '進階學習者',
+                  'balanced': '均衡發展型', 'declining': '需要關注型',
+                };
+                return map[p] || p;
+              })()}
             </span>
           </div>
           {studentAnalysis.skillDetails.map((sd, i) => (

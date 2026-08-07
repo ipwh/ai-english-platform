@@ -22,11 +22,21 @@ export interface UrgentAction {
 export interface WeeklySummary { totalStudents: number; assignmentsDue: number; newRisksDetected: number; }
 export interface CopilotOverview { classes: ClassInfo[]; urgentActions: UrgentAction[]; weeklySummary: WeeklySummary; }
 
-export interface DailyActivity { title: string; description: string; duration: string; }
-export interface DailyPlan { day: string; date: string; activities: DailyActivity[]; homework: string[]; }
+export interface DailyActivity { type?: string; title?: string; description: string; descriptionZh?: string; duration?: string; durationMinutes?: number; }
+export interface DailyPlan {
+  day: string; date?: string; skill?: string; topic?: string; topicZh?: string;
+  activities: DailyActivity[];
+  homework: Array<string | { type?: string; description: string; descriptionZh?: string; estimatedMinutes?: number; dueDate?: string }>;
+  estimatedMinutes?: number;
+}
 export interface WeeklyTeachingPlan {
-  classId: string; focusSkills: string[];
-  dailyPlans: DailyPlan[]; grammarFocus: string; vocabularyFocus: string; writingFocus: string;
+  classId: string; className?: string; weekStart?: string; generatedAt?: string;
+  focusSkills: string[];
+  dailyPlans: DailyPlan[];
+  grammarFocus: string | { topics?: Array<{ topic: string; topicZh: string }>; commonMistakes?: string[] };
+  vocabularyFocus: string | { themes?: string[]; targetWordCount?: number };
+  writingFocus: string | { textTypes?: Array<{ type: string; typeZh: string }>; suggestedTopics?: string[] };
+  materialsRecommendation?: string[];
 }
 
 export interface SkillBreakdown {
