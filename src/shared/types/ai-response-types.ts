@@ -7,6 +7,22 @@
 //   src/modules/ai/usecases/analyze-writing.ts (WritingAnalysis)
 // ============================================
 
+/** Evidence-backed structured feedback item (Phase 3). */
+export interface EvidenceBackedFeedbackResult {
+  dimension: "content" | "language" | "organization" | "task_coverage" | "vocabulary" | "grammar";
+  kind: "strength" | "weakness" | "recommendation";
+  claim: string;
+  evidence: string[];
+  recommendation?: string;
+  confidence?: "high" | "medium" | "low";
+}
+
+/** Separated revision modes (Phase 4). */
+export interface WritingRevisionResult {
+  faithfulCorrection?: string;
+  enhancedVersion?: string;
+}
+
 /** AI writing analysis result (HKDSE CLO framework) */
 export interface WritingAnalysisResult {
   overallScore: number;           // 0-100
@@ -14,7 +30,7 @@ export interface WritingAnalysisResult {
   languageScore?: number;         // CLO Language 0-7
   organizationScore?: number;     // CLO Organization 0-7
   cloTotalScore?: number;         // CLO total 0-21
-  dseLevel?: string;              // e.g. "5**", "4", "3"
+  dseLevel?: string;              // internal estimated level (1-5)
   strengths: string[];
   weaknesses: string[];
   grammarErrors: Array<{ original: string; correction: string; explanation: string }>;
@@ -23,4 +39,10 @@ export interface WritingAnalysisResult {
   structureFeedback: string;
   revisedVersion?: string;
   generalComment: string;
+  /** Phase 3: Evidence-backed structured feedback (optional). */
+  feedback?: EvidenceBackedFeedbackResult[];
+  /** Phase 4: Separated revision modes. */
+  revision?: WritingRevisionResult;
+  /** Phase 5: Rubric metadata. */
+  rubric?: { rubricVersion: string; paper: "Paper 2"; taskType?: string; examYear?: string };
 }

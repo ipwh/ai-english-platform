@@ -804,3 +804,18 @@ model StudentMistakeSummary {
   @@unique([studentId, grammarCategory])
   @@index([studentId])
 }
+
+// ============================================
+// Sprint 126: DiagnosticStats — 同年級平均分對照
+// ============================================
+
+model DiagnosticStats {
+  id         String   @id @default(cuid())
+  gradeLevel String   // S1, S2, S3, S4, S5, S6
+  skill      String   // grammar, vocabulary, reading, listening, writing
+  totalScore Int      @default(0) // cumulative percentage scores
+  totalCount Int      @default(0) // number of submissions
+  updatedAt  DateTime @updatedAt
+
+  @@unique([gradeLevel, skill])
+}

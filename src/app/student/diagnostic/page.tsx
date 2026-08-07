@@ -185,6 +185,7 @@ export default function DiagnosticPage() {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [answeredCurrent, setAnsweredCurrent] = useState(false);
+  const [peerAverages, setPeerAverages] = useState<Record<string, { avg: number; count: number }> | null>(null);
 
   /** 答案比對（使用 canonical question-validator 正規化） */
   function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
@@ -331,6 +332,16 @@ export default function DiagnosticPage() {
     }));
   }, [writingAnalysis, completed, t]);
 
+  // Fetch peer averages when results are computed
+  useEffect(() => {
+    if (!completed || !studentProfile) return;
+    const gradeLevel = getStudentLevel(studentProfile);
+    fetch(`/api/diagnostic/stats?gradeLevel=${encodeURIComponent(gradeLevel)}`)
+      .then(r => r.json())
+      .then(data => { if (data.averages) setPeerAverages(data.averages); })
+      .catch(() => { /* non-critical */ });
+  }, [completed, studentProfile]);
+
   // 載入中
   if (loadingQuestions) {
     return (
@@ -456,7 +467,7 @@ export default function DiagnosticPage() {
 
     setResults(computed);
 
-    // 持久化診斷結果到 DB
+    // 持久化診斷結果到 DB + 累積同年級統計
     if (studentProfile?.id) {
       fetch('/api/diagnostic', {
         method: 'POST',
@@ -471,6 +482,16 @@ export default function DiagnosticPage() {
           })),
         }),
       }).catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Diagnostic save failed'); });
+
+      // Accumulate scores for peer comparison
+      fetch('/api/diagnostic/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gradeLevel: getStudentLevel(studentProfile),
+          results: computed.map(r => ({ skill: r.id, score: r.score, totalQuestions: r.totalQuestions })),
+        }),
+      }).catch(() => { /* non-critical */ });
     }
 
     // 🎮 記錄診斷完成 XP
@@ -773,6 +794,21 @@ export default function DiagnosticPage() {
               </div>
             ) : (
               <ProgressBar value={r.score} size="sm" showPercentage={true} />
+            )}
+            {peerAverages?.[r.id] && peerAverages[r.id].count > 0 && r.score >= 0 && (
+              <div className="mt-1.5 flex items-center gap-2 text-xs">
+                <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full relative">
+                  <div
+                    className="absolute top-0 h-1.5 w-0.5 bg-gray-400 dark:bg-gray-500 rounded-full"
+                    style={{ left: `${Math.min(peerAverages[r.id].avg, 100)}%` }}
+                    title={`同級平均: ${peerAverages[r.id].avg}%`}
+                  />
+                </div>
+                <span className="text-gray-400 whitespace-nowrap">
+                  同級均值 {peerAverages[r.id].avg}%
+                  <span className="text-gray-300 ml-0.5">(n={peerAverages[r.id].count})</span>
+                </span>
+              </div>
             )}
             {r.id === 'writing' && (
               <div className="mt-2">

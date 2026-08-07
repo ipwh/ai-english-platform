@@ -49,6 +49,40 @@ export const AnswerAnalysisSchema = z.object({
 // 三、寫作分析
 // ============================================
 
+export const EvidenceBackedFeedbackSchema = z.object({
+  dimension: z.enum([
+    "content",
+    "language",
+    "organization",
+    "task_coverage",
+    "vocabulary",
+    "grammar",
+  ]),
+  kind: z.enum(["strength", "weakness", "recommendation"]),
+  claim: z.string().min(1),
+  evidence: z.array(z.string()),
+  recommendation: z.string().optional(),
+  confidence: z.enum(["high", "medium", "low"]).optional(),
+});
+
+export type EvidenceBackedFeedback = z.infer<typeof EvidenceBackedFeedbackSchema>;
+
+export const WritingRevisionSchema = z.object({
+  faithfulCorrection: z.string().optional(),
+  enhancedVersion: z.string().optional(),
+});
+
+export type WritingRevision = z.infer<typeof WritingRevisionSchema>;
+
+export const WritingRubricMetadataSchema = z.object({
+  rubricVersion: z.string(),
+  examYear: z.string().optional(),
+  paper: z.literal("Paper 2"),
+  taskType: z.string().optional(),
+});
+
+export type WritingRubricMetadata = z.infer<typeof WritingRubricMetadataSchema>;
+
 export const WritingAnalysisSchema = z.object({
   overallScore: z.number().min(0).max(100),
   contentScore: z.number().min(0).max(7).optional(),
@@ -76,7 +110,31 @@ export const WritingAnalysisSchema = z.object({
   structureFeedback: z.string(),
   revisedVersion: z.string().optional(),
   generalComment: z.string(),
+  feedback: z.array(EvidenceBackedFeedbackSchema).optional(),
+  revision: WritingRevisionSchema.optional(),
+  rubric: WritingRubricMetadataSchema.optional(),
 });
+
+// ============================================
+// 三點五、Semantic / Task-Coverage Evaluation (internal)
+// ============================================
+
+export const TaskRequirementEvidenceSchema = z.object({
+  requirement: z.string().min(1),
+  status: z.enum(["satisfied", "partial", "missing", "unclear"]),
+  evidence: z.array(z.string()),
+  explanation: z.string().min(1),
+});
+
+export type TaskRequirementEvidence = z.infer<typeof TaskRequirementEvidenceSchema>;
+
+export const SemanticEvaluationSchema = z.object({
+  taskSummary: z.string().min(1),
+  requirements: z.array(TaskRequirementEvidenceSchema),
+  overallCoverage: z.enum(["high", "medium", "low"]),
+});
+
+export type SemanticEvaluation = z.infer<typeof SemanticEvaluationSchema>;
 
 // ============================================
 // 四、錯題解說
