@@ -4,69 +4,70 @@
 // ============================================
 'use client';
 
-import { useState } from 'react';
-import { useT } from '@/hooks/use-i18n';
+import { useState, useEffect, useRef } from 'react';
+import { useTeacherCopilot } from '@/hooks/use-teacher-copilot';
+import type { LoadingMap } from '@/hooks/use-teacher-copilot';
 import {
   Sparkles, BookOpen, Users, BarChart3, FileText, UserCheck,
-  Loader2, AlertCircle, Lightbulb, TrendingUp, Target, Brain,
-  ChevronRight, Calendar, Clock, GraduationCap, AlertTriangle,
-  CheckCircle, ArrowUp, ArrowDown, Minus,
+  Loader2, AlertCircle, Lightbulb, Target, Brain,
+  ChevronRight, Clock, AlertTriangle,
+  ArrowUp, ArrowDown, Minus,
 } from 'lucide-react';
 
 type TabKey = 'overview' | 'lesson-plan' | 'class-analysis' | 'exam-prediction' | 'generate' | 'student-analysis';
 
-interface ClassInfo {
-  id: string; name: string; gradeLevel: string; studentCount: number;
-  averageMastery: number; riskCount: number;
-}
-interface UrgentAction { type: string; message: string; priority: 'high' | 'medium'; }
-interface WeeklySummary { totalStudents: number; assignmentsDue: number; newRisksDetected: number; }
-interface CopilotOverview { classes: ClassInfo[]; urgentActions: UrgentAction[]; weeklySummary: WeeklySummary; }
-
-interface DailyActivity { title: string; description: string; duration: string; }
-interface DailyPlan { day: string; date: string; activities: DailyActivity[]; homework: string[]; }
-interface WeeklyTeachingPlan {
-  classId: string; focusSkills: string[];
-  dailyPlans: DailyPlan[]; grammarFocus: string; vocabularyFocus: string; writingFocus: string;
-}
-
-interface SkillBreakdown { skill: string; skillZh: string; classAverage: number; targetLevel: number; trend: 'up' | 'down' | 'stable'; }
-interface RiskStudent { studentId: string; studentName: string; riskLevel: 'high' | 'medium'; reasons: string[]; }
-interface ClassAnalysis {
-  overallMetrics: { averageMastery: number; classHkdseLevel: string };
-  skillBreakdown: SkillBreakdown[]; studentRankings: { studentId: string; name: string; score: number }[];
-  riskStudents: RiskStudent[]; recommendations: string[];
-}
-
-interface StudentPrediction { studentId: string; studentName: string; predictedLevel: string; confidenceBand: string; }
-interface ExamPrediction {
-  predictedPassRate: number;
-  studentPredictions: StudentPrediction[];
-  paperAnalysis: { paper: string; paperZh: string; averagePredicted: string }[];
-}
-
-interface StudentAnalysisData {
-  personaType: string; skillDetails: { skill: string; score: number; classAverage: number; percentile: number; trend: string }[];
-  recentProgress: string; teacherNotes: string;
-}
-
 export default function TeacherCopilotPage() {
-  const { t } = useT();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // State for each tab
-  const [overview, setOverview] = useState<CopilotOverview | null>(null);
+  // Local UI state (inputs, selection — NOT data)
   const [classId, setClassId] = useState('');
   const [className, setClassName] = useState('');
-  const [lessonPlan, setLessonPlan] = useState<WeeklyTeachingPlan | null>(null);
-  const [classAnalysis, setClassAnalysis] = useState<ClassAnalysis | null>(null);
-  const [examPrediction, setExamPrediction] = useState<ExamPrediction | null>(null);
   const [studentId, setStudentId] = useState('');
-  const [studentAnalysis, setStudentAnalysis] = useState<StudentAnalysisData | null>(null);
   const [generationType, setGenerationType] = useState('worksheet');
-  const [generatedContent, setGeneratedContent] = useState('');
+
+  // Data hook — all fetch logic, loading states, error, and abort handling
+  const {
+    loadingMap,
+    error,
+    setError,
+    overview,
+    lessonPlan,
+    classAnalysis,
+    examPrediction,
+    studentAnalysis,
+    generatedContent,
+    fetchOverview,
+    fetchLessonPlan,
+    fetchClassAnalysis,
+    fetchExamPrediction,
+    fetchStudentAnalysis,
+    generateMaterial,
+    cancelPending,
+  } = useTeacherCopilot();
+
+  // Cancel in-flight request when user changes class/student/tab
+  const prevTabRef = useRef(activeTab);
+  const prevClassIdRef = useRef(classId);
+  const prevStudentIdRef = useRef(studentId);
+  useEffect(() => {
+    if (activeTab !== prevTabRef.current || classId !== prevClassIdRef.current || studentId !== prevStudentIdRef.current) {
+      cancelPending();
+      setError('');
+      prevTabRef.current = activeTab;
+      prevClassIdRef.current = classId;
+      prevStudentIdRef.current = studentId;
+    }
+  }, [activeTab, classId, studentId, cancelPending, setError]);
+
+  // Determine which loading key is active for the current tab
+  const tabLoadingKey: keyof LoadingMap =
+    activeTab === 'overview' ? 'overview' :
+    activeTab === 'lesson-plan' ? 'lessonPlan' :
+    activeTab === 'class-analysis' ? 'classAnalysis' :
+    activeTab === 'exam-prediction' ? 'examPrediction' :
+    activeTab === 'student-analysis' ? 'studentAnalysis' :
+    'generate';
+  const isLoading = loadingMap[tabLoadingKey];
 
   const tabs: { key: TabKey; icon: React.ReactNode; zh: string; en: string }[] = [
     { key: 'overview', icon: <Sparkles className="w-4 h-4" />, zh: '概覽', en: 'Overview' },
@@ -77,79 +78,12 @@ export default function TeacherCopilotPage() {
     { key: 'student-analysis', icon: <UserCheck className="w-4 h-4" />, zh: '學生分析', en: 'Student Analysis' },
   ];
 
-  async function fetchOverview() {
-    setLoading(true); setError('');
-    try {
-      const res = await fetch('/api/teacher/copilot/overview');
-      const json = await res.json();
-      if (res.ok) setOverview(json);
-      else setError(json.error || 'Failed to load');
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  }
-
-  async function fetchLessonPlan() {
-    if (!classId) return;
-    setLoading(true); setError('');
-    try {
-      const res = await fetch(`/api/teacher/copilot/lesson-plan?classId=${classId}&className=${encodeURIComponent(className)}`);
-      const json = await res.json();
-      if (res.ok) setLessonPlan(json);
-      else setError(json.error || 'Failed to load');
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  }
-
-  async function fetchClassAnalysis() {
-    if (!classId) return;
-    setLoading(true); setError('');
-    try {
-      const res = await fetch(`/api/teacher/copilot/class-analysis?classId=${classId}&className=${encodeURIComponent(className)}`);
-      const json = await res.json();
-      if (res.ok) setClassAnalysis(json);
-      else setError(json.error || 'Failed to load');
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  }
-
-  async function fetchExamPrediction() {
-    if (!classId) return;
-    setLoading(true); setError('');
-    try {
-      const res = await fetch(`/api/teacher/copilot/exam-prediction?classId=${classId}`);
-      const json = await res.json();
-      if (res.ok) setExamPrediction(json);
-      else setError(json.error || 'Failed to load');
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  }
-
-  async function fetchStudentAnalysis() {
-    if (!studentId || !classId) return;
-    setLoading(true); setError('');
-    try {
-      const res = await fetch(`/api/teacher/copilot/student-analysis?studentId=${studentId}&classId=${classId}`);
-      const json = await res.json();
-      if (res.ok) setStudentAnalysis(json);
-      else setError(json.error || 'Failed to load');
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  }
-
-  async function generateMaterial() {
-    setLoading(true); setError(''); setGeneratedContent('');
-    try {
-      const res = await fetch('/api/teacher/copilot/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: generationType, classId: classId || undefined, gradeLevel: 'S4' }),
-      });
-      const json = await res.json();
-      if (res.ok) setGeneratedContent(json.content || json.result || JSON.stringify(json, null, 2));
-      else setError(json.error || 'Generation failed');
-    } catch { setError('Network error'); }
-    finally { setLoading(false); }
-  }
+  const handleLoad = () => {
+    if (activeTab === 'lesson-plan') fetchLessonPlan(classId, className);
+    else if (activeTab === 'class-analysis') fetchClassAnalysis(classId, className);
+    else if (activeTab === 'exam-prediction') fetchExamPrediction(classId);
+    else if (activeTab === 'student-analysis') fetchStudentAnalysis(studentId, classId);
+  };
 
   const trendIcon = (trend: string) =>
     trend === 'up' ? <ArrowUp className="w-3 h-3 text-green-500" /> :
@@ -204,15 +138,10 @@ export default function TeacherCopilotPage() {
                 className="px-3 py-2 border rounded-lg text-sm w-48" placeholder="e.g. student-001" />
             </div>
           )}
-          <button onClick={
-            activeTab === 'lesson-plan' ? fetchLessonPlan :
-            activeTab === 'class-analysis' ? fetchClassAnalysis :
-            activeTab === 'exam-prediction' ? fetchExamPrediction :
-            activeTab === 'student-analysis' ? fetchStudentAnalysis :
-            undefined
-          } disabled={loading || !classId || (activeTab === 'student-analysis' && !studentId)}
+          <button onClick={handleLoad}
+            disabled={isLoading || !classId || (activeTab === 'student-analysis' && !studentId)}
             className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : '載入'}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '載入'}
           </button>
         </div>
       )}
@@ -227,13 +156,13 @@ export default function TeacherCopilotPage() {
       {/* ── OVERVIEW ── */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          {!overview && !loading && (
+          {!overview && !isLoading && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border text-center">
               <Sparkles className="w-12 h-12 text-violet-300 mx-auto mb-3" />
               <p className="text-gray-500 mb-4">載入 AI Copilot 概覽，查看所有班級狀態與緊急行動</p>
-              <button onClick={fetchOverview} disabled={loading}
+              <button onClick={fetchOverview} disabled={isLoading}
                 className="px-6 py-2.5 bg-violet-500 text-white rounded-xl font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
                 載入概覽
               </button>
             </div>
@@ -457,10 +386,10 @@ export default function TeacherCopilotPage() {
               </button>
             ))}
           </div>
-          <button onClick={generateMaterial} disabled={loading}
+          <button onClick={() => generateMaterial(generationType, classId || undefined)} disabled={isLoading}
             className="w-full py-2.5 bg-violet-500 text-white rounded-xl font-medium hover:bg-violet-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? '生成中...' : '生成教材'}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {isLoading ? '生成中...' : '生成教材'}
           </button>
           {generatedContent && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap max-h-96 overflow-y-auto">

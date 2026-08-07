@@ -4,13 +4,13 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
 import {
   GitBranch, Loader2, AlertCircle, ZoomIn, ZoomOut, RotateCcw,
-  ChevronRight, Target, CheckCircle, Lock, Circle, Filter,
-  BookOpen, MessageSquare, Headphones, PenTool, Mic, Type,
+  ChevronRight, CheckCircle, Lock, Circle, Filter,
+  BookOpen, Headphones, PenTool, Mic, Type,
 } from 'lucide-react';
 
 interface KGNode {
@@ -24,6 +24,8 @@ interface KGNode {
 
 interface KGEdge { source: string; target: string; type: string; }
 interface KGGraph { nodes: KGNode[]; edges: KGEdge[]; }
+
+interface NodePosition { x: number; y: number; }
 
 const SKILL_COLORS: Record<string, string> = {
   grammar: 'border-blue-400 bg-blue-50 dark:bg-blue-900/20',
@@ -42,6 +44,58 @@ const SKILL_ICONS: Record<string, React.ReactNode> = {
   listening: <Headphones className="w-3 h-3" />,
   speaking: <Mic className="w-3 h-3" />,
 };
+
+/**
+ * Simple grid layout — distribute nodes in columns by dependency depth.
+ * Uses a pre-built nodeMap for O(1) lookups instead of O(N) array.find().
+ */
+function computeLayout(
+  nodes: KGNode[],
+  nodeMap: Map<string, KGNode>,
+): Map<string, NodePosition> {
+  const positions = new Map<string, NodePosition>();
+  const visited = new Set<string>();
+  const depthMap = new Map<string, number>();
+
+  function getDepth(id: string): number {
+    if (depthMap.has(id)) return depthMap.get(id)!;
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    const node = nodeMap.get(id);
+    if (!node || node.prerequisites.length === 0) {
+      depthMap.set(id, 0);
+      return 0;
+    }
+    const maxPrereq = Math.max(...node.prerequisites.map(p => getDepth(p)));
+    const depth = maxPrereq + 1;
+    depthMap.set(id, depth);
+    return depth;
+  }
+
+  nodes.forEach(n => getDepth(n.id));
+
+  // Group by depth
+  const byDepth = new Map<number, KGNode[]>();
+  nodes.forEach(n => {
+    const d = depthMap.get(n.id) || 0;
+    if (!byDepth.has(d)) byDepth.set(d, []);
+    byDepth.get(d)!.push(n);
+  });
+
+  // Position each depth column
+  const colGap = 220;
+  const rowGap = 120;
+  byDepth.forEach((depthNodes, depth) => {
+    depthNodes.forEach((node, i) => {
+      positions.set(node.id, {
+        x: depth * colGap + 60,
+        y: i * rowGap + 40,
+      });
+    });
+  });
+
+  return positions;
+}
 
 export default function KnowledgeGraphPage() {
   const { t, language } = useT();
@@ -64,36 +118,48 @@ export default function KnowledgeGraphPage() {
       if (filterSkill) params.set('skill', filterSkill);
       params.set('includeNodes', 'true');
       params.set('includeEdges', 'true');
-      const res = await fetch(`/api/knowledge-graph/graph?${params}`);
-      const json = await res.json();
-      if (res.ok) {
-        // Auto-load mastery data if student is logged in
-        if (userId && json.nodes) {
-          try {
-            const masteryRes = await fetch(`/api/knowledge-graph/recommend-next`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ studentId: userId, limit: 100 }),
-            });
-            const masteryData = await masteryRes.json();
-            if (masteryRes.ok && masteryData.recommendations) {
-              const masteryMap = new Map<string, number>();
-              masteryData.recommendations.forEach((r: { nodeId: string; masteryScore: number }) => {
-                masteryMap.set(r.nodeId, r.masteryScore);
-              });
-              json.nodes = json.nodes.map((n: KGNode) => ({
-                ...n,
-                masteryScore: masteryMap.get(n.id),
-                isMastered: (masteryMap.get(n.id) || 0) >= 80,
-                isUnlocked: (masteryMap.get(n.id) || 0) >= 0,
-              }));
-            }
-          } catch { /* silent — graph works without mastery */ }
-        }
-        setGraph(json);
-      } else {
-        setError(json.error || 'Failed to load knowledge graph');
+
+      // Parallel: graph + mastery loaded together via Promise.all()
+      const fetchPromises: [Promise<Response>, Promise<Response> | null] = [
+        fetch(`/api/knowledge-graph/graph?${params}`),
+        null,
+      ];
+      if (userId) {
+        fetchPromises[1] = fetch('/api/knowledge-graph/recommend-next', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId: userId, limit: 100 }),
+        });
       }
+
+      const [graphRes, masteryRes] = await Promise.all(fetchPromises);
+      const json = await graphRes.json();
+
+      if (!graphRes.ok) {
+        setError(json.error || 'Failed to load knowledge graph');
+        return;
+      }
+
+      // Merge mastery data from parallel request
+      if (masteryRes) {
+        try {
+          const masteryData = await masteryRes.json();
+          if (masteryData.recommendations) {
+            const masteryMap = new Map<string, number>();
+            masteryData.recommendations.forEach((r: { nodeId: string; masteryScore: number }) => {
+              masteryMap.set(r.nodeId, r.masteryScore);
+            });
+            json.nodes = json.nodes.map((n: KGNode) => ({
+              ...n,
+              masteryScore: masteryMap.get(n.id),
+              isMastered: (masteryMap.get(n.id) || 0) >= 80,
+              isUnlocked: (masteryMap.get(n.id) || 0) >= 0,
+            }));
+          }
+        } catch { /* silent — graph works without mastery */ }
+      }
+
+      setGraph(json);
     } catch {
       setError('Network error');
     } finally {
@@ -101,57 +167,72 @@ export default function KnowledgeGraphPage() {
     }
   }
 
-  const handleNodeClick = (node: KGNode) => {
+  const handleNodeClick = useCallback((node: KGNode) => {
     setSelectedNode(prev => prev?.id === node.id ? null : node);
-  };
+  }, []);
 
-  // Simple grid layout — distribute nodes in columns by dependency depth
-  function layoutNodes(nodes: KGNode[]): Map<string, { x: number; y: number }> {
-    const positions = new Map<string, { x: number; y: number }>();
-    const visited = new Set<string>();
-    const depthMap = new Map<string, number>();
+  // ── Memoized derivations (computed once when graph changes) ──
 
-    function getDepth(id: string): number {
-      if (depthMap.has(id)) return depthMap.get(id)!;
-      if (visited.has(id)) return 0;
-      visited.add(id);
-      const node = nodes.find(n => n.id === id);
-      if (!node || node.prerequisites.length === 0) {
-        depthMap.set(id, 0);
-        return 0;
+  // O(1) lookup: Map<nodeId, KGNode>
+  const nodeMap = useMemo<Map<string, KGNode>>(() => {
+    if (!graph) return new Map();
+    const map = new Map<string, KGNode>();
+    graph.nodes.forEach(n => map.set(n.id, n));
+    return map;
+  }, [graph]);
+
+  // Layout: computed once per graph update (was called 4+ times per render)
+  const layout = useMemo<Map<string, NodePosition>>(() => {
+    if (!graph) return new Map();
+    return computeLayout(graph.nodes, nodeMap);
+  }, [graph, nodeMap]);
+
+  // Canvas dimensions: derived once from layout
+  const canvasDimensions = useMemo(() => {
+    let maxX = 1200;
+    let maxY = 400;
+    if (layout.size > 0) {
+      for (const pos of layout.values()) {
+        if (pos.x + 200 > maxX) maxX = pos.x + 200;
+        if (pos.y + 150 > maxY) maxY = pos.y + 150;
       }
-      const maxPrereq = Math.max(...node.prerequisites.map(p => getDepth(p)));
-      const depth = maxPrereq + 1;
-      depthMap.set(id, depth);
-      return depth;
     }
+    return { width: maxX, height: maxY };
+  }, [layout]);
 
-    nodes.forEach(n => getDepth(n.id));
+  // Pre-compute edge coordinates (avoids repeated zoom multiplication in render)
+  const edgeLines = useMemo(() => {
+    if (!graph) return [];
+    return graph.edges
+      .map((edge, i) => {
+        const from = layout.get(edge.source);
+        const to = layout.get(edge.target);
+        if (!from || !to) return null;
+        return {
+          key: i,
+          x1: (from.x + 80) * zoom / 100,
+          y1: (from.y + 30) * zoom / 100,
+          x2: to.x * zoom / 100,
+          y2: (to.y + 30) * zoom / 100,
+          stroke: edge.type === 'prerequisite' ? '#d4d4d8' : edge.type === 'reinforcement' ? '#a78bfa' : '#fcd34d',
+          dashArray: edge.type === 'extension' ? '4 2' : undefined,
+        };
+      })
+      .filter(Boolean) as { key: number; x1: number; y1: number; x2: number; y2: number; stroke: string; dashArray?: string }[];
+  }, [graph, layout, zoom]);
 
-    // Group by depth
-    const byDepth = new Map<number, KGNode[]>();
-    nodes.forEach(n => {
-      const d = depthMap.get(n.id) || 0;
-      if (!byDepth.has(d)) byDepth.set(d, []);
-      byDepth.get(d)!.push(n);
-    });
-
-    // Position each depth column
-    const colGap = 220;
-    const rowGap = 120;
-    byDepth.forEach((depthNodes, depth) => {
-      depthNodes.forEach((node, i) => {
-        positions.set(node.id, {
-          x: depth * colGap + 60,
-          y: i * rowGap + 40,
-        });
-      });
-    });
-
-    return positions;
-  }
-
-  const MAX_COLUMNS = 8;
+  // Pre-compute node render data
+  const nodeRenderData = useMemo(() => {
+    if (!graph) return [];
+    return graph.nodes
+      .map(node => {
+        const pos = layout.get(node.id);
+        if (!pos) return null;
+        const colors = SKILL_COLORS[node.skill] || 'border-gray-300 bg-gray-50 dark:bg-gray-700';
+        return { node, pos, colors };
+      })
+      .filter(Boolean) as { node: KGNode; pos: NodePosition; colors: string }[];
+  }, [graph, layout]);
 
   return (
     <div className="max-w-full mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -216,30 +297,21 @@ export default function KnowledgeGraphPage() {
           <div
             className="relative p-8"
             style={{
-              width: `${Math.max(1200, (layoutNodes(graph.nodes).size > 0 ? Math.max(...Array.from(layoutNodes(graph.nodes).values()).map(p => p.x)) + 200 : 1200)) * zoom / 100}px`,
-              minHeight: `${Math.max(400, (layoutNodes(graph.nodes).size > 0 ? Math.max(...Array.from(layoutNodes(graph.nodes).values()).map(p => p.y)) + 150 : 400)) * zoom / 100}px`,
+              width: `${canvasDimensions.width * zoom / 100}px`,
+              minHeight: `${canvasDimensions.height * zoom / 100}px`,
             }}
           >
-            {/* SVG edges */}
+            {/* SVG edges — pre-computed, no repeated layoutNodes() calls */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-              {graph.edges.map((edge, i) => {
-                const from = layoutNodes(graph.nodes).get(edge.source);
-                const to = layoutNodes(graph.nodes).get(edge.target);
-                if (!from || !to) return null;
-                const x1 = (from.x + 80) * zoom / 100;
-                const y1 = (from.y + 30) * zoom / 100;
-                const x2 = (to.x) * zoom / 100;
-                const y2 = (to.y + 30) * zoom / 100;
-                return (
-                  <line key={i}
-                    x1={x1} y1={y1} x2={x2} y2={y2}
-                    stroke={edge.type === 'prerequisite' ? '#d4d4d8' : edge.type === 'reinforcement' ? '#a78bfa' : '#fcd34d'}
-                    strokeWidth={1.5}
-                    strokeDasharray={edge.type === 'extension' ? '4 2' : undefined}
-                    markerEnd="url(#arrowhead)"
-                  />
-                );
-              })}
+              {edgeLines.map(edge => (
+                <line key={edge.key}
+                  x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                  stroke={edge.stroke}
+                  strokeWidth={1.5}
+                  strokeDasharray={edge.dashArray}
+                  markerEnd="url(#arrowhead)"
+                />
+              ))}
               <defs>
                 <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                   <polygon points="0 0, 8 3, 0 6" fill="#d4d4d8" />
@@ -247,63 +319,58 @@ export default function KnowledgeGraphPage() {
               </defs>
             </svg>
 
-            {/* Nodes */}
-            {graph.nodes.map(node => {
-              const pos = layoutNodes(graph.nodes).get(node.id);
-              if (!pos) return null;
-              const colors = SKILL_COLORS[node.skill] || 'border-gray-300 bg-gray-50 dark:bg-gray-700';
-              return (
-                <button
-                  key={node.id}
-                  onClick={() => handleNodeClick(node)}
-                  className={`absolute p-3 rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:scale-105 cursor-pointer text-left ${colors} ${
-                    selectedNode?.id === node.id ? 'ring-2 ring-teal-500 ring-offset-2' : ''
-                  } ${node.isMastered ? 'opacity-80' : ''}`}
-                  style={{
-                    left: `${pos.x * zoom / 100}px`,
-                    top: `${pos.y * zoom / 100}px`,
-                    width: '160px',
-                    zIndex: 10,
-                  }}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-xs">{SKILL_ICONS[node.skill]}</span>
-                    <span className="text-xs font-bold text-gray-900 dark:text-white truncate flex-1">
-                      {language === 'en' ? node.title : node.titleZh}
-                    </span>
-                    {node.isMastered ? (
-                      <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                    ) : node.isUnlocked === false ? (
-                      <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                    <span>{node.cefr}</span>
-                    <span>•</span>
-                    <span>Lv.{node.difficulty}</span>
-                    {node.masteryScore !== undefined && (
-                      <>
-                        <span>•</span>
-                        <span className={node.masteryScore >= 80 ? 'text-green-500' : node.masteryScore >= 50 ? 'text-amber-500' : 'text-red-500'}>
-                          {node.masteryScore}%
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  {/* Mastery bar */}
-                  {node.masteryScore !== undefined && (
-                    <div className="mt-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1">
-                      <div
-                        className={`h-1 rounded-full ${node.masteryScore >= 80 ? 'bg-green-500' : node.masteryScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                        style={{ width: `${node.masteryScore}%` }}
-                      />
-                    </div>
+            {/* Nodes — pre-computed, no repeated layoutNodes() calls */}
+            {nodeRenderData.map(({ node, pos, colors }) => (
+              <button
+                key={node.id}
+                onClick={() => handleNodeClick(node)}
+                className={`absolute p-3 rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:scale-105 cursor-pointer text-left ${colors} ${
+                  selectedNode?.id === node.id ? 'ring-2 ring-teal-500 ring-offset-2' : ''
+                } ${node.isMastered ? 'opacity-80' : ''}`}
+                style={{
+                  left: `${pos.x * zoom / 100}px`,
+                  top: `${pos.y * zoom / 100}px`,
+                  width: '160px',
+                  zIndex: 10,
+                }}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-xs">{SKILL_ICONS[node.skill]}</span>
+                  <span className="text-xs font-bold text-gray-900 dark:text-white truncate flex-1">
+                    {language === 'en' ? node.title : node.titleZh}
+                  </span>
+                  {node.isMastered ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                  ) : node.isUnlocked === false ? (
+                    <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-gray-300 shrink-0" />
                   )}
-                </button>
-              );
-            })}
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                  <span>{node.cefr}</span>
+                  <span>•</span>
+                  <span>Lv.{node.difficulty}</span>
+                  {node.masteryScore !== undefined && (
+                    <>
+                      <span>•</span>
+                      <span className={node.masteryScore >= 80 ? 'text-green-500' : node.masteryScore >= 50 ? 'text-amber-500' : 'text-red-500'}>
+                        {node.masteryScore}%
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* Mastery bar */}
+                {node.masteryScore !== undefined && (
+                  <div className="mt-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1">
+                    <div
+                      className={`h-1 rounded-full ${node.masteryScore >= 80 ? 'bg-green-500' : node.masteryScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      style={{ width: `${node.masteryScore}%` }}
+                    />
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -329,7 +396,7 @@ export default function KnowledgeGraphPage() {
         </div>
       )}
 
-      {/* Node Detail Panel */}
+      {/* Node Detail Panel — uses nodeMap for O(1) lookups */}
       {selectedNode && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border space-y-3">
           <div className="flex items-center justify-between">
@@ -356,7 +423,7 @@ export default function KnowledgeGraphPage() {
               {selectedNode.prerequisites.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {selectedNode.prerequisites.map(p => {
-                    const prereqNode = graph?.nodes.find(n => n.id === p);
+                    const prereqNode = nodeMap.get(p);
                     return (
                       <span key={p} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400">
                         {language === 'en' ? (prereqNode?.title || p) : (prereqNode?.titleZh || p)}
@@ -372,7 +439,7 @@ export default function KnowledgeGraphPage() {
                   <h4 className="text-xs font-medium text-gray-500 mb-1 mt-2">後續知識</h4>
                   <div className="flex flex-wrap gap-1">
                     {selectedNode.successors.map(s => {
-                      const succNode = graph?.nodes.find(n => n.id === s);
+                      const succNode = nodeMap.get(s);
                       return (
                         <span key={s} className="px-2 py-0.5 bg-teal-50 dark:bg-teal-900/20 rounded text-xs text-teal-700 dark:text-teal-400">
                           {language === 'en' ? (succNode?.title || s) : (succNode?.titleZh || s)}
