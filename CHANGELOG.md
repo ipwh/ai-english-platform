@@ -4,7 +4,44 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-08-07 — i18n Completion, Grade/Difficulty Fixes & Missing Features (Sprint 122)
+## 2026-08-07 — Repository Evolution Assessment & Teacher Copilot Hook (Sprint 123)
+
+### 📊 Repository Evolution Assessment
+- **Created `docs/REPOSITORY_EVOLUTION_ASSESSMENT.md`**: Comprehensive Google/Microsoft/Meta-level evolution audit covering:
+  - Change coupling matrix (4 clusters identified: Reading Pipeline, Provider Chain, Schema Duplication, Student→Learning→AI)
+  - Git churn × complexity hotspots (reading/route.ts #1 at 1,878 lines × 99 commits)
+  - Dependency blast radius analysis (`executeAI` has critical blast radius but only 2 commits — stable)
+  - 6/12/24-month architectural evolution forecasts
+  - Technical debt interest quantification (7 items, ranked by monthly interest)
+  - ADR survival analysis (ADR-005 at 70% — most vulnerable; ADR-008/009 already dead)
+  - 12 copilot-ready refactoring prompts with safety assessments
+  - Top 10 risks, opportunities, strengths, and metrics
+
+### 🪝 Teacher Copilot Hook Production Hardening
+- **Created `src/hooks/use-teacher-copilot.ts`**: Extracted all fetch logic from TeacherCopilotPage
+  - Generic `callCopilotApi<T>()` helper with Content-Type validation + safe JSON parsing
+  - Per-action `loadingMap` (independent loading per tab)
+  - Per-action `ErrorMap` (errors don't overwrite each other)
+  - Per-action `AbortController` isolation (starting lessonPlan doesn't cancel overview)
+  - Late-response identity guard (prevents stale data overwriting fresh state)
+  - `useEffect` unmount cleanup (aborts all in-flight requests)
+  - `lastErrorKeyRef` for deterministic error display
+  - Backward-compatible `error` + `setError` API preserved
+- **Created `src/hooks/teacher-copilot.types.ts`**: Extracted 17 interfaces + LoadingMap + ErrorMap
+- **Refactored `src/app/teacher/copilot/page.tsx`**: Reduced from 503→~440 lines. UI unchanged. All public APIs unchanged.
+
+### ⚡ Knowledge Graph Rendering Optimization
+- **Optimized `src/app/student/knowledge-graph/page.tsx`**:
+  - `layoutNodes()` wrapped in `useMemo` (was called 4+ times per render → 1 per graph update)
+  - Built `nodeMap` (Map<id, KGNode>) for O(1) lookups instead of O(N) `array.find()`
+  - Parallel graph + mastery fetch via `Promise.all()`
+  - Pre-computed `edgeLines`, `nodeRenderData`, `canvasDimensions` via `useMemo`
+  - `handleNodeClick` wrapped in `useCallback`
+
+### 📊 Updated Metrics
+- Hooks: 1 → **3** (added `use-teacher-copilot.ts`, `teacher-copilot.types.ts`)
+- Docs: added `REPOSITORY_EVOLUTION_ASSESSMENT.md`
+- Teacher Copilot: page complexity reduced ~12%, hook fully tested for concurrency safety
 
 ### 🐛 Bug Fixes
 - **Quick-add vocab "未知錯誤"**: Fixed field name mismatch in `QuickAddVocab.tsx` and `InlineAddVocabButton.tsx` (`meaningZh`→`translation`, `exampleSentence`→`example`). Fixed `POST /api/vocabulary` catch block to re-throw `NextResponse` from Zod validation instead of swallowing it as "未知錯誤".

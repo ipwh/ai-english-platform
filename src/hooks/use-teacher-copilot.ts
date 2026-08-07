@@ -4,57 +4,34 @@
 // Extracted from TeacherCopilotPage for:
 // - Network request isolation
 // - Per-action loading states (loadingMap)
-// - AbortController for race-condition prevention
+// - Per-action AbortController isolation
+// - Per-action error states (errorMap)
 // - Single generic callCopilotApi<T>() helper
 // ============================================
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import type {
+  CopilotOverview, WeeklyTeachingPlan, ClassAnalysis, ExamPrediction,
+  StudentAnalysisData, LoadingMap, ErrorMap,
+} from './teacher-copilot.types';
 
-// ── Types ──
+// Re-export types for consumers
+export type {
+  ClassInfo, UrgentAction, WeeklySummary, CopilotOverview,
+  DailyActivity, DailyPlan, WeeklyTeachingPlan,
+  SkillBreakdown, RiskStudent, ClassAnalysis,
+  StudentPrediction, ExamPrediction, StudentAnalysisData,
+  LoadingMap, ErrorMap,
+} from './teacher-copilot.types';
 
-export interface ClassInfo {
-  id: string; name: string; gradeLevel: string; studentCount: number;
-  averageMastery: number; riskCount: number;
-}
-export interface UrgentAction { type: string; message: string; priority: 'high' | 'medium'; }
-export interface WeeklySummary { totalStudents: number; assignmentsDue: number; newRisksDetected: number; }
-export interface CopilotOverview { classes: ClassInfo[]; urgentActions: UrgentAction[]; weeklySummary: WeeklySummary; }
+// ── Helpers ──
 
-export interface DailyActivity { title: string; description: string; duration: string; }
-export interface DailyPlan { day: string; date: string; activities: DailyActivity[]; homework: string[]; }
-export interface WeeklyTeachingPlan {
-  classId: string; focusSkills: string[];
-  dailyPlans: DailyPlan[]; grammarFocus: string; vocabularyFocus: string; writingFocus: string;
-}
-
-export interface SkillBreakdown { skill: string; skillZh: string; classAverage: number; targetLevel: number; trend: 'up' | 'down' | 'stable'; }
-export interface RiskStudent { studentId: string; studentName: string; riskLevel: 'high' | 'medium'; reasons: string[]; }
-export interface ClassAnalysis {
-  overallMetrics: { averageMastery: number; classHkdseLevel: string };
-  skillBreakdown: SkillBreakdown[]; studentRankings: { studentId: string; name: string; score: number }[];
-  riskStudents: RiskStudent[]; recommendations: string[];
-}
-
-export interface StudentPrediction { studentId: string; studentName: string; predictedLevel: string; confidenceBand: string; }
-export interface ExamPrediction {
-  predictedPassRate: number;
-  studentPredictions: StudentPrediction[];
-  paperAnalysis: { paper: string; paperZh: string; averagePredicted: string }[];
-}
-
-export interface StudentAnalysisData {
-  personaType: string; skillDetails: { skill: string; score: number; classAverage: number; percentile: number; trend: string }[];
-  recentProgress: string; teacherNotes: string;
-}
-
-export interface LoadingMap {
-  overview: boolean;
-  lessonPlan: boolean;
-  classAnalysis: boolean;
-  examPrediction: boolean;
-  generate: boolean;
-  studentAnalysis: boolean;
+/** Check whether a response Content-Type indicates JSON */
+function isJsonContentType(res: Response): boolean {
+  const ct = res.headers.get('content-type');
+  if (!ct) return true; // no header → assume JSON (many APIs omit it)
+  return ct.includes('application/json');
 }
 
 // ── Generic API helper ──
@@ -74,9 +51,35 @@ async function callCopilotApi<T>(
     fetchOptions.body = JSON.stringify(body);
   }
   const res = await fetch(url, fetchOptions);
-  const json = await res.json();
+
+  if (!isJsonContentType(res)) {
+    const ct = res.headers.get('content-type') || 'unknown';
+    throw new Error(
+      res.ok
+        ? `Unexpected response type: ${ct}`
+        : `HTTP ${res.status} (${ct})`,
+    );
+  }
+
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error(
+      res.ok
+        ? 'Invalid server response'
+        : `HTTP ${res.status}`,
+    );
+  }
+
   if (!res.ok) {
-    throw new Error(json.error || 'Failed to load');
+    const message =
+      typeof json === 'object' && json !== null
+        ? ((json as Record<string, unknown>).error ??
+           (json as Record<string, unknown>).message ??
+           `HTTP ${res.status}`)
+        : `HTTP ${res.status}`;
+    throw new Error(String(message));
   }
   return json as T;
 }
@@ -92,7 +95,7 @@ export function useTeacherCopilot() {
     generate: false,
     studentAnalysis: false,
   });
-  const [error, setError] = useState('');
+  const [errorMap, setErrorMap] = useState<ErrorMap>({});
 
   const [overview, setOverview] = useState<CopilotOverview | null>(null);
   const [lessonPlan, setLessonPlan] = useState<WeeklyTeachingPlan | null>(null);
@@ -101,16 +104,90 @@ export function useTeacherCopilot() {
   const [studentAnalysis, setStudentAnalysis] = useState<StudentAnalysisData | null>(null);
   const [generatedContent, setGeneratedContent] = useState('');
 
-  // AbortController ref — cancelled on new request or unmount
-  const abortRef = useRef<AbortController | null>(null);
+  // Per-action AbortControllers — each loading key owns its own controller.
+  // Starting lessonPlan only cancels lessonPlan; overview keeps running.
+  const abortRefs = useRef<Map<keyof LoadingMap, AbortController>>(new Map());
 
-  /** Cancel any in-flight request */
-  const cancelPending = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
+  // Track which action most recently set an error, for deterministic display.
+  // Ref (not state) because it's consumed synchronously inside the error useMemo.
+  const lastErrorKeyRef = useRef<keyof LoadingMap | null>(null);
+
+  /** Cancel a specific action's in-flight request, or all if no key given */
+  const cancelPending = useCallback((key?: keyof LoadingMap) => {
+    if (key) {
+      const ctrl = abortRefs.current.get(key);
+      if (ctrl) {
+        ctrl.abort();
+        abortRefs.current.delete(key);
+      }
+    } else {
+      for (const ctrl of abortRefs.current.values()) {
+        ctrl.abort();
+      }
+      abortRefs.current.clear();
     }
   }, []);
+
+  // Abort all in-flight requests on unmount
+  useEffect(() => {
+    return () => cancelPending();
+  }, [cancelPending]);
+
+  // ── Derived: unified error for backward-compatible display ──
+
+  /** The most recently set error, or the first active error. Deterministic. */
+  const error = useMemo(() => {
+    // Prefer the last-set error if it's still active
+    const lastKey = lastErrorKeyRef.current;
+    if (lastKey && errorMap[lastKey]) return errorMap[lastKey];
+    // Fallback: any active error
+    for (const key of Object.keys(errorMap) as (keyof LoadingMap)[]) {
+      if (errorMap[key]) return errorMap[key]!;
+    }
+    return '';
+  }, [errorMap]);
+
+  /**
+   * Clear error for all actions.
+   * Backward-compatible: page calls setError('') on tab switch.
+   */
+  const setError = useCallback((message: string) => {
+    if (message === '') {
+      lastErrorKeyRef.current = null;
+      setErrorMap({});
+    } else {
+      // Set all keys — preserves old "global error" behavior
+      setErrorMap({
+        overview: message,
+        lessonPlan: message,
+        classAnalysis: message,
+        examPrediction: message,
+        generate: message,
+        studentAnalysis: message,
+      });
+    }
+  }, []);
+
+  // ── Internal: per-action error helpers ──
+
+  const clearErrorFor = useCallback((key: keyof LoadingMap) => {
+    setErrorMap(prev => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    if (lastErrorKeyRef.current === key) {
+      lastErrorKeyRef.current = null;
+    }
+  }, []);
+
+  const setErrorFor = useCallback((key: keyof LoadingMap, message: string) => {
+    lastErrorKeyRef.current = key;
+    setErrorMap(prev => ({ ...prev, [key]: message }));
+  }, []);
+
+  // ── Generic runner ──
 
   /** Generic runner: sets loadingMap key, handles abort, error, and response */
   const runAction = useCallback(
@@ -119,26 +196,31 @@ export function useTeacherCopilot() {
       fetchFn: (signal: AbortSignal) => Promise<T>,
       setter: (data: T) => void,
     ) => {
-      cancelPending();
+      // Cancel only this key's previous request — others keep running
+      cancelPending(key);
       const controller = new AbortController();
-      abortRef.current = controller;
-      setError('');
+      abortRefs.current.set(key, controller);
+      clearErrorFor(key);
       setLoadingMap(prev => ({ ...prev, [key]: true }));
       try {
         const data = await fetchFn(controller.signal);
-        if (!controller.signal.aborted) {
-          setter(data);
-        }
+        // P1: Prevent late-response state overwrite.
+        // If a newer request started while this one was in-flight,
+        // abortRefs has a different controller for this key → discard.
+        if (abortRefs.current.get(key) !== controller) return;
+        setter(data);
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Network error');
+        setErrorFor(key, err instanceof Error ? err.message : 'Network error');
       } finally {
-        if (!controller.signal.aborted) {
+        const isCurrent = abortRefs.current.get(key) === controller;
+        if (isCurrent) {
+          abortRefs.current.delete(key);
           setLoadingMap(prev => ({ ...prev, [key]: false }));
         }
       }
     },
-    [cancelPending],
+    [cancelPending, clearErrorFor, setErrorFor],
   );
 
   const fetchOverview = useCallback(() => {
@@ -220,6 +302,7 @@ export function useTeacherCopilot() {
 
   return {
     loadingMap,
+    errorMap,
     error,
     setError,
     overview,
