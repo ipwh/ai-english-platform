@@ -224,7 +224,13 @@ export function useTeacherCopilot() {
   );
 
   const fetchOverview = useCallback(() => {
-    runAction('overview', signal => callCopilotApi<CopilotOverview>('/api/teacher/copilot/overview', { signal }), setOverview);
+    runAction(
+      'overview',
+      signal =>
+        callCopilotApi<{ overview: CopilotOverview }>('/api/teacher/copilot/overview', { signal })
+          .then(json => json.overview),
+      setOverview,
+    );
   }, [runAction]);
 
   const fetchLessonPlan = useCallback(
@@ -232,10 +238,10 @@ export function useTeacherCopilot() {
       runAction(
         'lessonPlan',
         signal =>
-          callCopilotApi<WeeklyTeachingPlan>(
+          callCopilotApi<{ plan: WeeklyTeachingPlan }>(
             `/api/teacher/copilot/lesson-plan?classId=${classId}&className=${encodeURIComponent(className)}`,
             { signal },
-          ),
+          ).then(json => json.plan),
         setLessonPlan,
       );
     },
@@ -247,10 +253,10 @@ export function useTeacherCopilot() {
       runAction(
         'classAnalysis',
         signal =>
-          callCopilotApi<ClassAnalysis>(
+          callCopilotApi<{ analysis: ClassAnalysis }>(
             `/api/teacher/copilot/class-analysis?classId=${classId}&className=${encodeURIComponent(className)}`,
             { signal },
-          ),
+          ).then(json => json.analysis),
         setClassAnalysis,
       );
     },
@@ -262,7 +268,8 @@ export function useTeacherCopilot() {
       runAction(
         'examPrediction',
         signal =>
-          callCopilotApi<ExamPrediction>(`/api/teacher/copilot/exam-prediction?classId=${classId}`, { signal }),
+          callCopilotApi<{ prediction: ExamPrediction }>(`/api/teacher/copilot/exam-prediction?classId=${classId}`, { signal })
+            .then(json => json.prediction),
         setExamPrediction,
       );
     },
@@ -274,10 +281,10 @@ export function useTeacherCopilot() {
       runAction(
         'studentAnalysis',
         signal =>
-          callCopilotApi<StudentAnalysisData>(
+          callCopilotApi<{ analysis: StudentAnalysisData }>(
             `/api/teacher/copilot/student-analysis?studentId=${studentId}&classId=${classId}`,
             { signal },
-          ),
+          ).then(json => json.analysis),
         setStudentAnalysis,
       );
     },
