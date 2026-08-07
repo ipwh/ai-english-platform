@@ -268,6 +268,7 @@ class ContinuousEvaluator {
     const successful = results.filter(r => r.success);
     const allFailed = results.every(r => !r.success);
     const n = Math.max(1, successful.length);
+    const firstFailure = results.find(r => !r.success);
 
     const record: ScoreRecord = {
       id: options.evaluationId ?? `eval-${promptName}-${Date.now()}`,
@@ -287,6 +288,8 @@ class ContinuousEvaluator {
       provider: mode(results.map(r => r.provider)) ?? 'unknown',
       model: mode(results.map(r => r.model)) ?? 'unknown',
       success: successful.length > 0,
+      // Propagate first failure's error message so monitor can classify timed_out/aborted
+      errorMessage: successful.length > 0 ? undefined : (firstFailure?.errorMessage ?? 'Unknown error'),
       triggerType,
       gitCommit: getGitCommit(),
       datasetId,

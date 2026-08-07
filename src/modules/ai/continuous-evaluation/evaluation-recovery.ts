@@ -17,7 +17,7 @@ import { emptyRecoveryReport, SIDE_EFFECT_KEYS } from './evaluation-record';
 import type { EvaluationStore } from './evaluation-store';
 import { scoreHistory } from './score-history';
 import { baselineManager } from './baseline-manager';
-import { incSuccessCounter, incFailureCounter } from './evaluator';
+import { incSuccessCounterDedup, incFailureCounterDedup } from './evaluator';
 import type { EventBus } from '../foundation';
 import type { ContinuousEvalCompletedEvent, ContinuousEvalFailedEvent, ContinuousEvalTimedOutEvent, ContinuousEvalAbortedEvent } from '../foundation';
 
@@ -116,19 +116,19 @@ function buildReplaySteps(
       apply: async (rec) => {
         if (rec.result) {
           if (rec.result.success) {
-            incSuccessCounter();
+            incSuccessCounterDedup(rec.evaluationId);
           } else {
             const errorMsg = (rec.result.errorMessage ?? '').toLowerCase();
             if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
-              incFailureCounter('PROVIDER_TIMEOUT');
+              incFailureCounterDedup(rec.evaluationId, 'PROVIDER_TIMEOUT');
             } else if (errorMsg.includes('abort')) {
-              incFailureCounter('PROVIDER_ABORTED');
+              incFailureCounterDedup(rec.evaluationId, 'PROVIDER_ABORTED');
             } else if (errorMsg.includes('dataset') || errorMsg.includes('fixture')) {
-              incFailureCounter('DATASET_ERROR');
+              incFailureCounterDedup(rec.evaluationId, 'DATASET_ERROR');
             } else if (errorMsg.includes('score') || errorMsg.includes('nan') || errorMsg.includes('infinity')) {
-              incFailureCounter('SCORING_ERROR');
+              incFailureCounterDedup(rec.evaluationId, 'SCORING_ERROR');
             } else {
-              incFailureCounter('PROVIDER_ERROR');
+              incFailureCounterDedup(rec.evaluationId, 'PROVIDER_ERROR');
             }
           }
         }
