@@ -17,7 +17,7 @@ import type { ContinuousEvalConfig, EvaluationSchedule, DriftSeverity } from './
 import { DEFAULT_CONTINUOUS_EVAL_CONFIG } from './config';
 import type { ScoreRecord } from './score-history';
 import { scoreHistory } from './score-history';
-import { continuousEvaluator, incSuccessCounterDedup, incFailureCounterDedup } from './evaluator';
+import { continuousEvaluator, incSuccessCounterDedup, incFailureCounterDedup, resetMetricsDedup } from './evaluator';
 import type { ContinuousEvalProviderCall } from './evaluator';
 import { detectDrift, compareDrift } from './drift-detector';
 import type { DriftReport } from './drift-detector';
@@ -692,6 +692,7 @@ class Monitor {
     this.finalizedEvaluations.clear();
     this.events.clear();
     this.lastRecoveryReport = undefined;
+    resetMetricsDedup(); // Generation-scoped dedup — safe to clear on reset
     this.config = { ...DEFAULT_CONTINUOUS_EVAL_CONFIG };
     this.datasetId = 'default';
     this.initialized = false;
