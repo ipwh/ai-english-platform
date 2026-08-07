@@ -3,7 +3,7 @@
 // ============================================
 
 import { describe, it, expect } from 'vitest';
-import { MetricsCollector, Counter, Gauge, RollingAverage, Timer } from '../metrics/metrics-collector';
+import { MetricsCollector, Counter, Gauge, Histogram, RollingAverage, Timer } from '../metrics/metrics-collector';
 
 describe('Counter', () => {
   it('should start at 0', () => {
@@ -216,5 +216,101 @@ describe('MetricsCollector', () => {
     c.inc(10);
     collector.reset();
     expect(c.get()).toBe(0);
+  });
+});
+
+// ── Input Validation ──
+
+describe('Counter input validation', () => {
+  it('should accept finite positive increments', () => {
+    const c = new Counter('test');
+    c.inc(5);
+    expect(c.get()).toBe(5);
+  });
+
+  it('should accept finite negative increments', () => {
+    const c = new Counter('test');
+    c.inc(-3);
+    expect(c.get()).toBe(-3);
+  });
+
+  it('should reject NaN increments', () => {
+    const c = new Counter('test');
+    expect(() => c.inc(NaN)).toThrow(/finite/);
+  });
+
+  it('should reject Infinity increments', () => {
+    const c = new Counter('test');
+    expect(() => c.inc(Infinity)).toThrow(/finite/);
+  });
+});
+
+describe('Gauge input validation', () => {
+  it('should accept finite values including negative', () => {
+    const g = new Gauge('test');
+    g.set(-42);
+    expect(g.get()).toBe(-42);
+  });
+
+  it('should reject NaN set', () => {
+    const g = new Gauge('test');
+    expect(() => g.set(NaN)).toThrow(/finite/);
+  });
+
+  it('should reject Infinity set', () => {
+    const g = new Gauge('test');
+    expect(() => g.set(Infinity)).toThrow(/finite/);
+  });
+
+  it('should reject NaN increment', () => {
+    const g = new Gauge('test');
+    expect(() => g.inc(NaN)).toThrow(/finite/);
+  });
+
+  it('should reject NaN decrement', () => {
+    const g = new Gauge('test');
+    expect(() => g.dec(NaN)).toThrow(/finite/);
+  });
+});
+
+describe('Histogram input validation', () => {
+  it('should accept finite observations', () => {
+    const h = new Histogram('test');
+    h.observe(5);
+    expect(h.getCount()).toBe(1);
+  });
+
+  it('should accept negative observations', () => {
+    const h = new Histogram('test');
+    h.observe(-1);
+    expect(h.getCount()).toBe(1);
+  });
+
+  it('should reject NaN observations', () => {
+    const h = new Histogram('test');
+    expect(() => h.observe(NaN)).toThrow(/finite/);
+  });
+
+  it('should reject Infinity observations', () => {
+    const h = new Histogram('test');
+    expect(() => h.observe(Infinity)).toThrow(/finite/);
+  });
+});
+
+describe('RollingAverage input validation', () => {
+  it('should accept finite values', () => {
+    const ra = new RollingAverage();
+    ra.push(10);
+    expect(ra.get()).toBe(10);
+  });
+
+  it('should reject NaN values', () => {
+    const ra = new RollingAverage();
+    expect(() => ra.push(NaN)).toThrow(/finite/);
+  });
+
+  it('should reject Infinity values', () => {
+    const ra = new RollingAverage();
+    expect(() => ra.push(Infinity)).toThrow(/finite/);
   });
 });

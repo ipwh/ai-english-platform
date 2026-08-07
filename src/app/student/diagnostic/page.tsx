@@ -20,6 +20,7 @@ interface DiagnosticResult {
   id: string;
   label: string;
   score: number;
+  totalQuestions: number;
   level: string;
   suggestion: string;
 }
@@ -372,24 +373,28 @@ export default function DiagnosticPage() {
       {
         id: 'grammar', label: t('diagnostic.skillGrammar'),
         score: skillScores.grammar ? Math.round((skillScores.grammar.correct / skillScores.grammar.total) * 100) : 0,
+        totalQuestions: skillScores.grammar?.total ?? 0,
         level: (skillScores.grammar?.correct || 0) >= 3 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
       {
         id: 'vocabulary', label: t('diagnostic.skillVocab'),
         score: skillScores.vocabulary ? Math.round((skillScores.vocabulary.correct / skillScores.vocabulary.total) * 100) : 0,
+        totalQuestions: skillScores.vocabulary?.total ?? 0,
         level: (skillScores.vocabulary?.correct || 0) >= 2 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
       {
         id: 'reading', label: t('diagnostic.skillReading'),
         score: skillScores.reading ? Math.round((skillScores.reading.correct / skillScores.reading.total) * 100) : 0,
+        totalQuestions: skillScores.reading?.total ?? 0,
         level: (skillScores.reading?.correct || 0) >= 2 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
       {
         id: 'writing', label: t('diagnostic.skillWriting'),
         score: skillScores.writing ? Math.round((skillScores.writing.correct / skillScores.writing.total) * 100) : 0,
+        totalQuestions: skillScores.writing?.total ?? 0,
         level: (skillScores.writing?.correct || 0) >= 1 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
         suggestion: '',
       },
@@ -459,7 +464,12 @@ export default function DiagnosticPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentLevel: getStudentLevel(studentProfile),
-          overallAccuracy: Math.round(computed.reduce((s, r) => s + r.score, 0) / computed.length),
+          overallAccuracy: (() => {
+            const tested = computed.filter(r => r.totalQuestions > 0);
+            return tested.length > 0
+              ? Math.round(tested.reduce((s, r) => s + r.score, 0) / tested.length)
+              : 0;
+          })(),
           weakSkills: computed.filter(r => r.score < 60).map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score })),
           recentPerformance,
           streakDays: studentProfile?.streakDays ?? 0,
@@ -644,7 +654,10 @@ export default function DiagnosticPage() {
   }
 
   // ====== 結果畫面 ======
-  const overallScore = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length);
+  const testedResults = results.filter(r => r.totalQuestions > 0);
+  const overallScore = testedResults.length > 0
+    ? Math.round(testedResults.reduce((s, r) => s + r.score, 0) / testedResults.length)
+    : 0;
   const recommendation = buildPracticeRecommendation(results, getStudentLevel(studentProfile));
   const practiceHref = `/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(recommendation.grammarItem || '')}&languageSkill=${encodeURIComponent(recommendation.languageSkill || '')}&difficulty=${recommendation.difficulty}&questionType=${recommendation.questionType}&questionCount=${recommendation.questionCount}&gradeLevel=${encodeURIComponent(getStudentLevel(studentProfile))}&weakLabel=${encodeURIComponent(recommendation.weakLabel)}`;
 
@@ -675,11 +688,23 @@ export default function DiagnosticPage() {
           <div key={r.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-medium text-gray-900 dark:text-white">{r.label}</h3>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.score >= 60 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                {r.score >= 70 ? t('diagnostic.challenge') : r.score >= 50 ? t('diagnostic.core') : t('diagnostic.remedial')}
-              </span>
+              {r.totalQuestions === 0 ? (
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">
+                  {t('diagnostic.notTested')}
+                </span>
+              ) : (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.score >= 60 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                  {r.score >= 70 ? t('diagnostic.challenge') : r.score >= 50 ? t('diagnostic.core') : t('diagnostic.remedial')}
+                </span>
+              )}
             </div>
-            <ProgressBar value={r.score} size="sm" showPercentage={true} />
+            {r.totalQuestions === 0 ? (
+              <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+                <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full" style={{ width: '0%' }} />
+              </div>
+            ) : (
+              <ProgressBar value={r.score} size="sm" showPercentage={true} />
+            )}
             {r.id === 'writing' && (
               <div className="mt-2">
                 {writingLoading ? (

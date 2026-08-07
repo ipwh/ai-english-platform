@@ -395,10 +395,11 @@ class AlertEngine {
     return alert;
   }
 
-  /** Clear all alerts */
+  /** Clear all alerts and reset internal state */
   clear(): void {
     this.alerts.clear();
     this.dedupCache.clear();
+    this.counter = 0;
   }
 }
 

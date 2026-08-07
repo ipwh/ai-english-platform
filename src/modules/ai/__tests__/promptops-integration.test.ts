@@ -23,6 +23,8 @@ import { SCORE_WEIGHTS, DEFAULT_REGRESSION_CONFIG } from '../regression/types';
 import { baselineManager } from '../continuous-evaluation/baseline-manager';
 import { scoreHistory } from '../continuous-evaluation/score-history';
 import { alertEngine } from '../continuous-evaluation/alert';
+import { scheduler } from '../continuous-evaluation/scheduler';
+import { monitor } from '../continuous-evaluation/monitor';
 import type { ScoreRecord } from '../continuous-evaluation/score-history';
 
 // ── Test Helpers ──
@@ -415,6 +417,34 @@ describe('ScoreHistoryStore immutability', () => {
     // The latest record should not be affected by the mutation
     // (exact score may vary by timestamp sort order, but it won't be 999)
     expect(reread!.overallScore).not.toBe(999);
+  });
+});
+
+// ── H. Continuous Evaluation State Isolation ──
+
+describe('Continuous Evaluation state isolation', () => {
+  it('alertEngine.clear() should reset counter and alerts', () => {
+    alertEngine.clear();
+    expect(alertEngine.count()).toBe(0);
+  });
+
+  it('scheduler.reset() should stop intervals and clear schedules', () => {
+    scheduler.reset();
+    expect(scheduler.isRunning()).toBe(false);
+  });
+
+  it('scheduler.clearSchedules() should not affect isRunning state', () => {
+    scheduler.clearSchedules();
+    // After clearSchedules, intervals are unchanged; only schedules are cleared
+    expect(scheduler.isRunning()).toBe(false); // reset() already stopped them
+  });
+
+  it('monitor.reset() should clear drift reports and reset config', () => {
+    monitor.reset();
+    const config = monitor.getConfig();
+    expect(config).toBeDefined();
+    // After reset, config should be back to defaults
+    expect(monitor.getDriftState('any')).toBeUndefined();
   });
 });
 

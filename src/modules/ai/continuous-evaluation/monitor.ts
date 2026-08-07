@@ -320,6 +320,18 @@ class Monitor {
   updateConfig(updates: Partial<ContinuousEvalConfig>): void {
     this.config = { ...this.config, ...updates };
   }
+
+  /**
+   * Reset the monitor to its uninitialized state.
+   * Stops the scheduler, clears drift reports, and resets configuration.
+   * Does NOT reset external singletons (scoreHistory, baselineManager, alertEngine).
+   */
+  reset(): void {
+    scheduler.stopAutoRun();
+    this.lastDriftReport.clear();
+    this.config = { ...DEFAULT_CONTINUOUS_EVAL_CONFIG };
+    this.datasetId = 'default';
+  }
 }
 
 /** Singleton monitor */

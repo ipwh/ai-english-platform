@@ -23,8 +23,11 @@ export class Counter {
     this.labels = { name, ...labels };
   }
 
-  /** Increment by 1 (or a custom delta) */
+  /** Increment by 1 (or a custom delta). Rejects non-finite values. */
   inc(delta = 1): number {
+    if (!Number.isFinite(delta)) {
+      throw new Error(`Counter increment must be a finite number, received ${delta}`);
+    }
     this.value += delta;
     return this.value;
   }
@@ -63,19 +66,28 @@ export class Gauge {
     this.labels = { name, ...labels };
   }
 
-  /** Set absolute value */
+  /** Set absolute value. Rejects non-finite values. */
   set(value: number): void {
+    if (!Number.isFinite(value)) {
+      throw new Error(`Gauge value must be a finite number, received ${value}`);
+    }
     this.value = value;
   }
 
-  /** Increment */
+  /** Increment by delta. Rejects non-finite deltas. */
   inc(delta = 1): number {
+    if (!Number.isFinite(delta)) {
+      throw new Error(`Gauge increment must be a finite number, received ${delta}`);
+    }
     this.value += delta;
     return this.value;
   }
 
-  /** Decrement */
+  /** Decrement by delta. Rejects non-finite deltas. */
   dec(delta = 1): number {
+    if (!Number.isFinite(delta)) {
+      throw new Error(`Gauge decrement must be a finite number, received ${delta}`);
+    }
     this.value -= delta;
     return this.value;
   }
@@ -131,8 +143,11 @@ export class Histogram {
     this.buckets.set(Infinity, 0);
   }
 
-  /** Observe a value */
+  /** Observe a value. Rejects non-finite observations (NaN, Infinity). */
   observe(value: number): void {
+    if (!Number.isFinite(value)) {
+      throw new Error(`Histogram observation must be a finite number, received ${value}`);
+    }
     this.count++;
     this.sum += value;
 
@@ -329,8 +344,11 @@ export class RollingAverage {
     this.maxSize = maxSize;
   }
 
-  /** Add a value to the rolling window */
+  /** Add a value to the rolling window. Rejects non-finite values. */
   push(value: number): void {
+    if (!Number.isFinite(value)) {
+      throw new Error(`RollingAverage observation must be a finite number, received ${value}`);
+    }
     this.window.push(value);
     this.sum += value;
 

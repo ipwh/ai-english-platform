@@ -49,6 +49,7 @@ export const studentTranslations: Record<string, { zh: string; en: string }> = {
   'diagnostic.challenge': { zh: '挑戰', en: 'Challenge' },
   'diagnostic.core': { zh: '核心', en: 'Core' },
   'diagnostic.remedial': { zh: '補底', en: 'Remedial' },
+  'diagnostic.notTested': { zh: '未測試', en: 'Not tested' },
   'diagnostic.skillGrammar': { zh: '文法', en: 'Grammar' },
   'diagnostic.skillVocab': { zh: '詞彙', en: 'Vocabulary' },
   'diagnostic.skillReading': { zh: '閱讀', en: 'Reading' },

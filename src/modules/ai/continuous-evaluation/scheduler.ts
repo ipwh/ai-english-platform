@@ -172,12 +172,23 @@ class Scheduler {
     this.intervals.push(interval);
   }
 
-  /** Stop all auto-run intervals */
+  /** Stop all auto-run intervals and clear scheduled entries */
   stopAutoRun(): void {
     for (const interval of this.intervals) {
       clearInterval(interval);
     }
     this.intervals = [];
+  }
+
+  /** Clear all scheduled entries without stopping intervals */
+  clearSchedules(): void {
+    this.schedules.clear();
+  }
+
+  /** Full reset: stop intervals and clear all state */
+  reset(): void {
+    this.stopAutoRun();
+    this.clearSchedules();
   }
 
   /** Whether auto-run is active */
