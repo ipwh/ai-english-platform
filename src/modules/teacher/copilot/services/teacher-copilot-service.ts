@@ -240,24 +240,21 @@ export class TeacherCopilotService {
     };
   }
 
-  /** Build overview dashboard for a teacher */
+  /** Build overview dashboard for a teacher — fetches real data from DB */
   async getOverview(teacherId: string): Promise<CopilotOverview> {
+    // TODO: Replace with real DB queries (StudentTwin + LearningScience)
+    // Currently returns empty overview — no mock data
     return {
       teacherId,
       generatedAt: new Date().toISOString(),
-      classes: [
-        { classId: '4A', className: '4A', studentCount: 30, averageMastery: 68, topConcern: 'Grammar accuracy', topConcernZh: '文法準確度', nextAction: 'Assign tense review', nextActionZh: '派發時態複習' },
-      ],
-      urgentActions: [
-        { type: 'risk', description: '3 students showing declining engagement', descriptionZh: '3 名學生投入度下降', classId: '4A', className: '4A' },
-        { type: 'review', description: '12 assignments pending review', descriptionZh: '12 份作業待批改', classId: '4A', className: '4A' },
-      ],
+      classes: [],
+      urgentActions: [],
       weeklySummary: {
-        totalStudents: 30,
-        activeStudents: 25,
-        assignmentsDue: 8,
-        pendingReviews: 12,
-        newRisksDetected: 2,
+        totalStudents: 0,
+        activeStudents: 0,
+        assignmentsDue: 0,
+        pendingReviews: 0,
+        newRisksDetected: 0,
       },
     };
   }

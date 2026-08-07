@@ -80,7 +80,8 @@ export const teacherNavSections: NavSection[] = [
   {
     title: '教學工具', titleKey: 'teacher.management',
     items: [
-      { label: '任務派發', i18nKey: 'teacher.assignments', href: '/teacher/assignments', icon: ClipboardList },
+      { label: '練習派發', i18nKey: 'teacher.assignments', href: '/teacher/assignments', icon: ClipboardList },
+      { label: '組別管理', i18nKey: 'teacher.groups', href: '/teacher/groups', icon: Users },
       { label: '教材中心', i18nKey: 'teacher.materials', href: '/teacher/materials', icon: Upload },
       { label: 'AI 批改覆核', i18nKey: 'teacher.review', href: '/teacher/review', icon: ClipboardCheck },
       { label: 'AI Copilot', i18nKey: 'teacher.copilot', href: '/teacher/copilot', icon: Brain },

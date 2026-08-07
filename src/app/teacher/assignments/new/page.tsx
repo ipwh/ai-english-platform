@@ -1,5 +1,5 @@
 // ============================================
-// 教師端 — 建立新任務
+// 教師端 — 建立新練習
 // ============================================
 'use client';
 
@@ -38,6 +38,7 @@ export default function NewAssignmentPage() {
   const [groups, setGroups] = useState<{ id: string; name: string; memberCount: number }[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [students, setStudents] = useState<{ id: string; name: string; className: string }[]>([]);
   const [teacherId, setTeacherId] = useState('');
 
@@ -104,8 +105,9 @@ export default function NewAssignmentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: form.title || `${skillLabels[form.skill] || form.skill} — ${form.gradeLevel}`,
-          className: form.targetType === 'class' ? (form.classId || classes[0]?.name || '') : '',
-          classId: form.targetType === 'class' ? (form.classId || classes[0]?.id || '') : undefined,
+          className: form.targetType === 'class' ? (selectedClassIds.map(id => classes.find(c => c.id === id)?.name).filter(Boolean).join(', ') || '') : '',
+          classId: form.targetType === 'class' ? undefined : undefined,
+          classIds: form.targetType === 'class' ? selectedClassIds : undefined,
           targetType: form.targetType,
           gradeLevel: form.gradeLevel,
           strand: 'knowledge',
@@ -169,14 +171,30 @@ export default function NewAssignmentPage() {
               </div>
             </div>
 
-            {/* 班級選擇 */}
+            {/* 班級選擇（checkbox） */}
             {form.targetType === 'class' && (
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.class')}</label>
-                <select value={form.classId} onChange={(e) => setForm({...form, classId: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" required>
-                  <option value="">{t('teacher.assignmentNew.selectClass')}</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                {classes.length === 0 ? (
+                  <p className="text-xs text-gray-400">載入中...</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {classes.map(c => (
+                      <label key={c.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedClassIds.includes(c.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedClassIds([...selectedClassIds, c.id]);
+                            else setSelectedClassIds(selectedClassIds.filter(id => id !== c.id));
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
