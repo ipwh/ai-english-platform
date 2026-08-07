@@ -267,7 +267,9 @@ class Monitor {
     const pendingRecord = createEvaluationRecord(
       evaluationId, promptName, this.datasetId, startGeneration, triggerType,
     );
-    await this.store.create(pendingRecord).catch(() => { /* persistence failure must not block eval */ });
+    await this.store.create(pendingRecord).catch((err) => {
+      console.error(`[Monitor] Store create failed for ${evaluationId}:`, err instanceof Error ? err.message : err);
+    });
 
     // 1. Run evaluation (passes evaluationId to evaluator for stable record.id)
     const record = await continuousEvaluator.evaluate({
@@ -299,7 +301,9 @@ class Monitor {
           : 'PROVIDER_ERROR',
         message: record.errorMessage ?? 'Unknown error',
       },
-    }).catch(() => { /* persistence failure must not block side effects */ });
+    }).catch((err) => {
+      console.error(`[Monitor] Store update (result) failed for ${evaluationId}:`, err instanceof Error ? err.message : err);
+    });
 
     // 2. Drift detection — only update Monitor-owned state if generation matches
     let drift: DriftReport | undefined;
@@ -445,7 +449,9 @@ class Monitor {
         metricsWritten: true,
         terminalEventEmitted: true,
       },
-    }).catch(() => { /* persistence failure must not fail evaluation */ });
+    }).catch((err) => {
+      console.error(`[Monitor] Store update (sideEffects) failed for ${evaluationId}:`, err instanceof Error ? err.message : err);
+    });
   }
 
   // ── Event helpers ──

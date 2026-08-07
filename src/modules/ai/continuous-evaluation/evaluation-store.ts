@@ -35,8 +35,16 @@ export class EvaluationStore {
     this.repo = repo ?? new MemoryStore<StoredEvaluationRecord>();
   }
 
-  /** Persist a new evaluation record */
+  /** Persist a new evaluation record. Rejects duplicate evaluationId. */
   async create(record: EvaluationRecord): Promise<void> {
+    // Guard: prevent silent overwrite of existing records
+    if (await this.repo.exists(record.evaluationId)) {
+      console.error(
+        `[EvaluationStore] Duplicate create blocked: ${record.evaluationId} already exists. ` +
+        'This indicates a duplicate evaluationId generation or caller bug.'
+      );
+      return;
+    }
     await this.repo.save({ id: record.evaluationId, record });
   }
 
