@@ -92,9 +92,18 @@ export default function TeacherCopilotPage() {
   };
 
   const trendIcon = (trend: string) =>
-    trend === 'up' ? <ArrowUp className="w-3 h-3 text-green-500" /> :
-    trend === 'down' ? <ArrowDown className="w-3 h-3 text-red-500" /> :
+    trend === 'up' || trend === 'improving' ? <ArrowUp className="w-3 h-3 text-green-500" /> :
+    trend === 'down' || trend === 'declining' ? <ArrowDown className="w-3 h-3 text-red-500" /> :
     <Minus className="w-3 h-3 text-gray-400" />;
+
+  /** Map skill identifier to Chinese display name */
+  const skillLabel = (skill: string): string => {
+    const map: Record<string, string> = {
+      grammar: '文法', vocabulary: '詞彙', reading: '閱讀',
+      writing: '寫作', listening: '聆聽', speaking: '會話',
+    };
+    return map[skill] || skill;
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -128,14 +137,9 @@ export default function TeacherCopilotPage() {
       {activeTab !== 'overview' && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border flex flex-wrap gap-3 items-end">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">班級 ID</label>
-            <input value={classId} onChange={e => setClassId(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm w-40" placeholder="e.g. class-001" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">班級名稱</label>
-            <input value={className} onChange={e => setClassName(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm w-32" placeholder="e.g. 4A" />
+            <label className="block text-xs font-medium text-gray-500 mb-1">班級</label>
+            <input value={className || classId} onChange={e => { setClassName(e.target.value); setClassId(e.target.value); }}
+              className="px-3 py-2 border rounded-lg text-sm w-40" placeholder="e.g. 4A" />
           </div>
           {activeTab === 'student-analysis' && (
             <div>
@@ -292,16 +296,21 @@ export default function TeacherCopilotPage() {
             </div>
             {/* Skill Breakdown */}
             <div className="space-y-2">
-              {classAnalysis.skillBreakdown.map((sk, i) => (
+              {classAnalysis.skillBreakdown.map((sk, i) => {
+                const avg = (sk.averageScore ?? sk.classAverage ?? 0) * 100;
+                const trend = sk.trend || 'stable';
+                const label = sk.skillZh || skillLabel(sk.skill);
+                return (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700 dark:text-gray-300 w-20">{sk.skillZh}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 w-20">{label}</span>
                   <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                    <div className="bg-violet-500 h-2.5 rounded-full" style={{ width: `${sk.classAverage}%` }} />
+                    <div className="bg-violet-500 h-2.5 rounded-full" style={{ width: `${Math.round(avg)}%` }} />
                   </div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white w-10">{sk.classAverage}%</span>
-                  {trendIcon(sk.trend)}
+                  <span className="text-sm font-medium text-gray-900 dark:text-white w-10">{Math.round(avg)}%</span>
+                  {trendIcon(trend)}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -314,11 +323,11 @@ export default function TeacherCopilotPage() {
               <div className="space-y-2">
                 {classAnalysis.riskStudents.map((rs, i) => (
                   <div key={i} className="p-3 bg-white dark:bg-gray-800 rounded-xl text-sm">
-                    <span className="font-medium text-gray-900 dark:text-white">{rs.studentName}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{rs.name || rs.studentName}</span>
                     <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
                       rs.riskLevel === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
                     }`}>{rs.riskLevel === 'high' ? '高風險' : '中風險'}</span>
-                    <p className="text-xs text-gray-500 mt-1">{rs.reasons.join('、')}</p>
+                    <p className="text-xs text-gray-500 mt-1">{rs.primaryConcern || rs.reasons?.join('、') || ''}</p>
                   </div>
                 ))}
               </div>

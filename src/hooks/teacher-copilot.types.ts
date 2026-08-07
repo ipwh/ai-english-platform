@@ -29,12 +29,24 @@ export interface WeeklyTeachingPlan {
   dailyPlans: DailyPlan[]; grammarFocus: string; vocabularyFocus: string; writingFocus: string;
 }
 
-export interface SkillBreakdown { skill: string; skillZh: string; classAverage: number; targetLevel: number; trend: 'up' | 'down' | 'stable'; }
-export interface RiskStudent { studentId: string; studentName: string; riskLevel: 'high' | 'medium'; reasons: string[]; }
+export interface SkillBreakdown {
+  skill: string; skillZh?: string;
+  averageScore: number; classAverage?: number;
+  trend: string; targetLevel?: number;
+}
+export interface RiskStudent {
+  studentId: string; name: string; studentName?: string;
+  riskLevel: string;
+  primaryConcern: string; primaryConcernZh?: string;
+  reasons?: string[];
+}
 export interface ClassAnalysis {
   overallMetrics: { averageMastery: number; classHkdseLevel: string };
-  skillBreakdown: SkillBreakdown[]; studentRankings: { studentId: string; name: string; score: number }[];
-  riskStudents: RiskStudent[]; recommendations: string[];
+  skillBreakdown: SkillBreakdown[];
+  studentRankings: { studentId: string; name: string; score: number; overallScore?: number }[];
+  riskStudents: RiskStudent[];
+  recommendations: string[];
+  recommendationsZh?: string[];
 }
 
 export interface StudentPrediction { studentId: string; studentName: string; predictedLevel: string; confidenceBand: string; }

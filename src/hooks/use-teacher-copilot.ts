@@ -296,11 +296,22 @@ export function useTeacherCopilot() {
       runAction(
         'generate',
         signal =>
-          callCopilotApi<{ content?: string; result?: string }>('/api/teacher/copilot/generate', {
+          callCopilotApi<{
+            content?: string; result?: string;
+            assignments?: Array<{ titleZh: string; questionCount: number; estimatedMinutes: number; reasonZh: string }>;
+          }>('/api/teacher/copilot/generate', {
             method: 'POST',
             signal,
             body: { type, classId: classId || undefined, gradeLevel: 'S4' },
-          }).then(json => json.content || json.result || JSON.stringify(json, null, 2)),
+          }).then(json => {
+            // Format assignments as readable list if present
+            if (json.assignments && json.assignments.length > 0) {
+              return json.assignments
+                .map(a => `📝 ${a.titleZh}（${a.questionCount}題，約${a.estimatedMinutes}分鐘）\n   ${a.reasonZh}`)
+                .join('\n\n');
+            }
+            return json.content || json.result || JSON.stringify(json, null, 2);
+          }),
         setGeneratedContent,
       );
     },
