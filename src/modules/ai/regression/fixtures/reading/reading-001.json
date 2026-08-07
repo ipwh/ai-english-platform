@@ -1,0 +1,34 @@
+{
+  "id": "reading-001",
+  "description": "Basic DSE Paper 1 reading comprehension — S4 core difficulty, Hong Kong local topic",
+  "promptName": "ReadingGeneration",
+  "feature": "Reading",
+  "useCase": "GenerateReading",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a DSE English Paper 1 examiner. Generate a reading comprehension paper with passage and questions in valid JSON format."
+    },
+    {
+      "role": "user",
+      "content": "Generate a reading passage about Hong Kong street food culture for S4 students at core difficulty. Include 5 questions covering referencing, vocabulary, and inference types. Return valid JSON."
+    }
+  ],
+  "options": {
+    "temperature": 0.3,
+    "maxTokens": 4096,
+    "jsonMode": true,
+    "timeoutMs": 30000
+  },
+  "expectedCharacteristics": {
+    "difficulty": "core",
+    "questionCount": 5,
+    "containsInference": true,
+    "containsVocabulary": true,
+    "containsReferencing": true,
+    "readingLengthRange": [200, 500],
+    "paragraphCount": 3,
+    "minRubricScore": 70,
+    "minSemanticScore": 85
+  }
+}

@@ -1,0 +1,49 @@
+name: Prompt Regression Evaluation
+
+on:
+  pull_request:
+    paths:
+      - 'src/modules/ai/prompts/**'
+      - 'src/modules/ai/regression/fixtures/**'
+      - 'src/modules/ai/regression/golden/**'
+      - 'src/modules/ai/services/ai-execution.ts'
+      - 'src/modules/ai/providers/**'
+      - 'src/modules/reading/**'
+      - 'src/modules/writing-coach/**'
+  push:
+    branches: [main]
+    paths:
+      - 'src/modules/ai/prompts/**'
+      - 'src/modules/ai/regression/fixtures/**'
+      - 'src/modules/ai/regression/golden/**'
+
+jobs:
+  regression:
+    name: Prompt Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run Regression Evaluation
+        run: npm run evaluate
+        continue-on-error: false
+
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: src/modules/ai/regression/reports/
