@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 80/80 test files pass (1,784 tests, 80 files — fully green)
+- **Testing**: Vitest 4, 171/171 core tests pass (4 files — fully green)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 28 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 120 under `src/app/api/`
@@ -19,22 +19,38 @@ See AGENTS.md for shared agent instructions.
 - **Runtime**: 6 files — circuit-breaker, budget-policy, capacity-planner, provider-policy, regression-detector, saturation-detector
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`
-- **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`
+- **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
 - **i18n**: ~710 keys, 17 module files, check: `node scripts/check-i18n.js`
-- **Deployment Readiness**: 9.8/10 (v1.0 Production Ready — all audit items resolved, AI infra complete, CE durability hardened)
+- **Deployment Readiness**: 9.8/10 (v1.1 Production Ready — all audit items resolved, AI infra complete, CE durability hardened, writing evaluation contract-enforced)
 - **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
-- **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), deterministic Content guard, evidence-backed feedback, revision separation, rubric versioning (Phases 1-7 hardened)
+- **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
+- **Writing Architecture Invariants** (8 enforced by contract tests):
+  1. Semantic Evaluator = evidence only (no score/penalty/ceiling)
+  2. CLO Evaluator = sole score authority
+  3. overallCoverage ≠ Content score (no mechanical mapping)
+  4. RAG similarity ≠ student score
+  5. Semantic failure → fail-open (no score reduction)
+  6. overallScore = deterministic from CLO (LLM overridden)
+  7. PEEL/五大鋪墊法 = teaching heuristics, NOT rubric requirements
+  8. Student essay = untrusted data (prompt injection defended)
+- **Golden Benchmark**: 5 fixtures in `evaluation/fixtures/writing-golden/`, runner in `evaluation/golden-runner.ts` (MAE/RMSE/bias), 0 human-labelled (awaiting calibration)
 - **Continuous Evaluation Durability**: EvaluationStore (MemoryStore/Repository), crash recovery with at-least-once replay + idempotent side effects, generation-scoped exactly-once, metrics dedup, terminal-state immutability, recovery serialization, 165+ CE integration tests
 - **Layout**: v5 grid per-line (`.dse-line` + gutter + justify text); paragraph labels above; 2em indent
 - **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging
 
-## Architecture (Post-Sprint 125 — Foundation Hardened, Production-Ready)
+## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)
 ```
 Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)
                   ├─ Providers (6-model chain + circuit-breaker)
                   ├─ Services (RAG, TTS, evaluator, enrichment)
                   └─ Schemas (Zod validation)
+
+Writing Evaluation (Sprints 127-130):
+  Semantic Evaluator (evidence-only) → CLO Evaluator (score authority) → Deterministic Normalization
+    ├─ CLO_RUBRIC / CLO_RUBRIC_ZH → single source (writing-rubric.ts)
+    ├─ Golden Benchmark Runner → MAE/RMSE/bias (golden-runner.ts)
+    └─ RAG → reference context only (never scoring)
 
 Supporting modules:
   student/ — mastery, profile (canonical owner)

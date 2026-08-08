@@ -3,9 +3,10 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.0 Production Ready** ✅ | Sprint 129 | 80/80 test files pass | 1,784 tests | Architecture: **9.8/10** | Writing Pipeline: Phases 1-7 Hardened
+> **Status**: **v1.1 Production Ready** ✅ | Sprint 130 | 171 tests pass (4 core files) | Architecture: **9.8/10** | Writing Pipeline: Sprints 127-130 Hardened
+> **Writing Evaluation**: Semantic Evaluator (evidence-only) → CLO Evaluator (sole score authority) → Deterministic Normalization
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
-> **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring
+> **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
 
@@ -20,7 +21,13 @@ Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ AI Infra: prompt-versioning (SemVer + 7-state lifecycle)
                  ├─ AI Infra: regression (rubric/semantic/structural scoring)
                  ├─ AI Infra: experiments (A/B/C + cross-provider/version/dataset)
-                 └─ AI Infra: continuous-evaluation (drift + regression + alerts)
+                 ├─ AI Infra: continuous-evaluation (drift + regression + alerts)
+                 └─ AI Infra: golden-benchmark (MAE/RMSE/bias, human-marker calibration)
+
+Writing Evaluation (Sprints 127-130):
+  Semantic Evaluator (evidence-only) → CLO Evaluator (score authority) → Deterministic Normalization
+    └─ RAG → reference context only (never scoring)
+    └─ CLO_RUBRIC / CLO_RUBRIC_ZH → single canonical source (writing-rubric.ts)
 
 AI module: 16 directories, ~200 files — single pipeline, single owner per responsibility
 ```
@@ -49,7 +56,7 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholder) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (74 files, 1,586 tests, 100% pass) + Playwright 8 E2E specs |
+| Testing | Vitest 4 (4 core files, 171 tests, 100% pass) + Playwright 8 E2E specs |
 | Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
 | Documentation | 37 ADRs in `docs/architecture/` |
 | State | Zustand |
@@ -64,7 +71,18 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 - **🎧✍️ Integrated Skills 綜合訓練 v5** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**（Summary / Email Reply / Short Article / Report / Speech / Proposal / Notice / Press Release / Letter to Editor）、**Data File 資料夾模擬**（email, memo, report-excerpt, webpage, statistics, notice — 含干擾資訊與來源日期）、**HKEAA 官方三維評分**（Listening 40% + Language 35% + Organization 25%，含 DSE Level 5**~1 對照）、**5 種真實考試陷阱**（Self-correction / Synonym Replacement / Speaker Attitude / Numerical Precision / Distraction）、**12 種速記符號面板**（+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓）、**抄襲偵測強化**（≥8 連續詞 + Data File 比對 + 中式英文 10 項檢測）、步驟鎖定（聆聽→筆記→寫作）、AudioPlayer 播放控制、Note-taking 引導問題、7 種 AI 分析結果展示（文法錯誤/中式英文/詞彙升級/筆記評估/Data Manipulation/改進建議/評分明細）、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分。**Phase 1-7 全面強化**：Semantic Task-Coverage Evaluator 自動提取題目要求並檢測學生文章中的 evidence；Deterministic Content Guard 防止 LLM 對離題/不完整作文給予過高 Content 分數；Evidence-Backed Feedback 確保每項評語有事實依據；Revision Separation 區分忠實修正（faithfulCorrection）與示範強化（enhancedVersion）；Rubric Versioning 支援未來校準。含中式英文檢測、詞彙升級建議、結構評語、文體格式驗證、內部 HKDSE Level 估算（1-5），前端顯示 CLO 三維評分卡片及 DSE Level 徽章
+- **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分。**Sprints 127-130 全面強化**：
+  - **Semantic / Task-Coverage Evaluator** — 自動提取題目要求並檢測學生文章中的 verbatim evidence，輸出 structured evidence（requirements, status, evidence, overallCoverage），**純證據層，絕不產出分數/懲罰/上限**
+  - **CLO Evaluator** — **唯一評分權威**，獨立審查學生文章，接收 semantic evidence 作為參考但不強制綁定
+  - **Deterministic Normalization** — normalizeRubricScore() → half-point rounding (0-7), cloTotalScore, computed overallScore (不接受 LLM arbitrary overallScore)
+  - **Rubric 單一真相來源** — `CLO_RUBRIC` (EN) + `CLO_RUBRIC_ZH` (中文) 集中於 `writing-rubric.ts`，所有 consumer 必須 import 此 canonical source
+  - **Evidence-Backed Feedback** — 每項評語有事實依據（verbatim evidence）
+  - **Revision Separation** — 忠實修正（faithfulCorrection）與示範強化（enhancedVersion）分離
+  - **Rubric Versioning** — `WRITING_RUBRIC_VERSION = "HKDSE-P2-CLO-v1"` 支援未來校準
+  - **Golden Benchmark** — 5 fixtures + runner (MAE/RMSE/bias)，預留 human-marker calibration
+  - **Prompt Injection Defense** — Semantic + CLO evaluator 皆有 untrusted-data 防護
+  - **Fail-Open** — Semantic evaluator 失敗時不降分，CLO evaluator 正常執行
+  - 含中式英文檢測、詞彙升級建議、結構評語、文體格式驗證、內部 HKDSE Level 估算（1-5），前端顯示 CLO 三維評分卡片及 DSE Level 徽章
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放

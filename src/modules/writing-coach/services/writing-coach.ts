@@ -239,7 +239,6 @@ export function getVocabUpgrades() {
 function analyzeCoherence(content: string): CoherenceAnalysis {
   const transitions = content.match(/\b(furthermore|moreover|however|therefore|consequently|in addition|on the other hand|nevertheless|meanwhile|similarly)\b/gi) || [];
   return {
-    score: Math.min(10, transitions.length * 2 + 3),
     strengths: transitions.length >= 3 ? ['Good use of transition words'] : [],
     weaknesses: transitions.length < 3 ? ['Add more transition words for better flow'] : [],
     transitionUsage: { count: transitions.length, variety: new Set(transitions.map(t => t.toLowerCase())).size, appropriateness: 7 },
@@ -251,7 +250,6 @@ function assessTaskFulfillment(essay: EssaySubmission): TaskFulfillment {
   const wordCountOk = essay.wordCount >= 150;
   const textTypeMatch = DSE_TEXT_TYPES.some(t => t.type.toLowerCase().includes(essay.textType.toLowerCase()));
   return {
-    score: (wordCountOk ? 5 : 2) + (textTypeMatch ? 3 : 1),
     addressedAllParts: wordCountOk,
     wordCountAdequate: wordCountOk,
     textTypeAppropriate: textTypeMatch,
@@ -265,7 +263,6 @@ function analyzeOrganization(content: string): OrganizationAnalysis {
   const paragraphs = content.split(/\n\n+/).filter(p => p.trim().length > 0);
   const avgLen = paragraphs.length > 0 ? paragraphs.reduce((s, p) => s + p.split(/\s+/).length, 0) / paragraphs.length : 0;
   return {
-    score: Math.min(10, paragraphs.length * 2 + (avgLen > 50 ? 2 : 0)),
     hasClearIntroduction: paragraphs.length > 0 && paragraphs[0].split(/\s+/).length > 20,
     hasClearConclusion: paragraphs.length > 0 && paragraphs[paragraphs.length - 1].split(/\s+/).length > 20,
     paragraphCount: paragraphs.length, averageParagraphLength: Math.round(avgLen),

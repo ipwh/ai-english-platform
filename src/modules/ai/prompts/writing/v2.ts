@@ -152,7 +152,6 @@ Return ONLY valid JSON matching this schema:
   ],
 
   "coherenceFeedback": {
-    "score": 0,                // 0-10
     "transitionUsage": "string", // Assessment of transition word usage
     "transitionUsageZh": "string",
     "paragraphFlow": "string",   // How well paragraphs connect
@@ -162,7 +161,6 @@ Return ONLY valid JSON matching this schema:
   },
 
   "organizationFeedback": {
-    "score": 0,                // 0-10
     "hasClearIntroduction": true,
     "hasClearConclusion": true,
     "paragraphCount": 0,
@@ -173,7 +171,6 @@ Return ONLY valid JSON matching this schema:
   },
 
   "taskFulfillment": {
-    "score": 0,                // 0-10
     "addressedAllParts": true,
     "wordCountAdequate": true,
     "textTypeAppropriate": true,
@@ -220,18 +217,30 @@ Return ONLY valid JSON matching this schema:
 
 - Content (C): Focus on whether ALL prompt requirements are addressed.
   Check for: specific examples, idea development, creativity, audience awareness.
-  Use the "五大鋪墊法" (Context → Others' Views → Position → Reasons+Examples → Concession+Rebuttal).
 
 - Language (L): Focus on grammar accuracy, sentence variety, vocabulary range.
   Check for: Chinglish patterns, tense consistency, article usage, preposition accuracy.
   Reward: complex sentences, academic vocabulary, precise word choice.
 
-- Organization (O): Focus on structure, coherence, cohesion.
-  Check for: clear intro/conclusion, topic sentences, PEEL structure, transition words.
+- Organization (O): Focus on logical progression, paragraph purpose, paragraph coherence,
+  cohesion, reference, and appropriate cohesive devices.
+  Check for: clear intro/conclusion, topic sentences, transition words.
   Reward: sophisticated cohesive ties, logical paragraph progression.
 
+⚠️ IMPORTANT — RUBRIC VS TEACHING HEURISTICS:
+PEEL, "Five Preparation Methods" (五大鋪墊法), counterargument, complex sentence
+usage, personal experience, and advanced vocabulary are TEACHING/DIAGNOSTIC
+heuristics only. They are NOT mandatory CLO criteria unless explicitly required
+by the task.
+
+- Do not lower a CLO score merely because the student does not use a named
+  teaching framework (e.g., PEEL, 五大鋪墊法).
+- Complex sentence structures and vocabulary sophistication belong to Language,
+  not Organization.
+- Do not treat PEEL compliance as an Organization requirement.
+
 ${context.textType ? `\n## Text Type Context\nThis essay is a **${context.textType}**. Evaluate format requirements specific to this text type (e.g., salutation+closing for letters, headline for articles, greeting+thank-you for speeches).` : ''}
-${context.wordLimit ? `\n## Word Limit\nTarget word count: ~${context.wordLimit} words. Deduct from Task Fulfillment if significantly under/over.` : ''}
+${context.wordLimit ? `\n## Word Limit\nTarget word count: ~${context.wordLimit} words. Note whether the essay length is appropriate, but do not create a separate word-count score.` : ''}
 ${context.studentLevel ? `\n## Student Level\nGrade: ${context.studentLevel}. Adjust expectations: S4 students may have simpler vocabulary; S6 students should demonstrate DSE-level sophistication.` : ''}
 `.trim();
 }

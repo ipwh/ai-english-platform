@@ -1,0 +1,18 @@
+{
+  "id": "sample-01",
+  "task": "Write an article for your school magazine discussing whether schools should ban smartphones. Give two reasons to support your view and suggest one alternative approach.",
+  "studentDraft": "I think schools should not ban smartphones because they are useful for learning. Students can use phones to search information quickly. Also, phones help students communicate with parents in emergencies. Instead of banning, schools can make rules about when to use phones.",
+  "textType": "article",
+  "expected": {
+    "contentScore": null,
+    "languageScore": null,
+    "organizationScore": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "weak-development",
+    "source": "platform-generated",
+    "markerCount": 0
+  },
+  "notes": "Reserved for human-marker calibration. Short essay, addresses all prompt parts but limited development."
+}

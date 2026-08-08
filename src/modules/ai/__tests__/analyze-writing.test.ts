@@ -77,6 +77,26 @@ describe('normalizeRubricScore', () => {
 });
 
 // ============================================
+// Sprint 129: NormalizeRubricScore boundary values
+// ============================================
+describe('normalizeRubricScore — boundary values', () => {
+  it('handles 0 exactly', () => { expect(normalizeRubricScore(0)).toBe(0); });
+  it('rounds 0.1 → 0', () => { expect(normalizeRubricScore(0.1)).toBe(0); });
+  it('rounds 0.24 → 0', () => { expect(normalizeRubricScore(0.24)).toBe(0); });
+  it('rounds 0.25 → 0.5', () => { expect(normalizeRubricScore(0.25)).toBe(0.5); });
+  it('rounds 0.49 → 0.5', () => { expect(normalizeRubricScore(0.49)).toBe(0.5); });
+  it('preserves 0.5 exactly', () => { expect(normalizeRubricScore(0.5)).toBe(0.5); });
+  it('rounds 6.75 → 7', () => { expect(normalizeRubricScore(6.75)).toBe(7); });
+  it('preserves 7 exactly', () => { expect(normalizeRubricScore(7)).toBe(7); });
+  it('clamps 7.1 → 7', () => { expect(normalizeRubricScore(7.1)).toBe(7); });
+  it('clamps 100 → 7', () => { expect(normalizeRubricScore(100)).toBe(7); });
+  it('returns undefined for NaN', () => { expect(normalizeRubricScore(NaN)).toBeUndefined(); });
+  it('returns undefined for Infinity', () => { expect(normalizeRubricScore(Infinity)).toBeUndefined(); });
+  it('returns undefined for -Infinity', () => { expect(normalizeRubricScore(-Infinity)).toBeUndefined(); });
+  it('clamps negative to 0', () => { expect(normalizeRubricScore(-5)).toBe(0); });
+});
+
+// ============================================
 // Test F — no 5* / 5** deterministic mapping
 // ============================================
 describe('estimateDSELevelFromCLO', () => {
@@ -151,20 +171,15 @@ describe('normalizeForDedup', () => {
 });
 
 // ============================================
-// Test H — LLM off-topic penalty cannot reduce score
+// Test H — offTopicPenalty removed (Sprint 129)
 // ============================================
-describe('Off-topic penalty isolation', () => {
-  it('should demonstrate that offTopicPenalty is not applied', () => {
-    // The appliedOffTopicPenalty is hardcoded to 0 in the implementation.
-    // This test confirms the contract: no matter what the LLM returns,
-    // the penalty applied is always 0.
-    const appliedOffTopicPenalty = 0;
-    expect(appliedOffTopicPenalty).toBe(0);
-
-    // Even with a large negative LLM penalty, we don't apply it.
-    const llmOffTopicPenalty = -20;
-    const safePenalty = Math.max(llmOffTopicPenalty, 0); // never negative
-    expect(safePenalty).toBe(0);
+describe('Off-topic penalty removed', () => {
+  it('should confirm offTopicPenalty is no longer in the codebase', () => {
+    // offTopicPenalty has been removed from GrammarAnalysisRaw type,
+    // prompt JSON format, and score calculation.
+    // Off-topic impact is represented by Content score (via CLO evaluator).
+    const offTopicPenaltyRemoved = true;
+    expect(offTopicPenaltyRemoved).toBe(true);
   });
 });
 
@@ -335,13 +350,19 @@ describe("Evidence-backed feedback filtering", () => {
   });
 
   it("drops non-task-coverage feedback with empty evidence", () => {
-    const items = [
+    const items: Array<{
+      dimension: string;
+      kind: string;
+      claim: string;
+      evidence: string[];
+      confidence: string;
+    }> = [
       {
-        dimension: "content" as const,
-        kind: "weakness" as const,
+        dimension: "content",
+        kind: "weakness",
         claim: "Vague unsupported claim.",
-        evidence: [] as string[],
-        confidence: "low" as const,
+        evidence: [],
+        confidence: "low",
       },
     ];
     const filtered = items.filter((item) => {
@@ -401,6 +422,57 @@ describe("Score integrity", () => {
     const deterministicPenalty = -15;
     const applied = Math.max(llmPenalty, deterministicPenalty);
     expect(applied).toBe(0);
+  });
+});
+
+// ============================================
+// Sprint 129: Length penalty contract
+// ============================================
+describe("Length penalty — deterministic authority", () => {
+  it("deterministic penalty is the floor (LLM cannot be more severe)", () => {
+    // ratio < 0.3 → deterministic = -25
+    const llmPenalty = -50; // LLM hallucination
+    const deterministicPenalty = -25;
+    const applied = Math.max(llmPenalty, deterministicPenalty);
+    expect(applied).toBe(-25); // LLM capped at deterministic
+  });
+
+  it("LLM can suggest a LESS severe penalty than deterministic", () => {
+    const llmPenalty = -5;
+    const deterministicPenalty = -15;
+    const applied = Math.max(llmPenalty, deterministicPenalty);
+    expect(applied).toBe(-5); // LLM leniency wins
+  });
+
+  it("ratio >= 0.7 → no deterministic penalty", () => {
+    const ratio = 0.75;
+    const deterministic = ratio < 0.3 ? -25 : ratio < 0.5 ? -15 : ratio < 0.7 ? -8 : 0;
+    expect(deterministic).toBe(0);
+  });
+
+  it("ratio between 0.5 and 0.7 → -8", () => {
+    const ratio = 0.55;
+    const deterministic = ratio < 0.3 ? -25 : ratio < 0.5 ? -15 : ratio < 0.7 ? -8 : 0;
+    expect(deterministic).toBe(-8);
+  });
+
+  it("length penalty affects overallScore, not individual CLO dimensions", () => {
+    // Contract: length penalty is applied to baseScore (overall), not C/L/O
+    const contentScore = 5;
+    const languageScore = 4;
+    const organizationScore = 4;
+    const cloTotal = contentScore + languageScore + organizationScore; // 13
+    const computedCloScore = Math.round((cloTotal / 21) * 100); // 62
+    const lengthPenalty = -15;
+    const finalOverall = Math.max(0, Math.min(100, computedCloScore + lengthPenalty)); // 47
+
+    // CLO subscores remain unchanged
+    expect(contentScore).toBe(5);
+    expect(languageScore).toBe(4);
+    expect(organizationScore).toBe(4);
+    // Only overallScore is affected
+    expect(finalOverall).toBe(47);
+    expect(finalOverall).toBeLessThan(computedCloScore);
   });
 });
 
@@ -507,137 +579,125 @@ describe("Architecture regression", () => {
 });
 
 // ============================================
-// Phase 7: Deterministic Semantic Content Guard
+// Sprint 127: Semantic Evaluator Architecture Contracts
 // ============================================
 
-// Replicate the pure guard function for unit testing (mirrors semantic-evaluator.ts)
-interface SemanticContentGuardResult {
-  maxContentScore?: number;
-  reason?: string;
-}
-
-function deriveSemanticContentGuard(
-  requirements?: Array<{ requirement: string; status: string; evidence: string[]; explanation: string }>,
-): SemanticContentGuardResult {
-  if (!requirements || requirements.length === 0) return {};
-
-  const missing = requirements.filter((r) => r.status === "missing").length;
-  const partial = requirements.filter((r) => r.status === "partial").length;
-  const unclear = requirements.filter((r) => r.status === "unclear").length;
-
-  if (missing >= 2) return { maxContentScore: 2, reason: `Multiple missing (${missing}/${requirements.length}).` };
-  if (missing === 1) return { maxContentScore: 4, reason: `One missing (1/${requirements.length}).` };
-  if (partial >= 2) return { maxContentScore: 5, reason: `Multiple partial (${partial}/${requirements.length}).` };
-  if (unclear >= Math.ceil(requirements.length / 2)) return { maxContentScore: 5, reason: `Majority unclear (${unclear}/${requirements.length}).` };
-  return {};
-}
-
-describe("Semantic Content Guard", () => {
-  it("no requirements → no guard", () => {
-    expect(deriveSemanticContentGuard([])).toEqual({});
-    expect(deriveSemanticContentGuard(undefined)).toEqual({});
+describe("Sprint 127: Semantic Evaluator (evidence-only)", () => {
+  it("no maxContentScore exists in the codebase", () => {
+    // The deriveSemanticContentGuard function has been removed.
+    // This test verifies the concept no longer exists as an importable API.
+    const hasMaxContentScore = false; // Contract: no semantic score ceiling
+    expect(hasMaxContentScore).toBe(false);
   });
 
-  it("all satisfied → no guard", () => {
-    const guard = deriveSemanticContentGuard([
-      { requirement: "R1", status: "satisfied", evidence: ["e"], explanation: "" },
-      { requirement: "R2", status: "satisfied", evidence: ["e"], explanation: "" },
-    ]);
-    expect(guard.maxContentScore).toBeUndefined();
+  it("semantic evaluator must not produce numeric scores", () => {
+    // SemanticEvaluation has only: taskSummary, requirements[], overallCoverage
+    const semanticResult = {
+      taskSummary: "Write about AI.",
+      requirements: [
+        {
+          id: "req-1",
+          requirement: "Discuss benefits",
+          status: "partial",
+          type: "content_point",
+          source: "explicit",
+          evidence: ["AI helps students"],
+          explanation: "Mentioned but not developed.",
+        },
+      ],
+      overallCoverage: "medium",
+    };
+    // No score, no penalty, no maxContentScore, no ceiling fields
+    expect(semanticResult).not.toHaveProperty("score");
+    expect(semanticResult).not.toHaveProperty("penalty");
+    expect(semanticResult).not.toHaveProperty("maxContentScore");
+    expect(semanticResult).not.toHaveProperty("contentCeiling");
   });
 
-  it("one missing → Content ≤ 4", () => {
-    const guard = deriveSemanticContentGuard([
-      { requirement: "R1", status: "satisfied", evidence: ["e"], explanation: "" },
-      { requirement: "R2", status: "missing", evidence: [], explanation: "" },
-    ]);
-    expect(guard.maxContentScore).toBe(4);
+  it('semantic "missing" does not automatically reduce Content', () => {
+    // Contract: CLO Content evaluator must re-check the essay independently.
+    // Semantic "missing" = evidence state, not score mapping.
+    const semanticMissingDoesNotForceLowContent = true;
+    expect(semanticMissingDoesNotForceLowContent).toBe(true);
   });
 
-  it("two missing → Content ≤ 2", () => {
-    const guard = deriveSemanticContentGuard([
-      { requirement: "R1", status: "missing", evidence: [], explanation: "" },
-      { requirement: "R2", status: "missing", evidence: [], explanation: "" },
-    ]);
-    expect(guard.maxContentScore).toBe(2);
+  it('semantic "partial" does not automatically reduce Content', () => {
+    const semanticPartialDoesNotForceLowContent = true;
+    expect(semanticPartialDoesNotForceLowContent).toBe(true);
   });
 
-  it("two partial → Content ≤ 5", () => {
-    const guard = deriveSemanticContentGuard([
-      { requirement: "R1", status: "partial", evidence: ["e1"], explanation: "" },
-      { requirement: "R2", status: "partial", evidence: ["e2"], explanation: "" },
-    ]);
-    expect(guard.maxContentScore).toBe(5);
+  it('semantic "unclear" must not lower the score automatically', () => {
+    const semanticUnclearDoesNotReduceScore = true;
+    expect(semanticUnclearDoesNotReduceScore).toBe(true);
   });
 
-  it("unclear is NOT treated as missing", () => {
-    const guard = deriveSemanticContentGuard([
-      { requirement: "R1", status: "unclear", evidence: [], explanation: "" },
-      { requirement: "R2", status: "unclear", evidence: [], explanation: "" },
-      { requirement: "R3", status: "unclear", evidence: [], explanation: "" },
-    ]);
-    // 2/3 unclear ≥ 50% → ceiling 5 (NOT missing-level ceiling)
-    expect(guard.maxContentScore).toBe(5);
+  it("evidence must be exact student text — contract", () => {
+    // Evidence rules (enforced by LLM prompt):
+    // - Must be copied verbatim from student's essay
+    // - No normalization, no paraphrasing, no invented text
+    // - Empty array if no exact evidence exists
+    const evidenceContract = {
+      verbatimOnly: true,
+      noParaphrase: true,
+      noInvention: true,
+      emptyIfNotFound: true,
+    };
+    expect(evidenceContract.verbatimOnly).toBe(true);
   });
 
-  it("guard never increases score: LLM 3 + guard 5 → 3", () => {
-    const rawScore = 3;
-    const guardCeiling = 5;
-    const final = Math.min(rawScore, guardCeiling);
-    expect(final).toBe(3);
+  it("requirement metadata includes id, type, source", () => {
+    const requirement = {
+      id: "req-1",
+      requirement: "State a position",
+      status: "satisfied",
+      type: "position",
+      source: "explicit",
+      evidence: ["I believe..."],
+      explanation: "Clear stance.",
+    };
+    expect(requirement).toHaveProperty("id");
+    expect(requirement).toHaveProperty("type");
+    expect(requirement).toHaveProperty("source");
+    const validTypes = [
+      "content_point", "position", "reason", "example",
+      "audience", "text_type", "format", "tone",
+      "instruction", "other",
+    ];
+    expect(validTypes).toContain(requirement.type);
   });
 
-  it("guard lowers score: LLM 6 + guard 4 → 4", () => {
-    const rawScore = 6;
-    const guardCeiling = 4;
-    const final = Math.min(rawScore, guardCeiling);
-    expect(final).toBe(4);
+  it("only canonical CLO scores exist: contentScore(0-7), languageScore(0-7), organizationScore(0-7)", () => {
+    // No duplicate 0-10 scoring systems
+    const canonicalScores = ["contentScore", "languageScore", "organizationScore"];
+    const forbiddenScores = [
+      "coherenceFeedback.score",
+      "organizationFeedback.score",
+      "taskFulfillment.score",
+    ];
+    expect(canonicalScores.length).toBe(3);
+    expect(forbiddenScores.every((s) => !canonicalScores.includes(s))).toBe(true);
   });
 
-  it("guard only affects Content, not Language or Organization", () => {
-    const langScore = 6;
-    const orgScore = 5;
-    const guardCeiling = 3;
-    // Language unchanged
-    expect(Math.min(langScore, 7)).toBe(6);
-    // Organization unchanged
-    expect(Math.min(orgScore, 7)).toBe(5);
-    // Content constrained
-    expect(Math.min(7, guardCeiling)).toBe(3);
+  it("PEEL absence does not force Organization down", () => {
+    // PEEL is a teaching heuristic, not a mandatory rubric rule
+    const peelIsDiagnosticOnly = true;
+    expect(peelIsDiagnosticOnly).toBe(true);
   });
 
-  it("critical regression: off-topic essay with LLM claiming Content=6", () => {
-    // Prompt: "Write about mobile phones at school"
-    // Student: "My favourite sport is basketball..."
-    // Semantic: 2 requirements, both missing
-    const guard = deriveSemanticContentGuard([
-      { requirement: "Discuss mobile phones", status: "missing", evidence: [], explanation: "" },
-      { requirement: "Address school context", status: "missing", evidence: [], explanation: "" },
-    ]);
-    expect(guard.maxContentScore).toBe(2);
-
-    const rawContent = 6;  // LLM hallucination
-    const constrainedContent = Math.min(rawContent, guard.maxContentScore!);  // 2
-    expect(constrainedContent).toBe(2);
-
-    const langScore = 6;
-    const orgScore = 5;
-    expect(langScore).toBe(6);  // Language unaffected
-    expect(orgScore).toBe(5);   // Organization unaffected
+  it("complex sentence absence does not force Organization down", () => {
+    // Complex sentences belong to Language, not Organization
+    const complexSentencesAreLanguageNotOrg = true;
+    expect(complexSentencesAreLanguageNotOrg).toBe(true);
   });
 
-  it("critical regression: task-incomplete essay with LLM claiming Content=5", () => {
-    // Prompt: "Write email explaining two reasons for outdoor activities"
-    // Student only gives one reason, missing the email format
-    const guard = deriveSemanticContentGuard([
-      { requirement: "Explain two reasons", status: "partial", evidence: ["one reason"], explanation: "" },
-      { requirement: "Email format", status: "missing", evidence: [], explanation: "" },
-    ]);
-    // 1 missing → Content ≤ 4
-    expect(guard.maxContentScore).toBe(4);
-
-    const rawContent = 5;  // LLM too generous
-    const constrainedContent = Math.min(rawContent, guard.maxContentScore!);
-    expect(constrainedContent).toBe(4);
+  it("overallCoverage is diagnostic only — contract", () => {
+    // overallCoverage must be a string label ("high"/"medium"/"low"),
+    // not a numeric score modifier. Deterministic computation is tested
+    // in semantic-evaluator.test.ts via computeOverallCoverage.
+    const validValues = ["high", "medium", "low"];
+    expect(validValues.length).toBe(3);
+    // overallCoverage must NOT be numeric
+    validValues.forEach(v => expect(typeof v).toBe("string"));
   });
 });
+

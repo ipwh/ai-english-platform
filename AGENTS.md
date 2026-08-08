@@ -10,10 +10,10 @@ See `CLAUDE.md` for full architecture documentation.
 
 ## Quick Start (New Maintainer)
 1. Read `CLAUDE.md` for architecture, ownership, and conventions
-2. Read `CHANGELOG.md` for Sprint 124 changes (latest)
+2. Read `CHANGELOG.md` for Sprint 127-130 changes (latest)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 78/78 pass (1,715 tests, 78 files; fully green)
+5. Run `npm test` — expect 171/171 pass (4 core files; semantic-evaluator, analyze-writing, writing-coach, writing-coach-pro)
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions
    - `npm run prompt:states` — release lifecycle states

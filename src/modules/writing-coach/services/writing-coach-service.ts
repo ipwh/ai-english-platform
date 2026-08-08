@@ -80,7 +80,6 @@ interface AIWritingAnalysis {
     type: string;
   }>;
   coherenceFeedback: {
-    score: number;
     transitionUsage: string;
     transitionUsageZh: string;
     paragraphFlow: string;
@@ -89,7 +88,6 @@ interface AIWritingAnalysis {
     suggestionsZh: string[];
   };
   organizationFeedback: {
-    score: number;
     hasClearIntroduction: boolean;
     hasClearConclusion: boolean;
     paragraphCount: number;
@@ -99,7 +97,6 @@ interface AIWritingAnalysis {
     suggestionsZh: string[];
   };
   taskFulfillment: {
-    score: number;
     addressedAllParts: boolean;
     wordCountAdequate: boolean;
     textTypeAppropriate: boolean;
@@ -352,7 +349,6 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
     }));
 
     const coherenceAnalysis: CoherenceAnalysis = {
-      score: coherenceFeedback.score,
       strengths: coherenceFeedback.suggestions?.length === 0
         ? ['Good coherence'] : [],
       weaknesses: coherenceFeedback.suggestions?.length > 0
@@ -360,26 +356,22 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
       transitionUsage: {
         count: 0,
         variety: 0,
-        appropriateness: coherenceFeedback.score >= 7 ? 7 : 5,
+        appropriateness: 7,
       },
-      paragraphFlow: coherenceFeedback.score >= 7 ? 'Smooth'
-        : coherenceFeedback.score >= 5 ? 'Adequate' : 'Needs improvement',
+      paragraphFlow: 'Adequate',
     };
 
     const orgAnalysis: OrganizationAnalysis = {
-      score: organizationFeedback.score,
       hasClearIntroduction: organizationFeedback.hasClearIntroduction,
       hasClearConclusion: organizationFeedback.hasClearConclusion,
       paragraphCount: organizationFeedback.paragraphCount,
       averageParagraphLength: essay.wordCount / Math.max(1, organizationFeedback.paragraphCount),
-      logicalFlow: organizationFeedback.score >= 7 ? 'Well-structured'
-        : organizationFeedback.score >= 5 ? 'Adequate' : 'Needs improvement',
+      logicalFlow: 'Adequate',
       suggestions: organizationFeedback.suggestions || [],
       suggestionsZh: organizationFeedback.suggestionsZh || [],
     };
 
     const task: TaskFulfillment = {
-      score: taskFulfillment.score,
       addressedAllParts: taskFulfillment.addressedAllParts,
       wordCountAdequate: taskFulfillment.wordCountAdequate,
       textTypeAppropriate: taskFulfillment.textTypeAppropriate,
@@ -466,14 +458,12 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
       grammarIssues: [],
       vocabularySuggestions: [],
       coherenceAnalysis: {
-        score: 0,
         strengths: [],
         weaknesses: ['Analysis unavailable — please try again later'],
         transitionUsage: { count: 0, variety: 0, appropriateness: 0 },
         paragraphFlow: 'Unknown',
       },
       taskFulfillment: {
-        score: 0,
         addressedAllParts: false,
         wordCountAdequate: false,
         textTypeAppropriate: false,
@@ -482,7 +472,6 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
         commentsZh: '無法分析',
       },
       organization: {
-        score: 0,
         hasClearIntroduction: false,
         hasClearConclusion: false,
         paragraphCount: 0,

@@ -4,6 +4,62 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-08 — Writing Evaluation Architecture Hardening (Sprints 127-130)
+
+### 🏗️ Sprint 127 — Semantic Evaluator as Strict Evidence-Only Layer
+- **REMOVED**: `deriveSemanticContentGuard()` / `SemanticContentGuardResult` / `maxContentScore` — semantic evaluator no longer has ANY score authority
+- **HARDENED**: Evidence MUST be verbatim student text — no paraphrasing, no normalization, no invention
+- **NEW**: Requirement metadata — `id`, `type` (content_point/position/reason/example/audience/text_type/format/tone/instruction/other), `source` (explicit/clearly_implied)
+- **NEW**: `computeOverallCoverage()` — deterministic diagnostic label, not a score modifier
+- **Architecture**: Semantic evaluator = EVIDENCE GENERATOR only; CLO evaluator = SOLE SCORE AUTHORITY
+
+### 🏗️ Sprint 128 — Rubric Single Source of Truth + Metadata Consolidation
+- **NEW**: `CLO_RUBRIC_ZH` — Traditional Chinese rubric in `writing-rubric.ts` (canonical source)
+- **FIXED**: `analyze-writing.ts` no longer has ~130-line inline ZH rubric — imports `CLO_RUBRIC_ZH` instead
+- **FIXED**: `WritingRubricMetadata` double-definition resolved — canonical interface in `rubric-version.ts`, Zod schema in `ai-schema.ts` (no conflicting type export)
+- **NEW**: Golden dataset infrastructure — `evaluation/fixtures/writing-golden/` (README + sample-01.json)
+- **NEW**: 14 contract tests (Tests 1-10: fail-open, score authority, requirement-count independence, rubric consistency, overallScore determinism, RAG boundary, embedding safety)
+
+### 🏗️ Sprint 129 — Golden Benchmark, Scoring Contracts, Dead Code Removal
+- **REMOVED**: `offTopicPenalty` from prompt JSON, `GrammarAnalysisRaw` type, and score calculation — off-topic impact is now solely represented by Content score
+- **NEW**: `golden-runner.ts` — loads fixtures, runs `analyzeWriting`, computes MAE per dimension (skips when scores are null)
+- **NEW**: 5 golden fixtures (sample-01 through sample-05): weak-development, missing-requirement, strong-language-weak-content, prompt-injection, chinglish-heavy
+- **NEW**: 14 `normalizeRubricScore()` boundary value tests (0, 0.1, 0.24, 0.25, 0.49, 0.5, 6.75, 7, 7.1, 100, NaN, Infinity, -Infinity, -5)
+- **NEW**: 5 length penalty contract tests (deterministic floor, LLM leniency, ratio thresholds, dimension isolation)
+
+### 🏗️ Sprint 130 — Scoring Calibration, Prompt Quality & Trust Boundary Audit
+- **FIXED (P0)**: Grammar prompt misleading "官方" claim → corrected to "本平台依據 HKDSE 等級描述整理的內部評分指引"
+- **FIXED (P0)**: Softened implicit score ceiling rule — "若明顯離題...CLO 子分數不可高於 2" now clarified as extreme-cases-only, not mechanical requirement-count mapping
+- **FIXED (P1)**: Prompt injection defense added to grammar/CLO evaluator user prompts (both with and without semantic evidence)
+- **UPGRADED**: Golden benchmark runner now computes RMSE, signed error (bias), per-dimension metrics
+- **UPGRADED**: Golden fixture schema standardized to `contentScore/languageScore/organizationScore` with `annotations` and `metadata` (difficulty, caseType, source, markerCount)
+- **Audit**: Full forensic pipeline audit confirming zero mechanical score authority in semantic layer, no RAG→score paths, fail-open behavior verified
+
+### 📊 Architecture Invariants (Enforced by Tests)
+1. Semantic Evaluator output has NO score/penalty/ceiling fields
+2. CLO Evaluator is the sole score authority
+3. `overallCoverage` does NOT mechanically map to Content score
+4. RAG similarity does NOT become student performance score
+5. Semantic failure → fail-open (no automatic score reduction)
+6. `overallScore` is deterministic from CLO subscores (LLM `overallScore` overridden)
+7. PEEL/五大鋪墊法/counterargument = teaching heuristics, NOT rubric requirements
+8. Student essay = untrusted data (prompt injection defended)
+
+### 📈 Current Baseline
+```
+TypeScript:         0 errors
+Core Test Files:    4 passed (4)
+Core Tests:         171 passed (171)
+  semantic-evaluator.test.ts:    69 tests
+  analyze-writing.test.ts:       69 tests
+  writing-coach.test.ts:         19 tests
+  writing-coach-pro.test.ts:     12 tests
+Golden Fixtures:    5 (0 human-labelled)
+Architecture:       All 8 invariants verified
+```
+
+---
+
 ## 2026-08-07 — Writing Analysis Pipeline Hardening (Sprints 126-129)
 
 ### 🏗️ Architecture: Semantic / Task-Coverage Evaluator (Phase 1-2)

@@ -1,0 +1,18 @@
+{
+  "id": "sample-05-chinglish",
+  "task": "Write an essay about the benefits of reading.",
+  "studentDraft": "Reading is very important. According to my opinion, reading can help us learn many knowledges. Although reading is good, but some students don't like it. Because they think reading is boring, so they avoid it. There have many good books in the library. I very like reading because it makes me relax. We should discuss about the importance of reading more often.",
+  "textType": "essay",
+  "expected": {
+    "contentScore": null,
+    "languageScore": null,
+    "organizationScore": null
+  },
+  "metadata": {
+    "difficulty": "remedial",
+    "caseType": "chinglish-heavy",
+    "source": "platform-generated",
+    "markerCount": 0
+  },
+  "notes": "Heavy Chinglish patterns: 'According to my opinion', 'Although...but', 'Because...so', 'There have', 'I very like', 'discuss about', 'many knowledges'. Tests HK student error diagnosis."
+}

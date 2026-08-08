@@ -72,7 +72,6 @@ export interface VocabularySuggestion {
 }
 
 export interface CoherenceAnalysis {
-  score: number;
   strengths: string[];
   weaknesses: string[];
   transitionUsage: { count: number; variety: number; appropriateness: number };
@@ -80,7 +79,6 @@ export interface CoherenceAnalysis {
 }
 
 export interface TaskFulfillment {
-  score: number;
   addressedAllParts: boolean;
   wordCountAdequate: boolean;
   textTypeAppropriate: boolean;
@@ -90,7 +88,6 @@ export interface TaskFulfillment {
 }
 
 export interface OrganizationAnalysis {
-  score: number;
   hasClearIntroduction: boolean;
   hasClearConclusion: boolean;
   paragraphCount: number;

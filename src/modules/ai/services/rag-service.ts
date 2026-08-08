@@ -13,6 +13,9 @@ import { logger } from '@/shared/logger/logger';
 const DEEPSEEK_API_KEY = config.deepseek.apiKey;
 const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
 
+/** Detected embedding dimension — populated at first successful call. */
+let _detectedEmbeddingDim: number | null = null;
+
 function getApiKey(): string {
   if (!config.deepseek.isConfigured) {
     throw new Error('DEEPSEEK_API_KEY not configured. RAG features unavailable.');
@@ -47,7 +50,16 @@ async function getEmbedding(text: string): Promise<number[]> {
       if (res.ok) {
         const json = await res.json();
         if (json.data?.[0]?.embedding) {
-          return json.data[0].embedding;
+          const emb = json.data[0].embedding as number[];
+          // Detect and validate embedding dimension
+          if (_detectedEmbeddingDim === null) {
+            _detectedEmbeddingDim = emb.length;
+            logger.info({ module: 'rag-service', dimension: _detectedEmbeddingDim, provider: 'DeepSeek' }, 'Embedding dimension detected');
+          } else if (emb.length !== _detectedEmbeddingDim) {
+            logger.error({ module: 'rag-service', expected: _detectedEmbeddingDim, actual: emb.length }, 'Embedding dimension mismatch — model may have changed');
+            throw new Error(`Embedding dimension mismatch: expected ${_detectedEmbeddingDim}, got ${emb.length}`);
+          }
+          return emb;
         }
       }
       logger.warn({ module: 'rag-service', status: res.status }, 'DeepSeek embedding failed, falling back to Vertex AI');
@@ -56,11 +68,22 @@ async function getEmbedding(text: string): Promise<number[]> {
     }
   }
 
-  // Fallback: Vertex AI embeddings (textembedding-gecko)
+  // Fallback: Vertex AI embeddings (textembedding-gecko / text-embedding-004, 768-dim)
   try {
     const { getEmbedding: getVertexEmbedding } = await import('@/modules/ai/services/vertex-embeddings');
     const embedding = await getVertexEmbedding(text);
-    if (embedding && embedding.length > 0) return embedding;
+    if (embedding && embedding.length > 0) {
+      // Validate dimension consistency when mixing providers
+      if (_detectedEmbeddingDim !== null && embedding.length !== _detectedEmbeddingDim) {
+        logger.error({ module: 'rag-service', deepseekDim: _detectedEmbeddingDim, vertexDim: embedding.length }, 'Provider embedding dimension mismatch — pgvector search will fail');
+        throw new Error(`Embedding dimension mismatch between providers: DeepSeek ${_detectedEmbeddingDim}d vs Vertex ${embedding.length}d. Cannot safely mix.`);
+      }
+      if (_detectedEmbeddingDim === null) {
+        _detectedEmbeddingDim = embedding.length;
+        logger.info({ module: 'rag-service', dimension: _detectedEmbeddingDim, provider: 'Vertex AI' }, 'Embedding dimension detected (fallback)');
+      }
+      return embedding;
+    }
     throw new Error('Vertex AI returned empty embedding');
   } catch (e) {
     throw new Error(`Embedding API failed (both DeepSeek and Vertex AI): ${(e as Error).message}`);
@@ -73,6 +96,7 @@ async function getEmbedding(text: string): Promise<number[]> {
 
 /**
  * 將教材內容分塊（每塊 ~500 tokens，有重疊）
+ * Overlap: ~25 words (~50 tokens for English, heuristic only — not tokenizer-accurate)
  */
 function chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
   const chunks: string[] = [];
@@ -86,7 +110,7 @@ function chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
 
     if (currentTokens + paraTokens > chunkSize && currentChunk) {
       chunks.push(currentChunk.trim());
-      // 重疊：保留最後 overlap 個 token 的內容
+      // 重疊：保留最後 ~overlap/2 個 word（不是精確 token 重疊，只是啟發式估算）
       const words = currentChunk.split(/\s+/);
       const overlapWords = words.slice(Math.max(0, words.length - Math.floor(overlap / 2)));
       currentChunk = overlapWords.join(' ') + '\n\n' + para;
@@ -151,9 +175,10 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
 
       // Also store pgvector embedding if available
       if (await isPgvectorAvailable()) {
+        const dim = _detectedEmbeddingDim ?? 1536; // fallback: assume 1536 if not yet detected (will fail gracefully if wrong)
         const vectorLiteral = `[${embedding.join(',')}]`;
         await executeRawUnsafe(
-          `UPDATE "MaterialChunk" SET "embeddingVector" = $1::vector(1536) WHERE "materialId" = $2 AND "chunkIndex" = $3`,
+          `UPDATE "MaterialChunk" SET "embeddingVector" = $1::vector(${dim}) WHERE "materialId" = $2 AND "chunkIndex" = $3`,
           vectorLiteral, materialId, i
         );
       }

@@ -81,7 +81,8 @@ export const WritingRubricMetadataSchema = z.object({
   taskType: z.string().optional(),
 });
 
-export type WritingRubricMetadata = z.infer<typeof WritingRubricMetadataSchema>;
+// NOTE: Canonical WritingRubricMetadata type lives in ../types/rubric-version.ts.
+// This schema exists for Zod runtime validation only.
 
 export const WritingAnalysisSchema = z.object({
   overallScore: z.number().min(0).max(100),
@@ -120,8 +121,15 @@ export const WritingAnalysisSchema = z.object({
 // ============================================
 
 export const TaskRequirementEvidenceSchema = z.object({
+  id: z.string().min(1),
   requirement: z.string().min(1),
   status: z.enum(["satisfied", "partial", "missing", "unclear"]),
+  type: z.enum([
+    "content_point", "position", "reason", "example",
+    "audience", "text_type", "format", "tone",
+    "instruction", "other",
+  ]),
+  source: z.enum(["explicit", "clearly_implied"]),
   evidence: z.array(z.string()),
   explanation: z.string().min(1),
 });

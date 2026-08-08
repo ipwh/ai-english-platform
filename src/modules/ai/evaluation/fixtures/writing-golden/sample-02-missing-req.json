@@ -1,0 +1,18 @@
+{
+  "id": "sample-02-missing-req",
+  "task": "Write a letter to your school principal suggesting two improvements to the school library. Explain why each would benefit students.",
+  "studentDraft": "Dear Principal, I suggest adding more computers to the library. Computers help students do research and complete assignments faster. Many students do not have computers at home, so having them in the library would be very helpful.",
+  "textType": "letter",
+  "expected": {
+    "contentScore": null,
+    "languageScore": null,
+    "organizationScore": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "missing-requirement",
+    "source": "platform-generated",
+    "markerCount": 0
+  },
+  "notes": "Missing: second improvement not mentioned, letter format missing closing. Tests that 'missing' status does not mechanically force Content to zero."
+}

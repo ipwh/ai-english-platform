@@ -1,0 +1,18 @@
+{
+  "id": "sample-03-strong-language-weak-content",
+  "task": "Write an article discussing whether teenagers should have part-time jobs. Give two reasons and one example.",
+  "studentDraft": "The proliferation of extracurricular commitments among contemporary adolescents has engendered considerable discourse regarding the feasibility of part-time employment. Notwithstanding the manifold benefits that remunerative engagements might ostensibly confer, I maintain that the academic ramifications are too significant to disregard. Firstly, the temporal demands of part-time work inevitably detract from study time. Secondly, the cognitive fatigue induced by balancing school and work responsibilities may impair academic performance. For instance, a student working 15 hours weekly at a retail establishment would likely experience diminished concentration during examination periods. Consequently, I advocate for prioritizing scholastic obligations over vocational pursuits during secondary education.",
+  "textType": "article",
+  "expected": {
+    "contentScore": null,
+    "languageScore": null,
+    "organizationScore": null
+  },
+  "metadata": {
+    "difficulty": "challenge",
+    "caseType": "strong-language-weak-content",
+    "source": "platform-generated",
+    "markerCount": 0
+  },
+  "notes": "Sophisticated vocabulary and grammar, but task asks for 'two reasons' and 'one example' — only gives reasons and a hypothetical example (not personal/anecdotal). Tests: strong Language ≠ strong Content."
+}
