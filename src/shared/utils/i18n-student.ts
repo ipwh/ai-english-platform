@@ -55,6 +55,7 @@ export const studentTranslations: Record<string, { zh: string; en: string }> = {
   'diagnostic.skillReading': { zh: '閱讀', en: 'Reading' },
   'diagnostic.skillWriting': { zh: '寫作', en: 'Writing' },
   'diagnostic.skillListening': { zh: '聆聽', en: 'Listening' },
+  'diagnostic.listeningScript': { zh: '聆聽文稿', en: 'Listening Script' },
   'diagnostic.grammarDesc': { zh: '時態、句型結構、詞性等', en: 'Tenses, sentence structures, parts of speech' },
   'diagnostic.vocabDesc': { zh: '學術詞彙、搭配詞、片語動詞', en: 'Academic vocabulary, collocations, phrasal verbs' },
   'diagnostic.readingDesc': { zh: '主旨理解、推論、詞義猜測', en: 'Main ideas, inference, guessing meaning' },

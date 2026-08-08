@@ -10,6 +10,7 @@ import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2,
 import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
+import AudioPlayer from '@/components/shared/AudioPlayer';
 import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
 import type { CloDimensionRationaleResult } from '@/shared/types/ai-response-types';
 import type { PracticeQuestion } from '@/shared/types/types';
@@ -544,12 +545,15 @@ export default function DiagnosticPage() {
         body: JSON.stringify({
           studentLevel: getStudentLevel(studentProfile),
           overallAccuracy: (() => {
-            const tested = computed.filter(r => r.totalQuestions > 0);
+            // Exclude writing (score < 0 = pending CLO) and untested skills (0 questions)
+            const tested = computed.filter(r => r.totalQuestions > 0 && r.score >= 0);
             return tested.length > 0
               ? Math.round(tested.reduce((s, r) => s + r.score, 0) / tested.length)
               : 0;
           })(),
-          weakSkills: computed.filter(r => r.score < 60).map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score })),
+          weakSkills: computed
+            .filter(r => r.score >= 0 && r.totalQuestions > 0 && r.score < 60)
+            .map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score })),
           recentPerformance,
           streakDays: studentProfile?.streakDays ?? 0,
         }),
@@ -625,10 +629,13 @@ export default function DiagnosticPage() {
           {(currentQ.languageSkill === 'listening' || currentQ.listeningContent) && (
             <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-700">
               <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1">
-                🎧 {t('diagnostic.skillListening')}
+                🎧 {t('diagnostic.listeningScript')}
               </p>
               <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed whitespace-pre-line">{currentQ.listeningContent}</p>
               {currentQ.listeningContentZh && <p className="text-xs text-purple-500 mt-1 italic">{currentQ.listeningContentZh}</p>}
+              <div className="mt-2">
+                <AudioPlayer text={currentQ.listeningContent || ''} autoPlay={false} />
+              </div>
             </div>
           )}
 
