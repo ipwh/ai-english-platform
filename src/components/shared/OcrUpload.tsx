@@ -19,9 +19,47 @@ interface FileEntry {
   id: number;
   file: File;
   previewUrl: string;
-  status: 'pending' | 'uploading' | 'processing' | 'done' | 'error';
+  status: 'pending' | 'compressing' | 'uploading' | 'processing' | 'done' | 'error';
   error?: string;
   text?: string;
+}
+
+/**
+ * Client-side image compression using Canvas API.
+ * Resizes to max 2048px and compresses to JPEG quality 0.7.
+ * Returns a new File with smaller size, suitable for serverless function payload limits.
+ */
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX_DIM = 2048;
+      let { width, height } = img;
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('Compression failed')); return; }
+          const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+          resolve(compressed);
+        },
+        'image/jpeg',
+        0.7,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+    img.src = url;
+  });
 }
 
 export default function OcrUpload({ onTextExtracted, disabled = false, className = '' }: OcrUploadProps) {
@@ -57,11 +95,10 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
     resetInput();
   }, []);
 
-  /** Process all pending files sequentially */
+  /** Process all pending files sequentially with client-side compression */
   const processAll = useCallback(async () => {
     setProcessing(true);
 
-    // Get current pending files (snapshot)
     setFiles(prev => {
       const pending = prev.filter(f => f.status === 'pending');
       if (pending.length === 0) {
@@ -79,13 +116,25 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
           const idx = updated.findIndex(f => f.id === entry.id);
           if (idx === -1) continue;
 
-          // Mark as uploading
+          // Step 1: Client-side compression (reduces payload for Vercel serverless)
+          updated[idx] = { ...updated[idx], status: 'compressing' };
+          setFiles([...updated]);
+
+          let uploadFile: File;
+          try {
+            uploadFile = await compressImage(entry.file);
+          } catch {
+            // Compression failed — use original file
+            uploadFile = entry.file;
+          }
+
+          // Step 2: Upload
           updated[idx] = { ...updated[idx], status: 'uploading' };
           setFiles([...updated]);
 
           try {
             const formData = new FormData();
-            formData.append('file', entry.file);
+            formData.append('file', uploadFile);
 
             // Mark as processing (OCR in progress)
             updated[idx] = { ...updated[idx], status: 'processing' };
@@ -98,7 +147,6 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
               try {
                 data = JSON.parse(raw);
               } catch {
-                // Non-JSON response (HTML error page, etc.)
                 data = { error: raw.slice(0, 200) || `Server error (${res.status})` };
               }
             } catch (fetchErr: unknown) {
@@ -248,7 +296,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
               className={`flex items-center gap-2 p-1.5 rounded text-xs ${
                 entry.status === 'error' ? 'bg-red-50 dark:bg-red-900/10' :
                 entry.status === 'done' ? 'bg-green-50 dark:bg-green-900/10' :
-                entry.status === 'processing' || entry.status === 'uploading' ? 'bg-amber-50 dark:bg-amber-900/10' :
+                entry.status === 'processing' || entry.status === 'uploading' || entry.status === 'compressing' ? 'bg-amber-50 dark:bg-amber-900/10' :
                 'bg-gray-50 dark:bg-gray-700/30'
               }`}
             >
@@ -266,6 +314,11 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
                 </span>
                 {entry.status === 'pending' && (
                   <span className="ml-1 text-gray-400">{t('ocr.pending')}</span>
+                )}
+                {entry.status === 'compressing' && (
+                  <span className="ml-1 text-amber-500 flex items-center gap-1">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" /> {t('ocr.compressing')}
+                  </span>
                 )}
                 {entry.status === 'uploading' && (
                   <span className="ml-1 text-amber-500 flex items-center gap-1">

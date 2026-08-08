@@ -296,6 +296,7 @@ export const commonTranslations: Record<string, { zh: string; en: string }> = {
   'ocr.page': { zh: '第', en: 'Page' },
   'ocr.scanningProgress': { zh: '正在掃描...（{done}/{total}）', en: 'Scanning... ({done}/{total})' },
   'ocr.pagesScanned': { zh: '{done}/{total} 頁已掃描', en: '{done}/{total} pages scanned' },
+  'ocr.compressing': { zh: '壓縮中', en: 'Compressing' },
   'help.personalizedAnalysis': { zh: '個人化分析', en: 'Personalized Analysis' },
   'help.priorityImprove': { zh: '目前優先改善：', en: 'Priority: ' },
   'help.confidenceLabel': { zh: '建議信心度', en: 'Confidence Level' },
