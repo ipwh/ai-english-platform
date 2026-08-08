@@ -891,14 +891,18 @@ export default function DiagnosticPage() {
 
       <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-5 border border-orange-200 dark:border-orange-800">
         <div className="flex items-center gap-2 mb-2 text-orange-700 dark:text-orange-300 font-semibold">
-          <Target className="w-5 h-5" /> {t('diagnostic.goDashboard')}
+          <Target className="w-5 h-5" /> {t('diagnostic.targetedPractice')}
         </div>
         <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
-          {t('diagnostic.remedialAdvice')}
+          {recommendation.difficulty === 'remedial'
+            ? t('diagnostic.remedialAdvice')
+            : recommendation.difficulty === 'challenge'
+              ? t('diagnostic.challengeAdvice')
+              : t('diagnostic.coreAdvice')}
         </p>
         <Link href={practiceHref}
           className="block w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl text-center transition-colors">
-          {t('diagnostic.start')} <ArrowRight className="w-4 h-4 inline ml-1" />
+          {t('diagnostic.startPractice')} <ArrowRight className="w-4 h-4 inline ml-1" />
         </Link>
       </div>
 
