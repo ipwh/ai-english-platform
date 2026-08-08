@@ -627,14 +627,21 @@ export default function DiagnosticPage() {
           )}
           {(currentQ.languageSkill === 'listening' || currentQ.listeningContent) && (
             <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-700">
-              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1">
-                🎧 {t('diagnostic.listeningScript')}
+              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-2">
+                🎧 {t('diagnostic.skillListening')}
               </p>
-              <p className="text-sm text-purple-800 dark:text-purple-200 leading-relaxed whitespace-pre-line">{currentQ.listeningContent}</p>
-              {currentQ.listeningContentZh && <p className="text-xs text-purple-500 mt-1 italic">{currentQ.listeningContentZh}</p>}
-              <div className="mt-2">
-                <AudioPlayer text={currentQ.listeningContent || ''} autoPlay={false} />
+              <div className="mb-2">
+                <AudioPlayer text={currentQ.listeningContent || ''} useCloudTTS={true} autoPlay={false} />
               </div>
+              <details className="text-sm">
+                <summary className="cursor-pointer text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 text-xs font-medium">
+                  {t('diagnostic.showScript')}
+                </summary>
+                <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-700">
+                  <p className="text-purple-800 dark:text-purple-200 leading-relaxed whitespace-pre-line">{currentQ.listeningContent}</p>
+                  {currentQ.listeningContentZh && <p className="text-xs text-purple-500 mt-1 italic">{currentQ.listeningContentZh}</p>}
+                </div>
+              </details>
             </div>
           )}
 
