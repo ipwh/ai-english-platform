@@ -5,7 +5,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2, Target, Headphones } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
@@ -900,16 +899,16 @@ export default function DiagnosticPage() {
               ? t('diagnostic.challengeAdvice')
               : t('diagnostic.coreAdvice')}
         </p>
-        <Link href={practiceHref}
+        <a href={practiceHref}
           className="block w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl text-center transition-colors">
           {t('diagnostic.startPractice')} <ArrowRight className="w-4 h-4 inline ml-1" />
-        </Link>
+        </a>
       </div>
 
-      <Link href="/student/dashboard"
+      <a href="/student/dashboard"
         className="block w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-xl text-center transition-colors">
         {t('diagnostic.goDashboard')} <ArrowRight className="w-4 h-4 inline ml-1" />
-      </Link>
+      </a>
     </div>
   );
 }

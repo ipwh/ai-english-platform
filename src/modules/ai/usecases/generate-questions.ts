@@ -18,6 +18,35 @@ import type { GenerateQuestionsInput, GeneratedQuestion } from '../types/generat
 
 export type { GenerateQuestionsInput, GeneratedQuestion };
 
+/**
+ * Fisher-Yates shuffle for MCQ choices.
+ * Randomizes choice positions and updates the answer letter accordingly.
+ * Ensures LLM answer-position bias (usually B/C) does not affect the student.
+ */
+function shuffleMCAnswers(q: GeneratedQuestion): GeneratedQuestion {
+  if (!q.choices || q.choices.length < 2 || q.type !== 'mc') return q;
+  if (!q.answer || !/^[A-D]$/i.test(q.answer)) return q;
+
+  const answerIndex = q.answer.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, ...
+  if (answerIndex < 0 || answerIndex >= q.choices.length) return q;
+
+  const correctText = q.choices[answerIndex];
+  const choices = [...q.choices];
+
+  // Fisher-Yates shuffle
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+
+  // Find new position of correct answer
+  const newIndex = choices.indexOf(correctText);
+  if (newIndex === -1) return q; // safety: if text not found (shouldn't happen), keep original
+
+  const letters = ['A', 'B', 'C', 'D'];
+  return { ...q, choices, answer: letters[newIndex] || q.answer };
+}
+
 export async function generateQuestions(input: GenerateQuestionsInput): Promise<GeneratedQuestion[]> {
   const count = input.count || 5;
   const skillDesc = input.grammarItemZh || input.languageSkillZh || input.grammarItem || input.languageSkill || '綜合';
@@ -206,7 +235,13 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       if (!topicCheck.matched) {
         logger.warn({ module: 'ai-service', dseTopicScore: topicCheck.score }, 'DSE topic match LOW');
       }
-      return fixedQuestions;
+
+      // === Post-generation answer shuffle: ensure uniform distribution ===
+      // LLMs tend to bias correct answers toward B/C. Fisher-Yates shuffle
+      // randomizes choice positions and updates answer letters accordingly.
+      const shuffled = fixedQuestions.map(q => shuffleMCAnswers(q));
+
+      return shuffled;
     }
     
     logger.warn({ module: 'ai-service', attempt: attempt + 1, maxRetries: MAX_RETRIES, actualCount, expectedCount: count, criticalFailure: hasCriticalFailures }, 'Retrying question generation');
