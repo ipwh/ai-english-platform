@@ -459,6 +459,8 @@ ${CLO_RUBRIC_ZH}
 ═══════════════════════════════════════
 - 子分數定義：contentScore / languageScore / organizationScore 皆為 0–7 分（可用半分），必須對照上方 CLO 等級描述給予。
 - overallScore 為 LLM 輔助估算，系統會以 CLO 子分數重新計算為準。
+- cloRationales 的 strengths/limitations/nextSteps 必須使用中英雙語（繁體中文 + English），方便英文基礎較差的學生理解。
+  格式範例："內容切題 (Content is relevant to the task)"。
 - cloRationales 中的 score 必須與上方 CLO 子分數一致，僅供學生學習參考，不影響系統計算。
 - cloRationales 的 strengths/limitations 必須引用學生文章的 verbatim evidence。
 - cloRationales 的 nextSteps 必須是學生可以實行的具體下一步。
