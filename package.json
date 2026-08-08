@@ -40,6 +40,7 @@
     "prompt:monitor:alerts": "npx tsx scripts/monitor.ts alerts",
     "prompt:monitor:trend": "npx tsx scripts/monitor.ts trend",
     "prompt:monitor:providers": "npx tsx scripts/monitor.ts providers",
+    "validate:prompts": "tsx scripts/validate-prompts.ts",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "db:generate": "prisma generate",
@@ -93,6 +94,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.11",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

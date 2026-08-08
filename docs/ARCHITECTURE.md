@@ -162,7 +162,7 @@ sequenceDiagram
 | 13 | AI Cost Optimization | +16 | `ai-cost/` |
 | 14 | Performance | +9 | `perf/` |
 | 15 | Security (removed v4.2) | — | consolidated into api-auth + hallucination-guard |
-| 16 | Testing | +10 | 100% coverage |
+| 16 | Testing | +10 | Verified by test suite |
 | 17 | Observability | +11 | `observability/` |
 | 31 | Student Mastery | +16 | `student-mastery/` |
 | 32 | Mistake Intelligence | +28 | `mistake-intelligence/` |

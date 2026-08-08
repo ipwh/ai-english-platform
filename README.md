@@ -1,20 +1,21 @@
 # AI English Platform 🇭🇰
 
-AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計。
+AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計的自學工具。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: **v1.1 Production Ready** ✅ | Sprint 130 | 171 tests pass (4 core files) | Architecture: **9.8/10** | Writing Pipeline: Sprints 127-130 Hardened
+> **Status**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration is not available.
 > **Writing Evaluation**: Semantic Evaluator (evidence-only) → CLO Evaluator (sole score authority) → Deterministic Normalization
-> **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text) — 11/13 use cases unified
+> **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text)
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
+> **Tests**: Run `npm test` for current count. Last verified: 2026-08-08, commit 6cbe010 — 82 files, 1888 tests pass.
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw
-                 ├─ Prompts (PromptRegistry: 12 prompts)
+Routes (123) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+                 ├─ Prompts (PromptRegistry)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
                  ├─ Schemas (Zod validation)
@@ -22,14 +23,12 @@ Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ AI Infra: regression (rubric/semantic/structural scoring)
                  ├─ AI Infra: experiments (A/B/C + cross-provider/version/dataset)
                  ├─ AI Infra: continuous-evaluation (drift + regression + alerts)
-                 └─ AI Infra: golden-benchmark (MAE/RMSE/bias, human-marker calibration)
+                 └─ AI Infra: golden-benchmark (infrastructure ready; requires human-labelled data)
 
-Writing Evaluation (Sprints 127-130):
+Writing Evaluation (Sprints 127-131):
   Semantic Evaluator (evidence-only) → CLO Evaluator (score authority) → Deterministic Normalization
     └─ RAG → reference context only (never scoring)
     └─ CLO_RUBRIC / CLO_RUBRIC_ZH → single canonical source (writing-rubric.ts)
-
-AI module: 16 directories, ~200 files — single pipeline, single owner per responsibility
 ```
 
 ## 📋 Architecture Decisions
@@ -56,8 +55,8 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
 | AI | DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholder) |
 | Validation | Zod v4 |
-| Testing | Vitest 4 (4 core files, 171 tests, 100% pass) + Playwright 8 E2E specs |
-| Architecture | **48 real enforcement tests** (0 stubs, 0 exceptions) — Import direction, service size, provider isolation, cache ownership, repository isolation |
+| Testing | Vitest + Playwright E2E |
+| Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
 | Documentation | 37 ADRs in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
@@ -68,21 +67,11 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
-- **🎧✍️ Integrated Skills 綜合訓練 v5** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**（Summary / Email Reply / Short Article / Report / Speech / Proposal / Notice / Press Release / Letter to Editor）、**Data File 資料夾模擬**（email, memo, report-excerpt, webpage, statistics, notice — 含干擾資訊與來源日期）、**HKEAA 官方三維評分**（Listening 40% + Language 35% + Organization 25%，含 DSE Level 5**~1 對照）、**5 種真實考試陷阱**（Self-correction / Synonym Replacement / Speaker Attitude / Numerical Precision / Distraction）、**12 種速記符號面板**（+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓）、**抄襲偵測強化**（≥8 連續詞 + Data File 比對 + 中式英文 10 項檢測）、步驟鎖定（聆聽→筆記→寫作）、AudioPlayer 播放控制、Note-taking 引導問題、7 種 AI 分析結果展示（文法錯誤/中式英文/詞彙升級/筆記評估/Data Manipulation/改進建議/評分明細）、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
+- **🎧✍️ Integrated Skills 綜合訓練 v5** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**（Summary / Email Reply / Short Article / Report / Speech / Proposal / Notice / Press Release / Letter to Editor）、**Data File 資料夾模擬**（email, memo, report-excerpt, webpage, statistics, notice — 含干擾資訊與來源日期）、**平台診斷分析**（Listening / Language / Organization 參考 HKDSE-oriented criteria）、**5 種真實考試陷阱**（Self-correction / Synonym Replacement / Speaker Attitude / Numerical Precision / Distraction）、**12 種速記符號面板**（+ − → ∵ ! $ # ? @ ∴ ≈ ↑↓）、**抄襲偵測強化**（≥8 連續詞 + Data File 比對 + 中式英文 10 項檢測）、步驟鎖定（聆聽→筆記→寫作）、AudioPlayer 播放控制、Note-taking 引導問題、7 種 AI 分析結果展示（文法錯誤/中式英文/詞彙升級/筆記評估/Data Manipulation/改進建議/評分明細）、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
+  - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 嚴格依據 HKDSE Paper 2 Writing CLO 7 分制（Content / Language / Organization 各 0-7 分，總分 21 分）評分。**Sprints 127-130 全面強化**：
-  - **Semantic / Task-Coverage Evaluator** — 自動提取題目要求並檢測學生文章中的 verbatim evidence，輸出 structured evidence（requirements, status, evidence, overallCoverage），**純證據層，絕不產出分數/懲罰/上限**
-  - **CLO Evaluator** — **唯一評分權威**，獨立審查學生文章，接收 semantic evidence 作為參考但不強制綁定
-  - **Deterministic Normalization** — normalizeRubricScore() → half-point rounding (0-7), cloTotalScore, computed overallScore (不接受 LLM arbitrary overallScore)
-  - **Rubric 單一真相來源** — `CLO_RUBRIC` (EN) + `CLO_RUBRIC_ZH` (中文) 集中於 `writing-rubric.ts`，所有 consumer 必須 import 此 canonical source
-  - **Evidence-Backed Feedback** — 每項評語有事實依據（verbatim evidence）
-  - **Revision Separation** — 忠實修正（faithfulCorrection）與示範強化（enhancedVersion）分離
-  - **Rubric Versioning** — `WRITING_RUBRIC_VERSION = "HKDSE-P2-CLO-v1"` 支援未來校準
-  - **Golden Benchmark** — 5 fixtures + runner (MAE/RMSE/bias)，預留 human-marker calibration
-  - **Prompt Injection Defense** — Semantic + CLO evaluator 皆有 untrusted-data 防護
-  - **Fail-Open** — Semantic evaluator 失敗時不降分，CLO evaluator 正常執行
-  - 含中式英文檢測、詞彙升級建議、結構評語、文體格式驗證、內部 HKDSE Level 估算（1-5），前端顯示 CLO 三維評分卡片及 DSE Level 徽章
+- **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正、示範強化及再次提交比較。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
@@ -94,7 +83,7 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、12 款成就徽章（連續學習、正確率、練習量、寫作、詞彙）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
-- **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes，確保題目風格、難度、評分標準貼近真實 HKDSE 考試（Feature Flag: `DSE_RAG_ENABLED=true`）
+- **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes 作為參考上下文。RAG 檢索結果僅用於提示詞接地（prompt grounding），不直接決定學生評分。（Feature Flag: `DSE_RAG_ENABLED=true`）
 - **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），可選 S1-S6 年級及補底/核心/挑戰難度，未來擴展 STT 語音辨識
 - **👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
 - **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
@@ -110,7 +99,22 @@ AI module: 16 directories, ~200 files — single pipeline, single owner per resp
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
 - **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
-- **✍️ 寫作教練 2.0 (S36)** — 8 維度啟發式評分（Grammar/Vocabulary/SentenceVariety/Coherence/Cohesion/Organization/TaskResponse/Tone）、DSE Band 預測（U→5**）
+- **寫作教練 2.0 (S36)** — 8 維度啟發式診斷（Grammar/Vocabulary/SentenceVariety/Coherence/Cohesion/Organization/TaskResponse/Tone）
+
+### Writing Evaluation（自學導向）
+
+平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。
+
+評估流程：
+
+1. **Semantic / task-coverage evaluator** — 提取題目要求及 verbatim evidence，只輸出證據，不產出分數/懲罰/上限
+2. **CLO evaluator** — 獨立評估 Content、Language、Organization，是平台 CLO 分數的唯一來源
+3. **Deterministic normalization** — 標準化每個 CLO 分數至 0–7（half-point rounding），計算平台 CLO 總分及練習估算
+4. **Educational feedback** — 顯示具原文證據的優點與弱點，提供 1–3 個優先改進行動，分離忠實修正與示範強化，支援修改及再次提交
+
+平台分數是寫作練習診斷估算（platform practice estimate），依據 HKDSE English Writing descriptors 作為參考框架。平台分數並非 HKEAA 官方評級，亦不代表公開考試成績預測。
+
+Golden benchmark infrastructure 已就緒（12 個 calibration fixtures），但 empirical metrics（MAE/RMSE/bias）需要 human-labelled data 才能計算。目前所有 calibration fixture 的 expected scores 均為 null。
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
 - **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
@@ -481,21 +485,23 @@ npm run db:reset      # 重置資料庫
 ## 測試
 
 ```bash
-npm test              # 執行全部測試（853 tests, 39 files）
+npm test              # 執行全部測試
 npm run test:watch    # 持續監控模式
 ```
 
-測試涵蓋 34 模組：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台 等。
+測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台等模組。
+
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-08，82 files，1888 tests pass。
 
 ## 目前狀態
 
-> **最後更新**: 2026-07-19 | Sprints 1-42 完成
+> **最後更新**: 2026-08-08 | Sprints 1-131
 
 | 層級 | 狀態 |
 |------|------|
-| 架構 | ✅ 34 模組 (Routes → Zod → Services → Repositories → DB)，0 default DB imports |
-| AI 服務層 | ✅ 25 services（DeepSeek → Vertex Gemini → Gemini API fallback chain, 6 prompt families v1.1, MCQ 正規化, provider registry DI） |
-| API 路由 | ✅ 103 routes（17 Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
+| 架構 | ✅ 模組化架構 (Routes → Zod → Services → Repositories → DB) |
+| AI 服務層 | ✅ DeepSeek → Vertex Gemini → Gemini API fallback chain, MCQ 正規化, provider registry DI |
+| API 路由 | ✅ 123 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
 | 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
 | 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |
@@ -506,9 +512,10 @@ npm run test:watch    # 持續監控模式
 | 可觀測性 | ✅ counters/histograms/gauges, distributed tracing, latency/error monitors, health reports |
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，pgvector） |
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 自動角色識別，Middleware 路由保護 |
-| HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language & Style/Organization 三向度評級 |
+| HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language/Organization 三向度平台評估 |
 | DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`） |
-| 測試 | ✅ 328 tests（18 files, Vitest + Playwright），100% module coverage |
+| 寫作評估 | ✅ 平台練習診斷估算（非官方 HKEAA 評級）。Prompt validator 進行靜態 source-text contract checks；runtime score、evidence、fail-open 及 RAG 隔離由 unit/integration tests 驗證。Golden benchmark infrastructure 就緒；empirical metrics 需要 human-labelled data |
+| 測試 | ✅ 82 files, 1888 tests pass（2026-08-08） |
 
 ## 部署
 
@@ -556,9 +563,9 @@ curl http://localhost:3000/api/rag?action=stats
 
 | AI 功能 | RAG 注入內容 | 效果 |
 |---------|-------------|------|
-| **題目生成** `generateQuestions` | 相關歷屆試題段落 + Marking Scheme | 題型、難度、選項設計模仿真實 DSE |
-| **答案批改** `analyzeAnswer` | 對應卷別 Marking Scheme | 參考 Acceptable Answers 評分 |
-| **寫作批改** `analyzeWriting` | Paper 2 Writing Marking Scheme | 依 band descriptors 三向度評級 |
+| **題目生成** `generateQuestions` | 相關歷屆試題段落 + Marking Scheme | 提示詞接地（prompt grounding） |
+| **答案批改** `analyzeAnswer` | 對應卷別 Marking Scheme | 參考 Acceptable Answers |
+| **寫作批改** `analyzeWriting` | Paper 2 Writing Marking Scheme | 參考上下文（不決定評分） |
 | **錯題解說** `explainMistake` | 相關 Marking Scheme | 引用 model answer 對比說明 |
 | **學習求助** `answerStudyHelp` | 弱項對應歷屆試題 + MS | 指出 DSE 對應題型與評分重點 |
 

@@ -1,0 +1,21 @@
+{
+  "id": "cal-06-relevant-underdeveloped",
+  "task": "Write an article for your school magazine about the importance of extracurricular activities. Give two examples and explain their benefits.",
+  "studentDraft": "Extracurricular activities are important for students. They help students learn new things. For example, joining the basketball team is good. It helps you stay healthy. Also, joining the drama club is good. It helps you make friends. I think all students should join activities.",
+  "textType": "article",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "remedial",
+    "caseType": "relevant-underdeveloped",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: relevant-underdeveloped. Ideas are on-topic but extremely thin — each example gets one sentence with no elaboration. Very short. Awaiting human-marker review."
+}

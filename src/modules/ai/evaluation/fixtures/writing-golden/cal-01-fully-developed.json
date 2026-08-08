@@ -1,0 +1,21 @@
+{
+  "id": "cal-01-fully-developed",
+  "task": "Write an article for your school magazine discussing whether students should wear school uniforms. Give two reasons and one example.",
+  "studentDraft": "School uniforms should remain compulsory because they promote equality among students. When all students wear the same clothes, there is less pressure to buy expensive brands and less bullying based on appearance. For example, in my school, students from different backgrounds feel more comfortable because nobody can tell who is rich or poor by their clothes. Furthermore, uniforms help students focus on learning rather than fashion. Without the distraction of choosing daily outfits, students arrive at school ready to study. I believe this creates a better learning environment for everyone.",
+  "textType": "article",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "fully-developed",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: fully-developed. Awaiting human-marker review."
+}

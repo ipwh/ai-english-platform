@@ -50,6 +50,7 @@ export const AnswerAnalysisSchema = z.object({
 // ============================================
 
 export const EvidenceBackedFeedbackSchema = z.object({
+  id: z.string().min(1),
   dimension: z.enum([
     "content",
     "language",
@@ -58,10 +59,13 @@ export const EvidenceBackedFeedbackSchema = z.object({
     "vocabulary",
     "grammar",
   ]),
+  priority: z.enum(["essential", "important", "optional"]).default("important"),
   kind: z.enum(["strength", "weakness", "recommendation"]),
   claim: z.string().min(1),
   evidence: z.array(z.string()),
   recommendation: z.string().optional(),
+  action: z.string().optional(),
+  example: z.string().optional(),
   confidence: z.enum(["high", "medium", "low"]).optional(),
 });
 
@@ -84,6 +88,22 @@ export const WritingRubricMetadataSchema = z.object({
 // NOTE: Canonical WritingRubricMetadata type lives in ../types/rubric-version.ts.
 // This schema exists for Zod runtime validation only.
 
+/**
+ * Per-dimension CLO rationale — educational feedback only, NOT a score authority.
+ * The `score` field is a copy of the canonical CLO score; it MUST NOT be used
+ * to compute or override the formal scoring pipeline.
+ */
+export const CloDimensionRationaleSchema = z.object({
+  dimension: z.enum(["content", "language", "organization"]),
+  score: z.number().min(0).max(7),
+  strengths: z.array(z.string()),
+  limitations: z.array(z.string()),
+  evidence: z.array(z.string()),
+  nextSteps: z.array(z.string()),
+});
+
+export type CloDimensionRationale = z.infer<typeof CloDimensionRationaleSchema>;
+
 export const WritingAnalysisSchema = z.object({
   overallScore: z.number().min(0).max(100),
   contentScore: z.number().min(0).max(7).optional(),
@@ -91,6 +111,8 @@ export const WritingAnalysisSchema = z.object({
   organizationScore: z.number().min(0).max(7).optional(),
   cloTotalScore: z.number().min(0).max(21).optional(),
   dseLevel: z.string().min(1, 'DSE level is required'),
+  /** Preferred name; same value as dseLevel. @deprecated — dseLevel retained for API compatibility. */
+  platformWritingEstimate: z.string().optional(),
   strengths: z.array(z.string()),
   weaknesses: z.array(z.string()),
   grammarErrors: z.array(z.object({
@@ -112,6 +134,7 @@ export const WritingAnalysisSchema = z.object({
   revisedVersion: z.string().optional(),
   generalComment: z.string(),
   feedback: z.array(EvidenceBackedFeedbackSchema).optional(),
+  cloRationales: z.array(CloDimensionRationaleSchema).optional(),
   revision: WritingRevisionSchema.optional(),
   rubric: WritingRubricMetadataSchema.optional(),
 });

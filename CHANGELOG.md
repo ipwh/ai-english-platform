@@ -4,6 +4,30 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## Unreleased (working tree 2026-08-08)
+
+### Writing evaluation — self-study feedback enhancement
+- Added evidence-backed CLO rationale display (`CloRationaleCard` + `CloFeedbackPanel`)
+- Added canonical verbatim evidence filtering (`extractVerbatimEvidence`)
+- Added `platformWritingEstimate` field alongside legacy `dseLevel` (same value)
+- Clarified that platform scores are practice estimates, not official HKEAA grades
+- Removed unsupported official HKEAA equivalence claims from all documentation
+- Added 12 synthetic calibration fixtures (`synthetic-draft`, `awaiting-human-marking`)
+- Added student-level adaptation for feedback prompts (not scoring rules)
+- Added documentation consistency tests (cross-document prohibited-claim enforcement)
+- Human-marker calibration remains unavailable; all expected fixture scores are null
+
+### UI
+- DSE labels replaced with "平台估算" / "Est." in writing and diagnostic pages
+- Integrated Skills "HKEAA 官方" scoring claim corrected to platform diagnostic analysis
+- RAG described as reference context only (not accuracy guarantee)
+
+### Product positioning
+- Status: Engineering baseline stable; formative self-study features available
+- Writing evaluation: Architecturally hardened; empirical marker calibration not available
+
+---
+
 ## 2026-08-08 — Writing Evaluation Architecture Hardening (Sprints 127-130)
 
 ### 🏗️ Sprint 127 — Semantic Evaluator as Strict Evidence-Only Layer

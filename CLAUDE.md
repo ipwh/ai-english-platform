@@ -21,7 +21,7 @@ See AGENTS.md for shared agent instructions.
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
 - **i18n**: ~710 keys, 17 module files, check: `node scripts/check-i18n.js`
-- **Deployment Readiness**: 9.8/10 (v1.1 Production Ready — all audit items resolved, AI infra complete, CE durability hardened, writing evaluation contract-enforced)
+- **Deployment Readiness**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration not available.
 - **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
 - **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
 - **Writing Architecture Invariants** (8 enforced by contract tests):

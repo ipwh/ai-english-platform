@@ -13,6 +13,7 @@ import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import type { DifficultyLevel } from '@/shared/types/types';
 import type { WritingAnalysisResult } from '@/shared/types/ai-response-types';
+import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 const textTypes: Record<string, { zh: string; en: string }> = {
@@ -523,7 +524,7 @@ export default function WritingPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <Sparkles className="w-5 h-5 text-purple-600" /><h3 className="font-semibold text-purple-800 dark:text-purple-200">{t('writing.aiAnalysisResult')}</h3>
             <span className="ml-auto text-2xl font-bold text-purple-700">{aiResult.overallScore}/100</span>
-            {/* DSE Level Badge */}
+            {/* Platform Writing Estimate — NOT official HKEAA grade */}
             {aiResult.dseLevel && (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                 ['5**','5*','5'].includes(aiResult.dseLevel) ? 'bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200' :
@@ -532,7 +533,7 @@ export default function WritingPage() {
                 ['2','1'].includes(aiResult.dseLevel) ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200' :
                 'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200'
               }`}>
-                DSE Level {aiResult.dseLevel}
+                {lang === 'zh' ? '平台估算' : 'Est.'} {aiResult.dseLevel}
               </span>
             )}
             {/* 分層反饋切換 */}
@@ -599,11 +600,17 @@ export default function WritingPage() {
                   ['2','1'].includes(aiResult.dseLevel) ? 'bg-amber-100 text-amber-700 dark:bg-amber-800 dark:text-amber-200' :
                   'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200'
                 }`}>
-                  對應 {aiResult.dseLevel}
+                  {lang === 'zh' ? '平台估算' : 'Est.'} {aiResult.dseLevel}
                 </span>
               )}
             </div>
           )}
+
+          {/* Sprint 131: CLO Dimension Rationale — educational feedback */}
+          <CloFeedbackPanel
+            cloRationales={aiResult.cloRationales}
+            language={lang}
+          />
 
           {feedbackLevel === 'simple' && aiResult.structureFeedback && (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic">💡 {aiResult.structureFeedback}</p>

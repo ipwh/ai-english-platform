@@ -23,14 +23,27 @@ export interface WritingRevisionResult {
   enhancedVersion?: string;
 }
 
+/** Sprint 131: Per-dimension CLO rationale (educational feedback). */
+export interface CloDimensionRationaleResult {
+  dimension: "content" | "language" | "organization";
+  score: number;
+  strengths: string[];
+  limitations: string[];
+  evidence: string[];
+  nextSteps: string[];
+}
+
 /** AI writing analysis result (HKDSE CLO framework) */
 export interface WritingAnalysisResult {
-  overallScore: number;           // 0-100
+  overallScore: number;           // 0-100 platform score (NOT official HKEAA)
   contentScore?: number;          // CLO Content 0-7
   languageScore?: number;         // CLO Language 0-7
   organizationScore?: number;     // CLO Organization 0-7
   cloTotalScore?: number;         // CLO total 0-21
-  dseLevel?: string;              // internal estimated level (1-5)
+  /** @deprecated Legacy name retained for API compatibility. Use platformWritingEstimate instead. */
+  dseLevel?: string;              // internal estimated level (1-5), NOT official HKEAA grade
+  /** Preferred name. Same value as dseLevel — internal diagnostic estimate, not an official HKEAA level. */
+  platformWritingEstimate?: string;
   strengths: string[];
   weaknesses: string[];
   grammarErrors: Array<{ original: string; correction: string; explanation: string }>;
@@ -45,4 +58,6 @@ export interface WritingAnalysisResult {
   revision?: WritingRevisionResult;
   /** Phase 5: Rubric metadata. */
   rubric?: { rubricVersion: string; paper: "Paper 2"; taskType?: string; examYear?: string };
+  /** Sprint 131: Per-dimension CLO rationale — educational feedback, NOT score authority. */
+  cloRationales?: CloDimensionRationaleResult[];
 }

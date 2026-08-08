@@ -22,8 +22,14 @@ export type FeedbackDimension =
 export type FeedbackKind = "strength" | "weakness" | "recommendation";
 
 export interface EvidenceBackedFeedback {
+  /** Unique identifier for this feedback item. */
+  id: string;
+
   /** Which assessment dimension this feedback addresses. */
   dimension: FeedbackDimension;
+
+  /** Priority: essential (must fix), important (should fix), optional (nice-to-have). */
+  priority?: "essential" | "important" | "optional";
 
   /** Whether this is a strength, weakness, or standalone recommendation. */
   kind: FeedbackKind;
@@ -43,6 +49,16 @@ export interface EvidenceBackedFeedback {
    * Optional — may be omitted for simple strengths.
    */
   recommendation?: string;
+
+  /**
+   * Concrete action the student can take (e.g. "Review subject-verb agreement").
+   */
+  action?: string;
+
+  /**
+   * An example correction or improvement, preserving the student's original meaning.
+   */
+  example?: string;
 
   /**
    * Confidence level of the evaluator in this feedback item.

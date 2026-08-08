@@ -1,0 +1,21 @@
+{
+  "id": "cal-12-organized-weak-progression",
+  "task": "Write an article discussing the advantages and disadvantages of online learning. Give your opinion.",
+  "studentDraft": "Online learning has both advantages and disadvantages. First, I will discuss the advantages. Online learning is convenient because you can study at home. You don't need to travel to school. Also, you can watch recorded lessons many times. Now I will discuss the disadvantages. Online learning can be lonely because you cannot see your friends. Sometimes the internet connection is bad. You may also get distracted easily at home. In my opinion, online learning is useful but it cannot replace face-to-face learning completely. Schools should use a mix of both methods.",
+  "textType": "article",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "organized-but-weak-progression",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: organized-but-weak-progression. Clear structure ('First I will discuss... Now I will discuss...') but mechanical/metadiscourse-heavy rather than natural progression. Each point is a bare claim without elaboration or examples. Awaiting human-marker review."
+}

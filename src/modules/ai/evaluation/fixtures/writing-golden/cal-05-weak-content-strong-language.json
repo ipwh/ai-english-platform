@@ -1,0 +1,21 @@
+{
+  "id": "cal-05-weak-content-strong-language",
+  "task": "Your school is organising a 'Green Week'. Write a speech to persuade your fellow students to participate in three proposed activities.",
+  "studentDraft": "Good morning everyone. I am delighted to stand before you today to advocate for your enthusiastic participation in our forthcoming Green Week. The environmental crisis confronting our generation necessitates immediate, concerted action. We have meticulously curated three activities: a campus-wide recycling competition, a tree-planting ceremony in the school garden, and an educational seminar on carbon footprint reduction. These initiatives represent our collective commitment to environmental stewardship. I encourage each and every one of you to embrace this opportunity with vigour and determination. Together, we can effect meaningful change. Thank you.",
+  "textType": "speech",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "weak-content-strong-language",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: weak-content-strong-language. Sophisticated vocabulary but lacks specific persuasion/benefits for each activity. Activities only named, not explained. Awaiting human-marker review."
+}

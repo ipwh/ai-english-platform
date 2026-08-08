@@ -10,6 +10,14 @@
 /** Single source of truth for the current writing rubric version. */
 export const WRITING_RUBRIC_VERSION = "HKDSE-P2-CLO-v1" as const;
 
+/** Metadata about the rubric's relationship to official HKEAA descriptors. */
+export const WRITING_RUBRIC_METADATA = {
+  version: WRITING_RUBRIC_VERSION,
+  sourceType: "platform-interpretation" as const,
+  officialHkeaaEquivalenceVerified: false,
+  teacherCalibrationRequired: true,
+} as const;
+
 /** Metadata describing the rubric used for a writing analysis. */
 export interface WritingRubricMetadata {
   /** Platform rubric version identifier (NOT an official HKEAA number). */

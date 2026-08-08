@@ -701,3 +701,48 @@ describe("Sprint 127: Semantic Evaluator (evidence-only)", () => {
   });
 });
 
+// ============================================
+// Sprint 131: extractVerbatimEvidence tests
+// ============================================
+describe("extractVerbatimEvidence", () => {
+  const norm = (v: string) => v.toLowerCase().replace(/\s+/g, " ").trim();
+
+  const extractVerbatimEvidence = (candidate: unknown, essay: string): string | null => {
+    if (typeof candidate !== "string") return null;
+    const quote = candidate.trim();
+    if (!quote || !essay) return null;
+    const exactIndex = essay.indexOf(quote);
+    if (exactIndex >= 0) return essay.slice(exactIndex, exactIndex + quote.length);
+    const nc = norm(quote);
+    if (!nc) return null;
+    const ne = norm(essay);
+    const mi = ne.indexOf(nc);
+    if (mi < 0) return null;
+    let oi = 0; let ni = 0;
+    while (ni < mi && oi < essay.length) {
+      if (essay[oi] === " " || essay[oi] === "\n") { oi++; continue; }
+      oi++; ni++;
+    }
+    const start = oi;
+    let consumed = 0;
+    while (consumed < nc.length && oi < essay.length) {
+      if (essay[oi] !== " " && essay[oi] !== "\n") consumed++;
+      oi++;
+    }
+    return essay.slice(start, oi).trim().replace(/\s+/g, " ");
+  };
+
+  it("returns original essay substring for exact match", () => {
+    expect(extractVerbatimEvidence("Students should recycle", "Students should recycle more plastic."))
+      .toBe("Students should recycle");
+  });
+
+  it("rejects paraphrase not in essay", () => {
+    expect(extractVerbatimEvidence("government tax", "Students should recycle.")).toBeNull();
+  });
+
+  it("rejects empty string", () => { expect(extractVerbatimEvidence("", "essay")).toBeNull(); });
+  it("rejects null", () => { expect(extractVerbatimEvidence(null, "essay")).toBeNull(); });
+  it("rejects number", () => { expect(extractVerbatimEvidence(123, "essay")).toBeNull(); });
+});
+

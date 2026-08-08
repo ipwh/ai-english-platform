@@ -1,0 +1,21 @@
+{
+  "id": "cal-07-repetitive-ideas",
+  "task": "Write an article discussing whether teenagers spend too much time on social media. Give reasons and examples.",
+  "studentDraft": "I think teenagers spend too much time on social media. They are always on their phones checking social media. This is a problem because they spend too much time on social media instead of studying. Teenagers should spend less time on social media and more time on homework. Social media is not good because teenagers are always using it. Parents should tell teenagers to stop using social media so much. Teenagers need to focus on school not social media. Social media takes too much time from teenagers. In conclusion, teenagers spend too much time on social media and this is a serious problem.",
+  "textType": "article",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "remedial",
+    "caseType": "repetitive-ideas",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: repetitive-ideas. Same idea ('spend too much time') repeated 8+ times with no development, no examples, no counter-arguments. Awaiting human-marker review."
+}

@@ -1,0 +1,21 @@
+{
+  "id": "cal-04-strong-content-weak-language",
+  "task": "Write a letter to the editor of a newspaper expressing your opinion on whether Hong Kong should invest more in public transport. Give three reasons.",
+  "studentDraft": "Dear Editor, I am writing to express my strong opinion that Hong Kong should invest more in public transport. Firstly, more investment can reduce traffic congestion. If the MTR and buses are more convenient, less people will drive cars. Secondly, public transport is more environmentally friendly because one bus can carry many passengers instead of many cars. Thirdly, better public transport helps low-income families who cannot afford private cars. The government should spend more money on improving bus routes and building new MTR lines. I hope the government will consider my suggestions seriously. Yours faithfully, Chris Wong.",
+  "textType": "letter",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "strong-content-weak-language",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: strong-content-weak-language. Good ideas and structure but errors: 'less people' (fewer), run-on sentences. Awaiting human-marker review."
+}

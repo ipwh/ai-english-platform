@@ -1,0 +1,21 @@
+{
+  "id": "cal-09-sophisticated-inappropriate-vocab",
+  "task": "Write an article for your school magazine about the benefits of reading. Give two reasons and one personal example.",
+  "studentDraft": "Reading is an indispensable activity that everyone should engage in. It ameliorates your vocabulary and makes you more erudite. When you read, you can abscond from reality and enter a different world. For example, I recently read a book about World War II. The book was very interesting and I learned many things. Reading also helps you write better because you see how good writers construct sentences. I think reading is very important for students. It helps you in school and in life. You should read more books.",
+  "textType": "article",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "sophisticated-inappropriate-vocabulary",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: sophisticated-inappropriate-vocabulary. Uses 'ameliorates' (wrong: improves vocabulary, not 'ameliorates'), 'erudite' (unnatural), 'abscond' (wrong: means to flee/escape law, not 'escape into imagination'). Awaiting human-marker review."
+}

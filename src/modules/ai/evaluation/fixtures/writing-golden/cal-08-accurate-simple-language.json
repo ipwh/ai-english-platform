@@ -1,0 +1,21 @@
+{
+  "id": "cal-08-accurate-simple-language",
+  "task": "Write a story about a time you helped someone. Describe what happened and how you felt.",
+  "studentDraft": "Last week, I helped my neighbour carry her shopping bags. She is an old lady and she lives alone. The bags were very heavy. She was very happy and she said thank you to me. I felt very happy too. Helping people is a good thing to do. I think everyone should help others when they can. My mother always tells me to be kind to people. I will continue to help people in the future.",
+  "textType": "story",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "remedial",
+    "caseType": "accurate-simple-language",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: accurate-simple-language. Grammatically mostly correct but very simple sentence structures and vocabulary. Basic narrative with limited descriptive detail. Awaiting human-marker review."
+}

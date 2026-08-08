@@ -1,0 +1,21 @@
+{
+  "id": "cal-11-meaning-blocking-grammar-errors",
+  "task": "Write a report for your school newsletter about a recent school event. Describe what happened and what students learned.",
+  "studentDraft": "The school sports day it was hold on last Friday. Many student they was participate. The weather is very good and no rain. The red house they win the most medal. I am run in the 100 meter race but I no win. My friend he win the long jump. He very happy. The teacher say we all try our best. After the sports day we all tired but happy. We learn that sports is important for health.",
+  "textType": "report",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "remedial",
+    "caseType": "meaning-blocking-grammar-errors",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: meaning-blocking-grammar-errors. Severe errors: 'was hold' (was held), 'they was participate' (participated), 'I am run' (I ran), 'I no win' (didn't win), 'teacher say' (said). Meaning sometimes obscured. Awaiting human-marker review."
+}

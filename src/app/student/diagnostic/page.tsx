@@ -10,6 +10,8 @@ import { ArrowRight, CheckCircle, BookOpen, Pencil, FileText, Sparkles, Loader2,
 import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
+import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
+import type { CloDimensionRationaleResult } from '@/shared/types/ai-response-types';
 import type { PracticeQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
@@ -160,7 +162,8 @@ function buildPracticeRecommendation(results: DiagnosticResult[], level: string)
 }
 
 export default function DiagnosticPage() {
-  const { t } = useT();
+  const { t, language } = useT();
+  const lang = language || 'zh';
   const inputRef = useRef<HTMLInputElement>(null);
   const answersRef = useRef<Record<string, string>>({}); // ✅ ref avoids stale closure
 
@@ -179,6 +182,7 @@ export default function DiagnosticPage() {
   const [writingAnalysis, setWritingAnalysis] = useState<{
     overallScore: number; contentScore?: number; languageScore?: number; organizationScore?: number;
     dseLevel?: string; strengths?: string[]; weaknesses?: string[]; overallCommentZh?: string;
+    cloRationales?: CloDimensionRationaleResult[];
   } | null>(null);
   const [writingLoading, setWritingLoading] = useState(false);
   const [writingAnswer, setWritingAnswer] = useState('');
@@ -819,8 +823,9 @@ export default function DiagnosticPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">✍️ CLO 寫作評分</span>
                       {writingAnalysis.dseLevel && (
-                        <span className="text-xs px-2 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full font-bold">
-                          DSE {writingAnalysis.dseLevel}
+                        <span className="text-xs px-2 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full font-bold"
+                          title={lang === 'zh' ? '平台內部寫作估算，並非 HKEAA 官方等級' : 'Platform internal estimate, not official HKEAA grade'}>
+                          {lang === 'zh' ? '平台估算' : 'Est.'} {writingAnalysis.dseLevel}
                         </span>
                       )}
                     </div>
@@ -844,6 +849,8 @@ export default function DiagnosticPage() {
                     {writingAnalysis.weaknesses && writingAnalysis.weaknesses.length > 0 && (
                       <p className="text-xs text-red-700 dark:text-red-400">💡 {writingAnalysis.weaknesses.slice(0, 2).join('；')}</p>
                     )}
+                    {/* Sprint 131: CLO Dimension Rationale */}
+                    <CloFeedbackPanel cloRationales={writingAnalysis.cloRationales} language="zh" />
                   </div>
                 ) : (
                   <p className="text-xs text-gray-400 mt-1">✍️ 寫作部分為質性評估</p>

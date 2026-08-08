@@ -1,0 +1,21 @@
+{
+  "id": "cal-02-partial-task-fulfilment",
+  "task": "Write a letter to your school principal suggesting two improvements to the school library. Explain why each would benefit students.",
+  "studentDraft": "Dear Principal, I suggest adding more computers to the library. Computers help students do research and complete assignments faster. Many students do not have computers at home, so this would be very helpful. Thank you.",
+  "textType": "letter",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "partial-task-fulfilment",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: partial-task-fulfilment. Only one improvement suggested (task asked for two). Awaiting human-marker review."
+}

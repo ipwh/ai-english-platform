@@ -1,0 +1,21 @@
+{
+  "id": "cal-10-non-blocking-grammar-errors",
+  "task": "Write an email to your friend about your summer holiday plans. Describe where you will go and what you will do.",
+  "studentDraft": "Hi Jason, How are you? I want to tell you about my summer holiday plans. I will go to Japan with my family in July. We will visit Tokyo and Osaka. I am very exciting about this trip because I never go to Japan before. We will eat sushi and visit temples. I think the weather will be hot but I don't mind. My sister want to go shopping in Shibuya. We also plan to go to Universal Studios. I hope we can see the cherry blossoms but I think it is not the right season. Please write back and tell me your plans! Your friend, Amy.",
+  "textType": "email",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "non-blocking-grammar-errors",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: non-blocking-grammar-errors. Errors: 'exciting' (excited), 'never go' (have never been), 'want' (wants). Meaning is clear despite errors. Awaiting human-marker review."
+}

@@ -1,0 +1,21 @@
+{
+  "id": "cal-03-off-topic",
+  "task": "Write an article for your school magazine discussing whether schools should ban smartphones. Give two reasons to support your view and suggest one alternative approach.",
+  "studentDraft": "Smartphones are very popular nowadays. Many people use iPhones and Android phones. They can take photos, play games, and use social media. Some phones are very expensive. I have a smartphone and I use it every day. It is very useful for many things. Smartphones have changed the world in many ways.",
+  "textType": "article",
+  "source": "synthetic-draft",
+  "calibrationStatus": "awaiting-human-marking",
+  "expected": { "contentScore": null, "languageScore": null, "organizationScore": null },
+  "annotations": {
+    "contentRationale": null,
+    "languageRationale": null,
+    "organizationRationale": null
+  },
+  "metadata": {
+    "difficulty": "core",
+    "caseType": "off-topic",
+    "source": "calibration-dataset",
+    "markerCount": 0
+  },
+  "notes": "Calibration fixture: off-topic. Student describes smartphones generally without addressing the prompt (ban/no-ban, two reasons, alternative). Awaiting human-marker review."
+}
