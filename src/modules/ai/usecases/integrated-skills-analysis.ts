@@ -34,6 +34,7 @@ DSE Paper 3 官方評分標準：Listening 理解 (40%) + Language 語言 (35%) 
 
 回覆純 JSON：
 { "overallScore": 0-100, "listeningAccuracy": 0-100, "writingQuality": 0-100, "contentCompleteness": 0-100, "languageAccuracy": 0-100, "organizationClarity": 0-100, "capturedPoints": [...], "missedPoints": [...], "overCopyWarnings": [{ "original": "...", "suggestion": "..." }], "grammarErrors": [{ "original": "...", "correction": "...", "explanation": "..." }], "vocabularySuggestions": [{ "original": "...", "suggestion": "...", "reason": "..." }], "structureFeedback": "...", "structureFeedbackZh": "...（繁體中文）", "generalComment": "...", "generalCommentZh": "...（繁體中文）", "improvementTips": ["English tip 1"], "improvementTipsZh": ["中文建議 1"], "noteTakingFeedback": "...", "noteTakingFeedbackZh": "...（繁體中文）", "dataManipulationFeedback": "...", "dataManipulationFeedbackZh": "...（繁體中文）", "estimatedLevel": "Level 1-5 或 Below Level 1", "modelAnswer": "A model answer at DSE Level 5 standard — MUST be a complete, well-written sample response in English" }
+⚠️ FOR grammarErrors: Only include REAL grammatical errors. If a sentence has no error, DO NOT include it. "original" and "correction" MUST be different text. Empty array [] if no errors.
 ⚠️ "modelAnswer" 必須為完整英文範文（DSE Level 5 水平），展示如何正確整合聆聽+Data File 資訊、適切改寫、格式正確的答案。此欄位不可留空。`;
 
   const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');

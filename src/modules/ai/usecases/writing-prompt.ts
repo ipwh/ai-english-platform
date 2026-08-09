@@ -60,7 +60,7 @@ DSE reference topics (for style reference only — do NOT use these as your main
 ${referenceTopics.map(t => `  • ${t}`).join('\n')}
 ${weakSkillHint}
 
-CRITICAL: Output ONLY the writing prompt. No headings, no labels. Just the complete, ready-to-use prompt text.`.trim();
+CRITICAL: Output ONLY the writing prompt. No headings, no labels, no tips, no hints, no suggestions, no "Writing Tips" section. Just the complete, ready-to-use prompt text. If there are no special requirements to mention, do NOT fabricate any.`.trim();
 
   const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}.${input.difficulty ? ` Difficulty: ${input.difficulty}.` : ''} Word limit: ${input.wordLimit} words. Required topic: "${diverseTopics[0]}".`;
 
