@@ -85,7 +85,7 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
 // ============================================
 function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: IntegratedTaskData; s: any }) {
   const [loading, setLoading] = useState(false);
-  const label = fmt === 'pdf' ? '📄 PDF' : '📝 DOCX';
+  const label = '📝 DOCX';
   return (
     <button
       onClick={async () => {
@@ -95,6 +95,8 @@ function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: 
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               listeningContent: task.listeningContent,
+              dataFileSources: task.dataFile?.sources,
+              noteTakingGuide: task.noteTakingGuide,
               writingTask: task.writingTask, taskType: s.taskType,
               studentNotes: s.studentNotes, studentWriting: s.studentWriting,
               analysis: s.analysis,
@@ -389,7 +391,6 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
 
   // === 雙語開關 ===
   const [showZhNotes, setShowZhNotes] = useState(false);
-  const hasBilingualNotes = task.noteTakingGuide.some(item => item.questionZh || item.hintZh);
 
   // === 計算值 ===
   const hasNotes = s.studentNotes.trim().length > 0;
@@ -515,7 +516,6 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           >
             <Sparkles className="w-4 h-4" /> {t('is.newTask')}
           </button>
-          <ExportBtn fmt="pdf" color="bg-red-500 hover:bg-red-600" task={task} s={s} />
           <ExportBtn fmt="docx" color="bg-blue-500 hover:bg-blue-600" task={task} s={s} />
         </div>
       </div>
@@ -690,20 +690,18 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                             <Target className="w-4 h-4" /> {t('is.noteGuide')}
                           </h4>
                           <div className="flex items-center gap-2">
-                            {hasBilingualNotes && (
-                              <button
-                                onClick={() => setShowZhNotes(!showZhNotes)}
-                                className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 transition-colors ${
-                                  showZhNotes
-                                    ? 'bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200'
-                                    : 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700'
-                                }`}
-                                title={showZhNotes ? t('is.hideZh') : t('is.showZh')}
-                              >
-                                <Languages className="w-3 h-3" />
-                                {showZhNotes ? 'EN' : '中文'}
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setShowZhNotes(!showZhNotes)}
+                              className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 transition-colors ${
+                                showZhNotes
+                                  ? 'bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200'
+                                  : 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700'
+                              }`}
+                              title={showZhNotes ? 'Show English only' : '顯示中文對照'}
+                            >
+                              <Languages className="w-3 h-3" />
+                              {showZhNotes ? 'EN' : '中文'}
+                            </button>
                             <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
                               {t('is.hide')}
                             </button>
