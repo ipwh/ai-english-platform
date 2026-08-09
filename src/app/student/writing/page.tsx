@@ -76,6 +76,9 @@ export default function WritingPage() {
   const [rewrittenText, setRewrittenText] = useState('');
   const [rewriteSummary, setRewriteSummary] = useState<string[]>([]);
   const [showRewrite, setShowRewrite] = useState(false);
+  // === 中等水平範文 ===
+  const [midModelLoading, setMidModelLoading] = useState(false);
+  const [midModelEssay, setMidModelEssay] = useState('');
   const [showDiff, setShowDiff] = useState(false);
 
   // === 分層反饋狀態 ===
@@ -313,6 +316,23 @@ export default function WritingPage() {
     } finally {
       setRewriteLoading(false);
     }
+  };
+
+  // === 生成中等水平範文 ===
+  const handleMidModel = async () => {
+    if (!topic.trim()) return;
+    setMidModelLoading(true); setMidModelEssay('');
+    try {
+      const res = await fetch('/api/ai/generate-model-essay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, textType, gradeLevel, difficulty, wordLimit, level: 'mid' }),
+      });
+      const json = await res.json();
+      if (res.ok && json.essay) {
+        setMidModelEssay(json.essay);
+      }
+    } catch { /* ignore */ }
+    finally { setMidModelLoading(false); }
   };
 
   // 簡單 diff 比較：標記差異
@@ -656,8 +676,8 @@ export default function WritingPage() {
                 </div>
               )}
               {aiResult.revisedVersion && (
-                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg">
-                  <p className="text-xs font-medium text-purple-600 mb-1">{t('writing.revised')}</p>
+                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
+                  <p className="text-xs font-medium text-purple-600 mb-1">🏆 AI 範文 (DSE Level 5)</p>
                   {store.userId ? (
                     <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
                       <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
@@ -667,18 +687,39 @@ export default function WritingPage() {
                   )}
                 </div>
               )}
+              {/* 中等水平範文 */}
+              {midModelEssay && (
+                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
+                  <p className="text-xs font-medium text-amber-600 mb-1">📝 中等水平範文 (Level 3)</p>
+                  {store.userId ? (
+                    <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
+                    </VocabEnabledText>
+                  ) : (
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
+                  )}
+                </div>
+              )}
             </>
           )}
 
-          {/* 🆕 互動改寫按鈕 */}
-          <div className="flex items-center gap-3 pt-2 border-t border-purple-200 dark:border-purple-700">
+          {/* 🆕 按鈕列 */}
+          <div className="flex items-center gap-3 pt-2 border-t border-purple-200 dark:border-purple-700 flex-wrap">
             <button
               onClick={handleRewrite}
               disabled={rewriteLoading || !draft.trim()}
               className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 flex items-center gap-2 shadow-sm"
             >
               {rewriteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {rewriteLoading ? t('writing.rewriting') : t('writing.rewriteBtn')}
+              {rewriteLoading ? t('writing.rewriting') : 'AI改寫學生作品'}
+            </button>
+            <button
+              onClick={handleMidModel}
+              disabled={midModelLoading || !topic.trim()}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm"
+            >
+              {midModelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+              {midModelLoading ? '生成中...' : '生成中等範文'}
             </button>
             {rewrittenText && (
               <button

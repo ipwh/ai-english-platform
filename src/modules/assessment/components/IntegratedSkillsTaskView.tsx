@@ -479,31 +479,29 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           <button
             onClick={async () => {
               try {
-                const res = await fetch('/api/export/integrated-skills', {
-                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    listeningContent: task.listeningContent,
-                    dataFileSources: task.dataFile?.sources,
-                    noteTakingGuide: task.noteTakingGuide,
-                    writingTask: task.writingTask,
-                    taskType: s.taskType,
-                    studentNotes: s.studentNotes,
-                    studentWriting: s.studentWriting,
-                    analysis: s.analysis,
-                  }),
+                const payload = JSON.stringify({
+                  listeningContent: task.listeningContent,
+                  dataFileSources: task.dataFile?.sources,
+                  noteTakingGuide: task.noteTakingGuide,
+                  writingTask: task.writingTask, taskType: s.taskType,
+                  studentNotes: s.studentNotes, studentWriting: s.studentWriting,
+                  analysis: s.analysis,
                 });
-                if (res.ok) {
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const aEl = document.createElement('a');
-                  aEl.href = url; aEl.download = 'integrated-skills-report.docx';
-                  aEl.click(); URL.revokeObjectURL(url);
+                for (const fmt of ['docx', 'pdf']) {
+                  const res = await fetch(`/api/export/integrated-skills?format=${fmt}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+                  if (res.ok) {
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const aEl = document.createElement('a');
+                    aEl.href = url; aEl.download = `integrated-skills-report.${fmt}`;
+                    aEl.click(); URL.revokeObjectURL(url);
+                  }
                 }
               } catch { /* ignore */ }
             }}
-            className="py-3 px-5 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="py-3 px-4 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            <Download className="w-4 h-4" /> Export DOCX
+            <Download className="w-4 h-4" /> Export PDF+DOCX
           </button>
         </div>
       </div>

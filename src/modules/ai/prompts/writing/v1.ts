@@ -188,7 +188,7 @@ Organization (O) 7 分制：
     { "original": "good", "suggestion": "beneficial", "reason": "更精確地表達正面影響" }
   ],
   "structureFeedback": "繁體中文結構評語",
-  "revisedVersion": "修改後的完整文章（保留原文觀點和結構，修正語言錯誤並提升詞彙）"
+  "revisedVersion": "根據寫作題目要求生成的一份 DSE Level 5 高水平範文（不是修改學生的原文，而是AI根據題目要求獨立撰寫的示範文章，展示如何達到高等級水平）"
 }`;
 }
 
