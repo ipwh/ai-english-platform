@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
