@@ -245,12 +245,15 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       )}
 
       {/* Grammar errors */}
-      {a.grammarErrors && a.grammarErrors.length > 0 && (
+      {a.grammarErrors && a.grammarErrors.length > 0 && (() => {
+        const realErrors = a.grammarErrors.filter(e => e.original.trim() !== e.correction.trim());
+        if (realErrors.length === 0) return null;
+        return (
         <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-200 dark:border-red-800">
           <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
-            <XCircle className="w-4 h-4" /> Grammar Errors ({a.grammarErrors.length})
+            <XCircle className="w-4 h-4" /> Grammar Errors ({realErrors.length})
           </h4>
-          {a.grammarErrors.map((e, i) => (
+          {realErrors.map((e, i) => (
             <div key={i} className="text-xs mb-2 last:mb-0">
               <div className="text-red-600 line-through bg-red-50 dark:bg-red-900/20 rounded px-2 py-1 mb-1">{e.original}</div>
               <div className="text-green-600 bg-green-50 dark:bg-green-900/20 rounded px-2 py-1">→ {e.correction}</div>
@@ -258,7 +261,8 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
             </div>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* Chinglish warnings */}
       {a.chinglishWarnings && a.chinglishWarnings.length > 0 && (
@@ -389,8 +393,42 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
   const s = useIntegratedSkillsStore();
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // === 雙語開關 ===
+  // === 雙語開關 + 按需翻譯 ===
   const [showZhNotes, setShowZhNotes] = useState(false);
+  const [zhTranslations, setZhTranslations] = useState<Record<number, { q: string; h: string }>>({});
+  const [translating, setTranslating] = useState(false);
+
+  const handleToggleZh = async () => {
+    const next = !showZhNotes;
+    setShowZhNotes(next);
+    // 首次點擊中文時，按需翻譯筆記指引
+    if (next && Object.keys(zhTranslations).length === 0 && task.noteTakingGuide?.length) {
+      setTranslating(true);
+      try {
+        const items = task.noteTakingGuide.map(g => `Q: ${g.question}\nHint: ${g.hint}`).join('\n---\n');
+        const res = await fetch('/api/ai/study-help/conversation', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `Translate the following note-taking guide questions and hints to Traditional Chinese (繁體中文). Return JSON: [{"q": "中文問題", "h": "中文提示"}]\n\n${items}`,
+            context: 'translation',
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const answer = json.answer || '';
+          // Parse the answer for JSON array
+          const match = answer.match(/\[[\s\S]*\]/);
+          if (match) {
+            const arr = JSON.parse(match[0]);
+            const map: Record<number, { q: string; h: string }> = {};
+            arr.forEach((item: any, i: number) => { if (item) map[i] = { q: item.q || '', h: item.h || '' }; });
+            setZhTranslations(map);
+          }
+        }
+      } catch { /* ignore */ }
+      finally { setTranslating(false); }
+    }
+  };
 
   // === 計算值 ===
   const hasNotes = s.studentNotes.trim().length > 0;
@@ -692,15 +730,16 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                           </h4>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setShowZhNotes(!showZhNotes)}
+                              onClick={handleToggleZh}
+                              disabled={translating}
                               className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 transition-colors ${
                                 showZhNotes
                                   ? 'bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200'
                                   : 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700'
-                              }`}
+                              } disabled:opacity-50`}
                               title={showZhNotes ? 'Show English only' : '顯示中文對照'}
                             >
-                              <Languages className="w-3 h-3" />
+                              {translating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />}
                               {showZhNotes ? 'EN' : '中文'}
                             </button>
                             <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
@@ -709,21 +748,23 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                           </div>
                         </div>
                         <ul className="space-y-2">
-                          {task.noteTakingGuide.map((item, i) => (
+                          {task.noteTakingGuide.map((item, i) => {
+                            const zh = zhTranslations[i];
+                            return (
                             <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
                               <span className="font-bold text-amber-500 shrink-0">{i + 1}.</span>
                               <div>
                                 <span className="font-medium">{item.question}</span>
                                 <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
-                                {showZhNotes && (item.questionZh || item.hintZh) && (
+                                {showZhNotes && zh && (
                                   <div className="mt-1 text-xs text-amber-600/70 dark:text-amber-300/60 border-t border-amber-200 dark:border-amber-700 pt-1">
-                                    {item.questionZh && <div>📝 {item.questionZh}</div>}
-                                    {item.hintZh && <div>💡 {item.hintZh}</div>}
+                                    <div>📝 {zh.q}</div>
+                                    <div>💡 {zh.h}</div>
                                   </div>
                                 )}
                               </div>
                             </li>
-                          ))}
+                          )})}
                         </ul>
                       </div>
                     ) : (
