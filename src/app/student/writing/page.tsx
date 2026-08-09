@@ -320,12 +320,12 @@ export default function WritingPage() {
 
   // === 生成中等水平範文 ===
   const handleMidModel = async () => {
-    if (!topic.trim()) return;
+    if (!generatedPrompt.trim()) return;
     setMidModelLoading(true); setMidModelEssay('');
     try {
       const res = await fetch('/api/ai/generate-model-essay', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, textType, gradeLevel, difficulty, wordLimit, level: 'mid' }),
+        body: JSON.stringify({ topic: generatedPrompt, textType, gradeLevel, difficulty, wordLimit, level: 'mid' }),
       });
       const json = await res.json();
       if (res.ok && json.essay) {
@@ -715,7 +715,7 @@ export default function WritingPage() {
             </button>
             <button
               onClick={handleMidModel}
-              disabled={midModelLoading || !topic.trim()}
+              disabled={midModelLoading || !generatedPrompt.trim()}
               className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm"
             >
               {midModelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
