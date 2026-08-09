@@ -85,7 +85,7 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
 // ============================================
 function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: IntegratedTaskData; s: any }) {
   const [loading, setLoading] = useState(false);
-  const label = '📝 DOCX';
+  const label = fmt === 'pdf' ? '📄 PDF' : '📝 DOCX';
   return (
     <button
       onClick={async () => {
@@ -516,6 +516,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           >
             <Sparkles className="w-4 h-4" /> {t('is.newTask')}
           </button>
+          <ExportBtn fmt="pdf" color="bg-red-500 hover:bg-red-600" task={task} s={s} />
           <ExportBtn fmt="docx" color="bg-blue-500 hover:bg-blue-600" task={task} s={s} />
         </div>
       </div>

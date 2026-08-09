@@ -675,32 +675,34 @@ export default function WritingPage() {
                     </div>))}
                 </div>
               )}
-              {aiResult.revisedVersion && (
-                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
-                  <p className="text-xs font-medium text-purple-600 mb-1">🏆 AI 範文 (DSE Level 5)</p>
-                  {store.userId ? (
-                    <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
-                    </VocabEnabledText>
-                  ) : (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
-                  )}
-                </div>
-              )}
-              {/* 中等水平範文 */}
-              {midModelEssay && (
-                <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
-                  <p className="text-xs font-medium text-amber-600 mb-1">📝 中等水平範文 (Level 3)</p>
-                  {store.userId ? (
-                    <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
-                    </VocabEnabledText>
-                  ) : (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
-                  )}
-                </div>
-              )}
             </>
+          )}
+
+          {/* 🏆 AI 範文 — 始終顯示 */}
+          {aiResult.revisedVersion && (
+            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
+              <p className="text-xs font-medium text-purple-600 mb-1">🏆 AI 範文 (DSE Level 5)</p>
+              {store.userId ? (
+                <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
+                </VocabEnabledText>
+              ) : (
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
+              )}
+            </div>
+          )}
+          {/* 中等水平範文 */}
+          {midModelEssay && (
+            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
+              <p className="text-xs font-medium text-amber-600 mb-1">📝 中等水平範文 (Level 3)</p>
+              {store.userId ? (
+                <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
+                </VocabEnabledText>
+              ) : (
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
+              )}
+            </div>
           )}
 
           {/* 🆕 按鈕列 */}
