@@ -4,7 +4,28 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## Unreleased (working tree 2026-08-08)
+## Unreleased (working tree 2026-08-09)
+
+### 🚀 Cloud Run Deployment
+- **NEW**: Full Cloud Run deployment pipeline — Dockerfile (multi-stage, Node.js 22 Alpine, Next.js standalone), Cloud Build `cloudbuild.yaml`, `.dockerignore`
+- **NEW**: Deployment scripts — `scripts/cloud-run-deploy.ps1` (Windows), `scripts/cloud-run-deploy.sh` (macOS/Linux)
+- **NEW**: Cloud Run service config (`cloud-run.yaml`) — 300s timeout, 1 vCPU/1GiB, auto-scale 0–20, startup CPU boost, Hong Kong region (asia-east2)
+- **NEW**: Environment variable management — `cloud-run-env.yaml`, `.env.cloud-run.example`
+- **FIXED**: Removed `HOSTNAME=0.0.0.0` from Dockerfile (caused redirects to internal IP)
+- **FIXED**: Used `x-forwarded-*` headers for redirect URL generation in `role-select` route (Cloud Run proxies strip original host)
+- **FIXED**: `form-action 'self'` CSP removed for Cloud Run compatibility
+- **FIXED**: Added `src/app/api/layout.tsx` with `dynamic = 'force-dynamic'` to prevent build-time pre-rendering of API routes
+- **DOCS**: Full migration guide in `docs/CLOUD_RUN_MIGRATION.md`
+
+### ✨ Integrated Skills v6 — Bilingual Notes, Model Answer, PDF Export
+- **NEW**: Note-taking guide bilingual toggle — AI generates `question`/`hint` in English with `questionZh`/`hintZh` in Traditional Chinese; 「中文」toggle button with `Languages` icon
+- **NEW**: AI Model Answer — analysis now includes DSE Level 5 model answer (`modelAnswer` field) comparing student work against exemplar
+- **NEW**: PDF export endpoint `/api/export/integrated-skills` — exports complete Integrated Skills report (listening content, data file, note-taking guide, student notes, student writing, AI analysis, model answer) as formatted PDF with CJK font support
+- **NEW**: Export PDF button in ResultView (alongside "New Task" button)
+- **UPDATED**: Types — `NoteGuideItem` now includes optional `questionZh`/`hintZh`; `IntegratedSkillsAnalysis` includes optional `modelAnswer`
+- **UPDATED**: Generation prompt now requests bilingual note-taking guidance (English primary, 繁體中文 secondary)
+
+---
 
 ### Writing evaluation — self-study feedback enhancement
 - Added evidence-backed CLO rationale display (`CloRationaleCard` + `CloFeedbackPanel`)
