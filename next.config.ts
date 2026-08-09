@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Cloud Run 需要 standalone 輸出模式（自帶 server.js）
+  // Vercel 自動處理，不需要此設定
+  output: 'standalone',
+
   // Production security headers (injected via vercel.json for Vercel,
   // but also set here for non-Vercel deployments)
   async headers() {
@@ -25,7 +29,6 @@ const nextConfig: NextConfig = {
               "frame-src 'self' https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",
-              "form-action 'self'",
             ].join("; "),
           },
         ],

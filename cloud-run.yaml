@@ -1,0 +1,76 @@
+# ============================================
+# Cloud Run Service Configuration
+# Replaces: vercel.json (Vercel-specific settings)
+# ============================================
+#
+# Deploy with:
+#   gcloud run services replace cloud-run.yaml --region=asia-east2
+#
+# First-time deploy:
+#   gcloud run deploy english-platform \
+#     --image gcr.io/PROJECT_ID/english-platform \
+#     --region asia-east2 \
+#     --allow-unauthenticated
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: english-platform
+  annotations:
+    # 允許未驗證存取（公開網站）
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    # 自動擴縮設定
+    autoscaling.knative.dev/maxScale: "20"
+spec:
+  template:
+    metadata:
+      annotations:
+        # 自動擴縮：預設 60% CPU 觸發擴縮
+        autoscaling.knative.dev/target-cpu-utilization-percentage: "60"
+        # 最少保持 0 個 instance（非上課時間縮放至零，節省成本）
+        autoscaling.knative.dev/minScale: "0"
+        # 最多 20 個 instance（避免資料庫連線數爆炸）
+        autoscaling.knative.dev/maxScale: "20"
+        # 啟動時 CPU 加速（1→2 vCPU），減少 cold start 延遲
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      # 請求 timeout：5 分鐘（300s），足以處理所有 AI API 呼叫
+      # Vercel 上限: 60-120s（vercel.json）
+      # Cloud Run 預設: 300s，最大: 3600s（60 分鐘）
+      timeoutSeconds: 300
+
+      # Service account: 自動驗證 GCP API（Vertex Gemini, Vision, TTS）
+      serviceAccountName: english-platform@PROJECT_ID.iam.gserviceaccount.com
+
+      containers:
+        - image: gcr.io/PROJECT_ID/english-platform:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          # 環境變數（非機密）
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXTAUTH_URL
+              value: "https://REPLACE_WITH_YOUR_DOMAIN"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/app/materials/gcp-service-account.json"
+          # 啟動健康檢查
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 0
+            timeoutSeconds: 240
+            periodSeconds: 240
+            failureThreshold: 1
+          # 存活健康檢查
+          livenessProbe:
+            httpGet:
+              path: "/api/health"
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
