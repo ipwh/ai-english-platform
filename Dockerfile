@@ -43,8 +43,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV HOSTNAME=0.0.0.0
 ENV PORT=8080
+# ⚠️ 不設 HOSTNAME — Next.js 會用它生成 redirect URL（設 0.0.0.0 會導致 redirect 到錯誤網址）
 
 # Install runtime dependencies only
 RUN apk add --no-cache tzdata
