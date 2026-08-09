@@ -41,14 +41,13 @@ Return ONLY a JSON object:
 
     const userPrompt = `Writing prompt:\n"""\n${sanitizeForAI(topic)}\n"""\n\nGrade level: ${gradeLevel || 'S4'}\nTarget level: ${targetLevel}\nWord limit: ~${words} words`;
 
-    const result = await callLLM({
-      context: { feature: 'Writing', useCase: 'GenerateModelEssay', promptName: 'ModelEssayGeneration', promptVersion: 'v1' },
-      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-      options: { temperature: 0.5, maxTokens: 2048, jsonMode: true, timeoutMs: 25000, userId: authResult.userId },
-    });
+    const resultText = await callLLM(
+      [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+      { temperature: 0.5, maxTokens: 2048, jsonMode: true, timeoutMs: 25000, userId: authResult.userId },
+    );
 
-    const parsed = JSON.parse(result.content);
-    return NextResponse.json({ essay: parsed.essay || result.content });
+    const parsed = JSON.parse(resultText);
+    return NextResponse.json({ essay: parsed.essay || resultText });
   } catch (error) {
     logger.error({ module: 'generate-model-essay', error: (error as Error).message }, 'Model essay generation failed');
     return NextResponse.json({ error: '範文生成失敗' }, { status: 500 });
