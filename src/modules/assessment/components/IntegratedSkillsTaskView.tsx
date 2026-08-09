@@ -401,29 +401,18 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
   const handleToggleZh = async () => {
     const next = !showZhNotes;
     setShowZhNotes(next);
-    // 首次點擊中文時，按需翻譯筆記指引
     if (next && Object.keys(zhTranslations).length === 0 && task.noteTakingGuide?.length) {
       setTranslating(true);
       try {
-        const items = task.noteTakingGuide.map(g => `Q: ${g.question}\nHint: ${g.hint}`).join('\n---\n');
-        const res = await fetch('/api/ai/study-help/conversation', {
+        const res = await fetch('/api/ai/translate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: `Translate the following note-taking guide questions and hints to Traditional Chinese (繁體中文). Return JSON: [{"q": "中文問題", "h": "中文提示"}]\n\n${items}`,
-            context: 'translation',
-          }),
+          body: JSON.stringify({ items: task.noteTakingGuide.map(g => ({ question: g.question, hint: g.hint })) }),
         });
         if (res.ok) {
           const json = await res.json();
-          const answer = json.answer || '';
-          // Parse the answer for JSON array
-          const match = answer.match(/\[[\s\S]*\]/);
-          if (match) {
-            const arr = JSON.parse(match[0]);
-            const map: Record<number, { q: string; h: string }> = {};
-            arr.forEach((item: any, i: number) => { if (item) map[i] = { q: item.q || '', h: item.h || '' }; });
-            setZhTranslations(map);
-          }
+          const map: Record<number, { q: string; h: string }> = {};
+          (json.translations || []).forEach((item: any, i: number) => { if (item) map[i] = { q: item.q || '', h: item.h || '' }; });
+          setZhTranslations(map);
         }
       } catch { /* ignore */ }
       finally { setTranslating(false); }
