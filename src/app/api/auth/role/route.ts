@@ -16,7 +16,7 @@ function createRoleResponse(request: NextRequest, role: string, body?: Record<st
   const target = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
   const response = body
     ? NextResponse.json(body)
-    : NextResponse.redirect(new URL(target, request.url), 303);
+    : NextResponse.redirect(buildExternalUrl(target, request), 303);
 
   response.cookies.set('selected_role', role, {
     httpOnly: false,
@@ -27,6 +27,14 @@ function createRoleResponse(request: NextRequest, role: string, body?: Record<st
   });
 
   return response;
+}
+
+/** 使用 X-Forwarded 標頭重建外部 URL（Cloud Run 內部 request.url 可能是 http://0.0.0.0:8080） */
+function buildExternalUrl(path: string, request: NextRequest): URL {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const base = host ? `${proto}://${host}` : request.url;
+  return new URL(path, base);
 }
 
 export async function PATCH(request: NextRequest) {
@@ -88,14 +96,14 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user?.id) {
       logger.warn({ module: 'role-select' }, 'No session, redirecting to login');
-      return NextResponse.redirect(new URL('/login', request.url), 303);
+      return NextResponse.redirect(buildExternalUrl('/login', request), 303);
     }
     userId = session.user.id;
   }
 
   if (!userId) {
     logger.warn({ module: 'role-select' }, 'No userId, redirecting to login');
-    return NextResponse.redirect(new URL('/login', request.url), 303);
+    return NextResponse.redirect(buildExternalUrl('/login', request), 303);
   }
 
   const formData = await request.formData();
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest) {
 
   if (role !== 'student' && role !== 'teacher' && role !== 'admin') {
     logger.warn({ module: 'role-select', role }, 'Invalid role, redirecting');
-    return NextResponse.redirect(new URL('/role-select?error=invalid-role', request.url), 303);
+    return NextResponse.redirect(buildExternalUrl('/role-select?error=invalid-role', request), 303);
   }
 
   // ⚠️ 不再更新 DB role — 角色切換僅設定 selected_role cookie
