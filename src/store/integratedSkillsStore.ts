@@ -13,6 +13,8 @@ export type TaskStep = 1 | 2 | 3;
 export interface NoteGuideItem {
   question: string;
   hint: string;
+  questionZh?: string;
+  hintZh?: string;
 }
 
 export interface IntegratedTaskData {
@@ -47,6 +49,14 @@ export interface IntegratedSkillsResult {
   noteTakingFeedback?: string;
   improvementTips?: string[];
   scoringBreakdown?: { listeningWeighted: string; languageWeighted: string; organizationWeighted: string; formula: string };
+  /** AI 範本答案 (DSE Level 5) */
+  modelAnswer?: string;
+  /** 雙語欄位 */
+  generalCommentZh?: string;
+  structureFeedbackZh?: string;
+  improvementTipsZh?: string[];
+  noteTakingFeedbackZh?: string;
+  dataManipulationFeedbackZh?: string;
 }
 
 interface IntegratedSkillsState {

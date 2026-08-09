@@ -87,9 +87,12 @@ Listening design rules: ${diff.lines}, use at least 2 different speakers from {W
 Trap design: ${diff.traps} — use number confusion (e.g. 5432 vs 5423) and date corrections.
 
 ═══════════════════════════════════════
-Data File Requirements
+Data File Requirements — ALL CONTENT MUST BE IN ENGLISH
 ═══════════════════════════════════════
 Generate ${diff.dataFilePages} Data File sources (email/memo/report-excerpt/webpage/statistics/notice).
+⚠️ CRITICAL: ALL data file content (title, content, EVERYTHING) MUST be written in ENGLISH.
+This is an English exam (DSE Paper 3). The student must read and interpret English materials.
+NEVER generate Chinese text in data file content. NEVER mix languages.
 Each source must have:
 - type: one of email, memo, report-excerpt, webpage, statistics, notice
 - title: a descriptive title for the source
@@ -100,14 +103,17 @@ Include at least 1 distractor source not relevant to any question.
 Include subtle info conflicts between sources (e.g., different dates for same event).
 
 ═══════════════════════════════════════
-CRITICAL: Note-taking Guide — HINTS ONLY, NEVER ANSWERS
+CRITICAL: Note-taking Guide — BILINGUAL + HINTS ONLY, NEVER ANSWERS
 ═══════════════════════════════════════
 The noteTakingGuide is for STUDENTS to fill in during listening.
 It MUST contain guiding questions with HINTS — NEVER the actual answers.
 Hints should tell students WHAT to listen for (e.g. "Listen for the date"),
 NOT what the answer is (e.g. DO NOT write "August 15th").
-The note-taking textarea is blank — students write their own notes.
-Use Traditional Chinese for question and hint text.
+
+IMPORTANT — BILINGUAL FORMAT:
+- "question" / "hint": Write in ENGLISH (primary display language)
+- "questionZh" / "hintZh": Write in TRADITIONAL CHINESE 繁體中文 (secondary, shown on toggle)
+
 Use symbol system: $=money #=number !=important @=time in hints.
 Example of CORRECT hint: "留意日期，可能有更改" (tells student to listen for date, not the date itself)
 Example of WRONG hint: "答案是8月15日" (reveals the answer — FORBIDDEN)
@@ -121,7 +127,7 @@ Output pure JSON (start with {, end with }, no markdown):
   "listeningContent": "Woman: Hello...\\nMan: Yes...\\nWoman: Also...",
   "listeningTopicZh": "主題名稱（繁體中文）",
   "dataFile": { "sources": [{ "type": "email", "title": "...", "content": "...", "relevantFor": [1, 2], "sourceDate": "2024-03-15" }] },
-  "noteTakingGuide": [{ "question": "學生抵達日期是？", "hint": "留意日期，可能有更改" }],
+  "noteTakingGuide": [{ "question": "What date did the students arrive?", "hint": "Listen for the date — it may change", "questionZh": "學生抵達日期是？", "hintZh": "留意日期，可能有更改" }],
   "writingTask": "You are... Write a...",
   "expectedContentPoints": ["Content point as a plain string", "Another content point as a plain string"],
   "listeningAnswers": [{ "question": "...", "answer": "..." }]
@@ -162,7 +168,7 @@ CRITICAL REQUIREMENTS:
  * This post-processing redacts hints that look like answers (dates, dollar amounts, etc.)
  * in BOTH English and Traditional Chinese.
  */
-function sanitizeNoteGuide(guide: Array<{ question: string; hint: string }>): Array<{ question: string; hint: string }> {
+function sanitizeNoteGuide(guide: Array<{ question: string; hint: string; questionZh?: string; hintZh?: string }>): Array<{ question: string; hint: string; questionZh?: string; hintZh?: string }> {
   return guide.map(item => {
     let hint = item.hint;
     // ── English patterns ──

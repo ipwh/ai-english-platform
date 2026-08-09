@@ -9,7 +9,7 @@ import {
   Loader2, Send, Sparkles, CheckCircle2, XCircle, Lightbulb,
   Target, BookOpen, AlertTriangle, Award, ChevronDown, ChevronUp,
   Save, Headphones, Edit3, ChevronRight, PenLine, FileText,
-  ArrowLeft, Eye, EyeOff,
+  ArrowLeft, Eye, EyeOff, Languages, Download,
 } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import ListeningScript from '@/components/shared/ListeningScript';
@@ -85,7 +85,10 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
 // ============================================
 function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: string }) {
   const a = useIntegratedSkillsStore(s => s.analysis);
+  const [showZh, setShowZh] = useState(false);
   if (!a) return null;
+
+  const hasZh = !!(a.generalCommentZh || a.structureFeedbackZh || (a.improvementTipsZh?.length) || a.noteTakingFeedbackZh);
 
   const scoreColor = (s: number) =>
     s >= 80 ? 'text-green-600 bg-green-100 dark:bg-green-900/20' :
@@ -94,10 +97,21 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
 
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Overall */}
+      {/* Overall + Bilingual toggle */}
       <div className="text-center py-6 bg-gradient-to-br from-teal-50 to-purple-50 dark:from-teal-900/10 dark:to-purple-900/10 rounded-2xl border border-teal-100 dark:border-teal-800">
         <Award className="w-10 h-10 text-teal-500 mx-auto mb-2" />
         <div className="text-4xl font-extrabold text-teal-600 dark:text-teal-400">{a.overallScore}<span className="text-lg">%</span></div>
+        {a.estimatedLevel && <div className="text-sm text-gray-500 mt-1">Est. {a.estimatedLevel}</div>}
+        {hasZh && (
+          <button
+            onClick={() => setShowZh(!showZh)}
+            className={`mt-2 text-xs px-3 py-1 rounded-full inline-flex items-center gap-1 transition-colors ${
+              showZh ? 'bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-200' : 'bg-purple-100 dark:bg-purple-800 text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-700'
+            }`}
+          >
+            <Languages className="w-3 h-3" /> {showZh ? 'English' : '中文'}
+          </button>
+        )}
         <div className="text-sm text-gray-500 mt-1">Overall Score</div>
         {a.estimatedLevel && (
           <div className="inline-block mt-2 px-3 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-bold rounded-full">
@@ -245,6 +259,9 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
             <Edit3 className="w-4 h-4" /> Note-taking Feedback
           </h4>
           <p className="text-sm text-amber-700 dark:text-amber-400 leading-relaxed">{a.noteTakingFeedback}</p>
+          {showZh && a.noteTakingFeedbackZh && (
+            <p className="text-sm text-amber-600/70 dark:text-amber-300/60 leading-relaxed mt-1 pt-1 border-t border-amber-200 dark:border-amber-700">{a.noteTakingFeedbackZh}</p>
+          )}
         </div>
       )}
 
@@ -255,6 +272,22 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
             <Sparkles className="w-4 h-4" /> Data Manipulation
           </h4>
           <p className="text-sm text-teal-700 dark:text-teal-400 leading-relaxed">{a.dataManipulationFeedback}</p>
+          {showZh && a.dataManipulationFeedbackZh && (
+            <p className="text-sm text-teal-600/70 dark:text-teal-300/60 leading-relaxed mt-1 pt-1 border-t border-teal-200 dark:border-teal-700">{a.dataManipulationFeedbackZh}</p>
+          )}
+        </div>
+      )}
+
+      {/* Structure feedback */}
+      {a.structureFeedback && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
+          <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-1 flex items-center gap-1.5">
+            <FileText className="w-4 h-4" /> Structure Feedback
+          </h4>
+          <p className="text-sm text-indigo-700 dark:text-indigo-400 leading-relaxed">{a.structureFeedback}</p>
+          {showZh && a.structureFeedbackZh && (
+            <p className="text-sm text-indigo-600/70 dark:text-indigo-300/60 leading-relaxed mt-1 pt-1 border-t border-indigo-200 dark:border-indigo-700">{a.structureFeedbackZh}</p>
+          )}
         </div>
       )}
 
@@ -265,7 +298,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
             <Lightbulb className="w-4 h-4" /> Improvement Tips
           </h4>
           <ul className="space-y-1.5">
-            {a.improvementTips.map((tip, i) => (
+            {(showZh && a.improvementTipsZh?.length ? a.improvementTipsZh : a.improvementTips).map((tip, i) => (
               <li key={i} className="text-sm text-green-700 dark:text-green-400 flex items-start gap-2">
                 <span className="text-green-500 mt-0.5 font-bold">{i + 1}.</span>{tip}
               </li>
@@ -280,11 +313,26 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
           </h4>
           {studentId ? (
             <VocabEnabledText studentId={studentId} gradeLevel={gradeLevel}>
-              <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{a.generalComment}</p>
+              <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{showZh && a.generalCommentZh ? a.generalCommentZh : a.generalComment}</p>
             </VocabEnabledText>
           ) : (
-            <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{a.generalComment}</p>
+            <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{showZh && a.generalCommentZh ? a.generalCommentZh : a.generalComment}</p>
           )}
+          {showZh && a.generalCommentZh && (
+            <p className="text-xs text-blue-500/60 dark:text-blue-300/50 mt-1 pt-1 border-t border-blue-200 dark:border-blue-700">{a.generalComment}</p>
+          )}
+        </div>
+      )}
+
+      {/* Model Answer */}
+      {a.modelAnswer && (
+        <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+          <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-400 mb-2 flex items-center gap-1.5">
+            <Award className="w-4 h-4" /> Model Answer (DSE Level 5)
+          </h4>
+          <div className="text-sm text-purple-700 dark:text-purple-400 leading-relaxed whitespace-pre-line bg-white/50 dark:bg-gray-800/50 rounded-lg p-3">
+            {a.modelAnswer}
+          </div>
         </div>
       )}
     </div>
@@ -299,6 +347,10 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
   const appStore = useAppStore();
   const s = useIntegratedSkillsStore();
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // === 雙語開關 ===
+  const [showZhNotes, setShowZhNotes] = useState(false);
+  const hasBilingualNotes = task.noteTakingGuide.some(item => item.questionZh || item.hintZh);
 
   // === 計算值 ===
   const hasNotes = s.studentNotes.trim().length > 0;
@@ -423,6 +475,35 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
             className="flex-1 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4" /> {t('is.newTask')}
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/export/integrated-skills?format=pdf', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    listeningContent: task.listeningContent,
+                    dataFileSources: task.dataFile?.sources,
+                    noteTakingGuide: task.noteTakingGuide,
+                    writingTask: task.writingTask,
+                    taskType: s.taskType,
+                    studentNotes: s.studentNotes,
+                    studentWriting: s.studentWriting,
+                    analysis: s.analysis,
+                  }),
+                });
+                if (res.ok) {
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const aEl = document.createElement('a');
+                  aEl.href = url; aEl.download = 'integrated-skills-report.pdf';
+                  aEl.click(); URL.revokeObjectURL(url);
+                }
+              } catch { /* ignore */ }
+            }}
+            className="py-3 px-5 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" /> Export PDF
           </button>
         </div>
       </div>
@@ -596,9 +677,25 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                           <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                             <Target className="w-4 h-4" /> {t('is.noteGuide')}
                           </h4>
-                          <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
-                            {t('is.hide')}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {hasBilingualNotes && (
+                              <button
+                                onClick={() => setShowZhNotes(!showZhNotes)}
+                                className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 transition-colors ${
+                                  showZhNotes
+                                    ? 'bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200'
+                                    : 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700'
+                                }`}
+                                title={showZhNotes ? t('is.hideZh') : t('is.showZh')}
+                              >
+                                <Languages className="w-3 h-3" />
+                                {showZhNotes ? 'EN' : '中文'}
+                              </button>
+                            )}
+                            <button onClick={s.toggleNotesGuide} className="text-xs text-amber-500 hover:underline">
+                              {t('is.hide')}
+                            </button>
+                          </div>
                         </div>
                         <ul className="space-y-2">
                           {task.noteTakingGuide.map((item, i) => (
@@ -607,6 +704,12 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                               <div>
                                 <span className="font-medium">{item.question}</span>
                                 <span className="text-amber-500/60 ml-1.5 text-xs">{t('is.hint')}：{item.hint}</span>
+                                {showZhNotes && (item.questionZh || item.hintZh) && (
+                                  <div className="mt-1 text-xs text-amber-600/70 dark:text-amber-300/60 border-t border-amber-200 dark:border-amber-700 pt-1">
+                                    {item.questionZh && <div>📝 {item.questionZh}</div>}
+                                    {item.hintZh && <div>💡 {item.hintZh}</div>}
+                                  </div>
+                                )}
                               </div>
                             </li>
                           ))}

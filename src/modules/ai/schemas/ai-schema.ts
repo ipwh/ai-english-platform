@@ -279,6 +279,8 @@ export const IntegratedSkillsTaskSchema = z.object({
   noteTakingGuide: z.array(z.object({
     question: z.string(),
     hint: z.string(),
+    questionZh: z.string().optional(),
+    hintZh: z.string().optional(),
   })),
   writingTask: z.string().min(1),
   expectedContentPoints: z.array(z.string()),
@@ -319,6 +321,14 @@ export const IntegratedSkillsAnalysisSchema = z.object({
   generalComment: z.string(),
   improvementTips: z.array(z.string()),
   estimatedLevel: z.string(),
+  /** AI 範本答案（DSE Level 5 水平），供學生比較學習 */
+  modelAnswer: z.string().optional(),
+  /** 雙語欄位 — 繁體中文 */
+  generalCommentZh: z.string().optional(),
+  structureFeedbackZh: z.string().optional(),
+  improvementTipsZh: z.array(z.string()).optional(),
+  noteTakingFeedbackZh: z.string().optional(),
+  dataManipulationFeedbackZh: z.string().optional(),
 });
 
 // ============================================

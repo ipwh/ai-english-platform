@@ -25,9 +25,16 @@ DSE Paper 3 官方評分標準：Listening 理解 (40%) + Language 語言 (35%) 
 批改維度一：Listening 提取準確度 — 逐點比對 expectedContentPoints，評估 Note-taking 品質
 批改維度二：Writing 品質 — Paraphrasing vs 過度抄襲檢測、PEEL 結構、Audience Awareness
 
+⚠️ BILINGUAL OUTPUT: 所有反饋欄位必須同時提供英文和繁體中文版本，讓英文能力稍遜的學生也能理解。
+- generalComment / generalCommentZh
+- structureFeedback / structureFeedbackZh
+- improvementTips / improvementTipsZh
+- noteTakingFeedback / noteTakingFeedbackZh (from noteTakingFeedback in old format)
+- dataManipulationFeedback / dataManipulationFeedbackZh (from dataManipulationFeedback in old format)
+
 回覆純 JSON：
-{ "overallScore": 0-100, "listeningAccuracy": 0-100, "writingQuality": 0-100, "contentCompleteness": 0-100, "languageAccuracy": 0-100, "organizationClarity": 0-100, "capturedPoints": [...], "missedPoints": [...], "overCopyWarnings": [{ "original": "...", "suggestion": "..." }], "grammarErrors": [{ "original": "...", "correction": "...", "explanation": "..." }], "vocabularySuggestions": [{ "original": "...", "suggestion": "...", "reason": "..." }], "structureFeedback": "...", "generalComment": "...", "improvementTips": [...], "estimatedLevel": "Level 1-5 或 Below Level 1" }
-所有中文使用繁體中文。`;
+{ "overallScore": 0-100, "listeningAccuracy": 0-100, "writingQuality": 0-100, "contentCompleteness": 0-100, "languageAccuracy": 0-100, "organizationClarity": 0-100, "capturedPoints": [...], "missedPoints": [...], "overCopyWarnings": [{ "original": "...", "suggestion": "..." }], "grammarErrors": [{ "original": "...", "correction": "...", "explanation": "..." }], "vocabularySuggestions": [{ "original": "...", "suggestion": "...", "reason": "..." }], "structureFeedback": "...", "structureFeedbackZh": "...（繁體中文）", "generalComment": "...", "generalCommentZh": "...（繁體中文）", "improvementTips": ["English tip 1"], "improvementTipsZh": ["中文建議 1"], "noteTakingFeedback": "...", "noteTakingFeedbackZh": "...（繁體中文）", "dataManipulationFeedback": "...", "dataManipulationFeedbackZh": "...（繁體中文）", "estimatedLevel": "Level 1-5 或 Below Level 1", "modelAnswer": "A model answer at DSE Level 5 standard — MUST be a complete, well-written sample response in English" }
+⚠️ "modelAnswer" 必須為完整英文範文（DSE Level 5 水平），展示如何正確整合聆聽+Data File 資訊、適切改寫、格式正確的答案。此欄位不可留空。`;
 
   const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');
   const userPrompt = `【聆聽材料】\n${input.listeningContent.slice(0, 3000)}\n\n【Note-taking 指引】\n${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}\n\n【預期內容要點】\n${expectedPointsText}\n\n【寫作任務】\n${input.writingTask}\n\n【學生 Note-taking】\n${input.studentNotes || '(未填寫)'}\n\n【學生寫作】\n"""\n${sanitizedWriting}\n"""\n\n請批改此 Integrated Skills 答案。`;

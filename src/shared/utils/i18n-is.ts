@@ -25,6 +25,8 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.noteGuide': { zh: '筆記指引', en: 'Note Guide' },
   'is.hide': { zh: '隱藏', en: 'Hide' },
   'is.show': { zh: '顯示', en: 'Show' },
+  'is.showZh': { zh: '顯示中文', en: 'Show Chinese' },
+  'is.hideZh': { zh: '隱藏中文', en: 'Hide Chinese' },
   'is.hint': { zh: '提示', en: 'Hint' },
   'is.notePlaceholder': { zh: '邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）...', en: 'Jot down key info (dates, numbers, names, events, reasons, results)...' },
   'is.listeningDone': { zh: '已聽完對話，準備寫作！', en: 'Finished listening, ready to write!' },
