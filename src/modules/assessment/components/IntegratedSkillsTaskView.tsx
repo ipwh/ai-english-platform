@@ -479,7 +479,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           <button
             onClick={async () => {
               try {
-                const res = await fetch('/api/export/integrated-skills?format=pdf', {
+                const res = await fetch('/api/export/integrated-skills', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     listeningContent: task.listeningContent,
@@ -496,14 +496,14 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                   const blob = await res.blob();
                   const url = URL.createObjectURL(blob);
                   const aEl = document.createElement('a');
-                  aEl.href = url; aEl.download = 'integrated-skills-report.pdf';
+                  aEl.href = url; aEl.download = 'integrated-skills-report.docx';
                   aEl.click(); URL.revokeObjectURL(url);
                 }
               } catch { /* ignore */ }
             }}
             className="py-3 px-5 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            <Download className="w-4 h-4" /> Export PDF
+            <Download className="w-4 h-4" /> Export DOCX
           </button>
         </div>
       </div>
