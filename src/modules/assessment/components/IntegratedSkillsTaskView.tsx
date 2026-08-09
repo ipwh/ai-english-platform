@@ -81,6 +81,45 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
 }
 
 // ============================================
+// 子元件：匯出按鈕
+// ============================================
+function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: IntegratedTaskData; s: any }) {
+  const [loading, setLoading] = useState(false);
+  const label = fmt === 'pdf' ? '📄 PDF' : '📝 DOCX';
+  return (
+    <button
+      onClick={async () => {
+        setLoading(true);
+        try {
+          const res = await fetch(`/api/export/integrated-skills?format=${fmt}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              listeningContent: task.listeningContent,
+              writingTask: task.writingTask, taskType: s.taskType,
+              studentNotes: s.studentNotes, studentWriting: s.studentWriting,
+              analysis: s.analysis,
+            }),
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const aEl = document.createElement('a');
+            aEl.href = url; aEl.download = `integrated-skills-report.${fmt}`;
+            aEl.click(); URL.revokeObjectURL(url);
+          }
+        } catch { /* ignore */ }
+        finally { setLoading(false); }
+      }}
+      disabled={loading}
+      className={`py-3 px-4 ${color} text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50`}
+    >
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+      {label}
+    </button>
+  );
+}
+
+// ============================================
 // 子元件：雙維度結果卡片
 // ============================================
 function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: string }) {
@@ -476,33 +515,8 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           >
             <Sparkles className="w-4 h-4" /> {t('is.newTask')}
           </button>
-          <button
-            onClick={async () => {
-              try {
-                const payload = JSON.stringify({
-                  listeningContent: task.listeningContent,
-                  dataFileSources: task.dataFile?.sources,
-                  noteTakingGuide: task.noteTakingGuide,
-                  writingTask: task.writingTask, taskType: s.taskType,
-                  studentNotes: s.studentNotes, studentWriting: s.studentWriting,
-                  analysis: s.analysis,
-                });
-                for (const fmt of ['docx', 'pdf']) {
-                  const res = await fetch(`/api/export/integrated-skills?format=${fmt}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
-                  if (res.ok) {
-                    const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    const aEl = document.createElement('a');
-                    aEl.href = url; aEl.download = `integrated-skills-report.${fmt}`;
-                    aEl.click(); URL.revokeObjectURL(url);
-                  }
-                }
-              } catch { /* ignore */ }
-            }}
-            className="py-3 px-4 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <Download className="w-4 h-4" /> Export PDF+DOCX
-          </button>
+          <ExportBtn fmt="pdf" color="bg-red-500 hover:bg-red-600" task={task} s={s} />
+          <ExportBtn fmt="docx" color="bg-blue-500 hover:bg-blue-600" task={task} s={s} />
         </div>
       </div>
     );
