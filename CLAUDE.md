@@ -6,16 +6,16 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 171/171 core tests pass (4 files — fully green)
+- **Testing**: Vitest 4, 1919/1919 tests pass (84 files — fully green)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
-- **Key modules**: 28 under `src/modules/` (including 5 AI infra + foundation modules)
-- **API routes**: 120 under `src/app/api/`
+- **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules)
+- **API routes**: 126 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` internal only.
 - **AI Facade**: 32+ exported symbols — all API routes use `@/modules/ai` (no direct service imports)
 - **Prompt Registry**: 12 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
-- **AI Module**: 21 directories, ~250 files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
-- **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 21 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
+- **AI Module**: 18 directories, ~225 files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
+- **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 6 files — circuit-breaker, budget-policy, capacity-planner, provider-policy, regression-detector, saturation-detector
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`

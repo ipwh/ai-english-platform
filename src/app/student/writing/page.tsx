@@ -681,7 +681,7 @@ export default function WritingPage() {
           {/* 🏆 AI 範文 — 始終顯示 */}
           {aiResult.revisedVersion && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
-              <p className="text-xs font-medium text-purple-600 mb-1">🏆 AI 範文 (DSE Level 5)</p>
+              <p className="text-xs font-medium text-purple-600 mb-1">{lang === 'en' ? '🏆 AI Model Essay (DSE Level 5)' : '🏆 AI 範文 (DSE Level 5)'}</p>
               {store.userId ? (
                 <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
                   <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>
@@ -694,7 +694,7 @@ export default function WritingPage() {
           {/* 中等水平範文 */}
           {midModelEssay && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
-              <p className="text-xs font-medium text-amber-600 mb-1">📝 中等水平範文 (Level 3)</p>
+              <p className="text-xs font-medium text-amber-600 mb-1">{lang === 'en' ? '📝 Mid-Level Model Essay (Level 3)' : '📝 中等水平範文 (Level 3)'}</p>
               {store.userId ? (
                 <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
                   <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
@@ -713,7 +713,7 @@ export default function WritingPage() {
               className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 flex items-center gap-2 shadow-sm"
             >
               {rewriteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {rewriteLoading ? t('writing.rewriting') : 'AI改寫學生作品'}
+              {rewriteLoading ? t('writing.rewriting') : (lang === 'en' ? 'AI Rewrite (Enhanced)' : 'AI 改寫學生作品')}
             </button>
             <button
               onClick={handleMidModel}
@@ -721,7 +721,7 @@ export default function WritingPage() {
               className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm"
             >
               {midModelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
-              {midModelLoading ? '生成中...' : '生成中等範文'}
+              {midModelLoading ? t('common.loading') : (lang === 'en' ? 'Generate Mid-Level Model' : '生成中等範文')}
             </button>
             {rewrittenText && (
               <button

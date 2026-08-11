@@ -45,6 +45,15 @@ const SKILL_ICONS: Record<string, React.ReactNode> = {
   speaking: <Mic className="w-3 h-3" />,
 };
 
+const SKILL_LABELS: Record<string, { zh: string; en: string }> = {
+  grammar: { zh: '文法', en: 'Grammar' },
+  vocabulary: { zh: '詞彙', en: 'Vocabulary' },
+  reading: { zh: '閱讀', en: 'Reading' },
+  writing: { zh: '寫作', en: 'Writing' },
+  listening: { zh: '聆聽', en: 'Listening' },
+  speaking: { zh: '會話', en: 'Speaking' },
+};
+
 /**
  * Simple grid layout — distribute nodes in columns by dependency depth.
  * Uses a pre-built nodeMap for O(1) lookups instead of O(N) array.find().
@@ -136,7 +145,7 @@ export default function KnowledgeGraphPage() {
       const json = await graphRes.json();
 
       if (!graphRes.ok) {
-        setError(json.error || 'Failed to load knowledge graph');
+        setError(json.error || (language === 'en' ? 'Failed to load knowledge graph' : '無法載入知識圖譜'));
         return;
       }
 
@@ -161,7 +170,7 @@ export default function KnowledgeGraphPage() {
 
       setGraph(json);
     } catch {
-      setError('Network error');
+      setError(language === 'en' ? 'Network error' : '網絡錯誤');
     } finally {
       setLoading(false);
     }
@@ -258,7 +267,7 @@ export default function KnowledgeGraphPage() {
         {['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'].map(skill => (
           <button key={skill} onClick={() => setFilterSkill(skill)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${filterSkill === skill ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-            {SKILL_ICONS[skill]} {skill}
+            {SKILL_ICONS[skill]} {language === 'en' ? SKILL_LABELS[skill].en : SKILL_LABELS[skill].zh}
           </button>
         ))}
         <div className="flex-1" />
@@ -379,19 +388,19 @@ export default function KnowledgeGraphPage() {
       {graph && !loading && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-gray-300" /> 前置依賴
+            <div className="w-3 h-0.5 bg-gray-300" /> {language === 'en' ? 'Prerequisite' : '前置依賴'}
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-violet-300" /> 強化關聯
+            <div className="w-3 h-0.5 bg-violet-300" /> {language === 'en' ? 'Reinforcement' : '強化關聯'}
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-amber-300" style={{ borderTop: '1.5px dashed #fcd34d' }} /> 延伸關聯
+            <div className="w-3 h-0.5 bg-amber-300" style={{ borderTop: '1.5px dashed #fcd34d' }} /> {language === 'en' ? 'Extension' : '延伸關聯'}
           </div>
           <div className="flex items-center gap-1.5">
-            <CheckCircle className="w-3 h-3 text-green-500" /> 已掌握
+            <CheckCircle className="w-3 h-3 text-green-500" /> {language === 'en' ? 'Mastered' : '已掌握'}
           </div>
           <div className="flex items-center gap-1.5">
-            <Lock className="w-3 h-3 text-gray-400" /> 未解鎖
+            <Lock className="w-3 h-3 text-gray-400" /> {language === 'en' ? 'Locked' : '未解鎖'}
           </div>
         </div>
       )}
@@ -409,7 +418,7 @@ export default function KnowledgeGraphPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <h4 className="text-xs font-medium text-gray-500 mb-1">學習目標</h4>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Learning Objectives' : '學習目標'}</h4>
               <ul className="space-y-0.5">
                 {selectedNode.learningObjectivesZh.map((obj, i) => (
                   <li key={i} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-1">
@@ -419,7 +428,7 @@ export default function KnowledgeGraphPage() {
               </ul>
             </div>
             <div>
-              <h4 className="text-xs font-medium text-gray-500 mb-1">前置知識</h4>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Prerequisites' : '前置知識'}</h4>
               {selectedNode.prerequisites.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {selectedNode.prerequisites.map(p => {
@@ -432,11 +441,11 @@ export default function KnowledgeGraphPage() {
                   })}
                 </div>
               ) : (
-                <span className="text-xs text-gray-400">無（基礎節點）</span>
+                <span className="text-xs text-gray-400">{language === 'en' ? 'None (foundation node)' : '無（基礎節點）'}</span>
               )}
               {selectedNode.successors.length > 0 && (
                 <>
-                  <h4 className="text-xs font-medium text-gray-500 mb-1 mt-2">後續知識</h4>
+                  <h4 className="text-xs font-medium text-gray-500 mb-1 mt-2">{language === 'en' ? 'Successors' : '後續知識'}</h4>
                   <div className="flex flex-wrap gap-1">
                     {selectedNode.successors.map(s => {
                       const succNode = nodeMap.get(s);

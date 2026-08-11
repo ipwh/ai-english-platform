@@ -9,12 +9,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-> **Tests**: Run `npm test` for current count. Last verified: 2026-08-08, commit 6cbe010 — 82 files, 1888 tests pass.
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-11 — 84 files, 1919 tests pass.
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes (123) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+Routes (126) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ Prompts (PromptRegistry)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
@@ -25,7 +25,7 @@ Routes (123) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ AI Infra: continuous-evaluation (drift + regression + alerts)
                  └─ AI Infra: golden-benchmark (infrastructure ready; requires human-labelled data)
 
-Writing Evaluation (Sprints 127-131):
+Writing Evaluation (Sprints 127-130):
   Semantic Evaluator (evidence-only) → CLO Evaluator (score authority) → Deterministic Normalization
     └─ RAG → reference context only (never scoring)
     └─ CLO_RUBRIC / CLO_RUBRIC_ZH → single canonical source (writing-rubric.ts)
@@ -98,7 +98,7 @@ Writing Evaluation (Sprints 127-131):
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
 - **🌍 多元題材資料庫** — 200+ 閱讀主題、90+ 聆聽場景、90+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園、茶餐廳文化、社區重建、非遺保育、公共房屋）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易、難民教育、全球糧食安全、跨境網購權益），確保出題內容豐富不重複
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
-- **🗺️ 知識圖譜 (S34)** — 52 節點 DAG、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
+- **🗺️ 知識圖譜 (S34)** — 28 節點 DAG（含 learning 模組種子資料共 52 節點）、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
 - **寫作教練 2.0 (S36)** — 8 維度啟發式診斷（Grammar/Vocabulary/SentenceVariety/Coherence/Cohesion/Organization/TaskResponse/Tone）
 
@@ -115,7 +115,7 @@ Writing Evaluation (Sprints 127-131):
 
 平台分數是寫作練習診斷估算（platform practice estimate），依據 HKDSE English Writing descriptors 作為參考框架。平台分數並非 HKEAA 官方評級，亦不代表公開考試成績預測。
 
-Golden benchmark infrastructure 已就緒（12 個 calibration fixtures），但 empirical metrics（MAE/RMSE/bias）需要 human-labelled data 才能計算。目前所有 calibration fixture 的 expected scores 均為 null。
+Golden benchmark infrastructure 已就緒（5 個 calibration fixtures），但 empirical metrics（MAE/RMSE/bias）需要 human-labelled data 才能計算。目前所有 calibration fixture 的 expected scores 均為 null。
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
 - **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
@@ -152,11 +152,13 @@ Golden benchmark infrastructure 已就緒（12 個 calibration fixtures），但
 
 | 域 | Facade | 子域 |
 |----|--------|------|
-| Student | `student/index.ts` | Profile, Mastery, Memory, Progress, Twin |
-| Learning | `learning/index.ts` | Engine, Recommendation, KnowledgeGraph, Science, MistakeIntel |
-| Teacher | `teacher/index.ts` | Copilot, Analytics, Dashboard |
-| AI | `ai/index.ts` | Providers, Generation, Analysis, RAG, TTS, Cache, Cost, Eval, Experiment |
-| Platform | `platform/index.ts` | Cache, Reliability, FeatureFlags, Health, Experiment, Notification |
+| Student | `student/` | Mastery, Profile, Memory, Progress, Twin |
+| Learning | `learning/` | Engine, Recommendation, KnowledgeGraph, Science, MistakeIntel, AdaptivePipeline |
+| AI | `ai/` | Providers, Generation, Analysis, RAG, TTS, Cache, Cost, Eval, Experiment, Foundation, PromptVersioning, Regression, ContinuousEval |
+| Knowledge Graph | `knowledge-graph/` | Graph Engine, Service, Repository, Visualization, WeaknessLocator, Traversal |
+| Writing | `writing-coach/` | Coach, CoachPro, Heuristic Analysis |
+| Teacher | `teacher/` | Copilot, Analytics, Dashboard |
+| Platform | `platform/` | Cache, Reliability, FeatureFlags, Health, Notification |
 
 > 詳細技術棧見上方 [Layer | Technology](#-architecture-overview) 表格。域審計見 [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)。
 
@@ -216,7 +218,6 @@ Golden benchmark infrastructure 已就緒（12 個 calibration fixtures），但
 | `LOG_LEVEL` | 日誌等級：`trace`/`debug`/`info`/`warn`/`error`/`fatal`（生產預設 `info`，開發預設 `debug`） | ⬜ |
 | `AI_RATE_LIMIT_MAX` | AI API 每 IP 每分鐘最大請求數（預設 60，約支援 2 班同時使用） | ⬜ |
 | `CRON_SECRET` | Cron Job 驗證密鑰（生產環境必須設定，`openssl rand -base64 32`） | ⬜ (prod) |
-| `GEMINI_MODEL` | Gemini model（預設 `gemini-2.5-flash`） | ⬜ |
 
 ### 部署步驟
 
@@ -240,7 +241,7 @@ Golden benchmark infrastructure 已就緒（12 個 calibration fixtures），但
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，1,358 entries）
+- [ ] 中英語言切換（所有頁面，~710 keys / 18 i18n 模組檔案）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
@@ -345,23 +346,30 @@ src/
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
-├── modules/                  # 🆕 模組化架構 (34 modules)
-│   ├── ai/                   # AI 服務 (20 services, prompts, providers)
-│   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations)
-│   ├── profile/              # 學生學習檔案
-│   ├── mistake-db/           # 錯題資料庫 (tracking, analytics, SRS)
-│   ├── vocab-graph/          # 詞彙關聯圖 (word families, CEFR, collocations)
-│   ├── events/               # 領域事件 (pub/sub event bus)
-│   ├── cache/                # 快取層 (TTL Map, cache-aside)
-│   ├── ai-cost/              # AI 成本追蹤 (5 models, dedup, reports)
-│   ├── perf/                 # 效能優化 (N+1 detection, bundle analysis)
-│   ├── observability/        # 可觀測性 (metrics, tracing, health reports)
-│   ├── assessment/           # 評量服務
-│   ├── exercise/             # 練習服務
-│   ├── student/              # 學生服務
-│   ├── progress/             # 進度服務 (gamification, streaks)
-│   ├── vocabulary/           # 詞彙服務 (SRS)
-│   └── notification/         # 通知倉儲
+├── modules/                  # 🆕 模組化架構 (24 modules)
+│   ├── ai/                   # AI 服務 (18 子目錄, ~225 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
+│   ├── knowledge-graph/      # 知識圖譜 (28-node DAG, 7 API endpoints, 視覺化)
+│   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations, adaptive pipeline)
+│   ├── adaptive-tutor/       # 自適應導師引擎
+│   ├── student/              # 學生 mastery/profile/memory
+│   ├── mistake/              # 錯題智能 (tracking, analytics, SRS)
+│   ├── vocabulary/           # 詞彙智能 (word families, CEFR, SRS)
+│   ├── writing-coach/        # 寫作教練 (heuristic + AI analysis)
+│   ├── curriculum/           # 課程資料 (HKDSE descriptors, CEFR)
+│   ├── assessment/           # 評量服務 (Integrated Skills, diagnostic)
+│   ├── reading/              # 閱讀服務
+│   ├── learning-analytics/   # 學習分析 (trends, teacher dashboard)
+│   ├── admin/                # 管理員服務
+│   ├── teacher/              # 教師 Copilot
+│   ├── cache/                # 快取層
+│   ├── ai-cost/              # AI 成本追蹤
+│   ├── experiment/           # 實驗平台
+│   ├── llm-eval/             # LLM 評測
+│   ├── notification/         # 通知服務
+│   ├── platform/             # 平台基礎 (feature flags, health, reliability)
+│   ├── production/           # 生產工具
+│   ├── analytics/            # 數據分析
+│   └── repositories.ts       # 共享 Repository 實例
 ├── shared/                   # 共享工具
 │   ├── auth/                 # JWT + NextAuth
 │   ├── config/               # 集中設定
@@ -492,17 +500,17 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-08，82 files，1888 tests pass。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-11，84 files，1919 tests pass。
 
 ## 目前狀態
 
-> **最後更新**: 2026-08-08 | Sprints 1-131
+> **最後更新**: 2026-08-11 | Sprints 1-130
 
 | 層級 | 狀態 |
 |------|------|
 | 架構 | ✅ 模組化架構 (Routes → Zod → Services → Repositories → DB) |
 | AI 服務層 | ✅ DeepSeek → Vertex Gemini → Gemini API fallback chain, MCQ 正規化, provider registry DI |
-| API 路由 | ✅ 123 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
+| API 路由 | ✅ 126 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
 | 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
 | 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |
@@ -514,13 +522,18 @@ npm run test:watch    # 持續監控模式
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，pgvector） |
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 自動角色識別，Middleware 路由保護 |
 | HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language/Organization 三向度平台評估 |
-| DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`） |
-| 寫作評估 | ✅ 平台練習診斷估算（非官方 HKEAA 評級）。Prompt validator 進行靜態 source-text contract checks；runtime score、evidence、fail-open 及 RAG 隔離由 unit/integration tests 驗證。Golden benchmark infrastructure 就緒；empirical metrics 需要 human-labelled data |
-| 測試 | ✅ 82 files, 1888 tests pass（2026-08-08） |
+| DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
+| 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（5 fixtures）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
+| 測試 | ✅ 84 files, 1919 tests pass（2026-08-11） |
 
 ## 部署
 
-專案已配置 `vercel.json`，可直接部署至 Vercel：
+### Cloud Run（主要）
+專案已配置 `Dockerfile` + `cloudbuild.yaml`，可自動部署至 Google Cloud Run（asia-east2, 300s timeout, 1 vCPU/1GiB）。
+詳見 [`docs/CLOUD_RUN_MIGRATION.md`](docs/CLOUD_RUN_MIGRATION.md) 及 `scripts/cloud-run-deploy.ps1` / `cloud-run-deploy.sh`。
+
+### Vercel（legacy）
+專案已配置 `vercel.json`，亦可部署至 Vercel：
 
 1. 將專案推送至 GitHub
 2. 在 [Vercel](https://vercel.com) 匯入 Repo
@@ -595,8 +608,8 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 ### 平台設計限制（非 bug，屬設計取捨）
 - **新用戶尚無學習記錄**：首次登入的用戶尚無練習/錯題/詞彙數據，部分頁面會顯示 empty state 或引導提示。開始練習後會自動累積真實數據。
 - **Speaking Practice**：目前僅支援文字 transcript 輸入分析（文法/詞彙/內容），無法評估流暢度、發音及互動表現。未來可整合 STT（語音辨識）。
-- **Vercel 部署**：AI 函數需要 Vercel Pro（30s maxDuration）或 Enterprise。Hobby 方案（10s）可能導致寫作批改等長請求逾時。見 `vercel.json`。
+- **Cloud Run / Vercel 部署**：AI 函數需要足夠 timeout（Cloud Run 預設 300s；Vercel Pro 30s maxDuration）。Vercel Hobby 方案（10s）可能導致寫作批改等長請求逾時。見 `vercel.json` / `cloud-run.yaml`。
 - **Web Speech API Fallback**：Google Cloud TTS 不可用時自動降級至瀏覽器 Web Speech API，不同瀏覽器的語音品質不一（建議使用 Chrome）。
-- **Rate Limiter**: `src/shared/utils/rate-limiter.ts` 支援 Vercel KV 分散式限流，需設定 `VERCEL_KV_URL` + `VERCEL_KV_TOKEN` 環境變數才會啟用。未設定時為 per-instance in-memory。
+- **Rate Limiter**: `src/shared/utils/rate-limiter.ts` 支援 Vercel KV / in-memory 分散式限流，需設定對應環境變數才會啟用分散式模式。未設定時為 per-instance in-memory。
 - **AI Hallucination Guard**: 集中式 10 規則 guard（`src/modules/ai/services/hallucination-guard.ts`），所有 prompt 模板統一引用，防止 AI 生成虛構內容。
 - **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。

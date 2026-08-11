@@ -178,7 +178,7 @@ export default function NewAssignmentPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('teacher.assignmentNew.class')}</label>
                 {classes.length === 0 ? (
-                  <p className="text-xs text-gray-400">載入中...</p>
+                  <p className="text-xs text-gray-400">{t('common.loading')}</p>
                 ) : (
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {classes.map(c => (
@@ -220,7 +220,7 @@ export default function NewAssignmentPage() {
                           className="rounded"
                         />
                         <span className="text-sm">{g.name}</span>
-                        <span className="text-xs text-gray-400">({g.memberCount} 人)</span>
+                        <span className="text-xs text-gray-400">{t('groups.members', { n: g.memberCount })}</span>
                       </label>
                     ))}
                   </div>

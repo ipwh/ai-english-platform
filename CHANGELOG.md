@@ -4,7 +4,47 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## Unreleased (working tree 2026-08-09)
+## 2026-08-11 — Documentation Audit, i18n Completeness & Bug Fixes
+
+### 📋 System Documentation Audit
+- **AUDITED**: README.md, CLAUDE.md, AGENTS.md, CHANGELOG.md against actual codebase
+- **FIXED**: Outdated metrics — test counts (1888→1919), API routes (123→126), modules (34→24), AI files (~250→225), foundation files (21→36)
+- **FIXED**: Knowledge graph node count clarified (28 in module + 30 from learning = 58 total; previously claimed 52)
+- **FIXED**: Golden benchmark fixture count (12→5 calibration fixtures)
+- **FIXED**: Project structure section — removed outdated module names (mistake-db, vocab-graph, events, perf, observability); added actual 24 modules
+- **FIXED**: Domain architecture table — added knowledge-graph, writing-coach domains
+- **FIXED**: Deployment section — added Cloud Run as primary, Vercel as legacy
+- **FIXED**: Sprint range (1-131→1-130), i18n entry count (1358→~710 keys), duplicate env var entry
+
+### 🌐 i18n Translation Completeness (5 files, 15+ fixes)
+- **FIXED**: Knowledge graph page (`student/knowledge-graph/page.tsx`) — skill filter buttons now bilingual (`SKILL_LABELS` map); error messages (`'Failed to load'`→bilingual); legend labels bilingual; detail panel headers bilingual
+- **FIXED**: Writing page (`student/writing/page.tsx`) — model essay labels bilingual (`🏆 AI 範文 (DSE Level 5)`); rewrite/generate buttons bilingual; `'生成中...'`→`t('common.loading')`
+- **FIXED**: Reading page (`student/reading/page.tsx`) — `Source:`→bilingual, `words`→bilingual
+- **FIXED**: Teacher Copilot (`teacher/copilot/page.tsx`) — header title + subtitle bilingual; tab labels bilingual; overview cards (Total Students/Pending/New Risks) bilingual; all section headers (Class Overview/Urgent Actions/Lesson Plan/etc.) bilingual; class selector labels bilingual; Load button bilingual; homework/grammar/vocabulary/writing labels bilingual; generate tab bilingual; student analysis bilingual; overview prompt bilingual. **~20+ hardcoded Chinese strings → fully bilingual**
+- **FIXED**: Teacher Assignments (`teacher/assignments/new/page.tsx`) — `'載入中...'`→`t('common.loading')`; group member count→`t('groups.members', {n})`
+- **AUDITED**: All 1,638 i18n keys verified — 0 empty `zh` values
+
+### 🐛 Bug Fixes
+- **FIXED**: Teacher Copilot `handleLoad` — added missing `generate` case (`generateMaterial(generationType, classId)`)
+- **FIXED**: Teacher Copilot — replaced local `skillLabel` map with shared `getSkillLabel()` from `@/shared/utils/nav`
+- **FIXED**: Student Practice (`student/practice/page.tsx`) — `useEffect` for `loadPracticeHistory()` now depends on `[store.userId]` instead of `[]`
+- **VERIFIED**: P0 suspected bug (writing auto-save `id:'current'`) confirmed NOT a bug — API explicitly handles it via `findLatestDraft(userId)`
+- **VERIFIED**: P3 suspected dead code (`answersRef`) confirmed false positive
+
+### 📊 Current Baseline
+```
+TypeScript:       0 errors
+Test Files:       84 passed (84)
+Tests:            1919 passed (1919)
+API Routes:       126
+Modules:          24
+AI Files:         225 (18 directories)
+i18n Keys:        1,638 (0 empty zh values)
+```
+
+---
+
+## 2026-08-09 — Cloud Run Deployment & Integrated Skills v6
 
 ### 🚀 Cloud Run Deployment
 - **NEW**: Full Cloud Run deployment pipeline — Dockerfile (multi-stage, Node.js 22 Alpine, Next.js standalone), Cloud Build `cloudbuild.yaml`, `.dockerignore`
@@ -99,6 +139,8 @@ Core Tests:         171 passed (171)
   analyze-writing.test.ts:       69 tests
   writing-coach.test.ts:         19 tests
   writing-coach-pro.test.ts:     12 tests
+Total Test Files:   84 passed (84)
+Total Tests:        1919 passed (1919)
 Golden Fixtures:    5 (0 human-labelled)
 Architecture:       All 8 invariants verified
 ```
@@ -161,7 +203,7 @@ Architecture:       All 8 invariants verified
 - TTS multi-speaker: voice mapping fallback for unknown speaker labels
 
 ### 📈 Test Coverage
-- **1784/1784 tests** (80 files) — up from 1,715
+- **1784/1784 tests** (80 files) — up from 1,715 (now 84 files, 1919 tests as of 2026-08-11)
 - TypeScript: no errors
 - No `5**`/`5*` in active scoring paths
 
@@ -214,12 +256,11 @@ Architecture:       All 8 invariants verified
 ### 📊 Current Baseline
 ```
 TypeScript:       0 errors
-Test Files:       78 passed (78)
-Tests:            1715 passed (1715)
+Test Files:       84 passed (84)
+Tests:            1919 passed (1919)
 Architecture:     9 passed (9)
 Foundation→PromptOps: 0 imports
 Circular deps:    0
-External deps:    0 added
 ```
 
 ---
@@ -270,7 +311,7 @@ External deps:    0 added
 - Integrated Skills hint sanitizer enhanced with Traditional Chinese patterns (dates, amounts, percentages, ages, names)
 
 ### 📊 Final State
-- **78/78 test files, 1,607/1,607 tests pass**
+- **78/78 test files, 1,607/1,607 tests pass** (now 84 files, 1919 tests as of 2026-08-11)
 - **TypeScript strict: zero errors**
 - **No new external dependencies**
 - **Foundation dependency direction enforced**: PromptOps → Foundation, never reverse

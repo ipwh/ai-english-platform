@@ -741,7 +741,7 @@ export default function ReadingPracticePage() {
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-indigo-500" />
                 <span className="font-semibold text-gray-900 dark:text-white">{data.passage.title}</span>
-                <span className="text-xs text-gray-400">({data.passage.wordCount} words)</span>
+                <span className="text-xs text-gray-400">({data.passage.wordCount} {language === 'en' ? 'words' : '字'})</span>
               </div>
               {showPassage ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
             </button>
@@ -757,7 +757,7 @@ export default function ReadingPracticePage() {
                   </div>
                 )}
                 {data.passage.source && (
-                  <p className="text-xs text-gray-400 mt-2 italic">Source: {data.passage.source}</p>
+                  <p className="text-xs text-gray-400 mt-2 italic">{language === 'en' ? 'Source' : '來源'}：{data.passage.source}</p>
                 )}
               </div>
             )}

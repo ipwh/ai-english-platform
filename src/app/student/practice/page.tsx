@@ -91,8 +91,8 @@ function PracticeListPageContent() {
 
   // === 載入練習歷史 ===
   useEffect(() => {
-    store.loadPracticeHistory();
-  }, []);
+    if (store.userId) store.loadPracticeHistory();
+  }, [store.userId]);
 
   // === 練習記錄 ===
   const recentSessions = store.getRecentSessions(5);
