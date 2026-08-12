@@ -9,15 +9,18 @@ import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
 import {
   GitBranch, Loader2, AlertCircle, ZoomIn, ZoomOut, RotateCcw,
-  ChevronRight, CheckCircle, Lock, Circle, Filter,
-  BookOpen, Headphones, PenTool, Mic, Type,
+  ChevronRight, CheckCircle, Lock, Circle, Filter, Search,
+  BookOpen, Headphones, PenTool, Mic, Type, Lightbulb, Clock,
 } from 'lucide-react';
 
 interface KGNode {
   id: string; title: string; titleZh: string; skill: string;
   difficulty: number; cefr: string; hkdseLevel: string;
   prerequisites: string[]; successors: string[];
-  learningObjectivesZh: string[];
+  learningObjectives: string[]; learningObjectivesZh: string[];
+  estimatedLearningTime?: number;
+  commonMistakes?: { description: string; descriptionZh: string; severity: string }[];
+  exampleQuestions?: { question: string; questionZh: string; answer: string; explanation: string }[];
   isMastered?: boolean; masteryScore?: number;
   isUnlocked?: boolean; isRecommended?: boolean;
 }
@@ -52,6 +55,23 @@ const SKILL_LABELS: Record<string, { zh: string; en: string }> = {
   writing: { zh: '寫作', en: 'Writing' },
   listening: { zh: '聆聽', en: 'Listening' },
   speaking: { zh: '會話', en: 'Speaking' },
+};
+
+const SKILL_DOT_COLORS: Record<string, string> = {
+  grammar: 'bg-blue-400',
+  vocabulary: 'bg-emerald-400',
+  reading: 'bg-amber-400',
+  writing: 'bg-violet-400',
+  listening: 'bg-rose-400',
+  speaking: 'bg-cyan-400',
+};
+
+const GRADE_OPTIONS = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
+
+const EDGE_LABELS: Record<string, { zh: string; en: string }> = {
+  prerequisite: { zh: '前置依賴', en: 'Prerequisite' },
+  reinforcement: { zh: '強化關聯', en: 'Reinforcement' },
+  extension: { zh: '延伸關聯', en: 'Extension' },
 };
 
 /**
@@ -115,6 +135,8 @@ export default function KnowledgeGraphPage() {
   const [filterSkill, setFilterSkill] = useState<string>('');
   const [selectedNode, setSelectedNode] = useState<KGNode | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [gradeFilter, setGradeFilter] = useState<string>('');
 
   useEffect(() => {
     fetchGraph();
@@ -190,6 +212,33 @@ export default function KnowledgeGraphPage() {
     return map;
   }, [graph]);
 
+  // ── Focus mode: compute transitive dependency chain ──
+  const focusedNodeIds = useMemo<Set<string>>(() => {
+    if (!selectedNode || !nodeMap.size) return new Set();
+    const chain = new Set<string>();
+    const visited = new Set<string>();
+
+    function walkUp(id: string) {
+      if (visited.has(id)) return;
+      visited.add(id);
+      chain.add(id);
+      const node = nodeMap.get(id);
+      node?.prerequisites.forEach(p => walkUp(p));
+    }
+    function walkDown(id: string) {
+      if (visited.has(id)) return;
+      visited.add(id);
+      chain.add(id);
+      const node = nodeMap.get(id);
+      node?.successors.forEach(s => walkDown(s));
+    }
+
+    walkUp(selectedNode.id);
+    visited.clear();
+    walkDown(selectedNode.id);
+    return chain;
+  }, [selectedNode, nodeMap]);
+
   // Layout: computed once per graph update (was called 4+ times per render)
   const layout = useMemo<Map<string, NodePosition>>(() => {
     if (!graph) return new Map();
@@ -217,20 +266,26 @@ export default function KnowledgeGraphPage() {
         const from = layout.get(edge.source);
         const to = layout.get(edge.target);
         if (!from || !to) return null;
+        const isFocused = focusedNodeIds.size > 0 &&
+          focusedNodeIds.has(edge.source) && focusedNodeIds.has(edge.target);
         return {
           key: i,
+          source: edge.source,
+          target: edge.target,
+          type: edge.type,
           x1: (from.x + 80) * zoom / 100,
           y1: (from.y + 30) * zoom / 100,
           x2: to.x * zoom / 100,
           y2: (to.y + 30) * zoom / 100,
           stroke: edge.type === 'prerequisite' ? '#d4d4d8' : edge.type === 'reinforcement' ? '#a78bfa' : '#fcd34d',
           dashArray: edge.type === 'extension' ? '4 2' : undefined,
+          opacity: focusedNodeIds.size > 0 ? (isFocused ? 1 : 0.08) : 1,
         };
       })
-      .filter(Boolean) as { key: number; x1: number; y1: number; x2: number; y2: number; stroke: string; dashArray?: string }[];
-  }, [graph, layout, zoom]);
+      .filter(Boolean) as { key: number; source: string; target: string; type: string; x1: number; y1: number; x2: number; y2: number; stroke: string; dashArray?: string; opacity: number }[];
+  }, [graph, layout, zoom, focusedNodeIds]);
 
-  // Pre-compute node render data
+  // Pre-compute node render data (with search + grade filters)
   const nodeRenderData = useMemo(() => {
     if (!graph) return [];
     return graph.nodes
@@ -238,10 +293,24 @@ export default function KnowledgeGraphPage() {
         const pos = layout.get(node.id);
         if (!pos) return null;
         const colors = SKILL_COLORS[node.skill] || 'border-gray-300 bg-gray-50 dark:bg-gray-700';
+
+        // Search filter
+        if (searchTerm.trim()) {
+          const term = searchTerm.toLowerCase().trim();
+          const matchesEn = node.title.toLowerCase().includes(term);
+          const matchesZh = node.titleZh.includes(term);
+          const matchesSkill = SKILL_LABELS[node.skill]?.zh.includes(term) ||
+            SKILL_LABELS[node.skill]?.en.toLowerCase().includes(term);
+          if (!matchesEn && !matchesZh && !matchesSkill) return null;
+        }
+
+        // Grade filter
+        if (gradeFilter && node.hkdseLevel !== gradeFilter) return null;
+
         return { node, pos, colors };
       })
       .filter(Boolean) as { node: KGNode; pos: NodePosition; colors: string }[];
-  }, [graph, layout]);
+  }, [graph, layout, searchTerm, gradeFilter]);
 
   return (
     <div className="max-w-full mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -262,7 +331,7 @@ export default function KnowledgeGraphPage() {
         <Filter className="w-4 h-4 text-gray-400" />
         <button onClick={() => setFilterSkill('')}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!filterSkill ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
-          全部
+          {language === 'en' ? 'All' : '全部'}
         </button>
         {['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'].map(skill => (
           <button key={skill} onClick={() => setFilterSkill(skill)}
@@ -270,6 +339,35 @@ export default function KnowledgeGraphPage() {
             {SKILL_ICONS[skill]} {language === 'en' ? SKILL_LABELS[skill].en : SKILL_LABELS[skill].zh}
           </button>
         ))}
+        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
+        {/* Search */}
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={language === 'en' ? 'Search skills…' : '搜尋技能…'}
+            className="pl-7 pr-3 py-1.5 rounded-lg text-xs border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 w-36 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+        </div>
+        {/* Grade filter */}
+        <select
+          value={gradeFilter}
+          onChange={e => setGradeFilter(e.target.value)}
+          className="px-2 py-1.5 rounded-lg text-xs border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        >
+          <option value="">{language === 'en' ? 'All Grades' : '全部年級'}</option>
+          {GRADE_OPTIONS.map(g => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+        {/* Active filter count badge */}
+        {(searchTerm || gradeFilter) && (
+          <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full text-[10px] font-medium">
+            {nodeRenderData.length} {language === 'en' ? 'nodes' : '個節點'}
+          </span>
+        )}
         <div className="flex-1" />
         <button onClick={() => setZoom(z => Math.max(30, z - 20))}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors">
@@ -310,16 +408,19 @@ export default function KnowledgeGraphPage() {
               minHeight: `${canvasDimensions.height * zoom / 100}px`,
             }}
           >
-            {/* SVG edges — pre-computed, no repeated layoutNodes() calls */}
+            {/* SVG edges — with tooltips and focus mode dimming */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
               {edgeLines.map(edge => (
                 <line key={edge.key}
                   x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
                   stroke={edge.stroke}
-                  strokeWidth={1.5}
+                  strokeWidth={edge.opacity < 0.2 ? 0.5 : 1.5}
                   strokeDasharray={edge.dashArray}
+                  opacity={edge.opacity}
                   markerEnd="url(#arrowhead)"
-                />
+                >
+                  <title>{language === 'en' ? EDGE_LABELS[edge.type]?.en : EDGE_LABELS[edge.type]?.zh}: {edge.source} → {edge.target}</title>
+                </line>
               ))}
               <defs>
                 <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
@@ -328,19 +429,24 @@ export default function KnowledgeGraphPage() {
               </defs>
             </svg>
 
-            {/* Nodes — pre-computed, no repeated layoutNodes() calls */}
-            {nodeRenderData.map(({ node, pos, colors }) => (
+            {/* Nodes — with focus mode dimming and hover tooltip */}
+            {nodeRenderData.map(({ node, pos, colors }) => {
+              const isFocused = focusedNodeIds.size === 0 || focusedNodeIds.has(node.id);
+              const isDimmed = focusedNodeIds.size > 0 && !isFocused;
+              const tooltipText = node.learningObjectivesZh?.[0] || node.learningObjectives?.[0] || '';
+              return (
               <button
                 key={node.id}
                 onClick={() => handleNodeClick(node)}
+                title={tooltipText}
                 className={`absolute p-3 rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:scale-105 cursor-pointer text-left ${colors} ${
-                  selectedNode?.id === node.id ? 'ring-2 ring-teal-500 ring-offset-2' : ''
-                } ${node.isMastered ? 'opacity-80' : ''}`}
+                  selectedNode?.id === node.id ? 'ring-2 ring-teal-500 ring-offset-2 z-20' : ''
+                } ${node.isMastered ? 'opacity-80' : ''} ${isDimmed ? 'opacity-20 saturate-0' : ''}`}
                 style={{
                   left: `${pos.x * zoom / 100}px`,
                   top: `${pos.y * zoom / 100}px`,
                   width: '160px',
-                  zIndex: 10,
+                  zIndex: selectedNode?.id === node.id ? 20 : isDimmed ? 5 : 10,
                 }}
               >
                 <div className="flex items-center gap-1.5 mb-1">
@@ -378,49 +484,85 @@ export default function KnowledgeGraphPage() {
                     />
                   </div>
                 )}
+                {/* Recommended pulse indicator */}
+                {node.isRecommended && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-teal-500 rounded-full animate-pulse" />
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Legend */}
       {graph && !loading && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-gray-300" /> {language === 'en' ? 'Prerequisite' : '前置依賴'}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border space-y-2">
+          {/* Edge types */}
+          <div className="flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 bg-gray-300" /> {language === 'en' ? 'Prerequisite' : '前置依賴'}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 bg-violet-300" /> {language === 'en' ? 'Reinforcement' : '強化關聯'}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 bg-amber-300" style={{ borderTop: '1.5px dashed #fcd34d' }} /> {language === 'en' ? 'Extension' : '延伸關聯'}
+            </div>
+            <div className="w-px h-3 bg-gray-300" />
+            <div className="flex items-center gap-1.5">
+              <CheckCircle className="w-3 h-3 text-green-500" /> {language === 'en' ? 'Mastered' : '已掌握'}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-gray-400" /> {language === 'en' ? 'Locked' : '未解鎖'}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-violet-300" /> {language === 'en' ? 'Reinforcement' : '強化關聯'}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-amber-300" style={{ borderTop: '1.5px dashed #fcd34d' }} /> {language === 'en' ? 'Extension' : '延伸關聯'}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle className="w-3 h-3 text-green-500" /> {language === 'en' ? 'Mastered' : '已掌握'}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Lock className="w-3 h-3 text-gray-400" /> {language === 'en' ? 'Locked' : '未解鎖'}
+          {/* Skill colors */}
+          <div className="flex flex-wrap gap-3 text-[10px] text-gray-500 dark:text-gray-400">
+            <span className="font-medium">{language === 'en' ? 'Skills:' : '技能：'}</span>
+            {['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking'].map(skill => (
+              <span key={skill} className="flex items-center gap-1">
+                <span className={`w-2.5 h-2.5 rounded-full ${SKILL_DOT_COLORS[skill]}`} />
+                {language === 'en' ? SKILL_LABELS[skill].en : SKILL_LABELS[skill].zh}
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Node Detail Panel — uses nodeMap for O(1) lookups */}
+      {/* Node Detail Panel — enriched with mistakes, examples, and learning time */}
       {selectedNode && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border space-y-3">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 dark:text-white">
+            <h3 className="font-bold text-gray-900 dark:text-white text-lg">
               {language === 'en' ? selectedNode.title : selectedNode.titleZh}
             </h3>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${SKILL_COLORS[selectedNode.skill]}`}>
-              {selectedNode.skill} · {selectedNode.cefr} · {selectedNode.hkdseLevel}
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${SKILL_COLORS[selectedNode.skill]}`}>
+              {SKILL_LABELS[selectedNode.skill]?.[language === 'en' ? 'en' : 'zh'] || selectedNode.skill} · {selectedNode.cefr} · {selectedNode.hkdseLevel}
             </span>
           </div>
+
+          {/* Quick stats row */}
+          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+            {selectedNode.estimatedLearningTime && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {language === 'en' ? '~' + selectedNode.estimatedLearningTime + ' min' : '約' + selectedNode.estimatedLearningTime + ' 分鐘'}
+              </span>
+            )}
+            <span>Lv.{selectedNode.difficulty}</span>
+            {selectedNode.masteryScore !== undefined && (
+              <span className={selectedNode.masteryScore >= 80 ? 'text-green-500 font-medium' : selectedNode.masteryScore >= 50 ? 'text-amber-500 font-medium' : 'text-red-500 font-medium'}>
+                {language === 'en' ? 'Mastery: ' : '掌握度：'}{selectedNode.masteryScore}%
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <h4 className="text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Learning Objectives' : '學習目標'}</h4>
               <ul className="space-y-0.5">
-                {selectedNode.learningObjectivesZh.map((obj, i) => (
+                {(selectedNode.learningObjectivesZh?.length ? selectedNode.learningObjectivesZh : selectedNode.learningObjectives || []).map((obj, i) => (
                   <li key={i} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-1">
                     <ChevronRight className="w-3 h-3 text-teal-500 mt-0.5 shrink-0" /> {obj}
                   </li>
@@ -434,9 +576,10 @@ export default function KnowledgeGraphPage() {
                   {selectedNode.prerequisites.map(p => {
                     const prereqNode = nodeMap.get(p);
                     return (
-                      <span key={p} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400">
+                      <button key={p} onClick={() => prereqNode && handleNodeClick(prereqNode)}
+                        className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-xs text-gray-600 dark:text-gray-400 transition-colors">
                         {language === 'en' ? (prereqNode?.title || p) : (prereqNode?.titleZh || p)}
-                      </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -450,9 +593,10 @@ export default function KnowledgeGraphPage() {
                     {selectedNode.successors.map(s => {
                       const succNode = nodeMap.get(s);
                       return (
-                        <span key={s} className="px-2 py-0.5 bg-teal-50 dark:bg-teal-900/20 rounded text-xs text-teal-700 dark:text-teal-400">
+                        <button key={s} onClick={() => succNode && handleNodeClick(succNode)}
+                          className="px-2 py-0.5 bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/40 rounded text-xs text-teal-700 dark:text-teal-400 transition-colors">
                           {language === 'en' ? (succNode?.title || s) : (succNode?.titleZh || s)}
-                        </span>
+                        </button>
                       );
                     })}
                   </div>
@@ -460,6 +604,55 @@ export default function KnowledgeGraphPage() {
               )}
             </div>
           </div>
+
+          {/* Common Mistakes */}
+          {selectedNode.commonMistakes && selectedNode.commonMistakes.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 text-red-400" />
+                {language === 'en' ? 'Common Mistakes' : '常見錯誤'}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {selectedNode.commonMistakes.map((m, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-red-50 dark:bg-red-900/10 rounded-lg p-2">
+                    <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                      m.severity === 'critical' ? 'bg-red-500' : m.severity === 'major' ? 'bg-amber-500' : 'bg-blue-400'
+                    }`} />
+                    <div>
+                      <p className="text-xs text-red-700 dark:text-red-300">{language === 'en' ? m.description : m.descriptionZh}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Example Questions */}
+          {selectedNode.exampleQuestions && selectedNode.exampleQuestions.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+                <Lightbulb className="w-3 h-3 text-amber-400" />
+                {language === 'en' ? 'Example Questions' : '範例題目'}
+              </h4>
+              <div className="space-y-2">
+                {selectedNode.exampleQuestions.map((eq, i) => (
+                  <div key={i} className="bg-amber-50 dark:bg-amber-900/10 rounded-lg p-3">
+                    <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                      {language === 'en' ? eq.question : eq.questionZh}
+                    </p>
+                    {eq.answer && (
+                      <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">
+                        {eq.answer}
+                      </p>
+                    )}
+                    {eq.explanation && (
+                      <p className="text-xs text-gray-500 mt-0.5">{eq.explanation}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

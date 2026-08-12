@@ -90,7 +90,7 @@ Writing Evaluation (Sprints 127-130):
 - **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
-- **🗺️ 知識圖譜視覺化** — 互動式 DAG 節點圖，SVG 連線顯示前置/強化/延伸關聯，支援技能篩選、縮放、節點點擊展開詳情（學習目標 + 前置/後續知識），自動載入學生掌握度數據，顏色標記已掌握/未解鎖狀態
+- **🗺️ 知識圖譜視覺化** — 互動式 DAG 節點圖，SVG 連線顯示前置/強化/延伸關聯，支援技能篩選、年級篩選、關鍵字搜尋、縮放、Focus Mode（點擊節點高亮相依路徑並淡化無關節點）、節點 hover 顯示學習目標、邊線 hover 顯示關係類型、詳情面板（學習目標 + 前置/後續知識 + 常見錯誤 + 範例題目 + 學習時長），自動載入學生掌握度數據，顏色標記已掌握/未解鎖狀態
 
 ### 🚀 v4.1 Learning Intelligence (Sprints 31-40)
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(60%)+新近度(25%)+練習量(15%)的加權公式
@@ -342,7 +342,7 @@ npm run dev
 ```
 src/
 ├── app/                      # Next.js App Router
-│   ├── api/                  # 103 API route files
+│   ├── api/                  # 126 API route files
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台

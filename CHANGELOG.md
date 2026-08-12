@@ -4,6 +4,37 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-12 — Knowledge Graph UX Overhaul & README Fix
+
+### 🗺️ Knowledge Graph UX (9 improvements)
+- **NEW**: Detail panel — Common Mistakes section with severity color coding (critical/major/minor)
+- **NEW**: Detail panel — Example Questions section with answers and explanations
+- **NEW**: Detail panel — Estimated learning time display (`⏱ ~30 min`)
+- **NEW**: Search input — real-time node filtering by English/Chinese name or skill category, with node count badge
+- **NEW**: Grade filter dropdown — filter nodes by S1–S6 level
+- **NEW**: Edge tooltips — hover on connection lines to see relationship type + source→target
+- **NEW**: Focus Mode — clicking a node dims unrelated nodes (20% opacity + desaturated), highlights full dependency chain (prerequisites + successors)
+- **NEW**: Node hover tooltips — first learning objective shown on mouse hover
+- **NEW**: Recommended node pulse indicator — green animated dot on `isRecommended` nodes
+- **NEW**: Legend — added 6 skill color dots (blue=Grammar, green=Vocabulary, amber=Reading, violet=Writing, rose=Listening, cyan=Speaking)
+- **NEW**: Detail panel interactions — prerequisite/successor tags are now clickable buttons, jumping directly to that node
+- **FIXED**: Orphan `</button>` and `))}` remnants from node rendering replacement
+- **FIXED**: `nodeMap` declaration order — moved before `focusedNodeIds` to resolve block-scoped variable error
+
+### 📋 Documentation
+- **FIXED**: README.md — API route count corrected from 103 → 126 (line 345, project structure section)
+
+### 📊 Current Baseline
+```
+TypeScript:       0 errors (tsc --noEmit)
+Test Files:       84 passed (84)
+Tests:            1927 passed (1927)
+API Routes:       126
+Modules:          24
+```
+
+---
+
 ## 2026-08-12 — Teacher Copilot Real Data Integration, Security Hardening & UI Improvements
 
 ### 🔗 Teacher Copilot: StudentTwin + LearningScience Integration
