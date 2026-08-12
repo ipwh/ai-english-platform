@@ -229,16 +229,16 @@ export default function TeacherMaterialsPage() {
             </div>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs">
               {language === 'en'
-                ? '⚠️ <strong>Important:</strong> Materials must be RAG-indexed (status shows green "Done") before students\' AI writing evaluation and reading practice can use them. Uploading alone is not enough.'
-                : '⚠️ <strong>重要：</strong>教材必須經過「RAG 索引」（狀態顯示為綠色「已完成」）後，才會被學生的 AI 寫作評估和閱讀練習所使用。僅上傳不足以讓學生受益。'}
+                ? <span>⚠️ <strong>Important:</strong> Materials must be RAG-indexed (status shows green &quot;Done&quot;) before students&apos; AI writing evaluation and reading practice can use them. Uploading alone is not enough.</span>
+                : <span>⚠️ <strong>重要：</strong>教材必須經過「RAG 索引」（狀態顯示為綠色「已完成」）後，才會被學生的 AI 寫作評估和閱讀練習所使用。僅上傳不足以讓學生受益。</span>}
             </div>
             <div className="text-xs text-blue-500 space-y-1">
               <p>{language === 'en'
-                ? '💡 <strong>Workflow:</strong> Upload → Edit metadata (title/tags/grade) → AI Analysis (optional) → <strong>RAG Index (required)</strong>'
-                : '💡 <strong>使用流程：</strong>上傳 → 編輯 metadata（標題/標籤/年級）→ AI 分析（可選）→ <strong>RAG 索引（必要）</strong>'}</p>
+                ? <span>💡 <strong>Workflow:</strong> Upload → Edit metadata (title/tags/grade) → AI Analysis (optional) → <strong>RAG Index (required)</strong></span>
+                : <span>💡 <strong>使用流程：</strong>上傳 → 編輯 metadata（標題/標籤/年級）→ AI 分析（可選）→ <strong>RAG 索引（必要）</strong></span>}</p>
               <p>{language === 'en'
-                ? '💡 <strong>Tip:</strong> Add tags (e.g. "essay sample", "grammar drill") for easy searching. Set grade level so the system can auto-filter relevant materials.'
-                : '💡 <strong>建議：</strong>為教材加上標籤（如「作文範例」、「文法練習」），方便日後搜尋。指定年級可讓系統自動過濾合適教材。'}</p>
+                ? <span>💡 <strong>Tip:</strong> Add tags (e.g. &quot;essay sample&quot;, &quot;grammar drill&quot;) for easy searching. Set grade level so the system can auto-filter relevant materials.</span>
+                : <span>💡 <strong>建議：</strong>為教材加上標籤（如「作文範例」、「文法練習」），方便日後搜尋。指定年級可讓系統自動過濾合適教材。</span>}</p>
             </div>
           </div>
         )}

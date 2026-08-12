@@ -18,6 +18,64 @@ const MAX_FILE_SIZE = config.upload.maxFileSize; // 10MB
 const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'txt'];
 const MAX_CONTENT_LENGTH = config.upload.maxContentLength;
 
+/** OCR a PDF via Google Cloud Vision — fallback when pdf-parse can't extract text */
+async function extractTextFromPdfViaOcr(buffer: Buffer): Promise<string | null> {
+  try {
+    // Try using sharp to render the first page to an image, then OCR it
+    const sharp = (await import('sharp')).default;
+    const imageBuffer = await sharp(buffer, { page: 0, density: 150 })
+      .resize({ width: 1600, withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    // Use Google Cloud Vision API for text detection
+    const { ImageAnnotatorClient } = await import('@google-cloud/vision');
+    let client: import('@google-cloud/vision').ImageAnnotatorClient;
+
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      client = new ImageAnnotatorClient();
+    } else if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+      const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
+      client = new ImageAnnotatorClient({ credentials });
+    } else {
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const keyPath = path.join(process.cwd(), 'materials', 'gcp-service-account.json');
+        const keyContent = await fs.readFile(keyPath, 'utf-8');
+        const credentials = JSON.parse(keyContent);
+        client = new ImageAnnotatorClient({ credentials });
+      } catch {
+        logger.warn({ module: 'materials' }, 'No GCP credentials available for PDF OCR fallback');
+        return null;
+      }
+    }
+
+    const [result] = await client.textDetection({
+      image: { content: imageBuffer.toString('base64') },
+      imageContext: { languageHints: ['en', 'zh-Hant', 'zh-Hans'] },
+    });
+
+    const text = result.textAnnotations?.[0]?.description?.trim();
+    if (text && text.length >= 10) {
+      logger.info({ module: 'materials', textLength: text.length }, 'PDF OCR fallback succeeded');
+      return text;
+    }
+    return null;
+  } catch (e) {
+    logger.warn({ module: 'materials', error: e instanceof Error ? e.message : String(e) }, 'PDF OCR fallback failed');
+    return null;
+  }
+}
+
+// ============================================
+// 上傳限制常數
+// ============================================
+
+const MAX_FILE_SIZE = config.upload.maxFileSize; // 10MB
+const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'txt'];
+const MAX_CONTENT_LENGTH = config.upload.maxContentLength;
+
 // ============================================
 // JSON body Zod schema（POST/PATCH 共用）
 // ============================================
@@ -143,11 +201,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const content = await extractTextFromFile(file);
+      let content = await extractTextFromFile(file);
+
+      // OCR fallback for PDFs that fail text extraction (image-based/scanned PDFs)
+      if ((!content || content.length < 10) && ext === 'pdf') {
+        logger.info({ module: 'materials', fileName: file.name }, 'PDF text extraction failed, trying OCR fallback');
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const ocrText = await extractTextFromPdfViaOcr(buffer);
+        if (ocrText && ocrText.length >= 10) {
+          content = ocrText;
+        }
+      }
 
       if (!content || content.length < 10) {
         return NextResponse.json(
-          { error: `無法從 ${ext.toUpperCase()} 檔案提取文字，請確認檔案是否為文字型 PDF 或嘗試使用 OCR。` },
+          { error: `無法從 ${ext.toUpperCase()} 檔案提取文字。${ext === 'pdf' ? '請確認 PDF 為文字型（非掃描圖片），或稍後重試 OCR。' : ''}` },
           { status: 422 }
         );
       }
