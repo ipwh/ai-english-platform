@@ -10,6 +10,7 @@ import { logger } from '@/shared/logger/logger';
 
 import { formatDate } from '@/shared/utils/utils';
 import { useT } from '@/hooks/use-i18n';
+import { useAppStore } from '@/store/appStore';
 
 const typeIcons: Record<string, React.ElementType> = {
   'pdf': FileText,
@@ -20,6 +21,7 @@ const typeIcons: Record<string, React.ElementType> = {
 
 export default function TeacherMaterialsPage() {
   const { t } = useT();
+  const { language } = useAppStore();
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -175,15 +177,72 @@ export default function TeacherMaterialsPage() {
   });
 
   const statusLabel: Record<string, { label: string; color: string }> = {
+    'none': { label: '未開始', color: 'bg-gray-100 text-gray-500' },
     'pending': { label: '待處理', color: 'bg-gray-100 text-gray-600' },
     'processing': { label: '處理中', color: 'bg-yellow-100 text-yellow-700' },
+    'chunking': { label: '分塊中', color: 'bg-yellow-100 text-yellow-700' },
+    'embedding': { label: '嵌入中', color: 'bg-yellow-100 text-yellow-700' },
+    'done': { label: '已完成', color: 'bg-green-100 text-green-700' },
     'completed': { label: '已完成', color: 'bg-green-100 text-green-700' },
     'failed': { label: '失敗', color: 'bg-red-100 text-red-700' },
   };
 
+  const [showGuide, setShowGuide] = useState(false);
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('teacher.materials.title')}</h1>
+
+      {/* 使用指引 */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800 rounded-2xl overflow-hidden">
+        <button onClick={() => setShowGuide(!showGuide)} className="w-full p-4 text-left flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-blue-500" />
+            <span className="font-semibold text-blue-700 dark:text-blue-300">
+              {language === 'en' ? '📚 Materials Center Guide' : '📚 教材中心使用指引'}
+            </span>
+            <span className="text-xs text-blue-400 ml-2">
+              {language === 'en' ? 'Upload → AI Analyze → RAG Index → Students Benefit' : '上傳 → AI 分析 → RAG 索引 → 學生受益'}
+            </span>
+          </div>
+          <span className="text-blue-400 text-xl">{showGuide ? '▾' : '▸'}</span>
+        </button>
+        {showGuide && (
+          <div className="px-4 pb-4 space-y-3 text-sm text-blue-800 dark:text-blue-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-white/60 dark:bg-blue-900/20 rounded-xl p-3">
+                <h4 className="font-semibold mb-1">{language === 'en' ? '📤 Upload Materials' : '📤 上傳教材'}</h4>
+                <p className="text-xs">{language === 'en' ? 'Supports PDF, DOCX, TXT, images (OCR), and Google Drive links. Text is extracted automatically.' : '支援 PDF、DOCX、TXT、圖片（OCR）及 Google Drive 連結。系統自動提取文字內容。'}</p>
+              </div>
+              <div className="bg-white/60 dark:bg-blue-900/20 rounded-xl p-3">
+                <h4 className="font-semibold mb-1">{language === 'en' ? '🤖 AI Analysis' : '🤖 AI 教材分析'}</h4>
+                <p className="text-xs">{language === 'en' ? 'DeepSeek auto-analyzes summaries, key vocabulary, grammar points & suggested questions — saving prep time.' : 'DeepSeek 自動分析教材摘要、關鍵詞彙、文法重點及建議題目，節省備課時間。'}</p>
+              </div>
+              <div className="bg-white/60 dark:bg-blue-900/20 rounded-xl p-3">
+                <h4 className="font-semibold mb-1">{language === 'en' ? '🔍 RAG Indexing' : '🔍 RAG 索引'}</h4>
+                <p className="text-xs">{language === 'en' ? 'Vectorized content embeds into the AI system — writing evaluation & reading practice can reference your materials.' : '教材經向量化後嵌入 AI 系統，學生寫作評估及閱讀練習可引用課堂教材內容。'}</p>
+              </div>
+              <div className="bg-white/60 dark:bg-blue-900/20 rounded-xl p-3">
+                <h4 className="font-semibold mb-1">{language === 'en' ? '👩‍🎓 Student Benefits' : '👩‍🎓 學生得著'}</h4>
+                <p className="text-xs">{language === 'en' ? 'AI writing feedback references class materials; reading questions align with what you teach — improving learning coherence.' : 'AI 寫作回饋基於課堂教材提供參考範例；閱讀理解題目與教師教授的內容掛鉤，提升學習連貫性。'}</p>
+              </div>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs">
+              {language === 'en'
+                ? '⚠️ <strong>Important:</strong> Materials must be RAG-indexed (status shows green "Done") before students\' AI writing evaluation and reading practice can use them. Uploading alone is not enough.'
+                : '⚠️ <strong>重要：</strong>教材必須經過「RAG 索引」（狀態顯示為綠色「已完成」）後，才會被學生的 AI 寫作評估和閱讀練習所使用。僅上傳不足以讓學生受益。'}
+            </div>
+            <div className="text-xs text-blue-500 space-y-1">
+              <p>{language === 'en'
+                ? '💡 <strong>Workflow:</strong> Upload → Edit metadata (title/tags/grade) → AI Analysis (optional) → <strong>RAG Index (required)</strong>'
+                : '💡 <strong>使用流程：</strong>上傳 → 編輯 metadata（標題/標籤/年級）→ AI 分析（可選）→ <strong>RAG 索引（必要）</strong>'}</p>
+              <p>{language === 'en'
+                ? '💡 <strong>Tip:</strong> Add tags (e.g. "essay sample", "grammar drill") for easy searching. Set grade level so the system can auto-filter relevant materials.'
+                : '💡 <strong>建議：</strong>為教材加上標籤（如「作文範例」、「文法練習」），方便日後搜尋。指定年級可讓系統自動過濾合適教材。'}</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 上傳錯誤提示 */}
       {uploadError && (
@@ -412,11 +471,11 @@ export default function TeacherMaterialsPage() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-xs text-gray-400">{t('teacher.materials.ocrStatus')}</span>
-                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${statusLabel[m.ocrStatus].color}`}>{statusLabel[m.ocrStatus].label}</span>
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${(statusLabel[m.ocrStatus] ?? statusLabel.none).color}`}>{(statusLabel[m.ocrStatus] ?? statusLabel.none).label}</span>
                     </div>
                     <div>
                       <span className="text-xs text-gray-400">{t('teacher.materials.ragStatus')}</span>
-                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${statusLabel[m.ragStatus].color}`}>{statusLabel[m.ragStatus].label}</span>
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${(statusLabel[m.ragStatus] ?? statusLabel.none).color}`}>{(statusLabel[m.ragStatus] ?? statusLabel.none).label}</span>
                     </div>
                   </div>
 

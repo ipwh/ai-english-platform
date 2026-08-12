@@ -1,5 +1,9 @@
 // Sprint 38: TeacherCopilotService — full teacher intelligence suite
+// Sprint 132: Integrated with StudentTwin + LearningScience for real data
+import { db } from '@/shared/db/db';
+import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
 import type { SkillDimension } from '@/modules/student/profile/types';
+import type { StudentTwin } from '@/modules/student/twin/types';
 import type {
   WeeklyTeachingPlan, DailyPlan, Activity, HomeworkItem,
   GrammarFocus, VocabularyFocus, WritingFocus,
@@ -10,6 +14,15 @@ import type {
 // ============================================
 // Internal types
 // ============================================
+
+/** Per-student data within a class snapshot */
+interface StudentSnapshot {
+  studentId: string;
+  nameEn: string | null;
+  nameZh: string | null;
+  overallAccuracy: number | null;
+  scores: Record<string, number>; // skill → mastery (0-1)
+}
 
 interface ClassDataSnapshot {
   avgMastery: number;
@@ -24,6 +37,8 @@ interface ClassDataSnapshot {
   studentCount: number;
   skillAvgs: Record<string, number>;
   studentScores: Array<Record<string, number>>;
+  /** Real student identities (for rankings, risk lists) */
+  students: StudentSnapshot[];
 }
 
 // ============================================
@@ -105,48 +120,127 @@ export class TeacherCopilotService {
     return { classId, generatedAt: new Date().toISOString(), assignments, reviewAssignments };
   }
 
-  /** Analyze an individual student */
-  async analyzeStudent(studentId: string, classId: string): Promise<StudentAnalysis> {
-    const classData = await this.loadClassData(classId);
-    const studentIdx = studentId.charCodeAt(0) % classData.studentScores.length;
-    const scores = classData.studentScores[Math.min(studentIdx, classData.studentScores.length - 1)];
+  /** Analyze an individual student — powered by StudentTwin + LearningScience */
+  async analyzeStudent(studentIdOrName: string, classId: string): Promise<StudentAnalysis> {
+    // Resolve name to ID via StudentTwinService (student module owns name lookup)
+    const studentId = await studentTwinService.resolveStudentId(studentIdOrName);
 
-    const skillDetails = (['grammar', 'vocabulary', 'reading', 'writing', 'listening'] as SkillDimension[]).map(skill => ({
-      skill,
-      score: Math.round((scores?.[skill] || 0.5 + Math.random() * 0.3) * 100),
-      classAverage: Math.round(classData.skillAvgs[skill] * 100),
-      percentile: Math.round(40 + Math.random() * 50),
-      trend: Math.random() > 0.5 ? 'improving' : 'stable',
-      recommendation: `Focus on ${skill} practice with ${skill === 'grammar' ? 'error correction' : 'varied exercises'}`,
-      recommendationZh: `專注${skill}練習`,
-    }));
+    // Verify student belongs to this class
+    await this.verifyStudentInClass(studentId, classId);
+
+    const [twin, classData] = await Promise.all([
+      studentTwinService.buildTwin(studentId).catch(() => null),
+      this.loadClassData(classId).catch(() => null),
+    ]);
+
+    const personaMap: Record<string, string> = {
+      'steady-grinder': '穩定耕耘者', 'fast-learner': '快速學習者',
+      'struggling-but-persistent': '堅持奮鬥者', 'balanced-achiever': '均衡成就者',
+      'curious-explorer': '好奇探索者', 'anxious-perfectionist': '焦慮完美主義者',
+      'high-potential-unfocused': '潛力未集中者', 'exam-crammer': '臨急抱佛腳者',
+    };
+
+    const personaType = twin?.persona?.type ?? 'steady-grinder';
+    const knowledge = twin?.knowledge;
+    const risks = twin?.risks;
+    const habits = twin?.habits;
+    const predictions = twin?.predictions;
+    const identity = twin?.dashboard?.summary;
+
+    // Build skill details from twin knowledge state, with class-data fallback
+    const skillDetails: StudentAnalysis['skillDetails'] = [];
+    if (knowledge?.currentMastery && Object.keys(knowledge.currentMastery).length > 0) {
+      for (const [skill, score] of Object.entries(knowledge.currentMastery)) {
+        const classAvg = classData?.skillAvgs?.[skill] ?? 0;
+        skillDetails.push({
+          skill: skill as SkillDimension,
+          score: Math.round(score * 100),
+          classAverage: Math.round(classAvg * 100),
+          percentile: Math.round(40 + score * 50),
+          trend: (twin?.knowledge?.strongSkills?.find(s => s.skill === skill)?.trend ?? 'stable') as string,
+          recommendation: skill === 'grammar' ? 'Focus on error correction exercises' : `Practice ${skill} with varied exercises`,
+          recommendationZh: skill === 'grammar' ? '專注錯誤修正練習' : `多元化${skill}練習`,
+        });
+      }
+    } else if (classData) {
+      // Fallback: use class averages when twin data unavailable
+      const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening'] as SkillDimension[];
+      for (const skill of skills) {
+        const classAvg = classData.skillAvgs?.[skill] ?? 0.5;
+        skillDetails.push({
+          skill,
+          score: Math.round(classAvg * 100),
+          classAverage: Math.round(classAvg * 100),
+          percentile: 50,
+          trend: 'stable',
+          recommendation: `Focus on ${skill} practice`,
+          recommendationZh: `專注${skill}練習`,
+        });
+      }
+    }
 
     return {
-      studentId, studentName: `Student ${studentId.slice(0, 6)}`,
+      studentId,
+      studentName: identity?.estimatedLevel
+        ? (twin?.dashboard?.summary as Record<string, unknown>)?.studentName as string ?? `Student ${studentId.slice(0, 6)}`
+        : `Student ${studentId.slice(0, 6)}`,
       generatedAt: new Date().toISOString(),
-      personaType: 'steady-grinder',
-      personaTypeZh: '穩定耕耘者',
-      currentLevel: this.levelFromScore(classData.avgMastery),
-      predictedLevel: this.levelFromScore(Math.min(1, classData.avgMastery + 0.1)),
+      personaType: personaType as StudentAnalysis['personaType'],
+      personaTypeZh: personaMap[personaType] ?? '穩定耕耘者',
+      currentLevel: knowledge?.estimatedHkdseLevel ?? this.levelFromScore(classData?.avgMastery ?? 0.5),
+      predictedLevel: predictions?.predictedHkdseLevel ?? this.levelFromScore(Math.min(1, (classData?.avgMastery ?? 0.5) + 0.1)),
       skillDetails,
       recentProgress: {
-        sessionsThisWeek: Math.round(2 + Math.random() * 3),
-        accuracyTrend: 'improving',
-        masteryGained: Math.round(Math.random() * 15),
-        timeSpent: Math.round(60 + Math.random() * 120),
+        sessionsThisWeek: habits?.sessionsPerWeek ?? Math.round(2 + Math.random() * 3),
+        accuracyTrend: risks?.overallRisk === 'high' ? 'declining' : 'improving',
+        masteryGained: Math.round((predictions?.predictedExamScore ?? 60) - (knowledge?.currentMastery ? Object.values(knowledge.currentMastery).reduce((a, b) => a + b, 0) / Math.max(1, Object.values(knowledge.currentMastery).length) * 100 : 50)),
+        timeSpent: (habits?.avgSessionMinutes ?? 20) * (habits?.sessionsPerWeek ?? 3),
       },
       teacherNotes: {
-        strengths: ['Consistent effort', 'Good vocabulary retention'],
-        weaknesses: ['Grammar accuracy needs work', 'Writing structure'],
-        suggestedFocus: ['Tense consistency', 'Paragraph organization'],
-        suggestedFocusZh: ['時態一致性', '段落組織'],
+        strengths: twin?.knowledge?.strongSkills?.slice(0, 2).map(s => s.skill) ?? ['Consistent effort'],
+        weaknesses: twin?.knowledge?.weakSkills?.slice(0, 2).map(s => s.skill) ?? ['Grammar accuracy'],
+        suggestedFocus: risks?.mitigationStrategies?.slice(0, 2) ?? ['Tense consistency', 'Paragraph organization'],
+        suggestedFocusZh: risks?.mitigationStrategiesZh?.slice(0, 2) ?? ['時態一致性', '段落組織'],
       },
     };
   }
 
-  /** Analyze a whole class */
+  /** Analyze a whole class — powered by StudentTwin + LearningScience */
   async analyzeClass(classId: string, className: string): Promise<ClassAnalysis> {
     const classData = await this.loadClassData(classId);
+
+    // Use real student identities for rankings
+    const studentRankings = classData.students.slice(0, 10).map(s => {
+      const scores = Object.values(s.scores);
+      const overallScore = scores.length > 0
+        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 100)
+        : 0;
+      const entries = Object.entries(s.scores);
+      const strongest = entries.sort(([, a], [, b]) => b - a)[0]?.[0] ?? 'grammar';
+      const weakest = entries.sort(([, a], [, b]) => a - b)[0]?.[0] ?? 'grammar';
+      return {
+        studentId: s.studentId,
+        name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
+        overallScore,
+        strongestSkill: strongest,
+        weakestSkill: weakest,
+        trend: 'stable' as const,
+      };
+    });
+
+    // Risk students: bottom 3 by average score
+    const sorted = [...classData.students].sort((a, b) => {
+      const aAvg = Object.values(a.scores).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(a.scores).length);
+      const bAvg = Object.values(b.scores).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(b.scores).length);
+      return aAvg - bAvg;
+    });
+    const riskStudents = sorted.slice(0, 3).map(s => ({
+      studentId: s.studentId,
+      name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
+      riskLevel: (Object.values(s.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.values(s.scores).length)) < 0.4 ? 'high' : 'moderate',
+      primaryConcern: 'Grammar accuracy',
+      primaryConcernZh: '文法準確度',
+    }));
 
     return {
       classId, className,
@@ -161,31 +255,18 @@ export class TeacherCopilotService {
       },
       skillBreakdown: (['grammar', 'vocabulary', 'reading', 'writing', 'listening'] as SkillDimension[]).map(skill => ({
         skill,
-        averageScore: Math.round(classData.skillAvgs[skill] * 100),
-        belowThreshold: Math.round(classData.studentCount * (1 - classData.skillAvgs[skill])),
-        trend: classData.skillAvgs[skill] > 0.6 ? 'stable' : 'improving' as const,
+        averageScore: Math.round((classData.skillAvgs[skill] ?? 0) * 100),
+        belowThreshold: Math.round(classData.studentCount * (1 - (classData.skillAvgs[skill] ?? 0))),
+        trend: (classData.skillAvgs[skill] ?? 0) > 0.6 ? 'stable' : 'improving' as const,
       })),
-      studentRankings: classData.studentScores.slice(0, 10).map((s: Record<string, number>, i: number) => ({
-        studentId: `s${i + 1}`,
-        name: `Student ${i + 1}`,
-        overallScore: Math.round(Object.values(s).reduce((a: number, b: number) => a + b, 0) / Object.values(s).length * 100),
-        strongestSkill: Object.entries(s).sort(([, a], [, b]) => (b as number) - (a as number))[0][0],
-        weakestSkill: Object.entries(s).sort(([, a], [, b]) => (a as number) - (b as number))[0][0],
-        trend: 'stable',
-      })),
+      studentRankings,
       weaknessSummary: {
         topGrammarWeaknesses: classData.grammarErrors.slice(0, 3),
         topVocabularyGaps: ['Academic vocabulary', 'Phrasal verbs'],
         commonWritingErrors: ['Chinglish patterns', 'Weak paragraph structure'],
         readingComprehensionIssues: ['Inference questions', 'Main idea identification'],
       },
-      riskStudents: classData.studentScores.slice(0, 3).map((_s: Record<string, number>, i: number) => ({
-        studentId: `s${i + 1}`,
-        name: `Student ${i + 1}`,
-        riskLevel: 'moderate',
-        primaryConcern: 'Grammar accuracy',
-        primaryConcernZh: '文法準確度',
-      })),
+      riskStudents,
       recommendations: [
         'Focus grammar lessons on tenses and articles',
         'Introduce weekly vocabulary themes',
@@ -199,20 +280,21 @@ export class TeacherCopilotService {
     };
   }
 
-  /** Predict exam outcomes */
+  /** Predict exam outcomes — powered by real student data */
   async predictExam(classId: string): Promise<ExamPrediction> {
     const classData = await this.loadClassData(classId);
 
-    const studentPredictions = classData.studentScores.map((s: Record<string, number>, i: number) => {
-      const avg = Object.values(s).reduce((a: number, b: number) => a + b, 0) / Object.values(s).length;
+    const studentPredictions = classData.students.map(s => {
+      const scores = Object.values(s.scores);
+      const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0.5;
       return {
-        studentId: `s${i + 1}`,
-        name: `Student ${i + 1}`,
+        studentId: s.studentId,
+        name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
         predictedLevel: this.levelFromScore(avg),
         predictedScore: Math.round(avg * 100),
         confidenceBand: { low: Math.round(Math.max(0, avg * 100 - 12)), high: Math.round(Math.min(100, avg * 100 + 8)) },
-        strongestPaper: 'Paper 2 Writing',
-        weakestPaper: 'Paper 1 Reading',
+        strongestPaper: (classData.skillAvgs.writing ?? 0) > (classData.skillAvgs.reading ?? 0) ? 'Paper 2 Writing' : 'Paper 1 Reading',
+        weakestPaper: (classData.skillAvgs.reading ?? 0) < (classData.skillAvgs.writing ?? 0) ? 'Paper 1 Reading' : 'Paper 2 Writing',
         readinessPercentage: Math.round(avg * 100),
       };
     });
@@ -225,9 +307,9 @@ export class TeacherCopilotService {
       predictedStarRate: Math.round(Math.max(0, classData.avgMastery * 100 - 50)),
       studentPredictions,
       paperAnalysis: [
-        { paper: 'Paper 1 Reading', paperZh: '卷一 閱讀', classAverage: Math.round(classData.skillAvgs.reading * 100), topicsNeedingReview: ['Inference', 'Vocabulary in context'], topicsNeedingReviewZh: ['推論', '上下文詞彙'] },
-        { paper: 'Paper 2 Writing', paperZh: '卷二 寫作', classAverage: Math.round(classData.skillAvgs.writing * 100), topicsNeedingReview: ['Essay structure', 'Cohesion'], topicsNeedingReviewZh: ['文章結構', '連貫性'] },
-        { paper: 'Paper 3 Listening', paperZh: '卷三 聆聽', classAverage: Math.round(classData.skillAvgs.listening * 100), topicsNeedingReview: ['Note-taking', 'Speaker attitude'], topicsNeedingReviewZh: ['筆記技巧', '說話者態度'] },
+        { paper: 'Paper 1 Reading', paperZh: '卷一 閱讀', classAverage: Math.round((classData.skillAvgs.reading ?? 0) * 100), topicsNeedingReview: ['Inference', 'Vocabulary in context'], topicsNeedingReviewZh: ['推論', '上下文詞彙'] },
+        { paper: 'Paper 2 Writing', paperZh: '卷二 寫作', classAverage: Math.round((classData.skillAvgs.writing ?? 0) * 100), topicsNeedingReview: ['Essay structure', 'Cohesion'], topicsNeedingReviewZh: ['文章結構', '連貫性'] },
+        { paper: 'Paper 3 Listening', paperZh: '卷三 聆聽', classAverage: Math.round((classData.skillAvgs.listening ?? 0) * 100), topicsNeedingReview: ['Note-taking', 'Speaker attitude'], topicsNeedingReviewZh: ['筆記技巧', '說話者態度'] },
       ],
       recommendations: [
         'Focus revision on Paper 1 Reading — weakest area',
@@ -240,21 +322,72 @@ export class TeacherCopilotService {
     };
   }
 
-  /** Build overview dashboard for a teacher — fetches real data from DB */
+  /** Build overview dashboard for a teacher — powered by StudentTwin + LearningScience */
   async getOverview(teacherId: string): Promise<CopilotOverview> {
-    // TODO: Replace with real DB queries (StudentTwin + LearningScience)
-    // Currently returns empty overview — no mock data
+    // Load teacher's classes from DB
+    const teacherClasses = await db.teacherClass.findMany({
+      where: { teacherId },
+      include: {
+        class: {
+          include: {
+            _count: { select: { students: true } },
+          },
+        },
+      },
+    });
+
+    const classes: CopilotOverview['classes'] = [];
+    let totalStudents = 0;
+    let totalReviewsDue = 0;
+
+    for (const tc of teacherClasses) {
+      const classId = tc.classId;
+      const classData = await this.loadClassData(classId).catch(() => null);
+
+      const studentCount = tc.class._count.students;
+      totalStudents += studentCount;
+
+      const avgMastery = classData?.avgMastery ?? 0;
+      const reviewDue = classData?.reviewDue ?? 0;
+      totalReviewsDue += reviewDue;
+
+      classes.push({
+        classId,
+        className: tc.class.name,
+        studentCount,
+        averageMastery: Math.round(avgMastery * 100),
+        topConcern: classData?.grammarErrors?.[0] ?? 'Grammar',
+        topConcernZh: classData?.grammarErrorsZh?.[0] ?? '文法',
+        nextAction: reviewDue > 5 ? `${reviewDue} items due for review` : 'On track',
+        nextActionZh: reviewDue > 5 ? `${reviewDue} 個項目待溫習` : '進度良好',
+      });
+    }
+
+    // Urgent actions: classes with high review debt or low mastery
+    const urgentActions: CopilotOverview['urgentActions'] = [];
+    for (const c of classes) {
+      if ((c.averageMastery) < 50) {
+        urgentActions.push({
+          type: 'risk',
+          description: `${c.className} average mastery below 50% — intervention needed`,
+          descriptionZh: `${c.className} 平均掌握度低於 50%——需要介入`,
+          classId: c.classId,
+          className: c.className,
+        });
+      }
+    }
+
     return {
       teacherId,
       generatedAt: new Date().toISOString(),
-      classes: [],
-      urgentActions: [],
+      classes,
+      urgentActions,
       weeklySummary: {
-        totalStudents: 0,
-        activeStudents: 0,
-        assignmentsDue: 0,
-        pendingReviews: 0,
-        newRisksDetected: 0,
+        totalStudents,
+        activeStudents: totalStudents, // TODO: filter by recent activity
+        assignmentsDue: 0, // TODO: query assignments
+        pendingReviews: totalReviewsDue,
+        newRisksDetected: urgentActions.filter(a => a.type === 'risk').length,
       },
     };
   }
@@ -263,35 +396,134 @@ export class TeacherCopilotService {
   // Private helpers
   // ============================================
 
+  /** Verify a student belongs to a class — throws if not */
+  private async verifyStudentInClass(studentId: string, classId: string): Promise<void> {
+    const belongs = await db.studentClass.findFirst({
+      where: { studentId, classId },
+      select: { id: true },
+    });
+    if (!belongs) {
+      throw new Error(`Student does not belong to class ${classId}`);
+    }
+  }
+
+  /** Load real class data from DB — aggregates StudentTwin + LearningScience data */
   private async loadClassData(classId: string): Promise<ClassDataSnapshot> {
-    // In production, this would load from StudentTwin + LearningScience
-    const hash = classId.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
-    const seed = (hash % 100) / 100;
+    // 1. Get all students in the class
+    const studentClasses = await db.studentClass.findMany({
+      where: { classId },
+      select: { studentId: true },
+    });
+    const studentIds = studentClasses.map(sc => sc.studentId);
 
-    const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening'];
-    const skillAvgs: Record<string, number> = {};
-    for (const s of skills) skillAvgs[s] = 0.4 + seed * 0.3 + Math.random() * 0.2;
+    if (studentIds.length === 0) {
+      return this.emptySnapshot();
+    }
 
-    const studentCount = 25 + Math.floor(seed * 15);
-    const studentScores = Array.from({ length: studentCount }, () => {
-      const s: Record<string, number> = {};
-      for (const sk of skills) s[sk] = skillAvgs[sk] + (Math.random() - 0.5) * 0.3;
-      return s;
+    // 2. Get student profiles (names, accuracy) from User table
+    const users = await db.user.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, nameEn: true, nameZh: true, overallAccuracy: true },
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    // 3. Get mastery data from StudentMastery table
+    const masteryRows = await db.studentMastery.findMany({
+      where: { studentId: { in: studentIds } },
     });
 
+    // Aggregate mastery by student and skill
+    const skillKeys = ['grammar', 'vocabulary', 'reading', 'writing', 'listening'];
+    const studentScoresMap = new Map<string, Record<string, number>>();
+    const skillTotals: Record<string, number> = {};
+    for (const sk of skillKeys) skillTotals[sk] = 0;
+
+    for (const row of masteryRows) {
+      if (!studentScoresMap.has(row.studentId)) {
+        studentScoresMap.set(row.studentId, Object.fromEntries(skillKeys.map(k => [k, 0])));
+      }
+      const scores = studentScoresMap.get(row.studentId)!;
+      // Map DB skill names to our skill keys
+      const skillKey = row.skill.toLowerCase();
+      if (skillKeys.includes(skillKey)) {
+        // Take max mastery per skill per student
+        scores[skillKey] = Math.max(scores[skillKey], row.masteryScore / 100);
+      }
+    }
+
+    // Build student snapshots
+    const students: StudentSnapshot[] = studentIds.map(sid => {
+      const user = userMap.get(sid);
+      const scores = studentScoresMap.get(sid) ?? Object.fromEntries(skillKeys.map(k => [k, 0]));
+      return {
+        studentId: sid,
+        nameEn: user?.nameEn ?? null,
+        nameZh: user?.nameZh ?? null,
+        overallAccuracy: user?.overallAccuracy ?? null,
+        scores,
+      };
+    });
+
+    // Compute averages
+    const studentScores: Array<Record<string, number>> = students.map(s => s.scores);
+    const skillAvgs: Record<string, number> = {};
+    for (const sk of skillKeys) {
+      const vals = students.map(s => s.scores[sk] ?? 0);
+      skillAvgs[sk] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    }
+    const avgMastery = Object.values(skillAvgs).reduce((a, b) => a + b, 0) / Math.max(1, skillKeys.length);
+
+    // 4. Get review due count from LearningScience
+    const reviewDueCount = await db.learningReviewSchedule.count({
+      where: {
+        studentId: { in: studentIds },
+        nextReviewAt: { lte: new Date() },
+        isMastered: false,
+      },
+    });
+
+    // 5. Get grammar error summaries from StudentMistakeSummary
+    const mistakeRows = await db.studentMistakeSummary.findMany({
+      where: { studentId: { in: studentIds } },
+      orderBy: { mistakeCount: 'desc' },
+      take: 5,
+    });
+    const grammarErrors = [...new Set(mistakeRows.map(r => r.grammarCategory))];
+    const grammarErrorsZh = grammarErrors; // DB stores same values for now
+
+    // 6. Compute accuracy and participation
+    const accuracies = users.map(u => u.overallAccuracy ?? 0).filter(a => a > 0);
+    const avgAccuracy = accuracies.length > 0 ? accuracies.reduce((a, b) => a + b, 0) / accuracies.length : avgMastery;
+    const participation = students.filter(s => Object.values(s.scores).some(v => v > 0)).length / Math.max(1, students.length);
+
     return {
-      avgMastery: Object.values(skillAvgs).reduce((a: number, b: number) => a + b, 0) / skills.length,
-      avgAccuracy: 0.55 + seed * 0.3,
-      avgVelocity: 1 + seed * 3,
-      participation: 0.6 + seed * 0.3,
-      readingScore: skillAvgs.reading,
-      writingScore: skillAvgs.writing ?? 0.5,
-      grammarErrors: ['Tenses', 'Articles', 'Prepositions', 'Subject-Verb Agreement'],
-      grammarErrorsZh: ['時態', '冠詞', '介詞', '主謂一致'],
-      reviewDue: Math.round(5 + seed * 15),
-      studentCount,
+      avgMastery,
+      avgAccuracy,
+      avgVelocity: 1.5, // TODO: compute from learning velocity data
+      participation,
+      readingScore: skillAvgs.reading ?? 0,
+      writingScore: skillAvgs.writing ?? 0,
+      grammarErrors: grammarErrors.length > 0 ? grammarErrors : ['Tenses', 'Articles', 'Prepositions'],
+      grammarErrorsZh: grammarErrorsZh.length > 0 ? grammarErrorsZh : ['時態', '冠詞', '介詞'],
+      reviewDue: reviewDueCount,
+      studentCount: students.length,
       skillAvgs,
       studentScores,
+      students,
+    };
+  }
+
+  /** Fallback empty snapshot when class has no students */
+  private emptySnapshot(): ClassDataSnapshot {
+    const skills = ['grammar', 'vocabulary', 'reading', 'writing', 'listening'];
+    return {
+      avgMastery: 0, avgAccuracy: 0, avgVelocity: 0, participation: 0,
+      readingScore: 0, writingScore: 0,
+      grammarErrors: [], grammarErrorsZh: [],
+      reviewDue: 0, studentCount: 0,
+      skillAvgs: Object.fromEntries(skills.map(s => [s, 0])),
+      studentScores: [],
+      students: [],
     };
   }
 
@@ -378,3 +610,24 @@ export class TeacherCopilotService {
 }
 
 export const teacherCopilotService = new TeacherCopilotService();
+
+/** Verify that a teacher owns (teaches) a given class — used by API routes for authorization */
+export async function verifyTeacherOwnsClass(teacherId: string, classId: string): Promise<boolean> {
+  const row = await db.teacherClass.findFirst({
+    where: { teacherId, classId },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+/** Verify a student belongs to at least one of a teacher's classes — returns the classId if found */
+export async function resolveTeacherStudentClass(teacherId: string, studentId: string): Promise<string | null> {
+  const row = await db.studentClass.findFirst({
+    where: {
+      studentId,
+      class: { teachers: { some: { teacherId } } },
+    },
+    select: { classId: true },
+  });
+  return row?.classId ?? null;
+}

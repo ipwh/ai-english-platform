@@ -1,8 +1,63 @@
 // Sprint 38: Teacher Copilot — Tests
-import { describe, it, expect } from 'vitest';
+// Sprint 132: Updated to mock DB after StudentTwin + LearningScience integration
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock the DB module to avoid provider mismatch (postgres vs sqlite in test env)
+vi.mock('@/shared/db/db', () => ({
+  db: {
+    studentClass: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue({ id: 'link-1' }) },
+    user: { findMany: vi.fn().mockResolvedValue([]) },
+    studentMastery: { findMany: vi.fn().mockResolvedValue([]) },
+    learningReviewSchedule: { count: vi.fn().mockResolvedValue(0) },
+    studentMistakeSummary: { findMany: vi.fn().mockResolvedValue([]) },
+    teacherClass: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue({ id: 'tc-1' }) },
+  },
+}));
+
+// Mock StudentTwinService to avoid StudentStateBuilder DB calls
+vi.mock('@/modules/student/twin/services/student-twin-service', () => ({
+  studentTwinService: {
+    buildTwin: vi.fn().mockRejectedValue(new Error('No data')),
+    resolveStudentId: vi.fn().mockImplementation(async (id: string) => id),
+  },
+}));
+
 import { TeacherCopilotService } from '../services/teacher-copilot-service';
+import { db } from '@/shared/db/db';
+import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
 
 const service = new TeacherCopilotService();
+
+// Default mock data for a class with students
+function mockClassWithStudents() {
+  const mockDb = db as unknown as Record<string, { findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn> }>;
+  mockDb.studentClass.findMany.mockResolvedValue([
+    { studentId: 'student-1' }, { studentId: 'student-2' }, { studentId: 'student-3' },
+  ]);
+  mockDb.user.findMany.mockResolvedValue([
+    { id: 'student-1', nameEn: 'Alice', nameZh: '愛麗絲', overallAccuracy: 0.75 },
+    { id: 'student-2', nameEn: 'Bob', nameZh: '鮑勃', overallAccuracy: 0.62 },
+    { id: 'student-3', nameEn: 'Carol', nameZh: '卡蘿', overallAccuracy: 0.58 },
+  ]);
+  mockDb.studentMastery.findMany.mockResolvedValue([
+    { studentId: 'student-1', skill: 'grammar', masteryScore: 72 },
+    { studentId: 'student-1', skill: 'reading', masteryScore: 68 },
+    { studentId: 'student-1', skill: 'writing', masteryScore: 65 },
+    { studentId: 'student-2', skill: 'grammar', masteryScore: 55 },
+    { studentId: 'student-2', skill: 'reading', masteryScore: 60 },
+    { studentId: 'student-3', skill: 'grammar', masteryScore: 45 },
+  ]);
+  mockDb.learningReviewSchedule.count.mockResolvedValue(3);
+  mockDb.studentMistakeSummary.findMany.mockResolvedValue([
+    { grammarCategory: 'Tenses', mistakeCount: 8 },
+    { grammarCategory: 'Articles', mistakeCount: 5 },
+  ]);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockClassWithStudents();
+});
 
 describe('TeacherCopilotService', () => {
   it('should generate a weekly lesson plan', async () => {
@@ -64,15 +119,13 @@ describe('TeacherCopilotService', () => {
     expect(prediction.recommendationsZh.length).toBeGreaterThan(0);
   });
 
-  // NOTE: getOverview() is an intentional stub (see TODO in source).
-  // It returns structurally valid empty overview until real DB queries are wired.
-  // This test validates contract shape, not live data.
+  // NOTE: getOverview() now queries TeacherClass from DB.
+  // With mocked empty teacherClass, returns structurally valid empty overview.
   it('should generate teacher overview', async () => {
     const overview = await service.getOverview('teacher-1');
     expect(overview.teacherId).toBe('teacher-1');
-    expect(overview).toHaveProperty('classes');
-    expect(overview).toHaveProperty('urgentActions');
-    expect(overview).toHaveProperty('weeklySummary');
+    expect(Array.isArray(overview.classes)).toBe(true);
+    expect(Array.isArray(overview.urgentActions)).toBe(true);
     expect(overview.weeklySummary).toHaveProperty('totalStudents');
     expect(overview.weeklySummary).toHaveProperty('activeStudents');
     expect(overview.weeklySummary).toHaveProperty('assignmentsDue');
@@ -97,5 +150,73 @@ describe('TeacherCopilotService', () => {
     expect(plan1.grammarFocus).toBeDefined();
     expect(plan2.grammarFocus).toBeDefined();
     expect(plan1.vocabularyFocus.themes).toEqual(plan2.vocabularyFocus.themes);
+  });
+
+  // ============================================
+  // Security & authorization tests (Sprint 132)
+  // ============================================
+
+  describe('verifyTeacherOwnsClass', () => {
+    it('returns true when teacher teaches the class', async () => {
+      const { verifyTeacherOwnsClass } = await import('../services/teacher-copilot-service');
+      const result = await verifyTeacherOwnsClass('teacher-1', '4A');
+      expect(result).toBe(true);
+    });
+
+    it('returns false when teacher does not teach the class', async () => {
+      const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
+      mockDb.teacherClass.findFirst.mockResolvedValueOnce(null);
+      const { verifyTeacherOwnsClass } = await import('../services/teacher-copilot-service');
+      const result = await verifyTeacherOwnsClass('teacher-2', '4B');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('resolveTeacherStudentClass', () => {
+    it('resolves class when student belongs to teacher', async () => {
+      const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
+      mockDb.studentClass.findFirst.mockResolvedValueOnce({ classId: '4A' });
+      const { resolveTeacherStudentClass } = await import('../services/teacher-copilot-service');
+      const result = await resolveTeacherStudentClass('teacher-1', 'student-1');
+      expect(result).toBe('4A');
+    });
+
+    it('returns null when student does not belong to teacher', async () => {
+      const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
+      mockDb.studentClass.findFirst.mockResolvedValueOnce(null);
+      const { resolveTeacherStudentClass } = await import('../services/teacher-copilot-service');
+      const result = await resolveTeacherStudentClass('teacher-1', 'student-unknown');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('verifyStudentInClass', () => {
+    it('does not throw when student is in class', async () => {
+      // Default mock returns { id: 'link-1' } — should not throw
+      await expect(service.analyzeStudent('student-1', '4A')).resolves.toBeDefined();
+    });
+
+    it('throws when student is not in class', async () => {
+      const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
+      mockDb.studentClass.findFirst.mockResolvedValueOnce(null);
+      await expect(service.analyzeStudent('student-unknown', '4A'))
+        .rejects.toThrow('does not belong to class');
+    });
+  });
+
+  describe('resolveStudentId errors', () => {
+    it('throws 404-style error when student not found', async () => {
+      const mockSvc = studentTwinService as unknown as { resolveStudentId: ReturnType<typeof vi.fn> };
+      mockSvc.resolveStudentId.mockRejectedValueOnce(new Error('No student found matching "Nobody"'));
+      await expect(service.analyzeStudent('Nobody', '4A'))
+        .rejects.toThrow('No student found');
+    });
+
+    it('throws 409-style error when multiple students match', async () => {
+      const mockSvc = studentTwinService as unknown as { resolveStudentId: ReturnType<typeof vi.fn> };
+      mockSvc.resolveStudentId.mockRejectedValueOnce(new Error('Multiple students matched: Alice, Bob'));
+      await expect(service.analyzeStudent('Chan', '4A'))
+        .rejects.toThrow('Multiple students matched');
+    });
   });
 });

@@ -25,7 +25,7 @@ export default function TeacherCopilotPage() {
   // Local UI state (inputs, selection — NOT data)
   const [classId, setClassId] = useState('');
   const [className, setClassName] = useState('');
-  const [studentId, setStudentId] = useState('');
+  const [studentQuery, setStudentQuery] = useState('');
   const [generationType, setGenerationType] = useState('worksheet');
 
   // Data hook — all fetch logic, loading states, error, and abort handling
@@ -51,16 +51,16 @@ export default function TeacherCopilotPage() {
   // Cancel in-flight request when user changes class/student/tab
   const prevTabRef = useRef(activeTab);
   const prevClassIdRef = useRef(classId);
-  const prevStudentIdRef = useRef(studentId);
+  const prevStudentQueryRef = useRef(studentQuery);
   useEffect(() => {
-    if (activeTab !== prevTabRef.current || classId !== prevClassIdRef.current || studentId !== prevStudentIdRef.current) {
+    if (activeTab !== prevTabRef.current || classId !== prevClassIdRef.current || studentQuery !== prevStudentQueryRef.current) {
       cancelPending();
       setError('');
       prevTabRef.current = activeTab;
       prevClassIdRef.current = classId;
-      prevStudentIdRef.current = studentId;
+      prevStudentQueryRef.current = studentQuery;
     }
-  }, [activeTab, classId, studentId, cancelPending, setError]);
+  }, [activeTab, classId, studentQuery, cancelPending, setError]);
 
   // Determine which loading key is active for the current tab
   const tabLoadingKey: keyof LoadingMap =
@@ -85,7 +85,7 @@ export default function TeacherCopilotPage() {
     if (activeTab === 'lesson-plan') fetchLessonPlan(classId, className);
     else if (activeTab === 'class-analysis') fetchClassAnalysis(classId, className);
     else if (activeTab === 'exam-prediction') fetchExamPrediction(classId);
-    else if (activeTab === 'student-analysis') fetchStudentAnalysis(studentId, classId || '');
+    else if (activeTab === 'student-analysis') fetchStudentAnalysis(studentQuery, classId || '');
     else if (activeTab === 'generate') generateMaterial(generationType, classId);
   };
 
@@ -143,7 +143,6 @@ export default function TeacherCopilotPage() {
               <p>💡 <strong>考試預測</strong>：預測 DSE 合格率 · <strong>生成教材</strong>：AI 製作工作紙/家課/測驗卷 · <strong>學生分析</strong>：輸入學生姓名查看個人進度</p>
             </>
           )}
-          <p className="text-amber-200 mt-1">{language === 'en' ? '⚠️ This page currently shows demonstration data. Personalised content requires StudentTwin + LearningScience modules.' : '⚠️ 此頁面目前顯示示範數據。需接入 StudentTwin + LearningScience 模組後才有真正個人化內容。'}</p>
         </div>
       </div>
 
@@ -175,13 +174,13 @@ export default function TeacherCopilotPage() {
           )}
           {activeTab === 'student-analysis' && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Student ID or Name' : '學生 ID 或姓名'}</label>
-              <input value={studentId} onChange={e => setStudentId(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm w-48" placeholder="e.g. student-001 或 Chan Tai Man" />
+              <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'en' ? 'Student Name' : '學生姓名'}</label>
+              <input value={studentQuery} onChange={e => setStudentQuery(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm w-48" placeholder={language === 'en' ? 'e.g. Chan Tai Man' : 'e.g. 陳大文'} />
             </div>
           )}
           <button onClick={handleLoad}
-            disabled={isLoading || (activeTab !== 'student-analysis' && activeTab !== 'generate' && !classId) || (activeTab === 'student-analysis' && !studentId)}
+            disabled={isLoading || (activeTab !== 'student-analysis' && !classId) || (activeTab === 'student-analysis' && !studentQuery)}
             className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors">
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'en' ? 'Load' : '載入')}
           </button>

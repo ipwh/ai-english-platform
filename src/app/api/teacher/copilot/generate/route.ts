@@ -4,7 +4,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
 import { generationRequestSchema } from '@/modules/teacher/copilot/schemas';
-import { teacherCopilotService } from '@/modules/teacher/copilot/services/teacher-copilot-service';
+import { teacherCopilotService, verifyTeacherOwnsClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 
 export async function POST(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -21,6 +21,11 @@ export async function POST(request: NextRequest) {
     // Route to appropriate service method
     let result: unknown;
     const effectiveClassId = classId || teacherId; // Use classId from frontend, fallback to teacherId
+
+    // Verify teacher owns this class (admins bypass)
+    if (auth.role !== 'admin' && effectiveClassId && !await verifyTeacherOwnsClass(auth.userId!, effectiveClassId)) {
+      return NextResponse.json({ error: 'Unauthorized — you do not teach this class' }, { status: 403 });
+    }
 
     switch (type) {
       case 'homework':

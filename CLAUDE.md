@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 1919/1919 tests pass (84 files — fully green)
+- **Testing**: Vitest 4, 1927/1927 tests pass (84 files — fully green)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 126 under `src/app/api/`

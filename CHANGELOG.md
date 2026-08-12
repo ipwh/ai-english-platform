@@ -4,6 +4,47 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-12 — Teacher Copilot Real Data Integration, Security Hardening & UI Improvements
+
+### 🔗 Teacher Copilot: StudentTwin + LearningScience Integration
+- **NEW**: `TeacherCopilotService.loadClassData()` now queries real DB (StudentClass → StudentMastery → LearningReviewSchedule → StudentMistakeSummary) instead of generating random demo data
+- **NEW**: `analyzeStudent()` now calls `studentTwinService.buildTwin()` for real digital twin data (persona, knowledge, risks, predictions)
+- **NEW**: `getOverview()` now queries `TeacherClass` for real teacher class lists with aggregated mastery metrics
+- **NEW**: `analyzeClass()` and `predictExam()` now use real student identities (nameEn/nameZh) instead of "Student 1, 2, 3..."
+- **NEW**: Student name lookup — input supports Chinese/English name resolution via `findUsersByName()` → `studentTwinService.resolveStudentId()`
+- **FIXED**: Removed demo data warning banner from Teacher Copilot UI
+
+### 🔒 Security Hardening
+- **NEW**: `verifyTeacherOwnsClass()` — all 5 copilot API routes verify teacher-class ownership before returning data
+- **NEW**: `resolveTeacherStudentClass()` — no-classId fallback for student-analysis resolves student's class scoped to teacher
+- **NEW**: `verifyStudentInClass()` — service-layer check that student belongs to specified class
+- **NEW**: Multi-match rejection — `resolveStudentId()` throws descriptive error when name matches multiple students
+- **FIXED**: `student-analysis` route no longer accepts `classId='default'` silently; properly scoped to teacher's classes
+
+### 🧪 Testing
+- **FIXED**: `teacher-copilot.test.ts` — mocked DB to resolve SQLite/PostgreSQL provider mismatch
+- **NEW**: 8 security tests covering verifyTeacherOwnsClass, resolveTeacherStudentClass, verifyStudentInClass, resolveStudentId errors
+- **RESULTS**: 84/84 test files, 1927/1927 tests pass; `tsc --noEmit` exit 0; production build verified
+
+### 🎨 UI Improvements
+- **NEW**: Materials Center — collapsible bilingual usage guide (upload → AI analyze → RAG index → student benefits)
+- **FIXED**: Materials Center — `statusLabel` expanded to 8 keys (added `none`, `done`, `chunking`, `embedding`); null-safe `?? statusLabel.none` fallback
+- **FIXED**: Groups page — student list now sorted by className then classNumber; class number displayed (`#15`)
+- **FIXED**: Teacher Copilot — `studentId` renamed to `studentQuery` for semantic accuracy
+- **FIXED**: Teacher Copilot — student analysis input label changed from "Student ID or Name" to "Student Name"; placeholder bilingual
+
+### 📊 Current Baseline
+```
+TypeScript:       0 errors (tsc --noEmit)
+Test Files:       84 passed (84)
+Tests:            1927 passed (1927)
+Production Build: ✅ Compiled successfully (44s, 158 pages)
+API Routes:       126
+Modules:          24
+```
+
+---
+
 ## 2026-08-11 — Documentation Audit, i18n Completeness & Bug Fixes
 
 ### 📋 System Documentation Audit

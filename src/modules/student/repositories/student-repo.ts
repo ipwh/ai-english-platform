@@ -5,6 +5,21 @@ import type { Prisma } from '@prisma/client';
 export async function findUserById(id: string) { return db.user.findUnique({ where: { id }, include: { class: true } }); }
 export async function findUserByEmail(email: string) { return db.user.findUnique({ where: { email: email.toLowerCase() }, include: { class: true } }); }
 export async function findUserByEmailMinimal(email: string) { return db.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true, role: true, name: true, nameEn: true, image: true } }); }
+
+/** Search students by name (Chinese or English) — used by Teacher Copilot student lookup */
+export async function findUsersByName(name: string) {
+  return db.user.findMany({
+    where: {
+      role: 'student',
+      OR: [
+        { nameEn: { contains: name, mode: 'insensitive' } },
+        { nameZh: { contains: name } },
+      ],
+    },
+    select: { id: true, nameEn: true, nameZh: true, classId: true, class: { select: { name: true } } },
+    take: 20,
+  });
+}
 export async function createUser(data: Prisma.UserCreateInput) { return db.user.create({ data }); }
 export async function updateUser(id: string, data: Prisma.UserUpdateInput) { return db.user.update({ where: { id }, data }); }
 export async function updateUserPassword(id: string, hash: string) { return db.user.update({ where: { id }, data: { passwordHash: hash } }); }

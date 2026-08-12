@@ -1,7 +1,7 @@
 // Sprint 38: GET /api/teacher/copilot/exam-prediction
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { teacherCopilotService } from '@/modules/teacher/copilot/services/teacher-copilot-service';
+import { teacherCopilotService, verifyTeacherOwnsClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {
@@ -12,6 +12,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId') || 'default';
+
+    // Verify teacher owns this class (admins bypass)
+    if (authResult.role !== 'admin' && !await verifyTeacherOwnsClass(authResult.userId!, classId)) {
+      return NextResponse.json({ error: 'Unauthorized — you do not teach this class' }, { status: 403 });
+    }
+
     const prediction = await teacherCopilotService.predictExam(classId);
     return NextResponse.json({ prediction });
   } catch (err) {

@@ -30,7 +30,7 @@ export default function TeacherGroupsPage() {
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [students, setStudents] = useState<{ id: string; name: string; className: string }[]>([]);
+  const [students, setStudents] = useState<{ id: string; name: string; className: string; classNumber: string | null }[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [showBatchImport, setShowBatchImport] = useState(false);
@@ -172,10 +172,17 @@ export default function TeacherGroupsPage() {
             const res = await fetch('/api/teacher/students');
             const d = await res.json();
             setStudents((d.students || []).map((s: Record<string, unknown>) => ({
-              id: s.id,
-              name: s.nameZh || s.name || s.email,
-              className: (s.class as { name?: string })?.name || (s.className as string) || '',
-            })));
+              id: s.id as string,
+              name: (s.nameZh || s.name || s.email) as string,
+              className: ((s.class as { name?: string })?.name || (s.className as string) || '') as string,
+              classNumber: (s.classNumber as string) || null,
+            })).sort((a: { className: string; classNumber: string | null }, b: { className: string; classNumber: string | null }) => {
+              // Sort by className then classNumber
+              if (a.className !== b.className) return a.className.localeCompare(b.className);
+              const numA = parseInt(a.classNumber || '999', 10);
+              const numB = parseInt(b.classNumber || '999', 10);
+              return numA - numB;
+            }));
           }}
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-xl font-medium flex items-center gap-2"
         >
@@ -248,6 +255,7 @@ export default function TeacherGroupsPage() {
                     className="rounded"
                   />
                   <span className="text-sm">{s.name}</span>
+                  {s.classNumber && <span className="text-xs text-gray-400">#{s.classNumber}</span>}
                   <span className="text-xs text-gray-400">{s.className}</span>
                 </label>
               ))}

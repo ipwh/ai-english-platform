@@ -61,6 +61,27 @@ export class StudentTwinService {
     return state.vocabulary;
   }
 
+  /** Resolve a student name to ID — used by Teacher Copilot for name-based lookup */
+  async resolveStudentId(nameOrId: string): Promise<string> {
+    const cuidPattern = /^c[a-z0-9]+$/i;
+    if (cuidPattern.test(nameOrId)) return nameOrId;
+
+    if (!nameOrId.trim()) {
+      throw new Error('Student name is empty');
+    }
+
+    const { findUsersByName } = await import('../../repositories/student-repo');
+    const matches = await findUsersByName(nameOrId.trim());
+    if (matches.length === 0) {
+      throw new Error(`No student found matching "${nameOrId}"`);
+    }
+    if (matches.length > 1) {
+      const names = matches.slice(0, 5).map(m => m.nameEn || m.nameZh || m.id).join(', ');
+      throw new Error(`Multiple students matched: ${names}. Please use student ID for exact lookup.`);
+    }
+    return matches[0].id;
+  }
+
   // ============================================
   // Map StudentState → StudentTwin (legacy format)
   // ============================================
