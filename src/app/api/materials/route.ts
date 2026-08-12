@@ -69,14 +69,6 @@ async function extractTextFromPdfViaOcr(buffer: Buffer): Promise<string | null> 
 }
 
 // ============================================
-// 上傳限制常數
-// ============================================
-
-const MAX_FILE_SIZE = config.upload.maxFileSize; // 10MB
-const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'txt'];
-const MAX_CONTENT_LENGTH = config.upload.maxContentLength;
-
-// ============================================
 // JSON body Zod schema（POST/PATCH 共用）
 // ============================================
 
