@@ -123,6 +123,7 @@ ${questionFocus}`;
 function buildWritingSection(difficulty: string, gradeLevel: string): string {
   const promptRange = difficulty === 'remedial' ? '20-40 words' : difficulty === 'core' ? '40-60 words' : '50-80 words';
   const answerRange = difficulty === 'remedial' ? '60-100 words' : difficulty === 'core' ? '100-150 words' : '150-200 words';
+  const studentWordCount = difficulty === 'remedial' ? '80-100 words' : difficulty === 'core' ? '120-150 words' : '180-220 words';
   const complexity = difficulty === 'remedial'
     ? 'Simple scenario, basic vocabulary, straightforward task.'
     : difficulty === 'challenge'
@@ -130,6 +131,7 @@ function buildWritingSection(difficulty: string, gradeLevel: string): string {
       : 'Standard DSE scenario with moderate complexity.';
   return `─── DSE Paper 2 Writing ───
 Generate a short writing prompt (${promptRange}) with scenario, role, task, and specific requirements.
+IMPORTANT: The prompt MUST include a word count instruction for the student (e.g. "Write about ${studentWordCount}." or "Your response should be around ${studentWordCount}."). Make word count visible to the student.
 Answer field: model answer (${answerRange}). Choices: []. Grade: ${gradeLevel}. ${complexity}
 Topics close to HK student life experience.`;
 }
