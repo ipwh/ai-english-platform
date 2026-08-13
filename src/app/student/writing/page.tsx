@@ -13,6 +13,7 @@ import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import type { DifficultyLevel } from '@/shared/types/types';
 import type { WritingAnalysisResult } from '@/shared/types/ai-response-types';
+import type { WritingArtifactMetadata } from '@/modules/ai/core/writing-artifact';
 import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
 
 const gradeLevels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
@@ -76,9 +77,11 @@ export default function WritingPage() {
   const [rewrittenText, setRewrittenText] = useState('');
   const [rewriteSummary, setRewriteSummary] = useState<string[]>([]);
   const [showRewrite, setShowRewrite] = useState(false);
-  // === 中等水平範文 ===
+  // === 中等水平範文（Generated Model — artifact identity + pedagogical target）===
   const [midModelLoading, setMidModelLoading] = useState(false);
-  const [midModelEssay, setMidModelEssay] = useState('');
+  const [midModel, setMidModel] = useState<{ essay: string; metadata?: WritingArtifactMetadata } | null>(null);
+  const [midModelAnalyzing, setMidModelAnalyzing] = useState(false);
+  const [midModelAnalysis, setMidModelAnalysis] = useState<{ overallScore: number; dseLevel?: string } | null>(null);
   const [showDiff, setShowDiff] = useState(false);
 
   // === 分層反饋狀態 ===
@@ -318,10 +321,10 @@ export default function WritingPage() {
     }
   };
 
-  // === 生成中等水平範文 ===
+  // === 生成中等水平範文（服務端決定目標，附 artifact metadata）===
   const handleMidModel = async () => {
     if (!generatedPrompt.trim()) return;
-    setMidModelLoading(true); setMidModelEssay('');
+    setMidModelLoading(true); setMidModel(null); setMidModelAnalysis(null);
     try {
       const res = await fetch('/api/ai/generate-model-essay', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -329,10 +332,43 @@ export default function WritingPage() {
       });
       const json = await res.json();
       if (res.ok && json.essay) {
-        setMidModelEssay(json.essay);
+        // metadata comes from the SERVER (source, pedagogicalTargetLevel,
+        // generationVersion, qualityStatus) — never fabricated client-side.
+        setMidModel({ essay: json.essay, metadata: json.metadata });
+      } else if (!res.ok) {
+        showToast('error', json?.reason || t('writing.aiUnavailable'));
       }
     } catch { /* ignore */ }
     finally { setMidModelLoading(false); }
+  };
+
+  // === 獨立分析範文（canonical scorer，與範文目標並列展示，互不覆蓋）===
+  const handleAnalyzeMidModel = async () => {
+    if (!midModel) return;
+    setMidModelAnalyzing(true); setMidModelAnalysis(null);
+    try {
+      const res = await fetch('/api/ai/analyze-writing', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: generatedPrompt || 'Writing',
+          prompt: generatedPrompt,
+          studentDraft: midModel.essay.slice(0, 5000),
+          gradeLevel,
+          // Echo-only context: artifact metadata can NEVER alter scoring.
+          artifact: midModel.metadata,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.analysis) {
+        setMidModelAnalysis({
+          overallScore: json.analysis.overallScore,
+          dseLevel: json.analysis.dseLevel,
+        });
+      } else {
+        showToast('error', json?.error || t('writing.aiUnavailable'));
+      }
+    } catch { /* ignore */ }
+    finally { setMidModelAnalyzing(false); }
   };
 
   // 簡單 diff 比較：標記差異
@@ -691,16 +727,55 @@ export default function WritingPage() {
               )}
             </div>
           )}
-          {/* 中等水平範文 */}
-          {midModelEssay && (
+          {/* 中等水平範文 — 範文目標（Pedagogical Target）≠ 分析結果（Assessment）*/}
+          {midModel && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
-              <p className="text-xs font-medium text-amber-600 mb-1">{lang === 'en' ? '📝 Mid-Level Model Essay (Level 3)' : '📝 中等水平範文 (Level 3)'}</p>
+              <p className="text-xs font-medium text-amber-600 mb-1">
+                {midModel.metadata?.pedagogicalTargetLevel
+                  ? (lang === 'en'
+                    ? `📝 Model Essay — Pedagogical Target: Level ${midModel.metadata.pedagogicalTargetLevel}`
+                    : `📝 範文目標：Level ${midModel.metadata.pedagogicalTargetLevel}`)
+                  : (lang === 'en' ? '📝 Model Essay' : '📝 範文')}
+              </p>
               {store.userId ? (
                 <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModel.essay}</p>
                 </VocabEnabledText>
               ) : (
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModelEssay}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{midModel.essay}</p>
+              )}
+              <p className="text-[11px] text-gray-400 mt-1">
+                {lang === 'en'
+                  ? 'This is a platform-generated learning model, NOT your own essay.'
+                  : '這是平台生成的學習範文，並非你的作文。'}
+              </p>
+              <button
+                onClick={handleAnalyzeMidModel}
+                disabled={midModelAnalyzing}
+                className="mt-2 px-3 py-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md font-medium hover:bg-amber-200 disabled:opacity-50"
+              >
+                {midModelAnalyzing
+                  ? t('common.loading')
+                  : (lang === 'en' ? 'Analyze this model independently' : '獨立分析範文')}
+              </button>
+              {midModelAnalysis && (
+                <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-md border border-purple-200 dark:border-purple-800 space-y-1">
+                  <p className="text-xs font-medium text-purple-800 dark:text-purple-200">
+                    {lang === 'en'
+                      ? `Pedagogical Target: Level ${midModel.metadata?.pedagogicalTargetLevel ?? '—'}`
+                      : `範文目標：Level ${midModel.metadata?.pedagogicalTargetLevel ?? '—'}`}
+                  </p>
+                  <p className="text-xs font-medium text-purple-800 dark:text-purple-200">
+                    {lang === 'en'
+                      ? `Independent platform analysis: Est. Level ${midModelAnalysis.dseLevel ?? '—'} · ${midModelAnalysis.overallScore}/100`
+                      : `獨立 AI 分析：平台估算 Level ${midModelAnalysis.dseLevel ?? '—'} · ${midModelAnalysis.overallScore}/100`}
+                  </p>
+                  <p className="text-[11px] text-purple-600 dark:text-purple-300">
+                    {lang === 'en'
+                      ? 'These two levels serve different purposes: the target is the learning level set at generation; the analysis is the platform\'s independent assessment of the text.'
+                      : '這兩個 Level 用途不同：「範文目標」是生成時設定的學習水平；「分析結果」是平台根據文章內容作出的獨立評估。'}
+                  </p>
+                </div>
               )}
             </div>
           )}

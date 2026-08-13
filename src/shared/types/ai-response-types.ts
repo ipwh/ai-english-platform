@@ -7,6 +7,16 @@
 //   src/modules/ai/usecases/analyze-writing.ts (WritingAnalysis)
 // ============================================
 
+/** Writing artifact identity (generated_model vs student_submission etc.). */
+export interface WritingArtifactMetadataResult {
+  source: "student_submission" | "generated_model" | "teacher_example" | "imported_example";
+  /** PEDAGOGICAL TARGET ONLY — never a scoring authority. */
+  pedagogicalTargetLevel?: "1" | "2" | "3" | "4" | "5";
+  generationTarget?: "low" | "mid" | "high";
+  generationVersion?: string;
+  qualityStatus?: "verified" | "unverified";
+}
+
 /** Evidence-backed structured feedback item (Phase 3). */
 export interface EvidenceBackedFeedbackResult {
   dimension: "content" | "language" | "organization" | "task_coverage" | "vocabulary" | "grammar";
@@ -62,4 +72,6 @@ export interface WritingAnalysisResult {
   cloRationales?: CloDimensionRationaleResult[];
   /** Canonical scoring contract version (HKDSE_P2_WRITING_CANONICAL_V1). */
   scoringVersion?: string;
+  /** Echo-only artifact identity — NEVER used for scoring. */
+  artifact?: WritingArtifactMetadataResult;
 }

@@ -4,6 +4,7 @@
 // ============================================
 
 import { z } from 'zod';
+import { WritingArtifactMetadataSchema } from '../core/writing-artifact';
 
 // ============================================
 // 一、題目生成
@@ -140,6 +141,8 @@ export const WritingAnalysisSchema = z.object({
   revision: WritingRevisionSchema.optional(),
   rubric: WritingRubricMetadataSchema.optional(),
   scoringVersion: z.string().optional(),
+  // Echo-only artifact identity (R3.10-K Phase 5). NEVER used for scoring.
+  artifact: WritingArtifactMetadataSchema.optional(),
 });
 
 // ============================================

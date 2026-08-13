@@ -2,6 +2,7 @@
 // Sprint 102: userId made optional — routes inject from auth, not request body
 import { z } from 'zod';
 import { difficulty, gradeLevel, optionalString } from './common.schema';
+import { WritingArtifactMetadataSchema } from '@/modules/ai/core/writing-artifact';
 
 export const generateQuestionsSchema = z.object({
   difficulty,
@@ -27,6 +28,10 @@ export const analyzeWritingSchema = z.object({
   gradeLevel: optionalString,
   // Accepted for UI compatibility; not consumed by the scoring pipeline.
   difficulty: optionalString,
+  // Artifact identity metadata (e.g. generated_model). Context/traceability
+  // ONLY — the canonical scorer NEVER reads it for C/L/O, overallScore, or
+  // dseLevel. Client-supplied metadata can never alter scoring.
+  artifact: WritingArtifactMetadataSchema.optional(),
   userId: optionalString,
 });
 

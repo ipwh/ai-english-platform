@@ -503,3 +503,54 @@ describe("Integration L — canonical scoring version", () => {
     expect(result.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V1");
   });
 });
+
+// ============================================
+// R3.10-K Phase 5 — artifact metadata NEVER alters canonical scoring
+// ============================================
+describe("Integration M — pedagogical target cannot mutate scoring (semantic mutation)", () => {
+  const generatedMeta = (level: "3" | "5") => ({
+    source: "generated_model" as const,
+    pedagogicalTargetLevel: level,
+    generationTarget: "mid" as const,
+    generationVersion: "MODEL_ESSAY_GENERATION_V1",
+    qualityStatus: "verified" as const,
+  });
+
+  it("same essay with target Level 3 vs target Level 5 → identical C/L/O, overallScore, dseLevel", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const resultA = await analyzeWriting({ ...defaultInput, artifact: generatedMeta("3") });
+
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const resultB = await analyzeWriting({ ...defaultInput, artifact: generatedMeta("5") });
+
+    expect(resultA.contentScore).toBe(resultB.contentScore);
+    expect(resultA.languageScore).toBe(resultB.languageScore);
+    expect(resultA.organizationScore).toBe(resultB.organizationScore);
+    expect(resultA.overallScore).toBe(resultB.overallScore);
+    expect(resultA.dseLevel).toBe(resultB.dseLevel);
+  });
+
+  it("artifact metadata is echoed, and assessment does NOT overwrite pedagogicalTargetLevel", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    // C=3 L=4 O=5 → 12/21 → platform estimate "4"; force target "5" to prove independence.
+    const result = await analyzeWriting({ ...defaultInput, artifact: generatedMeta("5") });
+
+    expect(result.artifact?.pedagogicalTargetLevel).toBe("5"); // target untouched
+    expect(result.dseLevel).toBe("4");                          // assessment independent
+  });
+
+  it("student submission without artifact still scores normally (no guessing)", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const result = await analyzeWriting(defaultInput);
+    expect(result.artifact).toBeUndefined();
+    expect(result.overallScore).toBe(57);
+  });
+});

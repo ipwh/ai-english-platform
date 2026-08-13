@@ -34,6 +34,7 @@ import type { EvidenceBackedFeedback } from "../types/assessment-feedback";
 import { createRubricMetadata } from "../types/rubric-version";
 import type { WritingRevision } from "../schemas/ai-schema";
 import { CLO_RUBRIC_ZH } from "../prompts/writing/writing-rubric";
+import type { WritingArtifactMetadata } from "../core/writing-artifact";
 
 // ============================================
 // Pure helper functions
@@ -229,6 +230,13 @@ export interface AnalyzeWritingInput {
   studentLevel?: string;
   difficulty?: string;
   textType?: string;
+  /**
+   * Artifact identity metadata (R3.10-K Phase 5).
+   * Context/traceability ONLY — echoed in the result and NEVER read by
+   * the canonical scoring computation (C/L/O, cloTotal, overallScore,
+   * dseLevel are all derived exclusively from the essay text).
+   */
+  artifact?: WritingArtifactMetadata;
 }
 
 export interface WritingAnalysis {
@@ -258,6 +266,8 @@ export interface WritingAnalysis {
   cloRationales?: CloDimensionRationale[];
   /** Canonical scoring contract version (writing-score-policy.ts SCORING_VERSION). */
   scoringVersion?: string;
+  /** Echo-only artifact identity — NEVER used for scoring. */
+  artifact?: WritingArtifactMetadata;
 }
 
 export async function analyzeWriting(input: AnalyzeWritingInput): Promise<WritingAnalysis> {
@@ -894,6 +904,8 @@ Content / Organization 分數亦需按 system rubric 評分，
     rubric: createRubricMetadata(input.textType),
     // Canonical scoring contract version — changes only via explicit policy edits
     scoringVersion: SCORING_VERSION,
+    // Echo-only artifact identity (R3.10-K Phase 5). Scoring ignores it.
+    artifact: input.artifact,
     // Sprint 131: Per-dimension CLO rationale — educational feedback only.
     // Validate that rationale scores match formal CLO scores; override if inconsistent.
     // Filter evidence: only keep canonical verbatim quotes from the student's essay.

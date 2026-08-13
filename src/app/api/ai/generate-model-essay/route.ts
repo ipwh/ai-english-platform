@@ -1,12 +1,39 @@
 // ============================================
 // POST /api/ai/generate-model-essay
-// 生成中等水平範文（供學生比較學習）
+// 生成指定目標水平範文（供學生比較學習）
+//
+// R3.10-K Phase 5 — Generated Model Integrity:
+//   - The pedagogical target (e.g. mid → Level 3) is SERVER-DETERMINED by
+//     the deterministic mapping in ai/core/writing-artifact.ts. The LLM
+//     only writes the essay text — it can never set the target.
+//   - The response carries artifact metadata {source: "generated_model",
+//     pedagogicalTargetLevel, generationTarget, generationVersion,
+//     qualityStatus}. The target NEVER participates in canonical scoring.
+//   - A pedagogical quality gate (booleans only, never a score) verifies
+//     target fit; after max attempts the endpoint fails closed with
+//     MODEL_GENERATION_UNAVAILABLE — never returns an unverified essay.
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM, sanitizeForAI, HALLUCINATION_GUARD } from '@/modules/ai';
+import { callLLM, sanitizeForAI } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import { z } from 'zod';
+import {
+  generateModelEssayWithQualityGate,
+  ModelGenerationUnavailableError,
+} from '@/modules/ai/core/model-essay-generation';
+import type { GenerationTarget } from '@/modules/ai/core/writing-artifact';
+
+const generateModelEssaySchema = z.object({
+  topic: z.string().min(1),
+  textType: z.string().optional(),
+  gradeLevel: z.string().optional(),
+  wordLimit: z.coerce.number().int().min(50).max(2000).optional(),
+  // Product contract: the UI offers mid (Level 3) and high (Level 5) models.
+  // 'low' is defined in the mapping ladder but not exposed by this endpoint.
+  level: z.enum(['high', 'mid']).default('mid'),
+});
 
 export async function POST(req: NextRequest) {
   const authResult = await verifyApiAuth(req);
@@ -14,42 +41,52 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { topic, textType, gradeLevel, wordLimit, level } = body as {
-      topic: string; textType?: string; gradeLevel?: string; wordLimit?: number; level?: 'high' | 'mid';
-    };
+    const parsed = generateModelEssaySchema.parse(body);
 
-    if (!topic?.trim()) {
-      return NextResponse.json({ error: '缺少寫作題目' }, { status: 400 });
-    }
+    // Server-determined target — never trusted from any client metadata.
+    const target: GenerationTarget = parsed.level;
 
-    const targetLevel = level === 'mid' ? 'Level 3 (mid-range)' : 'Level 5 (high)';
-    const words = wordLimit || 250;
-
-    const systemPrompt = `${HALLUCINATION_GUARD}
-You are an HKDSE English teacher. Write a model essay at ${targetLevel} standard.
-
-The essay must:
-- Respond to the given writing prompt COMPLETELY
-- Be approximately ${words} words
-- Match the required text type (${textType || 'essay'})
-- For Level 3 (mid): use simple but correct English, basic vocabulary, adequate content coverage, some minor errors acceptable
-- For Level 5 (high): use sophisticated vocabulary, varied sentence structures, excellent organization, flawless grammar
-- Sound like a real Hong Kong secondary school student's work (not an academic paper)
-
-Return ONLY a JSON object:
-{ "essay": "the complete model essay text" }`;
-
-    const userPrompt = `Writing prompt:\n"""\n${sanitizeForAI(topic)}\n"""\n\nGrade level: ${gradeLevel || 'S4'}\nTarget level: ${targetLevel}\nWord limit: ~${words} words`;
-
-    const resultText = await callLLM(
-      [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-      { temperature: 0.5, maxTokens: 2048, jsonMode: true, timeoutMs: 25000, userId: authResult.userId },
+    const result = await generateModelEssayWithQualityGate(
+      {
+        topic: sanitizeForAI(parsed.topic),
+        textType: parsed.textType,
+        gradeLevel: parsed.gradeLevel,
+        wordLimit: parsed.wordLimit,
+        target,
+      },
+      {
+        generate: (systemPrompt, userPrompt) =>
+          callLLM(
+            [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            { temperature: 0.5, maxTokens: 2048, jsonMode: true, timeoutMs: 25000, userId: authResult.userId },
+          ),
+        judge: (systemPrompt, userPrompt) =>
+          callLLM(
+            [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            { temperature: 0.2, maxTokens: 1024, jsonMode: true, timeoutMs: 15000, userId: authResult.userId },
+          ),
+      },
     );
 
-    const parsed = JSON.parse(resultText);
-    return NextResponse.json({ essay: parsed.essay || resultText });
+    return NextResponse.json({
+      essay: result.essay,
+      metadata: result.metadata,
+    });
   } catch (error) {
+    if (error instanceof ModelGenerationUnavailableError) {
+      return NextResponse.json(
+        { status: error.status, reason: error.message, retryable: error.retryable },
+        { status: 503 },
+      );
+    }
     logger.error({ module: 'generate-model-essay', error: (error as Error).message }, 'Model essay generation failed');
     return NextResponse.json({ error: '範文生成失敗' }, { status: 500 });
   }
 }
+

@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
     // internal `studentLevel` (explicit mapping, no silent field stripping).
     const studentLevel = resolveWritingStudentLevel(parsed);
 
+    // Artifact identity (e.g. generated_model) — echo-only context.
+    // Client-supplied metadata can NEVER alter canonical scoring.
+    const artifact = parsed.artifact;
+
     // 限制草稿長度，防止 token 超限
     const MAX_DRAFT_LENGTH = 5000;
     const safeDraft = typeof studentDraft === 'string' && studentDraft.length > MAX_DRAFT_LENGTH
@@ -54,6 +58,7 @@ export async function POST(request: NextRequest) {
       studentDraft: sanitizeForAI(safeDraft),
       studentLevel,
       textType,
+      artifact,
       userId: authResult.userId,
     });
 

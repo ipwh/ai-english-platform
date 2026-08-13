@@ -4,6 +4,22 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-14 — R3.10-K Phase 5: Generated Model Integrity & Assessment Boundary
+
+### 🧬 範文目標（Pedagogical Target）≠ 分析結果（Assessment Result）
+- **NEW**: `WritingArtifactMetadata` 契約（`ai/core/writing-artifact.ts`）— source / pedagogicalTargetLevel / generationTarget / generationVersion / qualityStatus；`MODEL_ESSAY_GENERATION_VERSION = MODEL_ESSAY_GENERATION_V1`（與 scoringVersion 完全獨立）
+- **NEW**: `generationTargetToPedagogicalLevel()`（low→2 / mid→3 / high→5，PLATFORM_DEFINED，server 端確定性 — LLM 永遠不能設定 target）
+- **NEW**: 生成品質閘（`ai/core/model-essay-generation.ts`）— LLM judge 只輸出 **boolean fit**（絕無分數/等級）；`MODEL_ESSAY_MAX_ATTEMPTS = 3`（1+2 retry）；耗盡 → 503 `MODEL_GENERATION_UNAVAILABLE`（fail-closed，永不返回未驗證範文）
+- **CHANGED**: `/api/ai/generate-model-essay` 返回 `{essay, metadata}`；Zod 驗證；生成 prompt 改為「correct but less sophisticated、禁止故意製造錯誤」
+- **CHANGED**: canonical scorer 接受選用 `artifact` metadata — **僅 echo 回響**（C/L/O、cloTotal、overallScore、dseLevel、penalty 完全不受影響；client 無法借 metadata 改變評分）
+- **CHANGED**: `/student/writing` 雙軌展示 — 範文卡片「範文目標 Level N」+「非你的作文」提示；「獨立分析範文」按鈕並列顯示「範文目標 Level 3」vs「獨立 AI 分析：平台估算 Level X」+ 用途說明
+- **NEW**: ADR-038（Generated Model Target vs Assessment Result）；e2e spec `generated-model-integrity.spec.ts`
+- **TESTS**: writing-artifact.test.ts（8）+ model-essay-generation.test.ts（7）+ Integration M（semantic mutation：同文 target 3 vs 5 → 分數完全相同；assessment 不覆寫 target；無 metadata 不猜測）
+- **DECISION**: generated model 不持久化到 DB（session 參考資料；student draft 才是唯一持久化 artifact）— 舊歷史無 metadata 永不回溯猜測
+- **VERIFY**: tsc 0 · prisma valid · eslint 0 error · focused suites green · full non-E2E green ×2 · calibration report byte-identical ×2（exit 2）
+
+---
+
 ## 2026-08-14 — R3.10-K Phase 3: Production Scoring Hardening & Tech-Debt Closure
 
 ### 🎯 Canonical 評分政策（單一權威來源）
