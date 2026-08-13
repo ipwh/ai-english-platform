@@ -9,6 +9,11 @@ import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest, generateQuestionsSchema } from '@/shared/validation/schemas';
 import { logger } from '@/shared/logger/logger';
+import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
+
+// R3.10-D: 文法題目（grammarItem 驅動，非閱讀/聆聽/寫作/口語）在交付前
+// 必須持久化到伺服器 GrammarQuestion store，並以伺服器 id 作為正典身份。
+const NON_GRAMMAR_LANGUAGE_SKILLS = new Set(['reading', 'listening', 'writing', 'speaking', 'integrated', 'vocabulary']);
 
 function isRetryableGenerationError(message: string): boolean {
   return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|is not valid JSON/i.test(message);
@@ -79,8 +84,38 @@ export async function POST(request: NextRequest) {
       throw new Error('AI 題目生成失敗：返回空結果，請更換文法項目或調整設定後重試');
     }
 
+    // R3.10-D: 文法題目在交付前持久化，伺服器 id 為正典身份。
+    // 持久化失敗 → 不交付（客戶端無法在伺服器評分，絕不回退客戶端 key）。
+    const isGrammarRequest = !NON_GRAMMAR_LANGUAGE_SKILLS.has(String(languageSkill ?? '').trim().toLowerCase());
+    let questionsWithIds = questions;
+    if (isGrammarRequest && questions.length > 0) {
+      try {
+        const ids = await persistGeneratedGrammarQuestions(
+          questions.map(q => ({
+            questionType: q.type,
+            prompt: q.prompt,
+            promptZh: q.promptZh ?? null,
+            choices: q.choices ?? null,
+            answer: q.answer,
+            acceptedAnswers: null,
+            grammarItem: grammarItem ?? null,
+            languageSkill: null,
+            difficulty,
+            gradeLevel,
+            explanationZh: q.explanationZh || null,
+            explanationEn: q.explanationEn || null,
+            provenance: 'ai-generated',
+          })),
+        );
+        questionsWithIds = questions.map((q, i) => ({ ...q, id: ids[i] }));
+      } catch (err) {
+        logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'Grammar question persistence failed');
+        throw new Error('文法題目伺服器持久化失敗，請重試');
+      }
+    }
+
     return NextResponse.json({
-      questions,
+      questions: questionsWithIds,
       _meta: {
         provider: getLastAIProvider(),
         count: questions.length,

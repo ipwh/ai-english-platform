@@ -1,0 +1,27 @@
+{
+  "kind": "authoritative-calibration",
+  "id": "hkeaa-p3-2025-level2-exemplar1",
+  "schemaVersion": 1,
+  "provenance": {
+    "sourceOrganization": "hkeaa",
+    "sourceDocument": "Paper 3 Samples_HKDSE English 2020-2025.pdf",
+    "sourceYear": 2025,
+    "paper": "Paper 3",
+    "taskId": "P3-2025-PartA+PartB+PartB2",
+    "sectionId": "Level 2 exemplar 1",
+    "sourceFile": "materials\\_extracted\\Paper 3 Samples_HKDSE English 2020-2025.pdf.txt",
+    "sourcePageRange": "1400-1412",
+    "sourceHash": "67de83c4d91fee27a4670fdbbafe00ab7da1ae490b7a45b37d9483bc25194fea",
+    "extractionStatus": "script-not-in-extraction"
+  },
+  "studentScript": null,
+  "publishedLevel": 2,
+  "publishedOverallScore": null,
+  "publishedContentScore": null,
+  "publishedLanguageScore": null,
+  "publishedOrganizationScore": null,
+  "criterionScoresOfficiallyPublished": false,
+  "rubricVersion": "HKEAA-official-exemplar-levels",
+  "calibrationStatus": "ingested-level-only",
+  "notes": "Machine-extracted from official exemplar booklet. Sections: Part A, Part B, Part B2. Examiner comments: absent. Candidate script is a handwritten scan with NO text layer in the PDF extraction. Published level only — no numeric marks are published for this sample."
+}

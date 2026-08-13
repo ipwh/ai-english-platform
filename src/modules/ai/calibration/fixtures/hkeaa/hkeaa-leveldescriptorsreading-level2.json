@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Reading.pdf",
+  "sourceYear": null,
+  "paper": "Paper 1",
+  "rubricScope": "level-descriptors-reading",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Reading.pdf.txt",
+  "sourceHash": "820f1d632ded07c1a0e431fbf50ef84eeb41c2b5c496efa1230888f935375342",
+  "id": "hkeaa-leveldescriptorsreading-level2",
+  "level": 2,
+  "dimension": null,
+  "mark": null,
+  "descriptorText": "Level 2  \n \nGeneral comprehension  \n The main idea of a simple paragraph is understood when this  is clearly signalled.  \n Fact is distinguished from opinion in simple texts when this is clearly signalled.  \nSpecific comprehension  \n Explicitly stated information is understood in simple texts.  \n The meaning of words is identified when a simple and famil iar context is given.  \nAwareness of style  \n Basic stylistic features can be recognized."
+}

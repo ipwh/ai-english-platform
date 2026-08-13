@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "c72ff2fe4b5470ef0f71499f367ebd402191fcef31509b787920d43c0337a8ce",
+  "id": "hkeaa-leveldescriptorswriting-level5-content",
+  "level": 5,
+  "dimension": "content",
+  "mark": null,
+  "descriptorText": "Content  \n The content is relevant and extensive, shows an awareness of purpose, and engages the reader’s \ninterest.  \n Creativity and im agination are shown when appropriate."
+}

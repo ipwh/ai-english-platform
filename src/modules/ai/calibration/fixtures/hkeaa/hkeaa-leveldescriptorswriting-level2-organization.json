@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "5030e9c00f1c1f4f3e687d72ee90845ff56ebf2ef2ea87e96b46a4ec995642b0",
+  "id": "hkeaa-leveldescriptorswriting-level2-organization",
+  "level": 2,
+  "dimension": "organization",
+  "mark": null,
+  "descriptorText": "Organization  \n The structure of the writing can be discerned when the genre and text type is simple and \nfamiliar.  \n There is some evidence of paragraphing.  \n There are some simple links between sent ences and paragraphs."
+}

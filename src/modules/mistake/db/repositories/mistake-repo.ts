@@ -4,6 +4,7 @@
 // ============================================
 
 import { db } from '@/shared/db/db';
+import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 
 export type MistakeRecord = Awaited<ReturnType<typeof db.mistake.findFirst>>;
@@ -29,6 +30,41 @@ export async function createMistake(data: {
       questionSummary: data.questionSummary,
     },
   });
+}
+
+/**
+ * R3.10-E.2 P0-2: atomic insert-if-absent.
+ *
+ * Replaces the TOCTOU find-then-create pattern. A single INSERT ...
+ * ON CONFLICT DO NOTHING statement guarantees at most ONE Mistake row
+ * per (studentId, questionId) even under concurrent submissions.
+ * Returns { inserted: true } when a new row was written, else
+ * { inserted: false } (an existing row already covered this question —
+ * nothing is modified; canonical record preserved).
+ */
+export async function createMistakeIfAbsent(data: {
+  studentId: string;
+  questionId: string;
+  studentAnswer: string;
+  correctAnswer: string;
+  mistakeType?: string;
+  aiExplanation?: string;
+  questionSummary?: string;
+}): Promise<{ inserted: boolean }> {
+  const result = await db.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO "Mistake" (
+      "id", "studentId", "questionId", "questionSummary",
+      "studentAnswer", "correctAnswer", "mistakeType", "aiExplanation",
+      "reviewed", "inReviewList", "reviewInterval", "easeFactor", "createdAt"
+    ) VALUES (
+      ${randomUUID()}, ${data.studentId}, ${data.questionId}, ${data.questionSummary || ''},
+      ${data.studentAnswer}, ${data.correctAnswer}, ${data.mistakeType || 'grammar'}, ${data.aiExplanation ?? null},
+      false, false, 0, 2.5, ${new Date()}
+    )
+    ON CONFLICT ("studentId", "questionId") DO NOTHING
+    RETURNING "id"
+  `;
+  return { inserted: Array.isArray(result) && result.length > 0 };
 }
 
 /** List mistakes for a student, ordered by most recent */

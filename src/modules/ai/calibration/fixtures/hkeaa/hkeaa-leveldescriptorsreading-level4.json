@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Reading.pdf",
+  "sourceYear": null,
+  "paper": "Paper 1",
+  "rubricScope": "level-descriptors-reading",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Reading.pdf.txt",
+  "sourceHash": "63a1ea6ab8698b4bf7eab2c9c48b6aa9d2f33ec8b3df0a6943ec3e02d530c15a",
+  "id": "hkeaa-leveldescriptorsreading-level4",
+  "level": 4,
+  "dimension": null,
+  "mark": null,
+  "descriptorText": "Level 4  \n \nGeneral comprehension  \n The main theme or ideas of fairly complex texts are identified.  \n Views and attitudes are ide ntified, and the development of an argument followed.  \nSpecific comprehension  \n Obvious inferences are made in fairly complex texts.  More sophisticated inferences are made \nif the text is simple and the topic is familiar.  \n The meaning of words and phrase s is identified when a context is given by one or more \n sentences or a paragraph in fairly complex texts.  \nAwareness of style  \n Tone and mood are interpreted in fairly complex texts."
+}

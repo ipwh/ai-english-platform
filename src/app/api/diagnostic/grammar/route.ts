@@ -10,6 +10,7 @@ import { generateQuestions, type GeneratedQuestion } from '@/modules/ai';
 import { getRecentDiagnostics } from '@/modules/student';
 import { listMistakes } from '@/modules/student';
 import { listPracticeSessions } from '@/modules/student';
+import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
 
 // 40 個 HKDSE 文法點（對應 ELE KLACG 2017 Appendix 4）
 const GRAMMAR_POINTS = [
@@ -83,14 +84,18 @@ export async function GET(request: NextRequest) {
     }
 
     // 從 PracticeSession 中提取文法練習記錄
-    const sessions = await listPracticeSessions(studentId, 100);
+    // R3.10-C: 只接受可驗證的評分證據（row-derived），零答案/歷史不可驗證
+    // 的 sessions 一律不計入。
+    const { getVerifiedPracticeSessions } = await import('@/modules/exercise/services/practice-evidence-service');
+    const sessions = await getVerifiedPracticeSessions(studentId, 200);
 
     for (const s of sessions) {
+      if (s.evidence.status !== 'verified') continue;
       // map skill to grammar point id
       for (const gp of GRAMMAR_POINTS) {
         if (s.skill.includes(gp.cat) || gp.id.includes(s.skill)) {
-          grammarAccuracy[gp.id].total += s.totalQuestions;
-          grammarAccuracy[gp.id].correct += s.correctCount;
+          grammarAccuracy[gp.id].total += s.evidence.totalQuestions;
+          grammarAccuracy[gp.id].correct += s.evidence.correctCount;
         }
       }
     }
@@ -151,9 +156,32 @@ export async function POST(request: NextRequest) {
       difficulty: (difficulty as 'remedial' | 'core' | 'challenge') || 'core',
     });
 
+    // R3.10-D.1 (F3 / INVARIANT-D5): 文法題目在交付前必須持久化到
+    // GrammarQuestion store；持久化失敗 → 不交付（500），客戶端永不
+    // 成為答案鍵權威。使用 canonical persistence service（不重複邏輯）。
+    const ids = await persistGeneratedGrammarQuestions(
+      questions.map(q => ({
+        questionType: q.type,
+        prompt: q.prompt,
+        promptZh: q.promptZh ?? null,
+        choices: q.choices ?? null,
+        answer: q.answer,
+        acceptedAnswers: null,
+        grammarItem: grammarPoint.cat,
+        languageSkill: null,
+        difficulty: (difficulty as 'remedial' | 'core' | 'challenge') || 'core',
+        gradeLevel: gradeLevel || 'S4',
+        explanationZh: q.explanationZh || null,
+        explanationEn: q.explanationEn || null,
+        provenance: 'ai-generated',
+      })),
+    );
+
+    const questionsWithIds = questions.map((q, i) => ({ ...q, id: ids[i] }));
+
     return NextResponse.json({
       grammarPoint: { id: grammarPoint.id, name: grammarPoint.name, nameZh: grammarPoint.nameZh },
-      questions,
+      questions: questionsWithIds,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';

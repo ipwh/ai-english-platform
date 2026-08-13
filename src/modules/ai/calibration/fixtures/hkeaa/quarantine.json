@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "description": "Source samples that could not be verified as authoritative calibration fixtures. Quarantined, never guessed.",
+  "records": [
+    {
+      "id": "hkeaa-p1-2020-level1-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level1-exemplar1: year 2020, level 1, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level1-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level1-exemplar2: year 2020, level 1, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level2-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level2-exemplar1: year 2020, level 2, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level2-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level2-exemplar2: year 2020, level 2, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level3-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level3-exemplar1: year 2020, level 3, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level3-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level3-exemplar2: year 2020, level 3, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level4-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level4-exemplar1: year 2020, level 4, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level4-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level4-exemplar2: year 2020, level 4, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level5-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level5-exemplar1: year 2020, level 5, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2020-level5-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2020-level5-exemplar2: year 2020, level 5, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level1-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level1-exemplar1: year 2021, level 1, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level1-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level1-exemplar2: year 2021, level 1, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level2-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level2-exemplar1: year 2021, level 2, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level2-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level2-exemplar2: year 2021, level 2, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level3-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level3-exemplar1: year 2021, level 3, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level3-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level3-exemplar2: year 2021, level 3, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level4-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level4-exemplar1: year 2021, level 4, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level4-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level4-exemplar2: year 2021, level 4, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level5-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level5-exemplar1: year 2021, level 5, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p1-2021-level5-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 1 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p1-2021-level5-exemplar2: year 2021, level 5, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level1-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level1-exemplar1: year 2020, level 1, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level1-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level1-exemplar2: year 2020, level 1, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level2-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level2-exemplar1: year 2020, level 2, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level2-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level2-exemplar2: year 2020, level 2, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level3-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level3-exemplar1: year 2020, level 3, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level3-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level3-exemplar2: year 2020, level 3, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level4-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level4-exemplar1: year 2020, level 4, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level4-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level4-exemplar2: year 2020, level 4, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level5-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level5-exemplar1: year 2020, level 5, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2020-level5-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2020-level5-exemplar2: year 2020, level 5, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level1-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level1-exemplar1: year 2021, level 1, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level1-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level1-exemplar2: year 2021, level 1, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level2-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level2-exemplar1: year 2021, level 2, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level2-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level2-exemplar2: year 2021, level 2, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level3-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level3-exemplar1: year 2021, level 3, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level3-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level3-exemplar2: year 2021, level 3, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level4-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level4-exemplar1: year 2021, level 4, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level4-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level4-exemplar2: year 2021, level 4, exemplar 2 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level5-exemplar1-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level5-exemplar1: year 2021, level 5, exemplar 1 appears more than once in the source"
+    },
+    {
+      "id": "hkeaa-p2-2021-level5-exemplar2-duplicate",
+      "reason": "duplicate-source-sample",
+      "sourceFile": "materials\\_extracted\\Paper 2 Samples_HKDSE English 2020-2025.pdf.txt",
+      "detail": "Duplicate of hkeaa-p2-2021-level5-exemplar2: year 2021, level 5, exemplar 2 appears more than once in the source"
+    }
+  ]
+}

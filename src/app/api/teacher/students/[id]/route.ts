@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { findUserByIdSelect, getStudentAnalytics, listTeacherClasses } from '@/modules/student';
+import { evaluatePracticeEvidence } from '@/modules/exercise/services/practice-evidence-service';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
 
@@ -74,9 +75,16 @@ export async function GET(
     const analytics = await getStudentAnalytics(studentId);
     const { sessions: rawPracticeSessions, mistakes, vocabTotal, vocabMastered, drafts: writingDrafts, xp: xpTransactions, snapshots: weeklySnapshots, submissions } = analytics;
 
+    // R3.10-C: 每筆 session 附上 verified row-derived 聚合值；
+    // 零答案 / 歷史不可驗證的 sessions → verified = { status: 'unverifiable' }。
+    const practiceSessions = (rawPracticeSessions as Array<Record<string, unknown>>).map(s => ({
+      ...s,
+      verified: evaluatePracticeEvidence(s.answers),
+    }));
+
     return NextResponse.json({
       student,
-      practiceSessions: rawPracticeSessions,
+      practiceSessions,
       mistakes,
       vocab: { total: vocabTotal, mastered: vocabMastered },
       writingDrafts,

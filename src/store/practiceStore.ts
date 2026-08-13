@@ -19,6 +19,13 @@ export interface PracticeSession {
   totalQuestions: number;
   correctCount: number;
   source: 'ai-generated' | 'mock' | 'assignment';
+  /** R3.10-C.2: 伺服器 canonical verified evidence（由 /api/practice 提供）。
+   * 本機 session（尚未伺服器驗證）沒有此欄位 → 不計入 scored 準確率。 */
+  verified?: {
+    status: 'verified' | 'unverifiable';
+    totalQuestions?: number;
+    correctCount?: number;
+  } | null;
 }
 
 interface PracticeState {
@@ -110,12 +117,16 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
     const skillMap = new Map<string, { correct: number; total: number; skillZh: string }>();
 
     for (const session of practiceSessions) {
-      if (!skillMap.has(session.skill)) {
-        skillMap.set(session.skill, { correct: 0, total: 0, skillZh: session.skillZh });
+      // R3.10-C.2: 技能掌握度（scored）只計伺服器 verified evidence。
+      const v = session.verified;
+      if (!v || v.status !== 'verified') continue;
+      const skillKey = session.skill || 'general';
+      if (!skillMap.has(skillKey)) {
+        skillMap.set(skillKey, { correct: 0, total: 0, skillZh: session.skillZh });
       }
-      const entry = skillMap.get(session.skill)!;
-      entry.total += session.totalQuestions;
-      entry.correct += session.correctCount;
+      const entry = skillMap.get(skillKey)!;
+      entry.total += v.totalQuestions ?? 0;
+      entry.correct += v.correctCount ?? 0;
     }
 
     return Array.from(skillMap.entries()).map(([skill, data]) => ({
@@ -149,9 +160,18 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
       (s) => new Date(s.startedAt) >= oneWeekAgo
     );
 
+    // 題數（engagement 量）保持原始；準確率（scored）只計 verified evidence。
     const questionsDone = weeklySessions.reduce((sum, s) => sum + s.totalQuestions, 0);
-    const correctCount = weeklySessions.reduce((sum, s) => sum + s.correctCount, 0);
-    const accuracy = questionsDone > 0 ? Math.round((correctCount / questionsDone) * 100) : 0;
+    let vTotal = 0;
+    let vCorrect = 0;
+    for (const s of weeklySessions) {
+      const v = s.verified;
+      if (v && v.status === 'verified') {
+        vTotal += v.totalQuestions ?? 0;
+        vCorrect += v.correctCount ?? 0;
+      }
+    }
+    const accuracy = vTotal > 0 ? Math.round((vCorrect / vTotal) * 100) : 0;
 
     // 計算連續天數（從 practice sessions 的時間戳記）
     const days = new Set(

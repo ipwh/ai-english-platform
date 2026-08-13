@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Reading.pdf",
+  "sourceYear": null,
+  "paper": "Paper 1",
+  "rubricScope": "level-descriptors-reading",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Reading.pdf.txt",
+  "sourceHash": "f27bbbd7ef3a86fd839edaf052d9e7d258d86408d5438a30025646bf9483b43a",
+  "id": "hkeaa-leveldescriptorsreading-level1",
+  "level": 1,
+  "dimension": null,
+  "mark": null,
+  "descriptorText": "Level 1  \n \nGeneral comprehension  \n The sequence of events is identified in a text with a simple structure.  \nSpecific comprehension  \n Explicitly stated factual infor mation is understood in simple texts containing familiar \nvocabulary.  \n Features such as headings can be used to locate relevant information.  \nAwareness of style  \n Basic stylistic features can be recognized in short, simple texts."
+}

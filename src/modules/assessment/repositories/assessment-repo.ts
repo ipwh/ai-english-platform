@@ -11,3 +11,69 @@ export async function createMistake(data: Prisma.MistakeCreateInput) { return db
 export async function listWritingDrafts(studentId: string) { return db.writingDraft.findMany({ where: { studentId }, orderBy: { updatedAt: 'desc' } }); }
 export async function createWritingDraft(data: Prisma.WritingDraftCreateInput) { return db.writingDraft.create({ data }); }
 export async function updateWritingDraft(id: string, data: Prisma.WritingDraftUpdateInput) { return db.writingDraft.update({ where: { id }, data }); }
+
+// ============================================
+// R3.5 hardening: atomic submission + attempt + evidence persistence
+// ============================================
+// All three writes (Submission compat view, SubmissionAttempt,
+// SubmissionAnswer) commit or roll back together. Attempt numbering is
+// made concurrency-safe by locking the Submission row (SELECT ... FOR
+// UPDATE) inside the transaction BEFORE counting attempts.
+
+/** Run a set of writes as one atomic transaction */
+export async function withSubmissionTransaction<T>(
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return db.$transaction(fn);
+}
+
+export async function findSubmissionByAssignmentStudentTx(
+  tx: Prisma.TransactionClient,
+  assignmentId: string,
+  studentId: string,
+) {
+  return tx.submission.findFirst({ where: { assignmentId, studentId } });
+}
+
+export async function createSubmissionTx(
+  tx: Prisma.TransactionClient,
+  data: Prisma.SubmissionUncheckedCreateInput,
+) {
+  return tx.submission.create({ data });
+}
+
+export async function updateSubmissionTx(
+  tx: Prisma.TransactionClient,
+  id: string,
+  data: Prisma.SubmissionUncheckedUpdateInput,
+) {
+  return tx.submission.update({ where: { id }, data });
+}
+
+/**
+ * Serialize concurrent submissions for the same Submission row. Acquires
+ * a row lock so the attempt count below cannot race.
+ */
+export async function lockSubmissionRowTx(tx: Prisma.TransactionClient, submissionId: string) {
+  await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+}
+
+/** Number of recorded attempts (call AFTER lockSubmissionRowTx) */
+export async function countSubmissionAttemptsTx(tx: Prisma.TransactionClient, submissionId: string) {
+  return tx.submissionAttempt.count({ where: { submissionId } });
+}
+
+export async function createSubmissionAttemptTx(
+  tx: Prisma.TransactionClient,
+  data: Prisma.SubmissionAttemptUncheckedCreateInput,
+) {
+  return tx.submissionAttempt.create({ data });
+}
+
+export async function createSubmissionAnswerRowsTx(
+  tx: Prisma.TransactionClient,
+  data: Prisma.SubmissionAnswerCreateManyInput[],
+) {
+  if (!data || data.length === 0) return { count: 0 };
+  return tx.submissionAnswer.createMany({ data });
+}

@@ -55,6 +55,13 @@ export async function PATCH(
       updateData.status = body.status === 'reviewed' ? 'graded' : body.status;
     }
 
+    // R3.5 hardening: 教師整體覆核標記 — 該提交不得投影為逐題
+    // StudentAssessmentResult。不偽造逐題人類評分，不改寫既有
+    // AI/server 的 SubmissionAnswer 證據列。
+    if (body.teacherScore !== undefined || body.teacherFeedback || body.status === 'reviewed') {
+      updateData.humanReviewedAt = new Date();
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }

@@ -105,9 +105,37 @@ export async function createTeacherClass(teacherId: string, classId: string) {
 }
 
 // Student analytics
+// R3.10-C: practice sessions carry verified row-derived totals (computed by
+// the canonical evidence service) alongside the stored aggregate values.
 export async function getStudentAnalytics(studentId: string) {
   const [sessions, mistakes, vocabTotal, vocabMastered, drafts, xp, snapshots, submissions] = await Promise.all([
-    db.practiceSession.findMany({ where: { studentId }, select: { skill: true, totalQuestions: true, correctCount: true, startedAt: true }, orderBy: { startedAt: 'desc' }, take: 50 }),
+    db.practiceSession.findMany({
+      where: { studentId },
+      select: {
+        id: true,
+        skill: true,
+        skillZh: true,
+        difficulty: true,
+        totalQuestions: true,
+        correctCount: true,
+        source: true,
+        startedAt: true,
+        completedAt: true,
+        answers: {
+          select: {
+            questionId: true,
+            result: true,
+            awardedScore: true,
+            maxScore: true,
+            countsTowardScore: true,
+            scoredBy: true,
+            scoringMethod: true,
+          },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+      take: 50,
+    }),
     db.mistake.findMany({ where: { studentId }, select: { mistakeType: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 50 }),
     db.vocabItem.count({ where: { studentId } }),
     db.vocabItem.count({ where: { studentId, familiarity: 'mastered' } }),

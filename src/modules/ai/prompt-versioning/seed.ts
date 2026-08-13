@@ -9,6 +9,7 @@
 import { listPrompts } from '../prompts/prompt-registry';
 import { promptVersionRegistry } from './prompt-registry';
 import type { PromptMetadata, SemVer, PromptCategory } from './prompt-metadata';
+import { logger } from '@/shared/logger/logger';
 
 /** Category mapping from existing feature strings */
 function inferCategory(feature: string): PromptCategory {
@@ -64,8 +65,9 @@ export function seedPromptVersionRegistry(): void {
     promptVersionRegistry.register(meta);
   }
 
-  console.log(
-    `[prompt-versioning] Seeded ${promptVersionRegistry.count} prompts ` +
+  logger.info(
+    { module: 'prompt-versioning' },
+    `Seeded ${promptVersionRegistry.count} prompts ` +
     `(${promptVersionRegistry.totalVersions} total versions)`,
   );
 }

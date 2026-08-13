@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "6b7b85e1bd99b83f4ce3b22d9121504b4806ce394c283486bd1b396a1f9e3ac7",
+  "id": "hkeaa-leveldescriptorswriting-level3-language",
+  "level": 3,
+  "dimension": "language",
+  "mark": null,
+  "descriptorText": "Language and style  \n Simple sentences, and s ome complex sentences are well formed.  \n Basic punctuation and some basic grammatical structures are accurate.  \n Common vocabulary is used appropriately and spelt correctly.  \n There is some evidence of use of register, tone and style appropriate to the tex t type."
+}

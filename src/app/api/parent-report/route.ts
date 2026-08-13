@@ -7,6 +7,7 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { getVerifiedPracticeSessions } from '@/modules/exercise/services/practice-evidence-service';
 
 export async function GET(request: NextRequest) {
   // Auth check: only teachers/admins can generate parent reports
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [student, sessions, mistakes, vocab] = await Promise.all([
+    const [student, sessionCount, verifiedSessions, mistakes, vocab] = await Promise.all([
       adminDbQuery('user', 'findUnique', {
         where: { id: studentId },
         select: {
@@ -32,12 +33,10 @@ export async function GET(request: NextRequest) {
           xp: true, streakDays: true, class: { select: { name: true, gradeLevel: true } },
         },
       }) as Promise<{nameZh: string | null; nameEn: string | null; level: string | null; overallAccuracy: number | null; xp: number; streakDays: number; class: {name: string; gradeLevel: string} | null} | null>,
-      adminDbQuery('practiceSession', 'findMany', {
-        where: { studentId },
-        orderBy: { startedAt: 'desc' },
-        take: 30,
-        select: { skillZh: true, totalQuestions: true, correctCount: true, startedAt: true },
-      }) as Promise<Array<{skillZh: string | null; totalQuestions: number; correctCount: number; startedAt: Date}>>,
+      // 練習次數 = 原始 engagement 計數（非 scored 準確率）
+      adminDbQuery('practiceSession', 'count', { where: { studentId } }) as Promise<number>,
+      // R3.10-D.3 (Priority 3): 本週準確率只使用 canonical verified evidence。
+      getVerifiedPracticeSessions(studentId, 30),
       adminDbQuery('mistake', 'findMany', {
         where: { studentId },
         orderBy: { createdAt: 'desc' },
@@ -54,12 +53,18 @@ export async function GET(request: NextRequest) {
     const studentName = student.nameZh || student.nameEn || 'Student';
     const className = student.class?.name || 'N/A';
     const accuracy = student.overallAccuracy ? Math.round(student.overallAccuracy) : 0;
+    const totalSessions = sessionCount;
 
-    // Calculate weekly stats
+    // Weekly stats — verified row-derived evidence ONLY (never raw totals)
     const weekAgo = new Date(Date.now() - 7 * 86400000);
-    const weekSessions = sessions.filter(s => new Date(s.startedAt) >= weekAgo);
-    const weekTotal = weekSessions.reduce((s, r) => s + r.totalQuestions, 0);
-    const weekCorrect = weekSessions.reduce((s, r) => s + r.correctCount, 0);
+    let weekTotal = 0;
+    let weekCorrect = 0;
+    for (const s of verifiedSessions) {
+      if (new Date(s.startedAt) < weekAgo) continue;
+      if (s.evidence.status !== 'verified') continue;
+      weekTotal += s.evidence.totalQuestions;
+      weekCorrect += s.evidence.correctCount;
+    }
     const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
 
     // Mistake type distribution
@@ -71,7 +76,8 @@ export async function GET(request: NextRequest) {
     if (format === 'json') {
       return NextResponse.json({
         studentName, className, accuracy, weekAccuracy,
-        totalSessions: sessions.length, totalVocab: vocab,
+        weekAccuracySource: 'verified-evidence',
+        totalSessions, totalVocab: vocab,
         xp: student.xp, streakDays: student.streakDays,
         mistakeTypes, level: student.level,
       });
@@ -110,8 +116,8 @@ export async function GET(request: NextRequest) {
 <h2>📈 學習概覽 Overview</h2>
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value">${accuracy}%</div><div class="kpi-label">整體正確率 Overall</div></div>
-  <div class="kpi"><div class="kpi-value">${weekAccuracy}%</div><div class="kpi-label">本週正確率 This Week</div></div>
-  <div class="kpi"><div class="kpi-value">${sessions.length}</div><div class="kpi-label">練習次數 Sessions</div></div>
+  <div class="kpi"><div class="kpi-value">${weekAccuracy}%</div><div class="kpi-label">本週正確率（已驗證） This Week (verified)</div></div>
+  <div class="kpi"><div class="kpi-value">${totalSessions}</div><div class="kpi-label">練習次數 Sessions</div></div>
   <div class="kpi"><div class="kpi-value">${vocab}</div><div class="kpi-label">已學生字 Vocabulary</div></div>
 </div>
 

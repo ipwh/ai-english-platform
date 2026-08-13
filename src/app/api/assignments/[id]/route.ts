@@ -6,6 +6,8 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { findAssignmentById, findAssignmentSubmissions } from '@/modules/student';
+import { submitAssignmentAttempt } from '@/modules/assessment/services/submission-attempt-service';
+import { gradeAssignmentItems } from '@/modules/assessment/services/assignment-grader';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { analyzeAnswer } from '@/modules/ai';
@@ -160,60 +162,36 @@ export async function POST(
       return NextResponse.json({ error: '請提供答案' }, { status: 400 });
     }
 
-    // 取得作業及題目
+    // 取得作業及題目（R3.5 hardening: 以正典 orderIndex 確定性排序）
     const assignment = await adminDbQuery('assignment', 'findUnique', {
       where: { id },
-      include: { questions: true },
+      include: { questions: { orderBy: { orderIndex: 'asc' } } },
     });
 
     if (!assignment) {
       return NextResponse.json({ error: '找不到此作業' }, { status: 404 });
     }
 
-    // 檢查是否已有提交
-    const existing = await adminDbQuery('submission', 'findFirst', {
-      where: { assignmentId: id, studentId: payload.userId },
-    });
+    // R3.5: 批改每道題目並產生逐題評分證據（與舊邏輯完全相同，僅加上證據輸出）。
+    // 客戶端只提供 { questionId: studentAnswer } 答案表；題目與答案鍵來自
+    // 伺服器持有的 AssignmentQuestion，永遠不接受客戶端評分欄位。
+    const grading = await gradeAssignmentItems(
+      assignment.questions,
+      answers as Record<string, string>,
+      analyzeAnswer,
+    );
+    const { items, totalScore } = grading;
 
-    // 批改每道題目
-    let totalScore = 0;
     const gradedAnswers: Record<string, { correct: boolean; feedback: string }> = {};
-    const aiFeedbackParts: string[] = [];
-
-    for (const q of assignment.questions) {
-      const studentAnswer = answers[q.id] || '';
-      const isMcq = q.questionType === 'mc';
-
-      if (isMcq) {
-        // MC 題：直接比對
-        const correct = studentAnswer.trim().toUpperCase() === q.answer.trim().toUpperCase();
-        if (correct) totalScore++;
-        gradedAnswers[q.id] = { correct, feedback: correct ? '正確！' : `正確答案為 ${q.answer}` };
-      } else {
-        // 文字題：呼叫 AI 批改
-        try {
-          const analysis = await analyzeAnswer({
-            question: q.prompt,
-            studentAnswer,
-            correctAnswer: q.answer,
-            questionType: q.questionType,
-          });
-          const correct = analysis.isCorrect;
-          if (correct) totalScore++;
-          gradedAnswers[q.id] = {
-            correct,
-            feedback: analysis.feedbackZh || analysis.explanation || (correct ? '正確！' : '答案不正確'),
-          };
-          if (analysis.feedbackZh) aiFeedbackParts.push(`Q${q.orderIndex + 1}: ${analysis.feedbackZh}`);
-        } catch {
-          // AI 不可用時 fallback 到簡單比對
-          const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
-          const correct = normalize(studentAnswer) === normalize(q.answer);
-          if (correct) totalScore++;
-          gradedAnswers[q.id] = { correct, feedback: correct ? '正確！' : `參考答案：${q.answer}` };
-        }
-      }
+    for (const item of items) {
+      gradedAnswers[item.questionId] = {
+        correct: item.result === 'correct',
+        feedback: item.feedback,
+      };
     }
+    const aiFeedbackParts = items
+      .filter(i => i.aiFeedbackPart !== undefined)
+      .map(i => i.aiFeedbackPart as string);
 
     const score = assignment.questions.length > 0
       ? Math.round((totalScore / assignment.questions.length) * 100)
@@ -223,36 +201,34 @@ export async function POST(
       ? aiFeedbackParts.join('\n\n')
       : `得分：${score}%（${totalScore}/${assignment.questions.length}）`;
 
-    // Upsert submission
-    const submission = existing
-      ? await adminDbQuery('submission', 'update', {
-          where: { id: existing.id },
-          data: {
-            answers: JSON.stringify(answers),
-            score,
-            aiFeedback,
-            status: 'submitted',
-            submittedAt: new Date(),
-          },
-        })
-      : await adminDbQuery('submission', 'create', {
-          data: {
-            assignmentId: id,
-            studentId: payload.userId,
-            answers: JSON.stringify(answers),
-            score,
-            aiFeedback,
-            status: 'submitted',
-            submittedAt: new Date(),
-          },
-        });
+    // R3.5 hardening: 相容視圖 + 嘗試 + 逐題證據在同一個原子交易內提交。
+    // 任一步失敗則全部回滾（相容視圖絕不會在缺少對應嘗試證據的情況下提交）；
+    // attemptNumber 在交易內以列鎖序列化後計數，並發安全。
+    const { submission, attempt, isNew } = await submitAssignmentAttempt({
+      assignmentId: id,
+      studentId: payload.userId,
+      answersJson: JSON.stringify(answers),
+      score,
+      aiFeedback,
+      submittedAt: new Date(),
+      items: items.map(item => ({
+        questionId: item.questionId,
+        response: item.response,
+        result: item.result,
+        awardedScore: item.awardedScore,
+        maxScore: item.maxScore,
+        countsTowardScore: item.countsTowardScore,
+        evaluator: item.evaluator,
+        scoringMethod: item.scoringMethod,
+      })),
+    });
 
     // Assignment submissions use the same accounting path as self-directed
     // practice. Re-submissions recalculate statistics but do not add a second
     // mastery attempt for the same assignment.
     try {
       await syncStudentActivityMetrics(payload.userId);
-      if (!existing) {
+      if (isNew) {
         await recordActivityMastery({
           studentId: payload.userId,
           skill: assignment.languageSkill || assignment.strand,
@@ -309,6 +285,19 @@ export async function POST(
         gradedAnswers,
         totalQuestions: assignment.questions.length,
         correctCount: totalScore,
+        // R3.5: 本次提交的獨立執行身份與逐題證據
+        attemptId: attempt.id,
+        attemptNumber: attempt.attemptNumber,
+        itemEvidence: items.map(item => ({
+          questionId: item.questionId,
+          response: item.response,
+          result: item.result,
+          awardedScore: item.awardedScore,
+          maxScore: item.maxScore,
+          countsTowardScore: item.countsTowardScore,
+          evaluator: item.evaluator,
+          scoringMethod: item.scoringMethod,
+        })),
       },
     });
   } catch (err: unknown) {

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "description": "R3.10-H deterministic evidence inventory. Each candidate keeps its own evidence class — categories are never collapsed.",
+  "sources": [
+    {
+      "sourceFilename": "2018 DSE English Paper 2 5starstar scripts.pdf",
+      "sourceClass": "human-marker-scored",
+      "sha256": "c16f529c01cf5fa9c96270dcab5b051fa0c08708d5993043311cef26cd3f7cbf",
+      "fixtureCount": 3,
+      "extractionMethod": "native-text"
+    },
+    {
+      "sourceFilename": "2019 DSE English Paper 2 scripts.pdf",
+      "sourceClass": "non-authoritative-reference",
+      "sha256": "4b62b74688b5004f6b21d72142cb2c3630f22d1af7e54ca36d317509443753c0",
+      "fixtureCount": 0,
+      "extractionMethod": "image-only-no-text-layer"
+    },
+    {
+      "sourceFilename": "Sample Essay and Practical Vocab.pdf",
+      "sourceClass": "teaching-reference",
+      "sha256": "cdc576c13bfa8e13bfd008e955ff8033e799a4deedd7201a9467721add260bef",
+      "fixtureCount": 0,
+      "extractionMethod": "native-text"
+    }
+  ],
+  "candidates": [
+    {
+      "fixtureId": "hm-2012-p2-p2-2012-partb-q9-partb-q9",
+      "sourceFilename": "2018 DSE English Paper 2 5starstar scripts.pdf",
+      "sourceYear": 2012,
+      "paper": "Paper 2",
+      "taskId": "P2-2012-PartB-Q9",
+      "evidenceClass": "ACCEPT_CRITERION_ONLY",
+      "hasVerbatimScript": true,
+      "hasNumericScore": true,
+      "exactPublishedScore": null,
+      "scoreScale": "clo-0-7",
+      "criterionAvailability": "content-language-organization",
+      "sourceHash": "c16f529c01cf5fa9c96270dcab5b051fa0c08708d5993043311cef26cd3f7cbf"
+    },
+    {
+      "fixtureId": "hm-2016-p2-p2-2016-partb-q4-partb-q4",
+      "sourceFilename": "2018 DSE English Paper 2 5starstar scripts.pdf",
+      "sourceYear": 2016,
+      "paper": "Paper 2",
+      "taskId": "P2-2016-PartB-Q4",
+      "evidenceClass": "ACCEPT_CRITERION_ONLY",
+      "hasVerbatimScript": true,
+      "hasNumericScore": true,
+      "exactPublishedScore": null,
+      "scoreScale": "clo-0-7",
+      "criterionAvailability": "content-language-organization",
+      "sourceHash": "c16f529c01cf5fa9c96270dcab5b051fa0c08708d5993043311cef26cd3f7cbf"
+    },
+    {
+      "fixtureId": "hm-2018-p2-p2-2018-partb-q5-partb-q5",
+      "sourceFilename": "2018 DSE English Paper 2 5starstar scripts.pdf",
+      "sourceYear": 2018,
+      "paper": "Paper 2",
+      "taskId": "P2-2018-PartB-Q5",
+      "evidenceClass": "NON_COMPARABLE_SCORE",
+      "hasVerbatimScript": true,
+      "hasNumericScore": true,
+      "exactPublishedScore": "M1:21 M2:19 total:40/42",
+      "scoreScale": null,
+      "criterionAvailability": "none",
+      "sourceHash": "c16f529c01cf5fa9c96270dcab5b051fa0c08708d5993043311cef26cd3f7cbf"
+    }
+  ],
+  "summary": {
+    "totalCandidates": 3,
+    "acceptedFixtures": 3,
+    "uniqueScripts": 3,
+    "duplicateScripts": 0,
+    "quarantinedScripts": 0,
+    "inferredScores": 0,
+    "byClass": {
+      "ACCEPT_OVERALL_SCORE": 0,
+      "ACCEPT_CRITERION_ONLY": 2,
+      "LEVEL_ONLY": 0,
+      "NON_COMPARABLE_SCORE": 1,
+      "TEACHING_REFERENCE": 1,
+      "IMAGE_ONLY_UNREADABLE": 1,
+      "CONFLICT": 0
+    },
+    "ledger": {
+      "DISCOVERED": 3,
+      "ACCEPTED": 3,
+      "REJECTED": 0,
+      "QUARANTINED": 0,
+      "DUPLICATE": 0,
+      "CONFLICT": 0,
+      "TEACHING_REFERENCE": 1,
+      "CRITERION_ONLY": 2,
+      "LEVEL_ONLY": 0,
+      "NON_COMPARABLE": 1,
+      "OVERALL_COMPARABLE": 0
+    }
+  }
+}

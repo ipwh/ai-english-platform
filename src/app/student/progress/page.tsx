@@ -42,9 +42,10 @@ export default function StudentProgressPage() {
   const recentSessions = store.getRecentSessions(5);
 
   // 合併 KPI（優先使用實際練習數據）
+  // R3.10-C.2: 準確率 KPI 只計 verified evidence（由 store 計算）；題數為 engagement 量。
   const kpis = [
     { label: t('progress.weeklyLabel'), value: weeklyStats.questionsDone || 0, unit: t('common.question'), trend: 'up' as const, change: 0 },
-    { label: t('progress.accuracyLabel'), value: weeklyStats.accuracy || 0, unit: t('common.percent'), trend: 'up' as const, change: 0 },
+    { label: `${t('progress.accuracyLabel')}${store.language === 'en' ? ' (verified)' : '（已驗證）'}`, value: weeklyStats.accuracy || 0, unit: t('common.percent'), trend: 'up' as const, change: 0 },
     { label: t('progress.sessionsLabel'), value: weeklyStats.sessionsCount || 0, unit: t('common.sessions'), trend: 'stable' as const, change: 0 },
   ];
 
@@ -59,22 +60,27 @@ export default function StudentProgressPage() {
     : [];
 
   // 練習趨勢圖 — 由最近練習記錄生成（按日期分組）
+  // R3.10-C.2: 題數（engagement）保持原始；準確率只計 verified evidence。
   const trendData = (() => {
-    const dayMap = new Map<string, { questions: number; correct: number }>();
+    const dayMap = new Map<string, { questions: number; vTotal: number; vCorrect: number }>();
     for (const s of recentSessions) {
       const day = new Date(s.startedAt).toLocaleDateString(
         store.language === 'en' ? 'en-US' : 'zh-HK',
         { month: 'numeric', day: 'numeric' }
       );
-      const entry = dayMap.get(day) || { questions: 0, correct: 0 };
+      const entry = dayMap.get(day) || { questions: 0, vTotal: 0, vCorrect: 0 };
       entry.questions += s.totalQuestions;
-      entry.correct += s.correctCount;
+      const v = s.verified;
+      if (v && v.status === 'verified') {
+        entry.vTotal += v.totalQuestions ?? 0;
+        entry.vCorrect += v.correctCount ?? 0;
+      }
       dayMap.set(day, entry);
     }
     return Array.from(dayMap.entries()).map(([day, d]) => ({
       day,
       [t('progress.volumeChart')]: d.questions,
-      [t('progress.accuracyChart')]: d.questions > 0 ? Math.round((d.correct / d.questions) * 100) : 0,
+      [t('progress.accuracyChart')]: d.vTotal > 0 ? Math.round((d.vCorrect / d.vTotal) * 100) : 0,
     }));
   })();
 
@@ -216,7 +222,13 @@ export default function StudentProgressPage() {
                   )}
                 </div>
                 <span className="text-lg font-bold text-teal-600">
-                  {Math.round((s.correctCount / s.totalQuestions) * 100)}%
+                  {s.verified && s.verified.status === 'verified'
+                    ? `${Math.round(((s.verified.correctCount ?? 0) / Math.max(1, s.verified.totalQuestions ?? 0)) * 100)}%`
+                    : (
+                      <span className="text-xs font-medium text-gray-400">
+                        {store.language === 'en' ? 'Unverified' : '未驗證'}
+                      </span>
+                    )}
                 </span>
               </div>
             ))}
@@ -253,11 +265,16 @@ export default function StudentProgressPage() {
                       studentLevel: 'S4',
                       overallAccuracy: weeklyStats.accuracy || 0,
                       weakSkills: weakSkills.length > 0 ? weakSkills : [{ name: 'general', nameZh: '綜合', accuracy: weeklyStats.accuracy || 50 }],
-                      recentPerformance: recentSessions.slice(0, 7).map(s => ({
-                        date: new Date(s.startedAt).toLocaleDateString(),
-                        accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100),
-                        questionsDone: s.totalQuestions,
-                      })),
+                      // R3.10-C.2: 只送 verified row-derived 資料；不可驗證 session 不產生資料點。
+                      recentPerformance: recentSessions.slice(0, 7).flatMap(s => {
+                        const v = s.verified;
+                        if (!v || v.status !== 'verified') return [];
+                        return [{
+                          date: new Date(s.startedAt).toLocaleDateString(),
+                          accuracy: Math.round(((v.correctCount ?? 0) / Math.max(1, v.totalQuestions ?? 0)) * 100),
+                          questionsDone: v.totalQuestions ?? 0,
+                        }];
+                      }),
                       streakDays: weeklyStats.streakDays || 0,
                     }),
                     signal: controller.signal,

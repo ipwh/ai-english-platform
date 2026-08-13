@@ -245,16 +245,59 @@ model Submission {
   assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   studentId     String
   student       User      @relation(fields: [studentId], references: [id])
-  answers       String    // JSON: { questionId: answer }
+  answers       String    // JSON: { questionId: answer }（最新嘗試的兼容視圖）
   score         Float?
   aiFeedback    String?
   submittedAt   DateTime?
   gradedAt      DateTime?
+  // R3.5 hardening: 教師整體覆核標記。標記後該提交不得投影為逐題
+  // StudentAssessmentResult（不偽造逐題人類評分，不改寫既有證據）。
+  humanReviewedAt DateTime?
   status        String    @default("pending") // pending | submitted | graded
   createdAt     DateTime  @default(now())
 
+  // R3.5: 每次提交嘗試的獨立執行身份與逐題評分證據
+  attempts      SubmissionAttempt[]
+
   @@index([studentId])
   @@index([assignmentId])
+}
+
+// R3.5: 提交嘗試 — 每次提交一個獨立記錄，歷史嘗試永不覆寫
+model SubmissionAttempt {
+  id            String    @id @default(cuid())
+  submissionId  String
+  submission    Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  attemptNumber Int       @default(1)
+  score         Float?
+  aiFeedback    String?
+  submittedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  answers       SubmissionAnswer[]
+
+  @@unique([submissionId, attemptNumber])
+  @@index([submissionId])
+}
+
+// R3.5: 逐題評分證據（questionId = AssignmentQuestion.id，伺服器持有的正典身份）
+model SubmissionAnswer {
+  id               String   @id @default(cuid())
+  attemptId        String
+  attempt          SubmissionAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId       String   // AssignmentQuestion.id — canonical, server-owned
+  response         String   // 學生答案
+  result           String   // correct | incorrect（現行評分器僅產生這兩種）
+  awardedScore     Float
+  maxScore         Float
+  countsTowardScore Boolean
+  evaluator        String   // server | ai | human（僅用 frozen AssessmentEvaluator 值）
+  scoringMethod    String
+  createdAt        DateTime @default(now())
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
 }
 
 // ============================================
@@ -280,6 +323,8 @@ model Mistake {
   createdAt       DateTime  @default(now())
 
   @@index([studentId])
+  // R3.10-E.2 P0-2: 同一學生同一題目只保留一筆錯題（原子 upsert 基礎）
+  @@unique([studentId, questionId])
 }
 
 // ============================================
@@ -404,27 +449,89 @@ model PracticeSession {
   source         String    // ai-generated | mock | assignment
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
+  // R3.10-E.2 P0-3: 客戶端重播/去重鍵 — 僅作 idempotency，絕非權威信號。
+  // null = 歷史/未帶鍵的請求（維持現有行為，不強制回溯）。
+  clientSubmissionId String?
 
   answers        PracticeAnswer[]
 
   @@index([studentId])
+  @@unique([studentId, clientSubmissionId])
 }
 
 // 逐題答案記錄
+// R3.1: questionId = canonical PracticeQuestion.id (null for historical rows)
+// R3.2: result/awardedScore/maxScore/countsTowardScore preserve actual runtime scoring
 model PracticeAnswer {
   id             String    @id @default(cuid())
   sessionId      String
   session        PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionIndex  Int       // 題號 (0-based)
+  questionIndex  Int       // 題號 (0-based) — ordering only, NOT identity
+  questionId     String?   // 題目識別 (PracticeQuestion.id / reading runtime id); null = historical row
   questionType   String    // mc | fill-blank | matching | ordering | short-answer
   questionPrompt String    // 題目文字
   correctAnswer  String    // 正確答案
   studentAnswer  String    // 學生答案
   isCorrect      Boolean
+  result         String?   // correct | incorrect | partial | ungradable (new rows)
+  awardedScore   Float?    // 實際得分 (new rows)
+  maxScore       Float?    // 滿分 (new rows)
+  countsTowardScore Boolean? @default(true) // 是否計入總分 (new rows)
+  scoredBy       String?   // R3.3/R3.7: actual scoring authority — 'server' | 'ai' | 'client' (client = historical only)
+  scoringMethod  String?   // R3.3: scoring method label (evidence-backed)
   timeSpent      Int?      // 作答秒數
   createdAt      DateTime  @default(now())
 
   @@index([sessionId])
+  @@unique([sessionId, questionId])
+}
+
+// ============================================
+// R3.7: 伺服器持有的正典閱讀題目定義（閱讀評分的唯一權威來源）
+// 新產生題目在生成時即持久化；新持久化的閱讀 questionId 必須能解析到
+// 此表。歷史 rd-* 題目不存在於此表 → NOT_PROJECTABLE（永不重建）。
+// ============================================
+model ReadingQuestion {
+  id            String   @id @default(cuid())
+  questionType  String   // 後端 camelCase 類型（mcq / trueFalseNG / shortAnswer ...）
+  dseType       String?  // 前端 snake_case 類型（multiple_choice ...）
+  questionText  String
+  choices       String?  // JSON array（MC 選項）
+  answer        String   // 正典答案鍵 — 伺服器持有
+  marks         Float    @default(1)
+  orderIndex    Int      @default(0)
+  passageTitle  String?  // 資訊性欄位（可選）
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ============================================
+// R3.10-D: 伺服器持有的正典文法題目定義
+// 文法題目於生成時即持久化（provenance = ai-generated / human-reviewed）；
+// 文法 PracticeAnswer.questionId 必須能解析到此表，否則 NOT_PROJECTABLE。
+// 客戶端 correctAnswer/choices/questionPrompt 永不作為評分權威。
+// ============================================
+model GrammarQuestion {
+  id              String    @id @default(cuid())
+  questionType    String    // mc | fill-blank | error-correction | matching | cloze ...
+  prompt          String
+  promptZh        String?
+  choices         String?   // JSON array（MC 選項）
+  answer          String    // 正典答案鍵 — 伺服器持有
+  acceptedAnswers String?   // JSON array（額外可接受答案）
+  grammarItem     String?   // 文法項目（tenses-simple ...）
+  languageSkill   String?   // 語言技能（保留欄位）
+  difficulty      String
+  gradeLevel      String
+  explanationZh   String?
+  explanationEn   String?
+  provenance      String    @default("ai-generated") // ai-generated | human-reviewed
+  validatedAt     DateTime? // 結構驗證通過時間
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([createdAt])
 }
 
 // ============================================

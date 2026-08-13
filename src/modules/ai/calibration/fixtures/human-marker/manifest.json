@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "description": "External-source manifest for human-marker evidence. Source authority is an OWNER ASSERTION, not an independently verified fact. The sourceHash is the SHA-256 of the EXACT original source artifact bytes.",
+  "sources": [
+    {
+      "sourceFilename": "2018 DSE English Paper 2 5starstar scripts.pdf",
+      "sourceUrl": "https://storage.googleapis.com/afterschool-9bc37.appspot.com/resource/7/18%20DSE%20English%20Paper%202%205__%E7%9C%9F%E8%B7%A1.pdf",
+      "sha256": "c16f529c01cf5fa9c96270dcab5b051fa0c08708d5993043311cef26cd3f7cbf",
+      "acquisitionDate": "2026-08-13",
+      "authorityAssertion": {
+        "assertedBy": "repository-owner",
+        "authority": "HKEAA",
+        "acquisitionMethod": "direct-source",
+        "verificationRequired": false
+      },
+      "extractionMethod": "native-text",
+      "sourceClass": "human-marker-scored",
+      "fixtureCount": 3,
+      "notes": "contains candidate script text; contains published score or level; contains task/question provenance"
+    },
+    {
+      "sourceFilename": "2019 DSE English Paper 2 scripts.pdf",
+      "sourceUrl": "https://storage.googleapis.com/afterschool-9bc37.appspot.com/resource/26/19%20DSE%20%E8%8B%B1%E6%96%87Paper%202%E7%9C%9F%E8%B7%A1(85.pdf",
+      "sha256": "4b62b74688b5004f6b21d72142cb2c3630f22d1af7e54ca36d317509443753c0",
+      "acquisitionDate": "2026-08-13",
+      "authorityAssertion": {
+        "assertedBy": "repository-owner",
+        "authority": "HKEAA",
+        "acquisitionMethod": "direct-source",
+        "verificationRequired": false
+      },
+      "extractionMethod": "image-only-no-text-layer",
+      "sourceClass": "non-authoritative-reference",
+      "fixtureCount": 0,
+      "notes": "no extractable script text; no task/question provenance; no published score or level"
+    },
+    {
+      "sourceFilename": "Sample Essay and Practical Vocab.pdf",
+      "sourceUrl": "https://storage.googleapis.com/afterschool-9bc37.appspot.com/resource/7/5__%20Sample%20Esaay%20%E9%80%A3%E5%AF%A6%E7%94%A8Vocab.pdf",
+      "sha256": "cdc576c13bfa8e13bfd008e955ff8033e799a4deedd7201a9467721add260bef",
+      "acquisitionDate": "2026-08-13",
+      "authorityAssertion": {
+        "assertedBy": "repository-owner",
+        "authority": "HKEAA",
+        "acquisitionMethod": "direct-source",
+        "verificationRequired": false
+      },
+      "extractionMethod": "native-text",
+      "sourceClass": "teaching-reference",
+      "fixtureCount": 0,
+      "notes": "Teaching/vocabulary compilation. Embedding copies of marker-scored scripts does not make it calibration evidence; its script copies are duplicates of the primary source and were NOT ingested."
+    }
+  ]
+}

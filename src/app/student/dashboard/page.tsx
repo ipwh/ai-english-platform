@@ -75,11 +75,17 @@ export default function StudentDashboardPage() {
       }
     }).then(data => {
       if (data?.sessions) {
-        setRecentPerformance(data.sessions.slice(0, 5).map((s: any) => ({
-          date: new Date(s.startedAt).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-HK'),
-          accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100),
-          questionsDone: s.totalQuestions,
-        })));
+        // R3.10-C.2: 只使用 verified row-derived 證據；不可驗證 session 不產生
+        // 準確率資料點（絕不回退原始 totalQuestions/correctCount）。
+        setRecentPerformance(data.sessions.slice(0, 5).flatMap((s: any) => {
+          const v = s.verified;
+          if (!v || v.status !== 'verified') return [];
+          return [{
+            date: new Date(s.startedAt).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-HK'),
+            accuracy: Math.round(((v.correctCount ?? 0) / Math.max(1, v.totalQuestions ?? 0)) * 100),
+            questionsDone: v.totalQuestions ?? 0,
+          }];
+        }));
       }
     }).catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Practice history fetch failed'); });
   }, [loadPracticeHistory, language]);

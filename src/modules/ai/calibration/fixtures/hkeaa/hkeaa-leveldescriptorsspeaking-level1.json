@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Speaking.pdf",
+  "sourceYear": null,
+  "paper": "Paper 4",
+  "rubricScope": "level-descriptors-speaking",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Speaking.pdf.txt",
+  "sourceHash": "a8ab57b602f3616d5eacc7ff609d656fab9108858ce7d044a0290f94256a2aa6",
+  "id": "hkeaa-leveldescriptorsspeaking-level1",
+  "level": 1,
+  "dimension": null,
+  "mark": null,
+  "descriptorText": "Level 1  \nPronunciation and Delivery  \n Some simple familiar words are pronounced accurately enough to be understood.  \nCommunication strategies  \n Some very basic comprehensible responses are given.  \nVocabulary and language patterns  \n Several examples of simple v ocabulary are used appropriately.  \n A few simple formulaic language patterns are used appropriately.  \nIdeas and organization  \n Basic relevant information is offered when the topic is very familiar.  \n Some brief responses or statements are made when repea tedly prompted."
+}

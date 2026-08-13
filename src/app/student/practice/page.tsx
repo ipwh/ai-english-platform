@@ -101,14 +101,20 @@ function PracticeListPageContent() {
   const recommendedSkills = getRecommendedSkills(masteryBySkill);
 
   // === 最近練習記錄（可重新練習）===
-  const recentPracticeItems = recentSessions.map(s => ({
-    id: s.id,
-    label: `${s.skillZh || s.skill} — ${difficultyLabels[s.difficulty] || s.difficulty}`,
-    accuracy: s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0,
-    skill: s.skill,
-    skillZh: s.skillZh,
-    difficulty: s.difficulty,
-  }));
+  // R3.10-C.2: 準確率只顯示 verified evidence；本機/不可驗證 session → 未驗證。
+  const recentPracticeItems = recentSessions.map(s => {
+    const v = s.verified;
+    return {
+      id: s.id,
+      label: `${s.skillZh || s.skill} — ${difficultyLabels[s.difficulty] || s.difficulty}`,
+      accuracy: v && v.status === 'verified'
+        ? Math.round(((v.correctCount ?? 0) / Math.max(1, v.totalQuestions ?? 0)) * 100)
+        : null,
+      skill: s.skill,
+      skillZh: s.skillZh,
+      difficulty: s.difficulty,
+    };
+  });
 
   // === AI 生成練習 ===
   const handleGenerate = useCallback(async (inputForm?: GenerateForm, note?: string) => {
@@ -157,8 +163,11 @@ function PracticeListPageContent() {
       }
 
       // 將 AI 生成的題目轉換為 PracticeQuestion 格式（並清理 listeningContent）
+      // R3.10-D: 文法題目使用伺服器賦予的正典 id（GrammarQuestion.id）；
+      // 絕不從 Date.now() / 陣列索引推導權威 id。非文法技能（聆聽/閱讀等）
+      // 沒有伺服器題目庫，維持本機臨時 id（非權威、不入評分）。
       const questions = json.questions.map((q: Record<string, unknown>, i: number) => ({
-        id: `ai-${Date.now()}-${i}`,
+        id: (typeof q.id === 'string' && q.id.length > 0 ? q.id : `ai-${Date.now()}-${i}`) as string,
         type: q.type || activeForm.questionType,
         strand: 'knowledge' as const,
         grammarItem: (activeForm.grammarItem || undefined) as GrammarItem | undefined,
@@ -517,7 +526,11 @@ function PracticeListPageContent() {
                       <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{item.label}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <span className={`text-sm font-semibold ${item.accuracy >= 70 ? 'text-green-600' : item.accuracy >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>{item.accuracy}%</span>
+                      {item.accuracy != null ? (
+                        <span className={`text-sm font-semibold ${item.accuracy >= 70 ? 'text-green-600' : item.accuracy >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>{item.accuracy}%</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">{store.language === 'en' ? 'Unverified' : '未驗證'}</span>
+                      )}
                     </div>
                   </div>
                 </button>

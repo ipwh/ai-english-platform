@@ -91,10 +91,13 @@ interface StudentAnalytics {
     difficulty: string;
     totalQuestions: number;
     correctCount: number;
-    accuracy: number;
+    recordedTotalQuestions: number;
+    recordedCorrectCount: number;
+    accuracy: number | null;
     startedAt: string;
     completedAt: string | null;
     source?: string;
+    verified?: { status: string } | null;
   }>;
   recentMistakes: Array<{
     id: string;
@@ -125,7 +128,7 @@ interface StudentAnalytics {
     sessions: number;
     totalQuestions: number;
     correctCount: number;
-    accuracy: number;
+    accuracy: number | null;
   }>;
   diagnosticResults: Array<{
     skill: string;
@@ -519,12 +522,16 @@ export default function StudentAnalyticsPage() {
                       <td className="py-2.5 text-center text-gray-600 dark:text-gray-400">{s.sessions}</td>
                       <td className="py-2.5 text-center text-gray-600 dark:text-gray-400">{s.totalQuestions}</td>
                       <td className="py-2.5 text-center">
-                        <span className={`font-medium ${
-                          s.accuracy >= 70 ? 'text-green-600' :
-                          s.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
-                          {s.accuracy}%
-                        </span>
+                        {s.accuracy != null ? (
+                          <span className={`font-medium ${
+                            s.accuracy >= 70 ? 'text-green-600' :
+                            s.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {s.accuracy}%
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">未驗證</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -580,15 +587,26 @@ export default function StudentAnalyticsPage() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
-                    <p className={`text-sm font-medium ${
-                      s.accuracy >= 70 ? 'text-green-600' :
-                      s.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                      {s.accuracy}%
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {s.correctCount}/{s.totalQuestions}
-                    </p>
+                    {s.accuracy != null ? (
+                      <>
+                        <p className={`text-sm font-medium ${
+                          s.accuracy >= 70 ? 'text-green-600' :
+                          s.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {s.accuracy}%
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {s.correctCount}/{s.totalQuestions}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-gray-400">未驗證</p>
+                        <p className="text-xs text-gray-400">
+                          記錄 {s.recordedCorrectCount}/{s.recordedTotalQuestions}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               )})}

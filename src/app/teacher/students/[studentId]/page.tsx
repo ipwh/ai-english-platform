@@ -29,6 +29,11 @@ interface PracticeSession {
   id: string; skill: string; skillZh: string; difficulty: string;
   totalQuestions: number; correctCount: number; source: string;
   startedAt: string; completedAt?: string;
+  verified?: {
+    status: 'verified' | 'unverifiable';
+    totalQuestions?: number;
+    correctCount?: number;
+  } | null;
   answers?: { questionIndex: number; questionType: string; questionPrompt: string;
     correctAnswer: string; studentAnswer: string; isCorrect: boolean; timeSpent?: number }[];
 }
@@ -118,17 +123,18 @@ export default function StudentDetailPage() {
 
   const { student, practiceSessions, mistakes, vocab, writingDrafts, xpTransactions, weeklySnapshots } = data;
 
-  const totalQuestions = practiceSessions.reduce((sum, s) => sum + (s.totalQuestions || 0), 0);
-  const totalCorrect = practiceSessions.reduce((sum, s) => sum + (s.correctCount || 0), 0);
+  const totalQuestions = practiceSessions.reduce((sum, s) => sum + (s.verified?.status === 'verified' ? (s.verified.totalQuestions ?? 0) : 0), 0);
+  const totalCorrect = practiceSessions.reduce((sum, s) => sum + (s.verified?.status === 'verified' ? (s.verified.correctCount ?? 0) : 0), 0);
   const sessionAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
-  // 各技能準確率
+  // 各技能準確率（R3.10-C: 只計 verified 證據）
   const skillMap = new Map<string, { total: number; correct: number }>();
   practiceSessions.forEach(s => {
+    if (s.verified?.status !== 'verified') return;
     const key = s.skillZh || s.skill;
     const entry = skillMap.get(key) || { total: 0, correct: 0 };
-    entry.total += s.totalQuestions;
-    entry.correct += s.correctCount;
+    entry.total += s.verified.totalQuestions ?? 0;
+    entry.correct += s.verified.correctCount ?? 0;
     skillMap.set(key, entry);
   });
   const skillBreakdown = Array.from(skillMap.entries()).map(([name, v]) => ({
@@ -370,9 +376,13 @@ export default function StudentDetailPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-bold ${(s.correctCount / Math.max(1, s.totalQuestions)) >= 0.7 ? 'text-teal-600' : 'text-red-500'}`}>
-                      {s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0}%
-                    </span>
+                    {s.verified?.status === 'verified' ? (
+                      <span className={`text-sm font-bold ${((s.verified.correctCount ?? 0) / Math.max(1, (s.verified.totalQuestions ?? 0))) >= 0.7 ? 'text-teal-600' : 'text-red-500'}`}>
+                        {Math.round(((s.verified.correctCount ?? 0) / Math.max(1, (s.verified.totalQuestions ?? 0))) * 100)}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">{store.language === 'en' ? 'Unverified' : '未驗證'}</span>
+                    )}
                     {s.answers && s.answers.length > 0 && (
                       expandedSessions.has(s.id) ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />
                     )}

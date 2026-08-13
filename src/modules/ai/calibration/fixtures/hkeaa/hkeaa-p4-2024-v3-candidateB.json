@@ -1,0 +1,26 @@
+{
+  "kind": "authoritative-calibration",
+  "id": "hkeaa-p4-2024-v3-candidateB",
+  "schemaVersion": 1,
+  "provenance": {
+    "sourceOrganization": "hkeaa",
+    "sourceDocument": "Paper 4 Introduction Samples_HKDSE English 2020-2025.pdf",
+    "sourceYear": 2024,
+    "paper": "Paper 4",
+    "taskId": "P4-2024-V3",
+    "sectionId": "Video 3 — Candidate B",
+    "sourceFile": "materials\\_extracted\\Paper 4 Introduction Samples_HKDSE English 2020-2025.pdf.txt",
+    "sourceHash": "e884b8908d2392c8edd8182f8e091796b2f4d651913149cfd4fd6edb22dc1baf",
+    "extractionStatus": "video-no-transcript"
+  },
+  "studentScript": null,
+  "publishedLevel": 3,
+  "publishedOverallScore": null,
+  "publishedContentScore": null,
+  "publishedLanguageScore": null,
+  "publishedOrganizationScore": null,
+  "criterionScoresOfficiallyPublished": false,
+  "rubricVersion": "HKEAA-official-exemplar-levels",
+  "calibrationStatus": "ingested-level-only",
+  "notes": "Machine-extracted from official Paper 4 sample document. Performance is video-only (no transcript); officially assigned level recorded. No numeric marks are published for this sample."
+}

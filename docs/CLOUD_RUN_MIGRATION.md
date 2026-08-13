@@ -102,14 +102,21 @@ gcloud run deploy english-platform \
 | 變數 | 說明 |
 |---|---|
 | `DEEPSEEK_API_KEY` | DeepSeek API Key（主 AI） |
-| `GOOGLE_CLOUD_PROJECT` | GCP 專案 ID |
-| `GOOGLE_APPLICATION_CREDENTIALS` | `/app/materials/gcp-service-account.json` |
+| `GCP_PROJECT_ID` | GCP 專案 ID |
+| `GCP_SERVICE_ACCOUNT_JSON` | GCP Service Account JSON 內容（Vertex/Vision/TTS 驗證，優先於下方檔案路徑） |
+| `GOOGLE_APPLICATION_CREDENTIALS` | （可選）指向掛載的憑證檔案路徑 |
 | `GEMINI_API_KEY` | Gemini API Key（fallback） |
 | `OPENAI_API_KEY` | OpenAI API Key（fallback） |
 | `ANTHROPIC_API_KEY` | Claude API Key（fallback） |
 | `GROK_API_KEY` | Grok API Key（fallback） |
 
 > 💡 參考 `.env.cloud-run.example` 完整變數清單
+
+> 🔐 **憑證注入（2026-08-13 起）**：映像檔不再包含任何憑證檔案
+> （`.dockerignore` 已排除 `materials/gcp-service-account.json`、
+> `materials/client_secret_*.json`、`cloud-run-env.yaml`）。
+> 請在 Cloud Run 設定 `GCP_SERVICE_ACCOUNT_JSON` 環境變數
+> （`gcp-auth.ts` 優先讀取；建議使用 Secret Manager 管理）。
 
 ---
 
@@ -163,6 +170,17 @@ Vercel 自動提供全球 CDN。Cloud Run 預設從單一區域提供服務。�
 ```bash
 # 可選：設定 Cloud CDN 或使用 Firebase Hosting 作為前端
 ```
+
+### 5. 機密管理（重要）
+`cloud-run-env.yaml` 含真實機密，已從 git 追蹤移除（保留在本地），
+並加入 `.gitignore`。Cloud Build 自動部署的環境變數在 Cloud Console 設定，不使用該檔。
+
+若該檔曾上傳至 GitHub（含歷史記錄），請**立即輪換全部密鑰**：
+- Neon `DATABASE_URL` 密碼
+- `JWT_SECRET` / `AUTH_SECRET` / `CRON_SECRET`
+- Google OAuth `AUTH_GOOGLE_SECRET`
+- `DEEPSEEK_API_KEY` / `GEMINI_API_KEY` 等 AI provider key
+- GCP Service Account（刪除並重建，再更新 Secret Manager）
 
 ### 4. 本地測試
 ```bash

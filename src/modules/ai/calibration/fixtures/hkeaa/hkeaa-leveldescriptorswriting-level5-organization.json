@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "c72ff2fe4b5470ef0f71499f367ebd402191fcef31509b787920d43c0337a8ce",
+  "id": "hkeaa-leveldescriptorswriting-level5-organization",
+  "level": 5,
+  "dimension": "organization",
+  "mark": null,
+  "descriptorText": "Organization  \n The structure of the writing is wholly coherent and appropriate to the genre and text type.  \n Paragraphing is effective.  \n Cohesion between sentences and paragraphs is sophisticated."
+}

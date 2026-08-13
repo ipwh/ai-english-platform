@@ -25,6 +25,18 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Secrets — NEVER bake into the image (inject via Cloud Run env vars)
+cloud-run-env.yaml
+cloud-run-env*.yaml
+materials/client_secret_*.json
+materials/gcp-service-account.json
+
+# Large materials not needed at runtime (RAG serves chunks from the DB)
+materials/*.pdf
+materials/**/*.pdf
+materials/_extracted/
+materials/_hkeaa_descriptors/
+
 # Git
 .git/
 .gitignore

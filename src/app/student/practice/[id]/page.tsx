@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { persistWithRetry } from '@/shared/utils/persistence-helper';
 import Link from 'next/link';
 import {
   ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
@@ -184,6 +185,7 @@ export default function PracticeQuestionPage() {
   const [wrongEncouragement, setWrongEncouragement] = useState('');
   const hasSavedRef = useRef(false); // 防止重複 savePractice（完成時設為 true）
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [saveError, setSaveError] = useState('');
   // 保存 session 快照，因為 completeSession() 會清空 currentSession
   const [completedSession, setCompletedSession] = useState<typeof store.currentSession>(null);
 
@@ -197,20 +199,20 @@ export default function PracticeQuestionPage() {
     '✨ 錯誤讓你知道哪裡需要加強，這是好事！',
   ];
 
-  /** 傳送練習記錄（僅儲存，不發 XP） */
-  const savePractice = useCallback(async (payload: Record<string, unknown>) => {
-    try {
-      const res = await fetch('/api/practice', {
+  /** 傳送練習記錄（僅儲存，不發 XP）— R3.10-E.2 P1: 重試 5xx/網路，不重試 4xx，回報最終狀態 */
+  const savePractice = useCallback(async (payload: Record<string, unknown>): Promise<boolean> => {
+    const outcome = await persistWithRetry(() =>
+      fetch('/api/practice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        logger.error({ module: 'student-practice-detail', error: `Status ${res.status}: ${await res.text().catch(() => '')}` }, 'savePractice failed');
-      }
-    } catch (err) {
-      logger.error({ module: 'student-practice-detail', error: err instanceof Error ? err.message : String(err) }, 'savePractice network error');
+      }),
+    );
+    if (!outcome.ok) {
+      logger.error({ module: 'student-practice-detail', error: `practice save failed (status=${outcome.status}, kind=${outcome.failureKind}, retried=${outcome.retried})` }, 'savePractice failed');
+      return false;
     }
+    return true;
   }, []);
 
   /** 發放 XP 並顯示 toast */
@@ -276,6 +278,11 @@ export default function PracticeQuestionPage() {
     const displaySession = store.currentSession || completedSession!;
     return (
       <div className="max-w-2xl mx-auto space-y-6">
+        {saveError && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded-xl p-4 text-sm">
+            ⚠️ {saveError}
+          </div>
+        )}
         <SessionCompleteSummary
           session={displaySession}
           onBackToPractice={() => router.push('/student/practice')}
@@ -429,15 +436,20 @@ export default function PracticeQuestionPage() {
         setCompletedSession({ ...session });
         const { questions, answers, results, skill, skillZh, difficulty, totalQuestions, correctCount, source } = session;
         const answerRecords = questions.map((q, idx) => ({
+          questionId: q.id,
           questionIndex: idx,
           questionType: q.type || 'mc',
           questionPrompt: q.prompt || '',
           correctAnswer: q.answer || '',
+          choices: q.choices ?? undefined,
           studentAnswer: answers[q.id] || '',
+          // R3.3: isCorrect 僅供舊版伺服器回溯相容；現行伺服器會忽略並自行評分
           isCorrect: results[q.id] ?? false,
         }));
         // 先 await 儲存完成，再標記 session 完成
-        await savePractice({
+        // R3.10-E.2 P0-3: clientSubmissionId = session.id 僅作重播/去重鍵，
+        // 絕非權威信號。重複提交由伺服器回傳原始持久化結果。
+        const saved = await savePractice({
           studentId: store.userId || '',
           skill: skill || 'general',
           skillZh: skillZh || '',
@@ -445,8 +457,15 @@ export default function PracticeQuestionPage() {
           totalQuestions,
           correctCount,
           source: source || 'ai-generated',
+          clientSubmissionId: session.id,
           answers: answerRecords,
         });
+        if (!saved) {
+          // R3.10-E.2 P1: 已知儲存失敗 — 絕不顯示「已儲存」成功狀態。
+          setSaveError(store.language === 'en'
+            ? 'Failed to save this practice session. Your progress may not be recorded.'
+            : '未能儲存本次練習記錄，進度可能未被保存。');
+        }
         store.completeSession();
         awardXp('completeSession', difficulty);
       } else if (store.currentSession) {

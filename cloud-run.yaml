@@ -57,8 +57,14 @@ spec:
               value: "production"
             - name: NEXTAUTH_URL
               value: "https://REPLACE_WITH_YOUR_DOMAIN"
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: "/app/materials/gcp-service-account.json"
+          # GCP 憑證：透過環境變數注入（憑證檔案已從映像檔排除）
+          #   GCP_SERVICE_ACCOUNT_JSON=<service-account-json-content>
+          # gcp-auth.ts 優先讀取 GCP_SERVICE_ACCOUNT_JSON；
+          # 其次才是 GOOGLE_APPLICATION_CREDENTIALS 指向的掛載檔案。
+          # 建議用 Secret Manager 管理：
+          #   gcloud run deploy english-platform \
+          #     --set-secrets=GCP_SERVICE_ACCOUNT_JSON=gcp-service-account:latest \
+          #     --region=asia-east2
           # 啟動健康檢查
           startupProbe:
             tcpSocket:

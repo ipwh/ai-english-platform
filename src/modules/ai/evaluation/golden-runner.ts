@@ -5,12 +5,23 @@
 //
 // IMPORTANT: Expected scores may be null (awaiting human-marker
 // calibration). The runner only compares when scores are present.
+//
+// R3.10-F: this runner evaluates SOFTWARE REGRESSION data
+// (synthetic fixtures only). Authoritative HKEAA calibration
+// fixtures live in @/modules/ai/calibration and are evaluated by
+// runCalibrationBenchmark. runCombinedBenchmark() runs both and
+// keeps the two datasets separate in the report.
 // ============================================
 
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { analyzeWriting } from "@/modules/ai/usecases/analyze-writing";
 import type { WritingAnalysis } from "@/modules/ai/usecases/analyze-writing";
+import type {
+  CalibrationBenchmarkReport,
+  CalibrationGatePolicy,
+} from "@/modules/ai/calibration";
+import { mean, rmse } from "@/modules/ai/calibration/metrics";
 
 // ============================================
 // Types
@@ -100,16 +111,31 @@ const FIXTURES_DIR = join(
   "writing-golden",
 );
 
+/**
+ * Load synthetic regression fixtures. Fails closed on malformed
+ * JSON (no silent skip) and returns files in deterministic order.
+ */
 export function loadFixtures(): GoldenFixture[] {
-  try {
-    const files = readdirSync(FIXTURES_DIR).filter(f => f.endsWith(".json"));
-    return files.map(file => {
-      const raw = readFileSync(join(FIXTURES_DIR, file), "utf-8");
-      return JSON.parse(raw) as GoldenFixture;
-    });
-  } catch {
-    return [];
+  if (!existsSync(FIXTURES_DIR)) {
+    throw new Error(`Golden fixtures directory not found: ${FIXTURES_DIR}`);
   }
+  const files = readdirSync(FIXTURES_DIR)
+    .filter(f => f.endsWith(".json"))
+    .sort();
+  return files.map(file => {
+    const raw = readFileSync(join(FIXTURES_DIR, file), "utf-8");
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== "object" || parsed === null
+      || typeof (parsed as GoldenFixture).id !== "string"
+      || typeof (parsed as GoldenFixture).studentDraft !== "string"
+    ) {
+      throw new Error(
+        `Golden fixture ${file} is malformed (missing id/studentDraft) — fail closed`,
+      );
+    }
+    return parsed as GoldenFixture;
+  });
 }
 
 // ============================================
@@ -186,16 +212,7 @@ export async function runGoldenBenchmark(
 
   const scored = results.filter(r => r.hasHumanScores);
 
-  const mean = (values: number[]) => {
-    if (values.length === 0) return null;
-    return values.reduce((s, v) => s + v, 0) / values.length;
-  };
-
-  const rmse = (values: number[]) => {
-    if (values.length === 0) return null;
-    return Math.sqrt(values.reduce((s, v) => s + v * v, 0) / values.length);
-  };
-
+  // Single metric definition shared with the calibration module.
   return {
     count: fixtures.length,
     scored: scored.length,
@@ -213,4 +230,37 @@ export async function runGoldenBenchmark(
     overallBias: mean(scored.map(r => r.errors.overall).filter((v): v is number => v !== null)),
     results,
   };
+}
+
+// ============================================
+// R3.10-F: Combined runner — regression + calibration
+//
+// Runs BOTH datasets but keeps them strictly separated:
+//   .regression   — synthetic fixtures (software behavior)
+//   .calibration  — authoritative HKEAA fixtures (agreement)
+// No metric ever mixes the two.
+// ============================================
+
+export interface CombinedBenchmarkReport {
+  regression: BenchmarkReport;
+  calibration: CalibrationBenchmarkReport;
+}
+
+export interface CombinedBenchmarkOptions {
+  regression?: { timeoutMs?: number };
+  calibration?: {
+    fixturesDir?: string;
+    policy?: CalibrationGatePolicy;
+  };
+}
+
+export async function runCombinedBenchmark(
+  options: CombinedBenchmarkOptions = {},
+): Promise<CombinedBenchmarkReport> {
+  // Dynamic import keeps the calibration module lazily wired and
+  // avoids any module-evaluation cycle with the evaluation layer.
+  const { runCalibrationBenchmark } = await import("@/modules/ai/calibration");
+  const regression = await runGoldenBenchmark(options.regression);
+  const calibration = await runCalibrationBenchmark(options.calibration);
+  return { regression, calibration };
 }

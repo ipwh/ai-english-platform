@@ -242,20 +242,29 @@ export default function StudentHelpPage() {
         const sessions = (practiceJson.sessions || []) as PracticeSessionLite[];
         const mistakes = (mistakeJson.mistakes || []) as MistakeLite[];
         const derivedWeakSkills = buildWeakSkills(sessions, mistakes);
-        const derivedRecentPerformance = sessions.slice(0, 5).map(session => ({
-          date: new Date(session.startedAt).toLocaleDateString('zh-HK'),
-          accuracy: Math.round((session.correctCount / Math.max(1, session.totalQuestions)) * 100),
-          questionsDone: session.totalQuestions,
-        }));
+        // R3.10-C.2: 近期表現只使用 verified row-derived 證據；不可驗證 session
+        // 絕不用原始 totalQuestions/correctCount 產生準確率資料點。
+        const derivedRecentPerformance = sessions.slice(0, 5).flatMap(session => {
+          const v = session.verified;
+          if (!v || v.status !== 'verified') return [];
+          return [{
+            date: new Date(session.startedAt).toLocaleDateString('zh-HK'),
+            accuracy: Math.round(((v.correctCount ?? 0) / Math.max(1, v.totalQuestions ?? 0)) * 100),
+            questionsDone: v.totalQuestions ?? 0,
+          }];
+        });
 
         if (cancelled) return;
         setWeakSkills(derivedWeakSkills);
         setRecentPerformance(derivedRecentPerformance);
         setRecentMistakes(mistakes.slice(0, 5));
 
-        // 計算信心度 & 數據豐富度
+        // 計算信心度 & 數據豐富度（R3.10-C: 只計 verified 證據）
         const totalSessions = sessions.length;
-        const totalQuestions = sessions.reduce((sum, s) => sum + (s.totalQuestions || 0), 0);
+        const totalQuestions = sessions.reduce((sum, s) => {
+          const v = s.verified;
+          return sum + (v?.status === 'verified' ? (v.totalQuestions ?? 0) : 0);
+        }, 0);
         const totalMistakes = mistakes.length;
         const skillCount = derivedWeakSkills.filter(w => w.accuracy > 0).length;
         const confResult = calculateConfidence(totalSessions, totalQuestions, totalMistakes, skillCount, profile.streakDays ?? 0);
@@ -275,6 +284,7 @@ export default function StudentHelpPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            studentId: profile.id,
             studentLevel: getStudentLevel(profile),
             overallAccuracy: Math.round(derivedWeakSkills.reduce((sum, item) => sum + item.accuracy, 0) / Math.max(1, derivedWeakSkills.length)),
             weakSkills: derivedWeakSkills.slice(0, 3),

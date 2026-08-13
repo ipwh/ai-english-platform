@@ -4,6 +4,75 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-13 — R3.10-K Phase 1: Production Scoring Path Audit + Cloud Run Deployment Hardening
+
+### 🔍 生產評分路徑審核（Phase 1 — 只審核，未改評分邏輯）
+- **MAPPED**: 完整的 Paper 2 寫作評分執行路徑逐段建表（request → task identity → RAG marking-scheme 檢索 → semantic evaluator → CLO evaluator → 確定性正規化 → penalties → persistence → API/UI），每段標注檔案/模組、權威來源、測試覆蓋與風險
+- **AUTHORITY**: C/L/O 0–7 分帶、每卷 21 分（兩位評卷員合計 42 分）結構 — **EXPLICITLY_SUPPORTED**（官方 Paper 2 Marking Scheme 原文支持）；`total/21×100` 換算、內部等級閾值（13/10/7/4）、字數扣分階梯（−8/−15/−25）→ IMPLEMENTATION_DEFINED（平台文件化規則）；官方 Level Descriptors 只發布等級、不發布分數
+- **FINDINGS**: 9 項分類發現 — P1：UI 送 `gradeLevel/difficulty` 但 Zod schema 剝離（student-level 適配從未觸發）、writing-coach 靜默零分 fallback、`llmBaseScore` 預設 70 隱患；P2：分數僅存於 `WritingDraft.aiSuggestions` JSON blob、in-memory revision store、CEFR/level 未驗證；P3：rubric 來源措辭
+- **CALIBRATION**: 生產評分不依賴 human-marker 校準數據（0 筆時照常運作；>0 時校準可用）— 已驗證
+
+### 🔐 Cloud Run 部署安全加固
+- **SECURITY**: 映像檔不再烘焙憑證 — `.dockerignore` 排除 `materials/gcp-service-account.json`、`materials/client_secret_*.json`、`cloud-run-env.yaml` 及大型 PDF 素材；runtime 改由 `GCP_SERVICE_ACCOUNT_JSON` 環境變數注入（`gcp-auth.ts` 優先讀取）
+- **SECURITY**: `cloud-run-env.yaml`（含真實機密）自 git 追蹤移除、加入 `.gitignore`（本地保留）— 建議輪換全部密鑰
+- **BUILD**: 修復 ai 模組 2 個 eslint `no-console` error（改用 `logger.info`）；`next build` exit 0 + standalone 產物驗證通過
+- **VERIFY**: tsc 0 · prisma validate 通過 · db:generate 通過 · eslint 0 error · **117 files / 2702 tests 全綠** · `npm run build`（Dockerfile 同款指令）成功
+
+---
+
+## 2026-08-13 — R3.10-J: Evidence-Ready Intake Contract
+
+- **NEW**: `HumanMarkerEvidenceIntake` machine-readable intake contract + `checkHumanMarkerEvidenceIntake` deterministic checker (field-by-field PRESENT/MISSING/INVALID report, acceptance/rejection reasons) — no missing field is ever invented
+- **NEW**: 7-level provenance quality model (`AUTHORITATIVE_OFFICIAL` / `VERIFIED_HUMAN_MARKER` / `TEACHER_MARKED` / `RESEARCH_DATASET` / `THIRD_PARTY` / `UNKNOWN` / `OCR_DERIVED`); only the first two may reach ACCEPT_OVERALL_SCORE — provenance classes never auto-accept
+- **NEW**: evidence ledger in `inventory.json` — DISCOVERED/ACCEPTED/REJECTED/QUARANTINED/DUPLICATE/CONFLICT/TEACHING_REFERENCE/CRITERION_ONLY/LEVEL_ONLY/NON_COMPARABLE/OVERALL_COMPARABLE, never collapsed
+- **NEW**: R3.10-J acquisition specification (required/preferred/rejected evidence lists + intake workflow) documented in `fixtures/human-marker/README.md`
+- **TESTS**: intake-checker.test.ts (29 tests: 7-level provenance model, positive acceptance, 16 negative rejection cases, determinism, synthetic-test isolation proving TEST_ONLY inputs never change the real inventory)
+- **STATE**: software READY for genuine evidence; calibration remains INSUFFICIENT_DATA (0 overall-comparable); evidence gap = 8 additional genuine overall-comparable scripts
+
+## 2026-08-13 — R3.10-I: Authoritative Evidence Expansion & Gate Attempt
+
+- **SEARCH**: re-scanned every local source (26 PDFs + all extractions) with expanded score patterns — no new source documents and no new explicit overall-score evidence exist. Candidate inventory unchanged: 3 scripts (2 criterion-only, 1 non-comparable), 0 overall-comparable
+- **NEW**: `inventory.json` summary block — all 7 evidence classes reported separately (never collapsed), plus total candidates / accepted fixtures / unique scripts / duplicates / quarantined / `inferredScores` (invariant 0)
+- **TESTS**: +3 adversarial tests (7-class summary invariants, no inference during serialization, no inference during runner execution)
+- **GATE**: unchanged. 0 overall-comparable < minScoredSamples (8) → INSUFFICIENT AUTHORITATIVE DATA (exit 2, byte-identical across runs). Target remains ≥8 genuine overall-comparable scripts
+
+## 2026-08-13 — R3.10-H: Authoritative Overall-Score Evidence Expansion
+
+- **SEARCH**: repository-wide scan of all local materials (20 PDFs + extractions) for scripts with explicit numeric overall scores. Result: no additional local sources publish overall scores — the existing 3 owner-supplied scripts remain the only human-marker evidence (2 criterion-only C/L/O, 1 non-comparable M1/M2)
+- **NEW**: strict overall-score parsing — a numeric value is accepted ONLY with an explicit label (Overall/Total/Mark/Score) on the score header line AND a scale the source itself establishes (`/21` → clo-total-0-21, `/100` → percentage-0-100); unestablished scales (e.g. `40/42`) stay verbatim non-comparable sub-scores; malformed labelled values are QUARANTINED (`corrupt-overall-score`), never repaired
+- **NEW**: 7-class evidence taxonomy + `classifyHumanMarkerEvidence`; the report now prints a per-category breakdown (overall-comparable / criterion-only / non-comparable / level-only / quarantined — never collapsed) and `inventory.json` is a deterministic audit artifact with per-candidate classification
+- **GATE**: unchanged. 0 overall-comparable samples → INSUFFICIENT AUTHORITATIVE DATA (exit 2); at least 8 more overall-comparable scripts are required to meet the configured policy
+
+## 2026-08-13 — R3.10-F: Authoritative HKEAA Calibration Ingestion & Validity Audit
+
+### 🎯 Calibration Infrastructure (evaluation-only)
+- **NEW**: `src/modules/ai/calibration/` — authoritative calibration dataset pipeline, isolated from all runtime code (authority contract tests enforce zero route/service imports)
+- **NEW**: Immutable `AuthoritativeCalibrationFixture` schema with full provenance (source document, year, paper, task/section reference, SHA-256 source hash, extraction status) — every expected value can answer "where did this come from?"
+- **NEW**: Deterministic, idempotent, fail-closed ingestion (`npm run calibration:ingest`) parsing the official HKEAA exemplar booklets (2020-2025, Papers 1-4), level descriptors, and the Paper 2 marking scheme
+- **NEW**: 308 authoritative level-only fixtures + 34 official rubric references ingested and checked in under `fixtures/hkeaa/`; 40 duplicate source samples quarantined
+- **NEW**: Calibration benchmark runner + report CLI (`npm run calibration:report`) — MAE/RMSE/bias, exact/±1 agreement, over/under-scoring rates, per-level/per-year/per-task breakdowns; REGRESSION (synthetic) and CALIBRATION (authoritative) reported separately, never combined
+- **NEW**: Policy-configurable validity gates (PASS / FAIL / INSUFFICIENT_DATA); thresholds are explicitly policy, not facts
+- **FIXED**: golden-runner fixture loading now fails closed on malformed JSON and sorts deterministically; metric helpers deduplicated (single `mean`/`rmse` shared with the calibration module)
+- **NEW (evidence readiness)**: strict `HumanMarkerCalibrationFixture` contract for future genuine human-marker-scored scripts — verbatim script, provenance + SHA-256 source hash, rubric version, marker policy and (anonymized) marker identity, and explicit per-score "directly scored by marker" declarations. Fail-closed validation rejects: scores without marker provenance, criterion values not directly scored, totals inferred from levels, level-only evidence masquerading as scored evidence, altered hashes, missing scripts, and duplicate evidence with conflicting scores/policies. `fixtures/human-marker/README.md` documents the exact acceptance procedure; no evidence is ingested yet (0 scored samples)
+- **NEW (design audit → minimal pipeline)**: `runHumanMarkerCalibrationBenchmark` — validates the evidence set fail-closed, deduplicates identical evidence deterministically, maps scores through declared scales (`clo-total-0-21` → CLO total, `percentage-0-100` → platform score, `clo-0-7` → C/L/O) and reuses the existing metrics/gates/report machinery; metrics gained per-marker-policy agreement; the report renders overall-only evidence without inventing criterion numbers; PASS requires the existing policy thresholds (min 8 scored / 10 samples, MAE ≤ 1.5, RMSE ≤ 2.0, |bias| ≤ 1.0, exact ≥ 0.5, ±1 ≥ 0.8); criterion metrics are reported but never gate PASS. Exercised only by clearly-labelled synthetic test fixtures — no real evidence, no fabricated scores
+- **Status**: The official exemplar booklets publish LEVEL labels only — candidate scripts are handwritten scans with no text layer, and no numeric marks are published. The gate therefore reports INSUFFICIENT AUTHORITATIVE DATA and makes no claim of marker-equivalence.
+
+- **INGESTION (R3.10-G)**: `npm run calibration:ingest:human-marker` — deterministic, idempotent, fail-closed ingestion of owner-supplied scored-script PDFs into `HumanMarkerCalibrationFixture` JSON (never inference: levels stay "5**" strings, C/L/O stays C/L/O, M1/M2 stays verbatim sub-scores)
+- **NEW**: 4-way source classification (`human-marker-scored` / `official-rubric-reference` / `teaching-reference` / `non-authoritative-reference`) derived from content facts only — never filenames
+- **NEW**: `sourceAuthorityAssertion` provenance (owner assertion, metadata only — never bypasses score/hash/script/policy/conflict validation); extraction provenance (`extractionMethod` + `extractionQuality`, no verbatim claim unless established); SHA-256 over the EXACT source PDF bytes recorded per fixture and in `fixtures/human-marker/manifest.json`
+- **INGESTED**: 3 genuine scored scripts from the owner-supplied 2018 source (2018 P2 Q5 `Lv5** M1:21 M2:19 40/42`; 2012 Q9 and 2016 Q4 `Lv 5** C:7 L:7 O:7`). 2019 source = image-only scan → manifest as non-authoritative (0 fixtures). Sample Essay/Vocab PDF → teaching-reference (0 fixtures, never enters metrics)
+- **GATE**: 3 samples / 0 overall-comparable scores → far below policy minimums → calibration remains INSUFFICIENT AUTHORITATIVE DATA (no thresholds changed)
+
+### 📊 Current Baseline
+```
+TypeScript:       0 errors (tsc --noEmit)
+Test Files:       115 passed (115)
+Tests:            2646 passed (2646)
+Prisma:           schema valid
+```
+
+---
+
 ## 2026-08-12 — Knowledge Graph UX Overhaul & README Fix
 
 ### 🗺️ Knowledge Graph UX (9 improvements)

@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只能為自己的帳號新增錯題' }, { status: 403 });
     }
 
-    const mistake = await MistakeRepo.createMistake({
+    // R3.10-E.2 P0-2: 原子 insert-if-absent（唯一鍵 studentId+questionId）。
+    // 同一 (studentId, questionId) 只保留一筆；重複自報不回傳錯誤。
+    await MistakeRepo.createMistakeIfAbsent({
       studentId,
       questionId,
       studentAnswer: studentAnswer || '',
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
       mistakeType: mistakeType || 'grammar',
       aiExplanation,
     });
+    const mistake = await MistakeRepo.findMistakeByQuestion(studentId, questionId);
 
     return NextResponse.json({ mistake }, { status: 201 });
   } catch (err: unknown) {

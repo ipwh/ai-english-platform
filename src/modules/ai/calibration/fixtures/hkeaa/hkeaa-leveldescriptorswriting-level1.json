@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "d1c3ac877e6f7a36bad7afb7bbd440509b0aa8982bf255f2598925d97bc5d51c",
+  "id": "hkeaa-leveldescriptorswriting-level1",
+  "level": 1,
+  "dimension": null,
+  "mark": null,
+  "descriptorText": "Level 1  \n \nContent  \n A few content points are relevant.  \nLanguage  \n There are a few simple, comprehensible sentences.  \n There are a few examples of simple vocabulary used appropriately.  \nOrganization  \n There are a few links made b etween sentences."
+}

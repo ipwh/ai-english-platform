@@ -20,6 +20,12 @@ interface ReadingPassage {
 }
 
 interface ReadingQuestion {
+  /**
+   * R3.1: RUNTIME question identity assigned by /api/reading when the
+   * questions were generated. Stable for this response→submission round
+   * trip, but NOT a durable domain identity (questions are ephemeral).
+   */
+  id?: string;
   index: number;
   tier: 'literal' | 'inferential' | 'evaluative';
   paragraphRef?: number;
@@ -315,6 +321,7 @@ export default function ReadingPracticePage() {
       totalScore: Object.values(answers).reduce((s, a) => s + (a.score ?? (a.isCorrect ? 1 : 0)), 0),
       source: 'dse-reading',
       answers: data.questions.map((q, i) => ({
+        questionId: q.id,
         questionIndex: i,
         studentAnswer: answers[i]?.answer || '',
         correctAnswer: q.answer,
@@ -322,6 +329,15 @@ export default function ReadingPracticePage() {
         questionPrompt: q.question,
         dseType: q.dseType,
         marks: q.marks,
+        // R3.2: preserve the reading evaluator's actual scoring verbatim.
+        // NO fallback inference: if score/maxScore were absent, the API
+        // boundary rejects the submission loudly instead of inventing 1s.
+        result: answers[i]?.isPartiallyCorrect
+          ? 'partial'
+          : answers[i]?.isCorrect ? 'correct' : 'incorrect',
+        awardedScore: answers[i]?.score,
+        maxScore: answers[i]?.maxScore,
+        countsTowardScore: true,
       })),
     };
 
@@ -463,14 +479,10 @@ export default function ReadingPracticePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'analyze-answers',
-        questions: [{
-          index: qIndex,
-          type: q.type === 'short-answer' ? 'shortAnswer' : q.type,
-          questionText: q.question,
-          answer: q.answer,
-          marks: 1,
-        }],
-        studentAnswers: { [qIndex]: answer },
+        // R3.9: 只送持久化題目 id — 答案鍵 / marks / 題型一律由伺服器
+        // 從 ReadingQuestion 解析（客戶端元資料不作數）。
+        questionIds: [data.questions[qIndex].id],
+        studentAnswers: { 0: answer },
         passageContent: data.passage.content,
       }),
     })

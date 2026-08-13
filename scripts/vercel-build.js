@@ -69,11 +69,29 @@ try {
 
 // Try migrate deploy first (preferred for production)
 // Use captureOutput to inspect the actual Prisma error (P3005 detection)
+const { decideMigrationOutcome } = require('./migration-gate.cjs');
+
 const migrateResult = run('npx --yes prisma migrate deploy', 'prisma migrate deploy', { captureOutput: true });
 
+// R3.10-E.2 P0-1: `prisma migrate status` is an EXPLICIT deployment gate.
+// It must succeed in production or the build fails closed.
+let migrateStatusResult = { ok: true, output: '' };
 if (migrateResult.ok) {
-  console.log('✅  Schema deployed via prisma migrate deploy');
+  migrateStatusResult = run('npx --yes prisma migrate status', 'prisma migrate status', { captureOutput: true });
+}
+
+const decision = decideMigrationOutcome({ isProd, migrateDeploy: migrateResult, migrateStatus: migrateStatusResult });
+
+if (decision.action === 'abort') {
+  console.error(`❌  ${decision.reason}`);
+  console.error('   Fix: ensure DATABASE_URL is reachable and `npx prisma migrate deploy` succeeds, then rebuild.');
+  process.exit(1);
+}
+
+if (decision.action === 'continue') {
+  console.log('✅  Schema deployed and migration status verified');
 } else {
+  // decision.action === 'dev-fallback'
   const output = migrateResult.output;
   const isMissingMigration =
     output.includes('P3005') ||
@@ -81,45 +99,29 @@ if (migrateResult.ok) {
     output.includes('not empty');
 
   if (isMissingMigration) {
-    // DB already has schema but no migration history yet (project was using db push).
-    // Fallback to db push until baseline migration is created.
     console.warn('⚠️  No migration history found — project was previously using prisma db push.');
-    console.warn('   Falling back to prisma db push for this deployment.');
+    console.warn('   DEV ONLY: falling back to prisma db push (NEVER in production).');
     console.warn('   To migrate: run `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql`');
-    const pushResult = run('npx --yes prisma db push', 'prisma db push (fallback)', { captureOutput: true });
+    const pushResult = run('npx --yes prisma db push', 'prisma db push (dev fallback)', { captureOutput: true });
     if (!pushResult.ok) {
       const pushOutput = pushResult.output;
       if (pushOutput.includes('vector') && pushOutput.includes('does not exist')) {
-        // pgvector extension missing — this is a known setup issue, not a build error
         console.warn('⚠️  prisma db push skipped vector column (pgvector not enabled).');
         console.warn('   This is OK — RAG will use in-memory fallback.');
-        console.warn('   To fix: enable pgvector in your database (Neon Dashboard → Extensions).');
-        // Don't abort — the app works without pgvector
-      } else if (isProd) {
-        console.error('❌  Production requires a working DB connection. Aborting build.');
-        console.error('   Error:', pushOutput.slice(0, 500));
-        process.exit(1);
+      } else {
+        console.warn('⚠️  prisma db push failed in dev:', pushOutput.slice(0, 300));
+        console.warn('   Continuing build anyway (dev mode)...');
       }
     }
-  } else if (isProd) {
-    const isConnectionError = output.includes('P1001') || output.includes('P1002') || output.includes('Timed out') || output.includes('advisory lock');
-    if (isConnectionError) {
-      console.warn('⚠️  Database unreachable — skipping migration. Build will succeed if schema is already deployed.');
-    } else {
-      console.error('❌  prisma migrate deploy failed in production. Aborting build.');
-      console.error('   Error:', output.slice(0, 500));
-      process.exit(1);
-    }
   } else {
-    // Dev: just warn and try db push
-    console.warn('⚠️  prisma migrate deploy failed — falling back to prisma db push for local dev.');
+    // Dev: warn and try db push
+    console.warn('⚠️  prisma migrate deploy/status not verified in dev — falling back to prisma db push for local dev.');
     const devPushResult = run('npx --yes prisma db push', 'prisma db push (dev fallback)', { captureOutput: true });
     if (!devPushResult.ok) {
       const devPushOutput = devPushResult.output;
       const isConnectionError = devPushOutput.includes('P1001') || devPushOutput.includes('P1002') || devPushOutput.includes('Timed out') || devPushOutput.includes('advisory lock');
       if (isConnectionError) {
         console.warn('⚠️  Database unreachable in dev — skipping db push. Build will succeed if schema is already deployed.');
-        // Dev build continues without DB — common in CI without DB access
       } else {
         console.warn('⚠️  prisma db push failed:', devPushOutput.slice(0, 300));
         console.warn('   Continuing build anyway (dev mode)...');

@@ -2,6 +2,8 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // API Route: POST /api/ai/analyze-progress
 // 分析學生學習進度 — 從 DB 讀取真實歷史數據
+// R3.10-C.2: 所有評分數據（overallAccuracy / weakSkills / recentPerformance）
+// 只來自 canonical verified evidence。客戶端評分數據永不作為證據。
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,6 +11,10 @@ import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUs
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
+import {
+  getVerifiedPracticeSessions,
+  projectVerifiedProgress,
+} from '@/modules/exercise/services/practice-evidence-service';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -34,70 +40,49 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { studentId, studentLevel, overallAccuracy, weakSkills, recentPerformance, streakDays } = body;
 
-    // 優先使用伺服器端查詢的真實數據；若客戶端已提供完整數據則作為 fallback
     let resolvedLevel = studentLevel || 'S4';
-    let resolvedAccuracy = overallAccuracy ?? 0;
-    let resolvedWeakSkills = weakSkills || [];
-    let resolvedRecentPerformance = recentPerformance || [];
-    let resolvedStreakDays = streakDays ?? 0;
+    let resolvedAccuracy: number | null = null;
+    let resolvedWeakSkills: Array<{ name: string; nameZh: string; accuracy: number }> = [];
+    let resolvedRecentPerformance: Array<{ date: string; accuracy: number; questionsDone: number }> = [];
+    let resolvedStreakDays = 0;
+    // 'database' = server-verified evidence; 'client' = unverified UI context (narrative only).
+    let sourceLabel: 'database' | 'client' = 'client';
 
     if (studentId) {
+      sourceLabel = 'database';
       try {
-        // 從 DB 讀取學生真實數據
-        const [user, sessions, mistakes, _vocabItems] = await Promise.all([
+        // R3.10-C.2: 客戶端 overallAccuracy/weakSkills/recentPerformance 一律忽略。
+        // 只從 canonical verified evidence + 伺服器持有的 user 聚合值推導。
+        const [user, verifiedSessions, mistakes] = await Promise.all([
           adminDbQuery('user', 'findUnique', {
             where: { id: studentId },
             select: { level: true, overallAccuracy: true, streakDays: true },
           }) as Promise<{level: string | null; overallAccuracy: number | null; streakDays: number} | null>,
-          adminDbQuery('practiceSession', 'findMany', {
-            where: { studentId },
-            orderBy: { startedAt: 'desc' },
-            take: 30,
-            select: { skillZh: true, totalQuestions: true, correctCount: true, startedAt: true },
-          }) as Promise<Array<{skillZh: string | null; totalQuestions: number; correctCount: number; startedAt: Date}>>,
+          getVerifiedPracticeSessions(studentId, 30),
           adminDbQuery('mistake', 'findMany', {
             where: { studentId },
             select: { mistakeType: true },
           }) as Promise<Array<{mistakeType: string}>>,
-          adminDbQuery('vocabItem', 'findMany', {
-            where: { studentId },
-            select: { familiarity: true },
-          }) as Promise<Array<{familiarity: number | null}>>,
         ]);
 
         if (user) {
           resolvedLevel = user.level || resolvedLevel;
-          resolvedAccuracy = user.overallAccuracy ?? resolvedAccuracy;
-          resolvedStreakDays = user.streakDays ?? resolvedStreakDays;
+          // user.overallAccuracy 由 syncActivityMetrics 從 verified evidence 推導 —
+          // 是 canonical 的權威聚合值。
+          resolvedAccuracy = typeof user.overallAccuracy === 'number' ? user.overallAccuracy : null;
+          resolvedStreakDays = user.streakDays ?? 0;
         }
 
-        // 計算各技能準確率（弱項分析）
-        if (sessions.length > 0) {
-          const skillMap = new Map<string, { total: number; correct: number }>();
-          sessions.forEach(s => {
-            const key = s.skillZh || 'general';
-            const entry = skillMap.get(key) || { total: 0, correct: 0 };
-            entry.total += s.totalQuestions;
-            entry.correct += s.correctCount;
-            skillMap.set(key, entry);
-          });
-          resolvedWeakSkills = Array.from(skillMap.entries())
-            .map(([name, v]) => ({
-              name,
-              nameZh: name,
-              accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
-            }))
-            .filter(s => s.accuracy < 70);
-
-          resolvedRecentPerformance = sessions.slice(0, 10).map(s => ({
-            date: new Date(s.startedAt).toLocaleDateString(),
-            accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100),
-            questionsDone: s.totalQuestions,
-          }));
+        // 弱項 / 近期表現只來自 verified sessions（row-derived evidence）。
+        const projection = projectVerifiedProgress(verifiedSessions);
+        if (resolvedAccuracy === null && projection.overallAccuracy !== null) {
+          resolvedAccuracy = projection.overallAccuracy;
         }
+        resolvedWeakSkills = projection.weakSkills;
+        resolvedRecentPerformance = projection.recentPerformance;
 
-        // 錯題類型分布（補充弱項信號）
-        if (mistakes.length > 0 && resolvedWeakSkills.length === 0) {
+        // 錯題類型分布（伺服器持有的輔助信號，只在已有權威準確率時使用）
+        if (mistakes.length > 0 && resolvedWeakSkills.length === 0 && resolvedAccuracy !== null) {
           const mistakeTypes = [...new Set(mistakes.map(m => m.mistakeType))];
           resolvedWeakSkills = mistakeTypes.map(t => ({
             name: t,
@@ -106,17 +91,44 @@ export async function POST(request: NextRequest) {
           }));
         }
 
-        // 如果弱項太少，加入整體弱項
-        if (resolvedWeakSkills.length === 0) {
+        // 如果弱項太少，加入整體弱項（accuracy 為伺服器權威值）
+        if (resolvedWeakSkills.length === 0 && resolvedAccuracy !== null) {
           resolvedWeakSkills = [{ name: 'general', nameZh: '綜合', accuracy: resolvedAccuracy }];
         }
-      } catch { /* DB 查詢失敗時使用客戶端提供的數據 */ }
+      } catch (err: unknown) {
+        // DB 驗證失敗 → 一律視為證據不足；絕不回退客戶端評分數據。
+        logger.warn({ module: 'analyze-progress', studentId, error: err instanceof Error ? err.message : String(err) }, 'Verified evidence query failed — treating as insufficient evidence');
+      }
+
+      // R3.10-C.2: 證據不足 → 明確的 insufficient-evidence 狀態。
+      // NEVER fabricate a fallback from client totals.
+      if (resolvedAccuracy === null && resolvedWeakSkills.length === 0 && resolvedRecentPerformance.length === 0) {
+        return NextResponse.json({
+          analysis: null,
+          insufficientEvidence: true,
+          message: '尚無足夠的已驗證練習紀錄可進行分析',
+          _source: sourceLabel,
+          _meta: {
+            provider: getLastAIProvider(),
+            ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini）。' } : {}),
+          },
+        }, {
+          headers: { 'X-AI-Provider': getLastAIProvider() },
+        });
+      }
+    } else {
+      // 無 studentId：客戶端值僅作為 UI/context 敘事輸入，明確標記為
+      // non-authoritative（_source: 'client'），且永不持久化。
+      resolvedAccuracy = typeof overallAccuracy === 'number' ? overallAccuracy : 0;
+      resolvedWeakSkills = Array.isArray(weakSkills) ? weakSkills : [];
+      resolvedRecentPerformance = Array.isArray(recentPerformance) ? recentPerformance : [];
+      resolvedStreakDays = typeof streakDays === 'number' ? streakDays : 0;
     }
 
     const analysis = await analyzeProgress({
       userId: authResult.userId,
       studentLevel: resolvedLevel,
-      overallAccuracy: resolvedAccuracy,
+      overallAccuracy: resolvedAccuracy ?? 0,
       weakSkills: resolvedWeakSkills,
       recentPerformance: resolvedRecentPerformance,
       streakDays: resolvedStreakDays,
@@ -124,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       analysis,
-      _source: studentId ? 'database' : 'client',
+      _source: sourceLabel,
       _meta: {
         provider: getLastAIProvider(),
         ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini）。' } : {}),

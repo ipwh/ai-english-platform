@@ -74,6 +74,7 @@ import {
   assessCompleteness,
   buildEvaluation,
 } from '@/modules/reading/evaluation';
+import { persistGeneratedReadingQuestions, resolveReadingQuestionDefinitions } from '@/modules/reading/services/reading-question-service';
 import type { ReadingAnswerEvaluation } from '@/modules/reading/evaluation';
 import { buildReadingDiagnosticFeedback } from '@/modules/reading/feedback';
 import type { ReadingDiagnosticFeedback } from '@/modules/reading/feedback';
@@ -108,6 +109,18 @@ const DSE_TYPE_MAP: Record<string, string> = {
 
 function mapDseTypeToFrontend(aiType: string): string {
   return DSE_TYPE_MAP[aiType] || 'sentence_transformation';
+}
+
+/**
+ * Reverse lookup: frontend snake_case dseType → a representative backend
+ * camelCase type. R3.9 (R39-A): used only to reconstruct routing metadata
+ * for display scoring from persisted ReadingQuestion definitions. The
+ * representative choice never changes scoring semantics — all backend
+ * types sharing one frontend type use identical routing.
+ */
+const FRONTEND_TO_BACKEND: Record<string, string> = {};
+for (const [backend, frontend] of Object.entries(DSE_TYPE_MAP)) {
+  if (!(frontend in FRONTEND_TO_BACKEND)) FRONTEND_TO_BACKEND[frontend] = backend;
 }
 
 function isMcLikeDseType(dseType: string): boolean {
@@ -762,6 +775,11 @@ export async function GET(_request: NextRequest) {
 // ============================================
 // Action: full-paper — 完整 DSE 模擬卷生成
 // ============================================
+// R3.9 (R39-B): 此端點目前無任何 UI 消費者（dormant）。它只回傳一份原始
+// 生成卷 JSON — 不持久化 ReadingQuestion、不建立任何執行身份。
+// 未來若為其接上學生作答流程，必須先將題目定義持久化為 ReadingQuestion
+// （經 assignServerOwnedQuestionIds），否則 /api/practice 將無法評分。
+// 本端點目前不得回傳任何「可執行」的題目 id。
 async function handleFullPaperGeneration(body: Record<string, unknown>) {
   const startTime = Date.now();
   const {
@@ -1042,16 +1060,51 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 // ============================================
 // Action: analyze-answers — 錯題分析與分類
 // ============================================
+// R3.9 (R39-A): 此路徑僅供顯示/回饋，永不持久化 PracticeAnswer 或
+// PracticeSession，永不成為持久化評分權威。
+// - 當客戶端提供持久化題目 id（questionIds）時，答案鍵 / marks / 題型
+//   一律由伺服器持有的 ReadingQuestion 解析；客戶端元資料不作數。
+// - 無法解析的題目 → 422 QUESTION_NOT_FOUND（不發明後備分數）。
+// - 未提供 questionIds 的舊版請求（客戶端元資料）保留為 display-only，
+//   明確標記為非權威、非持久化。
 async function handleAnswerAnalysis(body: Record<string, unknown>) {
-  const {
-    questions,
-    studentAnswers,
-    passageContent,
-  } = body as {
-    questions: DSEreadingQuestion[];
-    studentAnswers: Record<number, string>;
+  const raw = body as {
+    questions?: DSEreadingQuestion[];
+    questionIds?: unknown;
+    studentAnswers?: Record<number, string>;
     passageContent?: string;
   };
+  let { questions } = raw;
+  const { studentAnswers, passageContent } = raw;
+
+  if (
+    (!questions || questions.length === 0) &&
+    Array.isArray(raw.questionIds) &&
+    raw.questionIds.length > 0
+  ) {
+    const ids = raw.questionIds.map(id => String(id));
+    const defs = await resolveReadingQuestionDefinitions(ids);
+    const missing = ids.filter(id => !defs.has(id));
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `找不到題目定義（伺服器不持有此題）: ${missing.join(', ')}`, code: 'QUESTION_NOT_FOUND' },
+        { status: 422 },
+      );
+    }
+    questions = ids.map((id, i) => {
+      const d = defs.get(id)!;
+      const backendType = d.dseType ? (FRONTEND_TO_BACKEND[d.dseType] ?? d.questionType) : d.questionType;
+      return {
+        index: i,
+        type: backendType as DSEreadingQuestion['type'],
+        questionText: d.questionText,
+        answer: d.answer,
+        marks: d.marks,
+        choices: d.choices ?? undefined,
+        explanationZh: '',
+      };
+    });
+  }
 
   if (!questions || !studentAnswers) {
     return NextResponse.json({ error: 'questions and studentAnswers are required' }, { status: 400 });
@@ -1198,6 +1251,9 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
 // ============================================
 // Action: summary-cloze-training
 // ============================================
+// R3.9 (R39-B): 訓練端點目前無消費者（dormant）— 僅生成內容，不持久化
+// 題目定義、不建立執行、不回傳可執行的題目 id。未來接上學生作答前必須
+// 先持久化 ReadingQuestion 定義。
 async function handleSummaryClozeTraining(body: Record<string, unknown>) {
   const {
     targetLevel = 4,
@@ -1938,6 +1994,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const dseType = mapDseTypeToFrontend(aiType);
 
         return {
+          // R3.7: 伺服器分配的正典題目 id（assignServerOwnedQuestionIds
+          // 於生成時持久化題目定義並回填 id）。
+          id: '',
           index: (q.index as number) || i + 1,
           tier,
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
@@ -1956,6 +2015,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           explanationEn: (q.explanationEn as string) || undefined,
         };
       });
+      response.questions = await assignServerOwnedQuestionIds(
+        response.questions as Array<Record<string, unknown>>,
+      );
     }
   } else {
     // 2. Transform question format from v2 AI output to legacy frontend format (no passage transform needed)
@@ -2015,6 +2077,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const dseType2 = mapDseTypeToFrontend(aiType);
 
         return {
+          // R3.7: 伺服器分配的正典題目 id（assignServerOwnedQuestionIds
+          // 於生成時持久化題目定義並回填 id）。
+          id: '',
           index: (q.index as number) || i + 1,
           tier,
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
@@ -2033,6 +2098,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           explanationEn: (q.explanationEn as string) || undefined,
         };
       });
+      response.questions = await assignServerOwnedQuestionIds(
+        response.questions as Array<Record<string, unknown>>,
+      );
     }
   }
   response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
@@ -2043,6 +2111,38 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 // ============================================
 // Helper: Generate targeted recommendations
 // ============================================
+
+// ============================================
+// R3.7: 生成時持久化伺服器持有的正典題目定義
+// ============================================
+/**
+ * Persist each generated question as a server-owned definition and
+ * assign the persisted id as its canonical identity.
+ *
+ * R37-H05: generation semantics — every generation request produces a
+ * NEW set of immutable definitions (no dedup of identical content).
+ * createMany is a single atomic statement: either the whole set is
+ * persisted or the request fails — there is no partial set. If the
+ * write fails, the error propagates (HTTP 500) so the client retries;
+ * no rd-* fallback ids are ever produced for new generations.
+ */
+async function assignServerOwnedQuestionIds(
+  questions: Array<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  const ids = await persistGeneratedReadingQuestions(
+    questions.map((q, i) => ({
+      questionType: String(q.type || 'short-answer'),
+      dseType: typeof q.dseType === 'string' ? q.dseType : null,
+      questionText: String(q.question || ''),
+      choices: Array.isArray(q.choices) ? (q.choices as string[]) : null,
+      answer: String(q.answer || ''),
+      marks: typeof q.marks === 'number' && Number.isFinite(q.marks) && q.marks > 0 ? q.marks : 1,
+      orderIndex: i,
+    })),
+  );
+  return questions.map((q, i) => ({ ...q, id: ids[i] }));
+}
+
 function generateRecommendations(
   errorBreakdown: Record<string, number>,
   typeBreakdown: Record<string, { correct: number; total: number }>,

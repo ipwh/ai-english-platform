@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Reading.pdf",
+  "sourceYear": null,
+  "paper": "Paper 1",
+  "rubricScope": "level-descriptors-reading",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Reading.pdf.txt",
+  "sourceHash": "f41012df256c3f2f3a6a57b6421fe870ba7defb27f7b2fddfbfddf2ddf422615",
+  "id": "hkeaa-leveldescriptorsreading-level3",
+  "level": 3,
+  "dimension": null,
+  "mark": null,
+  "descriptorText": "Level 3  \n \nGeneral comprehension  \n The main theme or ideas of a parag raph are identified if a text is straightforward.  \n Explicitly expressed views and attitudes are identified.  \nSpecific comprehension  \n Explicitly stated information is understood in fairly complex texts on familiar themes.  \n Straightforward inferences are  made.  \n The meaning of words and phrases is identified when a familiar context is given.  \nAwareness of style  \n Tone and mood are interpreted in simple texts."
+}

@@ -8,8 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { logger } from '@/shared/logger/logger';
-import { MASTERY_SKILLS } from '@/modules/student/mastery/types';
-import type { MasterySkill } from '@/modules/student/mastery/types';
 import { clearDiagnosticResults, createDiagnosticResult } from '@/modules/student';
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
@@ -63,47 +61,11 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    // 🔧 Sync diagnostic results to StudentMastery so dashboard shows real scores (not 0)
-    try {
-      // Map diagnostic skill names to MasterySkill enum
-      const skillMap: Record<string, MasterySkill> = {
-        grammar: 'grammar', vocabulary: 'vocabulary',
-        reading: 'reading', writing: 'writing',
-        listening: 'listening', speaking: 'speaking',
-      };
-      for (const r of results) {
-        const masterySkill = skillMap[r.skill];
-        if (!masterySkill) continue;
-        // Initialize mastery with the diagnostic accuracy as the baseline score
-        // and a single practice entry to bootstrap the system
-        await adminDbQuery('studentMastery', 'upsert', {
-          where: { studentId_skill_subSkill: { studentId, skill: masterySkill, subSkill: r.skill } },
-          create: {
-            studentId,
-            skill: masterySkill,
-            subSkill: r.skill,
-            masteryScore: Math.round(r.accuracy),
-            confidenceScore: 50, // moderate confidence for diagnostic results
-            retentionScore: 100,  // just completed, full retention
-            correctCount: Math.round(r.accuracy / 100 * 5), // estimate: ~5 questions per skill
-            practiceCount: 5,
-            mistakeCount: Math.round((100 - r.accuracy) / 100 * 5),
-            lastPracticedAt: new Date(),
-          },
-          update: {
-            masteryScore: Math.round(r.accuracy),
-            confidenceScore: 50,
-            retentionScore: 100,
-            lastPracticedAt: new Date(),
-          },
-        });
-      }
-      logger.info({ module: 'diagnostic', studentId, skillCount: results.length }, 'Synced diagnostic results to StudentMastery');
-    } catch (syncErr) {
-      logger.warn({ module: 'diagnostic', studentId, error: syncErr instanceof Error ? syncErr.message : String(syncErr) }, 'Failed to sync diagnostic to mastery (non-critical)');
-    }
+    // R3.10-D.3 (Priority 1): 診斷結果為客戶端自評（self-reported）。
+    // 客戶端 accuracy 絕不寫入 studentMastery 或任何 trusted learning state。
+    // 診斷只作為學生自我評估的參考顯示（selfReported: true）。
 
-    return NextResponse.json({ results: created }, { status: 201 });
+    return NextResponse.json({ results: created, selfReported: true }, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '未知錯誤';
     return NextResponse.json({ error: msg }, { status: 500 });

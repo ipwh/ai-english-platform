@@ -232,12 +232,18 @@ export default function DiagnosticPage() {
         const plans = buildDiagnosticPlans(studentLevel, derivedWeakSkills);
 
         setWeakSkills(derivedWeakSkills);
+        // R3.10-C.2: 近期表現只使用 verified row-derived 證據；
+        // 不可驗證 session 絕不用原始 totalQuestions/correctCount 計算準確率。
         setRecentPerformance(
-          sessions.slice(0, 10).map(s => ({
-            date: new Date(s.startedAt).toISOString().split('T')[0],
-            accuracy: s.totalQuestions > 0 ? Math.round((s.correctCount / s.totalQuestions) * 100) : 0,
-            questionsDone: s.totalQuestions,
-          }))
+          sessions.slice(0, 10).flatMap(s => {
+            const v = s.verified;
+            if (!v || v.status !== 'verified') return [];
+            return [{
+              date: new Date(s.startedAt).toISOString().split('T')[0],
+              accuracy: Math.round(((v.correctCount ?? 0) / Math.max(1, v.totalQuestions ?? 0)) * 100),
+              questionsDone: v.totalQuestions ?? 0,
+            }];
+          })
         );
 
         // 🔥 If no weak skills found (new student or insufficient data), show dedicated message
@@ -542,6 +548,7 @@ export default function DiagnosticPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          studentId: studentProfile?.id || undefined,
           studentLevel: getStudentLevel(studentProfile),
           overallAccuracy: (() => {
             // Exclude writing (score < 0 = pending CLO) and untested skills (0 questions)

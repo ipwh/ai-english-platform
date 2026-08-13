@@ -124,6 +124,12 @@ export interface PracticeSessionLite {
   totalQuestions: number;
   correctCount: number;
   startedAt: string;
+  /** R3.10-C: verified row-derived totals (null when unverifiable) */
+  verified?: {
+    status: 'verified' | 'unverifiable';
+    totalQuestions?: number;
+    correctCount?: number;
+  } | null;
 }
 
 export interface MistakeLite {
@@ -144,8 +150,11 @@ export function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: Mista
   for (const session of sessions) {
     const normalized = normalizeSkillName(session.skill || session.skillZh || 'grammar');
     const current = accuracyMap.get(normalized.name) || { nameZh: normalized.nameZh, correct: 0, total: 0 };
-    current.correct += session.correctCount || 0;
-    current.total += session.totalQuestions || 0;
+    // R3.10-C: 優先使用 verified row-derived 聚合值；不可驗證的 session 不計入。
+    if (session.verified && session.verified.status === 'verified') {
+      current.correct += session.verified.correctCount ?? 0;
+      current.total += session.verified.totalQuestions ?? 0;
+    }
     accuracyMap.set(normalized.name, current);
   }
 

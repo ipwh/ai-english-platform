@@ -50,6 +50,11 @@ next-env.d.ts
 *gcp-service-account*.json
 materials/_extracted/
 
+# Cloud Run env file contains real secrets — LOCAL ONLY, never commit
+# (was previously tracked; if it ever reached GitHub, rotate ALL keys)
+cloud-run-env.yaml
+cloud-run-env*.yaml
+
 # Large PDF materials (too big for GitHub)
 materials/*.pdf
 materials/**/*.pdf

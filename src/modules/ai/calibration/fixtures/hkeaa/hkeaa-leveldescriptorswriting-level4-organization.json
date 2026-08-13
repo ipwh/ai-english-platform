@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "a695039705cfc2c93f1ee88efa3bf4eda73c003b98330dd9e761ddb3caf1c96b",
+  "id": "hkeaa-leveldescriptorswriting-level4-organization",
+  "level": 4,
+  "dimension": "organization",
+  "mark": null,
+  "descriptorText": "Organization  \n The structure of the writing is coherent in most parts and appropriate to the genre and text type.  \n Paragraphing is sufficiently effective for overall coherence to be maintained.  \n Cohesion between most sentences and paragraphs is successful."
+}

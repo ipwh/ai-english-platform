@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "a695039705cfc2c93f1ee88efa3bf4eda73c003b98330dd9e761ddb3caf1c96b",
+  "id": "hkeaa-leveldescriptorswriting-level4-content",
+  "level": 4,
+  "dimension": "content",
+  "mark": null,
+  "descriptorText": "Content  \n The content is relevant, in parts detailed and engages the reader’s interest.  \n Creativity and imagination are shown in most parts of the writing."
+}

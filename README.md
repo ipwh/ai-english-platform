@@ -9,7 +9,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-11 — 84 files, 1919 tests pass.
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-13 — 117 files, 2702 tests pass (full non-E2E).
 
 ## 🏗️ Architecture Overview
 
@@ -253,6 +253,14 @@ Golden benchmark infrastructure 已就緒（5 個 calibration fixtures），但 
 - **Pro 方案建議**: 60s maxDuration 更適合長寫作批改
 - **Log Drain**: 建議設定 → Logs → External Log Draining（Datadog / Axiom）
 - **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
+
+### Cloud Run 部署要點
+- **自動部署**: push 到 `main` 觸發 `cloudbuild.yaml`（docker build → push → `gcloud run deploy`，環境變數不覆蓋）；或 `npm run cloud-run:deploy:win -- -ProjectId ...`
+- **建構**: Dockerfile 多階段建構（`next build` + standalone output），建構時用 placeholder DB，**不會**在映像檔建構期間執行 migration
+- **資料庫遷移**: 部署前/後手動 `npx prisma migrate deploy`（詳見 [`docs/CLOUD_RUN_MIGRATION.md`](./docs/CLOUD_RUN_MIGRATION.md)）
+- **GCP 憑證**: 映像檔**不包含**任何憑證檔案；在 Cloud Run 設定 `GCP_SERVICE_ACCOUNT_JSON` 環境變數（建議 Secret Manager）
+- **機密**: `cloud-run-env.yaml` 僅保留在本地（已加入 `.gitignore`），勿 commit
+- **健康檢查**: `/api/health`（liveness probe）+ TCP 8080（startup probe）
 
 
 ## 近期更新

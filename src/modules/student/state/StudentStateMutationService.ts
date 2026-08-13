@@ -192,12 +192,11 @@ export class StudentStateMutationService {
    */
   async syncActivityMetrics(studentId: string): Promise<{ accuracy: number; weekStart: string }> {
     const { db } = await import('@/shared/db/db');
+    const { listPracticeSessionsWithEvidence } = await import('@/modules/exercise/repositories/practice-repo');
+    const { evaluatePracticeEvidence } = await import('@/modules/exercise/services/practice-evidence-service');
 
     const [sessions, submissions] = await Promise.all([
-      db.practiceSession.findMany({
-        where: { studentId },
-        select: { totalQuestions: true, correctCount: true, startedAt: true },
-      }),
+      listPracticeSessionsWithEvidence(studentId, 200).catch(() => [] as Array<{ id: string; startedAt: Date; answers: unknown[] }>),
       db.submission.findMany({
         where: {
           studentId,
@@ -214,8 +213,22 @@ export class StudentStateMutationService {
     ]);
 
     type Activity = { totalQuestions: number; correctCount: number; completedAt: Date };
+
+    // R3.10-C: 只有具備「可驗證評分證據」的 sessions 才計入 accuracy。
+    // 零答案 / presence / 歷史不可驗證的 sessions 一律排除，永不修復。
+    const verifiedActivities: Activity[] = [];
+    for (const s of sessions) {
+      const evidence = evaluatePracticeEvidence(s.answers);
+      if (evidence.status !== 'verified') continue;
+      verifiedActivities.push({
+        totalQuestions: evidence.totalQuestions,
+        correctCount: evidence.correctCount,
+        completedAt: s.startedAt,
+      });
+    }
+
     const activities: Activity[] = [
-      ...sessions.map(s => ({ totalQuestions: s.totalQuestions, correctCount: s.correctCount, completedAt: s.startedAt })),
+      ...verifiedActivities,
       ...submissions.map(s => ({ totalQuestions: s.assignment.questionCount, correctCount: Math.round((s.score! / 100) * s.assignment.questionCount), completedAt: s.submittedAt! })),
     ];
 

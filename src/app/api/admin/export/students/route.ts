@@ -2,6 +2,9 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/admin/export/students
 // 匯出完整學生資料（含進度、準確率、練習次數）
+// R3.10-C.2: scored 欄位（sessionAccuracy / totalQuestionsAnswered /
+// totalCorrectAnswers）只含 verified evidence；原始歷史值以
+// recordedTotalQuestions / recordedCorrectCount 明確標記。
 // 支援 ?academicYear=2025-2026 跨學年查詢
 // 支援 ?type=weekly|individual 報告類型
 // 支援 ?className=4A 班級篩選
@@ -14,6 +17,7 @@ import { logger } from '@/shared/logger/logger';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
+import { aggregateStudentPracticeTotals } from '@/modules/exercise/services/practice-evidence-service';
 
 async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized: boolean; userId?: string; error?: string }> {
   // Try admin first
@@ -69,7 +73,7 @@ export async function GET(request: NextRequest) {
       overallAccuracy: number | null; streakDays: number;
       academicYear: string | null; joinedAt: Date | null;
       _count: {sessions: number; mistakes: number; vocabItems: number; submissions: number};
-      sessions: Array<{totalQuestions: number; correctCount: number}>;
+      sessions: Array<{totalQuestions: number; correctCount: number; answers: unknown[]}>;
       submissions: Array<{score: number | null; assignment: {questionCount: number}}>;
     };
 
@@ -89,7 +93,23 @@ export async function GET(request: NextRequest) {
         classNumber: true,
         _count: { select: { sessions: true, mistakes: true, vocabItems: true, submissions: true } },
         sessions: {
-          select: { totalQuestions: true, correctCount: true, startedAt: true },
+          select: {
+            totalQuestions: true,
+            correctCount: true,
+            startedAt: true,
+            answers: {
+              select: {
+                questionId: true,
+                result: true,
+                awardedScore: true,
+                maxScore: true,
+                countsTowardScore: true,
+                scoredBy: true,
+                scoringMethod: true,
+              },
+              orderBy: { questionIndex: 'asc' },
+            },
+          },
           orderBy: { startedAt: 'desc' },
           take: 50,
         },
@@ -102,14 +122,17 @@ export async function GET(request: NextRequest) {
     }) as StudentExportRow[];
 
     // 計算每位學生的練習總次數與總題數
+    // R3.10-C.2: scored 總數只含 verified row-derived evidence；
+    // 原始歷史值保留為 recordedTotalQuestions / recordedCorrectCount。
     const enriched = students.map(s => {
       const assignmentQuestions = s.submissions.reduce((sum, submission) => sum + submission.assignment.questionCount, 0);
       const assignmentCorrect = s.submissions.reduce(
         (sum, submission) => sum + Math.round((submission.score! / 100) * submission.assignment.questionCount),
         0,
       );
-      const totalQuestions = s.sessions.reduce((sum, sess) => sum + sess.totalQuestions, 0) + assignmentQuestions;
-      const totalCorrect = s.sessions.reduce((sum, sess) => sum + sess.correctCount, 0) + assignmentCorrect;
+      const practiceTotals = aggregateStudentPracticeTotals(s.sessions);
+      const totalQuestions = practiceTotals.verifiedTotalQuestions + assignmentQuestions;
+      const totalCorrect = practiceTotals.verifiedCorrectCount + assignmentCorrect;
       const sessionAccuracy = totalQuestions > 0
         ? Math.round((totalCorrect / totalQuestions) * 100)
         : null;
@@ -127,6 +150,10 @@ export async function GET(request: NextRequest) {
         practiceSessions: s._count.sessions + s.submissions.length,
         totalQuestionsAnswered: totalQuestions,
         totalCorrectAnswers: totalCorrect,
+        verifiedTotalQuestions: practiceTotals.verifiedTotalQuestions,
+        verifiedCorrectCount: practiceTotals.verifiedCorrectCount,
+        recordedTotalQuestions: practiceTotals.recordedTotalQuestions,
+        recordedCorrectCount: practiceTotals.recordedCorrectCount,
         mistakes: s._count.mistakes,
         vocabItems: s._count.vocabItems,
         submissions: s._count.submissions,
@@ -163,10 +190,14 @@ export async function GET(request: NextRequest) {
         }
       } else {
         // Individual report: per-student detailed data
+        // scored 欄位為 verified-based；原始歷史值以 recorded* 欄位明確標記。
         const headers = [
           'studentId', 'email', 'nameZh', 'nameEn', 'level', 'className',
           'classNumber', 'overallAccuracy', 'sessionAccuracy', 'practiceSessions',
-          'totalQuestionsAnswered', 'totalCorrectAnswers', 'mistakes', 'vocabItems',
+          'totalQuestionsAnswered', 'totalCorrectAnswers',
+          'recordedTotalQuestions', 'recordedCorrectCount',
+          'verifiedTotalQuestions', 'verifiedCorrectCount',
+          'mistakes', 'vocabItems',
           'submissions', 'academicYear', 'streakDays', 'joinedAt',
         ];
         csvRows = [headers.join(',')];
@@ -175,7 +206,9 @@ export async function GET(request: NextRequest) {
             s.studentId, s.email, `"${s.nameZh || ''}"`, `"${s.nameEn || ''}"`,
             s.level, s.className, s.classNumber, s.overallAccuracy ?? '',
             s.sessionAccuracy ?? '', s.practiceSessions, s.totalQuestionsAnswered,
-            s.totalCorrectAnswers, s.mistakes, s.vocabItems, s.submissions,
+            s.totalCorrectAnswers, s.recordedTotalQuestions, s.recordedCorrectCount,
+            s.verifiedTotalQuestions, s.verifiedCorrectCount,
+            s.mistakes, s.vocabItems, s.submissions,
             s.academicYear, s.streakDays, s.joinedAt,
           ].join(','));
         }

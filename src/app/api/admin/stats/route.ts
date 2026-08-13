@@ -2,11 +2,14 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/admin/stats
 // 全校統計數據（供 Recharts 儀表板使用）
+// R3.10-C.2: 每月 scored trend（questions/correct/accuracy）只計
+// canonical verified evidence；session 數保持為原始 engagement 計數。
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
+import { aggregateVerifiedMonthlyTrend } from '@/modules/exercise/services/practice-evidence-service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,13 +64,30 @@ export async function GET(request: NextRequest) {
     const totalSessions = practiceSessionCount + assignmentSubmissionCount;
 
     // ---- 練習趨勢（按月份） ----
+    // R3.10-C.2: session 數 = 原始 engagement；questions/correct = verified evidence only。
     const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
     const [recentSessions, recentSubmissions] = await Promise.all([
       adminDbQuery('practiceSession', 'findMany', {
         where: { startedAt: { gte: sixMonthsAgo } },
-        select: { startedAt: true, totalQuestions: true, correctCount: true },
+        select: {
+          startedAt: true,
+          totalQuestions: true,
+          correctCount: true,
+          answers: {
+            select: {
+              questionId: true,
+              result: true,
+              awardedScore: true,
+              maxScore: true,
+              countsTowardScore: true,
+              scoredBy: true,
+              scoringMethod: true,
+            },
+            orderBy: { questionIndex: 'asc' },
+          },
+        },
         orderBy: { startedAt: 'asc' },
-      }) as Promise<Array<{startedAt: Date; totalQuestions: number; correctCount: number}>>,
+      }) as Promise<Array<{startedAt: Date; totalQuestions: number; correctCount: number; answers: unknown[]}>>,
       adminDbQuery('submission', 'findMany', {
         where: { status: { in: ['submitted', 'graded'] }, submittedAt: { gte: sixMonthsAgo }, score: { not: null } },
         select: { submittedAt: true, score: true, assignment: { select: { questionCount: true } } },
@@ -75,15 +95,11 @@ export async function GET(request: NextRequest) {
       }) as Promise<Array<{submittedAt: Date | null; score: number | null; assignment: {questionCount: number}}>>,
     ]);
 
-    // 按月彙總
+    // 按月彙總 — 練習 scored 計數只來自 canonical verified evidence
+    const verifiedTrend = aggregateVerifiedMonthlyTrend(recentSessions);
     const monthlyMap = new Map<string, { sessions: number; questions: number; correct: number }>();
-    for (const s of recentSessions) {
-      const month = s.startedAt.toISOString().slice(0, 7); // YYYY-MM
-      const entry = monthlyMap.get(month) || { sessions: 0, questions: 0, correct: 0 };
-      entry.sessions++;
-      entry.questions += s.totalQuestions;
-      entry.correct += s.correctCount;
-      monthlyMap.set(month, entry);
+    for (const p of verifiedTrend) {
+      monthlyMap.set(p.month, { sessions: p.sessions, questions: p.verifiedQuestions, correct: p.verifiedCorrect });
     }
     for (const submission of recentSubmissions) {
       const month = submission.submittedAt!.toISOString().slice(0, 7);

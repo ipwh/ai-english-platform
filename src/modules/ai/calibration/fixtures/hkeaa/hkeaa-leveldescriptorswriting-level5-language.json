@@ -1,0 +1,16 @@
+{
+  "kind": "official-rubric-reference",
+  "schemaVersion": 1,
+  "sourceOrganization": "hkeaa",
+  "sourceDocument": "LevelDescriptors-ENG-Writing.pdf",
+  "sourceYear": null,
+  "paper": "Paper 2",
+  "rubricScope": "level-descriptors-writing",
+  "sourceFile": "materials\\_hkeaa_descriptors\\LevelDescriptors-ENG-Writing.pdf.txt",
+  "sourceHash": "c72ff2fe4b5470ef0f71499f367ebd402191fcef31509b787920d43c0337a8ce",
+  "id": "hkeaa-leveldescriptorswriting-level5-language",
+  "level": 5,
+  "dimension": "language",
+  "mark": null,
+  "descriptorText": "Language and style  \n A wide range of sentence structures is used accurately and appropriately.  \n Meaning is conveyed through accurate and appropriate punctuation and grammar.  \n V ocabulary is wide and appropriate, wit h some use of more ambitious and sophisticated \nlanguage.  \n Register, tone and style are appropriate to the text type."
+}

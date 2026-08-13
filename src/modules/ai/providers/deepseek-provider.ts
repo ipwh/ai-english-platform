@@ -19,7 +19,7 @@ function maskApiKey(key: string): string {
 function debugLog(label: string, data: unknown): void {
   if (!DEBUG) return;
   const line = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  console.log(`\n[DEEPSEEK DEBUG] ========== ${label} ==========\n${line}\n`);
+  logger.info({ module: 'deepseek-debug' }, `\n[DEEPSEEK DEBUG] ========== ${label} ==========\n${line}\n`);
 }
 
 export class DeepSeekProvider implements AIProvider {

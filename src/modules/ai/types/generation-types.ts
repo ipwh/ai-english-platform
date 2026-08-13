@@ -31,4 +31,6 @@ export interface GeneratedQuestion {
   listeningContentZh?: string;
   readingContent?: string;
   readingContentZh?: string;
+  /** R3.10-D: server-assigned canonical GrammarQuestion id (grammar only). */
+  id?: string;
 }
