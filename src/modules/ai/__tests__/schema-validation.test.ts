@@ -111,10 +111,16 @@ describe('WritingAnalysisSchema', () => {
     expect(() => WritingAnalysisSchema.parse(rest)).not.toThrow();
   });
 
-  it('should accept valid DSE levels', () => {
-    const levels = ['1', '2', '3', '4', '5', '5*', '5**', 'U'];
+  it('should accept valid DSE levels (internal 1–5 only)', () => {
+    const levels = ['1', '2', '3', '4', '5'];
     for (const lv of levels) {
       expect(() => WritingAnalysisSchema.parse({ ...validWriting, dseLevel: lv })).not.toThrow();
+    }
+  });
+
+  it('should reject 5* / 5** / U / arbitrary level strings', () => {
+    for (const lv of ['0', '6', '5*', '5**', 'U', 'Level 4', 'level 5']) {
+      expect(() => WritingAnalysisSchema.parse({ ...validWriting, dseLevel: lv })).toThrow();
     }
   });
 

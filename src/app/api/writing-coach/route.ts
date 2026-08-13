@@ -1,7 +1,7 @@
 // Sprint 111: Writing Coach API — uses unified AI-powered WritingCoachService
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { writingCoachService } from '@/modules/writing-coach/services/writing-coach-service';
+import { writingCoachService, WritingScoringUnavailableError } from '@/modules/writing-coach/services/writing-coach-service';
 import type { EssaySubmission } from '@/modules/writing-coach/types';
 import { logger } from '@/shared/logger/logger';
 
@@ -75,6 +75,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
   } catch (err) {
+    if (err instanceof WritingScoringUnavailableError) {
+      // FAIL CLOSED: infrastructure/model failure is never a student mark.
+      return NextResponse.json(
+        { status: err.status, reason: err.message, retryable: err.retryable },
+        { status: 503 },
+      );
+    }
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ module: 'writing-coach-api', error: msg }, 'POST /api/writing-coach failed');
     return NextResponse.json({ error: msg }, { status: 500 });

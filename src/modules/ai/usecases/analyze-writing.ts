@@ -19,6 +19,16 @@ import {
   evaluateTaskCoverage,
   buildSemanticEvidencePrompt,
 } from "./semantic-evaluator";
+import {
+  SCORING_VERSION,
+  clamp,
+  normalizeRubricScore,
+  computeCloTotal,
+  cloTotalToOverall100,
+  deterministicLengthPenalty,
+  applyLengthPenaltyPolicy,
+  estimateDSELevelFromCLO,
+} from "../core/writing-score-policy";
 import type { SemanticEvaluation, CloDimensionRationale } from "../schemas/ai-schema";
 import type { EvidenceBackedFeedback } from "../types/assessment-feedback";
 import { createRubricMetadata } from "../types/rubric-version";
@@ -28,19 +38,8 @@ import { CLO_RUBRIC_ZH } from "../prompts/writing/writing-rubric";
 // ============================================
 // Pure helper functions
 // ============================================
-
-function clamp(n: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, n));
-}
-
-/** Clamp and round CLO rubric scores to half-point increments (0–7, e.g. 4.5). */
-function normalizeRubricScore(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return undefined;
-  }
-  const clamped = clamp(value, 0, 7);
-  return Math.round(clamped * 2) / 2;
-}
+// Scoring formulas live in ../core/writing-score-policy.ts (single source of truth).
+// Only non-scoring helpers remain in this file.
 
 /** Normalize text for deduplication comparison (case/whitespace/smart-quote-insensitive). */
 function normalizeForDedup(value: string): string {
@@ -54,15 +53,10 @@ function normalizeForDedup(value: string): string {
 
 /** Internal estimated HKDSE performance level from CLO total.
  *  This is NOT an official HKEAA grade conversion — it is a conservative
- *  internal estimate for pedagogical guidance only. */
+ *  internal estimate for pedagogical guidance only.
+ *  Canonical thresholds live in writing-score-policy.ts. */
+
 type EstimatedDSELevel = "1" | "2" | "3" | "4" | "5";
-function estimateDSELevelFromCLO(cloTotalScore: number): EstimatedDSELevel {
-  if (cloTotalScore >= 13) return "5";
-  if (cloTotalScore >= 10) return "4";
-  if (cloTotalScore >= 7) return "3";
-  if (cloTotalScore >= 4) return "2";
-  return "1";
-}
 
 /** Evidence normalization helper (reserved for future evidence-backed feedback). */
 function normalizeForEvidence(value: string): string {
@@ -262,6 +256,8 @@ export interface WritingAnalysis {
   rubric?: { rubricVersion: string; paper: "Paper 2"; taskType?: string; examYear?: string };
   /** Sprint 131: Per-dimension CLO rationale — educational feedback, NOT score authority. */
   cloRationales?: CloDimensionRationale[];
+  /** Canonical scoring contract version (writing-score-policy.ts SCORING_VERSION). */
+  scoringVersion?: string;
 }
 
 export async function analyzeWriting(input: AnalyzeWritingInput): Promise<WritingAnalysis> {
@@ -465,7 +461,8 @@ ${CLO_RUBRIC_ZH}
 - cloRationales 的 strengths/limitations 必須引用學生文章的 verbatim evidence。
 - cloRationales 的 nextSteps 必須是學生可以實行的具體下一步。
 - 若明顯離題（完全未回應題目核心要求），所有 CLO 子分數不可高於 2，overallScore 不可高於 30。
-  此規則僅適用於嚴重偏離題目的極端情況，不可因個別 requirement 未滿足而機械性扣分。
+  此規則為【平台防護政策（PLATFORM_DEFINED）— 非 HKEAA 官方規則】。
+  僅適用於嚴重偏離題目的極端情況，不可因個別 requirement 未滿足而機械性扣分。
 - 若字數少於建議字數 50%，lengthPenalty 至少 -15；少於 30% 時至少 -25。
 - 不可僅因文法正確而給高分；內容空泛、論點不足、未展開支持細節，contentScore 必須偏低（最多 3）。
 - 若學生文字極短（少於 30 詞），必須在 generalComment 清楚說明扣分原因，且 overallScore 不得高於 20。
@@ -747,26 +744,20 @@ Content / Organization 分數亦需按 system rubric 評分，
   }
 
   // ============================================
-  // Deterministic score calculation
+  // Deterministic score calculation (canonical policy module)
   // ============================================
 
   const ratio = targetWords && targetWords > 0 ? studentWordCount / targetWords : null;
-  const deterministicLengthPenalty = ratio === null
-    ? 0
-    : ratio < 0.3
-      ? -25
-      : ratio < 0.5
-        ? -15
-        : ratio < 0.7
-          ? -8
-          : 0;
+  const deterministicPenaltyTier = deterministicLengthPenalty(ratio);
 
   const llmLengthPenalty = typeof grammarAnalysis.lengthPenalty === 'number' ? grammarAnalysis.lengthPenalty : 0;
   // Platform policy: LLM length penalty cannot be more severe than deterministic policy.
   // Both values are ≤ 0, so Math.max selects the less severe penalty (closer to zero).
-  const appliedLengthPenalty = Math.max(llmLengthPenalty, deterministicLengthPenalty);
+  // Applied EXACTLY ONCE, to the overall score only (never to C/L/O).
+  const appliedLengthPenalty = applyLengthPenaltyPolicy(llmLengthPenalty, deterministicPenaltyTier);
 
   // CLO scores: normalize to half-point increments (0, 0.5, 1, ..., 7)
+  // PLATFORM_DEFINED normalization — HKEAA does not define half-point scoring.
   const rawContentScore = normalizeRubricScore(grammarAnalysis.contentScore);
   const languageScore = normalizeRubricScore(grammarAnalysis.languageScore);
   const organizationScore = normalizeRubricScore(grammarAnalysis.organizationScore);
@@ -777,17 +768,17 @@ Content / Organization 分數亦需按 system rubric 評分，
   // evidence as context but makes its own holistic judgment.
   const contentScore = rawContentScore;
 
-  const cloTotalScore = (contentScore != null && languageScore != null && organizationScore != null)
-    ? contentScore + languageScore + organizationScore
-    : undefined;
+  const cloTotalScore = computeCloTotal(contentScore, languageScore, organizationScore);
 
-  const computedCloScore = cloTotalScore != null
-    ? Math.round((cloTotalScore / 21) * 100)
-    : null;
+  // FAIL CLOSED: missing C/L/O evidence must never become a numeric score.
+  // (The LLM's own overallScore is parsed for diagnostics only and is
+  // NEVER an authority — no numeric fallback exists.)
+  if (cloTotalScore == null) {
+    throw new Error('CLO 評分不完整（缺少 Content / Language / Organization 分數），無法產生總分。請重試。');
+  }
 
-  const llmBaseScore = typeof grammarAnalysis.overallScore === 'number' ? grammarAnalysis.overallScore : 70;
-  // Prefer computed CLO score over LLM's potentially inaccurate overallScore
-  const baseScore = computedCloScore ?? llmBaseScore;
+  // Canonical overall base: round(cloTotal / 21 * 100) — PLATFORM_DEFINED.
+  const baseScore = cloTotalToOverall100(cloTotalScore);
 
   // Off-topic impact is represented by Content score.
   // No independent penalty is applied — the CLO Content evaluator
@@ -799,9 +790,7 @@ Content / Organization 分數亦需按 system rubric 評分，
   );
 
   // Internal estimated level — NOT an official HKEAA grade conversion
-  const dseLevel = cloTotalScore != null
-    ? estimateDSELevelFromCLO(cloTotalScore)
-    : undefined;
+  const dseLevel: EstimatedDSELevel = estimateDSELevelFromCLO(cloTotalScore);
 
   // ============================================
   // Merge results (failed parts use fallback)
@@ -903,6 +892,8 @@ Content / Organization 分數亦需按 system rubric 評分，
     revision,
     // Phase 5: Rubric metadata for calibration
     rubric: createRubricMetadata(input.textType),
+    // Canonical scoring contract version — changes only via explicit policy edits
+    scoringVersion: SCORING_VERSION,
     // Sprint 131: Per-dimension CLO rationale — educational feedback only.
     // Validate that rationale scores match formal CLO scores; override if inconsistent.
     // Filter evidence: only keep canonical verbatim quotes from the student's essay.

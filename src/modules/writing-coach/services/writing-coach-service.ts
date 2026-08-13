@@ -19,6 +19,12 @@ import { callLLM } from '@/modules/ai/services/llm-call';
 import { parseAIJSON } from '@/modules/ai/services/json-utils';
 import { logger } from '@/shared/logger/logger';
 import { buildWritingAnalysisPromptV2, buildQuickWritingFeedbackPrompt } from '@/modules/ai/prompts/writing/v2';
+import {
+  SCORING_VERSION,
+  normalizeRubricScore,
+  computeCloTotal,
+  estimateDSELevelFromCLO,
+} from '@/modules/ai/core/writing-score-policy';
 
 // Format validators kept from writing-coach.ts (rule-based is correct for format checking)
 import {
@@ -32,11 +38,25 @@ import {
 
 // Types
 import type {
-  EssaySubmission, EssayReview, RubricScores, HKDSEScores,
+  EssaySubmission, EssayReview, RubricScores,
   GrammarIssue, VocabularySuggestion, CoherenceAnalysis,
   TaskFulfillment, OrganizationAnalysis, StyleAnalysis,
   RevisionPlan, PriorityAction,
 } from '../types';
+
+// ============================================
+// R3.10-K Phase 3 — scoring-unavailable contract
+// Infrastructure/model failure must NEVER become a student mark.
+// ============================================
+export class WritingScoringUnavailableError extends Error {
+  readonly status = 'SCORING_UNAVAILABLE' as const;
+  readonly retryable = true;
+
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'WritingScoringUnavailableError';
+  }
+}
 
 // ============================================
 // AI Analysis Result (from v2 prompt)
@@ -137,9 +157,18 @@ interface AIWritingAnalysis {
 export class WritingCoachService {
 
   /**
-   * Full AI-powered essay analysis.
-   * This is the main method — replaces reviewEssay() from writing-coach.ts
-   * and analyzeEssay() from writing-coach-heuristic.ts.
+   * Full AI-powered essay analysis (COMPATIBILITY path).
+   *
+   * @deprecated R3.10-K Phase 3 — the CANONICAL Paper 2 writing scorer is
+   * `analyzeWriting()` (src/modules/ai/usecases/analyze-writing.ts).
+   * This endpoint remains for response-shape compatibility only:
+   *   - totalScore is deterministically recomputed from canonical C/L/O
+   *     (the LLM totalScore is NEVER authoritative)
+   *   - estimatedLevel is derived from the canonical internal level
+   *     function (LLM estimatedLevel is NEVER authoritative)
+   *   - CEFR is a PLATFORM_DEFINED educational mapping (not HKEAA)
+   *   - infrastructure/model failure returns SCORING_UNAVAILABLE,
+   *     never a zero score
    *
    * Educational benefit: Students get specific, evidence-based feedback
    * on grammar, vocabulary, coherence, organization, and task fulfillment
@@ -191,21 +220,23 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
       const analysis = parseAIJSON<AIWritingAnalysis>(content);
 
       if (!analysis || !analysis.overall) {
-        logger.warn({ module: 'writing-coach', essayId: essay.essayId },
-          'AI returned incomplete analysis, using fallback');
-        return this.buildFallbackReview(essay);
+        throw new WritingScoringUnavailableError('AI 回傳缺少 overall 評分區塊，無法產生分數。');
       }
 
       // Convert AI result to EssayReview format
       return this.buildReview(essay, analysis, Date.now() - startTime);
 
     } catch (err) {
+      if (err instanceof WritingScoringUnavailableError) {
+        throw err;
+      }
       logger.error({
         module: 'writing-coach',
         essayId: essay.essayId,
         error: String(err),
-      }, 'AI analysis failed, using fallback');
-      return this.buildFallbackReview(essay);
+      }, 'AI analysis failed');
+      // FAIL CLOSED: never emit a fake zero-score review.
+      throw new WritingScoringUnavailableError('AI 分析暫時不可用，請稍後重試。');
     }
   }
 
@@ -296,35 +327,54 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
     const { overall, strengths, weaknesses, grammarErrors, vocabularySuggestions,
       coherenceFeedback, organizationFeedback, taskFulfillment, revisionPlan } = analysis;
 
+    // ============================================
+    // R3.10-K Phase 3 — canonical deterministic scoring.
+    // The LLM's totalScore / estimatedLevel are NEVER authoritative.
+    // C/L/O are normalized via the canonical policy, the total is the
+    // arithmetic sum, and the level is the canonical internal estimate.
+    // ============================================
+    const canonicalContent = normalizeRubricScore(overall.contentScore);
+    const canonicalLanguage = normalizeRubricScore(overall.languageScore);
+    const canonicalOrganization = normalizeRubricScore(overall.organizationScore);
+    const canonicalTotal = computeCloTotal(canonicalContent, canonicalLanguage, canonicalOrganization);
+
+    if (canonicalTotal == null) {
+      throw new WritingScoringUnavailableError('CLO 評分不完整（缺少 Content / Language / Organization 分數），無法產生總分。');
+    }
+
+    const canonicalLevel = estimateDSELevelFromCLO(canonicalTotal);
+
     const rubricScores: RubricScores = {
       hkdse: {
         content: {
-          score: overall.contentScore,
+          score: canonicalContent as number,
           maxScore: 7,
           comments: strengths.filter(s => s.dimension === 'content').map(s => s.point).join('. ') || 'N/A',
           commentsZh: strengths.filter(s => s.dimension === 'content').map(s => s.pointZh).join('。') || 'N/A',
         },
         language: {
-          score: overall.languageScore,
+          score: canonicalLanguage as number,
           maxScore: 7,
           comments: strengths.filter(s => s.dimension === 'language').map(s => s.point).join('. ') || 'N/A',
           commentsZh: strengths.filter(s => s.dimension === 'language').map(s => s.pointZh).join('。') || 'N/A',
         },
         organization: {
-          score: overall.organizationScore,
+          score: canonicalOrganization as number,
           maxScore: 7,
           comments: strengths.filter(s => s.dimension === 'organization').map(s => s.point).join('. ') || 'N/A',
           commentsZh: strengths.filter(s => s.dimension === 'organization').map(s => s.pointZh).join('。') || 'N/A',
         },
-        total: overall.totalScore,
+        total: canonicalTotal,
         maxTotal: 21,
-        estimatedLevel: overall.estimatedLevel,
+        estimatedLevel: canonicalLevel,
       },
       cefr: {
-        overall: this.mapToCEFR(overall.totalScore),
-        subScores: { writing: this.mapToCEFR(overall.totalScore) },
+        // PLATFORM_DEFINED educational mapping — NOT an official HKEAA
+        // conversion. CEFR never influences C/L/O, total, or level.
+        overall: this.mapToCEFR(canonicalTotal),
+        subScores: { writing: this.mapToCEFR(canonicalTotal) },
       },
-      overallBand: overall.estimatedLevel,
+      overallBand: canonicalLevel,
     };
 
     const grammarIssues: GrammarIssue[] = grammarErrors.map(e => ({
@@ -381,7 +431,7 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
     };
 
     const style: StyleAnalysis = {
-      score: overall.languageScore,
+      score: canonicalLanguage as number,
       register: 'Formal',
       tone: 'Academic',
       sentenceVariety: { simple: 1, compound: 1, complex: 1 },
@@ -422,86 +472,18 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
       organization: orgAnalysis,
       styleAnalysis: style,
       overallFeedback: [
-        `Overall: ${overall.estimatedLevel} (${overall.totalScore}/21).`,
+        `Overall: ${canonicalLevel} (${canonicalTotal}/21).`,
         strengthTexts.length > 0 ? `Strengths: ${strengthTexts.join('; ')}.` : '',
         weaknessTexts.length > 0 ? `Areas to improve: ${weaknessTexts.join('; ')}.` : '',
       ].filter(Boolean).join(' '),
       overallFeedbackZh: [
-        `總評：${overall.estimatedLevel}（${overall.totalScore}/21 分）。`,
+        `總評：${canonicalLevel}（${canonicalTotal}/21 分）。`,
         `摘要：${overall.summaryZh}`,
       ].join(' '),
       revisionPlan: plan,
-      totalScore: overall.totalScore,
-      estimatedLevel: overall.estimatedLevel,
-    };
-  }
-
-  // ============================================
-  // Fallback: basic rule-based analysis if AI fails
-  // ============================================
-  private buildFallbackReview(essay: EssaySubmission): EssayReview {
-    return {
-      essayId: essay.essayId,
-      reviewedAt: new Date().toISOString(),
-      rubricScores: {
-        hkdse: {
-          content: { score: 0, maxScore: 7, comments: 'AI analysis unavailable', commentsZh: 'AI 分析暫時不可用' },
-          language: { score: 0, maxScore: 7, comments: 'AI analysis unavailable', commentsZh: 'AI 分析暫時不可用' },
-          organization: { score: 0, maxScore: 7, comments: 'AI analysis unavailable', commentsZh: 'AI 分析暫時不可用' },
-          total: 0,
-          maxTotal: 21,
-          estimatedLevel: 'N/A',
-        },
-        cefr: { overall: 'A1', subScores: { writing: 'A1' } },
-        overallBand: 'N/A',
-      },
-      grammarIssues: [],
-      vocabularySuggestions: [],
-      coherenceAnalysis: {
-        strengths: [],
-        weaknesses: ['Analysis unavailable — please try again later'],
-        transitionUsage: { count: 0, variety: 0, appropriateness: 0 },
-        paragraphFlow: 'Unknown',
-      },
-      taskFulfillment: {
-        addressedAllParts: false,
-        wordCountAdequate: false,
-        textTypeAppropriate: false,
-        toneAppropriate: false,
-        comments: 'Unable to analyze',
-        commentsZh: '無法分析',
-      },
-      organization: {
-        hasClearIntroduction: false,
-        hasClearConclusion: false,
-        paragraphCount: 0,
-        averageParagraphLength: 0,
-        logicalFlow: 'Unknown',
-        suggestions: ['Please try again. If the problem persists, contact your teacher.'],
-        suggestionsZh: ['請重試。如問題持續，請聯絡老師。'],
-      },
-      styleAnalysis: {
-        score: 0,
-        register: 'Unknown',
-        tone: 'Unknown',
-        sentenceVariety: { simple: 0, compound: 0, complex: 0 },
-        vocabularyRichness: 0,
-        suggestions: [],
-        suggestionsZh: [],
-      },
-      overallFeedback: 'AI analysis is temporarily unavailable. Please try again later.',
-      overallFeedbackZh: 'AI 分析暫時不可用，請稍後重試。',
-      revisionPlan: {
-        essayId: essay.essayId,
-        priorityActions: [],
-        estimatedTimeMinutes: 0,
-        focusAreas: [],
-        focusAreasZh: [],
-        nextSteps: [],
-        nextStepsZh: [],
-      },
-      totalScore: 0,
-      estimatedLevel: 'N/A',
+      totalScore: canonicalTotal,
+      estimatedLevel: canonicalLevel,
+      scoringVersion: SCORING_VERSION,
     };
   }
 
@@ -579,6 +561,9 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
   // Helpers
   // ============================================
   private mapToCEFR(totalScore: number): 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' {
+    // PLATFORM_DEFINED educational mapping (18/14/10/6 on the 0–21 CLO total).
+    // HKEAA does NOT define a CLO-to-CEFR conversion. CEFR never influences
+    // C/L/O, overallScore, DSE level, or calibration.
     if (totalScore >= 18) return 'C1';
     if (totalScore >= 14) return 'B2';
     if (totalScore >= 10) return 'B1';

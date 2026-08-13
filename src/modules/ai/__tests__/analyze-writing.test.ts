@@ -219,15 +219,33 @@ describe('CLO score computation', () => {
   it('prefers computed CLO score over LLM overallScore', () => {
     const computedCloScore = 71;
     const llmBaseScore = 85;
-    const baseScore = computedCloScore ?? llmBaseScore;
+    // Canonical contract: the LLM overallScore is NEVER an authority.
+    // baseScore == computedCloScore always; there is no numeric fallback.
+    const baseScore = computedCloScore;
     expect(baseScore).toBe(71);
+    expect(baseScore).not.toBe(llmBaseScore);
   });
 
-  it('falls back to LLM score when CLO subscores missing', () => {
-    const computedCloScore = null;
-    const llmBaseScore = 85;
-    const baseScore = computedCloScore ?? llmBaseScore;
-    expect(baseScore).toBe(85);
+  it('missing CLO subscores produce NO base score — fail closed, never a fallback', () => {
+    // Canonical contract: missing C/L/O evidence must become undefined,
+    // and the caller must reject the analysis. It must NEVER become 70
+    // or the LLM overallScore.
+    const contentScore = 5;
+    const languageScore = undefined;
+    const organizationScore = undefined;
+    const cloTotal = contentScore != null && languageScore != null && organizationScore != null
+      ? contentScore + languageScore + organizationScore
+      : undefined;
+    expect(cloTotal).toBeUndefined();
+    const baseScore = cloTotal != null ? Math.round((cloTotal / 21) * 100) : null;
+    expect(baseScore).toBeNull();
+  });
+
+  it('LLM overallScore missing + valid CLO → canonical score still works', () => {
+    const c = 4; const l = 4; const o = 4;
+    const cloTotal = c + l + o; // 12
+    const baseScore = Math.round((cloTotal / 21) * 100); // 57
+    expect(baseScore).toBe(57);
   });
 
   it('applies length penalty correctly with Math.max (LLM cannot be more severe)', () => {
@@ -384,8 +402,10 @@ describe("Score integrity", () => {
     const cloTotal = c + l + o; // 3
     const computedCloScore = Math.round((cloTotal / 21) * 100); // 14
     const llmBaseScore = 100;
-    const baseScore = computedCloScore ?? llmBaseScore;
+    // Canonical contract: LLM overallScore is never consulted.
+    const baseScore = computedCloScore;
     expect(baseScore).toBe(14);
+    expect(baseScore).not.toBe(llmBaseScore);
   });
 
   it("CLO 21/21 → LLM claims 1 → computed score wins", () => {
@@ -393,8 +413,9 @@ describe("Score integrity", () => {
     const cloTotal = c + l + o; // 21
     const computedCloScore = Math.round((cloTotal / 21) * 100); // 100
     const llmBaseScore = 1;
-    const baseScore = computedCloScore ?? llmBaseScore;
+    const baseScore = computedCloScore;
     expect(baseScore).toBe(100);
+    expect(baseScore).not.toBe(llmBaseScore);
   });
 
   it("dseLevel never returns 5** or 5*", () => {

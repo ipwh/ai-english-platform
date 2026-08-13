@@ -369,7 +369,11 @@ model WritingDraft {
   draft            String
   revisedVersion   String?
   revisions        String?   // JSON: [{ draft, revisedVersion, aiSuggestions, createdAt }] — version history
-  aiSuggestions    String?   // JSON
+  aiSuggestions    String?   // JSON: full WritingAnalysis (scores + scoringVersion + rubric metadata).
+                             // R3.10-K Phase 3: typed score columns (canonicalOverallScore,
+                             // platformEstimatedLevel, content/language/organizationScore,
+                             // cloTotalScore) are DEFERRED as documented tech debt — the
+                             // JSON blob carries the canonical scoringVersion for every record.
   chinglishWarnings String?  // JSON
   teacherComment   String?
   status           String    @default("draft") // draft | revised | reviewed

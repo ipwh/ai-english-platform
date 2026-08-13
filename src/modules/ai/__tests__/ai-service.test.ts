@@ -213,7 +213,7 @@ describe('AnswerAnalysisSchema', () => {
 describe('WritingAnalysisSchema', () => {
   const validWriting = {
     overallScore: 78,
-    dseLevel: 'Level 4',
+    dseLevel: '4',
     strengths: ['Good vocabulary', 'Clear structure'],
     weaknesses: ['Some grammar errors', 'Chinglish expressions'],
     grammarErrors: [{ original: 'He go', correction: 'He goes', explanation: 'Subject-verb agreement' }],
@@ -226,6 +226,28 @@ describe('WritingAnalysisSchema', () => {
   it('should accept valid writing analysis', () => {
     const result = WritingAnalysisSchema.safeParse(validWriting);
     expect(result.success).toBe(true);
+  });
+
+  // R3.10-K Phase 3: dseLevel is the internal platform estimate (1–5) only.
+  it('accepts dseLevel 1–5', () => {
+    for (const level of ['1', '2', '3', '4', '5']) {
+      expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: level }).success).toBe(true);
+    }
+  });
+
+  it('rejects dseLevel 0 and 6', () => {
+    expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: '0' }).success).toBe(false);
+    expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: '6' }).success).toBe(false);
+  });
+
+  it('rejects dseLevel 5* / 5** (never official grade labels)', () => {
+    expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: '5*' }).success).toBe(false);
+    expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: '5**' }).success).toBe(false);
+  });
+
+  it('rejects arbitrary dseLevel strings (e.g. "Level 4")', () => {
+    expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: 'Level 4' }).success).toBe(false);
+    expect(WritingAnalysisSchema.safeParse({ ...validWriting, dseLevel: 'U' }).success).toBe(false);
   });
 
   it('should accept with optional revisedVersion', () => {

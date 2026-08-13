@@ -4,6 +4,40 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-14 — R3.10-K Phase 3: Production Scoring Hardening & Tech-Debt Closure
+
+### 🎯 Canonical 評分政策（單一權威來源）
+- **NEW**: `src/modules/ai/core/writing-score-policy.ts` — 唯一的 Paper 2 寫作確定性評分政策模組（normalizeRubricScore / computeCloTotal / cloTotalToOverall100 / deterministicLengthPenalty / applyLengthPenaltyPolicy / estimateDSELevelFromCLO），每條公式標註 OFFICIAL_HKEAA / OFFICIAL_DERIVED / PLATFORM_DEFINED 權威分類
+- **NEW**: `SCORING_VERSION = HKDSE_P2_WRITING_CANONICAL_V1` — 隨 `WritingAnalysis.scoringVersion` 返回並持久化（含 rubric 元數據）；任何政策變更必須顯式升版，human-marker 校準不得靜默改動
+- **REMOVED**: `llmBaseScore ?? 70` fallback — C/L/O 缺失現在 **fail closed**（拋錯），永不捏造 70 分或採信 LLM overallScore（LLM overallScore 僅作診斷解析，零評分權威）
+- **HARDENED**: `dseLevel` schema 收窄為 enum `'1'|'2'|'3'|'4'|'5'`（5*/5**/'Level 4'/任意字串全部拒絕）
+- **RELABELLED**: off-topic 上限（CLO≤2/overall≤30）在 prompt 中明確標註「平台防護政策（PLATFORM_DEFINED）— 非 HKEAA 官方規則」
+- **DOC FIXED**: `CLO_RUBRIC_ZH` 頭註修正 — 0–7 數字帶源於官方 Marking Scheme；Level Descriptors 僅提供 Level 1–5 定性描述，無數字換算帶
+
+### 🛡️ Writing-coach 次要路徑收口（兼容保留，非獨立權威）
+- `analyzeEssay` 標記 @deprecated；totalScore 改為 **確定性重算**（normalized C+L+O），estimatedLevel 改由 canonical 閾值函數導出（LLM 原始值永不採信）
+- `mapToCEFR`（18/14/10/6）標註 PLATFORM_DEFINED 教育映射（不影響 C/L/O、總分、等級、校準）
+- **REMOVED**: `buildFallbackReview`（AI 失敗 → 0/0/0 假零分）→ 改為 `WritingScoringUnavailableError`；兩條 /api/writing-coach 路由回 503 `{ status: 'SCORING_UNAVAILABLE', reason, retryable: true }` — 基礎設施失敗永不變成學生成績
+
+### 🧹 Legacy 死代碼刪除
+- DELETED: `writing-coach-heuristic.ts`、`writing-coach-formula.ts`（8 維 0–10 啟發式 + predictBand 90/82/74/62/48/34/20）、`WritingCoachPro`（僅測試引用）— 零運行時消費者，避免冒充獨立 Paper 2 評分器
+- DELETED: v1 的 `buildWritingGrammarPrompt` / `buildWritingStylePrompt`（7↔5** 帶↔等級對照、「Two Gates 佔約一半印象分」、offTopicPenalty — 全部非官方且無消費者）
+
+### 🔌 契約修復
+- `analyzeWritingSchema` 接受 UI 的 `gradeLevel`/`difficulty`（不再被 Zod 靜默剝離）；`resolveWritingStudentLevel()` 在請求邊界把 `gradeLevel` 顯式映射為 `studentLevel`（canonical 優先）
+
+### 📦 持久化（延期決策）
+- 分數仍隨 `WritingDraft.aiSuggestions` JSON 持久化（含 `scoringVersion`）；具型欄位（canonicalOverallScore/platformEstimatedLevel 等）列為文檔化技術債，schema 註釋已說明
+
+### ✅ TESTS
+- 新增 `writing-score-policy.test.ts`（18：C/L/O 範圍、CLO 求和/缺失、確定性、懲罰邊界與單次套用、等級 1–5、版本、無 70 fallback 守衛、calibration import 隔離）
+- 新增 `writing-coach-service.test.ts`（7：LLM totalScore/estimatedLevel 不採信、canonical 重算、SCORING_UNAVAILABLE 三情境、scoringVersion）
+- 新增 `shared/validation/__tests__/ai-request-schema.test.ts`（gradeLevel 邊界映射）
+- 新增整合測試 J/K/L（fail-closed、off-topic 標註、scoringVersion）；schema 測試更新為 enum 契約
+- **VERIFY**: tsc 0 · prisma valid · eslint 0 errors · focused 55 files/1186 · calibration 12/213 · arch+docs 2/135 · **full non-E2E 119 files/2731 ×2** · calibration report byte-identical ×2（exit 2，overall-comparable 0）
+
+---
+
 ## 2026-08-13 — R3.10-K Phase 1: Production Scoring Path Audit + Cloud Run Deployment Hardening
 
 ### 🔍 生產評分路徑審核（Phase 1 — 只審核，未改評分邏輯）

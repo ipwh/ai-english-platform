@@ -5,7 +5,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
 import { writingCoachV2Schema } from '@/modules/writing-coach/schemas';
-import { writingCoachService } from '@/modules/writing-coach/services/writing-coach-service';
+import { writingCoachService, WritingScoringUnavailableError } from '@/modules/writing-coach/services/writing-coach-service';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -44,6 +44,13 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid body', details: err.issues }, { status: 400 });
+    }
+    if (err instanceof WritingScoringUnavailableError) {
+      // FAIL CLOSED: infrastructure/model failure is never a student mark.
+      return NextResponse.json(
+        { status: err.status, reason: err.message, retryable: err.retryable },
+        { status: 503 },
+      );
     }
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'writing-coach', error: message }, 'POST /api/writing-coach/analyze failed');

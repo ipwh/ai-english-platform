@@ -79,11 +79,14 @@ NOT an official HKEAA grade conversion.
 // ============================================
 export const CLO_RUBRIC_ZH = `
 ═══════════════════════════════════════
-📐 HKDSE Paper 2 Writing 官方評分框架 — 必須以此為唯一評分基準
+📐 HKDSE Paper 2 Writing 評分基準 — 必須以此為唯一評分基準
 ═══════════════════════════════════════
 
-以下評分描述來自 HKDSE 官方等級描述（Level Descriptors），
-評分時必須對照這些描述決定各維度的分數（0–7，可用半分）。
+以下 0–7 數字評分帶描述，依據 HKDSE Paper 2 Writing 官方評分準則
+（Marking Scheme）整理；官方 HKDSE 寫作等級描述（Level Descriptors）
+僅提供 Level 1–5 的定性描述，並無任何 0–7 數字換算帶。
+評分時必須對照以下描述決定各維度的分數（0–7，可用半分 — 平台正規化政策，
+並非 HKEAA 官方規定）。
 
 ───────────────────────────────────────
 🔴 C: Content（內容）— 滿分 7 分

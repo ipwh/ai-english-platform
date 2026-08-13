@@ -22,8 +22,25 @@ export const analyzeWritingSchema = z.object({
   prompt: optionalString,
   textType: optionalString,
   studentLevel: optionalString,
+  // UI compatibility: the client sends `gradeLevel`; the route maps it to
+  // `studentLevel` at the request boundary (never silently stripped).
+  gradeLevel: optionalString,
+  // Accepted for UI compatibility; not consumed by the scoring pipeline.
+  difficulty: optionalString,
   userId: optionalString,
 });
+
+/**
+ * Resolve the internal student level at the request boundary.
+ * Contract: `studentLevel` (canonical) takes precedence; the UI's
+ * `gradeLevel` is mapped explicitly — fields are never silently stripped.
+ */
+export function resolveWritingStudentLevel(input: {
+  studentLevel?: string;
+  gradeLevel?: string;
+}): string | undefined {
+  return input.studentLevel ?? input.gradeLevel;
+}
 
 export const analyzeAnswerSchema = z.object({
   question: z.string().min(1, '題目為必填'),

@@ -29,8 +29,11 @@ export {
 } from './services/writing-coach';
 
 // === Deprecated: old heuristic-based analysis (use writingCoachService instead) ===
-/** @deprecated Use writingCoachService.analyzeEssay() for AI-powered analysis */
-export { analyzeEssay } from './services/writing-coach-heuristic';
+// R3.10-K Phase 3: writing-coach-heuristic.ts + writing-coach-formula.ts
+// (legacy 8-dimension 0–10 heuristic scorer with predictBand) were DELETED —
+// they had zero runtime consumers and could masquerade as an independent
+// authoritative Paper 2 scorer. The canonical scorer is
+// `analyzeWriting()` in src/modules/ai/usecases/analyze-writing.ts.
 
 /** @deprecated Use writingCoachService for revision management */
 export { reviewEssay, compareRevisions, saveRevision, getRevisionHistory } from './services/writing-coach';

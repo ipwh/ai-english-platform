@@ -438,3 +438,68 @@ describe("Integration I — RAG score isolation", () => {
     expect(result2.overallScore).toBe(result1.overallScore);
   });
 });
+
+// ============================================
+// R3.10-K Phase 3 — canonical authority & fail-closed contract
+// ============================================
+describe("Integration J — canonical score authority (no LLM override, no 70)", () => {
+  it("LLM overallScore=100 does not override computed CLO score (3+4+5=12 → 57)", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse({ overallScore: 100 }));
+    const result = await analyzeWriting(defaultInput);
+    expect(result.cloTotalScore).toBe(12);
+    expect(result.overallScore).toBe(57);
+  });
+
+  it("LLM overallScore missing + valid C/L/O → canonical score still produced", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse({ overallScore: undefined }));
+    const result = await analyzeWriting(defaultInput);
+    expect(result.cloTotalScore).toBe(12);
+    expect(result.overallScore).toBe(57);
+  });
+
+  it("C/L/O missing → scoring fails closed (never 70, never LLM overallScore)", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse({
+        contentScore: undefined,
+        languageScore: undefined,
+        organizationScore: undefined,
+        overallScore: 100,
+      }));
+    await expect(analyzeWriting(defaultInput)).rejects.toThrow(/CLO 評分不完整/);
+  });
+});
+
+describe("Integration K — off-topic cap is PLATFORM_DEFINED, not official", () => {
+  it("grammar system prompt labels the off-topic cap as platform policy", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    await analyzeWriting(defaultInput);
+
+    // Both the grammar and the style calls carry system prompts; the
+    // PLATFORM_DEFINED off-topic label must appear in the grammar/CLO one.
+    const systemMessages = mockCallLLM.mock.calls
+      .filter((c: unknown[]) => Array.isArray(c[0]))
+      .map((c: unknown[]) => (c[0] as Array<{ role?: string; content?: string }>)[0]?.content ?? "");
+    expect(
+      systemMessages.some((content: string) =>
+        content.includes("平台防護政策（PLATFORM_DEFINED）") && content.includes("非 HKEAA 官方規則"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("Integration L — canonical scoring version", () => {
+  it("returns SCORING_VERSION with the analysis", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const result = await analyzeWriting(defaultInput);
+    expect(result.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V1");
+  });
+});

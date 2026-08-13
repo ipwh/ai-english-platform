@@ -267,7 +267,7 @@ describe('Schema, migration and route contracts', () => {
 
   it('hardening migration is additive: unique index + humanReviewedAt column', () => {
     const sql = readFileSync(
-      resolve(root, 'prisma/migrations/20260813_assignment_hardening/migration.sql'),
+      resolve(root, 'prisma/migrations/20260813_assignment_02_hardening/migration.sql'),
       'utf-8',
     );
     expect(sql).toContain('CREATE UNIQUE INDEX "SubmissionAnswer_attemptId_questionId_key"');
@@ -289,8 +289,9 @@ describe('Schema, migration and route contracts', () => {
     expect(reviews).not.toContain('submissionAnswer');
   });
 
-  it('migration folder set contains the hardening migration', () => {
+  it('migration folder set contains the hardening migrations (dependency-ordered)', () => {
     const dirs = readdirSync(resolve(root, 'prisma/migrations'));
-    expect(dirs).toContain('20260813_assignment_hardening');
+    expect(dirs).toContain('20260813_assignment_01_per_item_evidence');
+    expect(dirs).toContain('20260813_assignment_02_hardening');
   });
 });

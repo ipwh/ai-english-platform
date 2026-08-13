@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { validateRequest, analyzeWritingSchema } from '@/shared/validation/schemas';
+import { validateRequest, analyzeWritingSchema, resolveWritingStudentLevel } from '@/shared/validation/schemas';
 import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {
@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const parsed = validateRequest(analyzeWritingSchema, body);
-    const { title, prompt, studentDraft, studentLevel, textType } = parsed;
+    const { title, prompt, studentDraft, textType } = parsed;
+    // Contract boundary: the UI sends `gradeLevel`; normalize once to the
+    // internal `studentLevel` (explicit mapping, no silent field stripping).
+    const studentLevel = resolveWritingStudentLevel(parsed);
 
     // 限制草稿長度，防止 token 超限
     const MAX_DRAFT_LENGTH = 5000;

@@ -12,7 +12,7 @@ export { loginSchema, registerSchema, settingsSchema, roleUpdateSchema } from '.
 
 // AI Requests
 export {
-  generateQuestionsSchema, analyzeWritingSchema, analyzeAnswerSchema,
+  generateQuestionsSchema, analyzeWritingSchema, resolveWritingStudentLevel, analyzeAnswerSchema,
   explainMistakeSchema, generateIntegratedSkillsSchema, analyzeIntegratedSkillsSchema,
   generateWritingSchema, analyzeWordSchema, studyHelpSchema,
 } from './ai-request.schema';

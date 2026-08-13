@@ -6,8 +6,6 @@
 export {
   version as writingVersion,
   description as writingDescription,
-  buildWritingGrammarPrompt,
-  buildWritingStylePrompt,
   getWritingOutlineSystemPrompt,
   buildWritingOutlineUserPrompt,
   buildIntegratedSkillsGenPrompt,

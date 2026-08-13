@@ -60,4 +60,6 @@ export interface WritingAnalysisResult {
   rubric?: { rubricVersion: string; paper: "Paper 2"; taskType?: string; examYear?: string };
   /** Sprint 131: Per-dimension CLO rationale — educational feedback, NOT score authority. */
   cloRationales?: CloDimensionRationaleResult[];
+  /** Canonical scoring contract version (HKDSE_P2_WRITING_CANONICAL_V1). */
+  scoringVersion?: string;
 }

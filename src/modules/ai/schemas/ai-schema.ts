@@ -110,7 +110,9 @@ export const WritingAnalysisSchema = z.object({
   languageScore: z.number().min(0).max(7).optional(),
   organizationScore: z.number().min(0).max(7).optional(),
   cloTotalScore: z.number().min(0).max(21).optional(),
-  dseLevel: z.string().min(1, 'DSE level is required'),
+  // Internal platform level estimate ONLY: 1–5. Never 5* / 5** / "Level 4" —
+  // HKEAA publishes descriptors, not a numeric CLO-to-grade conversion.
+  dseLevel: z.enum(['1', '2', '3', '4', '5']),
   /** Preferred name; same value as dseLevel. @deprecated — dseLevel retained for API compatibility. */
   platformWritingEstimate: z.string().optional(),
   strengths: z.array(z.string()),
@@ -137,6 +139,7 @@ export const WritingAnalysisSchema = z.object({
   cloRationales: z.array(CloDimensionRationaleSchema).optional(),
   revision: WritingRevisionSchema.optional(),
   rubric: WritingRubricMetadataSchema.optional(),
+  scoringVersion: z.string().optional(),
 });
 
 // ============================================
