@@ -206,9 +206,12 @@ export default function WritingPage() {
     if (!draft.trim() || (!showSuggestions && !showVocabHelp)) return;
     setAssistLoading(true);
     try {
+      // 即時提示與完整 AI 分析必須使用相同的文章內容，否則 AI 只看到被截斷的
+      // 不完整文章，會誤報「未夠深入/欠詳細」等評語，與完整分析結果不一致，
+      // 損害「寫作提示」的可信度。上限 5000 字符與伺服器端 MAX_DRAFT_LENGTH 一致。
       const res = await fetch('/api/ai/analyze-writing', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft.slice(0, 2000), gradeLevel, difficulty }),
+        body: JSON.stringify({ title: generatedPrompt || 'Writing', prompt: generatedPrompt, studentDraft: draft.slice(0, 5000), gradeLevel, difficulty }),
       });
       const json = await res.json();
       if (json.analysis) {
