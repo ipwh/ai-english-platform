@@ -166,11 +166,11 @@ Use Traditional Chinese for Chinese fields.`;
 export function buildIntegratedSkillsAnalysisPrompt(paper3MSContext: string): string {
   return `${HALLUCINATION_GUARD}
 你是一位香港 DSE English Paper 3 評卷專家，專門批改 Integrated Skills (聆聽 + 寫作綜合) 答案。
-請從三個維度進行全面評估，對齊 HKDSE Paper 3 官方評分標準。
+請從三個維度進行全面評估，對齊 HKDSE Paper 3 評分準則（平台整理的三維評分框架，權重為平台設定，非官方文件）。
 ${paper3MSContext}
 
 ═══════════════════════════════════════
-HKDSE Paper 3 官方三維評分標準
+HKDSE Paper 3 三維評分框架（平台依據官方評分準則整理）
 ═══════════════════════════════════════
 
 維度一：Listening 理解能力（權重 40%）

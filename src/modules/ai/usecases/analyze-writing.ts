@@ -350,7 +350,7 @@ ${essayContent}
   // === Call 1：Language + CLO rubric scores（語言準確性 + 三維評分） ===
   const grammarPrompt = `你是一位香港中學英文科教師兼 HKDSE English Paper 2 評卷員，擁有多年 DSE 評卷經驗。
 請嚴格依據以下 HKDSE Paper 2 Writing 評分框架（Content / Language / Organization，簡稱 CLO）進行評分，每卷滿分 21 分（C:7 + L:7 + O:7），每卷經 2 位評卷員獨立評審。
-注意：此評分框架為本平台依據 HKDSE 等級描述整理的內部評分指引，並非 HKEAA 官方文件。
+注意：此評分框架為本平台依據 HKDSE Paper 2 Writing 官方評分準則（Marking Scheme）的 0–7 評分帶整理的內部評分指引，並非 HKEAA 官方文件；官方等級描述（Level Descriptors）僅提供 Level 1–5 定性描述，並無數字換算帶。
 請以純 JSON 格式回覆（以 { 開頭，以 } 結尾）。
 ${writingMSContext}
 

@@ -117,6 +117,8 @@ export const writingCoachAnalyzeSchema = z.object({
   action: z.enum(['analyze', 'suggest', 'outline']).optional(),
 });
 
+// R3.10-K Phase 6: /api/writing/model-essays is DEPRECATED (no runtime
+// consumer). Schema retained for compatibility only.
 export const modelEssaysGenSchema = z.object({
   prompt: z.string().min(1),
   textType: z.string().optional(),

@@ -75,3 +75,28 @@ G. Generation target mapping is deterministic.
 H. LLM cannot override generation target metadata.
 I. Client cannot manipulate target metadata to alter scoring.
 J. The generation quality gate cannot create a second scoring authority.
+
+## Semantic Rules (R3.10-K Phase 6)
+
+1. Target is not score.
+2. Target is not ceiling.
+3. Target is not guarantee.
+4. Assessment cannot rewrite target.
+5. Target cannot influence assessment.
+6. Generation metadata is provenance.
+7. Canonical scoring is the only production assessment authority.
+8. Quality gate is not an assessment authority.
+9. Platform conversions are PLATFORM_DEFINED unless explicitly supported by an official source.
+10. A generated model may legitimately receive an assessment result different from its pedagogical target (e.g. target Level 3, independent platform estimate Level 5) — this is NOT a contradiction.
+
+## Copy-to-Draft Semantics
+
+When a student copies a generated model's text into their own draft (manual
+copy-paste; the product currently has no copy button), the resulting text is
+a NEW STUDENT SUBMISSION:
+- assessment identity = student draft (the UI must not label it a generated model);
+- generation provenance is NOT retroactively attached to manual copies;
+- canonical scoring never reads provenance of any kind.
+A future explicit "use this model as a draft template" action, if added, MUST
+carry origin provenance (originGenerationVersion / originPedagogicalTargetLevel)
+without ever letting those fields influence scoring.

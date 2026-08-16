@@ -553,4 +553,41 @@ describe("Integration M — pedagogical target cannot mutate scoring (semantic m
     expect(result.artifact).toBeUndefined();
     expect(result.overallScore).toBe(57);
   });
+
+  it("TEST C — artifact absent vs artifact present → identical scores", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const without = await analyzeWriting(defaultInput);
+
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const withArtifact = await analyzeWriting({ ...defaultInput, artifact: generatedMeta("3") });
+
+    expect(withArtifact.contentScore).toBe(without.contentScore);
+    expect(withArtifact.languageScore).toBe(without.languageScore);
+    expect(withArtifact.organizationScore).toBe(without.organizationScore);
+    expect(withArtifact.overallScore).toBe(without.overallScore);
+    expect(withArtifact.dseLevel).toBe(without.dseLevel);
+  });
+
+  it("TEST B — generationVersion A vs B → identical scores", async () => {
+    const vA = { ...generatedMeta("3"), generationVersion: "MODEL_ESSAY_GENERATION_V1" };
+    const vB = { ...generatedMeta("3"), generationVersion: "MODEL_ESSAY_GENERATION_V2" };
+
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const resultA = await analyzeWriting({ ...defaultInput, artifact: vA });
+
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse());
+    const resultB = await analyzeWriting({ ...defaultInput, artifact: vB });
+
+    expect(resultB.overallScore).toBe(resultA.overallScore);
+    expect(resultB.dseLevel).toBe(resultA.dseLevel);
+    expect(resultB.artifact?.generationVersion).toBe("MODEL_ESSAY_GENERATION_V2"); // echo preserved
+  });
 });

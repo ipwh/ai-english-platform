@@ -4,6 +4,22 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-14 — R3.10-K Phase 6: Model Essay Semantic Integrity & Pedagogical Truth
+
+### 🛡️ 語義完整性（Semantic Integrity）邊界閉環
+- **CHANGED**: 品質閘 `parseQualityVerdict()` **嚴格拒絕**任何數值評分欄位（score/overallScore/dseLevel/estimatedBand/band/marks/confidence/rating/probability）→ 判定無效 → 視為 failed attempt（防止第二評分權威從注入中誕生）
+- **CHANGED**: 生成輸出 `{essay, score, level}` → score/level 一律忽略，僅取 essay（TEST I）；品質閘耗盡 → `{status:'MODEL_GENERATION_UNAVAILABLE', retryable:true}`（TEST J）
+- **NEW**: `phase6-boundaries.test.ts` — source-of-truth 守衛：生成碼永不 import scoring policy、scorer 永不 import 生成碼、scoring policy 零 pedagogical/artifact 引用、legacy route 標記 DEPRECATED
+- **FIXED**: `/student/writing` 分析保存 P1 provenance collision — auto-save 捕獲 `json.draft.id`，分析 PATCH 帶 `id` 關聯同一草稿（不再走 `findLatestDraft` 撞車）
+- **FIXED**: export PDF/DOCX「總分：X/100」→「平台寫作分數（Platform Writing Score）：X/100」+ 顯示 `scoringVersion`
+- **FIXED**: grammarPrompt 前導句「等級描述」→「Marking Scheme」；Paper 3 prompt「官方評分標準」→「平台整理的三維評分框架」；v2 `estimatedBand` 標示 PLATFORM ESTIMATE ONLY
+- **CHANGED**: legacy `/api/writing/model-essays` **DEPRECATED**（零 consumer；scoreBreakdown 僅為教學註釋，絕非 canonical 評分）
+- **CHANGED**: ADR-038 — 10 條語義規則（target ≠ score/ceiling/guarantee；assessment 不得改寫 target；target 不得影響 assessment；合法 mismatch 允許）+ Copy-to-Draft 語義（手動複製 = 新 student submission，不回溯帶入 provenance）
+- **TESTS**: Integration TEST B（generationVersion A vs B → 分數完全相同）、TEST C（artifact 缺席 vs 存在 → 分數完全相同）、品質閘 TEST E/F/I/J
+- **VERIFY**: tsc 0 · prisma valid · eslint 0 error · full non-E2E green ×2（122 files / 2763 tests）· calibration report byte-identical ×2（exit 2, INSUFFICIENT_DATA）
+
+---
+
 ## 2026-08-14 — R3.10-K Phase 5: Generated Model Integrity & Assessment Boundary
 
 ### 🧬 範文目標（Pedagogical Target）≠ 分析結果（Assessment Result）

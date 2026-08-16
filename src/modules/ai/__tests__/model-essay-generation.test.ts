@@ -44,22 +44,26 @@ function judgeFail(): string {
 }
 
 describe("Quality gate — booleans only, never a scoring authority", () => {
-  it("parseQualityVerdict returns booleans and ignores rogue numeric fields", () => {
-    const verdict = parseQualityVerdict(
-      JSON.stringify({
-        targetFit: true,
-        contentFit: true,
-        languageFit: true,
-        organizationFit: true,
-        sophisticationFit: true,
-        issues: [],
-        score: 78,          // rogue second-authority fields are ignored
-        dseLevel: 3,
-      }),
-    );
-    expect(verdict?.targetFit).toBe(true);
-    expect((verdict as unknown as { score?: number }).score).toBeUndefined();
-    expect((verdict as unknown as { dseLevel?: number }).dseLevel).toBeUndefined();
+  it("parseQualityVerdict REJECTS numeric assessment fields (TEST E/F)", () => {
+    // Any score/level/band/marks/confidence field makes the verdict invalid.
+    expect(parseQualityVerdict(JSON.stringify({
+      targetFit: true,
+      contentFit: true,
+      languageFit: true,
+      organizationFit: true,
+      sophisticationFit: true,
+      issues: [],
+      score: 78,
+    }))).toBeUndefined();
+    expect(parseQualityVerdict(JSON.stringify({
+      targetFit: true, issues: [], dseLevel: 3,
+    }))).toBeUndefined();
+    expect(parseQualityVerdict(JSON.stringify({
+      targetFit: true, issues: [], estimatedBand: "5",
+    }))).toBeUndefined();
+    expect(parseQualityVerdict(JSON.stringify({
+      targetFit: true, issues: [], confidence: 0.9,
+    }))).toBeUndefined();
   });
 
   it("judge prompt forbids numeric scores and levels", () => {
@@ -157,5 +161,37 @@ describe("Generation orchestration — target metadata server-determined", () =>
         },
       ),
     ).rejects.toBeInstanceOf(ModelGenerationUnavailableError);
+  });
+
+  it("TEST I — LLM generation returning {essay, score, level} ignores score/level", async () => {
+    const result = await generateModelEssayWithQualityGate(
+      { topic: "Recycling", target: "mid" },
+      {
+        generate: async () => JSON.stringify({
+          essay: "A simple correct essay about recycling.",
+          score: 95,   // rogue fields must be ignored — generation output
+          level: 5,    // is only the essay text, never a score authority
+        }),
+        judge: async () => judgePass(),
+      },
+    );
+    expect(result.essay).toContain("recycling");
+    expect(result.metadata.pedagogicalTargetLevel).toBe("3"); // server-determined, not LLM "5"
+    expect(result.metadata.qualityStatus).toBe("verified");
+  });
+
+  it("TEST J — exhaustion failure carries structured 503 contract, never a fallback essay", async () => {
+    await expect(
+      generateModelEssayWithQualityGate(
+        { topic: "Recycling", target: "mid" },
+        {
+          generate: async () => essayJson("Text."),
+          judge: async () => judgeFail(),
+        },
+      ),
+    ).rejects.toMatchObject({
+      status: "MODEL_GENERATION_UNAVAILABLE",
+      retryable: true,
+    });
   });
 });

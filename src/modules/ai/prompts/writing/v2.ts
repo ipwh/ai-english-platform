@@ -262,7 +262,7 @@ Analyze the student's writing and provide brief, actionable feedback.
   "quickFixes": [
     { "original": "string", "fix": "string", "why": "string" }
   ],
-  "estimatedBand": "string (5**/5*/5/4/3/2/1/U)"
+  "estimatedBand": "string — PLATFORM ESTIMATE ONLY (rough pedagogical guess in 5**/5*/5/4/3/2/1/U style labels); it is NOT an official HKDSE grade and never an assessment authority"
 }
 
 Keep it brief but specific. Quote from their text. Use Traditional Chinese.

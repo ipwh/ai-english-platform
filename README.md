@@ -9,7 +9,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-14 — 121 files, 2751 tests pass (full non-E2E ×2).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-14 — 122 files, 2763 tests pass (full non-E2E ×2).
 
 ## 🏗️ Architecture Overview
 
@@ -508,7 +508,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-11，84 files，1919 tests pass。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-14，122 files，2763 tests pass。
 
 ## 目前狀態
 
@@ -532,7 +532,7 @@ npm run test:watch    # 持續監控模式
 | HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language/Organization 三向度平台評估 |
 | DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
 | 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（5 fixtures）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
-| 測試 | ✅ 84 files, 1919 tests pass（2026-08-11） |
+| 測試 | ✅ 122 files, 2763 tests pass（2026-08-14） |
 
 ## 部署
 

@@ -134,9 +134,21 @@ export function buildQualityGateUserPrompt(input: {
   return `Target: ${targetDescription(input.target)}\n\nModel essay:\n"""\n${input.essay}\n"""\n\nJudge fit. Booleans only.`;
 }
 
-/** Parse + validate the judge output. Extra fields (e.g. a rogue "score") are ignored. */
+/** Parse + validate the judge output.
+ *  STRICT: any numeric assessment field (score / level / band / marks /
+ *  confidence / rating / probability) makes the verdict INVALID — the gate
+ *  must never become a second scoring authority. */
 export function parseQualityVerdict(raw: string): ModelEssayQualityVerdict | undefined {
   const parsed = parseAIJSON<Partial<ModelEssayQualityVerdict> & Record<string, unknown>>(raw);
+  const FORBIDDEN_ASSESSMENT_KEYS = [
+    "score", "overallScore", "totalScore", "contentScore", "languageScore",
+    "organizationScore", "dseLevel", "estimatedLevel", "estimatedBand",
+    "band", "marks", "grade", "confidence", "qualityScore", "rating",
+    "probability",
+  ];
+  for (const key of FORBIDDEN_ASSESSMENT_KEYS) {
+    if (key in parsed) return undefined; // numeric assessment attempted → reject
+  }
   const bool = (v: unknown): boolean => v === true;
   if (
     typeof parsed.targetFit !== "boolean" ||

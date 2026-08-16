@@ -2,6 +2,14 @@
 // API: POST /api/writing/model-essays
 // 為指定寫作題目生成 L3 / L4 / L5 三級範文
 // 學生可對比學習不同等級的寫作要求
+//
+// ⚠️ R3.10-K Phase 6 — DEPRECATED（無 runtime consumer，保留供兼容）
+//   - 此路由的 `scoreBreakdown`（content/language/organization 數字）是
+//     LLM 產生的 PEDAGOGICAL ANNOTATION，絕非 canonical 評分結果。
+//     唯一評分權威 = analyzeWriting()（writing-score-policy.ts）。
+//   - 「L3 essay: some minor errors」指令已不再符合生成契約 —
+//     範文應正確但較不精緻，不得故意製造錯誤。若此路由被重新啟用，
+//     必須先改用 ai/core/model-essay-generation.ts 的生成契約。
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

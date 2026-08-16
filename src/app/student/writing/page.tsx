@@ -1,7 +1,7 @@
 ﻿// Writing Support — AI prompts, word count, outline, assistance
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Lightbulb, CheckCircle, PencilLine, Sparkles, Loader2, Hash, FileDown, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import { useAppStore } from '@/store/appStore';
@@ -71,6 +71,9 @@ export default function WritingPage() {
   const [aiError, setAiError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  // 目前草稿的伺服器 id — 分析結果必須關聯到同一草稿，避免 findLatestDraft
+  // 把分析寫到另一篇草稿（R3.10-K Phase 6 provenance collision fix）。
+  const draftIdRef = useRef<string | null>(null);
 
   // === 互動改寫狀態 ===
   const [rewriteLoading, setRewriteLoading] = useState(false);
@@ -96,11 +99,13 @@ export default function WritingPage() {
     const timer = setTimeout(async () => {
       setSaveStatus('saving');
       try {
-        await fetch('/api/writing', {
+        const res = await fetch('/api/writing', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: 'current', draft }),
         });
+        const json = await res.json();
+        if (json.draft?.id) draftIdRef.current = json.draft.id;
         setSaveStatus('saved');
       } catch { setSaveStatus('unsaved'); }
     }, 10000);
@@ -262,12 +267,13 @@ export default function WritingPage() {
             }),
           }).catch(() => {});
         }
-        // 持久化 AI 分析結果到 DB
+        // 持久化 AI 分析結果到 DB（關聯到同一草稿 id，避免寫到別篇草稿）
         try {
           await fetch('/api/writing', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              id: draftIdRef.current ?? undefined,
               aiSuggestions: json.analysis,
               status: 'submitted',
             }),

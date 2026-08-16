@@ -11,6 +11,7 @@ import { logger } from '@/shared/logger/logger';
 /** WritingAnalysis 資料結構 */
 interface WritingAnalysis {
   overallScore?: number;
+  scoringVersion?: string;
   strengths?: string[];
   weaknesses?: string[];
   grammarErrors?: { original: string; correction: string; explanation: string }[];
@@ -95,13 +96,19 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
     y = doc.y + 8;
   }
 
-  // Overall Score
+  // Overall Score — PLATFORM-normalized writing score, NOT an official HKDSE
+  // examination score. Wording must preserve that distinction.
   if (analysis.overallScore !== undefined) {
     checkPageBreak(30);
     doc.font(font).fontSize(16).fillColor('#1a5276');
-    const scoreLabel = hasCJK ? `總分：${analysis.overallScore}/100` : `Overall Score: ${analysis.overallScore}/100`;
+    const scoreLabel = hasCJK ? `平台寫作分數（Platform Writing Score）：${analysis.overallScore}/100` : `Platform Writing Score: ${analysis.overallScore}/100`;
     doc.text(scoreLabel, 50, y, { width: contentWidth });
-    y = doc.y + 12;
+    y = doc.y + 10;
+    if (analysis.scoringVersion) {
+      doc.font(font).fontSize(9).fillColor('#777777');
+      doc.text(`Scoring version: ${analysis.scoringVersion}`, 50, y, { width: contentWidth });
+      y = doc.y + 10;
+    }
   }
 
   // Strengths
@@ -250,9 +257,15 @@ async function generateDOCX(analysis: WritingAnalysis): Promise<Buffer> {
 
   if (analysis.overallScore !== undefined) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: `Overall Score: ${analysis.overallScore}/100`, bold: true, size: 28 })],
-      spacing: { after: 200 },
+      children: [new TextRun({ text: `Platform Writing Score: ${analysis.overallScore}/100`, bold: true, size: 28 })],
+      spacing: { after: 100 },
     }));
+    if (analysis.scoringVersion) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: `Scoring version: ${analysis.scoringVersion}`, size: 18, color: '777777' })],
+        spacing: { after: 100 },
+      }));
+    }
   }
 
   // Strengths
