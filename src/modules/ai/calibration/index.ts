@@ -45,6 +45,9 @@ export type {
   IntakeFieldStatus,
   CalibrationRunMetadata,
   LevelAgreementMetrics,
+  GroundTruthClass,
+  HumanMarkerScoreEntry,
+  AdjudicationRecord,
 } from "./types";
 export { DEFAULT_CALIBRATION_GATE_POLICY } from "./types";
 
@@ -56,6 +59,7 @@ export {
   humanMarkerEvidenceKey,
   classifyHumanMarkerSource,
   classifyHumanMarkerEvidence,
+  classifyGroundTruthClass,
   type SourceClassificationInput,
 } from "./human-marker";
 
@@ -96,11 +100,12 @@ export {
   parseOrdinalLevelIndex,
 } from "./metrics";
 
-// R3.10-K Phase 7: calibration version identity
+// R3.10-K Phase 7/8: calibration version identity
 export {
   CALIBRATION_VERSION,
   CALIBRATION_DATASET_VERSION,
   computeDatasetFingerprint,
+  type DatasetFingerprintEntry,
 } from "./version";
 
 // Gates

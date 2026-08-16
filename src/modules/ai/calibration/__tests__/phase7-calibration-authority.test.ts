@@ -303,6 +303,7 @@ describe("TEST-CAL-009/012 — dimension gates & criterion-only edge", () => {
     const result = evaluateCalibrationGates({
       sampleCount: 10,
       scoredCount: 8,
+      verifiedComparableCount: 8,
       policy: DEFAULT_CALIBRATION_GATE_POLICY,
       report: { metrics },
     });
@@ -327,6 +328,7 @@ describe("TEST-CAL-009/012 — dimension gates & criterion-only edge", () => {
     const result = evaluateCalibrationGates({
       sampleCount: 10,
       scoredCount: 8,
+      verifiedComparableCount: 8,
       policy: DEFAULT_CALIBRATION_GATE_POLICY,
       report: { metrics },
     });
@@ -357,6 +359,7 @@ describe("TEST-CAL-010 — ordinal level distances", () => {
         organization: { published: null, predicted: null, error: null },
       },
       analysisFailure: null,
+      verificationStatus: null,
     };
   }
 

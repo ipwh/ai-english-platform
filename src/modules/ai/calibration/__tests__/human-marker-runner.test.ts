@@ -60,13 +60,18 @@ function makeHumanFixture(
         assertedBy: "repository-owner",
         authority: "HKEAA",
         acquisitionMethod: "direct-source",
-        verificationRequired: false,
+        verificationRequired: true,
+        // Synthetic fixtures used in gate PASS/FAIL scenarios are
+        // declared VERIFIED so the Phase 8 verified-sample gate can be
+        // exercised — real fixtures remain unverified until Phase 8A.
+        verificationStatus: "verified",
       },
     },
     rubricVersion: "HKDSE-P2-CLO-v1",
     markerPolicy: "single marking, HKDSE P2 C/L/O rubric 0-7",
     markerId: "marker-anon-07",
     publishedLevel: "4",
+    taskPartScope: "paper-2-part-b",
     scoreProvenance: {
       suppliedBy: "human-marker",
       overallScoreDirectlyScored: true,

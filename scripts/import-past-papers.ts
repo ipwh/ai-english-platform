@@ -17,10 +17,12 @@ import path from 'node:path';
 loadEnvConfig(process.cwd());
 
 // 使用 require() 動態載入，避免 ESM hoist 在 env 載入前初始化 DB
+// R3.10-K Phase 8: canonical paths — the guarded rag-service enforces
+// rag-exclusion (calibration reference material is NEVER indexed).
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { db } = require('../src/lib/db');
+const { db } = require('../src/shared/db/db');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { indexMaterial } = require('../src/lib/rag-service');
+const { indexMaterial } = require('../src/modules/ai/services/rag-service');
 
 // ============================================
 // 檔案分類規則

@@ -133,6 +133,27 @@ export function checkHumanMarkerEvidenceIntake(
     invalid("overallScore", "score exceeds the established denominator");
   }
 
+  // 4b. Phase 8: task/part scope. A human overall score on an established
+  // scale is comparable ONLY when a compatible single-part scope is
+  // declared — ambiguous (missing / full-paper) scope is NEVER compared.
+  const scope = intake.taskPartScope?.trim() ?? "";
+  const scopeDeclared = scope !== "" && !/^full[-_]?paper$/i.test(scope);
+  let scopeAcceptable = true;
+  if (hasScore && establishedScale(intake.overallScale)) {
+    if (!scopeDeclared) {
+      invalid(
+        "taskPartScope",
+        `overall scores on an established scale require a single-part task scope declaration `
+        + `(e.g. paper-2-part-b); got "${scope || "<none>"}" — ambiguous scope is never compared`,
+      );
+      scopeAcceptable = false;
+    } else {
+      fields.push({ field: "taskPartScope", status: "PRESENT", detail: scope });
+    }
+  } else {
+    fields.push({ field: "taskPartScope", status: scopeDeclared ? "PRESENT" : "MISSING", detail: scope || "none declared (not required without an established-scale overall score)" });
+  }
+
   // 5. Explicit score label.
   mark("scoreLabel", typeof intake.scoreLabel === "string" && intake.scoreLabel.trim() !== "");
 
@@ -218,10 +239,16 @@ export function checkHumanMarkerEvidenceIntake(
   else if (hasScore && scoreInRange && establishedScale(intake.overallScale) && hasTask && hasPaper && hasYear
     && provenanceAcceptable && ocrClean && intake.sourceHash && /^[0-9a-f]{64}$/.test(intake.sourceHash)
     && typeof intake.scoreLabel === "string" && intake.scoreLabel.trim() !== ""
+    && scopeAcceptable
     && !teaching && !conflict && !duplicate) {
     evidenceClass = "ACCEPT_OVERALL_SCORE";
   } else if (hasScore) {
     evidenceClass = "NON_COMPARABLE_SCORE";
+    if (!scopeAcceptable) {
+      reasons.push(
+        "comparability: ambiguous task/part scope — excluded as NON_COMPARABLE, never compared",
+      );
+    }
   } else if (
     intake.overallScore !== undefined
     || intake.overallScale !== undefined

@@ -33,10 +33,11 @@ function goodMetrics(): CalibrationMetrics {
   return m;
 }
 
-function input(overrides: { sampleCount?: number; scoredCount?: number; metrics?: CalibrationMetrics; policy?: CalibrationGatePolicy } = {}) {
+function input(overrides: { sampleCount?: number; scoredCount?: number; verifiedComparableCount?: number; metrics?: CalibrationMetrics; policy?: CalibrationGatePolicy } = {}) {
   return {
     sampleCount: overrides.sampleCount ?? 20,
     scoredCount: overrides.scoredCount ?? 20,
+    verifiedComparableCount: overrides.verifiedComparableCount ?? 20,
     policy: overrides.policy ?? DEFAULT_CALIBRATION_GATE_POLICY,
     report: { metrics: overrides.metrics ?? goodMetrics() },
   };
@@ -117,6 +118,7 @@ describe("Calibration gates — PASS / FAIL", () => {
       maxContentMAE: 10,
       maxLanguageMAE: 10,
       maxOrganizationMAE: 10,
+      minVerifiedComparableSamples: 0,
     };
     const r = evaluateCalibrationGates(input({ policy: lenient }));
     expect(r.decision).toBe("PASS");
@@ -139,5 +141,38 @@ describe("Calibration gates — PASS / FAIL", () => {
     const na = r.thresholds.find(t => t.name === "maxContentMAE");
     expect(na?.met).toBe(true);
     expect(r.reasons.some(s => s.includes("not applicable"))).toBe(true);
+  });
+
+  // ============================================
+  // R3.10-K Phase 8 — TEST-CAL-018 verified-evidence gate
+  // ============================================
+  it("TEST-CAL-018 A: 8 comparable but 0 verified → INSUFFICIENT_DATA", () => {
+    const r = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, verifiedComparableCount: 0 }));
+    expect(r.decision).toBe("INSUFFICIENT_DATA");
+    expect(r.reasons.join(" ")).toContain("insufficient-verified-comparable-samples");
+    expect(r.reasons.join(" ")).toContain("never convert unverified into verified");
+  });
+
+  it("TEST-CAL-018 B: 7 verified comparable → INSUFFICIENT_DATA", () => {
+    const r = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, verifiedComparableCount: 7 }));
+    expect(r.decision).toBe("INSUFFICIENT_DATA");
+    expect(r.reasons.some(s => s.includes("7 < required 8"))).toBe(true);
+  });
+
+  it("TEST-CAL-018 C: 8 verified comparable → proceeds to metric evaluation", () => {
+    const pass = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, verifiedComparableCount: 8 }));
+    expect(pass.decision).toBe("PASS");
+
+    const m = goodMetrics();
+    m.overall.mae = 5.0;
+    const fail = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, verifiedComparableCount: 8, metrics: m }));
+    expect(fail.decision).toBe("FAIL");
+  });
+
+  it("TEST-CAL-018 D: verificationStatus mutation alone changes sufficiency", () => {
+    const insufficient = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, verifiedComparableCount: 7 }));
+    const sufficient = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, verifiedComparableCount: 8 }));
+    expect(insufficient.decision).toBe("INSUFFICIENT_DATA");
+    expect(sufficient.decision).toBe("PASS");
   });
 });

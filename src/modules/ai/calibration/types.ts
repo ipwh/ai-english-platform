@@ -259,6 +259,12 @@ export interface CalibrationComparison {
   };
   /** Marker policy, when the comparison comes from human-marker evidence. */
   markerPolicy?: string;
+  /**
+   * Phase 8: verification state of the evidence that produced this
+   * comparison ("verified" | "unverified" | null). Sufficiency counts
+   * ACTUAL comparable pairs, and verified pairs require this field.
+   */
+  verificationStatus: string | null;
   /** Fixture failed to analyze (provider/parse error) — not silently dropped. */
   analysisFailure: string | null;
 }
@@ -324,6 +330,13 @@ export interface CalibrationGatePolicy {
   maxContentMAE: number;
   maxLanguageMAE: number;
   maxOrganizationMAE: number;
+  /**
+   * R3.10-K Phase 8: minimum VERIFIED overall-comparable human-marker
+   * samples required before any PASS is possible. An operational
+   * engineering threshold — NOT a statistical validity threshold.
+   * Unverified comparable evidence never satisfies this gate.
+   */
+  minVerifiedComparableSamples: number;
 }
 
 /**
@@ -348,6 +361,10 @@ export const DEFAULT_CALIBRATION_GATE_POLICY: CalibrationGatePolicy = {
   maxContentMAE: 1.5,
   maxLanguageMAE: 1.5,
   maxOrganizationMAE: 1.5,
+  // POLICY (Phase 8): operational engineering minimum of VERIFIED
+  // overall-comparable human-marker samples. NOT a statistical
+  // validity threshold and never presented as one.
+  minVerifiedComparableSamples: 8,
 };
 
 export interface CalibrationGateResult {
@@ -487,6 +504,34 @@ export interface HumanMarkerScoreProvenance {
 }
 
 /**
+ * R3.10-K Phase 8: one independent human-marker score entry.
+ * Contains NO AI prediction fields by design (no aiScore / modelScore /
+ * predictedLevel / AI feedback / target level) — independent human
+ * evidence only.
+ */
+export interface HumanMarkerScoreEntry {
+  /** Anonymized marker id — required per entry. */
+  markerId: string;
+  contentScore: number | null;
+  languageScore: number | null;
+  organizationScore: number | null;
+  overallScore: number | null;
+  /** Scoring timestamp (ISO); null when unavailable. */
+  markedAt: string | null;
+}
+
+/**
+ * R3.10-K Phase 8: adjudication record. Kept SEPARATE from original
+ * marks — original marker scores are never mutated by adjudication.
+ */
+export interface AdjudicationRecord {
+  status: "not-required" | "pending" | "resolved" | "disagreement-visible";
+  adjudicatorId: string | null;
+  resolvedAt: string | null;
+  notes: string | null;
+}
+
+/**
  * A genuine human-marker-scored candidate script. The ONLY fixture
  * category that may carry numeric marker scores. Immutable after
  * ingestion: a changed source is a NEW fixture, never a mutation.
@@ -581,6 +626,29 @@ export interface HumanMarkerCalibrationFixture {
    */
   publishedLevel: string | null;
   /**
+   * R3.10-K Phase 8: independent marker scores (multi-marker support).
+   * Backward-compatible optional — existing single published marker
+   * representation remains valid. NO AI prediction fields allowed.
+   */
+  markerScores?: HumanMarkerScoreEntry[];
+  /**
+   * R3.10-K Phase 8: adjudication state. Separate from original marks;
+   * disagreement is never silently collapsed.
+   */
+  adjudication?: AdjudicationRecord;
+  /**
+   * R3.10-K Phase 8: task/part scope of the human score, e.g.
+   * "paper-2-part-b", "paper-2-part-a", "full-paper". Required for
+   * clo-total-0-21 comparability (see comparabilityNotes).
+   */
+  taskPartScope?: string;
+  /**
+   * R3.10-K Phase 8: explicit comparability caveats (rounding,
+   * penalties, single-part vs full-paper, incomplete scripts). Never
+   * inferred — declared by the ingesting party.
+   */
+  comparabilityNotes?: string;
+  /**
    * Verbatim published sub-scores that do not fit the overall/criterion
    * fields (e.g. double marking "M1:21 M2:19 40/42"). These are
    * provenance records ONLY — they never enter metric comparison.
@@ -621,6 +689,26 @@ export type HumanMarkerEvidenceClass =
   | "IMAGE_ONLY_UNREADABLE"
   /** Conflicting authoritative scores for the same script. */
   | "CONFLICT";
+
+/**
+ * R3.10-K Phase 8: consolidated ground-truth class. Composes existing
+ * concepts (fixture kind + evidence class + verification state) — it
+ * does NOT replace them. Unknown input maps to
+ * SYNTHETIC_PLATFORM_FIXTURE (fail-safe: never treated as ground truth).
+ */
+export type GroundTruthClass =
+  /** Human-marker evidence, verified, with comparable scores. */
+  | "HUMAN_MARKER_GROUND_TRUTH"
+  /** Human-marker evidence whose verificationStatus is not "verified". */
+  | "HUMAN_MARKER_UNVERIFIED"
+  /** HKEAA publication evidence that carries levels only. */
+  | "HUMAN_PUBLICATION_LEVEL_ONLY"
+  /** Platform-generated / synthetic fixtures (regression fixtures). */
+  | "SYNTHETIC_PLATFORM_FIXTURE"
+  /** Regression goldens saved from AI output (--update-golden). */
+  | "AI_AUTHORED_REGRESSION_BASELINE"
+  /** Human evidence with scores on non-comparable scales. */
+  | "NON_COMPARABLE_HUMAN_EVIDENCE";
 
 /** Outcome of validating a set of human-marker fixtures. */
 export interface HumanMarkerEvidenceSetResult {
@@ -738,6 +826,14 @@ export interface HumanMarkerEvidenceIntake {
    * third-party source omits it.
    */
   verificationRequired?: boolean;
+  /**
+   * R3.10-K Phase 8: task/part scope of the human overall score
+   * ("paper-2-part-a" / "paper-2-part-b" / "full-paper"). Required
+   * whenever an overall score with an established scale is supplied.
+   */
+  taskPartScope?: string;
+  /** R3.10-K Phase 8: declared comparability caveats. */
+  comparabilityNotes?: string;
   /** True when the text/score comes from OCR reconstruction. */
   ocrDerived?: boolean;
   /** True when the document is teaching/reference material. */

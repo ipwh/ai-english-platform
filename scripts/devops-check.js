@@ -173,14 +173,14 @@ async function main() {
     console.log(`  🧩 RAG chunks indexed:     ${chunkCount}`);
 
     if (ragDone > 0) console.log(`    ${ok(`RAG done: ${ragDone}`)}`);
-    if (ragNone > 0) console.log(`    ${warn(`RAG pending: ${ragNone} — run: node scripts/index-all-materials.js`)}`);
+    if (ragNone > 0) console.log(`    ${warn(`RAG pending: ${ragNone} — index via the guarded teacher-materials RAG action (/api/rag, rag-exclusion protected)`)}`);
     if (ragFailed > 0) console.log(`    ${err(`RAG failed: ${ragFailed} — run: node scripts/reset-rag.js then retry`)}`);
 
     // RAG health
     const dseRagEnabled = process.env.DSE_RAG_ENABLED === 'true';
     if (dseRagEnabled && chunkCount === 0) {
       console.log(`  ${err('DSE_RAG_ENABLED=true but ZERO chunks indexed!')}`);
-      console.log(`    ${info('Fix: npx tsx scripts/index-all-materials.js')}`);
+      console.log(`    ${info('Fix: index via teacher materials UI (建立語義索引) — the guarded /api/rag path (rag-exclusion protected)')}`);
       criticalMissing++;
     } else if (dseRagEnabled && chunkCount > 0) {
       console.log(`  ${ok(`DSE RAG active (${chunkCount} chunks)`)}`);
@@ -267,7 +267,7 @@ async function main() {
         console.log(`  4. Set DATABASE_URL (PostgreSQL connection string from Neon/Supabase)`);
       }
       if (process.env.DSE_RAG_ENABLED === 'true' && dbOk) {
-        console.log(`  5. Run RAG indexing: npx tsx scripts/index-all-materials.js`);
+        console.log(`  5. Run RAG indexing: teacher materials UI (建立語義索引) — guarded /api/rag path (rag-exclusion protected)`);
       }
     }
 

@@ -275,7 +275,12 @@ export function renderCalibrationReport(
     sections.push(
       "> Level 4→Level 5 (distance 1) and Level 4→Level 1 (distance 3) are "
       + "DIFFERENT errors. Star-levels (5*/5**) fold onto index 5 for distance "
-      + "purposes; string-exact agreement remains available in the level columns.",
+      + "purposes; string-exact agreement remains available in the level columns. "
+      + "**Platform scale limitation:** the platform estimates on the 1-5 scale "
+      + "only and CANNOT represent publication star distinctions (5*/5**) — "
+      + "exact string equality is therefore NOT a valid equivalence test for "
+      + "starred publications; the ordinal distance above is the correct "
+      + "comparison for those labels.",
     );
   }
   sections.push("");

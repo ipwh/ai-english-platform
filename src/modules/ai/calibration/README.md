@@ -231,3 +231,50 @@ unverified evidence is never described as verified/official ground truth.
 - Regression goldens saved via `--update-golden` are labelled
   `AI_AUTHORED_REGRESSION_BASELINE` — never confused with
   `HUMAN_MARKER_GROUND_TRUTH`.
+
+## 9. Phase 8 — Dataset Integrity & Evidence Governance
+
+- **Dataset fingerprint V2** (`CALIBRATION_DATASET_V2`): the fingerprint
+  now hashes the FULL ground-truth identity — marker scores (C/L/O/overall),
+  published level, rubric version, verification state, published sub-scores,
+  independent `markerScores[]`, adjudication state, AND semantic
+  comparability metadata (`taskPartScope`, `comparabilityNotes`). ANY
+  ground-truth or comparability mutation changes the fingerprint; same
+  fingerprint + different ground truth is structurally impossible.
+- **Verified-sample gate**: `minVerifiedComparableSamples` (POLICY, 8) —
+  Step 4 hardened: sufficiency counts **ACTUAL verified comparable
+  pairs** (overall pairs that really entered the metrics), never merely
+  verified fixtures. VERIFIED FIXTURES ≠ VERIFIED COMPARABLE PAIRS.
+  Scope-excluded / criterion-only / failed fixtures never count.
+  Unverified comparable evidence never reaches PASS; absence yields
+  `INSUFFICIENT_DATA` (never PASS, never FAIL-merely-because-absent).
+  This is an operational engineering threshold, NOT a statistical validity
+  threshold.
+- **Inter-rater schema**: `markerScores[]` (markerId, C/L/O/overall,
+  markedAt) + `adjudication` (status / adjudicatorId / resolvedAt / notes).
+  Disagreement is never collapsed; adjudication never mutates original
+  marks; AI prediction fields are rejected by validation.
+- **Marker protocol**: `MARKER_PROTOCOL.md` — 12 blind-marking rules
+  (marker never sees AI score / AI feedback / pedagogical target) +
+  verification chain (UNVERIFIED → independent verification → VERIFIED →
+  freeze → calibration run). Publication authority alone does NOT
+  establish verified ground truth.
+- **Task/part scope**: overall scores on established scales require a
+  single-part `taskPartScope` declaration; ambiguous / full-paper scope is
+  NEVER compared (excluded as NON_COMPARABLE at intake, or as
+  `scope-ambiguous-excluded` at run time).
+- **Consolidated classification**: `classifyGroundTruthClass()` maps
+  evidence to HUMAN_MARKER_GROUND_TRUTH / HUMAN_MARKER_UNVERIFIED /
+  HUMAN_PUBLICATION_LEVEL_ONLY / SYNTHETIC_PLATFORM_FIXTURE /
+  AI_AUTHORED_REGRESSION_BASELINE / NON_COMPARABLE_HUMAN_EVIDENCE.
+  Unknown input maps to SYNTHETIC (fail-safe — never ground truth).
+- **Star-level limitation**: the platform estimates on the 1-5 scale only;
+  publication star distinctions (5*/5**) cannot be represented — the
+  report states this explicitly and uses ordinal distance for starred
+  publications (string equality is not a valid equivalence test).
+- **Dead indexing scripts removed**: `scripts/index-all-materials.js`,
+  `check-materials.js`, `check-rag.js`, `debug-index.js` referenced
+  non-existent modules (`src/lib/*`) and could have become unguarded RAG
+  paths; deleted. `import-past-papers.ts` and `reset-rag.js` migrated to
+  the canonical guarded path (`src/modules/ai/services/rag-service` with
+  `rag-exclusion`). No `src/lib` references remain in the repository.

@@ -37,6 +37,7 @@ function comparison(
       organization: { published: null, predicted: null, error: null },
     },
     analysisFailure: null,
+    verificationStatus: null,
     ...overrides,
   };
 }

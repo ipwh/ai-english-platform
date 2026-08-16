@@ -34,6 +34,7 @@ function validIntake(overrides: Partial<HumanMarkerEvidenceIntake> = {}): HumanM
     scoreLabel: "Overall: 18/21",
     provenanceOrganization: "hkeaa",
     markerBasis: "official-marking-record",
+    taskPartScope: "paper-2-part-b",
     ocrDerived: false,
     notes: "TEST_ONLY synthetic intake — never real evidence",
     ...overrides,

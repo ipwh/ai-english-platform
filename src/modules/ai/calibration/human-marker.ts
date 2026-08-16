@@ -21,6 +21,7 @@
 
 import type {
   FixtureValidationResult,
+  GroundTruthClass,
   HKEAAPaper,
   HumanMarkerCalibrationFixture,
   HumanMarkerEvidenceClass,
@@ -38,6 +39,38 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug === "" ? "unknown" : slug;
+}
+
+/**
+ * R3.10-K Phase 8: consolidated ground-truth classification. Composes
+ * fixture kind + evidence class + verification state. Unknown input
+ * maps to SYNTHETIC_PLATFORM_FIXTURE — never treated as ground truth.
+ * Regression golden envelopes are identified by their explicit label.
+ */
+export function classifyGroundTruthClass(input: {
+  kind: unknown;
+  evidenceClass?: HumanMarkerEvidenceClass | null;
+  verificationStatus?: "verified" | "unverified" | null;
+  goldenType?: string | null;
+}): GroundTruthClass {
+  if (input.goldenType === "AI_AUTHORED_REGRESSION_BASELINE") {
+    return "AI_AUTHORED_REGRESSION_BASELINE";
+  }
+  if (input.kind === "synthetic-regression") {
+    return "SYNTHETIC_PLATFORM_FIXTURE";
+  }
+  if (input.kind === "authoritative-calibration") {
+    return "HUMAN_PUBLICATION_LEVEL_ONLY";
+  }
+  if (input.kind === "human-marker-calibration") {
+    if (input.evidenceClass === "NON_COMPARABLE_SCORE") {
+      return "NON_COMPARABLE_HUMAN_EVIDENCE";
+    }
+    return input.verificationStatus === "verified"
+      ? "HUMAN_MARKER_GROUND_TRUTH"
+      : "HUMAN_MARKER_UNVERIFIED";
+  }
+  return "SYNTHETIC_PLATFORM_FIXTURE"; // fail-safe
 }
 
 /**
@@ -278,6 +311,69 @@ export function validateHumanMarkerFixture(
     }
   }
 
+  // R3.10-K Phase 8: independent marker scores (multi-marker support).
+  // NO AI prediction fields exist in this schema by design — validation
+  // strictly rejects any undeclared key (e.g. aiScore / modelScore /
+  // predictedLevel / AI feedback / target level).
+  const ALLOWED_MARKER_SCORE_KEYS = new Set([
+    "markerId", "contentScore", "languageScore", "organizationScore", "overallScore", "markedAt",
+  ]);
+  if (fixture.markerScores !== undefined) {
+    if (!Array.isArray(fixture.markerScores)) {
+      push("markerScores must be an array when present");
+    } else {
+      for (const entry of fixture.markerScores) {
+        const unknownKeys = Object.keys(entry).filter(k => !ALLOWED_MARKER_SCORE_KEYS.has(k));
+        if (unknownKeys.length > 0) {
+          push(`markerScores entries contain forbidden keys: ${unknownKeys.join(", ")} — AI prediction fields are never accepted`);
+        }
+        if (typeof entry.markerId !== "string" || entry.markerId.trim() === "") {
+          push("markerScores entries require a non-empty markerId");
+        }
+        for (const [name, value] of [
+          ["contentScore", entry.contentScore],
+          ["languageScore", entry.languageScore],
+          ["organizationScore", entry.organizationScore],
+          ["overallScore", entry.overallScore],
+        ] as const) {
+          if (value !== null && !(typeof value === "number" && Number.isFinite(value))) {
+            push(`markerScores ${name} must be null or a finite number`);
+          }
+        }
+        if (entry.markedAt !== null && typeof entry.markedAt !== "string") {
+          push("markerScores markedAt must be an ISO string or null");
+        }
+      }
+    }
+  }
+
+  // Phase 8: adjudication is SEPARATE from original marks.
+  if (fixture.adjudication !== undefined) {
+    const a = fixture.adjudication;
+    const validStatuses = ["not-required", "pending", "resolved", "disagreement-visible"];
+    if (typeof a !== "object" || a === null || !validStatuses.includes((a as { status?: unknown }).status as string)) {
+      push("adjudication.status must be one of not-required | pending | resolved | disagreement-visible");
+    } else {
+      for (const [name, value] of [
+        ["adjudicatorId", a.adjudicatorId],
+        ["resolvedAt", a.resolvedAt],
+        ["notes", a.notes],
+      ] as const) {
+        if (value !== null && typeof value !== "string") {
+          push(`adjudication.${name} must be a string or null`);
+        }
+      }
+    }
+  }
+
+  // Phase 8: task/part scope + comparability notes are optional strings.
+  if (fixture.taskPartScope !== undefined && typeof fixture.taskPartScope !== "string") {
+    push("taskPartScope must be a string when present");
+  }
+  if (fixture.comparabilityNotes !== undefined && typeof fixture.comparabilityNotes !== "string") {
+    push("comparabilityNotes must be a string when present");
+  }
+
   // Status validity.
   if (
     fixture.calibrationStatus !== "ingested"
@@ -357,8 +453,30 @@ export function humanMarkerEvidenceKey(
   ].join("|");
 }
 
-/** Score-relevant content fingerprint for duplicate/conflict checks. */
+/** Score-relevant content fingerprint for duplicate/conflict checks.
+ *  Phase 8 Step 4 (P2-B): includes the FULL evidence identity —
+ *  markerScores (order-invariant), adjudication, taskPartScope,
+ *  verificationStatus, comparabilityNotes — so semantically distinct
+ *  records are never collapsed into duplicates. Array order alone never
+ *  creates a false duplicate. */
 function evidenceFingerprint(fixture: HumanMarkerCalibrationFixture): string {
+  const markerScores = fixture.markerScores
+    ? [...fixture.markerScores]
+      .map(m => ({
+        markerId: m.markerId,
+        contentScore: m.contentScore,
+        languageScore: m.languageScore,
+        organizationScore: m.organizationScore,
+        overallScore: m.overallScore,
+        markedAt: m.markedAt,
+      }))
+      .sort((a, b) => `${a.markerId}|${a.markedAt}`.localeCompare(`${b.markerId}|${b.markedAt}`))
+    : null;
+  const subScores = fixture.publishedSubScores
+    ? [...fixture.publishedSubScores]
+      .map(s => [s.label, String(s.value)] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+    : null;
   return JSON.stringify({
     overallScore: fixture.overallScore,
     contentScore: fixture.contentScore,
@@ -368,6 +486,12 @@ function evidenceFingerprint(fixture: HumanMarkerCalibrationFixture): string {
     markerPolicy: fixture.markerPolicy,
     rubricVersion: fixture.rubricVersion,
     sourceHash: fixture.provenance.sourceHash,
+    verificationStatus: fixture.provenance.sourceAuthorityAssertion?.verificationStatus ?? null,
+    taskPartScope: fixture.taskPartScope ?? null,
+    comparabilityNotes: fixture.comparabilityNotes ?? null,
+    markerScores,
+    adjudication: fixture.adjudication ?? null,
+    subScores,
   });
 }
 

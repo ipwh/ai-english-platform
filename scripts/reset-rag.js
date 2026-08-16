@@ -9,7 +9,7 @@ if (fs.existsSync(envPath)) {
 }
 
 (async () => {
-  const db = require('../src/lib/db').default;
+  const { db } = require('../src/shared/db/db');
   const r = await db.material.updateMany({
     where: { ragStatus: 'failed' },
     data: { ragStatus: 'none' },

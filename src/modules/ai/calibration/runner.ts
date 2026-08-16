@@ -31,7 +31,12 @@ import type {
   InsufficientDataArea,
 } from "./types";
 import { DEFAULT_CALIBRATION_GATE_POLICY } from "./types";
-import { CALIBRATION_DATASET_VERSION, CALIBRATION_VERSION, computeDatasetFingerprint } from "./version";
+import {
+  CALIBRATION_DATASET_VERSION,
+  CALIBRATION_VERSION,
+  computeDatasetFingerprint,
+  type DatasetFingerprintEntry,
+} from "./version";
 import {
   classifyFixtureKind,
   validateAuthoritativeFixture,
@@ -92,7 +97,7 @@ export interface CalibrationRunnerOptions {
  * declare themselves explicitly.
  */
 export function buildRunMetadata(
-  datasetEntries: Array<{ id: string; sourceHash: string }>,
+  datasetEntries: DatasetFingerprintEntry[],
   override: Partial<CalibrationRunMetadata> = {},
 ): CalibrationRunMetadata {
   const registryPrompt = getPrompt("AnalyzeWriting");
@@ -286,6 +291,7 @@ export async function runCalibrationBenchmark(
         language: compareCriterion(fixture.publishedLanguageScore, analysis?.languageScore ?? null),
         organization: compareCriterion(fixture.publishedOrganizationScore, analysis?.organizationScore ?? null),
       },
+      verificationStatus: null, // HKEAA authoritative fixtures carry no verification state
       analysisFailure: failure,
     });
   }
@@ -322,7 +328,11 @@ export async function runCalibrationBenchmark(
 
   const gate = evaluateCalibrationGates({
     sampleCount: fixtures.length,
-    scoredCount: scored.length,
+    // P1 (Phase 8 Step 4): sufficiency derives from ACTUAL comparable
+    // overall pairs, not analyzed fixtures. Authoritative HKEAA fixtures
+    // never produce overall pairs (levels only).
+    scoredCount: comparisons.filter(c => c.overallError !== null).length,
+    verifiedComparableCount: 0, // authoritative fixtures carry no human verification state
     policy,
     report: { metrics },
   });
@@ -338,9 +348,44 @@ export async function runCalibrationBenchmark(
     gate,
     generatedAt: now(),
     runMetadata: buildRunMetadata(
-      fixtures.map(f => ({ id: f.id, sourceHash: f.provenance.sourceHash })),
+      fixtures.map(authoritativeFingerprintEntry),
       options.runMetadata,
     ),
+  };
+}
+
+/** Phase 8: full ground-truth identity for an authoritative fixture. */
+function authoritativeFingerprintEntry(f: AuthoritativeCalibrationFixture): DatasetFingerprintEntry {
+  return {
+    id: f.id,
+    sourceHash: f.provenance.sourceHash,
+    contentScore: f.publishedContentScore,
+    languageScore: f.publishedLanguageScore,
+    organizationScore: f.publishedOrganizationScore,
+    overallScore: f.publishedOverallScore,
+    publishedLevel: f.publishedLevel === null ? null : String(f.publishedLevel),
+    rubricVersion: f.rubricVersion,
+    verificationStatus: null,
+  };
+}
+
+/** Phase 8: full ground-truth identity for a human-marker fixture. */
+function humanMarkerFingerprintEntry(f: HumanMarkerCalibrationFixture): DatasetFingerprintEntry {
+  return {
+    id: f.id,
+    sourceHash: f.provenance.sourceHash,
+    contentScore: f.contentScore,
+    languageScore: f.languageScore,
+    organizationScore: f.organizationScore,
+    overallScore: f.overallScore,
+    publishedLevel: f.publishedLevel,
+    rubricVersion: f.rubricVersion,
+    verificationStatus: f.provenance.sourceAuthorityAssertion?.verificationStatus ?? null,
+    taskPartScope: f.taskPartScope ?? null,
+    comparabilityNotes: f.comparabilityNotes ?? null,
+    subScores: f.publishedSubScores,
+    markerScores: f.markerScores,
+    adjudication: f.adjudication,
   };
 }
 
@@ -377,12 +422,21 @@ function mapHumanMarkerComparison(
   fixture: HumanMarkerCalibrationFixture,
   analysis: WritingAnalysis | null,
   failure: string | null,
-): CalibrationComparison {
+): { comparison: CalibrationComparison; scopeExcluded: boolean } {
   const predictedLevel = analysis?.platformWritingEstimate ?? analysis?.dseLevel ?? null;
 
   // Overall: mapped ONLY through the fixture's declared scale.
   const basis = fixture.scoreProvenance.overallScoreBasis;
-  const predictedOverall = analysis === null || fixture.overallScore === null
+
+  // P2 (Phase 8): clo-total-0-21 human scores MUST declare a compatible
+  // single-part task scope. Ambiguous / full-paper scope is NEVER compared.
+  const scope = fixture.taskPartScope?.trim() ?? "";
+  const scopeExcluded =
+    basis === "clo-total-0-21"
+    && fixture.overallScore !== null
+    && (scope === "" || /^full[-_]?paper$/i.test(scope));
+
+  const predictedOverall = analysis === null || fixture.overallScore === null || scopeExcluded
     ? null
     : basis === "percentage-0-100"
       ? analysis.overallScore
@@ -391,29 +445,33 @@ function mapHumanMarkerComparison(
         : null;
 
   return {
-    fixtureId: fixture.id,
-    year: fixture.provenance.sourceYear,
-    taskId: fixture.provenance.taskId,
-    paper: fixture.provenance.paper,
-    publishedLevel: fixture.publishedLevel,
-    predictedLevel,
-    levelExactMatch:
-      fixture.publishedLevel !== null && predictedLevel !== null
-        ? String(fixture.publishedLevel) === predictedLevel
-        : null,
-    publishedOverall: fixture.overallScore,
-    predictedOverall,
-    overallError:
-      fixture.overallScore !== null && predictedOverall !== null
-        ? predictedOverall - fixture.overallScore
-        : null,
-    criterion: {
-      content: compareCriterion(fixture.contentScore, analysis?.contentScore ?? null),
-      language: compareCriterion(fixture.languageScore, analysis?.languageScore ?? null),
-      organization: compareCriterion(fixture.organizationScore, analysis?.organizationScore ?? null),
+    comparison: {
+      fixtureId: fixture.id,
+      year: fixture.provenance.sourceYear,
+      taskId: fixture.provenance.taskId,
+      paper: fixture.provenance.paper,
+      publishedLevel: fixture.publishedLevel,
+      predictedLevel,
+      levelExactMatch:
+        fixture.publishedLevel !== null && predictedLevel !== null
+          ? String(fixture.publishedLevel) === predictedLevel
+          : null,
+      publishedOverall: scopeExcluded ? null : fixture.overallScore,
+      predictedOverall,
+      overallError:
+        !scopeExcluded && fixture.overallScore !== null && predictedOverall !== null
+          ? predictedOverall - fixture.overallScore
+          : null,
+      criterion: {
+        content: compareCriterion(fixture.contentScore, analysis?.contentScore ?? null),
+        language: compareCriterion(fixture.languageScore, analysis?.languageScore ?? null),
+        organization: compareCriterion(fixture.organizationScore, analysis?.organizationScore ?? null),
+      },
+      markerPolicy: fixture.markerPolicy,
+      verificationStatus: fixture.provenance.sourceAuthorityAssertion?.verificationStatus ?? null,
+      analysisFailure: failure,
     },
-    markerPolicy: fixture.markerPolicy,
-    analysisFailure: failure,
+    scopeExcluded,
   };
 }
 
@@ -454,6 +512,7 @@ export async function runHumanMarkerCalibrationBenchmark(
   const duplicateCount = fixtures.length - deduped.length;
 
   const comparisons: CalibrationComparison[] = [];
+  const scopeExclusions: string[] = [];
   let quarantined = 0;
 
   for (const fixture of deduped) {
@@ -473,7 +532,14 @@ export async function runHumanMarkerCalibrationBenchmark(
     } catch (err) {
       failure = err instanceof Error ? err.message : String(err);
     }
-    comparisons.push(mapHumanMarkerComparison(fixture, analysis, failure));
+    const mapped = mapHumanMarkerComparison(fixture, analysis, failure);
+    if (mapped.scopeExcluded) {
+      scopeExclusions.push(
+        `${fixture.id}: clo-total-0-21 overall score has no compatible single-part `
+        + `task scope declared (got "${fixture.taskPartScope ?? "<none>"}") — excluded from comparison`,
+      );
+    }
+    comparisons.push(mapped.comparison);
   }
 
   const scored = comparisons.filter(c => c.analysisFailure === null);
@@ -502,10 +568,26 @@ export async function runHumanMarkerCalibrationBenchmark(
       detail: "No human-marker calibration fixtures were provided.",
     });
   }
+  for (const detail of scopeExclusions) {
+    insufficientAreas.push({
+      area: "scope-ambiguous-excluded",
+      detail,
+    });
+  }
+
+  // P1-F2 (Phase 8 Step 4): sufficiency is derived from the SAME
+  // authoritative collection — ACTUAL overall comparable pairs.
+  // A verified fixture whose overall pair was scope-excluded (or never
+  // formed) does NOT count. VERIFIED FIXTURES ≠ VERIFIED COMPARABLE PAIRS.
+  const overallComparablePairs = comparisons.filter(c => c.overallError !== null);
+  const verifiedComparablePairs = overallComparablePairs.filter(
+    c => c.verificationStatus === "verified",
+  );
 
   const gate = evaluateCalibrationGates({
     sampleCount: deduped.length,
-    scoredCount: scored.length,
+    scoredCount: overallComparablePairs.length,
+    verifiedComparableCount: verifiedComparablePairs.length,
     policy,
     report: { metrics },
   });
@@ -554,7 +636,7 @@ export async function runHumanMarkerCalibrationBenchmark(
     evidenceBreakdown,
     generatedAt: now(),
     runMetadata: buildRunMetadata(
-      deduped.map(f => ({ id: f.id, sourceHash: f.provenance.sourceHash })),
+      deduped.map(humanMarkerFingerprintEntry),
       options.runMetadata,
     ),
     evidenceVerification,

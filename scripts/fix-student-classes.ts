@@ -11,7 +11,7 @@ import { loadEnvConfig } from '@next/env';
 loadEnvConfig(process.cwd());
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { db } = require('../src/lib/db');
+const { db } = require('../src/shared/db/db');
 
 const STANDARD_CLASSES = [
   { name: '1A', gradeLevel: 'S1' }, { name: '1B', gradeLevel: 'S1' },

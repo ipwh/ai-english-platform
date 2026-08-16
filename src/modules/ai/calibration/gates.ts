@@ -28,6 +28,12 @@ import type {
 export interface GateEvaluationInput {
   sampleCount: number;
   scoredCount: number;
+  /**
+   * Phase 8: number of human-marker fixtures that are VERIFIED
+   * overall-comparable samples. Unverified comparable evidence NEVER
+   * counts toward this requirement.
+   */
+  verifiedComparableCount: number;
   policy: CalibrationGatePolicy;
   report: Pick<CalibrationBenchmarkReport, "metrics">;
 }
@@ -38,7 +44,7 @@ export interface GateEvaluationInput {
 export function evaluateCalibrationGates(
   input: GateEvaluationInput,
 ): CalibrationGateResult {
-  const { sampleCount, scoredCount, policy, report } = input;
+  const { sampleCount, scoredCount, verifiedComparableCount, policy, report } = input;
   const m = report.metrics;
   const thresholds: GateThresholdResult[] = [];
   const reasons: string[] = [];
@@ -100,6 +106,41 @@ export function evaluateCalibrationGates(
       ],
     };
   }
+
+  // P1-F2 (Phase 8): VERIFIED overall-comparable human-marker evidence is
+  // required before any validity judgment. Unverified comparable evidence
+  // NEVER satisfies this gate; absence yields INSUFFICIENT_DATA (never PASS,
+  // never FAIL merely because evidence is absent).
+  if (verifiedComparableCount < policy.minVerifiedComparableSamples) {
+    thresholds.push({
+      name: "minVerifiedComparableSamples",
+      metricValue: verifiedComparableCount,
+      threshold: policy.minVerifiedComparableSamples,
+      required: "gte",
+      met: false,
+    });
+    return {
+      decision: "INSUFFICIENT_DATA",
+      policy,
+      thresholds,
+      reasons: [
+        "insufficient-verified-comparable-samples",
+        `verified comparable samples ${verifiedComparableCount} < required ${policy.minVerifiedComparableSamples}`,
+        ...(verifiedComparableCount > 0
+          ? []
+          : ["unverified comparable evidence does NOT satisfy this gate — never convert unverified into verified"]),
+        "This is an operational engineering threshold, NOT a statistical validity threshold.",
+        "ASSESSMENT VALIDITY NOT ESTABLISHED.",
+      ],
+    };
+  }
+  thresholds.push({
+    name: "minVerifiedComparableSamples",
+    metricValue: verifiedComparableCount,
+    threshold: policy.minVerifiedComparableSamples,
+    required: "gte",
+    met: true,
+  });
 
   // P3-A (Phase 7): sufficient counts but ZERO overall-comparable pairs
   // cannot support a validity judgment — this is INSUFFICIENT_DATA,
