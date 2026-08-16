@@ -91,7 +91,9 @@ describe("R3.10-G — real source ingestion", () => {
         assertedBy: "repository-owner",
         authority: "HKEAA",
         acquisitionMethod: "direct-source",
-        verificationRequired: false,
+        // Phase 7: third-party-hosted source — verification required, unverified
+        verificationRequired: true,
+        verificationStatus: "unverified",
       });
     }
   });

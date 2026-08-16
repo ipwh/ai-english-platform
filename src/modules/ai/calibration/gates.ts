@@ -101,6 +101,23 @@ export function evaluateCalibrationGates(
     };
   }
 
+  // P3-A (Phase 7): sufficient counts but ZERO overall-comparable pairs
+  // cannot support a validity judgment — this is INSUFFICIENT_DATA,
+  // never FAIL (and never PASS).
+  if (m.overall.n === 0) {
+    return {
+      decision: "INSUFFICIENT_DATA",
+      policy,
+      thresholds,
+      reasons: [
+        "insufficient-overall-comparable-pairs",
+        "sample and scored counts meet policy minimums, but 0 overall-comparable "
+        + "pairs exist — assessment validity cannot be judged from criterion-only "
+        + "or level-only evidence. ASSESSMENT VALIDITY NOT ESTABLISHED.",
+      ],
+    };
+  }
+
   // 2. Agreement quality thresholds (only meaningful with data).
   const metricChecks: Array<{
     name: string;
@@ -114,6 +131,44 @@ export function evaluateCalibrationGates(
     { name: "minExactAgreementRate", value: m.overall.exactAgreementRate, threshold: policy.minExactAgreementRate, required: "gte" },
     { name: "minWithinOneAgreementRate", value: m.overall.withinOneAgreementRate, threshold: policy.minWithinOneAgreementRate, required: "gte" },
   ];
+
+  // P2-B (Phase 7): dimension-level (C/L/O) gates. POLICY_DEFINED
+  // thresholds. Evaluated ONLY when criterion data exists; absence is
+  // recorded as "not applicable" (never silently passed, never blocking).
+  const criterionChecks: Array<{
+    name: string;
+    value: number | null;
+    threshold: number;
+  }> = [
+    { name: "maxContentMAE", value: m.perCriterion.content.mae, threshold: policy.maxContentMAE },
+    { name: "maxLanguageMAE", value: m.perCriterion.language.mae, threshold: policy.maxLanguageMAE },
+    { name: "maxOrganizationMAE", value: m.perCriterion.organization.mae, threshold: policy.maxOrganizationMAE },
+  ];
+  for (const check of criterionChecks) {
+    const missing = check.value === null;
+    if (missing) {
+      thresholds.push({
+        name: check.name,
+        metricValue: null,
+        threshold: check.threshold,
+        required: "lte",
+        met: true,
+      });
+      reasons.push(`${check.name}: not applicable — no criterion-level comparable pairs`);
+      continue;
+    }
+    const met = (check.value as number) <= check.threshold;
+    thresholds.push({
+      name: check.name,
+      metricValue: check.value,
+      threshold: check.threshold,
+      required: "lte",
+      met,
+    });
+    if (!met) {
+      reasons.push(`${check.name}: ${check.value} > ${check.threshold} (POLICY_DEFINED, NOT official HKDSE tolerance)`);
+    }
+  }
 
   for (const check of metricChecks) {
     const missing = check.value === null;
@@ -144,6 +199,7 @@ export function evaluateCalibrationGates(
       ? [
         "all policy thresholds met — NOTE: this is a POLICY gate result, "
         + "NOT a claim that the AI is HKDSE marker-equivalent",
+        ...reasons.filter(r => r.includes("not applicable")),
       ]
       : reasons,
   };

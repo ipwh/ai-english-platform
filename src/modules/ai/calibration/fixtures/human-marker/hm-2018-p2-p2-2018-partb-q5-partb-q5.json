@@ -19,7 +19,8 @@
       "assertedBy": "repository-owner",
       "authority": "HKEAA",
       "acquisitionMethod": "direct-source",
-      "verificationRequired": false
+      "verificationRequired": true,
+      "verificationStatus": "unverified"
     }
   },
   "rubricVersion": "DSE-P2-2018",

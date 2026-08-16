@@ -68,7 +68,11 @@ const OWNER_ASSERTION = {
   assertedBy: "repository-owner",
   authority: "HKEAA",
   acquisitionMethod: "direct-source",
-  verificationRequired: false,
+  // R3.10-K Phase 7: sources are third-party-hosted — verification is
+  // REQUIRED and remains UNVERIFIED until independently confirmed.
+  // Never pretend these are verified ground truth.
+  verificationRequired: true,
+  verificationStatus: "unverified",
 } as const;
 
 const ACQUISITION_DATE = "2026-08-13";

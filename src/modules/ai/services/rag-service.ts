@@ -9,6 +9,7 @@ import {
 } from '@/modules/ai/repositories/material-repo';
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
+import { shouldExcludeMaterialFromRAG, parseMaterialTags } from './rag-exclusion';
 
 const DEEPSEEK_API_KEY = config.deepseek.apiKey;
 const DEEPSEEK_BASE_URL = config.deepseek.baseUrl;
@@ -144,6 +145,20 @@ export async function indexMaterial(materialId: string): Promise<{ chunkCount: n
   const material = await findMaterialById(materialId);
   if (!material || !material.content) {
     throw new Error('教材不存在或尚無文字內容');
+  }
+
+  // Phase 7: calibration reference material is NEVER indexed into RAG.
+  const exclusion = shouldExcludeMaterialFromRAG({
+    title: material.title,
+    tags: parseMaterialTags(material.tags),
+    sourcePath: material.fileUrl ?? null,
+  });
+  if (exclusion.excluded) {
+    logger.warn(
+      { module: "rag-service", title: material.title, reason: exclusion.reason },
+      "RAG indexing excluded — calibration reference material must never enter retrieval",
+    );
+    throw new Error(`RAG_INDEXING_EXCLUDED: ${exclusion.reason}`);
   }
 
   // 更新狀態

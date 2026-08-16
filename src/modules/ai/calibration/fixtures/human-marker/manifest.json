@@ -11,7 +11,8 @@
         "assertedBy": "repository-owner",
         "authority": "HKEAA",
         "acquisitionMethod": "direct-source",
-        "verificationRequired": false
+        "verificationRequired": true,
+        "verificationStatus": "unverified"
       },
       "extractionMethod": "native-text",
       "sourceClass": "human-marker-scored",
@@ -27,7 +28,8 @@
         "assertedBy": "repository-owner",
         "authority": "HKEAA",
         "acquisitionMethod": "direct-source",
-        "verificationRequired": false
+        "verificationRequired": true,
+        "verificationStatus": "unverified"
       },
       "extractionMethod": "image-only-no-text-layer",
       "sourceClass": "non-authoritative-reference",
@@ -43,7 +45,8 @@
         "assertedBy": "repository-owner",
         "authority": "HKEAA",
         "acquisitionMethod": "direct-source",
-        "verificationRequired": false
+        "verificationRequired": true,
+        "verificationStatus": "unverified"
       },
       "extractionMethod": "native-text",
       "sourceClass": "teaching-reference",

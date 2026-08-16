@@ -262,7 +262,15 @@ function loadGolden(fixtureId: string, goldenDir: string): unknown | undefined {
   const goldenPath = path.join(goldenDir, `${fixtureId}.golden.json`);
   if (!fs.existsSync(goldenPath)) return undefined;
   try {
-    return JSON.parse(fs.readFileSync(goldenPath, 'utf-8'));
+    const parsed = JSON.parse(fs.readFileSync(goldenPath, 'utf-8'));
+    // Phase 7: goldens are stored in a labelled envelope — unwrap it.
+    if (
+      parsed && typeof parsed === "object"
+      && (parsed as { goldenType?: unknown }).goldenType === "AI_AUTHORED_REGRESSION_BASELINE"
+    ) {
+      return (parsed as { output?: unknown }).output;
+    }
+    return parsed;
   } catch {
     return undefined;
   }
@@ -273,7 +281,15 @@ function saveGolden(fixtureId: string, output: unknown, goldenDir: string): void
     fs.mkdirSync(goldenDir, { recursive: true });
   }
   const goldenPath = path.join(goldenDir, `${fixtureId}.golden.json`);
-  fs.writeFileSync(goldenPath, JSON.stringify(output, null, 2), 'utf-8');
+  // R3.10-K Phase 7: goldens saved from AI output are AI-authored
+  // REGRESSION BASELINES — they must never share semantic identity
+  // with HUMAN_MARKER_GROUND_TRUTH calibration evidence.
+  const labeled = {
+    goldenType: "AI_AUTHORED_REGRESSION_BASELINE",
+    note: "Generated from AI output via --update-golden. Regression baseline ONLY — NOT human ground truth, NOT calibration evidence.",
+    output,
+  };
+  fs.writeFileSync(goldenPath, JSON.stringify(labeled, null, 2), 'utf-8');
 }
 
 function loadPreviousReport(reportsDir?: string): RegressionReport | null {

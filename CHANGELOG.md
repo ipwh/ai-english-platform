@@ -4,6 +4,24 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-16 — R3.10-K Phase 7: Calibration Authority & Evidence Integrity
+
+### 🛡️ Calibration Evidence Chain（可追溯、可歸因、不可污染、fail-closed）
+- **NEW**: `.github/workflows/calibration.yml` — 三態 release gate（path-scoped）：PASS=exit 0 放行；FAIL=exit 1 **阻擋 merge**；INSUFFICIENT_DATA=exit 2 非阻擋 + 明確警告「SOFTWARE CHECKS MAY PASS — ASSESSMENT VALIDITY IS NOT ESTABLISHED」（exit 2 永不呈現為 PASS）
+- **NEW**: `CalibrationRunMetadata` 歸因（`calibrationVersion`=CALIBRATION_V1、`datasetVersion`、`datasetFingerprint`=SHA-256(fixture ids+hashes)、`scoringVersion`=canonical SCORING_VERSION、`promptVersion`=canonical AnalyzeWriting registry、provider/model/temperature/commitSha）— 未知值一律 `unavailable`，**永不偽造**；CLI `--analyzer=deterministic` 供 byte-reproducible run（自我標示，不冒充 production LLM）
+- **NEW**: 序數 level 指標（`levelMetrics`：meanAbsoluteDistance / maxAbsoluteDistance / withinOneLevelRate）— Level 4→5（distance 1）與 Level 4→1（distance 3）不再同視為一個 mismatch
+- **CHANGED**: gate policy 新增 C/L/O 維度門檻 `maxContentMAE/maxLanguageMAE/maxOrganizationMAE`（POLICY_DEFINED，非官方 tolerance；有資料才評估，無資料標 not applicable）
+- **FIXED (P3-A)**: 樣本數與 scored 數達標但 overall-comparable=0 → `INSUFFICIENT_DATA`（不再誤判 FAIL）
+- **CHANGED**: human-marker evidence 驗證政策 — 第三方來源 `verificationRequired: true` + `verificationStatus: "unverified"`（未經獨立驗證前永不定義為 verified ground truth）；intake checker 對第三方來源缺 verificationRequired 標 INVALID
+- **CHANGED**: report 完整性 — RUN METADATA、per-fixture results（analysisFailure 含 fixture id + 原因，**永不 silent drop**）、score distributions、ordinal metrics、HUMAN EVIDENCE VERIFICATION 區塊
+- **NEW**: `rag-exclusion.ts` — human-marker scored scripts / calibration reference 結構性排除於 RAG indexing（`RAG_INDEXING_EXCLUDED`）
+- **CHANGED**: regression `--update-golden` 存檔標示 `AI_AUTHORED_REGRESSION_BASELINE`（與 HUMAN_MARKER_GROUND_TRUTH 永不共享語義身份）
+- **DOCS**: ADR-038 新增 Calibration Authority & Evidence Integrity 八條 + authority diagram；calibration README 第八節；human-marker README 驗證政策
+- **TESTS**: `phase7-calibration-authority.test.ts`（TEST-CAL-001/002/005/006/007/008/009/010/011/012/014/015）、`phase7-canonical-boundary.test.ts`（TEST-CAL-003/004）、`rag-exclusion.test.ts`（TEST-CAL-013）
+- **VERIFY**: tsc 0 · prisma valid · eslint 0 error · calibration 238 tests green · full non-E2E green ×2 · calibration report byte-identical ×2（deterministic analyzer）· live 狀態 INSUFFICIENT_DATA（exit 2）
+
+---
+
 ## 2026-08-14 — R3.10-K Phase 6: Model Essay Semantic Integrity & Pedagogical Truth
 
 ### 🛡️ 語義完整性（Semantic Integrity）邊界閉環

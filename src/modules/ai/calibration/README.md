@@ -113,8 +113,6 @@ are met"), never a claim of HKDSE marker equivalence.
 ---
 
 ## 5. Ingestion operating rules
-
-- `npm run calibration:ingest` — deterministic, offline, no DB.
 - **Idempotent**: re-running over unchanged sources writes nothing
   (`Unchanged: N`).
 - **Fail closed**: validation failure aborts the run; a content conflict
@@ -163,9 +161,14 @@ A PASS requires ALL of the following against the scored dataset:
 | ±1 agreement ≥ `minWithinOneAgreementRate` | 0.8 |
 
 Deliberate policy decisions (NOT thresholds invented for this phase):
-- Criterion metrics are **reported but do not gate PASS** — criterion
-  scores are legitimately absent from many sources, and their absence
-  must never invalidate an otherwise valid overall comparison.
+- Phase 7: criterion metrics **now gate when criterion data exists** —
+  `maxContentMAE` / `maxLanguageMAE` / `maxOrganizationMAE`
+  (POLICY_DEFINED, 1.5). When no criterion pairs exist the checks are
+  reported "not applicable" (never silently passed, never blocking).
+- Phase 7: zero overall-comparable pairs always yields
+  `INSUFFICIENT_DATA` (never FAIL, never PASS) even when the sample
+  and scored counts meet policy minimums — validity cannot be judged
+  from criterion-only or level-only evidence.
 - There are **no per-level or per-criterion minimum sample counts**;
   per-group tables are reported for transparency but sufficiency is
   governed only by the counts above.
@@ -181,3 +184,50 @@ Deliberate policy decisions (NOT thresholds invented for this phase):
   `--now=<ISO>` for byte-reproducible reports.
 - Metrics: single owner (`metrics.ts`); the golden regression runner shares
   the same `mean`/`rmse` helpers — one definition of MAE/RMSE in the codebase.
+- **Live LLM runs are NON-DETERMINISTIC**: the default analyzer is the
+  canonical `analyzeWriting` (runtime provider chain, no pinned seed). For
+  byte-reproducible runs use `--analyzer=deterministic` (declared as
+  `deterministic-test-analyzer` — never impersonates production output).
+
+## 8. Phase 7 — Release Gate, Attribution, Evidence Integrity
+
+### Release gate (tri-state — never collapsed)
+
+`.github/workflows/calibration.yml` runs `npm run calibration:report` on
+path-scoped changes (calibration module, `writing-score-policy.ts`,
+`analyze-writing.ts`, writing prompts, rag-service):
+
+| Exit | Decision | Merge | Meaning |
+|------|----------|-------|---------|
+| 0 | PASS | allowed | policy thresholds met — NOT marker-equivalence |
+| 1 | FAIL | **blocked** | policy thresholds broken |
+| 2 | INSUFFICIENT_DATA | allowed, warning | SOFTWARE CHECKS MAY PASS — ASSESSMENT VALIDITY IS NOT ESTABLISHED |
+
+Exit 2 is NEVER reported as PASS. Push-to-main Cloud Build deployments are
+not retroactively blocked by this workflow (documented limitation — the gate
+protects merges of calibration/scoring-related code).
+
+### Attribution
+
+Every report renders `CalibrationRunMetadata`: `calibrationVersion`
+(CALIBRATION_V1), `datasetVersion` (CALIBRATION_DATASET_V1),
+`datasetFingerprint` (SHA-256 over fixture ids + source hashes),
+`scoringVersion` (canonical `SCORING_VERSION`), `promptVersion` (canonical
+`AnalyzeWriting` registry entry), `provider`/`model`/`temperature`
+(`unavailable` for runtime-selected providers — never fabricated),
+`commitSha` (from git when available).
+
+### Evidence verification
+
+Human-marker sources are third-party-hosted: fixtures carry
+`verificationRequired: true` + `verificationStatus: "unverified"` until
+independently verified. Reports render a HUMAN EVIDENCE VERIFICATION block;
+unverified evidence is never described as verified/official ground truth.
+
+### No leakage
+
+- `rag-exclusion.ts` structurally excludes scored-scripts / calibration
+  references from RAG indexing (`RAG_INDEXING_EXCLUDED` error).
+- Regression goldens saved via `--update-golden` are labelled
+  `AI_AUTHORED_REGRESSION_BASELINE` — never confused with
+  `HUMAN_MARKER_GROUND_TRUTH`.

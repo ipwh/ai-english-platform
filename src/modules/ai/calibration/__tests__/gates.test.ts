@@ -23,6 +23,7 @@ function emptyMetrics(): CalibrationMetrics {
     perYear: [],
     perTask: [],
     perMarkerPolicy: [],
+    levelMetrics: { n: 0, meanAbsoluteDistance: null, maxAbsoluteDistance: null, withinOneLevelRate: null },
   };
 }
 
@@ -90,10 +91,18 @@ describe("Calibration gates — PASS / FAIL", () => {
     expect(r.decision).toBe("FAIL");
   });
 
-  it("reports missing metrics as unmet thresholds, not PASS", () => {
+  it("P3-A: sufficient counts but ZERO overall-comparable pairs → INSUFFICIENT_DATA, never FAIL", () => {
     const r = evaluateCalibrationGates(input({ metrics: emptyMetrics() }));
-    expect(r.decision).toBe("FAIL");
-    expect(r.reasons.some(s => s.includes("metric unavailable"))).toBe(true);
+    expect(r.decision).toBe("INSUFFICIENT_DATA");
+    expect(r.reasons.join(" ")).toContain("insufficient-overall-comparable-pairs");
+    expect(r.reasons.join(" ")).toContain("ASSESSMENT VALIDITY NOT ESTABLISHED");
+  });
+
+  it("TEST-CAL-012: criterion-only dataset with sufficient counts → INSUFFICIENT_DATA", () => {
+    const m = emptyMetrics();
+    m.perCriterion.content = { n: 10, mae: 0.5, rmse: 0.8, meanBias: 0.1, exactAgreementRate: 0.7, withinOneAgreementRate: 1, overScoringRate: 0.1, underScoringRate: 0.2 };
+    const r = evaluateCalibrationGates(input({ sampleCount: 10, scoredCount: 8, metrics: m }));
+    expect(r.decision).toBe("INSUFFICIENT_DATA");
   });
 
   it("thresholds are configurable policy", () => {
@@ -105,9 +114,30 @@ describe("Calibration gates — PASS / FAIL", () => {
       maxAbsBias: 10,
       minExactAgreementRate: 0,
       minWithinOneAgreementRate: 0,
+      maxContentMAE: 10,
+      maxLanguageMAE: 10,
+      maxOrganizationMAE: 10,
     };
     const r = evaluateCalibrationGates(input({ policy: lenient }));
     expect(r.decision).toBe("PASS");
     expect(r.policy).toEqual(lenient);
+  });
+
+  it("TEST-CAL-009: content MAE above the dimension ceiling → FAIL", () => {
+    const m = goodMetrics();
+    m.perCriterion.content = { n: 10, mae: 3.0, rmse: 3.5, meanBias: 2.0, exactAgreementRate: 0.2, withinOneAgreementRate: 0.5, overScoringRate: 0.8, underScoringRate: 0.1 };
+    m.perCriterion.language = { n: 10, mae: 0.5, rmse: 0.8, meanBias: 0.1, exactAgreementRate: 0.7, withinOneAgreementRate: 1, overScoringRate: 0.1, underScoringRate: 0.2 };
+    m.perCriterion.organization = { n: 10, mae: 0.5, rmse: 0.8, meanBias: 0.1, exactAgreementRate: 0.7, withinOneAgreementRate: 1, overScoringRate: 0.1, underScoringRate: 0.2 };
+    const r = evaluateCalibrationGates(input({ metrics: m }));
+    expect(r.decision).toBe("FAIL");
+    expect(r.reasons.some(s => s.includes("maxContentMAE"))).toBe(true);
+  });
+
+  it("criterion gates are not-applicable (not failing) when no criterion pairs exist", () => {
+    const r = evaluateCalibrationGates(input());
+    expect(r.decision).toBe("PASS");
+    const na = r.thresholds.find(t => t.name === "maxContentMAE");
+    expect(na?.met).toBe(true);
+    expect(r.reasons.some(s => s.includes("not applicable"))).toBe(true);
   });
 });

@@ -43,6 +43,8 @@ export type {
   HumanMarkerProvenanceClass,
   HumanMarkerIntakeReport,
   IntakeFieldStatus,
+  CalibrationRunMetadata,
+  LevelAgreementMetrics,
 } from "./types";
 export { DEFAULT_CALIBRATION_GATE_POLICY } from "./types";
 
@@ -90,7 +92,16 @@ export {
   rmse,
   computeAgreementMetrics,
   computeCalibrationMetrics,
+  computeLevelAgreementMetrics,
+  parseOrdinalLevelIndex,
 } from "./metrics";
+
+// R3.10-K Phase 7: calibration version identity
+export {
+  CALIBRATION_VERSION,
+  CALIBRATION_DATASET_VERSION,
+  computeDatasetFingerprint,
+} from "./version";
 
 // Gates
 export { evaluateCalibrationGates } from "./gates";
@@ -101,6 +112,7 @@ export {
   loadHumanMarkerFixtures,
   runCalibrationBenchmark,
   runHumanMarkerCalibrationBenchmark,
+  buildRunMetadata,
   DEFAULT_CALIBRATION_FIXTURES_DIR,
   type CalibrationAnalyzer,
   type CalibrationRunnerOptions,

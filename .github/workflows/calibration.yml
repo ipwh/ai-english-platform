@@ -1,0 +1,90 @@
+# ============================================
+# R3.10-K Phase 7 — Calibration Release Authority
+#
+# Tri-state release semantics (NEVER collapsed):
+#   PASS              → exit 0 → gate passed (policy thresholds met;
+#                     NOT a marker-equivalence claim)
+#   FAIL              → exit 1 → BLOCKING (merge is blocked)
+#   INSUFFICIENT_DATA → exit 2 → NON-BLOCKING with an explicit
+#                     "ASSESSMENT VALIDITY IS NOT ESTABLISHED" warning.
+#
+# An exit code of 2 must NEVER be reported as PASS.
+# The calibration report uses live LLM scoring when API keys are
+# available; without keys the benchmark fails closed into
+# INSUFFICIENT_DATA (exit 2) — which is non-blocking by design.
+# ============================================
+
+name: Calibration Release Gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/modules/ai/calibration/**'
+      - 'src/modules/ai/core/writing-score-policy.ts'
+      - 'src/modules/ai/usecases/analyze-writing.ts'
+      - 'src/modules/ai/prompts/writing/**'
+      - 'src/modules/ai/services/rag-service.ts'
+      - 'scripts/calibration.ts'
+  push:
+    branches: [main]
+    paths:
+      - 'src/modules/ai/calibration/**'
+      - 'src/modules/ai/core/writing-score-policy.ts'
+      - 'src/modules/ai/usecases/analyze-writing.ts'
+      - 'src/modules/ai/prompts/writing/**'
+      - 'src/modules/ai/services/rag-service.ts'
+      - 'scripts/calibration.ts'
+
+jobs:
+  calibration-gate:
+    name: Calibration Gate (tri-state)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run calibration report (exit 0/1/2 — never collapsed)
+        id: calibration
+        continue-on-error: true
+        run: |
+          npm run calibration:report
+          echo "CAL_EXIT=$?" >> "$GITHUB_ENV"
+          echo "CAL_EXIT=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Calibration release gate (FAIL = 1 blocks; 2 = non-blocking warning)
+        run: |
+          if [ "$CAL_EXIT" = "1" ]; then
+            echo "::error::CALIBRATION GATE FAIL — merge blocked (policy thresholds broken)."
+            exit 1
+          fi
+          if [ "$CAL_EXIT" = "2" ]; then
+            echo "::warning::CALIBRATION GATE: INSUFFICIENT AUTHORITATIVE DATA"
+            echo "::warning::SOFTWARE CHECKS MAY PASS — ASSESSMENT VALIDITY IS NOT ESTABLISHED."
+            echo "::warning::This platform makes NO claim of HKDSE marker-equivalence."
+          fi
+          if [ "$CAL_EXIT" = "0" ]; then
+            echo "::notice::CALIBRATION GATE: PASS (policy thresholds met — NOT a marker-equivalence claim)."
+          fi
+
+      - name: Calibration gate summary
+        if: always()
+        run: |
+          echo "### Calibration Release Gate" >> "$GITHUB_STEP_SUMMARY"
+          case "${CAL_EXIT}" in
+            0) echo "- Decision: PASS (policy thresholds met; NOT marker-equivalence)" >> "$GITHUB_STEP_SUMMARY" ;;
+            1) echo "- Decision: FAIL — merge blocked" >> "$GITHUB_STEP_SUMMARY" ;;
+            2) echo "- Decision: INSUFFICIENT_DATA — non-blocking; ASSESSMENT VALIDITY IS NOT ESTABLISHED" >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "- Decision: UNKNOWN (exit ${CAL_EXIT})" >> "$GITHUB_STEP_SUMMARY" ;;
+          esac

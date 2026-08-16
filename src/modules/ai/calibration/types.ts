@@ -210,6 +210,25 @@ export interface AgreementMetrics {
   underScoringRate: number | null;
 }
 
+/**
+ * R3.10-K Phase 7: Ordinal level agreement metrics.
+ * HKDSE levels are ORDINAL — a Level 4→Level 1 error is not the same
+ * as a Level 4→Level 5 error. Distance is computed on the platform's
+ * 1-5 ordinal index; published star-levels ("5*", "5**") fold onto
+ * index 5 for distance purposes while string-exact level agreement
+ * remains available via CalibrationComparison.levelExactMatch.
+ */
+export interface LevelAgreementMetrics {
+  /** Number of pairs where both sides carry a parseable level. */
+  n: number;
+  /** Mean absolute level distance (0 = exact, >0 = distance). */
+  meanAbsoluteDistance: number | null;
+  /** Largest absolute level distance observed. */
+  maxAbsoluteDistance: number | null;
+  /** Fraction of pairs with absolute distance ≤ 1. */
+  withinOneLevelRate: number | null;
+}
+
 /** Per-group agreement summary (level / year / task). */
 export interface GroupAgreement {
   group: string;
@@ -258,6 +277,8 @@ export interface CalibrationMetrics {
   perTask: GroupAgreement[];
   /** Agreement grouped by marker policy (human-marker evidence only). */
   perMarkerPolicy: GroupAgreement[];
+  /** Ordinal level distance metrics (Phase 7) — never conflated with exact. */
+  levelMetrics: LevelAgreementMetrics;
 }
 
 /** Insufficient-data area identified in the report. */
@@ -294,6 +315,15 @@ export interface CalibrationGatePolicy {
   maxAbsBias: number;
   minExactAgreementRate: number;
   minWithinOneAgreementRate: number;
+  /**
+   * R3.10-K Phase 7: per-dimension (C/L/O) ceilings. POLICY_DEFINED,
+   * NOT official HKDSE tolerances — no official dimension-level
+   * tolerance exists. Evaluated ONLY when criterion data exists
+   * (n > 0); absence is reported, never silently passed.
+   */
+  maxContentMAE: number;
+  maxLanguageMAE: number;
+  maxOrganizationMAE: number;
 }
 
 /**
@@ -313,6 +343,11 @@ export const DEFAULT_CALIBRATION_GATE_POLICY: CalibrationGatePolicy = {
   maxAbsBias: 1.0,
   minExactAgreementRate: 0.5,
   minWithinOneAgreementRate: 0.8,
+  // POLICY_DEFINED (Phase 7): dimension ceilings mirror the overall
+  // ceiling on the 0-7 C/L/O scale. NOT official HKDSE tolerances.
+  maxContentMAE: 1.5,
+  maxLanguageMAE: 1.5,
+  maxOrganizationMAE: 1.5,
 };
 
 export interface CalibrationGateResult {
@@ -320,6 +355,35 @@ export interface CalibrationGateResult {
   policy: CalibrationGatePolicy;
   thresholds: GateThresholdResult[];
   reasons: string[];
+}
+
+/**
+ * R3.10-K Phase 7: Execution attribution metadata for one calibration
+ * run. A run must be answerable afterwards: which scoring version,
+ * which prompt version, which provider/model/temperature, which
+ * dataset, which calibration version, which commit. Values that cannot
+ * be known are NEVER fabricated — they are "unknown"/"unavailable"/null
+ * and the report renders them verbatim.
+ */
+export interface CalibrationRunMetadata {
+  /** Version of the calibration machinery itself. */
+  calibrationVersion: string;
+  /** Version of the calibration dataset (human-marker + authoritative). */
+  datasetVersion: string;
+  /** Canonical scoring version (writing-score-policy SCORING_VERSION). */
+  scoringVersion: string;
+  /** Prompt version from the canonical prompt registry (AnalyzeWriting). */
+  promptVersion: string;
+  /** Provider that produced the predictions ("unavailable" if unknown). */
+  provider: string;
+  /** Model that produced the predictions ("unavailable" if unknown). */
+  model: string;
+  /** Temperature of the scoring calls, null when unknown. */
+  temperature: number | null;
+  /** Git commit of the run, null when unknown (never fabricated). */
+  commitSha: string | null;
+  /** Deterministic fingerprint over fixture ids + source hashes. */
+  datasetFingerprint: string | null;
 }
 
 /** The authoritative calibration benchmark report. */
@@ -337,6 +401,18 @@ export interface CalibrationBenchmarkReport {
   insufficientAreas: InsufficientDataArea[];
   gate: CalibrationGateResult;
   generatedAt: string;
+  /** Execution attribution (Phase 7). Populated by both runners. */
+  runMetadata?: CalibrationRunMetadata;
+  /**
+   * Human-marker evidence verification state (Phase 7). Never conflated
+   * with evidence counts; a fixture with verificationRequired=true and
+   * verificationStatus=unverified is NOT "verified ground truth".
+   */
+  evidenceVerification?: {
+    verified: number;
+    unverified: number;
+    total: number;
+  };
   /**
    * Evidence-category breakdown (populated only by the human-marker
    * runner). NEVER collapsed into a single count — each category is
@@ -481,6 +557,12 @@ export interface HumanMarkerCalibrationFixture {
       acquisitionMethod: string;
       /** Whether independent verification is required for ingestion. */
       verificationRequired: boolean;
+      /**
+       * Phase 7: declared verification state. "unverified" unless the
+       * source has been independently verified by a human. NEVER claim
+       * "verified" without evidence. Required when verificationRequired.
+       */
+      verificationStatus?: "verified" | "unverified";
     };
   };
   /** Rubric version the marker applied (platform or official reference id). */
@@ -586,6 +668,8 @@ export interface HumanMarkerSourceManifestEntry {
     authority: string;
     acquisitionMethod: string;
     verificationRequired: boolean;
+    /** Phase 7: "unverified" unless independently verified by a human. */
+    verificationStatus?: "verified" | "unverified";
   };
   extractionMethod: "native-text" | "ocr" | "manual-transcription" | "image-only-no-text-layer";
   sourceClass: HumanMarkerSourceClass;
@@ -647,6 +731,13 @@ export interface HumanMarkerEvidenceIntake {
   provenanceOrganization?: string;
   /** Declared marking basis. */
   markerBasis?: "official-marking-record" | "teacher-marking" | "research-annotation" | "unknown";
+  /**
+   * Phase 7: whether the submitting party declares independent
+   * verification is required. Third-party-hosted sources SHOULD
+   * declare true; the checker reports a warning/rejection when a
+   * third-party source omits it.
+   */
+  verificationRequired?: boolean;
   /** True when the text/score comes from OCR reconstruction. */
   ocrDerived?: boolean;
   /** True when the document is teaching/reference material. */

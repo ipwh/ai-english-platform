@@ -17,6 +17,17 @@ minimums (needs ≥8 overall-comparable scripts).
 
 This document defines EXACTLY what evidence is accepted and how.
 
+## Phase 7: Source Verification Policy
+
+The source PDFs are **third-party-hosted** (not hkeaa.edu.hk). Every
+fixture and manifest entry therefore declares
+`verificationRequired: true` and `verificationStatus: "unverified"` —
+owner assertions are provenance metadata only. These fixtures are usable
+as evidence but are **NOT verified ground truth**, and no report, test, or
+document may describe them as verified/official/authoritative human-marker
+evidence. `verificationStatus` may only become `"verified"` through an
+explicit, documented independent verification act.
+
 ## R3.10-J: HUMAN MARKER EVIDENCE ACQUISITION SPECIFICATION
 
 **The current bottleneck is NOT software capability — it is genuine

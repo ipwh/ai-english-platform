@@ -100,3 +100,51 @@ a NEW STUDENT SUBMISSION:
 A future explicit "use this model as a draft template" action, if added, MUST
 carry origin provenance (originGenerationVersion / originPedagogicalTargetLevel)
 without ever letting those fields influence scoring.
+
+## Calibration Authority & Evidence Integrity (R3.10-K Phase 7)
+
+The calibration module (`src/modules/ai/calibration/`) measures agreement
+between the canonical scorer and human reference values. Its authority
+boundaries are now explicit:
+
+1. **Calibration never mutates scoring policy.** `SCORING_VERSION` and every
+   formula in `writing-score-policy.ts` are untouched by calibration. The
+   only scoring-policy coupling is metadata plumbing: the runner records
+   `scoringVersion` for attribution.
+2. **Human reference is the only ground truth source.** No LLM output, AI
+   scorer, generation output, RAG content, or runtime student data may write
+   fixtures. Fixtures are human-derived, hash-protected
+   (`sourceHash`), git-tracked, and runtime read-only (no API route reads or
+   writes them — enforced by tests).
+3. **INSUFFICIENT_DATA ≠ PASS ≠ FAIL ≠ VALIDATED.** With zero comparable
+   evidence the gate returns `INSUFFICIENT_DATA`, the report states
+   "ASSESSMENT VALIDITY IS NOT ESTABLISHED", and CI treats exit 2 as
+   non-blocking-with-warning (exit 0 = PASS, exit 1 = FAIL blocks).
+4. **Every run is attributable.** Reports carry `CalibrationRunMetadata`
+   (calibrationVersion, datasetVersion, datasetFingerprint, scoringVersion,
+   promptVersion from the canonical registry, provider/model/temperature,
+   commitSha). Unknown values are rendered `unavailable` — never fabricated.
+5. **Levels are ordinal.** `levelMetrics` reports absolute level distance
+   (Level 4→5 is distance 1; Level 4→1 is distance 3), never conflating them
+   as "one mismatch".
+6. **Dimension gates.** `maxContentMAE` / `maxLanguageMAE` /
+   `maxOrganizationMAE` are POLICY_DEFINED (not official tolerances) and
+   evaluated only when criterion data exists.
+7. **Evidence verification is explicit.** Third-party-hosted sources carry
+   `verificationRequired: true` + `verificationStatus: "unverified"` until
+   independently verified. Unverified evidence is never described as
+   verified/official ground truth.
+8. **No leakage.** Human-marker scored scripts are structurally excluded
+   from RAG indexing (`rag-exclusion.ts`); regression goldens saved from AI
+   output are labelled `AI_AUTHORED_REGRESSION_BASELINE`, a distinct
+   semantic identity from `HUMAN_MARKER_GROUND_TRUTH`.
+
+Authority diagram:
+
+```
+HUMAN MARKER ──▶ CALIBRATION ENGINE ──▶ METRICS ──▶ GATE ──▶ CI RELEASE SIGNAL
+                     │
+                     X  (never)
+                     ▼
+              SCORING POLICY / RUNTIME SCORE / RAG
+```

@@ -14,6 +14,7 @@ import type {
   CalibrationComparison,
   CalibrationMetrics,
   GroupAgreement,
+  LevelAgreementMetrics,
 } from "./types";
 
 /** Arithmetic mean; null for empty input (undefined metric, not 0). */
@@ -107,6 +108,50 @@ function groupAgreement(
 }
 
 /**
+ * Parse a DSE level string onto the platform's ordinal 1-5 index.
+ * "5*" and "5**" fold onto index 5 for DISTANCE purposes only
+ * (the platform estimates on the 1-5 scale; string-exact level
+ * agreement remains available via levelExactMatch). "U" = 0.
+ * Returns null when unparseable.
+ */
+export function parseOrdinalLevelIndex(level: string | null): number | null {
+  if (level === null || level === undefined) return null;
+  const s = level.trim();
+  if (/^[uU]$/.test(s)) return 0;
+  const m = s.match(/^([1-5])\*{0,2}$/);
+  if (!m) return null;
+  return Number(m[1]);
+}
+
+/**
+ * R3.10-K Phase 7: ordinal level agreement over comparisons.
+ * A Level 4 → Level 1 error (distance 3) is NOT the same as a
+ * Level 4 → Level 5 error (distance 1).
+ */
+export function computeLevelAgreementMetrics(
+  comparisons: CalibrationComparison[],
+): LevelAgreementMetrics {
+  const distances: number[] = [];
+  for (const c of comparisons) {
+    const pub = parseOrdinalLevelIndex(c.publishedLevel);
+    const pred = parseOrdinalLevelIndex(c.predictedLevel);
+    if (pub === null || pred === null) continue;
+    distances.push(Math.abs(pred - pub));
+  }
+  const n = distances.length;
+  if (n === 0) {
+    return { n: 0, meanAbsoluteDistance: null, maxAbsoluteDistance: null, withinOneLevelRate: null };
+  }
+  const meanDist = distances.reduce((s, d) => s + d, 0) / n;
+  return {
+    n,
+    meanAbsoluteDistance: round4(meanDist),
+    maxAbsoluteDistance: Math.max(...distances),
+    withinOneLevelRate: round4(distances.filter(d => d <= 1).length / n),
+  };
+}
+
+/**
  * Full calibration metrics over authoritative comparisons only.
  * Criterion-level statistics exist ONLY when the source officially
  * publishes criterion scores (comparisons carry null criterion errors
@@ -146,5 +191,6 @@ export function computeCalibrationMetrics(
       comparisons.filter(c => c.markerPolicy !== undefined),
       c => c.markerPolicy as string,
     ),
+    levelMetrics: computeLevelAgreementMetrics(comparisons),
   };
 }

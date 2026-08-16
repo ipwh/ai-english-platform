@@ -137,6 +137,33 @@ export function renderCalibrationReport(
   );
   sections.push("");
 
+  // Phase 7: execution attribution — a run must be answerable afterwards.
+  // Heading intentionally avoids the "## CALIBRATION" prefix so section
+  // ordering tests can still locate the calibration agreement section.
+  sections.push("## RUN METADATA");
+  sections.push("");
+  if (report.runMetadata) {
+    const md = report.runMetadata;
+    sections.push("| field | value |");
+    sections.push("|-------|-------|");
+    sections.push(`| calibrationVersion | ${md.calibrationVersion} |`);
+    sections.push(`| datasetVersion | ${md.datasetVersion} |`);
+    sections.push(`| datasetFingerprint | ${md.datasetFingerprint ?? "n/a"} |`);
+    sections.push(`| scoringVersion | ${md.scoringVersion} |`);
+    sections.push(`| promptVersion | ${md.promptVersion} |`);
+    sections.push(`| provider | ${md.provider} |`);
+    sections.push(`| model | ${md.model} |`);
+    sections.push(`| temperature | ${md.temperature === null ? "unavailable" : String(md.temperature)} |`);
+    sections.push(`| commitSha | ${md.commitSha ?? "unavailable"} |`);
+    sections.push("");
+    sections.push(
+      "> Values marked `unavailable` are genuinely unknown — they are NEVER fabricated.",
+    );
+  } else {
+    sections.push("(metadata unavailable for this run)");
+  }
+  sections.push("");
+
   sections.push(renderRegression(regression));
   sections.push("");
 
@@ -163,6 +190,41 @@ export function renderCalibrationReport(
     sections.push(`| non-comparable (NON_COMPARABLE_SCORE) | ${b.nonComparable} |`);
     sections.push(`| level-only (LEVEL_ONLY) | ${b.levelOnly} |`);
     sections.push(`| quarantined | ${b.quarantined} |`);
+    sections.push("");
+  }
+
+  // Phase 7: evidence verification state — unverified is NEVER "verified".
+  if (report.evidenceVerification) {
+    const v = report.evidenceVerification;
+    sections.push("### HUMAN EVIDENCE VERIFICATION");
+    sections.push("");
+    sections.push(`- total fixtures: ${v.total}`);
+    sections.push(`- independently verified: ${v.verified}`);
+    sections.push(`- unverified (owner-asserted): ${v.unverified}`);
+    if (v.unverified > 0) {
+      sections.push("");
+      sections.push(
+        "> Unverified fixtures are owner-asserted sources and are NOT "
+        + "described as verified/official ground truth. They remain usable "
+        + "as evidence but their authority is explicitly unverified.",
+      );
+    }
+    sections.push("");
+  }
+
+  // Phase 7: per-fixture results — analysis failures are NEVER silently dropped.
+  if (report.comparisons.length > 0) {
+    sections.push("### Fixture results (failures never silently dropped)");
+    sections.push("");
+    sections.push("| fixture | status | detail |");
+    sections.push("|---------|--------|--------|");
+    for (const c of report.comparisons) {
+      if (c.analysisFailure !== null) {
+        sections.push(`| ${c.fixtureId} | analysisFailure | ${c.analysisFailure.replace(/\|/g, "/")} |`);
+      } else {
+        sections.push(`| ${c.fixtureId} | analyzed | ok |`);
+      }
+    }
     sections.push("");
   }
 
@@ -196,6 +258,48 @@ export function renderCalibrationReport(
     sections.push(groupTable("Per-task agreement", report.metrics.perTask));
     sections.push("");
   }
+
+  // Phase 7: ordinal level metrics — distance, never conflated with exact.
+  sections.push("### Ordinal level metrics (platform 1-5 scale)");
+  sections.push("");
+  const lm = report.metrics.levelMetrics;
+  if (lm.n === 0) {
+    sections.push("(no comparable level pairs — n/a)");
+  } else {
+    sections.push("| metric | n | value |");
+    sections.push("|--------|---|-------|");
+    sections.push(`| mean absolute level distance | ${lm.n} | ${fmt(lm.meanAbsoluteDistance)} |`);
+    sections.push(`| max absolute level distance | ${lm.n} | ${lm.maxAbsoluteDistance === null ? "n/a" : String(lm.maxAbsoluteDistance)} |`);
+    sections.push(`| within ±1 level rate | ${lm.n} | ${fmtRate(lm.withinOneLevelRate)} |`);
+    sections.push("");
+    sections.push(
+      "> Level 4→Level 5 (distance 1) and Level 4→Level 1 (distance 3) are "
+      + "DIFFERENT errors. Star-levels (5*/5**) fold onto index 5 for distance "
+      + "purposes; string-exact agreement remains available in the level columns.",
+    );
+  }
+  sections.push("");
+
+  // Phase 7: score distributions (human vs AI side by side).
+  sections.push("### Score distributions (human vs AI)");
+  sections.push("");
+  const distRows = report.comparisons.filter(
+    c => c.publishedOverall !== null || c.predictedOverall !== null || c.publishedLevel !== null || c.predictedLevel !== null,
+  );
+  if (distRows.length === 0) {
+    sections.push("(no score distributions available)");
+  } else {
+    sections.push("| fixture | human overall | AI overall | human level | AI level |");
+    sections.push("|---------|---------------|------------|-------------|----------|");
+    for (const c of distRows) {
+      sections.push(
+        `| ${c.fixtureId} | ${c.publishedOverall === null ? "—" : c.publishedOverall} `
+        + `| ${c.predictedOverall === null ? "—" : c.predictedOverall} `
+        + `| ${c.publishedLevel ?? "—"} | ${c.predictedLevel ?? "—"} |`,
+      );
+    }
+  }
+  sections.push("");
 
   sections.push("## CALIBRATION GATE");
   sections.push("");

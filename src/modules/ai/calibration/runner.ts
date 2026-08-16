@@ -19,15 +19,19 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { WritingAnalysis } from "@/modules/ai/usecases/analyze-writing";
+import { SCORING_VERSION } from "@/modules/ai/core/writing-score-policy";
+import { getPrompt } from "@/modules/ai/prompts/prompt-registry";
 import type {
   AuthoritativeCalibrationFixture,
   CalibrationBenchmarkReport,
   CalibrationComparison,
   CalibrationGatePolicy,
+  CalibrationRunMetadata,
   HumanMarkerCalibrationFixture,
   InsufficientDataArea,
 } from "./types";
 import { DEFAULT_CALIBRATION_GATE_POLICY } from "./types";
+import { CALIBRATION_DATASET_VERSION, CALIBRATION_VERSION, computeDatasetFingerprint } from "./version";
 import {
   classifyFixtureKind,
   validateAuthoritativeFixture,
@@ -69,6 +73,41 @@ export interface CalibrationRunnerOptions {
   policy?: CalibrationGatePolicy;
   /** Report generation timestamp (injected for determinism in tests). */
   now?: () => string;
+  /**
+   * Phase 7: attribution metadata override. Callers (CLI) may supply
+   * values they know (e.g. commit sha); everything else comes from
+   * canonical sources. Values that cannot be known are reported as
+   * "unavailable" — never fabricated.
+   */
+  runMetadata?: Partial<CalibrationRunMetadata>;
+}
+
+/**
+ * Phase 7: Build execution attribution from canonical sources.
+ * scoringVersion ← writing-score-policy (canonical).
+ * promptVersion ← prompt-registry AnalyzeWriting entry (canonical).
+ * Provider/model/temperature are runtime-selected by the provider
+ * chain and NOT knowable here — reported as "unavailable" (honest),
+ * unless a caller supplies them. Deterministic test analyzers must
+ * declare themselves explicitly.
+ */
+export function buildRunMetadata(
+  datasetEntries: Array<{ id: string; sourceHash: string }>,
+  override: Partial<CalibrationRunMetadata> = {},
+): CalibrationRunMetadata {
+  const registryPrompt = getPrompt("AnalyzeWriting");
+  return {
+    calibrationVersion: CALIBRATION_VERSION,
+    datasetVersion: CALIBRATION_DATASET_VERSION,
+    scoringVersion: SCORING_VERSION,
+    promptVersion: registryPrompt?.version ?? "unavailable",
+    provider: "unavailable",
+    model: "unavailable",
+    temperature: null,
+    commitSha: null,
+    datasetFingerprint: computeDatasetFingerprint(datasetEntries),
+    ...override,
+  };
 }
 
 export const DEFAULT_CALIBRATION_FIXTURES_DIR = join(
@@ -298,6 +337,10 @@ export async function runCalibrationBenchmark(
     insufficientAreas,
     gate,
     generatedAt: now(),
+    runMetadata: buildRunMetadata(
+      fixtures.map(f => ({ id: f.id, sourceHash: f.provenance.sourceHash })),
+      options.runMetadata,
+    ),
   };
 }
 
@@ -326,6 +369,8 @@ export interface HumanMarkerRunnerOptions {
   policy?: CalibrationGatePolicy;
   /** Report timestamp injection for byte-reproducible reports. */
   now?: () => string;
+  /** Phase 7: attribution metadata override (e.g. commit sha from CLI). */
+  runMetadata?: Partial<CalibrationRunMetadata>;
 }
 
 function mapHumanMarkerComparison(
@@ -485,6 +530,18 @@ export async function runHumanMarkerCalibrationBenchmark(
     }
   }
 
+  // Phase 7: verification state — NEVER conflated with evidence counts.
+  const evidenceVerification = {
+    verified: 0,
+    unverified: 0,
+    total: deduped.length,
+  };
+  for (const fixture of deduped) {
+    const status = fixture.provenance.sourceAuthorityAssertion?.verificationStatus;
+    if (status === "verified") evidenceVerification.verified += 1;
+    else evidenceVerification.unverified += 1;
+  }
+
   return {
     sampleCount: deduped.length,
     scoredCount: scored.length,
@@ -496,5 +553,10 @@ export async function runHumanMarkerCalibrationBenchmark(
     gate,
     evidenceBreakdown,
     generatedAt: now(),
+    runMetadata: buildRunMetadata(
+      deduped.map(f => ({ id: f.id, sourceHash: f.provenance.sourceHash })),
+      options.runMetadata,
+    ),
+    evidenceVerification,
   };
 }

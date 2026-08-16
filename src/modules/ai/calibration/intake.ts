@@ -143,6 +143,27 @@ export function checkHumanMarkerEvidenceIntake(
     provenanceClass === "AUTHORITATIVE_OFFICIAL"
     || provenanceClass === "VERIFIED_HUMAN_MARKER";
 
+  // 6b. Phase 7: source verification declaration. A third-party-hosted
+  // source that does NOT declare verificationRequired=true is flagged —
+  // it can never silently pass as ground truth.
+  const thirdParty = provenanceClass === "THIRD_PARTY";
+  if (thirdParty && intake.verificationRequired !== true) {
+    fields.push({
+      field: "sourceVerification",
+      status: "INVALID",
+      detail: "third-party-hosted source must declare verificationRequired=true before ingestion",
+    });
+    reasons.push("sourceVerification: third-party source requires verificationRequired=true (unverified sources are never treated as verified ground truth)");
+  } else if (intake.verificationRequired === true) {
+    fields.push({
+      field: "sourceVerification",
+      status: "PRESENT",
+      detail: "verificationRequired declared — source remains UNVERIFIED until independently verified",
+    });
+  } else {
+    fields.push({ field: "sourceVerification", status: "PRESENT", detail: "not third-party" });
+  }
+
   // 7. Stable source hash.
   if (intake.sourceHash === undefined) {
     mark("sourceHash", false);

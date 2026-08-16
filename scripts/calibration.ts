@@ -22,16 +22,63 @@ import {
   runHumanMarkerCalibrationBenchmark,
   loadHumanMarkerFixtures,
   renderCalibrationReport,
+  buildRunMetadata,
 } from "../src/modules/ai/calibration";
+import type { CalibrationRunMetadata } from "../src/modules/ai/calibration";
 import type { BenchmarkReport } from "../src/modules/ai/evaluation/golden-runner";
+import { execSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const withRegression = args.includes("--with-regression");
+const deterministicAnalyzer = args.includes("--analyzer=deterministic");
 const nowArg = args.find(a => a.startsWith("--now="))?.split("=").slice(1).join("=");
+
+/** Git commit of the current checkout; null when unavailable — never fabricated. */
+function currentCommitSha(): string | null {
+  try {
+    return execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deterministic test analyzer for byte-reproducible runs. Explicitly
+ * declares itself as a deterministic-test-analyzer — it NEVER pretends
+ * to be production LLM output.
+ */
+function deterministicTestAnalyzer(input: { title: string }) {
+  const h = (s: string) => {
+    let v = 0;
+    for (let i = 0; i < s.length; i++) v = (v * 31 + s.charCodeAt(i)) >>> 0;
+    return v;
+  };
+  const seed = h(input.title) % 21;
+  return Promise.resolve({
+    overallScore: 70,
+    contentScore: 5,
+    languageScore: 5,
+    organizationScore: 5,
+    cloTotalScore: 15,
+    dseLevel: "4",
+    platformWritingEstimate: "4",
+    strengths: [],
+    weaknesses: [],
+    grammarErrors: [],
+    chinglishWarnings: [],
+    vocabularySuggestions: [],
+    structureFeedback: "deterministic-test-analyzer",
+    generalComment: `deterministic-test-analyzer (seed ${seed})`,
+  });
+}
 
 async function main(): Promise<number> {
   console.log("🔬 HKDSE Calibration Report");
   console.log("");
+  if (deterministicAnalyzer) {
+    console.log("⚠️ Deterministic test analyzer selected — results are NOT production LLM output.");
+    console.log("");
+  }
 
   let regression: BenchmarkReport | undefined;
   if (withRegression) {
@@ -42,12 +89,21 @@ async function main(): Promise<number> {
   }
 
   const nowOption = nowArg ? { now: () => nowArg } : {};
+  const runMetadata: Partial<CalibrationRunMetadata> = {
+    commitSha: currentCommitSha(),
+    ...(deterministicAnalyzer
+      ? { provider: "deterministic-test-analyzer", model: "deterministic-test-analyzer", temperature: 0 }
+      : {}),
+  };
+  const analyzerOption = deterministicAnalyzer
+    ? { analyzer: deterministicTestAnalyzer }
+    : {};
 
   // 1. Authoritative HKEAA level-only report.
   let authoritative;
   try {
     // A fixed --now timestamp makes the report byte-reproducible.
-    authoritative = await runCalibrationBenchmark(nowOption);
+    authoritative = await runCalibrationBenchmark({ ...nowOption, ...analyzerOption, runMetadata });
   } catch (err) {
     console.error(`❌ Calibration run FAILED (fail closed): ${err instanceof Error ? err.message : String(err)}`);
     return 1;
@@ -63,6 +119,8 @@ async function main(): Promise<number> {
       humanMarker = await runHumanMarkerCalibrationBenchmark({
         fixtures: hmFixtures,
         ...nowOption,
+        ...analyzerOption,
+        runMetadata,
       });
     } catch (err) {
       console.error(`❌ Human-marker run FAILED (fail closed): ${err instanceof Error ? err.message : String(err)}`);
@@ -87,10 +145,12 @@ async function main(): Promise<number> {
       console.log("✅ CALIBRATION GATE: PASS (policy thresholds met — not a marker-equivalence claim)");
       return 0;
     case "FAIL":
-      console.log("❌ CALIBRATION GATE: FAIL");
+      console.log("❌ CALIBRATION GATE: FAIL — release gate blocked");
       return 1;
     default:
-      console.log("⚠️ CALIBRATION GATE: INSUFFICIENT AUTHORITATIVE DATA");
+      console.log("⚠️ CALIBRATION GATE: INSUFFICIENT AUTHORITATIVE DATA (exit 2)");
+      console.log("   SOFTWARE CHECKS MAY PASS — ASSESSMENT VALIDITY IS NOT ESTABLISHED.");
+      console.log("   This platform makes NO claim of HKDSE marker-equivalence.");
       return 2;
   }
 }
