@@ -1,3 +1,39 @@
+const ALLOWED_MARKER_SCORE_KEYS = new Set([
+  "markerId", "contentScore", "languageScore", "organizationScore", "overallScore", "markedAt",
+]);
+
+/**
+ * R3.10-K Phase 9: validate ONE marker score entry. Unknown keys are
+ * rejected — AI prediction fields (aiScore/modelScore/predictedScore/
+ * AI feedback) are never accepted. Returns a list of violations.
+ */
+export function validateMarkerScoreEntry(
+  entry: Record<string, unknown>,
+): string[] {
+  const errors: string[] = [];
+  const unknownKeys = Object.keys(entry).filter(k => !ALLOWED_MARKER_SCORE_KEYS.has(k));
+  if (unknownKeys.length > 0) {
+    errors.push(`markerScores entries contain forbidden keys: ${unknownKeys.join(", ")} — AI prediction fields are never accepted`);
+  }
+  if (typeof entry.markerId !== "string" || entry.markerId.trim() === "") {
+    errors.push("markerScores entries require a non-empty markerId");
+  }
+  for (const [name, value] of [
+    ["contentScore", entry.contentScore],
+    ["languageScore", entry.languageScore],
+    ["organizationScore", entry.organizationScore],
+    ["overallScore", entry.overallScore],
+  ] as const) {
+    if (value !== null && !(typeof value === "number" && Number.isFinite(value))) {
+      errors.push(`markerScores ${name} must be null or a finite number`);
+    }
+  }
+  if (entry.markedAt !== null && entry.markedAt !== undefined && typeof entry.markedAt !== "string") {
+    errors.push("markerScores markedAt must be an ISO string or null");
+  }
+  return errors;
+}
+
 // ============================================
 // R3.10-F: Human-Marker Calibration Evidence Contract
 //
@@ -311,37 +347,17 @@ export function validateHumanMarkerFixture(
     }
   }
 
-  // R3.10-K Phase 8: independent marker scores (multi-marker support).
+  // R3.10-K Phase 8/9: independent marker scores (multi-marker support).
   // NO AI prediction fields exist in this schema by design — validation
   // strictly rejects any undeclared key (e.g. aiScore / modelScore /
   // predictedLevel / AI feedback / target level).
-  const ALLOWED_MARKER_SCORE_KEYS = new Set([
-    "markerId", "contentScore", "languageScore", "organizationScore", "overallScore", "markedAt",
-  ]);
   if (fixture.markerScores !== undefined) {
     if (!Array.isArray(fixture.markerScores)) {
       push("markerScores must be an array when present");
     } else {
       for (const entry of fixture.markerScores) {
-        const unknownKeys = Object.keys(entry).filter(k => !ALLOWED_MARKER_SCORE_KEYS.has(k));
-        if (unknownKeys.length > 0) {
-          push(`markerScores entries contain forbidden keys: ${unknownKeys.join(", ")} — AI prediction fields are never accepted`);
-        }
-        if (typeof entry.markerId !== "string" || entry.markerId.trim() === "") {
-          push("markerScores entries require a non-empty markerId");
-        }
-        for (const [name, value] of [
-          ["contentScore", entry.contentScore],
-          ["languageScore", entry.languageScore],
-          ["organizationScore", entry.organizationScore],
-          ["overallScore", entry.overallScore],
-        ] as const) {
-          if (value !== null && !(typeof value === "number" && Number.isFinite(value))) {
-            push(`markerScores ${name} must be null or a finite number`);
-          }
-        }
-        if (entry.markedAt !== null && typeof entry.markedAt !== "string") {
-          push("markerScores markedAt must be an ISO string or null");
+        for (const err of validateMarkerScoreEntry(entry as unknown as Record<string, unknown>)) {
+          push(err);
         }
       }
     }
@@ -358,11 +374,62 @@ export function validateHumanMarkerFixture(
         ["adjudicatorId", a.adjudicatorId],
         ["resolvedAt", a.resolvedAt],
         ["notes", a.notes],
+        ["reason", a.reason],
+        ["resolution", a.resolution],
       ] as const) {
-        if (value !== null && typeof value !== "string") {
-          push(`adjudication.${name} must be a string or null`);
+        if (value !== null && value !== undefined && typeof value !== "string") {
+          push(`adjudication.${name} must be a string, null, or absent`);
         }
       }
+      if (a.resolvedScores !== undefined) {
+        for (const [name, value] of [
+          ["contentScore", a.resolvedScores.contentScore],
+          ["languageScore", a.resolvedScores.languageScore],
+          ["organizationScore", a.resolvedScores.organizationScore],
+          ["overallScore", a.resolvedScores.overallScore],
+        ] as const) {
+          if (value !== null && !(typeof value === "number" && Number.isFinite(value))) {
+            push(`adjudication.resolvedScores.${name} must be null or a finite number`);
+          }
+        }
+      }
+    }
+  }
+
+  // Phase 9: explicit verification record. "verified" REQUIRES a named
+  // human actor + timestamp; confirmedSourceHash must match the fixture's
+  // source hash when present. Intake/runners never set "verified".
+  if (fixture.verification !== undefined) {
+    const v = fixture.verification;
+    if (v.status !== "unverified" && v.status !== "verified") {
+      push(`verification.status must be "unverified" or "verified" (got ${JSON.stringify(v.status)})`);
+    } else if (v.status === "verified") {
+      if (typeof v.verifiedBy !== "string" || v.verifiedBy.trim() === "") {
+        push("verification.status 'verified' requires verifiedBy (explicit human actor)");
+      }
+      if (typeof v.verifiedAt !== "string" || v.verifiedAt.trim() === "") {
+        push("verification.status 'verified' requires verifiedAt (ISO timestamp)");
+      }
+      if (
+        v.confirmedSourceHash !== undefined
+        && v.confirmedSourceHash !== fixture.provenance.sourceHash
+      ) {
+        push("verification.confirmedSourceHash must equal provenance.sourceHash — verification cannot bypass the source hash");
+      }
+    }
+    if (v.scriptIdentityConfirmed !== undefined && typeof v.scriptIdentityConfirmed !== "boolean") {
+      push("verification.scriptIdentityConfirmed must be a boolean when present");
+    }
+    if (v.scoreSourceConfirmed !== undefined && typeof v.scoreSourceConfirmed !== "boolean") {
+      push("verification.scoreSourceConfirmed must be a boolean when present");
+    }
+  }
+
+  // Phase 9: authorship declaration. AI-authored / unknown authorship is
+  // NEVER acceptable calibration evidence — fail closed.
+  if (fixture.scriptAuthorship !== undefined) {
+    if (fixture.scriptAuthorship !== "HUMAN_AUTHORED") {
+      push(`scriptAuthorship must be "HUMAN_AUTHORED" (got ${JSON.stringify(fixture.scriptAuthorship)}) — AI-authored/unknown evidence is rejected`);
     }
   }
 
@@ -453,6 +520,19 @@ export function humanMarkerEvidenceKey(
   ].join("|");
 }
 
+/**
+ * R3.10-K Phase 9: effective verification status of a fixture.
+ * Priority: explicit verification record → legacy sourceAuthorityAssertion
+ * status → "unverified" (fail-safe). Never inferred as verified.
+ */
+export function effectiveVerificationStatus(
+  fixture: HumanMarkerCalibrationFixture,
+): "unverified" | "verified" {
+  if (fixture.verification?.status === "verified") return "verified";
+  if (fixture.provenance.sourceAuthorityAssertion?.verificationStatus === "verified") return "verified";
+  return "unverified";
+}
+
 /** Score-relevant content fingerprint for duplicate/conflict checks.
  *  Phase 8 Step 4 (P2-B): includes the FULL evidence identity —
  *  markerScores (order-invariant), adjudication, taskPartScope,
@@ -486,7 +566,9 @@ function evidenceFingerprint(fixture: HumanMarkerCalibrationFixture): string {
     markerPolicy: fixture.markerPolicy,
     rubricVersion: fixture.rubricVersion,
     sourceHash: fixture.provenance.sourceHash,
-    verificationStatus: fixture.provenance.sourceAuthorityAssertion?.verificationStatus ?? null,
+    verificationStatus: effectiveVerificationStatus(fixture),
+    verification: fixture.verification ?? null,
+    scriptAuthorship: fixture.scriptAuthorship ?? null,
     taskPartScope: fixture.taskPartScope ?? null,
     comparabilityNotes: fixture.comparabilityNotes ?? null,
     markerScores,

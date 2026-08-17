@@ -59,6 +59,11 @@ cloud-run-env*.yaml
 materials/*.pdf
 materials/**/*.pdf
 
+# Phase 9: third-party OCR downloads of HKEAA exemplar booklets —
+# copyright-sensitive, level-only, NOT calibration evidence. Never commit.
+materials/HKDSE*.txt
+materials/*/Paper 2/*.docx
+
 # Downloaded HKDSE reference materials (copyrighted)
 materials/_hkeaa_descriptors/
 

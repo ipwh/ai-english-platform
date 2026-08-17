@@ -521,6 +521,25 @@ export interface HumanMarkerScoreEntry {
 }
 
 /**
+ * R3.10-K Phase 9: explicit verification record. A fixture is verified
+ * ONLY through an explicit verify act by a named human actor — intake,
+ * runners, and calibration runs NEVER set this to "verified".
+ */
+export interface VerificationRecord {
+  status: "unverified" | "verified";
+  /** Human identifier of the verifier — REQUIRED when status is verified. */
+  verifiedBy?: string;
+  /** ISO timestamp of the verification act — REQUIRED when status is verified. */
+  verifiedAt?: string;
+  /** SHA-256 the verifier confirmed against the source artifact. */
+  confirmedSourceHash?: string;
+  /** Confirmation that the verbatim script identity was re-checked. */
+  scriptIdentityConfirmed?: boolean;
+  /** Confirmation that the score/source transcription was re-checked. */
+  scoreSourceConfirmed?: boolean;
+}
+
+/**
  * R3.10-K Phase 8: adjudication record. Kept SEPARATE from original
  * marks — original marker scores are never mutated by adjudication.
  */
@@ -529,6 +548,20 @@ export interface AdjudicationRecord {
   adjudicatorId: string | null;
   resolvedAt: string | null;
   notes: string | null;
+  /** Phase 9: reason the adjudication was opened (traceability). */
+  reason?: string;
+  /** Phase 9: written resolution summary. */
+  resolution?: string;
+  /**
+   * Phase 9: adjudicator's final scores (decision output). These NEVER
+   * replace the original marker scores on the fixture.
+   */
+  resolvedScores?: {
+    contentScore: number | null;
+    languageScore: number | null;
+    organizationScore: number | null;
+    overallScore: number | null;
+  };
 }
 
 /**
@@ -625,6 +658,18 @@ export interface HumanMarkerCalibrationFixture {
    * "5*", "5", "4", "U". NEVER converted into numeric scores.
    */
   publishedLevel: string | null;
+  /**
+   * R3.10-K Phase 9: explicit verification record. Absent/legacy
+   * fixtures default to unverified (see effectiveVerificationStatus).
+   */
+  verification?: VerificationRecord;
+  /**
+   * R3.10-K Phase 9: script authorship declaration. Only
+   * "HUMAN_AUTHORED" is acceptable calibration evidence; intake
+   * rejects AI-authored and unknown authorship fail-closed. Legacy
+   * fixtures without the field are reported as legacy-declared.
+   */
+  scriptAuthorship?: "HUMAN_AUTHORED" | "AI_AUTHORED" | "UNKNOWN";
   /**
    * R3.10-K Phase 8: independent marker scores (multi-marker support).
    * Backward-compatible optional — existing single published marker

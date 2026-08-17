@@ -278,3 +278,47 @@ unverified evidence is never described as verified/official ground truth.
   paths; deleted. `import-past-papers.ts` and `reset-rag.js` migrated to
   the canonical guarded path (`src/modules/ai/services/rag-service` with
   `rag-exclusion`). No `src/lib` references remain in the repository.
+## 10. Phase 9 — Evidence Acquisition Pipeline (fail-closed)
+
+Evidence lifecycle: `intake → verify → marker-pack → adjudication → freeze`,
+operated by `npm run calibration:intake|verify|marker-pack|marker-intake|adjudicate|freeze`.
+
+- **Intake** (`intake-service.ts`): external evidence enters ONLY via
+  `ingestExternalEvidence()`. `scriptAuthorship: "human-authored"` is
+  mandatory; everything enters `verificationStatus: "unverified"`;
+  **level-only submissions are REJECTED** (LEVEL_ONLY is never
+  human-marker evidence). Output is written by `writeIntakeOutput()`.
+- **Verification** (`types.ts` `VerificationRecord`): a fixture becomes
+  VERIFIED only with `verifiedBy` + `verifiedAt` +
+  `confirmedSourceHash === sourceHash`. Legacy fixtures without a record
+  resolve via `effectiveVerificationStatus()` → `unverified` (fail-safe).
+- **Marker packs** (`marking.ts`): `buildMarkerPack()` produces packs with
+  NO AI fields; `appendMarkerScore()` is append-only (never overwrites
+  existing marks); `applyAdjudication()` resolves disagreements without
+  mutating original marks.
+- **Freeze** (`freeze.ts`): `runFreeze()` writes
+  `frozen-manifest.json` + `frozen-inventory.json` and cross-checks
+  manifest / inventory / dataset fingerprint. FAIL-CLOSED on malformed
+  evidence, AI/unknown authorship, unverified COMPARABLE fixtures, and
+  fingerprint mismatch at the same dataset version.
+- **Fingerprint V2 extensions** (`version.ts`): canonical field-order
+  projection now includes `verifiedBy` / `verifiedAt` /
+  `scriptAuthorship`; duplicate detection fingerprints full semantics.
+- **Gate authority**: sufficiency counts ACTUAL verified comparable pairs
+  that entered the metrics. Verified fixtures that are criterion-only,
+  scope-excluded, or failed never count.
+
+### Phase 9 real-evidence audit (Steps 3-4, read-only)
+
+- 4 third-party Google Docs (2020/2021/2022/2025) = 60 exemplars, ALL
+  LEVEL_ONLY (level + examiner comments; zero numeric scores). OCR
+  transcriptions of official HKEAA booklets with editorial modification —
+  NOT ingested (level-only rejection).
+- Discovery: HKEAA never publishes per-script marks (only levels + rubric
+  descriptors); no public script+score dataset exists. Current state:
+  0 verified comparable pairs (gate needs 8).
+- Only path to calibrated marker agreement: recruit ≥2 human markers to
+  blind-mark authentic scripts with the CLO rubric, recording explicit
+  C/L/O + overall /21 per marker, then run this pipeline.
+- Downloaded OCR documents are gitignored and never enter RAG, prompts,
+  or runtime scoring.

@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 1927/1927 tests pass (84 files — fully green)
+- **Testing**: Vitest 4, 2849/2849 tests pass (127 files — fully green)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 126 under `src/app/api/`
@@ -18,12 +18,13 @@ See AGENTS.md for shared agent instructions.
 - **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 6 files — circuit-breaker, budget-policy, capacity-planner, provider-policy, regression-detector, saturation-detector
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
-- **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`
+- **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`, `npm run calibration:*` (ingest/report/intake/verify/marker-pack/marker-intake/adjudicate/freeze)
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
 - **i18n**: ~710 keys, 17 module files, check: `node scripts/check-i18n.js`
 - **Deployment Readiness**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration not available.
 - **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
 - **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
+- **Calibration Evidence Pipeline (Phase 9)**: intake (level-only rejected) → verify (verifiedBy+verifiedAt+confirmedSourceHash) → marker-pack/append (append-only, no AI fields) → adjudication (never mutates marks) → freeze (fail-closed). Gate sufficiency = verified overall-comparable pairs (min 8; current 0 — INSUFFICIENT_DATA). HKEAA publishes no per-script marks; validity never claimed
 - **Writing Architecture Invariants** (8 enforced by contract tests):
   1. Semantic Evaluator = evidence only (no score/penalty/ceiling)
   2. CLO Evaluator = sole score authority
@@ -82,6 +83,8 @@ Dev tooling:
   scripts/evaluate-regression.ts (regression evaluation CLI)
   scripts/experiment.ts (A/B experiment CLI)
   scripts/monitor.ts (continuous evaluation CLI)
+  scripts/evidence-intake.ts, evidence-verify.ts, marker-pack.ts,
+  marker-intake.ts, adjudication-intake.ts, freeze.ts (Phase 9 evidence pipeline CLI)
   .github/workflows/regression.yml, experiment.yml, continuous-evaluation.yml
   ai/benchmark/ — benchmark framework (used by CLI)
   ai/evaluation/ — EvaluationEngine (used by SRE dashboard)
@@ -100,6 +103,9 @@ Dev tooling:
 - Evaluation: `ai/evaluation/`
 - Assessment: `ai/assessment/`
 - Practice Storage: `modules/repositories.ts`
+- Calibration Evidence Intake: `ai/calibration/intake-service.ts`
+- Marker Pack / Adjudication: `ai/calibration/marking.ts`
+- Dataset Freeze: `ai/calibration/freeze.ts`
 - Prompt Versioning: `ai/prompt-versioning/prompt-registry.ts`
 - Prompt Release: `ai/prompt-versioning/release-manager.ts`
 - Regression Evaluation: `ai/regression/runner.ts`

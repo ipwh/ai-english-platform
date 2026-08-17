@@ -43,6 +43,7 @@ import {
 } from "./provenance";
 import {
   classifyHumanMarkerEvidence,
+  effectiveVerificationStatus,
   humanMarkerEvidenceKey,
   validateHumanMarkerEvidenceSet,
 } from "./human-marker";
@@ -370,7 +371,7 @@ function authoritativeFingerprintEntry(f: AuthoritativeCalibrationFixture): Data
 }
 
 /** Phase 8: full ground-truth identity for a human-marker fixture. */
-function humanMarkerFingerprintEntry(f: HumanMarkerCalibrationFixture): DatasetFingerprintEntry {
+export function humanMarkerFingerprintEntry(f: HumanMarkerCalibrationFixture): DatasetFingerprintEntry {
   return {
     id: f.id,
     sourceHash: f.provenance.sourceHash,
@@ -380,7 +381,10 @@ function humanMarkerFingerprintEntry(f: HumanMarkerCalibrationFixture): DatasetF
     overallScore: f.overallScore,
     publishedLevel: f.publishedLevel,
     rubricVersion: f.rubricVersion,
-    verificationStatus: f.provenance.sourceAuthorityAssertion?.verificationStatus ?? null,
+    verificationStatus: effectiveVerificationStatus(f),
+    verifiedBy: f.verification?.verifiedBy ?? null,
+    verifiedAt: f.verification?.verifiedAt ?? null,
+    scriptAuthorship: f.scriptAuthorship ?? null,
     taskPartScope: f.taskPartScope ?? null,
     comparabilityNotes: f.comparabilityNotes ?? null,
     subScores: f.publishedSubScores,
@@ -468,7 +472,7 @@ function mapHumanMarkerComparison(
         organization: compareCriterion(fixture.organizationScore, analysis?.organizationScore ?? null),
       },
       markerPolicy: fixture.markerPolicy,
-      verificationStatus: fixture.provenance.sourceAuthorityAssertion?.verificationStatus ?? null,
+      verificationStatus: effectiveVerificationStatus(fixture),
       analysisFailure: failure,
     },
     scopeExcluded,
@@ -619,8 +623,7 @@ export async function runHumanMarkerCalibrationBenchmark(
     total: deduped.length,
   };
   for (const fixture of deduped) {
-    const status = fixture.provenance.sourceAuthorityAssertion?.verificationStatus;
-    if (status === "verified") evidenceVerification.verified += 1;
+    if (effectiveVerificationStatus(fixture) === "verified") evidenceVerification.verified += 1;
     else evidenceVerification.unverified += 1;
   }
 

@@ -3,13 +3,13 @@
 AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指引及 **HKDSE English Language Level Descriptors** 設計的自學工具。
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
-> **Status**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration is not available.
+> **Status**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration is not available (0/8 verified comparable pairs — `INSUFFICIENT_DATA`).
 > **Writing Evaluation**: Semantic Evaluator (evidence-only) → CLO Evaluator (sole score authority) → Deterministic Normalization
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text)
-> **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner
+> **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-16 — 125 files, 2788 tests pass (full non-E2E ×2).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-17 — 127 files, 2849 tests pass (full non-E2E).
 
 ## 🏗️ Architecture Overview
 
@@ -116,6 +116,10 @@ Writing Evaluation (Sprints 127-130):
 平台分數是寫作練習診斷估算（platform practice estimate），依據 HKDSE English Writing descriptors 作為參考框架。平台分數並非 HKEAA 官方評級，亦不代表公開考試成績預測。
 
 Golden benchmark infrastructure 已就緒（5 個 calibration fixtures），但 empirical metrics（MAE/RMSE/bias）需要 human-labelled data 才能計算。目前所有 calibration fixture 的 expected scores 均為 null。
+
+**Human-Marker Evidence Pipeline（Phase 9，fail-closed）** — 證據生命週期：`calibration:intake`（HUMAN_AUTHORED 強制、level-only 拒絕）→ `calibration:verify`（需 verifiedBy + verifiedAt + confirmedSourceHash）→ `calibration:marker-pack` / `marker-intake`（append-only，無 AI 欄位）→ `calibration:adjudicate`（永不改動 original marks）→ `calibration:freeze`（manifest+inventory+fingerprint 一致性；unverified comparable 阻擋 freeze）。Gate 需 ≥8 **verified overall-comparable pairs**；sufficiency 數 pairs 而非 fixtures。
+
+Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LEVEL_ONLY），HKEAA 從不公佈 per-script marks；公開渠道不存在 script+score dataset。因此平台不會從 Level 推算分數、不用 AI 補分 — calibrated marker agreement 需招募 human markers 對 authentic scripts 做 blind CLO marking 才能建立。
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
 - **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
@@ -508,11 +512,11 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-16，125 files，2788 tests pass。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-17，127 files，2849 tests pass。
 
 ## 目前狀態
 
-> **最後更新**: 2026-08-11 | Sprints 1-130
+> **最後更新**: 2026-08-17 | Sprints 1-130 + R3.10-K Phases 5-9
 
 | 層級 | 狀態 |
 |------|------|

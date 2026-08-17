@@ -4,6 +4,32 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-17 — R3.10-K Phase 9: Evidence Acquisition Pipeline & Real-Evidence Audit
+
+### 🔒 Human-Marker Evidence Pipeline（fail-closed，R1-R4）
+- **NEW**: `calibration/intake-service.ts` — `ingestExternalEvidence()`：HUMAN_AUTHORED 強制宣告、一律 unverified 起始、**level-only 拒絕**（LEVEL_ONLY ≠ human-marker evidence）；`writeIntakeOutput()` / `IntakeRejectedError` / `ScriptAuthorship`
+- **NEW**: `calibration/marking.ts` — `buildMarkerPack()`（marker pack 絕無 AI 欄位）、`appendMarkerScore()`（append-only，永不覆寫既有 marks）、`applyAdjudication()`（分歧處理，永不改動 original marks）、`MARKER_PACK_VERSION`
+- **NEW**: `calibration/freeze.ts` — `runFreeze()` fail-closed：manifest + inventory + fingerprint 三者一致性；unverified comparable fixture 阻擋 freeze；同 dataset-version 指紋不符必須升版；Freeze 永不變更 scores/policy/prompts/runtime
+- **CHANGED**: `types.ts` — `VerificationRecord`（verified 需 verifiedBy + verifiedAt + confirmedSourceHash）、`AdjudicationRecord`、fixture `verification?` / `scriptAuthorship?`、gate policy `minVerifiedComparableSamples: 8`
+- **CHANGED**: `human-marker.ts` — `effectiveVerificationStatus()`（record → legacy assertion → unverified fail-safe）、`validateMarkerScoreEntry()`、evidenceFingerprint 涵蓋 markerScores/adjudication/scope/verification/notes/subScores
+- **CHANGED**: `version.ts` / `runner.ts` — dataset fingerprint canonical field-order projection 含 verifiedBy/verifiedAt/scriptAuthorship；`CalibrationComparison.verificationStatus`；gate 只數真正進入 metrics 的 comparable pairs（sufficiency = pairs，不是 fixtures）
+- **NEW CLI**: `npm run calibration:intake | verify | marker-pack | marker-intake | adjudicate | freeze`（`scripts/evidence-intake.ts`、`evidence-verify.ts`、`marker-pack.ts`、`marker-intake.ts`、`adjudication-intake.ts`、`freeze.ts`）
+
+### 📄 Real Evidence Audit（READ-ONLY，Steps 3-4）
+- **Step 3**: 審計 4 份第三方 Google Docs（2020/2021/2022/2025 graded samples）— 60 exemplars 全部 **LEVEL_ONLY**（level + examiner comments，零 numeric score、零 C/L/O、零 marker identity）；內容為官方 HKEAA booklet 的第三方 OCR 重製，含編輯介入與 OCR 誤差 → 全部 NON_COMPARABLE，**未 ingestion**
+- **Step 4**: 公開證據發現 — HKEAA 官方只公佈 level + rubric descriptors（C/L/O 各 /7 → 21），**從不公佈 per-script marks**；data.gov.hk 僅聚合統計；ICLE/HK 語料庫無分數；無任何公開 script+score dataset
+- **結論**: verified comparable pairs = 0（gate 需 8）；唯一路徑 = 招募 ≥2 human markers 對 authentic scripts 做 blind CLO marking（含 explicit overall /21）；不從 Level 推算分數、不用 AI 補分
+- **安全**: 下載的第三方 OCR 文件不進入 repo（`.gitignore`）、不進入 RAG/prompt/runtime
+
+### 🧪 Tests
+- `phase9-evidence-pipeline.test.ts` — TEST-CAL-034..059（26 tests）：intake 拒絕、verification record、marker pack、append-only、adjudication、freeze fail-closed、pair-authority gate
+
+### ✅ VERIFY
+- tsc 0 · full non-E2E green — **127 files / 2849 tests** · forbidden claims 0 · protected surfaces（writing-score-policy / SCORING_VERSION / prompts / thresholds / schema）零改動
+- Calibration gate 仍 `INSUFFICIENT_DATA`（exit 2）— 不宣稱 marker equivalence / HKDSE validity
+
+---
+
 ## 2026-08-16 — R3.10-K Phase 7: Calibration Authority & Evidence Integrity
 
 ### 🛡️ Calibration Evidence Chain（可追溯、可歸因、不可污染、fail-closed）

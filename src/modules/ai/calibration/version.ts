@@ -39,6 +39,10 @@ export interface DatasetFingerprintEntry {
   publishedLevel: string | null;
   rubricVersion: string;
   verificationStatus: string | null;
+  /** Phase 9: verification audit fields move the fingerprint too. */
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  scriptAuthorship?: string | null;
   /**
    * Phase 8 Step 4 (P2-A): semantic comparability metadata. These
    * fields change whether the evidence can be treated as the same
@@ -118,6 +122,9 @@ function canonicalProjection(e: DatasetFingerprintEntry): string {
     canonStr(e.publishedLevel),
     e.rubricVersion,
     canonStr(e.verificationStatus),
+    canonStr(e.verifiedBy),
+    canonStr(e.verifiedAt),
+    canonStr(e.scriptAuthorship),
     canonStr(e.taskPartScope),
     canonStr(e.comparabilityNotes),
     subScores,

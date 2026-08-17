@@ -60,6 +60,8 @@ export {
   classifyHumanMarkerSource,
   classifyHumanMarkerEvidence,
   classifyGroundTruthClass,
+  effectiveVerificationStatus,
+  validateMarkerScoreEntry,
   type SourceClassificationInput,
 } from "./human-marker";
 
@@ -118,11 +120,37 @@ export {
   runCalibrationBenchmark,
   runHumanMarkerCalibrationBenchmark,
   buildRunMetadata,
+  humanMarkerFingerprintEntry,
   DEFAULT_CALIBRATION_FIXTURES_DIR,
   type CalibrationAnalyzer,
   type CalibrationRunnerOptions,
   type HumanMarkerRunnerOptions,
 } from "./runner";
+
+// R3.10-K Phase 9: evidence acquisition pipeline (R1-R4)
+export {
+  ingestExternalEvidence,
+  writeIntakeOutput,
+  IntakeRejectedError,
+  type ExternalEvidenceSubmission,
+  type ScriptAuthorship,
+} from "./intake-service";
+export {
+  buildMarkerPack,
+  serializeMarkerPack,
+  appendMarkerScore,
+  applyAdjudication,
+  MarkingRejectedError,
+  MARKER_PACK_VERSION,
+  type MarkerPack,
+} from "./marking";
+export {
+  runFreeze,
+  writeFreezeOutput,
+  FreezeBlockedError,
+  type FreezeOptions,
+  type FreezeResult,
+} from "./freeze";
 
 // Report
 export { renderCalibrationReport } from "./report";
