@@ -4,6 +4,7 @@ import { IntegratedSkillsAnalysisSchema } from '../schemas/ai-schema';
 import { sanitizeForAI } from '../services/sanitizer';
 import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt } from '../services/rag-service';
 import { logger } from '@/shared/logger/logger';
+import { estimateLevelFromScore100 } from '../core/level-estimation';
 import type { AnalyzeIntegratedSkillsInput, IntegratedSkillsAnalysis } from './integrated-skills-types';
 
 export async function analyzeIntegratedSkills(input: AnalyzeIntegratedSkillsInput): Promise<IntegratedSkillsAnalysis> {
@@ -40,10 +41,16 @@ ${paper3MSContext}
   const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');
   const userPrompt = `【聆聽材料】\n${input.listeningContent.slice(0, 3000)}\n\n【Note-taking 指引】\n${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}\n\n【預期內容要點】\n${expectedPointsText}\n\n【寫作任務】\n${input.writingTask}\n\n【學生 Note-taking】\n${input.studentNotes || '(未填寫)'}\n\n【學生寫作】\n"""\n${sanitizedWriting}\n"""\n\n請批改此 Integrated Skills 答案。`;
 
-  return executeAI({
+  const analysis = await executeAI({
     context: { feature: 'Listening', useCase: 'AnalyzeIntegratedSkills', promptName: 'IntegratedSkillsAnalysis', promptVersion: 'v1' },
     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
     options: { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 30000, userId: input.userId },
     schema: IntegratedSkillsAnalysisSchema,
   });
+
+  // Cross-paper consistency: the LLM's estimatedLevel is NEVER authoritative.
+  // Override with the same deterministic 0-100 → 1-5 policy used across papers
+  // (the percentage equivalents of the Paper 2 CLO thresholds). A given
+  // percentage now maps to the same level as a Paper 2 essay with that score.
+  return { ...analysis, estimatedLevel: estimateLevelFromScore100(analysis.overallScore) };
 }

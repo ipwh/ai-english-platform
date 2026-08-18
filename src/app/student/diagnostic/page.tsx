@@ -114,16 +114,7 @@ function buildDiagnosticPlans(level: string, _weakSkills: WeakSkill[]): Diagnost
     difficulty,
   });
 
-  // ── Writing: 2 tasks — email + short article ──
-  plans.push({
-    languageSkill: 'writing',
-    languageSkillZh: '寫作（電郵）',
-    skillCategory: 'writing',
-    questionType: 'short-writing',
-    count: 1,
-    difficulty,
-    topic: 'email',
-  });
+  // ── Writing: 1 task — short article ──
   plans.push({
     languageSkill: 'writing',
     languageSkillZh: '寫作（短文）',
@@ -521,6 +512,7 @@ export default function DiagnosticPage() {
     // AI 寫作批改（CLO 框架）
     const writingQ = questions.find(q => q.languageSkill === 'writing' || q.type === 'short-writing');
     const writingText = writingQ ? (finalAnswers[writingQ.id] || '') : '';
+    let writingPercentage: number | null = null;
     if (writingText.trim()) {
       setWritingLoading(true);
       try {
@@ -538,6 +530,14 @@ export default function DiagnosticPage() {
         const wJson = await wRes.json();
         if (wRes.ok && wJson.analysis) {
           setWritingAnalysis(wJson.analysis);
+          // Convert CLO scores (each /7) to a percentage so the AI advice
+          // matches the on-screen writing result (93% not 100%).
+          const { contentScore, languageScore, organizationScore } = wJson.analysis;
+          const scores = [contentScore, languageScore, organizationScore]
+            .filter((s): s is number => typeof s === 'number' && s > 0);
+          if (scores.length > 0) {
+            writingPercentage = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length / 7) * 100);
+          }
         }
       } catch { /* non-critical */ }
       finally { setWritingLoading(false); }
@@ -550,18 +550,29 @@ export default function DiagnosticPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: studentProfile?.id || undefined,
+          // No studentId: base this advice on the just-completed diagnostic
+          // (narrative context). Passing studentId would make the server read
+          // the trusted practice history (user.overallAccuracy), which is 0
+          // for a new student and contradicts the on-screen diagnostic score.
           studentLevel: getStudentLevel(studentProfile),
           overallAccuracy: (() => {
-            // Exclude writing (score < 0 = pending CLO) and untested skills (0 questions)
+            // Include writing once its CLO analysis is ready (score < 0 = pending).
             const tested = computed.filter(r => r.totalQuestions > 0 && r.score >= 0);
-            return tested.length > 0
-              ? Math.round(tested.reduce((s, r) => s + r.score, 0) / tested.length)
+            const scores = tested.map(r => r.score);
+            if (writingPercentage !== null) scores.push(writingPercentage);
+            return scores.length > 0
+              ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length)
               : 0;
           })(),
-          weakSkills: computed
-            .filter(r => r.score >= 0 && r.totalQuestions > 0 && r.score < 60)
-            .map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score })),
+          weakSkills: (() => {
+            const list = computed
+              .filter(r => r.score >= 0 && r.totalQuestions > 0 && r.score < 60)
+              .map(r => ({ name: r.id, nameZh: r.label, accuracy: r.score }));
+            if (writingPercentage !== null && writingPercentage < 60) {
+              list.push({ name: 'writing', nameZh: t('diagnostic.skillWriting'), accuracy: writingPercentage });
+            }
+            return list;
+          })(),
           recentPerformance,
           streakDays: studentProfile?.streakDays ?? 0,
         }),

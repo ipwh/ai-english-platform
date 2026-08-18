@@ -463,7 +463,7 @@ ${CLO_RUBRIC_ZH}
 ═══════════════════════════════════════
 📏 評分規則
 ═══════════════════════════════════════
-- 子分數定義：contentScore / languageScore / organizationScore 皆為 0–7 分（可用半分），必須對照上方 CLO 等級描述給予。
+- 子分數定義：contentScore / languageScore / organizationScore 皆為 0–7 分（可用半分），必須對照上方 CLO 0–7 分 band 描述給予。
 - overallScore 為 LLM 輔助估算，系統會以 CLO 子分數重新計算為準。
 - cloRationales 的 strengths/limitations/nextSteps 必須使用中英雙語（繁體中文 + English），方便英文基礎較差的學生理解。
   格式範例："內容切題 (Content is relevant to the task)"。
@@ -558,10 +558,10 @@ ${writingMSContext}
 - ✅ 所有反饋必須有事實依據。若無法從文章中找到支撐某個評語的具體句子，則不應給出該評語。
 
 評分規則：
-- strengths 必須對照 CLO 7 分制，不可虛高
+- strengths 必須對照 CLO 0-7 分制，不可虛高；若提及分數，必須寫成「X/7 分」，嚴禁使用「CLO X 水平」「CLO Level X」「Level X」等會與 HKDSE 等級混淆的詞語
 - weaknesses 必須具體指出 Content/Organization 不足之處，每項附帶文章引用
 - vocabularySuggestions 提供 2-4 個詞彙升級建議
-- structureFeedback 指出 Organization 對應的 CLO 等級及改善建議
+- structureFeedback 指出 Organization 的分數及改善建議；分數必須寫成「Organization X/7 分」，不得寫成「CLO X 水平」或「Level X」
 - faithfulCorrection 只修正語言錯誤，保留原意和結構
 - enhancedVersion 示範更高水平的寫作，可以改進內容、組織和表達
 - 注意文本類型格式要求（Letter 上下款、Speech 開場白等）`.trim();
