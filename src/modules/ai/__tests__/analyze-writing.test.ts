@@ -35,10 +35,10 @@ function normalizeForDedup(value: string): string {
 
 type EstimatedDSELevel = '1' | '2' | '3' | '4' | '5';
 function estimateDSELevelFromCLO(cloTotalScore: number): EstimatedDSELevel {
-  if (cloTotalScore >= 13) return '5';
-  if (cloTotalScore >= 10) return '4';
-  if (cloTotalScore >= 7) return '3';
-  if (cloTotalScore >= 4) return '2';
+  if (cloTotalScore >= 16) return '5';
+  if (cloTotalScore >= 13) return '4';
+  if (cloTotalScore >= 10) return '3';
+  if (cloTotalScore >= 7) return '2';
   return '1';
 }
 
@@ -108,14 +108,14 @@ describe('estimateDSELevelFromCLO', () => {
     expect(estimateDSELevelFromCLO(16)).toBe('5');
   });
 
-  it('maps 13/21 to Level 5', () => {
-    expect(estimateDSELevelFromCLO(13)).toBe('5');
+  it('maps 13/21 to Level 4 (narrower top band)', () => {
+    expect(estimateDSELevelFromCLO(13)).toBe('4');
   });
 
   it('maps mid-range scores correctly', () => {
-    expect(estimateDSELevelFromCLO(10)).toBe('4');
-    expect(estimateDSELevelFromCLO(7)).toBe('3');
-    expect(estimateDSELevelFromCLO(4)).toBe('2');
+    expect(estimateDSELevelFromCLO(10)).toBe('3');
+    expect(estimateDSELevelFromCLO(7)).toBe('2');
+    expect(estimateDSELevelFromCLO(4)).toBe('1');
   });
 
   it('maps low scores correctly', () => {

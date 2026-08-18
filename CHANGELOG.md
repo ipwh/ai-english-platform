@@ -4,6 +4,15 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-18 — Writing level bands narrowed + prompt/style fixes (寫作等級帶收窄)
+
+- **CHANGED**: `writing-score-policy.ts` `estimateDSELevelFromCLO` thresholds **13/10/7/4 → 16/13/10/7** (Level 5/4/3/2). Level 5 now starts at ~76% (CLO 16/21) instead of ~62%, narrowing the top band and better approximating the real DSE distribution (e.g. 67/100 now → Level 4, not Level 5). `SCORING_VERSION` bumped to `HKDSE_P2_WRITING_CANONICAL_V2`.
+- **FIXED**: writing-prompt generation no longer leaks literal `CONTEXT / ROLE / TASK / REQUIREMENTS / WORD LIMIT` labels into the generated question — the 5 elements are woven into natural HKDSE-style prose.
+- **FIXED**: `analyze-writing.ts` style analysis now retries once and uses `maxTokens: 8192` (was 4096) so the 寫作技巧 section no longer degrades to「暫時無法生成」on a single flaky/truncated call.
+- **VERIFY**: tsc 0 · **126 files / 2821 tests** green.
+
+---
+
 ## 2026-08-18 — R3.10-L: Full-Feature Audit Fixes (完整審核修正)
 
 ### 🛡️ Scoring authority — no more fabricated keys

@@ -28,7 +28,7 @@ export interface EssayReview {
   revisionPlan: RevisionPlan;
   totalScore: number;
   estimatedLevel: string;
-  /** Canonical scoring contract version (HKDSE_P2_WRITING_CANONICAL_V1). */
+  /** Canonical scoring contract version (HKDSE_P2_WRITING_CANONICAL_V2). */
   scoringVersion?: string;
 }
 

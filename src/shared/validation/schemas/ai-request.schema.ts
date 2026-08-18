@@ -11,7 +11,7 @@ export const generateQuestionsSchema = z.object({
   questionType: z.enum(['mc', 'fill-blank', 'error-correction', 'short-writing', 'matching']).optional(),
   grammarItem: optionalString,
   grammarItemZh: optionalString,
-  languageSkill: z.enum(['reading', 'writing', 'listening', 'speaking', 'integrated']).optional(),
+  languageSkill: z.enum(['reading', 'writing', 'listening', 'speaking', 'integrated', 'vocabulary']).optional(),
   languageSkillZh: optionalString,
   topic: optionalString,
   userId: optionalString,

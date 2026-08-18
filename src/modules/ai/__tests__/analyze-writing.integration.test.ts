@@ -405,7 +405,7 @@ describe("Integration H — platformWritingEstimate mirrors dseLevel", () => {
 
     const result = await analyzeWriting(defaultInput);
 
-    // dseLevel is computed from cloTotalScore (3+4+5=12 → Level 4)
+    // dseLevel is computed from cloTotalScore (3+4+5=12 → Level 3)
     expect(result.dseLevel).toBeDefined();
     // Both fields must carry the same value
     expect(result.platformWritingEstimate).toBe(result.dseLevel);
@@ -500,7 +500,7 @@ describe("Integration L — canonical scoring version", () => {
       .mockResolvedValueOnce(mockStyleResponse())
       .mockResolvedValueOnce(mockGrammarResponse());
     const result = await analyzeWriting(defaultInput);
-    expect(result.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V1");
+    expect(result.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V2");
   });
 });
 
@@ -538,11 +538,11 @@ describe("Integration M — pedagogical target cannot mutate scoring (semantic m
     mockCallLLM
       .mockResolvedValueOnce(mockStyleResponse())
       .mockResolvedValueOnce(mockGrammarResponse());
-    // C=3 L=4 O=5 → 12/21 → platform estimate "4"; force target "5" to prove independence.
+    // C=3 L=4 O=5 → 12/21 → platform estimate "3"; force target "5" to prove independence.
     const result = await analyzeWriting({ ...defaultInput, artifact: generatedMeta("5") });
 
     expect(result.artifact?.pedagogicalTargetLevel).toBe("5"); // target untouched
-    expect(result.dseLevel).toBe("4");                          // assessment independent
+    expect(result.dseLevel).toBe("3");                          // assessment independent
   });
 
   it("student submission without artifact still scores normally (no guessing)", async () => {

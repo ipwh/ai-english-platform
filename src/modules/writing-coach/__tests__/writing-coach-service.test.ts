@@ -105,7 +105,7 @@ describe("WritingCoachService — deterministic canonical scoring", () => {
   it("carries the canonical scoringVersion", async () => {
     mockCallLLM.mockResolvedValueOnce(mockAnalysis());
     const review = await writingCoachService.analyzeEssay(essay);
-    expect(review.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V1");
+    expect(review.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V2");
   });
 });
 

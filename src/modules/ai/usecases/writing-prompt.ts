@@ -42,12 +42,12 @@ export async function generateWritingPrompt(input: GenerateWritingPromptInput): 
 
 Create ONE complete, self-contained writing prompt that mirrors the style, complexity, and expectations of the REAL HKDSE English Paper 2 Part B.
 
-The prompt MUST include ALL of these elements in order:
-1. CONTEXT: A clear, realistic situation (1-2 sentences)
-2. ROLE: Who the writer is
-3. TASK: What to write, CLEARLY stating the required text type
-4. REQUIREMENTS: 3 specific content points or guiding questions
-5. WORD LIMIT: "Write about ${input.wordLimit} words."
+Write the prompt as NATURAL, FLOWING PROSE — exactly how a real HKDSE Paper 2 Part B question reads. Do NOT use any headings, bullet labels, or section markers. Weave ALL of these elements seamlessly into continuous sentences:
+1. A clear, realistic situation (1-2 sentences) establishing the context
+2. The writer's role/identity
+3. The writing task, clearly stating the required text type
+4. Three specific content points or guiding questions
+5. The word limit: "Write about ${input.wordLimit} words."
 
 Text type: ${guide?.name || input.textType}${structureHint}
 Grade: ${input.gradeLevel}${input.difficulty ? ` | Difficulty: ${input.difficulty}` : ''}
@@ -60,7 +60,7 @@ DSE reference topics (for style reference only — do NOT use these as your main
 ${referenceTopics.map(t => `  • ${t}`).join('\n')}
 ${weakSkillHint}
 
-CRITICAL: Output ONLY the writing prompt. No headings, no labels, no tips, no hints, no suggestions, no "Writing Tips" section. Just the complete, ready-to-use prompt text. If there are no special requirements to mention, do NOT fabricate any.`.trim();
+CRITICAL: Output ONLY the writing prompt as continuous prose. NEVER write the literal words "CONTEXT", "ROLE", "TASK", "REQUIREMENTS", or "WORD LIMIT" as headings or labels anywhere. No headings, no bullet labels, no tips, no hints, no suggestions, no "Writing Tips" section. Just the complete, ready-to-use prompt text. If there are no special requirements to mention, do NOT fabricate any.`.trim();
 
   const userPrompt = `Create a DSE-style writing prompt. Text type: ${guide?.name || input.textType}. Grade: ${input.gradeLevel}.${input.difficulty ? ` Difficulty: ${input.difficulty}.` : ''} Word limit: ${input.wordLimit} words. Required topic: "${diverseTopics[0]}".`;
 

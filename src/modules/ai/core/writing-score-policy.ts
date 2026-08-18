@@ -20,7 +20,7 @@
 // ============================================
 
 /** Canonical scoring contract version (rubric + normalization + conversion + penalty + level policy). */
-export const SCORING_VERSION = "HKDSE_P2_WRITING_CANONICAL_V1" as const;
+export const SCORING_VERSION = "HKDSE_P2_WRITING_CANONICAL_V2" as const;
 
 /** Internal platform level estimate — NEVER an official HKEAA grade (no 5* / 5**). */
 export type EstimatedDSELevel = "1" | "2" | "3" | "4" | "5";
@@ -102,15 +102,20 @@ export function applyLengthPenaltyPolicy(
 
 /**
  * CLO total → internal platform level estimate (1–5).
- * PLATFORM_DEFINED thresholds (13/10/7/4). HKEAA publishes Level 1–5
+ * PLATFORM_DEFINED thresholds (16/13/10/7). HKEAA publishes Level 1–5
  * DESCRIPTORS only; it defines NO numeric CLO-to-level conversion and
  * publishes no grade boundaries. Never returns 5* / 5**.
+ *
+ * V2 (2026-08-18): thresholds shifted up by 3 to narrow the top band and
+ * better approximate the real DSE distribution — Level 5 now starts at
+ * ~76% (CLO 16/21) instead of ~62% (CLO 13/21). A "correct but less
+ * sophisticated" essay (CLO ≈ 13–15) now maps to Level 4, not Level 5.
  */
 export function estimateDSELevelFromCLO(cloTotalScore: number): EstimatedDSELevel {
-  if (cloTotalScore >= 13) return "5";
-  if (cloTotalScore >= 10) return "4";
-  if (cloTotalScore >= 7) return "3";
-  if (cloTotalScore >= 4) return "2";
+  if (cloTotalScore >= 16) return "5";
+  if (cloTotalScore >= 13) return "4";
+  if (cloTotalScore >= 10) return "3";
+  if (cloTotalScore >= 7) return "2";
   return "1";
 }
 

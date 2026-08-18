@@ -44,8 +44,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ vocab: serializeVocab(result) }, { status: 201 });
   } catch (err: unknown) {
-    // Re-throw NextResponse (e.g. from validateRequest) so it reaches the client
-    if (err instanceof NextResponse) throw err;
+    // Return NextResponse (e.g. from validateRequest) so it reaches the client
+    // with its real status/body instead of an empty 500.
+    if (err instanceof NextResponse) return err;
     const message = err instanceof Error ? err.message : '未知錯誤';
     if (message.includes('Unique constraint') || message.includes('UNIQUE')) {
       return NextResponse.json(

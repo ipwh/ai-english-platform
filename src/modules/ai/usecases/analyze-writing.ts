@@ -612,13 +612,25 @@ Content / Organization 分數亦需按 system rubric 評分，
   }
 
   async function runStyleAnalysis(): Promise<string> {
-    return callLLM(
-      [
-        { role: 'system', content: stylePrompt },
-        { role: 'user', content: styleUserPrompt },
-      ],
-      { temperature: 0.3, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId }
-    );
+    // Style analysis requires TWO full rewrites (faithfulCorrection + enhancedVersion)
+    // plus feedback fields in a single JSON response — give it extra output room
+    // (8192) and retry once on transient failures so a single flaky call does not
+    // degrade the whole 寫作技巧 section.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await callLLM(
+          [
+            { role: 'system', content: stylePrompt },
+            { role: 'user', content: styleUserPrompt },
+          ],
+          { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 8192, jsonMode: true, timeoutMs: 25000, userId: input.userId }
+        );
+      } catch (e) {
+        if (attempt === 1) throw e;
+        logger.warn({ module: 'analyzeWriting', error: (e as Error).message }, 'Style call retry after failure');
+      }
+    }
+    throw new Error('Style analysis failed after retry');
   }
 
   async function runSemanticAnalysis(): Promise<SemanticEvaluation> {

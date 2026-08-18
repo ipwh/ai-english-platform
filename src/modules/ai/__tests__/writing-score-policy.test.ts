@@ -111,14 +111,17 @@ describe("Length penalty — PLATFORM_DEFINED, applied once, never double", () =
 });
 
 describe("Level estimate — PLATFORM_DEFINED internal 1–5 only", () => {
-  it("thresholds 13/10/7/4", () => {
+  it("thresholds 16/13/10/7", () => {
     expect(estimateDSELevelFromCLO(21)).toBe("5");
-    expect(estimateDSELevelFromCLO(13)).toBe("5");
-    expect(estimateDSELevelFromCLO(12.5)).toBe("4");
-    expect(estimateDSELevelFromCLO(10)).toBe("4");
-    expect(estimateDSELevelFromCLO(7)).toBe("3");
-    expect(estimateDSELevelFromCLO(4)).toBe("2");
-    expect(estimateDSELevelFromCLO(3.99)).toBe("1");
+    expect(estimateDSELevelFromCLO(16)).toBe("5");
+    expect(estimateDSELevelFromCLO(15.5)).toBe("4");
+    expect(estimateDSELevelFromCLO(13)).toBe("4");
+    expect(estimateDSELevelFromCLO(12.5)).toBe("3");
+    expect(estimateDSELevelFromCLO(10)).toBe("3");
+    expect(estimateDSELevelFromCLO(9.5)).toBe("2");
+    expect(estimateDSELevelFromCLO(7)).toBe("2");
+    expect(estimateDSELevelFromCLO(6.99)).toBe("1");
+    expect(estimateDSELevelFromCLO(4)).toBe("1");
     expect(estimateDSELevelFromCLO(0)).toBe("1");
   });
 
@@ -141,7 +144,7 @@ describe("Level estimate — PLATFORM_DEFINED internal 1–5 only", () => {
 
 describe("Scoring version", () => {
   it("is the explicit canonical version", () => {
-    expect(SCORING_VERSION).toBe("HKDSE_P2_WRITING_CANONICAL_V1");
+    expect(SCORING_VERSION).toBe("HKDSE_P2_WRITING_CANONICAL_V2");
   });
 });
 
