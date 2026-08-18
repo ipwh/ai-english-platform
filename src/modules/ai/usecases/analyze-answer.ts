@@ -105,6 +105,7 @@ HKDSE 對齊規則：
   // resolve it to prevent AI hallucination (the AI would see A/B/C but answer "D")
   const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
   let normalizedCorrectAnswer = input.correctAnswer;
+  let correctAnswerNote = '';
   if (input.choices && input.choices.length > 0) {
     const answerUpper = input.correctAnswer.trim().toUpperCase();
     const answerIdx = MCQ_LETTERS.indexOf(answerUpper as typeof MCQ_LETTERS[number]);
@@ -120,9 +121,15 @@ HKDSE 對齊規則：
       const textMatchIdx = input.choices.findIndex(
         c => c.trim().toLowerCase() === input.correctAnswer.trim().toLowerCase(),
       );
-      normalizedCorrectAnswer = textMatchIdx >= 0
-        ? MCQ_LETTERS[textMatchIdx]
-        : MCQ_LETTERS[0];
+      if (textMatchIdx >= 0) {
+        normalizedCorrectAnswer = MCQ_LETTERS[textMatchIdx] ?? input.correctAnswer;
+      } else {
+        // R3.10-L: NEVER substitute a guessed key ('A') — that produces an
+        // explanation "grounded" in the wrong answer. Tell the model the key
+        // is unresolvable instead.
+        normalizedCorrectAnswer = '';
+        correctAnswerNote = '（⚠️ 此題的正確答案欄位無法對應任何選項。請不要臆測正確選項，也不要聲稱學生答對或答錯；請根據題目與選項內容給出中性、具體的學習提示，並說明此題的答案記錄有誤、建議重做。）';
+      }
     }
   }
 
@@ -140,7 +147,7 @@ HKDSE 對齊規則：
 
   const userPrompt = `題目：${sanitizeForAI(input.question)}
 題型：${input.questionType}
-正確答案：${sanitizeForAI(normalizedCorrectAnswer)}
+正確答案：${normalizedCorrectAnswer ? sanitizeForAI(normalizedCorrectAnswer) : correctAnswerNote}
 學生答案：${sanitizeForAI(input.studentAnswer)}
 學生答案詞數（系統計算）：${studentWordCount}
 ${input.grammarItemZh ? `文法項目：${input.grammarItemZh}` : ''}

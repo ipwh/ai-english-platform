@@ -475,21 +475,21 @@ export default function TeacherCopilotPage() {
                 <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${sd.score}%` }} />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white w-10">{sd.score}%</span>
-              <span className="text-xs text-gray-500" title={`勝過 ${sd.percentile}% 同級同學`}>PR{sd.percentile}</span>
+              <span className="text-xs text-gray-500" title={language === 'en' ? `Ahead of ${sd.percentile}% of peers` : `勝過 ${sd.percentile}% 同級同學`}>PR{sd.percentile}</span>
             </div>
           ))}
           {studentAnalysis.recentProgress && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-300">近期進度:</span>{' '}
+              <span className="font-medium text-gray-700 dark:text-gray-300">{language === 'en' ? 'Recent progress: ' : '近期進度:'}</span>{' '}
               {typeof studentAnalysis.recentProgress === 'string'
                 ? studentAnalysis.recentProgress
                 : (() => {
                     const rp = studentAnalysis.recentProgress as Record<string, unknown>;
                     const parts = [];
-                    if (rp.sessionsThisWeek !== undefined) parts.push(`本週 ${rp.sessionsThisWeek} 次練習`);
-                    if (rp.accuracyTrend) parts.push(`準確度趨勢: ${rp.accuracyTrend}`);
-                    if (rp.masteryGained !== undefined) parts.push(`掌握度提升: ${rp.masteryGained}`);
-                    if (rp.timeSpent !== undefined) parts.push(`學習時間: ${rp.timeSpent} 分鐘`);
+                    if (rp.sessionsThisWeek !== undefined) parts.push(language === 'en' ? `${rp.sessionsThisWeek} sessions this week` : `本週 ${rp.sessionsThisWeek} 次練習`);
+                    if (rp.accuracyTrend) parts.push(language === 'en' ? `Accuracy trend: ${rp.accuracyTrend}` : `準確度趨勢: ${rp.accuracyTrend}`);
+                    if (rp.masteryGained !== undefined) parts.push(language === 'en' ? `Mastery gained: ${rp.masteryGained}` : `掌握度提升: ${rp.masteryGained}`);
+                    if (rp.timeSpent !== undefined) parts.push(language === 'en' ? `Study time: ${rp.timeSpent} min` : `學習時間: ${rp.timeSpent} 分鐘`);
                     return parts.join(' · ');
                   })()}
             </div>

@@ -241,7 +241,7 @@ const MISTAKE_LABELS: Record<string, { zh: string; en: string }> = {
 // ============================================
 
 export default function StudentAnalyticsPage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const params = useParams();
   const studentId = params.studentId as string;
 
@@ -530,7 +530,7 @@ export default function StudentAnalyticsPage() {
                             {s.accuracy}%
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">未驗證</span>
+                          <span className="text-xs text-gray-400">{t('admin.students.analytics.unverified')}</span>
                         )}
                       </td>
                     </tr>
@@ -549,7 +549,7 @@ export default function StudentAnalyticsPage() {
         {/* --- Recent Sessions --- */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            最近練習記錄
+            {t('admin.students.analytics.recentSessions')}
           </h3>
           {recentSessions.length > 0 ? (
             <div className="space-y-2">
@@ -573,12 +573,12 @@ export default function StudentAnalyticsPage() {
                         {isAssignment ? `📋 ${s.skillZh}` : (s.skillZh || s.skill)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {isAssignment ? '任務' : s.difficulty} · {new Date(s.startedAt).toLocaleDateString()}
+                        {isAssignment ? t('admin.students.analytics.assignmentTask') : s.difficulty} · {new Date(s.startedAt).toLocaleDateString()}
                       </p>
                       {s.completedAt && (
                         <p className="text-xs text-gray-400">
                           <Clock className="w-3 h-3 inline mr-0.5" />
-                          完成: {new Date(s.completedAt).toLocaleString('zh-HK', {
+                          {t('admin.students.analytics.completedLabel')}{new Date(s.completedAt).toLocaleString('zh-HK', {
                             month: 'numeric', day: 'numeric',
                             hour: '2-digit', minute: '2-digit',
                           })}
@@ -601,9 +601,9 @@ export default function StudentAnalyticsPage() {
                       </>
                     ) : (
                       <>
-                        <p className="text-sm font-medium text-gray-400">未驗證</p>
+                        <p className="text-sm font-medium text-gray-400">{t('admin.students.analytics.unverified')}</p>
                         <p className="text-xs text-gray-400">
-                          記錄 {s.recordedCorrectCount}/{s.recordedTotalQuestions}
+                          {t('admin.students.analytics.recordedCount', { r: s.recordedCorrectCount, t: s.recordedTotalQuestions })}
                         </p>
                       </>
                     )}
@@ -619,7 +619,7 @@ export default function StudentAnalyticsPage() {
         {/* --- Recent Mistakes --- */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            最近錯題
+            {t('admin.students.analytics.recentMistakes')}
           </h3>
           {recentMistakes.length > 0 ? (
             <div className="space-y-2">
@@ -630,7 +630,7 @@ export default function StudentAnalyticsPage() {
                       {m.questionSummary}
                     </p>
                     <span className="text-xs text-gray-500 flex-shrink-0">
-                      {MISTAKE_LABELS[m.mistakeType]?.zh || m.mistakeType}
+                      {MISTAKE_LABELS[m.mistakeType]?.[language === 'en' ? 'en' : 'zh'] || m.mistakeType}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-1.5 text-xs">
@@ -652,18 +652,18 @@ export default function StudentAnalyticsPage() {
         {/* --- Vocabulary Overview --- */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            詞彙概覽
+            {t('admin.students.analytics.vocabOverview')}
           </h3>
           {totalVocab > 0 ? (
             <div className="space-y-3">
               <div className="flex items-center justify-center gap-6 py-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{totalVocab}</p>
-                  <p className="text-xs text-gray-500">詞彙總數</p>
+                  <p className="text-xs text-gray-500">{t('admin.students.analytics.vocabTotal')}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-green-600">{masteredVocab}</p>
-                  <p className="text-xs text-gray-500">已掌握</p>
+                  <p className="text-xs text-gray-500">{t('admin.students.analytics.vocabMastered')}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -746,21 +746,21 @@ export default function StudentAnalyticsPage() {
                   </div>
                   {d.weakAreas && d.weakAreas !== '[]' && d.weakAreas !== '' && (
                     <p className="text-xs text-gray-500 mt-0.5">
-                      弱項: {d.weakAreas}
+                      {t('admin.students.analytics.weakAreasLabel')}{d.weakAreas}
                     </p>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-400 text-center py-8">暫無診斷結果</p>
+            <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noDiagnosticResults')}</p>
           )}
 
           {/* --- Writing Overview --- */}
           {writingStats.length > 0 && (
             <>
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-6 mb-3">
-                最近寫作提交
+                {t('admin.students.analytics.recentWritingSubmissions')}
               </h4>
               <div className="space-y-2">
                 {writingStats.map(w => (

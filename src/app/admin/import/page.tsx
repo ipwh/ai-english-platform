@@ -403,10 +403,10 @@ export default function AdminImportPage() {
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          批量匯入
+          {t('admin.import.title')}
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          使用 CSV 檔案批量匯入學生或教師資料。請先下載模板，填寫後上傳。
+          {t('admin.import.subtitle')}
         </p>
       </div>
 
@@ -416,19 +416,19 @@ export default function AdminImportPage() {
           <span className="w-7 h-7 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-sm font-bold text-purple-600 dark:text-purple-400">
             1
           </span>
-          下載 CSV 模板
+          {t('admin.import.step1')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <TemplateCard
-            title="學生匯入模板"
-            description="包含 studentId, email, nameZh, nameEn, level, className, classNumber, gender, joinedAt"
+            title={t('admin.import.studentTemplate')}
+            description={t('admin.import.studentTemplateDesc')}
             icon={Users}
             downloadUrl="/api/admin/import/template/students"
             fileName="students_template.csv"
           />
           <TemplateCard
-            title="教師匯入模板"
-            description="包含 teacherId, email, nameZh, nameEn, subjects, department, gender"
+            title={t('admin.import.teacherTemplate')}
+            description={t('admin.import.teacherTemplateDesc')}
             icon={GraduationCap}
             downloadUrl="/api/admin/import/template/teachers"
             fileName="teachers_template.csv"

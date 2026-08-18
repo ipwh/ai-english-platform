@@ -102,13 +102,32 @@ export async function POST(request: NextRequest) {
           );
 
           const cleaned = result.replace(/```json|```/g, '').trim();
-          const mcQuestions = JSON.parse(cleaned);
+          const rawQuestions = JSON.parse(cleaned);
 
-          return NextResponse.json({
-            quiz: mcQuestions,
-            type: 'mc',
-            source: `從 ${vocabItems.length} 個生字中生成`,
-          });
+          // R3.10-L: server-side answer-key validation — the correct answer
+          // MUST be the index of the AI-provided `word` within its choices
+          // (grounded in the student's word list). Miskeyed or fabricated
+          // questions are dropped, never delivered with a wrong key.
+          const knownWords = new Set(deserialized.map((v) => (v.word as string).toLowerCase()));
+          const mcQuestions: Array<Record<string, unknown>> = [];
+          for (const q of Array.isArray(rawQuestions) ? rawQuestions : []) {
+            const word = typeof q?.word === 'string' ? q.word.trim() : '';
+            const choices = Array.isArray(q?.choices) ? q.choices.map((c: unknown) => String(c).trim()) : [];
+            if (!word || !knownWords.has(word.toLowerCase()) || choices.length < 2) continue;
+            const idx = choices.findIndex((c: string) => c.toLowerCase() === word.toLowerCase());
+            if (idx < 0) continue;
+            mcQuestions.push({ ...q, answer: String.fromCharCode(65 + idx), word, choices });
+          }
+
+          if (mcQuestions.length === 0) {
+            logger.warn({ module: 'vocab-quiz' }, 'All AI MCQ questions invalid — falling back to match mode');
+          } else {
+            return NextResponse.json({
+              quiz: mcQuestions,
+              type: 'mc',
+              source: `從 ${vocabItems.length} 個生字中生成`,
+            });
+          }
         } catch (aiErr) {
           logger.warn({ module: 'vocab-quiz' }, 'AI MCQ generation failed, falling back to match mode');
         }
@@ -116,18 +135,27 @@ export async function POST(request: NextRequest) {
     }
 
     // === 模式 2：配對題（fallback：不依賴 AI） ===
+    // R3.10-L: 配對題包含 choices（4 個單字選項）+ answer（正確單字），
+    // 前端可以正常作答與批改（之前沒有 choices/answer，導致配對題無法提交）。
     const selected = deserialized.slice(0, Math.min(quizCount, 10));
-    const quiz = selected.map((v, i) => ({
-      type: 'match' as const,
-      id: v.id as string,
-      word: v.word as string,
-      meaningZh: v.meaningZh as string,
-      partOfSpeech: v.partOfSpeech as string,
-      distractorMeanings: deserialized
-        .filter((_, j) => j !== i)
+    const quiz = selected.map((v) => {
+      const distractors = deserialized
+        .filter((d) => (d.id as string) !== (v.id as string))
+        .sort(() => Math.random() - 0.5)
         .slice(0, 3)
-        .map((d) => d.meaningZh as string),
-    }));
+        .map((d) => d.word as string);
+      const choices = [v.word as string, ...distractors].sort(() => Math.random() - 0.5);
+      return {
+        type: 'match' as const,
+        id: v.id as string,
+        promptZh: `${v.meaningZh}`,
+        word: v.word as string,
+        meaningZh: v.meaningZh as string,
+        partOfSpeech: v.partOfSpeech as string,
+        choices,
+        answer: v.word as string,
+      };
+    });
 
     return NextResponse.json({
       quiz,

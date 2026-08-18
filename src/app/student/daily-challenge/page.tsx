@@ -14,6 +14,7 @@ type QuestionType = 'mc' | 'fill-blank' | 'short-writing' | 'matching';
 interface DailyQuestion {
   questionType?: QuestionType;
   question: {
+    id?: string;
     prompt: string;
     promptZh?: string;
     choices?: string[];
@@ -77,11 +78,11 @@ export default function DailyChallengePage() {
     if (!studentId || state.status !== 'ready') return;
     const q = state.question!;
     const isMcq = q.questionType === 'mc';
-    // For MCQ: answer is the choice letter; for text: compare trimmed lowercased values
-    const isCorrect = isMcq
+    // 即時顯示用（客戶端自評）；最終判定以伺服器為準（R3.10-L）。
+    const localGuess = isMcq
       ? answer === q.question.answer
       : answer.trim().toLowerCase() === q.question.answer.trim().toLowerCase();
-    setState({ ...state, status: 'answered', selectedAnswer: isMcq ? answer : undefined, textAnswer: isMcq ? undefined : answer, isCorrect });
+    setState({ ...state, status: 'answered', selectedAnswer: isMcq ? answer : undefined, textAnswer: isMcq ? undefined : answer, isCorrect: localGuess });
 
     try {
       const res = await fetch('/api/daily-challenge', {
@@ -89,13 +90,17 @@ export default function DailyChallengePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId,
-          isCorrect,
+          questionId: q.question.id,
           studentAnswer: answer,
-          correctAnswer: q.question.answer,
         }),
       });
       const data = await res.json();
-      setState(prev => ({ ...prev, xpEarned: data.xpAwarded || data.xpEarned || 0 }));
+      // 伺服器權威判定覆蓋本地猜測
+      setState(prev => ({
+        ...prev,
+        isCorrect: typeof data.isCorrect === 'boolean' ? data.isCorrect : prev.isCorrect,
+        xpEarned: data.xpAwarded || 0,
+      }));
     } catch { /* ignore */ }
   }
 

@@ -257,13 +257,14 @@ export default function WritingPage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setAiResult(json.analysis);
-        // 儲存練習記錄到學生分析
+        // 儲存練習記錄到學生分析（R3.10-L：不傳送 totalQuestions/correctCount —
+        // 寫作無逐題計分，伺服器衍生聚合為 0/0，歷史以「已記錄」標示）
         if (store.userId) {
           fetch('/api/practice', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               studentId: store.userId, skill: 'writing', skillZh: 'DSE 寫作',
-              difficulty, totalQuestions: 1, correctCount: 1, source: 'dse-writing',
+              difficulty, source: 'dse-writing',
             }),
           }).catch(() => {});
         }
@@ -723,10 +724,11 @@ export default function WritingPage() {
             </>
           )}
 
-          {/* 🏆 AI 範文 — 始終顯示 */}
+          {/* 🏆 AI 改寫示範 — 始終顯示 */}
           {aiResult.revisedVersion && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
-              <p className="text-xs font-medium text-purple-600 mb-1">{lang === 'en' ? '🏆 AI Model Essay (DSE Level 5)' : '🏆 AI 範文 (DSE Level 5)'}</p>
+              <p className="text-xs font-medium text-purple-600 mb-1">{lang === 'en' ? '🏆 AI Revised Demonstration (Reference)' : '🏆 AI 改寫示範（參考）'}</p>
+              <p className="text-[11px] text-purple-500/70 mb-1">{lang === 'en' ? 'A platform-generated demonstration rewrite — not an official DSE Level 5 sample.' : '平台生成的示範改寫，並非官方 DSE Level 5 樣本。'}</p>
               {store.userId ? (
                 <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
                   <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{aiResult.revisedVersion}</p>

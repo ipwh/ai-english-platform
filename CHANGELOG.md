@@ -4,6 +4,46 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-18 — R3.10-L: Full-Feature Audit Fixes (完整審核修正)
+
+### 🛡️ Scoring authority — no more fabricated keys
+- **FIXED**: `ai-evaluator.ts` — heuristic fallback verdicts now carry `evaluationMethod: 'rule-based'`; `reading-answer-scoring.ts` rejects them (NOT_PROJECTABLE) instead of persisting them as `reading-ai-semantic-evaluation` trusted evidence. The R37-H03 invariant is now reachable.
+- **FIXED**: `question-validator.ts` / `question-normalizer.ts` / `generate-questions.ts` — an MC answer that resolves to no choice is **rejected**, never defaulted to `'A'`; out-of-range letters no longer rewritten to the first choice.
+- **FIXED**: `reading/route.ts` — tone/attitude questions missing choices now trigger a targeted regeneration retry; on exhaustion they are delivered as AI-scored short-answer (never with a keyword-guessed key). Fabricator `generateToneAttitudeChoices` deleted. Display scoring for objective types now mirrors the server's strict scorer (removed containment "full marks" divergence).
+- **FIXED**: `analyze-answer.ts` — unresolvable answer key no longer feeds a guessed `'A'` into the LLM explanation.
+- **FIXED**: `/api/daily-challenge` — question persisted as server-owned `GrammarQuestion` before delivery; POST scores server-side against the stored key (client `isCorrect` ignored).
+- **FIXED**: `/api/vocabulary/spelling` — grading now compares against the DB word (scoped to the session owner); session ownership enforced; client `word` can no longer poison mastery/SRS.
+- **FIXED**: `/api/vocabulary/quiz` — match mode is now answerable (choices + answer); AI MCQ keys are validated against the student's word list, miskeyed questions dropped.
+
+### 🔐 Security
+- **FIXED**: `/api/vocabulary/export-pdf` — ownership check added (was BOLA: any student could export any student's vocabulary book).
+- **FIXED**: `/api/export/integrated-skills` — now requires authentication.
+
+### 🎧 Integrated Skills honesty
+- **FIXED**: `/api/ai/analyze-integrated-skills` now uses the canonical Zod-validated usecase (`executeAI`) instead of the legacy `callLLM` service; prompt no longer claims "官方評分標準" for the 40/35/25 weights; `modelAnswer` is produced and labelled as a platform reference sample (not "DSE Level 5 水平").
+- **FIXED**: the mandatory "並非 HKEAA 官方評分" disclaimer now renders in the result view; Paper 3 "2013-2024 cut off" tables relabelled as unofficial platform reference data (prompt, config, i18n).
+- **FIXED**: 12 shorthand symbols now actually rendered in the panel (was 9); practice records no longer send hardcoded `correctCount: 1` (writing/speaking/IS).
+
+### 📊 Data integrity
+- **FIXED**: `/api/diagnostic/stats` — per-student latest-score dedup (`DiagnosticStudentStat` model + migration) so repeated submissions can't inflate the peer average.
+- **FIXED**: diagnostic page preserves server question ids (no more orphaned `GrammarQuestion` definitions).
+
+### 🌐 i18n
+- **FIXED**: 22 real hardcoded-Chinese gaps across practice/diagnostic/admin/teacher/reading pages; diagnostic `CloFeedbackPanel` now follows the active language; 5 conflicting duplicate keys aligned.
+- **IMPROVED**: `scripts/check-i18n.js` now skips story fixtures, bilingual ternaries, and template-literal prompts — **exit 0** (was 51 findings).
+
+### 🧹 Dead code & docs
+- **DELETED**: `src/modules/adaptive-tutor/` (zero runtime consumers, 28 tests removed) and duplicate `scripts/validate-prompts.js`.
+- **DOCS**: CLAUDE.md corrected (Routes 126, provider chain, facade export count, `callLLM` facade re-export, i18n numbers); README/AGENTS test counts updated (126 files / 2821).
+
+### ✅ VERIFY
+- tsc 0 · full non-E2E green — **126 files / 2821 tests** · `node scripts/check-i18n.js` exit 0 · prisma generate PASS
+- **Deployed**: `npx prisma migrate deploy` 已套用 `20260818_diagnostic_student_stat` 至正式 Neon（`ep-broad-fog-ao2yg8wr-pooler`）；漂移檢查「No difference detected」exit 0
+- **Migration history cleaned**: 刪除已回滾的孤兒 `_prisma_migrations` 記錄（`20260813_assignment_hardening` + 重複回滾的 `assignment_02_hardening`）；`migrate status` 現為「Database schema is up to date!」
+- **Fix**: `freeze.ts` 移除行首誤貼的 diff 標記 `+`（被解析為一元加號導致 TS2345）；tsc 0
+
+---
+
 ## 2026-08-17 — R3.10-K Phase 9: Evidence Acquisition Pipeline & Real-Evidence Audit
 
 ### 🔒 Human-Marker Evidence Pipeline（fail-closed，R1-R4）

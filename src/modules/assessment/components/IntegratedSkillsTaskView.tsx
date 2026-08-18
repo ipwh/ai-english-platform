@@ -154,6 +154,12 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
           </button>
         )}
         <div className="text-sm text-gray-500 mt-1">Overall Score</div>
+        {/* R3.10-L: 強制免責聲明 — 診斷分析為平台內部評估，並非 HKEAA 官方評分 */}
+        <div className="mx-auto mt-2 max-w-md rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+          ⚠️ {showZh
+            ? '此診斷分析為平台內部評估，並非 HKEAA 官方評分；百分比權重及等級對照為平台教學參考，並非來自官方文件。'
+            : 'This diagnostic analysis is the platform\'s internal assessment, not an official HKEAA score. Percentage weights and level mapping are platform teaching references, not official documents.'}
+        </div>
         {a.estimatedLevel && (
           <div className="inline-block mt-2 px-3 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-bold rounded-full">
             {a.estimatedLevel}
@@ -373,8 +379,13 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.modelAnswer && (
         <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
           <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-400 mb-2 flex items-center gap-1.5">
-            <Award className="w-4 h-4" /> Model Answer (DSE Level 5)
+            <Award className="w-4 h-4" /> Model Answer (Reference)
           </h4>
+          <p className="text-[11px] text-purple-500/80 dark:text-purple-300/70 mb-2">
+            {showZh
+              ? '平台教學參考範本，並非 HKEAA 官方評分樣本。'
+              : 'A platform teaching reference sample, not an official HKEAA graded sample.'}
+          </p>
           <div className="text-sm text-purple-700 dark:text-purple-400 leading-relaxed whitespace-pre-line bg-white/50 dark:bg-gray-800/50 rounded-lg p-3">
             {a.modelAnswer}
           </div>
@@ -497,13 +508,14 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         s.setAnalysis(json.analysis);
         s.setStage('result');
         localStorage.removeItem(DRAFT_KEY);
-        // 儲存練習記錄到學生分析
+        // 儲存練習記錄到學生分析（R3.10-L：不傳送 totalQuestions/correctCount，
+        // 綜合訓練無逐題計分 — 伺服器衍生聚合為 0/0，歷史以「已記錄」標示）
         if (appStore.userId) {
           fetch('/api/practice', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               studentId: appStore.userId, skill: 'integrated-skills', skillZh: 'DSE Integrated Skills',
-              difficulty: s.difficulty, totalQuestions: 1, correctCount: 1, source: 'dse-integrated-skills',
+              difficulty: s.difficulty, source: 'dse-integrated-skills',
             }),
           }).catch(() => {});
         }
@@ -778,6 +790,9 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                       <span title="numbers/statistics">{t('is.symbols.number')}</span>
                       <span title="uncertain">{t('is.symbols.uncertain')}</span>
                       <span title="location">{t('is.symbols.location')}</span>
+                      <span title="therefore/conclusion">{t('is.symbols.therefore')}</span>
+                      <span title="approximately/about">{t('is.symbols.approx')}</span>
+                      <span title="increase/decrease/trend">{t('is.symbols.trend')}</span>
                     </div>
                   </details>
 

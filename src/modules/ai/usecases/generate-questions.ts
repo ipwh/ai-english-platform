@@ -174,10 +174,20 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     const questions = tryValidate(result, `attempt${attempt + 1}`);
     // 後驗證：逐題一致性檢查與自動修正
     const allWarnings: string[] = [];
-    const fixedQuestions = questions.map((q, i) => {
-      const { fixed, warnings } = validateAndFixQuestion(q, i + 1);
+    const fixedQuestions: typeof questions = [];
+    for (let i = 0; i < questions.length; i++) {
+      const { fixed, warnings, rejected } = validateAndFixQuestion(questions[i], i + 1);
       allWarnings.push(...warnings);
-      return fixed;    });
+      // R3.10-L: defective questions (unresolvable answer key) are DROPPED,
+      // never delivered with a guessed "correct" option.
+      if (rejected) {
+        logger.warn({ module: 'ai-service', questionIndex: i + 1 }, 'Generated question rejected by consistency check — dropped');
+        continue;
+      }
+      // ValidatableQuestion is a structural mirror of GeneratedQuestion —
+      // the validator only copies/normalizes fields, never changes shape.
+      fixedQuestions.push(fixed as unknown as (typeof questions)[number]);
+    }
     if (allWarnings.length > 0) {
       logger.warn({ module: 'ai-service', warnings: allWarnings }, 'Generated questions had consistency issues (auto-fixed)');
     }

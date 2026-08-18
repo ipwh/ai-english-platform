@@ -4,7 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/modules/ai/services/llm-call';
+// R3.10-L: import from the AI facade (single pipeline entry), not the
+// internal service file directly.
+import { callLLM } from '@/modules/ai';
 import { logger } from '@/shared/logger/logger';
 
 export async function POST(request: NextRequest) {

@@ -327,8 +327,17 @@ export const IntegratedSkillsAnalysisSchema = z.object({
   generalComment: z.string(),
   improvementTips: z.array(z.string()),
   estimatedLevel: z.string(),
-  /** AI 範本答案（DSE Level 5 水平），供學生比較學習 */
+  /** AI 參考範文（平台教學參考，非官方評分樣本），供學生比較學習 */
   modelAnswer: z.string().optional(),
+  /** 中式英文警告 */
+  chinglishWarnings: z.array(z.object({
+    original: z.string(),
+    suggestion: z.string(),
+    explanation: z.string(),
+  })).optional(),
+  /** Note-taking / Data manipulation 評語（英文原文） */
+  noteTakingFeedback: z.string().optional(),
+  dataManipulationFeedback: z.string().optional(),
   /** 雙語欄位 — 繁體中文 */
   generalCommentZh: z.string().optional(),
   structureFeedbackZh: z.string().optional(),

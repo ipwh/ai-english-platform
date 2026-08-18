@@ -894,7 +894,7 @@ export default function AdminUsersPage() {
                         <button
                           onClick={() => setResetPwUser(user)}
                           className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                          title="重設密碼"
+                          title={t("admin.users.resetPassword")}
                         >
                           <Key className="w-4 h-4" />
                         </button>
@@ -909,7 +909,7 @@ export default function AdminUsersPage() {
                           onClick={() => handleDelete(user.id, user.email)}
                           disabled={deletingId === user.id}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-30"
-                          title="刪除使用者"
+                          title={t("admin.users.delete")}
                         >
                           {deletingId === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </button>

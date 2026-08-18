@@ -212,8 +212,9 @@ Data Manipulation 正確示範：
 - ✗ 寫作："The company will launch the product in March 2025."（直接照抄）
 
 ═══════════════════════════════════════
-DSE Paper 3 Level 對照（基於 2013-2024 cut off）
+DSE Paper 3 Level 對照（平台教學參考，非官方數據）
 ═══════════════════════════════════════
+⚠️ HKEAA 從不公佈 Paper 3 cut-off 分數。以下 2013-2024 對照為坊間整理的參考數據，僅供教學參考，並非官方文件，亦不代表真實考試等級。
 - 5**：≥85 分（最高等級 — 極少 grammar 錯誤、完整 content、格式完美）
 - 5* ：≥78 分
 - 5  ：≥73 分

@@ -237,7 +237,7 @@ export default function TeacherGroupsPage() {
               return classList.length > 0 ? (
                 <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
                   className="w-full px-3 py-1.5 mb-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none">
-                  <option value="">全部班級</option>
+                  <option value="">{t('groups.allClasses')}</option>
                   {classList.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               ) : null;

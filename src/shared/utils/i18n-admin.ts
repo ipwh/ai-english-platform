@@ -141,6 +141,8 @@ export const adminTranslations: Record<string, { zh: string; en: string }> = {
   'admin.users.cancel': { zh: '取消', en: 'Cancel' },
   'admin.users.saveFailed': { zh: '儲存失敗', en: 'Save failed' },
   'admin.users.exportFailed': { zh: '匯出失敗，請稍後再試。', en: 'Export failed. Please try again.' },
+  'admin.users.resetPassword': { zh: '重設密碼', en: 'Reset Password' },
+  'admin.users.delete': { zh: '刪除使用者', en: 'Delete User' },
   'admin.reports.title': { zh: '全校數據分析', en: 'School-wide Analytics' },
   'admin.reports.subtitle': { zh: '即時統計與學習趨勢', en: 'Real-time statistics & learning trends' },
   'admin.reports.loading': { zh: '載入中...', en: 'Loading...' },

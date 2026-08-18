@@ -386,7 +386,7 @@ function StudentSelector({
           onChange={e => setClassFilter(e.target.value)}
           className="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 outline-none"
         >
-          <option value="">全部班級</option>
+          <option value="">{t('teacher.assignments.new.allClasses')}</option>
           {classList.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
@@ -394,15 +394,15 @@ function StudentSelector({
       <div className="flex items-center justify-between mb-1.5">
         <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
           <input type="checkbox" checked={allFilteredSelected} onChange={toggleAll} className="rounded" />
-          全選 ({filtered.length} 位)
+          {t('teacher.assignments.new.selectAll', { n: filtered.length })}
         </label>
-        <span className="text-xs text-blue-600 font-medium">已選 {selectedIds.length} 人</span>
+        <span className="text-xs text-blue-600 font-medium">{t('teacher.assignments.new.selectedCount', { n: selectedIds.length })}</span>
       </div>
       {/* 學生列表 */}
       {students.length === 0 ? (
-        <p className="text-xs text-gray-400">載入中...</p>
+        <p className="text-xs text-gray-400">{t('teacher.assignments.new.loading')}</p>
       ) : filtered.length === 0 ? (
-        <p className="text-xs text-gray-400 py-4 text-center">無符合條件的學生</p>
+        <p className="text-xs text-gray-400 py-4 text-center">{t('teacher.assignments.new.noMatchingStudents')}</p>
       ) : (
         <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-lg p-1">
           {filtered.map(s => (

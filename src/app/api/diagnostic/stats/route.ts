@@ -43,11 +43,36 @@ export async function POST(request: NextRequest) {
       // Skip writing with pending CLO (score === -1)
       if (r.score < 0) continue;
 
-      await adminDbQuery('diagnosticStats', 'upsert', {
-        where: { gradeLevel_skill: { gradeLevel, skill: r.skill } },
-        create: { gradeLevel, skill: r.skill, totalScore: r.score, totalCount: 1 },
-        update: { totalScore: { increment: r.score }, totalCount: { increment: 1 } },
+      // R3.10-L: dedupe per student — only the LATEST score of each student
+      // counts towards the peer aggregate. Repeated submissions replace the
+      // student's previous contribution instead of inflating the average.
+      const studentId = authResult.userId;
+      if (!studentId) continue;
+
+      const existingContribution = await adminDbQuery('diagnosticStudentStat', 'findUnique', {
+        where: { gradeLevel_skill_studentId: { gradeLevel, skill: r.skill, studentId } },
       });
+
+      if (existingContribution) {
+        const prevScore: number = existingContribution.lastScore;
+        await adminDbQuery('diagnosticStudentStat', 'update', {
+          where: { id: existingContribution.id },
+          data: { lastScore: r.score },
+        });
+        await adminDbQuery('diagnosticStats', 'update', {
+          where: { gradeLevel_skill: { gradeLevel, skill: r.skill } },
+          data: { totalScore: { increment: r.score - prevScore } },
+        });
+      } else {
+        await adminDbQuery('diagnosticStudentStat', 'create', {
+          data: { gradeLevel, skill: r.skill, studentId, lastScore: r.score },
+        });
+        await adminDbQuery('diagnosticStats', 'upsert', {
+          where: { gradeLevel_skill: { gradeLevel, skill: r.skill } },
+          create: { gradeLevel, skill: r.skill, totalScore: r.score, totalCount: 1 },
+          update: { totalScore: { increment: r.score }, totalCount: { increment: 1 } },
+        });
+      }
       updated++;
     }
 

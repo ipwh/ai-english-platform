@@ -16,11 +16,15 @@ export interface IntegratedSkillsAnalysis {
   contentCompleteness: number; languageAccuracy: number; organizationClarity: number;
   capturedPoints: string[]; missedPoints: string[];
   overCopyWarnings: { original: string; suggestion: string }[];
+  chinglishWarnings?: { original: string; suggestion: string; explanation: string }[];
   grammarErrors: { original: string; correction: string; explanation: string }[];
   vocabularySuggestions: { original: string; suggestion: string; reason: string }[];
   structureFeedback: string; generalComment: string; improvementTips: string[]; estimatedLevel: string;
-  /** AI 範本答案（DSE Level 5 水平） */
+  /** AI 參考範文（平台教學參考，非官方評分樣本） */
   modelAnswer?: string;
+  /** Note-taking / Data manipulation 評語（英文原文） */
+  noteTakingFeedback?: string;
+  dataManipulationFeedback?: string;
   /** 雙語欄位 — 繁體中文（供英文能力稍遜的學生自學） */
   generalCommentZh?: string;
   structureFeedbackZh?: string;

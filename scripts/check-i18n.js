@@ -16,6 +16,7 @@ const SRC_DIR = path.join(__dirname, '..', 'src');
 // Skip these patterns (test files, server-side routes, etc.)
 const SKIP_PATTERNS = [
   /[\\/]__tests__[\\/]/,
+  /[\\/]__stories__[\\/]/, // Storybook fixtures are not user-facing pages
   /[\\/]types[\\/]/,
   /\.test\.tsx?$/,
   /\.spec\.tsx?$/,
@@ -53,6 +54,7 @@ const ALLOWED_CHINESE_FILES = [
   'writing-coach.ts',     // Writing coach analysis with Chinese output (AI-generated)
   'writing-coach-pro.ts', // Writing coach pro analysis
   'reflection-generator.ts', // AI-generated reflection prompts
+  'ai-evaluator.ts',      // LLM evaluation prompt instructions (bilingual output by design)
 ];
 
 /** @typedef {{ file: string; line: number; text: string; type: 'jsx-text' | 'string-literal' | 'comment' | 'attribute' }} Finding */
@@ -86,6 +88,13 @@ function scanFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const lines = content.split('\n');
 
+  // Track whether we are inside a backtick template literal (prompt text).
+  let inTemplateLiteral = false;
+  // Track multi-line bilingual ternaries:
+  //   {language === 'en' ? ( ...en... ) : ( ...zh... )}
+  // The zh branch is already translated — skip it.
+  let ternaryBranch = null; // null | 'en' | 'zh'
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineNum = i + 1;
@@ -95,16 +104,45 @@ function scanFile(filePath) {
     if (trimmedLine.startsWith('//') || trimmedLine.startsWith('*') || trimmedLine.startsWith('/*')) continue;
     if (trimmedLine.startsWith('import ') || trimmedLine.startsWith('export ')) continue;
 
+    // Multi-line bilingual ternary state machine
+    if (ternaryBranch !== null) {
+      if (line.includes(')}')) { ternaryBranch = null; continue; }
+      if (line.includes(') : (')) { ternaryBranch = 'zh'; continue; }
+      // Single-line zh branch (`: <span>...</span>}`) or multi-line zh branch
+      // content — already translated inline, nothing to flag.
+      if (ternaryBranch === 'en' && line.trim().startsWith(': ')) ternaryBranch = 'zh';
+      if (ternaryBranch === 'zh') {
+        if (line.includes('}')) ternaryBranch = null;
+        continue;
+      }
+      continue;
+    }
+
+    // Skip lines that are part of a bilingual ternary — the Chinese text
+    // already has an English counterpart (inline or multi-line).
+    if (line.includes("=== 'en'") || line.includes('=== "en"') || line.includes("== 'en'") || line.includes('== "en"')) {
+      const t = line.trim();
+      if (t.endsWith('(') || t.endsWith("=== 'en'") || t.endsWith('=== "en"') || t.endsWith("== 'en'")) ternaryBranch = 'en';
+      continue;
+    }
+
     // Check for Chinese characters
     if (!CHINESE_PATTERN.test(line)) continue;
+
+    const lineInsideTemplate = inTemplateLiteral;
+    // Toggle template-literal state based on unescaped backticks on this line.
+    const backtickCount = (line.match(/[^\\]`|^`/g) || []).length;
+    if (backtickCount % 2 === 1) inTemplateLiteral = !inTemplateLiteral;
 
     // Extract Chinese-containing strings
     const stringMatches = line.matchAll(/"([^"]*[\u4e00-\u9fff][^"]*)"/g);
     for (const match of stringMatches) {
       const text = match[1];
-      // Skip console.log, comments, t() calls, translation objects
+      // Skip console.log, comments, t() calls, translation objects, and
+      // prompt text inside backtick template literals.
       if (line.includes('console.') || line.includes('t(') || line.includes('zh:')) continue;
       if (text.includes('{') || text.includes('/*') || text.includes('*/')) continue;
+      if (lineInsideTemplate || line.includes('`')) continue;
       findings.push({ file: path.relative(SRC_DIR, filePath), line: lineNum, text, type: 'string-literal' });
     }
 

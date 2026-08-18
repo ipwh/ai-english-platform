@@ -11,7 +11,7 @@ export const progressTranslations: Record<string, { zh: string; en: string }> = 
   'progress.skillBreakdown': { zh: '技能分佈', en: 'Skill Breakdown' },
   'progress.noData': { zh: '尚無進度數據', en: 'No progress data yet' },
   'gamification.level': { zh: '等級', en: 'Level' },
-  'gamification.xp': { zh: 'XP', en: 'XP' },
+  'gamification.xp': { zh: '經驗值', en: 'XP' },
   'gamification.xpToNext': { zh: '距離下一級還需 {n} XP', en: '{n} XP to next level' },
   'gamification.streakFire': { zh: '{n} 天連續學習！繼續保持！', en: '{n} day streak! Keep going!' },
   'gamification.badges': { zh: '徽章', en: 'Badges' },

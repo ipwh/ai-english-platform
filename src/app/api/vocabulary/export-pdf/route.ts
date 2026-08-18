@@ -42,6 +42,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId required' }, { status: 400 });
     }
 
+    // 🔒 Ownership (R3.10-L): students may only export their OWN vocabulary
+    // book. Previously any authenticated student could export any studentId's
+    // entire word list (BOLA).
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能匯出自己的生字簿' }, { status: 403 });
+    }
+
     const vocab = await getVocabForExport(studentId, wordIds);
 
     if (vocab.length === 0) {

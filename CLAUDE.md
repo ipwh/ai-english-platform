@@ -5,22 +5,22 @@ See AGENTS.md for shared agent instructions.
 ## Project: AI English Platform
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
-- **AI**: DeepSeek → Vertex Gemini → Gemini API → Grok → Claude → OpenAI (6-provider fallback chain)
-- **Testing**: Vitest 4, 2849/2849 tests pass (127 files — fully green)
+- **AI**: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholders)
+- **Testing**: Vitest 4, 2821/2821 tests pass (126 files — fully green; dead adaptive-tutor module removed in R3.10-L)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 126 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
-- **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` internal only.
-- **AI Facade**: 32+ exported symbols — all API routes use `@/modules/ai` (no direct service imports)
+- **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
+- **AI Facade**: 67 exported symbols — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules)
 - **Prompt Registry**: 12 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
-- **AI Module**: 18 directories, ~225 files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
+- **AI Module**: 18 directories, 210 non-test TS files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
 - **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 6 files — circuit-breaker, budget-policy, capacity-planner, provider-policy, regression-detector, saturation-detector
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`, `npm run calibration:*` (ingest/report/intake/verify/marker-pack/marker-intake/adjudicate/freeze)
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
-- **i18n**: ~710 keys, 17 module files, check: `node scripts/check-i18n.js`
+- **i18n**: 18 module files, 1620 unique keys, check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
 - **Deployment Readiness**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration not available.
 - **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
 - **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
@@ -41,7 +41,7 @@ See AGENTS.md for shared agent instructions.
 
 ## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)
 ```
-Routes (120) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
+Routes (126) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)
                   ├─ Providers (6-model chain + circuit-breaker)
                   ├─ Services (RAG, TTS, evaluator, enrichment)

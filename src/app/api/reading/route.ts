@@ -285,68 +285,21 @@ function repairAiJson(raw: string): { repaired: string; wasRepaired: boolean } {
 }
 
 /**
- * Generate standard DSE tone/attitude MCQ choices when AI omits them.
- * Searches the answer text for known attitude keywords to determine the correct option.
- * Returns null if the answer doesn't contain any recognizable tone label.
+ * R3.10-L: tone/attitude questions MUST carry their own A-D choices.
+ * The answer key is never fabricated by keyword-matching afterwards —
+ * a question without genuine choices is flagged for regeneration.
  */
-const DSE_TONE_LABELS = [
-  'Cautiously optimistic',
-  'Skeptical',
-  'Enthusiastic and supportive',
-  'Neutral and objective',
-  'Subtly critical',
-  'Concerned but hopeful',
-  'Dismissive',
-  'Admiring and respectful',
-  'Open-minded but wary',
-  'Mildly apprehensive',
-  'Reservedly hopeful',
-  'Strongly disapproving',
-  'Balanced and fair-minded',
-  'Cautiously pessimistic',
-] as const;
-
-function generateToneAttitudeChoices(answerText: string): { choices: string[]; answer: string } | null {
-  if (!answerText) return null;
-  const answerLower = answerText.toLowerCase();
-  
-  // Try to find a matching tone label from the standard set
-  let bestMatch: string | null = null;
-  let bestScore = 0;
-  
-  for (const label of DSE_TONE_LABELS) {
-    const keywords = label.toLowerCase().split(/\s+/);
-    const score = keywords.filter(k => answerLower.includes(k)).length;
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = label;
-    }
-  }
-  
-  if (!bestMatch || bestScore === 0) {
-    // No keyword match — use the answer text directly as one option
-    const shortAnswer = answerText.length < 45 ? answerText : answerText.slice(0, 42) + '...';
-    const distractors = [...DSE_TONE_LABELS].sort(() => 0.5 - Math.random()).slice(0, 3);
-    const allChoices = [shortAnswer, ...distractors];
-    // Stable shuffle using simple Fisher-Yates with deterministic seed (index-based)
-    for (let i = allChoices.length - 1; i > 0; i--) {
-      const j = (i * 7 + 3) % (i + 1); // Deterministic pseudo-shuffle
-      [allChoices[i], allChoices[j]] = [allChoices[j], allChoices[i]];
-    }
-    const correctLetter = String.fromCharCode(65 + allChoices.indexOf(shortAnswer));
-    return { choices: allChoices, answer: correctLetter };
-  }
-  
-  // Best match found — build 4 choices with it included
-  const others = DSE_TONE_LABELS
-    .filter(l => l !== bestMatch)
-    .slice(0, 3);
-  const allChoices = [bestMatch!, ...others];
-  // Rotate so correct answer isn't always A
-  const rotateBy = (answerText.length % 4);
-  const rotated = [...allChoices.slice(rotateBy), ...allChoices.slice(0, rotateBy)];
-  const correctLetter = String.fromCharCode(65 + rotated.indexOf(bestMatch!));
-  return { choices: rotated, answer: correctLetter };
+function hasMissingToneChoices(questions: Array<Record<string, unknown>>): boolean {
+  return questions.some(q => {
+    const t = q.type;
+    if (t !== 'toneAttitude' && t !== 'authorIntention') return false;
+    const choices = q.choices;
+    if (!Array.isArray(choices)) return true;
+    const substantive = choices.filter(
+      (c): c is string => typeof c === 'string' && c.trim().length > 1,
+    );
+    return substantive.length < 2;
+  });
 }
 
 /**
@@ -1132,18 +1085,24 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
     let result: AIEvaluationResult;
 
     if (!useApi) {
-      // Objective: simple exact/semantic matching — no AI needed
-      const normAns = studentAnswer.toLowerCase().trim();
-      const normCorrect = q.answer.toLowerCase().trim();
-      const isExact = normAns === normCorrect;
-      const isContained = normCorrect.includes(normAns) && normAns.length > 2;
+      // Objective: exact matching — mirrors the server-side canonical scorer
+      // (reading-answer-scoring.scoreDeterministic). R3.10-L: the previous
+      // containment-based "full marks" path diverged from the persisted
+      // verified evidence (which is strict) and was removed.
+      const isSequencing = q.answer.includes(',')
+        && /order|arrange|sequence|chronolog|sort|ranking/i.test(q.questionText || '');
+      const normForCompare = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/,/g, ',');
+      const normAns = isSequencing ? normForCompare(studentAnswer) : studentAnswer.toLowerCase().trim();
+      const normCorrect = isSequencing ? normForCompare(q.answer) : q.answer.toLowerCase().trim();
+      const isExact = normAns === normCorrect && normAns !== '';
       result = {
-        score: isExact ? q.marks : isContained ? q.marks : 0,
+        score: isExact ? q.marks : 0,
         maxScore: q.marks,
-        isCorrect: isExact || isContained,
+        isCorrect: isExact,
         isPartiallyCorrect: false,
-        feedbackZh: isExact ? '✅ 正確！' : isContained ? '✅ 正確！' : `❌ 不正確。參考答案：${q.answer}`,
-        feedbackEn: isExact ? '✅ Correct!' : isContained ? '✅ Correct!' : `❌ Incorrect. Expected: ${q.answer}`,
+        feedbackZh: isExact ? '✅ 正確！' : `❌ 不正確。參考答案：${q.answer}`,
+        feedbackEn: isExact ? '✅ Correct!' : `❌ Incorrect. Expected: ${q.answer}`,
+        evaluationMethod: 'ai' as const,
       };
     } else {
       // Subjective: use AI semantic evaluation
@@ -1538,6 +1497,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       let distroMessage = '';
       let paragraphCountBad = false;
       let passageTooLong = false;
+      let toneChoiceBad = false;
       if (parseResult.data) {
         const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
         passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
@@ -1547,9 +1507,17 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
         paragraphCountBad = actualParagraphCount < 3;
         
+        // R3.10-L: tone/attitude questions must carry their own choices —
+        // the key is never fabricated afterwards.
+        const questions0 = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+        toneChoiceBad = hasMissingToneChoices(questions0);
+        if (toneChoiceBad) {
+          logger.warn({ module: 'reading-api' }, 'toneAttitude/authorIntention question missing choices — needs retry');
+        }
+        
         // Check paragraph distribution (only if we have enough paragraphs)
         if (!paragraphCountBad) {
-          const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+          const questions = questions0;
           const paraCount = Math.max(actualParagraphCount, 3);
           if (questions.length > 0) {
             const distro = checkParagraphDistribution(questions, paraCount);
@@ -1566,7 +1534,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         }
         
         // ── Verify paragraph reference accuracy ──
-        const questions = (parseResult.data.questions as Array<Record<string, unknown>>) || [];
+        const questions = questions0;
         if (pc && questions.length > 0) {
           const refWarnings = verifyParagraphReferences(questions, pc);
           if (refWarnings.length > 0) {
@@ -1580,7 +1548,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       // BUT only if we have enough time budget remaining (Vercel Pro 120s maxDuration)
       const elapsed = Date.now() - startTime;
       const MIN_RETRY_BUDGET_MS = 25_000; // need at least 25s for a retry to be worthwhile
-      const contentNeedsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || passageTooLong || paragraphCountBad || distributionBad);
+      const contentNeedsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || passageTooLong || paragraphCountBad || distributionBad || toneChoiceBad);
       const hasRetryBudget = elapsed < (115_000 - MIN_RETRY_BUDGET_MS); // 115s budget, reserve 5s from 120s
       const needsRetry = contentNeedsRetry && hasRetryBudget;
 
@@ -1591,6 +1559,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (passageTooLong) skipReasons.push('passage too long');
         if (paragraphCountBad) skipReasons.push('too few paragraphs');
         if (distributionBad) skipReasons.push(`bad distribution — ${distroMessage}`);
+        if (toneChoiceBad) skipReasons.push('tone/attitude question missing choices');
         logger.warn({
           module: 'reading-api',
           elapsed,
@@ -1606,6 +1575,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (passageTooLong) issues.push(`passage too long (${passageWordCount} words, max 800)`);
         if (paragraphCountBad) issues.push(`too few paragraphs (${actualParagraphCount}, min 3)`);
         if (distributionBad) issues.push(`bad paragraph distribution — ${distroMessage}`);
+        if (toneChoiceBad) issues.push('tone/attitude question missing choices');
         const retryReason = issues.join('; ');
         
         logger.warn({ 
@@ -1632,6 +1602,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         }
         if (distributionBad) {
           retryInstructions.push(`⛔ CRITICAL: Your paragraph distribution was WRONG (${distroMessage}). For ${totalQ} questions, you MUST have exactly 2-3 questions per paragraph. REDISTRIBUTE your questions NOW — move some questions from overloaded paragraphs to underloaded ones, and update their paragraph references and question text accordingly.`);
+        }
+        if (toneChoiceBad) {
+          retryInstructions.push('⛔ CRITICAL: Every toneAttitude / authorIntention question MUST include exactly 4 choices labelled A/B/C/D, and its "answer" field MUST be the single letter (A, B, C or D) of the correct choice. Never omit choices for these question types.');
         }
         const retryInstruction = retryInstructions.length > 0
           ? '\n' + retryInstructions.join('\n')
@@ -1695,6 +1668,16 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
             if (refWarnings.length > 0) {
               logger.warn({ module: 'reading-api', warnings: refWarnings, stage: 'after-retry' }, 'Retry still has paragraph reference mismatch(es)');
             }
+          }
+
+          // R3.10-L: re-check tone/attitude choices after retry — questions
+          // still missing genuine choices are degraded to short-answer, never
+          // given a fabricated key.
+          if (hasMissingToneChoices(retryQuestions)) {
+            toneChoiceBad = true;
+            logger.warn({ module: 'reading-api', stage: 'after-retry' }, 'Retry still has tone/attitude questions missing choices — degrading to short-answer');
+          } else {
+            toneChoiceBad = false;
           }
         }
       }
@@ -1975,13 +1958,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
           choices = ['True', 'False', 'Not Given'];
         }
-        // Sprint 110: Auto-provide tone/attitude choices when AI omits them
+        // R3.10-L: NEVER fabricate tone/attitude choices + a keyword-guessed
+        // answer key. A question without genuine choices is delivered as an
+        // AI-scored short-answer question instead (the LLM-authored answer
+        // text remains the key; tone_attitude routes to AI semantic scoring).
         if ((aiType === 'toneAttitude' || aiType === 'authorIntention') && (!choices || choices.length < 2)) {
-          const generated = generateToneAttitudeChoices((q.answer as string) || '');
-          if (generated) {
-            choices = generated.choices;
-            q.answer = generated.answer;
-          }
+          choices = undefined;
         }
 
         const tier = (q.tier as string)
@@ -2002,7 +1984,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
           question,
           questionZh,
-          type: isMcLikeDseType(dseType) ? 'mc' : 'short-answer',
+          type: isMcLikeDseType(dseType) && choices && choices.length >= 2 ? 'mc' : 'short-answer',
           dseType,
           marks: (q.marks as number) || 1,
           wordLimit: (q.wordLimit as string) || undefined,
@@ -2057,13 +2039,12 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         if (aiType === 'trueFalseNG' && (!choices || choices.length === 0)) {
           choices = ['True', 'False', 'Not Given'];
         }
-        // Sprint 110: Auto-provide tone/attitude choices when AI omits them
+        // R3.10-L: NEVER fabricate tone/attitude choices + a keyword-guessed
+        // answer key. A question without genuine choices is delivered as an
+        // AI-scored short-answer question instead (the LLM-authored answer
+        // text remains the key; tone_attitude routes to AI semantic scoring).
         if ((aiType === 'toneAttitude' || aiType === 'authorIntention') && (!choices || choices.length < 2)) {
-          const generated = generateToneAttitudeChoices((q.answer as string) || '');
-          if (generated) {
-            choices = generated.choices;
-            q.answer = generated.answer;
-          }
+          choices = undefined;
         }
 
         // Determine tier from question metadata or default based on position
@@ -2085,7 +2066,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           paragraphRef: paragraphRef ? Math.min(paragraphRef, 7) : undefined,
           question: questionFixed,
           questionZh,
-          type: isMcLikeDseType(dseType2) ? 'mc' : 'short-answer',
+          type: isMcLikeDseType(dseType2) && choices && choices.length >= 2 ? 'mc' : 'short-answer',
           dseType: dseType2,
           marks: (q.marks as number) || 1,
           wordLimit: (q.wordLimit as string) || undefined,

@@ -554,22 +554,22 @@ export default function VocabularyPage() {
                     <div className="flex items-start gap-2 mb-3">
                       <span className="text-xs font-bold text-gray-400 mt-0.5">{qi + 1}.</span>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {q.type === 'mc' ? q.promptZh : `${q.word} — ${language === 'en' ? 'Match the meaning' : '配對中文意思'}`}
+                        {q.type === 'mc' ? q.promptZh : `${q.meaningZh} — ${language === 'en' ? 'Pick the correct word' : '選出正確的英文單字'}`}
                       </span>
                     </div>
-                    {q.type === 'mc' && q.choices ? (
+                    {(q.type === 'mc' || q.type === 'match') && q.choices && q.choices.length > 0 ? (
                       <div className="grid grid-cols-2 gap-2">
                         {q.choices.map((choice: string, ci: number) => {
                           const letter = String.fromCharCode(65 + ci);
-                          const selected = quizAnswers[qi] === letter;
-                          const showCorrect = quizSubmitted && letter === q.answer;
-                          const showWrong = quizSubmitted && selected && letter !== q.answer;
+                          const selected = q.type === 'mc' ? quizAnswers[qi] === letter : quizAnswers[qi] === choice;
+                          const showCorrect = quizSubmitted && (q.type === 'mc' ? letter === q.answer : choice === q.answer);
+                          const showWrong = quizSubmitted && selected && (q.type === 'mc' ? letter !== q.answer : choice !== q.answer);
                           return (
                             <button
                               key={ci}
                               onClick={() => {
                                 if (quizSubmitted) return;
-                                setQuizAnswers(prev => ({ ...prev, [qi]: letter }));
+                                setQuizAnswers(prev => ({ ...prev, [qi]: q.type === 'mc' ? letter : choice }));
                               }}
                               className={`p-2.5 text-sm rounded-lg text-left transition-colors ${
                                 showCorrect ? 'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 font-medium' :

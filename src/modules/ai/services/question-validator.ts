@@ -41,9 +41,12 @@ export function stripMcqPrefix(choice: string): string {
     .trim();
 }
 
-export function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): string {
+export function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[]): string | null {
   const answer = answerRaw.trim();
-  if (!answer) return 'A';
+  // R3.10-L: never default to a fabricated letter — an unresolvable answer
+  // key means the question is defective and must be rejected, not delivered
+  // with a guessed "correct" option.
+  if (!answer) return null;
 
   const letterMatch = answer.match(/\b([A-D])\b/i);
   if (letterMatch) return letterMatch[1].toUpperCase();
@@ -62,13 +65,14 @@ export function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[
     if (tfChoiceIndex >= 0) return toMcqLetter(tfChoiceIndex);
   }
 
-  // Failed all matching attempts — log warning before defaulting
+  // Failed all matching attempts — the question is defective. Callers MUST
+  // reject it; never default to 'A' (fabricated scoring authority).
   logger.warn({
     module: 'question-validator',
     answerRaw: answerRaw.slice(0, 80),
     choices: normalizedChoices.join('|').slice(0, 120),
-  }, 'normalizeMcqAnswer: could not match answer to any choice, defaulting to A');
-  return 'A';
+  }, 'normalizeMcqAnswer: could not match answer to any choice — rejecting question');
+  return null;
 }
 
 export function normalizeAnswer(text: string): string {
@@ -96,6 +100,7 @@ export function validateAndFixQuestion(
 ): { fixed: ValidatableQuestion; warnings: string[]; rejected: boolean } {
   const warnings: string[] = [];
   const fixed = { ...q };
+  let rejected = false;
 
   // 1. MCQ: answer must point to a valid choice
   if (fixed.type === 'mc' && fixed.choices && fixed.choices.length > 0) {
@@ -117,17 +122,18 @@ export function validateAndFixQuestion(
         fixed.answer = toMcqLetter(matchIndex);
         warnings.push(`Q${index}: answer letter "${answerLetter}" out of range (only ${fixed.choices.length} choices), auto-fixed to "${fixed.answer}" via text match`);
       } else {
-        // Log as error (not just warning) — this question has broken data
+        // Log as error (not just warning) — this question has broken data.
+        // R3.10-L: NEVER silently rewrite the key to the first choice —
+        // reject the question so it can be regenerated.
         logger.error({
           module: 'question-validator',
           questionIndex: index,
           answer: answerRaw,
           choicesCount: fixed.choices.length,
           choices: fixed.choices.map(c => c.slice(0, 40)).join('|'),
-        }, `Q${index}: answer "${answerLetter}" out of range (${fixed.choices.length} choices), cannot fix`);
+        }, `Q${index}: answer "${answerLetter}" out of range (${fixed.choices.length} choices), cannot fix — rejecting`);
         warnings.push(`Q${index}: CRITICAL — answer "${answerLetter}" references non-existent choice (only ${fixed.choices.length} choices available: ${MCQ_LETTERS.slice(0, fixed.choices.length).join('/')})`);
-        // Fallback: default to first choice to prevent UI breakage, but mark as rejected
-        fixed.answer = toMcqLetter(0);
+        rejected = true;
       }
     } else {
       const normAnswer = normalizeAnswer(answerRaw);
@@ -138,7 +144,10 @@ export function validateAndFixQuestion(
         fixed.answer = toMcqLetter(matchIndex);
         warnings.push(`Q${index}: auto-fixed answer "${answerRaw}" → "${fixed.answer}"`);
       } else {
-        warnings.push(`Q${index}: answer "${answerRaw}" does not match any choice`);
+        // R3.10-L: an MC answer that resolves to no choice is defective —
+        // reject rather than persist a key that can never be correct.
+        warnings.push(`Q${index}: answer "${answerRaw}" does not match any choice — rejecting`);
+        rejected = true;
       }
     }
 
@@ -206,5 +215,5 @@ export function validateAndFixQuestion(
     }
   }
 
-  return { fixed, warnings, rejected: false };
+  return { fixed, warnings, rejected };
 }

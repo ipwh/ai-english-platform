@@ -76,7 +76,7 @@ type SubjectiveEvaluator = (
   correctAnswer: string,
   questionText: string,
   marks: number,
-) => Promise<{ score: number; isCorrect: boolean; isPartiallyCorrect: boolean }>;
+) => Promise<{ score: number; isCorrect: boolean; isPartiallyCorrect: boolean; evaluationMethod?: 'ai' | 'rule-based' }>;
 
 const SEQUENCING_PATTERN = /order|arrange|sequence|chronolog|sort|ranking/i;
 
@@ -206,13 +206,22 @@ export async function scoreReadingAnswers(
     } else {
       // R37-H03: 主觀題必須由 AI 語意評估。AI 失敗時不偽造伺服器分數：
       // 整個提交 NOT_PROJECTABLE，且不持久化任何誤導性已評分項目。
-      let ai: { score: number; isCorrect: boolean; isPartiallyCorrect: boolean };
+      let ai: { score: number; isCorrect: boolean; isPartiallyCorrect: boolean; evaluationMethod?: 'ai' | 'rule-based' };
       try {
         ai = await evaluate(row.studentAnswer, def.answer, def.questionText, def.marks);
       } catch {
         return {
           ok: false,
           error: `AI 語意評估失敗（題目 ${row.questionId} 為主觀題，不可用確定性比對替代）— NOT_PROJECTABLE，未持久化任何分數`,
+        };
+      }
+      // R3.10-L: a rule-based (keyword-heuristic) fallback verdict is NOT AI
+      // semantic evidence. Persisting it under 'reading-ai-semantic-evaluation'
+      // would turn a heuristic guess into trusted ground truth — reject instead.
+      if (ai.evaluationMethod === 'rule-based') {
+        return {
+          ok: false,
+          error: `AI 語意評估暫時不可用（題目 ${row.questionId} 為主觀題，無法取得可信語意評分）— NOT_PROJECTABLE，未持久化任何分數`,
         };
       }
       awarded = ai.score;

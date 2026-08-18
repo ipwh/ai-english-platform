@@ -1214,7 +1214,7 @@ export default function ReadingPracticePage() {
                             )}
                             {q.explanationZh && (
                               <p className="text-xs text-gray-700 dark:text-gray-300">
-                                <span className="text-indigo-400 font-medium">中文: </span>
+                                <span className="text-indigo-400 font-medium">{language === 'en' ? 'ZH: ' : '中文: '}</span>
                                 {q.explanationZh}
                               </p>
                             )}

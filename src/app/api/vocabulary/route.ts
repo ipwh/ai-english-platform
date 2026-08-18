@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只能為自己的帳號新增單字' }, { status: 403 });
     }
 
-    // Use service layer — handles dedup internally
+    // Use service layer — handles dedup internally (returns existing on duplicate)
     const result = await addWord({
       studentId, word: word.trim(),
       translation: meaningZh || '',
@@ -42,12 +42,6 @@ export async function POST(request: NextRequest) {
       source: undefined,
     });
 
-    // addWord returns existing if duplicate — check via word equality
-    // If it was a duplicate, return 409
-    // (addWord already handles dedup, but we need to signal it)
-    if (result.word === word.trim() && result.studentId === studentId) {
-      return NextResponse.json({ vocab: serializeVocab(result) }, { status: 201 });
-    }
     return NextResponse.json({ vocab: serializeVocab(result) }, { status: 201 });
   } catch (err: unknown) {
     // Re-throw NextResponse (e.g. from validateRequest) so it reaches the client

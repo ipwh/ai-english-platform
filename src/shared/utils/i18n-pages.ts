@@ -51,6 +51,16 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'admin.students.analytics.noMistakeRecords': { zh: '暫無錯題記錄', en: 'No mistake records' },
   'admin.students.analytics.noWritingRecords': { zh: '暫無寫作記錄', en: 'No writing records' },
   'admin.students.analytics.noDiagnosticData': { zh: '暫無診斷數據', en: 'No diagnostic data' },
+  'admin.students.analytics.unverified': { zh: '未驗證', en: 'Unverified' },
+  'admin.students.analytics.recordedCount': { zh: '記錄 {r}/{t}', en: 'Recorded {r}/{t}' },
+  'admin.students.analytics.assignmentTask': { zh: '任務', en: 'Assignment' },
+  'admin.students.analytics.completedLabel': { zh: '完成: ', en: 'Completed: ' },
+  'admin.students.analytics.vocabOverview': { zh: '詞彙概覽', en: 'Vocabulary Overview' },
+  'admin.students.analytics.vocabTotal': { zh: '詞彙總數', en: 'Total Words' },
+  'admin.students.analytics.vocabMastered': { zh: '已掌握', en: 'Mastered' },
+  'admin.students.analytics.weakAreasLabel': { zh: '弱項: ', en: 'Weak areas: ' },
+  'admin.students.analytics.noDiagnosticResults': { zh: '暫無診斷結果', en: 'No diagnostic results' },
+  'admin.students.analytics.recentWritingSubmissions': { zh: '最近寫作提交', en: 'Recent Writing Submissions' },
   'admin.users.resetPasswordAction': { zh: '重設密碼', en: 'Reset Password' },
   'admin.users.deleteUserAction': { zh: '刪除使用者', en: 'Delete User' },
   'assignments.submitAssignment': { zh: '提交作業', en: 'Submit Assignment' },
@@ -85,6 +95,8 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'diagnostic.manualAdvance': { zh: '手動前進', en: 'Manual advance' },
   'diagnostic.nextQuestion': { zh: '下一題', en: 'Next Question' },
   'diagnostic.skillBreakdown': { zh: '技能細分', en: 'Skill Breakdown' },
+  'diagnostic.cloWritingScore': { zh: '✍️ CLO 寫作評分', en: '✍️ CLO Writing Score' },
+  'diagnostic.writingQualitative': { zh: '✍️ 寫作部分為質性評估', en: '✍️ Writing is assessed qualitatively' },
   'diagnostic.completeTitle': { zh: '📊 診斷完成！', en: '📊 Diagnostic Complete!' },
 
   // === Student Practice ===
@@ -110,7 +122,7 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'writing.cloTotal': { zh: 'CLO 總分：', en: 'CLO Total: ' },
 
   // === Student Help ===
-  'help.personalized': { zh: '個人化', en: 'Personalized' },
+  'help.personalized': { zh: '個人化分析', en: 'Personalized Analysis' },
 
   // === Teacher Assignments ===
   'teacher.assignments.completionRate': { zh: '完成率', en: 'Completion Rate' },
@@ -122,7 +134,7 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.assignments.new.questionSettings': { zh: '題目設定', en: 'Question Settings' },
   'teacher.assignments.new.autoGenQuestions': { zh: '自動生成題目', en: 'Auto-generate Questions' },
   'teacher.assignments.new.manualQuestions': { zh: '手動輸入題目', en: 'Manual Questions' },
-  'teacher.assignments.new.generateBtn': { zh: '生成題目', en: 'Generate Questions' },
+  'teacher.assignments.new.generateBtn': { zh: 'AI 生成 {n} 題並預覽', en: 'AI generate {n} and preview' },
   'teacher.assignments.new.createBtn': { zh: '建立作業', en: 'Create Assignment' },
 
   // === Teacher Materials ===
@@ -134,7 +146,7 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.materials.processing': { zh: 'AI 分析中...', en: 'AI Analyzing...' },
 
   // === Teacher Settings ===
-  'teacher.settings.subjects': { zh: '任教科目', en: 'Teaching Subjects' },
+  'teacher.settings.subjects': { zh: '任教科目', en: 'Subjects' },
   'teacher.settings.formClass': { zh: '班主任班別', en: 'Form Class' },
   'teacher.settings.teachingClasses': { zh: '任教班別', en: 'Teaching Classes' },
   'teacher.settings.save': { zh: '儲存設定', en: 'Save Settings' },

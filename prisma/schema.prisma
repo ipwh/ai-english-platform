@@ -930,3 +930,17 @@ model DiagnosticStats {
 
   @@unique([gradeLevel, skill])
 }
+
+// R3.10-L: per-student diagnostic contribution tracking — the aggregate
+// DiagnosticStats only counts each student's LATEST score per skill, so
+// repeated submissions cannot inflate the peer average.
+model DiagnosticStudentStat {
+  id         String   @id @default(cuid())
+  gradeLevel String   // S1, S2, S3, S4, S5, S6
+  skill      String   // grammar, vocabulary, reading, listening, writing
+  studentId  String
+  lastScore  Int      // latest percentage score contributed to the aggregate
+  updatedAt  DateTime @updatedAt
+
+  @@unique([gradeLevel, skill, studentId])
+}

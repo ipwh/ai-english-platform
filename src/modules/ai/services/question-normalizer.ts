@@ -101,6 +101,12 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
 
     const finalChoices = validChoices.slice(0, 4);
     const finalAnswer = normalizeMcqAnswer(base.answer, finalChoices);
+    if (finalAnswer === null) {
+      // R3.10-L: answer key resolves to no choice — reject, never guess 'A'.
+      rejectedCount++;
+      logger.warn({ module: 'question-normalizer', questionIndex: results.length }, 'MC question rejected — answer does not match any choice');
+      continue;
+    }
 
     const tempQuestion: GeneratedQuestion = {
       ...base,

@@ -128,7 +128,9 @@ export const PAPER3_SCORING_WEIGHTS = {
 };
 
 // ============================================
-// DSE Paper 3 Level 對照表 (based on 2013-2024 cut off)
+// DSE Paper 3 Level 對照表（平台教學參考，非官方數據）
+// ⚠️ HKEAA 從不公佈 Paper 3 cut-off 分數 — 下表為坊間整理參考，僅教學用途，
+// 不代表真實考試等級。
 // ============================================
 
 export const PAPER3_LEVEL_THRESHOLDS = [

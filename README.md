@@ -9,7 +9,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-17 — 127 files, 2849 tests pass (full non-E2E).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-18 — 126 files, 2821 tests pass (full non-E2E).
 
 ## 🏗️ Architecture Overview
 
@@ -68,8 +68,8 @@ Writing Evaluation (Sprints 127-130):
 - **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
-- **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**5 種真實考試陷阱**、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 範本答案**（DSE Level 5 水平）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、7 種 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
-  - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。
+- **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**5 種真實考試陷阱**、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、7 種 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
+  - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。此聲明已直接顯示於批改結果頁面。
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正、示範強化及再次提交比較。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
@@ -245,7 +245,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，~710 keys / 18 i18n 模組檔案）
+- [ ] 中英語言切換（所有頁面，18 個 i18n 模組檔案 / 1620 個 key，`npm run check:i18n` exit 0）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
@@ -358,7 +358,7 @@ src/
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
-├── modules/                  # 🆕 模組化架構 (24 modules)
+├── modules/                  # 🆕 模組化架構 (23 modules incl. __tests__)
 │   ├── ai/                   # AI 服務 (18 子目錄, ~225 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
 │   ├── knowledge-graph/      # 知識圖譜 (28-node DAG, 7 API endpoints, 視覺化)
 │   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations, adaptive pipeline)

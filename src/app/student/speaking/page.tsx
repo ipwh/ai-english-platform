@@ -124,13 +124,14 @@ export default function SpeakingPracticePage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setAnalysis(json.analysis);
-        // 儲存練習記錄到學生分析
+        // 儲存練習記錄到學生分析（R3.10-L：不傳送 totalQuestions/correctCount —
+        // 口語練習無逐題計分，伺服器衍生聚合為 0/0，歷史以「已記錄」標示）
         if (userId) {
           fetch('/api/practice', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               studentId: userId, skill: 'speaking', skillZh: '會話練習',
-              difficulty, totalQuestions: 1, correctCount: 1, source: 'dse-speaking',
+              difficulty, source: 'dse-speaking',
             }),
           }).catch(() => {});
         }

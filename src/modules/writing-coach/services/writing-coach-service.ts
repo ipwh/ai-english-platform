@@ -58,6 +58,12 @@ export class WritingScoringUnavailableError extends Error {
   }
 }
 
+// R3.10-L: quick-feedback bands must come from the known level set — any
+// other LLM output is treated as unavailable (never surfaced as a level).
+const VALID_QUICK_BANDS = new Set([
+  '5**', '5*', '5', '4', '3', '2', '1', 'Below Level 1', 'U',
+]);
+
 // ============================================
 // AI Analysis Result (from v2 prompt)
 // ============================================
@@ -268,7 +274,20 @@ Provide a complete analysis in the specified JSON format. Be specific, quote evi
         ? rawResult
         : (rawResult as { content?: string }).content || JSON.stringify(rawResult);
 
-      return parseAIJSON(content) || {
+      const parsed = parseAIJSON<{
+        overallComment: string; overallCommentZh: string; topStrength: string;
+        topWeakness: string; quickFixes: Array<{ original: string; fix: string; why: string }>;
+        estimatedBand: string;
+      }>(content);
+      if (parsed) {
+        // R3.10-L: validate the LLM band against the known level set and mark
+        // it as a platform estimate — free-text/unverifiable band claims are
+        // never surfaced to users as authoritative.
+        const rawBand = String(parsed.estimatedBand ?? '').trim();
+        parsed.estimatedBand = VALID_QUICK_BANDS.has(rawBand) ? `Est. ${rawBand}` : 'N/A';
+        return parsed;
+      }
+      return {
         overallComment: 'Unable to analyze at this time.',
         overallCommentZh: '暫時無法分析。',
         topStrength: 'N/A',

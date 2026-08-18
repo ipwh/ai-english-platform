@@ -278,10 +278,12 @@ export default function DiagnosticPage() {
         const allQuestions: PracticeQuestion[] = [];
         let questionId = 0;
 
-        const addQuestions = (res: { questions?: Array<{ prompt: string; choices?: string[]; answer: string; type?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, skillCategory?: string, grammar?: string, grammarZh?: string) => {
+        const addQuestions = (res: { questions?: Array<{ id?: string; prompt: string; choices?: string[]; answer: string; type?: string; listeningContent?: string; listeningContentZh?: string; readingContent?: string; readingContentZh?: string; explanationZh?: string; explanationEn?: string; commonMistake?: string }> }, skill?: string, skillCategory?: string, grammar?: string, grammarZh?: string) => {
           (res.questions || []).forEach((q) => {
+            // R3.10-L: 保留伺服器回傳的題目 id（GrammarQuestion 持久化 id），
+            // 只有非文法技能沒有伺服器 id 時才用本地 diag-N 後備。
             allQuestions.push({
-              id: `diag-${++questionId}`,
+              id: q.id || `diag-${++questionId}`,
               type: (q.type || 'mc') as PracticeQuestion['type'],
               strand: 'knowledge',
               prompt: q.prompt,
@@ -841,7 +843,7 @@ export default function DiagnosticPage() {
                 ) : writingAnalysis ? (
                   <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">✍️ CLO 寫作評分</span>
+                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{t('diagnostic.cloWritingScore')}</span>
                       {writingAnalysis.dseLevel && (
                         <span className="text-xs px-2 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full font-bold"
                           title={lang === 'zh' ? '平台內部寫作估算，並非 HKEAA 官方等級' : 'Platform internal estimate, not official HKEAA grade'}>
@@ -870,10 +872,10 @@ export default function DiagnosticPage() {
                       <p className="text-xs text-red-700 dark:text-red-400">💡 {writingAnalysis.weaknesses.slice(0, 2).join('；')}</p>
                     )}
                     {/* Sprint 131: CLO Dimension Rationale */}
-                    <CloFeedbackPanel cloRationales={writingAnalysis.cloRationales} language="zh" />
+                    <CloFeedbackPanel cloRationales={writingAnalysis.cloRationales} language={lang} />
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 mt-1">✍️ 寫作部分為質性評估</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('diagnostic.writingQualitative')}</p>
                 )}
               </div>
             )}

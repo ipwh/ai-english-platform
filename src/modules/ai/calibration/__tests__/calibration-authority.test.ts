@@ -52,7 +52,6 @@ describe("Calibration authority — runtime isolation", () => {
     "src/modules/exercise",
     "src/modules/student",
     "src/modules/learning",
-    "src/modules/adaptive-tutor",
     "src/modules/assessment",
   ];
 

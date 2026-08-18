@@ -20,4 +20,5 @@ export const groupsTranslations: Record<string, { zh: string; en: string }> = {
   'groups.noMembers': { zh: '暫無成員', en: 'No members' },
   'groups.searchStudent': { zh: '搜尋學生...', en: 'Search students...' },
   'groups.confirmDelete': { zh: '確定要刪除此組別？', en: 'Are you sure you want to delete this group?' },
+  'groups.allClasses': { zh: '全部班級', en: 'All Classes' },
 };

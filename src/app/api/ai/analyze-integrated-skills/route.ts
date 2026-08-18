@@ -4,8 +4,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeIntegratedSkills } from '@/modules/ai/services/integrated-skills';
-import { isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai';
+// R3.10-L: use the canonical facade usecase (executeAI + Zod-validated schema),
+// NOT the legacy callLLM-based service — single AI pipeline per project rules.
+import { analyzeIntegratedSkills, sanitizeForAI, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -39,7 +40,6 @@ export async function POST(request: NextRequest) {
     const {
       listeningContent, noteTakingGuide, expectedContentPoints,
       writingTask, taskType, studentNotes, studentWriting, gradeLevel,
-      dataFileSources,
     } = body;
 
     if (!listeningContent || !writingTask || !studentWriting) {
@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
       studentNotes: sanitizeForAI((studentNotes || '').length > MAX_STUDENT_NOTES ? (studentNotes || '').slice(0, MAX_STUDENT_NOTES) : (studentNotes || '')),
       studentWriting: sanitizeForAI(studentWriting.length > MAX_STUDENT_WRITING ? studentWriting.slice(0, MAX_STUDENT_WRITING) : studentWriting),
       gradeLevel,
-      dataFileSources: dataFileSources || undefined,
       userId: authResult.userId,
     });
 

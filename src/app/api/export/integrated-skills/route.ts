@@ -5,6 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
 interface ExportData {
@@ -88,7 +89,7 @@ async function generatePDF(data: ExportData): Promise<Buffer> {
       if (a.generalComment) { heading('AI Feedback'); text(String(a.generalComment), 10, '#333333'); }
       const tips = (a.improvementTips as string[]) || [];
       if (tips.length) { heading('Improvement Tips'); tips.forEach(t => text(`• ${t}`, 9, '#16a34a', 5)); }
-      if (a.modelAnswer) { heading('Model Answer (DSE Level 5)'); text(String(a.modelAnswer), 10, '#7c3aed'); }
+      if (a.modelAnswer) { heading('Model Answer (Reference)'); text(String(a.modelAnswer), 10, '#7c3aed'); }
     }
 
     doc.end();
@@ -139,13 +140,19 @@ async function generateDOCX(data: ExportData): Promise<Buffer> {
     if (a.generalComment) { children.push(h2('AI Feedback', '2563eb')); children.push(p(String(a.generalComment))); if (a.generalCommentZh) children.push(p(String(a.generalCommentZh), { size: 18, color: '666666' })); sep(); }
     const tips = (a.improvementTips as string[]) || [];
     if (tips.length) { children.push(h2('Improvement Tips', '16a34a')); tips.forEach(t => children.push(p(`• ${t}`))); sep(); }
-    if (a.modelAnswer) { children.push(h1('Model Answer (DSE Level 5)')); children.push(new Paragraph({ children: [new TextRun(String(a.modelAnswer))], border: { left: { style: BorderStyle.SINGLE, color: '7c3aed', size: 6 } }, spacing: { after: 200 } })); }
+    if (a.modelAnswer) { children.push(h1('Model Answer (Reference)')); children.push(new Paragraph({ children: [new TextRun(String(a.modelAnswer))], border: { left: { style: BorderStyle.SINGLE, color: '7c3aed', size: 6 } }, spacing: { after: 200 } })); }
   }
 
   return Buffer.from(await Packer.toBuffer(new Document({ sections: [{ properties: {}, children }] })));
 }
 
 export async function POST(request: NextRequest) {
+  // 🔒 R3.10-L: authenticate — this endpoint was previously unauthenticated.
+  const authResult = await verifyApiAuth(request);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
   try {
     const data: ExportData = await request.json();
     if (!data.studentWriting && !data.analysis) return NextResponse.json({ error: 'No content' }, { status: 400 });

@@ -65,6 +65,9 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.symbols.number': { zh: '# = 數字/統計', en: '# = numbers/statistics' },
   'is.symbols.uncertain': { zh: '? = 不確定', en: '? = uncertain' },
   'is.symbols.location': { zh: '@ = 地點', en: '@ = location' },
+  'is.symbols.therefore': { zh: '∴ = 因此/結論', en: '∴ = therefore/conclusion' },
+  'is.symbols.approx': { zh: '≈ = 大約/約', en: '≈ = approximately/about' },
+  'is.symbols.trend': { zh: '↑↓ = 上升/下降/趨勢', en: '↑↓ = increase/decrease/trend' },
   // v2 — data file
   'is.dataFile': { zh: '📁 Data File', en: '📁 Data File' },
   'is.dataFile.source': { zh: '資料來源', en: 'Source' },
@@ -82,5 +85,5 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.proofreading.nocopy': { zh: '沒有過度抄襲（>8 連續詞）', en: 'No excessive copying (>8 consecutive words)' },
   // v2 — level estimate
   'is.level.estimated': { zh: '預估等級', en: 'Estimated Level' },
-  'is.level.description': { zh: '（基於 2013-2024 DSE Paper 3 cut off 數據）', en: '(Based on 2013-2024 DSE Paper 3 cut off data)' },
+  'is.level.description': { zh: '（平台教學參考，非官方 cut-off 數據）', en: '(Platform teaching reference, not official cut-off data)' },
 };

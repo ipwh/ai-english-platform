@@ -916,7 +916,7 @@ export default function PracticeQuestionPage() {
               disabled={!selectedAnswer}
               className="px-6 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-xl transition-colors disabled:cursor-not-allowed"
             >
-              提交答案
+              {t('practice.submitAnswer')}
             </button>
           ) : (
             <button
@@ -926,7 +926,7 @@ export default function PracticeQuestionPage() {
               {!hasNextSession ? (
                 <>{t('practice.completePractice')}</>
               ) : (
-                <>下一題 <ArrowRight className="w-4 h-4" /></>
+                <>{t('practice.nextQuestion')} <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           )}
@@ -952,6 +952,7 @@ function SessionCompleteSummary({
   onDashboard: () => void;
   onRetry: () => void;
 }) {
+  const { t } = useT();
   const acc = session.totalQuestions > 0 ? Math.round((session.correctCount / session.totalQuestions) * 100) : 0;
   const emoji = acc >= 90 ? '🏆' : acc >= 70 ? '🌟' : acc >= 50 ? '💪' : '📚';
   const color = acc >= 90 ? 'text-amber-600' : acc >= 70 ? 'text-teal-600' : acc >= 50 ? 'text-orange-500' : 'text-red-500';
@@ -961,20 +962,20 @@ function SessionCompleteSummary({
     <div className="space-y-6">
       <div className="text-center py-8">
         <div className="text-5xl mb-3">{emoji}</div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">練習完成！</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('practice.completeTitle')}</h1>
         <div className={`text-5xl font-extrabold ${color}`}>
           {session.correctCount}<span className="text-2xl text-gray-400">/{session.totalQuestions}</span>
         </div>
-        <p className="text-sm text-gray-500 mt-2">正確率 {acc}%</p>
-        <p className="text-xs text-gray-400 mt-1">{session.skillZh} · {session.difficulty === 'remedial' ? '補底' : session.difficulty === 'challenge' ? '挑戰' : '核心'}</p>
+        <p className="text-sm text-gray-500 mt-2">{t('practice.weeklyAccuracy').replace('{n}', String(acc))}</p>
+        <p className="text-xs text-gray-400 mt-1">{session.skillZh} · {session.difficulty === 'remedial' ? t('practice.diffRemedial') : session.difficulty === 'challenge' ? t('practice.diffChallenge') : t('practice.diffCore')}</p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">答題摘要</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{t('practice.answerSummary')}</h3>
         <div className="space-y-2">
           {session.questions.map((q, i) => {
             const correct = session.results[q.id] ?? false;
-            const answer = session.answers[q.id] || '（未作答）';
+            const answer = session.answers[q.id] || t('practice.unanswered');
             return (
               <div key={q.id} className={`flex items-start gap-3 p-3 rounded-lg ${correct ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'}`}>
                 <span className={`mt-0.5 shrink-0 ${correct ? 'text-green-500' : 'text-red-500'}`}>
@@ -983,7 +984,7 @@ function SessionCompleteSummary({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" dangerouslySetInnerHTML={{ __html: "Q" + (i + 1) + ". " + q.prompt }} />
                   <p className="text-xs text-gray-500 mt-0.5">
-                    你的答案：<span className={correct ? 'text-green-600 font-medium' : 'text-red-500 line-through'}>{answer}</span>
+                    {t('practice.yourAnswer')}<span className={correct ? 'text-green-600 font-medium' : 'text-red-500 line-through'}>{answer}</span>
                     {!correct && <span className="text-green-600 ml-2">✓ {q.answer}</span>}
                   </p>
                 </div>

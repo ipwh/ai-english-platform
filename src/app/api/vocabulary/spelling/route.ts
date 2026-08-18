@@ -11,6 +11,7 @@ import { serializeVocab } from '@/shared/utils/utils';
 import {
   getVocabForSpelling,
   createSpellingSession,
+  getSpellingSessionById,
   getWordById,
   createSpellingAttempt,
   updateVocabSRS,
@@ -61,8 +62,8 @@ export async function GET(request: NextRequest) {
         meaningZh: v.meaningZh,
         partOfSpeech: v.partOfSpeech,
         explanationEn: deserialized.exampleSentence || undefined,
-        // 不傳送完整單字給前端（避免作弊），但保留 vocabId 用於提交
-        // 前端的 SpellingPractice 會使用這些欄位
+        // 註：word 會傳給前端作即時顯示；但伺服器批改永遠以資料庫
+        // 儲存的生字為準（R3.10-L），客戶端上傳的 word 不可信。
       };
     });
 
@@ -103,50 +104,64 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只能提交自己的串字結果' }, { status: 403 });
     }
 
+    // 🔒 R3.10-L: the session must exist AND belong to the submitting student.
+    // Previously the session id was never ownership-checked.
+    const session = await getSpellingSessionById(sessionId);
+    if (!session) {
+      return NextResponse.json({ error: '找不到串字練習會話' }, { status: 404 });
+    }
+    if (session.studentId !== studentId) {
+      return NextResponse.json({ error: '此串字練習會話不屬於你' }, { status: 403 });
+    }
+
     // 記錄每次嘗試
     const records = [];
     let correctCount = 0;
 
     for (const attempt of attempts) {
-      const { vocabId, word, meaningZh, explanationEn, studentInput } = attempt;
+      const { vocabId, studentInput } = attempt;
 
-      if (!word || !studentInput) continue;
+      if (!vocabId || !studentInput) continue;
+
+      // 🔒 R3.10-L: the correct word comes from the DATABASE (scoped to the
+      // session owner), never from the client. Client-supplied `word` is
+      // ignored — it cannot force isCorrect or poison mastery/SRS.
+      const vocab = await getWordById(vocabId);
+      if (!vocab || vocab.studentId !== studentId) {
+        logger.warn({ module: 'spelling', vocabId, studentId }, 'Spelling attempt with unresolvable/foreign vocabId skipped');
+        continue;
+      }
 
       // 大小寫不敏感比對，但 trim 後比對
-      const isCorrect = studentInput.trim().toLowerCase() === word.trim().toLowerCase();
+      const isCorrect = studentInput.trim().toLowerCase() === vocab.word.trim().toLowerCase();
 
       if (isCorrect) correctCount++;
 
       const record = await createSpellingAttempt({
-        sessionId, vocabId: vocabId || null, word: word.trim(),
-        meaningZh: meaningZh || '', explanationEn: explanationEn || null,
+        sessionId, vocabId, word: vocab.word,
+        meaningZh: vocab.meaningZh || '', explanationEn: vocab.exampleSentence || null,
         studentInput: studentInput.trim(), isCorrect, attempts: attempt.attemptCount || 1,
       });
       records.push(record);
 
-      // 更新生字的 SRS 資料
-      if (vocabId) {
-        try {
-          const vocab = await getWordById(vocabId);
-          if (vocab) {
-            const newMastery = isCorrect
-              ? Math.min(5, (vocab.masteryLevel ?? 0) + 1)
-              : Math.max(0, (vocab.masteryLevel ?? 0) - 1);
-            const newInterval = isCorrect
-              ? Math.max(1, (vocab.reviewInterval ?? 0) * 2)
-              : 1;
-            const nextReview = new Date();
-            nextReview.setDate(nextReview.getDate() + newInterval);
+      // 更新生字的 SRS 資料（資料庫字詞與擁有人已驗證）
+      try {
+        const newMastery = isCorrect
+          ? Math.min(5, (vocab.masteryLevel ?? 0) + 1)
+          : Math.max(0, (vocab.masteryLevel ?? 0) - 1);
+        const newInterval = isCorrect
+          ? Math.max(1, (vocab.reviewInterval ?? 0) * 2)
+          : 1;
+        const nextReview = new Date();
+        nextReview.setDate(nextReview.getDate() + newInterval);
 
-            await updateVocabSRS(vocabId, {
-              masteryLevel: newMastery, reviewInterval: newInterval,
-              nextReviewDate: nextReview, lastReviewedAt: new Date(),
-              familiarity: newMastery >= 5 ? 'mastered' : newMastery >= 3 ? 'familiar' : newMastery >= 1 ? 'learning' : 'new',
-            });
-          }
-        } catch {
-          // 非致命：SRS 更新失敗不影響記錄
-        }
+        await updateVocabSRS(vocabId, {
+          masteryLevel: newMastery, reviewInterval: newInterval,
+          nextReviewDate: nextReview, lastReviewedAt: new Date(),
+          familiarity: newMastery >= 5 ? 'mastered' : newMastery >= 3 ? 'familiar' : newMastery >= 1 ? 'learning' : 'new',
+        });
+      } catch {
+        // 非致命：SRS 更新失敗不影響記錄
       }
     }
 
@@ -156,8 +171,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       sessionId,
       correctCount,
-      totalWords: attempts.length,
-      accuracy: attempts.length > 0 ? Math.round((correctCount / attempts.length) * 100) : 0,
+      totalWords: records.length,
+      accuracy: records.length > 0 ? Math.round((correctCount / records.length) * 100) : 0,
       records: records.map((r) => ({
         word: r.word,
         studentInput: r.studentInput,

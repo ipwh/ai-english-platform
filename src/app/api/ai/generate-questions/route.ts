@@ -125,6 +125,9 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
+    // R3.10-L: validation errors are thrown as NextResponse (400) — re-throw
+    // them so clients see the real status instead of a masked 500.
+    if (err instanceof NextResponse) throw err;
     let message: string;
     if (err instanceof Error) {
       message = err.message;

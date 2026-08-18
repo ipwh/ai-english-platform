@@ -6,29 +6,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { generateQuestions } from '@/modules/ai';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
 import { findTodaySession, createPracticeSession } from '@/modules/student';
 import { createXpTransaction, updateUserXpAndStreak } from '@/modules/student';
+import {
+  persistGeneratedGrammarQuestions,
+  resolveGrammarQuestionDefinitions,
+} from '@/modules/exercise/services/grammar-question-service';
 
 const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
 
 // 每日挑戰題型輪換（已移除 error-correction — 劃線題目無法在前端正確顯示）
 const QUESTION_TYPES = ['mc', 'fill-blank'] as const;
-
-/** 根據當天日期產生固定的 seed，確保同一天所有人拿到不同題目但同一人拿到相同題目 */
-function getDailySeed(studentId: string): number {
-  const today = new Date().toISOString().slice(0, 10);
-  const str = today + studentId;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
 
 // 每日文法主題輪換（30 天循環）
 const DAILY_TOPICS = [
@@ -89,8 +82,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Generate daily question (cached per student per day via deterministic seed)
-    const seed = getDailySeed(studentId!);
+    // Generate daily question. R3.10-L: the question is persisted as a
+    // server-owned definition BEFORE delivery, and the persisted id is
+    // returned — the POST handler scores against that definition only.
     const questions = await generateQuestions({
       count: 1,
       gradeLevel: gradeLevel as 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6',
@@ -100,11 +94,38 @@ export async function GET(request: NextRequest) {
       difficulty: 'core',
     });
 
+    const generated = questions[0];
+    if (!generated) {
+      return NextResponse.json({ error: '未能生成今日挑戰題目，請稍後再試' }, { status: 503 });
+    }
+
+    // Persistence failure → fail-closed 500 (no client-keyed delivery)
+    let questionIds: string[];
+    try {
+      questionIds = await persistGeneratedGrammarQuestions([{
+        questionType: generated.type,
+        prompt: generated.prompt,
+        promptZh: generated.promptZh ?? null,
+        choices: generated.choices && generated.choices.length > 0 ? generated.choices : null,
+        answer: generated.answer,
+        grammarItem,
+        difficulty: 'core',
+        gradeLevel,
+        explanationZh: generated.explanationZh ?? null,
+        explanationEn: generated.explanationEn ?? null,
+        provenance: 'daily-challenge',
+      }]);
+    } catch (persistErr) {
+      const persistMsg = persistErr instanceof Error ? persistErr.message : String(persistErr);
+      logger.error({ module: 'daily-challenge', error: persistMsg }, 'Daily challenge question persistence failed');
+      return NextResponse.json({ error: '題目伺服器持久化失敗，請稍後再試' }, { status: 500 });
+    }
+
     return NextResponse.json({
       date: today.toISOString().slice(0, 10),
       grammarItem,
       questionType,
-      question: questions[0] || null,
+      question: { ...generated, id: questionIds[0] },
       alreadyCompleted: false,
     });
   } catch (err: unknown) {
@@ -122,12 +143,38 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, correctAnswer, studentAnswer, isCorrect, grammarItem } = body as {
-      studentId: string; correctAnswer: string; studentAnswer: string; isCorrect: boolean; grammarItem?: string;
+    const { studentId, questionId, studentAnswer, grammarItem } = body as {
+      studentId: string; questionId?: string; studentAnswer?: string; grammarItem?: string;
     };
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId required' }, { status: 400 });
+    }
+
+    // 🔒 Ownership: students can only submit their own daily challenge
+    if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
+      return NextResponse.json({ error: '只能提交自己的每日挑戰' }, { status: 403 });
+    }
+
+    // R3.10-L: server authority — client-supplied isCorrect/correctAnswer
+    // are IGNORED; the answer key comes from the persisted question store.
+    if (typeof questionId !== 'string' || questionId.trim() === '' || typeof studentAnswer !== 'string') {
+      return NextResponse.json({ error: 'questionId 與 studentAnswer 為必填' }, { status: 400 });
+    }
+
+    const defs = await resolveGrammarQuestionDefinitions([questionId]);
+    const def = defs.get(questionId);
+    if (!def) {
+      return NextResponse.json({ error: '找不到此題目（伺服器不持有此題，NOT_PROJECTABLE）' }, { status: 400 });
+    }
+
+    const normalized = studentAnswer.trim();
+    let isCorrect = false;
+    if (def.questionType === 'mc' && def.choices && def.choices.length > 0) {
+      const letter = normalized.toUpperCase().charAt(0);
+      isCorrect = letter === def.answer.trim().toUpperCase().charAt(0);
+    } else {
+      isCorrect = normalized.toLowerCase() === def.answer.trim().toLowerCase();
     }
 
     // Check duplicate

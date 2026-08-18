@@ -207,6 +207,12 @@ export async function createSpellingSession(studentId: string, totalWords: numbe
   });
 }
 
+/** Resolve a spelling session by id — used to enforce session ownership on submit. */
+export async function getSpellingSessionById(sessionId: string) {
+  const { db } = await import('@/shared/db/db');
+  return db.spellingSession.findUnique({ where: { id: sessionId } });
+}
+
 export async function getExistingWordSet(studentId: string): Promise<Set<string>> {
   const items = await listVocab(studentId);
   return new Set(items.map(v => v.word.toLowerCase()));

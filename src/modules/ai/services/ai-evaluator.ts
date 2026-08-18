@@ -13,6 +13,14 @@ export interface AIEvaluationResult {
   isPartiallyCorrect: boolean;
   feedbackZh: string;
   feedbackEn: string;
+  /**
+   * Provenance of the verdict.
+   * - 'ai': scored by the LLM semantic evaluator (trusted evidence).
+   * - 'rule-based': LLM failed and a keyword-overlap heuristic produced this
+   *   result. Callers that persist scoring evidence MUST treat this as
+   *   unavailable — never as AI-scored ground truth (R3.10-L).
+   */
+  evaluationMethod: 'ai' | 'rule-based';
 }
 
 /**
@@ -32,6 +40,9 @@ export async function evaluateWithAI(
       score: 0, maxScore: marks, isCorrect: false, isPartiallyCorrect: false,
       feedbackZh: '❌ 未作答。',
       feedbackEn: '❌ No answer provided.',
+      // Blank answers are deterministically zero — no LLM needed, and a
+      // zero is the only defensible score (an examiner would award 0 too).
+      evaluationMethod: 'ai',
     };
   }
 
@@ -69,22 +80,25 @@ export async function evaluateWithAI(
       { temperature: 0.1, maxTokens: 512, jsonMode: true, timeoutMs: 8000 },
     );
     const parsed = parseAIJSON<AIEvaluationResult>(result);
-    return parsed;
+    return { ...parsed, evaluationMethod: 'ai' as const };
   } catch (err) {
     logger.warn({ module: 'semantic-eval', error: (err as Error).message }, 'AI evaluation failed, falling back to rule-based');
-    // Fallback to rule-based
-    return fallbackEvaluate(studentAnswer, correctAnswer, marks);
+    // Rule-based fallback is honest about its provenance: scoring-evidence
+    // consumers must check evaluationMethod and refuse to persist it as
+    // trusted AI evidence (R3.10-L).
+    return { ...fallbackEvaluate(studentAnswer, correctAnswer, marks), evaluationMethod: 'rule-based' as const };
   }
 }
 
 /**
  * Rule-based fallback when AI is unavailable.
+ * Provenance is attached by the caller (evaluationMethod: 'rule-based').
  */
 function fallbackEvaluate(
   studentAnswer: string,
   correctAnswer: string,
   marks: number,
-): AIEvaluationResult {
+): Omit<AIEvaluationResult, 'evaluationMethod'> {
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?,;:'"]+$/g, '').trim();
   const ns = norm(studentAnswer);
   const nc = norm(correctAnswer);

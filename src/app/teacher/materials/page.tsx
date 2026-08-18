@@ -132,10 +132,10 @@ export default function TeacherMaterialsPage() {
       if (res.ok && json.analysis) {
         setAiResults(prev => ({ ...prev, [materialId]: json.analysis }));
       } else {
-        setAnalyzeError(prev => ({ ...prev, [materialId]: json.error || 'AI 分析失敗' }));
+        setAnalyzeError(prev => ({ ...prev, [materialId]: json.error || t('teacher.materials.analyzeFailed') }));
       }
     } catch {
-      setAnalyzeError(prev => ({ ...prev, [materialId]: 'AI 分析連接失敗，請稍後再試' }));
+      setAnalyzeError(prev => ({ ...prev, [materialId]: t('teacher.materials.analyzeConnFailed') }));
     }
     finally { setAnalyzingId(null); }
   };
@@ -151,7 +151,7 @@ export default function TeacherMaterialsPage() {
         body: JSON.stringify({ materialId }),
       });
     } catch {
-      setAnalyzeError(prev => ({ ...prev, [materialId]: 'RAG 索引建立失敗' }));
+      setAnalyzeError(prev => ({ ...prev, [materialId]: t('teacher.materials.ragIndexFailed') }));
     }
     finally { setIndexingId(null); }
   };
@@ -177,14 +177,14 @@ export default function TeacherMaterialsPage() {
   });
 
   const statusLabel: Record<string, { label: string; color: string }> = {
-    'none': { label: '未開始', color: 'bg-gray-100 text-gray-500' },
-    'pending': { label: '待處理', color: 'bg-gray-100 text-gray-600' },
-    'processing': { label: '處理中', color: 'bg-yellow-100 text-yellow-700' },
-    'chunking': { label: '分塊中', color: 'bg-yellow-100 text-yellow-700' },
-    'embedding': { label: '嵌入中', color: 'bg-yellow-100 text-yellow-700' },
-    'done': { label: '已完成', color: 'bg-green-100 text-green-700' },
-    'completed': { label: '已完成', color: 'bg-green-100 text-green-700' },
-    'failed': { label: '失敗', color: 'bg-red-100 text-red-700' },
+    'none': { label: t('teacher.materials.statusNone'), color: 'bg-gray-100 text-gray-500' },
+    'pending': { label: t('teacher.materials.statusPending'), color: 'bg-gray-100 text-gray-600' },
+    'processing': { label: t('teacher.materials.statusProcessing'), color: 'bg-yellow-100 text-yellow-700' },
+    'chunking': { label: t('teacher.materials.statusChunking'), color: 'bg-yellow-100 text-yellow-700' },
+    'embedding': { label: t('teacher.materials.statusEmbedding'), color: 'bg-yellow-100 text-yellow-700' },
+    'done': { label: t('teacher.materials.statusDone'), color: 'bg-green-100 text-green-700' },
+    'completed': { label: t('teacher.materials.statusDone'), color: 'bg-green-100 text-green-700' },
+    'failed': { label: t('teacher.materials.statusFailed'), color: 'bg-red-100 text-red-700' },
   };
 
   const [showGuide, setShowGuide] = useState(false);
@@ -518,7 +518,7 @@ export default function TeacherMaterialsPage() {
                     onClick={() => router.push(`/teacher/assignments/new?materialId=${m.id}&materialTitle=${encodeURIComponent(m.title)}`)}
                     className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg font-medium flex items-center justify-center gap-2"
                   >
-                    <Sparkles className="w-4 h-4" /> 從此教材生成練習題目
+                    <Sparkles className="w-4 h-4" /> {t('teacher.materials.generateFromMaterial')}
                   </button>
 
                   {/* RAG 語義索引 */}
@@ -529,7 +529,7 @@ export default function TeacherMaterialsPage() {
                       className="w-full py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 hover:bg-purple-200 text-sm rounded-lg font-medium flex items-center justify-center gap-2"
                     >
                       <Loader2 className={`w-4 h-4 ${indexingId === m.id ? 'animate-spin' : ''}`} />
-                      {indexingId === m.id ? '索引建立中...' : '建立語義索引 (RAG)'}
+                      {indexingId === m.id ? t('teacher.materials.indexing') : t('teacher.materials.createRagIndex')}
                     </button>
                   )}
                 </div>
