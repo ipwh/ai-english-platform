@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const { name, gradeLevel, academicYear } = body;
 
     if (!name || !gradeLevel) {
-      return NextResponse.json({ error: '請提供 name 和 gradeLevel' }, { status: 400 });
+      return NextResponse.json({ error: '請提供 name 和 gradeLevel / Please provide name and gradeLevel' }, { status: 400 });
     }
 
     const cls = await adminDbQuery('class', 'upsert', {
@@ -96,7 +96,7 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: '請提供 class id' }, { status: 400 });
+    if (!id) return NextResponse.json({ error: '請提供 class id / Please provide class id' }, { status: 400 });
 
     await adminDbQuery('class', 'delete', { where: { id } });
     return NextResponse.json({ success: true });

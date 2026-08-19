@@ -29,10 +29,10 @@ export async function GET(
   if (isTeacher) {
     const auth = await verifyApiAuth(request, ['teacher', 'admin']);
     if (!auth.authenticated) {
-      return NextResponse.json({ error: auth.error || '請先登入' }, { status: 401 });
+      return NextResponse.json({ error: auth.error || '請先登入 / Please sign in' }, { status: 401 });
     }
     if (auth.role !== 'teacher' && auth.role !== 'admin') {
-      return NextResponse.json({ error: '權限不足：僅教師可查看此視圖' }, { status: 403 });
+      return NextResponse.json({ error: '權限不足：僅教師可查看此視圖 / Insufficient permission: only teachers can view this' }, { status: 403 });
     }
   }
 
@@ -52,7 +52,7 @@ export async function GET(
     }) as {id: string; title: string; description: string | null; classId: string | null; className: string | null; targetType: string | null; gradeLevel: string | null; strand: string | null; grammarItem: string | null; languageSkill: string | null; difficulty: string | null; questionCount: number; timeLimit: number | null; dueDate: Date | null; completionRate: number | null; createdAt: Date; questions: Array<{id: string; questionType: string; prompt: string; options: string | null; answer: string; orderIndex: number}>; submissions?: Array<{id: string; score: number | null; submittedAt: Date | null; student: {id: string; name: string | null; nameZh: string | null; email: string; class: {name: string} | null}}>; _count: {submissions: number}} | null;
 
     if (!assignment) {
-      return NextResponse.json({ error: '找不到此作業' }, { status: 404 });
+      return NextResponse.json({ error: '找不到此作業 / Assignment not found' }, { status: 404 });
     }
 
     // 學生視圖：取得當前學生的提交記錄
@@ -147,19 +147,19 @@ export async function POST(
   try {
     const token = request.cookies.get('session_token')?.value;
     if (!token) {
-      return NextResponse.json({ error: '請先登入' }, { status: 401 });
+      return NextResponse.json({ error: '請先登入 / Please sign in' }, { status: 401 });
     }
 
     const payload = await verifySessionToken(token);
     if (!payload) {
-      return NextResponse.json({ error: '登入已過期' }, { status: 401 });
+      return NextResponse.json({ error: '登入已過期 / Session expired' }, { status: 401 });
     }
 
     const body = await request.json();
     const { answers } = body; // { questionId: studentAnswer }
 
     if (!answers || typeof answers !== 'object') {
-      return NextResponse.json({ error: '請提供答案' }, { status: 400 });
+      return NextResponse.json({ error: '請提供答案 / Please provide answers' }, { status: 400 });
     }
 
     // 取得作業及題目（R3.5 hardening: 以正典 orderIndex 確定性排序）
@@ -169,7 +169,7 @@ export async function POST(
     });
 
     if (!assignment) {
-      return NextResponse.json({ error: '找不到此作業' }, { status: 404 });
+      return NextResponse.json({ error: '找不到此作業 / Assignment not found' }, { status: 404 });
     }
 
     // R3.5: 批改每道題目並產生逐題評分證據（與舊邏輯完全相同，僅加上證據輸出）。

@@ -10,7 +10,7 @@ import { logger } from '@/shared/logger/logger';
 import { validateRequest } from '@/shared/validation/validate';
 import { assignmentCreateSchema } from '@/shared/validation/schemas';
 import { checkRateLimit, GENERAL_RATE_LIMIT } from '@/shared/utils/rate-limiter';
-import { notifyAssignmentCreated } from '@/shared/utils/notifications';
+import { notifyAssignmentCreated, notifyAssignmentCreatedToUsers } from '@/shared/utils/notifications';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 
 // GET /api/assignments — 列出課業
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         where: { teacherId: authResult.userId, class: { name: resolvedClassName } },
       });
       if (!teacherClass) {
-        return NextResponse.json({ error: `您沒有任教 ${resolvedClassName} 班級的權限` }, { status: 403 });
+        return NextResponse.json({ error: `您沒有任教 ${resolvedClassName} 班級的權限 / You do not teach class ${resolvedClassName}` }, { status: 403 });
       }
     }
 
@@ -124,28 +124,18 @@ export async function POST(request: NextRequest) {
     if (resolvedTargetType === 'class' && resolvedClassName) {
       notifyAssignmentCreated(title, resolvedClassName, classId || null, assignment.id);
     } else if (resolvedTargetType === 'group' && groupIds?.length) {
-      // 通知組別內所有學生
+      // 通知組別內所有學生（依各自語言偏好）
       const groupMembers = await adminDbQuery('groupMember', 'findMany', {
         where: { groupId: { in: groupIds } },
         select: { studentId: true },
       }) as Array<{studentId: string}>;
-      const { createBulkNotifications } = await import('@/shared/utils/notifications');
-      await createBulkNotifications(
+      await notifyAssignmentCreatedToUsers(
         groupMembers.map(m => m.studentId),
-        'assignment',
-        '📝 新作業',
-        `你有新作業：「${title}」`,
-        `/student/assignments/${assignment.id}`,
+        title,
+        assignment.id,
       );
     } else if (resolvedTargetType === 'students' && studentIds?.length) {
-      const { createBulkNotifications } = await import('@/shared/utils/notifications');
-      await createBulkNotifications(
-        studentIds,
-        'assignment',
-        '📝 新作業',
-        `你有新作業：「${title}」`,
-        `/student/assignments/${assignment.id}`,
-      );
+      await notifyAssignmentCreatedToUsers(studentIds, title, assignment.id);
     }
 
     return NextResponse.json({ assignment }, { status: 201 });

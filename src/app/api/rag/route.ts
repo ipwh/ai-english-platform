@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       const stats = await ragService.getRAGStats();
       return NextResponse.json(stats);
     } catch {
-      return NextResponse.json({ error: 'RAG 未初始化' }, { status: 503 });
+      return NextResponse.json({ error: 'RAG 未初始化 / RAG is not initialised' }, { status: 503 });
     }
   }
   return NextResponse.json({ message: 'RAG API' });
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 async function handleVertexSearch(request: NextRequest) {
   try {
     const { query, chunks } = await request.json();
-    if (!query) return NextResponse.json({ error: '請提供 query' }, { status: 400 });
+    if (!query) return NextResponse.json({ error: '請提供 query / Please provide a query' }, { status: 400 });
 
     const results = await searchSimilarChunks(query, chunks || []);
     return NextResponse.json({ results });
@@ -63,7 +63,7 @@ async function handleQuery(request: NextRequest) {
     const { query, contextType, topK } = await request.json();
 
     if (!query || typeof query !== 'string') {
-      return NextResponse.json({ error: '請提供 query 參數' }, { status: 400 });
+      return NextResponse.json({ error: '請提供 query 參數 / Please provide the query parameter' }, { status: 400 });
     }
 
     const { systemPrompt, retrievedContexts } = await ragService.buildRAGPrompt(
@@ -89,7 +89,7 @@ async function handleIndex(request: NextRequest) {
     const { materialId } = await request.json();
 
     if (!materialId) {
-      return NextResponse.json({ error: '請提供 materialId' }, { status: 400 });
+      return NextResponse.json({ error: '請提供 materialId / Please provide materialId' }, { status: 400 });
     }
 
     const result = await ragService.indexMaterial(materialId);

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     if (!isDeepSeekConfigured()) {
       return NextResponse.json(
-        { error: 'AI 服務尚未設定。' },
+        { error: 'AI 服務尚未設定。 / AI service is not configured.' },
         { status: 503 }
       );
     }
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     if (!listeningContent || !writingTask || !studentWriting) {
       return NextResponse.json(
-        { error: '請提供 listeningContent, writingTask, studentWriting。' },
+        { error: '請提供 listeningContent, writingTask, studentWriting。 / Please provide listeningContent, writingTask and studentWriting' },
         { status: 400 }
       );
     }

@@ -54,18 +54,18 @@ export async function PATCH(request: NextRequest) {
     if (!userId) {
       const session = await auth();
       if (!session?.user?.id) {
-        return NextResponse.json({ error: '未登入' }, { status: 401 });
+        return NextResponse.json({ error: '未登入 / Not signed in' }, { status: 401 });
       }
       userId = session.user.id;
     }
 
     if (!userId) {
-      return NextResponse.json({ error: '未登入' }, { status: 401 });
+      return NextResponse.json({ error: '未登入 / Not signed in' }, { status: 401 });
     }
 
     const { role } = await request.json();
     if (!role || !['student', 'teacher', 'admin'].includes(role)) {
-      return NextResponse.json({ error: '無效的角色' }, { status: 400 });
+      return NextResponse.json({ error: '無效的角色 / Invalid role' }, { status: 400 });
     }
 
     await updateUserRole(userId, role);

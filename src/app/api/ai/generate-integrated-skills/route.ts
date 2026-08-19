@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     if (!isDeepSeekConfigured()) {
       return NextResponse.json(
-        { error: 'AI 服務尚未設定。' },
+        { error: 'AI 服務尚未設定。 / AI service is not configured.' },
         { status: 503 }
       );
     }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (!gradeLevel || !difficulty || !taskType) {
       return NextResponse.json(
-        { error: '請提供 gradeLevel, difficulty, taskType。' },
+        { error: '請提供 gradeLevel, difficulty, taskType。 / Please provide gradeLevel, difficulty and taskType' },
         { status: 400 }
       );
     }

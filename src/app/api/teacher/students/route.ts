@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     const teacherInfo = await getTeacherInfo(request);
     if (!teacherInfo) {
-      return NextResponse.json({ error: '請先登入教師帳號' }, { status: 403 });
+      return NextResponse.json({ error: '請先登入教師帳號 / Please sign in with a teacher account' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ students, classes, total: students.length });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '伺服器錯誤';
+    const msg = err instanceof Error ? err.message : '伺服器錯誤 / Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

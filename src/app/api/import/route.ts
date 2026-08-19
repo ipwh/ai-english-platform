@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       const { verifySessionToken } = await import('@/shared/auth/jwt');
       const payload = await verifySessionToken(jwtToken);
       if (!payload || (payload.role !== 'teacher' && payload.role !== 'admin')) {
-        return NextResponse.json({ error: '權限不足：僅教師或管理員可匯入' }, { status: 403 });
+        return NextResponse.json({ error: '權限不足：僅教師或管理員可匯入 / Insufficient permission: only teachers or admins can import' }, { status: 403 });
       }
     } else {
       return NextResponse.json({ error: auth.error }, { status: 403 });
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   });
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { error: rateLimit.message || '請求過於頻繁，請稍後重試' },
+      { error: rateLimit.message || '請求過於頻繁，請稍後重試 / Too many requests, please try again later' },
       { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
     );
   }
@@ -100,17 +100,17 @@ export async function POST(request: NextRequest) {
     const dryRun = formData.get('dryRun') === 'true'; // 預覽模式
 
     if (!file) {
-      return NextResponse.json({ error: '請上傳 CSV 檔案' }, { status: 400 });
+      return NextResponse.json({ error: '請上傳 CSV 檔案 / Please upload a CSV file' }, { status: 400 });
     }
     if (!['student', 'teacher'].includes(role)) {
-      return NextResponse.json({ error: 'role 必須為 student 或 teacher' }, { status: 400 });
+      return NextResponse.json({ error: 'role 必須為 student 或 teacher / role must be student or teacher' }, { status: 400 });
     }
 
     const text = await file.text();
     const rows = parseCSV(text);
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'CSV 檔案沒有有效資料' }, { status: 400 });
+      return NextResponse.json({ error: 'CSV 檔案沒有有效資料 / The CSV file contains no valid data' }, { status: 400 });
     }
 
     results.total = rows.length;

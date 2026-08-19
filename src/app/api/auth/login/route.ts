@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     });
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: rateLimit.message || '請求過於頻繁，請稍後重試。' },
+        { error: rateLimit.message || '請求過於頻繁，請稍後重試。 / Too many requests, please try again later.' },
         {
           status: 429,
           headers: {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: '請提供電郵地址和密碼。' },
+        { error: '請提供電郵地址和密碼。 / Please provide email and password' },
         { status: 400 }
       );
     }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     // 開發/測試階段顯示詳細錯誤以方便除錯
     const isDev = process.env.NODE_ENV === 'development';
     return NextResponse.json(
-      { error: isDev ? `伺服器錯誤：${message}` : '伺服器錯誤，請稍後再試。' },
+      { error: isDev ? `伺服器錯誤：${message}` : '伺服器錯誤，請稍後再試。 / Server error, please try again later.' },
       { status: 500 }
     );
   }

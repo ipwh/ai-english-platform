@@ -120,17 +120,17 @@ export async function POST(request: NextRequest) {
 
     // 驗證必填欄位
     if (!email || !nameZh || !role) {
-      return NextResponse.json({ error: 'email、nameZh、role 為必填欄位' }, { status: 400 });
+      return NextResponse.json({ error: 'email、nameZh、role 為必填欄位 / email, nameZh and role are required' }, { status: 400 });
     }
 
     if (!['student', 'teacher', 'admin'].includes(role)) {
-      return NextResponse.json({ error: 'role 必須是 student、teacher 或 admin' }, { status: 400 });
+      return NextResponse.json({ error: 'role 必須是 student、teacher 或 admin / role must be student, teacher or admin' }, { status: 400 });
     }
 
     // 檢查 email 是否已存在
     const existing = await findUserByEmail(email);
     if (existing) {
-      return NextResponse.json({ error: `Email ${email} 已被使用` }, { status: 409 });
+      return NextResponse.json({ error: `Email ${email} 已被使用 / Email ${email} is already in use` }, { status: 409 });
     }
 
     // 處理班級關聯（學生）

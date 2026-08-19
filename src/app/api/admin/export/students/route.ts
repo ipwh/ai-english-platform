@@ -44,7 +44,7 @@ async function verifyTeacherOrAdmin(request: NextRequest): Promise<{ authorized:
     }
   } catch { logger.warn({ module: 'admin-export-students' }, 'NextAuth session check failed, falling back to JWT'); }
 
-  return { authorized: false, error: '請先登入教師或管理員帳號' };
+  return { authorized: false, error: '請先登入教師或管理員帳號 / Please sign in with a teacher or admin account' };
 }
 
 export async function GET(request: NextRequest) {

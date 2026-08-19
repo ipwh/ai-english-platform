@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const spreadsheetId = process.env.GOOGLE_SHEETS_CLASS_ROSTER_ID;
     if (!spreadsheetId) {
       return NextResponse.json(
-        { error: '缺少 GOOGLE_SHEETS_CLASS_ROSTER_ID 環境變數' },
+        { error: '缺少 GOOGLE_SHEETS_CLASS_ROSTER_ID 環境變數 / Missing GOOGLE_SHEETS_CLASS_ROSTER_ID environment variable' },
         { status: 400 },
       );
     }

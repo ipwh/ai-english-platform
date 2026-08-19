@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
     const spreadsheetId = process.env.GOOGLE_SHEETS_CLASS_ROSTER_ID;
     if (!spreadsheetId) {
       return NextResponse.json(
-        { error: '缺少環境變數 GOOGLE_SHEETS_CLASS_ROSTER_ID。請在 Vercel 設定中新增此變數，值為 Google Sheet 的 ID。' },
+        { error: '缺少環境變數 GOOGLE_SHEETS_CLASS_ROSTER_ID。請在 Vercel 設定中新增此變數，值為 Google Sheet 的 ID。/ Missing environment variable GOOGLE_SHEETS_CLASS_ROSTER_ID. Add it in Vercel settings; its value is the Google Sheet ID.' },
         { status: 400 }
       );
     }
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
     logger.info({ module: 'sync-sheets', rowCount: rows.length, sheetName: actualSheetName }, 'Fetched rows from sheet');
 
     if (rows.length === 0) {
-      return NextResponse.json({ ...result, message: 'Sheet 中沒有有效資料列' });
+      return NextResponse.json({ ...result, message: 'Sheet 中沒有有效資料列 / No valid data rows found in the sheet' });
     }
 
     // === 批量查詢所有現有學生（1 次 DB 查詢取代 N 次）===

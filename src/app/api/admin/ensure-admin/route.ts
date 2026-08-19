@@ -44,7 +44,7 @@ export async function POST(_request?: NextRequest) {
         },
       });
       return NextResponse.json({
-        message: '管理員帳號已存在，role 及密碼已更新',
+        message: '管理員帳號已存在，role 及密碼已更新 / Admin account already exists — role and password updated',
         email: adminEmail,
         // 不回傳密碼明文
       });
@@ -63,7 +63,7 @@ export async function POST(_request?: NextRequest) {
     });
 
     return NextResponse.json({
-      message: '管理員帳號已建立',
+      message: '管理員帳號已建立 / Admin account created',
       email: adminEmail,
       // 不回傳密碼明文
     });

@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
   }
   try {
     const { url } = await request.json();
-    if (!url) return NextResponse.json({ error: '請提供 Google Drive 連結' }, { status: 400 });
+    if (!url) return NextResponse.json({ error: '請提供 Google Drive 連結 / Please provide a Google Drive link' }, { status: 400 });
 
     const fileId = extractFileId(url);
-    if (!fileId) return NextResponse.json({ error: '無效的 Google Drive 連結格式' }, { status: 400 });
+    if (!fileId) return NextResponse.json({ error: '無效的 Google Drive 連結格式 / Invalid Google Drive link format' }, { status: 400 });
 
     const client = getAuth();
     const token = await client.getAccessToken();

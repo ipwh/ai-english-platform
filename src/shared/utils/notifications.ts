@@ -30,6 +30,10 @@ const MSG = {
     zh: `📝 ${className} 班有新作業：「${assignmentTitle}」`,
     en: `📝 New assignment for ${className}: "${assignmentTitle}"`,
   }),
+  newAssignmentGeneric: (assignmentTitle: string) => ({
+    zh: `📝 你有新作業：「${assignmentTitle}」`,
+    en: `📝 You have a new assignment: "${assignmentTitle}"`,
+  }),
   assignmentTitle: { zh: '📝 新作業', en: '📝 New Assignment' },
   submissionReceived: (studentName: string, assignmentTitle: string) => ({
     zh: `📤 ${studentName} 已提交作業：「${assignmentTitle}」`,
@@ -139,6 +143,33 @@ export async function notifyAssignmentCreated(
     logger.info({ module: 'notifications', assignmentTitle, studentCount: students.length, className }, 'Assignment notification sent');
   } catch (err) {
     logger.error({ module: 'notifications', error: (err as Error).message }, 'notifyAssignmentCreated failed');
+  }
+}
+
+/** 作業指派 — 通知指定學生（組別/個別學生），依各自語言偏好發送 */
+export async function notifyAssignmentCreatedToUsers(
+  userIds: string[],
+  assignmentTitle: string,
+  assignmentId: string,
+) {
+  if (userIds.length === 0) return;
+  try {
+    const titleMsg = MSG.assignmentTitle;
+    const bodyMsg = MSG.newAssignmentGeneric(assignmentTitle);
+    const link = `/student/assignments/${assignmentId}`;
+
+    for (const userId of userIds) {
+      const lang = await getUserLang(userId);
+      await createNotification({
+        userId,
+        type: 'assignment',
+        title: titleMsg[lang],
+        message: bodyMsg[lang],
+        link,
+      });
+    }
+  } catch (err) {
+    logger.error({ module: 'notifications', error: (err as Error).message }, 'notifyAssignmentCreatedToUsers failed');
   }
 }
 

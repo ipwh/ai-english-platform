@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const parsed = createClassSchema.safeParse(body);
     if (!parsed.success) {
       const errors = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`);
-      return NextResponse.json({ error: '輸入驗證失敗', details: errors }, { status: 400 });
+      return NextResponse.json({ error: '輸入驗證失敗 / Validation failed', details: errors }, { status: 400 });
     }
     const { name, gradeLevel, academicYear } = parsed.data;
 

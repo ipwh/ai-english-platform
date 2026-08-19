@@ -33,12 +33,12 @@ export async function GET(
   try {
     const teacherAuth = await getTeacherAuth(request);
     if (!teacherAuth) {
-      return NextResponse.json({ error: '請先登入教師帳號' }, { status: 403 });
+      return NextResponse.json({ error: '請先登入教師帳號 / Please sign in with a teacher account' }, { status: 403 });
     }
 
     const { id: studentId } = await params;
     if (!studentId) {
-      return NextResponse.json({ error: '缺少學生 ID' }, { status: 400 });
+      return NextResponse.json({ error: '缺少學生 ID / Missing student ID' }, { status: 400 });
     }
 
     // 學生基本資料
@@ -52,7 +52,7 @@ export async function GET(
     });
 
     if (!student) {
-      return NextResponse.json({ error: '找不到學生' }, { status: 404 });
+      return NextResponse.json({ error: '找不到學生 / Student not found' }, { status: 404 });
     }
 
     // 🔒 Class-level authorization: non-admin teachers can only view students in their own classes
@@ -62,13 +62,13 @@ export async function GET(
         ...((student.studentClasses || []) as Array<{ classId: string }>).map((sc) => sc.classId),
       ];
       if (studentClassIds.length === 0) {
-        return NextResponse.json({ error: '學生未分配至任何班級' }, { status: 403 });
+        return NextResponse.json({ error: '學生未分配至任何班級 / Student is not assigned to any class' }, { status: 403 });
       }
       // Check if teacher teaches any of the student's classes
       const teachingRelations = await listTeacherClasses(teacherAuth.userId);
       const teachingClassIds = (teachingRelations as Array<{ classId: string }>).map((tc) => tc.classId);
       if (!teachingClassIds.some((id) => studentClassIds.includes(id))) {
-        return NextResponse.json({ error: '無權限查看此學生：不屬於您任教的班級' }, { status: 403 });
+        return NextResponse.json({ error: '無權限查看此學生：不屬於您任教的班級 / You cannot view this student — they are not in a class you teach' }, { status: 403 });
       }
     }
 
@@ -92,7 +92,7 @@ export async function GET(
       weeklySnapshots,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '伺服器錯誤';
+    const msg = err instanceof Error ? err.message : '伺服器錯誤 / Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

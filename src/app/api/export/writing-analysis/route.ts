@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
     const analysis: WritingAnalysis = body.analysis || body;
 
     if (!analysis || (!analysis.studentDraft && !analysis.overallScore)) {
-      return NextResponse.json({ error: '請提供 AI 分析結果' }, { status: 400 });
+      return NextResponse.json({ error: '請提供 AI 分析結果 / Please provide the AI analysis result' }, { status: 400 });
     }
 
     let buffer: Buffer;

@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
     const dryRun = formData.get('dryRun') === 'true';
 
     if (!file) {
-      return NextResponse.json({ error: '請上傳 CSV 檔案' }, { status: 400 });
+      return NextResponse.json({ error: '請上傳 CSV 檔案 / Please upload a CSV file' }, { status: 400 });
     }
 
     const text = await file.text();
     const rows = parseCSV(text);
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'CSV 檔案沒有有效資料' }, { status: 400 });
+      return NextResponse.json({ error: 'CSV 檔案沒有有效資料 / The CSV file contains no valid data' }, { status: 400 });
     }
     result.total = rows.length;
 

@@ -172,13 +172,13 @@ export async function POST(request: NextRequest) {
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
       if (!file) {
-        return NextResponse.json({ error: '未提供檔案' }, { status: 400 });
+        return NextResponse.json({ error: '未提供檔案 / No file provided' }, { status: 400 });
       }
 
       // 🔒 Body size validation：檢查檔案大小
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json(
-          { error: `檔案大小超過上限（${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB）` },
+          { error: `檔案大小超過上限（${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB）/ File size exceeds the limit (${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB)` },
           { status: 413 }
         );
       }
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       // 🔒 副檔名白名單檢查
       if (!ALLOWED_EXTENSIONS.includes(ext)) {
         return NextResponse.json(
-          { error: `不支援的檔案格式：.${ext}。支援格式：${ALLOWED_EXTENSIONS.join(', ')}` },
+          { error: `不支援的檔案格式：.${ext}。支援格式：${ALLOWED_EXTENSIONS.join(', ')} / Unsupported file type: .${ext}. Supported: ${ALLOWED_EXTENSIONS.join(', ')}` },
           { status: 415 }
         );
       }
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
 
       if (!content || content.length < 10) {
         return NextResponse.json(
-          { error: `無法從 ${ext.toUpperCase()} 檔案提取文字。${ext === 'pdf' ? '請確認 PDF 為文字型（非掃描圖片），或稍後重試 OCR。' : ''}` },
+          { error: `無法從 ${ext.toUpperCase()} 檔案提取文字。${ext === 'pdf' ? '請確認 PDF 為文字型（非掃描圖片），或稍後重試 OCR。' : ''} / Could not extract text from the ${ext.toUpperCase()} file.${ext === 'pdf' ? ' Make sure the PDF is text-based (not a scanned image), or retry OCR later.' : ''}` },
           { status: 422 }
         );
       }
@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
     const bodyStr = JSON.stringify(rawBody);
     if (bodyStr.length > MAX_CONTENT_LENGTH) {
       return NextResponse.json(
-        { error: `請求內容超過上限（${Math.round(MAX_CONTENT_LENGTH / 1024)}KB）` },
+        { error: `請求內容超過上限（${Math.round(MAX_CONTENT_LENGTH / 1024)}KB）/ Request content exceeds the limit (${Math.round(MAX_CONTENT_LENGTH / 1024)}KB)` },
         { status: 413 }
       );
     }
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
     const parsed = materialBodySchema.safeParse(rawBody);
     if (!parsed.success) {
       const errors = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`);
-      return NextResponse.json({ error: '輸入驗證失敗', details: errors }, { status: 400 });
+      return NextResponse.json({ error: '輸入驗證失敗 / Validation failed', details: errors }, { status: 400 });
     }
 
     const { title, description, type, gradeLevel, strand, content, tags, fileSize } = parsed.data;

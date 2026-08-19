@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const dryRun = formData.get('dryRun') === 'true';
 
     if (!file) {
-      return NextResponse.json({ error: '請上傳 CSV 檔案' }, { status: 400 });
+      return NextResponse.json({ error: '請上傳 CSV 檔案 / Please upload a CSV file' }, { status: 400 });
     }
 
     const text = await file.text();
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (rows.length === 0) {
       return NextResponse.json(
-        { error: 'CSV 檔案沒有有效資料（至少需要標題列 + 一筆資料）' },
+        { error: 'CSV 檔案沒有有效資料（至少需要標題列 + 一筆資料）/ The CSV file contains no valid data (at least a header row + one data row)' },
         { status: 400 }
       );
     }

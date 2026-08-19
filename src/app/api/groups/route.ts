@@ -76,12 +76,12 @@ export async function PATCH(request: NextRequest) {
     const { id, name, description } = body;
 
     if (!id) {
-      return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
+      return NextResponse.json({ error: '組別 ID 為必填 / Group ID is required' }, { status: 400 });
     }
 
     const existing = await findGroupById(id);
     if (!existing || existing.createdBy !== teacherId) {
-      return NextResponse.json({ error: '無權編輯此組別' }, { status: 403 });
+      return NextResponse.json({ error: '無權編輯此組別 / You cannot edit this group' }, { status: 403 });
     }
 
     const group = await updateGroup(id, {
@@ -109,12 +109,12 @@ export async function DELETE(request: NextRequest) {
     const { id } = body;
 
     if (!id) {
-      return NextResponse.json({ error: '組別 ID 為必填' }, { status: 400 });
+      return NextResponse.json({ error: '組別 ID 為必填 / Group ID is required' }, { status: 400 });
     }
 
     const existing = await findGroupById(id);
     if (!existing || existing.createdBy !== teacherId) {
-      return NextResponse.json({ error: '無權刪除此組別' }, { status: 403 });
+      return NextResponse.json({ error: '無權刪除此組別 / You cannot delete this group' }, { status: 403 });
     }
 
     await deleteGroup(id);

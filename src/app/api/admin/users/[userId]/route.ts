@@ -29,7 +29,7 @@ export async function PUT(
     // ---- 查詢現有使用者 ----
     const existing = await adminDbQuery('user', 'findUnique', { where: { id: userId } });
     if (!existing) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
+      return NextResponse.json({ error: '使用者不存在 / User not found' }, { status: 404 });
     }
 
     // ---- 構建更新資料 ----
@@ -111,12 +111,12 @@ export async function DELETE(
 
     const existing = await adminDbQuery('user', 'findUnique', { where: { id: userId }, select: { id: true, email: true, role: true } });
     if (!existing) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
+      return NextResponse.json({ error: '使用者不存在 / User not found' }, { status: 404 });
     }
 
     // Prevent admin from deleting themselves
     if (auth.userId === userId) {
-      return NextResponse.json({ error: '無法刪除自己的帳戶' }, { status: 400 });
+      return NextResponse.json({ error: '無法刪除自己的帳戶 / You cannot delete your own account' }, { status: 400 });
     }
 
     // Delete all related records (cascade) & the user itself
@@ -146,18 +146,18 @@ export async function PATCH(
     const { password } = body;
 
     if (!password || typeof password !== 'string' || password.length < 6) {
-      return NextResponse.json({ error: '密碼長度至少需要 6 個字元' }, { status: 400 });
+      return NextResponse.json({ error: '密碼長度至少需要 6 個字元 / Password must be at least 6 characters' }, { status: 400 });
     }
 
     const existing = await adminDbQuery('user', 'findUnique', { where: { id: userId }, select: { id: true, email: true } });
     if (!existing) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
+      return NextResponse.json({ error: '使用者不存在 / User not found' }, { status: 404 });
     }
 
     const hashed = await hashPassword(password);
     await adminDbQuery('user', 'update', { where: { id: userId }, data: { passwordHash: hashed } });
 
-    return NextResponse.json({ success: true, message: `已重設 ${existing.email} 的密碼` });
+    return NextResponse.json({ success: true, message: `已重設 ${existing.email} 的密碼 / Password reset for ${existing.email}` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤';
     logger.error({ module: 'admin/users', method: 'PATCH', error: msg }, 'Admin user password reset failed');

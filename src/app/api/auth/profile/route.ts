@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const currentUser = await resolveCurrentUser(request);
     if (!currentUser?.id) {
-      return NextResponse.json({ error: '未登入' }, { status: 401 });
+      return NextResponse.json({ error: '未登入 / Not signed in' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -59,7 +59,7 @@ export async function PATCH(request: NextRequest) {
     if (classNumber !== undefined) data.classNumber = classNumber;
 
     if (Object.keys(data).length === 0) {
-      return NextResponse.json({ error: '沒有可更新的欄位' }, { status: 400 });
+      return NextResponse.json({ error: '沒有可更新的欄位 / No fields to update' }, { status: 400 });
     }
 
     const user = await updateUser(currentUser.id, { name: body.name, nameZh: body.nameZh, nameEn: body.nameEn });

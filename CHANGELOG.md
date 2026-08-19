@@ -18,7 +18,9 @@ All notable changes to the AI English Platform are documented here.
 - **FIXED**: README removed the stale 「改錯題」 claim — error-correction question type is disabled (underline rendering unsupported); schema enum retained for backward compatibility only.
 
 ### 🌐 i18n
-- Bilingual (zh / en) error & empty-state messages across all student-facing API routes (vocabulary, practice, mistakes, diagnostic, gamification, SRS, daily-challenge, notifications, student prediction/risk/twin, ai/*, analytics/report, OCR) — English UI no longer shows Chinese-only server errors.
+- Bilingual (zh / en) error & empty-state messages across all **student-facing** API routes (vocabulary, practice, mistakes, diagnostic, gamification, SRS, daily-challenge, notifications, student prediction/risk/twin, ai/*, analytics/report, OCR) — English UI no longer shows Chinese-only server errors.
+- Bilingual (zh / en) error & validation messages across all **teacher/admin-facing** routes (teacher students, assignments, groups, classes, import, materials, drive, export, admin users/classes/import/sync/ensure-admin, auth login/profile/role, rag) — native-English teachers/admins no longer see Chinese-only errors.
+- **FIXED**: group/student-targeted assignment notifications were hardcoded Chinese — added `notifyAssignmentCreatedToUsers()` which sends per-student language-preference notifications (mirrors the existing class-targeted `notifyAssignmentCreated()`).
 
 ### ✅ VERIFY
 - tsc 0 · **126 files / 2801 tests** green · `node scripts/check-i18n.js` exit 0 · API routes 126 → **119**.
