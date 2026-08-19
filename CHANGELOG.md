@@ -4,6 +4,27 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-19 — Dead Code Removal & Bilingual API Hardening (死碼清除 + 雙語強化)
+
+### 🧹 Dead code removed (zero runtime consumers)
+- **DELETED**: legacy `services/integrated-skills.ts` (runtime functions superseded by `usecases/integrated-skills-gen.ts` + `integrated-skills-analysis.ts`); facade IS types now sourced from canonical `usecases/integrated-skills-types.ts` (removed duplicated `DataFileSource`).
+- **DELETED**: legacy IS prompt builders `buildIntegratedSkillsGenPrompt` / `buildIntegratedSkillsAnalysisPrompt` + `IntegratedSkillsGenPromptParams` from `prompts/writing/v1.ts` and the `prompts` barrel.
+- **DELETED**: `providers/vertex-gemini-provider.ts` (exported but never registered in the provider chain).
+- **DELETED**: 7 deprecated routes with no frontend consumers — `/api/writing/model-essays`, `/api/writing-coach` (+ `/analyze`), `/api/adaptive-learning/pipeline`, `/api/llm-eval` (+ `/evaluate`), `/api/experiment`.
+- **DELETED**: legacy `writing-coach` service/schemas/types/tests (`writing-coach-service.ts`, `services/writing-coach.ts` heuristic scorer with 5**/5* levels, `schemas`, `types.ts`) — canonical scorer is `analyzeWriting()`; `repositories/writing-draft-repo.ts` retained (still used by `student`).
+- **CLEANED**: dead route schemas (`writingCoachAnalyzeSchema`, `modelEssaysGenSchema`, `llmEvalSchema`, `experimentSchema`, `writingCoachRouterSchema`); `phase6-boundaries.test.ts` legacy-route guard updated.
+
+### 📋 Doc accuracy
+- **FIXED**: README removed the stale 「改錯題」 claim — error-correction question type is disabled (underline rendering unsupported); schema enum retained for backward compatibility only.
+
+### 🌐 i18n
+- Bilingual (zh / en) error & empty-state messages across all student-facing API routes (vocabulary, practice, mistakes, diagnostic, gamification, SRS, daily-challenge, notifications, student prediction/risk/twin, ai/*, analytics/report, OCR) — English UI no longer shows Chinese-only server errors.
+
+### ✅ VERIFY
+- tsc 0 · **126 files / 2801 tests** green · `node scripts/check-i18n.js` exit 0 · API routes 126 → **119**.
+
+---
+
 ## 2026-08-19 — Full-Feature Re-Audit & Remediation (全功能複審修正)
 
 ### 🛡️ Scoring integrity / anti-fabrication
@@ -26,7 +47,7 @@ All notable changes to the AI English Platform are documented here.
 - Bilingual: practice wrong-answer encouragements, question-count suffix, Integrated Skills discard-progress confirm, and the IS level badge (`Est. Level N`).
 
 ### ✅ VERIFY
-- tsc 0 · **128 files / 2826 tests** green · `node scripts/check-i18n.js` exit 0 · AI facade now 62 exported symbols.
+- tsc 0 · **126 files / 2801 tests** green · `node scripts/check-i18n.js` exit 0 · AI facade now 61 exported symbols.
 
 ---
 

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // book. Previously any authenticated student could export any studentId's
     // entire word list (BOLA).
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能匯出自己的生字簿' }, { status: 403 });
+      return NextResponse.json({ error: '只能匯出自己的生字簿 / You can only export your own vocabulary book' }, { status: 403 });
     }
 
     const vocab = await getVocabForExport(studentId, wordIds);

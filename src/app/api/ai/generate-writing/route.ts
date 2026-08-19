@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     if (!textType || !gradeLevel || !wordLimit) {
       return NextResponse.json(
-        { error: '請提供 textType、gradeLevel 和 wordLimit。' },
+        { error: '請提供 textType、gradeLevel 和 wordLimit / Please provide textType, gradeLevel and wordLimit' },
         { status: 400 }
       );
     }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (action === 'outline') {
       if (!writingPrompt) {
         return NextResponse.json(
-          { error: '生成大綱需要提供 writingPrompt。' },
+          { error: '生成大綱需要提供 writingPrompt / An outline requires writingPrompt' },
           { status: 400 }
         );
       }

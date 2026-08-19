@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Students can only see their own twin
     if (authResult.role === 'student' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的學習檔案' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的學習檔案 / You can only view your own learning profile' }, { status: 403 });
     }
 
     const twin = await studentTwinService.buildTwin(studentId);

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: '請上傳圖片檔案' }, { status: 400 });
+      return NextResponse.json({ error: '請上傳圖片檔案 / Please upload an image file' }, { status: 400 });
     }
 
     // 驗證檔案類型與大小

@@ -32,12 +32,12 @@ export async function POST(request: NextRequest) {
 
     // 驗證 studentId 與已登入用戶一致（防止存取他人資料）
     if (studentId && authResult.userId && studentId !== authResult.userId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
-      return NextResponse.json({ error: '無權限存取此學生的資料' }, { status: 403 });
+      return NextResponse.json({ error: '無權限存取此學生的資料 / You cannot access this student\'s data' }, { status: 403 });
     }
     const effectiveStudentId = studentId || authResult.userId;
 
     if (!effectiveStudentId) {
-      return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'studentId 為必填 / studentId is required' }, { status: 400 });
     }
 
     const vocabItems = wordIds && Array.isArray(wordIds) && wordIds.length > 0
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         });
 
     if (vocabItems.length === 0) {
-      return NextResponse.json({ quiz: [], message: '你的生字簿還沒有單字，先加入一些吧！' });
+      return NextResponse.json({ quiz: [], message: '你的生字簿還沒有單字，先加入一些吧！ / Your vocabulary book is empty — add some words first!' });
     }
 
     const deserialized = vocabItems.map(serializeVocab);

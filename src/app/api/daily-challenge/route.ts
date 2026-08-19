@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
   // 🔒 Ownership: students can only access their own daily challenge
   if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-    return NextResponse.json({ error: '只能查看自己的每日挑戰' }, { status: 403 });
+    return NextResponse.json({ error: '只能查看自己的每日挑戰 / You can only view your own daily challenge' }, { status: 403 });
   }
 
   // Rate limiting
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     const generated = questions[0];
     if (!generated) {
-      return NextResponse.json({ error: '未能生成今日挑戰題目，請稍後再試' }, { status: 503 });
+      return NextResponse.json({ error: '未能生成今日挑戰題目，請稍後再試 / Could not generate today\'s challenge question, please try again later' }, { status: 503 });
     }
 
     // Persistence failure → fail-closed 500 (no client-keyed delivery)
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
     } catch (persistErr) {
       const persistMsg = persistErr instanceof Error ? persistErr.message : String(persistErr);
       logger.error({ module: 'daily-challenge', error: persistMsg }, 'Daily challenge question persistence failed');
-      return NextResponse.json({ error: '題目伺服器持久化失敗，請稍後再試' }, { status: 500 });
+      return NextResponse.json({ error: '題目伺服器持久化失敗，請稍後再試 / Question could not be saved on the server, please try again later' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -153,19 +153,19 @@ export async function POST(request: NextRequest) {
 
     // 🔒 Ownership: students can only submit their own daily challenge
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能提交自己的每日挑戰' }, { status: 403 });
+      return NextResponse.json({ error: '只能提交自己的每日挑戰 / You can only submit your own daily challenge' }, { status: 403 });
     }
 
     // R3.10-L: server authority — client-supplied isCorrect/correctAnswer
     // are IGNORED; the answer key comes from the persisted question store.
     if (typeof questionId !== 'string' || questionId.trim() === '' || typeof studentAnswer !== 'string') {
-      return NextResponse.json({ error: 'questionId 與 studentAnswer 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'questionId 與 studentAnswer 為必填 / questionId and studentAnswer are required' }, { status: 400 });
     }
 
     const defs = await resolveGrammarQuestionDefinitions([questionId]);
     const def = defs.get(questionId);
     if (!def) {
-      return NextResponse.json({ error: '找不到此題目（伺服器不持有此題，NOT_PROJECTABLE）' }, { status: 400 });
+      return NextResponse.json({ error: '找不到此題目（伺服器不持有此題，NOT_PROJECTABLE） / Question not found on the server (NOT_PROJECTABLE)' }, { status: 400 });
     }
 
     const normalized = studentAnswer.trim();

@@ -37,12 +37,12 @@ export async function POST(request: NextRequest) {
     };
 
     if (!studentId || !results?.length) {
-      return NextResponse.json({ error: '缺少 studentId 或 results' }, { status: 400 });
+      return NextResponse.json({ error: '缺少 studentId 或 results / studentId and results are required' }, { status: 400 });
     }
 
     // 🔒 Ownership check: only the student themselves or a teacher/admin can save diagnostic data
     if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
-      return NextResponse.json({ error: '無權限為其他用戶儲存診斷結果' }, { status: 403 });
+      return NextResponse.json({ error: '無權限為其他用戶儲存診斷結果 / You cannot save diagnostic results for another user' }, { status: 403 });
     }
 
     await clearDiagnosticResults(studentId);
@@ -82,11 +82,11 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
-    if (!studentId) return NextResponse.json({ error: '缺少 studentId' }, { status: 400 });
+    if (!studentId) return NextResponse.json({ error: '缺少 studentId / studentId is required' }, { status: 400 });
 
     // 🔒 Ownership check: only the student themselves or a teacher/admin can read diagnostic data
     if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
-      return NextResponse.json({ error: '無權限查看其他用戶的診斷結果' }, { status: 403 });
+      return NextResponse.json({ error: '無權限查看其他用戶的診斷結果 / You cannot view another user\'s diagnostic results' }, { status: 403 });
     }
 
     const results = await adminDbQuery('diagnosticResult', 'findMany', {

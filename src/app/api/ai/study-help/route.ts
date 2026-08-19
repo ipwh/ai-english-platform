@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const { question, studentLevel, weakSkills, recentMistakes, recentPerformance } = body;
 
     if (!question || !studentLevel) {
-      return NextResponse.json({ error: '請提供 question 與 studentLevel。' }, { status: 400 });
+      return NextResponse.json({ error: '請提供 question 與 studentLevel / Please provide question and studentLevel' }, { status: 400 });
     }
 
     const help = await answerStudyHelp({

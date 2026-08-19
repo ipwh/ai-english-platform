@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     // 🔒 Ownership: students can only view their own review suggestions
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的複習建議' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的複習建議 / You can only view your own review suggestions' }, { status: 403 });
     }
 
     // 1. Get all vocabulary items

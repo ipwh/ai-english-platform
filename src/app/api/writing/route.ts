@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const { title, prompt, draft, aiSuggestions, chinglishWarnings } = body;
 
     if (!title) {
-      return NextResponse.json({ error: 'title 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'title 為必填 / title is required' }, { status: 400 });
     }
 
     const writingDraft = await createDraft({

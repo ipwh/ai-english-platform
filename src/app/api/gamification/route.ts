@@ -25,12 +25,12 @@ export async function GET(req: NextRequest) {
     const action = searchParams.get('action') || 'status';
 
     if (!studentId) {
-      return NextResponse.json({ error: '缺少 studentId' }, { status: 400 });
+      return NextResponse.json({ error: '缺少 studentId / studentId is required' }, { status: 400 });
     }
 
     // 🔒 Ownership: students can only view their own gamification data
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的遊戲化數據' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的遊戲化數據 / You can only view your own gamification data' }, { status: 403 });
     }
 
     if (action === 'leaderboard') {
@@ -80,12 +80,12 @@ export async function POST(req: NextRequest) {
     };
 
     if (!studentId || !event) {
-      return NextResponse.json({ error: '缺少必要參數' }, { status: 400 });
+      return NextResponse.json({ error: '缺少必要參數 / Missing required parameters' }, { status: 400 });
     }
 
     // 🔒 Ownership: students can only record XP events for themselves
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能記錄自己的 XP 事件' }, { status: 403 });
+      return NextResponse.json({ error: '只能記錄自己的 XP 事件 / You can only record your own XP events' }, { status: 403 });
     }
 
     const { xpGained, newLevel } = await studentStateMutationService.awardXp(studentId, event);
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ xpGained, level: newLevel });
   } catch (error) {
     logger.error({ module: 'gamification', error: error instanceof Error ? error.message : String(error) }, 'Gamification POST failed');
-    return NextResponse.json({ error: '記錄 XP 失敗' }, { status: 500 });
+    return NextResponse.json({ error: '記錄 XP 失敗 / Failed to record XP' }, { status: 500 });
   }
 }
 

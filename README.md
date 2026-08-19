@@ -9,12 +9,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-19 — 128 files, 2826 tests pass (full non-E2E).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-19 — 126 files, 2801 tests pass (full non-E2E).
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes (126) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+Routes (119) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ Prompts (PromptRegistry)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
@@ -65,7 +65,7 @@ Writing Evaluation (Sprints 127-130):
 ## 功能
 
 ### 🧑‍🎓 學生端
-- **AI 練習題目** — 支援選擇題、填充題、改錯題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
+- **AI 練習題目** — 支援選擇題、填充題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**5 種真實考試陷阱**、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、7 種 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
@@ -354,7 +354,7 @@ npm run dev
 ```
 src/
 ├── app/                      # Next.js App Router
-│   ├── api/                  # 126 API route files
+│   ├── api/                  # 119 API route files
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
@@ -522,7 +522,7 @@ npm run test:watch    # 持續監控模式
 |------|------|
 | 架構 | ✅ 模組化架構 (Routes → Zod → Services → Repositories → DB) |
 | AI 服務層 | ✅ DeepSeek → Vertex Gemini → Gemini API fallback chain, MCQ 正規化, provider registry DI |
-| API 路由 | ✅ 126 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
+| API 路由 | ✅ 119 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
 | 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
 | 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |

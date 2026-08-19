@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
     const wordIdsParam = searchParams.get('wordIds'); // comma-separated vocab IDs for custom selection
 
     if (!studentId) {
-      return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'studentId 為必填 / studentId is required' }, { status: 400 });
     }
 
     // 🔒 Ownership: students can only generate spelling quizzes for themselves
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能為自己的帳號生成串字練習' }, { status: 403 });
+      return NextResponse.json({ error: '只能為自己的帳號生成串字練習 / You can only generate spelling practice for yourself' }, { status: 403 });
     }
 
     const vocabItems = await getVocabForSpelling(studentId, count, mode, wordIdsParam || undefined);
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (vocabItems.length === 0) {
       return NextResponse.json({
         words: [],
-        message: '你的生字簿還沒有單字，先加入一些吧！',
+        message: '你的生字簿還沒有單字，先加入一些吧！ / Your vocabulary book is empty — add some words first!',
       });
     }
 
@@ -94,24 +94,24 @@ export async function POST(request: NextRequest) {
 
     if (!sessionId || !studentId || !Array.isArray(attempts)) {
       return NextResponse.json(
-        { error: 'sessionId, studentId, attempts[] 為必填' },
+        { error: 'sessionId, studentId, attempts[] 為必填 / sessionId, studentId, attempts[] are required' },
         { status: 400 }
       );
     }
 
     // 🔒 Ownership: students can only submit spelling results for themselves
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能提交自己的串字結果' }, { status: 403 });
+      return NextResponse.json({ error: '只能提交自己的串字結果 / You can only submit your own spelling results' }, { status: 403 });
     }
 
     // 🔒 R3.10-L: the session must exist AND belong to the submitting student.
     // Previously the session id was never ownership-checked.
     const session = await getSpellingSessionById(sessionId);
     if (!session) {
-      return NextResponse.json({ error: '找不到串字練習會話' }, { status: 404 });
+      return NextResponse.json({ error: '找不到串字練習會話 / Spelling session not found' }, { status: 404 });
     }
     if (session.studentId !== studentId) {
-      return NextResponse.json({ error: '此串字練習會話不屬於你' }, { status: 403 });
+      return NextResponse.json({ error: '此串字練習會話不屬於你 / This spelling session does not belong to you' }, { status: 403 });
     }
 
     // 記錄每次嘗試

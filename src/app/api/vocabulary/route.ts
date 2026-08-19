@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       validateRequest(vocabularyCreateSchema, body);
 
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能為自己的帳號新增單字' }, { status: 403 });
+      return NextResponse.json({ error: '只能為自己的帳號新增單字 / You can only add words to your own account' }, { status: 403 });
     }
 
     // Use service layer — handles dedup internally (returns existing on duplicate)
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     if (message.includes('Unique constraint') || message.includes('UNIQUE')) {
       return NextResponse.json(
-        { error: 'duplicate', message: '此單字已在生字簿中' },
+        { error: 'duplicate', message: '此單字已在生字簿中 / This word is already in your vocabulary book' },
         { status: 409 }
       );
     }
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的生字簿' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的生字簿 / You can only view your own vocabulary book' }, { status: 403 });
     }
 
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -105,17 +105,17 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, familiarity, masteryLevel, nextReviewDate, reviewInterval, easeFactor, lastReviewedAt } = body;
-    if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+    if (!id) return NextResponse.json({ error: 'id 為必填 / id is required' }, { status: 400 });
 
     const result = await updateVocabWord(id, authResult.userId!, authResult.role ?? 'student', {
       familiarity, masteryLevel, nextReviewDate, reviewInterval, easeFactor, lastReviewedAt,
     });
 
     if (result.error === 'NOT_FOUND') {
-      return NextResponse.json({ error: '找不到此單字' }, { status: 404 });
+      return NextResponse.json({ error: '找不到此單字 / Word not found' }, { status: 404 });
     }
     if (result.error === 'FORBIDDEN') {
-      return NextResponse.json({ error: '無權限修改其他用戶的生字簿' }, { status: 403 });
+      return NextResponse.json({ error: '無權限修改其他用戶的生字簿 / You cannot edit another user\'s vocabulary book' }, { status: 403 });
     }
     if (result.error === 'NO_FIELDS') {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
@@ -137,15 +137,15 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+    if (!id) return NextResponse.json({ error: 'id 為必填 / id is required' }, { status: 400 });
 
     const result = await deleteVocabWord(id, authResult.userId!, authResult.role ?? 'student');
 
     if (result.error === 'NOT_FOUND') {
-      return NextResponse.json({ error: '找不到此單字' }, { status: 404 });
+      return NextResponse.json({ error: '找不到此單字 / Word not found' }, { status: 404 });
     }
     if (result.error === 'FORBIDDEN') {
-      return NextResponse.json({ error: '無權限刪除其他用戶的生字簿' }, { status: 403 });
+      return NextResponse.json({ error: '無權限刪除其他用戶的生字簿 / You cannot delete another user\'s vocabulary book' }, { status: 403 });
     }
 
     return NextResponse.json({ success: true });

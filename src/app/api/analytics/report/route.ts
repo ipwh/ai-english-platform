@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
     if (authResult.role === 'student' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的分析報告' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的分析報告 / You can only view your own analysis report' }, { status: 403 });
     }
 
     const input = { studentId, ...analyticsInput };

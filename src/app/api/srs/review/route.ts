@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get('type') || 'all';
 
     if (!studentId) {
-      return NextResponse.json({ error: '缺少 studentId' }, { status: 400 });
+      return NextResponse.json({ error: '缺少 studentId / studentId is required' }, { status: 400 });
     }
 
     const now = new Date();
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     logger.error({ module: 'srs-review', error: error instanceof Error ? error.message : String(error) }, 'SRS Review GET failed');
-    return NextResponse.json({ error: '無法載入複習卡片' }, { status: 500 });
+    return NextResponse.json({ error: '無法載入複習卡片 / Could not load review cards' }, { status: 500 });
   }
 }
 
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!studentId || !results?.length) {
-      return NextResponse.json({ error: '缺少必要參數' }, { status: 400 });
+      return NextResponse.json({ error: '缺少必要參數 / Missing required parameters' }, { status: 400 });
     }
 
     const updates: Promise<unknown>[] = [];

@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!originalDraft?.trim()) {
-      return NextResponse.json({ error: '缺少原文內容' }, { status: 400 });
+      return NextResponse.json({ error: '缺少原文內容 / Missing original text' }, { status: 400 });
     }
 
     const level = gradeLevel || 'S4';

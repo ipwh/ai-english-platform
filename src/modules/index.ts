@@ -21,8 +21,6 @@ export type { AdaptiveLearningResult, PipelineStage } from './learning/types/ada
 export { buildVocabProfile } from './vocabulary/intelligence/services/vocabulary-intelligence-service';
 export type { VocabularyProfile, VocabWordProfile } from './vocabulary/intelligence/types';
 
-export { writingCoachService } from './writing-coach/services/writing-coach-service';
-
 // === Analytics Domain ===
 export { buildStudentTrends, buildTeacherDashboard, buildLearningStats } from './learning-analytics/services/learning-analytics-service';
 export type { StudentTrends, TeacherDashboard } from './learning-analytics/types';

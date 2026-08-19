@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, id: notification.id }, { status: 201 });
     }
 
-    return NextResponse.json({ error: '請提供 markAllRead、notificationId 或 type/title/message' }, { status: 400 });
+    return NextResponse.json({ error: '請提供 markAllRead、notificationId 或 type/title/message / Please provide markAllRead, notificationId or type/title/message' }, { status: 400 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });

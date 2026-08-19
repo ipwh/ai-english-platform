@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       );
     }
     logger.error({ module: 'generate-model-essay', error: (error as Error).message }, 'Model essay generation failed');
-    return NextResponse.json({ error: '範文生成失敗' }, { status: 500 });
+    return NextResponse.json({ error: '範文生成失敗 / Model essay generation failed' }, { status: 500 });
   }
 }
 

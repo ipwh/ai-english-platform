@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           analysis: null,
           insufficientEvidence: true,
-          message: '尚無足夠的已驗證練習紀錄可進行分析',
+          message: '尚無足夠的已驗證練習紀錄可進行分析 / Not enough verified practice history to analyse yet',
           _source: sourceLabel,
           _meta: {
             provider: getLastAIProvider(),

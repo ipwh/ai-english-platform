@@ -21,12 +21,12 @@ export async function POST(request: NextRequest) {
     const { studentId, questionId, studentAnswer, correctAnswer, mistakeType, aiExplanation } = body;
 
     if (!studentId || !questionId) {
-      return NextResponse.json({ error: 'studentId, questionId 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'studentId, questionId 為必填 / studentId and questionId are required' }, { status: 400 });
     }
 
     // 🔒 Ownership: only allow creating mistakes for yourself (teachers use separate routes)
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能為自己的帳號新增錯題' }, { status: 403 });
+      return NextResponse.json({ error: '只能為自己的帳號新增錯題 / You can only add mistakes to your own account' }, { status: 403 });
     }
 
     // R3.10-E.2 P0-2: 原子 insert-if-absent（唯一鍵 studentId+questionId）。
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     // 🔒 Ownership: students can only read their own mistakes
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的錯題' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的錯題 / You can only view your own mistakes' }, { status: 403 });
     }
 
     const raw = await MistakeRepo.listMistakes(studentId, 100);
@@ -102,16 +102,16 @@ export async function PATCH(request: NextRequest) {
     const { id, reviewed, inReviewList } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'id 為必填 / id is required' }, { status: 400 });
     }
 
     // 🔒 Ownership: verify the mistake belongs to this student
     const existing = await MistakeRepo.findMistakeById(id);
     if (!existing) {
-      return NextResponse.json({ error: '找不到此錯題' }, { status: 404 });
+      return NextResponse.json({ error: '找不到此錯題 / Mistake not found' }, { status: 404 });
     }
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && existing.studentId !== authResult.userId) {
-      return NextResponse.json({ error: '無權限修改其他用戶的錯題' }, { status: 403 });
+      return NextResponse.json({ error: '無權限修改其他用戶的錯題 / You cannot edit another user\'s mistakes' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -156,15 +156,15 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'id 為必填' }, { status: 400 });
+    if (!id) return NextResponse.json({ error: 'id 為必填 / id is required' }, { status: 400 });
 
     // 🔒 Ownership: verify the mistake belongs to this student
     const existing = await MistakeRepo.findMistakeById(id);
     if (!existing) {
-      return NextResponse.json({ error: '找不到此錯題' }, { status: 404 });
+      return NextResponse.json({ error: '找不到此錯題 / Mistake not found' }, { status: 404 });
     }
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && existing.studentId !== authResult.userId) {
-      return NextResponse.json({ error: '無權限刪除其他用戶的錯題' }, { status: 403 });
+      return NextResponse.json({ error: '無權限刪除其他用戶的錯題 / You cannot delete another user\'s mistakes' }, { status: 403 });
     }
 
     await MistakeRepo.deleteMistake(id);

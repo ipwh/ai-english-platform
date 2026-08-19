@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const { word, partOfSpeech, meaningZh, gradeLevel } = body;
 
     if (!word) {
-      return NextResponse.json({ error: 'word 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'word 為必填 / word is required' }, { status: 400 });
     }
 
     const grade = gradeLevel || 'S4';

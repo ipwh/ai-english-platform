@@ -63,20 +63,11 @@ describe("Source-of-truth guards — generation vs scoring isolation", () => {
 });
 
 describe("Legacy route guards — /api/writing/model-essays", () => {
-  it("is explicitly marked DEPRECATED with source-of-truth comment", () => {
-    const content = src("app/api/writing/model-essays/route.ts");
-    expect(content).toContain("DEPRECATED");
-    expect(content).toContain("scoreBreakdown");
-    expect(content).toContain("唯一評分權威");
-  });
-
-  it("has no runtime consumers (only its own route + retained schema)", () => {
-    const route = src("app/api/writing/model-essays/route.ts");
-    const schema = src("shared/validation/schemas/remaining-routes.schema.ts");
-    // Consumer scan is performed here by asserting the schema file is the
-    // only place that defines it; imports elsewhere are guarded below.
-    expect(route).toContain("model-essays");
-    expect(schema).toContain("DEPRECATED");
+  it("has been removed (zero runtime consumers)", () => {
+    // R3.10-L audit: the deprecated /api/writing/model-essays route and its
+    // writing-coach siblings were deleted. The canonical model-essay path is
+    // /api/ai/generate-model-essay (Zod-validated, quality-gated).
+    expect(() => src("app/api/writing/model-essays/route.ts")).toThrow();
   });
 });
 

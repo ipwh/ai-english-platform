@@ -6,10 +6,10 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholders)
-- **Testing**: Vitest 4, 2826/2826 tests pass (128 files — fully green; dead adaptive-tutor module removed in R3.10-L)
+- **Testing**: Vitest 4, 2801/2801 tests pass (126 files — fully green; dead adaptive-tutor + legacy writing-coach modules removed)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules)
-- **API routes**: 126 under `src/app/api/`
+- **API routes**: 119 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
 - **AI Facade**: 62 exported symbols — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules)
@@ -41,7 +41,7 @@ See AGENTS.md for shared agent instructions.
 
 ## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)
 ```
-Routes (126) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
+Routes (119) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)
                   ├─ Providers (6-model chain + circuit-breaker)
                   ├─ Services (RAG, TTS, evaluator, enrichment)

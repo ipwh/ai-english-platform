@@ -97,13 +97,12 @@ export { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/serv
 // AI Evaluator (reading answer evaluation)
 export { evaluateWithAI, type AIEvaluationResult } from '@/modules/ai/services/ai-evaluator';
 
-// Integrated Skills config constants (not in ai-service re-exports)
+// Integrated Skills types — canonical definitions (usecases/integrated-skills-types.ts)
 export type {
   IntegratedSkillsTask,
   AnalyzeIntegratedSkillsInput,
   IntegratedSkillsAnalysis,
-  DataFileSource,
-} from '@/modules/ai/services/integrated-skills';
+} from '@/modules/ai/usecases/integrated-skills-types';
 export {
   INTEGRATED_SKILLS_DIFF_MAP,
   INTEGRATED_SKILLS_TASK_TYPE_MAP,

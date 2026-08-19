@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
     const { studentId, skill, skillZh, difficulty, source, answers, clientSubmissionId } = body;
 
     if (!studentId) {
-      return NextResponse.json({ error: 'studentId 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'studentId 為必填 / studentId is required' }, { status: 400 });
     }
 
     // 🔒 Ownership check: only the student themselves or a teacher can write practice data
     if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
-      return NextResponse.json({ error: '無權限為其他用戶儲存練習記錄' }, { status: 403 });
+      return NextResponse.json({ error: '無權限為其他用戶儲存練習記錄 / You cannot save practice records for another user' }, { status: 403 });
     }
 
     const result = await submitPractice({

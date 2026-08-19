@@ -21,12 +21,12 @@ export async function POST(request: NextRequest) {
     const { studentId, text, source, gradeLevel } = body;
 
     if (!studentId || !text) {
-      return NextResponse.json({ error: 'studentId, text 為必填' }, { status: 400 });
+      return NextResponse.json({ error: 'studentId, text 為必填 / studentId and text are required' }, { status: 400 });
     }
 
     // 🔒 Ownership: students can only get suggestions for themselves
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能為自己的帳號獲取建議' }, { status: 403 });
+      return NextResponse.json({ error: '只能為自己的帳號獲取建議 / You can only get suggestions for your own account' }, { status: 403 });
     }
 
     const existingWords = await getExistingWordSet(studentId);

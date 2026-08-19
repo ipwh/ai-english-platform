@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId') || authResult.userId!;
 
     if (authResult.role === 'student' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的風險評估' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的風險評估 / You can only view your own risk assessment' }, { status: 403 });
     }
 
     const risks = await studentTwinService.getRiskAssessment(studentId);

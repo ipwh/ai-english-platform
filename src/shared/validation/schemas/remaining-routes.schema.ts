@@ -104,30 +104,6 @@ export const vocabExportPdfSchema = z.object({
 });
 
 // ============================================
-// Writing Coach
-// ============================================
-
-export const writingCoachAnalyzeSchema = z.object({
-  essayId: z.string().optional(),
-  studentId: studentId.optional(),
-  title: z.string().optional(),
-  content: z.string().min(1),
-  textType: z.string().optional(),
-  gradeLevel: studentLevel,
-  action: z.enum(['analyze', 'suggest', 'outline']).optional(),
-});
-
-// R3.10-K Phase 6: /api/writing/model-essays is DEPRECATED (no runtime
-// consumer). Schema retained for compatibility only.
-export const modelEssaysGenSchema = z.object({
-  prompt: z.string().min(1),
-  textType: z.string().optional(),
-  wordLimit: z.coerce.number().int().min(50).max(2000).default(300),
-  gradeLevel: studentLevel,
-  studentLevel: studentLevel,
-});
-
-// ============================================
 // Mistakes Bulk
 // ============================================
 
@@ -157,27 +133,3 @@ export const writingAnalysisExportSchema = z.object({
   weaknesses: z.array(z.string()).optional(),
   generalComment: z.string().optional(),
 });
-
-// ============================================
-// LLM Eval (minimal validation)
-// ============================================
-
-export const llmEvalSchema = z.object({
-  action: z.string().min(1),
-}).passthrough();
-
-// ============================================
-// Experiment (minimal validation)
-// ============================================
-
-export const experimentSchema = z.object({
-  action: z.string().min(1),
-}).passthrough();
-
-// ============================================
-// Writing Coach Router
-// ============================================
-
-export const writingCoachRouterSchema = z.object({
-  action: z.enum(['create', 'analyze', 'compare', 'revise', 'listAll']),
-}).passthrough();

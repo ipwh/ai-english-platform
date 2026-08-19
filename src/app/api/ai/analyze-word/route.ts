@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const parsed = RequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: '無效的請求：word 為必填，gradeLevel 為 S1-S6' },
+        { error: '無效的請求：word 為必填，gradeLevel 為 S1-S6 / Invalid request: word is required and gradeLevel must be S1-S6' },
         { status: 400 }
       );
     }

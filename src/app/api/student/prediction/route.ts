@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId') || authResult.userId!;
 
     if (authResult.role === 'student' && studentId !== authResult.userId) {
-      return NextResponse.json({ error: '只能查看自己的預測' }, { status: 403 });
+      return NextResponse.json({ error: '只能查看自己的預測 / You can only view your own prediction' }, { status: 403 });
     }
 
     const predictions = await studentTwinService.getPredictions(studentId);
