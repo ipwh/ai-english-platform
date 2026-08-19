@@ -66,6 +66,8 @@ Writing Evaluation (Sprints 127-130):
 
 ### 🧑‍🎓 學生端
 - **AI 練習題目** — 支援選擇題、填充題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
+- **📖 閱讀理解 (DSE Paper 1)** — 生成 DSE 風格閱讀篇章（4–5 段、段落分佈檢查、主題多樣化），涵蓋 Literal → Inferential → Evaluative 漸進式題型（MCQ / 填充 / True-False-NG / 語調態度 / 主旨推斷 / 詞彙 / 摘要 / 配對 / 排序），AI 語意批改對照 HKDSE Reading Descriptors；題目支援中英切換
+- **🔥 每日挑戰 (Daily Challenge)** — 每日一題（文法選擇/填充/短文/配對），完成獲得連續學習 streak 加成與 XP；題目由伺服器持有，提交時以伺服器答案鍵批改
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**5 種真實考試陷阱**、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、7 種 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
@@ -86,11 +88,14 @@ Writing Evaluation (Sprints 127-130):
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
 - **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes 作為參考上下文。RAG 檢索結果僅用於提示詞接地（prompt grounding），不直接決定學生評分。（Feature Flag: `DSE_RAG_ENABLED=true`）
 - **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），可選 S1-S6 年級及補底/核心/挑戰難度，未來擴展 STT 語音辨識
-- **👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
+- **� 手寫作文上傳 (OCR)** — 上傳手寫作文圖片，AI 文字辨識後自動載入編輯器（寫作頁面與教師教材上載）
+- **�👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
 - **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
+- **📋 作業 (Assignments)** — 查看教師指派的作業、作答提交、查看教師回饋與分數
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
 - **🗺️ 知識圖譜視覺化** — 互動式 DAG 節點圖，SVG 連線顯示前置/強化/延伸關聯，支援技能篩選、年級篩選、關鍵字搜尋、縮放、Focus Mode（點擊節點高亮相依路徑並淡化無關節點）、節點 hover 顯示學習目標、邊線 hover 顯示關係類型、詳情面板（學習目標 + 前置/後續知識 + 常見錯誤 + 範例題目 + 學習時長），自動載入學生掌握度數據，顏色標記已掌握/未解鎖狀態
+- **⚙️ 偏好設定 (Settings)** — 語言/主題/通知偏好，即時同步並跨裝置一致
 
 ### 🚀 v4.1 Learning Intelligence (Sprints 31-40)
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(60%)+新近度(25%)+練習量(15%)的加權公式
@@ -100,7 +105,7 @@ Writing Evaluation (Sprints 127-130):
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
 - **🗺️ 知識圖譜 (S34)** — 28 節點 DAG（含 learning 模組種子資料共 52 節點）、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
-- **寫作教練 2.0 (S36)** — 8 維度啟發式診斷（Grammar/Vocabulary/SentenceVariety/Coherence/Cohesion/Organization/TaskResponse/Tone）
+- **寫作教練 2.0 (S36)** — AI 寫作批改、即時寫作提示與改寫對照（原 8 維度啟發式診斷已移除，統一以 canonical CLO 評分取代）
 
 ### Writing Evaluation（自學導向）
 
@@ -131,6 +136,8 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - **班級管理** — 建立班級、查看學生進度（按班號數字排序）、學生名單（含學號欄位，按班別→學號排序）
 - **學生詳情** — 個別學生完整學習數據：XP/徽章/技能準確率/錯題分布/每週趨勢/逐題答案/CSV 匯出
 - **課業管理** — 指派練習、查看完成狀況
+- **組別管理** — 建立跨班級自訂組別（如拔尖組/補底組），作業可指派至組別
+- **AI 批改覆核** — 教師查看 AI 評分，可修正分數/評語、接受或退回學生作業
 - **成績報告** — 班級及個別學生成績分析
 - **🆕 AI Copilot 教學助手** — 專屬前端頁面（`/teacher/copilot`），6 大功能分頁：概覽（班級狀態 + 緊急行動）、教案生成（一週教學計劃含每日活動與家課）、班級分析（技能分佈 + 風險學生 + 建議）、考試預測（DSE 合格率 + 各卷預測 + 學生等級預測）、教材生成（工作紙/家課/小測/溫習卷/補底練習）、學生分析（個人技能詳情 + 進度 + 百分位）
 
@@ -160,7 +167,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 | Learning | `learning/` | Engine, Recommendation, KnowledgeGraph, Science, MistakeIntel, AdaptivePipeline |
 | AI | `ai/` | Providers, Generation, Analysis, RAG, TTS, Cache, Cost, Eval, Experiment, Foundation, PromptVersioning, Regression, ContinuousEval |
 | Knowledge Graph | `knowledge-graph/` | Graph Engine, Service, Repository, Visualization, WeaknessLocator, Traversal |
-| Writing | `writing-coach/` | Coach, CoachPro, Heuristic Analysis |
+| Writing | `ai/usecases/analyze-writing.ts` + `writing-coach/repositories/` | CLO Scoring, Evidence Feedback, Draft Storage |
 | Teacher | `teacher/` | Copilot, Analytics, Dashboard |
 | Platform | `platform/` | Cache, Reliability, FeatureFlags, Health, Notification |
 
@@ -245,7 +252,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，18 個 i18n 模組檔案 / 1620 個 key，`npm run check:i18n` exit 0）
+- [ ] 中英語言切換（所有頁面，18 個 i18n 模組檔案 / 1655 個 key，`npm run check:i18n` exit 0）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
@@ -358,18 +365,18 @@ src/
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
-├── modules/                  # 🆕 模組化架構 (23 modules incl. __tests__)
-│   ├── ai/                   # AI 服務 (18 子目錄, ~225 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
+├── modules/                  # 🆕 模組化架構 (22 modules + __tests__)
+│   ├── ai/                   # AI 服務 (19 子目錄, 209 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
 │   ├── knowledge-graph/      # 知識圖譜 (28-node DAG, 7 API endpoints, 視覺化)
 │   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations, adaptive pipeline)
-│   ├── adaptive-tutor/       # 自適應導師引擎
 │   ├── student/              # 學生 mastery/profile/memory
 │   ├── mistake/              # 錯題智能 (tracking, analytics, SRS)
 │   ├── vocabulary/           # 詞彙智能 (word families, CEFR, SRS)
-│   ├── writing-coach/        # 寫作教練 (heuristic + AI analysis)
+│   ├── writing-coach/        # 寫作草稿儲存 (writing-draft repository)
 │   ├── curriculum/           # 課程資料 (HKDSE descriptors, CEFR)
 │   ├── assessment/           # 評量服務 (Integrated Skills, diagnostic)
 │   ├── reading/              # 閱讀服務
+│   ├── exercise/             # 練習題庫與作答服務 (grammar-question store, practice submission)
 │   ├── learning-analytics/   # 學習分析 (trends, teacher dashboard)
 │   ├── admin/                # 管理員服務
 │   ├── teacher/              # 教師 Copilot
@@ -381,6 +388,7 @@ src/
 │   ├── platform/             # 平台基礎 (feature flags, health, reliability)
 │   ├── production/           # 生產工具
 │   ├── analytics/            # 數據分析
+│   ├── index.ts              # 模組聚合入口
 │   └── repositories.ts       # 共享 Repository 實例
 ├── shared/                   # 共享工具
 │   ├── auth/                 # JWT + NextAuth
@@ -510,18 +518,18 @@ npm test              # 執行全部測試
 npm run test:watch    # 持續監控模式
 ```
 
-測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、自適應導師、學習記憶、學生數位分身、教師副駕駛、寫作教練、分析、LLM 評測、實驗平台等模組。
+測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-17，127 files，2849 tests pass。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-19，126 files，2801 tests pass。
 
 ## 目前狀態
 
-> **最後更新**: 2026-08-17 | Sprints 1-130 + R3.10-K Phases 5-9
+> **最後更新**: 2026-08-19 | Sprints 1-130 + R3.10-K Phases 5-9
 
 | 層級 | 狀態 |
 |------|------|
 | 架構 | ✅ 模組化架構 (Routes → Zod → Services → Repositories → DB) |
-| AI 服務層 | ✅ DeepSeek → Vertex Gemini → Gemini API fallback chain, MCQ 正規化, provider registry DI |
+| AI 服務層 | ✅ DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok（Claude/OpenAI placeholder）fallback chain, MCQ 正規化, provider registry DI |
 | API 路由 | ✅ 119 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
 | 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
@@ -537,7 +545,7 @@ npm run test:watch    # 持續監控模式
 | DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
 | 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（5 fixtures）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
 | 校準（Calibration） | ✅ 校準基礎設施就緒（三態 release gate、執行歸因、序數 level 指標、C/L/O 維度門檻、evidence 驗證政策）。**基礎設施存在不建立 HKDSE 評分有效性**：目前 `overall-comparable = 0` → `INSUFFICIENT_DATA`，`ASSESSMENT VALIDITY NOT ESTABLISHED`（平台不宣稱 marker-equivalence） |
-| 測試 | ✅ 125 files, 2788 tests pass（2026-08-16） |
+| 測試 | ✅ 126 files, 2801 tests pass（2026-08-19） |
 
 ## 部署
 
