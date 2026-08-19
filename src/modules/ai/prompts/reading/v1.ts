@@ -405,55 +405,6 @@ For shorter passages (≤3 paragraphs):
 `;
 
 // ============================================
-// Main Prompt Builder (Single Passage — backward compatible)
-// ============================================
-export function buildReadingSectionPrompt(): string {
-  return `${HALLUCINATION_GUARD_LITE}
-${DSE_PAPER1_ALL_QUESTION_TYPES}
-${buildDSEWordingPrompt()}
-${QUESTION_BLUEPRINT_PROMPT}
-${SUMMARY_CLOZE_SOPHISTICATION_PROMPT}
-${SKILL_BOUNDARY_PROMPT}
-${PASSAGE_QUALITY_STANDARDS}
-
-【閱讀理解題特別要求】
-- readingContent: 完整的英文閱讀篇章。必須用 [Paragraph 1] [Paragraph 2] 等標記明確分隔每個段落。嚴禁使用 [line N] 或 [N] 行號標記。
-- 所有題目必須基於此閱讀篇章，答案必須能在文中找到
-- 篇章類型：根據 DSE 12+ 文本類型庫選擇（feature article, newspaper article, interview, blog post, etc.）
-- 提供 readingContentZh 繁體中文輔助說明
-- 題目必須混合多種題型，模仿真實 DSE Paper 1 格式
-- 每題必須標註 marks (1-6)。使用 targetPhrase 標記目標詞彙。每個問題必須在題目中明確註明段落號（如 \"in paragraph 3\"）。代名詞（it/this/they）必須標明段落。不要寫 (line N) — 行號由前端渲染時自動顯示
-- 使用真實 DSE 出題句式（參考 Question Wording Templates）
-
-【期望 JSON schema — 完整題型支援 v2】
-{
-  "readingContent": "[Paragraph 1] Full English passage text here...\n\n[Paragraph 2] Next paragraph text...",
-  "readingContentZh": "繁體中文輔助說明",
-  "partLabel": "A|B1|B2",
-  "textType": "feature_article|newspaper_article|restaurant_review|interview|informational_webpage|government_guide|job_advertisement|blog_post|literary_excerpt|letter_to_editor|advertisement_poster|argumentative_essay",
-  "source": "adapted from The Guardian / SCMP / etc.",
-  "vocabularyHints": [{ "word": "...", "meaningZh": "...", "lineRef": 12 }],
-  "totalMarks": 42,
-  "questions": [
-    {
-      "index": 1,
-      "type": "mcq|trueFalseNG|matching|summaryCloze|mcCloze|errorCorrectionSummary|shortAnswer|referencing|inference|toneAttitude|sequencing|synonymSearch|phraseSearch|negativeInference|tableCompletion|causeEffectCompletion|exampleFinding|authorIntention|vocabularyInContext",
-      "targetPhrase": "exact phrase from passage this question references",
-      "questionText": "DSE-style question with EXACT wording",
-      "questionTextZh": "繁體中文題目翻譯",
-      "marks": 1,
-      "wordLimit": "ONE word | no more than THREE words | 30-50 words",
-      "choices": ["A. ...", "B. ...", "C. ...", "D. ..."],
-      "answer": "A",
-      "acceptAlso": ["alternative acceptable answer"],
-      "explanationZh": "繁體中文解釋，參考 DSE marking scheme 風格",
-      "explanationEn": "English explanation in marking scheme style"
-    }
-  ]
-}`;
-}
-
-// ============================================
 // Lite Prompt Builder — condensed for quick generation (legacy path)
 // Avoids the heavy SKILL_BOUNDARY, SUMMARY_CLOZE, and full BLUEPRINT
 // prompts to keep generation fast on Vercel's 60s function limit.

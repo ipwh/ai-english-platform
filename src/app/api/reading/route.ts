@@ -19,7 +19,6 @@ import type { QuestionRubric } from '@/modules/ai/prompts/reading/types';
 import { logger } from '@/shared/logger/logger';
 import {
   buildFullDSEPaperPrompt,
-  buildReadingSectionPrompt,
   buildReadingSectionPromptLite,
   buildReadingExercisePrompt,
 } from '@/modules/ai/prompts/reading/v1';
@@ -298,7 +297,10 @@ function hasMissingToneChoices(questions: Array<Record<string, unknown>>): boole
     const substantive = choices.filter(
       (c): c is string => typeof c === 'string' && c.trim().length > 1,
     );
-    return substantive.length < 2;
+    // R3.10-L: tone/attitude MCQs must carry exactly 4 A/B/C/D choices as the
+    // prompt requires — fewer choices weakens the question and is flagged for
+    // regeneration (never patched by guessing the missing options).
+    return substantive.length < 4;
   });
 }
 
@@ -1107,6 +1109,12 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
     } else {
       // Subjective: use AI semantic evaluation
       result = await evaluateWithAI(studentAnswer, q.answer, q.questionText || '', q.marks);
+      if (result.evaluationMethod === 'rule-based') {
+        // R3.10-L: never present a keyword-heuristic fallback as an AI verdict.
+        // Surface the provenance honestly in the feedback shown to the student.
+        result.feedbackZh = `⚠️ AI 暫時無法分析，以下為關鍵字比對估算。${result.feedbackZh}`;
+        result.feedbackEn = `⚠️ AI unavailable — the following is a keyword-based estimate. ${result.feedbackEn}`;
+      }
     }
 
     // Phase 2A: Build structured evaluation (all types get this)

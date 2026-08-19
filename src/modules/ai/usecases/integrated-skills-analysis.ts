@@ -49,8 +49,20 @@ ${paper3MSContext}
   });
 
   // Cross-paper consistency: the LLM's estimatedLevel is NEVER authoritative.
-  // Override with the same deterministic 0-100 → 1-5 policy used across papers
-  // (the percentage equivalents of the Paper 2 CLO thresholds). A given
-  // percentage now maps to the same level as a Paper 2 essay with that score.
-  return { ...analysis, estimatedLevel: estimateLevelFromScore100(analysis.overallScore) };
+  // Override with the same deterministic 0-100 → 1-5 policy used across papers.
+  //
+  // The LLM's overallScore is also a free-form number that can contradict the
+  // three displayed component scores, so it is recomputed deterministically from
+  // the platform's own 40/35/25 weighting (Listening 40% + Language 35% +
+  // Organization 25%) before the level is derived.
+  const overallScore = Math.round(
+    analysis.listeningAccuracy * 0.40 +
+    analysis.languageAccuracy * 0.35 +
+    analysis.organizationClarity * 0.25
+  );
+  return {
+    ...analysis,
+    overallScore,
+    estimatedLevel: estimateLevelFromScore100(overallScore),
+  };
 }

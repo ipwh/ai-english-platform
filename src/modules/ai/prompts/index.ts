@@ -10,13 +10,7 @@ export {
   buildWritingOutlineUserPrompt,
   buildIntegratedSkillsGenPrompt,
   buildIntegratedSkillsAnalysisPrompt,
-  // Sprint 47: Part A + 審題 + 難度分級
-  buildPartACLOPrompt,
-  buildQuestionAnalysisPrompt,
-  DSE_DIFFICULTY_LEVELS,
-  recommendDifficulty,
   type IntegratedSkillsGenPromptParams,
-  type DSEDifficultyTier,
 } from './writing/v1';
 
 // Grammar & Language
@@ -38,7 +32,6 @@ export { buildAnswerAnalysisPrompt } from './grammar/answer-analysis';
 // Reading (Paper 1) — v2 with full DSE support
 export {
   version as readingVersion,
-  buildReadingSectionPrompt,
   buildFullDSEPaperPrompt,
   buildReadingExercisePrompt,
 } from './reading/v1';

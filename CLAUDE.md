@@ -6,13 +6,13 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholders)
-- **Testing**: Vitest 4, 2821/2821 tests pass (126 files — fully green; dead adaptive-tutor module removed in R3.10-L)
+- **Testing**: Vitest 4, 2826/2826 tests pass (128 files — fully green; dead adaptive-tutor module removed in R3.10-L)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 126 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
-- **AI Facade**: 67 exported symbols — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules)
+- **AI Facade**: 62 exported symbols — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules)
 - **Prompt Registry**: 12 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
 - **AI Module**: 18 directories, 210 non-test TS files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
 - **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
@@ -22,7 +22,7 @@ See AGENTS.md for shared agent instructions.
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
 - **i18n**: 18 module files, 1620 unique keys, check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
 - **Deployment Readiness**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration not available.
-- **AI Quality**: DSE reading 8.2/10 — DeepSeek primary, 4-tier retry, JSON repair (7-step), paragraph ref verification
+- **AI Quality**: DSE reading 8.2/10 (2026-08-04 manual 14-generation snapshot) — DeepSeek primary, 6-condition retry, JSON repair (8 active steps), paragraph ref verification
 - **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
 - **Calibration Evidence Pipeline (Phase 9)**: intake (level-only rejected) → verify (verifiedBy+verifiedAt+confirmedSourceHash) → marker-pack/append (append-only, no AI fields) → adjudication (never mutates marks) → freeze (fail-closed). Gate sufficiency = verified overall-comparable pairs (min 8; current 0 — INSUFFICIENT_DATA). HKEAA publishes no per-script marks; validity never claimed
 - **Writing Architecture Invariants** (8 enforced by contract tests):

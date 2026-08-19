@@ -596,7 +596,7 @@ function PracticeListPageContent() {
                   />
                 </div>
                 <span className="text-xs font-medium text-gray-500 w-10 text-right">{m.accuracy}%</span>
-                <span className="text-xs text-gray-400">{m.total} 題</span>
+                <span className="text-xs text-gray-400">{m.total} {store.language === 'en' ? 'questions' : '題'}</span>
               </div>
             ))}
           </div>

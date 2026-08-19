@@ -7,9 +7,13 @@ import { INTEGRATED_SKILLS_DIFF_MAP, INTEGRATED_SKILLS_TASK_TYPE_MAP } from '../
 import { normalizeListeningContent } from '../services/listening-normalizer';
 import type { IntegratedSkillsTask } from './integrated-skills-types';
 
+export type IntegratedSkillsTaskType =
+  | 'summary' | 'email-reply' | 'short-article' | 'report'
+  | 'speech' | 'proposal' | 'notice' | 'press-release' | 'letter-to-editor';
+
 export interface GenerateIntegratedSkillsInput {
   userId?: string; gradeLevel: string; difficulty: 'remedial' | 'core' | 'challenge';
-  taskType: 'summary' | 'email-reply' | 'short-article' | 'report'; topicHint?: string;
+  taskType: IntegratedSkillsTaskType; topicHint?: string;
 }
 
 export async function generateIntegratedSkills(input: GenerateIntegratedSkillsInput): Promise<IntegratedSkillsTask> {

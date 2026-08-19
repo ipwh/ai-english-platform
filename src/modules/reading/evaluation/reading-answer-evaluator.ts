@@ -243,30 +243,6 @@ export function assessCompleteness(
 // ============================================
 
 /**
- * Vocabulary-in-context: check if the answer is a single word/phrase
- * that fits the part of speech implied by the question context.
- */
-export function evaluateVocabularyInContext(
-  answer: string,
-  expectedAnswer: string,
-  evidence: string,
-): { isPlausiblePOS: boolean; note: string } {
-  const a = normalizeForComparison(answer);
-  const e = normalizeForComparison(expectedAnswer);
-
-  // For single-word answers, check if it appears in the evidence
-  const evidenceNorm = normalizeForComparison(evidence);
-  const isInEvidence = evidenceNorm.includes(a);
-
-  return {
-    isPlausiblePOS: a.length > 0,
-    note: isInEvidence
-      ? 'Answer found in passage — check if context meaning matches'
-      : 'Answer not found verbatim in passage — may be paraphrase or incorrect',
-  };
-}
-
-/**
  * Tone/attitude: check if the answer is a recognised tone/attitude label.
  */
 const TONE_LABELS = new Set([

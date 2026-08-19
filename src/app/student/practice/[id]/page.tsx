@@ -24,8 +24,8 @@ import type { PracticeQuestion } from '@/shared/types/types';
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
-function getMcqLetterByIndex(index: number): string {
-  return MCQ_LETTERS[index] || 'A';
+function getMcqLetterByIndex(index: number): string | undefined {
+  return MCQ_LETTERS[index];
 }
 
 function stripMcqPrefix(choice: string): string {
@@ -165,7 +165,7 @@ export default function PracticeQuestionPage() {
   const params = useParams();
   const router = useRouter();
   const store = useAppStore();
-  const { t } = useT();
+  const { t, language } = useT();
 
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -189,8 +189,15 @@ export default function PracticeQuestionPage() {
   // 保存 session 快照，因為 completeSession() 會清空 currentSession
   const [completedSession, setCompletedSession] = useState<typeof store.currentSession>(null);
 
-  // 失敗鼓勵語（DSE 正向引導）
-  const ENCOURAGEMENTS = [
+  // 失敗鼓勵語（DSE 正向引導）— 依語言切換
+  const ENCOURAGEMENTS = language === 'en' ? [
+    '💪 Mistakes are part of learning! Read the explanation and try again.',
+    '🌟 Every mistake is a chance to improve!',
+    '📚 Even top DSE scorers learn from their mistakes!',
+    '🎯 Understanding your mistakes matters more than getting it right!',
+    '🔥 Making mistakes means you are challenging yourself — keep going!',
+    '✨ Mistakes show you what to strengthen — that is a good thing!',
+  ] : [
     '💪 錯誤是學習的一部分！看看解釋再試一次。',
     '🌟 每次犯錯都是進步的機會！',
     '📚 DSE 狀元也是從錯誤中學習的！',
@@ -354,20 +361,21 @@ export default function PracticeQuestionPage() {
         const answerUpper = question.answer.trim().toUpperCase();
         const answerIdx = MCQ_LETTERS.indexOf(answerUpper as (typeof MCQ_LETTERS)[number]);
         if (answerIdx >= 0 && answerIdx >= question.choices.length) {
-          // Answer letter out of range — log and normalize to first choice as safe fallback
+          // Answer letter out of range — NEVER fabricate 'A'. Only re-point to a
+          // choice when the answer text unambiguously matches one; otherwise keep
+          // the raw answer for the AI (the server already rejects defective keys).
           logger.warn({
             module: 'student-practice-detail',
             questionId: question.id,
             answer: question.answer,
             choicesCount: question.choices.length,
-          }, 'Correct answer letter out of range, normalizing for AI analysis');
-          // Try text-based match first
+          }, 'Correct answer letter out of range, keeping original answer for AI analysis');
           const textMatchIdx = question.choices.findIndex(
             c => stripMcqPrefix(c).toLowerCase() === question.answer.trim().toLowerCase()
           );
-          normalizedCorrectAnswer = textMatchIdx >= 0
-            ? getMcqLetterByIndex(textMatchIdx)
-            : getMcqLetterByIndex(0);
+          if (textMatchIdx >= 0) {
+            normalizedCorrectAnswer = getMcqLetterByIndex(textMatchIdx) ?? question.answer;
+          }
         }
       }
 
@@ -649,7 +657,7 @@ export default function PracticeQuestionPage() {
           <div className="space-y-3">
             {question.choices.map((choice: string, index: number) => {
               const correctLetter = question.answer.trim().toUpperCase();
-              const choiceLetter = getMcqLetterByIndex(index);
+              const choiceLetter = getMcqLetterByIndex(index) ?? '';
               const choiceText = stripMcqPrefix(choice) || `Option ${choiceLetter}`;
               let choiceStyle = 'border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-500';
               if (submitted) {

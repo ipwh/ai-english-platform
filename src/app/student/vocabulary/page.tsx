@@ -203,24 +203,23 @@ export default function VocabularyPage() {
   const handleAIExample = async (v: VocabItem) => {
     setGeneratingId(v.id);
     try {
-      const res = await fetch('/api/ai/generate-questions', {
+      // R3.10-L: 使用專用例句端點（取代 generate-questions hack）
+      const res = await fetch('/api/vocabulary/example', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          difficulty: 'core',
+          word: v.word,
+          partOfSpeech: v.partOfSpeech,
+          meaningZh: v.meaningZh,
           gradeLevel,
-          count: 1,
-          questionType: 'short-writing',
-          topic: `Write an example sentence using the word "${v.word}" (meaning: ${v.meaningZh})`,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        const questions = data.questions || [];
-        if (questions.length > 0) {
+        if (data.exampleSentence) {
           setAiExamples(prev => ({
             ...prev,
-            [v.id]: `📖 ${questions[0].prompt || `${v.word}: ${v.exampleSentence}`}`,
+            [v.id]: `📖 ${data.exampleSentence}${data.exampleZh ? `（${data.exampleZh}）` : ''}`,
           }));
           return;
         }

@@ -24,8 +24,8 @@ export interface ValidatableQuestion {
 
 export const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
-export function toMcqLetter(index: number): string {
-  return MCQ_LETTERS[index] || 'A';
+export function toMcqLetter(index: number): string | undefined {
+  return MCQ_LETTERS[index];
 }
 
 export function stripMcqPrefix(choice: string): string {
@@ -52,17 +52,17 @@ export function normalizeMcqAnswer(answerRaw: string, normalizedChoices: string[
   if (letterMatch) return letterMatch[1].toUpperCase();
 
   const numberMatch = answer.match(/\b([1-4])\b/);
-  if (numberMatch) return toMcqLetter(Number(numberMatch[1]) - 1);
+  if (numberMatch) return MCQ_LETTERS[Number(numberMatch[1]) - 1];
 
   const normalizedAnswerText = stripMcqPrefix(answer).toLowerCase();
   const choiceIndex = normalizedChoices.findIndex(c => c.toLowerCase() === normalizedAnswerText);
-  if (choiceIndex >= 0) return toMcqLetter(choiceIndex);
+  if (choiceIndex >= 0 && choiceIndex < MCQ_LETTERS.length) return MCQ_LETTERS[choiceIndex];
 
   const tfMatch = normalizedAnswerText.match(/^(true|false|t|f)$/i);
   if (tfMatch) {
     const target = tfMatch[1].toLowerCase().startsWith('t') ? 'true' : 'false';
     const tfChoiceIndex = normalizedChoices.findIndex(c => c.trim().toLowerCase().startsWith(target));
-    if (tfChoiceIndex >= 0) return toMcqLetter(tfChoiceIndex);
+    if (tfChoiceIndex >= 0 && tfChoiceIndex < MCQ_LETTERS.length) return MCQ_LETTERS[tfChoiceIndex];
   }
 
   // Failed all matching attempts — the question is defective. Callers MUST
@@ -118,8 +118,8 @@ export function validateAndFixQuestion(
       const matchIndex = fixed.choices.findIndex(
         c => normalizeAnswer(stripMcqPrefix(c)) === normAnswer,
       );
-      if (matchIndex >= 0) {
-        fixed.answer = toMcqLetter(matchIndex);
+      if (matchIndex >= 0 && matchIndex < MCQ_LETTERS.length) {
+        fixed.answer = MCQ_LETTERS[matchIndex];
         warnings.push(`Q${index}: answer letter "${answerLetter}" out of range (only ${fixed.choices.length} choices), auto-fixed to "${fixed.answer}" via text match`);
       } else {
         // Log as error (not just warning) — this question has broken data.
@@ -140,8 +140,8 @@ export function validateAndFixQuestion(
       const matchIndex = fixed.choices.findIndex(
         c => normalizeAnswer(stripMcqPrefix(c)) === normAnswer,
       );
-      if (matchIndex >= 0) {
-        fixed.answer = toMcqLetter(matchIndex);
+      if (matchIndex >= 0 && matchIndex < MCQ_LETTERS.length) {
+        fixed.answer = MCQ_LETTERS[matchIndex];
         warnings.push(`Q${index}: auto-fixed answer "${answerRaw}" → "${fixed.answer}"`);
       } else {
         // R3.10-L: an MC answer that resolves to no choice is defective —

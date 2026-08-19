@@ -24,7 +24,6 @@ export {
   classifyParaphraseQuality,
   detectGrammarFit,
   assessCompleteness,
-  evaluateVocabularyInContext,
   evaluateToneAttitude,
   buildEvaluation,
   shouldApplyCopyPenalty,

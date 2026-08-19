@@ -772,10 +772,16 @@ Content / Organization 分數亦需按 system rubric 評分，
   const ratio = targetWords && targetWords > 0 ? studentWordCount / targetWords : null;
   const deterministicPenaltyTier = deterministicLengthPenalty(ratio);
 
-  const llmLengthPenalty = typeof grammarAnalysis.lengthPenalty === 'number' ? grammarAnalysis.lengthPenalty : 0;
-  // Platform policy: LLM length penalty cannot be more severe than deterministic policy.
-  // Both values are ≤ 0, so Math.max selects the less severe penalty (closer to zero).
-  // Applied EXACTLY ONCE, to the overall score only (never to C/L/O).
+  // Platform policy: the deterministic tier is the FLOOR. The LLM may suggest a
+  // penalty, but it can only be LESS severe (Math.max — both values are ≤ 0).
+  // When the LLM omits the field entirely, the deterministic tier applies on its
+  // own instead of silently cancelling to 0 (a <30%-length essay would otherwise
+  // escape its −25 penalty). The penalty is always ≤ 0 and applied EXACTLY ONCE,
+  // to the overall score only (never to C/L/O).
+  const llmLengthPenalty =
+    typeof grammarAnalysis.lengthPenalty === 'number'
+      ? Math.min(0, grammarAnalysis.lengthPenalty)
+      : deterministicPenaltyTier;
   const appliedLengthPenalty = applyLengthPenaltyPolicy(llmLengthPenalty, deterministicPenaltyTier);
 
   // CLO scores: normalize to half-point increments (0, 0.5, 1, ..., 7)

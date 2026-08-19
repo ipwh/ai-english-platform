@@ -4,6 +4,32 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-19 — Full-Feature Re-Audit & Remediation (全功能複審修正)
+
+### 🛡️ Scoring integrity / anti-fabrication
+- **FIXED**: `analyze-writing.ts` length-penalty loophole — when the LLM omits `lengthPenalty`, the deterministic platform tier now applies on its own (was defaulting to 0, which silently cancelled the −25 tier for <30%-length essays via `Math.max(0, -25)`). LLM penalty is also clamped ≤ 0.
+- **FIXED**: `integrated-skills-analysis.ts` — `overallScore` is now deterministically recomputed from the platform's 40/35/25 weighting (`listeningAccuracy×0.40 + languageAccuracy×0.35 + organizationClarity×0.25`) so the displayed total can no longer contradict the three component bars; `estimatedLevel` is derived from that recomputed score (LLM values ignored).
+- **FIXED**: `practice/[id]/page.tsx` — removed the client-side `getMcqLetterByIndex(… || 'A')` fallback that fabricated an `'A'` correct answer fed into `/api/ai/analyze-answer`; out-of-range keys now keep the raw answer.
+- **FIXED**: `question-validator.ts` — `toMcqLetter` no longer defaults out-of-range indexes to `'A'`; all call sites bounds-check and reject instead.
+- **FIXED**: `reading/route.ts` — tone/attitude questions now require exactly 4 substantive A/B/C/D choices at runtime (was ≥2); subjective rule-based fallback verdicts are surfaced with an honest "AI unavailable — keyword-based estimate" disclaimer instead of being presented as AI evaluation.
+
+### 🧠 Diagnostic honesty
+- **FIXED**: `buildDiagnosticPlans` now uses the student's weak skills (accuracy < 60 → +1 question, capped at 3; writing excluded) instead of a fixed 5-skill baseline.
+- **FIXED**: the diagnostic AI advice now carries a "based on self-reported results, not verified practice history" caveat.
+
+### 🧹 Dead code & misleading claims
+- **DELETED**: `buildReadingSectionPrompt` (non-lite), `evaluateVocabularyInContext`, `buildPartACLOPrompt` (second rubric + 5**/5* scale), `buildQuestionAnalysisPrompt`, `DSE_DIFFICULTY_LEVELS`/`recommendDifficulty`, and 5 dead Integrated Skills config constants (`LISTENING_TRAP_TYPES`, `NOTE_TAKING_SYMBOLS`, `PAPER3_TIMING`, `PAPER3_SCORING_WEIGHTS`, `PAPER3_LEVEL_THRESHOLDS`) + barrel re-exports.
+- **FIXED**: legacy IS prompt heading 「官方評分準則」→ platform-set wording.
+- **FIXED**: `/api/vocabulary/example` is now actually wired into the vocabulary page (was using the generate-questions hack); IS `taskType` union expanded to all 9 text types.
+
+### 🌐 i18n gaps closed
+- Bilingual: practice wrong-answer encouragements, question-count suffix, Integrated Skills discard-progress confirm, and the IS level badge (`Est. Level N`).
+
+### ✅ VERIFY
+- tsc 0 · **128 files / 2826 tests** green · `node scripts/check-i18n.js` exit 0 · AI facade now 62 exported symbols.
+
+---
+
 ## 2026-08-18 — Writing level bands narrowed + prompt/style fixes (寫作等級帶收窄)
 
 - **CHANGED**: `writing-score-policy.ts` `estimateDSELevelFromCLO` thresholds **13/10/7/4 → 16/13/10/7** (Level 5/4/3/2). Level 5 now starts at ~76% (CLO 16/21) instead of ~62%, narrowing the top band and better approximating the real DSE distribution (e.g. 67/100 now → Level 4, not Level 5). `SCORING_VERSION` bumped to `HKDSE_P2_WRITING_CANONICAL_V2`.

@@ -162,7 +162,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         </div>
         {a.estimatedLevel && (
           <div className="inline-block mt-2 px-3 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-bold rounded-full">
-            {a.estimatedLevel}
+            {showZh ? `平台估算 Level ${a.estimatedLevel}` : `Est. Level ${a.estimatedLevel}`}
           </div>
         )}
       </div>

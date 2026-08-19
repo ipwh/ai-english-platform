@@ -67,7 +67,7 @@ function getLevelLabel(scores: { correct: number; total: number } | undefined): 
   return '補底';
 }
 
-function buildDiagnosticPlans(level: string, _weakSkills: WeakSkill[]): DiagnosticPlan[] {
+function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): DiagnosticPlan[] {
   // Diagnostic always uses 'core' difficulty for consistent baseline assessment
   const difficulty: 'remedial' | 'core' | 'challenge' = 'core';
   const junior = ['S1', 'S2', 'S3'].includes(level);
@@ -125,7 +125,22 @@ function buildDiagnosticPlans(level: string, _weakSkills: WeakSkill[]): Diagnost
     topic: 'short article',
   });
 
-  return plans;
+  // R3.10-L: 根據近期弱項調整題數 — 對準確率 < 60% 的弱項各加 1 題（上限 3 題），
+  // 使診斷題組反映學生弱項而非純固定基線。難度維持 'core' 以保持基線可比性。
+  // 寫作不在此加題：handleComplete 只分析第一條寫作答案，多於一題會再次產生
+  // 「只分析第一題」的失效情況。
+  const boostByCategory: Partial<Record<Exclude<DiagnosticPlan['skillCategory'], 'writing'>, number>> = {};
+  for (const w of weakSkills) {
+    if (w.accuracy >= 60) continue;
+    if (w.name === 'grammar' || w.name === 'vocabulary' || w.name === 'reading' || w.name === 'listening') {
+      boostByCategory[w.name] = (boostByCategory[w.name] ?? 0) + 1;
+    }
+  }
+  return plans.map(p => {
+    if (p.skillCategory === 'writing') return p;
+    const boost = boostByCategory[p.skillCategory] ?? 0;
+    return boost > 0 ? { ...p, count: Math.min(3, p.count + boost) } : p;
+  });
 }
 
 function buildPracticeRecommendation(results: DiagnosticResult[], level: string): PracticeRecommendation {
@@ -713,7 +728,7 @@ export default function DiagnosticPage() {
           {currentQ.choices && currentQ.choices.length > 0 ? (
             <div className="space-y-3">
               {currentQ.choices.map((choice, index) => {
-                const choiceLetter = toMcqLetter(index);
+                const choiceLetter = toMcqLetter(index) ?? '';
                 const choiceText = stripMcqPrefix(choice);
                 return (
                   <button key={`${index}-${choice}`} onClick={() => handleAnswer(choiceLetter)}
@@ -902,7 +917,14 @@ export default function DiagnosticPage() {
         {aiLoading ? (
           <div className="flex items-center gap-2 text-purple-600"><Loader2 className="w-4 h-4 animate-spin" />{t('diagnostic.analyzing')}</div>
         ) : aiReport ? (
-          <p className="text-sm text-purple-700 dark:text-purple-300">{aiReport}</p>
+          <>
+            <p className="text-sm text-purple-700 dark:text-purple-300">{aiReport}</p>
+            <p className="text-xs text-purple-500 dark:text-purple-400 mt-2">
+              {language === 'en'
+                ? 'This advice is based on your self-reported diagnostic results, not your verified practice history.'
+                : '此建議基於你剛完成的診斷自評結果，並非已驗證的練習紀錄。'}
+            </p>
+          </>
         ) : (
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             {results.filter(r => r.score < 60).map(r => (

@@ -107,11 +107,6 @@ export type {
 export {
   INTEGRATED_SKILLS_DIFF_MAP,
   INTEGRATED_SKILLS_TASK_TYPE_MAP,
-  LISTENING_TRAP_TYPES,
-  NOTE_TAKING_SYMBOLS,
-  PAPER3_TIMING,
-  PAPER3_SCORING_WEIGHTS,
-  PAPER3_LEVEL_THRESHOLDS,
 } from '@/modules/ai/services/integrated-skills-config';
 export type { DifficultyConfig, TaskTypeConfig } from '@/modules/ai/services/integrated-skills-config';
 

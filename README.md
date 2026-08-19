@@ -9,7 +9,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-18 — 126 files, 2821 tests pass (full non-E2E).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-19 — 128 files, 2826 tests pass (full non-E2E).
 
 ## 🏗️ Architecture Overview
 

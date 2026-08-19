@@ -150,7 +150,7 @@ export default function IntegratedSkillsPage() {
       task={s.task}
       onBack={() => {
         if (s.stage === 'listening' || s.stage === 'writing') {
-          if (confirm('確定要放棄當前進度並返回嗎？')) s.reset();
+          if (confirm(language === 'en' ? 'Discard current progress and go back?' : '確定要放棄當前進度並返回嗎？')) s.reset();
         }
       }}
     />
