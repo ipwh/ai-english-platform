@@ -1,15 +1,36 @@
 // ============================================
 // GET /api/ai/health — 測試 AI provider 連線狀態
+// R3.10-K Phase 9 Step 6: teacher/admin only, rate-limited, sanitized.
+// The live DeepSeek probe is a paid call — it must never be triggerable
+// anonymously. Provider configuration details (base URL, raw upstream
+// error text) are masked from the response.
 // ============================================
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { isAIConfigured, getAIProviders, isDeepSeekConfigured } from '@/modules/ai';
 import { config } from '@/shared/config/config';
+import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { logger } from '@/shared/logger/logger';
 
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
+  if (!authResult.authenticated) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+
+  // The live probe costs money — throttle per IP even for staff.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimit = await checkRateLimit({ maxRequests: 10, windowMs: 60_000, identifier: `ai-health:${ip}` });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: rateLimit.message },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } },
+    );
+  }
+
   const results: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
     vercelRegion: process.env.VERCEL_REGION || 'local',
@@ -45,26 +66,24 @@ export async function GET() {
       const latencyMs = Date.now() - startTime;
       deepseekTest = {
         model: config.deepseek.model,
-        baseUrl: config.deepseek.baseUrl,
         status: res.status,
         latencyMs,
         ok: res.ok,
       };
       if (!res.ok) {
-        const errText = await res.text();
-        deepseekTest.error = errText.slice(0, 300);
+        // Sanitized: never echo raw upstream error text or the base URL.
+        deepseekTest.error = 'DeepSeek connectivity check failed (see server logs)';
       }
-    } catch (err) {
+    } catch {
       deepseekTest = {
         model: config.deepseek.model,
-        baseUrl: config.deepseek.baseUrl,
-        error: err instanceof Error ? err.message : String(err),
+        error: 'DeepSeek connectivity check failed (see server logs)',
         latencyMs: Date.now() - startTime,
       };
     }
     results.deepseekTest = deepseekTest!;
   } else {
-    results.deepseekTest = { error: 'DeepSeek not configured (API key missing or placeholder)' };
+    results.deepseekTest = { error: 'DeepSeek not configured' };
   }
 
   logger.info({ module: 'ai-health', ...results }, 'AI health check');

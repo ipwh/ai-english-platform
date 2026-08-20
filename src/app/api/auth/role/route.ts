@@ -1,16 +1,25 @@
 // ============================================
-// API: PATCH /api/auth/role — 更新用戶角色（Google OAuth 後使用）
+// API: /api/auth/role — 角色切換（view-switch cookie only）
+// GET  — 取得當前用戶資訊
+// POST — 設定 selected_role view cookie（不改 DB role）
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
-import { findUserByIdSelect, updateUser } from '@/modules/student';
+import { findUserByIdSelect } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
 
-async function updateUserRole(userId: string, role: string) {
-  await updateUser(userId, { role });
-}
+// ============================================
+// SECURITY NOTE (R3.10-K Phase 9 Step 6):
+// The legacy PATCH handler that allowed ANY authenticated user to write
+// their own DB role (privilege escalation to admin) has been REMOVED.
+// Role switching for the UI is handled exclusively by the POST handler,
+// which only sets the short-lived `selected_role` view cookie and never
+// mutates the user's DB role. DB roles may only be changed by admin
+// endpoints (`/api/admin/users/[userId]`).
+// ============================================
+
 
 function createRoleResponse(request: NextRequest, role: string, body?: Record<string, unknown>) {
   const target = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
@@ -35,46 +44,6 @@ function buildExternalUrl(path: string, request: NextRequest): URL {
   const proto = request.headers.get('x-forwarded-proto') || 'https';
   const base = host ? `${proto}://${host}` : request.url;
   return new URL(path, base);
-}
-
-export async function PATCH(request: NextRequest) {
-  try {
-    // === 優先檢查 JWT session（密碼登入） ===
-    const jwtToken = request.cookies.get('session_token')?.value;
-    let userId: string | null = null;
-
-    if (jwtToken) {
-      const jwtPayload = await verifySessionToken(jwtToken);
-      if (jwtPayload) {
-        userId = jwtPayload.userId;
-      }
-    }
-
-    // === Fallback: NextAuth session（Google OAuth 登入） ===
-    if (!userId) {
-      const session = await auth();
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: '未登入 / Not signed in' }, { status: 401 });
-      }
-      userId = session.user.id;
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: '未登入 / Not signed in' }, { status: 401 });
-    }
-
-    const { role } = await request.json();
-    if (!role || !['student', 'teacher', 'admin'].includes(role)) {
-      return NextResponse.json({ error: '無效的角色 / Invalid role' }, { status: 400 });
-    }
-
-    await updateUserRole(userId, role);
-
-    return createRoleResponse(request, role, { success: true, role });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : '未知錯誤';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
 }
 
 export async function POST(request: NextRequest) {

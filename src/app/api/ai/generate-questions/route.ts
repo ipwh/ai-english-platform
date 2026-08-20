@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai';
+import { generateQuestions, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI, isBudgetExceededError } from '@/modules/ai';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest, generateQuestionsSchema } from '@/shared/validation/schemas';
@@ -129,6 +129,9 @@ export async function POST(request: NextRequest) {
     // them so clients see the real status instead of a masked 500.
     // (Re-throwing here yields an empty 500 in this Next.js version.)
     if (err instanceof NextResponse) return err;
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({ error: `AI 生成失敗：${err.message}` }, { status: 503 });
+    }
     let message: string;
     if (err instanceof Error) {
       message = err.message;

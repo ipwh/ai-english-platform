@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM, sanitizeForAI, HALLUCINATION_GUARD } from '@/modules/ai';
+import { callLLM, sanitizeForAI, HALLUCINATION_GUARD, isBudgetExceededError } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -87,6 +87,9 @@ Return ONLY a JSON object:
     });
 
   } catch (error: unknown) {
+    if (isBudgetExceededError(error)) {
+      return NextResponse.json({ error: `AI 改寫失敗：${error.message}` }, { status: 503 });
+    }
     logger.error({ module: 'rewrite-writing', error }, 'Writing rewrite failed');
     const msg = error instanceof Error ? error.message : '未知錯誤';
     return NextResponse.json({ error: `AI 改寫失敗：${msg}` }, { status: 500 });

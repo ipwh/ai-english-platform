@@ -225,12 +225,17 @@ export default function ReadingPracticePage() {
 
   const isSplitView = windowWidth >= 1024;
 
+  // Stable references for memo dependencies (avoid optional chaining in deps
+  // — React Compiler cannot match inferred vs source dependencies for those).
+  const passageContent = data?.passage?.content;
+  const questions = data?.questions;
+
   // Layout engine: stable width model — pane-aware, no fluid reflow drift
   const passageLayout = useMemo(() => {
-    if (!data?.passage?.content) return null;
+    if (!passageContent) return null;
     const mode = getViewportMode(windowWidth);
     const preferredChars = getPreferredCharsPerLine({ viewportMode: mode, paneWidth });
-    const layout = layoutReadingText(data.passage.content, {
+    const layout = layoutReadingText(passageContent, {
       viewportMode: mode,
       fixedReadingMeasure: true,
       preferredCharsPerLine: preferredChars,
@@ -245,9 +250,9 @@ export default function ReadingPracticePage() {
     // Extracts key terms (targetPhrase, quoted phrases, vocabulary words) and
     // wraps them in <strong> tags for DSE exam-like keyword emphasis.
     let html = layout.html;
-    if (data.questions && data.questions.length > 0) {
+    if (questions && questions.length > 0) {
       const targets = new Set<string>();
-      for (const q of data.questions) {
+      for (const q of questions) {
         // Collect from targetPhrase field (may exist on raw API response)
         const rawQ = q as unknown as Record<string, unknown>;
         if (typeof rawQ.targetPhrase === 'string') {
@@ -276,16 +281,16 @@ export default function ReadingPracticePage() {
     }
 
     return { ...layout, html };
-  }, [data?.passage?.content, data?.questions, windowWidth, paneWidth]);
+  }, [passageContent, questions, windowWidth, paneWidth]);
 
   // ══════════════════════════════════════════
   // Question distribution check — warns when questions cluster in one paragraph
   // ══════════════════════════════════════════
   const paragraphDistribution = useMemo(() => {
-    if (!data?.questions) return null;
+    if (!questions) return null;
     const counts: Record<number, number> = {};
-    const total = data.questions.length;
-    for (const q of data.questions) {
+    const total = questions.length;
+    for (const q of questions) {
       const refs = q.paragraphRef ? [q.paragraphRef] : q.paragraphCoverage || [];
       for (const ref of refs) {
         counts[ref] = (counts[ref] || 0) + 1;
@@ -300,7 +305,7 @@ export default function ReadingPracticePage() {
       : [];
     const isImbalanced = maxCount > Math.ceil(total / paras.length) + 1 || uncovered.length > 0;
     return { counts, total, paras, maxCount, maxParas, uncovered, isImbalanced };
-  }, [data?.questions]);
+  }, [questions]);
 
   // Persist score when all questions are answered
   useEffect(() => {

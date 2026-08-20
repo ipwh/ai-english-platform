@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/modules/ai';
+import { callLLM, isBudgetExceededError } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { getExistingWordSet } from '@/modules/vocabulary/services/vocabulary-service';
@@ -80,6 +80,6 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'vocab-suggest', error: message }, 'Vocab suggestion failed');
-    return NextResponse.json({ suggestions: [], error: message }, { status: 500 });
+    return NextResponse.json({ suggestions: [], error: message }, { status: isBudgetExceededError(err) ? 503 : 500 });
   }
 }

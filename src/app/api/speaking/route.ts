@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { callLLM, selectDiverseTopic, buildDiversityInstruction } from '@/modules/ai';
+import { callLLM, selectDiverseTopic, buildDiversityInstruction, isBudgetExceededError } from '@/modules/ai';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 
 const SPEAKING_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
@@ -137,6 +137,6 @@ Return a JSON object:
     return NextResponse.json({ analysis: parsed });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: isBudgetExceededError(err) ? 503 : 500 });
   }
 }

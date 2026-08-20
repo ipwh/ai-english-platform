@@ -5,8 +5,22 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { listNotifications, countUnreadNotifications, markNotificationRead, markNotificationsRead, createNotification } from '@/modules/student';
+import { listNotifications, countUnreadNotifications } from '@/modules/student';
+
+// R3.10-K Step 6: self-service notifications are Zod-validated, capped, and
+// ALWAYS addressed to the authenticated user — `body.userId` is never read.
+const selfNotificationSchema = z.object({
+  type: z.string().min(1).max(50),
+  title: z.string().min(1).max(200),
+  message: z.string().min(1).max(2000),
+  link: z
+    .string()
+    .max(500)
+    .refine(v => v === '' || v.startsWith('/') || /^https?:\/\//i.test(v), 'Invalid link')
+    .optional(),
+});
 
 // GET — 取得使用者通知
 export async function GET(request: NextRequest) {
@@ -58,13 +72,21 @@ export async function POST(request: NextRequest) {
 
     // 建立新通知（由前端直接呼叫，如成就解鎖）
     if (body.type && body.title && body.message) {
+      // R3.10-K Step 6: recipient is ALWAYS the authenticated user.
+      const parsed = selfNotificationSchema.safeParse({
+        type: body.type,
+        title: body.title,
+        message: body.message,
+        link: typeof body.link === 'string' ? body.link : undefined,
+      });
+      if (!parsed.success) {
+        return NextResponse.json({ error: 'Invalid notification payload' }, { status: 400 });
+      }
       const notification = await adminDbQuery('notification', 'create', {
         data: {
-          userId: body.userId || userId,
-          type: body.type,
-          title: body.title,
-          message: body.message,
-          link: body.link || null,
+          userId,
+          ...parsed.data,
+          link: parsed.data.link || null,
         },
       });
       return NextResponse.json({ success: true, id: notification.id }, { status: 201 });

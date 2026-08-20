@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/modules/ai';
+import { callLLM, isBudgetExceededError } from '@/modules/ai';
 import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -165,6 +165,6 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'vocab-quiz', error: message }, 'Vocab quiz generation failed');
-    return NextResponse.json({ quiz: [], error: message }, { status: 500 });
+    return NextResponse.json({ quiz: [], error: message }, { status: isBudgetExceededError(err) ? 503 : 500 });
   }
 }

@@ -15,7 +15,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM, sanitizeForAI } from '@/modules/ai';
+import { callLLM, sanitizeForAI, isBudgetExceededError } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
@@ -79,6 +79,9 @@ export async function POST(req: NextRequest) {
       metadata: result.metadata,
     });
   } catch (error) {
+    if (isBudgetExceededError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     if (error instanceof ModelGenerationUnavailableError) {
       return NextResponse.json(
         { status: error.status, reason: error.message, retryable: error.retryable },

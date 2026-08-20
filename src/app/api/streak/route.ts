@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { getTodaysXpTransaction, createXpTransaction } from '@/modules/student';
@@ -23,6 +23,10 @@ export async function POST(request: NextRequest) {
     if (!studentId) {
       return NextResponse.json({ error: 'studentId required' }, { status: 400 });
     }
+
+    // R3.10-K Step 6: students may only award XP/streak to themselves.
+    const ownership = verifyStudentSelfAccess(authResult, studentId);
+    if (ownership) return ownership;
 
     // Sync streak from actual DB activity
     const streakDays = await syncUserStreak(studentId);
@@ -65,6 +69,10 @@ export async function GET(request: NextRequest) {
   if (!studentId) {
     return NextResponse.json({ error: 'studentId required' }, { status: 400 });
   }
+
+  // R3.10-K Step 6: students may only read their own streak.
+  const ownership = verifyStudentSelfAccess(authResult, studentId);
+  if (ownership) return ownership;
 
   const { streakDays, lastActiveDate } = await import('@/modules/student/progress/services/streak-service').then(m =>
     m.calculateStudentStreak(studentId)

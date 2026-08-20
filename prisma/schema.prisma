@@ -259,6 +259,10 @@ model Submission {
   // R3.5: 每次提交嘗試的獨立執行身份與逐題評分證據
   attempts      SubmissionAttempt[]
 
+  // R3.10-K Step 6: one canonical Submission per (assignment, student).
+  // Concurrent first submissions previously created duplicate rows that
+  // double-counted trusted accuracy. DB-level guarantee.
+  @@unique([assignmentId, studentId])
   @@index([studentId])
   @@index([assignmentId])
 }

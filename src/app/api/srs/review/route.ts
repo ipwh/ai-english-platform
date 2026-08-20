@@ -3,10 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { getDueCards, calculateNextReview, getDailyReviewTarget, getSrsProgress, familiarityToQuality } from '@/modules/vocabulary/services/srs';
-import { getStudentWords, getDueReviews, getWordById } from '@/modules/vocabulary/services/vocabulary-service';
+import { calculateNextReview, getDailyReviewTarget, getSrsProgress } from '@/modules/vocabulary/services/srs';
+import { getStudentWords, getWordById } from '@/modules/vocabulary/services/vocabulary-service';
 import { updateVocab } from '@/modules/student';
 import { listMistakes, bulkUpdateMistakes } from '@/modules/student';
 
@@ -26,6 +26,11 @@ export async function GET(req: NextRequest) {
     if (!studentId) {
       return NextResponse.json({ error: '缺少 studentId / studentId is required' }, { status: 400 });
     }
+
+    // R3.10-K Step 6: never trust client-supplied studentId — students can
+    // only read their own review deck (teacher/admin may pass any id).
+    const ownership = verifyStudentSelfAccess(authResult, studentId);
+    if (ownership) return ownership;
 
     const now = new Date();
     let dueVocab: Record<string, unknown>[] = [];
@@ -117,6 +122,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '缺少必要參數 / Missing required parameters' }, { status: 400 });
     }
 
+    // R3.10-K Step 6: students may only mutate their own SRS state.
+    const ownership = verifyStudentSelfAccess(authResult, studentId);
+    if (ownership) return ownership;
+
     const updates: Promise<unknown>[] = [];
 
     for (const r of results) {
@@ -156,8 +165,10 @@ export async function POST(req: NextRequest) {
           // keep in review list
           updates.push(Promise.resolve());
         } else {
+          // Ownership-scoped: only mistakes belonging to the target student
+          // (studentId is verified above for student self-service).
           updates.push(
-            bulkUpdateMistakes({ id: r.id }, { inReviewList: false, reviewed: true })
+            bulkUpdateMistakes({ id: r.id, studentId }, { inReviewList: false, reviewed: true })
           );
         }
       }

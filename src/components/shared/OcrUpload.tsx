@@ -70,6 +70,13 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(0);
 
+  /** Reset file input */
+  const resetInput = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
   /** Add files from input — supports multi-select */
   const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -93,7 +100,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
 
     setFiles(prev => [...prev, ...newEntries]);
     resetInput();
-  }, []);
+  }, [resetInput]);
 
   /** Process all pending files sequentially with client-side compression */
   const processAll = useCallback(async () => {
@@ -199,13 +206,6 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
     setFiles([]);
     setTotalText('');
   }, [files]);
-
-  /** Reset file input */
-  const resetInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
 
   const pendingCount = files.filter(f => f.status === 'pending').length;
   const doneCount = files.filter(f => f.status === 'done').length;

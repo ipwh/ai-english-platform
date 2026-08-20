@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai';
+import { generateWritingPrompt, generateWritingOutline, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI, isBudgetExceededError } from '@/modules/ai';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -102,6 +102,12 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({
+        error: `AI 生成失敗：${err.message}`,
+        _meta: { provider: getLastAIProvider() },
+      }, { status: 503, headers: { 'X-AI-Provider': getLastAIProvider() } });
+    }
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'generate-writing', error: message }, 'Writing prompt generation failed');
     return NextResponse.json({

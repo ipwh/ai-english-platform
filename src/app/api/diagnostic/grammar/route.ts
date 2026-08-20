@@ -5,7 +5,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { generateQuestions, type GeneratedQuestion } from '@/modules/ai';
 import { getRecentDiagnostics } from '@/modules/student';
 import { listMistakes } from '@/modules/student';
@@ -69,6 +69,12 @@ export async function GET(request: NextRequest) {
   if (!studentId) {
     return NextResponse.json({ error: 'studentId required' }, { status: 400 });
   }
+
+  // R3.10-K Phase 9 Step 9 (SEC-009): never trust client-supplied studentId.
+  // Students may only read their own grammar radar (teacher/admin may pass
+  // any id). Checked BEFORE any trusted student-specific data is queried.
+  const ownership = verifyStudentSelfAccess(authResult, studentId);
+  if (ownership) return ownership;
 
   try {
     // 從 DiagnosticResult 和 Mistake 計算每個文法點的準確率

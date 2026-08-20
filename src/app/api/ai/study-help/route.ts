@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai';
+import { answerStudyHelp, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI, isBudgetExceededError } from '@/modules/ai';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'study-help', error: message }, 'Study help failed');
     return NextResponse.json({ error: message }, { status: 500 });

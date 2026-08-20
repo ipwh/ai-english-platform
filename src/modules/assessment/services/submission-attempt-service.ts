@@ -46,7 +46,49 @@ export interface SubmitAssignmentAttemptResult {
   isNew: boolean;
 }
 
+/**
+ * Prisma unique-violation detection (P2002) — structural check so no runtime
+ * class import is required.
+ */
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'P2002';
+}
+
+/**
+ * True ONLY when the P2002 came from the Submission composite unique
+ * (assignmentId + studentId). Other unique violations (e.g. attemptNumber)
+ * must NOT trigger the retry — they indicate a different kind of bug.
+ */
+function isSubmissionUniqueViolation(err: unknown): boolean {
+  if (!isUniqueViolation(err)) return false;
+  const meta = (err as { meta?: { target?: unknown } }).meta;
+  const target = meta?.target;
+  const fields: string[] = Array.isArray(target)
+    ? (target as string[])
+    : typeof target === 'string'
+      ? [target]
+      : [];
+  return fields.includes('assignmentId') && fields.includes('studentId');
+}
+
 export async function submitAssignmentAttempt(
+  input: SubmitAssignmentAttemptInput,
+): Promise<SubmitAssignmentAttemptResult> {
+  try {
+    return await submitAttemptTx(input);
+  } catch (err) {
+    // R3.10-K Step 6 (DB-001): with @@unique([assignmentId, studentId]), a
+    // concurrent first submission can lose the create race with P2002. The
+    // failed transaction has rolled back entirely, so a single retry simply
+    // finds the now-existing canonical row and appends the attempt to it.
+    if (isSubmissionUniqueViolation(err)) {
+      return await submitAttemptTx(input);
+    }
+    throw err;
+  }
+}
+
+async function submitAttemptTx(
   input: SubmitAssignmentAttemptInput,
 ): Promise<SubmitAssignmentAttemptResult> {
   return withSubmissionTransaction(async tx => {

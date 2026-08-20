@@ -109,8 +109,9 @@ export function useTeacherCopilot() {
   const abortRefs = useRef<Map<keyof LoadingMap, AbortController>>(new Map());
 
   // Track which action most recently set an error, for deterministic display.
-  // Ref (not state) because it's consumed synchronously inside the error useMemo.
-  const lastErrorKeyRef = useRef<keyof LoadingMap | null>(null);
+  // State (not ref) so the error useMemo can read it during render without
+  // violating the rules of React (react-hooks/refs).
+  const [lastErrorKey, setLastErrorKey] = useState<keyof LoadingMap | null>(null);
 
   /** Cancel a specific action's in-flight request, or all if no key given */
   const cancelPending = useCallback((key?: keyof LoadingMap) => {
@@ -138,14 +139,13 @@ export function useTeacherCopilot() {
   /** The most recently set error, or the first active error. Deterministic. */
   const error = useMemo(() => {
     // Prefer the last-set error if it's still active
-    const lastKey = lastErrorKeyRef.current;
-    if (lastKey && errorMap[lastKey]) return errorMap[lastKey];
+    if (lastErrorKey && errorMap[lastErrorKey]) return errorMap[lastErrorKey];
     // Fallback: any active error
     for (const key of Object.keys(errorMap) as (keyof LoadingMap)[]) {
       if (errorMap[key]) return errorMap[key]!;
     }
     return '';
-  }, [errorMap]);
+  }, [lastErrorKey, errorMap]);
 
   /**
    * Clear error for all actions.
@@ -153,10 +153,11 @@ export function useTeacherCopilot() {
    */
   const setError = useCallback((message: string) => {
     if (message === '') {
-      lastErrorKeyRef.current = null;
+      setLastErrorKey(null);
       setErrorMap({});
     } else {
       // Set all keys — preserves old "global error" behavior
+      setLastErrorKey('overview');
       setErrorMap({
         overview: message,
         lessonPlan: message,
@@ -177,13 +178,11 @@ export function useTeacherCopilot() {
       delete next[key];
       return next;
     });
-    if (lastErrorKeyRef.current === key) {
-      lastErrorKeyRef.current = null;
-    }
+    setLastErrorKey(prev => (prev === key ? null : prev));
   }, []);
 
   const setErrorFor = useCallback((key: keyof LoadingMap, message: string) => {
-    lastErrorKeyRef.current = key;
+    setLastErrorKey(key);
     setErrorMap(prev => ({ ...prev, [key]: message }));
   }, []);
 

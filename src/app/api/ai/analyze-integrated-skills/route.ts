@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 // R3.10-L: use the canonical facade usecase (executeAI + Zod-validated schema),
 // NOT the legacy callLLM-based service — single AI pipeline per project rules.
-import { analyzeIntegratedSkills, sanitizeForAI, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai';
+import { analyzeIntegratedSkills, sanitizeForAI, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, isBudgetExceededError } from '@/modules/ai';
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({
+        error: `Integrated Skills 批改失敗：${err.message}`,
+        _meta: { provider: getLastAIProvider(), fallback: wasFallbackUsed() },
+      }, { status: 503, headers: { 'X-AI-Provider': getLastAIProvider() } });
+    }
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'analyze-integrated-skills', error: message }, 'Integrated skills analysis failed');
     return NextResponse.json({

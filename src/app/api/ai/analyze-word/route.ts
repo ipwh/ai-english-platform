@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeWord, sanitizeForAI } from '@/modules/ai';
+import { analyzeWord, sanitizeForAI, isBudgetExceededError } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ analysis });
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     const message = err instanceof Error ? err.message : 'AI 分析失敗';
     logger.error({ module: 'analyze-word', error: message }, 'Word analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });

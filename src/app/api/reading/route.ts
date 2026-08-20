@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { callLLM, ragService, evaluateWithAI, type AIEvaluationResult } from '@/modules/ai';
+import { callLLM, ragService, evaluateWithAI, type AIEvaluationResult, isBudgetExceededError } from '@/modules/ai';
 import type { QuestionRubric } from '@/modules/ai/prompts/reading/types';
 import { logger } from '@/shared/logger/logger';
 import {
@@ -577,7 +577,7 @@ export async function POST(request: NextRequest) {
     logger.error({ module: 'reading-api', error: msg }, 'Reading API error');
     return NextResponse.json(
       apiError(msg, 'INTERNAL_ERROR', false, err instanceof Error ? err.stack : undefined),
-      { status: 500 },
+      { status: isBudgetExceededError(err) ? 503 : 500 },
     );
   }
 }

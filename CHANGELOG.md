@@ -4,6 +4,41 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-20 — Phase 9 Release Authorization & Security Hardening (發佈授權 + 安全加固)
+
+### 🚀 Release authorization (Phase 9 closed)
+- **`PRODUCTION_READINESS = GO`** under the amended release rule (ADR-023): OP-001 = `ACCEPTED_WITH_EXPLICIT_WAIVER`, OP-002 = VERIFIED, OP-003 = VERIFIED, P0 = 0, P1 = 0, calibration gate = `INSUFFICIENT_DATA`.
+- **Governance**: new ADR-023 (`docs/architecture/ADR-023-phase9-external-release-gate.md`) formalizes the credential-rotation waiver policy (7 conditions) and permanently distinguishes `VERIFIED` from `ACCEPTED_WITH_EXPLICIT_WAIVER`; new release authorization record at `docs/production/release-authorization-2026-08-20.md`.
+- **DeepSeek waiver**: rotation NOT PERFORMED by explicit Release Authority decision; recorded as `ACCEPTED_WITH_EXPLICIT_WAIVER` (residual risk accepted) — never represented as rotation/verification.
+
+### 🔐 Credential remediation executed in production (with direct evidence)
+- **ROTATED + verified**: Neon DB password (old → `28P01` rejected), AUTH_SECRET, JWT_SECRET (old-secret token → 401, new → 200 on live production), GCP service-account key (exposed key deleted; old key → `invalid_grant`; new key active in Secret Manager).
+- **Gemini API permanently retired**: GCP API key revoked (old key → 401 invalid credentials); `GEMINI_API_KEY/BASE_URL/MODEL` removed from production configuration; provider chain automatically skips the unconfigured Gemini providers (no code change required). Vertex Gemini remains a separate GCP-authenticated path.
+
+### 🗑️ Git history purge (OP-002)
+- `cloud-run-env.yaml` and both known secret blobs are no longer reachable from any advertised ref; remote `main` rewritten (`9071a63…` → `0f3561a…`); fresh-clone verification PASS; PR/tag refs absent.
+
+### 🗄️ Production migration (OP-003)
+- Applied `20260819_submission_unique_assignment_student` to production via `prisma migrate deploy`: deterministic duplicate cleanup (keep earliest, reassign/renumber attempts, delete duplicates) + `UNIQUE("assignmentId","studentId")` index. Post-verify: schema up to date, 0 duplicate groups, counts stable, duplicate insert blocked with `23505` inside a rollback transaction.
+
+### 🛡️ Security hardening committed with this release (SEC-001..009 closed)
+- `verifyStudentSelfAccess()` enforced on `/api/diagnostic/grammar` **before** any trusted-data query (SEC-009).
+- `PATCH /api/auth/role` removed; POST is a cookie-only view switch (no privilege escalation path).
+- New behavior suites: `route-security.test.ts` (34 tests against real handlers), `budget-policy.test.ts` (UTC-day rollover/cost/concurrency), `submission-unique-retry.test.ts` + gated `submission-concurrency.integration.test.ts`.
+- AI routes map budget-exceeded/503 semantics consistently; scoped P2002 handling on duplicate submission without swallowing unrelated P2002.
+
+### 📡 Phase 10 post-release observation (Steps 1–7)
+- HEALTHY across all steps: single service `english-platform` (asia-east2) serving revision `00055-z2q` (digest-pinned) at 100% traffic; long-window logs (~100k entries inspected) show **0×5xx** and 0 error-severity events; authorization matrix contract-consistent; no Gemini API calls; no DB/provider/budget error patterns. **No new incidents**; P2 backlog unchanged (16).
+- Observability gaps documented: AI cost telemetry not exported (`AI_COST = UNKNOWN`), metric-based SLOs not available (`SLO_STATUS = NOT_VERIFIED`) → intensive observation continues.
+
+### ⚖️ Calibration unchanged
+- Protected surfaces diff = ZERO; gate remains `EXIT 2 / INSUFFICIENT_DATA`; HUMAN EVIDENCE = INSUFFICIENT · MARKER EQUIVALENCE = UNPROVEN · HKDSE VALIDITY = NOT ESTABLISHED. Production readiness does not imply scoring validity.
+
+### ✅ VERIFY
+- tsc 0 · eslint 0 errors / 548 warnings · **129 files / 2852 tests** (+1 gated skip) · `npm run build` exit 0 · calibration suite 292/292 with gate EXIT 2 · route-security 34/34.
+
+---
+
 ## 2026-08-19 — Dead Code Removal & Bilingual API Hardening (死碼清除 + 雙語強化)
 
 ### 🧹 Dead code removed (zero runtime consumers)

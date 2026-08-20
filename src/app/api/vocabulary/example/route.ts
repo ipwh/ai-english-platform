@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callLLM } from '@/modules/ai';
+import { callLLM, isBudgetExceededError } from '@/modules/ai';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
@@ -87,6 +87,9 @@ Generate one example sentence.`;
       exampleZh: parsed.exampleZh || '',
     });
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'vocab-example', error: message }, 'Vocab example generation failed');
     return NextResponse.json({ error: message }, { status: 500 });

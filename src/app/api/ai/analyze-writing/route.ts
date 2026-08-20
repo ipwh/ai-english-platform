@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI } from '@/modules/ai';
+import { analyzeWriting, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, sanitizeForAI, isBudgetExceededError } from '@/modules/ai';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest, analyzeWritingSchema, resolveWritingStudentLevel } from '@/shared/validation/schemas';
@@ -72,6 +72,9 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'analyze-writing', error: message }, 'Writing analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });

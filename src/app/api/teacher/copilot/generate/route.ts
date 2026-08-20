@@ -5,6 +5,7 @@ import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
 import { generationRequestSchema } from '@/modules/teacher/copilot/schemas';
 import { teacherCopilotService, verifyTeacherOwnsClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
+import { isBudgetExceededError } from '@/modules/ai';
 
 export async function POST(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -52,6 +53,6 @@ export async function POST(request: NextRequest) {
     }
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ module: 'teacher-copilot', error: message }, 'POST generate failed');
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: isBudgetExceededError(err) ? 503 : 500 });
   }
 }

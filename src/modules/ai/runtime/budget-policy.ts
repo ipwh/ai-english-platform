@@ -24,9 +24,37 @@ const DEFAULT_BUDGET_POLICY: BudgetPolicy = {
   providerLimits: {},
 };
 
+/**
+ * Rough blended cost estimate used ONLY for budget accounting (never billing).
+ * $1 per 1M tokens is a conservative blended rate across the fallback chain
+ * (DeepSeek ~$0.28/1M input, Gemini Flash cheap, Grok more expensive).
+ */
+export const ESTIMATED_USD_PER_TOKEN = 1 / 1_000_000;
+
 let budgetPolicy: BudgetPolicy = { ...DEFAULT_BUDGET_POLICY };
+let dayKey: string | null = null;
 let tokensUsedToday = 0;
 let costEstimateToday = 0;
+
+/** UTC calendar day key (YYYY-MM-DD) — budget resets at midnight UTC. */
+function getUtcDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Lazy day rollover: whenever the budget state is read or written, reset the
+ * counters if the UTC calendar day has changed. This gives real "daily"
+ * semantics — a warm instance is never permanently blocked by yesterday's
+ * usage and the counter never silently accumulates across days.
+ */
+function rollOverIfNeeded(): void {
+  const today = getUtcDayKey(new Date());
+  if (dayKey !== today) {
+    dayKey = today;
+    tokensUsedToday = 0;
+    costEstimateToday = 0;
+  }
+}
 
 export function getBudgetPolicy(): BudgetPolicy {
   return { ...budgetPolicy };
@@ -37,11 +65,13 @@ export function setBudgetPolicy(policy: Partial<BudgetPolicy>): void {
 }
 
 export function recordTokenUsage(tokens: number, estimatedCostUsd = 0): void {
+  rollOverIfNeeded();
   tokensUsedToday += tokens;
   costEstimateToday += estimatedCostUsd;
 }
 
 export function getBudgetStatus(): BudgetStatus {
+  rollOverIfNeeded();
   const tokensRemaining = Math.max(0, budgetPolicy.dailyTokenLimit - tokensUsedToday);
   const costRemaining = Math.max(0, budgetPolicy.monthlyCostLimit - costEstimateToday);
   return {
@@ -58,6 +88,30 @@ export function isBudgetExceeded(): boolean {
 }
 
 export function resetBudgetTracking(): void {
+  dayKey = null;
   tokensUsedToday = 0;
   costEstimateToday = 0;
+}
+
+/**
+ * Typed error for budget exhaustion. Route handlers must map this to a
+ * service-unavailable (503) response — never a generic 500.
+ */
+export class BudgetExceededError extends Error {
+  readonly reason: 'token' | 'cost';
+
+  constructor(reason: 'token' | 'cost') {
+    const message =
+      reason === 'token'
+        ? 'Daily AI token budget exceeded. Please try again later.'
+        : 'Monthly AI cost budget exceeded. Please try again later.';
+    super(message);
+    this.name = 'BudgetExceededError';
+    this.reason = reason;
+  }
+}
+
+/** Type guard for route handlers to return 503 for budget exhaustion. */
+export function isBudgetExceededError(err: unknown): err is BudgetExceededError {
+  return err instanceof BudgetExceededError;
 }

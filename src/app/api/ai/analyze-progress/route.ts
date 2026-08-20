@@ -7,9 +7,9 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed } from '@/modules/ai';
+import { analyzeProgress, isDeepSeekConfigured, getLastAIProvider, wasFallbackUsed, isBudgetExceededError } from '@/modules/ai';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
-import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import {
   getVerifiedPracticeSessions,
@@ -39,6 +39,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { studentId, studentLevel, overallAccuracy, weakSkills, recentPerformance, streakDays } = body;
+
+    // R3.10-K Step 6: never trust client-supplied studentId. Students may only
+    // request their own verified progress; teacher/admin pass through.
+    if (studentId) {
+      const ownership = verifyStudentSelfAccess(authResult, studentId);
+      if (ownership) return ownership;
+    }
 
     let resolvedLevel = studentLevel || 'S4';
     let resolvedAccuracy: number | null = null;
@@ -145,6 +152,9 @@ export async function POST(request: NextRequest) {
       headers: { 'X-AI-Provider': getLastAIProvider() },
     });
   } catch (err: unknown) {
+    if (isBudgetExceededError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     const message = err instanceof Error ? err.message : '未知錯誤';
     logger.error({ module: 'analyze-progress', error: message }, 'Progress analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });

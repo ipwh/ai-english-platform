@@ -15,7 +15,12 @@ import { openaiProvider } from './openai-provider';
 import { logger } from '@/shared/logger/logger';
 import { aiCache } from '@/modules/ai/services/ai-cache';
 import { isProviderAvailable as isCircuitOk, recordSuccess as cbRecordSuccess, recordFailure as cbRecordFailure } from '@/modules/ai/runtime/circuit-breaker';
-import { isBudgetExceeded, recordTokenUsage } from '@/modules/ai/runtime/budget-policy';
+import {
+  getBudgetStatus,
+  recordTokenUsage,
+  BudgetExceededError,
+  ESTIMATED_USD_PER_TOKEN,
+} from '@/modules/ai/runtime/budget-policy';
 
 // ============================================
 // Provider registry with priority-ordered fallback
@@ -54,21 +59,23 @@ class ProviderRegistry {
    * Uses AI cache for deterministic (low-temperature) requests.
    */
   async call(messages: ChatMessage[], options?: LLMCallOptions): Promise<ProviderCallResult> {
-    // Enforce budget before any LLM call
-    if (isBudgetExceeded()) {
-      throw new Error('Daily AI budget exceeded. Please try again tomorrow or contact support.');
-    }
-
     const available = this.getAvailableProviders();
     if (available.length === 0) {
       throw new Error('No AI provider configured. Set DEEPSEEK_API_KEY or GEMINI_API_KEY.');
     }
 
-    // Cache for deterministic requests
+    // Cache for deterministic requests (served BEFORE the budget gate — a
+    // cache hit costs nothing and must not be blocked by budget exhaustion).
     const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode });
     if (!options?.temperature || options.temperature <= 0.3) {
       const cached = await aiCache.get(cacheKey);
       if (cached) return { text: cached, provider: 'cache', latencyMs: 0, fallback: false };
+    }
+
+    // Enforce budget only when a real paid provider call is about to happen.
+    const budget = getBudgetStatus();
+    if (budget.exceeded) {
+      throw new BudgetExceededError(budget.tokensRemaining <= 0 ? 'token' : 'cost');
     }
 
     const errors: string[] = [];
@@ -97,11 +104,14 @@ class ProviderRegistry {
         // Record success with circuit breaker
         cbRecordSuccess(provider.name);
 
-        // Track token usage (estimated: 1 token ≈ 4 chars)
-        const estimatedTokens = Math.ceil(
+        // Track token usage (estimated: 1 token ≈ 4 chars) + rough cost
+        // estimate so the monthly cost budget actually participates.
+        const estimatedInputTokens = Math.ceil(
           messages.reduce((sum, m) => sum + (m.content?.length || 0), 0) / 4
         );
-        recordTokenUsage(estimatedTokens);
+        const estimatedOutputTokens = Math.ceil(text.length / 4);
+        const estimatedTokens = estimatedInputTokens + estimatedOutputTokens;
+        recordTokenUsage(estimatedTokens, estimatedTokens * ESTIMATED_USD_PER_TOKEN);
 
         logger.info({
           module: 'ai-provider', event: 'call_success', provider: provider.name, latencyMs, fallback,

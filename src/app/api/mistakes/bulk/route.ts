@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyApiAuth } from '@/shared/auth/api-auth';
+import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/student';
 
 export async function POST(request: NextRequest) {
@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
     if (!studentId || !action) {
       return NextResponse.json({ error: 'studentId and action required' }, { status: 400 });
     }
+
+    // R3.10-K Step 6: students may only bulk-operate on their own mistakes.
+    const ownership = verifyStudentSelfAccess(authResult, studentId);
+    if (ownership) return ownership;
 
     const where = ids?.length
       ? { id: { in: ids }, studentId }

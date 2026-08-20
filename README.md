@@ -4,12 +4,13 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 > **🏗️ Architecture**: [ARCHITECTURE.md](docs/ARCHITECTURE.md) | [ADRs](docs/architecture/)
 > **Status**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration is not available (0/8 verified comparable pairs — `INSUFFICIENT_DATA`).
+> **✅ Release Authorization (2026-08-20)**: `PRODUCTION_READINESS = GO` — see [ADR-023](docs/architecture/ADR-023-phase9-external-release-gate.md) and the [release authorization record](docs/production/release-authorization-2026-08-20.md). External conditions: OP-001 = `ACCEPTED_WITH_EXPLICIT_WAIVER` (DeepSeek rotation explicitly waived by Release Authority — never represented as rotation; Neon DB password / AUTH_SECRET / JWT_SECRET / GCP SA key rotated with old-rejected + new-active evidence; Gemini API permanently retired & revoked), OP-002 = VERIFIED (secret-bearing Git history purged, fresh-clone verified), OP-003 = VERIFIED (production migration `20260819_submission_unique_assignment_student` applied; unique `(assignmentId, studentId)` constraint live). `PRODUCTION_READINESS ≠ HKDSE SCORING VALIDITY`: HUMAN EVIDENCE = INSUFFICIENT · MARKER EQUIVALENCE = UNPROVEN · HKDSE VALIDITY = NOT ESTABLISHED.
 > **Writing Evaluation**: Semantic Evaluator (evidence-only) → CLO Evaluator (sole score authority) → Deterministic Normalization
 > **AI Pipeline**: `executeAI` (JSON) / `executeAIRaw` (text)
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-19 — 126 files, 2801 tests pass (full non-E2E).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-20 — 129 files, 2852 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -44,6 +45,8 @@ Writing Evaluation (Sprints 127-130):
 | ADR-007 | Hardcoded rule engines, not plugin-based | ✅ Accepted |
 | ADR-008 | LLM budget enforcement required | ✅ Accepted (d3e6f41) |
 | ADR-009 | Manual barrel exports, not auto-discovery | ✅ Accepted |
+| ADR-022 | Release Governance, Feature Flags & Deployment Safety | ✅ Accepted |
+| ADR-023 | Phase 9 External Release Gate & Credential Rotation Waiver Policy (VERIFIED ≠ ACCEPTED_WITH_EXPLICIT_WAIVER; release decision rule; DeepSeek waiver scope) | ✅ Accepted (2026-08-20) |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 
@@ -53,7 +56,7 @@ Writing Evaluation (Sprints 127-130):
 | Language | TypeScript 5 (strict) |
 | Database | PostgreSQL (Neon) + Prisma 7 |
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
-| AI | DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholder) |
+| AI | DeepSeek (primary) → Grok (fallback); Claude/OpenAI placeholders; Vertex Gemini via GCP service account. Gemini API key **retired 2026-08-20** (revoked, configuration removed) |
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |

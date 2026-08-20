@@ -94,6 +94,9 @@ export { ttsService };
 // Hallucination guard
 export { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 
+// Runtime budget policy — typed exhaustion error for 503 mapping in routes
+export { BudgetExceededError, isBudgetExceededError } from '@/modules/ai/runtime/budget-policy';
+
 // AI Evaluator (reading answer evaluation)
 export { evaluateWithAI, type AIEvaluationResult } from '@/modules/ai/services/ai-evaluator';
 

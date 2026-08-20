@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { answerStudyHelp } from '@/modules/ai';
 import type { StudyHelpInput } from '@/modules/ai';
+import { isBudgetExceededError } from '@/modules/ai';
 
 // GET — Retrieve conversation history
 // Currently managed client-side via localStorage. Server endpoint exists for
@@ -69,6 +70,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: isBudgetExceededError(err) ? 503 : 500 });
   }
 }
