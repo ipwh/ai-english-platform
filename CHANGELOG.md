@@ -4,6 +4,26 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-22 — Vocabulary Quiz Answer Randomization & TTS Banner Fix (生字測驗選項隨機化 + TTS 橫幅修正)
+
+### 🎲 `/api/vocabulary/quiz` MCQ 選項隨機化
+- **FIXED**: AI 生成的 MCQ 正確答案位置不再固定在 A — 伺服端在 answer-key 驗證後以 Fisher–Yates 洗牌隨機打亂選項，並重新計算 `answer` 字母（LLM 傾向把正確答案放在第一位）。
+- **CHANGED**: MCQ system prompt 加入「正確答案位置必須隨機分布」指令，並更新範例（`answer: "B"`）。
+
+### 🔊 AudioPlayer TTS 橫幅修正
+- **FIXED**: 純 Web Speech 模式（生字簿串字練習、生字卡、QuickAdd）播放時不再誤顯示「Google TTS unavailable — using browser speech.」橫幅 — 該橫幅只在 `useCloudTTS` 啟用卻降級到瀏覽器語音時顯示。
+
+---
+
+## 2026-08-22 — Writing Page Model-Essay Copy Simplification (範文文案簡化)
+
+### 📝 `/student/writing` model-essay UI
+- **CHANGED**: button copy 「生成中等範文」→「生成範文」（EN: "Generate Mid-Level Model" → "Generate Model Essay"）。
+- **REMOVED**: the 「範文目標：Level N」 label on the model card and the dual-track target/analysis explanation; the card now shows a plain「📝 範文」label and the independent-analysis panel shows only the platform estimate. `pedagogicalTargetLevel` metadata remains server-determined provenance (ADR-038), but is no longer displayed.
+- **UPDATED**: `e2e/generated-model-integrity.spec.ts` asserts the new copy and verifies no「範文目標 / Pedagogical Target」wording remains.
+
+---
+
 ## 2026-08-20 — Phase 9 Release Authorization & Security Hardening (發佈授權 + 安全加固)
 
 ### 🚀 Release authorization (Phase 9 closed)

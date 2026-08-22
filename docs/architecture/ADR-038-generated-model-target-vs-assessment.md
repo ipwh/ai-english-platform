@@ -2,6 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-14
+- **Revised**: 2026-08-22 — UI copy simplified (pedagogical target no longer displayed)
 - **Phase**: R3.10-K Phase 5
 
 ## Context
@@ -48,10 +49,15 @@ distinct concepts.
    dseLevel, or penalties. Client-supplied artifact metadata can never alter
    scoring.
 
-5. The UI displays the model card with a "範文目標 Level N" label and an
-   optional "獨立分析範文" action that shows **both tracks side by side**
-   (target vs independent platform estimate), with an explanation that the
-   two levels serve different purposes.
+5. The UI displays the model card with a plain "📝 範文" (Model Essay) label
+   and an optional "獨立分析範文" action that shows the independent platform
+   estimate only.
+
+   *(Revised 2026-08-22)* The original "範文目標 Level N" label and the
+   side-by-side dual-track explanation were removed at product request: the
+   button copy is now 「生成範文」(Generate Model Essay) and pedagogical
+   target wording no longer appears in the UI. `pedagogicalTargetLevel`
+   remains server-determined provenance metadata.
 
 ## Consequences
 

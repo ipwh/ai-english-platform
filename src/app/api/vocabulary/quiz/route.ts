@@ -11,6 +11,16 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { listVocabFiltered } from '@/modules/student';
 
+// Fisher–Yates 洗牌 — 隨機打亂 MCQ 選項順序（回傳新陣列，不改動原陣列）
+function shuffleOptions<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
@@ -75,14 +85,15 @@ export async function POST(request: NextRequest) {
 
 每道題的題目格式：給出中文意思，讓學生選出對應的英文單字。
 4 個選項中只有 1 個正確答案，其他 3 個從提供的單字清單中選取（作為干擾選項）。
+正確答案的位置必須隨機分布（不要總放在第一個選項）。
 
 回覆純 JSON 陣列（不要 markdown）：
 [
   {
     "type": "mc",
     "promptZh": "「環境」的英文是？",
-    "choices": ["environment", "pollution", "climate", "nature"],
-    "answer": "A",
+    "choices": ["pollution", "environment", "climate", "nature"],
+    "answer": "B",
     "word": "environment",
     "meaningZh": "環境"
   }
@@ -108,15 +119,18 @@ export async function POST(request: NextRequest) {
           // MUST be the index of the AI-provided `word` within its choices
           // (grounded in the student's word list). Miskeyed or fabricated
           // questions are dropped, never delivered with a wrong key.
+          // Options are then shuffled server-side so the correct answer
+          // position is random (the LLM tends to put the key first → "all A").
           const knownWords = new Set(deserialized.map((v) => (v.word as string).toLowerCase()));
           const mcQuestions: Array<Record<string, unknown>> = [];
           for (const q of Array.isArray(rawQuestions) ? rawQuestions : []) {
             const word = typeof q?.word === 'string' ? q.word.trim() : '';
             const choices = Array.isArray(q?.choices) ? q.choices.map((c: unknown) => String(c).trim()) : [];
             if (!word || !knownWords.has(word.toLowerCase()) || choices.length < 2) continue;
-            const idx = choices.findIndex((c: string) => c.toLowerCase() === word.toLowerCase());
-            if (idx < 0) continue;
-            mcQuestions.push({ ...q, answer: String.fromCharCode(65 + idx), word, choices });
+            if (!choices.some((c: string) => c.toLowerCase() === word.toLowerCase())) continue;
+            const shuffled: string[] = shuffleOptions(choices);
+            const idx = shuffled.findIndex((c: string) => c.toLowerCase() === word.toLowerCase());
+            mcQuestions.push({ ...q, answer: String.fromCharCode(65 + idx), word, choices: shuffled });
           }
 
           if (mcQuestions.length === 0) {

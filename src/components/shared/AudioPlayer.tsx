@@ -604,8 +604,10 @@ export default function AudioPlayer({
 
     // 開始新播放 session：先完整清理，再初始化
     cleanupAllPlayback();
-    setFallbackMode(true);
-    setShowFallbackBanner(true);
+    // 只有啟用 Google Cloud TTS（useCloudTTS）卻降級到瀏覽器語音時才算 fallback；
+    // 純 Web Speech 模式（如生字簿串字練習）是設計上的預設，不顯示降級橫幅。
+    setFallbackMode(useCloudTTS);
+    if (useCloudTTS) setShowFallbackBanner(true);
     const currentSessionId = ++sessionIdRef.current;
     setLoading(true);
     cancelled.current = false; // ← reset cancelled flag for new session
@@ -700,7 +702,7 @@ export default function AudioPlayer({
     };
 
     trySpeak();
-  }, [text, playing, onPlayEnd, speed, cleanupAllPlayback, estimateDuration, startProgress]);
+  }, [text, playing, onPlayEnd, speed, useCloudTTS, cleanupAllPlayback, estimateDuration, startProgress]);
 
   // ============================================
   // Google Cloud TTS 播放（v3.1: 預處理文字 + 重試 + 完整 cleanup + 防止疊聲）

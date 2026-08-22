@@ -331,7 +331,7 @@ export default function WritingPage() {
     }
   };
 
-  // === 生成中等水平範文（服務端決定目標，附 artifact metadata）===
+  // === 生成範文（服務端決定目標，附 artifact metadata）===
   const handleMidModel = async () => {
     if (!generatedPrompt.trim()) return;
     setMidModelLoading(true); setMidModel(null); setMidModelAnalysis(null);
@@ -352,7 +352,7 @@ export default function WritingPage() {
     finally { setMidModelLoading(false); }
   };
 
-  // === 獨立分析範文（canonical scorer，與範文目標並列展示，互不覆蓋）===
+  // === 獨立分析範文（canonical scorer）===
   const handleAnalyzeMidModel = async () => {
     if (!midModel) return;
     setMidModelAnalyzing(true); setMidModelAnalysis(null);
@@ -738,15 +738,11 @@ export default function WritingPage() {
               )}
             </div>
           )}
-          {/* 中等水平範文 — 範文目標（Pedagogical Target）≠ 分析結果（Assessment）*/}
+          {/* 學習範文（平台生成）*/}
           {midModel && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
               <p className="text-xs font-medium text-amber-600 mb-1">
-                {midModel.metadata?.pedagogicalTargetLevel
-                  ? (lang === 'en'
-                    ? `📝 Model Essay — Pedagogical Target: Level ${midModel.metadata.pedagogicalTargetLevel}`
-                    : `📝 範文目標：Level ${midModel.metadata.pedagogicalTargetLevel}`)
-                  : (lang === 'en' ? '📝 Model Essay' : '📝 範文')}
+                {lang === 'en' ? '📝 Model Essay' : '📝 範文'}
               </p>
               {store.userId ? (
                 <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>
@@ -773,18 +769,8 @@ export default function WritingPage() {
                 <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-md border border-purple-200 dark:border-purple-800 space-y-1">
                   <p className="text-xs font-medium text-purple-800 dark:text-purple-200">
                     {lang === 'en'
-                      ? `Pedagogical Target: Level ${midModel.metadata?.pedagogicalTargetLevel ?? '—'}`
-                      : `範文目標：Level ${midModel.metadata?.pedagogicalTargetLevel ?? '—'}`}
-                  </p>
-                  <p className="text-xs font-medium text-purple-800 dark:text-purple-200">
-                    {lang === 'en'
                       ? `Independent platform analysis: Est. Level ${midModelAnalysis.dseLevel ?? '—'} · ${midModelAnalysis.overallScore}/100`
                       : `獨立 AI 分析：平台估算 Level ${midModelAnalysis.dseLevel ?? '—'} · ${midModelAnalysis.overallScore}/100`}
-                  </p>
-                  <p className="text-[11px] text-purple-600 dark:text-purple-300">
-                    {lang === 'en'
-                      ? 'These two levels serve different purposes: the target is the learning level set at generation; the analysis is the platform\'s independent assessment of the text.'
-                      : '這兩個 Level 用途不同：「範文目標」是生成時設定的學習水平；「分析結果」是平台根據文章內容作出的獨立評估。'}
                   </p>
                 </div>
               )}
@@ -807,7 +793,7 @@ export default function WritingPage() {
               className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-sm"
             >
               {midModelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
-              {midModelLoading ? t('common.loading') : (lang === 'en' ? 'Generate Mid-Level Model' : '生成中等範文')}
+              {midModelLoading ? t('common.loading') : (lang === 'en' ? 'Generate Model Essay' : '生成範文')}
             </button>
             {rewrittenText && (
               <button
