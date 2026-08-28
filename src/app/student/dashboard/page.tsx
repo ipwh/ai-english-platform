@@ -10,7 +10,7 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/shared/utils/utils';
-import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats, type DailyGoalStatus } from '@/modules/student/progress/services/gamification';
+import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats, type DailyGoalStatus, type LeaderboardEntry } from '@/modules/student/progress/services/gamification';
 import { GamificationSkeleton } from '@/components/shared/Skeleton';
 import OnboardingGuard from '@/components/shared/OnboardingGuard';
 
@@ -43,6 +43,9 @@ export default function StudentDashboardPage() {
   const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
   const [gamification, setGamification] = useState<GamificationData | null>(null);
   const [gamificationLoading, setGamificationLoading] = useState(true);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
+  // Sprint 133: 練習連續天數（加碼基礎）；登入＋練習 streak 仍作活躍日顯示
+  const [practiceStreak, setPracticeStreak] = useState<number | null>(null);
 
   // 載入練習歷史（解決重整後數據歸零）
   useEffect(() => {
@@ -63,14 +66,24 @@ export default function StudentDashboardPage() {
           .catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Gamification fetch failed'); })
           .finally(() => setGamificationLoading(false));
 
-        // 🎮 每日登入 XP（DB-based streak，取代 localStorage）
-        if (userId) {
-          fetch('/api/streak', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: userId }),
-          }).catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Streak POST failed'); });
-        }
+        // Sprint 133: 排行榜（初中按本週活躍日數、高中按 XP）
+        fetch(`/api/gamification?studentId=${encodeURIComponent(userId)}&action=leaderboard`)
+          .then(r => r.json())
+          .then(data => {
+            if (data && !data.error && Array.isArray(data.leaderboard)) setLeaderboard(data.leaderboard);
+          })
+          .catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Leaderboard fetch failed'); });
+
+        // 🎮 每日登入 XP（DB-based streak，取代 localStorage）；回傳練習連續天數
+        fetch('/api/streak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId: userId }),
+        }).then(r => r.json())
+          .then(d => {
+            if (d && typeof d.practiceStreakDays === 'number') setPracticeStreak(d.practiceStreakDays);
+          })
+          .catch((e) => { logger.error({ module: 'student-dashboard', error: e instanceof Error ? e.message : String(e) }, 'Streak POST failed'); });
 
         return fetch(`/api/practice?studentId=${encodeURIComponent(userId)}`).then(r => r.json());
       }
@@ -92,11 +105,13 @@ export default function StudentDashboardPage() {
   }, [loadPracticeHistory, language]);
 
   const weeklyStats = getWeeklyStats();
+  // Sprint 133: 火燄顯示練習連續天數（與 streak 加碼基礎一致）；尚未回傳時以活躍日暫代
+  const displayStreak = practiceStreak ?? weeklyStats.streakDays;
   const kpis = [
     { label: t('progress.weeklyLabel'), value: weeklyStats.questionsDone || 0, unit: t('common.question'), trend: 'up' as const, change: 0 },
     { label: t('progress.accuracyLabel'), value: weeklyStats.accuracy || 0, unit: t('common.percent'), trend: 'stable' as const, change: 0 },
     { label: t('progress.sessionsLabel'), value: weeklyStats.sessionsCount || 0, unit: t('common.sessions'), trend: 'up' as const, change: 0 },
-    { label: t('student.streak'), value: weeklyStats.streakDays || 0, unit: t('common.days'), trend: 'stable' as const, change: 0 },
+    { label: t('student.streak'), value: displayStreak || 0, unit: t('common.days'), trend: 'stable' as const, change: 0 },
   ];
 
   const unlockedBadges = gamification?.badges?.filter(b => b.unlocked) || [];
@@ -115,10 +130,10 @@ export default function StudentDashboardPage() {
         </Link>
         {/* 🔥 Streak + 每日目標 */}
         <div className="flex items-center gap-4 mt-3 text-teal-100 text-xs">
-          {weeklyStats.streakDays > 0 && (
+          {displayStreak > 0 && (
             <span className="flex items-center gap-1.5">
-              <StreakFlame streakDays={weeklyStats.streakDays} size="sm" />
-              {t('student.dashboard.streak', { n: weeklyStats.streakDays })}
+              <StreakFlame streakDays={displayStreak} size="sm" />
+              {t('student.dashboard.streak', { n: displayStreak })}
             </span>
           )}
           {gamification?.dailyGoal ? (
@@ -199,11 +214,32 @@ export default function StudentDashboardPage() {
             </div>
           )}
 
+          {/* 🏆 排行榜（初中按本週活躍日數、高中按 XP） */}
+          {leaderboard && leaderboard.length > 0 && (
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-3">
+              <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                <Trophy className="w-3 h-3 text-yellow-500" /> {t('student.dashboard.leaderboard')}
+              </p>
+              <div className="space-y-1">
+                {leaderboard.slice(0, 5).map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                    <span>{entry.rank}. {entry.displayName}</span>
+                    <span className="text-gray-500">
+                      {entry.metric === 'weekly-active-days'
+                        ? `${entry.weeklyActiveDays ?? 0} ${t('student.dashboard.leaderboardActiveDays')}`
+                        : `${entry.xp} XP`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 🔥 Streak Fire 動畫 */}
-          {weeklyStats.streakDays >= 3 && (
+          {displayStreak >= 3 && (
             <div className="flex items-center gap-2 mt-2 text-xs text-orange-500 font-medium">
-              <StreakFlame streakDays={weeklyStats.streakDays} size="md" />
-              <span>{t('student.dashboard.streak').replace('{n}', String(weeklyStats.streakDays))} 🔥</span>
+              <StreakFlame streakDays={displayStreak} size="md" />
+              <span>{t('student.dashboard.streak').replace('{n}', String(displayStreak))} 🔥</span>
             </div>
           )}
 

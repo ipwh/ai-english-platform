@@ -4,6 +4,24 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 (III) — Leaderboard UI + Short-Writing Detection + Honest Streak Display
+
+### 🏆 排行榜接上 UI
+- **NEW** 學生儀表板新增「班級排行榜」（匿名班號）：初中（S1-S3）顯示「本週活躍日數」排名，高中顯示 XP 排名——前端正式接上 `/api/gamification?action=leaderboard` 的年級分流（上版只完成 API）。
+
+### ✍️ 「只交極短」寫作偵測
+- **NEW** `countShortWritings()` 純函數（< 100 字視為極短）＋ `getShortWritingCounts()` DB 查詢（`teacher/monitoring/services/activity-service.ts`）。
+- **CHANGED** `/api/teacher/students` 回傳 `shortWritingCount`；教師學生名單與班級詳情的「寫作」欄顯示「（N 極短）」琥珀色標記。
+
+### 🔥 streak 顯示與加碼一致
+- **CHANGED** 學生儀表板火燄／KPI 改為顯示**練習連續天數**（`/api/streak` 回傳的 `practiceStreakDays`），與 streak 加碼基礎一致；登入＋練習的活躍日 streak 仍由伺服器保留。
+
+### 🧪 驗證
+- 新增 `activity-service.test.ts`（極短寫作偵測）。
+- **2877 tests pass（130 files, 1 skipped）** · tsc 0 · eslint 0 errors。
+
+---
+
 ## 2026-08-29 (II) — Junior Incentive Rebalance (初中誘因再平衡：獎深度不獎點擊)
 
 ### 🎯 背景

@@ -50,3 +50,32 @@ export async function getDominantDifficultyMap(studentIds: string[]): Promise<Ma
   }
   return result;
 }
+
+// ============================================
+// 極短寫作偵測（Sprint 133）— 暴露「只交極短」的遊戲化寫作
+// ============================================
+
+/** 字數低於此門檻的寫作視為「極短」（DSE Part B 為 400 字） */
+export const SHORT_WRITING_THRESHOLD_WORDS = 100;
+
+/** 純函數：計算每名學生極短寫作篇數（可單元測試） */
+export function countShortWritings(drafts: Array<{ studentId: string; draft: string }>): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const d of drafts) {
+    const words = d.draft.trim().split(/\s+/).filter(Boolean).length;
+    if (words > 0 && words < SHORT_WRITING_THRESHOLD_WORDS) {
+      map.set(d.studentId, (map.get(d.studentId) ?? 0) + 1);
+    }
+  }
+  return map;
+}
+
+/** 每名學生極短寫作篇數（非空白草稿） */
+export async function getShortWritingCounts(studentIds: string[]): Promise<Map<string, number>> {
+  if (studentIds.length === 0) return new Map();
+  const drafts = await db.writingDraft.findMany({
+    where: { studentId: { in: studentIds }, draft: { not: '' } },
+    select: { studentId: true, draft: true },
+  });
+  return countShortWritings(drafts);
+}

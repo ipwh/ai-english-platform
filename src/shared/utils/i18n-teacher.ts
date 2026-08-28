@@ -36,6 +36,7 @@ export const teacherTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.dashboard.lowAccuracy': { zh: '低準確率', en: 'Low accuracy' },
   'teacher.students.lastActive': { zh: '最後活動', en: 'Last Active' },
   'teacher.students.writingCount': { zh: '寫作', en: 'Writing' },
+  'teacher.students.shortWriting': { zh: '極短', en: 'too short' },
   'teacher.students.active': { zh: '活躍', en: 'Active' },
   'teacher.students.lowActivity': { zh: '低活躍', en: 'Low activity' },
   'teacher.students.inactive': { zh: '失聯', en: 'Inactive' },

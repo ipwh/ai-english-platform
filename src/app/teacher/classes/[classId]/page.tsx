@@ -27,6 +27,7 @@ interface RealStudent {
   overallAccuracy: number | null;
   class?: { id: string; name: string; gradeLevel: string } | null;
   lastActiveAt?: string | null;
+  shortWritingCount?: number;
   _count?: { sessions: number; mistakes: number; writingDrafts: number };
 }
 
@@ -187,6 +188,9 @@ export default function ClassDetailPage() {
                       </td>
                       <td className="text-center py-3 text-xs text-gray-500 hidden sm:table-cell">
                         {s._count?.writingDrafts ?? 0}
+                        {(s.shortWritingCount ?? 0) > 0 && (
+                          <span className="text-amber-600 ml-1">（{s.shortWritingCount} {t('teacher.students.shortWriting')}）</span>
+                        )}
                       </td>
                       <td className="text-right py-3">
                         <Link href={`/teacher/students/${s.id}`}

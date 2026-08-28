@@ -21,6 +21,7 @@ interface RealStudent {
   classNumber?: string;
   lastActiveAt?: string | null;
   dominantDifficulty?: string | null;
+  shortWritingCount?: number;
   _count?: { sessions: number; mistakes: number; writingDrafts: number };
 }
 
@@ -212,7 +213,12 @@ export default function TeacherStudentsPage() {
                   <td className="text-center py-3 px-4">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activityBadge(s).cls}`}>{activityBadge(s).text}</span>
                   </td>
-                  <td className="text-center py-3 px-4 text-xs text-gray-500 hidden lg:table-cell">{s._count?.writingDrafts ?? 0}</td>
+                  <td className="text-center py-3 px-4 text-xs text-gray-500 hidden lg:table-cell">
+                    {s._count?.writingDrafts ?? 0}
+                    {(s.shortWritingCount ?? 0) > 0 && (
+                      <span className="text-amber-600 ml-1">（{s.shortWritingCount} {t('teacher.students.shortWriting')}）</span>
+                    )}
+                  </td>
                   <td className="text-right py-3 px-4">
                     <Link href={`/teacher/students/${s.id}`} className="text-blue-600 text-xs hover:underline flex items-center justify-end gap-1">
                       {t('generic.details')} <ChevronRight className="w-3 h-3" />

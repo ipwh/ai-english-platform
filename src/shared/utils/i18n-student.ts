@@ -80,6 +80,8 @@ export const studentTranslations: Record<string, { zh: string; en: string }> = {
   'student.dashboard.depthChallenge': { zh: '今日挑戰', en: 'Daily Challenge' },
   'student.dashboard.depthMistakes': { zh: '錯題', en: 'mistakes' },
   'student.dashboard.depthWords': { zh: '生字', en: 'words' },
+  'student.dashboard.leaderboard': { zh: '班級排行榜', en: 'Class Leaderboard' },
+  'student.dashboard.leaderboardActiveDays': { zh: '本週活躍日', en: 'active days this week' },
   'student.dashboard.moreBadges': { zh: '還有 {n} 個徽章', en: '+{n} more' },
   'student.dashboard.fallbackName': { zh: '同學', en: 'Student' },
   'diagnostic.loadFailed': { zh: 'AI 題目生成失敗，請稍後再試。', en: 'AI question generation failed. Please try again.' },

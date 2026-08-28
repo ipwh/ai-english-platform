@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findUserByIdSelect, listTeacherClasses, listAllClasses, listUsersAdmin } from '@/modules/student';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
-import { getLastActivityMap, getDominantDifficultyMap } from '@/modules/teacher/monitoring/services/activity-service';
+import { getLastActivityMap, getDominantDifficultyMap, getShortWritingCounts } from '@/modules/teacher/monitoring/services/activity-service';
 
 async function getTeacherInfo(request: NextRequest): Promise<{ userId: string; role: string } | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -64,10 +64,12 @@ export async function GET(request: NextRequest) {
     // Sprint 133: behavior-based monitoring signals.
     // lastActiveAt = latest of last login / last practice.
     // dominantDifficulty = most-practised difficulty (exposes "題太易" at a glance).
+    // shortWritingCount = drafts under the word threshold (exposes "只交極短").
     const studentIds = students.map((s: { id: string }) => s.id);
-    const [lastActivity, dominantDifficulty] = await Promise.all([
+    const [lastActivity, dominantDifficulty, shortWriting] = await Promise.all([
       getLastActivityMap(studentIds),
       getDominantDifficultyMap(studentIds),
+      getShortWritingCounts(studentIds),
     ]);
 
     const enriched = students.map((s: { id: string }) => {
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
         ...s,
         lastActiveAt: last ? last.toISOString() : null,
         dominantDifficulty: dominantDifficulty.get(s.id) ?? null,
+        shortWritingCount: shortWriting.get(s.id) ?? 0,
       };
     });
 
