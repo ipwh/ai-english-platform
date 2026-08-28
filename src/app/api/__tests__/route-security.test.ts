@@ -46,6 +46,7 @@ const mocks = vi.hoisted(() => ({
 
   // streak-service / gamification
   syncUserStreak: vi.fn(),
+  calculatePracticeStreak: vi.fn(),
   calculateXp: vi.fn(),
 
   // diagnostic/grammar route
@@ -102,6 +103,7 @@ vi.mock('@/modules/vocabulary/services/vocabulary-service', () => ({
 
 vi.mock('@/modules/student/progress/services/streak-service', () => ({
   syncUserStreak: mocks.syncUserStreak,
+  calculatePracticeStreak: mocks.calculatePracticeStreak,
 }));
 
 vi.mock('@/modules/student/progress/services/gamification', () => ({
@@ -186,6 +188,7 @@ beforeEach(() => {
   mocks.bulkUpdateMistakes.mockResolvedValue({ count: 1 });
   mocks.bulkDeleteMistakes.mockResolvedValue({ count: 1 });
   mocks.syncUserStreak.mockResolvedValue(3);
+  mocks.calculatePracticeStreak.mockResolvedValue(2);
   mocks.calculateXp.mockReturnValue(10);
   mocks.getTodaysXpTransaction.mockResolvedValue(null);
   mocks.createXpTransaction.mockResolvedValue({ id: 'xp-1' });

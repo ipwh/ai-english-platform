@@ -10,7 +10,7 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import KpiCard from '@/components/shared/KpiCard';
 import { getGreeting } from '@/shared/utils/utils';
-import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats } from '@/modules/student/progress/services/gamification';
+import { getLevelInfo, getDailyGoal, getStudyRecommendation, type BadgeDefinition, type BadgeCheckStats, type DailyGoalStatus } from '@/modules/student/progress/services/gamification';
 import { GamificationSkeleton } from '@/components/shared/Skeleton';
 import OnboardingGuard from '@/components/shared/OnboardingGuard';
 
@@ -19,6 +19,7 @@ interface GamificationData {
   level: { level: number; title: string; titleZh: string; xpRequired: number; xpToNext: number };
   badges: (BadgeDefinition & { unlocked: boolean })[];
   stats: Record<string, number>;
+  dailyGoal?: DailyGoalStatus;
 }
 
 interface AIInsight {
@@ -120,7 +121,22 @@ export default function StudentDashboardPage() {
               {t('student.dashboard.streak', { n: weeklyStats.streakDays })}
             </span>
           )}
-          <span>🎯 {t('student.dashboard.dailyGoal')}: {weeklyStats.questionsDone || 0} / {getDailyGoal(studentLevel).questions} {t('common.question')}</span>
+          {gamification?.dailyGoal ? (
+            <div className="space-y-0.5">
+              <span className="block">
+                🎯 {t('student.dashboard.dailyGoal')}: {gamification.dailyGoal.questionsDone} / {gamification.dailyGoal.questionsTarget} {t('common.question')}
+                {gamification.dailyGoal.completed ? ' ✅' : ''}
+              </span>
+              <span className="block opacity-90">
+                {t('student.dashboard.dailyGoalDepth')}:{' '}
+                {gamification.dailyGoal.depth.challengeDone ? '✅' : '⬜'} {t('student.dashboard.depthChallenge')}
+                {' · '}{gamification.dailyGoal.depth.mistakesReviewed}/{gamification.dailyGoal.depth.mistakesTarget} {t('student.dashboard.depthMistakes')}
+                {' · '}{gamification.dailyGoal.depth.wordsMasteredToday}/{gamification.dailyGoal.depth.wordsTarget} {t('student.dashboard.depthWords')}
+              </span>
+            </div>
+          ) : (
+            <span>🎯 {t('student.dashboard.dailyGoal')}: {weeklyStats.questionsDone || 0} / {getDailyGoal(studentLevel).questions} {t('common.question')}</span>
+          )}
         </div>
       </div>
 

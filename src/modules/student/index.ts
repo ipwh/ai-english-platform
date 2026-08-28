@@ -52,19 +52,21 @@ export { memoryEngine };
 // ============================================
 // Progress — gamification, XP, streaks, badges, leaderboard
 // ============================================
-import { getStudentProgress, awardXp } from './progress/services/progress-service';
-export { getStudentProgress, awardXp };
-import { calculateStudentStreak, syncUserStreak } from './progress/services/streak-service';
-export { calculateStudentStreak, syncUserStreak };
+import { getStudentProgress, awardXp, getDailyGoalProgress, getWeeklyActiveDays } from './progress/services/progress-service';
+export { getStudentProgress, awardXp, getDailyGoalProgress, getWeeklyActiveDays };
+import { calculateStudentStreak, syncUserStreak, calculatePracticeStreak } from './progress/services/streak-service';
+export { calculateStudentStreak, syncUserStreak, calculatePracticeStreak };
 import {
   calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
   getStudyRecommendation, buildLeaderboard, getDailyGoal,
+  evaluateDailyGoal, eligibleBadgesFor, getGradeMultiplier,
 } from './progress/services/gamification';
 export {
   calculateXp, getLevelInfo, checkNewBadges, getAllBadges,
   getStudyRecommendation, buildLeaderboard, getDailyGoal,
+  evaluateDailyGoal, eligibleBadgesFor, getGradeMultiplier,
 };
-export type { BadgeCheckStats, LeaderboardEntry, BadgeDefinition } from './progress/services/gamification';
+export type { BadgeCheckStats, LeaderboardEntry, BadgeDefinition, DailyGoalStatus, DailyGoalProgress } from './progress/services/gamification';
 
 // ============================================
 // Twin (S20) — digital learning state

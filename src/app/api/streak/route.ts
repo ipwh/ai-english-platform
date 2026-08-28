@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
-import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
+import { syncUserStreak, calculatePracticeStreak } from '@/modules/student/progress/services/streak-service';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { getTodaysXpTransaction, createXpTransaction } from '@/modules/student';
 import { updateUser } from '@/modules/student';
@@ -28,19 +28,23 @@ export async function POST(request: NextRequest) {
     const ownership = verifyStudentSelfAccess(authResult, studentId);
     if (ownership) return ownership;
 
-    // Sync streak from actual DB activity
-    const streakDays = await syncUserStreak(studentId);
+    // Sync streak from actual DB activity（登入 + 練習都算活躍日）
+    const [streakDays, practiceStreakDays] = await Promise.all([
+      syncUserStreak(studentId),
+      calculatePracticeStreak(studentId),
+    ]);
 
     // Check if today already has a login log (avoid duplicate XP)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayLog = await getTodaysXpTransaction(studentId, 'dailyLogin', today);
 
-    // Award dailyLogin XP only once per day
+    // Award dailyLogin XP only once per day.
+    // Sprint 133: streakBonus 只隨「練習日」遞增（只登入不漲加成）。
     let xpAwarded = 0;
     if (!todayLog) {
-      const xpAmount = calculateXp({ type: 'dailyLogin', streakDays });
-      await createXpTransaction({ userId: studentId, event: 'dailyLogin', xpAmount, metadata: JSON.stringify({ streakDays }) });
+      const xpAmount = calculateXp({ type: 'dailyLogin', streakDays: practiceStreakDays });
+      await createXpTransaction({ userId: studentId, event: 'dailyLogin', xpAmount, metadata: JSON.stringify({ streakDays: practiceStreakDays }) });
 
       await updateUser(studentId, { xp: { increment: xpAmount }, streakDays });
 
@@ -49,6 +53,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       streakDays,
+      practiceStreakDays,
       xpAwarded,
       alreadyLoggedToday: !!todayLog,
     });

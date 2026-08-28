@@ -27,6 +27,12 @@ const DIFFICULTY_MULTIPLIER: Record<string, number> = {
   challenge: 1.5,
 };
 
+/**
+ * 深度學習事件 — 初中年級加成只適用於這些（複習錯題／生字掌握）。
+ * 避免獎勵「刷 MC／登入」的淺層行為。
+ */
+export const DEEP_LEARNING_EVENTS: ReadonlySet<XpEvent['type']> = new Set(['reviewMistake', 'masterWord']);
+
 export interface XpEvent {
   type: keyof typeof XP_VALUES;
   difficulty?: string;
@@ -46,19 +52,79 @@ export function calculateXp(event: XpEvent): number {
 }
 
 // ============================================
-// 年級自適應（S1-S3 較低門檻，S4-S6 標準門檻）
+// 年級自適應（S1-S3 深度學習加成；刷題/登入不再有年級加成）
 // ============================================
 
-export function getGradeMultiplier(gradeLevel?: string): number {
+export function getGradeMultiplier(gradeLevel?: string, eventType?: XpEvent['type']): number {
   if (!gradeLevel) return 1.0;
   const level = parseInt(gradeLevel.replace('S', ''));
-  if (level <= 3) return 1.2; // 初中：較容易升級，鼓勵動機
-  return 1.0; // 高中：標準
+  // 初中：1.2× 只加在深度學習（複習錯題／生字掌握），不獎勵刷題
+  if (level <= 3 && eventType && DEEP_LEARNING_EVENTS.has(eventType)) return 1.2;
+  return 1.0;
 }
 
 // ============================================
-// 每日目標（根據年級自適應）
+// 每日目標（根據年級自適應）— 必須含「深度」要件
 // ============================================
+
+/** 每日目標深度要件：今日挑戰、或複習 3 錯題、或掌握 3 生字 */
+export const DAILY_GOAL_DEPTH = { mistakesReviewed: 3, wordsMastered: 3 } as const;
+
+export interface DailyGoalProgress {
+  questionsDone: number;
+  xpToday: number;
+  challengeDone: boolean;
+  mistakesReviewed: number;
+  wordsMasteredToday: number;
+}
+
+export interface DailyGoalStatus {
+  questionsDone: number;
+  questionsTarget: number;
+  xpToday: number;
+  xpTarget: number;
+  questionsMet: boolean;
+  depthMet: boolean;
+  completed: boolean;
+  depth: {
+    challengeDone: boolean;
+    mistakesReviewed: number;
+    mistakesTarget: number;
+    wordsMasteredToday: number;
+    wordsTarget: number;
+  };
+}
+
+/**
+ * 每日目標完成判定：題數達標 AND 至少一項深度活動。
+ * 單靠 5 題 MC 無法達標（50 XP 不再能只靠刷選擇題達成）。
+ */
+export function evaluateDailyGoal(progress: DailyGoalProgress, gradeLevel?: string): DailyGoalStatus {
+  const { questions, xpTarget } = getDailyGoal(gradeLevel);
+  const mistakesTarget = DAILY_GOAL_DEPTH.mistakesReviewed;
+  const wordsTarget = DAILY_GOAL_DEPTH.wordsMastered;
+  const depthMet =
+    progress.challengeDone ||
+    progress.mistakesReviewed >= mistakesTarget ||
+    progress.wordsMasteredToday >= wordsTarget;
+  const questionsMet = progress.questionsDone >= questions;
+  return {
+    questionsDone: progress.questionsDone,
+    questionsTarget: questions,
+    xpToday: progress.xpToday,
+    xpTarget,
+    questionsMet,
+    depthMet,
+    completed: questionsMet && depthMet,
+    depth: {
+      challengeDone: progress.challengeDone,
+      mistakesReviewed: progress.mistakesReviewed,
+      mistakesTarget,
+      wordsMasteredToday: progress.wordsMasteredToday,
+      wordsTarget,
+    },
+  };
+}
 
 export function getDailyGoal(gradeLevel?: string): { questions: number; xpTarget: number } {
   const level = gradeLevel ? parseInt(gradeLevel.replace('S', '')) : 4;
@@ -152,6 +218,12 @@ export interface BadgeCheckStats {
   writingSubmissions: number;
   diagnosticCompleted: boolean;
   skillAccuracy: Record<string, number>;
+  /** 累計複習錯題數（新徽章 mistake-review-10 用） */
+  mistakesReviewed?: number;
+  /** 最近 7 天每日挑戰完成次數（新徽章 challenge-week 用） */
+  weeklyChallenges?: number;
+  /** 學生年級（S1-S6）— 年級化徽章資格（初中不頒 writing-5） */
+  gradeLevel?: string;
 }
 
 export const BADGE_DEFINITIONS: BadgeDefinition[] = [
@@ -259,6 +331,37 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     category: 'skill',
     condition: (s) => s.wordsMastered >= 50,
   },
+  // 初中友善徽章（S133）：深度行為而非刷題
+  {
+    id: 'vocab-20',
+    name: 'Word Starter',
+    nameZh: '生字新手',
+    description: 'Mastered 20 vocabulary words',
+    descriptionZh: '掌握 20 個生字',
+    icon: '🔤',
+    category: 'skill',
+    condition: (s) => s.wordsMastered >= 20,
+  },
+  {
+    id: 'mistake-review-10',
+    name: 'Mistake Fixer',
+    nameZh: '錯題修理工',
+    description: 'Reviewed 10 mistakes',
+    descriptionZh: '複習 10 題錯題',
+    icon: '🔧',
+    category: 'skill',
+    condition: (s) => (s.mistakesReviewed ?? 0) >= 10,
+  },
+  {
+    id: 'challenge-week',
+    name: 'Challenge Seeker',
+    nameZh: '挑戰達人',
+    description: 'Completed 5 daily challenges in a week',
+    descriptionZh: '本週完成 5 次每日挑戰',
+    icon: '🎯',
+    category: 'special',
+    condition: (s) => (s.weeklyChallenges ?? 0) >= 5,
+  },
   // Special Badges
   {
     id: 'diagnostic',
@@ -313,6 +416,17 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
 ];
 
+const JUNIOR_GRADES: ReadonlySet<string> = new Set(['S1', 'S2', 'S3']);
+
+/**
+ * 年級化徽章資格：初中（S1-S3）不頒「提交 5 篇寫作」；
+ * 高中才強調寫作／綜合（與 DSE 卷別比重一致）。
+ */
+export function eligibleBadgesFor(stats: BadgeCheckStats): BadgeDefinition[] {
+  const junior = !!stats.gradeLevel && JUNIOR_GRADES.has(stats.gradeLevel);
+  return BADGE_DEFINITIONS.filter((badge) => !(junior && badge.id === 'writing-5'));
+}
+
 /**
  * 檢查並回傳新解鎖的徽章
  */
@@ -320,7 +434,7 @@ export function checkNewBadges(
   stats: BadgeCheckStats,
   alreadyUnlocked: string[]
 ): BadgeDefinition[] {
-  return BADGE_DEFINITIONS.filter(
+  return eligibleBadgesFor(stats).filter(
     (badge) => !alreadyUnlocked.includes(badge.id) && badge.condition(stats)
   );
 }
@@ -354,7 +468,7 @@ export function getAllBadges(
   stats: BadgeCheckStats,
   unlockedIds: string[]
 ): (BadgeDefinition & { unlocked: boolean })[] {
-  return BADGE_DEFINITIONS.map((badge) => ({
+  return eligibleBadgesFor(stats).map((badge) => ({
     ...badge,
     unlocked: unlockedIds.includes(badge.id) || badge.condition(stats),
   }));
@@ -371,6 +485,9 @@ export interface LeaderboardEntry {
   level: number;
   streakDays: number;
   accuracy: number;
+  /** 初中模式：本週活躍日數（取代總 XP 排名） */
+  weeklyActiveDays?: number;
+  metric: 'xp' | 'weekly-active-days';
 }
 
 export function buildLeaderboard(
@@ -381,12 +498,16 @@ export function buildLeaderboard(
     xp?: number;
     streakDays?: number;
     overallAccuracy?: number;
-  }[]
+  }[],
+  options: { metric?: 'xp' | 'weekly-active-days'; weeklyActiveDays?: Map<string, number> } = {},
 ): LeaderboardEntry[] {
+  const metric = options.metric ?? 'xp';
+  const weekly = options.weeklyActiveDays;
   return students
     .map((s, i) => {
       const xp = s.xp || 0;
       const levelInfo = getLevelInfo(xp);
+      const activeDays = weekly?.get(s.id) ?? 0;
       return {
         rank: 0, // will be set after sort
         displayName: s.classNumber
@@ -396,8 +517,12 @@ export function buildLeaderboard(
         level: levelInfo.level,
         streakDays: s.streakDays || 0,
         accuracy: s.overallAccuracy || 0,
+        weeklyActiveDays: activeDays,
+        metric,
       };
     })
-    .sort((a, b) => b.xp - a.xp)
+    .sort((a, b) => metric === 'weekly-active-days'
+      ? (b.weeklyActiveDays ?? 0) - (a.weeklyActiveDays ?? 0)
+      : b.xp - a.xp)
     .map((entry, i) => ({ ...entry, rank: i + 1 }));
 }

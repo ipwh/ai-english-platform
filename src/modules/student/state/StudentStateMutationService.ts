@@ -3,7 +3,7 @@
 // Architecture: Route → MutationService → Repository
 
 import { logger } from '@/shared/logger/logger';
-import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges } from '../progress/services/gamification';
+import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, getGradeMultiplier } from '../progress/services/gamification';
 import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '../progress/services/gamification';
 import { studentStateBuilder } from './StudentStateBuilder';
 
@@ -16,6 +16,7 @@ interface UserSelectResult {
   overallAccuracy?: number | null;
   xp?: number | null;
   badgeIds?: string | null;
+  level?: string | null;
 }
 
 interface VocabStatsResult {
@@ -35,10 +36,14 @@ export class StudentStateMutationService {
    * Delegates computation to gamification.ts but coordinates the write.
    */
   async awardXp(studentId: string, event: XpEvent): Promise<{ xpGained: number; newLevel: number }> {
-    const { updateUser } = await import('@/modules/student/repositories/user-repo');
+    const { updateUser, findUserByIdSelect } = await import('@/modules/student/repositories/user-repo');
     const { createXpTransaction } = await import('../progress/repositories/progress-repo');
 
-    const xpGained = calculateXp(event);
+    // Sprint 133: 初中 1.2× 只適用於深度學習事件（複習錯題／生字掌握），
+    // 刷 MC／登入不再享年級加成。
+    const student = await findUserByIdSelect(studentId, { level: true }).catch(() => null) as UserSelectResult | null;
+    const gradeMultiplier = getGradeMultiplier(student?.level ?? undefined, event.type);
+    const xpGained = Math.round(calculateXp(event) * gradeMultiplier);
 
     // Persist XP increment + optional streak increment
     const updateData: Record<string, unknown> = { xp: { increment: xpGained } };
@@ -88,13 +93,20 @@ export class StudentStateMutationService {
     const { listPracticeSessions, countPracticeSessions } = await import('@/modules/exercise/repositories/practice-repo');
     const { getVocabStats } = await import('@/modules/vocabulary/repositories/vocabulary-repo');
     const { countDrafts } = await import('@/modules/writing-coach/repositories/writing-draft-repo');
+    const { db } = await import('@/shared/db/db');
 
-    const [student, sessions, vocab, writingCount, sessionsCount] = await Promise.all([
-      findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true }).catch(() => null) as Promise<UserSelectResult | null>,
+    const weekStart = new Date();
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - 6);
+
+    const [student, sessions, vocab, writingCount, sessionsCount, mistakesReviewed, weeklyChallenges] = await Promise.all([
+      findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true, level: true }).catch(() => null) as Promise<UserSelectResult | null>,
       listPracticeSessions(studentId, 200).catch(() => [] as { totalQuestions: number }[]),
       getVocabStats(studentId).catch(() => ({ mastered: 0 })) as Promise<VocabStatsResult>,
       countDrafts(studentId).catch(() => 0),
       countPracticeSessions(studentId).catch(() => 0),
+      db.mistakeReviewLog.count({ where: { studentId } }).catch(() => 0),
+      db.practiceSession.count({ where: { studentId, source: 'daily-challenge', startedAt: { gte: weekStart } } }).catch(() => 0),
     ]);
 
     const totalQuestions = sessions.reduce((sum: number, s: { totalQuestions: number }) => sum + s.totalQuestions, 0);
@@ -108,6 +120,9 @@ export class StudentStateMutationService {
       writingSubmissions: writingCount as number,
       diagnosticCompleted: false,
       skillAccuracy: {},
+      mistakesReviewed: mistakesReviewed as number,
+      weeklyChallenges: weeklyChallenges as number,
+      gradeLevel: student?.level ?? undefined,
     };
 
     let alreadyUnlocked: string[] = [];

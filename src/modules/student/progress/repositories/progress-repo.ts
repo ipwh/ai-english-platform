@@ -23,6 +23,49 @@ export async function getTodaysXpTransaction(userId: string, event: string, toda
   return db.xpTransaction.findFirst({ where: { userId, event, createdAt: { gte: todayStart } } });
 }
 
+// ============================================
+// Daily goal depth counts (Sprint 133)
+// ============================================
+
+export async function getDailyGoalCounts(studentId: string, todayStart: Date) {
+  const [sessions, xpAgg, challenge, mistakesReviewed, wordsMastered] = await Promise.all([
+    db.practiceSession.findMany({ where: { studentId, startedAt: { gte: todayStart } }, select: { totalQuestions: true } }),
+    db.xpTransaction.aggregate({ where: { userId: studentId, createdAt: { gte: todayStart } }, _sum: { xpAmount: true } }),
+    db.practiceSession.findFirst({ where: { studentId, source: 'daily-challenge', startedAt: { gte: todayStart } }, select: { id: true } }),
+    db.mistakeReviewLog.count({ where: { studentId, reviewedAt: { gte: todayStart } } }),
+    db.vocabMasteryLog.count({ where: { studentId, toLevel: 'mastered', changedAt: { gte: todayStart } } }),
+  ]);
+  return {
+    questionsDone: sessions.reduce((sum, s) => sum + s.totalQuestions, 0),
+    xpToday: xpAgg._sum.xpAmount ?? 0,
+    challengeDone: !!challenge,
+    mistakesReviewed,
+    wordsMasteredToday: wordsMastered,
+  };
+}
+
+// ============================================
+// Weekly active days (leaderboard junior mode, Sprint 133)
+// ============================================
+
+export async function getWeeklyActiveDaysMap(userIds: string[], weekStart: Date): Promise<Map<string, number>> {
+  if (userIds.length === 0) return new Map();
+  const [logins, practices] = await Promise.all([
+    db.loginLog.findMany({ where: { userId: { in: userIds }, loginAt: { gte: weekStart } }, select: { userId: true, loginAt: true } }),
+    db.practiceSession.findMany({ where: { studentId: { in: userIds }, startedAt: { gte: weekStart } }, select: { studentId: true, startedAt: true } }),
+  ]);
+  const days = new Map<string, Set<string>>();
+  const add = (id: string, at: Date) => {
+    if (!days.has(id)) days.set(id, new Set());
+    days.get(id)!.add(at.toISOString().slice(0, 10));
+  };
+  for (const l of logins) add(l.userId, l.loginAt);
+  for (const p of practices) add(p.studentId, p.startedAt);
+  const result = new Map<string, number>();
+  for (const [id, set] of days) result.set(id, set.size);
+  return result;
+}
+
 export async function listXpTransactions(userId: string, limit = 30) {
   return db.xpTransaction.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: limit });
 }

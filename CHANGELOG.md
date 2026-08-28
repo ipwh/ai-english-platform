@@ -4,6 +4,25 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 (II) — Junior Incentive Rebalance (初中誘因再平衡：獎深度不獎點擊)
+
+### 🎯 背景
+外部審計指出：答對 10 XP／完成一組 15 XP／登入 + streak 加碼，令初中生（S1-S3）優化最便宜的 XP（刷 MC、只登入），寫作 30 XP／掌握生字 20 XP 相對不划算；徽章偏題數/streak/診斷/寫作 5 篇，前幾項用選擇題就能堆。
+
+### 📐 修正（分兩層，不動教師流程）
+- **CHANGED** 初中 1.2× 年級加成只適用於深度學習事件（`reviewMistake`／`masterWord`）；刷題、登入不再享加成（`getGradeMultiplier(gradeLevel, eventType)`，於 `StudentStateMutationService.awardXp` 生效）。
+- **NEW** 每日目標深度要件 `evaluateDailyGoal()`：完成 = 題數達標 **AND** 至少一項深度（今日挑戰 ∨ 複習 3 錯題 ∨ 掌握 3 生字）——單靠 5 題 MC 無法達標。`/api/gamification` 回傳 `dailyGoal`，學生儀表板中英顯示深度進度。
+- **CHANGED** streakBonus 只隨「有練習的日子」遞增（新 `calculatePracticeStreak()`）；登入仍算活躍日、保留每日 5 XP 登入獎，但只登入不再讓加成一直漲（`/api/streak` 同時回傳 `practiceStreakDays`）。
+- **NEW** 初中友善徽章：`vocab-20`（掌握 20 生字）、`mistake-review-10`（複習 10 錯題）、`challenge-week`（本週 5 次每日挑戰）。
+- **CHANGED** 徽章年級化：S1-S3 不頒 `writing-5`（高中才強調寫作／綜合，與 DSE 卷別比重一致）。
+- **CHANGED** 排行榜初中模式：S1-S3 按「本週活躍日數」排名（新 `getWeeklyActiveDaysMap()`），高中維持總 XP。
+
+### 🧪 驗證
+- 新增 evaluateDailyGoal、年級化徽章資格、排行榜雙模式測試；更新 route-security 與 gamification 測試。
+- **2873 tests pass（129 files, 1 skipped）** · tsc 0 · eslint 0 errors。
+
+---
+
 ## 2026-08-29 — Teacher Monitoring: Behavior Signals (監察由「看分數」轉向「看行為」)
 
 ### 🎯 背景

@@ -13,7 +13,7 @@ See `CLAUDE.md` for full architecture documentation.
 2. Read `CHANGELOG.md` for Sprint 127-130 changes (latest)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 2864/2864 pass (129 files, 1 skipped; core files: semantic-evaluator, analyze-writing)
+5. Run `npm test` — expect 2873/2873 pass (129 files, 1 skipped; core files: semantic-evaluator, analyze-writing)
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions
    - `npm run prompt:states` — release lifecycle states
