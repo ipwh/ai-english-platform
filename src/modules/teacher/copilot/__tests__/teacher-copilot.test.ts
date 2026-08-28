@@ -11,6 +11,9 @@ vi.mock('@/shared/db/db', () => ({
     learningReviewSchedule: { count: vi.fn().mockResolvedValue(0) },
     studentMistakeSummary: { findMany: vi.fn().mockResolvedValue([]) },
     teacherClass: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue({ id: 'tc-1' }) },
+    loginLog: { groupBy: vi.fn().mockResolvedValue([]) },
+    practiceSession: { groupBy: vi.fn().mockResolvedValue([]) },
+    assignment: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 
@@ -130,6 +133,46 @@ describe('TeacherCopilotService', () => {
     expect(overview.weeklySummary).toHaveProperty('activeStudents');
     expect(overview.weeklySummary).toHaveProperty('assignmentsDue');
     expect(overview.generatedAt).toBeTruthy();
+  });
+
+  it('should compute real activeStudents and assignmentsDue in overview (Sprint 133)', async () => {
+    const mockDb = db as unknown as Record<string, {
+      findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; groupBy: ReturnType<typeof vi.fn>;
+    }>;
+    mockDb.teacherClass.findMany.mockResolvedValue([
+      { classId: 'class-1', class: { name: '4A', _count: { students: 3 } } },
+    ]);
+    // Recent activity for all 3 students → all active
+    mockDb.loginLog.groupBy.mockResolvedValue([
+      { userId: 'student-1', _max: { loginAt: new Date() } },
+      { userId: 'student-2', _max: { loginAt: new Date() } },
+      { userId: 'student-3', _max: { loginAt: new Date() } },
+    ]);
+    mockDb.practiceSession.groupBy.mockResolvedValue([]);
+    mockDb.assignment.count.mockResolvedValue(2);
+
+    const overview = await service.getOverview('teacher-1');
+    expect(overview.weeklySummary.activeStudents).toBe(3);
+    expect(overview.weeklySummary.assignmentsDue).toBe(2);
+    expect(overview.classes[0].activeStudents).toBe(3);
+  });
+
+  it('should flag zero-activity students as inactive risk (Sprint 133)', async () => {
+    const mockDb = db as unknown as Record<string, {
+      findMany: ReturnType<typeof vi.fn>; groupBy: ReturnType<typeof vi.fn>;
+    }>;
+    mockDb.studentClass.findMany.mockResolvedValue([{ studentId: 'ghost-1' }]);
+    mockDb.user.findMany.mockResolvedValue([
+      { id: 'ghost-1', nameEn: 'Ghost', nameZh: '幽靈', overallAccuracy: null },
+    ]);
+    mockDb.studentMastery.findMany.mockResolvedValue([]);
+    mockDb.loginLog.groupBy.mockResolvedValue([]);
+    mockDb.practiceSession.groupBy.mockResolvedValue([]);
+
+    const analysis = await service.analyzeClass('4A', '4A');
+    expect(analysis.riskStudents.length).toBeGreaterThan(0);
+    expect(analysis.riskStudents[0].riskLevel).toBe('inactive');
+    expect(analysis.riskStudents[0].primaryConcernZh).toBe('近期無活動');
   });
 
   it('should generate bilingual content in all outputs', async () => {

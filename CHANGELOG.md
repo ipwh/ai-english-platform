@@ -4,6 +4,31 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 — Teacher Monitoring: Behavior Signals (監察由「看分數」轉向「看行為」)
+
+### 🎯 背景
+外部審計指出教師監察偏重成績（準確率／練習量），對自學模式真正重要的行為訊號（長期沒登入、只刷簡單題、從不交寫作）在監察首頁不可見。本版本全面補上。
+
+### 📡 失聯偵測（Disengagement first）
+- **NEW** `classifyActivity()` / `daysSinceLastActive()` 純函數（`teacher-analytics.ts`）：active（7天內）／low-activity（7-13天）／inactive（14天+ 或從未開始）。
+- **CHANGED** `analyzeClass()`：`atRiskStudents` 除「準確率 < 50% 且 ≥ 5 題」外，現在**納入零活動／失聯學生**（`riskLevel: 'inactive'`）；新增 `activityBreakdown` 與 `inactiveStudents` 輸出。
+- **CHANGED** `predictRisks()`：零活動學生列為 critical（因子「零活動」），附「主動聯繫／指派低門檻練習」行動；低活動（7天+）計入風險分。
+- **NEW** `teacher/monitoring/services/activity-service.ts`：`getLastActivityMap()`（最後登入 vs 最後練習取最新）＋ `getDominantDifficultyMap()`（主要練習難度，暴露「題太易」）。
+
+### 👨‍🏫 教師端介面
+- **CHANGED** `/api/teacher/students`：回傳 `lastActiveAt`、`dominantDifficulty`、`_count.writingDrafts`（不直接 import db，符合 v5 路由架構合約）。
+- **CHANGED** 學生名單頁：新增「最後活動」狀態徽章（活躍／低活躍／失聯）與「寫作」欄；未開始學生準確率顯示「—」而非 0%。
+- **CHANGED** 班級詳情頁：新增「失聯學生」摘要卡、「最後活動」「寫作」欄；未開始顯示「—」。
+- **CHANGED** 教師首頁：「需要關注的學生」由班級卡片改為**真實學生名單**（失聯優先，附「N 天未活動／從未開始」）；新增第 5 個 KPI「失聯學生」。
+- **CHANGED** Copilot 概覽：`activeStudents` 改為真實 14 天活躍數（原 TODO=全班）、`assignmentsDue` 真實查詢（原 TODO=0）；每班新增失聯緊急行動。
+- **CHANGED** Copilot 班級分析：風險學生以**失聯優先**，`primaryConcern` 由硬編碼「文法準確度」改為最弱技能；新增「失聯」風險徽章。
+
+### 🧪 驗證
+- 新增活動度監察單元測試（分類邊界、休眠學生紅燈、零活動 critical、AI 報告失聯數）＋ Copilot 真實活躍數測試。
+- **2864 tests pass（129 files, 1 skipped）** · tsc 0 · eslint 0 errors。
+
+---
+
 ## 2026-08-22 — Vocabulary Quiz Answer Randomization & TTS Banner Fix (生字測驗選項隨機化 + TTS 橫幅修正)
 
 ### 🎲 `/api/vocabulary/quiz` MCQ 選項隨機化

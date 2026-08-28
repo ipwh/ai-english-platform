@@ -219,6 +219,8 @@ export interface CopilotOverview {
     classId: string;
     className: string;
     studentCount: number;
+    /** Students active within the last 14 days (Sprint 133 behavior signal) */
+    activeStudents: number;
     averageMastery: number;
     topConcern: string;
     topConcernZh: string;

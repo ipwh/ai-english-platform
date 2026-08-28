@@ -4,14 +4,18 @@ import {
   analyzeClass, detectWeakSkills, rankWriting, rankReading,
   compareStudent, predictRisks, generateSuggestions,
   detectLearningGaps, generateAIReport,
+  classifyActivity, daysSinceLastActive,
 } from '../services/teacher-analytics';
 import type { TeacherDashboardInput, StudentData } from '../types';
+
+const DAY_MS = 86400000;
+const daysAgoIso = (days: number) => new Date(Date.now() - days * DAY_MS).toISOString();
 
 function buildStudent(overrides: Partial<StudentData> = {}): StudentData {
   return {
     studentId: 's1', name: 'Alice', nameZh: '愛麗絲', gradeLevel: 'S4',
     accuracy: 0.75, masteryScore: 68, totalQuestions: 50, totalCorrect: 38,
-    streakDays: 5, xp: 500, vocabularySize: 40, lastActiveDate: '2026-07-18',
+    streakDays: 5, xp: 500, vocabularySize: 40, lastActiveDate: daysAgoIso(1),
     bySkill: {
       grammar: { accuracy: 0.8, mastery: 72, questions: 20 },
       vocabulary: { accuracy: 0.7, mastery: 65, questions: 10 },
@@ -224,6 +228,64 @@ describe('AIReportGenerator', () => {
 });
 
 // ============================================
+// Activity Monitoring (Sprint 133)
+// ============================================
+
+describe('ActivityMonitoring', () => {
+  it('classifies zero-activity students as inactive', () => {
+    expect(classifyActivity(0, daysAgoIso(1))).toBe('inactive');
+  });
+
+  it('classifies missing/invalid last-activity as inactive', () => {
+    expect(classifyActivity(10, null)).toBe('inactive');
+    expect(classifyActivity(10, 'not-a-date')).toBe('inactive');
+  });
+
+  it('classifies dormant students by days since last activity', () => {
+    expect(classifyActivity(50, daysAgoIso(20))).toBe('inactive');
+    expect(classifyActivity(50, daysAgoIso(14))).toBe('inactive');
+    expect(classifyActivity(50, daysAgoIso(10))).toBe('low-activity');
+    expect(classifyActivity(50, daysAgoIso(3))).toBe('active');
+  });
+
+  it('daysSinceLastActive returns -1 for unknown dates', () => {
+    expect(daysSinceLastActive(null)).toBe(-1);
+    expect(daysSinceLastActive('bad-date')).toBe(-1);
+    expect(daysSinceLastActive(daysAgoIso(3))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('flags dormant students (14+ days) in at-risk with riskLevel inactive', () => {
+    const input = buildInput({
+      students: [buildStudent({ studentId: 'dormant', totalQuestions: 80, accuracy: 0.9, lastActiveDate: daysAgoIso(20) })],
+    });
+    const result = analyzeClass(input);
+    expect(result.activityBreakdown.inactive).toBe(1);
+    expect(result.inactiveStudents).toHaveLength(1);
+    expect(result.atRiskStudents.some(s => s.studentId === 'dormant' && s.riskLevel === 'inactive')).toBe(true);
+  });
+
+  it('risk prediction flags zero-activity as critical with re-engagement actions', () => {
+    const input = buildInput({
+      students: [buildStudent({ studentId: 'ghost', totalQuestions: 0, accuracy: 0 })],
+    });
+    const risks = predictRisks(input);
+    expect(risks).toHaveLength(1);
+    expect(risks[0].riskLevel).toBe('critical');
+    expect(risks[0].factors.some(f => f.factorZh === '零活動')).toBe(true);
+    expect(risks[0].suggestedActions.length).toBeGreaterThan(0);
+  });
+
+  it('AI report surfaces inactive student count', () => {
+    const input = buildInput({
+      students: [buildStudent({ studentId: 'ghost', totalQuestions: 0, accuracy: 0 })],
+    });
+    const report = generateAIReport(input);
+    expect(report.summary.keyFindings.some(k => k.includes('inactive'))).toBe(true);
+    expect(report.summary.keyFindingsZh.some(k => k.includes('失聯'))).toBe(true);
+  });
+});
+
+// ============================================
 // Edge Cases
 // ============================================
 
@@ -242,6 +304,9 @@ describe('EdgeCases', () => {
     });
     const result = analyzeClass(input);
     expect(result.activeStudents).toBe(0);
+    expect(result.activityBreakdown.inactive).toBe(1);
+    expect(result.inactiveStudents.some(s => s.studentId === 'new')).toBe(true);
+    expect(result.atRiskStudents.some(s => s.studentId === 'new' && s.riskLevel === 'inactive')).toBe(true);
   });
 
   it('rank should not explode with all-zero data', () => {

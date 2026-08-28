@@ -9,4 +9,7 @@ export {
   analyzeClass, detectWeakSkills, rankWriting, rankReading,
   compareStudent, predictRisks, generateSuggestions,
   detectLearningGaps, generateAIReport,
+  classifyActivity, daysSinceLastActive,
+  INACTIVE_AFTER_DAYS, LOW_ACTIVITY_AFTER_DAYS,
 } from './services/teacher-analytics';
+export type { ActivityStatus } from './services/teacher-analytics';

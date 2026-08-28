@@ -4,9 +4,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByIdSelect, listTeacherClasses, listAllClasses, findTeacherClass, listUsersAdmin } from '@/modules/student';
+import { findUserByIdSelect, listTeacherClasses, listAllClasses, listUsersAdmin } from '@/modules/student';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
+import { getLastActivityMap, getDominantDifficultyMap } from '@/modules/teacher/monitoring/services/activity-service';
 
 async function getTeacherInfo(request: NextRequest): Promise<{ userId: string; role: string } | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -55,14 +56,32 @@ export async function GET(request: NextRequest) {
         id: true, email: true, nameZh: true, nameEn: true,
         level: true, overallAccuracy: true, classNumber: true,
         class: { select: { id: true, name: true, gradeLevel: true } },
-        _count: { select: { sessions: true, mistakes: true } },
+        _count: { select: { sessions: true, mistakes: true, writingDrafts: true } },
       },
       orderBy: [{ class: { name: 'asc' } }, { classNumber: 'asc' }],
     });
 
+    // Sprint 133: behavior-based monitoring signals.
+    // lastActiveAt = latest of last login / last practice.
+    // dominantDifficulty = most-practised difficulty (exposes "題太易" at a glance).
+    const studentIds = students.map((s: { id: string }) => s.id);
+    const [lastActivity, dominantDifficulty] = await Promise.all([
+      getLastActivityMap(studentIds),
+      getDominantDifficultyMap(studentIds),
+    ]);
+
+    const enriched = students.map((s: { id: string }) => {
+      const last = lastActivity.get(s.id);
+      return {
+        ...s,
+        lastActiveAt: last ? last.toISOString() : null,
+        dominantDifficulty: dominantDifficulty.get(s.id) ?? null,
+      };
+    });
+
     const classes = await listAllClasses();
 
-    return NextResponse.json({ students, classes, total: students.length });
+    return NextResponse.json({ students: enriched, classes, total: enriched.length });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '伺服器錯誤 / Server error';
     return NextResponse.json({ error: msg }, { status: 500 });

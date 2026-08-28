@@ -7,8 +7,15 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Users, ChevronRight, RefreshCw } from 'lucide-react';
-import ProgressBar from '@/components/shared/ProgressBar';
 import { useT } from '@/hooks/use-i18n';
+
+/** Days since last activity; null = unknown (never active / no data). */
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return null;
+  return Math.floor((Date.now() - d) / 86400000);
+}
 
 interface RealStudent {
   id: string;
@@ -17,9 +24,10 @@ interface RealStudent {
   nameEn: string;
   level: string;
   classNumber?: string;
-  overallAccuracy: number;
+  overallAccuracy: number | null;
   class?: { id: string; name: string; gradeLevel: string } | null;
-  _count?: { sessions: number; mistakes: number };
+  lastActiveAt?: string | null;
+  _count?: { sessions: number; mistakes: number; writingDrafts: number };
 }
 
 interface ClassDetail {
@@ -74,6 +82,22 @@ export default function ClassDetailPage() {
     ? Math.round(students.reduce((sum, s) => sum + (s.overallAccuracy || 0), 0) / students.length)
     : 0;
 
+  const inactiveCount = students.filter(s => {
+    if (!s.lastActiveAt) return (s._count?.sessions ?? 0) === 0;
+    const days = daysSince(s.lastActiveAt);
+    return days === null ? false : days >= 14;
+  }).length;
+
+  const activityBadge = (s: RealStudent): { text: string; cls: string } => {
+    if (!s.lastActiveAt) {
+      return { text: t('teacher.classDetail.notStarted'), cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' };
+    }
+    const days = daysSince(s.lastActiveAt);
+    if (days === null || days >= 14) return { text: t('teacher.students.inactive'), cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' };
+    if (days >= 7) return { text: t('teacher.students.lowActivity'), cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' };
+    return { text: t('teacher.students.active'), cls: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' };
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -89,11 +113,12 @@ export default function ClassDetailPage() {
       </div>
 
       {/* 班級摘要卡 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: t('teacher.classDetail.studentCount'), value: students.length, unit: t('common.people'), icon: Users, color: 'text-blue-600' },
           { label: t('teacher.classDetail.avgAccuracy'), value: avgAccuracy, unit: t('common.percent'), icon: ArrowLeft, color: 'text-green-600' },
           { label: t('teacher.classDetail.totalSessions'), value: students.reduce((s, stu) => s + (stu._count?.sessions || 0), 0), unit: t('common.sessions'), icon: ChevronRight, color: 'text-teal-600' },
+          { label: t('teacher.dashboard.inactiveStudents'), value: inactiveCount, unit: t('common.people'), icon: Users, color: 'text-red-600' },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-2">
@@ -122,6 +147,8 @@ export default function ClassDetailPage() {
                   <th className="text-left py-2 text-gray-500 font-medium hidden sm:table-cell">{t('teacher.classDetail.colNameEn')}</th>
                   <th className="text-center py-2 text-gray-500 font-medium">{t('teacher.classDetail.colAccuracy')}</th>
                   <th className="text-center py-2 text-gray-500 font-medium hidden sm:table-cell">{t('teacher.classDetail.colSessions')}</th>
+                  <th className="text-center py-2 text-gray-500 font-medium hidden sm:table-cell">{t('teacher.classDetail.colLastActive')}</th>
+                  <th className="text-center py-2 text-gray-500 font-medium hidden sm:table-cell">{t('teacher.classDetail.colWriting')}</th>
                   <th className="text-right py-2 text-gray-500 font-medium">{t('teacher.classDetail.colActions')}</th>
                 </tr>
               </thead>
@@ -144,12 +171,22 @@ export default function ClassDetailPage() {
                       </td>
                       <td className="py-3 text-xs text-gray-500 hidden sm:table-cell">{s.nameEn}</td>
                       <td className="text-center py-3">
-                        <span className={`font-medium text-sm ${(s.overallAccuracy || 0) >= 70 ? 'text-green-600' : (s.overallAccuracy || 0) >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                          {s.overallAccuracy || 0}%
-                        </span>
+                        {s.overallAccuracy != null ? (
+                          <span className={`font-medium text-sm ${s.overallAccuracy >= 70 ? 'text-green-600' : s.overallAccuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {Math.round(s.overallAccuracy)}%
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="text-center py-3 text-xs text-gray-500 hidden sm:table-cell">
                         {s._count?.sessions || 0}
+                      </td>
+                      <td className="text-center py-3 hidden sm:table-cell">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activityBadge(s).cls}`}>{activityBadge(s).text}</span>
+                      </td>
+                      <td className="text-center py-3 text-xs text-gray-500 hidden sm:table-cell">
+                        {s._count?.writingDrafts ?? 0}
                       </td>
                       <td className="text-right py-3">
                         <Link href={`/teacher/students/${s.id}`}

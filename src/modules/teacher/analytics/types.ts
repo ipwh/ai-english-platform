@@ -15,6 +15,9 @@ export interface ClassOverview {
   bySkill: Record<SkillDimension, { averageAccuracy: number; averageMastery: number; studentCount: number }>;
   topPerformers: Array<{ studentId: string; name: string; accuracy: number; xp: number }>;
   atRiskStudents: Array<{ studentId: string; name: string; accuracy: number; riskLevel: string }>;
+  // Sprint 133: behavior-based monitoring (activity, not just grades)
+  activityBreakdown: { active: number; lowActivity: number; inactive: number };
+  inactiveStudents: Array<{ studentId: string; name: string; lastActiveDate: string; daysSinceLastActive: number }>;
 }
 
 export interface WeakSkill {

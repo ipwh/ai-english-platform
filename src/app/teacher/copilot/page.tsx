@@ -362,9 +362,11 @@ export default function TeacherCopilotPage() {
                   <div key={i} className="p-3 bg-white dark:bg-gray-800 rounded-xl text-sm">
                     <span className="font-medium text-gray-900 dark:text-white">{rs.name || rs.studentName}</span>
                     <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                      rs.riskLevel === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                    }`}>{rs.riskLevel === 'high' ? '高風險' : '中風險'}</span>
-                    <p className="text-xs text-gray-500 mt-1">{rs.primaryConcern || rs.reasons?.join('、') || ''}</p>
+                      rs.riskLevel === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                        : rs.riskLevel === 'inactive' ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                        : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                    }`}>{rs.riskLevel === 'high' ? '高風險' : rs.riskLevel === 'inactive' ? (language === 'en' ? 'Inactive' : '失聯') : '中風險'}</span>
+                    <p className="text-xs text-gray-500 mt-1">{(language === 'en' ? rs.primaryConcern : (rs as { primaryConcernZh?: string }).primaryConcernZh) || rs.reasons?.join('、') || ''}</p>
                   </div>
                 ))}
               </div>

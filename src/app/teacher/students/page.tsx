@@ -16,9 +16,20 @@ interface RealStudent {
   nameZh: string;
   nameEn: string;
   level: string;
-  overallAccuracy: number;
+  overallAccuracy: number | null;
   class?: { name: string; gradeLevel: string } | null;
   classNumber?: string;
+  lastActiveAt?: string | null;
+  dominantDifficulty?: string | null;
+  _count?: { sessions: number; mistakes: number; writingDrafts: number };
+}
+
+/** Days since last activity; null = unknown (never active / no data). */
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return null;
+  return Math.floor((Date.now() - d) / 86400000);
 }
 
 export default function TeacherStudentsPage() {
@@ -84,6 +95,14 @@ export default function TeacherStudentsPage() {
     });
   }, [students, search, classFilter, levelFilter]);
 
+  // Sprint 133: behavior-based activity badge
+  const activityBadge = (s: RealStudent): { text: string; cls: string } => {
+    const days = daysSince(s.lastActiveAt);
+    if (days === null || days >= 14) return { text: t('teacher.students.inactive'), cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' };
+    if (days >= 7) return { text: t('teacher.students.lowActivity'), cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' };
+    return { text: t('teacher.students.active'), cls: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' };
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-32"><RefreshCw className="w-8 h-8 animate-spin text-blue-500" /></div>;
   }
@@ -148,6 +167,8 @@ export default function TeacherStudentsPage() {
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">{t('admin.users.class')}</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">{t('admin.users.level')}</th>
                 <th className="text-center py-3 px-4 text-gray-500 font-medium">{t('teacher.classes.accuracy')}</th>
+                <th className="text-center py-3 px-4 text-gray-500 font-medium">{t('teacher.students.lastActive')}</th>
+                <th className="text-center py-3 px-4 text-gray-500 font-medium hidden lg:table-cell">{t('teacher.students.writingCount')}</th>
                 <th className="text-right py-3 px-4 text-gray-500 font-medium">{t('teacher.classes.action')}</th>
               </tr>
             </thead>
@@ -180,10 +201,18 @@ export default function TeacherStudentsPage() {
                   <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{s.class?.name || '-'}</td>
                   <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{s.level || '-'}</td>
                   <td className="text-center py-3 px-4">
-                    <span className={s.overallAccuracy >= 70 ? 'text-green-600 font-medium' : s.overallAccuracy >= 50 ? 'text-yellow-600 font-medium' : 'text-red-600 font-medium'}>
-                      {s.overallAccuracy != null ? Math.round(s.overallAccuracy) + '%' : '-'}
-                    </span>
+                    {s.overallAccuracy != null ? (
+                      <span className={s.overallAccuracy >= 70 ? 'text-green-600 font-medium' : s.overallAccuracy >= 50 ? 'text-yellow-600 font-medium' : 'text-red-600 font-medium'}>
+                        {Math.round(s.overallAccuracy)}%
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
+                  <td className="text-center py-3 px-4">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activityBadge(s).cls}`}>{activityBadge(s).text}</span>
+                  </td>
+                  <td className="text-center py-3 px-4 text-xs text-gray-500 hidden lg:table-cell">{s._count?.writingDrafts ?? 0}</td>
                   <td className="text-right py-3 px-4">
                     <Link href={`/teacher/students/${s.id}`} className="text-blue-600 text-xs hover:underline flex items-center justify-end gap-1">
                       {t('generic.details')} <ChevronRight className="w-3 h-3" />
@@ -192,7 +221,7 @@ export default function TeacherStudentsPage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="py-10 text-center text-gray-400">{t('generic.noData')}</td></tr>
+                <tr><td colSpan={8} className="py-10 text-center text-gray-400">{t('generic.noData')}</td></tr>
               )}
             </tbody>
           </table>

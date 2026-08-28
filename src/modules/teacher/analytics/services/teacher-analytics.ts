@@ -16,6 +16,46 @@ const SKILL_NAMES: Record<SkillDimension, string> = {
 // Class Analytics
 // ============================================
 
+// ============================================
+// Activity Monitoring (Sprint 133) — behavior-based signals
+// In self-study mode, disengagement is the primary failure mode,
+// so inactivity is surfaced alongside (and ahead of) low grades.
+// ============================================
+
+export type ActivityStatus = 'active' | 'low-activity' | 'inactive';
+
+export const INACTIVE_AFTER_DAYS = 14;
+export const LOW_ACTIVITY_AFTER_DAYS = 7;
+
+/**
+ * Classify a student's engagement:
+ * - inactive: never started, no last-activity timestamp, or 14+ days silent
+ * - low-activity: 7-13 days silent
+ * - active: practiced within the last 7 days
+ */
+export function classifyActivity(
+  totalQuestions: number,
+  lastActiveDate: string | null | undefined,
+  now: Date = new Date(),
+): ActivityStatus {
+  if (totalQuestions <= 0) return 'inactive';
+  if (!lastActiveDate) return 'inactive';
+  const last = new Date(lastActiveDate);
+  if (Number.isNaN(last.getTime())) return 'inactive';
+  const days = Math.max(0, Math.floor((now.getTime() - last.getTime()) / 86400000));
+  if (days >= INACTIVE_AFTER_DAYS) return 'inactive';
+  if (days >= LOW_ACTIVITY_AFTER_DAYS) return 'low-activity';
+  return 'active';
+}
+
+/** Days since last activity; -1 when unknown (missing/invalid timestamp). */
+export function daysSinceLastActive(lastActiveDate: string | null | undefined, now: Date = new Date()): number {
+  if (!lastActiveDate) return -1;
+  const last = new Date(lastActiveDate);
+  if (Number.isNaN(last.getTime())) return -1;
+  return Math.max(0, Math.floor((now.getTime() - last.getTime()) / 86400000));
+}
+
 export function analyzeClass(input: TeacherDashboardInput): ClassOverview {
   const { students, classId, className, academicYear } = input;
   const active = students.filter(s => s.totalQuestions > 0);
@@ -34,10 +74,37 @@ export function analyzeClass(input: TeacherDashboardInput): ClassOverview {
     };
   }
 
+  // Activity breakdown: disengagement is a first-class monitoring signal
+  const activityBreakdown: ClassOverview['activityBreakdown'] = { active: 0, lowActivity: 0, inactive: 0 };
+  const inactiveStudents: ClassOverview['inactiveStudents'] = [];
+  for (const s of students) {
+    const status = classifyActivity(s.totalQuestions, s.lastActiveDate);
+    if (status === 'active') activityBreakdown.active += 1;
+    else if (status === 'low-activity') activityBreakdown.lowActivity += 1;
+    else {
+      activityBreakdown.inactive += 1;
+      inactiveStudents.push({
+        studentId: s.studentId, name: s.name,
+        lastActiveDate: s.lastActiveDate,
+        daysSinceLastActive: daysSinceLastActive(s.lastActiveDate),
+      });
+    }
+  }
+
   const sorted = [...students].sort((a, b) => b.accuracy - a.accuracy);
   const topPerformers = sorted.slice(0, 5).map(s => ({ studentId: s.studentId, name: s.name, accuracy: s.accuracy, xp: s.xp }));
-  const atRiskStudents = students.filter(s => s.accuracy < 0.5 && s.totalQuestions > 5)
-    .map(s => ({ studentId: s.studentId, name: s.name, accuracy: s.accuracy, riskLevel: s.accuracy < 0.3 ? 'critical' : 'at-risk' }));
+
+  // At-risk = low accuracy with sufficient volume, PLUS disengaged students.
+  // Inactivity is the stronger red flag in self-study monitoring.
+  const atRiskStudents = students
+    .filter(s => (s.accuracy < 0.5 && s.totalQuestions > 5) || classifyActivity(s.totalQuestions, s.lastActiveDate) === 'inactive')
+    .map(s => {
+      const status = classifyActivity(s.totalQuestions, s.lastActiveDate);
+      return {
+        studentId: s.studentId, name: s.name, accuracy: s.accuracy,
+        riskLevel: status === 'inactive' ? 'inactive' : s.accuracy < 0.3 ? 'critical' : 'at-risk',
+      };
+    });
 
   return {
     classId, className, academicYear,
@@ -48,6 +115,7 @@ export function analyzeClass(input: TeacherDashboardInput): ClassOverview {
     totalQuestionsAnswered: active.reduce((s, st) => s + st.totalQuestions, 0),
     averageStreakDays: active.length > 0 ? Math.round(active.reduce((s, st) => s + st.streakDays, 0) / active.length) : 0,
     bySkill, topPerformers, atRiskStudents,
+    activityBreakdown, inactiveStudents,
   };
 }
 
@@ -171,30 +239,62 @@ export function compareStudent(input: TeacherDashboardInput, studentId: string):
 // ============================================
 
 export function predictRisks(input: TeacherDashboardInput): RiskPrediction[] {
-  return input.students
-    .filter(s => s.totalQuestions >= 3)
-    .map(s => {
-      let riskScore = 0;
-      const factors: RiskPrediction['factors'] = [];
+  return input.students.map(s => {
+    const activity = classifyActivity(s.totalQuestions, s.lastActiveDate);
 
-      if (s.accuracy < 0.5) { riskScore += 30; factors.push({ factor: 'Low accuracy', factorZh: '正確率低', impact: 'negative', weight: 30 }); }
-      if (s.recentTrend === 'declining') { riskScore += 25; factors.push({ factor: 'Declining trend', factorZh: '趨勢下滑', impact: 'negative', weight: 25 }); }
-      if (s.streakDays === 0) { riskScore += 15; factors.push({ factor: 'No active streak', factorZh: '無連續學習', impact: 'negative', weight: 15 }); }
-      if (s.totalQuestions < 10) { riskScore += 10; factors.push({ factor: 'Low practice volume', factorZh: '練習量低', impact: 'negative', weight: 10 }); }
-      if (s.accuracy > 0.8) { factors.push({ factor: 'Strong performance', factorZh: '表現良好', impact: 'positive', weight: 20 }); }
-
-      const riskLevel: RiskPrediction['riskLevel'] = riskScore >= 60 ? 'critical' : riskScore >= 40 ? 'high' : riskScore >= 20 ? 'medium' : 'low';
-      const predictedAccuracy = Math.max(0, Math.min(1, s.accuracy + (s.recentTrend === 'improving' ? 0.05 : s.recentTrend === 'declining' ? -0.05 : 0)));
-
+    // Disengagement is the highest-priority risk in self-study mode.
+    // Zero-activity students were previously invisible to risk prediction.
+    if (activity === 'inactive') {
+      const isZeroActivity = s.totalQuestions <= 0;
       return {
-        studentId: s.studentId, name: s.name, riskLevel, riskScore,
-        factors, predictedAccuracy: Math.round(predictedAccuracy * 100) / 100,
-        interventionNeeded: riskLevel === 'high' || riskLevel === 'critical',
-        suggestedActions: riskLevel === 'high' || riskLevel === 'critical'
-          ? [{ action: 'Schedule one-on-one review', actionZh: '安排個別輔導' }, { action: 'Assign remedial exercises', actionZh: '指派補底練習' }]
-          : [{ action: 'Continue current pace', actionZh: '保持目前進度' }],
+        studentId: s.studentId, name: s.name,
+        riskLevel: 'critical',
+        riskScore: isZeroActivity ? 100 : 70,
+        factors: [isZeroActivity
+          ? { factor: 'No activity', factorZh: '零活動', impact: 'negative' as const, weight: 100 }
+          : { factor: 'Inactive (14+ days)', factorZh: '超過14天未活動', impact: 'negative' as const, weight: 70 }],
+        predictedAccuracy: 0,
+        interventionNeeded: true,
+        suggestedActions: [
+          { action: 'Re-engage with the student', actionZh: '主動聯繫學生' },
+          { action: 'Assign a low-barrier activity', actionZh: '指派低門檻練習' },
+        ],
       };
-    });
+    }
+
+    if (s.totalQuestions < 3) {
+      return {
+        studentId: s.studentId, name: s.name,
+        riskLevel: 'medium',
+        riskScore: 20,
+        factors: [{ factor: 'Low practice volume', factorZh: '練習量低', impact: 'negative' as const, weight: 20 }],
+        predictedAccuracy: s.accuracy,
+        interventionNeeded: false,
+        suggestedActions: [{ action: 'Encourage first practices', actionZh: '鼓勵完成首次練習' }],
+      };
+    }
+
+    let riskScore = 0;
+    const factors: RiskPrediction['factors'] = [];
+
+    if (s.accuracy < 0.5) { riskScore += 30; factors.push({ factor: 'Low accuracy', factorZh: '正確率低', impact: 'negative', weight: 30 }); }
+    if (s.recentTrend === 'declining') { riskScore += 25; factors.push({ factor: 'Declining trend', factorZh: '趨勢下滑', impact: 'negative', weight: 25 }); }
+    if (s.streakDays === 0) { riskScore += 15; factors.push({ factor: 'No active streak', factorZh: '無連續學習', impact: 'negative', weight: 15 }); }
+    if (activity === 'low-activity') { riskScore += 15; factors.push({ factor: 'No recent activity (7+ days)', factorZh: '近7天未活動', impact: 'negative', weight: 15 }); }
+    if (s.accuracy > 0.8) { factors.push({ factor: 'Strong performance', factorZh: '表現良好', impact: 'positive', weight: 20 }); }
+
+    const riskLevel: RiskPrediction['riskLevel'] = riskScore >= 60 ? 'critical' : riskScore >= 40 ? 'high' : riskScore >= 20 ? 'medium' : 'low';
+    const predictedAccuracy = Math.max(0, Math.min(1, s.accuracy + (s.recentTrend === 'improving' ? 0.05 : s.recentTrend === 'declining' ? -0.05 : 0)));
+
+    return {
+      studentId: s.studentId, name: s.name, riskLevel, riskScore,
+      factors, predictedAccuracy: Math.round(predictedAccuracy * 100) / 100,
+      interventionNeeded: riskLevel === 'high' || riskLevel === 'critical',
+      suggestedActions: riskLevel === 'high' || riskLevel === 'critical'
+        ? [{ action: 'Schedule one-on-one review', actionZh: '安排個別輔導' }, { action: 'Assign remedial exercises', actionZh: '指派補底練習' }]
+        : [{ action: 'Continue current pace', actionZh: '保持目前進度' }],
+    };
+  });
 }
 
 // ============================================
@@ -287,6 +387,7 @@ export function generateAIReport(input: TeacherDashboardInput): AIReport {
   const gaps = detectLearningGaps(input);
 
   const atRiskCount = risks.filter(r => r.riskLevel === 'high' || r.riskLevel === 'critical').length;
+  const inactiveCount = overview.inactiveStudents.length;
   const weakSkillNames = weakSkills.slice(0, 3).map(w => w.skillNameZh);
 
   const overallZh = overview.averageAccuracy >= 0.7
@@ -297,15 +398,17 @@ export function generateAIReport(input: TeacherDashboardInput): AIReport {
     classId: input.classId,
     generatedAt: new Date().toISOString(),
     summary: {
-      overallAssessment: `Class average accuracy: ${Math.round(overview.averageAccuracy * 100)}%. ${atRiskCount} students at risk.`,
+      overallAssessment: `Class average accuracy: ${Math.round(overview.averageAccuracy * 100)}%. ${atRiskCount} students at risk. ${inactiveCount} inactive.`,
       overallAssessmentZh: overallZh,
       keyFindings: [
         `${overview.activeStudents}/${overview.studentCount} active students`,
+        `${inactiveCount} students inactive (14+ days)`,
         `Top performer: ${overview.topPerformers[0]?.name || 'N/A'} (${Math.round((overview.topPerformers[0]?.accuracy || 0) * 100)}%)`,
         `${atRiskCount} students need intervention`,
       ],
       keyFindingsZh: [
         `${overview.activeStudents}/${overview.studentCount} 名活躍學生`,
+        `${inactiveCount} 名學生失聯（超過14天未活動）`,
         `最佳表現：${overview.topPerformers[0]?.name || 'N/A'}（${Math.round((overview.topPerformers[0]?.accuracy || 0) * 100)}%）`,
         `${atRiskCount} 名學生需要介入`,
       ],

@@ -18,6 +18,16 @@ interface StudentBrief {
   nameEn?: string;
   overallAccuracy?: number | null;
   class?: { name: string } | null;
+  lastActiveAt?: string | null;
+  _count?: { sessions?: number; writingDrafts?: number };
+}
+
+/** Days since last activity; null = unknown (never active / no data). */
+function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return null;
+  return Math.floor((Date.now() - d) / 86400000);
 }
 
 export default function TeacherDashboardPage() {
@@ -26,6 +36,7 @@ export default function TeacherDashboardPage() {
   const displayName = userDisplayName || t('common.teacherFallback');
 
   const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [students, setStudents] = useState<StudentBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -36,11 +47,12 @@ export default function TeacherDashboardPage() {
     ])
       .then(([classData, studentData]) => {
         const classList: ClassInfo[] = classData.classes || [];
-        const students: StudentBrief[] = studentData.students || [];
+        setStudents(studentData.students || []);
         // Enrich classes with accuracy data from students
+        const classStudents: StudentBrief[] = studentData.students || [];
         const enriched: ClassInfo[] = classList.map((c) => {
-          const classStudents = students.filter((s) => s.class?.name === c.name);
           const accuracies = classStudents
+            .filter((s) => s.class?.name === c.name)
             .map((s) => s.overallAccuracy)
             .filter((a): a is number => a != null);
           const avgAcc = accuracies.length > 0
@@ -66,11 +78,27 @@ export default function TeacherDashboardPage() {
   const avgCompletionRate = classes.length > 0
     ? Math.round(classes.reduce((sum, c) => sum + ((c as { completionRate?: number }).completionRate || 0), 0) / classes.length)
     : 0;
+
+  // Sprint 133: behavior-based monitoring — disengagement first
+  const inactiveStudents = students.filter(s => {
+    const days = daysSince(s.lastActiveAt);
+    if (days === null) return (s._count?.sessions ?? 0) === 0;
+    return days >= 14;
+  });
+  const lowAccuracyStudents = students.filter(s =>
+    (s.overallAccuracy ?? 100) < 50 && (s._count?.sessions ?? 0) >= 1
+  );
+  const atRiskList: Array<StudentBrief & { kind: 'inactive' | 'low' }> = [
+    ...inactiveStudents.map(s => ({ ...s, kind: 'inactive' as const })),
+    ...lowAccuracyStudents.map(s => ({ ...s, kind: 'low' as const })),
+  ];
+
   const kpis = [
     { label: t('teacher.classCount'), value: classes.length, unit: t('generic.classes'), trend: 'stable' as const },
     { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy || '—', unit: '%', trend: 'stable' as const },
     { label: t('teacher.studentCount'), value: totalStudents, unit: t('generic.people'), trend: 'stable' as const },
     { label: t('teacher.completionRate'), value: `${avgCompletionRate || 0}`, unit: '%', trend: 'stable' as const },
+    { label: t('teacher.dashboard.inactiveStudents'), value: inactiveStudents.length, unit: t('generic.people'), trend: 'stable' as const },
   ];
 
   // Class chart data from real classes with accuracy
@@ -136,7 +164,7 @@ export default function TeacherDashboardPage() {
 
       {/* KPI */}
       {kpis.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {kpis.map((kpi, i) => <KpiCard key={i} data={kpi} />)}
         </div>
       )}
@@ -204,19 +232,28 @@ export default function TeacherDashboardPage() {
             </Link>
           </div>
           <div className="space-y-3">
-            {classes.slice(0, 4).map((c) => (
-              <Link key={c.id} href={`/teacher/classes/${c.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            {atRiskList.slice(0, 6).map((s) => {
+              const days = daysSince(s.lastActiveAt);
+              return (
+              <Link key={s.id} href={`/teacher/students/${s.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
-                  {c.name.charAt(0)}
+                  {(s.nameZh || s.nameEn || '?').charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">{c.name}</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{c.studentCount || 0} {t('teacher.classCount').toLowerCase()}</p>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{s.nameZh || s.nameEn}</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {s.kind === 'inactive'
+                      ? (days === null ? t('teacher.dashboard.neverActive') : t('teacher.dashboard.inactiveDays', { n: days }))
+                      : `${t('teacher.dashboard.lowAccuracy')} · ${Math.round(s.overallAccuracy ?? 0)}%`}
+                  </p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.kind === 'inactive' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
+                  {s.kind === 'inactive' ? t('teacher.students.inactive') : t('teacher.dashboard.lowAccuracy')}
+                </span>
               </Link>
-            ))}
-            {classes.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t('generic.noData')}</p>}
+              );
+            })}
+            {atRiskList.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t('generic.noData')}</p>}
           </div>
         </section>
 

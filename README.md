@@ -130,6 +130,7 @@ Golden benchmark infrastructure 已就緒（5 個 calibration fixtures），但 
 Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LEVEL_ONLY），HKEAA 從不公佈 per-script marks；公開渠道不存在 script+score dataset。因此平台不會從 Level 推算分數、不用 AI 補分 — calibrated marker agreement 需招募 human markers 對 authentic scripts 做 blind CLO marking 才能建立。
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
 - **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁
+- **🆕 行為監察 (S133)** — 教師端監察由「看分數」升級為「看行為」：失聯偵測（14天+ 未活動／從未開始紅燈）、活動度徽章（活躍／低活躍／失聯）、主要練習難度（暴露「題太易」）、寫作提交數欄位、教師首頁真實風險名單（失聯優先）與「失聯學生」KPI；Copilot 概覽真實活躍人數與待交作業數
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
 - **🏛️ 統一 LearningFacade (S40)** — 所有學習模組的單一入口點，零重複業務邏輯
 
@@ -142,7 +143,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - **組別管理** — 建立跨班級自訂組別（如拔尖組/補底組），作業可指派至組別
 - **AI 批改覆核** — 教師查看 AI 評分，可修正分數/評語、接受或退回學生作業
 - **成績報告** — 班級及個別學生成績分析
-- **🆕 AI Copilot 教學助手** — 專屬前端頁面（`/teacher/copilot`），6 大功能分頁：概覽（班級狀態 + 緊急行動）、教案生成（一週教學計劃含每日活動與家課）、班級分析（技能分佈 + 風險學生 + 建議）、考試預測（DSE 合格率 + 各卷預測 + 學生等級預測）、教材生成（工作紙/家課/小測/溫習卷/補底練習）、學生分析（個人技能詳情 + 進度 + 百分位）
+- **🆕 AI Copilot 教學助手** — 專屬前端頁面（`/teacher/copilot`），6 大功能分頁：概覽（班級狀態 + 真實活躍人數 + 待交作業 + 緊急行動）、教案生成（一週教學計劃含每日活動與家課）、班級分析（技能分佈 + 風險學生（失聯優先） + 建議）、考試預測（DSE 合格率 + 各卷預測 + 學生等級預測）、教材生成（工作紙/家課/小測/溫習卷/補底練習）、學生分析（個人技能詳情 + 進度 + 百分位）
 
 ### 🛡️ 管理員後台（`/admin`）
 - **Google Sheets 同步** — 一鍵從 Google Sheets 同步全校學生班別名單（真相來源），支援 dry-run 預覽；**自動反向同步**：在平台新增班級或學生時，自動寫入 Google Sheets（班級列表 + 學生名單分頁），支援批量匯入批次同步
@@ -291,7 +292,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 ### 👩‍🏫 教師 3 步開始
 1. **登入**：使用學校 Google 帳號登入，選擇「教師」身份
 2. **建立班級**：前往「班級管理」建立任教班級；或使用 CSV 批量匯入學生
-3. **查看進度**：在「儀表板」查看各班準確率；在「報告」下載 CSV 成績表
+3. **查看進度**：在「儀表板」查看各班準確率、**失聯學生**與**需要關注的學生**名單；在「報告」下載 CSV 成績表
 
 ### 🔄 Google Sheets 同步
 - **匯入**：管理員可從 Google Sheets 一鍵同步全校學生班別名單

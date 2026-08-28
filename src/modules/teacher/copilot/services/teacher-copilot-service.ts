@@ -22,6 +22,32 @@ interface StudentSnapshot {
   nameZh: string | null;
   overallAccuracy: number | null;
   scores: Record<string, number>; // skill → mastery (0-1)
+  /** Latest of last login / last practice — monitoring signal (Sprint 133) */
+  lastActiveAt: Date | null;
+}
+
+const SKILL_LABEL_EN: Record<string, string> = {
+  grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', writing: 'Writing', listening: 'Listening',
+};
+const SKILL_LABEL_ZH: Record<string, string> = {
+  grammar: '文法', vocabulary: '詞彙', reading: '閱讀', writing: '寫作', listening: '聆聽',
+};
+
+/** Days since last activity; null when unknown. */
+function daysSinceActivity(lastActiveAt: Date | null, now: Date = new Date()): number | null {
+  if (!lastActiveAt) return null;
+  return Math.max(0, Math.floor((now.getTime() - lastActiveAt.getTime()) / 86400000));
+}
+
+/**
+ * A student is "inactive" when there is no evidence of activity at all,
+ * or the latest activity was 14+ days ago (self-study disengagement signal).
+ */
+function isInactiveStudent(s: StudentSnapshot, now: Date = new Date()): boolean {
+  const hasData = s.overallAccuracy !== null || Object.values(s.scores).some(v => v > 0);
+  if (!hasData) return true;
+  const days = daysSinceActivity(s.lastActiveAt, now);
+  return days !== null && days >= 14;
 }
 
 interface ClassDataSnapshot {
@@ -228,19 +254,38 @@ export class TeacherCopilotService {
       };
     });
 
-    // Risk students: bottom 3 by average score
+    // Risk students: disengaged first, then bottom 3 by average score.
+    // In self-study monitoring, inactivity is the strongest red flag.
+    const now = new Date();
     const sorted = [...classData.students].sort((a, b) => {
       const aAvg = Object.values(a.scores).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(a.scores).length);
       const bAvg = Object.values(b.scores).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(b.scores).length);
       return aAvg - bAvg;
     });
-    const riskStudents = sorted.slice(0, 3).map(s => ({
-      studentId: s.studentId,
-      name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
-      riskLevel: (Object.values(s.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.values(s.scores).length)) < 0.4 ? 'high' : 'moderate',
-      primaryConcern: 'Grammar accuracy',
-      primaryConcernZh: '文法準確度',
-    }));
+    const inactive = sorted.filter(s => isInactiveStudent(s, now));
+    const scored = sorted.filter(s => !isInactiveStudent(s, now));
+    const riskStudents = [...inactive, ...scored].slice(0, 3).map(s => {
+      const name = s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`;
+      if (isInactiveStudent(s, now)) {
+        return {
+          studentId: s.studentId,
+          name,
+          riskLevel: 'inactive',
+          primaryConcern: 'No recent activity',
+          primaryConcernZh: '近期無活動',
+        };
+      }
+      const entries = Object.entries(s.scores);
+      const avg = entries.reduce((sum, [, v]) => sum + v, 0) / Math.max(1, entries.length);
+      const weakest = [...entries].sort(([, a], [, b]) => a - b)[0]?.[0] ?? 'grammar';
+      return {
+        studentId: s.studentId,
+        name,
+        riskLevel: avg < 0.4 ? 'high' : 'moderate',
+        primaryConcern: `Weakest skill: ${SKILL_LABEL_EN[weakest] ?? weakest}`,
+        primaryConcernZh: `最弱技能：${SKILL_LABEL_ZH[weakest] ?? weakest}`,
+      };
+    });
 
     return {
       classId, className,
@@ -336,8 +381,18 @@ export class TeacherCopilotService {
       },
     });
 
+    const classIds = teacherClasses.map(tc => tc.classId);
+
+    // Real assignments-due count (was TODO: 0)
+    const assignmentsDue = classIds.length > 0
+      ? await db.assignment.count({
+          where: { classId: { in: classIds }, dueDate: { gte: new Date() } },
+        }).catch(() => 0)
+      : 0;
+
     const classes: CopilotOverview['classes'] = [];
     let totalStudents = 0;
+    let totalActiveStudents = 0;
     let totalReviewsDue = 0;
 
     for (const tc of teacherClasses) {
@@ -351,10 +406,20 @@ export class TeacherCopilotService {
       const reviewDue = classData?.reviewDue ?? 0;
       totalReviewsDue += reviewDue;
 
+      // Real recent-activity filter (was TODO: totalStudents)
+      const activeStudents = classData
+        ? classData.students.filter(s => {
+            const days = daysSinceActivity(s.lastActiveAt);
+            return days !== null && days < 14;
+          }).length
+        : 0;
+      totalActiveStudents += activeStudents;
+
       classes.push({
         classId,
         className: tc.class.name,
         studentCount,
+        activeStudents,
         averageMastery: Math.round(avgMastery * 100),
         topConcern: classData?.grammarErrors?.[0] ?? 'Grammar',
         topConcernZh: classData?.grammarErrorsZh?.[0] ?? '文法',
@@ -363,7 +428,7 @@ export class TeacherCopilotService {
       });
     }
 
-    // Urgent actions: classes with high review debt or low mastery
+    // Urgent actions: classes with high review debt, low mastery, or heavy disengagement
     const urgentActions: CopilotOverview['urgentActions'] = [];
     for (const c of classes) {
       if ((c.averageMastery) < 50) {
@@ -371,6 +436,16 @@ export class TeacherCopilotService {
           type: 'risk',
           description: `${c.className} average mastery below 50% — intervention needed`,
           descriptionZh: `${c.className} 平均掌握度低於 50%——需要介入`,
+          classId: c.classId,
+          className: c.className,
+        });
+      }
+      const inactiveCount = c.studentCount - c.activeStudents;
+      if (inactiveCount > 0) {
+        urgentActions.push({
+          type: 'risk',
+          description: `${c.className}: ${inactiveCount} students inactive for 14+ days`,
+          descriptionZh: `${c.className}：${inactiveCount} 名學生超過14天未活動`,
           classId: c.classId,
           className: c.className,
         });
@@ -384,8 +459,8 @@ export class TeacherCopilotService {
       urgentActions,
       weeklySummary: {
         totalStudents,
-        activeStudents: totalStudents, // TODO: filter by recent activity
-        assignmentsDue: 0, // TODO: query assignments
+        activeStudents: totalActiveStudents,
+        assignmentsDue,
         pendingReviews: totalReviewsDue,
         newRisksDetected: urgentActions.filter(a => a.type === 'risk').length,
       },
@@ -427,6 +502,22 @@ export class TeacherCopilotService {
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
+    // 2.5 Last-activity timestamps (login + practice) — monitoring signal
+    const [loginAgg, practiceAgg] = await Promise.all([
+      db.loginLog.groupBy({ by: ['userId'], _max: { loginAt: true }, where: { userId: { in: studentIds } } }),
+      db.practiceSession.groupBy({ by: ['studentId'], _max: { startedAt: true }, where: { studentId: { in: studentIds } } }),
+    ]);
+    const lastActivity = new Map<string, Date>();
+    for (const row of loginAgg) {
+      const at = row._max.loginAt;
+      if (at) lastActivity.set(row.userId, at);
+    }
+    for (const row of practiceAgg) {
+      const at = row._max.startedAt;
+      const existing = lastActivity.get(row.studentId);
+      if (at && (!existing || at.getTime() > existing.getTime())) lastActivity.set(row.studentId, at);
+    }
+
     // 3. Get mastery data from StudentMastery table
     const masteryRows = await db.studentMastery.findMany({
       where: { studentId: { in: studentIds } },
@@ -461,6 +552,7 @@ export class TeacherCopilotService {
         nameZh: user?.nameZh ?? null,
         overallAccuracy: user?.overallAccuracy ?? null,
         scores,
+        lastActiveAt: lastActivity.get(sid) ?? null,
       };
     });
 
