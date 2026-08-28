@@ -6,14 +6,21 @@ import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // DSE Paper Weightings (HKEAA Official)
+// Source: HKEAA — English Language Curriculum and Assessment Guide
+// (Secondary 4-6), "Mode of Assessment" section.
+//
+// Official subject-level splits (% of subject mark):
+//   Paper 1: Part A 10% + Part B (B1/B2) 10%  → within-paper 50 : 50
+//   Paper 2: Part A 10% + Part B 15%           → within-paper 40 : 60
+//   Paper 3: Part A 15% + Part B (B1/B2) 15%   → within-paper 50 : 50
 // ============================================
 
 export const DSE_PAPER_WEIGHTINGS = {
-  paper1: { name: 'Reading', nameZh: '閱讀', weight: 0.20, duration: 90, marks: '~50-60' },
-  paper2: { name: 'Writing', nameZh: '寫作', weight: 0.25, duration: 120, marks: 'Part A: 20%, Part B: 80% (within paper)' },
-  paper3: { name: 'Listening & Integrated Skills', nameZh: '聆聽及綜合能力', weight: 0.30, duration: 120, marks: 'Part A: ~15%, Part B: ~85% (within paper)' },
-  paper4: { name: 'Speaking', nameZh: '說話', weight: 0.10, duration: 20, marks: 'Group Discussion + Individual Response' },
-  sba: { name: 'School-based Assessment', nameZh: '校本評核', weight: 0.15, duration: 'S5-S6', marks: 'Part A + Part B' },
+  paper1: { name: 'Reading', nameZh: '閱讀', weight: 0.20, duration: 90, marks: 'Part A: 50%, Part B1/B2: 50% (within paper)' },
+  paper2: { name: 'Writing', nameZh: '寫作', weight: 0.25, duration: 120, marks: 'Part A: 40%, Part B: 60% (within paper)' },
+  paper3: { name: 'Listening & Integrated Skills', nameZh: '聆聽及綜合能力', weight: 0.30, duration: 120, marks: 'Part A: 50%, Part B1/B2: 50% (within paper)' },
+  paper4: { name: 'Speaking', nameZh: '說話', weight: 0.10, duration: 20, marks: 'Part A: Group Interaction, Part B: Individual Response' },
+  sba: { name: 'School-based Assessment', nameZh: '校本評核', weight: 0.15, duration: 'S5-S6', marks: '2 assessments: 1 group interaction + 1 individual presentation' },
 } as const;
 
 export const DSE_TOTAL_WEIGHT = Object.values(DSE_PAPER_WEIGHTINGS).reduce((s, p) => s + p.weight, 0); // 1.0

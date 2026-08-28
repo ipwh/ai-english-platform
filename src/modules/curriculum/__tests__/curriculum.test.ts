@@ -194,6 +194,20 @@ describe('HKDSE_Enhanced', () => {
     expect(Object.keys(DSE_PAPER_WEIGHTINGS).length).toBe(5);
   });
 
+  it('Paper 2 within-paper split matches HKEAA (Part A 10% : Part B 15% of subject)', () => {
+    expect(DSE_PAPER_WEIGHTINGS.paper2.marks).toBe('Part A: 40%, Part B: 60% (within paper)');
+  });
+
+  it('Paper 1 and Paper 3 within-paper splits match HKEAA (equal parts)', () => {
+    expect(DSE_PAPER_WEIGHTINGS.paper1.marks).toBe('Part A: 50%, Part B1/B2: 50% (within paper)');
+    expect(DSE_PAPER_WEIGHTINGS.paper3.marks).toBe('Part A: 50%, Part B1/B2: 50% (within paper)');
+  });
+
+  it('Paper 4 and SBA marks describe official components', () => {
+    expect(DSE_PAPER_WEIGHTINGS.paper4.marks).toBe('Part A: Group Interaction, Part B: Individual Response');
+    expect(DSE_PAPER_WEIGHTINGS.sba.marks).toBe('2 assessments: 1 group interaction + 1 individual presentation');
+  });
+
   it('should have 7 DSE level descriptors (1 to 5**)', () => {
     expect(DSE_LEVEL_DESCRIPTORS.length).toBe(7);
     expect(DSE_LEVEL_DESCRIPTORS[0].level).toBe(1);
