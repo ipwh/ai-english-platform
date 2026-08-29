@@ -5,8 +5,9 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { BookMarked, Plus, Loader2, Check, Sparkles } from 'lucide-react';
+import { BookMarked, Plus } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
+import QuickAddVocab from './QuickAddVocab';
 
 const DEV_LOG = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -17,7 +18,6 @@ const DEV_LOG = typeof window !== 'undefined' &&
 
 interface UseTextSelectionVocabOptions {
   studentId: string;
-  gradeLevel: string;
   onWordAdded?: (word: string) => void;
   /** 只接受純英文單詞（不超過 N 個詞） */
   maxWords?: number;
@@ -25,14 +25,12 @@ interface UseTextSelectionVocabOptions {
 
 export function useTextSelectionVocab({
   studentId,
-  gradeLevel,
   onWordAdded,
   maxWords = 3,
 }: UseTextSelectionVocabOptions) {
   const [selectedText, setSelectedText] = useState('');
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSelectionEnd = useCallback((e: MouseEvent | TouchEvent | PointerEvent) => {
@@ -65,7 +63,6 @@ export function useTextSelectionVocab({
 
       if (DEV_LOG) { /* debug: showing popup */ }
       setSelectedText(text);
-      setAdded(false);
 
       // 在選取文字附近顯示 popup
       const range = selection.getRangeAt(0);
@@ -77,47 +74,38 @@ export function useTextSelectionVocab({
     }, 250);
   }, [maxWords]);
 
-  const handleAddWord = useCallback(async () => {
-    if (!selectedText || adding) return;
-    if (DEV_LOG) { /* debug: addWord */ }
-    setAdding(true);
-    try {
-      const res = await fetch('/api/vocabulary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          word: selectedText,
-          partOfSpeech: 'unknown',
-          translation: '',
-          source: 'inline-selection',
-        }),
-      });
-
-      if (res.ok) {
-        setAdded(true);
-        onWordAdded?.(selectedText);
-        setTimeout(() => setPopupPos(null), 1500);
-        fetch('/api/gamification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
-        }).catch(() => {});
-      } else if (res.status === 409) {
-        setAdded(true);
-        setTimeout(() => setPopupPos(null), 1500);
-      }
-    } catch {
-      // silent
-    } finally {
-      setAdding(false);
-    }
-  }, [selectedText, adding, studentId, onWordAdded]);
+  /**
+   * Opens the same AI-analysis quick-add modal used by the right-click flow
+   * (QuickAddVocab). Direct POST is no longer used here: the vocabulary API
+   * requires a non-empty translation (Zod), which only the AI analysis flow
+   * can provide — direct adds silently failed with 422.
+   */
+  const handleAddWord = useCallback(() => {
+    if (!selectedText) return;
+    setPopupPos(null);
+    setShowQuickAdd(true);
+  }, [selectedText]);
 
   const handleClosePopup = useCallback(() => {
     setPopupPos(null);
     setSelectedText('');
   }, []);
+
+  const handleCloseQuickAdd = useCallback(() => {
+    setShowQuickAdd(false);
+  }, []);
+
+  const handleWordAdded = useCallback((vocab: { word: string } | null) => {
+    const word = vocab?.word || selectedText;
+    setShowQuickAdd(false);
+    setPopupPos(null);
+    onWordAdded?.(word);
+    fetch('/api/gamification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
+    }).catch(() => {});
+  }, [selectedText, studentId, onWordAdded]);
 
   // Cleanup
   useEffect(() => {
@@ -129,11 +117,12 @@ export function useTextSelectionVocab({
   return {
     popupPos,
     selectedText,
-    adding,
-    added,
+    showQuickAdd,
     handleSelectionEnd,
     handleAddWord,
     handleClosePopup,
+    handleCloseQuickAdd,
+    handleWordAdded,
   };
 }
 
@@ -144,8 +133,6 @@ export function useTextSelectionVocab({
 interface TextSelectionPopupProps {
   position: { x: number; y: number } | null;
   selectedText: string;
-  adding: boolean;
-  added: boolean;
   onAdd: () => void;
   onClose: () => void;
 }
@@ -153,12 +140,10 @@ interface TextSelectionPopupProps {
 export function TextSelectionPopup({
   position,
   selectedText,
-  adding,
-  added,
   onAdd,
   onClose,
 }: TextSelectionPopupProps) {
-  const { t, language } = useT();
+  const { language } = useT();
   const popupRef = useRef<HTMLDivElement>(null);
   const [adjustedPos, setAdjustedPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -204,29 +189,15 @@ export function TextSelectionPopup({
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
           &ldquo;{selectedText}&rdquo;
         </span>
-        {added ? (
-          <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 whitespace-nowrap">
-            <Check className="w-3.5 h-3.5" />
-            {language === 'en' ? 'Added!' : '已加入！'}
-          </span>
-        ) : (
-          <button
-            onClick={onAdd}
-            disabled={adding}
-            role="button"
-            aria-label={`${language === 'en' ? 'Add' : '加入'} "${selectedText}" ${language === 'en' ? 'to vocabulary' : '到生字簿'}`}
-            className="flex items-center gap-1 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 disabled:bg-gray-300 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap min-h-[36px]"
-          >
-            {adding ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <BookMarked className="w-3 h-3" />
-            )}
-            {adding
-              ? (language === 'en' ? 'Adding...' : '加入中...')
-              : (language === 'en' ? 'Add to Vocab' : '加入生字簿')}
-          </button>
-        )}
+        <button
+          onClick={onAdd}
+          role="button"
+          aria-label={`${language === 'en' ? 'Add' : '加入'} "${selectedText}" ${language === 'en' ? 'to vocabulary' : '到生字簿'}`}
+          className="flex items-center gap-1 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap min-h-[36px]"
+        >
+          <BookMarked className="w-3 h-3" />
+          {language === 'en' ? 'Add to Vocab' : '加入生字簿'}
+        </button>
         <button
           onClick={onClose}
           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 ml-1 p-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
@@ -264,49 +235,14 @@ export function InlineWordBadge({
   className = '',
   isSuggestion = false,
 }: InlineWordBadgeProps) {
-  const { t, language } = useT();
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
-  const [duplicate, setDuplicate] = useState(false);
+  const { language } = useT();
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
-  const handleAdd = async (e: React.MouseEvent) => {
+  // 開啟 AI 分析流程（與右鍵加入生字簿一致），避免直接 POST 缺 translation 被 422 拒絕
+  const handleOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (adding || added) return;
-
-    setAdding(true);
-    try {
-      const res = await fetch('/api/vocabulary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          word: word.trim(),
-          partOfSpeech: 'unknown',
-          meaningZh: '',
-          familiarity: 'new',
-          masteryLevel: 0,
-        }),
-      });
-
-      if (res.ok) {
-        setAdded(true);
-        onAdded?.(word);
-        fetch('/api/gamification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
-        }).catch(() => {});
-        setTimeout(() => setAdded(false), 3000);
-      } else if (res.status === 409) {
-        setDuplicate(true);
-        setTimeout(() => setDuplicate(false), 3000);
-      }
-    } catch {
-      // silent
-    } finally {
-      setAdding(false);
-    }
+    setShowQuickAdd(true);
   };
 
   return (
@@ -315,38 +251,34 @@ export function InlineWordBadge({
         {word}
       </span>
       <button
-        onClick={handleAdd}
-        disabled={adding || added}
-        title={
-          duplicate
-            ? (language === 'en' ? 'Already in vocab book' : '已在生字簿中')
-            : added
-              ? (language === 'en' ? 'Added!' : '已加入！')
-              : (language === 'en' ? 'Add to vocab book' : '加入生字簿')
-        }
-        className={`inline-flex items-center justify-center rounded-full transition-all ${
+        onClick={handleOpen}
+        title={language === 'en' ? 'Add to vocab book' : '加入生字簿'}
+        className={`inline-flex items-center justify-center rounded-full transition-all text-teal-500 hover:text-teal-700 hover:bg-teal-50 active:bg-teal-100 dark:hover:bg-teal-900/30 dark:active:bg-teal-900/50 ${
           alwaysShow || isSuggestion
             ? 'opacity-100'
             : 'opacity-0 group-hover:opacity-100 max-sm:opacity-100'
-        } ${
-          added
-            ? 'text-green-500 bg-green-50 dark:bg-green-900/20'
-            : duplicate
-              ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
-              : 'text-teal-500 hover:text-teal-700 hover:bg-teal-50 active:bg-teal-100 dark:hover:bg-teal-900/30 dark:active:bg-teal-900/50'
         }`}
         style={{ width: '24px', height: '24px', minWidth: '24px', minHeight: '24px' }}
       >
-        {adding ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
-        ) : added ? (
-          <Check className="w-3 h-3" />
-        ) : duplicate ? (
-          <Check className="w-3 h-3" />
-        ) : (
-          <Plus className="w-3 h-3" />
-        )}
+        <Plus className="w-3 h-3" />
       </button>
+      {showQuickAdd && (
+        <QuickAddVocab
+          studentId={studentId}
+          gradeLevel={gradeLevel}
+          initialWord={word.trim()}
+          onClose={() => setShowQuickAdd(false)}
+          onAdded={(vocab) => {
+            setShowQuickAdd(false);
+            onAdded?.(vocab?.word || word);
+            fetch('/api/gamification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
+            }).catch(() => {});
+          }}
+        />
+      )}
     </span>
   );
 }
@@ -372,116 +304,66 @@ export function AddToVocabButton({
   variant = 'icon',
   className = '',
 }: AddToVocabButtonProps) {
-  const { t, language } = useT();
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
-  const [duplicate, setDuplicate] = useState(false);
-
-  const handleAdd = async () => {
-    if (adding || added) return;
-    setAdding(true);
-    try {
-      const res = await fetch('/api/vocabulary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          word: word.trim(),
-          partOfSpeech: 'unknown',
-          meaningZh: '',
-          familiarity: 'new',
-          masteryLevel: 0,
-        }),
-      });
-      if (res.ok) {
-        setAdded(true);
-        onAdded?.(word);
-        setTimeout(() => setAdded(false), 3000);
-      } else if (res.status === 409) {
-        setDuplicate(true);
-        setTimeout(() => setDuplicate(false), 3000);
-      }
-    } catch { /* silent */ }
-    finally { setAdding(false); }
-  };
+  const { language } = useT();
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   const sizeClass = size === 'sm' ? 'text-xs px-2 py-1' : 'text-sm px-3 py-1.5';
+  const label = language === 'en' ? 'Add to Vocab' : '加入生字簿';
+
+  const modal = showQuickAdd && (
+    <QuickAddVocab
+      studentId={studentId}
+      gradeLevel="S4"
+      initialWord={word.trim()}
+      onClose={() => setShowQuickAdd(false)}
+      onAdded={(vocab) => {
+        setShowQuickAdd(false);
+        onAdded?.(vocab?.word || word);
+      }}
+    />
+  );
 
   if (variant === 'icon') {
     return (
-      <button
-        onClick={handleAdd}
-        disabled={adding || added}
-        title={language === 'en' ? 'Add to vocab book' : '加入生字簿'}
-        className={`p-2 rounded-lg transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center ${
-          added
-            ? 'text-green-500 bg-green-50 dark:bg-green-900/20'
-            : duplicate
-              ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
-              : 'text-gray-400 hover:text-teal-500 hover:bg-teal-50 active:bg-teal-100 dark:hover:bg-teal-900/30 dark:active:bg-teal-900/50'
-        } ${className}`}
-      >
-        {adding ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : added ? (
-          <Check className="w-4 h-4" />
-        ) : (
+      <>
+        <button
+          onClick={() => setShowQuickAdd(true)}
+          title={language === 'en' ? 'Add to vocab book' : '加入生字簿'}
+          className={`p-2 rounded-lg transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-teal-500 hover:bg-teal-50 active:bg-teal-100 dark:hover:bg-teal-900/30 dark:active:bg-teal-900/50 ${className}`}
+        >
           <BookMarked className="w-4 h-4" />
-        )}
-      </button>
+        </button>
+        {modal}
+      </>
     );
   }
 
   if (variant === 'pill') {
     return (
-      <button
-        onClick={handleAdd}
-        disabled={adding || added}
-        className={`inline-flex items-center gap-1 ${sizeClass} rounded-full font-medium transition-all min-h-[36px] ${
-          added
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-            : duplicate
-              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-              : 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 hover:bg-teal-100 active:bg-teal-200 dark:hover:bg-teal-900/40 dark:active:bg-teal-900/60'
-        } ${className}`}
-      >
-        {adding ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
-        ) : added ? (
-          <Check className="w-3 h-3" />
-        ) : (
+      <>
+        <button
+          onClick={() => setShowQuickAdd(true)}
+          className={`inline-flex items-center gap-1 ${sizeClass} rounded-full font-medium transition-all min-h-[36px] bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 hover:bg-teal-100 active:bg-teal-200 dark:hover:bg-teal-900/40 dark:active:bg-teal-900/60 ${className}`}
+        >
           <BookMarked className="w-3 h-3" />
-        )}
-        {added
-          ? (language === 'en' ? 'Added' : '已加入')
-          : duplicate
-            ? (language === 'en' ? 'Exists' : '已有')
-            : (language === 'en' ? 'Add to Vocab' : '加入生字簿')}
-      </button>
+          {label}
+        </button>
+        {modal}
+      </>
     );
   }
 
   // text variant
   return (
-    <button
-      onClick={handleAdd}
-      disabled={adding || added}
-      className={`inline-flex items-center gap-1 ${sizeClass} rounded-lg font-medium transition-colors min-h-[36px] ${
-        added
-          ? 'text-green-600 dark:text-green-400'
-          : duplicate
-            ? 'text-amber-600 dark:text-amber-400'
-            : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 active:text-teal-800 hover:underline'
-      } ${className}`}
-    >
-      <BookMarked className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />
-      {adding
-        ? (language === 'en' ? 'Adding...' : '加入中...')
-        : added
-          ? (language === 'en' ? 'Added!' : '已加入！')
-          : duplicate
-            ? (language === 'en' ? 'In Vocab Book' : '已在生字簿')
-            : (language === 'en' ? 'Add to Vocab' : '加入生字簿')}
-    </button>
+    <>
+      <button
+        onClick={() => setShowQuickAdd(true)}
+        className={`inline-flex items-center gap-1 ${sizeClass} rounded-lg font-medium transition-colors min-h-[36px] text-teal-600 dark:text-teal-400 hover:text-teal-700 active:text-teal-800 hover:underline ${className}`}
+      >
+        <BookMarked className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />
+        {label}
+      </button>
+      {modal}
+    </>
   );
 }

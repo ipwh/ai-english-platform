@@ -4,6 +4,25 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 (VII) — Selection Popup Add-to-Vocab Fix (選字 popup 加入生字簿修正)
+
+### 🔍 問題
+雙擊選字後彈出的「加入生字簿」button 按下無反應：未有 AI 分析、單字亦未加入。右鍵流程（QuickAddVocab）正常。
+
+### 📐 成因
+`/api/vocabulary` 自 Sprint 104 起以 Zod 驗證，`translation` 為必填（min 1）。popup（`useTextSelectionVocab`）、`InlineWordBadge`、`AddToVocabButton` 直接 POST `translation: ''` → 422「翻譯為必填」；且 client 對非 409 失敗無任何提示（silent fail）。右鍵流程因先經 `/api/ai/analyze-word` 取得 AI 翻譯而正常。
+
+### 🔧 修正（`src/modules/vocabulary/components/`）
+- **CHANGED** `useTextSelectionVocab`／`TextSelectionPopup`：按「加入生字簿」改為開啟 **QuickAddVocab AI 分析流程**（與右鍵加入完全一致：AI 分析 → 預覽 → 加入），移除失效的直接 POST。
+- **CHANGED** `InlineWordBadge`（寫作頁詞彙建議 +）與 `AddToVocabButton`：同樣改為開啟 QuickAddVocab，移除直接 POST。
+- **NEW** `QuickAddVocab` 新增選用 `onClose` prop，供 popup／badge 在關閉或加入後正確卸載。
+- 成功加入仍維持 learnWord 經驗值事件（與舊行為一致）。
+
+### 🧪 驗證
+- **2877 tests pass（130 files, 1 skipped）** · tsc 0 · eslint 0 errors · `npm run build` exit 0。
+
+---
+
 ## 2026-08-29 (VI) — Reading Passage Structured Rendering (選字問題根治)
 
 ### 🔍 殘留問題

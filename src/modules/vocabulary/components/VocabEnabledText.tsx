@@ -7,6 +7,7 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import { useTextSelectionVocab, TextSelectionPopup } from './InlineAddVocabButton';
+import QuickAddVocab from './QuickAddVocab';
 
 const DEV_LOG = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -31,12 +32,13 @@ export default function VocabEnabledText({
   const {
     popupPos,
     selectedText,
-    adding,
-    added,
+    showQuickAdd,
     handleSelectionEnd,
     handleAddWord,
     handleClosePopup,
-  } = useTextSelectionVocab({ studentId, gradeLevel, onWordAdded });
+    handleCloseQuickAdd,
+    handleWordAdded,
+  } = useTextSelectionVocab({ studentId, onWordAdded });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
@@ -108,11 +110,18 @@ export default function VocabEnabledText({
       <TextSelectionPopup
         position={popupPos}
         selectedText={selectedText}
-        adding={adding}
-        added={added}
         onAdd={handleAddWord}
         onClose={handleClosePopup}
       />
+      {showQuickAdd && studentId && (
+        <QuickAddVocab
+          studentId={studentId}
+          gradeLevel={gradeLevel}
+          initialWord={selectedText}
+          onClose={handleCloseQuickAdd}
+          onAdded={handleWordAdded}
+        />
+      )}
     </>
   );
 }

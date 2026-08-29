@@ -24,6 +24,8 @@ interface QuickAddVocabProps {
   initialWord?: string;
   /** 加入成功後的回呼 */
   onAdded?: (vocab: VocabItem | null) => void;
+  /** 關閉（點 X / 遮罩）時回呼 */
+  onClose?: () => void;
   /** 浮動按鈕樣式覆蓋 */
   className?: string;
 }
@@ -35,6 +37,7 @@ export default function QuickAddVocab({
   gradeLevel,
   initialWord,
   onAdded,
+  onClose,
   className = '',
 }: QuickAddVocabProps) {
   const { t, language } = useT();
@@ -142,6 +145,7 @@ export default function QuickAddVocab({
     setAnalysis(null);
     setErrorMsg('');
     setExistingVocab(null);
+    onClose?.();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
