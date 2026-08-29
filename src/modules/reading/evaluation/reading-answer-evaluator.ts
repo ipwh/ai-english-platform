@@ -19,19 +19,6 @@ import { createEmptyEvaluation } from './reading-answer-types';
 // DSE Item-Type Routing
 // ============================================
 
-/** DSE types that should always use API-based evaluation (not simple matching) */
-export const API_EVALUATED_DSE_TYPES = new Set([
-  'reference',
-  'vocabulary_in_context',
-  'inference',
-  'tone_attitude',
-  'summary_cloze',
-  'sentence_transformation',
-  'short_answer',
-  'phrase_search',
-  'synonym_search',
-]);
-
 /** DSE types safe for simple local objective checking */
 export const OBJECTIVE_DSE_TYPES = new Set([
   'multiple_choice',

@@ -192,6 +192,16 @@ export async function scoreReadingAnswers(
       return { ok: false, error: `題目 ${row.questionId} 缺少有效 marks（maxScore 無法定義，NOT_PROJECTABLE）` };
     }
 
+    // 2026-08-29 audit: a question whose canonical answer key is empty cannot
+    // be scored fairly (blank-vs-blank exact match would award full marks to
+    // an unanswered question). Reject — never score an unverifiable item.
+    if (!def.answer || def.answer.trim().length === 0) {
+      return {
+        ok: false,
+        error: `題目 ${row.questionId} 缺少正典答案（正確性無法定義，NOT_PROJECTABLE）`,
+      };
+    }
+
     let awarded: number;
     let result: ScoredReadingAnswer['result'];
     let scoredBy: 'server' | 'ai';

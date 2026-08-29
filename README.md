@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-20 — 129 files, 2852 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-29 — 131 files, 2889 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -69,19 +69,19 @@ Writing Evaluation (Sprints 127-130):
 
 ### 🧑‍🎓 學生端
 - **AI 練習題目** — 支援選擇題、填充題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
-- **📖 閱讀理解 (DSE Paper 1)** — 生成 DSE 風格閱讀篇章（4–5 段、段落分佈檢查、主題多樣化），涵蓋 Literal → Inferential → Evaluative 漸進式題型（MCQ / 填充 / True-False-NG / 語調態度 / 主旨推斷 / 詞彙 / 摘要 / 配對 / 排序），AI 語意批改對照 HKDSE Reading Descriptors；題目支援中英切換
+- **📖 閱讀理解 (DSE Paper 1)** — 生成 DSE 風格閱讀篇章（3–5 段、段落分佈檢查、主題多樣化），涵蓋 Literal → Inferential → Evaluative 漸進式題型（MCQ / 填充 / True-False-NG / 語調態度 / 詞彙 / 摘要 / 配對 / 排序 / 推斷），AI 語意批改依 HKDSE Reading Descriptors 評分原則；題目支援中英切換
 - **🔥 每日挑戰 (Daily Challenge)** — 每日一題（文法選擇/填充/短文/配對），完成獲得連續學習 streak 加成與 XP；題目由伺服器持有，提交時以伺服器答案鍵批改
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**5 種真實考試陷阱**、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、7 種 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
   - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。此聲明已直接顯示於批改結果頁面。
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
-- **即時批改回饋** — AI 分析答案，對照 HKDSE Reading/Listening Descriptors 評級，提供中英雙語解釋、常見錯誤提示
-- **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正、示範強化及再次提交比較。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
+- **即時批改回饋** — AI 分析答案（依 HKDSE Reading/Listening Descriptors 原則），提供中英雙語解釋、常見錯誤提示
+- **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正與示範強化。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
-- **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化 AI 複習建議，掌握度 ★ 評級（0-5），自動去重
+- **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化複習建議，掌握度 ★ 評級（0-5），自動去重
 - **📝 生字簿 2.1 強化** — API 分頁支援（`page`/`limit`/`search`/`familiarity`/`pos`/`sort`）、`/api/vocabulary/suggest` 練習自動建議生字、`/api/vocabulary/example` 專用例句生成、`/api/vocabulary/quiz` 互動式詞彙測驗（MCQ + 配對題）、VocabCard 策略提示根據掌握度動態推導
 - **✏️ 串字練習 (Spelling Practice)** — 看中文意思及英文例句提示，自行輸入正確英文單詞；支援 4 種選字模式（最新/隨機/最弱/到期）、即時批改、錯誤重試、SRS 掌握度自動更新；完成後顯示成績及逐字結果回顧（`SpellingSession` + `SpellingAttempt` DB 模型）
 - **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕
@@ -119,7 +119,7 @@ Writing Evaluation (Sprints 127-130):
 1. **Semantic / task-coverage evaluator** — 提取題目要求及 verbatim evidence，只輸出證據，不產出分數/懲罰/上限
 2. **CLO evaluator** — 獨立評估 Content、Language、Organization，是平台 CLO 分數的唯一來源
 3. **Deterministic normalization** — 標準化每個 CLO 分數至 0–7（half-point rounding），計算平台 CLO 總分及練習估算
-4. **Educational feedback** — 顯示具原文證據的優點與弱點，提供 1–3 個優先改進行動，分離忠實修正與示範強化，支援修改及再次提交
+4. **Educational feedback** — 顯示具原文證據的優點與弱點，提供優先改進行動，分離忠實修正與示範強化，支援修改後再次批改
 
 平台分數是寫作練習診斷估算（platform practice estimate），依據 HKDSE English Writing descriptors 作為參考框架。平台分數並非 HKEAA 官方評級，亦不代表公開考試成績預測。
 

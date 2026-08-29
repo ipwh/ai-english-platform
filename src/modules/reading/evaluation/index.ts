@@ -13,7 +13,6 @@ export type {
 export { createEmptyEvaluation } from './reading-answer-types';
 
 export {
-  API_EVALUATED_DSE_TYPES,
   OBJECTIVE_DSE_TYPES,
   requiresApiEvaluation,
   normalizeForComparison,

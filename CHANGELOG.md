@@ -4,6 +4,43 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 (VIII) — Full-Module Fairness Audit & Scoring Integrity Fixes (全面審核：杜撰防護、評分公平性、雙語、死碼)
+
+### 🔍 範圍
+全面審核 AI 練習、閱讀理解、寫作、Integrated Skills、生字簿、診斷練習六個 module，比對 README/CHANGELOG 聲明；覆核生成資料、題目、分析答題的杜撰風險、HKDSE 分數對照公平性、死碼及中英對照完整性。
+
+### 📐 已修正（評分公平性 P1）
+- **練習題目**（`question-normalizer.ts`）：選項被過濾或補位後，AI 的裸字母/數字答案鍵（"C"/"2"/"C. Beta"）原按位置解譯，可能指向注入的補位填充選項 → **填充句成為正典答案**並持久化（文法題更寫入 GrammarQuestion）。現改為：位置改變時一律**以文字重新對應**預過濾選項；引用選項已消失 → **整題拒絕**，絕不猜鍵。+8 測試。
+- **閱讀理解**（`reading-answer-scoring.ts` + `reading/route.ts`）：正典答案為空的題目，學生留空作答會以「空白=空白」精確比對**獲得滿分**。現生成時直接丟棄空答案題（不交付不持久化），評分器亦對空鍵 NOT_PROJECTABLE（防護舊資料）。+2 測試。
+- **閱讀分數顯示**（`reading/page.tsx`）：本地批改硬編碼 1/1 分、總分分母 = 題數，與 `{q.marks}m` 標記矛盾（2 分題顯示錯分數）。現按 `q.marks` 計分及總分。
+- **Integrated Skills**：
+  - `dataFileSources` 客戶端有送、伺服器從未接收 → AI 在**未見過 Data File** 的情況下生成「資料運用」評語（對未見材料的杜撰分析）。現經 route → usecase 將 Data File 內容納入批改 prompt。
+  - 確定性抄襲檢測 `detectOverCopying` 已計算但**從未顯示**。現存入 store 並在結果頁顯示（系統抄襲檢測，附抄襲比例及建議，中英對照）。
+  - tone/attitude 題 2–3 個選項原以 2–3 選項 MCQ 交付；現須 4 個實質選項，否則轉 AI 評分短答（與 CHANGELOG 聲明一致）。
+- **診斷練習**（`diagnostic/page.tsx`）：診斷結果在寫作 CLO 分析完成前就持久化 → 寫作準確度永久為 -1，同級統計**永遠沒有寫作均值**。現改為寫作分析完成後才 POST（寫作分數 = CLO %）。
+- **串字練習**（`vocabulary/spelling/route.ts`）：同一次提交重複同一 vocabId 可將掌握度 0→5 及 SRS 間隔翻倍（刷 mastery）。現每次提交每字只計一次。
+
+### 🈴 中英對照
+- 練習頁：提示按鈕 `提示 (n/4)`、摘要四按鈕（再做一次/查看錯題/繼續練習/返回主頁）、難度標籤 → 雙語。
+- IS 結果頁：全部 section 標題（已捕捉/遺漏要點、文法錯誤、中式英語、詞彙升級、筆記/資料/結構評語、改善建議、AI 總評、範本答案、總體分數、三維度標籤）→ 中英切換。
+- 診斷頁：`📝 題目內文`、`同級均值` → 雙語。
+- 伺服器訊息雙語化：CLO fail-closed 錯誤、範文品質閘錯誤、quiz 來源文字；provider fallback 警告移除過時的「Gemini」（Gemini API 已於 2026-08-20 退役，實際 fallback 為 Grok）。
+- 寫作頁範文卡片補回「範文目標 Level N」標籤（ADR-038 要求）。
+
+### 🧹 死碼
+- 刪除：`renderToHtml`（throw-only 死匯出）、`API_EVALUATED_DSE_TYPES`（零消費者）、`getReviewList`（零消費者）、`diagnosticLevelLabels`、多個未使用 imports（generate-questions、practice 頁、api/writing、review-suggestions）。
+
+### 📚 文件修正（README 與實況不符處）
+- 閱讀：3–5 段（非 4–5）、移除不存在的「主旨推斷」題型、「語意批改對照 Descriptors」→「依 Descriptors 評分原則」（評估 prompt 並無 descriptors 文本）。
+- 寫作：移除未交付的「再次提交比較」「1–3 個優先改進行動」聲明。
+- 生字簿：「個人化 AI 複習建議」→「個人化複習建議」（實為規則式）。
+- 練習：「對照 HKDSE Descriptors 評級」→ 分析不產出評級，改為「依原則提供雙語解釋」。
+
+### 🧪 驗證
+- **2889 tests pass（131 files, 1 skipped）** · tsc 0 · eslint 0 errors · check-i18n exit 0。
+
+---
+
 ## 2026-08-29 (VII) — Selection Popup Add-to-Vocab Fix (選字 popup 加入生字簿修正)
 
 ### 🔍 問題

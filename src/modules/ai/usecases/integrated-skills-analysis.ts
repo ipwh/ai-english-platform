@@ -39,7 +39,15 @@ ${paper3MSContext}
 ⚠️ "modelAnswer" 必須為完整英文參考範文，展示如何正確整合聆聽+Data File 資訊、適切改寫、格式正確的答案。此欄位不可留空。此範文是平台的教學參考範本，不是 HKEAA 官方評分樣本。`;
 
   const expectedPointsText = input.expectedContentPoints.map((p, i) => `${i + 1}. ${p}`).join('\n');
-  const userPrompt = `【聆聽材料】\n${input.listeningContent.slice(0, 3000)}\n\n【Note-taking 指引】\n${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}\n\n【預期內容要點】\n${expectedPointsText}\n\n【寫作任務】\n${input.writingTask}\n\n【學生 Note-taking】\n${input.studentNotes || '(未填寫)'}\n\n【學生寫作】\n"""\n${sanitizedWriting}\n"""\n\n請批改此 Integrated Skills 答案。`;
+
+  // 2026-08-29 audit: include the Data File sources the student worked from.
+  // Without them, dataManipulationFeedback would be produced about material
+  // the AI never saw (hallucinated data-file analysis).
+  const dataFileText = (input.dataFileSources ?? [])
+    .map(s => `【${s.type}】${s.title}\n${s.content}`)
+    .join('\n\n');
+
+  const userPrompt = `【聆聽材料】\n${input.listeningContent.slice(0, 3000)}\n\n【Note-taking 指引】\n${input.noteTakingGuide.map(g => `- ${g.question} (提示: ${g.hint})`).join('\n')}\n\n【預期內容要點】\n${expectedPointsText}\n\n${dataFileText ? `【Data File 資料（學生作答時可參考的文件來源）】\n${dataFileText}\n\n` : ''}【寫作任務】\n${input.writingTask}\n\n【學生 Note-taking】\n${input.studentNotes || '(未填寫)'}\n\n【學生寫作】\n"""\n${sanitizedWriting}\n"""\n\n請批改此 Integrated Skills 答案。`;
 
   const analysis = await executeAI({
     context: { feature: 'Listening', useCase: 'AnalyzeIntegratedSkills', promptName: 'IntegratedSkillsAnalysis', promptVersion: 'v1' },

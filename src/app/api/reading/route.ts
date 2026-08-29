@@ -1970,8 +1970,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // answer key. A question without genuine choices is delivered as an
         // AI-scored short-answer question instead (the LLM-authored answer
         // text remains the key; tone_attitude routes to AI semantic scoring).
-        if ((aiType === 'toneAttitude' || aiType === 'authorIntention') && (!choices || choices.length < 2)) {
-          choices = undefined;
+        // 2026-08-29 audit: require exactly 4 substantive choices to deliver
+        // as MCQ — 2-3 option tone questions degrade to short-answer too.
+        if (aiType === 'toneAttitude' || aiType === 'authorIntention') {
+          const substantive = choices ? choices.filter(c => c.trim().length > 1) : [];
+          if (substantive.length < 4) choices = undefined;
         }
 
         const tier = (q.tier as string)
@@ -2005,6 +2008,16 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           explanationEn: (q.explanationEn as string) || undefined,
         };
       });
+      // 2026-08-29 audit: never persist/deliver a question whose canonical
+      // answer key is empty — it cannot be scored fairly (a blank student
+      // answer would exact-match a blank key and earn full marks).
+      const qCountBeforeDrop = (response.questions as Array<Record<string, unknown>>).length;
+      response.questions = (response.questions as Array<Record<string, unknown>>).filter(
+        q => String(q.answer ?? '').trim().length > 0,
+      );
+      if ((response.questions as Array<Record<string, unknown>>).length < qCountBeforeDrop) {
+        logger.warn({ module: 'reading', dropped: qCountBeforeDrop - (response.questions as Array<Record<string, unknown>>).length }, 'Dropped questions with empty answer keys');
+      }
       response.questions = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
       );
@@ -2051,8 +2064,11 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // answer key. A question without genuine choices is delivered as an
         // AI-scored short-answer question instead (the LLM-authored answer
         // text remains the key; tone_attitude routes to AI semantic scoring).
-        if ((aiType === 'toneAttitude' || aiType === 'authorIntention') && (!choices || choices.length < 2)) {
-          choices = undefined;
+        // 2026-08-29 audit: require exactly 4 substantive choices to deliver
+        // as MCQ — 2-3 option tone questions degrade to short-answer too.
+        if (aiType === 'toneAttitude' || aiType === 'authorIntention') {
+          const substantive = choices ? choices.filter(c => c.trim().length > 1) : [];
+          if (substantive.length < 4) choices = undefined;
         }
 
         // Determine tier from question metadata or default based on position
@@ -2087,6 +2103,16 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           explanationEn: (q.explanationEn as string) || undefined,
         };
       });
+      // 2026-08-29 audit: never persist/deliver a question whose canonical
+      // answer key is empty — it cannot be scored fairly (a blank student
+      // answer would exact-match a blank key and earn full marks).
+      const qCountBeforeDrop = (response.questions as Array<Record<string, unknown>>).length;
+      response.questions = (response.questions as Array<Record<string, unknown>>).filter(
+        q => String(q.answer ?? '').trim().length > 0,
+      );
+      if ((response.questions as Array<Record<string, unknown>>).length < qCountBeforeDrop) {
+        logger.warn({ module: 'reading', dropped: qCountBeforeDrop - (response.questions as Array<Record<string, unknown>>).length }, 'Dropped questions with empty answer keys');
+      }
       response.questions = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
       );

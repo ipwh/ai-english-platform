@@ -9,8 +9,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { persistWithRetry } from '@/shared/utils/persistence-helper';
 import Link from 'next/link';
 import {
-  ArrowLeft, ArrowRight, Check, X, Lightbulb, Volume2,
-  BookMarked, Sparkles, Loader2, Flag, Zap, RotateCcw, Home,
+  ArrowLeft, ArrowRight, Check, X, Lightbulb,
+  Sparkles, Loader2, Flag, Zap, RotateCcw, Home,
 } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
@@ -912,7 +912,9 @@ export default function PracticeQuestionPage() {
               className="flex items-center gap-1 px-3 py-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg hover:bg-yellow-100 transition-colors disabled:opacity-50"
             >
               <Lightbulb className="w-4 h-4" />
-              提示 ({currentHint}/4)
+              {language === 'en'
+                ? `Hint (${currentHint}/${question.hintLevels.length})`
+                : `提示 (${currentHint}/${question.hintLevels.length})`}
             </button>
           )}
         </div>
@@ -960,7 +962,7 @@ function SessionCompleteSummary({
   onDashboard: () => void;
   onRetry: () => void;
 }) {
-  const { t } = useT();
+  const { t, language } = useT();
   const acc = session.totalQuestions > 0 ? Math.round((session.correctCount / session.totalQuestions) * 100) : 0;
   const emoji = acc >= 90 ? '🏆' : acc >= 70 ? '🌟' : acc >= 50 ? '💪' : '📚';
   const color = acc >= 90 ? 'text-amber-600' : acc >= 70 ? 'text-teal-600' : acc >= 50 ? 'text-orange-500' : 'text-red-500';
@@ -1004,18 +1006,18 @@ function SessionCompleteSummary({
 
       <div className="grid grid-cols-2 gap-3">
         <button onClick={onRetry} className="py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-          <RotateCcw className="w-4 h-4" /> 再做一次
+          <RotateCcw className="w-4 h-4" /> {language === 'en' ? 'Try Again' : '再做一次'}
         </button>
         {incorrectCount > 0 && (
           <button onClick={onReviewMistakes} className="py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-            <Flag className="w-4 h-4" /> 查看錯題 ({incorrectCount})
+            <Flag className="w-4 h-4" /> {language === 'en' ? `Review Mistakes (${incorrectCount})` : `查看錯題 (${incorrectCount})`}
           </button>
         )}
         <button onClick={onBackToPractice} className="py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-          繼續練習
+          {language === 'en' ? 'Continue Practising' : '繼續練習'}
         </button>
         <button onClick={onDashboard} className="py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2">
-          <Home className="w-4 h-4" /> 返回主頁
+          <Home className="w-4 h-4" /> {language === 'en' ? 'Back to Dashboard' : '返回主頁'}
         </button>
       </div>
     </div>

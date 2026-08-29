@@ -134,6 +134,42 @@ describe('R3.7 deterministic server scoring (evaluator=server)', () => {
 });
 
 // ============================================
+// 2026-08-29 audit: empty canonical answer key
+// ============================================
+
+describe('R3.10-L audit 2026-08-29: empty canonical answer key', () => {
+  it('blank student answer against empty canonical key → NOT_PROJECTABLE (never full marks)', async () => {
+    mockFindMany.mockResolvedValue([
+      defRow({
+        questionType: 'shortAnswer',
+        dseType: 'short_answer',
+        choices: null,
+        answer: '',
+      }),
+    ]);
+    const result = await scoreReadingAnswers([rawAnswer({ studentAnswer: '' })]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('缺少正典答案');
+  });
+
+  it('non-blank student answer against empty canonical key → NOT_PROJECTABLE too', async () => {
+    mockFindMany.mockResolvedValue([
+      defRow({
+        questionType: 'shortAnswer',
+        dseType: 'short_answer',
+        choices: null,
+        answer: '   ',
+      }),
+    ]);
+    const result = await scoreReadingAnswers([rawAnswer({ studentAnswer: 'some real answer' })]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('缺少正典答案');
+  });
+});
+
+// ============================================
 // Forged client values are ignored
 // ============================================
 

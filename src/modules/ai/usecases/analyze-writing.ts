@@ -772,12 +772,12 @@ Content / Organization 分數亦需按 system rubric 評分，
   const ratio = targetWords && targetWords > 0 ? studentWordCount / targetWords : null;
   const deterministicPenaltyTier = deterministicLengthPenalty(ratio);
 
-  // Platform policy: the deterministic tier is the FLOOR. The LLM may suggest a
-  // penalty, but it can only be LESS severe (Math.max — both values are ≤ 0).
-  // When the LLM omits the field entirely, the deterministic tier applies on its
-  // own instead of silently cancelling to 0 (a <30%-length essay would otherwise
-  // escape its −25 penalty). The penalty is always ≤ 0 and applied EXACTLY ONCE,
-  // to the overall score only (never to C/L/O).
+  // Platform policy: the deterministic tier is the DEFAULT penalty.
+  // When the LLM omits the field, the deterministic tier applies on its own
+  // (a <30%-length essay cannot escape its −25 tier). An EXPLICIT LLM value
+  // may only be LESS severe (Math.max — both values are ≤ 0), per
+  // applyLengthPenaltyPolicy (contract-locked). The penalty is always ≤ 0
+  // and applied EXACTLY ONCE, to the overall score only (never to C/L/O).
   const llmLengthPenalty =
     typeof grammarAnalysis.lengthPenalty === 'number'
       ? Math.min(0, grammarAnalysis.lengthPenalty)
@@ -802,7 +802,7 @@ Content / Organization 分數亦需按 system rubric 評分，
   // (The LLM's own overallScore is parsed for diagnostics only and is
   // NEVER an authority — no numeric fallback exists.)
   if (cloTotalScore == null) {
-    throw new Error('CLO 評分不完整（缺少 Content / Language / Organization 分數），無法產生總分。請重試。');
+    throw new Error('CLO 評分不完整（缺少 Content / Language / Organization 分數），無法產生總分。請重試。 / CLO scoring incomplete (missing Content / Language / Organization scores) — a total cannot be produced. Please try again.');
   }
 
   // Canonical overall base: round(cloTotal / 21 * 100) — PLATFORM_DEFINED.

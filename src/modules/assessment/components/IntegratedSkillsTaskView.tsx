@@ -126,6 +126,7 @@ function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: 
 // ============================================
 function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: string }) {
   const a = useIntegratedSkillsStore(s => s.analysis);
+  const oc = useIntegratedSkillsStore(s => s.overCopyCheck);
   const [showZh, setShowZh] = useState(false);
   if (!a) return null;
 
@@ -153,7 +154,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
             <Languages className="w-3 h-3" /> {showZh ? 'English' : '中文'}
           </button>
         )}
-        <div className="text-sm text-gray-500 mt-1">Overall Score</div>
+        <div className="text-sm text-gray-500 mt-1">{showZh ? '總體分數' : 'Overall Score'}</div>
         {/* R3.10-L: 強制免責聲明 — 診斷分析為平台內部評估，並非 HKEAA 官方評分 */}
         <div className="mx-auto mt-2 max-w-md rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
           ⚠️ {showZh
@@ -172,17 +173,17 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         <div className={`rounded-xl p-4 text-center ${scoreColor(a.listeningAccuracy)}`}>
           <Headphones className="w-5 h-5 mx-auto mb-1" />
           <div className="text-2xl font-bold">{a.listeningAccuracy}%</div>
-          <div className="text-xs font-medium">Listening (40%)</div>
+          <div className="text-xs font-medium">{showZh ? '聆聽理解 (40%)' : 'Listening (40%)'}</div>
         </div>
         <div className={`rounded-xl p-4 text-center ${scoreColor(a.languageAccuracy)}`}>
           <PenLine className="w-5 h-5 mx-auto mb-1" />
           <div className="text-2xl font-bold">{a.languageAccuracy}%</div>
-          <div className="text-xs font-medium">Language (35%)</div>
+          <div className="text-xs font-medium">{showZh ? '語言運用 (35%)' : 'Language (35%)'}</div>
         </div>
         <div className={`rounded-xl p-4 text-center ${scoreColor(a.organizationClarity)}`}>
           <Target className="w-5 h-5 mx-auto mb-1" />
           <div className="text-2xl font-bold">{a.organizationClarity}%</div>
-          <div className="text-xs font-medium">Organization (25%)</div>
+          <div className="text-xs font-medium">{showZh ? '組織結構 (25%)' : 'Organization (25%)'}</div>
         </div>
       </div>
 
@@ -209,7 +210,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.capturedPoints && a.capturedPoints.length > 0 && (
         <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
           <h4 className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2 flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" /> Captured Points ({a.capturedPoints.length})
+            <CheckCircle2 className="w-4 h-4" /> {showZh ? '已捕捉要點' : 'Captured Points'} ({a.capturedPoints.length})
           </h4>
           <ul className="space-y-1">
             {a.capturedPoints.map((pt, i) => (
@@ -223,7 +224,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.missedPoints && a.missedPoints.length > 0 && (
         <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-200 dark:border-red-800">
           <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
-            <XCircle className="w-4 h-4" /> Missed Points ({a.missedPoints.length})
+            <XCircle className="w-4 h-4" /> {showZh ? '遺漏要點' : 'Missed Points'} ({a.missedPoints.length})
           </h4>
           <ul className="space-y-1">
             {a.missedPoints.map((pt, i) => (
@@ -235,11 +236,11 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         </div>
       )}
 
-      {/* Over-copy warnings */}
+      {/* Over-copy warnings (AI) */}
       {a.overCopyWarnings && a.overCopyWarnings.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
           <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="w-4 h-4" /> Over-copy Warnings
+            <AlertTriangle className="w-4 h-4" /> {showZh ? '過度抄襲警告（AI）' : 'Over-copy Warnings (AI)'}
           </h4>
           {a.overCopyWarnings.map((w, i) => (
             <div key={i} className="text-xs mb-2 last:mb-0">
@@ -250,6 +251,23 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         </div>
       )}
 
+      {/* 2026-08-29 audit: deterministic server-side plagiarism verdict */}
+      {oc && (oc.copyRatio > 0 || oc.isOverCopy) && (
+        <div className={`rounded-xl p-4 border ${oc.isOverCopy ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-900/10 border-gray-200 dark:border-gray-700'}`}>
+          <h4 className={`text-sm font-semibold mb-2 flex items-center gap-1.5 ${oc.isOverCopy ? 'text-red-700 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <AlertTriangle className="w-4 h-4" /> {showZh ? '系統抄襲檢測' : 'System Plagiarism Check'}
+          </h4>
+          <p className={`text-xs ${oc.isOverCopy ? 'text-red-700 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            {showZh
+              ? `與聆聽文稿的字詞重疊率約 ${Math.round(oc.copyRatio * 100)}%${oc.isOverCopy ? ' — 判定為過度抄襲' : ' — 未超過閾值'}。`
+              : `Overlap with the listening transcript ≈ ${Math.round(oc.copyRatio * 100)}%${oc.isOverCopy ? ' — excessive copying detected.' : ' — below threshold.'}`}
+          </p>
+          {oc.overallSuggestion && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{oc.overallSuggestion}</p>
+          )}
+        </div>
+      )}
+
       {/* Grammar errors */}
       {a.grammarErrors && a.grammarErrors.length > 0 && (() => {
         const realErrors = a.grammarErrors.filter(e => e.original.trim() !== e.correction.trim());
@@ -257,7 +275,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
         return (
         <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-200 dark:border-red-800">
           <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
-            <XCircle className="w-4 h-4" /> Grammar Errors ({realErrors.length})
+            <XCircle className="w-4 h-4" /> {showZh ? '文法錯誤' : 'Grammar Errors'} ({realErrors.length})
           </h4>
           {realErrors.map((e, i) => (
             <div key={i} className="text-xs mb-2 last:mb-0">
@@ -274,7 +292,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.chinglishWarnings && a.chinglishWarnings.length > 0 && (
         <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
           <h4 className="text-sm font-semibold text-orange-700 dark:text-orange-400 mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="w-4 h-4" /> Chinglish Warnings ({a.chinglishWarnings.length})
+            <AlertTriangle className="w-4 h-4" /> {showZh ? '中式英語警告' : 'Chinglish Warnings'} ({a.chinglishWarnings.length})
           </h4>
           {a.chinglishWarnings.map((w, i) => (
             <div key={i} className="text-xs mb-2 last:mb-0">
@@ -290,7 +308,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.vocabularySuggestions && a.vocabularySuggestions.length > 0 && (
         <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
           <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-2 flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4" /> Vocabulary Upgrades ({a.vocabularySuggestions.length})
+            <BookOpen className="w-4 h-4" /> {showZh ? '詞彙升級建議' : 'Vocabulary Upgrades'} ({a.vocabularySuggestions.length})
           </h4>
           {a.vocabularySuggestions.map((v, i) => (
             <div key={i} className="text-xs mb-2 last:mb-0 flex flex-wrap items-center gap-1.5">
@@ -307,7 +325,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.noteTakingFeedback && (
         <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
           <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-1 flex items-center gap-1.5">
-            <Edit3 className="w-4 h-4" /> Note-taking Feedback
+            <Edit3 className="w-4 h-4" /> {showZh ? '筆記評語' : 'Note-taking Feedback'}
           </h4>
           <p className="text-sm text-amber-700 dark:text-amber-400 leading-relaxed">{a.noteTakingFeedback}</p>
           {showZh && a.noteTakingFeedbackZh && (
@@ -320,7 +338,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.dataManipulationFeedback && (
         <div className="bg-teal-50 dark:bg-teal-900/10 rounded-xl p-4 border border-teal-200 dark:border-teal-800">
           <h4 className="text-sm font-semibold text-teal-700 dark:text-teal-400 mb-1 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" /> Data Manipulation
+            <Sparkles className="w-4 h-4" /> {showZh ? '資料運用' : 'Data Manipulation'}
           </h4>
           <p className="text-sm text-teal-700 dark:text-teal-400 leading-relaxed">{a.dataManipulationFeedback}</p>
           {showZh && a.dataManipulationFeedbackZh && (
@@ -333,7 +351,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.structureFeedback && (
         <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
           <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-1 flex items-center gap-1.5">
-            <FileText className="w-4 h-4" /> Structure Feedback
+            <FileText className="w-4 h-4" /> {showZh ? '結構評語' : 'Structure Feedback'}
           </h4>
           <p className="text-sm text-indigo-700 dark:text-indigo-400 leading-relaxed">{a.structureFeedback}</p>
           {showZh && a.structureFeedbackZh && (
@@ -346,7 +364,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.improvementTips && a.improvementTips.length > 0 && (
         <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
           <h4 className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2 flex items-center gap-1.5">
-            <Lightbulb className="w-4 h-4" /> Improvement Tips
+            <Lightbulb className="w-4 h-4" /> {showZh ? '改善建議' : 'Improvement Tips'}
           </h4>
           <ul className="space-y-1.5">
             {(showZh && a.improvementTipsZh?.length ? a.improvementTipsZh : a.improvementTips).map((tip, i) => (
@@ -360,7 +378,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.generalComment && (
         <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
           <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1.5">
-            <Lightbulb className="w-4 h-4" /> AI Feedback
+            <Lightbulb className="w-4 h-4" /> {showZh ? 'AI 總體評語' : 'AI Feedback'}
           </h4>
           {studentId ? (
             <VocabEnabledText studentId={studentId} gradeLevel={gradeLevel}>
@@ -379,7 +397,7 @@ function ResultView({ studentId, gradeLevel }: { studentId: string; gradeLevel: 
       {a.modelAnswer && (
         <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
           <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-400 mb-2 flex items-center gap-1.5">
-            <Award className="w-4 h-4" /> Model Answer (Reference)
+            <Award className="w-4 h-4" /> {showZh ? '範本答案（參考）' : 'Model Answer (Reference)'}
           </h4>
           <p className="text-[11px] text-purple-500/80 dark:text-purple-300/70 mb-2">
             {showZh
@@ -506,6 +524,9 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
       const json = await res.json();
       if (res.ok && json.analysis) {
         s.setAnalysis(json.analysis);
+        // 2026-08-29 audit: surface the server's DETERMINISTIC plagiarism
+        // verdict (detectOverCopying) — previously computed but never shown.
+        if (json.overCopyCheck) s.setOverCopyCheck(json.overCopyCheck);
         s.setStage('result');
         localStorage.removeItem(DRAFT_KEY);
         // 儲存練習記錄到學生分析（R3.10-L：不傳送 totalQuestions/correctCount，

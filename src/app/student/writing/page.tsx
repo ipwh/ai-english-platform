@@ -742,7 +742,9 @@ export default function WritingPage() {
           {midModel && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-700">
               <p className="text-xs font-medium text-amber-600 mb-1">
-                {lang === 'en' ? '📝 Model Essay' : '📝 範文'}
+                {lang === 'en'
+                  ? `📝 Model Essay${midModel.metadata?.pedagogicalTargetLevel ? ` · Target Level ${midModel.metadata.pedagogicalTargetLevel}` : ''}`
+                  : `📝 範文${midModel.metadata?.pedagogicalTargetLevel ? ` · 範文目標 Level ${midModel.metadata.pedagogicalTargetLevel}` : ''}`}
               </p>
               {store.userId ? (
                 <VocabEnabledText studentId={store.userId} gradeLevel={gradeLevel}>

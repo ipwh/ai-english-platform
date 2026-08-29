@@ -5,7 +5,7 @@
 // ============================================
 
 import { logger } from '@/shared/logger/logger';
-import { stripMcqPrefix, normalizeMcqAnswer, validateAndFixQuestion, type ValidatableQuestion } from './question-validator';
+import { MCQ_LETTERS, stripMcqPrefix, normalizeMcqAnswer, validateAndFixQuestion, type ValidatableQuestion } from './question-validator';
 import { normalizeListeningContent } from './listening-normalizer';
 import { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS, getFallbackFillers } from './mcq-filters';
 import type { GeneratedQuestion } from '../types/generation-types';
@@ -72,6 +72,10 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
     const isListening = !!base.listeningContent;
     const isReading = !!base.readingContent;
 
+    // Keep the AI's ORIGINAL (pre-filter) choice order. Filtering re-orders the
+    // list, so a bare letter/number key cannot be trusted positionally anymore.
+    const preFilterChoices = [...punctuatedChoices];
+
     const validChoices = punctuatedChoices.filter(c => {
       if (c.length < 1) return false;
       if (/^[\d:.\s]+$/.test(c) && c.length < 6) return false;
@@ -85,6 +89,7 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
       }
       return true;
     });
+    const choicesShifted = validChoices.length < preFilterChoices.length;
 
     if (validChoices.length < 2) {
       logger.error({ module: 'question-normalizer', validChoiceCount: validChoices.length, choices: validChoices }, 'Question has insufficient valid choices after filtering');
@@ -100,7 +105,46 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
     }
 
     const finalChoices = validChoices.slice(0, 4);
-    const finalAnswer = normalizeMcqAnswer(base.answer, finalChoices);
+    const rawAnswer = (base.answer || '').trim();
+
+    // Anti-fabrication (2026-08-29 audit): when choices were filtered or
+    // fillers injected, position-based keys ("C", "C. Beta", "2") referred to
+    // the AI's ORIGINAL list and can no longer be trusted positionally.
+    // Resolve by TEXT against the pre-filter list and remap; if the
+    // referenced choice was filtered out (or never existed), the question is
+    // defective — reject it rather than persist a filler as the canonical key.
+    let finalAnswer: string | null;
+    const bareKey = rawAnswer.match(/^\(?([A-Da-d1-4])\)?[.、]?$/);
+    if (choicesShifted) {
+      // Position-independent text resolution first.
+      const textOnly = stripMcqPrefix(rawAnswer).trim().toLowerCase();
+      const textIdx = finalChoices.findIndex(
+        c => stripMcqPrefix(c).trim().toLowerCase() === textOnly,
+      );
+      if (textIdx >= 0) {
+        finalAnswer = MCQ_LETTERS[textIdx];
+      } else if (bareKey) {
+        const token = bareKey[1];
+        const origIndex = /^[1-4]$/.test(token)
+          ? Number(token) - 1
+          : MCQ_LETTERS.indexOf(token.toUpperCase() as typeof MCQ_LETTERS[number]);
+        const referencedChoice = preFilterChoices[origIndex];
+        if (origIndex >= 0 && referencedChoice !== undefined) {
+          const remapped = finalChoices.findIndex(
+            c => stripMcqPrefix(c).trim().toLowerCase() === stripMcqPrefix(referencedChoice).trim().toLowerCase(),
+          );
+          finalAnswer = remapped >= 0 ? MCQ_LETTERS[remapped] : null;
+        } else {
+          finalAnswer = null;
+        }
+      } else {
+        // Letter-prefixed or positional answer whose referenced choice no
+        // longer exists after filtering — defective, reject.
+        finalAnswer = null;
+      }
+    } else {
+      finalAnswer = normalizeMcqAnswer(base.answer, finalChoices);
+    }
     if (finalAnswer === null) {
       // R3.10-L: answer key resolves to no choice — reject, never guess 'A'.
       rejectedCount++;

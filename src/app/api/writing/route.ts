@@ -8,7 +8,6 @@ import { logger } from '@/shared/logger/logger';
 import {
   listDrafts,
   createDraft,
-  findDraftById,
   updateDraft,
   findDraftWithRevisions,
   findLatestDraft,

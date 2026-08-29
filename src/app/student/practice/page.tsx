@@ -8,13 +8,13 @@ import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Search, Sparkles, Zap, Clock, RotateCcw, BookOpen, ClipboardList,
-  Loader2, Target, ChevronDown, Play, BarChart3,
+  Search, Sparkles, Clock, BookOpen,
+  Loader2, Target, ChevronDown, BarChart3,
 } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
-import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel, getSkillLabel } from '@/shared/utils/nav';
+import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel, getSkillLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { PracticePageSkeleton } from '@/components/shared/Skeleton';
@@ -57,7 +57,7 @@ function PracticeListPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const store = useAppStore();
-  const { t } = useT();
+  const { t, language } = useT();
   const autoStartedRef = useRef(false);
   const profileLoadedRef = useRef(false);
   const [tab, setTab] = useState<'generate' | 'browse'>('generate');
@@ -106,7 +106,7 @@ function PracticeListPageContent() {
     const v = s.verified;
     return {
       id: s.id,
-      label: `${s.skillZh || s.skill} — ${difficultyLabels[s.difficulty] || s.difficulty}`,
+      label: `${s.skillZh || s.skill} — ${getDifficultyLabel(s.difficulty, language) || s.difficulty}`,
       accuracy: v && v.status === 'verified'
         ? Math.round(((v.correctCount ?? 0) / Math.max(1, v.totalQuestions ?? 0)) * 100)
         : null,
@@ -521,7 +521,7 @@ function PracticeListPageContent() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs px-2 py-0.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">{item.skillZh || item.skill || ''}</span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">{difficultyLabels[item.difficulty] || item.difficulty || ''}</span>
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">{getDifficultyLabel(item.difficulty, language) || item.difficulty || ''}</span>
                       </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{item.label}</p>
                     </div>

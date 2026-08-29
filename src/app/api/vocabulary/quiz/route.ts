@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
               quiz: mcQuestions,
               type: 'mc',
-              source: `從 ${vocabItems.length} 個生字中生成`,
+              source: `Generated from ${vocabItems.length} vocabulary items / 從 ${vocabItems.length} 個生字中生成`,
             });
           }
         } catch (aiErr) {

@@ -117,11 +117,20 @@ export async function POST(request: NextRequest) {
     // 記錄每次嘗試
     const records = [];
     let correctCount = 0;
+    // 2026-08-29 audit: one attempt per word per submission. Duplicate
+    // attempts for the same vocabId would farm mastery 0→5 and double the
+    // SRS interval in a single POST.
+    const seenVocabIds = new Set<string>();
 
     for (const attempt of attempts) {
       const { vocabId, studentInput } = attempt;
 
       if (!vocabId || !studentInput) continue;
+      if (seenVocabIds.has(vocabId)) {
+        logger.warn({ module: 'spelling', vocabId, studentId }, 'Duplicate spelling attempt for same vocabId skipped');
+        continue;
+      }
+      seenVocabIds.add(vocabId);
 
       // 🔒 R3.10-L: the correct word comes from the DATABASE (scoped to the
       // session owner), never from the client. Client-supplied `word` is

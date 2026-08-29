@@ -10,6 +10,8 @@ export interface AnalyzeIntegratedSkillsInput {
   userId?: string; listeningContent: string;
   noteTakingGuide: { question: string; hint: string; questionZh?: string; hintZh?: string }[]; expectedContentPoints: string[];
   writingTask: string; taskType: string; studentNotes: string; studentWriting: string; gradeLevel?: string;
+  /** Data File sources the student worked from — grounds data-manipulation feedback in real material */
+  dataFileSources?: { type: string; title: string; content: string; relevantFor?: number[]; sourceDate?: string }[];
 }
 export interface IntegratedSkillsAnalysis {
   overallScore: number; listeningAccuracy: number; writingQuality: number;

@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       analysis,
       _meta: {
         provider: getLastAIProvider(),
-        ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini）。' } : {}),
+        ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI。 / DeepSeek is temporarily unavailable; switched to a fallback AI provider.' } : {}),
       },
     }, {
       headers: { 'X-AI-Provider': getLastAIProvider() },

@@ -10,6 +10,6 @@ export { DEFAULT_LAYOUT_OPTIONS, resolveLayoutOptions, resolveCharsPerLine } fro
 export { layoutReadingText, recalculateLayout } from './layout-engine';
 export { calculateParagraphLines, calculateTotalLines, estimateCharsPerLine, recalculateCharsPerLine } from './line-calculator';
 export { extractParagraphs, buildParagraphLayouts } from './paragraph-layout';
-export { renderLayoutToHtml, renderToPlainText, escapeHtml, renderToHtml } from './layout-renderer';
+export { renderLayoutToHtml, renderToPlainText, escapeHtml } from './layout-renderer';
 export { recordLayout, recordRender, getLayoutMetrics, resetLayoutMetrics } from './layout-metrics';
 export { generateLayoutReport, formatLayoutReport, formatLayoutReportJson, type LayoutReport } from './layout-report';

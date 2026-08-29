@@ -1,5 +1,5 @@
 // Sprint 35: Vocabulary Intelligence Service — orchestrates repo + formula
-import type { VocabularyProfile, VocabWordProfile, VocabReviewItem } from '../types';
+import type { VocabularyProfile, VocabWordProfile } from '../types';
 import { getStudentVocabWithSrsState } from '../repositories/vocabulary-intelligence-repo';
 import { buildWordProfile, generateVocabRecommendations } from './vocabulary-formula';
 
@@ -110,43 +110,4 @@ export async function buildVocabProfile(studentId: string): Promise<VocabularyPr
     recommendations,
     generatedAt: new Date(),
   };
-}
-
-/**
- * Generate a personalized review list.
- */
-export async function getReviewList(
-  studentId: string,
-  limit = 10,
-): Promise<VocabReviewItem[]> {
-  const rawItems = await getStudentVocabWithSrsState(studentId);
-
-  const reviewItems: VocabReviewItem[] = rawItems
-    .filter(item => item.dueForReview || item.masteryLevel <= 2)
-    .map(item => {
-      let priority: VocabReviewItem['priority'] = 'low';
-      if (item.daysSinceReview > 30 && item.masteryLevel <= 1) priority = 'high';
-      else if (item.dueForReview || item.masteryLevel <= 2) priority = 'medium';
-
-      return {
-        word: item.word,
-        meaningZh: item.meaningZh,
-        partOfSpeech: item.partOfSpeech,
-        priority,
-        reason: priority === 'high'
-          ? '長期未複習且掌握度低'
-          : item.dueForReview
-            ? 'SRS 複習到期'
-            : '掌握度不足',
-        daysOverdue: item.dueForReview ? item.daysSinceReview - item.reviewInterval : 0,
-        currentMastery: item.masteryLevel,
-      };
-    })
-    .sort((a, b) => {
-      const order = { high: 3, medium: 2, low: 1 };
-      return (order[b.priority] - order[a.priority]) || (b.daysOverdue - a.daysOverdue);
-    })
-    .slice(0, limit);
-
-  return reviewItems;
 }

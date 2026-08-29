@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const {
       listeningContent, noteTakingGuide, expectedContentPoints,
       writingTask, taskType, studentNotes, studentWriting, gradeLevel,
+      dataFileSources,
     } = body;
 
     if (!listeningContent || !writingTask || !studentWriting) {
@@ -54,6 +55,19 @@ export async function POST(request: NextRequest) {
     const MAX_WRITING_TASK = 5000;
     const MAX_STUDENT_WRITING = 10000;
     const MAX_STUDENT_NOTES = 10000;
+    // 2026-08-29 audit: the Data File must reach the analyzer — otherwise
+    // dataManipulationFeedback is produced about material the AI never saw.
+    const sanitizedDataFileSources = Array.isArray(dataFileSources)
+      ? dataFileSources
+          .filter((s: unknown): s is { type?: unknown; title?: unknown; content?: unknown } => !!s && typeof s === 'object')
+          .map(s => ({
+            type: typeof s.type === 'string' ? s.type.slice(0, 40) : 'source',
+            title: typeof s.title === 'string' ? s.title.slice(0, 200) : '',
+            content: typeof s.content === 'string' ? sanitizeForAI(s.content.slice(0, 2000)) : '',
+          }))
+          .filter(s => s.content.length > 0)
+          .slice(0, 8)
+      : [];
 
     const analysis = await analyzeIntegratedSkills({
       listeningContent: sanitizeForAI(listeningContent.length > MAX_LISTENING ? listeningContent.slice(0, MAX_LISTENING) : listeningContent),
@@ -64,6 +78,7 @@ export async function POST(request: NextRequest) {
       studentNotes: sanitizeForAI((studentNotes || '').length > MAX_STUDENT_NOTES ? (studentNotes || '').slice(0, MAX_STUDENT_NOTES) : (studentNotes || '')),
       studentWriting: sanitizeForAI(studentWriting.length > MAX_STUDENT_WRITING ? studentWriting.slice(0, MAX_STUDENT_WRITING) : studentWriting),
       gradeLevel,
+      dataFileSources: sanitizedDataFileSources,
       userId: authResult.userId,
     });
 

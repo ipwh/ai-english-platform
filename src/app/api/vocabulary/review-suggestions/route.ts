@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { getDueCards, getDailyReviewTarget } from '@/modules/vocabulary/services/srs';
+import { getDailyReviewTarget } from '@/modules/vocabulary/services/srs';
 import { getStudentWords } from '@/modules/vocabulary/services/vocabulary-service';
 import { listMistakesByType } from '@/modules/student';
 

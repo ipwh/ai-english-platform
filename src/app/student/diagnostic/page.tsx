@@ -350,7 +350,9 @@ export default function DiagnosticPage() {
     }));
   }, [writingAnalysis, completed, t]);
 
-  // Fetch peer averages when results are computed
+  // Fetch peer averages when results are computed.
+  // Also refetch after the writing CLO analysis completes, because the stats
+  // POST (which now includes the writing score) only happens then.
   useEffect(() => {
     if (!completed || !studentProfile) return;
     const gradeLevel = getStudentLevel(studentProfile);
@@ -358,7 +360,7 @@ export default function DiagnosticPage() {
       .then(r => r.json())
       .then(data => { if (data.averages) setPeerAverages(data.averages); })
       .catch(() => { /* non-critical */ });
-  }, [completed, studentProfile]);
+  }, [completed, studentProfile, writingAnalysis]);
 
   // 載入中
   if (loadingQuestions) {
@@ -400,12 +402,6 @@ export default function DiagnosticPage() {
     { id: 'listening', labelKey: 'diagnostic.skillListening', icon: Headphones, descriptionKey: 'diagnostic.listeningDesc' },
     { id: 'writing', labelKey: 'diagnostic.skillWriting', icon: Pencil, descriptionKey: 'diagnostic.writingDesc' },
   ];
-
-  const diagnosticLevelLabels: Record<string, string> = {
-    '核心': 'diagnostic.levelCore',
-    '補底': 'diagnostic.levelRemedial',
-    '挑戰': 'diagnostic.levelChallenge',
-  };
 
   const handleAnswer = (answer: string) => {
     if (answeredCurrent) return; // prevent double-submit
@@ -485,33 +481,6 @@ export default function DiagnosticPage() {
 
     setResults(computed);
 
-    // 持久化診斷結果到 DB + 累積同年級統計
-    if (studentProfile?.id) {
-      fetch('/api/diagnostic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: studentProfile.id,
-          results: computed.map(r => ({
-            skill: r.id, skillZh: r.label, accuracy: r.score,
-            weakAreas: r.score < 60 ? [r.id] : [],
-            recommendedGrammar: r.id === 'grammar' ? (r.score < 60 ? 'tenses' : undefined) : undefined,
-            recommendedSkill: r.id === 'reading' ? 'reading' : r.id === 'writing' ? 'writing' : undefined,
-          })),
-        }),
-      }).catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Diagnostic save failed'); });
-
-      // Accumulate scores for peer comparison
-      fetch('/api/diagnostic/stats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gradeLevel: getStudentLevel(studentProfile),
-          results: computed.map(r => ({ skill: r.id, score: r.score, totalQuestions: r.totalQuestions })),
-        }),
-      }).catch(() => { /* non-critical */ });
-    }
-
     // 🎮 記錄診斷完成 XP
     if (studentProfile?.id) {
       fetch('/api/gamification', {
@@ -556,6 +525,46 @@ export default function DiagnosticPage() {
         }
       } catch { /* non-critical */ }
       finally { setWritingLoading(false); }
+    }
+
+    // R3.10-L audit 2026-08-29: persist AFTER the writing CLO analysis has
+    // completed. Previously writing accuracy was stored as -1 forever and
+    // /api/diagnostic/stats (which skips score < 0) never accumulated a
+    // peer average for writing.
+    if (studentProfile?.id) {
+      const persistableResults = computed.map(r => ({
+        skill: r.id,
+        skillZh: r.label,
+        accuracy: r.id === 'writing' ? (writingPercentage ?? -1) : r.score,
+      }));
+
+      fetch('/api/diagnostic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: studentProfile.id,
+          results: persistableResults.map(r => ({
+            skill: r.skill, skillZh: r.skillZh, accuracy: r.accuracy,
+            weakAreas: r.accuracy >= 0 && r.accuracy < 60 ? [r.skill] : [],
+            recommendedGrammar: r.skill === 'grammar' ? (r.accuracy >= 0 && r.accuracy < 60 ? 'tenses' : undefined) : undefined,
+            recommendedSkill: r.skill === 'reading' ? 'reading' : r.skill === 'writing' ? 'writing' : undefined,
+          })),
+        }),
+      }).catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Diagnostic save failed'); });
+
+      // Accumulate scores for peer comparison
+      fetch('/api/diagnostic/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gradeLevel: getStudentLevel(studentProfile),
+          results: persistableResults.map(r => ({
+            skill: r.skill,
+            score: r.accuracy,
+            totalQuestions: computed.find(c => c.id === r.skill)?.totalQuestions ?? 0,
+          })),
+        }),
+      }).catch(() => { /* non-critical */ });
     }
 
     // AI 分析報告
@@ -654,7 +663,7 @@ export default function DiagnosticPage() {
           {(currentQ.languageSkill === 'reading' || currentQ.readingContent) && (
             <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700">
               <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
-                {currentQ.languageSkill === 'reading' ? `📖 ${t('diagnostic.skillReading')}` : '📝 題目內文'}
+                {currentQ.languageSkill === 'reading' ? `📖 ${t('diagnostic.skillReading')}` : (lang === 'en' ? '📝 Question text' : '📝 題目內文')}
               </p>
               <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">{currentQ.readingContent}</p>
               {currentQ.readingContentZh && <p className="text-xs text-indigo-500 mt-1 italic">{currentQ.readingContentZh}</p>}
@@ -853,11 +862,11 @@ export default function DiagnosticPage() {
                   <div
                     className="absolute top-0 h-1.5 w-0.5 bg-gray-400 dark:bg-gray-500 rounded-full"
                     style={{ left: `${Math.min(peerAverages[r.id].avg, 100)}%` }}
-                    title={`同級平均: ${peerAverages[r.id].avg}%`}
+                    title={lang === 'en' ? `Peer average: ${peerAverages[r.id].avg}%` : `同級平均: ${peerAverages[r.id].avg}%`}
                   />
                 </div>
                 <span className="text-gray-400 whitespace-nowrap">
-                  同級均值 {peerAverages[r.id].avg}%
+                  {lang === 'en' ? 'Peer average' : '同級均值'} {peerAverages[r.id].avg}%
                   <span className="text-gray-300 ml-0.5">(n={peerAverages[r.id].count})</span>
                 </span>
               </div>

@@ -467,8 +467,10 @@ export default function ReadingPracticePage() {
           submitted: true,
           isCorrect,
           isPartiallyCorrect: false,
-          score: isCorrect ? 1 : 0,
-          maxScore: 1,
+          // 2026-08-29 audit: honour per-question marks so the on-screen
+          // score matches the {q.marks}m badge (was hardcoded 1/1).
+          score: isCorrect ? (q.marks ?? 1) : 0,
+          maxScore: q.marks ?? 1,
           feedbackEn: isCorrect
             ? '✅ Correct! See explanation below for details.'
             : `❌ Incorrect. The correct answer is: ${q.answer}. See explanation below.`,
@@ -493,8 +495,9 @@ export default function ReadingPracticePage() {
           submitted: true,
           isCorrect,
           isPartiallyCorrect: false,
-          score: isCorrect ? 1 : 0,
-          maxScore: 1,
+          // 2026-08-29 audit: honour per-question marks (was hardcoded 1/1).
+          score: isCorrect ? (q.marks ?? 1) : 0,
+          maxScore: q.marks ?? 1,
           feedbackEn: isCorrect
             ? '✅ Correct! See explanation below for details.'
             : `❌ Incorrect. The correct answer is: ${q.answer}. See explanation below.`,
@@ -620,7 +623,9 @@ export default function ReadingPracticePage() {
   }
 
   const totalScore = data ? Object.values(answers).reduce((sum, a) => sum + (a.score ?? (a.isCorrect ? 1 : 0)), 0) : 0;
-  const totalMaxScore = data ? data.questions.length : 0;
+  // 2026-08-29 audit: total available marks = sum of per-question marks
+  // (was data.questions.length — misreported the denominator for 2m/3m items).
+  const totalMaxScore = data ? data.questions.reduce((sum, q) => sum + (q.marks ?? 1), 0) : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">

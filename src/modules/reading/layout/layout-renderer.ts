@@ -63,16 +63,3 @@ export function renderToPlainText(
     })
     .join('\n');
 }
-
-// ── Backward-compat: old renderToHtml renamed ──
-/** @deprecated Use renderLayoutToHtml instead */
-export function renderToHtml(
-  _allLines: unknown[],
-  _options: unknown,
-): { html: string; plainText: string; markers: number[] } {
-  // This function is no longer used internally but kept for backward compat.
-  // Callers should migrate to renderLayoutToHtml + using LayoutResult directly.
-  throw new Error(
-    'renderToHtml is deprecated. Use layoutReadingText() which returns LayoutResult.html directly.',
-  );
-}

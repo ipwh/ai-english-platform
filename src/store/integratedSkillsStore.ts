@@ -4,6 +4,7 @@
 // 新功能：步驟鎖定、聆聽進度、自動儲存計時器
 // ============================================
 import { create } from 'zustand';
+import type { OverCopyResult } from '@/modules/assessment/services/plagiarism';
 
 export type TaskStage = 'config' | 'listening' | 'writing' | 'result';
 
@@ -49,7 +50,7 @@ export interface IntegratedSkillsResult {
   noteTakingFeedback?: string;
   improvementTips?: string[];
   scoringBreakdown?: { listeningWeighted: string; languageWeighted: string; organizationWeighted: string; formula: string };
-  /** AI 範本答案 (DSE Level 5) */
+  /** 平台教學參考範本（非官方評分樣本） */
   modelAnswer?: string;
   /** 雙語欄位 */
   generalCommentZh?: string;
@@ -85,6 +86,8 @@ interface IntegratedSkillsState {
   playbackSpeed: number;
 
   analysis: IntegratedSkillsResult | null;
+  /** 確定性抄襲檢測結果（服務端 detectOverCopying，非 AI 生成） */
+  overCopyCheck: OverCopyResult | null;
 
   // 動作
   setStage: (stage: TaskStage) => void;
@@ -105,6 +108,7 @@ interface IntegratedSkillsState {
   setPlaybackProgress: (p: number) => void;
   setPlaybackSpeed: (speed: number) => void;
   setAnalysis: (a: IntegratedSkillsResult | null) => void;
+  setOverCopyCheck: (r: OverCopyResult | null) => void;
   reset: () => void;
   // v5: Backend draft persistence
   saveDraft: () => Promise<void>;
@@ -133,6 +137,7 @@ const initialState = {
   playbackProgress: 0,
   playbackSpeed: 1.0,
   analysis: null as IntegratedSkillsResult | null,
+  overCopyCheck: null as OverCopyResult | null,
 };
 
 export const useIntegratedSkillsStore = create<IntegratedSkillsState>((set) => ({
@@ -161,6 +166,7 @@ export const useIntegratedSkillsStore = create<IntegratedSkillsState>((set) => (
   setPlaybackProgress: (playbackProgress) => set({ playbackProgress }),
   setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
   setAnalysis: (analysis) => set({ analysis }),
+  setOverCopyCheck: (overCopyCheck) => set({ overCopyCheck }),
   reset: () => set(initialState),
 
   // === v5: Backend Draft Persistence ===

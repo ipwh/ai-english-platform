@@ -9,7 +9,6 @@ import { isDSERAGEnabled, retrievePastPaperContent, retrieveMarkingScheme, build
 import { buildCompactSystemPrompt } from '../prompts/generate-questions-prompt';
 import { validateDSEtopicMatch } from '../services/dse-topics';
 import { selectDiverseTopic } from '../services/topic-selector';
-import { BANNED_PATTERNS, TIME_FRAGMENT_PATTERNS, getFallbackFillers } from '../services/mcq-filters';
 import { normalizeGeneratedQuestions } from '../services/question-normalizer';
 import { validateAndFixQuestion } from '../services/question-validator';
 import { validateListeningConsistency } from '../services/listening-normalizer';

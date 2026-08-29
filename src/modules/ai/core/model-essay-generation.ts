@@ -257,7 +257,7 @@ export async function generateModelEssayWithQualityGate(
   }
 
   throw new ModelGenerationUnavailableError(
-    `範文生成未通過品質閘（attempts: ${MODEL_ESSAY_MAX_ATTEMPTS}）` +
+    `範文生成未通過品質閘（attempts: ${MODEL_ESSAY_MAX_ATTEMPTS}） / Model generation did not pass the quality gate (attempts: ${MODEL_ESSAY_MAX_ATTEMPTS})` +
     (lastVerdict && lastVerdict.issues.length > 0
       ? ` — ${lastVerdict.issues.slice(0, 3).join("; ")}`
       : ""),
