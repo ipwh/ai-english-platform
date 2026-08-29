@@ -4,13 +4,14 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/hooks/use-i18n';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { layoutReadingText } from '@/modules/reading/layout';
+import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
 
 interface ReadingPassage {
   title: string;
@@ -145,6 +146,7 @@ function mapReadingApiError(
 
 export default function ReadingPracticePage() {
   const { language } = useAppStore();
+  const authStore = useAuthStore();
   const { t } = useT();
 
   const [grade, setGrade] = useState<string>('S4');
@@ -172,41 +174,27 @@ export default function ReadingPracticePage() {
   const [showPassage, setShowPassage] = useState(true);
   const [showQuestionZh, setShowQuestionZh] = useState(false);
   const savedRef = useRef(false);
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1024,
-  );
-  const readingPaneRef = useRef<HTMLDivElement | null>(null);
-  const [paneWidth, setPaneWidth] = useState<number>(0);
+  /**
+   * Layout params captured ONCE per generated passage, measured via callback
+   * ref when the passage card mounts (before paint). The passage is re-chunked
+   * ONLY when a new passage is generated — never on resize or orientation
+   * changes. This keeps DSE line numbers stable and guarantees the passage
+   * DOM is never replaced while the student is selecting text (a mid-selection
+   * innerHTML swap made the browser re-anchor the selection at the start of
+   * the first paragraph).
+   */
+  const [layoutParams, setLayoutParams] = useState<{
+    viewportMode: 'mobile' | 'tablet' | 'desktop';
+    paneWidth: number;
+  } | null>(null);
 
-  // Phase 1C.1: Viewport bucket tracking (coarse, debounced)
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    const onResize = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => setWindowWidth(window.innerWidth), 200);
-    };
-    window.addEventListener('resize', onResize);
-    return () => { window.removeEventListener('resize', onResize); clearTimeout(timer); };
+  const measureReadingPane = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const width = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const mode: 'mobile' | 'tablet' | 'desktop' =
+      width >= 1280 ? 'desktop' : width >= 768 ? 'tablet' : 'mobile';
+    setLayoutParams({ viewportMode: mode, paneWidth: el.getBoundingClientRect().width });
   }, []);
-
-  // Phase 1C.1: Pane-based width for fine-grained reading measure
-  useEffect(() => {
-    if (!readingPaneRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      setPaneWidth(entry.contentRect.width);
-    });
-    observer.observe(readingPaneRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  /** Phase 1C.1: Coarse device bucket from viewport width */
-  function getViewportMode(width: number): 'mobile' | 'tablet' | 'desktop' {
-    if (width >= 1280) return 'desktop';
-    if (width >= 768) return 'tablet';
-    return 'mobile';
-  }
 
   /** Phase 4D.3: Granular chars-per-line tiers for student split-view.
    *  mobile≈44, tablet≈64, narrow desktop≈68, medium desktop≈72, wide desktop≈76. */
@@ -223,18 +211,18 @@ export default function ReadingPracticePage() {
     return 76;                                        // wide pane
   }
 
-  const isSplitView = windowWidth >= 1024;
-
   // Stable references for memo dependencies (avoid optional chaining in deps
   // — React Compiler cannot match inferred vs source dependencies for those).
   const passageContent = data?.passage?.content;
   const questions = data?.questions;
 
-  // Layout engine: stable width model — pane-aware, no fluid reflow drift
+  // Layout engine: computed once per generated passage from locked layout
+  // params. The HTML string never changes while the student is reading or
+  // selecting text, so the passage DOM is never replaced mid-selection.
   const passageLayout = useMemo(() => {
-    if (!passageContent) return null;
-    const mode = getViewportMode(windowWidth);
-    const preferredChars = getPreferredCharsPerLine({ viewportMode: mode, paneWidth });
+    if (!passageContent || !layoutParams) return null;
+    const mode = layoutParams.viewportMode;
+    const preferredChars = getPreferredCharsPerLine({ viewportMode: mode, paneWidth: layoutParams.paneWidth });
     const layout = layoutReadingText(passageContent, {
       viewportMode: mode,
       fixedReadingMeasure: true,
@@ -281,7 +269,7 @@ export default function ReadingPracticePage() {
     }
 
     return { ...layout, html };
-  }, [passageContent, questions, windowWidth, paneWidth]);
+  }, [passageContent, questions, layoutParams]);
 
   // ══════════════════════════════════════════
   // Question distribution check — warns when questions cluster in one paragraph
@@ -678,16 +666,8 @@ export default function ReadingPracticePage() {
               padding: 1.25rem 2rem;
             }
 
-            .dse-reading-layout {
-              display: flex;
-              flex-direction: column;
-              gap: 0;
-            }
-
             .dse-paragraph {
-              display: flex;
-              flex-direction: column;
-              gap: 0;
+              display: block;
               margin-bottom: 0.6rem;
             }
 
@@ -701,30 +681,43 @@ export default function ReadingPracticePage() {
               padding-left: calc(2.5rem + 0.625rem);
             }
 
+            /*
+             * v6: block rows with a floated gutter instead of display:grid.
+             * The text column is a single block per line, which avoids
+             * Chromium grid/flex item-boundary selection quirks and keeps
+             * word-level highlighting reliable on desktop and mobile. The
+             * floated gutter stays pinned to the FIRST visual row even when a
+             * line chunk wraps on narrow screens.
+             */
             .dse-line {
-              display: grid;
-              grid-template-columns: 2.5rem 1fr;
-              column-gap: 0.625rem;
-              align-items: baseline;
+              display: block;
               margin: 0;
               padding: 0;
             }
 
             .dse-line-gutter {
+              float: left;
+              width: 2.5rem;
               text-align: right;
               line-height: 1.45;
               font-size: 0.7rem;
               font-family: ui-monospace, monospace;
               color: #9ca3af;
               user-select: none;
+              -webkit-user-select: none;
               font-variant-numeric: tabular-nums;
             }
 
             .dse-line-text {
-              margin: 0;
+              display: block;
+              margin-left: calc(2.5rem + 0.625rem);
+              margin-top: 0;
+              margin-bottom: 0;
               padding: 0;
               line-height: 1.45;
               text-align: justify;
+              user-select: text;
+              -webkit-user-select: text;
             }
 
             .dse-line-text > span {
@@ -749,7 +742,7 @@ export default function ReadingPracticePage() {
 
           <div className="reading-workspace">
             {/* Left pane: Reading Passage */}
-            <div className="reading-pane" ref={readingPaneRef}>
+            <div className="reading-pane" ref={measureReadingPane}>
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
             <button
               onClick={() => setShowPassage(!showPassage)}
@@ -765,9 +758,19 @@ export default function ReadingPracticePage() {
             {showPassage && (
               <div className="px-0 pb-2">
                 {passageLayout ? (
-                  <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
-                    dangerouslySetInnerHTML={{ __html: passageLayout.html }}
-                  />
+                  authStore.userId ? (
+                    <VocabEnabledText
+                      studentId={authStore.userId}
+                      gradeLevel={grade}
+                      className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
+                    >
+                      <div dangerouslySetInnerHTML={{ __html: passageLayout.html }} />
+                    </VocabEnabledText>
+                  ) : (
+                    <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
+                      dangerouslySetInnerHTML={{ __html: passageLayout.html }}
+                    />
+                  )
                 ) : (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-justify" style={{ textIndent: '2em' }}>
                     {data.passage.content}

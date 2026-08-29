@@ -700,7 +700,11 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                         content={task.listeningContent}
                         renderText={appStore.userId
                           ? (text) => (
-                            <VocabEnabledText studentId={appStore.userId!} gradeLevel={s.gradeLevel || 'S4'}>
+                            <VocabEnabledText
+                              studentId={appStore.userId!}
+                              gradeLevel={s.gradeLevel || 'S4'}
+                              as="span"
+                            >
                               {text}
                             </VocabEnabledText>
                           )

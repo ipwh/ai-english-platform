@@ -4,6 +4,49 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 (V) — 選字功能全站複查 (Site-wide Word Selection Audit)
+
+### 🔍 範圍
+複查 `/student/writing`、`/student/integrated-skills` 及所有學生頁面，確認無「選字失靈」同類問題（篇章 DOM 中途替換／grid-flex 選取怪癖／全域事件干擾）。
+
+### ✅ 結論
+- **寫作頁**：`VocabEnabledText` 包著純 `<p>` 文字（AI 改寫示範、範文）＋ `InlineWordBadge` 一鍵加字 — 無 `dangerouslySetInnerHTML`、無 grid 行結構、無寬度驅動重繪。安全。
+- **Integrated Skills**：AI 回饋／總評語 `VocabEnabledText` 包 `<p>` — 安全；聆聽稿逐行文字為純文字節點 — 安全。
+- **練習／診斷／作業頁**：`dangerouslySetInnerHTML` 僅用於題目 prompt（內容穩定，不隨寬度重算）— 安全；`select-none` 只存在於「顯示中文提示」等 UI 元件 — 安全。
+- **口說頁**：只有倒數計時器更新數字 — 不影響選字。
+- 全域 `VocabularyContextProvider`：右鍵選單 `preventDefault` 僅限 `contextmenu`；pointer 處理僅觸控筆 — 不阻擋滑鼠選取。
+
+### 🔧 修正
+- **FIXED** Integrated Skills 聆聽稿：`VocabEnabledText`（預設 `<div>`）原本渲染在 `ListeningScript` 的 `<span>` 內（無效 HTML 巢狀）— 改為 `as="span"`，保持行內結構合法。
+
+### 🧪 驗證
+- **2877 tests pass（130 files, 1 skipped）** · tsc 0 · eslint 0 errors。
+
+---
+
+## 2026-08-29 (IV) — Reading Passage Word Selection Fix (閱讀篇章選字修復)
+
+### 🔍 問題
+學生在 `/student/reading` 無法選取單字加入生字簿：按實滑鼠左鍵時整段第一段會被選取，無法 highlight 特定字詞。
+
+### 📐 成因
+- 篇章以 `dangerouslySetInnerHTML` 整段注入；`passageLayout` 依賴 `windowWidth`/`paneWidth`，寬度檔位改變時 React 會整段替換篇章 DOM。若替換發生在選取中途，瀏覽器選取錨點節點被銷毀 → 選取塌陷 → 後續拖動重新錨定到容器起點 → 整段第一段被選取（已用 Playwright 重現）。
+- 原有 `ResizeObserver` 因 `[]` deps + mount 時 ref 為 null 而從未掛載；`paneWidth` 永遠為 0。
+- 逐行 `display:grid`（`.dse-line`）+ 段落 `display:flex` 容器：部分 Chromium 版本跨 grid/flex item 選取有整塊選取怪癖；行號欄 `user-select:none` 起拖會完全選不到字。
+- 閱讀頁沒有選字 popup（寫作頁有 `VocabEnabledText`），只有全域右鍵選單，選字失敗即無法加入生字簿。
+
+### 🔧 修復（`src/app/student/reading/page.tsx`）
+- **CHANGED** 佈局參數改為「每次生成篇章時鎖定一次」：以 callback ref 在篇章卡片掛載時（paint 前）量度視窗模式 + pane 寬度，存入 `layoutParams`；`passageLayout` 只依賴 `[passageContent, questions, layoutParams]`——resize／轉向不再重切行，篇章 DOM 永不於閱讀中途被替換（行號同時保持穩定，符合 DSE 考試慣例）。
+- **CHANGED** `.dse-line` 由 `display:grid` 改為 block 行 + 浮動行號欄（`.dse-line-gutter { float:left }`），`.dse-paragraph` 由 flex column 改為 block — 消除 Chromium grid/flex 選取怪癖；窄屏換行時行號仍對齊第一視覺行。
+- **CHANGED** `.dse-line-text` 明確 `user-select:text`；行號欄維持 `user-select:none`。
+- **NEW** 篇章包上 `VocabEnabledText` — 選取單字即出現「加入生字簿」popup（與寫作頁一致），桌面／流動版均適用。
+
+### 🧪 驗證
+- Playwright：dblclick 選字、同行拖選、跨行拖選、跨段拖選均為連續文字（無整段誤選、行號不混入）；新舊 CSS 桌面／流動版幾何對齊一致（行號偏移 ≤ 2px）。
+- **2877 tests pass（130 files, 1 skipped）** · tsc 0 · eslint 0 errors · check-i18n 通過。
+
+---
+
 ## 2026-08-29 (III) — Leaderboard UI + Short-Writing Detection + Honest Streak Display
 
 ### 🏆 排行榜接上 UI
