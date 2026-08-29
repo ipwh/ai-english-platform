@@ -4,6 +4,21 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-29 (VI) — Reading Passage Structured Rendering (選字問題根治)
+
+### 🔍 殘留問題
+Windows Chrome 上選字仍會「閃過一下便消失」：實驗證明（Playwright）**只要 React 對篇章容器重新設定 `innerHTML`（即使是完全相同的字串），瀏覽器就會銷毀選取**。任何觸發 `dangerouslySetInnerHTML` 重設的路徑都會清掉進行中的選取。
+
+### 🔧 根治（`src/app/student/reading/page.tsx`）
+- **CHANGED** 篇章改為**結構化 React 元素渲染**（keyed paragraphs/lines/gutter），完全移除 `dangerouslySetInnerHTML` — 任何 re-render（通知輪詢、popup 狀態、全域 click 等）只會更新變更的文字節點，**永遠不會重建篇章 DOM**，選取不再被銷毀。
+- **CHANGED** 目標詞組 `<strong>` 高亮由 regex 改為 `renderHighlightedLine()` 逐行分段渲染（行為與舊版一致）。
+- 佈局鎖定（每次生成量度一次）與 v6 block+浮動行號 CSS 維持不變。
+
+### 🧪 驗證
+- **2877 tests pass（130 files, 1 skipped）** · tsc 0 · eslint 0 errors · `npm run build` exit 0。
+
+---
+
 ## 2026-08-29 (V) — 選字功能全站複查 (Site-wide Word Selection Audit)
 
 ### 🔍 範圍

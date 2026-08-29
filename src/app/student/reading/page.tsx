@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from 'react';
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
@@ -144,6 +144,44 @@ function mapReadingApiError(
     : '系統暫時發生錯誤，請稍後再試。' };
 }
 
+/**
+ * Phase 4E: render one layout line's text with target phrases wrapped in
+ * <strong class="dse-target-phrase"> — mirrors the old string-regex
+ * highlighting but as React nodes, so the passage is rendered as structured
+ * elements and can never be replaced via innerHTML (which destroys any
+ * in-progress text selection).
+ */
+function renderHighlightedLine(lineText: string, targets: string[]): ReactNode {
+  if (!targets.length) return lineText;
+  const lower = lineText.toLowerCase();
+  const segments: ReactNode[] = [];
+  let cursor = 0;
+  let segKey = 0;
+  while (cursor < lineText.length) {
+    let matchStart = -1;
+    let matchLength = 0;
+    for (const phrase of targets) {
+      const idx = lower.indexOf(phrase.toLowerCase(), cursor);
+      if (idx !== -1 && (matchStart === -1 || idx < matchStart)) {
+        matchStart = idx;
+        matchLength = phrase.length;
+      }
+    }
+    if (matchStart === -1) {
+      segments.push(lineText.slice(cursor));
+      break;
+    }
+    if (matchStart > cursor) segments.push(lineText.slice(cursor, matchStart));
+    segments.push(
+      <strong key={segKey++} className="dse-target-phrase">
+        {lineText.slice(matchStart, matchStart + matchLength)}
+      </strong>,
+    );
+    cursor = matchStart + matchLength;
+  }
+  return segments;
+}
+
 export default function ReadingPracticePage() {
   const { language } = useAppStore();
   const authStore = useAuthStore();
@@ -217,13 +255,13 @@ export default function ReadingPracticePage() {
   const questions = data?.questions;
 
   // Layout engine: computed once per generated passage from locked layout
-  // params. The HTML string never changes while the student is reading or
-  // selecting text, so the passage DOM is never replaced mid-selection.
+  // params. Rendered as keyed React elements (NOT dangerouslySetInnerHTML) so
+  // no re-render can ever replace the passage DOM and destroy a text selection.
   const passageLayout = useMemo(() => {
     if (!passageContent || !layoutParams) return null;
     const mode = layoutParams.viewportMode;
     const preferredChars = getPreferredCharsPerLine({ viewportMode: mode, paneWidth: layoutParams.paneWidth });
-    const layout = layoutReadingText(passageContent, {
+    return layoutReadingText(passageContent, {
       viewportMode: mode,
       fixedReadingMeasure: true,
       preferredCharsPerLine: preferredChars,
@@ -233,13 +271,16 @@ export default function ReadingPracticePage() {
       paragraphLabelMode: 'numeric',
       lineNumberStyle: 'gutter',
     });
+  }, [passageContent, layoutParams]);
 
-    // Phase 4E: Highlight target phrases from questions in the passage HTML.
-    // Extracts key terms (targetPhrase, quoted phrases, vocabulary words) and
-    // wraps them in <strong> tags for DSE exam-like keyword emphasis.
-    let html = layout.html;
+  /**
+   * Phase 4E: Highlight target phrases from questions in the passage.
+   * Extracts key terms (targetPhrase, quoted phrases) and wraps them in
+   * <strong> tags for DSE exam-like keyword emphasis.
+   */
+  const targetPhrases = useMemo(() => {
+    const targets = new Set<string>();
     if (questions && questions.length > 0) {
-      const targets = new Set<string>();
       for (const q of questions) {
         // Collect from targetPhrase field (may exist on raw API response)
         const rawQ = q as unknown as Record<string, unknown>;
@@ -254,22 +295,37 @@ export default function ReadingPracticePage() {
           }
         }
       }
-      // Apply highlighting (only within text, not inside HTML tags)
-      for (const phrase of targets) {
-        if (phrase.length < 3) continue;
-        // Escape special regex chars in the phrase
-        const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // Only replace if the phrase appears outside HTML tags (between > and <)
-        html = html.replace(
-          new RegExp(`(>)([^<]*?)(${escaped})([^<]*?)(<)`, 'gi'),
-          (_full, gt, prefix, matched, suffix, lt) =>
-            `${gt}${prefix}<strong class="dse-target-phrase">${matched}</strong>${suffix}${lt}`,
-        );
-      }
     }
+    return [...targets].filter(p => p.length >= 3);
+  }, [questions]);
 
-    return { ...layout, html };
-  }, [passageContent, questions, layoutParams]);
+  // Passage body as keyed React elements — never replaced via innerHTML.
+  const passageBody = passageLayout ? (
+    <>
+      {passageLayout.paragraphs.map((para) => (
+        <div
+          key={para.paragraphIndex}
+          className="dse-paragraph"
+          data-paragraph={para.paragraphIndex}
+          data-paragraph-label={para.label}
+        >
+          {para.lines.length > 0 && para.lines[0].isParagraphStart && (
+            <div className="dse-paragraph-label">
+              [{para.label.replace(/Paragraph\s*/i, '')}]
+            </div>
+          )}
+          {para.lines.map((line) => (
+            <div key={line.lineIndex} className="dse-line">
+              <div className="dse-line-gutter">{line.lineNumber ?? ''}</div>
+              <div className="dse-line-text">
+                <span>{renderHighlightedLine(line.text, targetPhrases)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  ) : null;
 
   // ══════════════════════════════════════════
   // Question distribution check — warns when questions cluster in one paragraph
@@ -757,19 +813,19 @@ export default function ReadingPracticePage() {
             </button>
             {showPassage && (
               <div className="px-0 pb-2">
-                {passageLayout ? (
+                {passageBody ? (
                   authStore.userId ? (
                     <VocabEnabledText
                       studentId={authStore.userId}
                       gradeLevel={grade}
                       className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
                     >
-                      <div dangerouslySetInnerHTML={{ __html: passageLayout.html }} />
+                      {passageBody}
                     </VocabEnabledText>
                   ) : (
-                    <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200"
-                      dangerouslySetInnerHTML={{ __html: passageLayout.html }}
-                    />
+                    <div className="reading-passage-shell bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-800 dark:text-gray-200">
+                      {passageBody}
+                    </div>
                   )
                 ) : (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-justify" style={{ textIndent: '2em' }}>
