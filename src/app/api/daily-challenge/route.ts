@@ -11,11 +11,12 @@ import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { generateQuestions } from '@/modules/ai';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
-import { findTodaySession, createPracticeSession } from '@/modules/student';
-import { createXpTransaction, updateUserXpAndStreak } from '@/modules/student';
+import { findTodaySession, createPracticeSession, countTodaySessions, deletePracticeSession } from '@/modules/student';
+import { createXpTransaction } from '@/modules/student';
 import {
   persistGeneratedGrammarQuestions,
   resolveGrammarQuestionDefinitions,
+  resolveGrammarQuestionExplanations,
 } from '@/modules/exercise/services/grammar-question-service';
 
 const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
@@ -121,11 +122,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '題目伺服器持久化失敗，請稍後再試 / Question could not be saved on the server, please try again later' }, { status: 500 });
     }
 
+    // R3.10-L (2026-08-30 audit R8): the answer key and explanations are
+    // STRIPPED from the GET payload — a student must not be able to read
+    // the correct answer from the response before submitting. The POST
+    // handler returns them only AFTER server-side grading.
+    const safeQuestion: Record<string, unknown> = { ...generated };
+    delete safeQuestion.answer;
+    delete safeQuestion.explanationZh;
+    delete safeQuestion.explanationEn;
+
     return NextResponse.json({
       date: today.toISOString().slice(0, 10),
       grammarItem,
       questionType,
-      question: { ...generated, id: questionIds[0] },
+      question: { ...safeQuestion, id: questionIds[0] },
       alreadyCompleted: false,
     });
   } catch (err: unknown) {
@@ -185,7 +195,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save session
-    await createPracticeSession({
+    const created = await createPracticeSession({
       studentId,
       skill: grammarItem || 'daily',
       skillZh: '每日挑戰 Daily Challenge',
@@ -196,6 +206,18 @@ export async function POST(request: NextRequest) {
       completedAt: new Date(),
     });
 
+    // 2026-08-30 audit (R8): find-then-create is not atomic — two concurrent
+    // POSTs can both pass the duplicate check above. Re-count after creation
+    // and roll back the loser BEFORE any XP is awarded (deterministic rewards
+    // must never double-award).
+    const todayCount = await countTodaySessions(studentId, 'daily-challenge');
+    if (todayCount > 1) {
+      try {
+        await deletePracticeSession(created.id);
+      } catch { /* rollback is best-effort; no XP has been awarded */ }
+      return NextResponse.json({ error: "Already completed today's challenge" }, { status: 409 });
+    }
+
     // XP: correct answer bonus
     if (isCorrect) {
       const xp = calculateXp({ type: 'answerCorrect', difficulty: 'core' });
@@ -205,10 +227,17 @@ export async function POST(request: NextRequest) {
     // Sync streak
     const streakDays = await syncUserStreak(studentId);
 
+    // R3.10-L (R8): the correct answer + explanation are returned ONLY in the
+    // graded POST response — never before submission.
+    const explanations = await resolveGrammarQuestionExplanations(questionId);
+
     return NextResponse.json({
       isCorrect,
       xpAwarded: isCorrect ? calculateXp({ type: 'answerCorrect', difficulty: 'core' }) : 0,
       streakDays,
+      correctAnswer: def.answer,
+      explanationZh: explanations?.explanationZh ?? undefined,
+      explanationEn: explanations?.explanationEn ?? undefined,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';

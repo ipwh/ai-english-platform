@@ -909,13 +909,13 @@ Content / Organization 分數亦需按 system rubric 評分，
     grammarErrors: filteredGrammarErrors,
     chinglishWarnings: filteredChinglish,
     vocabularySuggestions: styleAnalysis.vocabularySuggestions || [],
-    structureFeedback: filteredStructureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。' : ''),
+    structureFeedback: filteredStructureFeedback || (styleFailed ? '⚠️ 寫作技巧分析暫時無法生成，請重試。 / Style analysis could not be generated, please try again.' : ''),
     // Future improvement: distinguish faithful correction from enhanced demonstration.
     // An enhanced version may add development/examples and should not
     // be presented to students as a purely corrected version.
     revisedVersion: backwardCompatRevisedVersion,
     generalComment: (() => {
-      const raw = grammarAnalysis.generalComment || (grammarFailed ? '⚠️ 語言準確性分析暫時無法生成，請重試。' : '');
+      const raw = grammarAnalysis.generalComment || (grammarFailed ? '⚠️ 語言準確性分析暫時無法生成，請重試。 / Language accuracy analysis could not be generated, please try again.' : '');
       if (INCOMPLETE_PATTERNS.test(raw)) {
         return raw.replace(/文章未完成[^。]*。?/g, '').replace(/結尾[^。]*中斷[^。]*。?/g, '').replace(/截斷[^。]*。?/g, '').trim() || raw;
       }

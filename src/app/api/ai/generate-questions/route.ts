@@ -16,7 +16,7 @@ import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/gr
 const NON_GRAMMAR_LANGUAGE_SKILLS = new Set(['reading', 'listening', 'writing', 'speaking', 'integrated', 'vocabulary']);
 
 function isRetryableGenerationError(message: string): boolean {
-  return /AI 回傳格式無法解析|AI 回傳資料格式異常|Vertex Gemini 回傳為空|Unexpected end of JSON|is not valid JSON/i.test(message);
+  return /AI 回傳格式無法解析|AI 回傳資料格式異常|Unexpected end of JSON|is not valid JSON/i.test(message);
 }
 
 export async function POST(request: NextRequest) {

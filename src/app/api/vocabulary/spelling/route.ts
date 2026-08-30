@@ -114,6 +114,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '此串字練習會話不屬於你 / This spelling session does not belong to you' }, { status: 403 });
     }
 
+    // 🔒 2026-08-30 audit (R8): a completed session must not be re-scored.
+    // Re-POSTing the same sessionId used to increment mastery/SRS again
+    // (mastery +1 per repeat up to 5, interval ×2) — an unbounded farming
+    // vector. Return the existing outcome idempotently without re-awarding.
+    if (session.status === 'completed') {
+      return NextResponse.json({
+        sessionId,
+        correctCount: session.correctCount,
+        totalWords: session.totalWords,
+        accuracy: session.totalWords > 0
+          ? Math.round((session.correctCount / session.totalWords) * 100)
+          : 0,
+        records: [],
+        alreadyCompleted: true,
+      });
+    }
+
     // 記錄每次嘗試
     const records = [];
     let correctCount = 0;

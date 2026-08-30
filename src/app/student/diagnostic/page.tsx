@@ -14,7 +14,7 @@ import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
 import type { CloDimensionRationaleResult } from '@/shared/types/ai-response-types';
 import type { PracticeQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
-import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
+import { normalizeSkillName, buildWeakSkills, normalizeNumbers } from '@/shared/utils/utils';
 import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
 import { toMcqLetter, stripMcqPrefix, normalizeAnswer, MCQ_LETTERS } from '@/modules/ai/services/question-validator';
 
@@ -161,7 +161,7 @@ function buildPracticeRecommendation(results: DiagnosticResult[], level: string)
     difficulty,
     questionType: 'mc',
     questionCount: 5,
-    weakLabel: weakest?.label || '文法',
+    weakLabel: weakest?.label || 'Grammar / 文法',
   };
 }
 
@@ -209,8 +209,9 @@ export default function DiagnosticPage() {
     }
     // short-writing / writing skill: accept any non-empty answer (qualitative assessment)
     if (type === 'short-writing' || type === 'writing') return student.trim().length > 0;
-    // fill-blank: normalized comparison
-    return normalizeAnswer(student) === normalizeAnswer(correct);
+    // fill-blank: normalized comparison（含數字詞彙正規化 — 「fifteen」≡「15」，
+    // 2026-08-30 audit R8，與 practice 頁及伺服器 scorer 一致）
+    return normalizeNumbers(normalizeAnswer(student)) === normalizeNumbers(normalizeAnswer(correct));
   }
 
   // 🔥 載入時根據學生年級與弱項自動生成診斷題目
@@ -286,6 +287,22 @@ export default function DiagnosticPage() {
           (res.questions || []).forEach((q) => {
             // R3.10-L: 保留伺服器回傳的題目 id（GrammarQuestion 持久化 id），
             // 只有非文法技能沒有伺服器 id 時才用本地 diag-N 後備。
+            // 2026-08-30 audit (R8): subSkill/subSkillZh 依語言對應（SkillChip
+            // EN 取 subSkill、ZH 取 subSkillZh）— 原 EN UI 顯示原始 key（如
+            // 「tenses」）而 ZH UI 顯示錯誤，現兩語皆有對應標籤。
+            const skillKey = skillCategory || grammar || skill || 'diagnostic';
+            const SUB_SKILL_ZH: Record<string, string> = {
+              grammar: '文法', vocabulary: '詞彙應用', reading: '閱讀理解',
+              listening: '聆聽理解', writing: '寫作（短文）',
+              tenses: '時態', 'phrasal-verbs': '詞彙', 'subject-verb-agreement': '主謂一致',
+              diagnostic: '診斷測試',
+            };
+            const SUB_SKILL_EN: Record<string, string> = {
+              grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading',
+              listening: 'Listening', writing: 'Writing',
+              tenses: 'Tenses', 'phrasal-verbs': 'Phrasal verbs', 'subject-verb-agreement': 'Subject-verb agreement',
+              diagnostic: 'Diagnostic',
+            };
             allQuestions.push({
               id: q.id || `diag-${++questionId}`,
               type: (q.type || 'mc') as PracticeQuestion['type'],
@@ -295,8 +312,8 @@ export default function DiagnosticPage() {
               answer: q.answer,
               grammarItem: grammar as PracticeQuestion['grammarItem'],
               languageSkill: skill as PracticeQuestion['languageSkill'],
-              subSkill: skillCategory || grammar || skill || 'diagnostic',
-              subSkillZh: grammarZh || (grammar === 'tenses' ? '時態' : grammar === 'phrasal-verbs' ? '詞彙' : skill === 'reading' ? '閱讀理解' : skill === 'writing' ? '寫作' : skill === 'listening' ? '聆聽理解' : skill === 'vocabulary' ? '詞彙應用' : '診斷測試'),
+              subSkill: SUB_SKILL_EN[skillKey] || skillKey,
+              subSkillZh: SUB_SKILL_ZH[skillKey] || grammarZh || skillKey,
               difficulty: 'core',
               gradeLevel: 'S4',
               keyStage: 'KS4',
@@ -651,7 +668,7 @@ export default function DiagnosticPage() {
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-4">
-            <SkillChip grammarItem={currentQ.grammarItem} languageSkill={currentQ.languageSkill} subSkill={currentQ.subSkill} />
+            <SkillChip grammarItem={currentQ.grammarItem} languageSkill={currentQ.languageSkill} subSkill={currentQ.subSkill} subSkillZh={currentQ.subSkillZh} />
           </div>
 
           {/* 閱讀篇章 / 聆聽內容 / 題目內文 */}

@@ -4,6 +4,38 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 (Round 8) — 全功能覆核：每日挑戰答案隱藏、串字防農、閱讀防杜撰、雙語/死碼收尾
+
+### 🔍 範圍
+第八輪全面審核（AI 練習+診斷、閱讀、寫作、IS+生字簿、師生連繫、文檔屬實性/死碼/i18n/HKDSE 公平）。基線：129 files/2821 tests green、tsc 0、check-i18n exit 0。四路並行模組審核 + 主代理師生連繫驗證：寫作八大不變量、正典估級 76/62/48/33（七處 call site 全部 canonical）、IS 40/35/25 權重與免責聲明、課業/覆核/通知全流程均覆核無回歸；無 P1 杜撰。
+
+### 📐 防杜撰與公平（P1/P2）
+- **每日挑戰不再附答案鍵**：GET 原先把 `answer`/`explanationZh`/`explanationEn` 連同題目回傳 — 學生作答前即可從回應讀到答案。現 GET 只回題目/選項/id，答案與解釋僅在 POST 伺服器批改後回傳；客戶端本地自評移除，題目 chip 改用 `grammarItem`（原讀取伺服器從未回傳的 topic 欄位，顯示空白）。
+- **每日挑戰 XP 競態防重**：find-then-create 非原子，兩個並發 POST 可雙重領 XP → 建立後再點數同日 session，>1 即回滾失敗方並 409（回報前絕不發 XP）。
+- **串字練習防 mastery 農場**：同 sessionId 重複 POST 原可重複 +1 mastery/×2 interval → session 已 completed 即冪等回傳既有結果，不再重發 SRS。
+- **串字選字不截斷**：picker 原以 `limit=200` 取詞但 API clamp 100 → 生字簿 >100 字永遠選不到第一頁以外 → 改為逐頁循環。
+- **閱讀 phraseSearch 防杜撰**：片語搜尋題的答案必須逐字出現在篇章（接受 acceptAlso），否則 fail-closed 丟棄（不再交付不可能正確的答案鍵）；tone 降級門檻與重試門檻統一（>2 長度才算實質選項）。
+- **覆核保護已接受分數**：「AI 重新批改」的 aiScore 後備不再覆蓋教師已接受（Review 表已有有限 teacherScore）的分數。
+
+### 🈴 中英對照
+- SRS 進度標籤（尚無待複習/今日複習完成/快完成了/進行中/剛開始）雙語化（EN UI 原直接顯示中文）。
+- 診斷題 SkillChip 依語言顯示技能標籤（原 EN 顯示 raw key「tenses」、ZH 顯示「grammar」）；weakLabel 後備雙語；fill-blank 自評加入數字詞彙正規化（「fifteen」≡「15」，與伺服器 scorer 一致，正典函數移入 shared utils）。
+- 寫作部分失敗 fallback 文字、匯出失敗錯誤雙語；知識圖譜 CEFR 徽章加「平台參考對照（非官方）」標籤與 tooltip。
+
+### 🧹 死碼
+- 刪除 28 個零消費者的 `is.*` i18n keys（saving/saved/unsaved、showZh/hideZh、completed、taskType.*、dataFile.*、scoring.*、proofreading.*、level.*）。
+- 刪除 reading 客戶端永遠不可達的 sequencing 下拉 UI + seqOrders 狀態（伺服器以 short-answer 交付）與伺服器端死元資料 `_subLabel`；generate-questions 未用變數；stale「Vertex Gemini 回傳為空」retry regex；route-security test 中已刪除方法的 mock。
+- golden-runner 失敗記錄 `overallScore: null`（原以 0 記錄失敗，污染報告）。
+
+### 📚 文檔屬實性
+- Golden fixtures 5→17（5 sample + 12 calibration，全部 expected=null）同步 README/CLAUDE；README 架構圖「DeepSeek / Gemini」→「DeepSeek / Grok」、`GCP_PROJECT_ID` 去 Gemini；e2e README Gemini fallback 步更新。
+- i18n 1677→1648 unique keys；測試 2821→2823 同步 README/CLAUDE/AGENTS。
+
+### 🧪 驗證
+- **2823 tests pass（129 files, 1 skipped）** · tsc 0 · check-i18n exit 0 · eslint 0 errors（既有 warnings）。新增 IS dataManipulationFeedback 抑制合約測試 ×2。
+
+---
+
 ## 2026-08-30 (Round 7) — 全功能覆核：Copilot 杜撰收口、覆核不抹分、CEFR 標籤誠實化、死碼刪除
 
 ### 🔍 範圍

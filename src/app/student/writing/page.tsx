@@ -125,7 +125,7 @@ export default function WritingPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || '匯出失敗');
+        throw new Error(data.error || (language === 'en' ? 'Export failed' : '匯出失敗'));
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

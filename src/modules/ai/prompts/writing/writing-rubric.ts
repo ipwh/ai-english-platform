@@ -3,11 +3,10 @@
 // Single source of truth for Content/Language/Organization scoring.
 //
 // Used by:
-//   - ai/prompts/writing/v2.ts (writing analysis prompt)
 //   - ai/usecases/analyze-writing.ts (grammar/CLO evaluator prompt)
 //
 // There are TWO representations:
-//   CLO_RUBRIC    — English, concise table format (for v2.ts)
+//   CLO_RUBRIC    — English, concise table format (for analyze-writing.ts)
 //   CLO_RUBRIC_ZH — Traditional Chinese, detailed band descriptors (for analyze-writing.ts)
 //
 // Both describe the SAME scoring structure (0-7 per dimension, 0-21 total).

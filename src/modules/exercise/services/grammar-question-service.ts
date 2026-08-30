@@ -114,3 +114,20 @@ export async function resolveGrammarQuestionDefinitions(
   }
   return map;
 }
+
+/**
+ * Resolve post-grading explanations (zh/en) for a question id.
+ * Kept out of the canonical scoring definition — explanations are only
+ * revealed AFTER server-side grading (2026-08-30 audit R8).
+ */
+export async function resolveGrammarQuestionExplanations(
+  id: string,
+): Promise<{ explanationZh: string | null; explanationEn: string | null } | null> {
+  const rows = await findGrammarQuestionsByIds([id]);
+  const row = rows.find(r => r.id === id);
+  if (!row) return null;
+  return {
+    explanationZh: (row as { explanationZh?: string | null }).explanationZh ?? null,
+    explanationEn: (row as { explanationEn?: string | null }).explanationEn ?? null,
+  };
+}

@@ -63,7 +63,8 @@ export interface SingleResult {
     languageScore?: number;
     organizationScore?: number;
     cloTotalScore?: number;
-    overallScore: number;
+    // null = 分析失敗（2026-08-30 audit R8：原以 0 記錄失敗，會與真實 0 分混淆並污染報告）
+    overallScore: number | null;
     dseLevel?: string;
   };
   expected?: {
@@ -203,7 +204,7 @@ export async function runGoldenBenchmark(
     } catch (err) {
       results.push({
         fixtureId: fixture.id,
-        actual: { overallScore: 0 },
+        actual: { overallScore: null },
         errors: { content: null, language: null, organization: null, overall: null },
         hasHumanScores: false,
       });

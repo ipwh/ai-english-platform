@@ -11,6 +11,25 @@ export function todayISO(): string {
 }
 
 /**
+ * 將答案中的數字詞彙統一轉為數字，例："fifteen" → "15", "15" → "15"。
+ * 正典數字詞彙正規化 — 供 practice / diagnostic 客戶端自評使用，
+ * 與伺服器 scorer 的 normalizeNumbers 保持同一對照表。
+ */
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+  seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40,
+  fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100,
+};
+
+export function normalizeNumbers(text: string): string {
+  return text.replace(
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/gi,
+    match => String(NUMBER_WORDS[match.toLowerCase()] ?? match),
+  );
+}
+
+/**
  * 格式化日期（支援中英雙語 + 無效日期保護）
  */
 export function formatDate(dateStr: string | null | undefined, lang: string = 'zh'): string {

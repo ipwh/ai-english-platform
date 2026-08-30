@@ -9,6 +9,8 @@ import { GRAMMAR_GRAPH } from '@/modules/learning/services/knowledge-graph';
 
 // ============================================
 // CEFR ↔ HKDSE Level Mapping
+// 2026-08-30 audit (R8): platform-reference mapping only — EDB/HKEAA publish
+// no official CEFR equivalence table. Display surfaces must label it as such.
 // ============================================
 
 export const CEFR_TO_HKDSE: Record<CEFRLevel, HKDSELevel[]> = {

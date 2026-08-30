@@ -96,11 +96,24 @@ export async function PATCH(
     // 教師分數優先：只有當 teacherScore 是有效數值才採用。
     // 2026-08-30 audit (R7): teacherScore=null/'' 不得抹除既有 AI 分數
     // （學生頁顯示「退回後保留上次分數」）；不得把 '' 寫入 Prisma Float（500）。
+    // 2026-08-30 audit (R8): 「AI 重新批改」的 aiScore 後備不得覆蓋已被
+    // 教師接受的 teacherScore（Review 表已有有限 teacherScore 即保留）。
     const updateData: Record<string, unknown> = {};
     if (typeof body.teacherScore === 'number' && Number.isFinite(body.teacherScore)) {
       updateData.score = body.teacherScore;
     } else if (body.teacherScore === undefined && typeof body.aiScore === 'number' && Number.isFinite(body.aiScore)) {
-      updateData.score = body.aiScore;
+      const acceptedReview = await adminDbQuery('review', 'findFirst', {
+        where: { submissionId: id },
+        select: { teacherScore: true },
+      }) as { teacherScore: number | null } | null;
+      const hasAcceptedTeacherScore =
+        acceptedReview !== null &&
+        typeof acceptedReview.teacherScore === 'number' &&
+        Number.isFinite(acceptedReview.teacherScore);
+      if (!hasAcceptedTeacherScore) {
+        updateData.score = body.aiScore;
+      }
+      // 已接受教師分數：保持既有分數，aiScore 僅作為顯示參考不落庫
     }
     // 2026-08-30 audit (R7): teacherFeedback=null 不得抹除既有評語。
     if (typeof body.teacherFeedback === 'string' && body.teacherFeedback.trim() !== '') {

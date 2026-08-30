@@ -112,17 +112,28 @@ export default function SpellingPractice({
     setPickerLoading(true);
     setPickerError('');
     try {
-      const res = await fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}&limit=200`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const items = (data.vocab || data.items || data.vocabulary || []).map((v: Record<string, unknown>) => ({
-        vocabId: String(v.id || ''),
-        word: String(v.word || ''),
-        meaningZh: String(v.meaningZh || ''),
-        partOfSpeech: String(v.partOfSpeech || ''),
-        explanationEn: v.exampleSentence ? String(v.exampleSentence) : undefined,
-      }));
-      setPickerWords(items);
+      // 2026-08-30 audit (R8): API clamps limit to 100 and previously the
+      // picker silently saw only the first page (>100-word books could never
+      // pick older words). Loop pages like the vocab list page.
+      let page = 1;
+      let totalPages = 1;
+      const allItems: SpellingWord[] = [];
+      do {
+        const res = await fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}&page=${page}&limit=100`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        totalPages = data.pagination?.totalPages ?? 1;
+        const items = (data.vocab || data.items || data.vocabulary || []).map((v: Record<string, unknown>) => ({
+          vocabId: String(v.id || ''),
+          word: String(v.word || ''),
+          meaningZh: String(v.meaningZh || ''),
+          partOfSpeech: String(v.partOfSpeech || ''),
+          explanationEn: v.exampleSentence ? String(v.exampleSentence) : undefined,
+        }));
+        allItems.push(...items);
+        page += 1;
+      } while (page <= totalPages);
+      setPickerWords(allItems);
     } catch (err) {
       setPickerError(err instanceof Error ? err.message : 'Failed to load vocabulary');
     } finally {

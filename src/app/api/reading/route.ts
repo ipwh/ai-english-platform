@@ -299,6 +299,53 @@ function hasMissingToneChoices(questions: Array<Record<string, unknown>>): boole
 }
 
 /**
+ * R3.10-L (2026-08-30 audit R8): phraseSearch questions ask the student to
+ * quote a phrase FROM the passage — the canonical answer must therefore
+ * appear verbatim in the passage. An answer key that is nowhere in the text
+ * is a fabricated key; such questions are dropped (fail-closed) instead of
+ * being delivered with a key that can never be correct.
+ */
+function filterUngroundedPhraseSearch(
+  questions: Array<Record<string, unknown>>,
+  passage: string,
+): Array<Record<string, unknown>> {
+  if (!passage || passage.trim().length < 20) {
+    // Cannot verify without passage text — do not drop anything.
+    return questions;
+  }
+  const norm = (s: string) =>
+    ` ${s.toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ').replace(/\s+/g, ' ').trim()} `;
+  const normalizedPassage = norm(passage);
+  const kept: Array<Record<string, unknown>> = [];
+  let dropped = 0;
+  for (const q of questions) {
+    if (String(q.type ?? '').trim() !== 'phraseSearch') {
+      kept.push(q);
+      continue;
+    }
+    const answer = String(q.answer ?? '').trim();
+    if (!answer) {
+      kept.push(q); // handled by the empty-key drop
+      continue;
+    }
+    const acceptAlso = Array.isArray(q.acceptAlso)
+      ? (q.acceptAlso as unknown[]).map(a => String(a))
+      : [];
+    const grounded = [answer, ...acceptAlso].some(c => normalizedPassage.includes(norm(c)));
+    if (!grounded) {
+      dropped++;
+      logger.warn({ module: 'reading', answer, index: q.index }, 'Dropped phraseSearch question whose answer is not in the passage (anti-fabrication)');
+      continue;
+    }
+    kept.push(q);
+  }
+  if (dropped > 0) {
+    logger.warn({ module: 'reading', dropped }, 'phraseSearch anti-fabrication filter dropped questions');
+  }
+  return kept;
+}
+
+/**
  * Normalize the user-selected topic. When "general" / "綜合" is selected,
  * pick a random DSE-appropriate topic to ensure diversity instead of
  * generating passages ABOUT the word "general".
@@ -669,7 +716,6 @@ function splitTFNGSubQuestions(
         answer: subAnswer,
         explanationZh: subExpZh || `(${sub.label}) ${subAnswer}`,
         explanationEn: subExpEn || `(${sub.label}) ${subAnswer}`,
-        _subLabel: sub.label,
       });
       subIndex++;
     }
@@ -1023,8 +1069,8 @@ async function handleExerciseGeneration(body: Record<string, unknown>) {
 // - 當客戶端提供持久化題目 id（questionIds）時，答案鍵 / marks / 題型
 //   一律由伺服器持有的 ReadingQuestion 解析；客戶端元資料不作數。
 // - 無法解析的題目 → 422 QUESTION_NOT_FOUND（不發明後備分數）。
-// - 未提供 questionIds 的舊版請求（客戶端元資料）保留為 display-only，
-//   明確標記為非權威、非持久化。
+// - 未提供 questionIds 的舊版請求（客戶端元資料）保留為 display-only —
+//   只回傳分析結果供顯示，永不持久化、永不成為評分權威。
 async function handleAnswerAnalysis(body: Record<string, unknown>) {
   const raw = body as {
     questions?: DSEreadingQuestion[];
@@ -2007,8 +2053,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // text remains the key; tone_attitude routes to AI semantic scoring).
         // 2026-08-29 audit: require exactly 4 substantive choices to deliver
         // as MCQ — 2-3 option tone questions degrade to short-answer too.
+        // 2026-08-30 audit (R8): threshold aligned with hasMissingToneChoices
+        // (>2 length) — bare-letter placeholders must not count as choices.
         if (aiType === 'toneAttitude' || aiType === 'authorIntention') {
-          const substantive = choices ? choices.filter(c => c.trim().length > 1) : [];
+          const substantive = choices ? choices.filter(c => c.trim().length > 2) : [];
           if (substantive.length < 4) choices = undefined;
         }
 
@@ -2061,6 +2109,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       if ((response.questions as Array<Record<string, unknown>>).length < qCountBeforeDrop) {
         logger.warn({ module: 'reading', dropped: qCountBeforeDrop - (response.questions as Array<Record<string, unknown>>).length }, 'Dropped questions with empty answer keys');
       }
+      response.questions = filterUngroundedPhraseSearch(
+        response.questions as Array<Record<string, unknown>>,
+        cleanContent,
+      );
       response.questions = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
       );
@@ -2106,8 +2158,9 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         // text remains the key; tone_attitude routes to AI semantic scoring).
         // 2026-08-29 audit: require exactly 4 substantive choices to deliver
         // as MCQ — 2-3 option tone questions degrade to short-answer too.
+        // 2026-08-30 audit (R8): threshold aligned with hasMissingToneChoices.
         if (aiType === 'toneAttitude' || aiType === 'authorIntention') {
-          const substantive = choices ? choices.filter(c => c.trim().length > 1) : [];
+          const substantive = choices ? choices.filter(c => c.trim().length > 2) : [];
           if (substantive.length < 4) choices = undefined;
         }
 
@@ -2161,6 +2214,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       if ((response.questions as Array<Record<string, unknown>>).length < qCountBeforeDrop) {
         logger.warn({ module: 'reading', dropped: qCountBeforeDrop - (response.questions as Array<Record<string, unknown>>).length }, 'Dropped questions with empty answer keys');
       }
+      response.questions = filterUngroundedPhraseSearch(
+        response.questions as Array<Record<string, unknown>>,
+        (response.passage as { content?: string } | undefined)?.content ?? '',
+      );
       response.questions = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
       );

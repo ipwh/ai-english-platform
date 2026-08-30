@@ -182,7 +182,9 @@ describe('SRS for Vocabulary', () => {
   it('should calculate SRS progress', () => {
     const result = getSrsProgress(5, 20);
     expect(result.percentage).toBe(75);
-    expect(result.label).toBe('快完成了');
+    expect(result.labelZh).toBe('快完成了');
+    expect(result.labelEn).toBe('Almost done');
+    expect(getSrsProgress(0, 0).labelEn).toBe('No reviews due');
   });
 
   it('should process review results', () => {

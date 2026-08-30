@@ -13,18 +13,14 @@ type QuestionType = 'mc' | 'fill-blank' | 'short-writing' | 'matching';
 
 interface DailyQuestion {
   questionType?: QuestionType;
+  grammarItem?: string;
   question: {
     id?: string;
     prompt: string;
     promptZh?: string;
     choices?: string[];
-    answer: string;
     readingContent?: string;
-    explanationZh?: string;
-    explanationEn?: string;
   };
-  topic: string;
-  topicZh: string;
 }
 
 interface ChallengeState {
@@ -34,6 +30,10 @@ interface ChallengeState {
   textAnswer?: string;
   isCorrect?: boolean;
   xpEarned?: number;
+  // R3.10-L (R8): 答案與解釋只在提交後由伺服器返回（GET 不附答案）
+  correctAnswer?: string;
+  explanationZh?: string;
+  explanationEn?: string;
   error?: string;
 }
 
@@ -79,10 +79,8 @@ export default function DailyChallengePage() {
     const q = state.question!;
     const isMcq = q.questionType === 'mc';
     // 即時顯示用（客戶端自評）；最終判定以伺服器為準（R3.10-L）。
-    const localGuess = isMcq
-      ? answer === q.question.answer
-      : answer.trim().toLowerCase() === q.question.answer.trim().toLowerCase();
-    setState({ ...state, status: 'answered', selectedAnswer: isMcq ? answer : undefined, textAnswer: isMcq ? undefined : answer, isCorrect: localGuess });
+    // R8: GET 已不再附答案鍵，提交後由伺服器 POST 回傳判定。
+    setState(prev => ({ ...prev, status: 'answered', selectedAnswer: isMcq ? answer : undefined, textAnswer: isMcq ? undefined : answer }));
 
     try {
       const res = await fetch('/api/daily-challenge', {
@@ -95,11 +93,14 @@ export default function DailyChallengePage() {
         }),
       });
       const data = await res.json();
-      // 伺服器權威判定覆蓋本地猜測
+      // 伺服器權威判定；答案鍵/解釋僅在此處取得
       setState(prev => ({
         ...prev,
         isCorrect: typeof data.isCorrect === 'boolean' ? data.isCorrect : prev.isCorrect,
         xpEarned: data.xpAwarded || 0,
+        correctAnswer: typeof data.correctAnswer === 'string' ? data.correctAnswer : undefined,
+        explanationZh: typeof data.explanationZh === 'string' ? data.explanationZh : undefined,
+        explanationEn: typeof data.explanationEn === 'string' ? data.explanationEn : undefined,
       }));
     } catch { /* ignore */ }
   }
@@ -163,19 +164,23 @@ export default function DailyChallengePage() {
       {/* Answer feedback */}
       {state.status === 'answered' && (
         <div className={`bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4 ${
-          state.isCorrect ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700'
+          state.isCorrect === true ? 'border-green-300 dark:border-green-700' : state.isCorrect === false ? 'border-red-300 dark:border-red-700' : 'border-gray-200 dark:border-gray-700'
         }`}>
           <div className="flex items-center gap-3">
-            {state.isCorrect ? (
+            {state.isCorrect === true ? (
               <CheckCircle className="w-8 h-8 text-green-500" />
-            ) : (
+            ) : state.isCorrect === false ? (
               <XCircle className="w-8 h-8 text-red-500" />
+            ) : (
+              <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
             )}
             <div>
               <p className="font-bold text-lg text-gray-900 dark:text-white">
-                {state.isCorrect
+                {state.isCorrect === true
                   ? (language === 'en' ? 'Correct!' : '回答正確！')
-                  : (language === 'en' ? 'Incorrect' : '回答錯誤')}
+                  : state.isCorrect === false
+                    ? (language === 'en' ? 'Incorrect' : '回答錯誤')
+                    : (language === 'en' ? 'Grading...' : '批改中...')}
               </p>
               {state.xpEarned !== undefined && state.xpEarned > 0 && (
                 <p className="text-sm text-orange-500 flex items-center gap-1">
@@ -184,17 +189,17 @@ export default function DailyChallengePage() {
               )}
             </div>
           </div>
-          {!state.isCorrect && (
+          {!state.isCorrect && state.correctAnswer && (
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-sm">
               <p className="text-gray-500 mb-1">{language === 'en' ? 'Correct answer:' : '正確答案：'}</p>
-              <p className="font-semibold text-gray-900 dark:text-white">{state.question?.question.answer}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{state.correctAnswer}</p>
             </div>
           )}
-          {(state.question?.question.explanationZh || state.question?.question.explanationEn) && (
+          {(state.explanationZh || state.explanationEn) && (
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {language === 'en'
-                ? state.question?.question.explanationEn
-                : state.question?.question.explanationZh}
+                ? state.explanationEn
+                : state.explanationZh}
             </p>
           )}
         </div>
@@ -205,7 +210,7 @@ export default function DailyChallengePage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4">
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
-              {state.question.topicZh || state.question.topic}
+              {state.question.grammarItem || state.question.questionType || 'Daily Challenge'}
             </span>
           </div>
           <p className="text-lg font-medium text-gray-900 dark:text-white">
@@ -226,7 +231,7 @@ export default function DailyChallengePage() {
               {state.question.question.choices.map((choice, i) => {
                 const letter = String.fromCharCode(65 + i);
                 const isSelected = state.selectedAnswer === letter;
-                const isCorrectAnswer = letter === state.question?.question.answer;
+                const isCorrectAnswer = state.status === 'answered' && state.correctAnswer !== undefined && letter === state.correctAnswer?.toUpperCase();
                 const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
                 const displayText = cleanChoice || `Option ${letter}`;
                 let btnClass = 'w-full text-left p-3 rounded-xl border transition-colors text-sm appearance-none ';

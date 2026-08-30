@@ -28,6 +28,25 @@ export async function findTodaySession(studentId: string, source: string) {
   });
 }
 
+/**
+ * Count today's sessions for a student by source.
+ * Used for concurrency-safe duplicate detection (2026-08-30 audit R8):
+ * the find-then-create window cannot be closed without a DB constraint,
+ * so callers re-count after creation and roll back the loser.
+ */
+export async function countTodaySessions(studentId: string, source: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return db.practiceSession.count({
+    where: { studentId, source, startedAt: { gte: today } },
+  });
+}
+
+/** Delete a practice session by id (race-loser rollback) */
+export async function deletePracticeSession(id: string) {
+  return db.practiceSession.delete({ where: { id } });
+}
+
 /** List practice sessions with basic stats (for analytics/gamification) */
 export async function listPracticeSessionsSimple(studentId: string, limit = 100) {
   return db.practiceSession.findMany({

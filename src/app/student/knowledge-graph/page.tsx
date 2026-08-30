@@ -463,7 +463,7 @@ export default function KnowledgeGraphPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                  <span>{node.cefr}</span>
+                  <span title={language === 'en' ? 'CEFR — platform reference mapping (not an official EDB/HKEAA table)' : 'CEFR 平台參考對照（非官方對照表）'}>{node.cefr}</span>
                   <span>•</span>
                   <span>Lv.{node.difficulty}</span>
                   {node.masteryScore !== undefined && (
@@ -537,7 +537,7 @@ export default function KnowledgeGraphPage() {
             <h3 className="font-bold text-gray-900 dark:text-white text-lg">
               {language === 'en' ? selectedNode.title : selectedNode.titleZh}
             </h3>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${SKILL_COLORS[selectedNode.skill]}`}>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${SKILL_COLORS[selectedNode.skill]}`} title={language === 'en' ? 'CEFR/HKDSE — platform reference mapping (not an official EDB/HKEAA table)' : 'CEFR/HKDSE 平台參考對照（非官方對照表）'}>
               {SKILL_LABELS[selectedNode.skill]?.[language === 'en' ? 'en' : 'zh'] || selectedNode.skill} · {selectedNode.cefr} · {selectedNode.hkdseLevel}
             </span>
           </div>

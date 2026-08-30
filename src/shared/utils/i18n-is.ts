@@ -11,9 +11,6 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.analyzeFailed': { zh: 'AI 批改失敗，請重試', en: 'AI analysis failed, please try again' },
   'is.backToEdit': { zh: '返回修改', en: 'Back to Edit' },
   'is.newTask': { zh: '生成新任務', en: 'Generate New Task' },
-  'is.saving': { zh: '儲存中...', en: 'Saving...' },
-  'is.saved': { zh: '已儲存', en: 'Saved' },
-  'is.unsaved': { zh: '未儲存', en: 'Unsaved changes' },
   'is.stepListening': { zh: '聆聽', en: 'Listening' },
   'is.stepNotes': { zh: '筆記', en: 'Notes' },
   'is.stepWriting': { zh: '寫作', en: 'Writing' },
@@ -25,8 +22,6 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.noteGuide': { zh: '筆記指引', en: 'Note Guide' },
   'is.hide': { zh: '隱藏', en: 'Hide' },
   'is.show': { zh: '顯示', en: 'Show' },
-  'is.showZh': { zh: '顯示中文', en: 'Show Chinese' },
-  'is.hideZh': { zh: '隱藏中文', en: 'Hide Chinese' },
   'is.hint': { zh: '提示', en: 'Hint' },
   'is.notePlaceholder': { zh: '邊聽邊記下關鍵資訊（日期、數字、名字、事件、原因、結果等）...', en: 'Jot down key info (dates, numbers, names, events, reasons, results)...' },
   'is.listeningDone': { zh: '已聽完對話，準備寫作！', en: 'Finished listening, ready to write!' },
@@ -43,17 +38,6 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.needNotesFirst': { zh: '請先完成筆記再提交寫作。', en: 'Please complete your notes before submitting.' },
   'is.aiAnalyzing': { zh: 'AI 批改中...', en: 'AI Analyzing...' },
   'is.submitForReview': { zh: '提交 AI 批改', en: 'Submit for AI Review' },
-  'is.completed': { zh: '已完成', en: 'Completed' },
-  // v2 — new task types
-  'is.taskType.summary': { zh: '摘要寫作', en: 'Summary' },
-  'is.taskType.emailReply': { zh: '電郵回覆', en: 'Email Reply' },
-  'is.taskType.shortArticle': { zh: '短文撰寫', en: 'Short Article' },
-  'is.taskType.report': { zh: '報告撰寫', en: 'Report' },
-  'is.taskType.speech': { zh: '演講辭', en: 'Speech' },
-  'is.taskType.proposal': { zh: '建議書', en: 'Proposal' },
-  'is.taskType.notice': { zh: '通告', en: 'Notice' },
-  'is.taskType.pressRelease': { zh: '新聞稿', en: 'Press Release' },
-  'is.taskType.letterToEditor': { zh: '讀者投稿', en: 'Letter to Editor' },
   // v2 — note-taking symbols
   'is.symbols.title': { zh: '速記符號提示', en: 'Shorthand Symbols' },
   'is.symbols.plus': { zh: '+ = 優點/好處', en: '+ = advantages/benefits' },
@@ -68,22 +52,9 @@ export const isTranslations: Record<string, { zh: string; en: string }> = {
   'is.symbols.therefore': { zh: '∴ = 因此/結論', en: '∴ = therefore/conclusion' },
   'is.symbols.approx': { zh: '≈ = 大約/約', en: '≈ = approximately/about' },
   'is.symbols.trend': { zh: '↑↓ = 上升/下降/趨勢', en: '↑↓ = increase/decrease/trend' },
-  // v2 — data file
-  'is.dataFile': { zh: '📁 Data File', en: '📁 Data File' },
-  'is.dataFile.source': { zh: '資料來源', en: 'Source' },
-  'is.dataFile.relevantFor': { zh: '相關任務', en: 'Relevant for' },
-  // v2 — scoring dimensions
-  'is.scoring.listening': { zh: '聆聽理解 (40%)', en: 'Listening (40%)' },
-  'is.scoring.language': { zh: '語言運用 (35%)', en: 'Language (35%)' },
-  'is.scoring.organization': { zh: '組織結構 (25%)', en: 'Organization (25%)' },
-  // v2 — proofreading checklist
-  'is.proofreading.title': { zh: '✅ 檢查清單', en: '✅ Proofreading Checklist' },
-  'is.proofreading.points': { zh: '確認所有 content points 已包括', en: 'All content points included' },
-  'is.proofreading.grammar': { zh: '檢查 tenses / pronouns / singular-plural', en: 'Check tenses / pronouns / singular-plural' },
-  'is.proofreading.tone': { zh: 'Tone 符合目標讀者', en: 'Tone matches target audience' },
-  'is.proofreading.format': { zh: '格式正確（上款/下款/標題/分段）', en: 'Format correct (salutation/closing/headings/paragraphs)' },
-  'is.proofreading.nocopy': { zh: '沒有過度抄襲（>8 連續詞）', en: 'No excessive copying (>8 consecutive words)' },
-  // v2 — level estimate
-  'is.level.estimated': { zh: '預估等級', en: 'Estimated Level' },
-  'is.level.description': { zh: '（平台教學參考，非官方 cut-off 數據）', en: '(Platform teaching reference, not official cut-off data)' },
 };
+
+// 2026-08-30 audit (R8): removed 28 dead keys (is.saving/saved/unsaved,
+// is.showZh/hideZh, is.completed, is.taskType.*, is.dataFile.*, is.scoring.*,
+// is.proofreading.*, is.level.*) — zero t() consumers; TaskView/ResultView
+// render those labels inline with language ternaries.

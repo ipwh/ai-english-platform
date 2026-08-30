@@ -76,4 +76,32 @@ describe("analyzeIntegratedSkills — overallScore & level are deterministic, ne
     expect((await analyzeIntegratedSkills(input)).estimatedLevel).toBe("2");
     expect((await analyzeIntegratedSkills(input)).estimatedLevel).toBe("1");
   });
+
+  // 2026-08-30 audit (R8): contract test — without Data File sources the AI
+  // never saw the material it would criticise; data-manipulation feedback
+  // MUST be suppressed instead of hallucinated analysis about unseen content.
+  it("suppresses dataManipulationFeedback when no Data File sources were provided", async () => {
+    executeAIMock.mockResolvedValue({
+      ...baseAnalysis(),
+      dataManipulationFeedback: "The student manipulated the survey figures.",
+      dataManipulationFeedbackZh: "學生扭曲了問卷調查的數據。",
+    });
+    const result = await analyzeIntegratedSkills({ ...input, dataFileSources: undefined });
+    expect(result.dataManipulationFeedback).toBe("");
+    expect(result.dataManipulationFeedbackZh).toBe("");
+  });
+
+  it("keeps dataManipulationFeedback when Data File sources are provided", async () => {
+    executeAIMock.mockResolvedValue({
+      ...baseAnalysis(),
+      dataManipulationFeedback: "The student misquoted the survey figures.",
+      dataManipulationFeedbackZh: "學生錯誤引用了問卷數據。",
+    });
+    const result = await analyzeIntegratedSkills({
+      ...input,
+      dataFileSources: [{ type: "report", title: "Survey", content: "Survey data" }],
+    });
+    expect(result.dataManipulationFeedback).toBe("The student misquoted the survey figures.");
+    expect(result.dataManipulationFeedbackZh).toBe("學生錯誤引用了問卷數據。");
+  });
 });

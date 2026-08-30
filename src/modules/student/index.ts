@@ -107,7 +107,7 @@ export {
 } from '@/modules/student/repositories/user-repo';
 
 // Re-export common repos through facade (Route ≠ Repository rule)
-export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions } from '@/modules/exercise/repositories/practice-repo';
+export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions, countTodaySessions, deletePracticeSession } from '@/modules/exercise/repositories/practice-repo';
 export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from './progress/repositories/progress-repo';
 export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';

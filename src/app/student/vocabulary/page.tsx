@@ -35,7 +35,7 @@ export default function VocabularyPage() {
 
   // SRS
   const [srsDue, setSrsDue] = useState<VocabItem[]>([]);
-  const [srsProgress, setSrsProgress] = useState<{ percentage: number; label: string } | null>(null);
+  const [srsProgress, setSrsProgress] = useState<{ percentage: number; labelZh: string; labelEn: string } | null>(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -427,7 +427,7 @@ export default function VocabularyPage() {
             </h2>
             {srsProgress && (
               <span className="text-xs text-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 px-2.5 py-1 rounded-full">
-                {srsProgress.label} ({srsProgress.percentage}%)
+                {language === 'en' ? srsProgress.labelEn : srsProgress.labelZh} ({srsProgress.percentage}%)
               </span>
             )}
           </div>

@@ -190,7 +190,7 @@ e2e/
 |-----|------|---------|
 | 1 | 設定 `DSE_RAG_ENABLED=false` | 無 RAG 內容仍正常生成題目 |
 | 2 | 設定 `DEEPSEEK_API_KEY=''` | API 503 → UI 顯示友善錯誤訊息 |
-| 3 | Gemini fallback 觸發 | `X-AI-Provider: gemini-api` header 確認 |
+| 3 | Grok fallback 觸發 | `X-AI-Provider: grok-api` header 確認（Gemini API 已於 2026-08-20 退役） |
 
 ### TC-E03: Listening 音頻不可用
 | 步驟 | 動作 | 預期結果 |

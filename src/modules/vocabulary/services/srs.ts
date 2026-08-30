@@ -103,19 +103,20 @@ export function getDailyReviewTarget(totalCards: number): number {
 }
 
 /**
- * 取得 SRS 進度文字
+ * 取得 SRS 進度文字（雙語 — 2026-08-30 audit R8：原僅中文，EN UI 會直接顯示中文）
  */
 export function getSrsProgress(dueCount: number, totalCount: number): {
   percentage: number;
-  label: string;
+  labelZh: string;
+  labelEn: string;
 } {
-  if (totalCount === 0) return { percentage: 0, label: '尚無待複習' };
+  if (totalCount === 0) return { percentage: 0, labelZh: '尚無待複習', labelEn: 'No reviews due' };
   const done = totalCount - dueCount;
   const percentage = Math.round((done / totalCount) * 100);
-  if (percentage >= 100) return { percentage: 100, label: '今日複習完成！' };
-  if (percentage >= 75) return { percentage, label: '快完成了' };
-  if (percentage >= 50) return { percentage, label: '進行中' };
-  return { percentage, label: '剛開始' };
+  if (percentage >= 100) return { percentage: 100, labelZh: '今日複習完成！', labelEn: 'Daily review complete!' };
+  if (percentage >= 75) return { percentage, labelZh: '快完成了', labelEn: 'Almost done' };
+  if (percentage >= 50) return { percentage, labelZh: '進行中', labelEn: 'In progress' };
+  return { percentage, labelZh: '剛開始', labelEn: 'Just started' };
 }
 
 /**

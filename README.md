@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-30 — 129 files, 2821 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-30 — 129 files, 2823 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -123,7 +123,7 @@ Writing Evaluation (Sprints 127-130):
 
 平台分數是寫作練習診斷估算（platform practice estimate），依據 HKDSE English Writing descriptors 作為參考框架。平台分數並非 HKEAA 官方評級，亦不代表公開考試成績預測。
 
-Golden benchmark infrastructure 已就緒（5 個 calibration fixtures），但 empirical metrics（MAE/RMSE/bias）需要 human-labelled data 才能計算。目前所有 calibration fixture 的 expected scores 均為 null。
+Golden benchmark infrastructure 已就緒（17 個 golden fixtures：5 sample + 12 calibration；全部 expected scores 為 null），但 empirical metrics（MAE/RMSE/bias）需要 human-labelled data 才能計算。目前所有 calibration fixture 的 expected scores 均為 null。
 
 **Human-Marker Evidence Pipeline（Phase 9，fail-closed）** — 證據生命週期：`calibration:intake`（HUMAN_AUTHORED 強制、level-only 拒絕）→ `calibration:verify`（需 verifiedBy + verifiedAt + confirmedSourceHash）→ `calibration:marker-pack` / `marker-intake`（append-only，無 AI 欄位）→ `calibration:adjudicate`（永不改動 original marks）→ `calibration:freeze`（manifest+inventory+fingerprint 一致性；unverified comparable 阻擋 freeze）。Gate 需 ≥8 **verified overall-comparable pairs**；sufficiency 數 pairs 而非 fixtures。
 
@@ -255,7 +255,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1677 個 key（中英各一），`npm run check:i18n` exit 0）
+- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1648 個 key（中英各一），`npm run check:i18n` exit 0）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
@@ -355,7 +355,7 @@ npm run dev
 | `AUTH_GOOGLE_ID` | Google OAuth 用戶端 ID | ✅ |
 | `AUTH_GOOGLE_SECRET` | Google OAuth 用戶端密碼 | ✅ |
 | `DATABASE_URL` | PostgreSQL 連線字串 | ✅ |
-| `GCP_PROJECT_ID` | Vertex/Gemini 所屬 GCP Project ID | ⬜ |
+| `GCP_PROJECT_ID` | Vertex AI 所屬 GCP Project ID | ⬜ |
 | `GCP_SERVICE_ACCOUNT_JSON` | GCP 服務帳號 JSON (Base64) | ⬜ |
 | ~~`GEMINI_API_KEY`~~ | Gemini API 已於 2026-08-20 退役（無需設定） | — |
 
@@ -522,7 +522,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-30，129 files，2821 tests pass（+1 skipped）。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-30，129 files，2823 tests pass（+1 skipped）。
 
 ## 目前狀態
 
@@ -545,9 +545,9 @@ npm run test:watch    # 持續監控模式
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 自動角色識別，Middleware 路由保護 |
 | HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language/Organization 三向度平台評估 |
 | DSE RAG | ✅ 歷屆試題已匯入，7 個 usecase + 閱讀路由共 8 個流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
-| 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（5 fixtures）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
+| 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（17 fixtures，全部 expected=null）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
 | 校準（Calibration） | ✅ 校準基礎設施就緒（三態 release gate、執行歸因、序數 level 指標、C/L/O 維度門檻、evidence 驗證政策）。**基礎設施存在不建立 HKDSE 評分有效性**：目前 `overall-comparable = 0` → `INSUFFICIENT_DATA`，`ASSESSMENT VALIDITY NOT ESTABLISHED`（平台不宣稱 marker-equivalence） |
-| 測試 | ✅ 129 files, 2821 tests pass（2026-08-30） |
+| 測試 | ✅ 129 files, 2823 tests pass（2026-08-30） |
 
 ## 部署
 
@@ -616,7 +616,7 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
                                                             ↓                    DeepSeek Embedding
                                                      buildDSEContextPrompt()
                                                             ↓
-                                                    注入 System Prompt  →  DeepSeek / Gemini
+                                                    注入 System Prompt  →  DeepSeek / Grok
 ```
 
 ### 注意事項

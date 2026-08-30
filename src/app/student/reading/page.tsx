@@ -126,6 +126,10 @@ function mapReadingApiError(
         return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The system did not generate a passage long enough. Please try again.'
           : '系統暫時未生成足夠長的篇章，請再試一次。' };
+      case 'PASSAGE_TOO_LONG':
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
+          ? 'The generated passage exceeded the length limit. Please try again.'
+          : '生成的篇章超出長度限制，請再試一次。' };
       case 'PARAGRAPH_COUNT_INVALID':
         return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The passage paragraph count is outside the DSE range (3-5). Please try again.'
@@ -419,7 +423,6 @@ export default function ReadingPracticePage() {
       if (res.ok) {
         setData(json);
         setAnswers({});
-        setSeqOrders({});
         setEvaluatingAI(new Set());
         setError('');
       } else {
@@ -445,9 +448,6 @@ export default function ReadingPracticePage() {
 
   const [evaluatingAI, setEvaluatingAI] = useState<Set<number>>(new Set());
 
-  // Sequencing order tracking
-  const [seqOrders, setSeqOrders] = useState<Record<number, string[]>>({});
-
   /** Phase 2A: Only truly objective types get local grading */
   function shouldUseApiEvaluation(q: ReadingQuestion): boolean {
     if (q.dseType === 'multiple_choice') return false;
@@ -461,35 +461,6 @@ export default function ReadingPracticePage() {
     if (!data) return;
     const q = data.questions[qIndex];
     const needsApi = shouldUseApiEvaluation(q);
-
-    // Sequencing: compare order strings (always local)
-    if (q.type === 'mc' && q.answer.includes(',') && /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question)) {
-      const normalizeOrder = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/,/g, ',');
-      const studentOrder = normalizeOrder(answer);
-      const correctOrder = normalizeOrder(q.answer);
-      const isCorrect = studentOrder === correctOrder;
-
-      setAnswers(prev => ({
-        ...prev,
-        [qIndex]: {
-          answer,
-          submitted: true,
-          isCorrect,
-          isPartiallyCorrect: false,
-          // 2026-08-29 audit: honour per-question marks so the on-screen
-          // score matches the {q.marks}m badge (was hardcoded 1/1).
-          score: isCorrect ? (q.marks ?? 1) : 0,
-          maxScore: q.marks ?? 1,
-          feedbackEn: isCorrect
-            ? '✅ Correct! See explanation below for details.'
-            : `❌ Incorrect. The correct answer is: ${q.answer}. See explanation below.`,
-          feedbackZh: isCorrect
-            ? '✅ 正確！請參閱下方解釋。'
-            : `❌ 不正確。正確答案是：${q.answer}。請參閱下方解釋。`,
-        },
-      }));
-      return;
-    }
 
     // MCQ/TFNG / mcCloze with choices (objective types): instant local grading
     if (!needsApi && q.choices && q.choices.length > 0) {
@@ -963,50 +934,11 @@ export default function ReadingPracticePage() {
                   <p className="text-sm text-gray-900 dark:text-white">{q.question}</p>
                   {showQuestionZh && q.questionZh && <p className="text-xs text-gray-500">{q.questionZh}</p>}
 
-                  {/* Sprint 102.5: Sequencing / Ordering questions — render number dropdowns */}
-                  {q.type === 'mc' && q.choices && q.answer.includes(',') &&
-                   /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question) && (
-                    <div className="space-y-2">
-                      {q.choices.map((choice, ci) => {
-                        const letter = String.fromCharCode(65 + ci);
-                        const cleanChoice = choice.replace(/^[A-D][.)\s]+/, '').trim();
-                        const displayText = cleanChoice || `Option ${letter}`;
-                        const currentVal = (seqOrders[qi] || [])[ci] || '';
-                        return (
-                          <div key={ci} className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-400 w-6">{letter}.</span>
-                            <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{displayText}</span>
-                            <select
-                              className="w-16 p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-sm"
-                              disabled={ans?.submitted}
-                              value={currentVal}
-                              onChange={e => {
-                                const newOrder = [...(seqOrders[qi] || new Array(q.choices!.length).fill(''))];
-                                newOrder[ci] = e.target.value;
-                                setSeqOrders(prev => ({ ...prev, [qi]: newOrder }));
-                              }}
-                            >
-                              <option value="">-</option>
-                              {q.choices!.map((_, oi) => (
-                                <option key={oi} value={String.fromCharCode(65 + oi)}>{oi + 1}</option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      })}
-                      {!ans?.submitted && (
-                        <button
-                          className="mt-2 w-full px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors"
-                          onClick={() => {
-                            const order = (seqOrders[qi] || []).filter(Boolean).join(',');
-                            if (order) submitAnswer(qi, order);
-                          }}
-                        >
-                          {language === 'en' ? 'Submit Order' : '提交排序'}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  {/* Sprint 102.5 (removed 2026-08-30 audit R8): sequencing dropdown
+                      was unreachable — the server delivers sequencing questions as
+                      short-answer (dseType sentence_transformation), never as
+                      type 'mc' with comma answers. Server-side sequencing scoring
+                      remains live in reading-answer-scoring for legacy rows. */}
 
                   {q.type === 'mc' && q.choices && !(q.answer.includes(',') &&
                    /order|arrange|sequence|chronolog|sort|ranking/i.test(q.question)) && (
@@ -1332,7 +1264,7 @@ export default function ReadingPracticePage() {
               <p className="text-indigo-100 text-sm">
                 {language === 'en' ? 'Reading Score' : '閱讀成績'} — {Math.round((totalScore / totalMaxScore) * 100)}%
               </p>
-              <button onClick={() => { setData(null); setAnswers({}); setSeqOrders({}); setEvaluatingAI(new Set()); savedRef.current = false; }}
+              <button onClick={() => { setData(null); setAnswers({}); setEvaluatingAI(new Set()); savedRef.current = false; }}
                 className="mt-3 px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium">
                 {language === 'en' ? 'New Reading' : '新閱讀練習'}
               </button>

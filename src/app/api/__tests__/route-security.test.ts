@@ -27,7 +27,6 @@ const mocks = vi.hoisted(() => ({
 
   // vocabulary-service
   getStudentWords: vi.fn(),
-  getDueReviews: vi.fn(),
   getWordById: vi.fn(),
 
   // @/modules/student
@@ -97,7 +96,6 @@ vi.mock('@/shared/auth/jwt', async (importOriginal) => {
 
 vi.mock('@/modules/vocabulary/services/vocabulary-service', () => ({
   getStudentWords: mocks.getStudentWords,
-  getDueReviews: mocks.getDueReviews,
   getWordById: mocks.getWordById,
 }));
 
@@ -181,7 +179,6 @@ beforeEach(() => {
   mocks.authNextAuth.mockResolvedValue(null);
   mocks.findUserByIdSelect.mockResolvedValue(null);
   mocks.getStudentWords.mockResolvedValue([]);
-  mocks.getDueReviews.mockResolvedValue([]);
   mocks.getWordById.mockResolvedValue(null);
   mocks.updateVocab.mockResolvedValue({});
   mocks.listMistakes.mockResolvedValue([]);
