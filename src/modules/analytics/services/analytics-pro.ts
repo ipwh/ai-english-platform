@@ -343,10 +343,16 @@ export class LearningAnalyticsAI {
     return d.toISOString().slice(0, 10);
   }
 
+  /**
+   * Platform-estimated level (1-5, NO stars) using the canonical cross-paper
+   * thresholds (76/62/48/33). Uncalibrated platform estimate (2026-08-30 audit).
+   */
   private estimateLevel(accuracy: number): string {
-    if (accuracy >= 90) return '5**'; if (accuracy >= 80) return '5';
-    if (accuracy >= 70) return '4'; if (accuracy >= 60) return '3';
-    if (accuracy >= 45) return '2'; return '1';
+    if (accuracy >= 76) return '5';
+    if (accuracy >= 62) return '4';
+    if (accuracy >= 48) return '3';
+    if (accuracy >= 33) return '2';
+    return '1';
   }
 
   private weeklyRecommendations(accuracy: number, newWords: number, writing: number) {

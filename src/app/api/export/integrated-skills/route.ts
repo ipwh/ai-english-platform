@@ -76,7 +76,10 @@ async function generatePDF(data: ExportData): Promise<Buffer> {
       heading('AI Analysis');
       const scores = [['Overall Score', `${a.overallScore}%`], ['Listening Accuracy', `${a.listeningAccuracy ?? '-'}%`], ['Content', `${a.contentCompleteness ?? '-'}%`], ['Language', `${a.languageAccuracy ?? '-'}%`], ['Organization', `${a.organizationClarity ?? '-'}%`]];
       scores.forEach(([l, v]) => { checkPage(16); text(`${l}: ${v}`, 10, '#333333', 5); });
-      if (a.estimatedLevel) text(`Estimated Level: ${a.estimatedLevel}`, 10, '#059669', 5);
+      if (a.estimatedLevel) {
+        text(`Estimated Level: ${a.estimatedLevel}`, 10, '#059669', 5);
+        text('(Platform estimate — NOT an official HKEAA grade)', 7, '#888888', 8);
+      }
       y += 4;
 
       const caps = (a.capturedPoints as string[]) || [], miss = (a.missedPoints as string[]) || [];
@@ -130,7 +133,10 @@ async function generateDOCX(data: ExportData): Promise<Buffer> {
   if (a) {
     children.push(h1('AI Analysis'));
     const scores: [string, string][] = [['Overall Score', `${a.overallScore}%`], ['Listening Accuracy', `${a.listeningAccuracy ?? '-'}%`], ['Content Completeness', `${a.contentCompleteness ?? '-'}%`], ['Language Accuracy', `${a.languageAccuracy ?? '-'}%`], ['Organization & Clarity', `${a.organizationClarity ?? '-'}%`]];
-    if (a.estimatedLevel) scores.push(['Estimated Level', String(a.estimatedLevel)]);
+    if (a.estimatedLevel) {
+      scores.push(['Estimated Level', String(a.estimatedLevel)]);
+      scores.push(['Level Note', 'Platform estimate — NOT an official HKEAA grade']);
+    }
     children.push(new Table({ rows: scores.map(([l, v]) => new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: l, bold: true })], spacing: { after: 0 } })], width: { size: 4500, type: WidthType.DXA } }), new TableCell({ children: [new Paragraph({ children: [new TextRun(v)], spacing: { after: 0 } })] })] })), width: { size: 100, type: WidthType.PERCENTAGE } })); sep();
     const caps = (a.capturedPoints as string[]) || [], miss = (a.missedPoints as string[]) || [];
     if (caps.length) { children.push(h2(`Captured Points (${caps.length})`, '16a34a')); caps.forEach(pt => children.push(p(`✓ ${pt}`))); }

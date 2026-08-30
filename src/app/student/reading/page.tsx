@@ -8,7 +8,6 @@ import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } fro
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
-import { useT } from '@/hooks/use-i18n';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { layoutReadingText } from '@/modules/reading/layout';
 import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
@@ -78,13 +77,20 @@ interface AnswerState {
     diagnostic?: {
       verdict: string;
       skillTarget: string;
+      skillTargetZh?: string;
       locatingClue?: string;
+      locatingClueZh?: string;
       evidenceSummary?: string;
+      evidenceSummaryZh?: string;
       errorType?: string;
       improvementAdvice?: string;
+      improvementAdviceZh?: string;
       paraphraseAdvice?: string;
+      paraphraseAdviceZh?: string;
       grammarAdvice?: string;
+      grammarAdviceZh?: string;
       distractorNotes?: string[];
+      distractorNotesZh?: string[];
       confidence?: string;
     };
   };
@@ -185,7 +191,6 @@ function renderHighlightedLine(lineText: string, targets: string[]): ReactNode {
 export default function ReadingPracticePage() {
   const { language } = useAppStore();
   const authStore = useAuthStore();
-  const { t } = useT();
 
   const [grade, setGrade] = useState<string>('S4');
   const [difficulty, setDifficulty] = useState<string>('core');
@@ -518,7 +523,7 @@ export default function ReadingPracticePage() {
         isCorrect: false,
         isPartiallyCorrect: false,
         score: 0,
-        maxScore: 1,
+        maxScore: data.questions[qIndex].marks ?? 1,
         feedbackEn: '⏳ Evaluating with AI...',
         feedbackZh: '⏳ 正在用AI評分...',
         diagnostic: undefined,
@@ -1224,13 +1229,25 @@ export default function ReadingPracticePage() {
                             {ans.diagnostic.skillTarget && (
                               <p className="text-amber-600 dark:text-amber-400">
                                 <span className="font-medium">{language === 'en' ? 'Skill: ' : '技能：'}</span>
-                                {ans.diagnostic.skillTarget}
+                                {language === 'en'
+                                  ? ans.diagnostic.skillTarget
+                                  : (ans.diagnostic.skillTargetZh || ans.diagnostic.skillTarget)}
                               </p>
                             )}
                             {ans.diagnostic.locatingClue && (
                               <p className="text-amber-600 dark:text-amber-400">
                                 <span className="font-medium">{language === 'en' ? '📍 Locating clue: ' : '📍 定位提示：'}</span>
-                                {ans.diagnostic.locatingClue}
+                                {language === 'en'
+                                  ? ans.diagnostic.locatingClue
+                                  : (ans.diagnostic.locatingClueZh || ans.diagnostic.locatingClue)}
+                              </p>
+                            )}
+                            {ans.diagnostic.evidenceSummary && (
+                              <p className="text-amber-600 dark:text-amber-400">
+                                <span className="font-medium">{language === 'en' ? '🔎 Evidence: ' : '🔎 證據：'}</span>
+                                {language === 'en'
+                                  ? ans.diagnostic.evidenceSummary
+                                  : (ans.diagnostic.evidenceSummaryZh || ans.diagnostic.evidenceSummary)}
                               </p>
                             )}
                             {ans.diagnostic.errorType && (
@@ -1242,19 +1259,25 @@ export default function ReadingPracticePage() {
                             {ans.diagnostic.improvementAdvice && (
                               <p className="text-green-700 dark:text-green-400">
                                 <span className="font-medium">{language === 'en' ? '💡 Improvement: ' : '💡 改進：'}</span>
-                                {ans.diagnostic.improvementAdvice}
+                                {language === 'en'
+                                  ? ans.diagnostic.improvementAdvice
+                                  : (ans.diagnostic.improvementAdviceZh || ans.diagnostic.improvementAdvice)}
                               </p>
                             )}
                             {ans.diagnostic.paraphraseAdvice && (
                               <p className="text-amber-600 dark:text-amber-400">
                                 <span className="font-medium">{language === 'en' ? '📝 Paraphrase: ' : '📝 改寫：'}</span>
-                                {ans.diagnostic.paraphraseAdvice}
+                                {language === 'en'
+                                  ? ans.diagnostic.paraphraseAdvice
+                                  : (ans.diagnostic.paraphraseAdviceZh || ans.diagnostic.paraphraseAdvice)}
                               </p>
                             )}
                             {ans.diagnostic.grammarAdvice && (
                               <p className="text-amber-600 dark:text-amber-400">
                                 <span className="font-medium">{language === 'en' ? '📐 Grammar: ' : '📐 文法：'}</span>
-                                {ans.diagnostic.grammarAdvice}
+                                {language === 'en'
+                                  ? ans.diagnostic.grammarAdvice
+                                  : (ans.diagnostic.grammarAdviceZh || ans.diagnostic.grammarAdvice)}
                               </p>
                             )}
                             {ans.diagnostic.distractorNotes && ans.diagnostic.distractorNotes.length > 0 && (
@@ -1262,7 +1285,7 @@ export default function ReadingPracticePage() {
                                 <p className="font-medium text-amber-600 dark:text-amber-400">
                                   {language === 'en' ? '🎯 Distractor notes:' : '🎯 干擾項分析：'}
                                 </p>
-                                {ans.diagnostic.distractorNotes.map((note: string, di: number) => (
+                                {(language === 'en' ? ans.diagnostic.distractorNotes : (ans.diagnostic.distractorNotesZh || ans.diagnostic.distractorNotes)).map((note: string, di: number) => (
                                   <p key={di} className="text-amber-600 dark:text-amber-400 ml-2">• {note}</p>
                                 ))}
                               </div>

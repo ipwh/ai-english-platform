@@ -51,8 +51,6 @@ const ALLOWED_CHINESE_FILES = [
   'question-normalizer.ts', // Question validation messages
   'question-validator.ts',  // Question validation messages
   'listening-normalizer.ts', // Listening content normalization
-  'writing-coach.ts',     // Writing coach analysis with Chinese output (AI-generated)
-  'writing-coach-pro.ts', // Writing coach pro analysis
   'reflection-generator.ts', // AI-generated reflection prompts
   'ai-evaluator.ts',      // LLM evaluation prompt instructions (bilingual output by design)
 ];

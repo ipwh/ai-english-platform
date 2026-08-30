@@ -27,8 +27,8 @@ import {
   cloTotalToOverall100,
   deterministicLengthPenalty,
   applyLengthPenaltyPolicy,
-  estimateDSELevelFromCLO,
 } from "../core/writing-score-policy";
+import { estimateLevelFromScore100 } from "../core/level-estimation";
 import type { SemanticEvaluation, CloDimensionRationale } from "../schemas/ai-schema";
 import type { EvidenceBackedFeedback } from "../types/assessment-feedback";
 import { createRubricMetadata } from "../types/rubric-version";
@@ -762,7 +762,7 @@ Content / Organization 分數亦需按 system rubric 評分，
 
   // All three critical evaluators failed → throw
   if (grammarFailed && styleFailed && semanticFailed) {
-    throw new Error('AI 回傳格式無法解析（文法分析、寫作技巧分析及任務覆蓋評估皆失敗）。請縮短文章後重試。');
+    throw new Error('AI 回傳格式無法解析（文法分析、寫作技巧分析及任務覆蓋評估皆失敗）。請縮短文章後重試。 / The AI response could not be parsed (grammar analysis, style analysis and task-coverage evaluation all failed). Please shorten your essay and try again.');
   }
 
   // ============================================
@@ -774,12 +774,15 @@ Content / Organization 分數亦需按 system rubric 評分，
 
   // Platform policy: the deterministic tier is the DEFAULT penalty.
   // When the LLM omits the field, the deterministic tier applies on its own
-  // (a <30%-length essay cannot escape its −25 tier). An EXPLICIT LLM value
-  // may only be LESS severe (Math.max — both values are ≤ 0), per
-  // applyLengthPenaltyPolicy (contract-locked). The penalty is always ≤ 0
-  // and applied EXACTLY ONCE, to the overall score only (never to C/L/O).
+  // (a <30%-length essay cannot escape its −25 tier). An EXPLICIT NEGATIVE
+  // LLM value may only be LESS severe (Math.max — both values are ≤ 0), per
+  // applyLengthPenaltyPolicy (contract-locked). An explicit ZERO is treated
+  // as no-opinion (V3 fairness fix): the LLM cannot single-handedly cancel
+  // the deterministic tier and swing the same-length essay by up to 25
+  // points between submissions. The penalty is always ≤ 0 and applied
+  // EXACTLY ONCE, to the overall score only (never to C/L/O).
   const llmLengthPenalty =
-    typeof grammarAnalysis.lengthPenalty === 'number'
+    typeof grammarAnalysis.lengthPenalty === 'number' && grammarAnalysis.lengthPenalty < 0
       ? Math.min(0, grammarAnalysis.lengthPenalty)
       : deterministicPenaltyTier;
   const appliedLengthPenalty = applyLengthPenaltyPolicy(llmLengthPenalty, deterministicPenaltyTier);
@@ -817,8 +820,12 @@ Content / Organization 分數亦需按 system rubric 評分，
     100
   );
 
-  // Internal estimated level — NOT an official HKEAA grade conversion
-  const dseLevel: EstimatedDSELevel = estimateDSELevelFromCLO(cloTotalScore);
+  // Internal estimated level — NOT an official HKEAA grade conversion.
+  // V3 (fairness): derived from the FINAL penalized overall score via the
+  // cross-paper 0-100 policy, so the level shown next to the displayed
+  // score can never contradict it (e.g. 51/100 with "Est. 5"), and the
+  // same displayed percentage maps to the same level as Integrated Skills.
+  const dseLevel: EstimatedDSELevel = estimateLevelFromScore100(normalizedOverall);
 
   // ============================================
   // Merge results (failed parts use fallback)

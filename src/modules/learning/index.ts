@@ -50,7 +50,7 @@ export type {
 } from './types/recommendation-types';
 
 // ============================================
-// Knowledge Graph (S21/34) — 52-node prerequisite DAG
+// Knowledge Graph (S21/34) — 31-node grammar DAG (full cross-module graph = 59 nodes)
 // ============================================
 import { knowledgeGraphService } from '@/modules/knowledge-graph/services/knowledge-graph-service';
 export { knowledgeGraphService };
@@ -114,7 +114,7 @@ export type { WeaknessProfile, WeaknessItem } from '@/modules/mistake/intelligen
  * Domains:
  *   Engine        — adaptive learning pipeline (S39)
  *   Recommendation — weighted recommendation algorithm (S33)
- *   KnowledgeGraph — prerequisite DAG, 52 nodes (S21/34)
+ *   KnowledgeGraph — prerequisite DAG, 31 grammar nodes (full cross-module graph = 59) (S21/34)
  *   Science       — learning algorithms: SM-2, Ebbinghaus, confidence (S33)
  *   MistakeIntel  — longitudinal mistake analysis (S32)
  *

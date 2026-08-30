@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-14
-- **Revised**: 2026-08-22 — UI copy simplified (pedagogical target no longer displayed)
+- **Revised**: 2026-08-29 — 「範文目標 Level N」標籤恢復顯示（連同免責聲明）；ADR-038 要求先前的移除已逆轉
 - **Phase**: R3.10-K Phase 5
 
 ## Context
@@ -49,15 +49,19 @@ distinct concepts.
    dseLevel, or penalties. Client-supplied artifact metadata can never alter
    scoring.
 
-5. The UI displays the model card with a plain "📝 範文" (Model Essay) label
-   and an optional "獨立分析範文" action that shows the independent platform
-   estimate only.
+5. The UI displays the model card with the pedagogical-target label
+   「範文目標 Level N」plus the disclaimer 「這是平台生成的學習範文，並非你的作文」, and an optional
+   "獨立分析範文" action that shows the independent platform estimate only.
 
-   *(Revised 2026-08-22)* The original "範文目標 Level N" label and the
+   *(Revised 2026-08-22)* The original 「範文目標 Level N」 label and the
    side-by-side dual-track explanation were removed at product request: the
-   button copy is now 「生成範文」(Generate Model Essay) and pedagogical
-   target wording no longer appears in the UI. `pedagogicalTargetLevel`
-   remains server-determined provenance metadata.
+   button copy became 「生成範文」(Generate Model Essay).
+
+   *(Revised 2026-08-29)* The 「範文目標 Level N」 label was restored
+   (CHANGELOG 2026-08-29 VIII) because hiding the target confused students
+   about which level the model illustrates. `pedagogicalTargetLevel`
+   remains server-determined provenance metadata, and the label is paired
+   with the "not your essay" disclaimer.
 
 ## Consequences
 

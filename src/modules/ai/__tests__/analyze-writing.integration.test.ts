@@ -500,7 +500,7 @@ describe("Integration L — canonical scoring version", () => {
       .mockResolvedValueOnce(mockStyleResponse())
       .mockResolvedValueOnce(mockGrammarResponse());
     const result = await analyzeWriting(defaultInput);
-    expect(result.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V2");
+    expect(result.scoringVersion).toBe("HKDSE_P2_WRITING_CANONICAL_V3");
   });
 });
 

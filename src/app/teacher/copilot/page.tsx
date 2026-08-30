@@ -327,7 +327,7 @@ export default function TeacherCopilotPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">{language === 'en' ? 'Class Analysis' : '班級分析'}</h3>
               <span className="px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium">
-                平均 {Math.round(classAnalysis.overallMetrics.averageMastery)}% · {classAnalysis.overallMetrics.classHkdseLevel}
+                平均 {Math.round(classAnalysis.overallMetrics.averageMastery)}% · {language === 'en' ? 'Est. Level' : '平台估算 Level'} {classAnalysis.overallMetrics.classHkdseLevel}
               </span>
             </div>
             {/* Skill Breakdown */}
@@ -392,28 +392,33 @@ export default function TeacherCopilotPage() {
       {/* ── EXAM PREDICTION ── */}
       {activeTab === 'exam-prediction' && examPrediction && (
         <div className="space-y-4">
+          <div className="bg-violet-50 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-800 rounded-xl px-4 py-3 text-xs text-violet-800 dark:text-violet-200">
+            {language === 'en'
+              ? '⚠️ Platform estimate based on class practice data — NOT calibrated to HKEAA grade boundaries and NOT an official exam prediction. Use for guidance only.'
+              : '⚠️ 此為平台根據班級練習數據的估算（未經 HKEAA 等級校準），並非官方考試預測，僅供教學參考。'}
+          </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border text-center">
             <div className="text-4xl font-bold text-violet-500">{examPrediction.predictedPassRate}%</div>
-            <div className="text-sm text-gray-500 mt-1">{language === 'en' ? 'Predicted Pass Rate' : '預測合格率'}</div>
+            <div className="text-sm text-gray-500 mt-1">{language === 'en' ? 'Platform-Estimated Pass Rate (Level 2+)' : '平台估算合格率（Level 2 或以上）'}</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{language === 'en' ? 'Paper Predictions' : '各卷預測'}</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{language === 'en' ? 'Paper Averages' : '各卷平均'}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {examPrediction.paperAnalysis.map((p, i) => (
                 <div key={i} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl flex items-center justify-between">
                   <span className="text-sm text-gray-700 dark:text-gray-300">{p.paperZh}</span>
-                  <span className="text-sm font-bold text-violet-600 dark:text-violet-400">{p.averagePredicted}</span>
+                  <span className="text-sm font-bold text-violet-600 dark:text-violet-400">{Math.round(p.classAverage)}%</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{language === 'en' ? 'Student Predictions' : '學生預測'}</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{language === 'en' ? 'Student Estimates' : '學生估算'}</h4>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {examPrediction.studentPredictions.map((sp, i) => (
                 <div key={i} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
                   <span className="font-medium text-gray-900 dark:text-white">{sp.studentName}</span>
-                  <span className="text-violet-600 dark:text-violet-400 font-bold">{sp.predictedLevel}</span>
+                  <span className="text-violet-600 dark:text-violet-400 font-bold">{language === 'en' ? 'Est.' : '平台估算'} {sp.predictedLevel}</span>
                 </div>
               ))}
             </div>
@@ -477,7 +482,7 @@ export default function TeacherCopilotPage() {
                 <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${sd.score}%` }} />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white w-10">{sd.score}%</span>
-              <span className="text-xs text-gray-500" title={language === 'en' ? `Ahead of ${sd.percentile}% of peers` : `勝過 ${sd.percentile}% 同級同學`}>PR{sd.percentile}</span>
+              <span className="text-xs text-gray-500" title={language === 'en' ? `Platform readiness index: ${sd.percentile}/100 (not an actual class rank)` : `平台能力指數：${sd.percentile}/100（非實際班級排名）`}>PR{sd.percentile}</span>
             </div>
           ))}
           {studentAnalysis.recentProgress && (
@@ -497,7 +502,7 @@ export default function TeacherCopilotPage() {
             </div>
           )}
           <div className="text-[11px] text-gray-400 leading-relaxed border-t pt-3 mt-2">
-            💡 分數 = 該技能掌握度（0-100%）。PR = 百分位排名（數值愈高代表勝過愈多同級同學）。
+            💡 分數 = 該技能掌握度（0-100%）。PR = 平台能力指數（0-100，非實際班級排名）。 / Score = skill mastery (0-100%). PR = platform readiness index (0-100, not an actual class rank).
           </div>
         </div>
       )}

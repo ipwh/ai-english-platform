@@ -63,7 +63,7 @@ export interface StudentPrediction { studentId: string; studentName: string; pre
 export interface ExamPrediction {
   predictedPassRate: number;
   studentPredictions: StudentPrediction[];
-  paperAnalysis: { paper: string; paperZh: string; averagePredicted: string }[];
+  paperAnalysis: { paper: string; paperZh: string; classAverage: number }[];
 }
 
 export interface StudentAnalysisData {

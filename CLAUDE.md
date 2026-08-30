@@ -5,7 +5,7 @@ See AGENTS.md for shared agent instructions.
 ## Project: AI English Platform
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
-- **AI**: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok (4 active; Claude/OpenAI placeholders)
+- **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders
 - **Testing**: Vitest 4, 2889/2889 tests pass (131 files, 1 skipped — fully green; dead adaptive-tutor + legacy writing-coach modules removed)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules)
@@ -20,7 +20,7 @@ See AGENTS.md for shared agent instructions.
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`, `npm run calibration:*` (ingest/report/intake/verify/marker-pack/marker-intake/adjudicate/freeze)
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
-- **i18n**: 18 module files, 1655 unique keys, check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
+- **i18n**: 19 files (18 module files + i18n.ts), 1695 unique keys (zh/en pairs), check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
 - **Deployment Readiness**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration not available.
 - **AI Quality**: DSE reading 8.2/10 (2026-08-04 manual 14-generation snapshot) — DeepSeek primary, 6-condition retry, JSON repair (8 active steps), paragraph ref verification
 - **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
@@ -36,7 +36,7 @@ See AGENTS.md for shared agent instructions.
   8. Student essay = untrusted data (prompt injection defended)
 - **Golden Benchmark**: 5 fixtures in `evaluation/fixtures/writing-golden/`, runner in `evaluation/golden-runner.ts` (MAE/RMSE/bias), 0 human-labelled (awaiting calibration)
 - **Continuous Evaluation Durability**: EvaluationStore (MemoryStore/Repository), crash recovery with at-least-once replay + idempotent side effects, generation-scoped exactly-once, metrics dedup, terminal-state immutability, recovery serialization, 165+ CE integration tests
-- **Layout**: v5 grid per-line (`.dse-line` + gutter + justify text); paragraph labels above; 2em indent
+- **Layout**: v6 block lines + floating line-number gutter (`.dse-line` + `.dse-line-gutter` + justify text); paragraph labels above; layout locked once per generation (selection-safe, no innerHTML)
 - **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging
 
 ## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)

@@ -3,7 +3,8 @@
 // Learning modules never know whether DeepSeek, Gemini or OpenAI generated the response.
 
 // ============================================
-// Providers (5-model fallback chain)
+// Providers (6 registered: DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok → Claude → OpenAI;
+// runtime active chain after Gemini key retirement 2026-08-20 = DeepSeek → Grok; Claude/OpenAI are placeholders)
 // ============================================
 import { providerRegistry } from '@/modules/ai/providers/provider-registry';
 export { providerRegistry };
@@ -177,7 +178,10 @@ export { buildStudentContextSection } from '@/modules/ai/services/student-enrich
  * ProviderRegistry is the single entry point for model selection.
  *
  * Sub-domains:
- *   Providers  — 5-model fallback: DeepSeek → Vertex Gemini → Gemini → Claude → OpenAI
+ *   Providers  — 6 registered: DeepSeek → Gemini Flash → Gemini Flash-Lite →
+ *                Grok → Claude → OpenAI (Claude/OpenAI are hard-disabled
+ *                placeholders; Gemini keys retired 2026-08-20 → effective
+ *                runtime fallback is DeepSeek → Grok)
  *   Prompts    — structured prompt templates (internal to ai/)
  *   Cache      — TTL in-memory cache (S12)
  *   Cost       — token estimation and cost tracking (S13)

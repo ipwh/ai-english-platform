@@ -214,7 +214,7 @@ export class TeacherCopilotService {
       personaType: personaType as StudentAnalysis['personaType'],
       personaTypeZh: personaMap[personaType] ?? '穩定耕耘者',
       currentLevel: knowledge?.estimatedHkdseLevel ?? this.levelFromScore(classData?.avgMastery ?? 0.5),
-      predictedLevel: predictions?.predictedHkdseLevel ?? this.levelFromScore(Math.min(1, (classData?.avgMastery ?? 0.5) + 0.1)),
+      predictedLevel: predictions?.predictedHkdseLevel ?? this.levelFromScore(classData?.avgMastery ?? 0.5),
       skillDetails,
       recentProgress: {
         sessionsThisWeek: habits?.sessionsPerWeek ?? Math.round(2 + Math.random() * 3),
@@ -348,8 +348,18 @@ export class TeacherCopilotService {
       classId,
       generatedAt: new Date().toISOString(),
       predictedClassAverage: Math.round(classData.avgMastery * 100),
-      predictedPassRate: Math.round(Math.min(95, classData.avgMastery * 100 + 10)),
-      predictedStarRate: Math.round(Math.max(0, classData.avgMastery * 100 - 50)),
+      // 2026-08-30 audit: platform-defined, transparent estimates. Pass rate =
+      // fraction of students at Level 2+ and star rate = fraction at Level 5
+      // under the canonical cross-paper thresholds (76/62/48/33). These are
+      // UNCALIBRATED platform estimates, not HKEAA-published predictions.
+      predictedPassRate: Math.round(
+        (100 * studentPredictions.filter(p => ['2', '3', '4', '5'].includes(p.predictedLevel)).length) /
+        Math.max(1, studentPredictions.length),
+      ),
+      predictedStarRate: Math.round(
+        (100 * studentPredictions.filter(p => p.predictedLevel === '5').length) /
+        Math.max(1, studentPredictions.length),
+      ),
       studentPredictions,
       paperAnalysis: [
         { paper: 'Paper 1 Reading', paperZh: '卷一 閱讀', classAverage: Math.round((classData.skillAvgs.reading ?? 0) * 100), topicsNeedingReview: ['Inference', 'Vocabulary in context'], topicsNeedingReviewZh: ['推論', '上下文詞彙'] },
@@ -691,12 +701,17 @@ export class TeacherCopilotService {
     return d.toISOString().slice(0, 10);
   }
 
+  /**
+   * Platform-estimated level (1-5, NO stars) using the canonical cross-paper
+   * thresholds (76/62/48/33 — percentage equivalents of Paper 2 CLO 16/13/10/7).
+   * This is an uncalibrated platform estimate, never an official HKEAA grade.
+   */
   private levelFromScore(score: number): string {
-    if (score >= 0.9) return '5**';
-    if (score >= 0.8) return '5';
-    if (score >= 0.7) return '4';
-    if (score >= 0.55) return '3';
-    if (score >= 0.4) return '2';
+    const pct = Math.round(Math.max(0, Math.min(1, score)) * 100);
+    if (pct >= 76) return '5';
+    if (pct >= 62) return '4';
+    if (pct >= 48) return '3';
+    if (pct >= 33) return '2';
     return '1';
   }
 }

@@ -1,7 +1,7 @@
 // Sprint 40+: Assessment Grading Logic — 真正的邏輯測試
 import { describe, it, expect, beforeEach } from 'vitest';
 import { detectChinglish, clearRulesCache } from '../services/chinglish';
-import { detectOverCopying } from '../services/plagiarism';
+import { detectOverCopying, detectOverCopyingAcrossSources } from '../services/plagiarism';
 
 beforeEach(() => {
   clearRulesCache();
@@ -103,5 +103,54 @@ describe('detectOverCopying — 抄襲檢測', () => {
     const result = detectOverCopying(sourceText, 'Climate change is one of the most pressing issues facing humanity.');
     expect(result.copiedPhrases.length).toBeGreaterThan(0);
     expect(result.copiedPhrases[0].original).toBeTruthy();
+  });
+});
+
+// ============================================
+// detectOverCopyingAcrossSources — Data File 來源聚合檢測 (2026-08-30)
+// ============================================
+describe('detectOverCopyingAcrossSources — 多來源抄襲檢測', () => {
+  const listening = 'The school is planning a charity fun fair to raise money for the community centre. Students are invited to help run game booths and sell refreshments.';
+  const dataFile = 'Dear students, we are recruiting volunteers for the upcoming charity fun fair. Please sign up at the school office before Friday. Volunteers will help run game booths and sell refreshments to raise money for the community centre.';
+
+  it('偵測到學生只抄 Data File（聆聽稿無重疊）', () => {
+    const writing = 'We are recruiting volunteers for the upcoming charity fun fair. Please sign up at the school office before Friday.';
+    // 只比聆聽稿 → 偵測不到；加入 Data File 來源 → 偵測到
+    const listeningOnly = detectOverCopyingAcrossSources([listening], writing);
+    expect(listeningOnly.isOverCopy).toBe(false);
+    const withDataFile = detectOverCopyingAcrossSources([listening, dataFile], writing);
+    expect(withDataFile.isOverCopy).toBe(true);
+    expect(withDataFile.copyRatio).toBeGreaterThan(0.5);
+  });
+
+  it('多來源聚合取最大重疊率', () => {
+    const writing = 'We are recruiting volunteers for the charity fun fair and the school office.';
+    const result = detectOverCopyingAcrossSources([listening, dataFile], writing, 0.3);
+    expect(result.copyRatio).toBeGreaterThan(0);
+    expect(result.copiedPhrases.length).toBeGreaterThan(0);
+  });
+
+  it('全部來源均無重疊時回傳空結果', () => {
+    const result = detectOverCopyingAcrossSources(
+      [listening, dataFile],
+      'I think the school should focus on academic support instead.',
+    );
+    expect(result.isOverCopy).toBe(false);
+    expect(result.copyRatio).toBe(0);
+    expect(result.overallSuggestion).toBe('');
+    expect(result.overallSuggestionZh).toBe('');
+  });
+
+  it('空白/空來源陣列安全', () => {
+    expect(detectOverCopyingAcrossSources([], 'Some writing here.').isOverCopy).toBe(false);
+    expect(detectOverCopyingAcrossSources(['', null, undefined], 'Some writing here.').copyRatio).toBe(0);
+  });
+
+  it('任何來源過閾值即判定 isOverCopy，並附中英建議', () => {
+    const writing = 'Volunteers will help run game booths and sell refreshments to raise money for the community centre.';
+    const result = detectOverCopyingAcrossSources([listening, dataFile], writing, 0.3);
+    expect(result.isOverCopy).toBe(true);
+    expect(result.overallSuggestion).toContain('Over-copying');
+    expect(result.overallSuggestionZh).toContain('過度抄襲');
   });
 });

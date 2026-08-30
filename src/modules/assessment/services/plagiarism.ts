@@ -16,6 +16,8 @@ export interface OverCopyResult {
   copiedPhrases: { original: string; suggestion: string }[];
   /** 總體建議 */
   overallSuggestion: string;
+  /** 總體建議（繁體中文） */
+  overallSuggestionZh: string;
 }
 
 /**
@@ -54,6 +56,7 @@ export function detectOverCopying(
       copyRatio: 0,
       copiedPhrases: [],
       overallSuggestion: '',
+      overallSuggestionZh: '',
     };
   }
 
@@ -62,7 +65,7 @@ export function detectOverCopying(
   const cleanWriting = studentWriting.toLowerCase().replace(/[^a-z0-9\s.,!?'"-]/g, ' ').replace(/\s+/g, ' ').trim();
 
   if (!cleanWriting) {
-    return { isOverCopy: false, copyRatio: 0, copiedPhrases: [], overallSuggestion: '' };
+    return { isOverCopy: false, copyRatio: 0, copiedPhrases: [], overallSuggestion: '', overallSuggestionZh: '' };
   }
 
   // 使用 4-gram 和 5-gram 進行檢測
@@ -74,7 +77,7 @@ export function detectOverCopying(
   const writingWords = cleanWriting.split(/\s+/).filter(w => w.length > 1);
 
   if (writingWords.length === 0) {
-    return { isOverCopy: false, copyRatio: 0, copiedPhrases: [], overallSuggestion: '' };
+    return { isOverCopy: false, copyRatio: 0, copiedPhrases: [], overallSuggestion: '', overallSuggestionZh: '' };
   }
 
   // 檢測抄襲片段
@@ -152,11 +155,64 @@ export function detectOverCopying(
     : copyRatio > 0.2
       ? `Some similarity to source detected (${Math.round(copyRatio * 100)}%). Make sure you are paraphrasing, not copying.`
       : '';
+  const overallSuggestionZh = isOverCopy
+    ? `⚠️ 偵測到過度抄襲：你約 ${Math.round(copyRatio * 100)}% 的寫作與原文重複。DSE 卷三要求改寫並使用自己的文字，直接抄襲會失分。建議：(1) 改變句子結構、(2) 使用同義詞、(3) 以不同方式整合或拆解內容。`
+    : copyRatio > 0.2
+      ? `偵測到與原文有一定相似度（${Math.round(copyRatio * 100)}%）。請確保你在改寫而非抄襲。`
+      : '';
 
   return {
     isOverCopy,
     copyRatio,
     copiedPhrases: copiedPhrases.slice(0, 5), // Top 5
     overallSuggestion,
+    overallSuggestionZh,
+  };
+}
+
+/**
+ * 2026-08-30 audit: run over-copy detection against EVERY source the student
+ * worked from (listening transcript + each Data File source) and aggregate.
+ * Previously only the listening transcript was compared, so direct copying
+ * from the Data File (the classic DSE Paper 3 over-copying scenario) was
+ * never caught deterministically.
+ */
+export function detectOverCopyingAcrossSources(
+  sourceTexts: Array<string | null | undefined>,
+  studentWriting: string,
+  threshold: number = 0.5,
+): OverCopyResult {
+  const results = sourceTexts
+    .map(t => detectOverCopying(t ?? '', studentWriting, threshold))
+    .filter(r => r.copyRatio > 0 || r.isOverCopy || r.copiedPhrases.length > 0);
+
+  if (results.length === 0) {
+    return { isOverCopy: false, copyRatio: 0, copiedPhrases: [], overallSuggestion: '', overallSuggestionZh: '' };
+  }
+
+  // Strongest source first (highest overlap) — drives the headline verdict.
+  const sorted = [...results].sort((a, b) => b.copyRatio - a.copyRatio);
+  const strongest = sorted[0];
+
+  // Merge copied phrases across sources, deduped, capped at 5.
+  const phrases: { original: string; suggestion: string }[] = [];
+  const seen = new Set<string>();
+  for (const r of sorted) {
+    for (const ph of r.copiedPhrases) {
+      const key = ph.original.toLowerCase().trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      phrases.push(ph);
+      if (phrases.length >= 5) break;
+    }
+    if (phrases.length >= 5) break;
+  }
+
+  return {
+    isOverCopy: sorted.some(r => r.isOverCopy),
+    copyRatio: Math.min(1, Math.max(...sorted.map(r => r.copyRatio))),
+    copiedPhrases: phrases,
+    overallSuggestion: strongest.overallSuggestion,
+    overallSuggestionZh: strongest.overallSuggestionZh,
   };
 }

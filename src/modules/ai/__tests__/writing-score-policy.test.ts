@@ -144,7 +144,7 @@ describe("Level estimate — PLATFORM_DEFINED internal 1–5 only", () => {
 
 describe("Scoring version", () => {
   it("is the explicit canonical version", () => {
-    expect(SCORING_VERSION).toBe("HKDSE_P2_WRITING_CANONICAL_V2");
+    expect(SCORING_VERSION).toBe("HKDSE_P2_WRITING_CANONICAL_V3");
   });
 });
 

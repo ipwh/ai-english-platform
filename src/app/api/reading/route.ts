@@ -15,7 +15,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { callLLM, ragService, evaluateWithAI, type AIEvaluationResult, isBudgetExceededError } from '@/modules/ai';
-import type { QuestionRubric } from '@/modules/ai/prompts/reading/types';
 import { logger } from '@/shared/logger/logger';
 import {
   buildFullDSEPaperPrompt,
@@ -53,7 +52,7 @@ import { DSE_PART_QUESTION_MIX } from '@/modules/ai/prompts/reading/dse-question
 
 // Phase 4D.1: Paper reviewer integration
 import { buildPaperReviewPrompt } from '@/modules/reading/review/paper-reviewer';
-import { evaluateGate, buildReviewerRetryFeedback, buildReviewMetadata } from '@/modules/reading/review/paper-reviewer-gate';
+import { evaluateGate, buildReviewMetadata } from '@/modules/reading/review/paper-reviewer-gate';
 import { validateReviewStructure } from '@/modules/reading/review/paper-reviewer-types';
 import type { PaperReview } from '@/modules/reading/review/paper-reviewer-types';
 import { B1_B2_LEVEL_CAPS, HKEAA_TO_PLATFORM_DIFFICULTY } from '@/modules/ai/prompts/reading/dse-level-descriptors';
@@ -64,19 +63,13 @@ import {
 } from '@/modules/ai/prompts/reading/reading-validator';
 import {
   requiresApiEvaluation,
-  estimateCopyingRatio,
-  classifyCopyingLevel,
-  classifyParaphraseQuality,
-  detectLexicalShift,
-  detectStructuralShift,
-  detectGrammarFit,
-  assessCompleteness,
   buildEvaluation,
 } from '@/modules/reading/evaluation';
 import { persistGeneratedReadingQuestions, resolveReadingQuestionDefinitions } from '@/modules/reading/services/reading-question-service';
 import type { ReadingAnswerEvaluation } from '@/modules/reading/evaluation';
 import { buildReadingDiagnosticFeedback } from '@/modules/reading/feedback';
 import type { ReadingDiagnosticFeedback } from '@/modules/reading/feedback';
+import { estimateLevelFromScore100 } from '@/modules/ai/core/level-estimation';
 
 // ============================================
 // Phase 1B: DSE Type Mapping (camelCase backend → snake_case frontend)
@@ -1082,7 +1075,12 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
 
     // Determine the frontend DSE type for routing
     const dseType = mapDseTypeToFrontend(q.type);
-    const useApi = requiresApiEvaluation(dseType);
+    // 2026-08-30 audit: sequencing questions are scored deterministically on
+    // the persistence path (reading-answer-scoring.isObjective) — mirror that
+    // here so the on-screen result matches the persisted verified evidence.
+    const isSequencing = q.answer.includes(',')
+      && /order|arrange|sequence|chronolog|sort|ranking/i.test(q.questionText || '');
+    const useApi = requiresApiEvaluation(dseType) && !isSequencing;
 
     let result: AIEvaluationResult;
 
@@ -1091,8 +1089,6 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       // (reading-answer-scoring.scoreDeterministic). R3.10-L: the previous
       // containment-based "full marks" path diverged from the persisted
       // verified evidence (which is strict) and was removed.
-      const isSequencing = q.answer.includes(',')
-        && /order|arrange|sequence|chronolog|sort|ranking/i.test(q.questionText || '');
       const normForCompare = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/,/g, ',');
       const normAns = isSequencing ? normForCompare(studentAnswer) : studentAnswer.toLowerCase().trim();
       const normCorrect = isSequencing ? normForCompare(q.answer) : q.answer.toLowerCase().trim();
@@ -1191,8 +1187,10 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
   const scoredMarks = analyses.reduce((s, a) => s + a.score, 0);
   const accuracy = totalMarks > 0 ? scoredMarks / totalMarks : 0;
 
-  // Estimate HKEAA level from accuracy (rough mapping)
-  const estimatedLevel: HKEAALevel = accuracy >= 0.85 ? 5 : accuracy >= 0.70 ? 4 : accuracy >= 0.50 ? 3 : accuracy >= 0.30 ? 2 : 1;
+  // Estimate level from accuracy via the CANONICAL cross-paper 0-100 policy
+  // (76/62/48/33) so Reading, Writing and Integrated Skills map the same
+  // displayed percentage to the same internal level (2026-08-30 audit).
+  const estimatedLevel: HKEAALevel = Number(estimateLevelFromScore100(Math.round(accuracy * 100))) as HKEAALevel;
 
   return NextResponse.json({
     analyses,
@@ -1511,9 +1509,10 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
         passageTooLong = passageWordCount > 810; // 800 + small buffer for AI imprecision
         
-        // Check actual paragraph count (must be 3-5)
+        // Check actual paragraph count (must be 3-5; the upper bound keeps
+        // the delivered passage consistent with the README claim)
         actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
-        paragraphCountBad = actualParagraphCount < 3;
+        paragraphCountBad = actualParagraphCount < 3 || actualParagraphCount > 5;
         
         // R3.10-L: tone/attitude questions must carry their own choices —
         // the key is never fabricated afterwards.
@@ -1651,6 +1650,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           const pc = (parseResult.data.readingContent || (parseResult.data.passage as Record<string, unknown>)?.content) as string;
           passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
           actualParagraphCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
+          paragraphCountBad = actualParagraphCount < 3 || actualParagraphCount > 5;
           
           // Re-check distribution — retry may still produce bad distribution
           if (!paragraphCountBad && actualParagraphCount >= 3) {
@@ -1733,11 +1733,13 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       );
     }
 
-    // Phase 4D.4: Paragraph count guard — reject passages with fewer than 3 paragraphs
-    if (actualParagraphCount > 0 && actualParagraphCount < 3) {
-      logger.warn({ module: 'reading-api', paragraphCount: actualParagraphCount, minRequired: 3 }, 'Generated passage has too few paragraphs after retry — rejecting');
+    // Phase 4D.4: Paragraph count guard — reject passages outside the 3–5
+    // paragraph contract (2026-08-30 audit: upper bound now enforced so the
+    // delivered passage matches the README claim).
+    if (actualParagraphCount > 0 && (actualParagraphCount < 3 || actualParagraphCount > 5)) {
+      logger.warn({ module: 'reading-api', paragraphCount: actualParagraphCount, required: '3-5' }, 'Generated passage has invalid paragraph count after retry — rejecting');
       return NextResponse.json(
-        apiError(`Generated passage has only ${actualParagraphCount} paragraph(s) (minimum 3 required). Please try again.`, 'PASSAGE_TOO_SHORT', true),
+        apiError(`Generated passage has ${actualParagraphCount} paragraph(s) (3-5 required). Please try again.`, 'PASSAGE_TOO_SHORT', true),
         { status: 422 },
       );
     }
@@ -1954,9 +1956,6 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           );
         }
 
-        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
-        const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
-
         let choices: string[] | undefined;
         if (Array.isArray(q.choices)) {
           choices = (q.choices as string[]).map((c: string) => c.replace(/^[A-D][).]\s*/, ''));
@@ -1986,6 +1985,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const paragraphRef = (q.paragraphRef as number) || undefined;
         const dseType = mapDseTypeToFrontend(aiType);
 
+        // 2026-08-30 audit: a degraded tone question (choices removed) whose
+        // answer key is a bare letter/number is meaningless for short-answer
+        // scoring — clear the key so the empty-answer drop below removes it.
+        const degradedToneLetterKey =
+          (aiType === 'toneAttitude' || aiType === 'authorIntention') &&
+          !choices &&
+          /^\s*\(?[A-Da-d1-4]\)?[).、]?\s*$/.test(String(q.answer ?? '').trim());
+
         return {
           // R3.7: 伺服器分配的正典題目 id（assignServerOwnedQuestionIds
           // 於生成時持久化題目定義並回填 id）。
@@ -2003,7 +2010,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           paragraphCoverage: paragraphRef ? [paragraphRef] : [],
           wholeText: false,
           choices: isMcLikeDseType(dseType) && choices ? choices : undefined,
-          answer: (q.answer as string) || '',
+          answer: degradedToneLetterKey ? '' : (q.answer as string) || '',
           explanationZh: (q.explanationZh as string) || undefined,
           explanationEn: (q.explanationEn as string) || undefined,
         };
@@ -2046,9 +2053,6 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
             )
           : question;
 
-        const MCQ_TYPES = ['mcq', 'mcCloze', 'trueFalseNG', 'toneAttitude', 'authorIntention', 'negativeInference', 'vocabularyInContext', 'summaryCloze', 'sequencing', 'tableCompletion', 'matching'];
-        const isMc = MCQ_TYPES.includes(aiType) || (Array.isArray(q.choices) && (q.choices as string[]).length >= 2);
-
         // Strip "A. " prefix from choices if present
         let choices: string[] | undefined;
         if (Array.isArray(q.choices)) {
@@ -2081,6 +2085,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         const paragraphRef = (q.paragraphRef as number) || undefined;
         const dseType2 = mapDseTypeToFrontend(aiType);
 
+        // 2026-08-30 audit: a degraded tone question (choices removed) whose
+        // answer key is a bare letter/number is meaningless for short-answer
+        // scoring — clear the key so the empty-answer drop below removes it.
+        const degradedToneLetterKey =
+          (aiType === 'toneAttitude' || aiType === 'authorIntention') &&
+          !choices &&
+          /^\s*\(?[A-Da-d1-4]\)?[).、]?\s*$/.test(String(q.answer ?? '').trim());
+
         return {
           // R3.7: 伺服器分配的正典題目 id（assignServerOwnedQuestionIds
           // 於生成時持久化題目定義並回填 id）。
@@ -2098,7 +2110,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
           paragraphCoverage: paragraphRef ? [paragraphRef] : [],
           wholeText: false,
           choices: isMcLikeDseType(dseType2) && choices ? choices : undefined,
-          answer: (q.answer as string) || '',
+          answer: degradedToneLetterKey ? '' : (q.answer as string) || '',
           explanationZh: (q.explanationZh as string) || undefined,
           explanationEn: (q.explanationEn as string) || undefined,
         };
@@ -2164,28 +2176,28 @@ function generateRecommendations(
 ): string[] {
   const recommendations: string[] = [];
 
-  // Error-type based recommendations
+  // Error-type based recommendations (bilingual)
   if (errorBreakdown['reference_error']) {
-    recommendations.push('🔍 代詞指涉題 (Reference) 較弱：建議練習「向前找1-2句的原則」，並將答案代入原句檢查。');
+    recommendations.push('🔍 代詞指涉題 (Reference) 較弱：建議練習「向前找1-2句的原則」，並將答案代入原句檢查。 / Reference questions are a weak point: practise the "look back 1-2 sentences" rule and substitute your answer back into the original sentence to check.');
   }
   if (errorBreakdown['false_vs_ng_confusion']) {
-    recommendations.push('⚠️ T/F/NG 混淆 False 與 Not Given：False = 文章明確反對；NG = 文章完全沒有提及。請複習此區別。');
+    recommendations.push('⚠️ T/F/NG 混淆 False 與 Not Given：False = 文章明確反對；NG = 文章完全沒有提及。請複習此區別。 / T/F/NG confusion between False and Not Given: False = the text clearly contradicts; NG = the text does not mention it at all. Review this distinction.');
   }
   if (errorBreakdown['inference_error']) {
-    recommendations.push('🧠 推論題 (Inference) 需要加強：不要 over-infer，只推斷文中有 evidence 支持的內容。');
+    recommendations.push('🧠 推論題 (Inference) 需要加強：不要 over-infer，只推斷文中有 evidence 支持的內容。 / Inference questions need work: do not over-infer — only draw conclusions supported by evidence in the text.');
   }
   if (errorBreakdown['vocabulary_error']) {
-    recommendations.push('📖 詞彙題 (Vocabulary) 需改善：使用 context clues（前後2句）推斷詞義，不要只看字典意思。');
+    recommendations.push('📖 詞彙題 (Vocabulary) 需改善：使用 context clues（前後2句）推斷詞義，不要只看字典意思。 / Vocabulary questions: use context clues (2 sentences before/after) to infer meaning instead of relying only on dictionary definitions.');
   }
   if (errorBreakdown['word_limit_exceeded']) {
-    recommendations.push('✂️ 注意字數限制：DSE 明確要求 "ONE word" 或 "no more than THREE words"，超出即失分。');
+    recommendations.push('✂️ 注意字數限制：DSE 明確要求 "ONE word" 或 "no more than THREE words"，超出即失分。 / Mind the word limit: DSE explicitly requires "ONE word" or "no more than THREE words" — exceeding it loses marks.');
   }
 
-  // Question-type based recommendations
+  // Question-type based recommendations (bilingual)
   for (const [type, stats] of Object.entries(typeBreakdown)) {
     if (stats.total >= 2 && stats.correct / stats.total < 0.5) {
       const typeName = type.replace(/([A-Z])/g, ' $1').trim();
-      recommendations.push(`📋 ${typeName} 題型正確率低於50%，建議針對此題型進行專項訓練。`);
+      recommendations.push(`📋 ${typeName} 題型正確率低於50%，建議針對此題型進行專項訓練。 / Accuracy on ${typeName} questions is below 50% — consider targeted practice on this question type.`);
     }
   }
 

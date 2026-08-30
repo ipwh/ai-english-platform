@@ -121,9 +121,9 @@ test.describe('Integrated Skills v4', () => {
     await page.getByRole('button', { name: /提交 AI 批改/ }).click();
     await waitForLoadingDone(page);
 
-    // Verify dual-dimension results
-    await expect(page.getByText('Listening Recall')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText('Writing Quality')).toBeVisible({ timeout: 5000 });
+    // Verify result cards (labels renamed in v6: Listening / Language / Organization)
+    await expect(page.getByText('Listening (40%)')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Language (35%)')).toBeVisible({ timeout: 5000 });
   });
 
   test('TC-IS04: 返回修改 → 重新提交', async ({ page }) => {

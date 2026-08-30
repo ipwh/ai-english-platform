@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         prompt,
         _meta: {
           provider: getLastAIProvider(),
-          ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），生成品質可能略有差異。' } : {}),
+          ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI，生成品質可能略有差異。 / DeepSeek is temporarily unavailable; switched to a fallback AI provider. Quality may differ.' } : {}),
         },
       }, {
         headers: { 'X-AI-Provider': getLastAIProvider() },
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         outline,
         _meta: {
           provider: getLastAIProvider(),
-          ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI（Gemini），生成品質可能略有差異。' } : {}),
+          ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI，生成品質可能略有差異。 / DeepSeek is temporarily unavailable; switched to a fallback AI provider. Quality may differ.' } : {}),
         },
       }, {
         headers: { 'X-AI-Provider': getLastAIProvider() },

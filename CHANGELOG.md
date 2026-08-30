@@ -4,6 +4,46 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 — 全面覆核：HKDSE 分數對照一致性、評分公平性、雙語與死碼（第 2 輪全面審核）
+
+### 🔍 範圍
+覆核六大 module（AI 練習、閱讀、寫作、Integrated Skills、生字簿、診斷）+ 全站分數→HKDSE 等級對照、README/CHANGELOG 數字聲明、死碼、中英對照。基線驗證：2889 tests/131 files green、tsc 0、check-i18n exit 0。
+
+### 📐 評分公平性修正
+- **寫作 dseLevel 改為「罰則後」推導（F-06 已修）**：`dseLevel` 現由最終 `normalizedOverall` 經跨卷 0-100 政策（76/62/48/33）推導，與顯示分數不再矛盾（以往 CLO 16 但篇幅短可出現「51/100 旁顯示 Est. 5」），與 Integrated Skills 同分同級。`SCORING_VERSION` → `HKDSE_P2_WRITING_CANONICAL_V3`。
+- **長度罰則「LLM 明確 0 即取消」漏洞已修**：LLM 明確輸出 `lengthPenalty: 0` 不再抵消確定性 tier（同長度文章不再因 LLM 一時寬鬆相差 ±25 分）；只有明確的負值才可放寬。
+- **閱讀估級閾值統一**：`/api/reading` analyze-answers 的 85/70/50/30 → 改用 `estimateLevelFromScore100`（76/62/48/33），閱讀/寫作/IS 同分同級。
+- **教師 Copilot 考試預測去杜撰**：`levelFromScore` 改用正典閾值、永不輸出 5\*\*/5\*；合格率/星級率改為「Level 2+ / Level 5 學生比例」（透明計算，刪除任意 +10/−50 公式）；移除 predictedLevel 任意 +0.1；頁面加入「平台估算（未經校準），並非官方考試預測」免責聲明、修正各卷平均空白欄位（averagePredicted 類型修正為 classAverage）、PR 改標示為「平台能力指數（非實際排名）」。
+- **StudentStateBuilder.estimateHkdse**：0.85/0.78/0.73/0.63/0.50/0.40 + 星級 → 正典 76/62/48/33、只輸出 1–5。
+- **analytics-pro.estimateLevel**：90/80/70/60/45 + 5\*\* → 正典閾值、無星級。
+- **IS 匯出免責聲明**：PDF/DOCX 的 Estimated Level 附「Platform estimate — NOT an official HKEAA grade」。
+
+### 🧪 防杜撰修正
+- **閱讀**：段落數上限 5 強制執行（3–5 段合約，>5 拒絕/重試）；B2 題型清單移除不存在的 `openEndedInference`；降級 tone 題若答案鍵為裸字母 → 清除鍵後被空答案過濾剔除（不再顯示「Correct answer: B」而無選項）；sequencing 顯示路徑與持久化路徑統一（確定性 normalized-order 比較）。
+- **IS**：未提供 Data File 時伺服器不再輸出 dataManipulationFeedback（先前 AI 對未見材料產出「資料運用」評語）。
+- **IS 抄襲檢測擴至 Data File**（同日後續）：新增 `detectOverCopyingAcrossSources`，同時比對聆聽文稿與每份 Data File 來源（取最大重疊率、任何來源過閾即判定、片語合併去重）；結果頁文案改為「與聆聽文稿及資料夾原文的重疊率」。
+- **生字建議防杜撰**（同日後續）：新增 `word-presence.ts` — `/api/vocabulary/suggest` 只回傳確實出現在學生提交文本中的單字（含輕度詞形變化容忍），杜絕 AI 建議文本從未出現的字。
+
+### 🈴 中英對照
+- IS 任務視圖全部 chrome 雙語化：儲存狀態（儲存中/已儲存/未儲存變更）、Data File 標題與展開提示、步驟標題（聆聽/記筆記/寫作/已完成）、側欄（寫作任務/預期要點/你的筆記/進度）、行動版 tabs（任務/要點/筆記）；結果卡片三維度標籤（內容完整度/語言準確度/組織與清晰度）隨 中文 切換；系統抄襲檢測建議加 `overallSuggestionZh`。
+- 閱讀 recommendations（analyze-answers）改為中英雙語。
+- **閱讀診斷回饋內容全雙語化**（同日後續）：`ReadingDiagnosticFeedback` 新增全部 `*Zh` 欄位 + `DSE_SKILL_LABELS_ZH`；builder 依 errorType/verdict/dseType 逐分支提供精心撰寫的繁體中文（技能/定位提示/證據摘要/改進/改寫/文法/干擾項）；閱讀頁按語言渲染（zh 優先、EN fallback）。
+- 寫作全評估失敗錯誤訊息雙語化；8 條路由的 fallback 警告移除過時「（Gemini）」。
+
+### 🧹 死碼
+- 刪除 `ai/prompts/writing/v2.ts`（零消費者、含 5\*\*/U estimatedBand 風險）、`shared/validation/schemas/remaining-routes.schema.ts`（零消費者、shape 分歧的重複 Zod）、reading route 未使用 imports（QuestionRubric、buildReviewerRetryFeedback、7 個 evaluation helpers、dead isMc）、寫作頁不可達的 5\*\*/5\* 徽章分支、check-i18n.js 過時的 writing-coach allowlist。
+
+### 📚 文件修正
+- README：閱讀題型列表（移除不可交付的配對/排序）、「依 HKDSE 評分原則」措辭、成就徽章 12→18、DAG 28/52→59 節點、smoke 45→47 項、i18n 18 檔/1655 key→19 檔/1695 key、測試計數 126/2801→131/2889、「10 curated word families, 490 DSE collocations」→實際描述、RAG 5 流程→8 個接入點、供應商鏈描述。
+- CLAUDE.md：供應商鏈（Gemini 退役後實際 DeepSeek→Grok）、i18n 計數、閱讀 Layout v5→v6。
+- ADR-038：修訂注記補回 2026-08-29 恢復「範文目標 Level N」；e2e generated-model-integrity 同步更新；IS e2e 標籤更新（Listening Recall/ Writing Quality → Listening/Language/Organization）。
+- `ai/index.ts`、`learning/index.ts` 過時註釋修正。
+
+### 🧪 驗證
+- **2909 tests pass（133 files, 1 skipped）** · tsc 0 · check-i18n exit 0 · eslint 0 errors（新增 8 個 word-presence 測試、5 個多來源抄襲測試、7 個雙語診斷測試）。
+
+---
+
 ## 2026-08-29 (VIII) — Full-Module Fairness Audit & Scoring Integrity Fixes (全面審核：杜撰防護、評分公平性、雙語、死碼)
 
 ### 🔍 範圍

@@ -8,6 +8,7 @@ import { callLLM, isBudgetExceededError } from '@/modules/ai';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { getExistingWordSet } from '@/modules/vocabulary/services/vocabulary-service';
+import { wordAppearsInText } from '@/modules/vocabulary/services/word-presence';
 
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -73,8 +74,19 @@ export async function POST(request: NextRequest) {
       if (match) suggestions = JSON.parse(match[0]);
     }
 
-    // 過濾已有單字
-    const filtered = suggestions.filter(s => !existingWords.has(s.word.toLowerCase()));
+    // 2026-08-30 audit: the suggestion MUST appear in the text the student
+    // submitted (with light inflection tolerance) — the AI is not allowed to
+    // recommend words the text never contains. Also filter existing words.
+    const rawCount = suggestions.length;
+    const filtered = suggestions.filter(
+      s => wordAppearsInText(s.word, text) && !existingWords.has(s.word.toLowerCase()),
+    );
+    if (filtered.length < rawCount) {
+      logger.warn(
+        { module: 'vocab-suggest', dropped: rawCount - filtered.length },
+        'Dropped suggestions whose word does not appear in the submitted text (or already known)',
+      );
+    }
 
     return NextResponse.json({ suggestions: filtered.slice(0, 5) });
   } catch (err: unknown) {

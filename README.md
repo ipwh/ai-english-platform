@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-29 — 131 files, 2889 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-30 — 133 files, 2909 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -56,7 +56,7 @@ Writing Evaluation (Sprints 127-130):
 | Language | TypeScript 5 (strict) |
 | Database | PostgreSQL (Neon) + Prisma 7 |
 | Auth | JWT (jose) + NextAuth v5 — dual auth, `verifyApiAuth()` on all routes |
-| AI | DeepSeek (primary) → Grok (fallback); Claude/OpenAI placeholders; Vertex Gemini via GCP service account. Gemini API key **retired 2026-08-20** (revoked, configuration removed) |
+| AI | DeepSeek (primary) → Grok (fallback); Claude/OpenAI placeholders; Vertex embeddings via GCP service account (RAG 向量檢索用，非 LLM 供應商)。Gemini API key **retired 2026-08-20**（revoked, configuration removed） |
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
@@ -69,7 +69,7 @@ Writing Evaluation (Sprints 127-130):
 
 ### 🧑‍🎓 學生端
 - **AI 練習題目** — 支援選擇題、填充題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
-- **📖 閱讀理解 (DSE Paper 1)** — 生成 DSE 風格閱讀篇章（3–5 段、段落分佈檢查、主題多樣化），涵蓋 Literal → Inferential → Evaluative 漸進式題型（MCQ / 填充 / True-False-NG / 語調態度 / 詞彙 / 摘要 / 配對 / 排序 / 推斷），AI 語意批改依 HKDSE Reading Descriptors 評分原則；題目支援中英切換
+- **📖 閱讀理解 (DSE Paper 1)** — 生成 DSE 風格閱讀篇章（3–5 段、段落分佈檢查、主題多樣化），涵蓋 Literal → Inferential → Evaluative 漸進式題型（MCQ / 填充 / True-False-NG / 語調態度 / 詞彙 / 摘要 / 代詞指涉 / 推斷 / 短答），AI 語意批改依 HKDSE 評分原則（評估 prompt 為通用考官原則，不包含官方 descriptors 文本）；題目支援中英切換
 - **🔥 每日挑戰 (Daily Challenge)** — 每日一題（文法選擇/填充/短文/配對），完成獲得連續學習 streak 加成與 XP；題目由伺服器持有，提交時以伺服器答案鍵批改
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
@@ -86,7 +86,7 @@ Writing Evaluation (Sprints 127-130):
 - **✏️ 串字練習 (Spelling Practice)** — 看中文意思及英文例句提示，自行輸入正確英文單詞；支援 4 種選字模式（最新/隨機/最弱/到期）、即時批改、錯誤重試、SRS 掌握度自動更新；完成後顯示成績及逐字結果回顧（`SpellingSession` + `SpellingAttempt` DB 模型）
 - **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕
 - **AI 求助助手** — 🆕 **個人化求助與建議 v2**：讀取學生練習紀錄、錯題數據及連續學習天數後，自動計算**建議信心度**（0-100 分，四維度加權）；AI 對照 HKDSE 各卷別等級描述提供**具體量化**的個人化英文學習建議（含改善目標及時間表）；**弱項驅動 FAQ 動態排序**（文法/詞彙/寫作/閱讀分類按相關性自動排列，弱項類別標記 🔴 優先關注）；**AI 建議問題**（根據弱項自動生成 2-3 條建議提問，一鍵發問）；**個人化 FAQ**（從 AI 分析結果生成針對性 Q&A，附具體量化改善步驟）；**數據不足提示**（練習少於 3 次或作答少於 30 題時顯示基本英語提升建議，提示多用平台累積數據）；回答後可一鍵生成相關練習題目，即時練習改進
-- **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、12 款成就徽章（連續學習、正確率、練習量、寫作、詞彙）、匿名班級排行榜、每日連續學習火焰動畫
+- **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、18 款成就徽章（連續學習、正確率、練習量、寫作、詞彙、初中友善徽章）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
 - **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes 作為參考上下文。RAG 檢索結果僅用於提示詞接地（prompt grounding），不直接決定學生評分。（Feature Flag: `DSE_RAG_ENABLED=true`）
@@ -106,7 +106,7 @@ Writing Evaluation (Sprints 127-130):
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
 - **🌍 多元題材資料庫** — 200+ 閱讀主題、90+ 聆聽場景、90+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園、茶餐廳文化、社區重建、非遺保育、公共房屋）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易、難民教育、全球糧食安全、跨境網購權益），確保出題內容豐富不重複
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
-- **🗺️ 知識圖譜 (S34)** — 28 節點 DAG（含 learning 模組種子資料共 52 節點）、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
+- **🗺️ 知識圖譜 (S34)** — 59 節點 DAG（文法 31 + 詞彙 5 + 閱讀 6 + 寫作 7 + 聆聽 5 + 口說 5）、4 種邊類型、CEFR/HKDSE 雙向對應、7 個 API endpoints、🆕 前端視覺化頁面（`/student/knowledge-graph`）
 - **📚 詞彙智能 (S35)** — 6 種狀態判定（known/learning/weak/forgotten/mastered/need-review）、CEFR 難度估算、詞族分組
 - **寫作教練 2.0 (S36)** — AI 寫作批改、即時寫作提示與改寫對照（原 8 維度啟發式診斷已移除，統一以 canonical CLO 評分取代）
 
@@ -251,13 +251,13 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
    - 檢查 `/api/ai/status` 回傳 `{ configured: true }`
 
 ### Smoke Tests
-- [ ] `npm run smoke` — 45 項自動化檢查通過
+- [ ] `npm run smoke` — 47 項自動化檢查通過
 - [ ] Google OAuth 登入成功
 - [ ] AI 生成練習題（MCQ + 聽力）
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，18 個 i18n 模組檔案 / 1655 個 key，`npm run check:i18n` exit 0）
+- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1695 個 key（中英各一），`npm run check:i18n` exit 0）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
@@ -372,7 +372,7 @@ src/
 │   └── admin/                # 管理員後台
 ├── modules/                  # 🆕 模組化架構 (22 modules + __tests__)
 │   ├── ai/                   # AI 服務 (19 子目錄, 209 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
-│   ├── knowledge-graph/      # 知識圖譜 (28-node DAG, 7 API endpoints, 視覺化)
+│   ├── knowledge-graph/      # 知識圖譜 (59-node DAG, 7 API endpoints, 視覺化)
 │   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations, adaptive pipeline)
 │   ├── student/              # 學生 mastery/profile/memory
 │   ├── mistake/              # 錯題智能 (tracking, analytics, SRS)
@@ -525,7 +525,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-19，126 files，2801 tests pass。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-30，133 files，2909 tests pass。
 
 ## 目前狀態
 
@@ -534,10 +534,10 @@ npm run test:watch    # 持續監控模式
 | 層級 | 狀態 |
 |------|------|
 | 架構 | ✅ 模組化架構 (Routes → Zod → Services → Repositories → DB) |
-| AI 服務層 | ✅ DeepSeek → Gemini Flash → Gemini Flash-Lite → Grok（Claude/OpenAI placeholder）fallback chain, MCQ 正規化, provider registry DI |
+| AI 服務層 | ✅ DeepSeek（primary）→ Grok（fallback）fallback chain（Gemini Flash / Flash-Lite 註冊入口保留但 API 金鑰已於 2026-08-20 退役；Claude/OpenAI placeholder）, MCQ 正規化, provider registry DI |
 | API 路由 | ✅ 119 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
-| 詞彙關聯圖 | ✅ 10 curated word families, 490 DSE collocations, CEFR↔HKDSE mapping |
+| 詞彙關聯圖 | ✅ 動態詞族（首三字母 root 分組）、per-vocab 搭配詞、CEFR↔HKDSE mapping |
 | 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |
 | 領域事件 | ✅ pub/sub event bus, 7 achievements, progress/achievement handlers |
 | 快取 | ✅ TTL Map cache-aside, 6 cache namespaces |
@@ -547,10 +547,10 @@ npm run test:watch    # 持續監控模式
 | 資料庫 | ✅ Prisma 7（SQLite 開發 / PostgreSQL 生產，pgvector） |
 | 認證 | ✅ NextAuth Google OAuth + JWT 雙支援，email 自動角色識別，Middleware 路由保護 |
 | HKDSE 對齊 | ✅ KLACG 2017 Level Descriptors, Content/Language/Organization 三向度平台評估 |
-| DSE RAG | ✅ 歷屆試題已匯入，5 個 AI 流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
+| DSE RAG | ✅ 歷屆試題已匯入，7 個 usecase + 閱讀路由共 8 個流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
 | 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（5 fixtures）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
 | 校準（Calibration） | ✅ 校準基礎設施就緒（三態 release gate、執行歸因、序數 level 指標、C/L/O 維度門檻、evidence 驗證政策）。**基礎設施存在不建立 HKDSE 評分有效性**：目前 `overall-comparable = 0` → `INSUFFICIENT_DATA`，`ASSESSMENT VALIDITY NOT ESTABLISHED`（平台不宣稱 marker-equivalence） |
-| 測試 | ✅ 126 files, 2801 tests pass（2026-08-19） |
+| 測試 | ✅ 133 files, 2909 tests pass（2026-08-30） |
 
 ## 部署
 

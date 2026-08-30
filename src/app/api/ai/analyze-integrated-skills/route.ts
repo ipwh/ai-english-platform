@@ -10,7 +10,7 @@ import { analyzeIntegratedSkills, sanitizeForAI, isDeepSeekConfigured, getLastAI
 
 import { checkRateLimit, AI_RATE_LIMIT } from '@/shared/utils/rate-limiter';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { detectOverCopying } from '@/modules/assessment/services/plagiarism';
+import { detectOverCopyingAcrossSources } from '@/modules/assessment/services/plagiarism';
 import { logger } from '@/shared/logger/logger';
 export async function POST(request: NextRequest) {
   // 🔒 Auth check
@@ -82,8 +82,12 @@ export async function POST(request: NextRequest) {
       userId: authResult.userId,
     });
 
-    // === 抄襲檢測：檢查學生寫作是否過度複製聆聽文稿 ===
-    const overCopyResult = detectOverCopying(listeningContent, studentWriting);
+    // === 抄襲檢測：比較學生寫作與聆聽文稿 + 每份 Data File 來源 ===
+    // （2026-08-30 audit: 以往只比對聆聽文稿，直接抄 Data File 不會被偵測）
+    const overCopyResult = detectOverCopyingAcrossSources(
+      [listeningContent, ...sanitizedDataFileSources.map(s => s.content)],
+      studentWriting,
+    );
 
     return NextResponse.json({
       analysis,

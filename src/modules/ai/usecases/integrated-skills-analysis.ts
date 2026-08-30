@@ -72,5 +72,14 @@ ${paper3MSContext}
     ...analysis,
     overallScore,
     estimatedLevel: estimateLevelFromScore100(overallScore),
+    // 2026-08-30 audit: without Data File sources the AI never saw the
+    // material it would be criticising — suppress data-manipulation feedback
+    // instead of delivering analysis about unseen content.
+    ...(dataFileText
+      ? {}
+      : {
+          dataManipulationFeedback: '',
+          dataManipulationFeedbackZh: '',
+        }),
   };
 }

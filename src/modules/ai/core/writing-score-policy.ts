@@ -20,7 +20,7 @@
 // ============================================
 
 /** Canonical scoring contract version (rubric + normalization + conversion + penalty + level policy). */
-export const SCORING_VERSION = "HKDSE_P2_WRITING_CANONICAL_V2" as const;
+export const SCORING_VERSION = "HKDSE_P2_WRITING_CANONICAL_V3" as const;
 
 /** Internal platform level estimate — NEVER an official HKEAA grade (no 5* / 5**). */
 export type EstimatedDSELevel = "1" | "2" | "3" | "4" | "5";

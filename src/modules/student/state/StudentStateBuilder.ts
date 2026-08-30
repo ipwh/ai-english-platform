@@ -111,16 +111,19 @@ function buildMasteryScores(entries: ReviewEntry[]): Record<string, number> {
   return scores;
 }
 
+/**
+ * Internal platform level estimate (1-5, NO star labels) using the canonical
+ * cross-paper thresholds (76/62/48/33). Uncalibrated platform estimate —
+ * never an official HKEAA grade (2026-08-30 audit).
+ */
 function estimateHkdse(mastery: Record<string, number>): string {
   const vals = Object.values(mastery);
-  if (vals.length === 0) return 'U';
+  if (vals.length === 0) return '1';
   const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-  if (avg >= 0.85) return '5**';
-  if (avg >= 0.78) return '5*';
-  if (avg >= 0.73) return '5';
-  if (avg >= 0.63) return '4';
-  if (avg >= 0.50) return '3';
-  if (avg >= 0.40) return '2';
+  if (avg >= 0.76) return '5';
+  if (avg >= 0.62) return '4';
+  if (avg >= 0.48) return '3';
+  if (avg >= 0.33) return '2';
   return '1';
 }
 

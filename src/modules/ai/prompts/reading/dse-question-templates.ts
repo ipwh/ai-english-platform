@@ -294,7 +294,7 @@ export const DSE_PART_QUESTION_MIX = {
     recommendedTypes: [
       'mcq', 'trueFalseNG', 'summaryCloze', 'inference', 'toneAttitude',
       'referencing', 'phraseSearch', 'errorCorrectionSummary', 'exampleFinding',
-      'vocabularyInContext', 'openEndedInference',
+      'vocabularyInContext',
     ],
     totalQuestions: '~21 questions, 42 marks',
     timeAllocation: '45-50 minutes',
