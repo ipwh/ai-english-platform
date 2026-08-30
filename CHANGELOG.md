@@ -4,6 +4,66 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 (Round 4) — 全模組覆核：課業 IDOR/通知、生字簿截斷、診斷弱項、IS 草稿與行動端
+
+### 🔍 範圍
+四個並行審核（AI 練習+診斷、閱讀+寫作、IS+生字簿、師生連繫）+ HKDSE 公平性覆核。基線：2909 tests/133 files green、tsc 0、check-i18n exit 0。寫作/閱讀八大不變量及防杜撰機制全部驗證通過（無 P1）。
+
+### 🔐 課業與通知（P1）
+- **班級作業通知靜默丟失已修**：`notifyAssignmentCreated` 只查 `StudentClass`（全庫從未建立該列）→ 改為主班級 `classId` ∪ `StudentClass` OR 查詢，班級指派現在真正通知學生。
+- **教師作業詳情 IDOR 已修**：`GET /api/assignments/[id]?teacher=true` 原先任何教師可讀任何作業（含答案鍵、學生答案、email）→ 教師僅限自己建立的作業，admin 豁免。
+- 提交目標檢查收緊：僅有 `className` 無 `classId` 的舊資料不再對任何登入學生放行（按班名比對）；無目標欄位孤兒作業一律 403。
+
+### 📋 課業流程（P2）
+- **覆核佇列狀態語意修復**：API 回傳 submission status（submitted/graded）但頁面按 pending/reviewed 過濾 → 分頁永遠 0、全部顯示「已退回」。現回傳覆核語意（Review.reviewed 或 graded → reviewed，否則 pending）。
+- **教師作業列表修復**：undefined `questionType`/`status` 移除（改難度 chip + 伺服器派發狀態）、卡片可點擊進入詳情；GET 附派發狀態（not-started/in-progress/completed/overdue）。
+- **多班建立班名錯配修復**：DB 查詢無順序保證 → 按 `targetClassIds` 順序以 id→name Map 對映。
+- **空選擇防護**：group/students 目標為空時 400，不再產生無人可見的孤兒作業。
+- **覆核權限與佇列一致**：PATCH 允許「自己派發作業的提交」或「任教班級學生」，修復組別/跨班作業在佇列卻 403。
+- **退回通知**：`returned` 即使無評語也通知學生（新增 `notifyAssignmentReturned` 雙語）；學生詳情頁在退回狀態顯示教師評語。
+- **錯誤碼修復**：POST 建立作業的 validateRequest/檢查的 NextResponse 不再被吞成 500（400/403 直通）。
+
+### 📚 生字簿
+- **50 字靜默截斷修復**：頁面逐頁載入（每頁 100）直到全部載入，修復 >50 字後列表/統計/搜尋/匯出/測驗遺失。
+- **去重改為大小寫不敏感**：`findVocabByWord` 用 `mode: 'insensitive'`（與 suggest 過濾一致）。
+
+### 🧪 診斷練習
+- **聆聽最弱不再錯推文法練習**：`buildPracticeRecommendation` 新增 listening 分支。
+- **寫作分析失敗不再永久鎖定寫作推薦**：推薦只考慮 score ≥ 0 的結果。
+- **`normalizeSkillName` 補 listening 分支**（聆聽準確率不再污染文法）。
+- **無證據 ≠ 弱**：`buildWeakSkills` 預設 accuracy -1；診斷加題、help 相關性/優先度/建議問題/整體準確率只計有證據技能（新學生不再全弱項滿加題）。
+- **錯題類型依技能分類**：閱讀/聆聽 → comprehension、詞彙 → vocabulary、寫作 → chinglish（客戶端 POST 與伺服器 auto-sync 同步）。
+- SkillChip 重複標籤「時態 · 時態」修復；EN UI 優先英文 subSkill。
+- 死碼移除：`getLevelLabel` + DiagnosticResult.level（從未渲染）。
+
+### 🎧 Integrated Skills
+- **行動版 Bottom Tabs 全部生效**：任務/要點/筆記 → 捲動/顯示行動端要點面板/捲動到筆記。
+- **伺服器草稿讀取接線**：`loadDraft` 在本地草稿失效時還原跨裝置草稿；批改完成後清除草稿；「放棄進度」真正清除本地+伺服器草稿。
+- **卸載時 flush 草稿**：SPA 導航不觸發 beforeunload，15 秒視窗內編輯不再遺失。
+- 生成 prompt 不再要求 questionZh/hintZh（UI 按需翻譯），節省 tokens。
+
+### 📖 閱讀
+- **exercise 路徑不再繞過篇章合約**：pre-parsed 結果同樣強制 3-5 段、250-810 字（PASSAGE_TOO_SHORT/LONG、PARAGRAPH_COUNT_INVALID）。
+- **移除不可交付的 matching/sequencing**：從題型範本與 B1 推薦清單移除（交付層只能降級為短答，無法作答）；validator/scorer 保留防禦處理。
+- 刪除死碼 `DSE_PAPER1_ALL_QUESTION_TYPES`；unreachable 1 分 fallback 移除。
+
+### 🈴 中英對照
+- 限流 429 訊息、BudgetExceededError、QuickAddVocab 提示、VocabCard title/aria、診斷字數統計雙語化。
+
+### 🧹 死碼
+- 刪除零消費者 `/api/notifications/sse`（與 `/api/notifications` polling 重複；路由 119→118）。
+- 作業/覆核路由死 imports 清理；`CountdownTimer` 接入學生作業列表（倒數計時功能成真，>24h 藍/<24h 琥珀/<1h 紅）。
+
+### 📚 文件
+- README：Routes 119→118、通知（SSE 說法）→智慧輪詢 15s/60s、IS 陷阱「5 種」→實際 6 種清單、「7 種 AI 分析結果」→完整分析結果、api/ 檔案數 118。
+- CLAUDE：119→118。
+- 已知殘留（記錄不改）：LearningFacade/S39 pipeline 零消費者但架構測試斷言（合約表面）；~30 條 dormant 路由/actions；quiz match 答案送前端（自評設計）；IS listeningAnswers 生成未渲染。
+
+### 🧪 驗證
+- **2909 tests pass（133 files, 1 skipped）** · tsc 0 · check-i18n exit 0。首輪 4 個 timeout 為 cold-OneDrive 已知 flake（warm 重跑 35/35 通過）。
+
+---
+
 ## 2026-08-30 (Round 3) — 師生課業流程 + 通知 + 公平性 + 文檔全面審核
 
 ### 🔍 範圍

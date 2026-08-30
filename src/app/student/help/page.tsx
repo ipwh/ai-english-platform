@@ -69,6 +69,7 @@ function getCategoryRelevanceScore(
   const keywords = categorySkillMap[catTitleKey] || [];
   let score = 0;
   for (const skill of weakSkills) {
+    if (skill.accuracy < 0) continue; // 無證據技能不算相關性
     const nameLower = skill.name.toLowerCase();
     for (const kw of keywords) {
       if (nameLower.includes(kw)) {
@@ -279,8 +280,14 @@ export default function StudentHelpPage() {
           body: JSON.stringify({
             studentId: profile.id,
             studentLevel: getStudentLevel(profile),
-            overallAccuracy: Math.round(derivedWeakSkills.reduce((sum, item) => sum + item.accuracy, 0) / Math.max(1, derivedWeakSkills.length)),
-            weakSkills: derivedWeakSkills.slice(0, 3),
+            overallAccuracy: (() => {
+              // 只計有證據（accuracy >= 0）的技能；無證據（-1）不得拉低平均
+              const known = derivedWeakSkills.filter(w => w.accuracy >= 0);
+              return known.length > 0
+                ? Math.round(known.reduce((sum, item) => sum + item.accuracy, 0) / known.length)
+                : 0;
+            })(),
+            weakSkills: derivedWeakSkills.filter(w => w.accuracy >= 0).slice(0, 3),
             recentPerformance: derivedRecentPerformance,
             streakDays: profile.streakDays ?? 0,
           }),
@@ -360,9 +367,9 @@ export default function StudentHelpPage() {
           }
         }
 
-        // 若仍不足 2 條，從 weakSkills 生成
+        // 若仍不足 2 條，從 weakSkills 生成（只取有證據的技能）
         if (faqItems.length < 2 && derivedWeakSkills.length > 0) {
-          const topWeak = derivedWeakSkills[0];
+          const topWeak = derivedWeakSkills.find(w => w.accuracy >= 0) ?? derivedWeakSkills[0];
           const skillIcons: Record<string, string> = { grammar: '📝', vocabulary: '📚', reading: '📖', writing: '✍️' };
           faqItems.push({
             q: `我的${topWeak.nameZh}準確率只有 ${topWeak.accuracy}%，應該如何改善？`,
@@ -401,6 +408,7 @@ export default function StudentHelpPage() {
   const suggestedQuestions = useMemo(() => {
     const suggestions: string[] = [];
     for (const skill of weakSkills.slice(0, 3)) {
+      if (skill.accuracy < 0) continue; // 無證據技能不生成建議問題
       const name = skill.name.toLowerCase();
       const nameZh = skill.nameZh;
       if ((name.includes('grammar') || name.includes('文法')) && skill.accuracy < 70) {

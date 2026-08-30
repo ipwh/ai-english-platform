@@ -12,9 +12,11 @@ interface CountdownTimerProps {
   dueDate: string | Date;
   onExpired?: () => void;
   className?: string;
+  /** 逾期時顯示的文字（由呼叫端依語言傳入） */
+  expiredLabel?: string;
 }
 
-export default function CountdownTimer({ dueDate, onExpired, className = '' }: CountdownTimerProps) {
+export default function CountdownTimer({ dueDate, onExpired, className = '', expiredLabel }: CountdownTimerProps) {
   const [remaining, setRemaining] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
   const [expired, setExpired] = useState(false);
 
@@ -47,7 +49,7 @@ export default function CountdownTimer({ dueDate, onExpired, className = '' }: C
     return (
       <span className={`inline-flex items-center gap-1 text-red-600 font-medium text-sm ${className}`}>
         <AlertTriangle className="w-4 h-4" />
-        已過期 Overdue
+        {expiredLabel || '已過期 Overdue'}
       </span>
     );
   }

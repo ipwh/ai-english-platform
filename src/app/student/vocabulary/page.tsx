@@ -96,18 +96,26 @@ export default function VocabularyPage() {
   const loadVocab = useCallback(() => {
     if (!studentId) return;
     setLoadError(false);
-    fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}`)
-      .then(r => r.json())
-      .then(d => {
+    // 逐頁載入（每頁 100）— 修復舊版只取預設 50 字導致 51+ 生字在列表/統計/搜尋/匯出中靜默消失
+    (async () => {
+      const all: VocabItem[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const r = await fetch(`/api/vocabulary?studentId=${encodeURIComponent(studentId)}&page=${page}&limit=100`);
+        const d = await r.json();
         if (d.vocab?.length) {
-          setVocab(d.vocab.map((v: VocabItem) => ({
+          all.push(...d.vocab.map((v: VocabItem) => ({
             ...v,
             masteryLevel: (v.masteryLevel ?? 0) as MasteryLevel,
             createdAt: v.createdAt || v.nextReviewDate || undefined,
           })));
         }
-      })
-      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Failed to load vocabulary'); setLoadError(true); });
+        totalPages = d.pagination?.totalPages ?? 1;
+        page += 1;
+      } while (page <= totalPages);
+      if (all.length > 0) setVocab(all);
+    })().catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Failed to load vocabulary'); setLoadError(true); });
   }, [studentId]);
 
   const loadSrsReview = useCallback(() => {

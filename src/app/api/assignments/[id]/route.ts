@@ -5,7 +5,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { findAssignmentById, findAssignmentSubmissions } from '@/modules/student';
 import { submitAssignmentAttempt } from '@/modules/assessment/services/submission-attempt-service';
 import { gradeAssignmentItems } from '@/modules/assessment/services/assignment-grader';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
@@ -28,6 +27,8 @@ export async function GET(
   // 🔒 Teacher view requires authentication + teacher/admin role (JWT + NextAuth dual support)
   // 🔒 Student view requires authentication (no anonymous question enumeration)
   let studentUserId: string | null = null;
+  let teacherUserId: string | null = null;
+  let teacherRole: string | null = null;
   if (isTeacher) {
     const auth = await verifyApiAuth(request, ['teacher', 'admin']);
     if (!auth.authenticated) {
@@ -36,6 +37,8 @@ export async function GET(
     if (auth.role !== 'teacher' && auth.role !== 'admin') {
       return NextResponse.json({ error: '權限不足：僅教師可查看此視圖 / Insufficient permission: only teachers can view this' }, { status: 403 });
     }
+    teacherUserId = auth.userId ?? null;
+    teacherRole = auth.role ?? null;
   } else {
     const token = request.cookies.get('session_token')?.value;
     if (token) {
@@ -60,10 +63,15 @@ export async function GET(
         } : undefined,
         _count: { select: { submissions: true } },
       },
-    }) as {id: string; title: string; description: string | null; classId: string | null; className: string | null; targetType: string | null; gradeLevel: string | null; strand: string | null; grammarItem: string | null; languageSkill: string | null; difficulty: string | null; questionCount: number; timeLimit: number | null; dueDate: Date | null; completionRate: number | null; createdAt: Date; questions: Array<{id: string; questionType: string; prompt: string; options: string | null; answer: string; orderIndex: number}>; submissions?: Array<{id: string; score: number | null; submittedAt: Date | null; student: {id: string; name: string | null; nameZh: string | null; email: string; class: {name: string} | null}}>; _count: {submissions: number}} | null;
+    }) as {id: string; createdBy: string; title: string; description: string | null; classId: string | null; className: string | null; targetType: string | null; gradeLevel: string | null; strand: string | null; grammarItem: string | null; languageSkill: string | null; difficulty: string | null; questionCount: number; timeLimit: number | null; dueDate: Date | null; completionRate: number | null; createdAt: Date; questions: Array<{id: string; questionType: string; prompt: string; options: string | null; answer: string; orderIndex: number}>; submissions?: Array<{id: string; score: number | null; submittedAt: Date | null; student: {id: string; name: string | null; nameZh: string | null; email: string; class: {name: string} | null}}>; _count: {submissions: number}} | null;
 
     if (!assignment) {
       return NextResponse.json({ error: '找不到此作業 / Assignment not found' }, { status: 404 });
+    }
+
+    // 🔒 2026-08-30 audit (Round 4): 教師僅可查看自己建立的作業詳情（含答案鍵及學生資料），admin 豁免
+    if (isTeacher && teacherRole === 'teacher' && assignment.createdBy !== teacherUserId) {
+      return NextResponse.json({ error: '你沒有權限查看此作業 / You do not have permission to view this assignment' }, { status: 403 });
     }
 
     // 學生視圖：取得當前學生的提交記錄
@@ -194,7 +202,7 @@ export async function POST(
     // 🔒 2026-08-30 audit: 成員檢查 — 學生必須是作業目標（班級 / 直接指派 / 組別）
     const studentRecord = await adminDbQuery('user', 'findUnique', {
       where: { id: payload.userId },
-      select: { classId: true, studentClasses: { select: { classId: true } } },
+      select: { classId: true, class: { select: { name: true } }, studentClasses: { select: { classId: true } } },
     });
     const memberClassIds = Array.from(new Set([
       ...(studentRecord?.studentClasses ?? []).map((sc: { classId: string }) => sc.classId),
@@ -211,9 +219,14 @@ export async function POST(
         where: { assignmentId: id, group: { members: { some: { studentId: payload.userId } } } },
       });
       isTargeted = !!target;
+    } else if (assignment.classId) {
+      isTargeted = memberClassIds.includes(assignment.classId);
+    } else if (assignment.className) {
+      // 舊資料：僅有 className 而無 classId — 按班名比對
+      isTargeted = !!studentRecord?.class?.name && studentRecord.class.name === assignment.className;
     } else {
-      isTargeted = assignment.classId ? memberClassIds.includes(assignment.classId)
-        : assignment.className ? memberClassIds.length > 0 : true;
+      // 無任何目標欄位的孤兒作業（列表亦不可見）— 不視為任何人的目標
+      isTargeted = false;
     }
     if (!isTargeted) {
       return NextResponse.json({ error: '此作業未指派給你 / This assignment is not assigned to you' }, { status: 403 });

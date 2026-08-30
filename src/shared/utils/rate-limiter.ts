@@ -83,7 +83,7 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
       await kv.set(key, JSON.stringify(entry), { ex: Math.ceil((entry.resetAt - now) / 1000) });
       if (entry.count > config.maxRequests) {
         return { allowed: false, remaining: 0, resetAt: entry.resetAt,
-          message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒）` };
+          message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒） / Too many requests. Please retry in ${Math.ceil((entry.resetAt - now) / 1000)}s (limit: ${config.maxRequests} per ${config.windowMs / 1000}s)` };
       }
       return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
     } catch (err) {
@@ -102,7 +102,7 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
   entry.count++;
   if (entry.count > config.maxRequests) {
     return { allowed: false, remaining: 0, resetAt: entry.resetAt,
-      message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒）` };
+      message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒） / Too many requests. Please retry in ${Math.ceil((entry.resetAt - now) / 1000)}s (limit: ${config.maxRequests} per ${config.windowMs / 1000}s)` };
   }
   return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
 }

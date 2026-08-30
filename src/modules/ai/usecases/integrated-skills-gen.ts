@@ -114,9 +114,9 @@ It MUST contain guiding questions with HINTS — NEVER the actual answers.
 Hints should tell students WHAT to listen for (e.g. "Listen for the date"),
 NOT what the answer is (e.g. DO NOT write "August 15th").
 
-IMPORTANT — BILINGUAL FORMAT:
-- "question" / "hint": Write in ENGLISH (primary display language)
-- "questionZh" / "hintZh": Write in TRADITIONAL CHINESE 繁體中文 (secondary, shown on toggle)
+IMPORTANT — LANGUAGE FORMAT:
+- "question" / "hint": Write in ENGLISH ONLY. The UI translates to Chinese on demand.
+  (questionZh/hintZh are NOT needed — do not spend tokens on them.)
 
 Use symbol system: $=money #=number !=important @=time in hints.
 Example of CORRECT hint: "留意日期，可能有更改" (tells student to listen for date, not the date itself)
@@ -131,7 +131,7 @@ Output pure JSON (start with {, end with }, no markdown):
   "listeningContent": "Woman: Hello...\\nMan: Yes...\\nWoman: Also...",
   "listeningTopicZh": "主題名稱（繁體中文）",
   "dataFile": { "sources": [{ "type": "email", "title": "...", "content": "...", "relevantFor": [1, 2], "sourceDate": "2024-03-15" }] },
-  "noteTakingGuide": [{ "question": "What date did the students arrive?", "hint": "Listen for the date — it may change", "questionZh": "學生抵達日期是？", "hintZh": "留意日期，可能有更改" }],
+  "noteTakingGuide": [{ "question": "What date did the students arrive?", "hint": "Listen for the date — it may change" }],
   "writingTask": "You are... Write a...",
   "expectedContentPoints": ["Content point as a plain string", "Another content point as a plain string"],
   "listeningAnswers": [{ "question": "...", "answer": "..." }]

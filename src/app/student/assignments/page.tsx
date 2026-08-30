@@ -9,6 +9,7 @@ import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
+import CountdownTimer from '@/components/shared/CountdownTimer';
 import { logger } from '@/shared/logger/logger';
 import { formatDate, daysRemaining, getStatusColor } from '@/shared/utils/utils';
 import { statusLabels, getStatusLabel } from '@/shared/utils/nav';
@@ -137,10 +138,9 @@ export default function StudentAssignmentsPage() {
                     <span className="flex items-center gap-1 text-red-500 font-medium">
                       <AlertCircle className="w-3 h-3" /> {t('assignments.overdueLabel')}
                     </span>
-                  ) : remaining <= 3 && a.status !== 'completed' ? (
-                    <span className="flex items-center gap-1 text-orange-500 font-medium">
-                      <AlertCircle className="w-3 h-3" /> {t('assignments.daysRemaining').replace('{n}', String(remaining))}
-                    </span>
+                  ) : a.dueDate && a.status !== 'completed' ? (
+                    /* 作業倒數計時：>24h 藍 / <24h 琥珀 / <1h 紅色閃爍 */
+                    <CountdownTimer dueDate={a.dueDate} expiredLabel={t('assignments.overdueLabel')} />
                   ) : null}
                 </div>
                 {a.teacherFeedback && (

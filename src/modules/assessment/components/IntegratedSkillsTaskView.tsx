@@ -491,6 +491,15 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
     };
   }, [s.studentNotes, s.studentWriting, saveDraft]);
 
+  // 卸載時 flush 未儲存草稿：SPA 導航不觸發 beforeunload，15 秒視窗內的編輯否則會靜默遺失
+  const saveDraftRef = useRef(saveDraft);
+  useEffect(() => {
+    saveDraftRef.current = saveDraft;
+  }, [saveDraft]);
+  useEffect(() => {
+    return () => { saveDraftRef.current(); };
+  }, []);
+
   // === 離開頁面保護（未儲存時提示） ===
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -529,6 +538,8 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         if (json.overCopyCheck) s.setOverCopyCheck(json.overCopyCheck);
         s.setStage('result');
         localStorage.removeItem(DRAFT_KEY);
+        // 任務已完成：清除伺服器草稿，避免下次進入還原已完成任務的舊草稿
+        s.clearDraft();
         // 儲存練習記錄到學生分析（R3.10-L：不傳送 totalQuestions/correctCount，
         // 綜合訓練無逐題計分 — 伺服器衍生聚合為 0/0，歷史以「已記錄」標示）
         if (appStore.userId) {
@@ -651,7 +662,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
       {/* Main grid: 3/4 content + 1/4 sidebar (desktop) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* ===== MAIN CONTENT (3/4) ===== */}
-        <div className="lg:col-span-3 space-y-4">
+        <div id="is-main-task" className="lg:col-span-3 space-y-4">
 
           {/* ── STEP 1: LISTENING ── */}
           <section className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all ${
@@ -849,7 +860,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
           </section>
 
           {/* ── STEP 2: NOTE-TAKING ── */}
-          <section className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all ${
+          <section id="is-notes-section" className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all ${
             s.activeStep === 2
               ? 'border-amber-300 dark:border-amber-700 ring-1 ring-amber-200 dark:ring-amber-800'
               : canAccessNotes
@@ -1127,11 +1138,36 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         </aside>
 
         {/* ===== MOBILE BOTTOM TABS ===== */}
+        {/* 行動裝置：側欄隱藏，故提供三種快速跳轉（任務/要點/筆記） */}
+        {s.showContentPoints && (
+          <div className="lg:hidden bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-800 overflow-hidden mt-2">
+            <div className="p-4">
+              <h3 className="font-semibold text-green-800 dark:text-green-300 text-sm flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4" /> {language === 'zh' ? '預期要點' : 'Expected Points'}
+              </h3>
+              <ul className="space-y-1.5">
+                {task.expectedContentPoints.map((pt, i) => {
+                  const text = typeof pt === 'string' ? pt : (pt as Record<string, unknown>)?.point as string || JSON.stringify(pt);
+                  const source = typeof pt === 'string' ? undefined : (pt as Record<string, unknown>)?.source as string | undefined;
+                  return (
+                    <li key={i} className="text-xs text-green-700 dark:text-green-400 flex items-start gap-1.5">
+                      <span className="text-green-500 mt-0.5 font-bold shrink-0">{i + 1}.</span>
+                      <span>
+                        {text}
+                        {source && <span className="text-green-400/60 ml-1 italic">({source})</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
         <div className="lg:hidden grid grid-cols-3 gap-2 mt-2">
           {[
-            { label: language === 'zh' ? '任務' : 'Task', icon: FileText, onClick: () => {} /* always visible */ },
-            { label: language === 'zh' ? '要點' : 'Points', icon: Target, onClick: s.toggleContentPoints },
-            { label: language === 'zh' ? '筆記' : 'Notes', icon: Edit3, onClick: () => {} /* scroll to notes */ },
+            { label: language === 'zh' ? '任務' : 'Task', icon: FileText, onClick: () => { document.getElementById('is-main-task')?.scrollIntoView({ behavior: 'smooth' }); } },
+            { label: language === 'zh' ? '要點' : 'Points', icon: Target, onClick: () => { s.toggleContentPoints(); if (!s.showContentPoints) setTimeout(() => document.querySelector('.lg\\:hidden.bg-green-50')?.scrollIntoView({ behavior: 'smooth' }), 50); } },
+            { label: language === 'zh' ? '筆記' : 'Notes', icon: Edit3, onClick: () => { document.getElementById('is-notes-section')?.scrollIntoView({ behavior: 'smooth' }); } },
           ].map((tab, i) => {
             const Icon = tab.icon;
             return (

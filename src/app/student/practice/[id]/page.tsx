@@ -407,8 +407,16 @@ export default function PracticeQuestionPage() {
       setAiLoading(false);
     }
 
-    // 答錯時儲存錯題
+    // 答錯時儲存錯題 — mistakeType 依題目技能分類（閱讀/聆聽 → comprehension，詞彙 → vocabulary，寫作 → chinglish，其餘 grammar）
     if (!correct) {
+      const skillLower = String(question.languageSkill || '').toLowerCase();
+      const mistakeType = skillLower.includes('read') || skillLower.includes('listen')
+        ? 'comprehension'
+        : skillLower.includes('vocab')
+          ? 'vocabulary'
+          : skillLower.includes('writ') || question.type === 'short-writing'
+            ? 'chinglish'
+            : 'grammar';
       fetch('/api/mistakes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -417,7 +425,7 @@ export default function PracticeQuestionPage() {
           questionId: question.id,
           studentAnswer: selectedAnswer,
           correctAnswer: question.answer,
-          mistakeType: 'grammar',
+          mistakeType,
           aiExplanation: '',
         }),
       }).catch((e) => { logger.error({ module: 'student-practice-detail', error: e instanceof Error ? e.message : String(e) }, 'Mistake record POST failed'); });

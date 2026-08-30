@@ -5,7 +5,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDbQuery } from '@/modules/admin/services/admin-operations';
-import { listAssignments, findTeacherClass, listGroupMembers, createAssignment, listNotifications } from '@/modules/student';
 import { logger } from '@/shared/logger/logger';
 import { validateRequest } from '@/shared/validation/validate';
 import { assignmentCreateSchema } from '@/shared/validation/schemas';
@@ -81,12 +80,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 統一輸出形狀：原始欄位 + submissionCount + 學生提交狀態
+    // 統一輸出形狀：原始欄位 + submissionCount + 學生提交狀態 + 派發狀態（列表頁 chip 用）
     const mapped = (assignments as Array<Record<string, unknown>>).map(a => {
       const sub = submissionMap.get(a.id as string) ?? null;
+      const raw = a as { dueDate?: Date | string | null; completionRate?: number | null; _count?: { submissions?: number } };
+      const due = raw.dueDate ? new Date(raw.dueDate).getTime() : null;
+      const rate = raw.completionRate ?? 0;
+      const status = rate >= 100 ? 'completed'
+        : due !== null && due < Date.now() ? 'overdue'
+        : (raw._count?.submissions ?? 0) > 0 ? 'in-progress'
+        : 'not-started';
       return {
         ...a,
         submissionCount: ((a as { _count?: { submissions?: number } })._count?.submissions ?? 0),
+        status,
         submission: sub ? {
           id: sub.id,
           status: sub.status,
@@ -175,7 +182,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: '您沒有任教部分班級的權限 / You do not teach all selected classes' }, { status: 403 });
           }
         }
-        targetClassNames.push(...classes.map(c => c.name));
+        // 依 targetClassIds 順序對映班名（DB 查詢無順序保證，不可用陣列位置對映）
+        const classByName = new Map(classes.map(c => [c.id, c.name]));
+        targetClassNames.push(...targetClassIds.map(cid => classByName.get(cid) ?? ''));
       } else if (className) {
         const teacherClass = await adminDbQuery('teacherClass', 'findFirst', {
           where: isAdmin ? { class: { name: className } } : { teacherId, class: { name: className } },
@@ -191,7 +200,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 組別指派：核驗組別擁有權（admin 豁免）
+    // 組別指派：核驗組別擁有權（admin 豁免）；不得為空選擇（否則產生無人可見的孤兒作業）
     if (resolvedTargetType === 'group' && groupIds?.length) {
       const groups = await adminDbQuery('group', 'findMany', {
         where: isAdmin ? { id: { in: groupIds } } : { id: { in: groupIds }, createdBy: teacherId },
@@ -201,8 +210,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '您沒有權限指派部分組別 / You do not own all selected groups' }, { status: 403 });
       }
     }
+    if (resolvedTargetType === 'group' && (!groupIds || groupIds.length === 0)) {
+      return NextResponse.json({ error: '請選擇至少一個組別 / Please select at least one group' }, { status: 400 });
+    }
 
-    // 個別學生指派：學生必須是教師任教班級的學生（admin 豁免）
+    // 個別學生指派：學生必須是教師任教班級的學生（admin 豁免）；不得為空選擇
     if (resolvedTargetType === 'students' && studentIds?.length) {
       const validStudents = await adminDbQuery('user', 'findMany', {
         where: isAdmin
@@ -213,6 +225,9 @@ export async function POST(request: NextRequest) {
       if (validStudents.length !== new Set(studentIds).size) {
         return NextResponse.json({ error: '部分學生不在您的任教班級 / Some students are outside your classes' }, { status: 403 });
       }
+    }
+    if (resolvedTargetType === 'students' && (!studentIds || studentIds.length === 0)) {
+      return NextResponse.json({ error: '請選擇至少一位學生 / Please select at least one student' }, { status: 400 });
     }
 
     // 建立作業（class 目標：每班一份；group/students：單一份）
@@ -276,6 +291,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ assignment, assignments: created }, { status: 201 });
   } catch (err: unknown) {
+    // validateRequest 及內部檢查會以 NextResponse 拋出（400/403）— 直接回傳，不吞成 500
+    if (err instanceof NextResponse) return err;
     const message = err instanceof Error ? err.message : '未知錯誤';
     // Intentional: return empty [] so client renders graceful empty state instead of crashing
     logger.error({ module: 'assignments', error: message }, 'Assignments POST failed');

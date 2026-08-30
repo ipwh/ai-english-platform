@@ -115,6 +115,7 @@ export function normalizeSkillName(skill: string): { name: string; nameZh: strin
   if (key.includes('read')) return { name: 'reading', nameZh: '閱讀' };
   if (key.includes('writ')) return { name: 'writing', nameZh: '寫作' };
   if (key.includes('vocab') || key.includes('phrasal')) return { name: 'vocabulary', nameZh: '詞彙' };
+  if (key.includes('listen')) return { name: 'listening', nameZh: '聆聽' };
   return { name: 'grammar', nameZh: '文法' };
 }
 
@@ -181,12 +182,14 @@ export function buildWeakSkills(sessions: PracticeSessionLite[], mistakes: Mista
   }
 
   const defaults = [
-    { name: 'grammar', nameZh: '文法', accuracy: 0 },
-    { name: 'vocabulary', nameZh: '詞彙', accuracy: 0 },
-    { name: 'reading', nameZh: '閱讀', accuracy: 0 },
-    { name: 'writing', nameZh: '寫作', accuracy: 0 },
+    { name: 'grammar', nameZh: '文法', accuracy: -1 },
+    { name: 'vocabulary', nameZh: '詞彙', accuracy: -1 },
+    { name: 'reading', nameZh: '閱讀', accuracy: -1 },
+    { name: 'writing', nameZh: '寫作', accuracy: -1 },
   ];
 
+  // -1 = 無證據（未測過）≠ 弱（0）。舊版用 0 令每個新學生所有技能全被視為弱項，
+  // 導致診斷加題全開、弱項建議隨機指向文法。
   for (const item of defaults) {
     if (!base.some(b => b.name === item.name)) base.push(item);
   }

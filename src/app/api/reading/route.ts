@@ -1,10 +1,11 @@
 // ============================================
 // API: /api/reading — DSE Paper 1 閱讀理解 v3
 // Features:
-//   - Full DSE Paper generation (multi-passage, 42 marks)
-//   - 19 question types with EXACT DSE wording
+//   - Full DSE Paper generation (multi-passage, 42 marks; dormant — no UI consumer)
+//   - Student generation: 500-800 words, 3-5 paragraphs + progressive questions
+//     (MCQ / fill / TFNG / tone-attitude / vocab / summary / referencing / inference / short answer)
 //   - B1/B2 level cap enforcement
-//   - Passage quality validation (word count, line markers, readability)
+//   - Passage quality validation (word count, paragraph count, readability)
 //   - HK-local content density check
 //   - Wrong answer analysis & classification
 //   - Summary Cloze / Paraphrase / Idiom training endpoints
@@ -1473,6 +1474,32 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
   let actualParagraphCount = 0;
   if (preParsed) {
     parsed = preParsed as Record<string, unknown>;
+    // 2026-08-30 audit (Round 4): exercise 路徑不得繞過 passage 合約檢查。
+    // 以 [Paragraph N] 標記或空行分段計數，強制 3-5 段、250-810 字。
+    const pc = (parsed.readingContent || (parsed.passage as Record<string, unknown>)?.content) as string;
+    passageWordCount = pc ? pc.split(/\s+/).filter(Boolean).length : 0;
+    const markerCount = (pc?.match(/\[Paragraph\s+\d+\]/gi) || []).length;
+    const blankLineCount = pc ? pc.split(/\n\s*\n/).filter(s => s.trim().length > 0).length : 0;
+    actualParagraphCount = markerCount > 0 ? markerCount : blankLineCount;
+
+    if (passageWordCount > 0 && passageWordCount < 250) {
+      return NextResponse.json(
+        apiError(`Generated passage too short: ${passageWordCount} words (minimum 250 required). Please try again.`, 'PASSAGE_TOO_SHORT', true),
+        { status: 422 },
+      );
+    }
+    if (passageWordCount > 810) {
+      return NextResponse.json(
+        apiError(`Generated passage too long: ${passageWordCount} words (maximum 800 allowed). Please try again.`, 'PASSAGE_TOO_LONG', true),
+        { status: 422 },
+      );
+    }
+    if (actualParagraphCount > 0 && (actualParagraphCount < 3 || actualParagraphCount > 5)) {
+      return NextResponse.json(
+        apiError(`Generated passage has ${actualParagraphCount} paragraph(s) (3-5 required). Please try again.`, 'PARAGRAPH_COUNT_INVALID', true),
+        { status: 422 },
+      );
+    }
   } else {
     const legacyMaxTokens = getReadingMaxTokens({ mode: 'legacy', estimatedWords: 800 });
     const legacyTimeout = getReadingTimeout({ mode: 'legacy', maxTokens: legacyMaxTokens });

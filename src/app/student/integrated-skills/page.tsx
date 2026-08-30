@@ -38,11 +38,13 @@ export default function IntegratedSkillsPage() {
   const s = useIntegratedSkillsStore();
 
   useEffect(() => {
+    let hasLocalDraft = false;
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
         const draft = JSON.parse(raw);
         if (draft.savedAt && Date.now() - draft.savedAt < 24 * 60 * 60 * 1000) {
+          hasLocalDraft = true;
           s.setConfig(draft.gradeLevel || 'S4', draft.difficulty || 'core', draft.taskType || 'summary');
           if (draft.studentNotes) s.setStudentNotes(draft.studentNotes);
           if (draft.studentWriting) s.setStudentWriting(draft.studentWriting);
@@ -50,18 +52,20 @@ export default function IntegratedSkillsPage() {
       }
     } catch { /* ignore */ }
 
-    // Auto-load grade from student profile (only if no localStorage draft)
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) {
-      fetch('/api/auth/profile')
-        .then(r => r.json())
-        .then(data => {
-          const studentLevel = data?.user?.level || data?.user?.class?.gradeLevel;
-          if (studentLevel && ['S1','S2','S3','S4','S5','S6'].includes(studentLevel)) {
-            s.setConfig(studentLevel, s.difficulty, s.taskType);
-          }
-        })
-        .catch(() => { /* silent */ });
+    // 本地草稿失效/不存在時，從伺服器還原（跨裝置同步）；伺服器無草稿則從 profile 載入年級
+    if (!hasLocalDraft) {
+      s.loadDraft().then((restored) => {
+        if (restored) return;
+        fetch('/api/auth/profile')
+          .then(r => r.json())
+          .then(data => {
+            const studentLevel = data?.user?.level || data?.user?.class?.gradeLevel;
+            if (studentLevel && ['S1','S2','S3','S4','S5','S6'].includes(studentLevel)) {
+              s.setConfig(studentLevel, s.difficulty, s.taskType);
+            }
+          })
+          .catch(() => { /* silent */ });
+      });
     }
   }, []);
 
@@ -79,6 +83,7 @@ export default function IntegratedSkillsPage() {
         s.setStudentNotes(''); s.setStudentWriting(''); s.setAnalysis(null);
         // Clear old draft so new task starts with blank fields
         localStorage.removeItem(DRAFT_KEY);
+        s.clearDraft();
       } else {
         s.setError(json.error || t('is.generateFailed'));
       }
@@ -150,7 +155,12 @@ export default function IntegratedSkillsPage() {
       task={s.task}
       onBack={() => {
         if (s.stage === 'listening' || s.stage === 'writing') {
-          if (confirm(language === 'en' ? 'Discard current progress and go back?' : '確定要放棄當前進度並返回嗎？')) s.reset();
+          if (confirm(language === 'en' ? 'Discard current progress and go back?' : '確定要放棄當前進度並返回嗎？')) {
+            // 真正放棄：清除本地及伺服器草稿（否則下次進入又會還原「已放棄」的內容）
+            localStorage.removeItem(DRAFT_KEY);
+            s.clearDraft();
+            s.reset();
+          }
         }
       }}
     />

@@ -563,7 +563,7 @@ export default function ReadingPracticePage() {
                 ...prev[qIndex],
                 isCorrect: analysis.isCorrect,
                 isPartiallyCorrect: analysis.isPartiallyCorrect,
-                score: analysis.score ?? (analysis.isCorrect ? 1 : 0),
+                score: analysis.score ?? 0,
                 maxScore: analysis.maxMarks ?? 1,
                 feedbackEn: analysis.feedbackEn || prev[qIndex].feedbackEn,
                 feedbackZh: analysis.feedbackZh || prev[qIndex].feedbackZh,

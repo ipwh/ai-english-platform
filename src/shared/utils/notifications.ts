@@ -118,8 +118,14 @@ export async function notifyAssignmentCreated(
 ) {
   try {
     // 優先使用 classId 查詢；fallback 到 className
+    // 班級成員 = 主班級 User.classId（admin import/sync 寫入）∪ StudentClass 混合上課關聯
     const where = classId
-      ? { studentClasses: { some: { classId } }, role: 'student' as const }
+      ? {
+          OR: [
+            { classId, role: 'student' as const },
+            { studentClasses: { some: { classId } }, role: 'student' as const },
+          ],
+        }
       : { class: { name: className }, role: 'student' as const };
     const students = await findUsers(where, { id: true });
     if (students.length === 0) return;
@@ -206,6 +212,24 @@ export async function notifyFeedbackReady(
     type: 'feedback',
     title: titleMsg[lang],
     message: bodyMsg[lang],
+    link: `/student/assignments/${assignmentId}`,
+  });
+}
+
+/** 教師退回作業 — 通知學生修改重交（即使教師無填評語亦需通知） */
+export async function notifyAssignmentReturned(
+  studentId: string,
+  assignmentTitle: string,
+  assignmentId: string,
+) {
+  const lang = await getUserLang(studentId);
+  const zh = `📥 你的作業「${assignmentTitle}」已退回，請修改後重新提交`;
+  const en = `📥 Your assignment "${assignmentTitle}" was returned for revision — please revise and resubmit`;
+  await createNotification({
+    userId: studentId,
+    type: 'feedback',
+    title: { zh: '📥 作業已退回', en: '📥 Assignment Returned' }[lang],
+    message: lang === 'en' ? en : zh,
     link: `/student/assignments/${assignmentId}`,
   });
 }

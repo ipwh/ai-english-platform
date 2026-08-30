@@ -23,7 +23,6 @@ interface DiagnosticResult {
   label: string;
   score: number;
   totalQuestions: number;
-  level: string;
   suggestion: string;
 }
 
@@ -57,14 +56,6 @@ interface DiagnosticPlan {
 
 function getStudentLevel(profile: StudentProfile | null): string {
   return profile?.level || profile?.class?.gradeLevel || 'S4';
-}
-
-function getLevelLabel(scores: { correct: number; total: number } | undefined): string {
-  if (!scores || scores.total === 0) return '';
-  const pct = scores.correct / scores.total;
-  if (pct >= 0.8) return '挑戰';
-  if (pct >= 0.5) return '核心';
-  return '補底';
 }
 
 function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): DiagnosticPlan[] {
@@ -131,7 +122,8 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
   // 「只分析第一題」的失效情況。
   const boostByCategory: Partial<Record<Exclude<DiagnosticPlan['skillCategory'], 'writing'>, number>> = {};
   for (const w of weakSkills) {
-    if (w.accuracy >= 60) continue;
+    // accuracy < 0 = 無證據（未測過），不加題；只有有證據且 < 60% 才是弱項
+    if (w.accuracy < 0 || w.accuracy >= 60) continue;
     if (w.name === 'grammar' || w.name === 'vocabulary' || w.name === 'reading' || w.name === 'listening') {
       boostByCategory[w.name] = (boostByCategory[w.name] ?? 0) + 1;
     }
@@ -144,7 +136,9 @@ function buildDiagnosticPlans(level: string, weakSkills: WeakSkill[]): Diagnosti
 }
 
 function buildPracticeRecommendation(results: DiagnosticResult[], level: string): PracticeRecommendation {
-  const weakest = [...results].sort((a, b) => a.score - b.score)[0] || results[0];
+  // 寫作分析未完成（CLO 失敗）時 score 為 -1：不得當成最弱技能，否則永遠推薦寫作
+  const scored = results.filter(r => typeof r.score === 'number' && r.score >= 0);
+  const weakest = [...(scored.length > 0 ? scored : results)].sort((a, b) => a.score - b.score)[0] || results[0];
   const difficulty: 'remedial' | 'core' | 'challenge' = weakest.score < 50 ? 'remedial' : weakest.score < 75 ? 'core' : 'challenge';
 
   if (weakest?.id === 'reading') {
@@ -155,6 +149,10 @@ function buildPracticeRecommendation(results: DiagnosticResult[], level: string)
   }
   if (weakest?.id === 'vocabulary') {
     return { grammarItem: 'phrasal-verbs', difficulty, questionType: 'mc', questionCount: 5, weakLabel: weakest.label };
+  }
+  if (weakest?.id === 'listening') {
+    // 聆聽最弱時必須練聆聽，不得落入文法 default（否則標籤與練習內容不符）
+    return { languageSkill: 'listening', difficulty, questionType: 'mc', questionCount: 5, weakLabel: weakest.label };
   }
 
   const junior = ['S1', 'S2', 'S3'].includes(level);
@@ -345,7 +343,6 @@ export default function DiagnosticPage() {
       return {
         ...r,
         score: percentage,
-        level: percentage >= 80 ? t('diagnostic.levelChallenge') : percentage >= 50 ? t('diagnostic.levelCore') : t('diagnostic.levelRemedial'),
       };
     }));
   }, [writingAnalysis, completed, t]);
@@ -445,28 +442,24 @@ export default function DiagnosticPage() {
         id: 'grammar', label: t('diagnostic.skillGrammar'),
         score: skillScores.grammar ? Math.round((skillScores.grammar.correct / skillScores.grammar.total) * 100) : 0,
         totalQuestions: skillScores.grammar?.total ?? 0,
-        level: getLevelLabel(skillScores.grammar),
         suggestion: '',
       },
       {
         id: 'vocabulary', label: t('diagnostic.skillVocab'),
         score: skillScores.vocabulary ? Math.round((skillScores.vocabulary.correct / skillScores.vocabulary.total) * 100) : 0,
         totalQuestions: skillScores.vocabulary?.total ?? 0,
-        level: getLevelLabel(skillScores.vocabulary),
         suggestion: '',
       },
       {
         id: 'reading', label: t('diagnostic.skillReading'),
         score: skillScores.reading ? Math.round((skillScores.reading.correct / skillScores.reading.total) * 100) : 0,
         totalQuestions: skillScores.reading?.total ?? 0,
-        level: getLevelLabel(skillScores.reading),
         suggestion: '',
       },
       {
         id: 'listening', label: t('diagnostic.skillListening'),
         score: skillScores.listening ? Math.round((skillScores.listening.correct / skillScores.listening.total) * 100) : 0,
         totalQuestions: skillScores.listening?.total ?? 0,
-        level: getLevelLabel(skillScores.listening),
         suggestion: '',
       },
       {
@@ -474,7 +467,6 @@ export default function DiagnosticPage() {
         // Writing is purely CLO-based (qualitative) — show placeholder until AI analysis completes
         score: -1, // -1 = pending CLO analysis
         totalQuestions: skillScores.writing?.total ?? 0,
-        level: t('diagnostic.levelPending'),
         suggestion: '',
       },
     ];
@@ -769,7 +761,8 @@ export default function DiagnosticPage() {
                   />
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-sm text-gray-500">
-                      <strong>{writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0}</strong> words / {writingAnswer.length} chars
+                      <strong>{writingAnswer.trim() ? writingAnswer.trim().split(/\s+/).length : 0}</strong>{' '}
+                      {lang === 'en' ? `words / ${writingAnswer.length} chars` : `字 / ${writingAnswer.length} 字元`}
                     </span>
                     {writingAnswer.trim() && writingAnswer.trim().split(/\s+/).length < 30 && (
                       <span className="text-xs text-amber-500">{t('diagnostic.minWordsSuggestion')}</span>

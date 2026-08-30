@@ -1,49 +1,17 @@
 // Sprint 5: Reading Prompts v2 — Major DSE Paper 1 overhaul
-// HKDSE Paper 1 Reading comprehension prompts with ALL DSE question types
-// v2.0: 19 question types, DSE wording templates, HKEAA level descriptors, multi-text support
+// HKDSE Paper 1 Reading comprehension prompts with DSE question types
+// v2.0: DSE wording templates, HKEAA level descriptors, multi-text support
+// (matching/sequencing removed 2026-08-30: delivery layer cannot render them —
+//  see DSE_TYPE_MAP short-answer degradation)
 import { HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 import { DSE_QUESTION_TEMPLATES, DSE_PART_QUESTION_MIX, DSE_RUBRIC_PHRASES } from './dse-question-templates';
 import { buildHKEAALevelPrompt } from './dse-level-descriptors';
 import { buildTextTypePrompt, buildHKLocalPrompt } from './text-types';
 
 export const version = '2.0.0';
-export const description = 'HKDSE Reading v2: 19 question types, DSE exact wording, HKEAA descriptors, 12+ text types, multi-passage, B1/B2 caps, marks/word-limit annotations';
+export const description = 'HKDSE Reading v2: 17 deliverable question types, DSE exact wording, HKEAA descriptors, 12+ text types, multi-passage, B1/B2 caps, marks/word-limit annotations';
 export const updatedAt = '2026-07-22';
 export const author = 'AI English Platform';
-
-// ============================================
-// Full DSE Paper 1 Question Type Definitions (19 types)
-// ============================================
-const DSE_PAPER1_ALL_QUESTION_TYPES = `
-## DSE Paper 1 全題型支援（19種，對應真實 HKDSE 格式）
-
-### 基礎題型 (Part A 常用)
-1. **mcq** — 四選一 Multiple Choice (1 mark)
-2. **trueFalseNG** — True/False/Not Given 判斷題 (1 mark each)
-3. **matching** — 配對題：段落標題/人物觀點/選項配對 (1 mark each)
-4. **shortAnswer** — 短答題，限15字以內 (1 mark)
-5. **referencing** — "What does 'it/this/they' refer to in line X?" / "Who or what does 'X' refer to?" (1 mark)
-6. **synonymSearch** — "Find a word or phrase in paragraph X which has a similar meaning to 'Y'" (1 mark)
-7. **phraseSearch** — "What phrase is used in paragraph X to describe Y?" (1 mark)
-8. **vocabularyInContext** — "What does 'X' (line Y) mean as used in the passage?" (1 mark)
-9. **negativeInference** — "Based on paragraph X, which of the following can people NOT do?" (1 mark)
-
-### 撮要填充題 (Summary Cloze — 三種子類型)
-10. **summaryCloze** — 填空式撮要: "Complete the summary using ONE word / no more than THREE words" (1 mark per blank)
-11. **mcCloze** — 選擇式撮要: "Complete the summary by selecting the best option from A/B/C/D" (1 mark each)
-12. **errorCorrectionSummary** — 改錯型撮要: "In X lines there is ONE mistake. Underline and replace. One line has no mistake; put a tick (✓)" (1 mark each)
-
-### 資訊提取題
-13. **tableCompletion** — 表格式資訊提取: "Complete the table using a word/phrase. Write no more than THREE words" (1 mark per gap)
-14. **causeEffectCompletion** — 因果完成題: "Complete the sentence using ONE word taken from paragraph X" (1 mark)
-
-### 進階題型 (Part B2 常用)
-15. **inference** — 開放式推論題: "Explain why... / What does X imply?" (3-4 marks, 30-50 words)
-16. **toneAttitude** — 語氣/態度/目的判斷題 (2 marks)
-17. **sequencing** — 事件排序題 (2 marks)
-18. **exampleFinding** — 舉例題: "Give an example from paragraph X of how Y" (1 mark)
-19. **authorIntention** — 作者意圖推斷: "The sentence '...' suggests the reader should..." (1 mark, MC format)
-`;
 
 // ============================================
 // DSE Question Wording Injection (real phrasing)

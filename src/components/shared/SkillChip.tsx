@@ -32,10 +32,15 @@ export default function SkillChip({ skill, grammarItem, languageSkill, subSkill,
 
   const diffLabelsEn: Record<string, string> = { remedial: 'Remedial', core: 'Core', challenge: 'Challenge' };
 
-  // 取得技能標籤文字 — 根據語言選擇
+  // 取得技能標籤文字 — 根據語言選擇。
+  // 注意：subSkillZh/subSkill 與 skillKey 標籤會重複（如「時態 · 時態」），只顯示其一。
+  // EN UI 優先取英文 subSkill；ZH UI 優先取中文 subSkillZh。
   const skillKey = grammarItem || languageSkill || skill;
   const labels = language === 'en' ? skillLabelsEn : skillLabels;
-  const skillLabel = subSkillZh || subSkill || (skillKey ? labels[skillKey] || skillKey : '');
+  const fallback = skillKey ? labels[skillKey] || skillKey : '';
+  const skillLabel = language === 'en'
+    ? (subSkill || subSkillZh || fallback)
+    : (subSkillZh || subSkill || fallback);
 
   if (difficulty) {
     const diffLabel = language === 'en' ? (diffLabelsEn[difficulty] || difficulty) : (difficultyLabels[difficulty] || difficulty);
@@ -49,7 +54,6 @@ export default function SkillChip({ skill, grammarItem, languageSkill, subSkill,
   return (
     <span className={`inline-block rounded-full font-medium ${sizeClass} bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300 ${className}`}>
       {skillLabel}
-      {(subSkillZh || subSkill) && ` · ${subSkillZh || subSkill}`}
     </span>
   );
 }

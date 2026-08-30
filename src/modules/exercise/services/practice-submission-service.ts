@@ -156,6 +156,16 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   //    and only via the atomic insert-if-absent (P0-2).
   if (normalizedAnswers.length > 0 && isServerAuthoritativeSubmission(submissionClass)) {
     const wrongAnswers = normalizedAnswers.filter(a => !a.isCorrect);
+    // 錯題類型依技能分類：閱讀/聆聽 → comprehension、詞彙 → vocabulary、寫作 → chinglish、其餘 grammar。
+    // 舊版一律 'grammar' 令閱讀錯題錯誤地懲罰文法弱項統計。
+    const skillLower = String(skill || '').toLowerCase();
+    const mistakeType = submissionClass === 'reading' || skillLower.includes('read') || skillLower.includes('listen')
+      ? 'comprehension'
+      : skillLower.includes('vocab') || skillLower.includes('phrasal')
+        ? 'vocabulary'
+        : skillLower.includes('writ')
+          ? 'chinglish'
+          : 'grammar';
     for (const a of wrongAnswers) {
       try {
         await createMistakeIfAbsent({
@@ -164,7 +174,7 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
           questionSummary: a.questionPrompt || '',
           studentAnswer: a.studentAnswer || '',
           correctAnswer: a.correctAnswer || '',
-          mistakeType: 'grammar',
+          mistakeType,
         });
       } catch (err) {
         logger.warn({ module: 'practice', studentId, error: err instanceof Error ? err.message : String(err) }, 'Auto-mistake sync failed (non-fatal)');

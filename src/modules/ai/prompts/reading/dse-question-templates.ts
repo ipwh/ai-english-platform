@@ -39,20 +39,7 @@ export const DSE_QUESTION_TEMPLATES: Record<string, { pattern: string; examples:
   },
 
   // ==========================================
-  // 3. Matching — 配對題
-  // ==========================================
-  matching: {
-    pattern: 'Match items from Column A to Column B. Each option can only be used once.',
-    examples: [
-      'Select one of the menu options in the header above paragraph 1 to complete each gap in the table below. Each option can only be used once.',
-      'Match the following headings to paragraphs 2-6.',
-      'Match each person to their viewpoint expressed in the passage.',
-    ],
-    marks: 1,
-  },
-
-  // ==========================================
-  // 4. Summary Cloze — 撮要填充（填空式）
+  // 3. Summary Cloze — 撮要填充（填空式）
   // ==========================================
   summaryCloze: {
     pattern: 'Complete the summary using words from the passage. Some answers may need grammatical adjustment (change mode) or inference (create mode) — not all are direct copies.',
@@ -125,19 +112,7 @@ export const DSE_QUESTION_TEMPLATES: Record<string, { pattern: string; examples:
   },
 
   // ==========================================
-  // 9. Sequencing — 排序題
-  // ==========================================
-  sequencing: {
-    pattern: 'Arrange the following events in the correct order according to the passage.',
-    examples: [
-      'Arrange the following events in chronological order as they appear in the passage.',
-      'Put the following steps in the correct sequence according to the instructions.',
-    ],
-    marks: 2,
-  },
-
-  // ==========================================
-  // 10. Synonym/Antonym Search — 同義/反義詞搜索（NEW）
+  // 9. Synonym/Antonym Search — 同義/反義詞搜索（NEW）
   // ==========================================
   synonymSearch: {
     pattern: 'Find a word or phrase in paragraph X which has a similar meaning to \'Y\'.',
@@ -280,7 +255,7 @@ export const DSE_PART_QUESTION_MIX = {
     label: 'Part B1 (Easier Section)',
     maxLevel: 4,
     recommendedTypes: [
-      'mcq', 'trueFalseNG', 'matching', 'summaryCloze', 'shortAnswer',
+      'mcq', 'trueFalseNG', 'summaryCloze', 'shortAnswer',
       'referencing', 'tableCompletion', 'causeEffectCompletion', 'authorIntention',
     ],
     totalQuestions: '~22 questions, 42 marks',

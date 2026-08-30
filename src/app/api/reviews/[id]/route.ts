@@ -6,8 +6,7 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
-import { notifyFeedbackReady } from '@/shared/utils/notifications';
-import { findSubmissionById, updateSubmission, createReview } from '@/modules/student';
+import { notifyFeedbackReady, notifyAssignmentReturned } from '@/shared/utils/notifications';
 
 export async function PATCH(
   request: NextRequest,
@@ -45,20 +44,42 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    // 🔒 2026-08-30 audit: 教師只能覆核自己任教班級學生的提交（admin 豁免）
+    // 輸入驗證：status 白名單；teacherScore 必須為有限數值（客戶端送字串會令 Prisma Float 失敗）
+    const STATUS_WHITELIST = ['reviewed', 'returned', 'graded', 'submitted', 'pending'];
+    if (body.status !== undefined && !STATUS_WHITELIST.includes(String(body.status))) {
+      return NextResponse.json({ error: 'Invalid status / 無效的狀態' }, { status: 400 });
+    }
+    if (body.teacherScore !== undefined && body.teacherScore !== null && body.teacherScore !== '') {
+      const ts = Number(body.teacherScore);
+      if (!Number.isFinite(ts)) {
+        return NextResponse.json({ error: 'Invalid teacher score / 無效的教師分數' }, { status: 400 });
+      }
+      body.teacherScore = ts;
+    }
+
+    // 🔒 2026-08-30 audit (Round 4): 教師可覆核「自己派發的作業」或「自己任教班級學生」的提交（admin 豁免）。
+    // 舊邏輯只查任教班級，導致組別/跨班作業出現在佇列卻無法覆核。
     if (role !== 'admin') {
       const submissionOwner = await adminDbQuery('submission', 'findUnique', {
         where: { id },
-        select: { student: { select: { classId: true } } },
+        select: {
+          student: { select: { classId: true } },
+          assignment: { select: { createdBy: true } },
+        },
       });
-      const ownerClassId = submissionOwner?.student?.classId ?? null;
-      if (!ownerClassId) {
+      if (!submissionOwner) {
         return NextResponse.json({ error: 'Forbidden — submission not found' }, { status: 404 });
       }
-      const teaching = await adminDbQuery('teacherClass', 'findFirst', {
-        where: { teacherId: userId, classId: ownerClassId },
-      });
-      if (!teaching) {
+      const createdByMe = submissionOwner.assignment?.createdBy === userId;
+      const ownerClassId = submissionOwner.student?.classId ?? null;
+      let teachesClass = false;
+      if (ownerClassId) {
+        const teaching = await adminDbQuery('teacherClass', 'findFirst', {
+          where: { teacherId: userId, classId: ownerClassId },
+        });
+        teachesClass = !!teaching;
+      }
+      if (!createdByMe && !teachesClass) {
         return NextResponse.json({ error: 'Forbidden — you do not teach this student’s class' }, { status: 403 });
       }
     }
@@ -89,6 +110,21 @@ export async function PATCH(
       where: { id },
       data: updateData,
     });
+
+    // 🔔 退回重做：無論教師有否填評語均須通知學生（否則學生只能自行重訪才得知）
+    if (body.status === 'returned') {
+      const returnedSub = await adminDbQuery('submission', 'findUnique', {
+        where: { id },
+        select: { studentId: true, assignment: { select: { id: true, title: true } } },
+      });
+      if (returnedSub) {
+        notifyAssignmentReturned(
+          returnedSub.studentId,
+          returnedSub.assignment?.title || '作業',
+          returnedSub.assignment?.id ?? '',
+        );
+      }
+    }
 
     // 記錄到 Review 表（按 submissionId upsert — 同一次提交只保留一筆教師覆核）
     if (body.teacherFeedback || body.teacherScore !== undefined) {

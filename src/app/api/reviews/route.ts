@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
       } catch { /* keep defaults */ }
 
       const reviewRecord = reviewMap.get(s.id);
+      // 覆核狀態語意（頁面 filter/chip 使用 pending/reviewed/returned）：
+      // - Review 表已 reviewed 或 Submission 已 graded → reviewed
+      // - 否則 → pending（submitted）
+      const reviewStatus = (reviewRecord?.status === 'reviewed' || s.status === 'graded')
+        ? 'reviewed'
+        : 'pending';
 
       return {
         id: s.id,
@@ -64,7 +70,8 @@ export async function GET(request: NextRequest) {
         aiFeedback: s.aiFeedback,
         teacherScore: reviewRecord?.teacherScore ?? null,
         teacherFeedback: reviewRecord?.teacherFeedback ?? null,
-        status: s.status,
+        status: reviewStatus,
+        submissionStatus: s.status,
         submittedAt: s.submittedAt,
       };
     });

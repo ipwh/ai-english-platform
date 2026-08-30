@@ -11,12 +11,12 @@ import { logger } from '@/shared/logger/logger';
 import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { formatDate } from '@/shared/utils/utils';
-import { statusLabels } from '@/shared/utils/nav';
+import { getStatusLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import type { Assignment } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherAssignmentsPage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -69,9 +69,10 @@ export default function TeacherAssignmentsPage() {
       <div className="space-y-3">
         {assignments.map((a) => {
           return (
-            <div
+            <Link
               key={a.id}
-              className="block bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700"
+              href={`/teacher/assignments/${a.id}`}
+              className="block bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -79,19 +80,21 @@ export default function TeacherAssignmentsPage() {
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600">{a.className}</span>
                     <SkillChip grammarItem={a.grammarItem} languageSkill={a.languageSkill} />
-                    <span className="text-xs text-gray-400">{a.questionType} · {a.questionCount} {t('generic.questions')}</span>
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600">{getDifficultyLabel(a.difficulty ?? 'core', language)}</span>
+                    <span className="text-xs text-gray-400">{a.questionCount} {t('generic.questions')}</span>
                   </div>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   a.status === 'completed' ? 'bg-green-100 text-green-700' :
-                  a.status === 'in-progress' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  a.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                  a.status === 'overdue' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {statusLabels[a.status]}
+                  {getStatusLabel(a.status, language)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 text-xs text-gray-500">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {t('teacher.assignments.dueDate', { date: formatDate(a.dueDate) })}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {a.dueDate ? t('teacher.assignments.dueDate', { date: formatDate(a.dueDate) }) : t('assignment.noDeadline')}</span>
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {a.className}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -101,7 +104,7 @@ export default function TeacherAssignmentsPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

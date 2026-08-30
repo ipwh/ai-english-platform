@@ -103,8 +103,8 @@ export class BudgetExceededError extends Error {
   constructor(reason: 'token' | 'cost') {
     const message =
       reason === 'token'
-        ? 'Daily AI token budget exceeded. Please try again later.'
-        : 'Monthly AI cost budget exceeded. Please try again later.';
+        ? '今日 AI 額度已用完，請稍後再試 / Daily AI token budget exceeded. Please try again later.'
+        : '本月 AI 費用額度已用完，請稍後再試 / Monthly AI cost budget exceeded. Please try again later.';
     super(message);
     this.name = 'BudgetExceededError';
     this.reason = reason;

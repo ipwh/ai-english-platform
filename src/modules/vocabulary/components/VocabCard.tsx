@@ -213,7 +213,7 @@ export default function VocabCard({
                 onSetMasteryLevel(vocab.id, next);
               }}
               className="text-[10px] text-yellow-500 hover:text-yellow-600 font-mono tracking-wider"
-              title={`Mastery ${vocab.masteryLevel ?? 0}/5`}
+              title={`Mastery ${vocab.masteryLevel ?? 0}/5 · 掌握度 ${vocab.masteryLevel ?? 0}/5`}
             >
               {masteryStars[vocab.masteryLevel ?? 0]}
             </button>
@@ -223,8 +223,8 @@ export default function VocabCard({
             <button
               onClick={() => { if (window.confirm('確定要刪除此生字？This will permanently delete this word.')) onDelete(vocab.id); }}
               className="text-gray-300 hover:text-red-500 transition-colors p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-              title="Delete"
-              aria-label="Delete word"
+              title={language === 'en' ? 'Delete' : '刪除'}
+              aria-label={language === 'en' ? 'Delete word' : '刪除生字'}
             >
               <Trash2 className="w-4 h-4" />
             </button>

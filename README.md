@@ -15,7 +15,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ## 🏗️ Architecture Overview
 
 ```
-Routes (119) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+Routes (118) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ Prompts (PromptRegistry)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
@@ -73,7 +73,7 @@ Writing Evaluation (Sprints 127-130):
 - **🔥 每日挑戰 (Daily Challenge)** — 每日一題（文法選擇/填充/短文/配對），完成獲得連續學習 streak 加成與 XP；題目由伺服器持有，提交時以伺服器答案鍵批改
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
-- **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**5 種真實考試陷阱**、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、7 種 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
+- **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**真實考試陷阱**（distraction、synonym replacement、speaker attitude、numerical precision、number confusion、date correction）、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、完整 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
   - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。此聲明已直接顯示於批改結果頁面。
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案（依 HKDSE Reading/Listening Descriptors 原則），提供中英雙語解釋、常見錯誤提示
@@ -93,7 +93,7 @@ Writing Evaluation (Sprints 127-130):
 - **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），可選 S1-S6 年級及補底/核心/挑戰難度，未來擴展 STT 語音辨識
 - **� 手寫作文上傳 (OCR)** — 上傳手寫作文圖片，AI 文字辨識後自動載入編輯器（寫作頁面與教師教材上載）
 - **�👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
-- **🔔 即時通知 (SSE)** — 輕量 polling API 取代固定 15s interval，支援 batch mark-read
+- **🔔 通知中心** — 智慧輪詢（有未讀 15s／無未讀 60s），支援 batch mark-read
 - **📋 作業 (Assignments)** — 查看教師指派的作業、作答提交、查看教師回饋與分數
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
@@ -364,7 +364,7 @@ npm run dev
 ```
 src/
 ├── app/                      # Next.js App Router
-│   ├── api/                  # 119 API route files
+│   ├── api/                  # 118 API route files
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台

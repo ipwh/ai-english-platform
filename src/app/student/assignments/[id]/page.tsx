@@ -404,6 +404,11 @@ export default function AssignmentDetailPage() {
       {!submitted && submissionStatus === 'returned' && score !== null && (
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-4 text-sm text-orange-700 dark:text-orange-300">
           {t('assignment.returnedNote', { score: score })}
+          {teacherFeedback && (
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+              {t('assignments.teacherFeedback')}{teacherFeedback}
+            </div>
+          )}
         </div>
       )}
     </div>

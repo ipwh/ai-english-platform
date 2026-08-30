@@ -220,7 +220,9 @@ export default function QuickAddVocab({
                 </div>
                 <p className="text-xs text-gray-400 flex items-center gap-1">
                   <Lightbulb className="w-3 h-3" />
-                  輸入英文單字後點擊「AI 分析」，自動填入詞性、意思、例句等。
+                  {language === 'en'
+                    ? 'Type an English word then click "AI Analyze" to auto-fill POS, meaning, examples, etc.'
+                    : '輸入英文單字後點擊「AI 分析」，自動填入詞性、意思、例句等。'}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -236,7 +238,7 @@ export default function QuickAddVocab({
                     className="flex-[2] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     <Sparkles className="w-4 h-4" />
-                    AI 分析
+                    {language === 'en' ? 'AI Analyze' : 'AI 分析'}
                   </button>
                 </div>
               </div>
