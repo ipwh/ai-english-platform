@@ -774,7 +774,9 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                                   ? 'bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200'
                                   : 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700'
                               } disabled:opacity-50`}
-                              title={showZhNotes ? 'Show English only' : '顯示中文對照'}
+                              title={language === 'zh'
+                                ? (showZhNotes ? '只顯示英文' : '顯示中文對照')
+                                : (showZhNotes ? 'Show English only' : 'Show Chinese')}
                             >
                               {translating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />}
                               {showZhNotes ? 'EN' : '中文'}
@@ -817,18 +819,18 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                       {t('is.symbols.title')}
                     </summary>
                     <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-1.5 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <span title="advantages/benefits">{t('is.symbols.plus')}</span>
-                      <span title="disadvantages/problems">{t('is.symbols.minus')}</span>
-                      <span title="causes/leads to">{t('is.symbols.arrow')}</span>
-                      <span title="reasons for">{t('is.symbols.because')}</span>
-                      <span title="important/key">{t('is.symbols.important')}</span>
-                      <span title="money/financial">{t('is.symbols.money')}</span>
-                      <span title="numbers/statistics">{t('is.symbols.number')}</span>
-                      <span title="uncertain">{t('is.symbols.uncertain')}</span>
-                      <span title="location">{t('is.symbols.location')}</span>
-                      <span title="therefore/conclusion">{t('is.symbols.therefore')}</span>
-                      <span title="approximately/about">{t('is.symbols.approx')}</span>
-                      <span title="increase/decrease/trend">{t('is.symbols.trend')}</span>
+                      <span title={language === 'zh' ? '優點/好處' : 'advantages/benefits'}>{t('is.symbols.plus')}</span>
+                      <span title={language === 'zh' ? '缺點/問題' : 'disadvantages/problems'}>{t('is.symbols.minus')}</span>
+                      <span title={language === 'zh' ? '導致/引致' : 'causes/leads to'}>{t('is.symbols.arrow')}</span>
+                      <span title={language === 'zh' ? '原因' : 'reasons for'}>{t('is.symbols.because')}</span>
+                      <span title={language === 'zh' ? '重要/關鍵' : 'important/key'}>{t('is.symbols.important')}</span>
+                      <span title={language === 'zh' ? '金錢/財務' : 'money/financial'}>{t('is.symbols.money')}</span>
+                      <span title={language === 'zh' ? '數字/統計' : 'numbers/statistics'}>{t('is.symbols.number')}</span>
+                      <span title={language === 'zh' ? '不確定' : 'uncertain'}>{t('is.symbols.uncertain')}</span>
+                      <span title={language === 'zh' ? '地點' : 'location'}>{t('is.symbols.location')}</span>
+                      <span title={language === 'zh' ? '因此/結論' : 'therefore/conclusion'}>{t('is.symbols.therefore')}</span>
+                      <span title={language === 'zh' ? '大約/關於' : 'approximately/about'}>{t('is.symbols.approx')}</span>
+                      <span title={language === 'zh' ? '上升/下降/趨勢' : 'increase/decrease/trend'}>{t('is.symbols.trend')}</span>
                     </div>
                   </details>
 
@@ -982,7 +984,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 </span>
                 {language === 'zh' ? '寫作' : 'Writing'}
                 <span className="text-xs font-normal text-gray-400">
-                  — {wordCount}{task.wordLimit ? ` / ${task.wordLimit}` : ''} words
+                  — {wordCount}{task.wordLimit ? ` / ${task.wordLimit}` : ''} {language === 'zh' ? '字' : 'words'}
                   {task.wordLimit && wordCount > task.wordLimit && (
                     <span className="text-red-500 ml-1 font-medium">{t('is.overWordLimit')}</span>
                   )}
@@ -1066,7 +1068,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
               <FileText className="w-4 h-4" /> {language === 'zh' ? '寫作任務' : 'Writing Task'}
             </h3>
             <p className="text-sm text-purple-700 dark:text-purple-400 leading-relaxed">{task.writingTask}</p>
-            {task.wordLimit && <p className="text-xs text-purple-500 mt-2">📏 ~{task.wordLimit} words</p>}
+            {task.wordLimit && <p className="text-xs text-purple-500 mt-2">📏 ~{task.wordLimit} {language === 'zh' ? '字' : 'words'}</p>}
           </div>
 
           {/* Expected content points */}

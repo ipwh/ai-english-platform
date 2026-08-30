@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
 import { logger } from '@/shared/logger/logger';
+import { studentBelongsToTeacher } from '@/modules/teacher/services/student-access';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
 
     if (authResult.role === 'student' && studentId !== authResult.userId) {
       return NextResponse.json({ error: '只能查看自己的預測 / You can only view your own prediction' }, { status: 403 });
+    }
+    if (authResult.role === 'teacher' && !(await studentBelongsToTeacher(studentId, authResult.userId!))) {
+      return NextResponse.json({ error: 'Forbidden — you do not teach this student' }, { status: 403 });
     }
 
     const predictions = await studentTwinService.getPredictions(studentId);

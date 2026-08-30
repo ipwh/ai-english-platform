@@ -6,10 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
-import { generateQuestions, type GeneratedQuestion } from '@/modules/ai';
-import { getRecentDiagnostics } from '@/modules/student';
-import { listMistakes } from '@/modules/student';
-import { listPracticeSessions } from '@/modules/student';
+import { generateQuestions } from '@/modules/ai';
 import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
 
 // 40 個 HKDSE 文法點（對應 ELE KLACG 2017 Appendix 4）
@@ -77,12 +74,6 @@ export async function GET(request: NextRequest) {
   if (ownership) return ownership;
 
   try {
-    // 從 DiagnosticResult 和 Mistake 計算每個文法點的準確率
-    const [diagnosticResults, mistakes] = await Promise.all([
-      getRecentDiagnostics(studentId, 5),
-      listMistakes(studentId, 200),
-    ]);
-
     // Build grammar point accuracy map
     const grammarAccuracy: Record<string, { total: number; correct: number }> = {};
     for (const gp of GRAMMAR_POINTS) {
@@ -151,8 +142,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId and grammarPointIds required' }, { status: 400 });
     }
 
-    // 每個文法點生成 3 題 MCQ，難度預設 core，可由請求參數覆蓋
-    const grammarPoint = GRAMMAR_POINTS.find(g => g.id === grammarPointIds[0]) || GRAMMAR_POINTS[0];
+    // 每個文法點生成 3 題 MCQ，難度預設 core，可由請求參數覆蓋。
+    // 🔒 2026-08-30 audit (R5): 未知 id 直接 400 — 舊邏輯會靜默回退到
+    // 「Simple Tenses」生成不相關題目（杜撰式 fallback）。
+    const grammarPoint = GRAMMAR_POINTS.find(g => g.id === grammarPointIds[0]);
+    if (!grammarPoint) {
+      return NextResponse.json(
+        { error: `未知文法點：${grammarPointIds[0]} / Unknown grammar point: ${grammarPointIds[0]}` },
+        { status: 400 },
+      );
+    }
     const questions = await generateQuestions({
       count: 3,
       gradeLevel: gradeLevel || 'S4',

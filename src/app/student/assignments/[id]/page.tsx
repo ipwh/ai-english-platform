@@ -82,8 +82,9 @@ export default function AssignmentDetailPage() {
             setScore(data.submission.score ?? null);
             setAiFeedback(data.submission.aiFeedback || '');
             setTeacherFeedback(data.submission.teacherFeedback || '');
-            setCorrectCount(Object.keys(data.submission.answers || {}).length);
-            setTotalQuestions(data.assignment?.questions?.length ?? 0);
+            // 2026-08-30 audit (R5): 以伺服器逐題證據回傳的正確題數（而非作答數）
+            setCorrectCount(data.submission.correctCount ?? 0);
+            setTotalQuestions(data.submission.totalQuestions ?? data.assignment?.questions?.length ?? 0);
           }
         }
       })

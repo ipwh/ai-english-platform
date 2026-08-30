@@ -104,8 +104,8 @@ function checkAnswer(student: string, correct: string, type: string, choices?: s
       const normStudent = normalizeAnswer(student);
       // 檢查學生答案包含改正（that 或 which），且不含錯誤（what）
       const rightOptions = rightPart.split('/').map(s => s.trim());
-      const hasCorrection = rightOptions.some(opt => normStudent.includes(opt));
-      const hasError = normStudent.includes(wrongPart);
+      const hasCorrection = rightOptions.some(opt => containsWord(normStudent, opt));
+      const hasError = containsWord(normStudent, wrongPart);
       if (hasCorrection && !hasError) return true;
       // 即使仍含錯誤部分但已包含改正，也給通過（學生可能寫了完整句子但保留了部分原句）
       if (hasCorrection) return true;
@@ -118,18 +118,24 @@ function checkAnswer(student: string, correct: string, type: string, choices?: s
 
   if (normStudent === normCorrect) return true;
 
-  // 部分匹配：若學生答案包含正確答案的主要詞彙
+  // 部分匹配：若學生答案包含正確答案的主要詞彙（詞邊界比對 — 避免 "the" 匹配 "weather"）
   const correctWords = normCorrect.split(' ').filter(w => w.length > 2);
-  if (correctWords.length >= 2 && correctWords.every(w => normStudent.includes(w))) {
+  if (correctWords.length >= 2 && correctWords.every(w => containsWord(normStudent, w))) {
     return true;
   }
 
   // 單詞匹配：若正確答案只有一個關鍵詞，且學生答案包含它（適用於填充題）
-  if (correctWords.length === 1 && normStudent.includes(correctWords[0])) {
+  if (correctWords.length === 1 && containsWord(normStudent, correctWords[0])) {
     return true;
   }
 
   return false;
+}
+
+/** 詞邊界包含檢查 — 與伺服端 practice-answer-scorer 一致（防止子字串誤判） */
+function containsWord(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i').test(text);
 }
 
 /** 取得完整答案文字（MC 題從選項中查找完整句子，非 MC 題直接回傳答案） */
@@ -666,7 +672,7 @@ export default function PracticeQuestionPage() {
             {question.choices.map((choice: string, index: number) => {
               const correctLetter = question.answer.trim().toUpperCase();
               const choiceLetter = getMcqLetterByIndex(index) ?? '';
-              const choiceText = stripMcqPrefix(choice) || `Option ${choiceLetter}`;
+              const choiceText = stripMcqPrefix(choice) || (store.language === 'zh' ? `選項 ${choiceLetter}` : `Option ${choiceLetter}`);
               let choiceStyle = 'border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-500';
               if (submitted) {
                 if (choiceLetter === correctLetter) {

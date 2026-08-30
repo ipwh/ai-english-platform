@@ -67,9 +67,9 @@ export interface ExamPrediction {
 }
 
 export interface StudentAnalysisData {
-  personaType: string;
-  skillDetails: { skill: string; score: number; classAverage: number; percentile: number; trend: string }[];
-  recentProgress: string | { sessionsThisWeek?: number; accuracyTrend?: string; masteryGained?: number; timeSpent?: number };
+  personaType: string | null;
+  skillDetails: { skill: string; score: number; classAverage: number | null; percentile: number | null; trend: string }[];
+  recentProgress: string | { sessionsThisWeek?: number | null; accuracyTrend?: string | null; masteryGained?: number | null; timeSpent?: number | null };
   teacherNotes: string | { strengths?: string[]; weaknesses?: string[]; suggestedFocus?: string[] };
 }
 

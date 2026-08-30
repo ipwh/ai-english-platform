@@ -4,6 +4,62 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 (Round 5) — 全功能覆核：Copilot 真實數據、學生 API IDOR、評分公平、雙語、死碼、文檔屬實性
+
+### 🔍 範圍
+五個並行審核（AI 練習+診斷、閱讀+寫作、IS+生字簿、師生連繫、README/CHANGELOG 屬實性驗證）。基線：2909 tests/133 files green、tsc 0、check-i18n exit 0。寫作八大不變量、閱讀生成契約、IS 9 文體/6 陷阱/12 速記符號、防杜撰全部覆核。26 項文檔宣稱逐一驗證（25 TRUE、1 修正、2 更正）。
+
+### 📐 Teacher Copilot 真實數據（P1）
+- **班級數據來源修正**：`loadClassData` 只查 `StudentClass`（表從未被寫入）→ 全平台班級分析/考試預測/概覽顯示「平均 0% · Level 1」及杜撰的「14 天未活動」警報。改為主班級 `User.classId` ∪ `StudentClass` 聯集。
+- **學生分析 403 修復**：`verifyStudentInClass` / `resolveTeacherStudentClass` 改為聯集查詢；學生分析分頁對真實學生不再永遠 403。
+- **杜撰移除**：twin 不可用時不再（1）以班級平均冒充學生分數（2）硬編碼 `percentile: 50`（3）`Math.random()` 生成每週練習次數（4）以 `steady-grinder` 冒充 persona。以上全部改為 null/空陣列，頁面顯示「數據不足」，並說明「平台不會在缺乏證據時杜撰分數」。
+- **概覽警報誠實化**：無真實班級數據時不再發出「平均掌握度低於 50%」/「14 天未活動」杜撰警報；`avgVelocity`/`classErrorRate` 杜撰常數歸零。
+- **PR 標籤**：`PR{n}` → 「能力指數 {n} / PI {n}」（百分位為 null 時不再顯示）。
+
+### 🔐 安全（P1）
+- **8 條 `/api/student/*` IDOR 關閉**：analytics/mastery/prediction/recommendation/risk/twin/vocabulary-profile/weakness — 任何教師原可讀取任何學生（僅學生本人檢查）。新增正典 `studentBelongsToTeacher`（主班級 ∪ StudentClass），教師僅限任教班級學生，admin 豁免。
+- **作業列表 IDOR 關閉**：教師帶 `?teacherId=` / `?classId=` 參數時跳過 `createdBy` 限縮 → 可枚舉他人作業。現教師永遠只看到自己建立的作業；他人 `teacherId` 直接 403。
+- **學生作業詳情成員檢查**：任何登入學生原可讀取任何作業題目 → 加入目標成員檢查（班級/組別/直接指派）。
+
+### 📋 課業與通知（P2）
+- **AI 不再冒充教師**：覆核接受時原先以 `aiScore`/`aiFeedback` 回存為 `teacherScore`/`teacherFeedback`，學生看到 AI 文字標記「教師回饋」。現只送出教師實際輸入值。
+- **接受批改必定建列+通知**：`reviewed` 狀態即使無分數/評語也建立 Review 列並通知學生（原為 0 值跳過）；退回/批改通知改為 `await`（避免 serverless freeze 丟失）。
+- **教師作業詳情**：載入既有教師回饋（重載不再丟失）；`submittedCount` 計入 graded；狀態 chip 雙語。
+- **學生作業詳情**：重新整理後以伺服器逐題證據回傳真實正確題數（原把「作答數」當「正確數」）。
+- **通知輪詢**：`unreadCount` 改用伺服器完整計數（30 條列表上限會低估未讀，令 15s/60s 輪詢失準）。
+- **覆核權限**：混合上課（StudentClass）教師也可覆核任教班級學生的提交。
+
+### 📐 評分公平與防杜撰
+- **填充題詞邊界比對**：`checkAnswer` 子字串匹配令答案鍵「the」匹配學生答案「weather」、「cat」匹配「category」→ 改為詞邊界正則（伺服器 scorer + 客戶端一致）。
+- **診斷自評夾取**：`/api/diagnostic` 及 `/stats` 將 accuracy/score 夾取 0-100（原先 `score: 999` 可污染同級均值）；非有限值拒絕。
+- **診斷寫作百分比一致**：畫面 CLO 平均過濾 `s > 0` vs 持久化 `!NaN` 不一致（7/7/0 → 畫面 100%、存庫 67%）→ 統一為後者（0 分是合法分數）。
+- **IS 補底不設陷阱**：gen prompt 原先無條件加入數字/日期混淆陷阱（與補底 config「無需刻意加入陷阱」矛盾）→ 補底難度不加入。
+- **IS difficulty 驗證**：未知 difficulty 原先 config 查表 undefined → TypeError 500 → 400。
+- **文法雷達未知 id**：原先靜默回退生成「Simple Tenses」不相關題目 → 400。
+
+### 🈴 中英對照
+- Copilot 頁面硬編碼中文（人/掌握度/分鐘/平均/高風險/中風險/工作紙…/persona 標籤/雙語 footer）全部改為 `language` 三元。
+- IS TaskView：字數標籤「words」、12 個速記符號 tooltip、筆記中英切換 title 全部隨語言切換。
+- VocabCard 刪除確認窗雙語；診斷 CLO 維度標籤 Content/Language/Organization 雙語；練習選項 `Option {X}` fallback 雙語。
+- i18n 新增 `teacher.assignmentDetail.graded`。
+
+### 🧹 死碼
+- 刪除零消費者 `/api/vocabulary/suggest` 路由 + `word-presence.ts` + `getExistingWordSet`（README 宣稱「練習自動建議生字」但從未接上 UI — 屬不實宣稱，路由與宣稱一併移除；防杜撰過濾邏輯有測試覆蓋，如需重新引入可直接還原）。
+- 文法雷達：刪除從未使用的 `diagnosticResults`/`mistakes` 查詢及 `listPracticeSessions`/`getRecentDiagnostics`/`listMistakes` 匯入。
+- reading route 未使用匯入（`passageWordCountRange`、`recommendedQuestionCount`）移除；full-paper 路徑補上段落數（3-5）與 810 字上限檢查（與 legacy/exercise 契約一致）。
+
+### 📚 文件屬實性
+- **ADR-023 重複檔名修復**：`ADR-023-platform-v1-certification.md` 與 phase9 檔重號 → 更名 `ADR-040`（README 改為 40 ADRs, ADR-001–040）。
+- **每日挑戰題型修正**：README 原稱「文法選擇/填充/短文/配對」→ 實際輪換僅 mc + fill-blank。
+- **串字練習模式修正**：README 原稱 4 種選字模式 → 實際 5 種（最新/隨機/最弱/到期/自選）。
+- 路由數 118→117、測試數 133/2909→132/2904 同步 README/CLAUDE/AGENTS。
+- 26 項 README/CLAUDE 宣稱驗證（題庫 200+/90+/90+、59 節點 DAG、18 徽章、6 模型鏈、斷路器、預算、SM-2、15s/60s 輪詢等）全部屬實；兩處不實宣稱（每日挑戰題型、串字模式）與一處誤導（ADR 計數）已更正。
+
+### 🧪 驗證
+- **2904 tests pass（132 files, 1 skipped）** · tsc 0 · check-i18n exit 0。新增 Copilot 無杜撰契約測試（twin 失敗 → persona/skillDetails/percentile 為空）與主班級歸屬測試；移除 word-presence 8 測試（隨路由刪除）。
+
+---
+
 ## 2026-08-30 (Round 4) — 全模組覆核：課業 IDOR/通知、生字簿截斷、診斷弱項、IS 草稿與行動端
 
 ### 🔍 範圍

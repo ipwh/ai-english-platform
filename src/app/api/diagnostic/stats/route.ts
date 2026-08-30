@@ -39,9 +39,13 @@ export async function POST(request: NextRequest) {
     for (const r of results) {
       if (!VALID_SKILLS.includes(r.skill as typeof VALID_SKILLS[number])) continue;
       // Only accumulate if the skill was actually tested (has questions)
-      if (r.totalQuestions <= 0) continue;
+      if (!Number.isFinite(r.totalQuestions) || r.totalQuestions <= 0 || r.totalQuestions > 1000) continue;
       // Skip writing with pending CLO (score === -1)
       if (r.score < 0) continue;
+      // 🔒 2026-08-30 audit (R5): 自評分數必須為有限數值且夾取到 0-100，
+      // 否則 999 等任意值會污染同級均值（peer average）
+      if (!Number.isFinite(r.score)) continue;
+      const clampedScore = Math.min(100, Math.max(0, r.score));
 
       // R3.10-L: dedupe per student — only the LATEST score of each student
       // counts towards the peer aggregate. Repeated submissions replace the
@@ -57,20 +61,20 @@ export async function POST(request: NextRequest) {
         const prevScore: number = existingContribution.lastScore;
         await adminDbQuery('diagnosticStudentStat', 'update', {
           where: { id: existingContribution.id },
-          data: { lastScore: r.score },
+          data: { lastScore: clampedScore },
         });
         await adminDbQuery('diagnosticStats', 'update', {
           where: { gradeLevel_skill: { gradeLevel, skill: r.skill } },
-          data: { totalScore: { increment: r.score - prevScore } },
+          data: { totalScore: { increment: clampedScore - prevScore } },
         });
       } else {
         await adminDbQuery('diagnosticStudentStat', 'create', {
-          data: { gradeLevel, skill: r.skill, studentId, lastScore: r.score },
+          data: { gradeLevel, skill: r.skill, studentId, lastScore: clampedScore },
         });
         await adminDbQuery('diagnosticStats', 'upsert', {
           where: { gradeLevel_skill: { gradeLevel, skill: r.skill } },
-          create: { gradeLevel, skill: r.skill, totalScore: r.score, totalCount: 1 },
-          update: { totalScore: { increment: r.score }, totalCount: { increment: 1 } },
+          create: { gradeLevel, skill: r.skill, totalScore: clampedScore, totalCount: 1 },
+          update: { totalScore: { increment: clampedScore }, totalCount: { increment: 1 } },
         });
       }
       updated++;

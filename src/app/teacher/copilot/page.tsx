@@ -240,10 +240,10 @@ export default function TeacherCopilotPage() {
                       >
                         <div>
                           <span className="font-medium text-gray-900 dark:text-white">{c.className}</span>
-                          <span className="text-xs text-gray-500 ml-2">{c.studentCount} 人</span>
+                          <span className="text-xs text-gray-500 ml-2">{language === 'en' ? `${c.studentCount} students` : `${c.studentCount} 人`}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">掌握度: {Math.round(c.averageMastery)}%</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? `Mastery: ${Math.round(c.averageMastery)}%` : `掌握度: ${Math.round(c.averageMastery)}%`}</span>
                           <ChevronRight className="w-4 h-4 text-gray-400" />
                         </div>
                       </button>
@@ -295,7 +295,7 @@ export default function TeacherCopilotPage() {
                     return (
                     <li key={j} className="text-xs text-gray-600 dark:text-gray-400">
                       <span className="font-medium">{a.title || act.type as string || ''}</span>
-                      {a.duration ? ` (${a.duration})` : act.durationMinutes != null ? ` (${act.durationMinutes}分鐘)` : ''}
+                      {a.duration ? ` (${a.duration})` : act.durationMinutes != null ? ` (${act.durationMinutes}${language === 'en' ? ' min' : '分鐘'})` : ''}
                       {' — '}{a.description || act.descriptionZh as string || ''}
                     </li>
                     );
@@ -327,7 +327,7 @@ export default function TeacherCopilotPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">{language === 'en' ? 'Class Analysis' : '班級分析'}</h3>
               <span className="px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium">
-                平均 {Math.round(classAnalysis.overallMetrics.averageMastery)}% · {language === 'en' ? 'Est. Level' : '平台估算 Level'} {classAnalysis.overallMetrics.classHkdseLevel}
+                {language === 'en' ? `Avg ${Math.round(classAnalysis.overallMetrics.averageMastery)}%` : `平均 ${Math.round(classAnalysis.overallMetrics.averageMastery)}%`} · {language === 'en' ? 'Est. Level' : '平台估算 Level'} {classAnalysis.overallMetrics.classHkdseLevel}
               </span>
             </div>
             {/* Skill Breakdown */}
@@ -365,7 +365,7 @@ export default function TeacherCopilotPage() {
                       rs.riskLevel === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                         : rs.riskLevel === 'inactive' ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                         : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                    }`}>{rs.riskLevel === 'high' ? '高風險' : rs.riskLevel === 'inactive' ? (language === 'en' ? 'Inactive' : '失聯') : '中風險'}</span>
+                    }`}>{rs.riskLevel === 'high' ? (language === 'en' ? 'High Risk' : '高風險') : rs.riskLevel === 'inactive' ? (language === 'en' ? 'Inactive' : '失聯') : (language === 'en' ? 'Moderate' : '中風險')}</span>
                     <p className="text-xs text-gray-500 mt-1">{(language === 'en' ? rs.primaryConcern : (rs as { primaryConcernZh?: string }).primaryConcernZh) || rs.reasons?.join('、') || ''}</p>
                   </div>
                 ))}
@@ -438,10 +438,10 @@ export default function TeacherCopilotPage() {
                     ? 'bg-violet-500 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>
-                {gt === 'worksheet' ? '工作紙' :
-                 gt === 'homework' ? '家課' :
-                 gt === 'class-quiz' ? '小測' :
-                 gt === 'revision-paper' ? '溫習卷' : '補底練習'}
+                {gt === 'worksheet' ? (language === 'en' ? 'Worksheet' : '工作紙') :
+                 gt === 'homework' ? (language === 'en' ? 'Homework' : '家課') :
+                 gt === 'class-quiz' ? (language === 'en' ? 'Quiz' : '小測') :
+                 gt === 'revision-paper' ? (language === 'en' ? 'Revision Paper' : '溫習卷') : (language === 'en' ? 'Remedial' : '補底練習')}
               </button>
             ))}
           </div>
@@ -466,15 +466,27 @@ export default function TeacherCopilotPage() {
             <span className="px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium">
               {(() => {
                 const p = studentAnalysis.personaType;
-                const map: Record<string, string> = {
-                  'steady-grinder': '穩定努力型', 'rapid-riser': '快速進步型',
-                  'struggling': '需要幫助型', 'advanced': '進階學習者',
-                  'balanced': '均衡發展型', 'declining': '需要關注型',
+                if (!p) return language === 'en' ? 'Insufficient data' : '數據不足';
+                const map: Record<string, { zh: string; en: string }> = {
+                  'steady-grinder': { zh: '穩定努力型', en: 'Steady Grinder' },
+                  'rapid-riser': { zh: '快速進步型', en: 'Rapid Riser' },
+                  'struggling': { zh: '需要幫助型', en: 'Needs Support' },
+                  'advanced': { zh: '進階學習者', en: 'Advanced' },
+                  'balanced': { zh: '均衡發展型', en: 'Balanced' },
+                  'declining': { zh: '需要關注型', en: 'Needs Attention' },
                 };
-                return map[p] || p;
+                const entry = map[p];
+                return entry ? (language === 'en' ? entry.en : entry.zh) : p;
               })()}
             </span>
           </div>
+          {studentAnalysis.skillDetails.length === 0 && (
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl text-sm text-amber-700 dark:text-amber-300">
+              {language === 'en'
+                ? 'Not enough practice data for this student yet — skill details unavailable. (Platform does not fabricate scores when evidence is missing.)'
+                : '此學生練習數據不足，暫無法顯示技能分數。（平台不會在缺乏證據時杜撰分數）'}
+            </div>
+          )}
           {studentAnalysis.skillDetails.map((sd, i) => (
             <div key={i} className="flex items-center gap-3">
               <span className="text-sm text-gray-700 dark:text-gray-300 w-24">{skillLabel(sd.skill)}</span>
@@ -482,7 +494,9 @@ export default function TeacherCopilotPage() {
                 <div className="bg-violet-500 h-2 rounded-full" style={{ width: `${sd.score}%` }} />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white w-10">{sd.score}%</span>
-              <span className="text-xs text-gray-500" title={language === 'en' ? `Platform readiness index: ${sd.percentile}/100 (not an actual class rank)` : `平台能力指數：${sd.percentile}/100（非實際班級排名）`}>PR{sd.percentile}</span>
+              {sd.percentile != null && (
+                <span className="text-xs text-gray-500" title={language === 'en' ? `Platform readiness index: ${sd.percentile}/100 (not an actual class rank)` : `平台能力指數：${sd.percentile}/100（非實際班級排名）`}>{language === 'en' ? `PI ${sd.percentile}` : `能力指數 ${sd.percentile}`}</span>
+              )}
             </div>
           ))}
           {studentAnalysis.recentProgress && (
@@ -493,16 +507,18 @@ export default function TeacherCopilotPage() {
                 : (() => {
                     const rp = studentAnalysis.recentProgress as Record<string, unknown>;
                     const parts = [];
-                    if (rp.sessionsThisWeek !== undefined) parts.push(language === 'en' ? `${rp.sessionsThisWeek} sessions this week` : `本週 ${rp.sessionsThisWeek} 次練習`);
+                    if (rp.sessionsThisWeek != null) parts.push(language === 'en' ? `${rp.sessionsThisWeek} sessions this week` : `本週 ${rp.sessionsThisWeek} 次練習`);
                     if (rp.accuracyTrend) parts.push(language === 'en' ? `Accuracy trend: ${rp.accuracyTrend}` : `準確度趨勢: ${rp.accuracyTrend}`);
-                    if (rp.masteryGained !== undefined) parts.push(language === 'en' ? `Mastery gained: ${rp.masteryGained}` : `掌握度提升: ${rp.masteryGained}`);
-                    if (rp.timeSpent !== undefined) parts.push(language === 'en' ? `Study time: ${rp.timeSpent} min` : `學習時間: ${rp.timeSpent} 分鐘`);
-                    return parts.join(' · ');
+                    if (rp.masteryGained != null) parts.push(language === 'en' ? `Mastery gained: ${rp.masteryGained}` : `掌握度提升: ${rp.masteryGained}`);
+                    if (rp.timeSpent != null) parts.push(language === 'en' ? `Study time: ${rp.timeSpent} min` : `學習時間: ${rp.timeSpent} 分鐘`);
+                    return parts.length > 0 ? parts.join(' · ') : (language === 'en' ? 'Not enough data yet' : '暫無足夠數據');
                   })()}
             </div>
           )}
           <div className="text-[11px] text-gray-400 leading-relaxed border-t pt-3 mt-2">
-            💡 分數 = 該技能掌握度（0-100%）。PR = 平台能力指數（0-100，非實際班級排名）。 / Score = skill mastery (0-100%). PR = platform readiness index (0-100, not an actual class rank).
+            {language === 'en'
+              ? '💡 Score = skill mastery (0-100%). PI = platform readiness index (0-100, not an actual class rank).'
+              : '💡 分數 = 該技能掌握度（0-100%）。能力指數 = 平台能力指數（0-100，非實際班級排名）。'}
           </div>
         </div>
       )}

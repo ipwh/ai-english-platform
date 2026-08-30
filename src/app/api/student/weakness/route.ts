@@ -6,6 +6,7 @@ import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { weaknessQuerySchema } from '@/modules/mistake/intelligence/schemas';
 import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
+import { studentBelongsToTeacher } from '@/modules/teacher/services/student-access';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -18,16 +19,15 @@ export async function GET(request: NextRequest) {
     const query = validateQuery(weaknessQuerySchema, searchParams);
     const { studentId, limit, category, includeRecommendations } = query;
 
-    // Ownership: students can only see their own weakness data
-    if (
-      authResult.role !== 'teacher' &&
-      authResult.role !== 'admin' &&
-      studentId !== authResult.userId
-    ) {
+    // Ownership: students can only see their own weakness data; teachers only students in their taught classes
+    if (authResult.role === 'student' && studentId !== authResult.userId) {
       return NextResponse.json(
         { error: 'You can only view your own weakness data' },
         { status: 403 },
       );
+    }
+    if (authResult.role === 'teacher' && !(await studentBelongsToTeacher(studentId, authResult.userId!))) {
+      return NextResponse.json({ error: 'Forbidden — you do not teach this student' }, { status: 403 });
     }
 
     const state = await studentStateBuilder.build(studentId);

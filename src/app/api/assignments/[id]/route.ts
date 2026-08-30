@@ -77,6 +77,37 @@ export async function GET(
     // 學生視圖：取得當前學生的提交記錄
     let studentSubmission = null;
     if (!isTeacher && studentUserId) {
+      // 🔒 2026-08-30 audit (R5): 學生只可查看指派給自己的作業（班級 / 直接指派 / 組別）
+      const member = await adminDbQuery('user', 'findUnique', {
+        where: { id: studentUserId },
+        select: { classId: true, class: { select: { name: true } }, studentClasses: { select: { classId: true } } },
+      }) as { classId: string | null; class: { name: string } | null; studentClasses: Array<{ classId: string }> } | null;
+      const memberClassIds = Array.from(new Set([
+        ...(member?.studentClasses ?? []).map(sc => sc.classId),
+        ...(member?.classId ? [member.classId] : []),
+      ]));
+      let isTargeted = false;
+      if (assignment.targetType === 'students') {
+        const target = await adminDbQuery('assignmentStudent', 'findFirst', {
+          where: { assignmentId: id, studentId: studentUserId },
+        });
+        isTargeted = !!target;
+      } else if (assignment.targetType === 'group') {
+        const target = await adminDbQuery('assignmentGroup', 'findFirst', {
+          where: { assignmentId: id, group: { members: { some: { studentId: studentUserId } } } },
+        });
+        isTargeted = !!target;
+      } else if (assignment.classId) {
+        isTargeted = memberClassIds.includes(assignment.classId);
+      } else if (assignment.className) {
+        isTargeted = !!member?.class?.name && member.class.name === assignment.className;
+      } else {
+        isTargeted = false;
+      }
+      if (!isTargeted) {
+        return NextResponse.json({ error: '此作業未指派給你 / This assignment is not assigned to you' }, { status: 403 });
+      }
+
       studentSubmission = await adminDbQuery('submission', 'findFirst', {
         where: { assignmentId: id, studentId: studentUserId },
       });
@@ -87,7 +118,25 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
           select: { teacherFeedback: true },
         });
-        studentSubmission = { ...studentSubmission, teacherFeedback: reviewRow?.teacherFeedback ?? null };
+        // 逐題證據：正確題數（重新整理後仍顯示真實成績，而非把作答數當正確數）
+        const latestAttempt = await adminDbQuery('submissionAttempt', 'findFirst', {
+          where: { submissionId: studentSubmission.id },
+          orderBy: { attemptNumber: 'desc' },
+          select: { id: true },
+        });
+        let correctCount: number | null = null;
+        if (latestAttempt) {
+          const evidence = await adminDbQuery('submissionAnswer', 'findMany', {
+            where: { attemptId: latestAttempt.id },
+            select: { result: true, countsTowardScore: true },
+          }) as Array<{ result: string; countsTowardScore: boolean }>;
+          correctCount = evidence.filter(r => r.countsTowardScore && r.result === 'correct').length;
+        }
+        studentSubmission = {
+          ...studentSubmission,
+          teacherFeedback: reviewRow?.teacherFeedback ?? null,
+          correctCount,
+        };
       }
     }
 
@@ -99,6 +148,24 @@ export async function GET(
       answer: isTeacher ? q.answer : undefined, // 教師可見答案
       orderIndex: q.orderIndex,
     }));
+
+    // 教師視圖：附上既有教師回饋（Review 表按 submissionId 關聯 — Submission 無 reviews relation）
+    const teacherFeedbackMap = new Map<string, string | null>();
+    if (isTeacher) {
+      const subIds = ((assignment as unknown as { submissions?: Array<{ id: string }> }).submissions ?? []).map(s => s.id);
+      if (subIds.length > 0) {
+        const reviewRows = await adminDbQuery('review', 'findMany', {
+          where: { submissionId: { in: subIds } },
+          select: { submissionId: true, teacherFeedback: true },
+          orderBy: { createdAt: 'desc' },
+        }) as Array<{ submissionId: string | null; teacherFeedback: string | null }>;
+        for (const r of reviewRows) {
+          if (r.submissionId && !teacherFeedbackMap.has(r.submissionId)) {
+            teacherFeedbackMap.set(r.submissionId, r.teacherFeedback ?? null);
+          }
+        }
+      }
+    }
 
     const responseData: Record<string, unknown> = {
       assignment: {
@@ -133,6 +200,7 @@ export async function GET(
             answers: s.answers ? JSON.parse(s.answers) : {},
             score: s.score,
             aiFeedback: s.aiFeedback,
+            teacherFeedback: teacherFeedbackMap.get(s.id) ?? null,
             status: s.status,
             submittedAt: s.submittedAt?.toISOString() || null,
           })),
@@ -149,6 +217,8 @@ export async function GET(
         teacherFeedback: (studentSubmission as { teacherFeedback?: string | null }).teacherFeedback ?? null,
         submittedAt: studentSubmission.submittedAt?.toISOString() || null,
         answers: studentSubmission.answers ? JSON.parse(studentSubmission.answers) : {},
+        correctCount: (studentSubmission as { correctCount?: number | null }).correctCount ?? null,
+        totalQuestions: baseQuestions.length,
       } : null;
     }
 
@@ -319,7 +389,7 @@ export async function POST(
       select: { name: true, nameZh: true },
     });
     const studentDisplayName = student?.nameZh || student?.name || payload.userId;
-    notifySubmissionReceived(studentDisplayName, assignment.title, id, assignment.createdBy);
+    await notifySubmissionReceived(studentDisplayName, assignment.title, id, assignment.createdBy);
 
     // 更新作業完成率
     try {

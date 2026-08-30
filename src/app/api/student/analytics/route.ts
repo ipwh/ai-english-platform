@@ -6,6 +6,7 @@ import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { studentAnalyticsQuerySchema } from '@/modules/learning-analytics/schemas';
 import { studentStateBuilder } from '@/modules/student/state/StudentStateBuilder';
+import { studentBelongsToTeacher } from '@/modules/teacher/services/student-access';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -18,8 +19,12 @@ export async function GET(request: NextRequest) {
     const query = validateQuery(studentAnalyticsQuerySchema, searchParams);
     const { studentId, weeks } = query;
 
-    if (auth.role !== 'teacher' && auth.role !== 'admin' && studentId !== auth.userId) {
+    // 2026-08-30 audit (R5): 學生只可看自己；教師只可看任教班級學生（主班級 ∪ StudentClass）；admin 豁免
+    if (auth.role === 'student' && studentId !== auth.userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (auth.role === 'teacher' && !(await studentBelongsToTeacher(studentId, auth.userId!))) {
+      return NextResponse.json({ error: 'Forbidden — you do not teach this student' }, { status: 403 });
     }
 
     const state = await studentStateBuilder.build(studentId);

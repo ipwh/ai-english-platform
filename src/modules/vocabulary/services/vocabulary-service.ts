@@ -1,9 +1,8 @@
 // Sprint 4: Vocabulary Service — word management, SRS, quiz orchestration
 import {
   listVocab, findVocabById, findVocabByWord, createVocab, updateVocab, deleteVocab,
-  countVocab, getDueVocabForReview, listVocabFiltered, countVocabFiltered, createMasteryLog
+  listVocabFiltered, countVocabFiltered, createMasteryLog
 } from '@/modules/vocabulary/repositories/vocabulary-repo';
-import { calculateNextReview } from '@/modules/vocabulary/services/srs';
 import { logger } from '@/shared/logger/logger';
 import type { Prisma } from '@prisma/client';
 
@@ -27,24 +26,6 @@ export async function addWord(input: VocabInput) {
 }
 
 export async function getStudentWords(studentId: string) { return listVocab(studentId); }
-export async function removeWord(id: string) { return deleteVocab(id); }
-export async function getDueReviews(studentId: string, limit = 20) { return getDueVocabForReview(studentId, limit); }
-
-export async function recordReview(vocabId: string, quality: number) {
-  const srs = calculateNextReview(quality);
-  return updateVocab(vocabId, {
-    nextReviewDate: srs.nextReviewDate,
-    easeFactor: srs.easeFactor,
-    reviewInterval: srs.interval,
-    lastReviewedAt: new Date(),
-  });
-}
-
-export async function getVocabularyStats(studentId: string) {
-  const total = await countVocab(studentId);
-  const due = await getDueVocabForReview(studentId, 100);
-  return { total, dueCount: due.length };
-}
 
 export async function getWordById(id: string) { return findVocabById(id); }
 
@@ -211,11 +192,6 @@ export async function createSpellingSession(studentId: string, totalWords: numbe
 export async function getSpellingSessionById(sessionId: string) {
   const { db } = await import('@/shared/db/db');
   return db.spellingSession.findUnique({ where: { id: sessionId } });
-}
-
-export async function getExistingWordSet(studentId: string): Promise<Set<string>> {
-  const items = await listVocab(studentId);
-  return new Set(items.map(v => v.word.toLowerCase()));
 }
 
 export async function getVocabForExport(studentId: string, wordIds?: string[]) {

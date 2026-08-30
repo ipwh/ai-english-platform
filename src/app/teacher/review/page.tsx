@@ -64,11 +64,12 @@ export default function TeacherReviewPage() {
   const handleAccept = async () => {
     if (!selectedReview || actionLoading) return;
     setActionLoading('accept');
-    // 只送出教師覆核欄位 — 不帶 aiScore，避免覆蓋教師修正分數（路由會優先採納 teacherScore）
+    // 🔒 2026-08-30 audit (R5): 只送出教師實際覆核的分數/評語。
+    // 不得以 aiScore / aiFeedback 冒充教師分數及評語回存（學生會看到 AI 文字標記為「教師回饋」）。
     await updateReview(selectedReview.id, {
       status: 'reviewed' as ReviewStatus,
-      teacherScore: teacherScore ?? selectedReview.teacherScore ?? selectedReview.aiScore,
-      teacherFeedback: teacherFeedback || selectedReview.teacherFeedback || selectedReview.aiFeedback,
+      teacherScore: teacherScore ?? selectedReview.teacherScore,
+      teacherFeedback: teacherFeedback || selectedReview.teacherFeedback || '',
     });
     setActionLoading(null);
   };

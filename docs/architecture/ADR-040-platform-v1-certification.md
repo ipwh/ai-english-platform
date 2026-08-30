@@ -1,4 +1,8 @@
-# ADR-023: Platform v1.0 Release Candidate & Architecture Certification
+# ADR-040: Platform v1.0 Release Candidate & Architecture Certification
+
+> **Renumbered 2026-08-30 (Round 5)**: originally published as a second ADR-023
+> (duplicate number with ADR-023-phase9-external-release-gate); renumbered to
+> ADR-040 to keep ADR numbering unique.
 
 **Date**: 2026-07-24  
 **Status**: Accepted  

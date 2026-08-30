@@ -390,6 +390,7 @@ export const teacherTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.assignmentDetail.noSubmissions': { zh: '暫無學生提交', en: 'No submissions yet' },
   'teacher.assignmentDetail.notSubmitted': { zh: '未提交', en: 'Not submitted' },
   'teacher.assignmentDetail.submitted': { zh: '已提交', en: 'Submitted' },
+  'teacher.assignmentDetail.graded': { zh: '已批改', en: 'Graded' },
   'teacher.assignmentDetail.studentAnswer': { zh: '學生答案', en: 'Student Answer' },
   'teacher.assignmentDetail.notAnswered': { zh: '未作答', en: 'Not answered' },
   'teacher.assignmentDetail.correctAnswer': { zh: '正確答案', en: 'Correct Answer' },

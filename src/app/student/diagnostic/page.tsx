@@ -336,7 +336,9 @@ export default function DiagnosticPage() {
       if (r.id !== 'writing') return r;
       // Convert CLO scores (each /7) to percentage
       const { contentScore, languageScore, organizationScore } = writingAnalysis;
-      const scores = [contentScore, languageScore, organizationScore].filter((s): s is number => typeof s === 'number' && s > 0);
+      // 2026-08-30 audit (R5): 0 分是合法分數 — 與 handleComplete 一致，
+      // 只排除非數值（NaN/null），避免畫面 100% 但持久化 67% 的不一致
+      const scores = [contentScore, languageScore, organizationScore].filter((s): s is number => typeof s === 'number' && !Number.isNaN(s));
       if (scores.length === 0) return r;
       const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
       const percentage = Math.round((avgScore / 7) * 100);
@@ -883,15 +885,15 @@ export default function DiagnosticPage() {
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
                       <div className="bg-white dark:bg-gray-700 rounded-lg p-2">
                         <div className="font-bold text-blue-600">{writingAnalysis.contentScore ?? '—'}/7</div>
-                        <div className="text-gray-400">Content</div>
+                        <div className="text-gray-400">{lang === 'zh' ? '內容' : 'Content'}</div>
                       </div>
                       <div className="bg-white dark:bg-gray-700 rounded-lg p-2">
                         <div className="font-bold text-blue-600">{writingAnalysis.languageScore ?? '—'}/7</div>
-                        <div className="text-gray-400">Language</div>
+                        <div className="text-gray-400">{lang === 'zh' ? '語言' : 'Language'}</div>
                       </div>
                       <div className="bg-white dark:bg-gray-700 rounded-lg p-2">
                         <div className="font-bold text-blue-600">{writingAnalysis.organizationScore ?? '—'}/7</div>
-                        <div className="text-gray-400">Organization</div>
+                        <div className="text-gray-400">{lang === 'zh' ? '組織' : 'Organization'}</div>
                       </div>
                     </div>
                     {writingAnalysis.strengths && writingAnalysis.strengths.length > 0 && (

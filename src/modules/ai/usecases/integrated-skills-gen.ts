@@ -88,7 +88,7 @@ Woman: Good morning everyone. I'm Ms. Chan, your activity coordinator.
 Man: Thank you for coming. Today we'll discuss the details of our school programme.
 
 Listening design rules: ${diff.lines}, use at least 2 different speakers from {Woman, Man, Boy, Girl}.
-Trap design: ${diff.traps} — use number confusion (e.g. 5432 vs 5423) and date corrections.
+Trap design: ${diff.traps}${input.difficulty === 'remedial' ? '（補底難度不加入數字/日期混淆陷阱）' : ' — use number confusion (e.g. 5432 vs 5423) and date corrections'}.
 
 ═══════════════════════════════════════
 Data File Requirements — ALL CONTENT MUST BE IN ENGLISH

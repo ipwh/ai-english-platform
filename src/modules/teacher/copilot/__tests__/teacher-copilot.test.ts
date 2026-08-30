@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/shared/db/db', () => ({
   db: {
     studentClass: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue({ id: 'link-1' }) },
-    user: { findMany: vi.fn().mockResolvedValue([]) },
+    user: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue(null) },
     studentMastery: { findMany: vi.fn().mockResolvedValue([]) },
     learningReviewSchedule: { count: vi.fn().mockResolvedValue(0) },
     studentMistakeSummary: { findMany: vi.fn().mockResolvedValue([]) },
@@ -88,14 +88,40 @@ describe('TeacherCopilotService', () => {
     expect(recs.reviewAssignments.length).toBeGreaterThan(0);
   });
 
-  it('should analyze a student', async () => {
+  it('should analyze a student without fabricating data when twin is unavailable (R5)', async () => {
     const analysis = await service.analyzeStudent('student-1', '4A');
     expect(analysis.studentId).toBe('student-1');
-    expect(analysis.personaType).toBeTruthy();
-    expect(analysis.skillDetails.length).toBeGreaterThan(0);
-    expect(analysis.teacherNotes.strengths.length).toBeGreaterThan(0);
-    expect(analysis.teacherNotes.suggestedFocus.length).toBeGreaterThan(0);
-    expect(analysis.teacherNotes.suggestedFocusZh.length).toBeGreaterThan(0);
+    // buildTwin 預設 mock 為 reject → 不得杜撰 persona/分數/百分位/活動數據
+    expect(analysis.personaType).toBeNull();
+    expect(analysis.skillDetails.length).toBe(0);
+    expect(analysis.teacherNotes.strengths.length).toBe(0);
+    expect(analysis.teacherNotes.suggestedFocus.length).toBe(0);
+    expect(analysis.teacherNotes.suggestedFocusZh.length).toBe(0);
+    expect(analysis.recentProgress.sessionsThisWeek).toBeNull();
+    expect(analysis.recentProgress.accuracyTrend).toBeNull();
+    expect(analysis.recentProgress.timeSpent).toBeNull();
+    expect(analysis.currentLevel).toBe('-');
+  });
+
+  it('should populate skill details from twin knowledge when available', async () => {
+    const mockSvc = studentTwinService as unknown as { buildTwin: ReturnType<typeof vi.fn> };
+    mockSvc.buildTwin.mockResolvedValueOnce({
+      persona: { type: 'steady-grinder', typeZh: '穩定耕耘者' },
+      knowledge: {
+        currentMastery: { grammar: 0.72, reading: 0.68 },
+        strongSkills: [{ skill: 'grammar', trend: 'up' }],
+        weakSkills: [],
+        estimatedHkdseLevel: '3',
+      },
+      risks: null,
+      habits: null,
+      predictions: null,
+    });
+    const analysis = await service.analyzeStudent('student-1', '4A');
+    expect(analysis.personaType).toBe('steady-grinder');
+    expect(analysis.skillDetails.length).toBe(2);
+    expect(analysis.skillDetails[0].percentile).toBeNull(); // 不杜撰百分位
+    expect(analysis.recentProgress.sessionsThisWeek).toBeNull();
   });
 
   it('should analyze a class', async () => {
@@ -216,7 +242,15 @@ describe('TeacherCopilotService', () => {
   });
 
   describe('resolveTeacherStudentClass', () => {
-    it('resolves class when student belongs to teacher', async () => {
+    it('resolves class via primary class (User.classId)', async () => {
+      const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
+      mockDb.user.findFirst.mockResolvedValueOnce({ classId: '5B' });
+      const { resolveTeacherStudentClass } = await import('../services/teacher-copilot-service');
+      const result = await resolveTeacherStudentClass('teacher-1', 'student-1');
+      expect(result).toBe('5B');
+    });
+
+    it('resolves class via StudentClass link when primary class is absent', async () => {
       const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
       mockDb.studentClass.findFirst.mockResolvedValueOnce({ classId: '4A' });
       const { resolveTeacherStudentClass } = await import('../services/teacher-copilot-service');
@@ -234,8 +268,14 @@ describe('TeacherCopilotService', () => {
   });
 
   describe('verifyStudentInClass', () => {
-    it('does not throw when student is in class', async () => {
-      // Default mock returns { id: 'link-1' } — should not throw
+    it('does not throw when student is in class (primary class)', async () => {
+      const mockDb = db as unknown as Record<string, { findFirst: ReturnType<typeof vi.fn> }>;
+      mockDb.user.findFirst.mockResolvedValueOnce({ id: 'student-1' });
+      await expect(service.analyzeStudent('student-1', '4A')).resolves.toBeDefined();
+    });
+
+    it('does not throw when student is in class (StudentClass link)', async () => {
+      // Default mocks: user.findFirst → null, studentClass.findFirst → { id: 'link-1' }
       await expect(service.analyzeStudent('student-1', '4A')).resolves.toBeDefined();
     });
 

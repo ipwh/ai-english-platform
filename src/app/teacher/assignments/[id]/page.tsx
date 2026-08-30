@@ -31,6 +31,7 @@ interface SubmissionInfo {
   answers: Record<string, string>;
   score: number | null;
   aiFeedback: string | null;
+  teacherFeedback: string | null;
   status: string;
   submittedAt: string | null;
 }
@@ -74,6 +75,12 @@ export default function TeacherAssignmentDetailPage() {
           setError(data.error);
         } else {
           setAssignment(data.assignment);
+          // 預填既有教師回饋（Review 表）— 重新整理後不再丟失已儲存回饋
+          const initial: Record<string, string> = {};
+          for (const sub of (data.assignment?.submissions ?? [])) {
+            if (sub.teacherFeedback) initial[sub.id] = sub.teacherFeedback;
+          }
+          setFeedbackText(initial);
         }
       })
       .catch(() => setError(t('teacher.assignmentDetail.notFound')))
@@ -119,7 +126,8 @@ export default function TeacherAssignmentDetailPage() {
     );
   }
 
-  const submittedCount = assignment.submissions.filter(s => s.status === 'submitted').length;
+  // submitted + graded 皆視為已提交（graded 為教師已批改）
+  const submittedCount = assignment.submissions.filter(s => s.status === 'submitted' || s.status === 'graded').length;
   const avgScore = assignment.submissions.filter(s => s.score !== null).length > 0
     ? Math.round(assignment.submissions.filter(s => s.score !== null).reduce((a, b) => a + (b.score || 0), 0) / assignment.submissions.filter(s => s.score !== null).length)
     : null;
@@ -222,9 +230,11 @@ export default function TeacherAssignmentDetailPage() {
                       </span>
                     )}
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      sub.status === 'submitted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      sub.status === 'submitted' || sub.status === 'graded' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                     }`}>
-                      {sub.status === 'submitted' ? t('teacher.assignmentDetail.submitted') : sub.status}
+                      {sub.status === 'submitted' ? t('teacher.assignmentDetail.submitted')
+                        : sub.status === 'graded' ? t('teacher.assignmentDetail.graded')
+                        : sub.status}
                     </span>
                     {expandedStudent === sub.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                   </div>

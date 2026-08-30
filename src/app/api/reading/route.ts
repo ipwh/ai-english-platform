@@ -34,8 +34,6 @@ import {
   type AnswerAnalysis,
   platformDifficultyToHKEAALevel,
   maxAttainableLevel,
-  passageWordCountRange,
-  recommendedQuestionCount,
   estimateReadability,
   mapReadabilityToHKEAALevel,
   checkHKLocalContent,
@@ -822,6 +820,15 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
     // Phase 4D.3: Passage-length guardrail
     const lengthWarning = checkPassageLength(passage.content, 'full-paper', pi);
     if (lengthWarning) warnings.push(lengthWarning);
+    // 2026-08-30 audit (R5): full-paper 路徑補上段落數/字數契約檢查（與 legacy/exercise 一致）
+    const paraCount = (passage.content.match(/\[Paragraph\s+\d+\]/gi) || []).length;
+    if (paraCount < 3 || paraCount > 5) {
+      warnings.push(`Passage ${passage.textNumber}: ${paraCount} paragraphs (expected 3-5).`);
+    }
+    const wordCountNow = passage.content.split(/\s+/).filter(Boolean).length;
+    if (wordCountNow > 810) {
+      warnings.push(`Passage ${passage.textNumber}: ${wordCountNow} words exceeds 810-word limit.`);
+    }
     const pqCheck = validatePassageQuality(passage, validatedPart);
     if (!pqCheck.passed) {
       warnings.push(`Passage ${passage.textNumber}: ${pqCheck.issues.join('; ')}`);

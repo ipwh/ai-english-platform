@@ -102,8 +102,8 @@ export function checkAnswer(
       const normStudent = normalizeAnswer(student);
       // 檢查學生答案包含改正（that 或 which），且不含錯誤（what）
       const rightOptions = rightPart.split('/').map(s => s.trim());
-      const hasCorrection = rightOptions.some(opt => normStudent.includes(opt));
-      const hasError = normStudent.includes(wrongPart);
+      const hasCorrection = rightOptions.some(opt => containsWord(normStudent, opt));
+      const hasError = containsWord(normStudent, wrongPart);
       if (hasCorrection && !hasError) return true;
       // 即使仍含錯誤部分但已包含改正，也給通過（學生可能寫了完整句子但保留了部分原句）
       if (hasCorrection) return true;
@@ -116,18 +116,27 @@ export function checkAnswer(
 
   if (normStudent === normCorrect) return true;
 
-  // 部分匹配：若學生答案包含正確答案的主要詞彙
+  // 部分匹配：若學生答案包含正確答案的主要詞彙（詞邊界比對 — 避免 "the" 匹配 "weather"）
   const correctWords = normCorrect.split(' ').filter(w => w.length > 2);
-  if (correctWords.length >= 2 && correctWords.every(w => normStudent.includes(w))) {
+  if (correctWords.length >= 2 && correctWords.every(w => containsWord(normStudent, w))) {
     return true;
   }
 
   // 單詞匹配：若正確答案只有一個關鍵詞，且學生答案包含它（適用於填充題）
-  if (correctWords.length === 1 && normStudent.includes(correctWords[0])) {
+  if (correctWords.length === 1 && containsWord(normStudent, correctWords[0])) {
     return true;
   }
 
   return false;
+}
+
+/**
+ * 詞邊界包含檢查 — 2026-08-30 audit (R5)：防止子字串誤判。
+ * 例：正確答案 "the" 不得因 "weather" 包含子字串而判對；"cat" 不得匹配 "category"。
+ */
+function containsWord(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i').test(text);
 }
 
 /**

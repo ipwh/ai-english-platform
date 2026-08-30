@@ -54,6 +54,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🔒 2026-08-30 audit (R5): 未驗證的 difficulty 會令 config 查表回 undefined → 500
+    const validDifficulties = ['remedial', 'core', 'challenge'] as const;
+    if (!validDifficulties.includes(difficulty)) {
+      return NextResponse.json(
+        { error: `difficulty 必須是 ${validDifficulties.join(' / ')} 之一。 / difficulty must be one of ${validDifficulties.join(' / ')}` },
+        { status: 400 }
+      );
+    }
+
     const task = await generateIntegratedSkills({
       gradeLevel,
       difficulty,

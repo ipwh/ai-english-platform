@@ -62,7 +62,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         const list = data.notifications || data || [];
-        const unread = list.filter((n: Notification) => !n.read).length;
+        // 2026-08-30 audit (R5): 使用伺服器完整 unreadCount（列表為 30 條上限，
+        // 以列表計算會低估未讀數，令 15s/60s 輪詢切換失準）
+        const unread = typeof data.unreadCount === 'number'
+          ? data.unreadCount
+          : list.filter((n: Notification) => !n.read).length;
         set({ notifications: list, unreadCount: unread });
       }
     } catch {

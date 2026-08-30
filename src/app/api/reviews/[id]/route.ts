@@ -63,6 +63,7 @@ export async function PATCH(
       const submissionOwner = await adminDbQuery('submission', 'findUnique', {
         where: { id },
         select: {
+          studentId: true,
           student: { select: { classId: true } },
           assignment: { select: { createdBy: true } },
         },
@@ -78,6 +79,13 @@ export async function PATCH(
           where: { teacherId: userId, classId: ownerClassId },
         });
         teachesClass = !!teaching;
+      }
+      // 2026-08-30 audit (R5): 混合上課（StudentClass）也視為任教範圍
+      if (!teachesClass) {
+        const mixedTeaching = await adminDbQuery('studentClass', 'findFirst', {
+          where: { studentId: submissionOwner.studentId ?? '', class: { teachers: { some: { teacherId: userId } } } },
+        });
+        teachesClass = !!mixedTeaching;
       }
       if (!createdByMe && !teachesClass) {
         return NextResponse.json({ error: 'Forbidden — you do not teach this student’s class' }, { status: 403 });
@@ -118,7 +126,7 @@ export async function PATCH(
         select: { studentId: true, assignment: { select: { id: true, title: true } } },
       });
       if (returnedSub) {
-        notifyAssignmentReturned(
+        await notifyAssignmentReturned(
           returnedSub.studentId,
           returnedSub.assignment?.title || '作業',
           returnedSub.assignment?.id ?? '',
@@ -126,8 +134,10 @@ export async function PATCH(
       }
     }
 
-    // 記錄到 Review 表（按 submissionId upsert — 同一次提交只保留一筆教師覆核）
-    if (body.teacherFeedback || body.teacherScore !== undefined) {
+    // 記錄到 Review 表（按 submissionId upsert — 同一次提交只保留一筆教師覆核）。
+    // 2026-08-30 audit (R5): 接受批改（reviewed）即使教師未填分數/評語也必須建列 + 通知；
+    // 未提供的 teacherScore 不得以 AI 值回填（AI 分數屬 submission.score，不冒充教師分數）。
+    if (body.status === 'reviewed' || body.teacherFeedback || body.teacherScore !== undefined) {
       const submission = await adminDbQuery('submission', 'findUnique', {
         where: { id },
         select: {
@@ -155,32 +165,46 @@ export async function PATCH(
           }
         } catch { /* keep defaults */ }
 
+        const existingReview = await adminDbQuery('review', 'findFirst', {
+          where: { submissionId: submission.id },
+        }) as { id: string; teacherScore: number | null; status: string | null } | null;
+
         const reviewData = {
           studentId: submission.studentId,
           teacherId: userId,
-          teacherScore: body.teacherScore ?? null,
-          teacherFeedback: body.teacherFeedback || null,
-          status: body.status === 'reviewed' ? 'reviewed' : 'pending',
+          teacherScore: body.teacherScore !== undefined ? body.teacherScore : (existingReview?.teacherScore ?? null),
+          teacherFeedback: body.teacherFeedback !== undefined && body.teacherFeedback !== ''
+            ? body.teacherFeedback
+            : (existingReview ? undefined : null),
+          status: body.status === 'reviewed' ? 'reviewed' : (existingReview?.status ?? 'pending'),
           questionPrompt,
           studentAnswer,
         };
-        const existingReview = await adminDbQuery('review', 'findFirst', {
-          where: { submissionId: submission.id },
-        });
+        // 已有列且未提供 feedback → 保留原有 feedback
+        const updateData: Record<string, unknown> = {
+          studentId: reviewData.studentId,
+          teacherId: reviewData.teacherId,
+          teacherScore: reviewData.teacherScore,
+          status: reviewData.status,
+          questionPrompt: reviewData.questionPrompt,
+          studentAnswer: reviewData.studentAnswer,
+        };
+        if (reviewData.teacherFeedback !== undefined) updateData.teacherFeedback = reviewData.teacherFeedback;
+
         if (existingReview) {
           await adminDbQuery('review', 'update', {
             where: { id: existingReview.id },
-            data: reviewData,
+            data: updateData,
           });
         } else {
           await adminDbQuery('review', 'create', {
-            data: { ...reviewData, submissionId: submission.id },
+            data: { ...updateData, teacherFeedback: reviewData.teacherFeedback ?? null, submissionId: submission.id },
           });
         }
 
-        // 🔔 通知學生：教師已批改
-        if (body.status === 'reviewed' || body.teacherFeedback) {
-          notifyFeedbackReady(
+        // 🔔 通知學生：教師已批改（await — 避免 serverless freeze 丟失）
+        if (body.status === 'reviewed') {
+          await notifyFeedbackReady(
             submission.studentId,
             submission.assignment?.title || '作業',
             submission.assignment?.id ?? '',

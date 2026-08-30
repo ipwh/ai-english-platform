@@ -221,7 +221,7 @@ export default function VocabCard({
 
           {onDelete && (
             <button
-              onClick={() => { if (window.confirm('確定要刪除此生字？This will permanently delete this word.')) onDelete(vocab.id); }}
+              onClick={() => { if (window.confirm(language === 'en' ? 'Delete this word? This cannot be undone.' : '確定要刪除此生字？此操作無法還原。')) onDelete(vocab.id); }}
               className="text-gray-300 hover:text-red-500 transition-colors p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
               title={language === 'en' ? 'Delete' : '刪除'}
               aria-label={language === 'en' ? 'Delete word' : '刪除生字'}

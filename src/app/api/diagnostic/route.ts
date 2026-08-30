@@ -48,17 +48,22 @@ export async function POST(request: NextRequest) {
     await clearDiagnosticResults(studentId);
 
     const created = await Promise.all(
-      results.map(r =>
-        createDiagnosticResult({
+      results.map(r => {
+        // 🔒 2026-08-30 audit (R5): 自評 accuracy 夾取 0-100（非有限值 → 0），
+        // 防止任意數值污染同級均值與歷史記錄
+        const accuracy = Number.isFinite(r.accuracy)
+          ? Math.min(100, Math.max(0, r.accuracy))
+          : 0;
+        return createDiagnosticResult({
           studentId,
           skill: r.skill,
           skillZh: r.skillZh,
-          accuracy: r.accuracy,
+          accuracy,
           weakAreas: r.weakAreas || [],
           recommendedGrammar: r.recommendedGrammar || null,
           recommendedSkill: r.recommendedSkill || null,
-        })
-      )
+        });
+      })
     );
 
     // R3.10-D.3 (Priority 1): 診斷結果為客戶端自評（self-reported）。

@@ -123,24 +123,27 @@ export interface StudentAnalysis {
   studentId: string;
   studentName: string;
   generatedAt: string;
-  personaType: PersonaType;
+  /** null = twin 不可用（不杜撰 persona） */
+  personaType: PersonaType | null;
   personaTypeZh: string;
   currentLevel: string;
   predictedLevel: string;
   skillDetails: Array<{
     skill: SkillDimension;
     score: number;
-    classAverage: number;
-    percentile: number;
+    /** null = 班級數據不可用 */
+    classAverage: number | null;
+    /** null = 平台不聲稱班級百分位 */
+    percentile: number | null;
     trend: string;
     recommendation: string;
     recommendationZh: string;
   }>;
   recentProgress: {
-    sessionsThisWeek: number;
-    accuracyTrend: string;
-    masteryGained: number;
-    timeSpent: number;
+    sessionsThisWeek: number | null;
+    accuracyTrend: string | null;
+    masteryGained: number | null;
+    timeSpent: number | null;
   };
   teacherNotes: {
     strengths: string[];

@@ -45,9 +45,15 @@ export async function GET(request: NextRequest) {
       or.push({ targetStudents: { some: { studentId: userId } } });
       or.push({ targetGroups: { some: { group: { members: { some: { studentId: userId } } } } } });
       where.OR = or;
-    } else if (authResult.role === 'teacher' && !classId && !teacherId) {
-      // 教師只看到自己建立的作業；管理員看到全部
+    } else if (authResult.role === 'teacher') {
+      // 🔒 2026-08-30 audit (R5): 教師永遠只看到自己建立的作業。
+      // 舊邏輯在帶有 classId/teacherId 參數時跳過此限縮 → 任何人可枚舉他人作業（IDOR）。
+      if (teacherId && teacherId !== authResult.userId) {
+        return NextResponse.json({ error: 'Forbidden — you can only list your own assignments' }, { status: 403 });
+      }
       where.createdBy = authResult.userId;
+      // classId 過濾仍限於自己建立的作業
+      if (classId) where.classId = classId;
     }
 
     const assignments = await adminDbQuery('assignment', 'findMany', {
@@ -269,10 +275,10 @@ export async function POST(request: NextRequest) {
     }
     const assignment = created[0];
 
-    // 🔔 發送通知
+    // 🔔 發送通知（await — 確保通知建立後才回傳，避免 serverless freeze 丟失）
     if (resolvedTargetType === 'class') {
       for (let i = 0; i < created.length; i++) {
-        notifyAssignmentCreated(title, targetClassNames[i] ?? '', targetClassIds[i] ?? null, created[i].id);
+        await notifyAssignmentCreated(title, targetClassNames[i] ?? '', targetClassIds[i] ?? null, created[i].id);
       }
     } else if (resolvedTargetType === 'group' && groupIds?.length) {
       // 通知組別內所有學生（依各自語言偏好）
