@@ -222,7 +222,7 @@ export default function StudentHelpPage() {
       try {
         const profileRes = await fetch('/api/auth/profile');
         const profileJson = await profileRes.json();
-        if (!profileRes.ok || !profileJson.user?.id) throw new Error(profileJson.error || '未能取得學生資料');
+        if (!profileRes.ok || !profileJson.user?.id) throw new Error(profileJson.error || (language === 'en' ? 'Failed to load student profile' : '未能取得學生資料'));
 
         const profile = profileJson.user as StudentProfile;
         if (cancelled) return;
@@ -294,7 +294,7 @@ export default function StudentHelpPage() {
         });
 
         const analysisJson = await analysisRes.json();
-        if (!analysisRes.ok || !analysisJson.analysis) throw new Error(analysisJson.error || '無法取得個人化建議');
+        if (!analysisRes.ok || !analysisJson.analysis) throw new Error(analysisJson.error || (language === 'en' ? 'Unable to generate personalised advice' : '無法取得個人化建議'));
 
         if (cancelled) return;
         const analysis = analysisJson.analysis;

@@ -25,47 +25,12 @@ export interface StudentTrends {
   generatedAt: Date;
 }
 
-export interface TeacherDashboard {
-  teacherId: string;
-  classId?: string;
-  /** Class-wide weak skills (bottom 5) */
-  weakSkills: Array<{ skill: string; avgMastery: number; studentCount: number }>;
-  /** Class-wide strong skills (top 5) */
-  strongSkills: Array<{ skill: string; avgMastery: number; studentCount: number }>;
-  /** Class comparison: per-skill averages */
-  classComparison: Record<string, { classAvg: number; gradeAvg: number }>;
-  /** Progress: students showing improvement */
-  progress: {
-    improving: number;
-    stable: number;
-    declining: number;
-    total: number;
-  };
-  /** At-risk prediction */
-  predictions: Array<{
-    studentId: string;
-    riskLevel: 'high' | 'medium' | 'low';
-    weakestSkill: string;
-    overallMastery: number;
-  }>;
-  /** Chart-ready data */
-  charts: {
-    skillRadar: Record<string, number>;
-    progressBar: Array<{ label: string; value: number }>;
-    trendLine: TrendPoint[];
-  };
-  generatedAt: Date;
-}
-
 export interface LearningStats {
   studentId: string;
   totalPractices: number;
   totalMistakes: number;
   totalVocabulary: number;
-  totalWritingSubmissions: number;
   overallMastery: number;
   streak: number;
-  /** Weekly breakdown */
-  weeklyActivity: Array<{ week: string; practices: number; mistakes: number }>;
   generatedAt: Date;
 }

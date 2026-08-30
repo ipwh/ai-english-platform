@@ -24,26 +24,4 @@ export function computeTrendDirection(points: TrendPoint[]): TrendDirection {
   return 'stable';
 }
 
-/**
- * Compute risk level from overall mastery.
- */
-export function computeRiskLevel(overallMastery: number): 'high' | 'medium' | 'low' {
-  if (overallMastery < 35) return 'high';
-  if (overallMastery < 60) return 'medium';
-  return 'low';
-}
 
-/**
- * Build radar chart data from skill scores.
- */
-export function buildRadarData(skills: Record<string, number>): Record<string, number> {
-  // Normalize all values to 0-100
-  return skills;
-}
-
-/**
- * Build progress bar data.
- */
-export function buildProgressBar(items: Array<{ label: string; value: number }>): Array<{ label: string; value: number }> {
-  return items.sort((a, b) => b.value - a.value);
-}

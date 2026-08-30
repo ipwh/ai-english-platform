@@ -10,12 +10,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-30 — 132 files, 2904 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-08-30 — 132 files, 2863 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
 ```
-Routes (117) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+Routes (115) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ Prompts (PromptRegistry)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
@@ -173,7 +173,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 | AI | `ai/` | Providers, Generation, Analysis, RAG, TTS, Cache, Cost, Eval, Experiment, Foundation, PromptVersioning, Regression, ContinuousEval |
 | Knowledge Graph | `knowledge-graph/` | Graph Engine, Service, Repository, Visualization, WeaknessLocator, Traversal |
 | Writing | `ai/usecases/analyze-writing.ts` + `writing-coach/repositories/` | CLO Scoring, Evidence Feedback, Draft Storage |
-| Teacher | `teacher/` | Copilot, Analytics, Dashboard |
+| Teacher | `teacher/` | Copilot, Monitoring, Student Access |
 | Platform | `platform/` | Cache, Reliability, FeatureFlags, Health, Notification |
 
 > 詳細技術棧見上方 [Layer | Technology](#-architecture-overview) 表格。域審計見 [DOMAIN_AUDIT.md](docs/DOMAIN_AUDIT.md)。
@@ -364,7 +364,7 @@ npm run dev
 ```
 src/
 ├── app/                      # Next.js App Router
-│   ├── api/                  # 117 API route files
+│   ├── api/                  # 115 API route files
 │   ├── student/              # 學生端頁面
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
@@ -523,7 +523,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-30，132 files，2904 tests pass。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-30，132 files，2863 tests pass（+1 skipped）。
 
 ## 目前狀態
 
@@ -533,7 +533,7 @@ npm run test:watch    # 持續監控模式
 |------|------|
 | 架構 | ✅ 模組化架構 (Routes → Zod → Services → Repositories → DB) |
 | AI 服務層 | ✅ DeepSeek（primary）→ Grok（fallback）fallback chain（Gemini Flash / Flash-Lite 註冊入口保留但 API 金鑰已於 2026-08-20 退役；Claude/OpenAI placeholder）, MCQ 正規化, provider registry DI |
-| API 路由 | ✅ 119 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
+| API 路由 | ✅ 115 routes（Zod-validated），Edge Runtime middleware（NextAuth + JWT） |
 | 學習引擎 | ✅ 31-skill grammar DAG, mastery calculator, weakness analyzer, learning path generator |
 | 詞彙關聯圖 | ✅ 動態詞族（首三字母 root 分組）、per-vocab 搭配詞、CEFR↔HKDSE mapping |
 | 錯題資料庫 | ✅ SRS tracking, mistake analytics, personalized recommendations |
@@ -548,7 +548,7 @@ npm run test:watch    # 持續監控模式
 | DSE RAG | ✅ 歷屆試題已匯入，7 個 usecase + 閱讀路由共 8 個流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
 | 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（5 fixtures）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
 | 校準（Calibration） | ✅ 校準基礎設施就緒（三態 release gate、執行歸因、序數 level 指標、C/L/O 維度門檻、evidence 驗證政策）。**基礎設施存在不建立 HKDSE 評分有效性**：目前 `overall-comparable = 0` → `INSUFFICIENT_DATA`，`ASSESSMENT VALIDITY NOT ESTABLISHED`（平台不宣稱 marker-equivalence） |
-| 測試 | ✅ 132 files, 2904 tests pass（2026-08-30） |
+| 測試 | ✅ 132 files, 2863 tests pass（2026-08-30） |
 
 ## 部署
 

@@ -81,7 +81,6 @@ interface StudentAnalytics {
     totalMistakes: number;
     overallMastery: number;
     streak: number;
-    weeklyActivity: Array<{ week: string; practices: number; mistakes: number }>;
   } | null;
   recentSessions: Array<{
     id: string;

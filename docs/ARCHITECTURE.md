@@ -236,12 +236,9 @@ sequenceDiagram
 - Learning trend, mastery/vocabulary/writing/grammar trends
 - Learning statistics (total practices, mistakes, mastery, streak)
 
-### Teacher Dashboard (`GET /api/teacher/dashboard`)
-- Weak skills (bottom 5), strong skills (top 5)
-- Class comparison vs grade averages
-- Progress breakdown (improving/stable/declining)
-- At-risk predictions (high/medium/low)
-- Chart-ready data (radar, progress bar, trend line)
+### Teacher Dashboard (`GET /api/teacher/dashboard`) — 已移除（2026-08-30 Round 6）
+- 此端點原回傳硬編碼假數據（假弱項/強項清單、假學生 id、假趨勢），零 UI 消費者 → 連同 `buildTeacherDashboard` 一併刪除。
+- 教師班級分析現由 Teacher Copilot（真實 DB 數據）提供。
 
 ### Complements
 - `analytics` (Sprint 23) — existing engine, not rewritten
@@ -255,8 +252,7 @@ sequenceDiagram
 | Formula (pure) | `src/modules/learning-analytics/services/analytics-formula.ts` |
 | Service | `src/modules/learning-analytics/services/learning-analytics-service.ts` |
 | API (student) | `src/app/api/student/analytics/route.ts` |
-| API (teacher) | `src/app/api/teacher/dashboard/route.ts` |
-| Tests | `src/modules/learning-analytics/__tests__/learning-analytics.test.ts` (21 tests) |
+| Tests | `src/modules/learning-analytics/__tests__/learning-analytics.test.ts` |
 
 ## Module: writing-coach-v2
 

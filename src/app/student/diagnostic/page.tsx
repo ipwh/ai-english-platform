@@ -219,7 +219,7 @@ export default function DiagnosticPage() {
     fetch('/api/auth/profile')
       .then(async profileRes => {
         const profileJson = await profileRes.json();
-        if (!profileRes.ok || !profileJson.user?.id) throw new Error(profileJson.error || '未能取得學生資料');
+        if (!profileRes.ok || !profileJson.user?.id) throw new Error(profileJson.error || (language === 'en' ? 'Failed to load student profile' : '未能取得學生資料'));
 
         const profile = profileJson.user as StudentProfile;
         setStudentProfile(profile);

@@ -319,7 +319,7 @@ export default function MistakesPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex-wrap">
-                <Link href={`/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(m.grammarItem || '')}&languageSkill=${encodeURIComponent(m.languageSkill || '')}&difficulty=remedial&questionType=mc&questionCount=5&weakLabel=${encodeURIComponent(m.subSkillZh || m.subSkill || '錯題')}`} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
+                <Link href={`/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(m.grammarItem || '')}&languageSkill=${encodeURIComponent(m.languageSkill || '')}&difficulty=remedial&questionType=mc&questionCount=5&weakLabel=${encodeURIComponent(store.language === 'en' ? (m.subSkill || 'Mistake') : (m.subSkillZh || m.subSkill || '錯題'))}`} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
                   <RotateCcw className="w-3 h-3" /> {t('mistakes.redo')}
                 </Link>
                 <button

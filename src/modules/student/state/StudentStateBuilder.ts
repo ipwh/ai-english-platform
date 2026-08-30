@@ -147,7 +147,9 @@ function rankSkills(mastery: Record<string, number>, descending: boolean): Skill
     .slice(0, 6)
     .map(([skill, score]) => ({
       skill, currentScore: score,
-      predictedScore: Math.round(Math.min(1, score + 0.1) * 100) / 100,
+      // 2026-08-30 audit (R6): 平台無校準投影模型 — predictedScore 即目前值，
+      // 不再以固定 +0.1 冒充「預測進步」。
+      predictedScore: Math.round(score * 100) / 100,
       trend: score > 0.7 ? 'stable' : 'improving' as const,
       confidence: Math.min(1, score + 0.2),
     }));
@@ -375,10 +377,12 @@ export class StudentStateBuilder {
     const mastered = entries.filter(e => e.isMastered).length;
     return {
       currentMastery: r,
+      // 2026-08-30 audit (R6): 平台無校準投影模型 — predictedMastery 一律為目前值
+      // （不杜撰 +3%/+10%/+25% 固定增長），僅保留結構供未來模型接入。
       predictedMastery: {
-        '7d': Object.fromEntries(skills.map(s => [s, Math.min(1, (r[s]||0) + 0.03)])),
-        '30d': Object.fromEntries(skills.map(s => [s, Math.min(1, (r[s]||0) + 0.10)])),
-        '90d': Object.fromEntries(skills.map(s => [s, Math.min(1, (r[s]||0) + 0.25)])),
+        '7d': { ...r },
+        '30d': { ...r },
+        '90d': { ...r },
       },
       strongSkills: rankSkills(r, true),
       weakSkills: rankSkills(r, false),
@@ -460,16 +464,19 @@ export class StudentStateBuilder {
   private derivePredictions(mastery: Record<string, number>, _e: ReviewEntry[], knowledge: KnowledgeState): TwinPredictions {
     const vals = Object.values(mastery);
     const avg = vals.length > 0 ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+    const currentPct = Math.round(avg * 100);
+    // 2026-08-30 audit (R6): 平台無校準預測模型 — 不杜撰「預測分數」±10 區間、
+    // 固定 +0.1 技能預測或任意「達標天數」。一律回報目前值，confidence=0。
     return {
       predictedHkdseLevel: estimateHkdse(mastery),
-      predictedExamScore: Math.round(avg * 100),
-      examScoreRange: { low: Math.round(avg*100)-10, high: Math.round(avg*100)+10, confidence: 0.7 },
+      predictedExamScore: currentPct, // 目前平台掌握度 %，非考試預測
+      examScoreRange: { low: currentPct, high: currentPct, confidence: 0 },
       predictedCefrLevel: estimateCefr(mastery),
       skillPredictions: Object.entries(mastery).map(([skill, score]) => ({
         skill, currentScore: score,
-        predictedScore: Math.min(1, score+0.1),
-        confidence: 0.7,
-        estimatedDaysToMastery: score >= 0.8 ? null : Math.round((0.8-score)*100),
+        predictedScore: score,
+        confidence: 0,
+        estimatedDaysToMastery: null,
       })),
       trajectory: knowledge.learningVelocity > 0.5 ? 'accelerating' : 'steady',
       recommendedWeeklyMinutes: 120,
@@ -518,7 +525,8 @@ export class StudentStateBuilder {
       weeklyMasteryRate: Math.round(rate * 100) / 100,
       improvementPerSession: Math.round(rate / Math.max(1, total) * 100) / 100,
       estimatedWeeksToTarget: Math.ceil((0.8 - rate) * 52),
-      weeklyHistory: [], peerPercentile: 50,
+      // 2026-08-30 audit (R6): 平台無全校比較證據 — peerPercentile 不再硬編 50。
+      weeklyHistory: [], peerPercentile: null,
       trend: rate > 0.5 ? 'accelerating' : 'steady',
     };
   }

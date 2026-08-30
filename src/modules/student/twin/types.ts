@@ -328,8 +328,8 @@ export interface LearningVelocity {
   estimatedWeeksToTarget: number;
   /** Velocity trend over last 4 weeks */
   weeklyHistory: Array<{ week: string; nodesMastered: number; avgScore: number }>;
-  /** Compared to peers (percentile, 0-100) */
-  peerPercentile: number;
+  /** Compared to peers (percentile, 0-100); null = 平台無全校比較證據（不杜撰） */
+  peerPercentile: number | null;
   /** Acceleration status */
   trend: 'accelerating' | 'steady' | 'decelerating';
 }

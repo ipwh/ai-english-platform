@@ -26,7 +26,7 @@ const mockState: StudentState = {
   risks: { overallRisk: 'low', dropoutRisk: 0.1, burnoutRisk: 0.1, plateauRisk: 0.3, regressionRisk: 0.2, examReadiness: 0.5, riskFactors: [], riskFactorsZh: [], mitigationStrategies: [], mitigationStrategiesZh: [], requiresIntervention: false, interventionSuggestions: [], interventionSuggestionsZh: [] },
   retention: { overallRate: 0.5, perSkill: {}, averageRetentionDays: 7, atRiskSkills: [], strongSkills: [], trend: 'stable', recommendedReviewCadence: 7 },
   forgetCurve: { curves: {}, composite: [], knowledgeHalfLifeDays: 7, computedAt: '' },
-  velocity: { weeklyMasteryRate: 0.5, improvementPerSession: 0.01, estimatedWeeksToTarget: 26, weeklyHistory: [], peerPercentile: 50, trend: 'steady' },
+  velocity: { weeklyMasteryRate: 0.5, improvementPerSession: 0.01, estimatedWeeksToTarget: 26, weeklyHistory: [], peerPercentile: null, trend: 'steady' },
   recovery: { avgRecoveryDays: 7, recoveryRate: 0.5, reviewCompliance: 0.5, daysSinceLastReview: 1, overdueReviewCount: 2, reviewStreak: 3, onTrack: true },
   generatedAt: new Date().toISOString(),
 };

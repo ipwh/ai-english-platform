@@ -4,6 +4,35 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 (Round 6) — 全功能覆核：刪除杜撰端點、死碼模組與殘餘雙語缺口
+
+### 🔍 範圍
+第六輪全面審核（練習/診斷、閱讀/寫作、IS/生字簿、師生連繫、文檔宣稱/死碼/i18n 五路並行覆核）。基線：2904 tests/132 files green、tsc 0、check-i18n exit 0。前五輪修復全部覆核無回歸：正典估級 76/62/48/33（閱讀/寫作/IS/StudentStateBuilder/Copilot 一致、無 5*/5**）、寫作八大不變量、閱讀生成契約、IS 6 陷阱/9 文體、師生課業全流程、Copilot 無杜撰均確認仍成立。
+
+### 🧹 杜撰端點刪除（P1）
+- **`/api/teacher/dashboard` 刪除**：`buildTeacherDashboard` 原以 100% 硬編碼假數據（假學生 id `s1-s3`、假弱項/強項清單、假趨勢日期）回傳「班級分析」，任何教師均可觸發。零 UI 消費者 → 連同 route、函數、`TeacherDashboard` type、`teacherDashboardQuerySchema`、`computeRiskLevel`/`buildRadarData`/`buildProgressBar` 及其測試一併刪除。
+- **`/api/teacher/analytics` 刪除**：原以空學生列表 + 偽造班名（`Class ${classId}`）生成「分析」。連同零消費者的 `teacher/analytics` 模組刪除。
+- **`buildLearningStats` 去假欄位**：移除硬編碼 `totalWritingSubmissions: 0` 及以「今日」為週標籤的單點 `weeklyActivity`（管理員頁從未渲染；真實寫作數由 `_count.writingDrafts` 提供）。
+
+### 🧹 死碼刪除
+- `teacher/decisions/`（TeacherDecisionEngine）刪除 — 零 runtime 消費者（僅 barrel 匯出）。
+- `src/modules/index.ts` 統一 barrel 同步移除已刪符號。
+
+### 📐 預測誠實化（防杜撰）
+- **學生分身（twin）不再杜撰預測**：`predictedMastery` 7d/30d/90d 原為目前值 +3%/+10%/+25% 固定增長 → 改為目前值（無校準投影模型）；`examScoreRange` 原為 ±10 分、confidence 0.7 → 上下限同目前值、confidence 0；`skillPredictions.predictedScore` 原為 +0.1 → 目前值；`estimatedDaysToMastery` 原為任意 (0.8-score)×100 → null；`peerPercentile` 原硬編 50（無全校比較證據）→ null（type 改 `number | null`）；`rankSkills.predictedScore` +0.1 → 目前值。
+
+### 🈴 中英對照
+- 診斷頁/求助頁「未能取得學生資料」「無法取得個人化建議」錯誤訊息雙語化（EN 模式不再顯示中文）。
+- 錯題頁「立即練習」的 `weakLabel` 依語言傳遞（EN → `Mistake`，不再把「錯題」帶入英文練習頁）。
+
+### 📚 文檔
+- 路由 117→115、測試 2904→2863（132 files, +1 skipped）同步 README/CLAUDE/AGENTS；README「目前狀態」表修正殘留的「119 routes」；教師域表改為 Copilot, Monitoring, Student Access。
+
+### 🧪 驗證
+- **2863 tests pass（132 files, 1 skipped）** · tsc 0 · check-i18n exit 0。
+
+---
+
 ## 2026-08-30 (Round 5) — 全功能覆核：Copilot 真實數據、學生 API IDOR、評分公平、雙語、死碼、文檔屬實性
 
 ### 🔍 範圍

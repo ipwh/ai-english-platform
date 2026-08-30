@@ -22,8 +22,8 @@ export { buildVocabProfile } from './vocabulary/intelligence/services/vocabulary
 export type { VocabularyProfile, VocabWordProfile } from './vocabulary/intelligence/types';
 
 // === Analytics Domain ===
-export { buildStudentTrends, buildTeacherDashboard, buildLearningStats } from './learning-analytics/services/learning-analytics-service';
-export type { StudentTrends, TeacherDashboard } from './learning-analytics/types';
+export { buildStudentTrends, buildLearningStats } from './learning-analytics/services/learning-analytics-service';
+export type { StudentTrends, LearningStats } from './learning-analytics/types';
 
 // === Teacher Domain ===
 export { teacherCopilotService } from './teacher/copilot/services/teacher-copilot-service';
