@@ -9,7 +9,7 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { findIntegratedSkillsDraft, upsertIntegratedSkillsDraft, deleteIntegratedSkillsDraft } from '@/modules/student';
+import { upsertIntegratedSkillsDraft, deleteIntegratedSkillsDraft } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request);

@@ -25,9 +25,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const teacherId = searchParams.get('teacherId');
+    const requestedTeacherId = searchParams.get('teacherId');
 
-    const classes = await listClasses(teacherId || undefined);
+    // 🔒 2026-08-30 audit (R7): 任何登入使用者原可傳任意 teacherId 枚舉其他
+    // 教師任教班級（含人數統計）→ 非 admin 一律只能查詢自己任教的班級。
+    const teacherId = authResult.role === 'admin' ? (requestedTeacherId || undefined) : authResult.userId;
+
+    const classes = await listClasses(teacherId);
 
     return NextResponse.json({ classes }, { headers: cacheFor(CACHE_MEDIUM) });
   } catch (err: unknown) {

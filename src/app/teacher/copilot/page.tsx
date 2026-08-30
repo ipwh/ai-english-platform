@@ -243,7 +243,11 @@ export default function TeacherCopilotPage() {
                           <span className="text-xs text-gray-500 ml-2">{language === 'en' ? `${c.studentCount} students` : `${c.studentCount} 人`}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? `Mastery: ${Math.round(c.averageMastery)}%` : `掌握度: ${Math.round(c.averageMastery)}%`}</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {c.masteryEvidence
+                              ? (language === 'en' ? `Mastery: ${Math.round(c.averageMastery)}%` : `掌握度: ${Math.round(c.averageMastery)}%`)
+                              : (language === 'en' ? 'Insufficient data' : '數據不足')}
+                          </span>
                           <ChevronRight className="w-4 h-4 text-gray-400" />
                         </div>
                       </button>
@@ -327,7 +331,9 @@ export default function TeacherCopilotPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">{language === 'en' ? 'Class Analysis' : '班級分析'}</h3>
               <span className="px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium">
-                {language === 'en' ? `Avg ${Math.round(classAnalysis.overallMetrics.averageMastery)}%` : `平均 ${Math.round(classAnalysis.overallMetrics.averageMastery)}%`} · {language === 'en' ? 'Est. Level' : '平台估算 Level'} {classAnalysis.overallMetrics.classHkdseLevel}
+                {classAnalysis.overallMetrics.hasData
+                  ? `${language === 'en' ? `Avg ${Math.round(classAnalysis.overallMetrics.averageMastery)}%` : `平均 ${Math.round(classAnalysis.overallMetrics.averageMastery)}%`} · ${language === 'en' ? 'Est. Level' : '平台估算 Level'} ${classAnalysis.overallMetrics.classHkdseLevel}`
+                  : (language === 'en' ? 'Insufficient class data' : '班級數據不足')}
               </span>
             </div>
             {/* Skill Breakdown */}
@@ -398,7 +404,7 @@ export default function TeacherCopilotPage() {
               : '⚠️ 此為平台根據班級練習數據的估算（未經 HKEAA 等級校準），並非官方考試預測，僅供教學參考。'}
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border text-center">
-            <div className="text-4xl font-bold text-violet-500">{examPrediction.predictedPassRate}%</div>
+            <div className="text-4xl font-bold text-violet-500">{examPrediction.predictedPassRate != null ? `${examPrediction.predictedPassRate}%` : '—'}</div>
             <div className="text-sm text-gray-500 mt-1">{language === 'en' ? 'Platform-Estimated Pass Rate (Level 2+)' : '平台估算合格率（Level 2 或以上）'}</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border">
@@ -418,7 +424,11 @@ export default function TeacherCopilotPage() {
               {examPrediction.studentPredictions.map((sp, i) => (
                 <div key={i} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
                   <span className="font-medium text-gray-900 dark:text-white">{sp.studentName}</span>
-                  <span className="text-violet-600 dark:text-violet-400 font-bold">{language === 'en' ? 'Est.' : '平台估算'} {sp.predictedLevel}</span>
+                  <span className="text-violet-600 dark:text-violet-400 font-bold">
+                    {sp.predictedLevel != null
+                      ? `${language === 'en' ? 'Est.' : '平台估算'} ${sp.predictedLevel}`
+                      : (language === 'en' ? 'Insufficient data' : '數據不足')}
+                  </span>
                 </div>
               ))}
             </div>
@@ -467,13 +477,16 @@ export default function TeacherCopilotPage() {
               {(() => {
                 const p = studentAnalysis.personaType;
                 if (!p) return language === 'en' ? 'Insufficient data' : '數據不足';
+                // 2026-08-30 audit (R7): persona 鍵與 StudentStateBuilder / 服務端 personaMap 對齊。
                 const map: Record<string, { zh: string; en: string }> = {
-                  'steady-grinder': { zh: '穩定努力型', en: 'Steady Grinder' },
-                  'rapid-riser': { zh: '快速進步型', en: 'Rapid Riser' },
-                  'struggling': { zh: '需要幫助型', en: 'Needs Support' },
-                  'advanced': { zh: '進階學習者', en: 'Advanced' },
-                  'balanced': { zh: '均衡發展型', en: 'Balanced' },
-                  'declining': { zh: '需要關注型', en: 'Needs Attention' },
+                  'steady-grinder': { zh: '穩定耕耘者', en: 'Steady Grinder' },
+                  'fast-learner': { zh: '快速學習者', en: 'Fast Learner' },
+                  'struggling-but-persistent': { zh: '堅持奮鬥者', en: 'Persistent Striver' },
+                  'balanced-achiever': { zh: '均衡成就者', en: 'Balanced Achiever' },
+                  'curious-explorer': { zh: '好奇探索者', en: 'Curious Explorer' },
+                  'anxious-perfectionist': { zh: '焦慮完美主義者', en: 'Anxious Perfectionist' },
+                  'high-potential-unfocused': { zh: '潛力未集中者', en: 'High Potential, Unfocused' },
+                  'exam-crammer': { zh: '臨急抱佛腳者', en: 'Exam Crammer' },
                 };
                 const entry = map[p];
                 return entry ? (language === 'en' ? entry.en : entry.zh) : p;

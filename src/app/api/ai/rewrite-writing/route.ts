@@ -76,13 +76,23 @@ Return ONLY a JSON object:
       }, { status: 422 });
     }
 
+    const revisedText = String(parsed.revisedText || parsed.revisedVersion || '');
+    // 2026-08-30 audit (R7): LLM 漏回字數時不再顯示「0 字」— 由文本本身計算；
+    // LLM 回傳的字數欄位必須為正數才採用（防止負數/亂填）。
+    const wordCountBefore = typeof parsed.wordCountBefore === 'number' && parsed.wordCountBefore > 0
+      ? parsed.wordCountBefore
+      : sanitized.split(/\s+/).filter(Boolean).length;
+    const wordCountAfter = typeof parsed.wordCountAfter === 'number' && parsed.wordCountAfter > 0
+      ? parsed.wordCountAfter
+      : revisedText.split(/\s+/).filter(Boolean).length;
+
     return NextResponse.json({
       rewrite: {
-        revisedText: parsed.revisedText || parsed.revisedVersion || '',
+        revisedText,
         changesSummary: parsed.changesSummary || [],
         improvedAreas: parsed.improvedAreas || [],
-        wordCountBefore: parsed.wordCountBefore || sanitized.split(/\s+/).length,
-        wordCountAfter: parsed.wordCountAfter || 0,
+        wordCountBefore,
+        wordCountAfter,
       },
     });
 

@@ -9,7 +9,6 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateRequest } from '@/shared/validation/validate';
 import { vocabularyCreateSchema } from '@/shared/validation/schemas';
-import { cacheFor, CACHE_SHORT } from '@/shared/utils/api-cache';
 import {
   addWord,
   listVocabPaginated,
@@ -84,10 +83,12 @@ export async function GET(request: NextRequest) {
       familiarity, pos, sort, search,
     });
 
+    // 2026-08-30 audit (R7): 生字簿為個人資料 — 快取標為 private，
+    // 不得進入共用/CDN 快取（原 cacheFor 用 public）。
     return NextResponse.json({
       vocab: result.vocab.map(serializeVocab),
       pagination: result.pagination,
-    }, { headers: cacheFor(CACHE_SHORT) });
+    }, { headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load vocabulary';
     // Intentional: return empty [] and default pagination so client renders graceful empty state

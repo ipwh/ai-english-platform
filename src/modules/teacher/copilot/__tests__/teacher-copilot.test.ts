@@ -142,10 +142,54 @@ describe('TeacherCopilotService', () => {
     expect(prediction.predictedPassRate).toBeGreaterThan(0);
     expect(prediction.studentPredictions.length).toBeGreaterThan(0);
     expect(prediction.studentPredictions[0].predictedLevel).toBeTruthy();
-    expect(prediction.studentPredictions[0].confidenceBand.low).toBeLessThan(prediction.studentPredictions[0].confidenceBand.high);
+    expect(prediction.studentPredictions[0].confidenceBand!.low).toBeLessThan(prediction.studentPredictions[0].confidenceBand!.high);
     expect(prediction.paperAnalysis.length).toBe(3);
     expect(prediction.recommendations.length).toBeGreaterThan(0);
     expect(prediction.recommendationsZh.length).toBeGreaterThan(0);
+  });
+
+  it('does NOT fabricate predictions for students with no mastery/accuracy evidence (R7)', async () => {
+    const mockDb = db as unknown as Record<string, { findMany: ReturnType<typeof vi.fn>; groupBy: ReturnType<typeof vi.fn> }>;
+    mockDb.studentMastery.findMany.mockResolvedValue([]);
+    mockDb.user.findMany.mockResolvedValue([
+      { id: 'student-1', nameEn: 'Alice', nameZh: '愛麗絲', overallAccuracy: null },
+      { id: 'student-2', nameEn: 'Bob', nameZh: '鮑勃', overallAccuracy: null },
+    ]);
+    mockDb.loginLog.groupBy.mockResolvedValue([]);
+    mockDb.practiceSession.groupBy.mockResolvedValue([]);
+
+    const prediction = await service.predictExam('4A');
+    // 無數據學生不得顯示「50% / Level 3」杜撰預測
+    for (const p of prediction.studentPredictions) {
+      expect(p.predictedLevel).toBeNull();
+      expect(p.predictedScore).toBeNull();
+      expect(p.confidenceBand).toBeNull();
+      expect(p.readinessPercentage).toBeNull();
+    }
+    expect(prediction.predictedPassRate).toBeNull();
+    expect(prediction.predictedStarRate).toBeNull();
+    // 全班無數據時不得硬編碼「卷一最弱」
+    expect(prediction.recommendations.join(' ')).not.toContain('weakest');
+  });
+
+  it('does NOT raise "average mastery below 50%" alert for classes without mastery evidence (R7)', async () => {
+    const mockDb = db as unknown as Record<string, {
+      findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; groupBy: ReturnType<typeof vi.fn>;
+    }>;
+    mockDb.teacherClass.findMany.mockResolvedValue([
+      { classId: 'class-1', class: { name: '4A', _count: { students: 2 } } },
+    ]);
+    mockDb.studentMastery.findMany.mockResolvedValue([]);
+    mockDb.user.findMany.mockResolvedValue([
+      { id: 'student-1', nameEn: 'Alice', nameZh: '愛麗絲', overallAccuracy: null },
+      { id: 'student-2', nameEn: 'Bob', nameZh: '鮑勃', overallAccuracy: null },
+    ]);
+    mockDb.loginLog.groupBy.mockResolvedValue([]);
+    mockDb.practiceSession.groupBy.mockResolvedValue([]);
+
+    const overview = await service.getOverview('teacher-1');
+    expect(overview.classes[0].masteryEvidence).toBe(false);
+    expect(overview.urgentActions.filter(a => a.description.includes('mastery below 50%'))).toHaveLength(0);
   });
 
   // NOTE: getOverview() now queries TeacherClass from DB.

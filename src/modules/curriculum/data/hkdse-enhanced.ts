@@ -151,7 +151,10 @@ export const DSE_COMMON_TOPICS = [
 ];
 
 // ============================================
-// HKDSE ↔ CEFR Alignment (EDB Official)
+// HKDSE ↔ CEFR 平台參考對照（非官方對照表）
+// 依據 HKEAA 2012 年 HKDSE–IELTS 基準研究推導（DSE Level 5 ≈ IELTS 6.0 ≈ CEFR B2，
+// Level 5** ≈ IELTS 7.0 ≈ C1）。HKEAA / EDB 並無公佈官方 CEFR 等值表 —
+// 此表為平台教學參考，不得以「官方對照」宣稱（2026-08-30 R7 移除 EDB Official 標籤）。
 // ============================================
 
 export const HKDSE_CEFR_ALIGNMENT: Record<number, CEFRLevel> = {

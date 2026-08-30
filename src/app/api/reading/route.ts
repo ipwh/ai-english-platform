@@ -286,8 +286,10 @@ function hasMissingToneChoices(questions: Array<Record<string, unknown>>): boole
     if (t !== 'toneAttitude' && t !== 'authorIntention') return false;
     const choices = q.choices;
     if (!Array.isArray(choices)) return true;
+    // 2026-08-30 audit (R7): 長度閾值 >1 → >2 — 裸字母佔位（"A."）不再視為
+    // 實質選項，避免 4 個空佔位字母通過選擇題門檻。
     const substantive = choices.filter(
-      (c): c is string => typeof c === 'string' && c.trim().length > 1,
+      (c): c is string => typeof c === 'string' && c.trim().length > 2,
     );
     // R3.10-L: tone/attitude MCQs must carry exactly 4 A/B/C/D choices as the
     // prompt requires — fewer choices weakens the question and is flagged for

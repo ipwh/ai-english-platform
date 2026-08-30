@@ -83,6 +83,8 @@ export interface ClassAnalysis {
     averageVelocity: number;
     classHkdseLevel: string;
     participationRate: number;
+    /** 2026-08-30 (R7): 班級是否有真實掌握度證據 */
+    hasData: boolean;
   };
   skillBreakdown: Array<{
     skill: SkillDimension;
@@ -188,17 +190,20 @@ export interface ExamPrediction {
   classId: string;
   generatedAt: string;
   predictedClassAverage: number;
-  predictedPassRate: number; // % above Level 3
-  predictedStarRate: number; // % above Level 5
+  /** 平台估算合格率（Level 2+，%）；無學生數據時 null */
+  predictedPassRate: number | null;
+  /** 平台估算五星率（Level 5，%）；無學生數據時 null */
+  predictedStarRate: number | null;
   studentPredictions: Array<{
     studentId: string;
     name: string;
-    predictedLevel: string;
-    predictedScore: number;
-    confidenceBand: { low: number; high: number };
-    strongestPaper: string;
-    weakestPaper: string;
-    readinessPercentage: number;
+    /** 無掌握度/準確率證據時為 null（不杜撰分數） */
+    predictedLevel: string | null;
+    predictedScore: number | null;
+    confidenceBand: { low: number; high: number } | null;
+    strongestPaper: string | null;
+    weakestPaper: string | null;
+    readinessPercentage: number | null;
   }>;
   paperAnalysis: Array<{
     paper: string;
@@ -225,8 +230,11 @@ export interface CopilotOverview {
     /** Students active within the last 14 days (Sprint 133 behavior signal) */
     activeStudents: number;
     averageMastery: number;
-    topConcern: string;
-    topConcernZh: string;
+    /** 2026-08-30 (R7): 班級是否有真實掌握度證據（無數據時前端顯示「數據不足」） */
+    masteryEvidence: boolean;
+    /** 無錯題數據時 null（不再回傳硬編碼值） */
+    topConcern: string | null;
+    topConcernZh: string | null;
     nextAction: string;
     nextActionZh: string;
   }>;

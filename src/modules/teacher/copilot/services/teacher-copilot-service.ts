@@ -2,6 +2,8 @@
 // Sprint 132: Integrated with StudentTwin + LearningScience for real data
 import { db } from '@/shared/db/db';
 import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
+// 2026-08-30 audit (R7): 正典跨卷估級門檻（76/62/48/33）— 移除本地重複實作，避免漂移。
+import { estimateLevelFromScore100 } from '@/modules/ai/core/level-estimation';
 import type { SkillDimension } from '@/modules/student/profile/types';
 import type { PersonaType } from '@/modules/student/twin/types';
 import type {
@@ -138,7 +140,8 @@ export class TeacherCopilotService {
 
     const reviewAssignments = [
       {
-        topic: classData.grammarErrors[0] || 'Tenses', topicZh: classData.grammarErrors[0] || '時態',
+        // 2026-08-30 audit (R7): 無錯題數據時以中性「文法溫習」為建議主題（非班級數據宣稱）。
+        topic: classData.grammarErrors[0] ?? 'Grammar review', topicZh: classData.grammarErrors[0] ?? '文法溫習',
         dueCount: classData.reviewDue, urgency: classData.reviewDue > 10 ? 'high' : 'medium',
       },
     ];
@@ -287,21 +290,27 @@ export class TeacherCopilotService {
         averageMastery: Math.round(classData.avgMastery * 100),
         averageAccuracy: Math.round(classData.avgAccuracy * 100),
         averageVelocity: Math.round(classData.avgVelocity * 10) / 10,
-        classHkdseLevel: this.levelFromScore(classData.avgMastery),
+        classHkdseLevel: estimateLevelFromScore100(Math.round(classData.avgMastery * 100)),
         participationRate: Math.round(classData.participation * 100),
+        // 2026-08-30 audit (R7): 班級是否有真實掌握度證據 — 無數據前端顯示「數據不足」。
+        hasData: classData.students.some(s => Object.values(s.scores).some(v => v > 0)),
       },
       skillBreakdown: (['grammar', 'vocabulary', 'reading', 'writing', 'listening'] as SkillDimension[]).map(skill => ({
         skill,
         averageScore: Math.round((classData.skillAvgs[skill] ?? 0) * 100),
-        belowThreshold: Math.round(classData.studentCount * (1 - (classData.skillAvgs[skill] ?? 0))),
+        // 2026-08-30 audit (R7): 實際量測「有該技能數據且 <70%」的學生數 —
+        // 不再以 (1 − 班級平均) × 人數 推估冒充真實人數。
+        belowThreshold: classData.students.filter(s => (s.scores[skill] ?? 0) > 0 && (s.scores[skill] ?? 0) < 0.7).length,
         trend: (classData.skillAvgs[skill] ?? 0) > 0.6 ? 'stable' : 'improving' as const,
       })),
       studentRankings,
       weaknessSummary: {
         topGrammarWeaknesses: classData.grammarErrors.slice(0, 3),
-        topVocabularyGaps: ['Academic vocabulary', 'Phrasal verbs'],
-        commonWritingErrors: ['Chinglish patterns', 'Weak paragraph structure'],
-        readingComprehensionIssues: ['Inference questions', 'Main idea identification'],
+        // 2026-08-30 audit (R7): 平台無詞彙/寫作/閱讀錯題聚合資料 —
+        // 不再以硬編碼清單冒充班級分析結果。
+        topVocabularyGaps: [],
+        commonWritingErrors: [],
+        readingComprehensionIssues: [],
       },
       riskStudents,
       recommendations: [
@@ -322,12 +331,27 @@ export class TeacherCopilotService {
     const classData = await this.loadClassData(classId);
 
     const studentPredictions = classData.students.map(s => {
+      // 2026-08-30 audit (R7): 無掌握度/準確率證據的學生不再以 0.5 冒充
+      // 「50% 預測分數」— 一律回傳 null，前端顯示「數據不足」。
+      const hasEvidence = Object.values(s.scores).some(v => v > 0) || (s.overallAccuracy ?? 0) > 0;
+      if (!hasEvidence) {
+        return {
+          studentId: s.studentId,
+          name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
+          predictedLevel: null,
+          predictedScore: null,
+          confidenceBand: null,
+          strongestPaper: null,
+          weakestPaper: null,
+          readinessPercentage: null,
+        };
+      }
       const scores = Object.values(s.scores);
-      const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0.5;
+      const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
       return {
         studentId: s.studentId,
         name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
-        predictedLevel: this.levelFromScore(avg),
+        predictedLevel: estimateLevelFromScore100(Math.round(avg * 100)),
         predictedScore: Math.round(avg * 100),
         confidenceBand: { low: Math.round(Math.max(0, avg * 100 - 12)), high: Math.round(Math.min(100, avg * 100 + 8)) },
         strongestPaper: (classData.skillAvgs.writing ?? 0) > (classData.skillAvgs.reading ?? 0) ? 'Paper 2 Writing' : 'Paper 1 Reading',
@@ -335,6 +359,22 @@ export class TeacherCopilotService {
         readinessPercentage: Math.round(avg * 100),
       };
     });
+
+    const scoredPredictions = studentPredictions.filter(p => p.predictedLevel !== null);
+
+    // 2026-08-30 audit (R7): 「最弱卷」由真實班級數據決定（僅考慮有數據的技能）；
+    // 全班無數據時不再硬編碼「卷一是最弱項」。
+    const evidenceSkills = (['reading', 'writing', 'listening'] as const)
+      .filter(k => (classData.skillAvgs[k] ?? 0) > 0);
+    const PAPER_LABEL: Record<'reading' | 'writing' | 'listening', [string, string]> = {
+      reading: ['Paper 1 Reading', '卷一 閱讀'],
+      writing: ['Paper 2 Writing', '卷二 寫作'],
+      listening: ['Paper 3 Listening', '卷三 聆聽'],
+    };
+    const weakestPaper = evidenceSkills.reduce<{ key: 'reading' | 'writing' | 'listening'; avg: number }>(
+      (acc, k) => ((classData.skillAvgs[k] ?? 0) < acc.avg ? { key: k, avg: classData.skillAvgs[k] ?? 0 } : acc),
+      { key: evidenceSkills[0] ?? 'reading', avg: classData.skillAvgs[evidenceSkills[0] ?? 'reading'] ?? 0 },
+    ).key;
 
     return {
       classId,
@@ -344,28 +384,32 @@ export class TeacherCopilotService {
       // fraction of students at Level 2+ and star rate = fraction at Level 5
       // under the canonical cross-paper thresholds (76/62/48/33). These are
       // UNCALIBRATED platform estimates, not HKEAA-published predictions.
-      predictedPassRate: Math.round(
-        (100 * studentPredictions.filter(p => ['2', '3', '4', '5'].includes(p.predictedLevel)).length) /
-        Math.max(1, studentPredictions.length),
-      ),
-      predictedStarRate: Math.round(
-        (100 * studentPredictions.filter(p => p.predictedLevel === '5').length) /
-        Math.max(1, studentPredictions.length),
-      ),
+      predictedPassRate: scoredPredictions.length > 0
+        ? Math.round((100 * scoredPredictions.filter(p => ['2', '3', '4', '5'].includes(p.predictedLevel!)).length) / scoredPredictions.length)
+        : null,
+      predictedStarRate: scoredPredictions.length > 0
+        ? Math.round((100 * scoredPredictions.filter(p => p.predictedLevel === '5').length) / scoredPredictions.length)
+        : null,
       studentPredictions,
       paperAnalysis: [
-        { paper: 'Paper 1 Reading', paperZh: '卷一 閱讀', classAverage: Math.round((classData.skillAvgs.reading ?? 0) * 100), topicsNeedingReview: ['Inference', 'Vocabulary in context'], topicsNeedingReviewZh: ['推論', '上下文詞彙'] },
-        { paper: 'Paper 2 Writing', paperZh: '卷二 寫作', classAverage: Math.round((classData.skillAvgs.writing ?? 0) * 100), topicsNeedingReview: ['Essay structure', 'Cohesion'], topicsNeedingReviewZh: ['文章結構', '連貫性'] },
-        { paper: 'Paper 3 Listening', paperZh: '卷三 聆聽', classAverage: Math.round((classData.skillAvgs.listening ?? 0) * 100), topicsNeedingReview: ['Note-taking', 'Speaker attitude'], topicsNeedingReviewZh: ['筆記技巧', '說話者態度'] },
+        // 2026-08-30 audit (R7): 平台無逐題型班級數據 — topicsNeedingReview
+        // 不再以硬編碼清單冒充班級分析。
+        { paper: 'Paper 1 Reading', paperZh: '卷一 閱讀', classAverage: Math.round((classData.skillAvgs.reading ?? 0) * 100), topicsNeedingReview: [], topicsNeedingReviewZh: [] },
+        { paper: 'Paper 2 Writing', paperZh: '卷二 寫作', classAverage: Math.round((classData.skillAvgs.writing ?? 0) * 100), topicsNeedingReview: [], topicsNeedingReviewZh: [] },
+        { paper: 'Paper 3 Listening', paperZh: '卷三 聆聽', classAverage: Math.round((classData.skillAvgs.listening ?? 0) * 100), topicsNeedingReview: [], topicsNeedingReviewZh: [] },
       ],
-      recommendations: [
-        'Focus revision on Paper 1 Reading — weakest area',
-        'Run mock exam under timed conditions',
-      ],
-      recommendationsZh: [
-        '重點溫習卷一閱讀——最弱項目',
-        '進行限時模擬考試',
-      ],
+      recommendations: evidenceSkills.length > 0
+        ? [
+            `Focus revision on ${PAPER_LABEL[weakestPaper][0]} — lowest class average`,
+            'Run mock exam under timed conditions',
+          ]
+        : ['Run mock exam under timed conditions'],
+      recommendationsZh: evidenceSkills.length > 0
+        ? [
+            `重點溫習${PAPER_LABEL[weakestPaper][1]}——班級平均最低`,
+            '進行限時模擬考試',
+          ]
+        : ['進行限時模擬考試'],
     };
   }
 
@@ -384,6 +428,12 @@ export class TeacherCopilotService {
     });
 
     const classIds = teacherClasses.map(tc => tc.classId);
+
+    // 2026-08-30 audit (R7): 掌握度證據 = 班級內至少一名學生有真實掌握度/準確率資料。
+    const hasMasteryEvidence = (classData: ClassDataSnapshot | null): boolean =>
+      classData !== null && classData.students.some(s =>
+        Object.values(s.scores).some(v => v > 0) || (s.overallAccuracy ?? 0) > 0,
+      );
 
     // Real assignments-due count (was TODO: 0)
     const assignmentsDue = classIds.length > 0
@@ -430,8 +480,11 @@ export class TeacherCopilotService {
         studentCount,
         activeStudents,
         averageMastery: Math.round(avgMastery * 100),
-        topConcern: classData?.grammarErrors?.[0] ?? 'Grammar',
-        topConcernZh: classData?.grammarErrorsZh?.[0] ?? '文法',
+        // 2026-08-30 audit (R7): 掌握度證據旗標 — 無數據班級前端顯示「數據不足」而非 0%。
+        masteryEvidence: hasMasteryEvidence(classData),
+        // 2026-08-30 audit (R7): 無錯題數據時不回傳「Grammar」冒充班級首要關注點。
+        topConcern: classData?.grammarErrors?.[0] ?? null,
+        topConcernZh: classData?.grammarErrorsZh?.[0] ?? null,
         nextAction: reviewDue > 5 ? `${reviewDue} items due for review` : 'On track',
         nextActionZh: reviewDue > 5 ? `${reviewDue} 個項目待溫習` : '進度良好',
       });
@@ -441,8 +494,9 @@ export class TeacherCopilotService {
     const urgentActions: CopilotOverview['urgentActions'] = [];
     for (const c of classes) {
       const classData = classDataMap.get(c.classId) ?? null;
-      const hasData = classData !== null && classData.students.length > 0;
-      if (hasData && c.averageMastery < 50) {
+      // 2026-08-30 audit (R7): 掌握度警報必須有真實掌握度證據 —
+      // 全零分（無數據）班級不得觸發「平均掌握度低於 50%」。
+      if (hasMasteryEvidence(classData) && c.averageMastery < 50) {
         urgentActions.push({
           type: 'risk',
           description: `${c.className} average mastery below 50% — intervention needed`,
@@ -451,8 +505,8 @@ export class TeacherCopilotService {
           className: c.className,
         });
       }
-      // 失聯警報必須基於真實活動數據
-      if (hasData) {
+      // 失聯警報必須基於真實活動數據（無活動記錄 = 從未開始，S133 設計紅燈）
+      if (classData !== null && classData.students.length > 0) {
         const inactiveCount = c.studentCount - c.activeStudents;
         if (inactiveCount > 0) {
           urgentActions.push({
@@ -582,10 +636,14 @@ export class TeacherCopilotService {
     const studentScores: Array<Record<string, number>> = students.map(s => s.scores);
     const skillAvgs: Record<string, number> = {};
     for (const sk of skillKeys) {
-      const vals = students.map(s => s.scores[sk] ?? 0);
+      // 2026-08-30 audit (R7): 無該技能數據的學生不再以 0 分拉低班級平均。
+      const vals = students.map(s => s.scores[sk] ?? 0).filter(v => v > 0);
       skillAvgs[sk] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
     }
-    const avgMastery = Object.values(skillAvgs).reduce((a, b) => a + b, 0) / Math.max(1, skillKeys.length);
+    const measuredSkillAvgs = Object.values(skillAvgs).filter(v => v > 0);
+    const avgMastery = measuredSkillAvgs.length > 0
+      ? measuredSkillAvgs.reduce((a, b) => a + b, 0) / measuredSkillAvgs.length
+      : 0;
 
     // 4. Get review due count from LearningScience
     const reviewDueCount = await db.learningReviewSchedule.count({
@@ -617,8 +675,8 @@ export class TeacherCopilotService {
       participation,
       readingScore: skillAvgs.reading ?? 0,
       writingScore: skillAvgs.writing ?? 0,
-      grammarErrors: grammarErrors.length > 0 ? grammarErrors : ['Tenses', 'Articles', 'Prepositions'],
-      grammarErrorsZh: grammarErrorsZh.length > 0 ? grammarErrorsZh : ['時態', '冠詞', '介詞'],
+      grammarErrors: grammarErrors.length > 0 ? grammarErrors : [],
+      grammarErrorsZh: grammarErrorsZh.length > 0 ? grammarErrorsZh : [],
       reviewDue: reviewDueCount,
       studentCount: students.length,
       skillAvgs,
@@ -714,18 +772,11 @@ export class TeacherCopilotService {
   }
 
   /**
-   * Platform-estimated level (1-5, NO stars) using the canonical cross-paper
-   * thresholds (76/62/48/33 — percentage equivalents of Paper 2 CLO 16/13/10/7).
-   * This is an uncalibrated platform estimate, never an official HKEAA grade.
+   * 平台估算等級（1-5，不輸出星級）一律使用正典 estimateLevelFromScore100
+   * （76/62/48/33 — Paper 2 CLO 16/13/10/7 的百分比等值）。
+   * 未校準的平台估算，絕非官方 HKEAA 評級。
+   * 2026-08-30 audit (R7): 本地重複實作已移除，統一由 ai/core/level-estimation 提供。
    */
-  private levelFromScore(score: number): string {
-    const pct = Math.round(Math.max(0, Math.min(1, score)) * 100);
-    if (pct >= 76) return '5';
-    if (pct >= 62) return '4';
-    if (pct >= 48) return '3';
-    if (pct >= 33) return '2';
-    return '1';
-  }
 }
 
 export const teacherCopilotService = new TeacherCopilotService();

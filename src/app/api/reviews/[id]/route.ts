@@ -93,12 +93,24 @@ export async function PATCH(
     }
 
     // 更新 submission 的教師覆核。
-    // 教師分數優先：只有當 teacherScore 未提供時才採用 aiScore（AI 重新批改）。
+    // 教師分數優先：只有當 teacherScore 是有效數值才採用。
+    // 2026-08-30 audit (R7): teacherScore=null/'' 不得抹除既有 AI 分數
+    // （學生頁顯示「退回後保留上次分數」）；不得把 '' 寫入 Prisma Float（500）。
     const updateData: Record<string, unknown> = {};
-    if (body.teacherScore !== undefined) updateData.score = body.teacherScore;
-    else if (body.aiScore !== undefined) updateData.score = body.aiScore;
-    if (body.aiFeedback !== undefined) updateData.aiFeedback = body.aiFeedback;
-    if (body.aiMistakeType !== undefined) updateData.aiMistakeType = body.aiMistakeType;
+    if (typeof body.teacherScore === 'number' && Number.isFinite(body.teacherScore)) {
+      updateData.score = body.teacherScore;
+    } else if (body.teacherScore === undefined && typeof body.aiScore === 'number' && Number.isFinite(body.aiScore)) {
+      updateData.score = body.aiScore;
+    }
+    // 2026-08-30 audit (R7): teacherFeedback=null 不得抹除既有評語。
+    if (typeof body.teacherFeedback === 'string' && body.teacherFeedback.trim() !== '') {
+      updateData.teacherFeedback = body.teacherFeedback;
+    } else if (typeof body.aiFeedback === 'string' && body.aiFeedback.trim() !== '') {
+      updateData.aiFeedback = body.aiFeedback;
+    }
+    if (typeof body.aiMistakeType === 'string' && body.aiMistakeType.trim() !== '') {
+      updateData.aiMistakeType = body.aiMistakeType;
+    }
     if (body.status !== undefined) {
       updateData.status = body.status === 'reviewed' ? 'graded' : body.status;
     }

@@ -4,6 +4,45 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 (Round 7) — 全功能覆核：Copilot 杜撰收口、覆核不抹分、CEFR 標籤誠實化、死碼刪除
+
+### 🔍 範圍
+第七輪全面審核（AI 練習+診斷、閱讀+寫作、IS+生字簿、師生連繫、文檔屬實性/死碼/i18n/HKDSE 公平）。基線：132 files/2863 tests green、tsc 0、check-i18n exit 0。六輪修復全部覆核無回歸（寫作八大不變量、閱讀生成契約、正典估級 76/62/48/33、每日挑戰伺服器權威、診斷夾取、IS 免責聲明）。
+
+### 📐 杜撰收口（P1/P2）
+- **覆核不再抹除 AI 分數**：`PATCH /api/reviews/[id]` 原以 `teacherScore=null/''` 直接覆寫 `Submission.score`（null 抹掉 AI 分數、'' 令 Prisma Float 500），與學生頁「退回保留上次分數」矛盾。現只接受有限數值；null/'' 不動既有分數；空字串評語不抹除既有回饋。
+- **Copilot 考試預測不再冒充無數據學生**：原以 `avg=0.5` 為零掌握度學生輸出「50 分/Level 3」預測 → 改為 null，前端顯示「數據不足」；合格率/五星率分母只計有證據學生，全班無數據時為 null。
+- **班級平均不再被無數據學生拉低**：`skillAvgs` 只對有該技能數據的學生取平均；`belowThreshold` 改為實際量測（有數據且 <70% 的人數），不再以 `(1−平均)×人數` 推估。
+- **移除硬編碼「班級分析」**：weaknessSummary 詞彙/寫作/閱讀清單、paperAnalysis topicsNeedingReview、「卷一是最弱項」建議、`grammarErrors` 兜底清單全部移除；「最弱卷」由真實數據決定；無錯題數據時 `topConcern` 為 null、新增 `masteryEvidence`/`hasData` 旗標（前端顯示「數據不足」，不再顯示 0%）。
+- **概覽警報證據門檻**：無掌握度證據的班級不再觸發「平均掌握度低於 50%」警報。
+- **正典估級統一**：Copilot `levelFromScore` 與 StudentStateBuilder `estimateHkdse` 本地重複實作移除，統一委派 `ai/core/level-estimation`（五路一致不漂移）。
+- **刪除 `/api/teacher/dashboard` 式杜撰死碼**：`src/modules/analytics/` 全模組（`analytics-pro.ts` 含 `Math.random` 假資料）及 `/api/analytics`、`/api/analytics/report` 兩條零消費者路由刪除。
+
+### 🎓 HKDSE 公平
+- **CEFR 對照表標籤誠實化**：`HKDSE_CEFR_ALIGNMENT` 原標「EDB Official」但 HKEAA/EDB 並無公佈官方 CEFR 等值表 → 改標「平台參考對照（依據 HKEAA 2012 IELTS 基準研究推導，非官方對照表）」；StudentStateBuilder `estimateCefr` 註釋同步。
+- **`estimatedWeeksToTarget` 標註線性外推估算**並修正速率 >80% 時輸出負週數的缺陷（現為 0）。
+- **刪除死 type `HkdseLevel`**（含 5*/5** 的未用 union — 防止未來誤用星級）。
+- **覆核/提交分數保護**：`teacherScore` 僅接受有限數值，杜絕 AI 冒充教師分數回存。
+
+### 🔐 安全
+- **`GET /api/classes` 修 IDOR**：任何登入使用者原可傳任意 `teacherId` 枚舉其他教師班級（含人數）→ 非 admin 一律只查自己任教班級。
+- **`assignmentCreateSchema.targetType` 白名單枚舉**（class/group/students）— 任意值原可繞過成員檢查產生無人可見的孤兒作業。
+
+### 🈴 中英對照與體驗
+- Copilot 頁 persona 對照表與服務端/StudentStateBuilder 鍵對齊（rapid-riser/struggling 等不存在鍵修復）；預測 null 顯示「數據不足」雙語。
+- 生字簿 GET 快取改 `private`（原 public 快取個人資料）。
+
+### 🧹 死碼/修復
+- 刪除 `src/modules/analytics/`（3 個測試檔隨模組移除）；IS draft 路由未用匯入移除；IS 分析 prompt 不再要求 LLM 填寫被平台覆寫的 `estimatedLevel`；`rewrite-writing` LLM 漏回字數時由文本計算（不再顯示「0 字」）；reading `hasMissingToneChoices` 裸字母佔位（"A."）不再視為實質選項。
+
+### 📚 文檔
+- 路由 115→113、測試 132/2863→129/2821、模組 22→21、i18n 1676→1677 同步 README/CLAUDE/AGENTS；新增 Round 7 CHANGELOG 條目。
+
+### 🧪 驗證
+- **2821 tests pass（129 files, 1 skipped）** · tsc 0 · check-i18n exit 0。新增 Copilot 無杜撰契約測試（無數據學生預測全 null、無證據班級不觸發掌握度警報）。
+
+---
+
 ## 2026-08-30 (Round 6) — 全功能覆核：刪除杜撰端點、死碼模組與殘餘雙語缺口
 
 ### 🔍 範圍

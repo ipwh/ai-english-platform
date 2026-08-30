@@ -8,7 +8,9 @@ export const assignmentCreateSchema = z.object({
   description: optionalString,
   className: optionalString,
   classId: optionalString,
-  targetType: optionalString,
+  // 2026-08-30 audit (R7): 白名單枚舉 — 任意 targetType 原可繞過班級/組別/學生
+  // 成員檢查，產生無人可見的孤兒作業。
+  targetType: z.enum(['class', 'group', 'students']).optional(),
   gradeLevel: gradeLevel.optional(),
   strand: optionalString,
   grammarItem: optionalString,

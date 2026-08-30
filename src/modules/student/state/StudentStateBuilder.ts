@@ -2,6 +2,8 @@
 // Architecture: Repository → StudentStateBuilder → StudentState → All Services
 
 import { logger } from '@/shared/logger/logger';
+// 2026-08-30 audit (R7): 正典跨卷估級門檻（76/62/48/33）— 移除本地重複實作，避免漂移。
+import { estimateLevelFromScore100 } from '@/modules/ai/core/level-estimation';
 import type { StudentState, StudentIdentity, StudentMemory,
   StudentMastery, StudentWeakness, StudentVocabulary,
   StudentEngagement, StudentPracticeSummary } from './StudentState';
@@ -83,7 +85,6 @@ interface RawLearningProfile {
   strongestSkills: Array<{ grammarItem?: string; skill?: string }>;
 }
 
-type HkdseLevel = 'U' | '1' | '2' | '3' | '4' | '5' | '5*' | '5**';
 type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type Trend = 'improving' | 'stable' | 'declining';
 type Trajectory = 'accelerating' | 'steady' | 'plateauing' | 'declining' | 'decelerating';
@@ -113,26 +114,23 @@ function buildMasteryScores(entries: ReviewEntry[]): Record<string, number> {
 
 /**
  * Internal platform level estimate (1-5, NO star labels) using the canonical
- * cross-paper thresholds (76/62/48/33). Uncalibrated platform estimate —
- * never an official HKEAA grade (2026-08-30 audit).
+ * cross-paper thresholds (76/62/48/33) — 2026-08-30 audit (R7): 統一委派
+ * ai/core/level-estimation，移除本地重複實作。
+ * Uncalibrated platform estimate — never an official HKEAA grade.
  */
 function estimateHkdse(mastery: Record<string, number>): string {
   const vals = Object.values(mastery);
   if (vals.length === 0) return '1';
   const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-  if (avg >= 0.76) return '5';
-  if (avg >= 0.62) return '4';
-  if (avg >= 0.48) return '3';
-  if (avg >= 0.33) return '2';
-  return '1';
+  return estimateLevelFromScore100(Math.round(avg * 100));
 }
 
 /**
- * CEFR estimate derived from the HKDSE level via the official EDB
- * HKDSE-CEFR alignment (Level 1-2 → A2, 3-4 → B1, 5 → B2).
- * Never exceeds B2 for Level 5 — matches HKDSE_CEFR_ALIGNMENT
- * (2026-08-30 audit: previous mastery-threshold mapping showed
- * "Level 5 + C1" simultaneously, contradicting EDB alignment).
+ * CEFR estimate derived from the platform HKDSE-level estimate via
+ * HKDSE_CEFR_ALIGNMENT（平台參考對照，非官方對照表；見 curriculum/data）。
+ * Level 1-2 → A2, 3-4 → B1, 5 → B2 — 不輸出星級（平台不發星級）。
+ * 2026-08-30 audit (R7): 移除「EDB Official」宣稱 — HKEAA/EDB 無公佈官方
+ * CEFR 等值表，此對照為教學參考。
  */
 function estimateCefr(mastery: Record<string, number>): CefrLevel {
   const hkdse = estimateHkdse(mastery);
@@ -524,7 +522,9 @@ export class StudentStateBuilder {
     return {
       weeklyMasteryRate: Math.round(rate * 100) / 100,
       improvementPerSession: Math.round(rate / Math.max(1, total) * 100) / 100,
-      estimatedWeeksToTarget: Math.ceil((0.8 - rate) * 52),
+      // 2026-08-30 audit (R7): 線性外推估算（非校準預測模型）—
+      // 已達標 → 0；速率>目標時不得輸出負週數。
+      estimatedWeeksToTarget: rate >= 0.8 ? 0 : Math.ceil((0.8 - rate) * 52),
       // 2026-08-30 audit (R6): 平台無全校比較證據 — peerPercentile 不再硬編 50。
       weeklyHistory: [], peerPercentile: null,
       trend: rate > 0.5 ? 'accelerating' : 'steady',

@@ -9,7 +9,8 @@
 export interface ClassInfo {
   classId: string; className: string; studentCount: number;
   averageMastery: number;
-  topConcern?: string; topConcernZh?: string;
+  masteryEvidence?: boolean;
+  topConcern?: string | null; topConcernZh?: string | null;
   nextAction?: string; nextActionZh?: string;
 }
 export interface UrgentAction {
@@ -51,7 +52,7 @@ export interface RiskStudent {
   reasons?: string[];
 }
 export interface ClassAnalysis {
-  overallMetrics: { averageMastery: number; classHkdseLevel: string };
+  overallMetrics: { averageMastery: number; classHkdseLevel: string; hasData?: boolean };
   skillBreakdown: SkillBreakdown[];
   studentRankings: { studentId: string; name: string; score: number; overallScore?: number }[];
   riskStudents: RiskStudent[];
@@ -59,9 +60,9 @@ export interface ClassAnalysis {
   recommendationsZh?: string[];
 }
 
-export interface StudentPrediction { studentId: string; studentName: string; predictedLevel: string; confidenceBand: string; }
+export interface StudentPrediction { studentId: string; studentName: string; predictedLevel: string | null; confidenceBand: string; }
 export interface ExamPrediction {
-  predictedPassRate: number;
+  predictedPassRate: number | null;
   studentPredictions: StudentPrediction[];
   paperAnalysis: { paper: string; paperZh: string; classAverage: number }[];
 }

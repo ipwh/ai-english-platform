@@ -6,10 +6,10 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders
-- **Testing**: Vitest 4, 2863/2863 tests pass (132 files, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions modules removed)
+- **Testing**: Vitest 4, 2821/2821 tests pass (129 files, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
 - **Build**: `node scripts/vercel-build.js` (exit 0)
-- **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules)
-- **API routes**: 115 under `src/app/api/`
+- **Key modules**: 21 under `src/modules/` (including 5 AI infra + foundation modules)
+- **API routes**: 113 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
 - **AI Facade**: 61 exported symbols — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules)
@@ -20,7 +20,7 @@ See AGENTS.md for shared agent instructions.
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`, `npm run calibration:*` (ingest/report/intake/verify/marker-pack/marker-intake/adjudicate/freeze)
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`
-- **i18n**: 19 files (18 module files + i18n.ts), 1676 unique keys (zh/en pairs), check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
+- **i18n**: 19 files (18 module files + i18n.ts), 1677 unique keys (zh/en pairs), check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
 - **Deployment Readiness**: Engineering baseline stable; formative self-study features available. Writing evaluation architecturally hardened; empirical marker calibration not available.
 - **AI Quality**: DSE reading 8.2/10 (2026-08-04 manual 14-generation snapshot) — DeepSeek primary, 6-condition retry, JSON repair (8 active steps), paragraph ref verification
 - **Writing Analysis Pipeline**: 3-evaluator architecture (Semantic + Style → Grammar/CLO), evidence-only semantic layer, CLO sole score authority, deterministic normalization, rubric single source of truth, golden benchmark runner, prompt injection defended, fail-open (Sprints 127-130 hardened)
@@ -41,7 +41,7 @@ See AGENTS.md for shared agent instructions.
 
 ## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)
 ```
-Routes (115) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
+Routes (113) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)
                   ├─ Providers (6-model chain + circuit-breaker)
                   ├─ Services (RAG, TTS, evaluator, enrichment)
