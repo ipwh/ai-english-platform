@@ -1739,7 +1739,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
     if (actualParagraphCount > 0 && (actualParagraphCount < 3 || actualParagraphCount > 5)) {
       logger.warn({ module: 'reading-api', paragraphCount: actualParagraphCount, required: '3-5' }, 'Generated passage has invalid paragraph count after retry — rejecting');
       return NextResponse.json(
-        apiError(`Generated passage has ${actualParagraphCount} paragraph(s) (3-5 required). Please try again.`, 'PASSAGE_TOO_SHORT', true),
+        apiError(`Generated passage has ${actualParagraphCount} paragraph(s) (3-5 required). Please try again.`, 'PARAGRAPH_COUNT_INVALID', true),
         { status: 422 },
       );
     }

@@ -126,6 +126,10 @@ function mapReadingApiError(
         return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The system did not generate a passage long enough. Please try again.'
           : '系統暫時未生成足夠長的篇章，請再試一次。' };
+      case 'PARAGRAPH_COUNT_INVALID':
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
+          ? 'The passage paragraph count is outside the DSE range (3-5). Please try again.'
+          : '篇章段落數超出 DSE 範圍（3-5 段），請再試一次。' };
       case 'MALFORMED_AI_OUTPUT':
         return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The system could not generate valid reading content. Please try again.'

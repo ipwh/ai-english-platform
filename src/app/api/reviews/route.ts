@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
   const teacherId = authResult.userId!;
   try {
 
-    // 從 Submission 表中提取需要教師覆核的記錄
-    const submissions = await listSubmissionsForReview(50);
+    // 從 Submission 表中提取需要教師覆核的記錄（admin 看全部，教師只看自己派發的作業）
+    const submissions = await listSubmissionsForReview(50, authResult.role === 'admin' ? undefined : teacherId);
     const reviewRecords = await findReviewsBySubmissions(submissions.map((s: { id: string }) => s.id));
     const reviewMap = new Map(reviewRecords.map(r => [r.submissionId, r]));
 

@@ -32,8 +32,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const stillUnread = updated.filter((n) => !n.read).length;
     set({ notifications: updated, unreadCount: stillUnread });
 
-    // 同步到後端
-    fetch(`/api/notifications/${notificationId}`, { method: 'PATCH' }).catch(() => {});
+    // 同步到後端（正典契約：POST /api/notifications { notificationId }）
+    fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notificationId }),
+    }).catch(() => {});
   },
 
   markAllAsRead: async () => {
@@ -42,7 +46,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: 0,
     }));
     try {
-      await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllRead: true }),
+      });
     } catch {
       // non-critical
     }

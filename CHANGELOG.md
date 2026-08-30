@@ -4,6 +4,48 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-08-30 (Round 3) — 師生課業流程 + 通知 + 公平性 + 文檔全面審核
+
+### 🔍 範圍
+全面審核師生連繫（生成課業、遞交課業、批改覆核、通知）、六大 student module、HKDSE 分數對照、死碼及中英對照。基線驗證：2909 tests/133 files green、tsc 0、check-i18n exit 0。
+
+### 📋 課業流程修正（P1）
+- **學生作業列表完全修復**：列表頁 mapping 遺失 `id/title/status/dueDate`（連結到 `/student/assignments/undefined`、顯示 undefined 標題）＋學生過濾器 `where.className = userId` 永回 0 列 → GET 改為按班級（含混合上課 StudentClass）/ 直接指派 / 組別三路 OR，並附上該學生的 submission 狀態與教師回饋；列表頁狀態推導（not-started / in-progress / completed / overdue）並渲染教師評語。
+- **教師修正分數被「接受」靜默丟棄已修**：review 頁 spread 整份 `selectedReview`（含 `aiScore`）→ 路由 `aiScore` 覆寫 `teacherScore`。現路由 **teacherScore 優先**，僅在未提供時才採用 aiScore；client 不再送出 aiScore。
+- **教師回饋從未到達學生已修**：學生 GET 回傳缺 `teacherFeedback` → 現由 Review 表按 `submissionId` 關聯回傳；學生詳情頁新增教師評語區塊；通知連結改用真實 assignmentId（舊為空字串）。
+- **遞交保護**：學生必須是作業目標（403 否則）；過截止日期拒絕（409）；`graded` 後不可重交（409，`returned` 可修改重交）；詳情頁依狀態鎖定提交區並保留「退回重做」提示。
+- **作業建立**：支援多班選擇（`classIds` 每班建立一份）；核驗任教班級 / 組別擁有權 / 學生任教範圍（admin 豁免）；題目答案鍵伺服器核驗（非 `z.any()` 任意接受）。
+- **教師覆核範圍**：覆核佇列只顯示教師自己派發作業的提交（admin 全量）；PATCH 覆核需任教該學生班級；Review 表按 submissionId upsert（不再無限插入重複列，覆核分數現可回讀）。
+- **匿名存取作業詳情已修**：學生 GET 現在要求登入。
+
+### 🔔 通知修正
+- `notificationStore.markAsRead/markAllAsRead` 打往不存在的 `/api/notifications/{id}` 及 `/mark-all-read` → 改為正典 `POST /api/notifications {notificationId}` / `{markAllRead:true}`。
+- `PATCH /api/notifications/sse` 已讀更新加上 `userId` 範圍（修 IDOR）。
+
+### 📐 評分公平性
+- **CEFR 對照統一**：`StudentStateBuilder.estimateCefr` 由自訂 mastery 閾值（0.85→C1）改為 EDB HKDSE-CEFR 官方對照（Lv5→B2），消除「同時顯示 Level 5 + C1」矛盾。
+- **1-20 平台指數改名**：`buildPrediction.estimatedLevel`（1-20）→ `platformMasteryIndex`，杜絕與 HKDSE Level 1-5 混淆。
+- **寫作頁 Est. 徽章加可見免責聲明**（平台估算非官方評級）；診斷寫作百分比不再排除 0 分維度；口語 route 將 LLM 分數夾取至 1-5 整數（缺失 → null 顯示 ?，不杜撰），頁面標示 `/5`。
+- **Teacher Copilot 學生姓名分支**：`identity?.estimatedLevel`（永為 false）→ 改用 twin 快照姓名。
+
+### 🈴 中英對照
+- 學生作業詳情頁三處硬編碼中文改用 i18n（`assignment.remaining` / `resultSummary` / `resultDetail` ＋ 新 `assignment.returnedNote`）。
+- 9+ 條學生面向 API 錯誤訊息雙語化（analyze-answer / analyze-word / IS 分析與生成 / generate-questions / rewrite-writing / profile / 作業得分摘要）。
+- 對齊 2 個衝突重複 key（`practice.unanswered`、`teacher.materials.aiAnalyze`）；help 頁死碼 `aiAdvice` 陣列刪除、後續建議/建議聚焦標籤雙語。
+
+### 🧹 死碼
+- 刪除零消費者 `assessment/services/assessment-service.ts`、`exercise/services/exercise-service.ts`；移除損壞的 `npm run architecture:dashboard`（scripts/generate-dashboard.js 不存在）。
+- 清除過時 Gemini 措辭：provider-registry 錯誤訊息、ai/status 註釋、analyze-progress fallback 警告、README/CLAUDE 環境變數表；`writing-coach-rubric` flag → `writing-clo-rubric`；adaptive-writing-guide logger tag。
+- 閱讀 >5 段錯誤碼 `PASSAGE_TOO_SHORT` → `PARAGRAPH_COUNT_INVALID`（頁面新增對應雙語訊息）。
+
+### 📚 文件修正
+- README/CLAUDE：ai/ 209→208 files；i18n 1695→1676 unique keys（1697 raw）；ADRs 37→39（ADR-001–039）；smoke「Gemini 接手」→「Grok 接手」；Gemini 環境變數標記退役。
+
+### 🧪 驗證
+- **2909 tests pass（133 files, 1 skipped）** · tsc 0 · check-i18n exit 0 · eslint 0 errors（僅既有 warnings）。
+
+---
+
 ## 2026-08-30 — 全面覆核：HKDSE 分數對照一致性、評分公平性、雙語與死碼（第 2 輪全面審核）
 
 ### 🔍 範圍

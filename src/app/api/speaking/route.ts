@@ -134,7 +134,24 @@ Return a JSON object:
     ], { temperature: 0.3, maxTokens: 2048, jsonMode: true, timeoutMs: 15000 });
 
     const parsed = safeJsonParse(analysis, 'transcript analysis');
-    return NextResponse.json({ analysis: parsed });
+
+    // 2026-08-30 audit: LLM 分數永不直接採信 — 夾取至 1-5 整數；
+    // 缺失/非數字 → null（前端顯示 ?），不杜撰預設分數。
+    const dims = ['grammarAccuracy', 'vocabularyRange', 'contentRelevance'] as const;
+    const normalized: Record<string, unknown> = { ...parsed };
+    for (const dim of dims) {
+      const raw = parsed[dim] as { score?: unknown; comment?: unknown } | undefined;
+      if (raw && typeof raw === 'object') {
+        const num = Number(raw.score);
+        normalized[dim] = {
+          ...raw,
+          score: Number.isFinite(num) ? Math.min(5, Math.max(1, Math.round(num))) : null,
+        };
+      } else {
+        normalized[dim] = { score: null, comment: '' };
+      }
+    }
+    return NextResponse.json({ analysis: normalized });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: isBudgetExceededError(err) ? 503 : 500 });

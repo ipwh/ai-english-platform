@@ -20,6 +20,7 @@ export const assignmentCreateSchema = z.object({
   questions: z.array(z.any()).optional(),
   groupIds: z.array(z.string()).optional(),
   studentIds: z.array(z.string()).optional(),
+  classIds: z.array(z.string()).optional(),
 });
 
 export const practiceCreateSchema = z.object({

@@ -242,7 +242,8 @@ export interface Prediction {
   predictions: {
     estimatedAccuracy: number;
     estimatedMastery: number;
-    estimatedLevel: number;
+    // 2026-08-30 audit: 1-20 平台掌握度指數（不是 HKDSE Level 1-5）
+    platformMasteryIndex: number;
     estimatedVocabulary: number;
     confidenceScore: number;
   };

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (isBudgetExceededError(err)) {
       return NextResponse.json({ error: err.message }, { status: 503 });
     }
-    const message = err instanceof Error ? err.message : 'AI 分析失敗';
+    const message = err instanceof Error ? err.message : 'AI 分析失敗 / AI analysis failed';
     logger.error({ module: 'analyze-word', error: message }, 'Word analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }

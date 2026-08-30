@@ -60,7 +60,7 @@ Writing Evaluation (Sprints 127-130):
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
-| Documentation | 37 ADRs in `docs/architecture/` |
+| Documentation | 39 ADRs (ADR-001–039) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) + Vercel (legacy) |
@@ -219,9 +219,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 | `DATABASE_URL` | PostgreSQL 連線字串 (`postgresql://...`) | ✅ |
 | `GCP_PROJECT_ID` | Google Cloud Project ID | ⬜ |
 | `GCP_SERVICE_ACCOUNT_JSON` | GCP Service Account JSON (Base64) | ⬜ |
-| `GEMINI_API_KEY` | Gemini API key (fallback) | ⬜ |
-| `GEMINI_MODEL` | Gemini model (預設 `gemini-2.5-flash`) | ⬜ |
-| `GEMINI_LITE_MODEL` | Gemini Flash-Lite model (預設 `gemini-2.5-flash-lite`) | ⬜ |
+| ~~`GEMINI_API_KEY` / `GEMINI_MODEL` / `GEMINI_LITE_MODEL`~~ | Gemini API retired 2026-08-20（已撤銷，不再使用） | — |
 | `VERTEX_AI_LOCATION` | Vertex AI region (預設 `global`) | ⬜ |
 | `DEEPSEEK_BASE_URL` | DeepSeek base URL (預設 `https://api.deepseek.com/v1`) | ⬜ |
 | `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |
@@ -257,11 +255,11 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1695 個 key（中英各一），`npm run check:i18n` exit 0）
+- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1676 個 key（中英各一），`npm run check:i18n` exit 0）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
-- [ ] AI fallback 驗證（DeepSeek fail → Gemini 接手）
+- [ ] AI fallback 驗證（DeepSeek fail → Grok 接手）
 - [ ] PWA 安裝（manifest.json + SVG icons）
 
 ### Vercel 配置要點
@@ -359,7 +357,7 @@ npm run dev
 | `DATABASE_URL` | PostgreSQL 連線字串 | ✅ |
 | `GCP_PROJECT_ID` | Vertex/Gemini 所屬 GCP Project ID | ⬜ |
 | `GCP_SERVICE_ACCOUNT_JSON` | GCP 服務帳號 JSON (Base64) | ⬜ |
-| `GEMINI_API_KEY` | Gemini API 金鑰（備援） | ⬜ |
+| ~~`GEMINI_API_KEY`~~ | Gemini API 已於 2026-08-20 退役（無需設定） | — |
 
 ## 專案結構
 
@@ -371,7 +369,7 @@ src/
 │   ├── teacher/              # 教師端頁面
 │   └── admin/                # 管理員後台
 ├── modules/                  # 🆕 模組化架構 (22 modules + __tests__)
-│   ├── ai/                   # AI 服務 (19 子目錄, 209 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
+│   ├── ai/                   # AI 服務 (19 子目錄, 208 files: providers, prompts, services, schemas, foundation, prompt-versioning, regression, experiments, continuous-evaluation, evaluation, assessment, benchmark, runtime, types, usecases, repositories, core)
 │   ├── knowledge-graph/      # 知識圖譜 (59-node DAG, 7 API endpoints, 視覺化)
 │   ├── learning/             # 學習引擎 (grammar DAG, mastery, recommendations, adaptive pipeline)
 │   ├── student/              # 學生 mastery/profile/memory

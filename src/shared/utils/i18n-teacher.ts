@@ -180,7 +180,7 @@ export const teacherTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.materials.search': { zh: '搜尋教材...', en: 'Search materials...' },
   'teacher.materials.ocrStatus': { zh: 'OCR 狀態', en: 'OCR Status' },
   'teacher.materials.ragStatus': { zh: 'RAG 狀態', en: 'RAG Status' },
-  'teacher.materials.aiAnalyze': { zh: 'AI 分析教材', en: 'AI Analyze' },
+  'teacher.materials.aiAnalyze': { zh: '使用 AI 分析教材內容，提取關鍵詞彙及文法點', en: 'Use AI to analyze material content and extract key vocabulary and grammar points' },
   'teacher.materials.aiAnalyzeDesc': { zh: '使用 AI 分析教材內容，提取關鍵詞彙及文法點', en: 'AI analyzes content, extracts key vocabulary and grammar' },
   'teacher.materials.aiResult': { zh: 'AI 分析結果', en: 'AI Analysis Result' },
   'teacher.materials.genQuestions': { zh: '從此教材生成練習題目', en: 'Generate questions from material' },

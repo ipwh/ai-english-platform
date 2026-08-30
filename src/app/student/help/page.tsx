@@ -120,13 +120,6 @@ const helpCategories: { titleKey: string; icon: React.ElementType; items: { qKey
   },
 ];
 
-const aiAdvice = [
-  { title: '建立每日學習習慣', desc: '每天只需 15 分鐘，專注練習一個弱點技能。', icon: '📅' },
-  { title: '善用錯題溫習', desc: '重做錯題比做新題更有效。建議每週重溫一次錯題庫。', icon: '🔄' },
-  { title: '先理解後記憶', desc: '文法規則不要死記，多看例句，理解使用情境。', icon: '🧠' },
-  { title: '多聽多讀', desc: '課餘時間多看英文影片、聽英文歌，讓英文融入生活。', icon: '🎧' },
-];
-
 const aiAdviceI18n = [
   { titleKey: 'help.advice.habit.title', descKey: 'help.advice.habit.desc', icon: '📅' },
   { titleKey: 'help.advice.review.title', descKey: 'help.advice.review.desc', icon: '🔄' },
@@ -135,7 +128,7 @@ const aiAdviceI18n = [
 ];
 
 export default function StudentHelpPage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [weakSkills, setWeakSkills] = useState<WeakSkill[]>([]);
@@ -448,8 +441,8 @@ export default function StudentHelpPage() {
       const data = await res.json();
       if (res.ok && data.answer) {
         const extra = [
-          ...(data.followUpTips?.length ? ['\n\n後續建議：', ...data.followUpTips.map((tip: string) => `- ${tip}`)] : []),
-          ...(data.recommendedFocus?.length ? ['\n\n建議聚焦：', ...data.recommendedFocus.map((item: string) => `- ${item}`)] : []),
+          ...(data.followUpTips?.length ? [language === 'en' ? '\n\nFollow-up tips:' : '\n\n後續建議：', ...data.followUpTips.map((tip: string) => `- ${tip}`)] : []),
+          ...(data.recommendedFocus?.length ? [language === 'en' ? '\n\nSuggested focus:' : '\n\n建議聚焦：', ...data.recommendedFocus.map((item: string) => `- ${item}`)] : []),
         ].join('\n');
         setAiAnswer(`${data.answer}${extra}`.trim());
       } else {

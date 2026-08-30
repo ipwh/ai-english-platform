@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (isBudgetExceededError(err)) {
       return NextResponse.json({ error: err.message }, { status: 503 });
     }
-    const message = err instanceof Error ? err.message : '未知錯誤';
+    const message = err instanceof Error ? err.message : '未知錯誤 / Unknown error';
     logger.error({ module: 'analyze-answer', error: message }, 'Answer analysis failed');
     return NextResponse.json({ error: message }, { status: 500 });
   }

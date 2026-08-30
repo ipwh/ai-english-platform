@@ -511,7 +511,9 @@ export function buildPrediction(
     predictions: {
       estimatedAccuracy: Math.round(estimatedAccuracy * 100) / 100,
       estimatedMastery: Math.round(estimatedMastery),
-      estimatedLevel: Math.min(20, Math.floor(estimatedMastery / 5) + 1),
+      // 2026-08-30 audit: 改名避免與 HKDSE Level (1-5) 混淆 —
+      // 這是 1-20 的平台掌握度指數，不是 HKDSE 等級。
+      platformMasteryIndex: Math.min(20, Math.floor(estimatedMastery / 5) + 1),
       estimatedVocabulary: estimatedVocab,
       confidenceScore: Math.round((0.5 + Math.min(practices.length / 100, 0.4)) * 100) / 100,
     },

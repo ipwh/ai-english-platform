@@ -49,7 +49,7 @@ export async function generateAdaptiveWritingGuide(
       schema: AdaptiveWritingGuideOutputSchema,
     });
   } catch {
-    logger.warn({ module: 'live-writing-coach' }, 'Live writing coach failed');
+    logger.warn({ module: 'adaptive-writing-guide' }, 'Live writing guide failed');
     return {
       personalizedTips: ['繼續寫作，完成後可以使用 AI 批改獲得詳細分析。'],
       structureIssues: [],

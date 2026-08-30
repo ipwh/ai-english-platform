@@ -61,7 +61,8 @@ class ProviderRegistry {
   async call(messages: ChatMessage[], options?: LLMCallOptions): Promise<ProviderCallResult> {
     const available = this.getAvailableProviders();
     if (available.length === 0) {
-      throw new Error('No AI provider configured. Set DEEPSEEK_API_KEY or GEMINI_API_KEY.');
+      // Gemini API retired 2026-08-20; effective runtime chain is DeepSeek → Grok
+      throw new Error('No AI provider configured. Set DEEPSEEK_API_KEY.');
     }
 
     // Cache for deterministic requests (served BEFORE the budget gate — a

@@ -1,6 +1,6 @@
 ﻿// ============================================
 // API Route: GET /api/ai/status
-// 檢查 AI 供應商連線狀態（DeepSeek / Vertex Gemini / Gemini API）
+// 檢查 AI 供應商連線狀態（DeepSeek primary; Grok fallback）
 // Admin-only: leaks provider chain configuration
 // ============================================
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     providers,
     message: configured
       ? `AI 服務已連線（${provider}）`
-      : 'AI 服務尚未設定。請設定 DEEPSEEK_API_KEY，或設定 Vertex service account（GCP_PROJECT_ID + GCP_SERVICE_ACCOUNT_JSON/GOOGLE_APPLICATION_CREDENTIALS）。',
+      : 'AI 服務尚未設定。請設定 DEEPSEEK_API_KEY。',
   });
 }
 

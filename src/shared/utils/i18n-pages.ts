@@ -35,7 +35,7 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'admin.users.resetConfirm': { zh: '確認重設', en: 'Confirm Reset' },
   'admin.users.cancel': { zh: '取消', en: 'Cancel' },
   'practice.submitAssignment': { zh: '提交作業', en: 'Submit Assignment' },
-  'practice.unanswered': { zh: '題未作答', en: 'unanswered' },
+  'practice.unanswered': { zh: '（未作答）', en: '(Unanswered)' },
   'diagnostic.correctBadge': { zh: '✅ 回答正確！', en: '✅ Correct!' },
   'diagnostic.wrongBadge': { zh: '❌ 回答錯誤', en: '❌ Incorrect' },
   'diagnostic.viewResults': { zh: '查看結果', en: 'View Results' },

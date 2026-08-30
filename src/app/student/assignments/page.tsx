@@ -26,35 +26,36 @@ export default function StudentAssignmentsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 取得學生作業及提交狀態
-    Promise.all([
-      fetch('/api/assignments').then(r => r.json()).catch(() => ({ assignments: [] })),
-      fetch('/api/auth/profile').then(r => r.json()).catch(() => null),
-    ]).then(async ([assignData, profile]) => {
-      const studentId = profile?.id;
-      // 取得學生所有提交記錄以判斷作業狀態
-      const submissionsMap: Record<string, { status: string; score: number | null }> = {};
-      if (studentId) {
-        try {
-          // 透過 assignments 的 submission 關聯獲取狀態
-          const subsRes = await fetch(`/api/practice?studentId=${studentId}`);
-          // 我們改用 submission 端點 — 從 assignments API 無法直接獲取學生級狀態
-        } catch { /* fallback */ }
-      }
-
-      const mapped = (assignData.assignments || []).map((a: { _count?: { submissions?: number }; questionCount?: number; dueDate?: string }) => {
-        // 判斷學生提交狀態：檢查 a._count.submissions > 0
-        const hasSubmission = (a._count?.submissions ?? 0) > 0;
-        return {
-          questionCount: a.questionCount || 5,
-          score: null,
-          submittedAt: a.dueDate,
-        };
-      });
-      setAssignments(mapped);
-    })
-    .catch((e) => { logger.error({ module: 'student-assignments', error: e instanceof Error ? e.message : String(e) }, 'Failed to load assignments'); })
-    .finally(() => setLoading(false));
+    // 取得學生作業及提交狀態（伺服器已附上該學生的 submission 狀態與教師回饋）
+    fetch('/api/assignments')
+      .then(r => r.json())
+      .then((assignData) => {
+        const mapped = (assignData.assignments || []).map((a: Record<string, unknown>) => {
+          const sub = (a.submission as { status?: string; score?: number | null; teacherFeedback?: string | null } | null) ?? null;
+          // 狀態推導：無提交 → not-started；已批改/已提交 → completed；退回重做 → in-progress
+          let status: AssignmentStatus = 'not-started';
+          if (sub) {
+            if (sub.status === 'returned' || sub.status === 'pending') status = 'in-progress';
+            else status = 'completed';
+          }
+          const due = typeof a.dueDate === 'string' ? a.dueDate : null;
+          if (status !== 'completed' && due && new Date(due).getTime() < Date.now()) status = 'overdue';
+          return {
+            id: String(a.id ?? ''),
+            title: String(a.title ?? ''),
+            strand: (a.strand as AssignmentSummary['strand']) ?? undefined,
+            grammarItem: (a.grammarItem as AssignmentSummary['grammarItem']) ?? undefined,
+            languageSkill: (a.languageSkill as AssignmentSummary['languageSkill']) ?? undefined,
+            dueDate: due ?? '',
+            status,
+            score: sub?.score ?? undefined,
+            teacherFeedback: sub?.teacherFeedback ?? undefined,
+          } satisfies AssignmentSummary;
+        });
+        setAssignments(mapped);
+      })
+      .catch((e) => { logger.error({ module: 'student-assignments', error: e instanceof Error ? e.message : String(e) }, 'Failed to load assignments'); })
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = filter === 'all' ? assignments : assignments.filter(a => a.status === filter);

@@ -66,7 +66,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true, user });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : '更新失敗';
+    const message = err instanceof Error ? err.message : '更新失敗 / Update failed';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

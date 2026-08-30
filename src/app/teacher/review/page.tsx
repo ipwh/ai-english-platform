@@ -64,13 +64,12 @@ export default function TeacherReviewPage() {
   const handleAccept = async () => {
     if (!selectedReview || actionLoading) return;
     setActionLoading('accept');
-    const updated = {
-      ...selectedReview,
+    // 只送出教師覆核欄位 — 不帶 aiScore，避免覆蓋教師修正分數（路由會優先採納 teacherScore）
+    await updateReview(selectedReview.id, {
       status: 'reviewed' as ReviewStatus,
-      teacherScore: teacherScore ?? selectedReview.aiScore,
-      teacherFeedback: teacherFeedback || selectedReview.aiFeedback,
-    };
-    await updateReview(selectedReview.id, updated);
+      teacherScore: teacherScore ?? selectedReview.teacherScore ?? selectedReview.aiScore,
+      teacherFeedback: teacherFeedback || selectedReview.teacherFeedback || selectedReview.aiFeedback,
+    });
     setActionLoading(null);
   };
 

@@ -148,9 +148,13 @@ export async function getStudentAnalytics(studentId: string) {
 }
 
 // Submission/Review queries
-export async function listSubmissionsForReview(take = 50) {
+export async function listSubmissionsForReview(take = 50, teacherId?: string) {
   return db.submission.findMany({
-    where: { status: { in: ['submitted', 'graded'] } },
+    where: {
+      status: { in: ['submitted', 'graded'] },
+      // 2026-08-30 audit: 教師只看到自己派發的作業的提交；admin（未傳 teacherId）看全部
+      ...(teacherId ? { assignment: { createdBy: teacherId } } : {}),
+    },
     select: { id: true, score: true, aiFeedback: true, status: true, answers: true, submittedAt: true, student: { select: { id: true, nameZh: true, nameEn: true, class: { select: { name: true } } } }, assignment: { select: { id: true, title: true, questions: { select: { id: true, prompt: true, answer: true, questionType: true } } } } },
     orderBy: { submittedAt: 'desc' },
     take,

@@ -669,6 +669,12 @@ export default function WritingPage() {
               )}
             </div>
           )}
+          {/* 2026-08-30 audit: 可見免責聲明 — 與 IS 結果頁一致 */}
+          {aiResult.dseLevel && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-lg px-3 py-2">
+              {t('writing.estimateDisclaimer')}
+            </p>
+          )}
 
           {/* Sprint 131: CLO Dimension Rationale — educational feedback */}
           <CloFeedbackPanel

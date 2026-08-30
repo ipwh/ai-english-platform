@@ -127,15 +127,18 @@ function estimateHkdse(mastery: Record<string, number>): string {
   return '1';
 }
 
+/**
+ * CEFR estimate derived from the HKDSE level via the official EDB
+ * HKDSE-CEFR alignment (Level 1-2 → A2, 3-4 → B1, 5 → B2).
+ * Never exceeds B2 for Level 5 — matches HKDSE_CEFR_ALIGNMENT
+ * (2026-08-30 audit: previous mastery-threshold mapping showed
+ * "Level 5 + C1" simultaneously, contradicting EDB alignment).
+ */
 function estimateCefr(mastery: Record<string, number>): CefrLevel {
-  const vals = Object.values(mastery);
-  if (vals.length === 0) return 'A1';
-  const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-  if (avg >= 0.85) return 'C1';
-  if (avg >= 0.70) return 'B2';
-  if (avg >= 0.50) return 'B1';
-  if (avg >= 0.30) return 'A2';
-  return 'A1';
+  const hkdse = estimateHkdse(mastery);
+  if (hkdse === '5') return 'B2';
+  if (hkdse === '4' || hkdse === '3') return 'B1';
+  return 'A2';
 }
 
 function rankSkills(mastery: Record<string, number>, descending: boolean): SkillRank[] {

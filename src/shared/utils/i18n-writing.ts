@@ -66,4 +66,6 @@ export const writingTranslations: Record<string, { zh: string; en: string }> = {
   'writing.contentScore': { zh: 'Content 內容', en: 'Content' },
   'writing.languageScore': { zh: 'Language 語言', en: 'Language' },
   'writing.organizationScore': { zh: 'Organization 組織', en: 'Organization' },
+  // 2026-08-30 audit: 可見的免責聲明 — 平台估算非官方評級
+  'writing.estimateDisclaimer': { zh: 'ℹ️ 平台估算（未經校準）僅供練習參考，並非 HKEAA 官方評級，亦不代表公開考試成績預測。', en: 'ℹ️ Platform estimate (uncalibrated) for practice only — NOT an official HKEAA grade or exam prediction.' },
 };

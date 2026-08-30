@@ -99,14 +99,14 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     if (isBudgetExceededError(err)) {
       return NextResponse.json({
-        error: `Integrated Skills 批改失敗：${err.message}`,
+        error: `Integrated Skills 批改失敗：${err.message} / Integrated Skills analysis failed: ${err.message}`,
         _meta: { provider: getLastAIProvider(), fallback: wasFallbackUsed() },
       }, { status: 503, headers: { 'X-AI-Provider': getLastAIProvider() } });
     }
-    const message = err instanceof Error ? err.message : '未知錯誤';
+    const message = err instanceof Error ? err.message : '未知錯誤 / Unknown error';
     logger.error({ module: 'analyze-integrated-skills', error: message }, 'Integrated skills analysis failed');
     return NextResponse.json({
-      error: `Integrated Skills 批改失敗：${message}`,
+      error: `Integrated Skills 批改失敗：${message} / Integrated Skills analysis failed: ${message}`,
       _meta: { provider: getLastAIProvider(), fallback: wasFallbackUsed() },
     }, {
       status: 500,

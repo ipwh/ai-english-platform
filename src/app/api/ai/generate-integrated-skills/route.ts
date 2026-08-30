@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const validTaskTypes = VALID_TASK_TYPES as readonly string[];
     if (!validTaskTypes.includes(taskType)) {
       return NextResponse.json(
-        { error: `taskType 必須是 ${validTaskTypes.join(' / ')} 之一。` },
+        { error: `taskType 必須是 ${validTaskTypes.join(' / ')} 之一。 / taskType must be one of ${validTaskTypes.join(' / ')}` },
         { status: 400 }
       );
     }
@@ -74,14 +74,14 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     if (isBudgetExceededError(err)) {
       return NextResponse.json({
-        error: `Integrated Skills 生成失敗：${err.message}`,
+        error: `Integrated Skills 生成失敗：${err.message} / Integrated Skills generation failed: ${err.message}`,
         _meta: { provider: getLastAIProvider() },
       }, { status: 503, headers: { 'X-AI-Provider': getLastAIProvider() } });
     }
-    const message = err instanceof Error ? err.message : '未知錯誤';
+    const message = err instanceof Error ? err.message : '未知錯誤 / Unknown error';
     logger.error({ module: 'generate-integrated-skills', error: message }, 'Integrated skills generation failed');
     return NextResponse.json({
-      error: `Integrated Skills 生成失敗：${message}`,
+      error: `Integrated Skills 生成失敗：${message} / Integrated Skills generation failed: ${message}`,
       _meta: { provider: getLastAIProvider() },
     }, {
       status: 500,

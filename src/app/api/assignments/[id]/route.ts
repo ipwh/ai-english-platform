@@ -26,6 +26,8 @@ export async function GET(
   const isTeacher = searchParams.get('teacher') === 'true';
 
   // 🔒 Teacher view requires authentication + teacher/admin role (JWT + NextAuth dual support)
+  // 🔒 Student view requires authentication (no anonymous question enumeration)
+  let studentUserId: string | null = null;
   if (isTeacher) {
     const auth = await verifyApiAuth(request, ['teacher', 'admin']);
     if (!auth.authenticated) {
@@ -33,6 +35,15 @@ export async function GET(
     }
     if (auth.role !== 'teacher' && auth.role !== 'admin') {
       return NextResponse.json({ error: '權限不足：僅教師可查看此視圖 / Insufficient permission: only teachers can view this' }, { status: 403 });
+    }
+  } else {
+    const token = request.cookies.get('session_token')?.value;
+    if (token) {
+      const payload = await verifySessionToken(token);
+      if (payload) studentUserId = payload.userId;
+    }
+    if (!studentUserId) {
+      return NextResponse.json({ error: '請先登入 / Please sign in' }, { status: 401 });
     }
   }
 
@@ -57,15 +68,18 @@ export async function GET(
 
     // 學生視圖：取得當前學生的提交記錄
     let studentSubmission = null;
-    if (!isTeacher) {
-      const token = request.cookies.get('session_token')?.value;
-      if (token) {
-        const payload = await verifySessionToken(token);
-        if (payload) {
-          studentSubmission = await adminDbQuery('submission', 'findFirst', {
-            where: { assignmentId: id, studentId: payload.userId },
-          });
-        }
+    if (!isTeacher && studentUserId) {
+      studentSubmission = await adminDbQuery('submission', 'findFirst', {
+        where: { assignmentId: id, studentId: studentUserId },
+      });
+      // 教師回饋：從 Review 表按 submissionId 關聯（最新一筆）
+      if (studentSubmission) {
+        const reviewRow = await adminDbQuery('review', 'findFirst', {
+          where: { submissionId: studentSubmission.id },
+          orderBy: { createdAt: 'desc' },
+          select: { teacherFeedback: true },
+        });
+        studentSubmission = { ...studentSubmission, teacherFeedback: reviewRow?.teacherFeedback ?? null };
       }
     }
 
@@ -124,6 +138,7 @@ export async function GET(
         status: studentSubmission.status,
         score: studentSubmission.score,
         aiFeedback: studentSubmission.aiFeedback,
+        teacherFeedback: (studentSubmission as { teacherFeedback?: string | null }).teacherFeedback ?? null,
         submittedAt: studentSubmission.submittedAt?.toISOString() || null,
         answers: studentSubmission.answers ? JSON.parse(studentSubmission.answers) : {},
       } : null;
@@ -154,6 +169,10 @@ export async function POST(
     if (!payload) {
       return NextResponse.json({ error: '登入已過期 / Session expired' }, { status: 401 });
     }
+    // 只有學生可以提交作業
+    if (payload.role !== 'student') {
+      return NextResponse.json({ error: '僅學生可提交作業 / Only students can submit assignments' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { answers } = body; // { questionId: studentAnswer }
@@ -170,6 +189,48 @@ export async function POST(
 
     if (!assignment) {
       return NextResponse.json({ error: '找不到此作業 / Assignment not found' }, { status: 404 });
+    }
+
+    // 🔒 2026-08-30 audit: 成員檢查 — 學生必須是作業目標（班級 / 直接指派 / 組別）
+    const studentRecord = await adminDbQuery('user', 'findUnique', {
+      where: { id: payload.userId },
+      select: { classId: true, studentClasses: { select: { classId: true } } },
+    });
+    const memberClassIds = Array.from(new Set([
+      ...(studentRecord?.studentClasses ?? []).map((sc: { classId: string }) => sc.classId),
+      ...(studentRecord?.classId ? [studentRecord.classId] : []),
+    ]));
+    let isTargeted = false;
+    if (assignment.targetType === 'students') {
+      const target = await adminDbQuery('assignmentStudent', 'findFirst', {
+        where: { assignmentId: id, studentId: payload.userId },
+      });
+      isTargeted = !!target;
+    } else if (assignment.targetType === 'group') {
+      const target = await adminDbQuery('assignmentGroup', 'findFirst', {
+        where: { assignmentId: id, group: { members: { some: { studentId: payload.userId } } } },
+      });
+      isTargeted = !!target;
+    } else {
+      isTargeted = assignment.classId ? memberClassIds.includes(assignment.classId)
+        : assignment.className ? memberClassIds.length > 0 : true;
+    }
+    if (!isTargeted) {
+      return NextResponse.json({ error: '此作業未指派給你 / This assignment is not assigned to you' }, { status: 403 });
+    }
+
+    // 🔒 截止日期後不接受提交
+    if (assignment.dueDate && new Date(assignment.dueDate).getTime() < Date.now()) {
+      return NextResponse.json({ error: '已過截止日期，無法提交 / Submission closed: the due date has passed' }, { status: 409 });
+    }
+
+    // 🔒 教師已批改（graded）後不接受重交；returned 允許修改重交
+    const existing = await adminDbQuery('submission', 'findFirst', {
+      where: { assignmentId: id, studentId: payload.userId },
+      select: { status: true },
+    });
+    if (existing?.status === 'graded') {
+      return NextResponse.json({ error: '作業已批改，無法重新提交 / This assignment has been graded and can no longer be resubmitted' }, { status: 409 });
     }
 
     // R3.5: 批改每道題目並產生逐題評分證據（與舊邏輯完全相同，僅加上證據輸出）。
@@ -199,7 +260,7 @@ export async function POST(
 
     const aiFeedback = aiFeedbackParts.length > 0
       ? aiFeedbackParts.join('\n\n')
-      : `得分：${score}%（${totalScore}/${assignment.questions.length}）`;
+      : `得分：${score}%（${totalScore}/${assignment.questions.length}） / Score: ${score}% (${totalScore}/${assignment.questions.length})`;
 
     // R3.5 hardening: 相容視圖 + 嘗試 + 逐題證據在同一個原子交易內提交。
     // 任一步失敗則全部回滾（相容視圖絕不會在缺少對應嘗試證據的情況下提交）；

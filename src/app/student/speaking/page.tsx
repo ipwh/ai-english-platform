@@ -364,7 +364,7 @@ export default function SpeakingPracticePage() {
                     {analysis[dim]?.score ?? '?'}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{dim.replace(/([A-Z])/g, ' $1')}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{dim.replace(/([A-Z])/g, ' $1')}{analysis[dim]?.score != null && <span className="text-xs font-normal text-gray-400"> /5</span>}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{analysis[dim]?.comment ?? ''}</p>
                   </div>
                 </div>

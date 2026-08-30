@@ -228,7 +228,8 @@ const DEFAULTS: Record<string, boolean> = {
   'observability': true,
   'learning-memory': true,
   'recommendation-engine': true,
-  'writing-coach-rubric': true,
+  // 2026-08-30 audit: 寫作評分由 canonical CLO 政策統一（writing-coach 已移除）
+  'writing-clo-rubric': true,
   'llm-evaluation': false,
   'experiment': false,
 };

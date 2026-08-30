@@ -45,10 +45,29 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    // 更新 submission 的教師覆核
+    // 🔒 2026-08-30 audit: 教師只能覆核自己任教班級學生的提交（admin 豁免）
+    if (role !== 'admin') {
+      const submissionOwner = await adminDbQuery('submission', 'findUnique', {
+        where: { id },
+        select: { student: { select: { classId: true } } },
+      });
+      const ownerClassId = submissionOwner?.student?.classId ?? null;
+      if (!ownerClassId) {
+        return NextResponse.json({ error: 'Forbidden — submission not found' }, { status: 404 });
+      }
+      const teaching = await adminDbQuery('teacherClass', 'findFirst', {
+        where: { teacherId: userId, classId: ownerClassId },
+      });
+      if (!teaching) {
+        return NextResponse.json({ error: 'Forbidden — you do not teach this student’s class' }, { status: 403 });
+      }
+    }
+
+    // 更新 submission 的教師覆核。
+    // 教師分數優先：只有當 teacherScore 未提供時才採用 aiScore（AI 重新批改）。
     const updateData: Record<string, unknown> = {};
     if (body.teacherScore !== undefined) updateData.score = body.teacherScore;
-    if (body.aiScore !== undefined) updateData.score = body.aiScore;
+    else if (body.aiScore !== undefined) updateData.score = body.aiScore;
     if (body.aiFeedback !== undefined) updateData.aiFeedback = body.aiFeedback;
     if (body.aiMistakeType !== undefined) updateData.aiMistakeType = body.aiMistakeType;
     if (body.status !== undefined) {
@@ -71,16 +90,17 @@ export async function PATCH(
       data: updateData,
     });
 
-    // 記錄到 Review 表
+    // 記錄到 Review 表（按 submissionId upsert — 同一次提交只保留一筆教師覆核）
     if (body.teacherFeedback || body.teacherScore !== undefined) {
       const submission = await adminDbQuery('submission', 'findUnique', {
         where: { id },
         select: {
+          id: true,
           studentId: true,
           aiFeedback: true,
           score: true,
           answers: true,
-          assignment: { select: { title: true, questions: { select: { prompt: true, answer: true } } } },
+          assignment: { select: { id: true, title: true, questions: { select: { prompt: true, answer: true } } } },
         },
       });
       if (submission) {
@@ -99,24 +119,35 @@ export async function PATCH(
           }
         } catch { /* keep defaults */ }
 
-        await adminDbQuery('review', 'create', {
-          data: {
-            studentId: submission.studentId,
-            teacherId: userId,
-            teacherScore: body.teacherScore ?? null,
-            teacherFeedback: body.teacherFeedback || null,
-            status: body.status === 'reviewed' ? 'reviewed' : 'pending',
-            questionPrompt,
-            studentAnswer,
-          },
+        const reviewData = {
+          studentId: submission.studentId,
+          teacherId: userId,
+          teacherScore: body.teacherScore ?? null,
+          teacherFeedback: body.teacherFeedback || null,
+          status: body.status === 'reviewed' ? 'reviewed' : 'pending',
+          questionPrompt,
+          studentAnswer,
+        };
+        const existingReview = await adminDbQuery('review', 'findFirst', {
+          where: { submissionId: submission.id },
         });
+        if (existingReview) {
+          await adminDbQuery('review', 'update', {
+            where: { id: existingReview.id },
+            data: reviewData,
+          });
+        } else {
+          await adminDbQuery('review', 'create', {
+            data: { ...reviewData, submissionId: submission.id },
+          });
+        }
 
         // 🔔 通知學生：教師已批改
         if (body.status === 'reviewed' || body.teacherFeedback) {
           notifyFeedbackReady(
             submission.studentId,
             submission.assignment?.title || '作業',
-            submission.assignment?.title ? '' : '',
+            submission.assignment?.id ?? '',
           );
         }
       }

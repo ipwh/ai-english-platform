@@ -14,7 +14,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "architecture:verify": "npx tsc --noEmit && npm run lint && npx vitest run && npx vitest run src/modules/__tests__/architecture.test.ts",
-    "architecture:dashboard": "node scripts/generate-dashboard.js",
     "smoke": "node scripts/smoke-test.js",
     "check:i18n": "node scripts/check-i18n.js",
     "evaluate": "npx tsx scripts/evaluate-regression.ts",

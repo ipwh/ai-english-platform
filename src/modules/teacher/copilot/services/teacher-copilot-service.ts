@@ -171,7 +171,6 @@ export class TeacherCopilotService {
     const risks = twin?.risks;
     const habits = twin?.habits;
     const predictions = twin?.predictions;
-    const identity = twin?.dashboard?.summary;
 
     // Build skill details from twin knowledge state, with class-data fallback
     const skillDetails: StudentAnalysis['skillDetails'] = [];
@@ -207,9 +206,10 @@ export class TeacherCopilotService {
 
     return {
       studentId,
-      studentName: identity?.estimatedLevel
-        ? (twin?.dashboard?.summary as Record<string, unknown>)?.studentName as string ?? `Student ${studentId.slice(0, 6)}`
-        : `Student ${studentId.slice(0, 6)}`,
+      // 2026-08-30 audit: 原 `identity?.estimatedLevel` 分支永遠為 false
+      // （StudentIdentity 無此欄位）→ 改用 twin 快照中的學生姓名。
+      studentName: ((twin?.dashboard?.summary as Record<string, unknown> | undefined)?.studentName as string | undefined)
+        ?? `Student ${studentId.slice(0, 6)}`,
       generatedAt: new Date().toISOString(),
       personaType: personaType as StudentAnalysis['personaType'],
       personaTypeZh: personaMap[personaType] ?? '穩定耕耘者',

@@ -226,6 +226,7 @@ export const commonTranslations: Record<string, { zh: string; en: string }> = {
   'assignment.submitBtn': { zh: '提交作業', en: 'Submit' },
   'assignment.resultSummary': { zh: 'AI 批改總覽', en: 'AI Grading Summary' },
   'assignment.resultDetail': { zh: '{correct}/{total} 題正確 · 得分 {score}%', en: '{correct}/{total} correct · Score {score}%' },
+  'assignment.returnedNote': { zh: '教師已退回此作業，請修改後重新提交（上次得分：{score}%）。', en: 'The teacher returned this assignment. Revise and resubmit (previous score: {score}%).' },
   'profile.saveSuccess': { zh: '已成功儲存！', en: 'Saved successfully!' },
   'profile.saveFailed': { zh: '儲存失敗，請重試。', en: 'Save failed. Retry.' },
   'profile.networkError': { zh: '網絡錯誤，請檢查連線。', en: 'Network error. Check connection.' },

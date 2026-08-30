@@ -55,6 +55,8 @@ export default function AssignmentDetailPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState<string>('');
+  const [teacherFeedback, setTeacherFeedback] = useState('');
   const [score, setScore] = useState<number | null>(null);
   const [gradedAnswers, setGradedAnswers] = useState<Record<string, GradedAnswer>>({});
   const [aiFeedback, setAiFeedback] = useState('');
@@ -72,10 +74,16 @@ export default function AssignmentDetailPage() {
           setAssignment(data.assignment);
           // 若已有提交，載入之前的答案與成績
           if (data.submission) {
+            const st = String(data.submission.status || '');
             setAnswers(data.submission.answers || {});
-            setSubmitted(data.submission.status === 'submitted');
-            setScore(data.submission.score);
+            // submitted / graded = 完成視圖；returned = 可修改重交（保留上次分數）
+            setSubmitted(st === 'submitted' || st === 'graded');
+            setSubmissionStatus(st);
+            setScore(data.submission.score ?? null);
             setAiFeedback(data.submission.aiFeedback || '');
+            setTeacherFeedback(data.submission.teacherFeedback || '');
+            setCorrectCount(Object.keys(data.submission.answers || {}).length);
+            setTotalQuestions(data.assignment?.questions?.length ?? 0);
           }
         }
       })
@@ -113,6 +121,7 @@ export default function AssignmentDetailPage() {
       }
 
       setSubmitted(true);
+      setSubmissionStatus('submitted');
       setScore(data.submission.score);
       setAiFeedback(data.submission.aiFeedback);
       setGradedAnswers(data.submission.gradedAnswers || {});
@@ -148,6 +157,8 @@ export default function AssignmentDetailPage() {
   if (!assignment) return null;
 
   const isOverdue = assignment.dueDate && new Date(assignment.dueDate) < new Date() && !submitted;
+  // 已批改（graded）後不能再提交；returned 可修改重交
+  const isLocked = submissionStatus === 'graded';
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -336,11 +347,11 @@ export default function AssignmentDetailPage() {
       </div>
 
       {/* 提交區 */}
-      {!submitted && (
+      {!submitted && !isLocked && (
         <div className="sticky bottom-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 p-4 -mx-4 lg:-mx-6">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              {assignment.questions.length - Object.keys(answers).filter(k => answers[k]?.trim()).length} 題未作答
+              {t('assignment.remaining', { n: assignment.questions.length - Object.keys(answers).filter(k => answers[k]?.trim()).length })}
             </div>
             <button
               onClick={handleSubmit}
@@ -370,17 +381,29 @@ export default function AssignmentDetailPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
           <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-teal-500" />
-            AI 批改總覽
+            {t('assignment.resultSummary')}
           </h3>
           <ProgressBar value={score || 0} max={100} color={score && score >= 60 ? 'green' : 'red'} />
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {correctCount}/{totalQuestions} 題正確 · 得分 {score}%
+            {t('assignment.resultDetail', { correct: correctCount, total: totalQuestions, score: score ?? 0 })}
           </p>
           {aiFeedback && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {aiFeedback}
             </div>
           )}
+          {teacherFeedback && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+              {t('assignments.teacherFeedback')}{teacherFeedback}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 教師退回重做提示 */}
+      {!submitted && submissionStatus === 'returned' && score !== null && (
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-4 text-sm text-orange-700 dark:text-orange-300">
+          {t('assignment.returnedNote', { score: score })}
         </div>
       )}
     </div>

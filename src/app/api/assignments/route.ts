@@ -26,13 +26,29 @@ export async function GET(request: NextRequest) {
     const classId = searchParams.get('classId');
     const teacherId = searchParams.get('teacherId');
 
-    // Students can only see their own class assignments
     const where: Record<string, unknown> = {};
-    if (classId) where.className = classId;
+    if (classId) where.classId = classId;
     if (teacherId) where.createdBy = teacherId;
-    // Students: filter to their own class
-    if (authResult.role === 'student' && !classId && !teacherId) {
-      where.className = authResult.userId;
+
+    if (authResult.role === 'student') {
+      // 學生只看到指派給自己的作業：所屬班級（含混合上課 StudentClass）、直接指派、或所屬組別
+      const userId = authResult.userId!;
+      const student = await adminDbQuery('user', 'findUnique', {
+        where: { id: userId },
+        select: { classId: true, studentClasses: { select: { classId: true } } },
+      });
+      const memberClassIds = Array.from(new Set([
+        ...(student?.studentClasses ?? []).map((sc: { classId: string }) => sc.classId),
+        ...(student?.classId ? [student.classId] : []),
+      ]));
+      const or: Record<string, unknown>[] = [];
+      if (memberClassIds.length > 0) or.push({ classId: { in: memberClassIds } });
+      or.push({ targetStudents: { some: { studentId: userId } } });
+      or.push({ targetGroups: { some: { group: { members: { some: { studentId: userId } } } } } });
+      where.OR = or;
+    } else if (authResult.role === 'teacher' && !classId && !teacherId) {
+      // 教師只看到自己建立的作業；管理員看到全部
+      where.createdBy = authResult.userId;
     }
 
     const assignments = await adminDbQuery('assignment', 'findMany', {
@@ -41,7 +57,47 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ assignments });
+    // 學生列表：附上自己的提交狀態與教師回饋（Review 表按 submissionId 關聯）
+    let submissionMap = new Map<string, { id: string; status: string; score: number | null; submittedAt: Date | null }>();
+    let feedbackMap = new Map<string, string | null>();
+    if (authResult.role === 'student') {
+      const assignmentIds = (assignments as Array<{ id: string }>).map(a => a.id);
+      if (assignmentIds.length > 0) {
+        const subs = await adminDbQuery('submission', 'findMany', {
+          where: { studentId: authResult.userId, assignmentId: { in: assignmentIds } },
+          select: { id: true, assignmentId: true, status: true, score: true, submittedAt: true },
+        }) as Array<{ id: string; assignmentId: string; status: string; score: number | null; submittedAt: Date | null }>;
+        submissionMap = new Map(subs.map(s => [s.assignmentId, s]));
+        const reviewRows = await adminDbQuery('review', 'findMany', {
+          where: { submissionId: { in: subs.map(s => s.id) } },
+          select: { submissionId: true, teacherFeedback: true },
+          orderBy: { createdAt: 'desc' },
+        }) as Array<{ submissionId: string | null; teacherFeedback: string | null }>;
+        for (const r of reviewRows) {
+          if (r.submissionId && !feedbackMap.has(r.submissionId)) {
+            feedbackMap.set(r.submissionId, r.teacherFeedback ?? null);
+          }
+        }
+      }
+    }
+
+    // 統一輸出形狀：原始欄位 + submissionCount + 學生提交狀態
+    const mapped = (assignments as Array<Record<string, unknown>>).map(a => {
+      const sub = submissionMap.get(a.id as string) ?? null;
+      return {
+        ...a,
+        submissionCount: ((a as { _count?: { submissions?: number } })._count?.submissions ?? 0),
+        submission: sub ? {
+          id: sub.id,
+          status: sub.status,
+          score: sub.score,
+          submittedAt: sub.submittedAt,
+          teacherFeedback: sub ? (feedbackMap.get(sub.id) ?? null) : null,
+        } : null,
+      };
+    });
+
+    return NextResponse.json({ assignments: mapped });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     // Intentional: return empty [] so client renders graceful empty state instead of crashing
@@ -68,61 +124,141 @@ export async function POST(request: NextRequest) {
     const {
       title, description, className, classId, targetType, gradeLevel, strand,
       grammarItem, languageSkill, difficulty, questionCount, timeLimit, dueDate,
-      questions, groupIds, studentIds,
+      questions, groupIds, studentIds, classIds,
     } = validateRequest(assignmentCreateSchema, body);
 
-    const resolvedClassName = className || '';
     const resolvedTargetType = targetType || 'class';
+    const teacherId = authResult.userId!;
+    const isAdmin = authResult.role === 'admin';
 
-    // 驗證教師權限 — use authResult.userId instead of body.createdBy
-    if (resolvedTargetType === 'class' && resolvedClassName) {
-      const teacherClass = await adminDbQuery('teacherClass', 'findFirst', {
-        where: { teacherId: authResult.userId, class: { name: resolvedClassName } },
-      });
-      if (!teacherClass) {
-        return NextResponse.json({ error: `您沒有任教 ${resolvedClassName} 班級的權限 / You do not teach class ${resolvedClassName}` }, { status: 403 });
+    // 作業必須有題目：題目與答案鍵由伺服器核驗後落庫（不接受任意欄位）
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return NextResponse.json({ error: '請先使用 AI 生成題目 / Please generate questions first' }, { status: 400 });
+    }
+    const cleanedQuestions = questions.map((q: { questionType?: string; prompt?: string; options?: string; answer?: string; explanation?: string }, i: number) => {
+      if (!q || typeof q.prompt !== 'string' || !q.prompt.trim() || typeof q.answer !== 'string' || !q.answer.trim()) {
+        throw new Error('題目或答案不完整 / Incomplete question or answer');
+      }
+      return {
+        questionType: typeof q.questionType === 'string' && q.questionType ? q.questionType : 'mc',
+        prompt: q.prompt.trim(),
+        options: q.options ?? null,
+        answer: q.answer.trim(),
+        explanation: q.explanation || null,
+        orderIndex: i,
+      };
+    });
+
+    // 目標班級：classIds（多班）或單一 className/classId
+    const targetClassIds = (Array.isArray(classIds) && classIds.length > 0)
+      ? classIds
+      : (classId ? [classId] : []);
+    const targetClassNames: string[] = [];
+
+    if (resolvedTargetType === 'class') {
+      if (targetClassIds.length > 0) {
+        // 核驗教師任教所有目標班級（admin 豁免）
+        const classes = await adminDbQuery('class', 'findMany', {
+          where: { id: { in: targetClassIds } },
+          select: { id: true, name: true },
+        }) as Array<{ id: string; name: string }>;
+        if (classes.length !== new Set(targetClassIds).size) {
+          return NextResponse.json({ error: '找不到指定的班級 / Class not found' }, { status: 400 });
+        }
+        if (!isAdmin) {
+          const owned = await adminDbQuery('teacherClass', 'findMany', {
+            where: { teacherId, classId: { in: targetClassIds } },
+            select: { classId: true },
+          }) as Array<{ classId: string }>;
+          const ownedIds = new Set(owned.map(c => c.classId));
+          if (!targetClassIds.every(cid => ownedIds.has(cid))) {
+            return NextResponse.json({ error: '您沒有任教部分班級的權限 / You do not teach all selected classes' }, { status: 403 });
+          }
+        }
+        targetClassNames.push(...classes.map(c => c.name));
+      } else if (className) {
+        const teacherClass = await adminDbQuery('teacherClass', 'findFirst', {
+          where: isAdmin ? { class: { name: className } } : { teacherId, class: { name: className } },
+          select: { class: { select: { id: true, name: true } } },
+        });
+        if (!teacherClass) {
+          return NextResponse.json({ error: `您沒有任教 ${className} 班級的權限 / You do not teach class ${className}` }, { status: 403 });
+        }
+        targetClassIds.push(teacherClass.class.id);
+        targetClassNames.push(teacherClass.class.name);
+      } else {
+        return NextResponse.json({ error: '請選擇目標班級 / Please select a target class' }, { status: 400 });
       }
     }
 
-    const assignment = await adminDbQuery('assignment', 'create', {
-      data: {
-        title,
-        description,
-        className: resolvedClassName,
-        classId: resolvedTargetType === 'class' && classId ? classId : null,
-        targetType: resolvedTargetType,
-        gradeLevel: gradeLevel || 'S4',
-        strand: strand || 'knowledge',
-        grammarItem,
-        languageSkill,
-        difficulty: difficulty || 'core',
-        questionCount: questionCount || 5,
-        timeLimit,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        createdBy: authResult.userId!,
-        questions: questions ? {
-          create: questions.map((q: { questionType: string; prompt: string; options?: string; answer: string; explanation?: string }, i: number) => ({
-            questionType: q.questionType,
-            prompt: q.prompt,
-            options: q.options || null,
-            answer: q.answer,
-            explanation: q.explanation || null,
-            orderIndex: i,
-          })),
-        } : undefined,
-        ...(resolvedTargetType === 'group' && groupIds?.length ? {
-          targetGroups: { create: groupIds.map((gid: string) => ({ groupId: gid })) },
-        } : {}),
-        ...(resolvedTargetType === 'students' && studentIds?.length ? {
-          targetStudents: { create: studentIds.map((sid: string) => ({ studentId: sid })) },
-        } : {}),
-      },
-      include: { questions: true },
-    });
+    // 組別指派：核驗組別擁有權（admin 豁免）
+    if (resolvedTargetType === 'group' && groupIds?.length) {
+      const groups = await adminDbQuery('group', 'findMany', {
+        where: isAdmin ? { id: { in: groupIds } } : { id: { in: groupIds }, createdBy: teacherId },
+        select: { id: true },
+      }) as Array<{ id: string }>;
+      if (groups.length !== new Set(groupIds).size) {
+        return NextResponse.json({ error: '您沒有權限指派部分組別 / You do not own all selected groups' }, { status: 403 });
+      }
+    }
+
+    // 個別學生指派：學生必須是教師任教班級的學生（admin 豁免）
+    if (resolvedTargetType === 'students' && studentIds?.length) {
+      const validStudents = await adminDbQuery('user', 'findMany', {
+        where: isAdmin
+          ? { id: { in: studentIds }, role: 'student' }
+          : { id: { in: studentIds }, role: 'student', class: { teachers: { some: { teacherId } } } },
+        select: { id: true },
+      }) as Array<{ id: string }>;
+      if (validStudents.length !== new Set(studentIds).size) {
+        return NextResponse.json({ error: '部分學生不在您的任教班級 / Some students are outside your classes' }, { status: 403 });
+      }
+    }
+
+    // 建立作業（class 目標：每班一份；group/students：單一份）
+    const createOne = async (clsId: string | null, clsName: string | null) =>
+      adminDbQuery('assignment', 'create', {
+        data: {
+          title,
+          description,
+          className: clsName,
+          classId: clsId,
+          targetType: resolvedTargetType,
+          gradeLevel: gradeLevel || 'S4',
+          strand: strand || 'knowledge',
+          grammarItem,
+          languageSkill,
+          difficulty: difficulty || 'core',
+          questionCount: questionCount || cleanedQuestions.length,
+          timeLimit,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          createdBy: teacherId,
+          questions: { create: cleanedQuestions },
+          ...(resolvedTargetType === 'group' && groupIds?.length ? {
+            targetGroups: { create: groupIds.map((gid: string) => ({ groupId: gid })) },
+          } : {}),
+          ...(resolvedTargetType === 'students' && studentIds?.length ? {
+            targetStudents: { create: studentIds.map((sid: string) => ({ studentId: sid })) },
+          } : {}),
+        },
+        include: { questions: true },
+      });
+
+    const created: Array<{ id: string }> = [];
+    if (resolvedTargetType === 'class') {
+      for (let i = 0; i < targetClassIds.length; i++) {
+        created.push(await createOne(targetClassIds[i], targetClassNames[i] ?? null) as { id: string });
+      }
+    } else {
+      created.push(await createOne(null, null) as { id: string });
+    }
+    const assignment = created[0];
 
     // 🔔 發送通知
-    if (resolvedTargetType === 'class' && resolvedClassName) {
-      notifyAssignmentCreated(title, resolvedClassName, classId || null, assignment.id);
+    if (resolvedTargetType === 'class') {
+      for (let i = 0; i < created.length; i++) {
+        notifyAssignmentCreated(title, targetClassNames[i] ?? '', targetClassIds[i] ?? null, created[i].id);
+      }
     } else if (resolvedTargetType === 'group' && groupIds?.length) {
       // 通知組別內所有學生（依各自語言偏好）
       const groupMembers = await adminDbQuery('groupMember', 'findMany', {
@@ -138,7 +274,7 @@ export async function POST(request: NextRequest) {
       await notifyAssignmentCreatedToUsers(studentIds, title, assignment.id);
     }
 
-    return NextResponse.json({ assignment }, { status: 201 });
+    return NextResponse.json({ assignment, assignments: created }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '未知錯誤';
     // Intentional: return empty [] so client renders graceful empty state instead of crashing

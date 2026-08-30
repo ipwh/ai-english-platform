@@ -96,8 +96,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (id) {
-      await adminDbQuery('notification', 'update', {
-        where: { id },
+      // 2026-08-30 audit: 加上 userId 範圍，防止跨用戶標示已讀
+      await adminDbQuery('notification', 'updateMany', {
+        where: { id, userId: authResult.userId },
         data: { read: true },
       });
       return NextResponse.json({ success: true });

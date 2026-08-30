@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     if (!questions || (Array.isArray(questions) && questions.length === 0)) {
       if (lastErr) throw (lastErr instanceof Error ? lastErr : new Error(String(lastErr)));
-      throw new Error('AI 題目生成失敗：返回空結果，請更換文法項目或調整設定後重試');
+      throw new Error('AI 題目生成失敗：返回空結果，請更換文法項目或調整設定後重試 / AI question generation failed: empty result. Please change the grammar item or adjust settings and retry.');
     }
 
     // R3.10-D: 文法題目在交付前持久化，伺服器 id 為正典身份。
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         questionsWithIds = questions.map((q, i) => ({ ...q, id: ids[i] }));
       } catch (err) {
         logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'Grammar question persistence failed');
-        throw new Error('文法題目伺服器持久化失敗，請重試');
+        throw new Error('文法題目伺服器持久化失敗，請重試 / Server persistence of grammar questions failed. Please retry.');
       }
     }
 

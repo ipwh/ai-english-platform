@@ -517,8 +517,9 @@ export default function DiagnosticPage() {
           // Convert CLO scores (each /7) to a percentage so the AI advice
           // matches the on-screen writing result (93% not 100%).
           const { contentScore, languageScore, organizationScore } = wJson.analysis;
+          // 2026-08-30 audit: 0 分是合法分數 — 只排除 null/undefined，避免高估百分比
           const scores = [contentScore, languageScore, organizationScore]
-            .filter((s): s is number => typeof s === 'number' && s > 0);
+            .filter((s): s is number => typeof s === 'number' && !Number.isNaN(s));
           if (scores.length > 0) {
             writingPercentage = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length / 7) * 100);
           }
