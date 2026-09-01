@@ -751,7 +751,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
                   <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-3 flex items-center gap-2">
                     <Edit3 className="w-4 h-4 text-amber-500" />
-                    {language === 'zh' ? '記筆記' : 'Note-taking'}
+                    {language === 'zh' ? '速記筆記' : 'Note-taking'}
                     <span className="text-xs font-normal text-gray-400">
                       — {t('is.noteHint')}
                     </span>
@@ -884,7 +884,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
                 }`}>
                   {hasNotes ? <CheckCircle2 className="w-4 h-4" /> : '2'}
                 </span>
-                {language === 'zh' ? '記筆記' : 'Note-taking'}
+                {language === 'zh' ? '速記筆記' : 'Note-taking'}
                 <span className="text-xs font-normal text-gray-400">
                   {hasNotes ? `${s.studentNotes.length} ${t('is.chars')}` : `— ${t('is.noteHint')}`}
                 </span>
