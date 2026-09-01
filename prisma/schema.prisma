@@ -37,7 +37,7 @@ model User {
   classNumber   String?   // 班號 (e.g. "15")
   level         String?   // GradeLevel: S1-S6
   overallAccuracy Float?  @default(0)
-  academicYear  String?   // 學年追蹤 (e.g. "2025-2026")
+  academicYear  String?   // 學年追蹤 (e.g. "2026-2027")
   xp            Int       @default(0)
   badgeIds      String    @default("[]")  // JSON 陣列: ["streak-3", "accuracy-80"]
 
@@ -114,7 +114,7 @@ model Class {
   id            String    @id @default(cuid())
   name          String    @unique   // e.g. "4A", "5C"
   gradeLevel    String              // S1-S6
-  academicYear  String    @default("2025-2026")
+  academicYear  String    @default("2026-2027")
   createdAt     DateTime  @default(now())
 
   // 關聯

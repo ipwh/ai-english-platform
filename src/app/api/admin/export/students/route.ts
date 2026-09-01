@@ -5,7 +5,7 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // R3.10-C.2: scored 欄位（sessionAccuracy / totalQuestionsAnswered /
 // totalCorrectAnswers）只含 verified evidence；原始歷史值以
 // recordedTotalQuestions / recordedCorrectCount 明確標記。
-// 支援 ?academicYear=2025-2026 跨學年查詢
+// 支援 ?academicYear=2026-2027 跨學年查詢
 // 支援 ?type=weekly|individual 報告類型
 // 支援 ?className=4A 班級篩選
 // 教師與管理員均可存取

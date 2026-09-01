@@ -218,7 +218,7 @@ function EditModal({
                   <input
                     value={form.academicYear}
                     onChange={e => setForm({ ...form, academicYear: e.target.value })}
-                    placeholder="2025-2026"
+                    placeholder="2026-2027"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
                   />
                 </div>
@@ -460,7 +460,7 @@ function CreateUserModal({
                   <input
                     value={form.academicYear}
                     onChange={e => setForm({ ...form, academicYear: e.target.value })}
-                    placeholder="2025-2026"
+                    placeholder="2026-2027"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
                   />
                 </div>

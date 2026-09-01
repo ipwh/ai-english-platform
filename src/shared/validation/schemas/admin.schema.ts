@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const adminCreateClassSchema = z.object({
   name: z.string().min(1, '班級名稱為必填'),
   gradeLevel: z.string().regex(/^S[1-6]$/, '年級格式必須為 S1-S6'),
-  academicYear: z.string().optional().default('2025-2026'),
+  academicYear: z.string().optional().default('2026-2027'),
 });
 
 export const adminUpdateUserSchema = z.object({

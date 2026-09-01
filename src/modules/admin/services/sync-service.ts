@@ -28,7 +28,7 @@ export async function syncSheetToDatabase(rows: SheetRow[], dryRun = false) {
       const cls = await db.class.upsert({
         where: { name: row.class },
         update: { gradeLevel: row.level },
-        create: { name: row.class, gradeLevel: row.level, academicYear: '2025-2026' },
+        create: { name: row.class, gradeLevel: row.level, academicYear: '2026-2027' },
       });
 
       const existing = await db.user.findUnique({ where: { email: row.email } });

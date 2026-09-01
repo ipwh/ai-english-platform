@@ -46,6 +46,7 @@ interface SyncResult {
   created: number;
   updated: number;
   classFixed: number;   // 班別被修正的學生數
+  unassigned: number;   // 不在名單中被解除班別的學生數（畢業生/轉校生）
   skipped: number;
   errors: string[];
   details: {
@@ -199,6 +200,7 @@ export async function POST(request: NextRequest) {
     created: 0,
     updated: 0,
     classFixed: 0,
+    unassigned: 0,
     skipped: 0,
     errors: [],
     details: [],
@@ -316,6 +318,16 @@ export async function POST(request: NextRequest) {
         } else { result.updated++; }
       }
       result.classDistribution = previewDist;
+
+      // 預覽：不在名單中的現有學生（畢業生/轉校生）將被解除班別（保留學習紀錄）
+      result.unassigned = await db.user.count({
+        where: {
+          role: 'student',
+          email: { notIn: allEmails, not: { endsWith: '@school.hk' } },
+          class: { isNot: { name: 'Demo' } },
+        },
+      });
+
       return NextResponse.json(result);
     }
 
@@ -420,6 +432,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // === 解除不在名單中的學生班別（畢業生/轉校生；保留其學習紀錄）===
+    try {
+      const unassignedResult = await db.user.updateMany({
+        where: {
+          role: 'student',
+          email: { notIn: allEmails, not: { endsWith: '@school.hk' } },
+          class: { isNot: { name: 'Demo' } },
+        },
+        data: { classId: null, classNumber: null },
+      });
+      result.unassigned = unassignedResult.count;
+      if (unassignedResult.count > 0) {
+        logger.info({ module: 'sync-sheets', unassigned: unassignedResult.count }, 'Unassigned students not in roster');
+      }
+    } catch (err: unknown) {
+      result.errors.push(`解除畢業生班別失敗: ${(err as Error).message}`);
+      logger.error({ module: 'sync-sheets', error: err instanceof Error ? err.message : String(err) }, 'Unassign failed');
+    }
+
     // 計算最終班別分布
     const distribution = await (db.user as any).groupBy({
       by: ['classId'],
@@ -432,7 +463,7 @@ export async function POST(request: NextRequest) {
       if (cls) result.classDistribution[cls.name] = d._count;
     }
 
-    logger.info({ module: 'sync-sheets', created: result.created, updated: result.updated, classFixed: result.classFixed, errors: result.errors.length }, 'Sync complete');
+    logger.info({ module: 'sync-sheets', created: result.created, updated: result.updated, classFixed: result.classFixed, unassigned: result.unassigned, errors: result.errors.length }, 'Sync complete');
 
     return NextResponse.json(result);
   } catch (err: unknown) {

@@ -170,7 +170,7 @@ export async function syncClassToSheet(
     await appendRow(accessToken, spreadsheetId, sheetName, [
       className,
       gradeLevel,
-      academicYear || '2025-2026',
+      academicYear || '2026-2027',
       now,
     ]);
 

@@ -8,7 +8,7 @@ export async function adminGetClasses() {
   return db.class.findMany({ where: { name: { not: 'Demo' } }, include: { _count: { select: { students: true, assignments: true } } }, orderBy: { name: 'asc' } });
 }
 export async function adminCreateClass(data: { name: string; gradeLevel: string; academicYear?: string }) {
-  return db.class.create({ data: { ...data, academicYear: data.academicYear || '2025-2026' } });
+  return db.class.create({ data: { ...data, academicYear: data.academicYear || '2026-2027' } });
 }
 export async function adminDeleteClass(id: string) {
   return db.class.delete({ where: { id } });

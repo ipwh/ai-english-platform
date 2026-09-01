@@ -28,7 +28,7 @@ export default function AdminClassesPage() {
   // Add form
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState('S4');
-  const [newYear, setNewYear] = useState('2025-2026');
+  const [newYear, setNewYear] = useState('2026-2027');
 
   const fetchClasses = useCallback(async () => {
     setLoading(true);
@@ -139,7 +139,7 @@ export default function AdminClassesPage() {
               <input
                 value={newYear}
                 onChange={e => setNewYear(e.target.value)}
-                placeholder="2025-2026"
+                placeholder="2026-2027"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
               />
             </div>

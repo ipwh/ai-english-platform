@@ -43,7 +43,7 @@ export async function listAllClasses() {
 }
 
 export async function createClass(data: { name: string; gradeLevel: string; academicYear?: string }) {
-  return db.class.create({ data: { name: data.name, gradeLevel: data.gradeLevel, academicYear: data.academicYear || '2025-2026' } });
+  return db.class.create({ data: { name: data.name, gradeLevel: data.gradeLevel, academicYear: data.academicYear || '2026-2027' } });
 }
 
 export async function findClassByName(name: string) {

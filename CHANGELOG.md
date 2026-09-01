@@ -4,6 +4,23 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-01 — 學年轉換：26-27 學生名單同步 + 學年 2025-2026 → 2026-2027
+
+### 學生名單更新
+- 26-27 學年名單（`materials/26-27_students_gmail.xlsx`）轉為原生 Google Sheet 並透過 `/api/admin/sync-sheets` 同步：706 人 = created 151（新 S1）+ classFixed 540（升班/轉班）+ updated 15，errors 0。
+- 關鍵流程：`.xlsx` 必須「檔案 → 另存為 Google 試算表」轉成原生 Sheet（Sheets API 無法讀 Office 檔，會回 `400 FAILED_PRECONDITION`）；標題 `GMAIL` 必須改名為 `EMAIL`。
+- **畢業生 / 轉校生處理**：`sync-sheets` 新增 `unassigned`——同步後自動解除不在名單中的學生班別（`classId = null`），學習紀錄完整保留，不再出現在新學年課堂名單；另新增 `scripts/unassign-non-roster.ts` 供手動補跑（本次已解除 140 人）。
+
+### 學年更新
+- 新增 `scripts/set-academic-year.ts`：dry-run 預設，`--apply` 更新 `Class/User.academicYear` 並 ALTER `Class.academicYear` 欄位預設值。
+- 新增 migration `prisma/migrations/20260901_set_academic_year_2026_2027/`。
+- 所有硬編碼 `2025-2026` 預設值 → `2026-2027`（`prisma/schema.prisma` + 12 個程式檔案）。
+
+### 文檔
+- README 重寫「Google Sheets 班別同步」與「學年轉換」章節（欄位對照、逐步流程、常見錯誤速查）；新增環境變數 `GOOGLE_SHEETS_CLASS_ROSTER_ID` 說明。
+
+---
+
 ## 2026-08-30 (Round 8) — 全功能覆核：每日挑戰答案隱藏、串字防農、閱讀防杜撰、雙語/死碼收尾
 
 ### 🔍 範圍

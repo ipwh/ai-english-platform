@@ -223,6 +223,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 | `VERTEX_AI_LOCATION` | Vertex AI region (預設 `global`) | ⬜ |
 | `DEEPSEEK_BASE_URL` | DeepSeek base URL (預設 `https://api.deepseek.com/v1`) | ⬜ |
 | `DEEPSEEK_MODEL` | DeepSeek model (預設 `deepseek-chat`) | ⬜ |
+| `GOOGLE_SHEETS_CLASS_ROSTER_ID` | 學生名單 Google Sheet ID（`/api/admin/sync-sheets` 班別同步用） | ⬜ |
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
@@ -446,42 +447,40 @@ src/
 
 ## Google Sheets 班別同步 🔄
 
-管理員可從 Google Sheets **一鍵同步**全校學生的班別名單。教師在 Sheets 中維護學生名單（真相來源），平台讀取後自動更新資料庫。
+管理員可從 Google Sheets **一鍵同步**全校學生的班別名單。教師在 Sheets 中維護學生名單（真相來源），平台讀取後自動更新資料庫（upsert：email 已存在則更新班別，不存在則建立新學生）。
 
-### 設定步驟
+### 前置條件
 
+1. **Service Account 權限**：把 Google Sheet「共用」給服務帳號（只讀檢視即可；若需平台回寫名單則給編輯權限）：
+   ```
+   vision-api-user@amiable-nirvana-500300-a0.iam.gserviceaccount.com
+   ```
+2. **環境變數**（Cloud Run）：
+   - `GOOGLE_SHEETS_CLASS_ROSTER_ID` = 學生名單 Sheet 的 ID（網址列 `/spreadsheets/d/【ID】/edit` 中間那段）
+   - `GCP_SERVICE_ACCOUNT_JSON` = 上列服務帳號的 JSON（與 OCR/Vision/TTS 共用）
 
-## 📋 更新日誌
+### Sheet 格式（第一個分頁）
 
-> 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。
+| 欄位標題 | 對應欄位 | 必填 | 備註 |
+|---------|---------|------|------|
+| `EMAIL` | email | ✅ | 永久識別碼，**不可修改**；接受 `email`/`電郵`/`電郵地址`/`e-mail`（❌ 不接受 `GMAIL`，需先改名） |
+| `CLASSCODE` | 班級 | ✅ | 如 `1A`；接受 `class`/`班級`/`classname`/`classcode`/`班別` |
+| `CLASSNO` | 班號 | ⬜ | 接受 `classnumber`/`班號`/`classno`/`學號` |
+| `CHNAME` | 中文名 | ⬜ | 接受 `namezh`/`中文姓名`/`chname`/`中文名`/`姓名` |
+| `ENNAME` | 英文名 | ⬜ | 接受 `nameen`/`英文姓名`/`enname`/`英文名` |
+| `LEVEL` | 年級 | ⬜ | 省略時由班級自動推斷（`1A` → `S1`） |
 
-## 學年轉換 🔄
-
-每年 9 月開學時，依以下流程更新學生名單。**所有學生的學習紀錄（錯題、練習、寫作）自動跟隨學生保留，不受升班影響。**
-
-### 準備新學年 Sheet
-
-在現有的 Google Sheet 中：
-
-| 操作 | 做法 |
-|------|------|
-| **S6 畢業生** | 刪除該列，或移到另一個分頁歸檔 |
-| **升班（如 S5→S6）** | 將 CLASSCODE 從 `5A` 改為 `6A`，Level 從 `S5` 改為 `S6` |
-| **新 S1 學生** | 新增資料列，CLASSCODE = `1A`~`1D`，Level = `S1` |
-| **轉班學生** | 直接修改 CLASSCODE |
-| **EMAIL 不變** | ❗ EMAIL 是永久識別碼，不可修改 |
-
-### 同步到平台
+### 同步指令
 
 ```javascript
-// 1. 先 dry-run 預覽（不寫入）
+// 1. dry-run 預覽（不寫入）
 fetch('/api/admin/sync-sheets', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ dryRun: true })
 }).then(r => r.json()).then(console.log)
 
-// 2. 確認 classFixed（升班人數）和 created（新 S1 人數）合理後，正式同步
+// 2. 確認 created / classFixed 合理、errors 為空後，正式同步
 fetch('/api/admin/sync-sheets', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -489,16 +488,126 @@ fetch('/api/admin/sync-sheets', {
 }).then(r => r.json()).then(console.log)
 ```
 
-### 同步後結果
+> 需以管理員身份登入並在網站頁面執行（瀏覽器帶上 admin cookie）；rate limit 3 次/60 秒。
+
+## 📋 更新日誌
+
+> 完整更新記錄已移至 **[CHANGELOG.md](./CHANGELOG.md)**。
+
+## 學年轉換 🔄
+
+每年 9 月開學時需完成兩件事：**(A) 更新學生名單**（同步 Google Sheet）與 **(B) 更新學年**（例：2025-2026 → 2026-2027）。**所有學生的學習紀錄（錯題、練習、寫作）自動跟隨學生保留，不受升班影響。**
+
+---
+
+### A. 更新學生名單（Google Sheet 同步）
+
+#### Step 1：把 .xlsx 轉成原生 Google Sheet
+
+新學年的 `.xlsx`（如 `26-27_students_gmail.xlsx`）**必須轉成原生 Google Sheet**——Sheets API 只能讀原生 Sheet，讀不到 Office 檔：
+
+1. 把 `.xlsx` 上傳到 Google Drive。
+2. 用 Google Sheets 開啟該檔。
+3. **檔案 → 另存為 Google 試算表**（`File → Save as Google Sheets`），產生原生 Sheet。
+
+> ⚠️ 轉檔後 ID 會變，要用**新的** ID。
+> ⚠️ 未轉檔直接同步會回 `400 FAILED_PRECONDITION "This operation is not supported for this document. The document must not be an Office file."`
+
+#### Step 2：整理欄位與內容
+
+確認第一個分頁的標題列符合平台格式（對照見「Google Sheets 班別同步」）。學校原始檔常見標題 `CLASSCODE / CLASSNO / ENNAME / CHNAME / SEX / GMAIL`：
+
+- `GMAIL` **必須改名為 `EMAIL`**（否則回「找不到 Email 欄位」）。
+- `SEX` 會被忽略，可保留。
+- `LEVEL` 可省略（由 `CLASSCODE` 自動推斷 `1A`→`S1`）。
+
+學生資料變更原則：
+
+| 操作 | 做法 |
+|------|------|
+| **S6 畢業生** | 刪除該列，或移到另一個分頁歸檔 |
+| **升班（如 S5→S6）** | 將 `CLASSCODE` 從 `5A` 改為 `6A` |
+| **新 S1 學生** | 新增資料列，`CLASSCODE` = `1A`~`1D` |
+| **轉班學生** | 直接修改 `CLASSCODE` |
+| **EMAIL 不變** | ❗ EMAIL 是永久識別碼，**絕對不可修改** |
+
+#### Step 3：共用與環境變數
+
+1. 把 Sheet「共用」給服務帳號（檢視即可）：`vision-api-user@amiable-nirvana-500300-a0.iam.gserviceaccount.com`
+2. Cloud Run → `english-platform` → 編輯並部署新修訂版本 → 把 `GOOGLE_SHEETS_CLASS_ROSTER_ID` 改為新 Sheet ID → 部署。
+
+#### Step 4：dry-run 預覽 → 正式同步
+
+以管理員登入網站，在瀏覽器 Console 執行：
+
+```javascript
+// 1. dry-run（不寫入），檢查 created / classFixed / errors
+fetch('/api/admin/sync-sheets', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ dryRun: true })
+}).then(r => r.json()).then(console.log)
+
+// 2. 數字合理且 errors 為空，正式同步
+fetch('/api/admin/sync-sheets', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({})
+}).then(r => r.json()).then(console.log)
+```
+
+#### Step 5：檢查結果
 
 | 指標 | 說明 |
 |------|------|
-| `created` | 新 S1 學生數（自動建立帳號） |
-| `classFixed` | 升班/轉班的學生數 |
-| `updated` | 資料已刷新的學生數 |
+| `created` | 新學生數（主要是新 S1，自動建立帳號） |
+| `classFixed` | 升班/轉班被修正班別的舊生數 |
+| `updated` | 班別不變、僅刷新資料的學生數 |
+| `unassigned` | 不在名單中被解除班別的學生數（畢業生/轉校生） |
+| `errors` | 應為空陣列 `[]` |
 
-- 畢業生保留在資料庫中（學習紀錄完整），不會出現在新學年課堂名單
-- 所有練習、錯題、寫作紀錄關聯到 `studentId`（永久不變），升班後完整保留
+- `totalRows` 應等於 `created + classFixed + updated`。
+- **畢業生 / 轉校生**：同步後會自動解除班別（`classId = null`），保留在資料庫中（學習紀錄完整），不再出現在新學年課堂名單。
+
+> 💡 若平台尚未部署「自動解除班別」邏輯，或舊資料已同步過一次，可手動補跑：`npx tsx scripts/unassign-non-roster.ts --apply`（dry-run 不加 `--apply`）。此腳本會把不在名單中的學生解除班別，但完整保留其學習紀錄。
+
+---
+
+### B. 更新學年
+
+學年值儲存在 `Class.academicYear` 與 `User.academicYear`。同步名單**不會**自動更新學年，需另外執行：
+
+```bash
+# dry-run 預覽
+npx tsx scripts/set-academic-year.ts 2027-2028
+
+# 正式寫入（更新資料 + Class 欄位預設值）
+npx tsx scripts/set-academic-year.ts 2027-2028 --apply
+```
+
+同時把程式碼中的硬編碼舊學年全數改為新學年（每年 9 月固定動作）：
+- `prisma/schema.prisma`（`Class.academicYear` 的 `@default`）
+- `src/app/admin/classes/page.tsx`、`src/app/admin/users/page.tsx`
+- `src/app/api/admin/classes/route.ts`、`src/app/api/admin/export/**`
+- `src/modules/admin/services/{admin-operations,import-service,sync-service}.ts`
+- `src/modules/student/repositories/user-repo.ts`
+- `src/shared/google/sheets-sync.ts`、`src/shared/validation/schemas/admin.schema.ts`
+
+並新增 migration（參考 `prisma/migrations/20260901_set_academic_year_2026_2027/`）。
+
+> 💡 `scripts/set-academic-year.ts` 依序讀取 `.env.local` → `.env` → `cloud-run-env.yaml` 的 `DATABASE_URL`。注意 `cloud-run-env.yaml` 內的密碼已過期，以 `.env.local` 為準。
+
+---
+
+### 常見錯誤速查
+
+| 錯誤 | 原因 | 解法 |
+|------|------|------|
+| `400 FAILED_PRECONDITION ... must not be an Office file` | Sheet 是 .xlsx 原始檔，非原生 Sheet | 「檔案 → 另存為 Google 試算表」轉原生 Sheet |
+| `找不到「Email」欄位` | 標題是 `GMAIL` | 把標題改成 `EMAIL` |
+| `500 無法讀取 Google Sheet 資訊 (403)` | 服務帳號無權限或 ID 錯 | 共用給服務帳號；確認 ID 正確 |
+| `缺少環境變數 GOOGLE_SHEETS_CLASS_ROSTER_ID` | 變數未設定/未生效 | Cloud Run 設定後重新部署 revision |
+| `password authentication failed` | 用了過期的 DB 連線字串 | 改用 `.env.local` 的 `DATABASE_URL` |
 
 ## 資料庫指令
 

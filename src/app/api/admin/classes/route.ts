@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const cls = await adminDbQuery('class', 'upsert', {
       where: { name },
       update: { gradeLevel, academicYear: academicYear || undefined },
-      create: { name, gradeLevel, academicYear: academicYear || '2025-2026' },
+      create: { name, gradeLevel, academicYear: academicYear || '2026-2027' },
     });
 
     // Auto-link new class to all existing teachers AND admins so they can assign work to it

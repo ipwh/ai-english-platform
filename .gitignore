@@ -67,6 +67,9 @@ materials/*/Paper 2/*.docx
 # Downloaded HKDSE reference materials (copyrighted)
 materials/_hkeaa_descriptors/
 
+# Student roster spreadsheets (PII: names/gender/emails) — never commit
+materials/*students*.xlsx
+
 # Database files
 *.db
 *.db-journal

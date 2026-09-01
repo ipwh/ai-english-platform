@@ -27,7 +27,7 @@ export async function bulkImportStudents(rows: Array<{
     await bulkDb.class.upsert({
       where: { name },
       update: {},
-      create: { name, gradeLevel: rows.find(r => r.className === name)?.level || 'S4', academicYear: '2025-2026' },
+      create: { name, gradeLevel: rows.find(r => r.className === name)?.level || 'S4', academicYear: '2026-2027' },
     });
   }
 
@@ -73,7 +73,7 @@ export async function bulkImportTeachers(rows: Array<{
         });
         // Link classes
         for (const className of row.classes) {
-          const cls = await bulkDb.class.upsert({ where: { name: className }, update: {}, create: { name: className, gradeLevel: 'S4', academicYear: '2025-2026' } });
+          const cls = await bulkDb.class.upsert({ where: { name: className }, update: {}, create: { name: className, gradeLevel: 'S4', academicYear: '2026-2027' } });
           await bulkDb.teacherClass.create({ data: { teacherId: teacher.id, classId: cls.id } });
         }
         result.created++;
