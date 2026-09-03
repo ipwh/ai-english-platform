@@ -4,6 +4,14 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-03 — 教師學生名單：隱藏已離校學生 + 修正誤導的「846 班級數」標籤
+
+### 教師學生名單
+- `/api/teacher/students` 只回傳「仍在學校最新名單」的學生：`sync-sheets` / `scripts/unassign-non-roster.ts` 已把不在最新名單的畢業生/轉校生解除班別（`classId = null`，學習紀錄保留），故以 `classId != null` 篩選即隱藏舊生——學生名單由 846 → 706（現屆名單），亦避免在組別選人、練習派發對象、Dashboard 學生提醒等共用同一 API 的頁面與現有學生混淆。
+- `teacher/students` 頁面：修正篩選列旁的計數標籤——原以「班級數」顯示學生人數（「846 班級數」意義不明），改為正確的「X 名學生」（`admin.classes.studentCount`）。
+
+---
+
 ## 2026-09-01 — 學年轉換：26-27 學生名單同步 + 學年 2025-2026 → 2026-2027
 
 ### 學生名單更新

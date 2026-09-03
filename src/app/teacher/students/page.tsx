@@ -147,7 +147,7 @@ export default function TeacherStudentsPage() {
           <option value="all">{t('admin.users.all')} {t('admin.users.level')}</option>
           {['S1','S2','S3','S4','S5','S6'].map(l => <option key={l} value={l}>{gradeLabels[l] || l}</option>)}
         </select>
-        <span className="self-center text-xs text-gray-400">{filtered.length} {t('teacher.classCount').toLowerCase()}</span>
+        <span className="self-center text-xs text-gray-500">{filtered.length} {t('admin.classes.studentCount')}</span>
         <button
           onClick={() => { setSelectedForGroup(filtered.map(s => s.id)); setShowGroupModal(true); }}
           className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors"

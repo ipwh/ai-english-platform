@@ -42,7 +42,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Build student filter: admins see all, teachers see their taught classes
-    const where: Record<string, unknown> = { role: 'student', level: { not: 'Demo' } };
+    // 2026-09-03: 只列出仍在學校最新名單的學生。sync-sheets / unassign-non-roster
+    // 已把「不在最新名單」的畢業生/轉校生解除班別（classId=null，保留學習紀錄），
+    // 因此以「仍有班別」篩選即可隱藏舊生，避免與現有學生混淆。
+    const where: Record<string, unknown> = {
+      role: 'student',
+      level: { not: 'Demo' },
+      classId: { not: null },
+    };
     if (!isAdmin && taughtClassIds.length > 0) {
       where.classId = { in: taughtClassIds };
     }
