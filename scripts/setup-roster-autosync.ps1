@@ -57,6 +57,20 @@ function Write-Warn($m) { Write-Host "   WARN: $m" -ForegroundColor Yellow }
 # ---- 0. gcloud check ----
 Write-Step "Checking gcloud"
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
+  # Fallback: locate a per-user SDK install and prepend it to PATH.
+  $candidates = @(
+    (Join-Path $env:USERPROFILE 'google-cloud-sdk\bin'),
+    "$env:LOCALAPPDATA\Google\Cloud SDK\google-cloud-sdk\bin",
+    "$env:ProgramFiles\Google\Cloud SDK\google-cloud-sdk\bin"
+  )
+  foreach ($c in $candidates) {
+    if ((Test-Path (Join-Path $c 'gcloud.cmd')) -or (Test-Path (Join-Path $c 'gcloud.ps1'))) {
+      $env:Path = $c + ';' + $env:Path
+      break
+    }
+  }
+}
+if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
   Write-Host "gcloud not found. Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install"
   exit 1
 }
@@ -69,16 +83,17 @@ Write-Ok "Project: $ProjectId | Region: $Region | Service: $ServiceName"
 
 # ---- 1. Get Cloud Run service URL ----
 Write-Step "Getting Cloud Run service URL"
+# Always describe the service (gives us status.url AND env var names).
+$svcJson = gcloud run services describe $ServiceName --project=$ProjectId --region=$Region --format=json 2>$null
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "Cloud Run service not found or no permission (need Cloud Run Admin)."
+  exit 1
+}
+$svc = $svcJson | ConvertFrom-Json
 if ($ServiceUrl) {
   $ServiceUrl = $ServiceUrl.TrimEnd('/')
   Write-Ok "Using provided ServiceUrl: $ServiceUrl"
 } else {
-  $svcJson = gcloud run services describe $ServiceName --project=$ProjectId --region=$Region --format=json 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host "Cloud Run service not found or no permission (need Cloud Run Admin)."
-    exit 1
-  }
-  $svc = $svcJson | ConvertFrom-Json
   $ServiceUrl = $svc.status.url.TrimEnd('/')
   Write-Ok "Service URL: $ServiceUrl"
 }
@@ -94,13 +109,23 @@ if ($envNames -notcontains 'GOOGLE_SHEETS_CLASS_ROSTER_ID') {
 # ---- 2. Determine / generate CRON_SECRET ----
 Write-Step "Determining CRON_SECRET"
 $cronSecret = ""
+$forceNew = $false
 if ($Secret) {
   $cronSecret = $Secret.Trim()
   Write-Ok "Using CRON_SECRET provided via -Secret"
 } elseif (Test-Path $SecretFile) {
   $cronSecret = (Get-Content $SecretFile -Raw).Trim()
-  Write-Ok "Reusing existing CRON_SECRET ($SecretFile)"
-} else {
+  if ($cronSecret.Length -lt 20 -or $cronSecret -match '^A+$') {
+    # Degenerate secret (e.g. all-zero bytes base64-encode to all 'A').
+    # Do NOT reuse it - regenerate a strong one.
+    Write-Warn "Existing CRON_SECRET is degenerate (too short / all-zero). Regenerating a strong one."
+    $cronSecret = ""
+    $forceNew = $true
+  } else {
+    Write-Ok "Reusing existing CRON_SECRET ($SecretFile)"
+  }
+}
+if (-not $cronSecret) {
   # PS 5.1 uses .NET Framework: RandomNumberGenerator.Fill is unavailable,
   # use RNGCryptoServiceProvider (cryptographically strong) instead.
   $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
@@ -109,7 +134,8 @@ if ($Secret) {
   $rng.Dispose()
   # base64url (strip = + / so it is safe in header / URL)
   $cronSecret = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-  Write-Ok "Generated a new CRON_SECRET"
+  if ($forceNew) { Write-Ok "Generated a new strong CRON_SECRET" }
+  else { Write-Ok "Generated a new CRON_SECRET" }
 }
 if (-not $cronSecret) { Write-Host "CRON_SECRET is empty. Aborting."; exit 1 }
 
@@ -159,7 +185,7 @@ Write-Step "Done"
 Write-Host "   Schedule: $Schedule ($TimeZone) -> $uri"
 Write-Host ""
 Write-Host "Test (live run): gcloud scheduler jobs run $jobName --location=$Region --project=$ProjectId"
-Write-Host "Preview only:    curl -H 'x-cron-secret: <secret>' '$uri?dryRun=true'"
+Write-Host "Preview only:    curl -H 'x-cron-secret: <secret>' '$($uri)?dryRun=true'"
 Write-Host ""
 Write-Host "Note: the cron + sync-sheets code must already be deployed to Cloud Run (push to main auto-deploys) for the scheduled call to run a sync."
 
