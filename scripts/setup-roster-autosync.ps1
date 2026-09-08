@@ -29,14 +29,26 @@ param(
   [string]$ProjectId = "",
   [string]$Region = "asia-east2",
   [string]$ServiceName = "english-platform",
+  [string]$ServiceUrl = "",   # optional override; default = Cloud Run status.url
   [string]$Schedule = "0 5 * * *",
   [string]$TimeZone = "Asia/Hong_Kong",
   [string]$Secret = ""
 )
 
-$ErrorActionPreference = "Stop"
+# IMPORTANT: do not use $ErrorActionPreference = "Stop" in this script.
+# gcloud's PS1 launcher emits stderr noise (e.g. the Windows Store 'python3'
+# alias when CLOUDSDK_PYTHON is unset) which would become a TERMINATING error
+# under Stop and abort the script. We rely on $LASTEXITCODE checks instead.
+$ErrorActionPreference = "Continue"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $SecretFile = Join-Path $Root ".roster-sync-secret"
+
+# Pin gcloud to a real Python so its launcher never probes the Store
+# 'python3' stub (avoids "Python was not found" noise / hard failures).
+$realPython = "C:\Python314\python.exe"
+if ((Test-Path $realPython) -and (-not $env:CLOUDSDK_PYTHON)) {
+  $env:CLOUDSDK_PYTHON = $realPython
+}
 
 function Write-Step($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Write-Ok($m)   { Write-Host "   OK: $m" -ForegroundColor Green }
@@ -57,14 +69,19 @@ Write-Ok "Project: $ProjectId | Region: $Region | Service: $ServiceName"
 
 # ---- 1. Get Cloud Run service URL ----
 Write-Step "Getting Cloud Run service URL"
-$svcJson = gcloud run services describe $ServiceName --project=$ProjectId --region=$Region --format=json 2>$null
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "Cloud Run service not found or no permission (need Cloud Run Admin)."
-  exit 1
+if ($ServiceUrl) {
+  $ServiceUrl = $ServiceUrl.TrimEnd('/')
+  Write-Ok "Using provided ServiceUrl: $ServiceUrl"
+} else {
+  $svcJson = gcloud run services describe $ServiceName --project=$ProjectId --region=$Region --format=json 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Cloud Run service not found or no permission (need Cloud Run Admin)."
+    exit 1
+  }
+  $svc = $svcJson | ConvertFrom-Json
+  $ServiceUrl = $svc.status.url.TrimEnd('/')
+  Write-Ok "Service URL: $ServiceUrl"
 }
-$svc = $svcJson | ConvertFrom-Json
-$ServiceUrl = $svc.status.url.TrimEnd('/')
-Write-Ok "Service URL: $ServiceUrl"
 
 # Check env has GOOGLE_SHEETS_CLASS_ROSTER_ID (values are masked; key presence only)
 $envNames = @($svc.spec.template.spec.containers[0].env | ForEach-Object { $_.name })
@@ -84,8 +101,12 @@ if ($Secret) {
   $cronSecret = (Get-Content $SecretFile -Raw).Trim()
   Write-Ok "Reusing existing CRON_SECRET ($SecretFile)"
 } else {
+  # PS 5.1 uses .NET Framework: RandomNumberGenerator.Fill is unavailable,
+  # use RNGCryptoServiceProvider (cryptographically strong) instead.
+  $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
   $bytes = New-Object byte[] 32
-  [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+  $rng.GetBytes($bytes)
+  $rng.Dispose()
   # base64url (strip = + / so it is safe in header / URL)
   $cronSecret = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
   Write-Ok "Generated a new CRON_SECRET"
@@ -105,17 +126,24 @@ Write-Ok "CRON_SECRET updated (other env vars preserved)"
 
 # ---- 4. Create / update Cloud Scheduler job ----
 Write-Step "Creating / updating Cloud Scheduler job (roster-sync)"
+# Ensure the API is enabled BEFORE touching jobs, so gcloud never blocks on
+# the interactive "enable and retry?" prompt.
+Write-Step "Ensuring Cloud Scheduler API is enabled"
+gcloud services enable cloudscheduler.googleapis.com --project=$ProjectId 2>$null
+if ($LASTEXITCODE -ne 0) { Write-Warn "Enable returned non-zero (may already be enabled); continuing." }
+Write-Ok "cloudscheduler.googleapis.com ready"
+
 $jobName = "roster-sync"
 $uri = "$ServiceUrl/api/admin/sync-sheets/cron"
 gcloud scheduler jobs describe $jobName --location=$Region --project=$ProjectId *> $null
 if ($LASTEXITCODE -eq 0) {
   Write-Ok "Job exists; updating schedule and secret..."
-  gcloud scheduler jobs update http $jobName --location=$Region --project=$ProjectId `
+  gcloud scheduler jobs update http $jobName --location=$Region --project=$ProjectId --quiet `
     --schedule="$Schedule" --uri="$uri" --http-method=GET `
     --headers="x-cron-secret=$cronSecret" --time-zone="$TimeZone" `
     --description="Daily Google Sheets roster sync"
 } else {
-  gcloud scheduler jobs create http $jobName --location=$Region --project=$ProjectId `
+  gcloud scheduler jobs create http $jobName --location=$Region --project=$ProjectId --quiet `
     --schedule="$Schedule" --uri="$uri" --http-method=GET `
     --headers="x-cron-secret=$cronSecret" --time-zone="$TimeZone" `
     --description="Daily Google Sheets roster sync"
