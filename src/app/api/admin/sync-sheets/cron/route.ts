@@ -6,11 +6,13 @@
 //   或 以 header 傳送: x-cron-secret: YOUR_CRON_SECRET
 //   Schedule: 0 5 * * *（每日 05:00，依 job 所在時區）
 //
-// 部署注意：baseUrl 會自動由本請求的 origin 推導，Cloud Run 毋須
-// 額外設定 VERCEL_URL / NEXT_PUBLIC_APP_URL。
+// 實作：in-process 直接呼叫 sync-sheets 的 POST handler，毋須對自身發
+// HTTP 自呼叫（Cloud Run 上 self-fetch 會失敗 "fetch failed"）。
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+// In-process invocation of the sync handler (sibling route).
+import { POST as runSync } from '../route';
 
 export async function GET(request: NextRequest) {
   // 🔒 接受 query ?secret= 或 header x-cron-secret（避免 secret 留在網址/日誌）
@@ -29,14 +31,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 推導同一服務的絕對 base URL（Cloud Run / Vercel / 本機皆可）
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '') ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
-      request.nextUrl.origin;
-
-    // 呼叫主同步 endpoint（server-to-server，以 x-cron-secret 授權）
-    const res = await fetch(`${baseUrl}/api/admin/sync-sheets`, {
+    // Build an in-process request carrying the cron secret; the sync handler
+    // authorizes it via x-cron-secret (no admin session needed for cron).
+    const inner = new NextRequest(`${request.nextUrl.origin}/api/admin/sync-sheets`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -44,14 +41,7 @@ export async function GET(request: NextRequest) {
       },
       body: JSON.stringify({ dryRun }),
     });
-
-    const data = await res.json().catch(() => ({}));
-    return NextResponse.json({
-      timestamp: new Date().toISOString(),
-      dryRun,
-      status: res.status,
-      result: data,
-    });
+    return await runSync(inner);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
