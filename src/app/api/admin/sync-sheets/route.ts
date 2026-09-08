@@ -208,9 +208,13 @@ export async function POST(request: NextRequest) {
   };
 
   try {
-    // 驗證管理員權限
+    // 驗證管理員權限；另接受排程（cron）以 x-cron-secret 作 server-to-server 授權
+    // （secret 只存在於伺服器 env，未設定 CRON_SECRET 時此路徑自動停用）
     const auth = await verifyAdmin(request);
-    if (!auth.authorized) {
+    const cronSecret = request.headers.get('x-cron-secret');
+    const cronAuthorized =
+      !!process.env.CRON_SECRET && !!cronSecret && cronSecret === process.env.CRON_SECRET;
+    if (!auth.authorized && !cronAuthorized) {
       return NextResponse.json({ error: auth.error }, { status: 403 });
     }
 

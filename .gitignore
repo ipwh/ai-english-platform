@@ -55,6 +55,9 @@ materials/_extracted/
 cloud-run-env.yaml
 cloud-run-env*.yaml
 
+# Local CRON_SECRET store for roster auto-sync (setup-roster-autosync.ps1)
+.roster-sync-secret
+
 # Large PDF materials (too big for GitHub)
 materials/*.pdf
 materials/**/*.pdf
