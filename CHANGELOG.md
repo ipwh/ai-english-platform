@@ -10,14 +10,15 @@ All notable changes to the AI English Platform are documented here.
 - Google Sheet 名單更新後**不會**自動反映到平台；同步需手動觸發。此版本補上「排程自動同步」的程式與設定工具。
 
 ### 變更
-- **`/api/admin/sync-sheets/cron`（cron route）修正**：內部 base URL 改由請求 origin 推導（Cloud Run 毋須 `VERCEL_URL`/`NEXT_PUBLIC_APP_URL`）；secret 接受 `?secret=` 或 `x-cron-secret` header（避免留在網址/日誌）；內呼同步時帶 `x-cron-secret` 授權。
+- **`/api/admin/sync-sheets/cron`（cron route）修正**：secret 接受 `?secret=` 或 `x-cron-secret` header；最終改為 **in-process 直接呼叫** sync-sheets 的 POST handler（Cloud Run 上對自身發 HTTP 會 `fetch failed`），不再依賴 `NEXT_PUBLIC_APP_URL`/`VERCEL_URL`。
 - **`/api/admin/sync-sheets`（同步 route）**：在原有管理員認證外，接受 server-to-server `x-cron-secret`（secret 只存於伺服器 env；未設 `CRON_SECRET` 時此路徑自動停用，安全性不變）。
-- **新增 `scripts/setup-roster-autosync.ps1`**：一鍵設定 Cloud Run env `CRON_SECRET`（保留其他 env）並建立/更新 Cloud Scheduler HTTP job `roster-sync`（預設每日 05:00 Asia/Hong_Kong 呼叫 cron）。secret 存於 git-ignored `.roster-sync-secret`（重跑沿用，避免 service 與排程失配）。
+- **新增 `scripts/setup-roster-autosync.ps1`**：一鍵設定 Cloud Run env `CRON_SECRET`（保留其他 env）並建立 Cloud Scheduler HTTP job `roster-sync`。secret 存於 git-ignored `.roster-sync-secret`。純 ASCII（Windows PowerShell 5.1 無 BOM 時會以 ANSI 讀檔，中文會變亂碼致 ParserError）；用 `RNGCryptoServiceProvider`（PS5.1 沒有 `RandomNumberGenerator.Fill`，會產生全零弱密鑰）；`scheduler jobs update http` 不支援 `--headers` → delete+create；先 enable API 再建 job（避免互動卡住）。
 - `.gitignore` 加入 `.roster-sync-secret`。
 
-### 生效方式
-- 程式碼 push main 後由 Cloud Build 自動部署至 Cloud Run（env 不被覆蓋）。
-- 仍需在 Cloud Run env 設定 `CRON_SECRET`（及確認 `GOOGLE_SHEETS_CLASS_ROSTER_ID` 指向最新名單），再執行 `scripts/setup-roster-autosync.ps1` 建立排程。
+### 執行結果（2026-09-08）
+- Cloud Scheduler job `roster-sync` 已建立並 **ENABLED**：每日 05:00 Asia/Hong_Kong → GET `.../api/admin/sync-sheets/cron`（header `x-cron-secret`）。
+- Cloud Run env `CRON_SECRET` 已設為同一強密鑰；`GOOGLE_SHEETS_CLASS_ROSTER_ID` 存在。
+- cron dry-run 驗證 **HTTP 200**：名單 710 行 → created 4 / updated 705 / classFixed 1 / unassigned 140 / errors 0。首次正式同步會於下個 05:00 自動執行（或在需要時手動 `gcloud scheduler jobs run roster-sync ...`）。
 
 ---
 
