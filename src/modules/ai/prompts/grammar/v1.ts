@@ -20,6 +20,9 @@ export { HALLUCINATION_GUARD as GRAMMAR_HALLUCINATION_GUARD };
 export const STRICT_ANSWER_RULES = `
 【嚴格答案一致性規則 — 必須 100% 遵守 (CRITICAL)】
 - MCQ：'answer' 必須是 "A"/"B"/"C"/"D" 之一，且完整對應 choices 陣列中對應選項的文字內容。
+- Fill-blank（填充題）：答案必須是「唯一」的單詞或極短固定片語（例如 "went"、"is covered"），
+  使題目只有一個可被精確判定的正確答案。嚴禁生成開放式填充題：凡空格存在多個文法正確的答案
+  （例如補完問句、開放式問句形式、可用多個連接詞/介詞/情態動詞/代名詞的填空），一律改為 MCQ 形式。
 - Listening：'answer' 指向的選項文字必須逐字 (verbatim) 出現在該題的 listeningContent 中。
   每題獨立生成 listeningContent，再據此產生問題和答案。禁止 hallucinate。
 

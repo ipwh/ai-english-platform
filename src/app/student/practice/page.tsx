@@ -452,7 +452,7 @@ function PracticeListPageContent() {
                     <option value="fill-blank">{t('practice.typeFill')}</option>
                     {/* error-correction removed — underline rendering not supported in UI */}
                     <option value="short-writing">{t('practice.typeWriting')}</option>
-                    <option value="matching">{t('practice.typeMatching')}</option>
+                    {/* matching removed — delivery layer cannot render matching UI */}
                   </select>
                 </div>
                 <div>

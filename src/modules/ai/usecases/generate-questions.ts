@@ -12,6 +12,7 @@ import { selectDiverseTopic } from '../services/topic-selector';
 import { normalizeGeneratedQuestions } from '../services/question-normalizer';
 import { validateAndFixQuestion } from '../services/question-validator';
 import { validateListeningConsistency } from '../services/listening-normalizer';
+import { resolveEffectiveQuestionType } from '../services/open-ended-topics';
 import { logger } from '@/shared/logger/logger';
 import type { GenerateQuestionsInput, GeneratedQuestion } from '../types/generation-types';
 
@@ -57,8 +58,8 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   const isWriting = input.languageSkill === 'writing';
   const isSpeaking = input.languageSkill === 'speaking';
 
-  // 寫作技能自動使用 short-writing 題型
-  const effectiveQuestionType = isWriting ? 'short-writing' : typeDesc;
+  // 寫作技能自動使用 short-writing 題型；開放式文法主題的填充題強制改 MC
+  const effectiveQuestionType = resolveEffectiveQuestionType(typeDesc, input.grammarItem, input.languageSkill);
 
   // 聽力/閱讀/口語題使用較低 temperature 提高準確性
   const qTemperature = (isListening || isReading || isSpeaking) ? 0.45 : 0.7;

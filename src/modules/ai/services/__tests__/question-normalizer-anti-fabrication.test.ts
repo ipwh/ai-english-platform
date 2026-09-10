@@ -22,6 +22,38 @@ function mcq(overrides: Partial<GeneratedQuestion> = {}): GeneratedQuestion {
   };
 }
 
+describe('question-normalizer — non-deliverable matching rejected (fail-closed)', () => {
+  it('matching question → rejected, never delivered as a degraded text question', () => {
+    const questions = normalizeGeneratedQuestions([
+      {
+        type: 'matching',
+        prompt: 'Match the words to their meanings.',
+        answer: 'A',
+        choices: ['A. Word1', 'B. Word2'],
+        explanationZh: '解釋',
+        explanationEn: 'Explanation',
+        commonMistake: '',
+      },
+    ]);
+    expect(questions).toHaveLength(0);
+  });
+
+  it('matching question with empty choices → rejected', () => {
+    const questions = normalizeGeneratedQuestions([
+      {
+        type: 'matching',
+        prompt: 'Match the words.',
+        answer: 'A',
+        choices: [],
+        explanationZh: '解釋',
+        explanationEn: 'Explanation',
+        commonMistake: '',
+      },
+    ]);
+    expect(questions).toHaveLength(0);
+  });
+});
+
 describe('question-normalizer anti-fabrication (choice shift)', () => {
   it('bare letter remapped by text when an earlier choice was filtered out', () => {
     const questions = normalizeGeneratedQuestions([

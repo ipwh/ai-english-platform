@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-08-30 — 129 files, 2823 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-10 — 130 files, 2838 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -68,9 +68,9 @@ Writing Evaluation (Sprints 127-130):
 ## 功能
 
 ### 🧑‍🎓 學生端
-- **AI 練習題目** — 支援選擇題、填充題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級
+- **AI 練習題目** — 支援選擇題、填充題、寫作題，3 種難度（補底/核心/挑戰），自動從學生 profile 載入年級；開放式文法主題（疑問句形式、情態動詞、介詞、連接詞等）自動改用選擇題，確保單一答案鍵公平批改
 - **📖 閱讀理解 (DSE Paper 1)** — 生成 DSE 風格閱讀篇章（3–5 段、段落分佈檢查、主題多樣化），涵蓋 Literal → Inferential → Evaluative 漸進式題型（MCQ / 填充 / True-False-NG / 語調態度 / 詞彙 / 摘要 / 代詞指涉 / 推斷 / 短答），AI 語意批改依 HKDSE 評分原則（評估 prompt 為通用考官原則，不包含官方 descriptors 文本）；題目支援中英切換
-- **🔥 每日挑戰 (Daily Challenge)** — 每日一題（文法選擇／填充），完成獲得連續學習 streak 加成與 XP；題目由伺服器持有，提交時以伺服器答案鍵批改
+- **🔥 每日挑戰 (Daily Challenge)** — 每日一題（文法選擇／填充），開放式文法主題一律以選擇題呈現；完成獲得連續學習 streak 加成與 XP；題目由伺服器持有，提交時以伺服器答案鍵批改
 - **個人化診斷測試** — 根據學生年級、近期練習與錯題生成診斷題目，完成後可一鍵進入弱項訓練
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**真實考試陷阱**（distraction、synonym replacement、speaker attitude、numerical precision、number confusion、date correction）、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、完整 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
@@ -631,7 +631,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-08-30，129 files，2823 tests pass（+1 skipped）。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-09-10，130 files，2838 tests pass（+1 skipped）。
 
 ## 目前狀態
 
@@ -656,7 +656,7 @@ npm run test:watch    # 持續監控模式
 | DSE RAG | ✅ 歷屆試題已匯入，7 個 usecase + 閱讀路由共 8 個流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
 | 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（17 fixtures，全部 expected=null）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
 | 校準（Calibration） | ✅ 校準基礎設施就緒（三態 release gate、執行歸因、序數 level 指標、C/L/O 維度門檻、evidence 驗證政策）。**基礎設施存在不建立 HKDSE 評分有效性**：目前 `overall-comparable = 0` → `INSUFFICIENT_DATA`，`ASSESSMENT VALIDITY NOT ESTABLISHED`（平台不宣稱 marker-equivalence） |
-| 測試 | ✅ 129 files, 2823 tests pass（2026-08-30） |
+| 測試 | ✅ 130 files, 2838 tests pass（2026-09-10） |
 
 ## 部署
 

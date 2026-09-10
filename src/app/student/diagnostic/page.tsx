@@ -14,9 +14,10 @@ import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
 import type { CloDimensionRationaleResult } from '@/shared/types/ai-response-types';
 import type { PracticeQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
-import { normalizeSkillName, buildWeakSkills, normalizeNumbers } from '@/shared/utils/utils';
+import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
 import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
 import { toMcqLetter, stripMcqPrefix, normalizeAnswer, MCQ_LETTERS } from '@/modules/ai/services/question-validator';
+import { checkAnswer as serverCheckAnswer } from '@/modules/exercise/services/practice-answer-scorer';
 
 interface DiagnosticResult {
   id: string;
@@ -209,9 +210,9 @@ export default function DiagnosticPage() {
     }
     // short-writing / writing skill: accept any non-empty answer (qualitative assessment)
     if (type === 'short-writing' || type === 'writing') return student.trim().length > 0;
-    // fill-blank: normalized comparison（含數字詞彙正規化 — 「fifteen」≡「15」，
-    // 2026-08-30 audit R8，與 practice 頁及伺服器 scorer 一致）
-    return normalizeNumbers(normalizeAnswer(student)) === normalizeNumbers(normalizeAnswer(correct));
+    // fill-blank / 其他文字題：委派給與伺服器 practice scorer 相同的正典比對
+    // （正規化 + 部分匹配 + 數字詞彙正規化），避免與伺服器判定不一致。
+    return serverCheckAnswer(student, correct, type, choices);
   }
 
   // 🔥 載入時根據學生年級與弱項自動生成診斷題目

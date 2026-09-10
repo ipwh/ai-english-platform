@@ -8,6 +8,7 @@ import { getDSEEmpiricalTopics, validateDSEtopicMatch } from '../services/dse-to
 import { selectDiverseTopic, buildDiversityInstruction } from '../services/topic-selector';
 import { STRICT_ANSWER_RULES } from '../prompts';
 import { HALLUCINATION_GUARD_LITE } from '../services/hallucination-guard';
+import { resolveEffectiveQuestionType } from '../services/open-ended-topics';
 import type { GenerateQuestionsInput } from '../types/generation-types';
 
 const diffMap: Record<string, string> = { remedial: '補底', core: '核心', challenge: '挑戰' };
@@ -19,7 +20,8 @@ export function buildCompactSystemPrompt(input: GenerateQuestionsInput, dseConte
   const isReading = input.languageSkill === 'reading';
   const isWriting = input.languageSkill === 'writing';
   const isSpeaking = input.languageSkill === 'speaking';
-  const effectiveQuestionType = isWriting ? 'short-writing' : (input.questionType || 'mc');
+  // 開放式文法主題的填充題強制改 MC（與 generate-questions usecase 一致）
+  const effectiveQuestionType = resolveEffectiveQuestionType(input.questionType, input.grammarItem, input.languageSkill);
 
   const topic = selectDiverseTopic({
     userId: input.userId || 'anonymous',

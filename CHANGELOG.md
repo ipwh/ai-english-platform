@@ -4,6 +4,32 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-10 — 開放式填充題公平批改 + 移除不可交付 matching 題型
+
+### 背景
+- 每日挑戰的「疑問句形式」開放式填充題（例：If coastal cities are to survive rising sea levels, ____?）以單一預設答案鍵精確比對 — 學生「what should we do」被判錯（答案鍵「what measures should governments take」），因答案空間無限。
+
+### 公平批改（開放式主題 → MCQ）
+- **新增正典政策** `src/shared/utils/open-ended-topics.ts`：`OPEN_ENDED_GRAMMAR_TOPICS`（question-forms / modals / articles / prepositions / connectives / phrasal-verbs / relative-clauses / negation / inversion / pronouns / quantifiers）+ `resolveEffectiveQuestionType`。填充題對這些主題一律強制改用選擇題（單一答案鍵才能公平批改），作用於 `generateQuestions` usecase 與 compact prompt builder — 涵蓋每日挑戰、AI 練習、診斷、作業所有生成入口。
+- **每日挑戰輪換模組化**：新增 `src/modules/exercise/services/daily-challenge-rotation.ts`（單一 owner）— 30 天主題循環 + mc/fill-blank 輪換；開放式主題強制 mc。
+- **`STRICT_ANSWER_RULES` 強化**：填充題答案必須是唯一單詞/極短固定片語；開放式補完（問句形式、多連接詞/介詞/情態動詞填空）一律改為 MCQ。
+
+### 批改一致性
+- **每日挑戰 POST**：改用正典 scorer `checkAnswer`（正規化 + 部分匹配）並納入 `acceptedAnswers` — 與 `/api/practice` 一致，不再 naive 全等比對。
+- **診斷 fill-blank**：客戶端批改委派 `practice-answer-scorer.checkAnswer`，消除客戶端/伺服器判定不一致。
+
+### matching 題型移除（不可交付）
+- matching 早已於 2026-08-30 判定不可交付（交付層無法渲染配對 UI，只能退化為短答文字題）。本次移除殘留暴露：
+  - 練習頁題型下拉移除 `matching`。
+  - `memory-influence` 低專注度推薦清單移除 `matching`。
+  - `resolveEffectiveQuestionType`：`matching → mc`。
+  - `question-normalizer`：對 matching 題目 fail-closed 拒絕（不再清空 choices 交付退化文字題）。
+
+### 測試
+- 新增 `open-ended-topics.test.ts`（8 用例）、`daily-challenge-rotation.test.ts`（5 用例）、normalizer matching 拒絕（2 用例）。全測試 2838 pass / 1 skipped（130 files）。
+
+---
+
 ## 2026-09-08 — 名單自動同步（Cloud Run + Cloud Scheduler）
 
 ### 背景

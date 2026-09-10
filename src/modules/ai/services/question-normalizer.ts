@@ -33,6 +33,14 @@ export function normalizeGeneratedQuestions(questions: GeneratedQuestion[]): Gen
     };
 
     if (base.type !== 'mc') {
+      // 2026-09-10: matching 題型不可交付（交付層無法渲染配對 UI，只能降級為
+      // 短答文字題，而 scorer 亦無 matching 分支）→ fail-closed 拒絕，
+      // 而非交付一個退化的文字題。
+      if (base.type === 'matching') {
+        logger.warn({ module: 'question-normalizer', questionIndex: results.length }, 'Matching question rejected — non-deliverable type');
+        rejectedCount++;
+        continue;
+      }
       const { warnings, rejected } = validateAndFixQuestion(base as ValidatableQuestion, results.length);
       if (rejected) { rejectedCount++; continue; }
       if (warnings.length > 0) logger.warn({ module: 'question-normalizer', warnings }, 'Non-MC answer consistency issues');

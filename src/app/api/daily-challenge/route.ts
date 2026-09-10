@@ -18,21 +18,13 @@ import {
   resolveGrammarQuestionDefinitions,
   resolveGrammarQuestionExplanations,
 } from '@/modules/exercise/services/grammar-question-service';
+import { checkAnswer } from '@/modules/exercise/services/practice-answer-scorer';
+import {
+  resolveDailyTopic,
+  resolveDailyQuestionType,
+} from '@/modules/exercise/services/daily-challenge-rotation';
 
 const DAILY_CHALLENGE_RATE = { maxRequests: 20, windowMs: 60_000 };
-
-// 每日挑戰題型輪換（已移除 error-correction — 劃線題目無法在前端正確顯示）
-const QUESTION_TYPES = ['mc', 'fill-blank'] as const;
-
-// 每日文法主題輪換（30 天循環）
-const DAILY_TOPICS = [
-  'tenses', 'conditionals', 'passive-voice', 'relative-clauses', 'modals',
-  'articles', 'prepositions', 'connectives', 'gerunds-infinitives', 'phrasal-verbs',
-  'reported-speech', 'subject-verb-agreement', 'comparatives-superlatives', 'question-forms',
-  'negation', 'adjectives-adverbs', 'pronouns', 'quantifiers', 'inversion',
-  'participles', 'noun-clauses', 'participle-phrases', 'tenses', 'conditionals',
-  'passive-voice', 'modals', 'prepositions', 'articles', 'connectives', 'phrasal-verbs',
-];
 
 // GET — 取得今日挑戰題目
 export async function GET(request: NextRequest) {
@@ -66,9 +58,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-    const topicIndex = dayOfYear % DAILY_TOPICS.length;
-    const grammarItem = DAILY_TOPICS[topicIndex];
-    const questionType = QUESTION_TYPES[dayOfYear % QUESTION_TYPES.length];
+    const grammarItem = resolveDailyTopic(dayOfYear);
+    // 開放式主題（question-forms 等）的填充題答案不唯一，強制改用 MC
+    // 以確保伺服器能以單一答案鍵公平批改。
+    const questionType = resolveDailyQuestionType(grammarItem, dayOfYear);
 
     // Check if already completed today
     const today = new Date();
@@ -90,7 +83,7 @@ export async function GET(request: NextRequest) {
       count: 1,
       gradeLevel: gradeLevel as 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6',
       grammarItem: grammarItem as string,
-      grammarItemZh: DAILY_TOPICS[topicIndex],
+      grammarItemZh: grammarItem,
       questionType: questionType as 'mc' | 'fill-blank' | 'short-writing' | 'matching',
       difficulty: 'core',
     });
@@ -178,13 +171,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '找不到此題目（伺服器不持有此題，NOT_PROJECTABLE） / Question not found on the server (NOT_PROJECTABLE)' }, { status: 400 });
     }
 
-    const normalized = studentAnswer.trim();
-    let isCorrect = false;
-    if (def.questionType === 'mc' && def.choices && def.choices.length > 0) {
-      const letter = normalized.toUpperCase().charAt(0);
-      isCorrect = letter === def.answer.trim().toUpperCase().charAt(0);
-    } else {
-      isCorrect = normalized.toLowerCase() === def.answer.trim().toLowerCase();
+    // 與 /api/practice 使用相同的正典 scorer（checkAnswer）：對填充題做
+    // 正規化 + 部分匹配，並在定義存在時納入 acceptedAnswers —— 不再以單一
+    // 答案字串做嚴格全等比對（同義/格式差異會被誤判為錯）。
+    let isCorrect = checkAnswer(
+      studentAnswer,
+      def.answer,
+      def.questionType,
+      def.choices ?? undefined,
+    );
+    if (!isCorrect && def.acceptedAnswers && def.acceptedAnswers.length > 0) {
+      isCorrect = def.acceptedAnswers.some(acc =>
+        checkAnswer(studentAnswer, acc, def.questionType, def.choices ?? undefined),
+      );
     }
 
     // Check duplicate
