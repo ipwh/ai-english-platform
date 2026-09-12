@@ -161,19 +161,14 @@ Write-Ok "cloudscheduler.googleapis.com ready"
 
 $jobName = "roster-sync"
 $uri = "$ServiceUrl/api/admin/sync-sheets/cron"
-gcloud scheduler jobs describe $jobName --location=$Region --project=$ProjectId *> $null
-if ($LASTEXITCODE -eq 0) {
-  Write-Ok "Job exists; updating schedule and secret..."
-  gcloud scheduler jobs update http $jobName --location=$Region --project=$ProjectId --quiet `
-    --schedule="$Schedule" --uri="$uri" --http-method=GET `
-    --headers="x-cron-secret=$cronSecret" --time-zone="$TimeZone" `
-    --description="Daily Google Sheets roster sync"
-} else {
-  gcloud scheduler jobs create http $jobName --location=$Region --project=$ProjectId --quiet `
-    --schedule="$Schedule" --uri="$uri" --http-method=GET `
-    --headers="x-cron-secret=$cronSecret" --time-zone="$TimeZone" `
-    --description="Daily Google Sheets roster sync"
-}
+# NOTE: 'gcloud scheduler jobs update http' does NOT support --headers, so we
+# delete (if present) then (re)create. Idempotent for this own job.
+Write-Ok "Recreating job (delete if exists, then create) to set x-cron-secret..."
+gcloud scheduler jobs delete $jobName --location=$Region --project=$ProjectId --quiet *> $null
+gcloud scheduler jobs create http $jobName --location=$Region --project=$ProjectId --quiet `
+  --schedule="$Schedule" --uri="$uri" --http-method=GET `
+  --headers="x-cron-secret=$cronSecret" --time-zone="$TimeZone" `
+  --description="Daily Google Sheets roster sync"
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Failed to create scheduler job. Check: 1) Cloud Scheduler API enabled 2) account has Cloud Scheduler Admin."
   exit 1
