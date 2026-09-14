@@ -1,6 +1,11 @@
 // Sprint 13: AI Cost Optimization — types
 
-export type AIModel = 'deepseek-chat' | 'deepseek-v4-flash' | 'deepseek-v4-pro' | 'deepseek-reasoner' | 'gemini-2.0-flash' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite' | 'grok-4.3' | 'vertex-gemini';
+/**
+ * DeepSeek current names (2026-09-14): `deepseek-flash` (V4.1-Flash) | `deepseek-v4-pro` (V4-Pro-0813).
+ * Retired: `deepseek-chat` / `deepseek-reasoner` (2026-07-24) and `deepseek-v4-flash` (renamed to
+ * `deepseek-flash`; still callable, served and billed as V4.1-Flash).
+ */
+export type AIModel = 'deepseek-flash' | 'deepseek-v4-pro' | 'deepseek-v4-flash' | 'deepseek-chat' | 'deepseek-reasoner' | 'gemini-2.0-flash' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite' | 'grok-4.3' | 'vertex-gemini';
 
 export interface TokenUsage {
   promptTokens: number;

@@ -6,10 +6,17 @@ import { logger } from '@/shared/logger/logger';
 // Model Pricing (USD per 1000 tokens)
 // ============================================
 
+// DeepSeek rates (docs 2026-09-14) converted at 7.1 CNY/USD, off-peak (空閒時段) prices:
+//   deepseek-flash  : 1 CNY / M input (cache miss) | 4 CNY / M output
+//   deepseek-v4-pro : 4.5 CNY / M input            | 13.5 CNY / M output
+// Peak hours (Beijing Mon-Fri 09:00-12:00, 14:00-18:00) are billed at 2× these rates.
 const PRICING: Record<AIModel, ModelPricing> = {
+  'deepseek-flash': { model: 'deepseek-flash', inputPricePer1K: 0.00014, outputPricePer1K: 0.00056 },
+  'deepseek-v4-pro': { model: 'deepseek-v4-pro', inputPricePer1K: 0.00063, outputPricePer1K: 0.00190 },
+  // Retired alias — served by V4.1-Flash and billed as Flash.
+  'deepseek-v4-flash': { model: 'deepseek-v4-flash', inputPricePer1K: 0.00014, outputPricePer1K: 0.00056 },
+  // Retired 2026-07-24 — retained for historical cost entries/reports only.
   'deepseek-chat': { model: 'deepseek-chat', inputPricePer1K: 0.00014, outputPricePer1K: 0.00028 },
-  'deepseek-v4-flash': { model: 'deepseek-v4-flash', inputPricePer1K: 0.00014, outputPricePer1K: 0.00028 },
-  'deepseek-v4-pro': { model: 'deepseek-v4-pro', inputPricePer1K: 0.00044, outputPricePer1K: 0.00087 },
   'deepseek-reasoner': { model: 'deepseek-reasoner', inputPricePer1K: 0.00055, outputPricePer1K: 0.00219 },
   'gemini-2.0-flash': { model: 'gemini-2.0-flash', inputPricePer1K: 0.00010, outputPricePer1K: 0.00040 },
   'gemini-2.5-flash': { model: 'gemini-2.5-flash', inputPricePer1K: 0.00015, outputPricePer1K: 0.00060 },

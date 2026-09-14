@@ -67,7 +67,15 @@ class ProviderRegistry {
 
     // Cache for deterministic requests (served BEFORE the budget gate — a
     // cache hit costs nothing and must not be blocked by budget exhaustion).
-    const cacheKey = JSON.stringify({ messages, temperature: options?.temperature, jsonMode: options?.jsonMode });
+    const cacheKey = JSON.stringify({
+      messages,
+      temperature: options?.temperature,
+      jsonMode: options?.jsonMode,
+      // Thinking settings change the answer, so they must participate in the cache key
+      // (undefined values are omitted by JSON.stringify → existing keys unchanged).
+      thinking: options?.thinking,
+      reasoningEffort: options?.reasoningEffort,
+    });
     if (!options?.temperature || options.temperature <= 0.3) {
       const cached = await aiCache.get(cacheKey);
       if (cached) return { text: cached, provider: 'cache', latencyMs: 0, fallback: false };

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         : 'none';
 
   const model = provider === 'deepseek'
-    ? (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+    ? (process.env.DEEPSEEK_MODEL || 'deepseek-flash')
     : provider === 'vertex-gemini'
       ? providers.vertexModel
       : provider === 'gemini-api'

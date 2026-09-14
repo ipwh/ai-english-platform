@@ -4,6 +4,22 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-14 — DeepSeek V4.1 模型名對齊 + 思考模式支援
+
+### 背景
+- DeepSeek API 文件（2026-09-14）現行模型名為 `deepseek-flash`（DeepSeek-V4.1-Flash）與 `deepseek-v4-pro`；舊名 `deepseek-v4-flash` 已更名（仍可呼叫，由 V4.1-Flash 提供服務並按 Flash 計費）。`deepseek-chat` / `deepseek-reasoner` 早於 2026-07-24 停用。
+- 但程式碼預設值仍為 `deepseek-chat`：當 `DEEPSEEK_MODEL` 未設定時（例：`cloud-run-env.yaml` 未列出此變數）會以已停用模型名發送請求 → 呼叫失敗並轉 fallback。
+
+### 變更
+- **模型名對齊**：`config.ts` 預設 `deepseek-chat` → `deepseek-flash`；`/api/ai/status` 預設同步；教師設定頁顯示 `DeepSeek Flash (deepseek-flash)`；`scripts/prompt-version.ts` snapshot 改讀 `DEEPSEEK_MODEL`（預設 `deepseek-flash`）；README / `.env.example` / `.env.cloud-run.example` 同步（`.env.example` 範例值改為 `deepseek-flash`，`deepseek-v4-pro` 保留為可選高品質模型）。
+- **思考模式（thinking）支援**：`LLMCallOptions` 新增 `thinking?: boolean` 與 `reasoningEffort?: 'low' | 'high' | 'max'`；DeepSeek provider 顯式傳遞 `thinking` / `reasoning_effort`。未指定時完全維持 API 預設（V4 預設開啟思考、effort=high），不改變現行行為。文件明載思考模式下 `temperature` 無效 → `thinking: true` 時不再送出 `temperature`；`reasoning_content` 只寫入 DEBUG log，回傳值仍僅為最終答案。`providerRegistry` 快取鍵納入 thinking 設定（未指定時鍵不變，無快取失效）。
+- **ai-cost 定價更新**：新增 `deepseek-flash`；`deepseek-v4-pro` 依現行價（4.5 / 13.5 元每百萬 token，離峰；高峰 2 倍）換算；`deepseek-v4-flash` 標註為 Flash 別名計價；`deepseek-chat` / `deepseek-reasoner` 標註為歷史條目。
+
+### 測試
+- 新增 `deepseek-provider.test.ts`（5 用例：預設不送 thinking、`thinking: true` 送 enabled 並省略 temperature、`thinking: false` 送 disabled 且保留 temperature、只回傳最終答案、模型名取自設定）。全測試 2843 pass / 1 skipped（131 files）。
+
+---
+
 ## 2026-09-10 — 開放式填充題公平批改 + 移除不可交付 matching 題型
 
 ### 背景

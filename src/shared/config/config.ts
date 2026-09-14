@@ -117,7 +117,10 @@ function requireEnv(key: string): string {
 const deepseek = {
   apiKey: process.env.DEEPSEEK_API_KEY || '',
   baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
-  model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+  // 2026-09-14: current DeepSeek V4.1 model names — `deepseek-flash` (default) | `deepseek-v4-pro`.
+  // `deepseek-chat` / `deepseek-reasoner` were retired 2026-07-24; `deepseek-v4-flash` is a retired
+  // alias of `deepseek-flash` (still callable, served and billed as V4.1-Flash).
+  model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
   /** 是否已正確設定 */
   get isConfigured(): boolean {
     return !!this.apiKey && this.apiKey !== 'sk-your-deepseek-api-key-here';

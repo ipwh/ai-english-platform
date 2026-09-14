@@ -107,7 +107,7 @@ function cmdSnapshot(name: string) {
     promptText: `[Prompt text for ${prompt.name}@${prompt.version}]`,
     builderName: prompt.builderName || 'inline',
     provider: 'deepseek',
-    model: 'deepseek-chat',
+    model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
     temperature: 0.3,
     maxTokens: 4096,
     gitCommit: getGitCommit(),

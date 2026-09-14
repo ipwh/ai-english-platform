@@ -1,5 +1,8 @@
 // ============================================
-// DeepSeekProvider — DeepSeek API (primary provider, defaults to deepseek-chat)
+// DeepSeekProvider — DeepSeek API (primary provider)
+// Model names (V4.1, 2026-09-14): `deepseek-flash` (default) | `deepseek-v4-pro`
+// Thinking mode is ON by default (effort `high`); control it via LLMCallOptions
+// `thinking` / `reasoningEffort`. See /guides/thinking_mode in the DeepSeek docs.
 // Sprint 3: AI Provider Abstraction
 // Sprint 110: DEBUG mode — set DEEPSEEK_DEBUG=true for full request/response logs
 // ============================================
@@ -39,12 +42,22 @@ export class DeepSeekProvider implements AIProvider {
 
     const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
 
+    // DeepSeek V4.1: thinking mode is enabled by default (effort `high`) and the API
+    // ignores `temperature` while thinking is on. Only send `temperature` when the
+    // caller explicitly disables thinking — otherwise it would be silently dropped.
+    // Refs: api-docs.deepseek.com/zh-cn/guides/thinking_mode (2026-09-14)
+    const thinkingEnabled = options?.thinking === true;
+
     const requestBody = {
       model: config.deepseek.model,
       messages,
-      temperature: options?.temperature ?? 0.7,
+      ...(thinkingEnabled ? {} : { temperature: options?.temperature ?? 0.7 }),
       max_tokens: options?.maxTokens ?? 1024,
       response_format: options?.jsonMode ? { type: 'json_object' as const } : undefined,
+      ...(options?.thinking !== undefined
+        ? { thinking: { type: options.thinking ? 'enabled' as const : 'disabled' as const } }
+        : {}),
+      ...(options?.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
       ...(options?.userId ? { user_id: options.userId } : {}),
     };
 
@@ -56,6 +69,8 @@ export class DeepSeekProvider implements AIProvider {
       totalChars,
       estimatedTokens: Math.ceil(totalChars / 4),
       jsonMode: options?.jsonMode,
+      thinking: options?.thinking,
+      reasoningEffort: options?.reasoningEffort,
     }, 'DeepSeek API call');
 
     const startTime = Date.now();
@@ -102,13 +117,16 @@ export class DeepSeekProvider implements AIProvider {
       }
 
       const data = await res.json() as {
-        choices?: { message?: { content?: string } }[];
+        choices?: { message?: { content?: string; reasoning_content?: string } }[];
         usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
         model?: string;
         id?: string;
       };
 
+      // In thinking mode the chain-of-thought comes back separately in `reasoning_content`;
+      // only the final answer (`content`) is returned to callers.
       const content = data.choices?.[0]?.message?.content || '';
+      const reasoningContent = data.choices?.[0]?.message?.reasoning_content || '';
       const latencyMs = Date.now() - startTime;
 
       // ── DEBUG: Full response log ──
@@ -124,6 +142,7 @@ export class DeepSeekProvider implements AIProvider {
             completionTokens: usage.completion_tokens,
             totalTokens: usage.total_tokens,
           } : 'N/A',
+          reasoningChars: reasoningContent.length,
           contentPreview: content.slice(0, 500) + (content.length > 500 ? `\n... [${content.length - 500} more chars]` : ''),
           contentLength: content.length,
           contentFull: content,
