@@ -63,7 +63,7 @@ Writing Evaluation (Sprints 127-130):
 | Documentation | 41 ADRs (ADR-001–041) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
-| Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) + Vercel (legacy) |
+| Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) — Vercel 部署已於 2026-09-15 移除 |
 
 ## 功能
 
@@ -208,7 +208,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 > 📋 完整長期維護與監控策略請見 [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md)
 > 🔍 Prompt 驗證腳本：`npx tsx scripts/validate-prompts.ts`
 
-### 環境變數（Vercel Dashboard → Settings → Environment Variables）
+### 環境變數（Cloud Run 服務環境變數 / Secret Manager）
 
 | 變數 | 說明 | 必填 |
 |------|------|------|
@@ -228,7 +228,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
-| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 dev=30000 / prod=8000（Vercel Hobby 建議） | ⬜ |
+| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 dev=30000 / prod=8000 | ⬜ |
 | `AI_CACHE_ENABLED` | 啟用 AI 回應快取（預設 `true`，降低 API 費用） | ⬜ |
 | `AI_CACHE_TTL_MS` | AI 快取 TTL（毫秒，預設 3600000 = 1 小時） | ⬜ |
 | `LOG_LEVEL` | 日誌等級：`trace`/`debug`/`info`/`warn`/`error`/`fatal`（生產預設 `info`，開發預設 `debug`） | ⬜ |
@@ -240,18 +240,18 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 1. **資料庫**: 在 [Neon](https://neon.tech) / [Supabase](https://supabase.com) 建立免費 PostgreSQL，複製 `DATABASE_URL`
    - **pgvector**：執行 `CREATE EXTENSION IF NOT EXISTS vector;` 以啟用原生向量搜尋（可選但強烈建議，大幅提升 RAG 效能）
 2. **Google OAuth**: [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → Create OAuth 2.0 Client ID
-   - Authorized redirect URIs: `https://你的網域.vercel.app/api/auth/callback/google`
+   - Authorized redirect URIs: `https://你的網域/api/auth/callback/google`
 3. **DeepSeek API**: [platform.deepseek.com](https://platform.deepseek.com) → API Keys
-4. **Vercel 環境變數**: 在專案 Settings → Environment Variables 設定上述變數，標記為 **Secret**（Production + Preview）
-5. **Prisma 遷移**: `npx prisma db push`（或 `npx prisma migrate deploy`）
-6. **首次部署**: 在 Vercel Dashboard 手動觸發 Deploy
+4. **Cloud Run 環境變數**: 設定上述變數（建議用 Secret Manager 管理機密值）
+5. **Prisma 遷移**: 映像檔建構期間不執行 migration；請以 `npx prisma migrate deploy` 套用（`scripts/production-build.js` 在 CI/本機建構時即為此流程）
+6. **首次部署**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>`（或 push 到 `main` 觸發 `cloudbuild.yaml`）
 7. **驗證**: 
    - 訪問 `/login` → Google 登入 → 角色選擇 → Dashboard
    - 測試 AI 練習生成（至少 3 題）
    - 檢查 `/api/ai/status` 回傳 `{ configured: true }`
 
 ### Smoke Tests
-- [ ] `npm run smoke` — 47 項自動化檢查通過
+- [ ] `npm run smoke` — 49 項自動化檢查通過
 - [ ] Google OAuth 登入成功
 - [ ] AI 生成練習題（MCQ + 聽力）
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
@@ -263,12 +263,6 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
 - [ ] AI fallback 驗證（DeepSeek fail → Grok 接手）
 - [ ] PWA 安裝（manifest.json + SVG icons）
-
-### Vercel 配置要點
-- **AI 函數**: maxDuration 30s + memory 1024MB（`vercel.json`）
-- **Pro 方案建議**: 60s maxDuration 更適合長寫作批改
-- **Log Drain**: 建議設定 → Logs → External Log Draining（Datadog / Axiom）
-- **Cron Jobs** (Pro): 可設定每日清理過期 rate-limit、SRS 複習提醒
 
 ### Cloud Run 部署要點
 - **自動部署**: push 到 `main` 觸發 `cloudbuild.yaml`（docker build → push → `gcloud run deploy`，環境變數不覆蓋）；或 `npm run cloud-run:deploy:win -- -ProjectId ...`
@@ -598,7 +592,7 @@ npx tsx scripts/set-academic-year.ts 2027-2028 --apply
 
 > 💡 `scripts/set-academic-year.ts` 依序讀取 `.env.local` → `.env` → `cloud-run-env.yaml` 的 `DATABASE_URL`。
 >
-> 💡 2026-09-14：`prisma.config.ts` 現已採用相同順序（`.env.local` → `.env`），因此 `npx prisma migrate deploy` / `npx prisma db execute` 在本機可直接連線（此前只讀 `.env`，會以過期密碼得到 P1000）。真實環境變數（Vercel / Cloud Run）永遠優先，部署行為不變。
+> 💡 2026-09-14：`prisma.config.ts` 現已採用相同順序（`.env.local` → `.env`），因此 `npx prisma migrate deploy` / `npx prisma db execute` 在本機可直接連線（此前只讀 `.env`，會以過期密碼得到 P1000）。真實環境變數（Cloud Run）永遠優先，部署行為不變。
 >
 > 💡 2026-09-14：`.env.local`、`.env`、`cloud-run-env.yaml` 三處的 `DATABASE_URL` **已同步為同一組有效憑證**（此前 Neon 密碼重設後只有 `.env.local` 更新）。下次由此 yaml 部署時不會再帶入過期密碼。
 
@@ -665,19 +659,12 @@ npm run test:watch    # 持續監控模式
 
 ## 部署
 
-### Cloud Run（主要）
+### Cloud Run（唯一部署目標）
 專案已配置 `Dockerfile` + `cloudbuild.yaml`，可自動部署至 Google Cloud Run（asia-east2, 300s timeout, 1 vCPU/1GiB）。
 詳見 [`docs/CLOUD_RUN_MIGRATION.md`](docs/CLOUD_RUN_MIGRATION.md) 及 `scripts/cloud-run-deploy.ps1` / `cloud-run-deploy.sh`。
 
-### Vercel（legacy）
-專案已配置 `vercel.json`，亦可部署至 Vercel：
-
-1. 將專案推送至 GitHub
-2. 在 [Vercel](https://vercel.com) 匯入 Repo
-3. 設定環境變數（`DEEPSEEK_API_KEY` 等）
-4. 部署
-
-> **注意：** Vercel 免費版有 10 秒函數執行限制。若 AI 回應較慢，建議升級至 Pro 方案（已在 `vercel.json` 配置 `maxDuration: 30`）。
+> **2026-09-15 — Vercel 部署已移除**：`vercel.json`、`@vercel/kv`、middleware 的 `_vercel_jwt` 處理及所有 `VERCEL*` 環境變數分支皆已刪除。
+> `scripts/vercel-build.js` 已更名為 `scripts/production-build.js`（`npm run build:prod`），供 Docker build / CI 使用。
 
 ## 歷屆試題 RAG 設定 🔍
 
@@ -700,7 +687,7 @@ npx tsx scripts/import-past-papers.ts --skip-rag
 ```
 
 ```bash
-# 2. 設定環境變數（.env.local 或 Vercel Environment Variables）
+# 2. 設定環境變數（.env.local 或 Cloud Run 環境變數）
 DSE_RAG_ENABLED=true
 ```
 
@@ -738,15 +725,15 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 - **Fallback**: RAG 檢索失敗時自動回退純 prompt 模式，不中斷服務
 - **DeepSeek Embedding API**: 需要有效的 `DEEPSEEK_API_KEY`
 - 匯入約 20 份文件預計產生 150-300 個向量 chunks，每次 API 呼叫約需 1-3 秒
-- 首次匯入後建議在 Vercel 重新部署以確保環境變數生效
+- 首次匯入後建議重新部署 Cloud Run 服務以確保環境變數生效
 
 ## Known Limitations
 
 ### 平台設計限制（非 bug，屬設計取捨）
 - **新用戶尚無學習記錄**：首次登入的用戶尚無練習/錯題/詞彙數據，部分頁面會顯示 empty state 或引導提示。開始練習後會自動累積真實數據。
 - **Speaking Practice**：目前僅支援文字 transcript 輸入分析（文法/詞彙/內容），無法評估流暢度、發音及互動表現。未來可整合 STT（語音辨識）。
-- **Cloud Run / Vercel 部署**：AI 函數需要足夠 timeout（Cloud Run 預設 300s；Vercel Pro 30s maxDuration）。Vercel Hobby 方案（10s）可能導致寫作批改等長請求逾時。見 `vercel.json` / `cloud-run.yaml`。
+- **Cloud Run 部署**：AI 函數需要足夠 timeout（Cloud Run 請求上限 300s，見 `cloud-run.yaml`）。程式內部的 AI 時間預算仍保守設為 115s（`provider-registry.ts`）。
 - **Web Speech API Fallback**：Google Cloud TTS 不可用時自動降級至瀏覽器 Web Speech API，不同瀏覽器的語音品質不一（建議使用 Chrome）。
-- **Rate Limiter**: `src/shared/utils/rate-limiter.ts` 支援 Vercel KV / in-memory 分散式限流，需設定對應環境變數才會啟用分散式模式。未設定時為 per-instance in-memory。
+- **Rate Limiter（多實例限制）**：`src/shared/utils/rate-limiter.ts` 目前為 per-instance in-memory 計數。Cloud Run 最多 20 instances（`cloud-run.yaml`），故實際全域上限約為 `maxRequests × instance 數`。原本的 Vercel KV 分散式後端已隨 Vercel 一起移除；如需全域精確限流，需接入 Redis / Memorystore。
 - **AI Hallucination Guard**: 集中式 10 規則 guard（`src/modules/ai/services/hallucination-guard.ts`），所有 prompt 模板統一引用，防止 AI 生成虛構內容。
 - **ESLint warnings**：6 條非關鍵規則降級為 warning，可在 code review 時逐步清理。見 `eslint.config.mjs`。

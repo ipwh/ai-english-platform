@@ -1,6 +1,6 @@
 # ============================================
 # Cloud Run Service Configuration
-# Replaces: vercel.json (Vercel-specific settings)
+# 唯一部署目標（Vercel 已於 2026-09-15 移除，原 vercel.json 的功能由此檔取代）
 # ============================================
 #
 # Deploy with:
@@ -36,7 +36,6 @@ spec:
         run.googleapis.com/startup-cpu-boost: "true"
     spec:
       # 請求 timeout：5 分鐘（300s），足以處理所有 AI API 呼叫
-      # Vercel 上限: 60-120s（vercel.json）
       # Cloud Run 預設: 300s，最大: 3600s（60 分鐘）
       timeoutSeconds: 300
 

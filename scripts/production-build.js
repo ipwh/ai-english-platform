@@ -1,6 +1,9 @@
 // ============================================
-// Vercel Build Script
+// Production Build Script
 // 取代 "prisma generate && prisma db push && next build"
+//
+// 部署目標：Google Cloud Run（Dockerfile builder stage / CI 皆呼叫此腳本）
+// Vercel 已不再使用（2026-09-15）。
 //
 // Migration 策略：
 //   1. 優先使用 prisma migrate deploy（可審計、不遺失資料）
@@ -41,7 +44,8 @@ if (!run('npx --yes prisma generate', 'prisma generate').ok) {
 }
 
 // Step 2: Deploy schema to DB
-const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+// isProd drives the fail-closed migration gate: production must never fall back to `db push`.
+const isProd = process.env.NODE_ENV === 'production';
 
 // Step 2a: Ensure pgvector extension is available (required for vector(1536) column)
 // Non-fatal: if pgvector is not available, the column will be skipped
@@ -135,4 +139,4 @@ if (!run('npx --yes next build', 'next build').ok) {
   process.exit(1);
 }
 
-console.log('\n🎉 vercel-build completed successfully');
+console.log('\n🎉 production build completed successfully');

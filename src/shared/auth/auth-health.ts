@@ -34,13 +34,11 @@ export interface AuthHealthStatus {
  * Verify that production auth configuration is complete.
  * Logs warnings for missing configuration; does NOT throw.
  *
- * Detects environment from NODE_ENV and VERCEL env vars,
- * which are always available in the Next.js runtime.
+ * Detects environment from NODE_ENV, which is always set by the platform
+ * (Cloud Run / Docker inject NODE_ENV=production).
  */
 export async function checkAuthHealth(): Promise<AuthHealthStatus> {
-  const isProduction =
-    process.env.NODE_ENV === 'production' ||
-    !!process.env.VERCEL;
+  const isProduction = process.env.NODE_ENV === 'production';
   const warnings: string[] = [];
 
   // Check 1: NextAuth secret
@@ -48,7 +46,7 @@ export async function checkAuthHealth(): Promise<AuthHealthStatus> {
   if (isProduction && !hasNextAuthSecret) {
     warnings.push(
       'AUTH_SECRET is not set. NextAuth session encryption will use an insecure default. ' +
-        'Set AUTH_SECRET in Vercel Environment Variables. Generate: openssl rand -base64 32',
+        'Set AUTH_SECRET in the Cloud Run service environment (Secret Manager recommended). Generate: openssl rand -base64 32',
     );
   }
 

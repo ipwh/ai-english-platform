@@ -2,11 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Cloud Run 需要 standalone 輸出模式（自帶 server.js）
-  // Vercel 自動處理，不需要此設定
   output: 'standalone',
 
-  // Production security headers (injected via vercel.json for Vercel,
-  // but also set here for non-Vercel deployments)
+  // Production security headers（由 Next.js 直接注入，所有部署環境一致）
   async headers() {
     return [
       {
@@ -42,8 +40,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
     ],
   },
-  // Vercel serverless: AI routes use maxDuration in vercel.json
-  // Other routes default to 10s (Vercel Hobby) / 15s (Pro)
+  // Route timeouts: Cloud Run request timeout is 300s (cloud-run.yaml).
+  // Per-route `maxDuration` exports remain as in-process guards only.
 };
 
 export default nextConfig;

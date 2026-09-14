@@ -123,7 +123,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
           const idx = updated.findIndex(f => f.id === entry.id);
           if (idx === -1) continue;
 
-          // Step 1: Client-side compression (reduces payload for Vercel serverless)
+          // Step 1: Client-side compression (reduces upload payload size)
           updated[idx] = { ...updated[idx], status: 'compressing' };
           setFiles([...updated]);
 

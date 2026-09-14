@@ -1,7 +1,7 @@
 // ============================================
 // API: GET /api/admin/sync-sheets/cron
 // Cron-compatible endpoint for scheduled Google Sheets sync
-// 用作排程觸發（Google Cloud Scheduler / Vercel Cron）：
+// 用作排程觸發（Google Cloud Scheduler / Cloud Run Jobs）：
 //   Path: /api/admin/sync-sheets/cron?secret=YOUR_CRON_SECRET
 //   或 以 header 傳送: x-cron-secret: YOUR_CRON_SECRET
 //   Schedule: 0 5 * * *（每日 05:00，依 job 所在時區）

@@ -36,7 +36,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 function getLogLevel(): LogLevel {
   const env = process.env.LOG_LEVEL?.toLowerCase();
   if (env && env in LOG_LEVELS) return env as LogLevel;
-  if (process.env.NODE_ENV === 'production' || !!process.env.VERCEL) return 'info';
+  if (process.env.NODE_ENV === 'production') return 'info';
   return 'debug';
 }
 
@@ -44,8 +44,8 @@ const currentLevel = getLogLevel();
 const currentLevelValue = LOG_LEVELS[currentLevel];
 
 function formatLog(log: StructuredLog): string {
-  // Vercel / 生產環境：輸出 JSON 以利 Log Drain 解析
-  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  // 生產環境（Cloud Run → Cloud Logging）：輸出 JSON 以利結構化查詢
+  if (process.env.NODE_ENV === 'production') {
     return JSON.stringify(log);
   }
   // 開發環境：人類可讀格式
@@ -111,7 +111,7 @@ function log(level: LogLevel, metaOrMsg: Record<string, unknown> | string, msg?:
 /**
  * 結構化日誌器。
  *
- * 生產環境（Vercel）輸出 JSON 格式供 Log Drain 解析；
+ * 生產環境（Cloud Run → Cloud Logging）輸出 JSON 格式；
  * 開發環境輸出人類可讀格式。
  *
  * @example
@@ -152,7 +152,7 @@ export function patchConsole(): void {
   if (_consolePatched) return;
   _consolePatched = true;
 
-  const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+  const isProd = process.env.NODE_ENV === 'production';
 
   if (!isProd) {
     _origConsole.log('[logger] Console patching skipped (dev mode — native console preserved)');

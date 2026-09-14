@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "node scripts/vercel-build.js",
+    "build:prod": "node scripts/production-build.js",
     "cloud-run:deploy": "bash scripts/cloud-run-deploy.sh",
     "cloud-run:deploy:win": "powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1",
     "cloud-run:build": "docker build --platform linux/amd64 -t english-platform .",
@@ -73,7 +73,6 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/pdfkit": "^0.17.6",
-    "@vercel/kv": "^3.0.0",
     "bcryptjs": "^3.0.3",
     "docx": "^9.7.1",
     "google-auth-library": "^10.9.0",

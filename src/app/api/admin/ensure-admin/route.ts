@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function POST(_request?: NextRequest) {
   // 🔒 Production guard — this endpoint must never be accessible in production
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }
 

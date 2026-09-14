@@ -149,8 +149,7 @@ export async function POST(request: NextRequest) {
       _diagnostic: {
         provider: getLastAIProvider(),
         deepseekConfigured: isDeepSeekConfigured(),
-        isVercelPro: process.env.VERCEL === '1',
-        region: process.env.VERCEL_REGION || 'unknown',
+        revision: process.env.K_REVISION || 'unknown',
       },
     }, {
       status: 500,

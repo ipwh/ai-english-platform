@@ -74,20 +74,9 @@ export default async function middleware(request: NextRequest) {
     return response;
   }
 
-  // === Vercel Deployment Protection 處理 ===
-  // 若開啟了 Vercel Deployment Protection，_vercel_jwt cookie 會在所有請求中出現
-  // 這不應該阻擋正常的 auth flow；只在同時缺少所有 auth cookie 時記錄警告
-  const isVercelProtected = request.cookies.has('_vercel_jwt');
-
+  // === Session / role resolution ===
   // NextAuth v5 session cookie check（Google OAuth 登入）
   const hasNextAuthCookie = ALL_SESSION_COOKIE_NAMES.some(name => request.cookies.has(name));
-
-  // 若只有 Vercel protection cookie 而沒有任何 auth cookie，
-  // 且當前不是 auth 相關路徑 → 可能是 Vercel 驗證阻擋了正常登入流程
-  if (isVercelProtected && !hasNextAuthCookie) {
-    // Vercel Deployment Protection detected — non-blocking, just informational
-    // In production, this is expected behavior for protected preview deployments
-  }
 
   if (hasNextAuthCookie) {
     // 🔐 Resolve effective role: JWT role (verified) may be overridden by

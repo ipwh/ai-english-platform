@@ -132,7 +132,7 @@ function getReadingMaxTokens(params: {
 function getReadingTimeout(params: { mode: string; maxTokens: number }): number {
   // Proportional timeout: 5ms per token (empirical from Grok/DeepSeek latency data)
   // 8192 tokens × 5ms = ~41s, 12288 tokens × 5ms = ~61s
-  // Min 35s, Max 115s (Vercel Pro 120s maxDuration, reserve 5s)
+  // Min 35s, Max 115s（保守 AI 時間預算；Cloud Run timeout 300s，見 cloud-run.yaml）
   const proportional = params.maxTokens * 5; // 5ms per token → milliseconds
   return Math.min(115_000, Math.max(35_000, proportional));
 }
@@ -1634,7 +1634,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       }
       
       // Retry if JSON malformed OR passage too short OR too few paragraphs OR distribution bad
-      // BUT only if we have enough time budget remaining (Vercel Pro 120s maxDuration)
+      // BUT only if we have enough time budget remaining (conservative AI budget — see provider-registry)
       const elapsed = Date.now() - startTime;
       const MIN_RETRY_BUDGET_MS = 25_000; // need at least 25s for a retry to be worthwhile
       const contentNeedsRetry = (!parseResult.data || parseResult.error || (passageWordCount > 0 && passageWordCount < 250) || passageTooLong || paragraphCountBad || distributionBad || toneChoiceBad);
@@ -1838,7 +1838,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
 
   // ══════════════════════════════════════════
   // Phase 4F: Run validator for diagnostic metadata (non-blocking).
-  // Skipping retry loop to stay under Vercel 60s limit.
+  // Skipping retry loop to stay within the conservative AI time budget.
   // ══════════════════════════════════════════
   let validatorResult: ReadingValidationResult | null = null;
 

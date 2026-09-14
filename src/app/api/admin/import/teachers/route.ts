@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // Phase 2: Batch upsert — 每批獨立 commit，避免 Vercel timeout
+    // Phase 2: Batch upsert — 每批獨立 commit，避免請求逾時
     const existingUsers = await adminDbQuery('user', 'findMany', {
       where: { email: { in: allEmails } },
       select: { id: true, email: true, role: true },

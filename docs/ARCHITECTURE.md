@@ -523,5 +523,5 @@ Mastery score (0-100) = weighted sum of:
 - [ ] Production env vars verified (DB URL, AI keys, Auth secrets)
 - [ ] E2E smoke tests run against staging
 - [ ] DSE RAG feature flag enabled in production
-- [ ] Monitoring / alerting configured (Vercel + error tracking)
+- [ ] Monitoring / alerting configured (Cloud Logging + Cloud Monitoring + error tracking)
 - [ ] DB migration applied to production (if schema changes)

@@ -1,6 +1,6 @@
 # Deployment Guide — AI English Platform
 
-> **Deployment Readiness**: **100%** | **Last Audit**: 2026-07-23 (Sprint 55) | **Smoke Test**: `npm run smoke` (45 checks) | **Tests**: 1,027 (48 files, 100% pass) | **Architecture v5**: 100/100
+> **Deployment Readiness**: **100%** | **Last Audit**: 2026-07-23 (Sprint 55) | **Smoke Test**: `npm run smoke` (49 checks) | **Tests**: 1,027 (48 files, 100% pass) | **Architecture v5**: 100/100
 
 ## Audit Summary (2026-07-19)
 
@@ -21,7 +21,7 @@
 - PostgreSQL (Neon recommended) with pgvector extension
 - DeepSeek API key (primary AI provider)
 - Google Cloud project (Vertex AI + OAuth + TTS)
-- Vercel account (Pro plan recommended for 30s function timeout)
+- Docker + `gcloud` CLI (Cloud Run deployment)
 
 ## Environment Variables
 
@@ -47,23 +47,28 @@
 ## Quick Deploy
 
 1. **Database**: Create Neon PostgreSQL project → run `CREATE EXTENSION IF NOT EXISTS vector;`
-2. **Vercel**: Import GitHub repo → configure env vars → deploy
-3. **Verify**: `npm run smoke` → 45/45 → visit `/login` → full flow test
-3. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain].vercel.app/api/auth/callback/google`
+2. **Cloud Run**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>` → configure env vars → deploy
+3. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain]/api/auth/callback/google`
 4. **Verify**: `GET /api/health` → `{ status: "healthy" }`
+
+> Vercel 已於 2026-09-15 移除；`vercel.json` / `@vercel/kv` / `vercel-build.js` 皆已不存在。
 
 ## Monitoring
 
 - **Health**: `GET /api/health` — service status
 - **Readiness**: `GET /api/health?type=readiness` — dependency checks
 - **Features**: `GET /api/health?type=features` — feature flag states
-- **Vercel Logs**: Enable Log Drain → Datadog/Axiom for structured JSON logs
-- **Vercel Analytics**: Enable Web Vitals + Audiences
+- **Logs**: Cloud Logging（結構化 JSON）→ 可匯出至 Datadog/Axiom
+- **Metrics**: Cloud Monitoring（請求數、延遲、執行個體數）
 
 ## Rollback
 
 ```bash
-# Via Vercel Dashboard: Deployments → select previous → Promote to Production
-# Via CLI:
-vercel rollback
+# 列出 revisions
+gcloud run revisions list --service english-platform --region asia-east2
+
+# 將流量導回上一個穩定 revision
+gcloud run services update-traffic english-platform \
+  --to-revisions <REVISION_NAME>=100 \
+  --region asia-east2
 ```

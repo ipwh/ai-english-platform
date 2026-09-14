@@ -320,15 +320,10 @@ e2e/
 - **預防**: middleware redirect → `/login`；user-friendly error message
 - **測試**: 不涵蓋（需時間模擬）
 
-### 7. Vercel cold start
-- **根因**: Serverless function 閒置後冷啟動
-- **預防**: 第一個請求可能慢 2-5s，不應視為 failure
+### 7. Cloud Run cold start
+- **根因**: Container 閒置縮容至 0 後冷啟動（`minScale: 0`）
+- **預防**: 第一個請求可能慢 2-5s，不應視為 failure；startup CPU boost 已啟用
 - **Playwright**: 測試前先 warm-up request
-
-### 8. Vercel Deployment Protection
-- **根因**: `_vercel_jwt` cookie 可能阻擋 auth flow
-- **預防**: middleware 有 Vercel protection 處理邏輯
-- **檢查**: 如部署在 Vercel 且有 protection，測試前需關閉或設定 bypass
 
 ---
 

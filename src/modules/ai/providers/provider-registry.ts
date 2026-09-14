@@ -90,7 +90,8 @@ class ProviderRegistry {
     const errors: string[] = [];
     const startTime = Date.now();
 
-    // Vercel Pro: 120s function limit. Reserve 5s for overhead.
+    // Cloud Run allows a 300s request (cloud-run.yaml), but this budget is kept
+    // conservatively low so a single fallback chain never approaches the platform limit.
     const TOTAL_BUDGET_MS = 115_000;
     for (let i = 0; i < available.length; i++) {
       const provider = available[i];

@@ -13,7 +13,7 @@ function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     if (config.isProduction) {
-      throw new Error(`[auth-next] 缺少必要的環境變數: ${name}。請在 Vercel Dashboard 中設定。`);
+      throw new Error(`[auth-next] 缺少必要的環境變數: ${name}。請在 Cloud Run 服務的環境變數中設定。`);
     }
     logger.warn({ module: 'auth-next', envVar: name }, 'OAuth may not function — env var not set');
     return '';

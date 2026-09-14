@@ -25,7 +25,7 @@ async function getVisionClient(): Promise<import('@google-cloud/vision').ImageAn
     } catch { /* 繼續嘗試其他方案 */ }
   }
 
-  // 方案 2: GCP_SERVICE_ACCOUNT_JSON 環境變數（直接包含 JSON 內容，適用於 Vercel）
+  // 方案 2: GCP_SERVICE_ACCOUNT_JSON 環境變數（直接包含 JSON 內容，適用於 Cloud Run）
   if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
     try {
       const credentials = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
@@ -47,7 +47,7 @@ async function getVisionClient(): Promise<import('@google-cloud/vision').ImageAn
     return visionClient;
   } catch {
     throw new Error(
-      '無法載入 GCP 憑證。請在 Vercel 環境變數中設定 GCP_SERVICE_ACCOUNT_JSON（貼上完整的 service account JSON 內容）。'
+      '無法載入 GCP 憑證。請在 Cloud Run 環境變數中設定 GCP_SERVICE_ACCOUNT_JSON（貼上完整的 service account JSON 內容）。'
     );
   }
 }
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     // 偵測常見錯誤
     if (msg.includes('Could not load the default credentials')) {
       return NextResponse.json(
-        { error: 'GCP 憑證未設定。請在 Vercel 環境變數中設定 GOOGLE_APPLICATION_CREDENTIALS。' },
+        { error: 'GCP 憑證未設定。請在 Cloud Run 環境變數中設定 GCP_SERVICE_ACCOUNT_JSON。' },
         { status: 500 }
       );
     }

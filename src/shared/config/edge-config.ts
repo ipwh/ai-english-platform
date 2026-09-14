@@ -6,8 +6,11 @@
 
 // ============================================
 // 環境偵測
+//
+// 部署目標：Google Cloud Run（Vercel 已不再使用，2026-09-15），
+// 由 Dockerfile / cloud-run.yaml 注入 NODE_ENV=production。
 // ============================================
-export const edgeIsProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+export const edgeIsProduction = process.env.NODE_ENV === 'production';
 
 // ============================================
 // Auth 設定

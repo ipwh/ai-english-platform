@@ -22,7 +22,7 @@
 | TypeScript errors | **0** | Strict mode, 82 TS7006/TS2339 fixed |
 | Test suite | **1,027/1,027** | 100% pass, 48 test files |
 | Production build | **PASS** | ✓ Compiled + ✓ TypeScript + ✓ All routes |
-| vercel-build | **exit 0** | Graceful DB-unreachable fallback |
+| production-build | **exit 0** | Graceful DB-unreachable fallback |
 | Independent audits | **3 passes** | Sprint 53, 54, 55 all verified |
 
 ---

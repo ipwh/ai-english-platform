@@ -28,7 +28,8 @@ console.log('===================================\n');
 // 1. Critical files exist
 console.log('📁 Critical files:');
 const REQUIRED_FILES = [
-  'package.json', 'tsconfig.json', 'next.config.ts', 'vercel.json',
+  'package.json', 'tsconfig.json', 'next.config.ts', 'cloud-run.yaml',
+  'Dockerfile',
   'middleware.ts', 'prisma/schema.prisma', 'src/app/layout.tsx',
   'src/shared/config/config.ts', 'src/shared/auth/api-auth.ts',
   'src/shared/utils/rate-limiter.ts', 'src/modules/ai/providers/provider-registry.ts',
@@ -163,17 +164,24 @@ check('manifest has icons', () => {
   if (!manifest.icons || manifest.icons.length < 2) throw new Error('Missing icons in manifest');
 });
 
-// 11. Vercel config
-console.log('\n🚀 Vercel config:');
-check('vercel.json exists', () => {
-  if (!fs.existsSync(path.join(ROOT, 'vercel.json'))) throw new Error('Missing vercel.json');
+// 11. Cloud Run deployment config
+console.log('\n🚀 Cloud Run config:');
+check('cloud-run.yaml exists', () => {
+  if (!fs.existsSync(path.join(ROOT, 'cloud-run.yaml'))) throw new Error('Missing cloud-run.yaml');
 });
-const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
-check('CORS headers configured', () => {
-  if (!vercel.headers || !vercel.headers[0].headers) throw new Error('Missing CORS headers');
+check('Dockerfile exists', () => {
+  if (!fs.existsSync(path.join(ROOT, 'Dockerfile'))) throw new Error('Missing Dockerfile');
 });
-check('AI functions have extended duration', () => {
-  if (!vercel.functions || !vercel.functions['src/app/api/ai/**/*.ts']) throw new Error('Missing AI function config');
+check('standalone output configured', () => {
+  const nextConfig = fs.readFileSync(path.join(ROOT, 'next.config.ts'), 'utf8');
+  if (!nextConfig.includes("output: 'standalone'")) {
+    throw new Error("next.config.ts must set output: 'standalone' for Cloud Run");
+  }
+});
+check('no Vercel deployment config remains', () => {
+  if (fs.existsSync(path.join(ROOT, 'vercel.json'))) {
+    throw new Error('vercel.json must be removed — this project deploys to Cloud Run only');
+  }
 });
 
 // Summary

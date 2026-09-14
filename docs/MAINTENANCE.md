@@ -8,7 +8,7 @@
 ## 一、快速健康檢查
 
 ```bash
-npm run smoke     # 45 項自動化檢查（0 需 DB）
+npm run smoke     # 49 項自動化檢查（0 需 DB）
 npm test          # 853 單元測試
 npm run build     # TypeScript 編譯檢查
 ```
@@ -19,8 +19,8 @@ npm run build     # TypeScript 編譯檢查
 
 | # | 任務 | 難度 | 工具 |
 |---|------|------|------|
-| W1 | `npm run smoke` — 45 項自動化檢查 | Easy | Terminal |
-| W2 | 檢查 Vercel Logs 中 `logger.error` 數量 | Easy | Vercel Dashboard → Logs |
+| W1 | `npm run smoke` — 49 項自動化檢查 | Easy | Terminal |
+| W2 | 檢查 Cloud Logging 中 `logger.error` 數量 | Easy | Cloud Console → Logging |
 | W3 | 確認 DeepSeek API 餘額（platform.deepseek.com → Billing） | Easy | DeepSeek Dashboard |
 | W4 | 快速手動 smoke test：登入 → 生成 1 題 → 批改 | Easy | 手動 |
 
@@ -29,7 +29,7 @@ npm run build     # TypeScript 編譯檢查
 | # | 任務 | 難度 | 類別 |
 |---|------|------|------|
 | M1 | 執行 `npm run test` 確認全部 853+ tests 通過 | Easy | 測試 |
-| M2 | 檢查 Vercel Analytics：AI 生成平均耗時、p99 延遲 | Easy | 效能 |
+| M2 | 檢查 Cloud Monitoring：AI 生成平均耗時、p99 延遲 | Easy | 效能 |
 | M3 | 檢查 Prisma 資料庫：學生數、錯題數、詞彙數增長趨勢 | Easy | 資料 |
 | M4 | 抽查 10 題最新 AI 生成的 Listening 題目，人工核對答案一致性 | Medium | AI Prompt |
 | M5 | 檢查 i18n 翻譯完整性：`grep -r "硬編碼中文" src/` 零結果 | Easy | i18n |
@@ -133,16 +133,16 @@ async function validatePrompts() {
 |------|--------|----------|------|
 | AI 生成成功率 | > 98% | < 95% | `aiLog('call_success')` / `aiLog('call_failed')` 比值 |
 | 答案一致性警告率 | < 5% | > 10% | `console.warn('[Listening Consistency]')` 計數 |
-| AI 平均回應時間 | < 8s | p95 > 25s | Vercel Analytics |
+| AI 平均回應時間 | < 8s | p95 > 25s | Cloud Monitoring |
 | Gemini fallback 使用率 | < 10% | > 30% | `wasFallbackUsed()` 計數 |
 | 學生每日活躍數 | 增長中 | 連續 7 天下降 | DB query `User.lastLoginAt` |
 | API Rate Limit 觸發次數 | < 5/天 | > 20/天 | `checkRateLimit` 429 回應計數 |
 
-### 3.2 Vercel Logs 結構化查詢
+### 3.2 Cloud Logging 結構化查詢
 
 `aiLog()` 輸出格式：`{"service":"ai-service","event":"call_success","provider":"deepseek","latencyMs":1234}`
 
-**常用 Logs 查詢**（Vercel Dashboard → Logs → 搜尋框）：
+**常用查詢**（Cloud Console → Logging → Logs Explorer，可用 JSON filter）：
 
 | 查詢 | 用途 |
 |------|------|
@@ -165,9 +165,10 @@ const { withSentryConfig } = require('@sentry/nextjs');
 // ... 在 module.exports 包裝 withSentryConfig(config, { ... })
 ```
 
-### 3.4 Vercel Analytics 設定
+### 3.4 前端效能監控（Cloud Monitoring）
 
-已在專案中透過 `@vercel/analytics`（若未安裝：`npm install @vercel/analytics`），在 `layout.tsx` 加入 `<Analytics />`。
+專案已不再使用 `@vercel/analytics`。如需 Web Vitals 監控，可接入 `web-vitals`
+並上報至 Cloud Monitoring 自訂指標，或使用 Google Analytics。
 
 ---
 
@@ -236,7 +237,7 @@ function getCacheKey(input: GenerateQuestionsInput): string {
 
 | 階段 | 架構變更 | 難度 |
 |------|----------|------|
-| 1-3 校 | 單一 PostgreSQL + Vercel Pro（目前） | Easy |
+| 1-3 校 | 單一 PostgreSQL + Cloud Run（目前） | Easy |
 | 4-10 校 | 加入 Redis 快取（Upstash）+ 讀寫分離 | Medium |
 | 10+ 校 | 微服務拆分：AI Service 獨立部署（避免 cold start）+ DB sharding by schoolId | Hard |
 
@@ -246,8 +247,8 @@ function getCacheKey(input: GenerateQuestionsInput): string {
 
 | 週次 | 行動 | 難度 |
 |------|------|------|
-| **第 1 週** | 1. 完成 Vercel 環境變數設定 2. 首次生產部署 3. 執行 Smoke Test checklist | Easy |
-| **第 2 週** | 1. 設定 Vercel Log Drain → Axiom（免費 tier）2. 建立每週 Logs 檢查習慣 3. 安裝 `@vercel/analytics` | Easy |
+| **第 1 週** | 1. 完成 Cloud Run 環境變數設定（Secret Manager）2. 首次生產部署 3. 執行 Smoke Test checklist | Easy |
+| **第 2 週** | 1. 建立 Cloud Logging 查詢卡片 2. 設定錯誤告警政策（Cloud Monitoring）3. 建立每週 Logs 檢查習慣 | Easy |
 | **第 3 週** | 1. 執行每月 checklist M1-M7 2. 抽查 10 題 AI Listening 答案一致性 3. 匯出 PostgreSQL 備份 | Easy |
 | **第 4 週** | 1. 建立 `prompts/v1/` 目錄 + prompt 檔案 2. 執行 `validate-prompts.ts` 腳本 3. 規劃 Q3 功能：SRS 成效圖表 | Medium |
 
@@ -273,6 +274,7 @@ npm audit                         # 依賴安全檢查
 npx eslint .                      # 程式碼品質
 
 # 部署
-npx vercel                        # 預覽部署
-npx vercel --prod                 # 生產部署
+npm run build:prod                # 生產建構（migrate deploy + next build）
+npm run cloud-run:build           # 建構 Docker 映像檔
+npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>   # 部署至 Cloud Run
 ```

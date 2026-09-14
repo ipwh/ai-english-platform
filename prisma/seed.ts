@@ -11,7 +11,7 @@ import { hashPasswordSync } from '../src/shared/auth/crypto';
 function getDbUrl(): string {
   const url = process.env.DATABASE_URL;
   if (url) return url;
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+  if (process.env.NODE_ENV === 'production') {
     throw new Error('生產環境必須設定 DATABASE_URL');
   }
   return 'file:C:/Users/TC-37/AppData/Local/Temp/english-platform-dev.db';

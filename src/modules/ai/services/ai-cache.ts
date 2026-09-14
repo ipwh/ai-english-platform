@@ -1,11 +1,14 @@
 // Sprint 76: AI Cache — thin wrapper over cache/cache-service (canonical cache implementation)
-// AI-specific: SHA-256 key hashing, Vercel KV backend, feature flag.
+// AI-specific: SHA-256 key hashing, feature flag.
 // All TTL/Map/eviction/cleanup logic lives in cache/cache-service.ts.
+//
+// 2026-09-15: Vercel KV backend removed (Vercel no longer used; @vercel/kv deprecated).
+// Cache is in-memory per instance — acceptable for the current single-purpose cache;
+// a shared backend (Redis/Memorystore) can be re-added behind this interface if needed.
 
 import { logger } from '@/shared/logger/logger';
-import { getKvClient } from '@/shared/db/vercel-kv';
 import { config } from '@/shared/config/config';
-import { get as cacheGet, set as cacheSet, del as cacheDel, clearAll as cacheClear } from '@/modules/cache/cache-service';
+import { get as cacheGet, set as cacheSet, clearAll as cacheClear } from '@/modules/cache/cache-service';
 
 function isEnabled(): boolean { return config.ai.cacheEnabled; }
 function getTTL(): number { return config.ai.cacheTTLMs; }
@@ -29,16 +32,6 @@ export const aiCache = {
     if (!isEnabled()) return null;
     try {
       const key = await hashKey(rawKey);
-      const kv = await getKvClient();
-      if (kv) {
-        const raw = await kv.get(key);
-        if (!raw) return null;
-        const entry = JSON.parse(raw) as { value: string; expiresAt: number };
-        if (Date.now() > entry.expiresAt) return null;
-        logger.info({ module: 'ai-cache', hit: true, backend: 'kv' }, 'Cache hit');
-        return entry.value;
-      }
-      // Delegate to canonical cache module
       const cached = cacheGet<{ value: string; expiresAt: number }>(key);
       if (!cached || Date.now() > cached.expiresAt) return null;
       logger.info({ module: 'ai-cache', hit: true, backend: 'memory' }, 'Cache hit');
@@ -54,8 +47,6 @@ export const aiCache = {
     try {
       const key = await hashKey(rawKey);
       const ttl = getTTL();
-      const kv = await getKvClient();
-      if (kv) { await kv.set(key, JSON.stringify({ value, expiresAt: Date.now() + ttl }), { ex: Math.ceil(ttl / 1000) }); return; }
       cacheSet(key, { value, expiresAt: Date.now() + ttl }, { namespace: 'ai:response', ttl: Math.ceil(ttl / 1000) });
     } catch (err) {
       logger.warn({ module: 'ai-cache', error: (err as Error).message }, 'Cache write failed');
@@ -64,11 +55,9 @@ export const aiCache = {
 
   async clear(): Promise<void> {
     cacheClear();
-    const kv = await getKvClient();
-    if (kv) logger.warn({ module: 'ai-cache' }, 'Vercel KV clear not supported automatically');
   },
 
   stats(): { size: number; backend: string } {
-    return { size: 0, backend: process.env.VERCEL_KV_URL ? 'vercel-kv' : 'cache-module' };
+    return { size: 0, backend: 'cache-module' };
   },
 };

@@ -65,7 +65,7 @@ interface SyncResult {
 // ============================================
 
 function getServiceAccountCredentials(): string {
-  // 優先使用環境變數中的 JSON 內容（Vercel 部署用）
+  // 優先使用環境變數中的 JSON 內容（部署環境用）
   if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
     return process.env.GCP_SERVICE_ACCOUNT_JSON;
   }
@@ -189,7 +189,7 @@ function inferGradeLevel(className: string): string {
 }
 
 // ============================================
-// POST Handler — 批量優化版（避免 Vercel 10s 超時）
+  // POST Handler — 批量優化版（避免請求逾時）
 // ============================================
 
 export async function POST(request: NextRequest) {
@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
     const spreadsheetId = process.env.GOOGLE_SHEETS_CLASS_ROSTER_ID;
     if (!spreadsheetId) {
       return NextResponse.json(
-        { error: '缺少環境變數 GOOGLE_SHEETS_CLASS_ROSTER_ID。請在 Vercel 設定中新增此變數，值為 Google Sheet 的 ID。/ Missing environment variable GOOGLE_SHEETS_CLASS_ROSTER_ID. Add it in Vercel settings; its value is the Google Sheet ID.' },
+        { error: '缺少環境變數 GOOGLE_SHEETS_CLASS_ROSTER_ID。請在 Cloud Run 環境變數中新增此變數，值為 Google Sheet 的 ID。/ Missing environment variable GOOGLE_SHEETS_CLASS_ROSTER_ID. Add it to the Cloud Run environment variables; its value is the Google Sheet ID.' },
         { status: 400 }
       );
     }

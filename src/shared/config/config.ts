@@ -15,9 +15,13 @@ import { z } from 'zod';
 
 // ============================================
 // 環境偵測
+//
+// 部署目標：Google Cloud Run（Vercel 已不再使用，2026-09-15）
+// Cloud Run / Docker 皆注入 NODE_ENV=production（見 Dockerfile、cloud-run.yaml），
+// 因此 NODE_ENV 即為唯一的 production 判準。
 // ============================================
 
-const isProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = !isProduction;
 
 // ============================================
@@ -53,15 +57,9 @@ const envSchema = z.object({
   CRON_SECRET: z.string().optional(),
   // Google
   GOOGLE_SHEETS_CLASS_ROSTER_ID: z.string().optional(),
-  // KV
-  VERCEL_KV_URL: z.string().optional(),
-  KV_URL: z.string().optional(),
-  VERCEL_KV_TOKEN: z.string().optional(),
-  KV_TOKEN: z.string().optional(),
   // Node
   NODE_ENV: z.string().optional(),
-  VERCEL: z.string().optional(),
-}).passthrough(); // Allow unknown env vars (e.g. Vercel-injected vars)
+}).passthrough(); // Allow unknown env vars injected by the platform (Cloud Run, Docker)
 
 // Validate at import time — crash fast with clear message
 try {
@@ -93,7 +91,7 @@ if (isProduction) {
   if (missing.length > 0) {
     throw new Error(
       `[config] 生產環境缺少必要安全變數: ${missing.join(', ')}。\n` +
-      '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
+      '請在 Cloud Run 服務的環境變數（建議用 Secret Manager）中設定。\n' +
       '這些變數必須為至少 32 字元的隨機字串。'
     );
   }
@@ -104,7 +102,7 @@ function requireEnv(key: string): string {
   if (!value && isProduction) {
     throw new Error(
       `[config] 生產環境必須設定 ${key} 環境變數。\n` +
-      '請在 Vercel Dashboard → Settings → Environment Variables 中設定。'
+      '請在 Cloud Run 服務的環境變數（建議用 Secret Manager）中設定。'
     );
   }
   return value || '';
@@ -276,7 +274,7 @@ const db = {
 // ============================================
 
 const ai = {
-  /** AI API timeout in ms。Vercel Hobby 建議 ≤8000，本地/Pro 可用 30000+ */
+  /** AI API timeout in ms。Cloud Run 請求上限 300s（cloud-run.yaml），本地可用 30000+ */
   timeoutMs: (() => {
     const val = Number(process.env.AI_TIMEOUT_MS);
     return Number.isFinite(val) && val > 0 ? val : (isProduction ? 8000 : 30000);
@@ -321,12 +319,6 @@ const google = {
   get sheetsConfigured(): boolean { return !!this.sheetsClassRosterId; },
 };
 
-const kv = {
-  url: process.env.VERCEL_KV_URL || process.env.KV_URL || '',
-  token: process.env.VERCEL_KV_TOKEN || process.env.KV_TOKEN || '',
-  get isConfigured(): boolean { return !!this.url && !!this.token; },
-};
-
 // ============================================
 // 整合匯出
 // ============================================
@@ -348,7 +340,6 @@ export const config = {
   cron,
   rag,
   google,
-  kv,
 } as const;
 
 export default config;

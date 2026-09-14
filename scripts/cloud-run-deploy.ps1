@@ -1,7 +1,7 @@
 # ============================================
 # Cloud Run Deploy Script (Windows PowerShell)
 # 使用 Cloud Build 建構 → 不需本機 Docker！
-# 取代: Vercel auto-deploy + scripts/vercel-build.js
+# 取代: 手動 docker build + gcloud run deploy（原 Vercel auto-deploy 路徑已於 2026-09-15 移除）
 # ============================================
 #
 # 使用方式:

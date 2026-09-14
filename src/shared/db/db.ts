@@ -21,7 +21,7 @@ function getDbUrl(): string {
   if (config.isProduction) {
     throw new Error(
       '[db] 生產環境必須設定 DATABASE_URL 環境變數。\n' +
-      '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
+      '請在 Cloud Run 服務的環境變數（建議用 Secret Manager）中設定。\n' +
       '範例: postgresql://user:pass@host:5432/dbname'
     );
   }

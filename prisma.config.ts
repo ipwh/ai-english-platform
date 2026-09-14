@@ -17,7 +17,7 @@ import { resolve } from 'node:path';
 // 一律以 `.env.local` 為優先（README 亦有記載）。此前 Prisma CLI 只讀 `.env`，
 // 令 `prisma migrate deploy` / `db execute` 在本機無法連線。
 // 真實環境變數永遠優先（`process.env` 已有的值不會被覆寫），
-// 故 Vercel / Cloud Run 等無 .env 檔的部署不受影響。
+// 故 Cloud Run 等無 .env 檔的部署不受影響。
 const ENV_FILES = ['.env.local', '.env'];
 
 function loadEnv() {
@@ -48,9 +48,9 @@ function loadEnv() {
 
 loadEnv();
 
-const isProduction = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === 'production';
 
-// 生產環境必須設定 DATABASE_URL（透過 Vercel Environment Variables）
+// 生產環境必須設定 DATABASE_URL（Cloud Run 環境變數 / Secret Manager）
 // 開發環境若無 DATABASE_URL 則 fallback 到本地 SQLite
 let dbUrl: string;
 if (process.env.DATABASE_URL) {
@@ -61,7 +61,7 @@ if (process.env.DATABASE_URL) {
 } else {
   throw new Error(
     '[prisma.config] 生產環境必須設定 DATABASE_URL 環境變數。\n' +
-    '請在 Vercel Dashboard → Settings → Environment Variables 中設定。\n' +
+    '請在 Cloud Run 服務的環境變數（建議用 Secret Manager）中設定。\n' +
     '格式: postgresql://user:password@host:5432/database'
   );
 }

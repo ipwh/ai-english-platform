@@ -254,7 +254,7 @@ async function main() {
       console.log(`\n  ${R}🚨 FIX REQUIRED BEFORE DEPLOY:${W}`);
       console.log(`  ─────────────────────────────`);
       if (!deepseekKey || deepseekKey === 'sk-your-deepseek-api-key-here') {
-        console.log(`  1. Set DEEPSEEK_API_KEY in Vercel Dashboard → Environment Variables`);
+        console.log(`  1. Set DEEPSEEK_API_KEY in the Cloud Run service environment variables`);
         console.log(`     Get key: https://platform.deepseek.com → API Keys`);
       }
       if (!process.env.AUTH_SECRET) {

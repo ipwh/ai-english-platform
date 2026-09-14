@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     });
     const existingUserMap = new Map(existingUsers.map((u: { email: string; role: string }) => [u.email, u]));
 
-    // ---- Phase 5: 分批寫入（每批獨立 commit，避免 Vercel 10s timeout）----
+    // ---- Phase 5: 分批寫入（每批獨立 commit，避免請求逾時）----
     const BATCH_SIZE = 50;
     const defaultPwHash = hashPasswordSync('student123');
 
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
       // 等待此批次完成（獨立 commit，不會因單筆失敗而全 rollback）
       await Promise.allSettled(batchOps);
 
-      // 進度回報（透過 console，可在 Vercel logs 看到）
+      // 進度回報（透過 console，可在 Cloud Logging 看到）
       logger.info({ module: 'import-students', batch: Math.floor(i / BATCH_SIZE) + 1, totalBatches: Math.ceil(validRows.length / BATCH_SIZE), processed: Math.min(i + BATCH_SIZE, validRows.length), total: validRows.length }, 'Import batch complete');
     }
 

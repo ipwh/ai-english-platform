@@ -1,7 +1,7 @@
 // ============================================
 // R3.10-E.2 P0-1: Migration Gate Policy (single source of truth)
 // ============================================
-// Pure decision policy for schema deployment. Used by scripts/vercel-build.js
+// Pure decision policy for schema deployment. Used by scripts/production-build.js
 // and unit-tested by src/modules/production/__tests__/migration-gate.test.ts.
 //
 // Policy:

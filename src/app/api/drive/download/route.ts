@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 function resolveServiceAccountKey(): string {
-  // 1. 環境變數中的 JSON 內容（Vercel 部署用）
+  // 1. 環境變數中的 JSON 內容（部署環境用）
   if (process.env.GCP_SERVICE_ACCOUNT_JSON) return process.env.GCP_SERVICE_ACCOUNT_JSON;
   // 2. GOOGLE_APPLICATION_CREDENTIALS 環境變數
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return process.env.GOOGLE_APPLICATION_CREDENTIALS;

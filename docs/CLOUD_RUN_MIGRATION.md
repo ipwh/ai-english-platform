@@ -120,9 +120,13 @@ gcloud run deploy english-platform \
 
 ---
 
-## 📊 與 Vercel 的對照
+## 📊 部署平台對照（歷史記錄：Vercel → Cloud Run）
 
-| 功能 | Vercel | Cloud Run |
+> ⚠️ **2026-09-15：Vercel 部署已完全移除。** 下表僅保留為遷移決策的歷史依據；
+> 專案現在只有一個部署目標：Cloud Run。`vercel.json` 已刪除，
+> `scripts/vercel-build.js` 已更名為 `scripts/production-build.js`。
+
+| 功能 | Vercel（已移除） | Cloud Run（現行） |
 |---|---|---|
 | **部署觸發** | Git push 自動 | `npm run cloud-run:deploy:win` 或 CI/CD |
 | **AI Route Timeout** | 60-120s (`vercel.json`) | 預設 300s，最大 3600s |
@@ -130,24 +134,25 @@ gcloud run deploy english-platform \
 | **Cold Start** | 自動處理 | Startup CPU Boost 加速 |
 | **Domain** | `*.vercel.app` | `*.run.app` 或自訂網域 |
 | **環境變數** | Vercel Dashboard | Cloud Console / Secret Manager |
-| **CORS 設定** | `vercel.json` headers | `next.config.ts` headers（已設定） |
+| **CORS 設定** | `vercel.json` headers | 同源架構，無需 CORS header |
 | **靜態資源** | Vercel Edge CDN | Cloud CDN（可選） |
 | **GCP API 驗證** | Service Account JSON | IAM Service Account 自動驗證 |
-| **Vercel KV** | 原生支援 | 自動 fallback 到 memory |
+| **分散式 KV** | Vercel KV | 未實作（見下方注意事項 1） |
 
 ---
 
 ## ⚠️ 注意事項
 
-### 1. Vercel KV → Memory Fallback
-`@vercel/kv` 在 Cloud Run 上無法使用（非 Vercel 環境）。程式碼已內建 graceful degradation，會自動切換到 in-memory store。
+### 1. 分散式 KV（未實作，原本為 Vercel KV）
+原 Vercel KV 後端已隨 Vercel 部署一起移除（`@vercel/kv` 已廢棄，且 `VERCEL_KV_URL` 從未在 Cloud Run 設定）。
+目前 `ai-cache` 與 `rate-limiter` 皆為 **per-instance in-memory**。
 
 **影響**：
-- AI cache 變為 per-instance（非全域共享）
+- AI cache 為 per-instance（非全域共享）
 - 冷啟動後 cache 會重置
-- Rate limiter 變為 per-instance 計數
+- Rate limiter 為 per-instance 計數：Cloud Run 最多 20 instances（`cloud-run.yaml`），實際全域上限約為 `maxRequests × instance 數`
 
-**可選優化**：未來可改用 Cloud Memorystore (Redis) 作為全域 KV store。
+**可選優化**：如需全域精確限流／共享快取，接入 Cloud Memorystore (Redis) 或 Upstash Redis。
 
 ### 2. 資料庫 Migration
 Cloud Run 不會在部署時自動執行 `prisma migrate deploy`。有三種做法：
@@ -166,7 +171,7 @@ gcloud run jobs create db-migrate \
 ```
 
 ### 3. 靜態資源 CDN
-Vercel 自動提供全球 CDN。Cloud Run 預設從單一區域提供服務。如需 CDN：
+Cloud Run 預設從單一區域提供服務。如需全球 CDN：
 ```bash
 # 可選：設定 Cloud CDN 或使用 Firebase Hosting 作為前端
 ```
@@ -213,9 +218,19 @@ gcloud run services update-traffic english-platform \
 
 ---
 
-## 🔄 回滾 Vercel
+## 🔄 回滾
 
-如果需要回到 Vercel：
-1. 保留 `vercel.json` 和 `scripts/vercel-build.js`（未刪除）
-2. `next.config.ts` 中的 `output: 'standalone'` **不影響** Vercel 部署（Vercel 會忽略）
-3. 重新連接 Git repository 到 Vercel 即可
+Cloud Run 以 revision 為單位回滾，不需要 Vercel：
+
+```bash
+# 列出 revisions
+gcloud run revisions list --service english-platform --region asia-east2
+
+# 將 100% 流量導回上一個穩定 revision
+gcloud run services update-traffic english-platform \
+  --to-revisions <REVISION_NAME>=100 \
+  --region asia-east2
+```
+
+> 2026-09-15 起 Vercel 路徑已移除，無法再回滾至 Vercel。
+> 若日後真的需要其他平台，需重新建立該平台所需的設定與環境變數分支。

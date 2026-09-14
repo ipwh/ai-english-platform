@@ -23,7 +23,7 @@ interface WritingAnalysis {
   studentDraft?: string;
 }
 
-/** 嘗試載入中文字型（支援 Windows 開發 + Vercel 部署） */
+/** 嘗試載入中文字型（支援 Windows 開發 + Cloud Run Linux 容器部署） */
  
 function loadCJKFont(): Buffer {
   const path = require('node:path') as typeof import('node:path');
@@ -54,11 +54,11 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
     margin: 50,
-    font: '', // 跳過 PDFKit 內建 Helvetica 載入（Vercel serverless 上 __dirname 路徑不正確）
+    font: '', // 跳過 PDFKit 內建 Helvetica 載入（serverless/container 上 __dirname 路徑不正確）
     info: { Title: `Writing Analysis - ${analysis.topic || 'Report'}`, Author: 'AI English Platform' },
   });
 
-  // 一律使用內嵌字型，不依賴 PDFKit 內建 Helvetica（Vercel 上不存在）
+  // 一律使用內嵌字型，不依賴 PDFKit 內建 Helvetica（容器映像中不存在）
   doc.registerFont('CJK', fontData);
   const font = 'CJK';
   const hasCJK = true;

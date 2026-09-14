@@ -62,7 +62,7 @@ describe('R3.10-E.2 migration gate policy', () => {
   it('build script uses the gate and never db push in production (contract)', () => {
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const { resolve } = require('node:path') as typeof import('node:path');
-    const script = readFileSync(resolve(import.meta.dirname, '../../../../scripts/vercel-build.js'), 'utf-8');
+    const script = readFileSync(resolve(import.meta.dirname, '../../../../scripts/production-build.js'), 'utf-8');
     expect(script).toContain("require('./migration-gate.cjs')");
     expect(script).toContain("run('npx --yes prisma migrate status'");
     expect(script).toContain('decision.action === \'abort\'');

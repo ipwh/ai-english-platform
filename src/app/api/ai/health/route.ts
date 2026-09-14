@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
 
   const results: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
-    vercelRegion: process.env.VERCEL_REGION || 'local',
-    isVercel: process.env.VERCEL === '1',
+    service: process.env.K_SERVICE || 'local',
+    revision: process.env.K_REVISION || 'local',
     aiConfigured: isAIConfigured(),
     providers: getAIProviders(),
   };

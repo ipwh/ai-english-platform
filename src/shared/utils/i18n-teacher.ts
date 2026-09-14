@@ -280,7 +280,7 @@ export const teacherTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.settings.apiKeySet': { zh: '已設定（隱藏）', en: 'Set (hidden)' },
   'teacher.settings.apiKeyNotSet': { zh: '未設定', en: 'Not set' },
   'teacher.settings.apiKeySetNote': { zh: 'API 金鑰已設定，AI 功能正常運作中。', en: 'API key is set. AI features are operational.' },
-  'teacher.settings.apiKeyNotSetNote': { zh: '請在 Vercel 環境變數中設定 DEEPSEEK_API_KEY。', en: 'Set DEEPSEEK_API_KEY in Vercel environment variables.' },
+  'teacher.settings.apiKeyNotSetNote': { zh: '請在 Cloud Run 環境變數中設定 DEEPSEEK_API_KEY。', en: 'Set DEEPSEEK_API_KEY in the Cloud Run environment variables.' },
   'teacher.settings.notifications': { zh: '通知設定', en: 'Notification Settings' },
   'teacher.settings.notifSubmission': { zh: '作業提交通知', en: 'Assignment submission alerts' },
   'teacher.settings.notifLowCompletion': { zh: '低完成率警示', en: 'Low completion rate alerts' },

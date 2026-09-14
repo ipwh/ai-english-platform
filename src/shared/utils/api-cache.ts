@@ -15,7 +15,7 @@ export const CACHE_DAY = 86400;    // 24 hours — static reference data
 
 /**
  * Generate Cache-Control headers for the given max-age.
- * Uses `public` for CDN caching (Vercel Edge) and `stale-while-revalidate`
+ * Uses `public` for CDN caching (Cloud CDN) and `stale-while-revalidate`
  * for graceful background refresh.
  */
 export function cacheFor(maxAgeSeconds: number): Record<string, string> {

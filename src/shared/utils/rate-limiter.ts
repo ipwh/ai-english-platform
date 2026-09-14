@@ -2,19 +2,15 @@
 // Rate Limiter — 滑動窗口限流
 // 保護 AI API 端點免受濫用
 //
-// ✅ Production-ready for Vercel serverless:
-//    - 當 VERCEL_KV_URL + VERCEL_KV_TOKEN 環境變數設定時，自動使用 Vercel KV
-//    - 未設定時 fallback 到 in-memory Map（適合單實例/低流量）
-//    - In-memory mode: 每 instance 獨立計數，非全域精確
-//    - 啟動時輸出 active backend 至 logger
+// 部署目標：Google Cloud Run（Vercel 已不再使用，2026-09-15）
+//    - 目前為 in-memory Map：每 instance 獨立計數，非全域精確
+//    - Cloud Run 最多 20 instances（cloud-run.yaml）
+//      → 實際全域上限約為 maxRequests × 運行中 instance 數
 //
-// 升級建議：
-//    Vercel KV:  設定 VERCEL_KV_URL + VERCEL_KV_TOKEN 環境變數即可（自動偵測）
-//    Upstash Redis: 大規模部署時的建議方案（需自行實作 Redis adapter）
+// ⚠️ 全局限流尚未實作：原 Vercel KV 路徑已移除（`@vercel/kv` 已廢棄，
+//    且 VERCEL_KV_URL 從未在 Cloud Run 設定）。如需全域精確限流，
+//    請接入 Redis / Memorystore 並在此處加入 adapter。
 // ============================================
-
-import { getKvClient } from '@/shared/db/vercel-kv';
-import { logger } from '@/shared/logger/logger';
 
 interface RateLimitEntry {
   count: number;
@@ -22,11 +18,10 @@ interface RateLimitEntry {
 }
 
 const store = new Map<string, RateLimitEntry>();
-const kvBackend = { current: 'memory' as 'kv' | 'memory' };
 
 /** 取得當前使用的 backend（用於 monitoring） */
-export function getRateLimitBackend(): 'kv' | 'memory' {
-  return kvBackend.current;
+export function getRateLimitBackend(): 'memory' {
+  return 'memory';
 }
 
 /** 定期清理過期條目（in-memory mode only，每 60 秒） */
@@ -62,37 +57,12 @@ export interface RateLimitResult {
 
 /**
  * 檢查請求是否超過速率限制。
- * 當 VERCEL_KV_URL 設定時自動升級為分散式限流。
+ * 注意：in-memory 計數為 per-instance，多 instance 時非全域精確。
  */
 export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimitResult> {
   const key = config.identifier || 'global';
   const now = Date.now();
 
-  // Try Vercel KV first
-  const kv = await getKvClient();
-  if (kv) {
-    try {
-      const raw = await kv.get(key);
-      const entry: RateLimitEntry | null = raw ? JSON.parse(raw) : null;
-      if (!entry || now > entry.resetAt) {
-        const newEntry: RateLimitEntry = { count: 1, resetAt: now + config.windowMs };
-        await kv.set(key, JSON.stringify(newEntry), { ex: Math.ceil(config.windowMs / 1000) });
-        return { allowed: true, remaining: config.maxRequests - 1, resetAt: newEntry.resetAt };
-      }
-      entry.count++;
-      await kv.set(key, JSON.stringify(entry), { ex: Math.ceil((entry.resetAt - now) / 1000) });
-      if (entry.count > config.maxRequests) {
-        return { allowed: false, remaining: 0, resetAt: entry.resetAt,
-          message: `請求過於頻繁。請 ${Math.ceil((entry.resetAt - now) / 1000)} 秒後重試。（上限：${config.maxRequests} 次/${config.windowMs / 1000}秒） / Too many requests. Please retry in ${Math.ceil((entry.resetAt - now) / 1000)}s (limit: ${config.maxRequests} per ${config.windowMs / 1000}s)` };
-      }
-      return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
-    } catch (err) {
-      logger.error({ module: 'rate-limiter', error: String(err) }, 'KV error, falling back to in-memory');
-      // Fall through to in-memory
-    }
-  }
-
-  // In-memory fallback
   const entry = store.get(key);
   if (!entry || now > entry.resetAt) {
     const newEntry: RateLimitEntry = { count: 1, resetAt: now + config.windowMs };

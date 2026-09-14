@@ -1,7 +1,7 @@
 # Staging 環境 Smoke Test 清單
 
-> **自動化 Smoke Test**: `npm run smoke`（45 項檢查，無需 DB）— 詳見下方 Part D
-> **環境**: Vercel Preview Deploy（`*.vercel.app`）  
+> **自動化 Smoke Test**: `npm run smoke`（49 項檢查，無需 DB）— 詳見下方 Part D
+> **環境**: Cloud Run（`*.run.app` 或自訂網域）  
 > **測試帳號**: `test-student@school.edu.hk` / `test-teacher@school.edu.hk`（密碼: `test1234`）  
 > **執行頻率**: 每次 staging deploy 後執行一次  
 > **預計時間**: ~20 分鐘  

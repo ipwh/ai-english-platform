@@ -4,6 +4,38 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-15 — 移除 Vercel 部署（Cloud Run 為唯一部署目標）
+
+### 背景
+專案自 Cloud Run 遷移完成後，Vercel 僅剩 legacy 路徑，但仍散落在 build script、CI、
+runtime 環境偵測、middleware、文件之中。此變更將其完整移除，消除「兩套部署假設」造成的
+認知負擔與失效設定（例如 `vercel.json` 的 CORS 仍指向舊的 `*.vercel.app` 網域）。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **刪除** | `vercel.json`（function timeout / CORS headers）、`src/shared/db/vercel-kv.ts`、`@vercel/kv` 依賴、本地 `.vercel/` 連結資料夾、`.gitignore` 的 `.vercel` |
+| **更名** | `scripts/vercel-build.js` → `scripts/production-build.js`；npm script `vercel-build` → `build:prod` |
+| **CI** | workflow step「Vercel Build Simulation」→「Production Build Simulation」 |
+| **CORS** | 移除 `vercel.json` 的跨域 header（應用為同源架構，`next.config.ts` security headers 不變） |
+| **Middleware** | 移除 Vercel Deployment Protection (`_vercel_jwt`) 死碼分支 |
+| **Runtime 偵測** | 所有 `process.env.VERCEL` / `VERCEL_ENV` / `VERCEL_REGION` 分支改以 `NODE_ENV === 'production'` 為唯一判準（Dockerfile 與 `cloud-run.yaml` 均注入）；health route 改回報 `K_SERVICE` / `K_REVISION` |
+| **Rate limiter / AI cache** | 移除 KV backend 路徑，統一為 per-instance in-memory，並在檔頭註明多實例語意（Cloud Run max 20 instances） |
+| **Config** | `config.kv`（無任何 consumer）刪除；env schema 移除 `VERCEL*` / `KV_*` |
+| **驗證腳本** | `scripts/smoke-test.js` 改為檢查 `cloud-run.yaml` + `Dockerfile` + `output: 'standalone'`，並新增「不得存在 `vercel.json`」檢查 |
+
+### 行為不變的部分（已驗證）
+- Rate limiting 與 AI cache 在 Cloud Run 上原本即為 in-memory（`VERCEL_KV_URL` 從未設定），
+  故本次移除**不改變生產行為**，僅刪除未被使用的程式路徑。
+- `TOTAL_BUDGET_MS = 115_000`（provider fallback 總預算）刻意維持不變；Cloud Run 允許 300s，
+  但仍保守保留原預算，避免 AI 品質行為改變。
+
+### 已知限制（未實作）
+- **多實例全局限流／共享快取未實作**：若需全域精確限流，需接入 Redis / Memorystore
+  （見 README「Known Limitations」與 `docs/CLOUD_RUN_MIGRATION.md` 注意事項 1）。
+
+---
+
 ## 2026-09-14 — 錯題庫：技能／題型歸屬與題型弱項重構
 
 ### 架構決策

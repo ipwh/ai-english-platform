@@ -14,7 +14,7 @@ function getJWTSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error(
-      'JWT_SECRET 環境變數未設定。請在 .env.local 或 Vercel Environment Variables 中設定。\n' +
+      'JWT_SECRET 環境變數未設定。請在 .env.local 或 Cloud Run 環境變數中設定。\n' +
       '生產環境必須使用至少 32 字元的隨機字串。'
     );
   }

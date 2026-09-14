@@ -9,7 +9,7 @@ import { findUserByIdSelect } from '@/modules/student';
 
 export async function GET(request: NextRequest) {
   // 🔒 Production guard — never expose session data in production
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }
   const cookieMap: Record<string, string> = {};

@@ -375,7 +375,7 @@ For shorter passages (≤3 paragraphs):
 // ============================================
 // Lite Prompt Builder — condensed for quick generation (legacy path)
 // Avoids the heavy SKILL_BOUNDARY, SUMMARY_CLOZE, and full BLUEPRINT
-// prompts to keep generation fast on Vercel's 60s function limit.
+// prompts to keep generation fast within the AI time budget.
 // ============================================
 export function buildReadingSectionPromptLite(): string {
   return `${HALLUCINATION_GUARD_LITE}

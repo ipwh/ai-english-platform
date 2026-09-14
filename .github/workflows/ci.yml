@@ -64,7 +64,7 @@ jobs:
       - name: Lint check
         run: npx eslint . --max-warnings 225
 
-      - name: Vercel Build Simulation
-        run: node scripts/vercel-build.js
+      - name: Production Build Simulation
+        run: node scripts/production-build.js
         env:
           NODE_ENV: production

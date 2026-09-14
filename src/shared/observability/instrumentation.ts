@@ -1,6 +1,6 @@
 // ============================================
 // OpenTelemetry 整合設定
-// 提供與 Vercel Observability 相容的 tracing
+// 提供與 Cloud Trace / Cloud Logging 相容的 tracing
 // 可逐步替代自訂 observability 模組
 // ============================================
 
