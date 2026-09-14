@@ -596,9 +596,11 @@ npx tsx scripts/set-academic-year.ts 2027-2028 --apply
 
 並新增 migration（參考 `prisma/migrations/20260901_set_academic_year_2026_2027/`）。
 
-> 💡 `scripts/set-academic-year.ts` 依序讀取 `.env.local` → `.env` → `cloud-run-env.yaml` 的 `DATABASE_URL`。注意 `cloud-run-env.yaml` 內的密碼已過期，以 `.env.local` 為準。
+> 💡 `scripts/set-academic-year.ts` 依序讀取 `.env.local` → `.env` → `cloud-run-env.yaml` 的 `DATABASE_URL`。
 >
 > 💡 2026-09-14：`prisma.config.ts` 現已採用相同順序（`.env.local` → `.env`），因此 `npx prisma migrate deploy` / `npx prisma db execute` 在本機可直接連線（此前只讀 `.env`，會以過期密碼得到 P1000）。真實環境變數（Vercel / Cloud Run）永遠優先，部署行為不變。
+>
+> 💡 2026-09-14：`.env.local`、`.env`、`cloud-run-env.yaml` 三處的 `DATABASE_URL` **已同步為同一組有效憑證**（此前 Neon 密碼重設後只有 `.env.local` 更新）。下次由此 yaml 部署時不會再帶入過期密碼。
 
 ---
 

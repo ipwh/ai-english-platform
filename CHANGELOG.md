@@ -41,7 +41,8 @@ All notable changes to the AI English Platform are documented here.
 - 驗證：以唯讀腳本對生產 DB 實測 `listDueMistakesForReview`（排除篇章題目 0 洩漏、歷史 null 列保留：768 → 754）後即刪除臨時腳本。
 
 ### 尚未處理（官方已知）
-- `cloud-run-env.yaml` 內的 `DATABASE_URL` 仍是過期密碼（README 早已記載，以 `.env.local` 為準）；如 Cloud Run 服務仍以此檔注入環境變數，部署環境需要同步更新。
+- ~~`cloud-run-env.yaml` 內的 `DATABASE_URL` 仍是過期密碼~~ → **已同步**（同日）：`.env` 與 `cloud-run-env.yaml` 的 `DATABASE_URL` 已更新為 `.env.local` 那組有效憑證（只換引號內的值，保留原格式／行尾／BOM）。兩檔均經 `prisma db execute` 實測連線成功。
+- 注意：`/api/health?type=readiness` 的 `database` 檢查目前是**常數 `true`**（未實際查詢 DB，見 `production-ready.ts` 的 `readinessCheck()`），因此不能用它判斷生產環境連線狀況；修復與否待定。
 
 ---
 ## 2026-09-14 — DeepSeek V4.1 模型名對齊 + 思考模式支援
