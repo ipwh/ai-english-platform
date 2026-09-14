@@ -5,16 +5,18 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus } from 'lucide-react';
+import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus, Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 
 import SkillChip from '@/components/shared/SkillChip';
 import QuickAddVocab from '@/modules/vocabulary/components/QuickAddVocab';
-import { skillLabels } from '@/shared/utils/nav';
+import { skillLabels, getSkillLabel } from '@/shared/utils/nav';
 import { formatDate } from '@/shared/utils/utils';
 import { useAppStore } from '@/store/appStore';
 import type { GrammarItem, LanguageSkill, MistakeType } from '@/shared/types/types';
 import type { MistakeItem } from '@/shared/types/types';
+import type { MistakeSkillBucket } from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
+import { getStrategyCard } from '@/modules/mistake/intelligence/services/mistake-strategy';
 import { useT } from '@/hooks/use-i18n';
 
 const mistakeTypeLabels: Record<string, string> = {
@@ -33,6 +35,8 @@ export default function MistakesPage() {
   const [search, setSearch] = useState('');
   const [reviewOnly, setReviewOnly] = useState(false);
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
+  const [breakdown, setBreakdown] = useState<MistakeSkillBucket[]>([]);
+  const [expandedBucket, setExpandedBucket] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState<string>('');
   const [gradeLevel, setGradeLevel] = useState('S4');
@@ -69,7 +73,10 @@ export default function MistakesPage() {
     setLoadError(false);
     fetch(`/api/mistakes?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
-      .then(d => { if (d.mistakes?.length) setMistakes(d.mistakes); })
+      .then(d => {
+        if (d.mistakes?.length) setMistakes(d.mistakes);
+        setBreakdown(Array.isArray(d.breakdown) ? d.breakdown : []);
+      })
       .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load mistakes'); setLoadError(true); });
   };
 
@@ -97,7 +104,9 @@ export default function MistakesPage() {
           question: m.questionSummary,
           correctAnswer: m.correctAnswer,
           studentAnswer: m.studentAnswer,
-          grammarItemZh: m.subSkillZh,
+          // 2026-09-14: 從未寫入的 subSkill 已移除；改傳題型／技能名稱，
+          // 令 AI 解說知道是哪一類題目（例如閱讀推論題）。
+          grammarItemZh: itemSkillLabel(m),
         }),
       });
       const json = await res.json();
@@ -167,6 +176,64 @@ export default function MistakesPage() {
     return true;
   });
 
+  // === 2026-09-14: 練習目標 ===
+  // 閱讀／聆聽錯題依附特定篇章，不能重考同一題 → 改為同題型新題或 DSE 閱讀卷。
+  const bucketLabel = (b: MistakeSkillBucket) => {
+    if (store.language === 'en') return b.strategy?.labelEn || (b.grammarItem ? getSkillLabel(b.grammarItem, 'en') || b.grammarItem : b.key);
+    return b.strategy?.labelZh || (b.grammarItem ? getSkillLabel(b.grammarItem, 'zh') || b.grammarItem : b.key);
+  };
+
+  const bucketHref = (b: MistakeSkillBucket): string | null => {
+    if (b.practice.kind === 'reading-paper') return '/student/reading';
+    if (b.practice.kind === 'vocab-book') return '/student/vocabulary';
+    if (b.practice.kind !== 'targeted-drill') return null;
+    if (!b.practice.grammarItem && !b.practice.languageSkill) return null;
+    const params = new URLSearchParams({
+      mode: 'diagnostic',
+      difficulty: 'remedial',
+      questionCount: '5',
+      questionType: b.practice.languageSkill === 'writing' ? 'short-writing' : 'mc',
+      weakLabel: bucketLabel(b),
+    });
+    if (b.practice.grammarItem) params.set('grammarItem', b.practice.grammarItem);
+    if (b.practice.languageSkill) params.set('languageSkill', b.practice.languageSkill);
+    return `/student/practice?${params.toString()}`;
+  };
+
+  /** 單條錯題的可用行動 — 不可重考的題目不再提供無效的「重做」。 */
+  const itemPracticeHref = (m: MistakeItem): string | null => {
+    if (m.languageSkill === 'reading') return '/student/reading';
+    if (m.mistakeType === 'vocabulary' && !m.grammarItem) return '/student/vocabulary';
+    if (!m.grammarItem && !m.languageSkill) return null;
+    const params = new URLSearchParams({
+      mode: 'diagnostic',
+      difficulty: 'remedial',
+      questionCount: '5',
+      questionType: m.languageSkill === 'writing' ? 'short-writing' : 'mc',
+      weakLabel: store.language === 'en' ? (m.questionType || 'Mistake') : (itemSkillLabel(m) || m.questionType || '錯題'),
+    });
+    if (m.grammarItem) params.set('grammarItem', m.grammarItem);
+    if (m.languageSkill) params.set('languageSkill', m.languageSkill);
+    return `/student/practice?${params.toString()}`;
+  };
+
+  /** 詞彙類錯題（含語境詞義）可直接把正確答案加入生詞簿。 */
+  const isVocabExtractable = (m: MistakeItem) =>
+    m.mistakeType === 'vocabulary' || m.questionType === 'vocabulary_in_context';
+
+  /** 用於 AI 解說與練習標籤的技能名稱（題型優先，其次技能標籤）。 */
+  const itemSkillLabel = (m: MistakeItem): string | undefined => {
+    const card = getStrategyCard({
+      languageSkill: m.languageSkill,
+      questionType: m.questionType,
+      grammarItem: m.grammarItem,
+      mistakeType: m.mistakeType,
+    });
+    if (card) return store.language === 'en' ? card.labelEn : card.labelZh;
+    const key = m.grammarItem || m.languageSkill;
+    return key ? getSkillLabel(key, store.language) : undefined;
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('mistakes.title')}</h1>
@@ -196,6 +263,76 @@ export default function MistakesPage() {
           >
             {t('srs.startReview')}
           </button>
+        </div>
+      )}
+
+      {/* 🎯 題型弱項 — 2026-09-14：閱讀／聆聽錯題依附篇章，無法重考同一題，
+          因此改以技能／題型聚合，並提供同題型新題練習。 */}
+      {breakdown.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
+          <div className="flex items-start gap-2">
+            <Target className="w-5 h-5 text-teal-500 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t('mistakes.weaknessTitle')}</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('mistakes.weaknessDesc')}</p>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {breakdown.map((b) => {
+              const href = bucketHref(b);
+              const expanded = expandedBucket === b.key;
+              return (
+                <div key={b.key} className="rounded-lg border border-gray-100 dark:border-gray-700 p-3 space-y-2 bg-gray-50/50 dark:bg-gray-900/20">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{bucketLabel(b)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {t('mistakes.occurrences').replace('{n}', String(b.count))}
+                        {b.unreviewed > 0 && ` · ${t('mistakes.unreviewedCount').replace('{n}', String(b.unreviewed))}`}
+                      </p>
+                      {!b.replayable && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">{t('mistakes.notReplayable')}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {b.strategy && (
+                        <button
+                          onClick={() => setExpandedBucket(expanded ? null : b.key)}
+                          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-300 hover:bg-purple-100 transition-colors"
+                        >
+                          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {t('mistakes.strategyCard')}
+                        </button>
+                      )}
+                      {href && (
+                        <Link href={href} className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-teal-500 text-white hover:bg-teal-600 transition-colors">
+                          <RotateCcw className="w-3 h-3" />
+                          {store.language === 'en' ? b.practice.labelEn : b.practice.labelZh}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+
+                  {expanded && b.strategy && (
+                    <div className="text-xs space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+                      <p className="text-gray-600 dark:text-gray-300">
+                        <span className="font-medium">{t('mistakes.whyMissed')}</span>
+                        {store.language === 'en' ? b.strategy.whyEn : b.strategy.whyZh}
+                      </p>
+                      <div>
+                        <span className="font-medium text-gray-600 dark:text-gray-300">{t('mistakes.nextSteps')}</span>
+                        <ol className="list-decimal ml-4 mt-0.5 space-y-0.5 text-gray-600 dark:text-gray-400">
+                          {(store.language === 'en' ? b.strategy.stepsEn : b.strategy.stepsZh).map((s, i) => (
+                            <li key={i}>{s}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -258,7 +395,7 @@ export default function MistakesPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <SkillChip grammarItem={m.grammarItem} languageSkill={m.languageSkill} subSkill={m.subSkill} />
+                    <SkillChip grammarItem={m.grammarItem} languageSkill={m.languageSkill} />
                     <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
                       {t(mistakeTypeLabels[m.mistakeType] || 'mistake.grammar')}
                     </span>
@@ -266,7 +403,9 @@ export default function MistakesPage() {
                       <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">{t('mistakes.reviewListBadge')}</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{m.questionSummary}</p>
+                  <p className={`text-sm mt-1 ${m.questionSummary ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 italic'}`}>
+                    {m.questionSummary || t('mistakes.summaryMissing')}
+                  </p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                     <span>{t('mistakes.yourAnswer')}<span className="text-red-500 line-through">{m.studentAnswer}</span></span>
                     <span>→</span>
@@ -319,9 +458,25 @@ export default function MistakesPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex-wrap">
-                <Link href={`/student/practice?mode=diagnostic&grammarItem=${encodeURIComponent(m.grammarItem || '')}&languageSkill=${encodeURIComponent(m.languageSkill || '')}&difficulty=remedial&questionType=mc&questionCount=5&weakLabel=${encodeURIComponent(store.language === 'en' ? (m.subSkill || 'Mistake') : (m.subSkillZh || m.subSkill || '錯題'))}`} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
-                  <RotateCcw className="w-3 h-3" /> {t('mistakes.redo')}
-                </Link>
+                {/* 2026-09-14: 不再提供無效的「重做同一題」。
+                    閱讀 → 練 DSE 閱讀卷（同題型已在卷內）；聆聽／文法 → 練同類新題；
+                    無法歸類的錯題不顯示練習按鈕（避免靜默無效連結）。 */}
+                {(() => {
+                  const href = itemPracticeHref(m);
+                  if (!href) return null;
+                  const label = m.languageSkill === 'reading'
+                    ? t('mistakes.practiceReading')
+                    : m.mistakeType === 'vocabulary' && !m.grammarItem
+                      ? t('mistakes.practiceVocab')
+                      : m.languageSkill === 'listening'
+                        ? t('mistakes.practiceListening')
+                        : t('mistakes.practiceSameSkill');
+                  return (
+                    <Link href={href} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
+                      <RotateCcw className="w-3 h-3" /> {label}
+                    </Link>
+                  );
+                })()}
                 <button
                   onClick={() => handleAIExplain(m)}
                   disabled={explainingId === m.id}
@@ -334,7 +489,7 @@ export default function MistakesPage() {
                 <button onClick={() => toggleReviewList(m.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   <BookMarked className="w-3 h-3" /> {m.inReviewList ? t('mistakes.removeFromReview') : t('mistakes.addToReview')}
                 </button>
-                {m.mistakeType === 'vocabulary' && (
+                {isVocabExtractable(m) && (
                   <button
                     onClick={() => handleAddToVocab(m.correctAnswer)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-lg hover:bg-teal-100 transition-colors"

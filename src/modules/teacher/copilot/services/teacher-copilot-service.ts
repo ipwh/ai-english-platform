@@ -2,6 +2,8 @@
 // Sprint 132: Integrated with StudentTwin + LearningScience for real data
 import { db } from '@/shared/db/db';
 import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
+import { GRAMMAR_CATEGORY_LABELS } from '@/modules/mistake/intelligence/types';
+import { bucketKeyLabelZh } from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
 // 2026-08-30 audit (R7): 正典跨卷估級門檻（76/62/48/33）— 移除本地重複實作，避免漂移。
 import { estimateLevelFromScore100 } from '@/modules/ai/core/level-estimation';
 import type { SkillDimension } from '@/modules/student/profile/types';
@@ -661,7 +663,8 @@ export class TeacherCopilotService {
       take: 5,
     });
     const grammarErrors = [...new Set(mistakeRows.map(r => r.grammarCategory))];
-    const grammarErrorsZh = grammarErrors; // DB stores same values for now
+    // 2026-09-14: 弱項類別現為技能／題型 bucket key，需解析為中文標籤後才給教師看
+    const grammarErrorsZh = grammarErrors.map(k => GRAMMAR_CATEGORY_LABELS[k] ?? bucketKeyLabelZh(k) ?? k);
 
     // 6. Compute accuracy and participation
     const accuracies = users.map(u => u.overallAccuracy ?? 0).filter(a => a > 0);

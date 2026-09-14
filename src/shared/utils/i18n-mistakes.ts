@@ -31,4 +31,21 @@ export const mistakesTranslations: Record<string, { zh: string; en: string }> = 
   'mistakes.aiErrorAnalysis': { zh: 'AI 錯因分析', en: 'AI Error Analysis' },
   'mistakes.grammarRule': { zh: '📘 文法規則', en: '📘 Grammar Rule' },
   'mistakes.comparisonExamples': { zh: '🔁 對比例句', en: '🔁 Examples' },
+  // === 2026-09-14: 題型弱項 ===
+  'mistakes.weaknessTitle': { zh: '🎯 題型弱項', en: '🎯 Weak areas by question type' },
+  'mistakes.weaknessDesc': {
+    zh: '閱讀、聆聽題目依附特定篇章，無法重考同一題；這裡按技能／題型聚出你的弱項，並提供同題型新題。',
+    en: 'Reading and listening items belong to a specific passage and cannot be re-taken. Your weaknesses are grouped by skill and question type, with fresh items of the same type.',
+  },
+  'mistakes.occurrences': { zh: '錯 {n} 次', en: '{n} mistakes' },
+  'mistakes.unreviewedCount': { zh: '{n} 條未溫習', en: '{n} unreviewed' },
+  'mistakes.notReplayable': { zh: '篇章題目 — 不能重考同一題', en: 'Passage-based — cannot be re-taken' },
+  'mistakes.strategyCard': { zh: '策略卡', en: 'Strategy' },
+  'mistakes.whyMissed': { zh: '常見錯因：', en: 'Common cause: ' },
+  'mistakes.nextSteps': { zh: '下一步：', en: 'What to do: ' },
+  'mistakes.summaryMissing': { zh: '（題目內容未記錄）', en: '(question text not recorded)' },
+  'mistakes.practiceSameSkill': { zh: '練同項目新題', en: 'Practise this skill' },
+  'mistakes.practiceReading': { zh: '練 DSE 閱讀', en: 'Practise DSE reading' },
+  'mistakes.practiceListening': { zh: '練新聆聽題', en: 'Practise new listening' },
+  'mistakes.practiceVocab': { zh: '到生詞簿練習', en: 'Practise in vocabulary book' },
 };

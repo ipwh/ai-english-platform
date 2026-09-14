@@ -5,7 +5,7 @@ export type {
 } from '../types';
 
 export {
-  classifySeverity, extractGrammarPoint, calculateNextReview,
+  classifySeverity, extractGrammarPoint, calculateNextReview, nextMistakeReviewState,
   getDueForReview, estimateCategoryMastery, type RecordMistakeInput,
 } from './mistake-tracker';
 

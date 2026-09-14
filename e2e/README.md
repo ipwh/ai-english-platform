@@ -91,13 +91,17 @@ e2e/
 | 8 | 作答全部 → 查看分數 | Quiz 結果顯示 | Accuracy 百分比 |
 | 9 | 點擊「Export CSV」 | 下載 CSV | 檔案含 word/meaning/pos 欄位 |
 
-### TC-S07: Mistakes 錯題本 — 查看 → AI 解釋 → SRS 複習
+### TC-S07: Mistakes 錯題本 — 題型弱項 → AI 解說 → SRS 複習
 | 步驟 | 動作 | 預期結果 | 檢查點 |
 |-----|------|---------|--------|
 | 1 | 導航到 `/student/mistakes` | 錯題列表顯示 | 如有錯題，每列含題目/答案/類型 |
-| 2 | 點擊某錯題的「AI 解說」 | AI 解釋載入 | Explanation 文字出現 |
-| 3 | 按類型篩選（grammar） | 僅顯示 grammar 錯題 | Filtered count ≤ total count |
-| 4 | 點擊「加入複習清單」 | SRS 排程建立 | `nextReviewDate` 欄位更新 |
+| 2 | 檢查「🎯 題型弱項」面板 | 按技能／題型聚合的卡片顯示 | 每卡含錯題次數；閱讀／聆聽類標示「篇章題目 — 不能重考同一題」 |
+| 3 | 點擊弱項卡的「策略卡」 | 展開常見錯因 + 下一步步驟 | 文字非空，可再點擊收合 |
+| 4 | 點擊弱項卡的練習 CTA | 導向正確目標 | 閱讀 → `/student/reading`；文法／聆聽 → `/student/practice?...`；詞彙 → `/student/vocabulary` |
+| 5 | 點擊某錯題的「AI 解說」 | AI 解釋載入 | Explanation 文字出現 |
+| 6 | 按類型篩選（grammar） | 僅顯示 grammar 錯題 | Filtered count ≤ total count |
+| 7 | 點擊「標記已溫習」 | 下次複習日期建立 | 該錯題下次複習日 = 今日 + SM-2 間隔（不應再是「今日」） |
+| 8 | SRS 每日複習（錯題） | 卡片顯示 | **只含可重考的錯題**（閱讀／聆聽篇章題目不得出現）；卡片正面為題目文字 |
 
 ### TC-S08: Progress 進度 — 圖表 → AI 分析
 | 步驟 | 動作 | 預期結果 | 檢查點 |

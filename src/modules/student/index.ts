@@ -111,7 +111,7 @@ export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as 
 export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from './progress/repositories/progress-repo';
 export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';
-export { listMistakes, listMistakesByType, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake/db/repositories/mistake-repo';
+export { listMistakes, listMistakesByType, listDueMistakesForReview, findMistakeById, updateMistake, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake/db/repositories/mistake-repo';
 export { clearDiagnosticResults, createDiagnosticResult, getRecentDiagnostics, createFeedback } from '@/modules/assessment/repositories/diagnostic-repo';
 export { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks, countMaterials } from '@/modules/ai/repositories/material-repo';
 export { memoryDbRepo } from '@/modules/learning/memory/repositories/memory-db-repository';

@@ -4,6 +4,46 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-14 — 錯題庫：技能／題型歸屬與題型弱項重構
+
+### 架構決策
+- **ADR-041: Mistake Skill Attribution & Review Layering**（`docs/architecture/ADR-041-mistake-skill-attribution.md`）— 記錄技能歸屬的正典來源、passage-bound 題目不進 SRS flashcard 隊列、SRS 單一排程 owner、弱項類別改為 bucket key 共 5 條 invariant。README ADR 總數更新為 41（ADR-001––041）。
+
+### 背景
+- 學生反映「我的錯題」用處不大：comprehension／listening 錯題依附在一篇 passage 上，不可能重複出題再考。
+- 審計後發現比 UX 更嚴重的問題：
+  1. `Mistake` 表**完全沒有技能欄位**（只有 6 類 `mistakeType`），但前端一直讀 `m.grammarItem` / `m.languageSkill` → 技能 chip 永遠空白、技能篩選永遠 0 結果。
+  2. 「重做」按鈕產生 `grammarItem=&languageSkill=` 空參數；`practice/page.tsx` 的 `if (!grammarItem && !languageSkill) return;` 令按鈕**靜默無效**（連 API 都沒打）。
+  3. 練習頁 POST 錯題時未送 `questionSummary` → 存為 `''`，而 GET 的「依摘要去重」過濾會把空摘要錯題整批隱藏（DB 有 row、介面永遠看不到）。
+  4. `aggregateMistakes()` 把 `mistakeType`（一個分類）當題目文字丢進 `extractGrammarPoint()` 的正則 → 幾乎全部歸為 `general`，弱項摘要退化。
+
+### 變更
+- **技能歸屬（新）**：`Mistake` 新增 `languageSkill` / `grammarItem` / `questionType` / `skillSource`（migration `20260914_mistake_skill_identity`，全部可 NULL，歷史列不回填）。
+- **正典解析（單一 owner）**：新增 `exercise/services/mistake-skill-identity.ts` — 以 `ReadingQuestion.dseType` / `GrammarQuestion.grammarItem` 為唯一權威；解析不到時只接受白名單內的自報值並標記 `skillSource: client-claimed`（未知值丟棄、不寫入自由文字）。`/api/mistakes` POST 與 `practice-submission-service` 共用同一解析器。
+- **題型弱項聚合**：新增 `mistake/intelligence/services/mistake-skill-breakdown.ts`（純函式）— 以「題型 > 文法項目 > 錯誤類型」分桶，標示 `replayable`（passage-bound 題目為 false），並附練習目標。GET `/api/mistakes` 回傳 `breakdown`。
+- **策略卡**：新增 `mistake/intelligence/services/mistake-strategy.ts` — 確定性（非 AI）、雙語的題型策略卡（閱讀 9 種 dseType + 聆聽 3 種 + 文法／詞彙／粗心／時間管理／Chinglish）。閱讀標籤重用 reading 模組的 DSE 分類，不重複定義。
+- **錯題頁重構**：新增「題型弱項」面板（收合式策略卡 + 同題型練習）；「重做」改為技能感知動作（閱讀 → DSE 閱讀卷、聆聽／文法 → 同類新題、詞彙 → 生詞簿），無法歸類者不顯示按鈕（不再有無效連結）。`MistakeItem` 移除從未寫入的 `subSkill` / `subSkillZh`。
+- **可複習性**：語境詞義（`vocabulary_in_context`）錯題也可一鍵加入生詞簿（不只 `mistakeType === 'vocabulary'`）。
+- **廢除**：`GET /api/mistakes` 移除「依 questionSummary 去重」過濾（唯一鍵 `(studentId, questionId)` 已保證不重複；該過濾只會隱藏錯題）。
+
+### 測試
+- 新增 3 個測試檔（42 用例）：`mistake-skill-breakdown.test.ts`（分桶／排序／replayable／策略卡／白名單交叉驗證）、`mistake-skill-identity.test.ts`（正典優先／白名單／截短／不可解析不重建）、`app/api/__tests__/mistakes-skill-identity.test.ts`（正典覆寫自報值／fail-open／空摘要不再被隱藏／弱項聚合）。全測試 2885 pass / 1 skipped（134 files）。
+
+### 後續（同日完成）
+- **弱項聚合修復**：`aggregateMistakes()` 改以技能／題型 bucket 聚合（重用 `buildMistakeSkillBreakdown`，單一分桶 owner），不再把 `mistakeType` 丢進 `extractGrammarPoint()`。`grammarCategory` 值現為 `reading:inference` / `grammar:tenses-simple` / `vocabulary`；新增 `bucketKeyLabelZh()` 供弱項摘要與教師端解析中文標籤（`GrammarTopicWeight` 的 DSE 權重表以 `includes()` 查表，新 key 仍能命中 `inference` 等權重，無需改表）。不再出現的弱項桶會標記 `mastered`（列保留，不刪歷史）；弱項再現時會重新標記為未掌握。
+- **SRS 分層修復**：新增 `listDueMistakesForReview()` — 只抽「到期（`nextReviewDate` 為 null 或已過）且可重考（排除 `languageSkill` = reading/listening 的篇章題目）」的錯題；新增 `nextMistakeReviewState()`（SM-2 + 可注入 `now`，與 PATCH `/api/mistakes` 共用排程）。
+- **SRS 契約修復**：`SRSReviewFlow` 逐卡提交的扁平 payload（`{ type, id, quality }`）與 API 期望的 `{ results: [...] }` 不符 → 以往**每次提交都 400，複習結果從未寫入**；現在 API 同時接受兩種形狀，UI 統一送正典形狀。卡片正面改用 `questionSummary`（以往退回 `studentAnswer`，即「正面 = 我的錯答案」）。
+- 新增 3 個測試檔（25 用例）：`mistake-aggregation.test.ts`（分桶／標籤／mastered 對帳）、`srs-review-contract.test.ts`（SM-2 排程／兩種 payload／擁有權）、`mistake-repo-query.test.ts`（SRS 候選查詢的 NULL 語意契約）；另 `route-security.test.ts` 增補 2 用例（SRS 擁有權 + 只抽到期可重考卡片）。全測試 2912 pass / 1 skipped（137 files）。
+
+### 遷移與環境
+- **已套用 migration**：`20260901_set_academic_year_2026_2027` + `20260914_mistake_skill_identity`（Neon `neondb`，`migrate status` = up to date）。套用前已先查證：`Class.academicYear` 全部已是 2026-2027、`User` 無任何 2025-2026 列 → 該資料轉換為 no-op。
+- **修正 Prisma CLI 環境載入**：`prisma.config.ts` 改為 `.env.local` → `.env` 順序（與 `scripts/set-academic-year.ts` 等腳本及 README 記載一致）。此前只讀 `.env`，而該檔的 Neon 密碼已失效 → `npx prisma migrate deploy` 一律 P1000。真實環境變數仍優先，部署不受影響。
+- 驗證：以唯讀腳本對生產 DB 實測 `listDueMistakesForReview`（排除篇章題目 0 洩漏、歷史 null 列保留：768 → 754）後即刪除臨時腳本。
+
+### 尚未處理（官方已知）
+- `cloud-run-env.yaml` 內的 `DATABASE_URL` 仍是過期密碼（README 早已記載，以 `.env.local` 為準）；如 Cloud Run 服務仍以此檔注入環境變數，部署環境需要同步更新。
+
+---
 ## 2026-09-14 — DeepSeek V4.1 模型名對齊 + 思考模式支援
 
 ### 背景

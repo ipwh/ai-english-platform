@@ -429,6 +429,11 @@ export default function PracticeQuestionPage() {
         body: JSON.stringify({
           studentId: store.userId || '',
           questionId: question.id,
+          // 2026-09-14: 錯題摘要與技能為顯示／聚合用途。
+          // 伺服器會優先以正典題目定義（ReadingQuestion / GrammarQuestion）覆寫；
+          // 這些自報值只在題目未被持久化時作為後備。
+          questionSummary: question.prompt,
+          languageSkill: question.languageSkill,
           studentAnswer: selectedAnswer,
           correctAnswer: question.answer,
           mistakeType,

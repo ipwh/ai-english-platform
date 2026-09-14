@@ -332,8 +332,10 @@ export interface MistakeItem {
   strand?: CurriculumStrand;
   grammarItem?: GrammarItem;
   languageSkill?: LanguageSkill;
-  subSkill?: string;
-  subSkillZh?: string;
+  /** 閱讀 DSE 題型（inference / vocabulary_in_context …）或文法題型 */
+  questionType?: string;
+  /** 技能歸屬來源：canonical（伺服器正典）| client-claimed | unresolved */
+  skillSource?: string;
   mistakeType: MistakeType;
   studentAnswer: string;
   correctAnswer: string;

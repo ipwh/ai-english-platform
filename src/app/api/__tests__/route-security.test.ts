@@ -32,6 +32,9 @@ const mocks = vi.hoisted(() => ({
   // @/modules/student
   updateVocab: vi.fn(),
   listMistakes: vi.fn(),
+  listDueMistakesForReview: vi.fn(),
+  findMistakeById: vi.fn(),
+  updateMistake: vi.fn(),
   bulkUpdateMistakes: vi.fn(),
   bulkDeleteMistakes: vi.fn(),
   getTodaysXpTransaction: vi.fn(),
@@ -125,6 +128,9 @@ vi.mock('@/modules/student', () => ({
   findUserByIdSelect: mocks.findUserByIdSelect,
   updateVocab: mocks.updateVocab,
   listMistakes: mocks.listMistakes,
+  listDueMistakesForReview: mocks.listDueMistakesForReview,
+  findMistakeById: mocks.findMistakeById,
+  updateMistake: mocks.updateMistake,
   bulkUpdateMistakes: mocks.bulkUpdateMistakes,
   bulkDeleteMistakes: mocks.bulkDeleteMistakes,
   getTodaysXpTransaction: mocks.getTodaysXpTransaction,
@@ -182,6 +188,9 @@ beforeEach(() => {
   mocks.getWordById.mockResolvedValue(null);
   mocks.updateVocab.mockResolvedValue({});
   mocks.listMistakes.mockResolvedValue([]);
+  mocks.listDueMistakesForReview.mockResolvedValue([]);
+  mocks.findMistakeById.mockResolvedValue(null);
+  mocks.updateMistake.mockResolvedValue({});
   mocks.bulkUpdateMistakes.mockResolvedValue({ count: 1 });
   mocks.bulkDeleteMistakes.mockResolvedValue({ count: 1 });
   mocks.syncUserStreak.mockResolvedValue(3);
@@ -335,17 +344,45 @@ describe('SEC-004: /api/srs/review — cross-user blocked', () => {
     expect(mocks.updateVocab).toHaveBeenCalledWith('v1', expect.objectContaining({ familiarity: 'learning' }));
   });
 
-  it('mistake updates are ownership-scoped to the target student', async () => {
+  it('mistake reviews only update the caller\'s own mistake and schedule the next review', async () => {
     authAs(studentA);
+    mocks.findMistakeById.mockResolvedValue({
+      id: 'm1', studentId: 'student-A', reviewInterval: 0, easeFactor: 2.5,
+    });
     const res = await srsRoute.POST(post('http://localhost/api/srs/review', {
       studentId: 'student-A',
       results: [{ type: 'mistake', id: 'm1', quality: 4 }],
     }));
     expect(res.status).toBe(200);
-    expect(mocks.bulkUpdateMistakes).toHaveBeenCalledWith(
-      { id: 'm1', studentId: 'student-A' },
-      expect.objectContaining({ inReviewList: false, reviewed: true }),
-    );
+    // 2026-09-14: 改為先驗擁有權，再以 SM-2 排定下次複習（不再只是 toggle inReviewList）
+    expect(mocks.updateMistake).toHaveBeenCalledWith('m1', expect.objectContaining({
+      reviewed: true,
+      inReviewList: false,
+      nextReviewDate: expect.any(Date),
+      lastReviewedAt: expect.any(Date),
+    }));
+  });
+
+  it('another student\'s mistake id is not updated', async () => {
+    authAs(studentA);
+    mocks.findMistakeById.mockResolvedValue({
+      id: 'm2', studentId: 'student-B', reviewInterval: 0, easeFactor: 2.5,
+    });
+    const res = await srsRoute.POST(post('http://localhost/api/srs/review', {
+      studentId: 'student-A',
+      results: [{ type: 'mistake', id: 'm2', quality: 4 }],
+    }));
+    expect(res.status).toBe(200);
+    expect(mocks.updateMistake).not.toHaveBeenCalled();
+  });
+
+  it('SRS mistake deck only draws due, replayable mistakes', async () => {
+    authAs(studentA);
+    mocks.listDueMistakesForReview.mockResolvedValue([]);
+    const res = await srsRoute.GET(new NextRequest('http://localhost/api/srs/review?studentId=student-A&type=mistakes'));
+    expect(res.status).toBe(200);
+    expect(mocks.listDueMistakesForReview).toHaveBeenCalledWith('student-A', 50);
+    expect(mocks.listMistakes).not.toHaveBeenCalled();
   });
 });
 

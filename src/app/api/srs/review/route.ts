@@ -8,7 +8,8 @@ import { logger } from '@/shared/logger/logger';
 import { calculateNextReview, getDailyReviewTarget, getSrsProgress } from '@/modules/vocabulary/services/srs';
 import { getStudentWords, getWordById } from '@/modules/vocabulary/services/vocabulary-service';
 import { updateVocab } from '@/modules/student';
-import { listMistakes, bulkUpdateMistakes } from '@/modules/student';
+import { listDueMistakesForReview, findMistakeById, updateMistake } from '@/modules/student';
+import { nextMistakeReviewState } from '@/modules/mistake/db/services/mistake-tracker';
 
 // GET — 取得今日待複習的詞彙 + 錯題
 export async function GET(req: NextRequest) {
@@ -52,7 +53,9 @@ export async function GET(req: NextRequest) {
 
     if (type === 'all' || type === 'mistakes') {
       try {
-        dueMistakes = await listMistakes(studentId, 50);
+        // 2026-09-14: 只取「到期且可重考」的錯題（剔除閱讀／聆聽 passage 題目）。
+        // 舊版把所有錯題當成每日卡片 → 同一批卡片永遠重複，且篇章題無法當 flashcard。
+        dueMistakes = await listDueMistakesForReview(studentId, 50);
       } catch { /* silently fail */ }
     }
 
@@ -84,9 +87,14 @@ export async function GET(req: NextRequest) {
         mistakes: limitedMistakes.map(m => ({
           id: m.id,
           questionId: m.questionId,
+          // 2026-09-14: 卡片正面需要題目文字（舊版只回 studentAnswer，
+          // 令複習卡片「正面 = 我的錯答案」）。
+          questionSummary: m.questionSummary,
           studentAnswer: m.studentAnswer,
           correctAnswer: m.correctAnswer,
           mistakeType: m.mistakeType,
+          languageSkill: m.languageSkill,
+          questionType: m.questionType,
           aiExplanation: m.aiExplanation,
         })),
       },
@@ -113,12 +121,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    // 2026-09-14: 接受兩種 payload：正典 { studentId, results: [...] }，
+    // 以及 SRSReviewFlow 早期使用的單卡 { studentId, type, id, quality }。
+    // 舊版只認前者，令 UI 逐卡提交一律 400 → 複習結果從未寫入。
     const { studentId, results } = body as {
       studentId: string;
-      results: { type: 'vocab' | 'mistake'; id: string; quality: number }[];
+      results?: { type: 'vocab' | 'mistake'; id: string; quality: number }[];
+      type?: 'vocab' | 'mistake';
+      id?: string;
+      quality?: number;
     };
+    const normalizedResults = Array.isArray(results) && results.length > 0
+      ? results
+      : (body?.id && body?.type ? [{ type: body.type, id: body.id, quality: Number(body.quality ?? 0) }] : []);
 
-    if (!studentId || !results?.length) {
+    if (!studentId || normalizedResults.length === 0) {
       return NextResponse.json({ error: '缺少必要參數 / Missing required parameters' }, { status: 400 });
     }
 
@@ -128,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     const updates: Promise<unknown>[] = [];
 
-    for (const r of results) {
+    for (const r of normalizedResults) {
       if (r.type === 'vocab') {
         const vocab = await getWordById(r.id);
         if (!vocab || vocab.studentId !== studentId) continue;
@@ -160,23 +177,28 @@ export async function POST(req: NextRequest) {
           })
         );
       } else {
-        // mistakes — toggle inReviewList based on quality
-        if (r.quality <= 2) {
-          // keep in review list
-          updates.push(Promise.resolve());
-        } else {
-          // Ownership-scoped: only mistakes belonging to the target student
-          // (studentId is verified above for student self-service).
-          updates.push(
-            bulkUpdateMistakes({ id: r.id, studentId }, { inReviewList: false, reviewed: true })
-          );
-        }
+        // mistakes — 2026-09-14: 依 SM-2 排定下次複習日期（與 PATCH /api/mistakes 共用同一排程）。
+        // 舊版只把 reviewed 設 true、從不更新 nextReviewDate → 卡片每日重複、永遠抽不完。
+        const existing = await findMistakeById(r.id);
+        if (!existing || existing.studentId !== studentId) continue;
+
+        const schedule = nextMistakeReviewState(existing, r.quality, new Date());
+        updates.push(
+          updateMistake(r.id, {
+            reviewed: true,
+            inReviewList: false,
+            nextReviewDate: schedule.nextReviewDate,
+            reviewInterval: schedule.reviewInterval,
+            easeFactor: schedule.easeFactor,
+            lastReviewedAt: schedule.lastReviewedAt,
+          })
+        );
       }
     }
 
     await Promise.allSettled(updates);
 
-    return NextResponse.json({ success: true, processed: results.length });
+    return NextResponse.json({ success: true, processed: normalizedResults.length });
   } catch (error) {
     logger.error({ module: 'srs-review', error: error instanceof Error ? error.message : String(error) }, 'SRS Review POST failed');
     return NextResponse.json({ error: '無法儲存複習結果' }, { status: 500 });

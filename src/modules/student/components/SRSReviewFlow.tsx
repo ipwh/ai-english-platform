@@ -49,7 +49,9 @@ export default function SRSReviewFlow({ studentId, reviewType, onComplete }: SRS
           type: 'vocab' as const, metadata: v,
         }));
         const mistakeCards = (data.reviewCards?.mistakes || []).map((m: Record<string, unknown>) => ({
-          id: m.id, front: m.questionPrompt || m.studentAnswer,
+          // 2026-09-14: 卡片正面必須是題目（舊版退回 studentAnswer，
+          // 令正面顯示「我的錯答案」而非題目）。
+          id: m.id, front: m.questionSummary || m.questionId,
           back: m.correctAnswer || '', type: 'mistake' as const, metadata: m,
         }));
         setCards([...vocabCards, ...mistakeCards]);
@@ -67,16 +69,16 @@ export default function SRSReviewFlow({ studentId, reviewType, onComplete }: SRS
     setResults(newResults);
     setFlipped(false);
 
-    // Submit to API
+    // Submit to API — 正典 payload 形狀 { studentId, results: [...] }
+    // （2026-09-14：舊版逐卡送扁平的 { type, id, quality }，伺服器一律回 400，
+    //  覆習結果從未寫入；兩邊現在都接受，但這裡統一送正典形狀。）
     const quality = SM2_QUALITY_MAP[outcome];
     fetch('/api/srs/review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         studentId,
-        type: currentCard.type,
-        id: currentCard.id,
-        quality,
+        results: [{ type: currentCard.type, id: currentCard.id, quality }],
       }),
     }).catch(() => {});
 

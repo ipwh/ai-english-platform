@@ -9,29 +9,40 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // Prisma CLI evaluates config before its built-in dotenv loads.
-// Manually parse .env to ensure DATABASE_URL is available.
+// Manually parse env files to ensure DATABASE_URL is available.
+//
+// 2026-09-14: 改為與 repo 其他腳本一致的載入順序（.env.local → .env）。
+// 背景：本機 `.env` 內的 DATABASE_URL 密碼已失效（P1000 auth failed），
+// 可用的憑證只更新在 `.env.local`；`scripts/set-academic-year.ts` 等腳本
+// 一律以 `.env.local` 為優先（README 亦有記載）。此前 Prisma CLI 只讀 `.env`，
+// 令 `prisma migrate deploy` / `db execute` 在本機無法連線。
+// 真實環境變數永遠優先（`process.env` 已有的值不會被覆寫），
+// 故 Vercel / Cloud Run 等無 .env 檔的部署不受影響。
+const ENV_FILES = ['.env.local', '.env'];
+
 function loadEnv() {
-  try {
-    const envPath = resolve(process.cwd(), '.env');
-    const content = readFileSync(envPath, 'utf-8');
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eqIndex = trimmed.indexOf('=');
-      if (eqIndex === -1) continue;
-      const key = trimmed.slice(0, eqIndex).trim();
-      let value = trimmed.slice(eqIndex + 1).trim();
-      // Strip surrounding quotes
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
+  for (const file of ENV_FILES) {
+    try {
+      const content = readFileSync(resolve(process.cwd(), file), 'utf-8').replace(/^\uFEFF/, '');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex === -1) continue;
+        const key = trimmed.slice(0, eqIndex).trim();
+        let value = trimmed.slice(eqIndex + 1).trim();
+        // Strip surrounding quotes
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = value;
+        }
       }
-      if (!process.env[key]) {
-        process.env[key] = value;
-      }
+    } catch {
+      // env files are optional
     }
-  } catch {
-    // .env file is optional
   }
 }
 

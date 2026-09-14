@@ -81,6 +81,30 @@ export function getDueForReview(mistakes: MistakeRecord[]): MistakeRecord[] {
   return mistakes.filter(m => !m.reviewed && m.nextReviewDate && m.nextReviewDate <= now);
 }
 
+/**
+ * 2026-09-14: 錯題 SRS 排程 — 單一排程 owner。
+ *
+ * 由 SM-2（calculateNextReview）推導下次複習狀態，並把「現在」參數化，
+ * 令 PATCH /api/mistakes 與 POST /api/srs/review 可以共用同一套排程規則，
+ * 亦可在測試中驗證到期日。
+ *
+ * 沒有這個函式時：nextReviewDate 從不更新 → 每日複習永遠是同一批卡片。
+ */
+export function nextMistakeReviewState(
+  current: { reviewInterval?: number | null; easeFactor?: number | null },
+  quality: number,
+  now: Date = new Date(),
+): { reviewInterval: number; easeFactor: number; nextReviewDate: Date; lastReviewedAt: Date } {
+  const { interval, easeFactor } = calculateNextReview(
+    current.reviewInterval ?? 0,
+    current.easeFactor ?? 2.5,
+    quality,
+  );
+  const nextReviewDate = new Date(now);
+  nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+  return { reviewInterval: interval, easeFactor, nextReviewDate, lastReviewedAt: now };
+}
+
 /** Check if a student has mastered a category based on recent accuracy */
 export function estimateCategoryMastery(
   mistakes: MistakeRecord[],

@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-09-14 — 131 files, 2843 tests pass (+1 gated skip; full non-E2E), plus 34 route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-14 — 137 files, 2912 tests pass (+1 gated skip; full non-E2E), plus route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -60,7 +60,7 @@ Writing Evaluation (Sprints 127-130):
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
-| Documentation | 40 ADRs (ADR-001–040) in `docs/architecture/` |
+| Documentation | 41 ADRs (ADR-001–041) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) + Vercel (legacy) |
@@ -78,7 +78,8 @@ Writing Evaluation (Sprints 127-130):
 - **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
 - **即時批改回饋** — AI 分析答案（依 HKDSE Reading/Listening Descriptors 原則），提供中英雙語解釋、常見錯誤提示
 - **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正與示範強化。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
-- **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣
+- **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣；**每道錯題都有技能／題型歸屬**（由伺服器持有的 `ReadingQuestion.dseType` / `GrammarQuestion.grammarItem` 解析，非前端自報）
+- **🎯 題型弱項（錯題本）** — 錯題按技能／題型聚合（例如「閱讀・推論」），附**確定性雙語策略卡**（常見錯因 + 下次作答步驟）。**閱讀／聆聽錯題依附特定篇章，無法重考同一題**，因此該類項目不再提供無效的「重做」，改為「練 DSE 閱讀（涵蓋此題型）」；文法／詞彙則練同項目新題，語境詞義錯題可一鍵加入生字簿
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
 - **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化複習建議，掌握度 ★ 評級（0-5），自動去重
@@ -87,7 +88,7 @@ Writing Evaluation (Sprints 127-130):
 - **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕
 - **AI 求助助手** — 🆕 **個人化求助與建議 v2**：讀取學生練習紀錄、錯題數據及連續學習天數後，自動計算**建議信心度**（0-100 分，四維度加權）；AI 對照 HKDSE 各卷別等級描述提供**具體量化**的個人化英文學習建議（含改善目標及時間表）；**弱項驅動 FAQ 動態排序**（文法/詞彙/寫作/閱讀分類按相關性自動排列，弱項類別標記 🔴 優先關注）；**AI 建議問題**（根據弱項自動生成 2-3 條建議提問，一鍵發問）；**個人化 FAQ**（從 AI 分析結果生成針對性 Q&A，附具體量化改善步驟）；**數據不足提示**（練習少於 3 次或作答少於 30 題時顯示基本英語提升建議，提示多用平台累積數據）；回答後可一鍵生成相關練習題目，即時練習改進
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、18 款成就徽章（連續學習、正確率、練習量、寫作、詞彙、初中友善徽章）、匿名班級排行榜、每日連續學習火焰動畫
-- **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶
+- **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶。錯題卡片只抽「**到期且可重考**」的項目（閱讀／聆聽篇章題目不在 flashcard 隊列），每次評分以 SM-2 排定下次複習日
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
 - **🔍 歷屆試題 RAG (DSE RAG)** — AI 出題、批改、解說時自動檢索真實 DSE 歷屆試題內容與官方 Marking Schemes 作為參考上下文。RAG 檢索結果僅用於提示詞接地（prompt grounding），不直接決定學生評分。（Feature Flag: `DSE_RAG_ENABLED=true`）
 - **🗣️ 口語練習** — 支援 transcript 文字輸入分析（DSE Speaking rubric L1-L5 評級），可選 S1-S6 年級及補底/核心/挑戰難度，未來擴展 STT 語音辨識
@@ -102,7 +103,7 @@ Writing Evaluation (Sprints 127-130):
 
 ### 🚀 v4.1 Learning Intelligence (Sprints 31-40)
 - **🎯 學生掌握度模型 (S31)** — 6 維度技能追蹤（Grammar/Vocabulary/Reading/Writing/Listening/Speaking），基於準確度(60%)+新近度(25%)+練習量(15%)的加權公式
-- **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）
+- **🔍 錯題智能引擎 (S32)** — 縱向錯題分析、持續性弱點檢測、改善/惡化趨勢判定（線性回歸）；弱項類別現以「技能／題型」分桶（`reading:inference` / `grammar:tenses-simple`），不再落入單一 `general`，舊弱項會被標記為已掌握
 - **📊 DSE 文法考點權重** — 16 個文法主題的 HKDSE 考試頻率權重（時態 very-high → 虛擬語氣 low）
 - **🌍 多元題材資料庫** — 200+ 閱讀主題、90+ 聆聽場景、90+ 寫作類別，涵蓋本地特色（香港街頭小吃、天星小輪、郊野公園、茶餐廳文化、社區重建、非遺保育、公共房屋）及國際視野（氣候正義、數位貨幣、AI 倫理、四天工作週、孤獨流行病、公平貿易、難民教育、全球糧食安全、跨境網購權益），確保出題內容豐富不重複
 - **🧠 推薦引擎 2.0 (S33)** — 弱點(40%)+近期錯誤(30%)+考試重要性(20%)+記憶衰減(10%)自適應推薦
@@ -256,7 +257,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] 寫作批改與改寫（CLO rubric 21 分制）
 - [ ] Integrated Skills 三步驟流程（聆聽→筆記→寫作）
 - [ ] 診斷測試 → 弱項訓練一鍵流程
-- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1648 個 key（中英各一），`npm run check:i18n` exit 0）
+- [ ] 中英語言切換（所有頁面，19 個 i18n 檔案 / 1661 個 key（中英各一），`npm run check:i18n` exit 0）
 - [ ] 教師建立任務 → 學生提交 → AI 批改
 - [ ] 管理員 CSV 批量匯入
 - [ ] 生字簿 CRUD + PDF 匯出 + 串字練習
@@ -596,6 +597,8 @@ npx tsx scripts/set-academic-year.ts 2027-2028 --apply
 並新增 migration（參考 `prisma/migrations/20260901_set_academic_year_2026_2027/`）。
 
 > 💡 `scripts/set-academic-year.ts` 依序讀取 `.env.local` → `.env` → `cloud-run-env.yaml` 的 `DATABASE_URL`。注意 `cloud-run-env.yaml` 內的密碼已過期，以 `.env.local` 為準。
+>
+> 💡 2026-09-14：`prisma.config.ts` 現已採用相同順序（`.env.local` → `.env`），因此 `npx prisma migrate deploy` / `npx prisma db execute` 在本機可直接連線（此前只讀 `.env`，會以過期密碼得到 P1000）。真實環境變數（Vercel / Cloud Run）永遠優先，部署行為不變。
 
 ---
 
@@ -631,7 +634,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-09-14，131 files，2843 tests pass（+1 skipped）。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-09-14，137 files，2912 tests pass（+1 skipped）。
 
 ## 目前狀態
 
@@ -656,7 +659,7 @@ npm run test:watch    # 持續監控模式
 | DSE RAG | ✅ 歷屆試題已匯入，7 個 usecase + 閱讀路由共 8 個流程已接入（Feature Flag: `DSE_RAG_ENABLED`）；RAG 僅作為提示詞接地參考，不直接決定評分 |
 | 寫作評估 | ✅ 3 評估器架構（Semantic 證據層→CLO 評分層→確定性標準化）。8 條架構不變量由合約測試強制執行。Golden benchmark infrastructure 就緒（17 fixtures，全部 expected=null）；empirical metrics (MAE/RMSE/bias) 需要 human-labelled data |
 | 校準（Calibration） | ✅ 校準基礎設施就緒（三態 release gate、執行歸因、序數 level 指標、C/L/O 維度門檻、evidence 驗證政策）。**基礎設施存在不建立 HKDSE 評分有效性**：目前 `overall-comparable = 0` → `INSUFFICIENT_DATA`，`ASSESSMENT VALIDITY NOT ESTABLISHED`（平台不宣稱 marker-equivalence） |
-| 測試 | ✅ 131 files, 2843 tests pass（2026-09-14） |
+| 測試 | ✅ 137 files, 2912 tests pass（2026-09-14） |
 
 ## 部署
 

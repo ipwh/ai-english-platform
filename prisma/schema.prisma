@@ -317,6 +317,13 @@ model Mistake {
   studentAnswer   String
   correctAnswer   String
   mistakeType     String    // grammar | vocabulary | comprehension | careless | time-management | chinglish
+  // 2026-09-14: skill identity — 錯題的可複習單位是「技能／題型」而非該條題目。
+  // 由伺服器解析（ReadingQuestion.dseType / GrammarQuestion.grammarItem），
+  // 客戶端自報值僅在無法解析時才採用，且必須通過白名單（見 mistake-skill-identity.ts）。
+  languageSkill   String?   // listening | speaking | reading | writing
+  grammarItem     String?   // GrammarQuestion.grammarItem（文法項目）
+  questionType    String?   // 閱讀 dseType（inference / vocabulary_in_context …）或文法題型
+  skillSource     String?   // canonical | client-claimed | unresolved
   aiExplanation   String?
   reviewed        Boolean   @default(false)
   inReviewList    Boolean   @default(false)

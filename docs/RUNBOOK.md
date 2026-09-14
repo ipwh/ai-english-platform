@@ -31,6 +31,10 @@ npx prisma db push      # Schema sync (dev)
 npx prisma migrate deploy  # Migration apply (prod)
 ```
 
+> 本機執行上述指令時，`prisma.config.ts` 依 **`.env.local` → `.env`** 順序載入 `DATABASE_URL`
+> （2026-09-14 起；此前只讀 `.env`，而該檔的 Neon 密碼已失效 → P1000）。
+> 真實環境變數永遠優先，故 Cloud Run / Vercel 不受影響。
+
 ### Check Feature Flags
 ```bash
 curl https://[domain]/api/health?type=features

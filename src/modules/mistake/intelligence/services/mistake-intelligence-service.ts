@@ -3,10 +3,16 @@ import type { WeaknessProfile, WeaknessItem, TrendDirection } from '../types';
 import { GRAMMAR_CATEGORY_LABELS } from '../types';
 import { getTopWeaknesses, getRecurringMistakes, getStudentSummaries, aggregateMistakes } from '../repositories/mistake-intelligence-repo';
 import { calculateTrend, calculateWeaknessSeverityScore, isPersistentWeakness } from './mistake-intelligence-formula';
+import { bucketKeyLabelZh } from './mistake-skill-breakdown';
 
-/** Category label lookup with fallback */
+/**
+ * Category label lookup with fallback.
+ * 2026-09-14: categories are now skill/type bucket keys (`reading:inference`,
+ * `grammar:tenses-simple`) — fall back to the bucket label resolver before
+ * showing the raw key.
+ */
 function getCategoryZh(category: string): string {
-  return GRAMMAR_CATEGORY_LABELS[category] ?? category;
+  return GRAMMAR_CATEGORY_LABELS[category] ?? bucketKeyLabelZh(category) ?? category;
 }
 
 /**

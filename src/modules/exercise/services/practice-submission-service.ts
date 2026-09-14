@@ -42,6 +42,10 @@ import {
   syncStudentActivityMetrics,
 } from '@/modules/learning-analytics/services/activity-accounting-service';
 import { createMistakeIfAbsent } from '@/modules/mistake/db/repositories/mistake-repo';
+import {
+  resolveMistakeSkillIdentities,
+  type MistakeSkillIdentity,
+} from './mistake-skill-identity';
 
 export interface SubmitPracticeInput {
   studentId: string;
@@ -166,6 +170,18 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
         : skillLower.includes('writ')
           ? 'chinglish'
           : 'grammar';
+
+    // 2026-09-14: 技能／題型歸屬 — 由正典題目定義解析（與 /api/mistakes 共用同一解析器）。
+    // 解析失敗不阻止錯題記錄；查不到的舊題目只留錯誤類型，標記 unresolved 而不推測技能。
+    let skillIdentities = new Map<string, MistakeSkillIdentity>();
+    if (wrongAnswers.length > 0) {
+      try {
+        skillIdentities = await resolveMistakeSkillIdentities(wrongAnswers.map(a => a.questionId));
+      } catch (err) {
+        logger.warn({ module: 'practice', studentId, error: err instanceof Error ? err.message : String(err) }, 'Mistake skill resolution failed (non-fatal)');
+      }
+    }
+
     for (const a of wrongAnswers) {
       try {
         await createMistakeIfAbsent({
@@ -175,6 +191,12 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
           studentAnswer: a.studentAnswer || '',
           correctAnswer: a.correctAnswer || '',
           mistakeType,
+          languageSkill: skillIdentities.get(a.questionId)?.languageSkill
+            ?? (submissionClass === 'reading' ? 'reading' : null),
+          grammarItem: skillIdentities.get(a.questionId)?.grammarItem ?? null,
+          questionType: skillIdentities.get(a.questionId)?.questionType ?? null,
+          skillSource: skillIdentities.get(a.questionId)?.skillSource
+            ?? (submissionClass === 'reading' ? 'client-claimed' : 'unresolved'),
         });
       } catch (err) {
         logger.warn({ module: 'practice', studentId, error: err instanceof Error ? err.message : String(err) }, 'Auto-mistake sync failed (non-fatal)');

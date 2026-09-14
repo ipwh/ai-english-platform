@@ -1,63 +1,104 @@
 // Sprint 32: Mistake Intelligence Repository
 import { db } from '@/shared/db/db';
+import {
+  buildMistakeSkillBreakdown,
+  mistakeBucketKey,
+} from '../services/mistake-skill-breakdown';
 
-/** Aggregate mistakes into StudentMistakeSummary for a student */
+/** 單一學生的弱項桶上限 — 保證不遺漏任何現存弱項 */
+const MAX_BUCKETS = 50;
+
+const MISTAKE_CATEGORIES = new Set([
+  'grammar', 'vocabulary', 'comprehension', 'careless', 'time-management', 'chinglish',
+]);
+
+/**
+ * Aggregate mistakes into StudentMistakeSummary for a student.
+ *
+ * 2026-09-14: 改以「技能／題型」分桶（與錯題頁共用 buildMistakeSkillBreakdown —
+ * 單一分桶 owner）。舊版把 `mistakeType`（一個分類字串）當成題目文字丢進
+ * `extractGrammarPoint()` 的正則 → 幾乎所有錯題都落入 `general`，
+ * 弱項摘要因此失去分辨力。
+ *
+ * grammarCategory 現在的值形如 `reading:inference` / `grammar:tenses-simple` /
+ * `vocabulary`。顯示層用 GRAMMAR_CATEGORY_LABELS → bucketKeyLabelZh 解析中文標籤。
+ */
 export async function aggregateMistakes(studentId: string) {
   const mistakes = await db.mistake.findMany({
     where: { studentId },
-    select: { mistakeType: true, createdAt: true },
+    select: {
+      mistakeType: true,
+      createdAt: true,
+      reviewed: true,
+      languageSkill: true,
+      grammarItem: true,
+      questionType: true,
+    },
   });
 
-  // Import dynamically to avoid circular deps in tests
-  const { extractGrammarPoint } = await import('@/modules/mistake/db/services/mistake-tracker');
+  const buckets = buildMistakeSkillBreakdown(mistakes, MAX_BUCKETS);
+
+  // 動態載入以避開 repository → db-layer service 的靜態依賴（模組邊界規則）
   const { classifySeverity } = await import('@/modules/mistake/db/services/mistake-tracker');
   const { calculateTrend } = await import('../services/mistake-intelligence-formula');
 
-  // Group by grammar category
-  const grouped = new Map<string, { count: number; lastSeen: Date; weeklyCounts: Map<string, number> }>();
+  // 每週錯誤次數（趨勢分析）— 以同一 bucket key 聚合
+  const weeklyByBucket = new Map<string, Map<string, number>>();
   for (const m of mistakes) {
-    const cat = extractGrammarPoint(m.mistakeType);
-    const existing = grouped.get(cat);
+    const key = mistakeBucketKey(m);
     const week = getWeekKey(m.createdAt);
-    if (existing) {
-      existing.count++;
-      if (m.createdAt > existing.lastSeen) existing.lastSeen = m.createdAt;
-      existing.weeklyCounts.set(week, (existing.weeklyCounts.get(week) ?? 0) + 1);
-    } else {
-      const wc = new Map<string, number>();
-      wc.set(week, 1);
-      grouped.set(cat, { count: 1, lastSeen: m.createdAt, weeklyCounts: wc });
-    }
+    const map = weeklyByBucket.get(key) ?? new Map<string, number>();
+    map.set(week, (map.get(week) ?? 0) + 1);
+    weeklyByBucket.set(key, map);
   }
 
-  // Upsert summaries
+  const weeks = getLast4Weeks();
   const results = [];
-  for (const [cat, data] of grouped) {
-    const severity = classifySeverity(cat as Parameters<typeof classifySeverity>[0]);
-    const weeks = getLast4Weeks();
-    const weeklyCounts = weeks.map(w => data.weeklyCounts.get(w) ?? 0);
-    const trend = calculateTrend({ category: cat, weeklyCounts });
+  for (const bucket of buckets) {
+    const weekly = weeklyByBucket.get(bucket.key);
+    const trend = calculateTrend({
+      category: bucket.key,
+      weeklyCounts: weeks.map(w => weekly?.get(w) ?? 0),
+    });
+    const severity = MISTAKE_CATEGORIES.has(bucket.mistakeType)
+      ? classifySeverity(bucket.mistakeType as Parameters<typeof classifySeverity>[0])
+      : 'major';
 
     const summary = await db.studentMistakeSummary.upsert({
-      where: { studentId_grammarCategory: { studentId, grammarCategory: cat } },
+      where: { studentId_grammarCategory: { studentId, grammarCategory: bucket.key } },
       create: {
         studentId,
-        grammarCategory: cat,
-        mistakeCount: data.count,
-        lastSeen: data.lastSeen,
+        grammarCategory: bucket.key,
+        mistakeCount: bucket.count,
+        lastSeen: new Date(bucket.lastSeen),
         severity,
         mastered: false,
         trend,
       },
       update: {
-        mistakeCount: data.count,
-        lastSeen: data.lastSeen,
+        mistakeCount: bucket.count,
+        lastSeen: new Date(bucket.lastSeen),
         severity,
         trend,
+        // 仍有現存錯題 → 重新成為弱項（mastered 只代表「不再有該類錯題」）
+        mastered: false,
       },
     });
     results.push(summary);
   }
+
+  // 已消失的弱項桶 → 標記為 mastered（列被保留，不刪除歷史）
+  await db.studentMistakeSummary.updateMany({
+    where: {
+      studentId,
+      mastered: false,
+      ...(buckets.length > 0
+        ? { grammarCategory: { notIn: buckets.map(b => b.key) } }
+        : {}),
+    },
+    data: { mastered: true },
+  });
+
   return results;
 }
 
