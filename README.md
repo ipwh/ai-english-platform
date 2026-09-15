@@ -228,7 +228,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 | `GOOGLE_SHEETS_ID` | Google Sheets spreadsheet ID | ⬜ |
 | `GOOGLE_DRIVE_FOLDER_ID` | Google Drive folder ID for materials | ⬜ |
 | `DSE_RAG_ENABLED` | 啟用歷屆試題 RAG 檢索（`true`，強烈建議） | ⬜ |
-| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 dev=30000 / prod=8000 | ⬜ |
+| `AI_TIMEOUT_MS` | AI API 呼叫 timeout（ms），預設 dev=30000 / prod=20000（僅為安全下限，呼叫端應明確指定） | ⬜ |
 | `AI_CACHE_ENABLED` | 啟用 AI 回應快取（預設 `true`，降低 API 費用） | ⬜ |
 | `AI_CACHE_TTL_MS` | AI 快取 TTL（毫秒，預設 3600000 = 1 小時） | ⬜ |
 | `LOG_LEVEL` | 日誌等級：`trace`/`debug`/`info`/`warn`/`error`/`fatal`（生產預設 `info`，開發預設 `debug`） | ⬜ |

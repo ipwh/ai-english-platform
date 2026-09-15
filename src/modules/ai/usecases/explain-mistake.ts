@@ -64,7 +64,8 @@ export async function explainMistake(input: ExplainMistakeInput): Promise<Mistak
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    options: { temperature: 0.5, maxTokens: 2048, jsonMode: true, userId: input.userId },
+    // Explicit budget (never rely on the config default — it was 8s in production).
+    options: { temperature: 0.5, maxTokens: 2048, jsonMode: true, timeoutMs: 20000, userId: input.userId },
     schema: MistakeExplanationSchema,
   });
 }

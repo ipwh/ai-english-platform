@@ -596,13 +596,21 @@ Content / Organization 分數亦需按 system rubric 評分，
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        return await callLLM(
+        const raw = await callLLM(
           [
-            { role: 'system', content: grammarPrompt },
-            { role: 'user', content: userPromptWithEvidence },
+            { role: "system", content: grammarPrompt },
+            { role: "user", content: userPromptWithEvidence },
           ],
-          { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId }
+          // Budget follows the canonical reading-policy gradient (5ms per token,
+          // see /api/reading getReadingTimeout): 8192 × 5ms ≈ 41s → 45s here.
+          { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 8192, jsonMode: true, timeoutMs: 45000, userId: input.userId }
         );
+        // An empty answer is a FAILURE, not a missing score: DeepSeek returns
+        // HTTP 200 with an empty body when the output budget is exhausted
+        // (see deepseek-provider). Throwing here routes it through the retry
+        // below instead of letting the pipeline report "CLO 評分不完整".
+        if (!raw.trim()) throw new Error('AI 回應為空 / Empty response from AI');
+        return raw;
       } catch (e) {
         if (attempt === 1) throw e;
         logger.warn({ module: 'analyzeWriting', error: (e as Error).message }, 'Grammar call retry after failure');
@@ -614,17 +622,24 @@ Content / Organization 分數亦需按 system rubric 評分，
   async function runStyleAnalysis(): Promise<string> {
     // Style analysis requires TWO full rewrites (faithfulCorrection + enhancedVersion)
     // plus feedback fields in a single JSON response — give it extra output room
-    // (8192) and retry once on transient failures so a single flaky call does not
+    // (12288; raised from 8192 on 2026-09-15 so a long draft cannot truncate the
+    // second rewrite) and a proportional 60s budget (12288 × 5ms ≈ 61s, capped at
+    // 60s because this is the student-facing critical path; Cloud Run allows 300s),
+    // then retry once on transient failures so a single flaky call does not
     // degrade the whole 寫作技巧 section.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        return await callLLM(
+        const raw = await callLLM(
           [
-            { role: 'system', content: stylePrompt },
-            { role: 'user', content: styleUserPrompt },
+            { role: "system", content: stylePrompt },
+            { role: "user", content: styleUserPrompt },
           ],
-          { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 8192, jsonMode: true, timeoutMs: 25000, userId: input.userId }
+          { temperature: attempt === 0 ? 0.3 : 0.5, maxTokens: 12288, jsonMode: true, timeoutMs: 60000, userId: input.userId }
         );
+        // Same fail-loud rule as the grammar call: an empty body means the
+        // output budget was exhausted, so retry instead of degrading silently.
+        if (!raw.trim()) throw new Error('AI 回應為空 / Empty response from AI');
+        return raw;
       } catch (e) {
         if (attempt === 1) throw e;
         logger.warn({ module: 'analyzeWriting', error: (e as Error).message }, 'Style call retry after failure');
@@ -805,6 +820,11 @@ Content / Organization 分數亦需按 system rubric 評分，
   // (The LLM's own overallScore is parsed for diagnostics only and is
   // NEVER an authority — no numeric fallback exists.)
   if (cloTotalScore == null) {
+    // Two distinct causes, both failing closed — tell the student which one it
+    // was, so a provider outage is not reported as a scoring anomaly.
+    if (grammarFailed) {
+      throw new Error('CLO 評分不完整（評分 AI 未回傳 Content / Language / Organization 分數 — 通常是 AI 服務逾時或回應被截斷），無法產生總分。請重試。 / CLO scoring incomplete (the scoring AI returned no Content / Language / Organization scores — usually an AI timeout or a truncated response) — a total cannot be produced. Please try again.');
+    }
     throw new Error('CLO 評分不完整（缺少 Content / Language / Organization 分數），無法產生總分。請重試。 / CLO scoring incomplete (missing Content / Language / Organization scores) — a total cannot be produced. Please try again.');
   }
 

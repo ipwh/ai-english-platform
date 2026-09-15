@@ -32,11 +32,13 @@ describe('DeepSeekProvider request shaping', () => {
     vi.unstubAllGlobals();
   });
 
-  it('leaves thinking at the API default when the option is unset', async () => {
+  it('disables thinking when the option is unset (V4.1 API default would burn the output budget)', async () => {
     const bodies = stubFetch();
     await deepseekProvider.call([{ role: 'user', content: 'hi' }], { temperature: 0.3 });
 
-    expect(bodies[0].thinking).toBeUndefined();
+    // The API enables thinking at effort `high` whenever the field is omitted,
+    // which drops temperature and spends max_tokens on the reasoning chain.
+    expect(bodies[0].thinking).toEqual({ type: 'disabled' });
     expect(bodies[0].reasoning_effort).toBeUndefined();
     expect(bodies[0].temperature).toBe(0.3);
   });

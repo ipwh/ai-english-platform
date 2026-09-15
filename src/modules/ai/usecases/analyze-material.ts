@@ -37,7 +37,8 @@ ${input.content.slice(0, 8000)}
   return executeAI({
     context: { feature: 'Reading', useCase: 'AnalyzeMaterial', promptName: 'MaterialAnalysis', promptVersion: 'v1' },
     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    options: { temperature: 0.4, maxTokens: 4096, jsonMode: true, userId: input.userId },
+    // Explicit budget (never rely on the config default — it was 8s in production).
+    options: { temperature: 0.4, maxTokens: 4096, jsonMode: true, timeoutMs: 25000, userId: input.userId },
     schema: MaterialAnalysisSchema,
   });
 }

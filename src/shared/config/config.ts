@@ -274,10 +274,13 @@ const db = {
 // ============================================
 
 const ai = {
-  /** AI API timeout in ms。Cloud Run 請求上限 300s（cloud-run.yaml），本地可用 30000+ */
+  /** AI API timeout in ms。Cloud Run 請求上限 300s（cloud-run.yaml），本地可用 30000+
+   *  2026-09-15：生產下限由 8000 提高至 20000 — 實測 DeepSeek 約 200 tok/s，
+   *  8s 只夠約 1600 tokens，2048–4096 token 的 JSON 回應必然逾時（仍請在呼叫端
+   *  明確指定 timeoutMs，此值僅為安全下限）。 */
   timeoutMs: (() => {
     const val = Number(process.env.AI_TIMEOUT_MS);
-    return Number.isFinite(val) && val > 0 ? val : (isProduction ? 8000 : 30000);
+    return Number.isFinite(val) && val > 0 ? val : (isProduction ? 20000 : 30000);
   })(),
   /** 是否啟用 AI 回應快取（相同 prompt 不重複調用） */
   cacheEnabled: process.env.AI_CACHE_ENABLED ? process.env.AI_CACHE_ENABLED !== 'false' : true,

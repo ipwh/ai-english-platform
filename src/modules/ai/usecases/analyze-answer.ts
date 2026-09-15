@@ -164,7 +164,11 @@ ${input.questionType === 'error-correction' ? `⚠️ 改錯題特別說明：�
       { role: 'system', content: systemPrompt + msContextPrompt },
       { role: 'user', content: userPrompt },
     ],
-    options: { temperature: 0.3, maxTokens: 2048, jsonMode: true, userId: input.userId },
+    // Explicit budget: this use case previously relied on config.ai.timeoutMs,
+    // i.e. 8s in production — below the measured DeepSeek throughput for a
+    // 2048-token JSON answer (~200 tok/s → 10s+), which surfaced to students as
+    // "DeepSeek request timed out" on the practice page (2026-09-15).
+    options: { temperature: 0.3, maxTokens: 2048, jsonMode: true, timeoutMs: 20000, userId: input.userId },
     schema: AnswerAnalysisSchema,
   });
 

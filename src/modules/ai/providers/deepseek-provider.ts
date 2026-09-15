@@ -1,8 +1,16 @@
 // ============================================
 // DeepSeekProvider — DeepSeek API (primary provider)
 // Model names (V4.1, 2026-09-14): `deepseek-flash` (default) | `deepseek-v4-pro`
-// Thinking mode is ON by default (effort `high`); control it via LLMCallOptions
-// `thinking` / `reasoningEffort`. See /guides/thinking_mode in the DeepSeek docs.
+//
+// THINKING POLICY: thinking mode is OPT-IN. The API turns thinking ON (effort
+// `high`) whenever the request omits the field, which silently (a) drops
+// `temperature`, (b) spends `max_tokens` on `reasoning_content` before the
+// answer, and (c) triples latency. Every prompt, token budget, timeout and
+// cache threshold in this codebase was tuned for the non-thinking path, so
+// omitting the field is treated as "disabled" and callers that genuinely need
+// multi-step reasoning must pass `thinking: true` (+ optional
+// `reasoningEffort`) and raise `maxTokens`/`timeoutMs` accordingly.
+// See /guides/thinking_mode in the DeepSeek docs.
 // Sprint 3: AI Provider Abstraction
 // Sprint 110: DEBUG mode — set DEEPSEEK_DEBUG=true for full request/response logs
 // ============================================
@@ -42,9 +50,17 @@ export class DeepSeekProvider implements AIProvider {
 
     const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
 
-    // DeepSeek V4.1: thinking mode is enabled by default (effort `high`) and the API
-    // ignores `temperature` while thinking is on. Only send `temperature` when the
-    // caller explicitly disables thinking — otherwise it would be silently dropped.
+    // DeepSeek V4.1 enables thinking (effort `high`) whenever the field is omitted,
+    // and the API IGNORES `temperature` while thinking is on.
+    //
+    // Measured 2026-09-15 against the production model (`deepseek-flash`) with the
+    // real writing-analysis prompt and `max_tokens: 4096`:
+    //   omitted  → 21.1s, 4096 completion tokens, 13,007 chars of reasoning,
+    //              `content` EMPTY (the whole budget went to the chain-of-thought)
+    //   disabled →  6.3s, 1286 completion tokens, complete JSON, temperature honoured
+    // The empty answer is an HTTP 200, so callers see "no CLO scores" instead of a
+    // failure. Omitting the field therefore means "disabled" here — see the file
+    // header for the policy. Callers opt in with `thinking: true`.
     // Refs: api-docs.deepseek.com/zh-cn/guides/thinking_mode (2026-09-14)
     const thinkingEnabled = options?.thinking === true;
 
@@ -54,9 +70,7 @@ export class DeepSeekProvider implements AIProvider {
       ...(thinkingEnabled ? {} : { temperature: options?.temperature ?? 0.7 }),
       max_tokens: options?.maxTokens ?? 1024,
       response_format: options?.jsonMode ? { type: 'json_object' as const } : undefined,
-      ...(options?.thinking !== undefined
-        ? { thinking: { type: options.thinking ? 'enabled' as const : 'disabled' as const } }
-        : {}),
+      thinking: { type: thinkingEnabled ? 'enabled' as const : 'disabled' as const },
       ...(options?.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
       ...(options?.userId ? { user_id: options.userId } : {}),
     };
@@ -128,6 +142,20 @@ export class DeepSeekProvider implements AIProvider {
       const content = data.choices?.[0]?.message?.content || '';
       const reasoningContent = data.choices?.[0]?.message?.reasoning_content || '';
       const latencyMs = Date.now() - startTime;
+
+      // HTTP 200 with an empty answer means the token budget was consumed before
+      // any answer was produced (reasoning chain, or a truncated JSON body).
+      // Surface it as a provider-level warning so callers' fail-closed paths are
+      // traceable instead of looking like "the AI graded without scores".
+      if (!content.trim()) {
+        logger.warn({
+          module: 'deepseek',
+          latencyMs,
+          completionTokens: data.usage?.completion_tokens,
+          reasoningChars: reasoningContent.length,
+          finishReason: (data.choices?.[0] as { finish_reason?: string } | undefined)?.finish_reason,
+        }, 'DeepSeek returned an empty answer');
+      }
 
       // ── DEBUG: Full response log ──
       if (DEBUG) {

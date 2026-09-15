@@ -591,3 +591,41 @@ describe("Integration M — pedagogical target cannot mutate scoring (semantic m
     expect(resultB.artifact?.generationVersion).toBe("MODEL_ESSAY_GENERATION_V2"); // echo preserved
   });
 });
+// ============================================
+// Provider-outage contract: an empty AI body is a FAILURE, never a score
+// ============================================
+describe("Integration N — empty AI answer fails closed with the real cause", () => {
+  it("blank grammar answer is retried once, then reports an AI failure (not a scoring anomaly)", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce("")        // grammar attempt 1 — HTTP 200 with an empty body
+      .mockResolvedValueOnce("   ");    // grammar attempt 2 — still empty
+
+    await expect(analyzeWriting(defaultInput)).rejects.toThrow(/通常是 AI 服務逾時或回應被截斷/);
+    // style once + grammar twice — the blank answer must trigger the retry
+    expect(mockCallLLM).toHaveBeenCalledTimes(3);
+  });
+
+  it("recovers when the retry returns a complete answer", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce("")
+      .mockResolvedValueOnce(mockGrammarResponse());
+
+    const result = await analyzeWriting(defaultInput);
+    expect(result.cloTotalScore).toBe(12);
+    expect(result.overallScore).toBe(57);
+  });
+
+  it("a resolved-but-scoreless answer still fails closed with the CLO message", async () => {
+    mockCallLLM
+      .mockResolvedValueOnce(mockStyleResponse())
+      .mockResolvedValueOnce(mockGrammarResponse({
+        contentScore: undefined,
+        languageScore: undefined,
+        organizationScore: undefined,
+      }));
+
+    await expect(analyzeWriting(defaultInput)).rejects.toThrow(/CLO 評分不完整/);
+  });
+});

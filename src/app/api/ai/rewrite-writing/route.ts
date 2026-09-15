@@ -59,6 +59,9 @@ Return ONLY a JSON object:
       temperature: 0.3,
       maxTokens: 4096,
       jsonMode: true,
+      // This route previously inherited config.ai.timeoutMs (8s in production),
+      // which is below the measured DeepSeek throughput for a 4096-token rewrite.
+      timeoutMs: 60000,
     });
 
     const cleaned = result

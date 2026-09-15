@@ -44,6 +44,15 @@ export const aiCache = {
 
   async set(rawKey: string, value: string): Promise<void> {
     if (!isEnabled()) return;
+    // An empty answer is a provider FAILURE, not a result: DeepSeek V4.1 returns
+    // HTTP 200 with an empty body when the output budget is spent on the
+    // reasoning chain (measured 2026-09-15, see deepseek-provider). Caching it
+    // would replay the failure for the whole TTL — and the retry the student is
+    // told to perform sends an identical prompt (identical cache key).
+    if (!value.trim()) {
+      logger.warn({ module: 'ai-cache' }, 'Refusing to cache an empty AI answer');
+      return;
+    }
     try {
       const key = await hashKey(rawKey);
       const ttl = getTTL();

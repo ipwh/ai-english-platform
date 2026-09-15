@@ -4,6 +4,82 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-15 — 修復 DeepSeek V4.1 思考模式回歸（寫作批改「CLO 評分不完整」/ AI 全線逾時）
+
+### 症狀（生產環境，學生端）
+1. `/student/writing` 提交後顯示「**CLO 評分不完整（缺少 Content / Language / Organization 分數）**」
+   —— 但其他區塊（優點／詞彙建議）卻正常顯示，令學生誤以為是評分系統出錯。
+2. 練習／課堂回饋顯示「**All AI providers failed (configured: deepseek): deepseek: DeepSeek request timed out.**」
+
+### 根本原因
+
+`5057375`（2026-09-14）把預設模型由 `deepseek-chat` 改為 V4.1 的 `deepseek-flash`，並新增
+`thinking` / `reasoningEffort` 選項，當時註明「未指定時完全維持 API 預設…**不改變現行行為**」。
+實測證明該假設不成立：**未指定 `thinking` 時，V4.1 API 會預設開啟思考（effort `high`）**，而思考模式下
+API 會**忽略 `temperature`**，且 `reasoning_content` 與答案共用 `max_tokens`。
+
+以生產模型 + 真實批改 prompt 實測（2026-09-15，`max_tokens: 4096`）：
+
+| 設定 | 耗時 | completion tokens | reasoning 長度 | `content` |
+|------|------|-------------------|----------------|-----------|
+| 未指定（＝API 預設開啟思考） | 21.1s | 4096（用盡） | 13,007 字元 | **空字串** |
+| `thinking: disabled` | 6.3s | 1286 | 0 | 完整 JSON（C/L/O 齊全） |
+| 未指定 + `max_tokens: 8192` | 23.8s | 5142 | 11,951 字元 | 完整 JSON（僅剩 3s 餘裕） |
+
+因此自 2026-09-14 起，所有未指定 `thinking` 的呼叫：
+
+1. **輸出預算被思考鏈吃光** → 回傳 HTTP 200 但 `content` 為空／JSON 被截斷；
+2. **延遲增加 3–4 倍** → 25s（寫作）／20s（語意）等逾時陸續觸發；
+3. **`temperature` 被靜默忽略** → 寫作評分的 0.3／0.5 重試與快取（≤0.3 才寫入）等決定性設計同時失效。
+
+空回應的鏈路：`analyze-writing.ts` 以 `if (grammarRaw)` 判斷，**空字串為 falsy** → 既不解析也不標記失敗 →
+`contentScore/languageScore/organizationScore` 全部缺失 → 觸發 fail-closed 的「CLO 評分不完整」，
+把「AI 沒回答」錯誤地呈現為「評分機制有問題」。
+
+### 變更
+
+| 類別 | 變更 |
+|------|------|
+| **Provider（單一 owner）** | `deepseek-provider.ts`：思考模式改為 **opt-in** —— 未指定時明確送出 `thinking: { type: 'disabled' }`（保留 `temperature` 與完整輸出預算）；需要多步推理的呼叫需顯式傳 `thinking: true`（＋可選 `reasoningEffort`），並自行放大 `maxTokens`／`timeoutMs`。檔頭與請求組裝處記錄實測數據。 |
+| **可觀測性** | provider 收到空答案（HTTP 200 但 `content` 為空）時新增 `warn` 日誌，附 `latencyMs` / `completionTokens` / `reasoningChars` / `finish_reason`。 |
+| **快取** | `ai-cache.ts`：**拒絕快取空白答案**。以往空回應會被寫入快取（TTL 1 小時），而錯誤訊息叫學生「重試」時送出的是完全相同的 prompt（相同快取鍵）→ 失敗會被回放一小時。 |
+| **寫作管線** | `analyze-writing.ts`：grammar 與 style 呼叫若回傳空白回應即視為**失敗**並走既有的一次重試（不再讓空回應變成「缺少分數」）；重試仍失敗則 fail-closed，但錯誤訊息改為「**評分 AI 未回傳 Content / Language / Organization 分數 — 通常是 AI 服務逾時或回應被截斷**」，與「AI 有回答但未給分」的訊息分開。 |
+| **不變的部分** | 評分政策（`SCORING_VERSION = HKDSE_P2_WRITING_CANONICAL_V3`）、CLO 單一評分權威、fail-closed 契約、長度罰則與等級換算**完全未動**。 |
+
+### 附帶修復（1）：依賴 8s 生產預設逾時的呼叫端
+`config.ai.timeoutMs` 在生產環境為 **8000ms**（開發 30000ms）。`analyze-answer`／`analyze-material`／
+`explain-mistake`／`study-help`、`/api/ai/rewrite-writing` 等呼叫端未自帶 `timeoutMs`，因此全數落在 8s 預算內，
+而 2048–4096 token 的 JSON 回應按實測速率（約 200 tok/s）需要 10s 以上。
+學生端看到的「All AI providers failed … DeepSeek request timed out （已顯示預設解釋）」（練習頁 AI 解釋）
+即來自 `analyze-answer`。
+
+- 生產預設下限 8000 → **20000ms**（僅為安全下限；呼叫端仍須自行指定，README 環境變數表同步更新）。
+- 明確指定預算：`analyze-answer` 20s、`explain-mistake` 20s、`study-help` 20s、`analyze-material` 25s、
+  `rewrite-writing` 60s（4096 token 重寫）。
+
+### 附帶修復（2）：調高寫作批改的 token 與 timeout 預算
+思考模式已改為 opt-in，以下調高純粹是防禦性 headroom（長文、供應商繁忙時不再截斷或逾時）：
+
+| 呼叫 | maxTokens | timeoutMs | 依據 |
+|------|-----------|-----------|------|
+| Grammar / CLO | 4096 → **8192** | 25s → **45s** | 沿用 reading 既有梯度 5ms/token（8192 × 5ms ≈ 41s） |
+| Style（含兩份全文重寫） | 8192 → **12288** | 25s → **60s** | 12288 × 5ms ≈ 61s，以 60s 封頂（學生端關鍵路徑） |
+| Semantic（fail-open，與 style 並行） | 2048（不變） | 20s → **35s** | 並行執行，不增加總等待時間 |
+
+最壞情況（首兩次嘗試皆失敗並重試）約 200s，仍低於 Cloud Run 300s 上限；正常情況實測約 6–10s。
+
+### 測試
+- `deepseek-provider.test.ts`：預設（未指定）改為斷言送出 `thinking: { type: 'disabled' }` 且保留 `temperature`。
+- `analyze-writing.integration.test.ts` 新增 Integration N（3 用例）：空回應觸發重試（style 1 + grammar 2 = 3 次呼叫）、重試成功即正常給分（12/21 → 57）、有回應但無 C/L/O 仍 fail-closed。
+- 新增 `ai-cache.test.ts`（4 用例）：空白答案不入快取（空字串／純空白）、正常答案可讀回、不同 prompt 不碰撞。
+- 完整測試套件 **2919 pass / 1 skipped（138 files）**；`npx tsc --noEmit` 無錯誤。
+
+### 已知限制（未實作，需人手處理）
+- **生產環境只有 DeepSeek 一個 provider**：`cloud-run-env.yaml` 未設 `XAI_API_KEY`（Grok），Gemini 金鑰已於 2026-08-20 退役（斷路器開啟）→ `configured: deepseek`，單點故障。任何 DeepSeek 逾時都會直接變成學生可見的失敗。
+- 高難度生成流程若將來要啟用思考模式，必須同時調高 `maxTokens` 與 `timeoutMs`，否則會重現本次截斷／逾時。
+
+---
+
 ## 2026-09-15 — 移除 Vercel 部署（Cloud Run 為唯一部署目標）
 
 ### 背景

@@ -200,7 +200,10 @@ Remember:
       temperature: 0.2,
       maxTokens: 2048,
       jsonMode: true,
-      timeoutMs: 20000,
+      // Runs concurrently with the style evaluator (45–60s budget) and fails open,
+      // so a wider window only reduces spurious "semantic unavailable" results
+      // without adding wall-clock time to the pipeline.
+      timeoutMs: 35000,
       userId: input.userId,
     },
   );
