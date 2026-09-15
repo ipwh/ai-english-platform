@@ -4,6 +4,53 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-15 (II) — 寫作題不再被判「回答錯誤」（開放式題目改為不自動評分）
+
+### 症狀（學生回報）
+AI 練習／每日挑戰中的短文寫作題（`short-writing`）：學生提交 120–150 字文章後，AI 批改與解釋
+完全正常，但頁面顯示「**回答錯誤**」並附上「正確答案：」——把**範文**當成答案鍵做字串比對。
+連帶影響：不存在的錯題被寫入錯題庫、掌握度與準確率被扣分、XP 被扣。
+
+### 根本原因
+1. `practice-answer-scorer.ts` 只有 `correct | incorrect` 兩種結果，且 `short-writing` 被列在
+   可自動評分題型內。
+2. 寫作題的 `answer` 是**範文（sample）**，不是答案鍵：任何學生文章都不會與它字串相等，
+   必然判定為錯。這是「製造出來的判定」，不是「批改」。
+3. 錯題寫入條件為 `!isCorrect`，因此 ungradable 類題目也會被當成錯題。
+
+### 決策
+題型 `short-writing` / `writing` **不自動評分**（open-ended）。正典 scorer 回傳
+`result: 'ungradable'` + `awardedScore: 0` + `countsTowardScore: false`
+（練習答案契約唯一允許的排除組合；不發明分數、不新增評分語意）。
+質性回饋由原有的 AI 分析提供（`analyze-answer` 對 short-writing 以內容／組織／語言評 0–100）。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **Canonical scorer** | 新增 `isOpenEndedQuestionType()`（`short-writing` / `writing`）；`scorePracticeAnswer()` 對開放式題目回傳 ungradable／不計分。`checkAnswer()` 本身（確定性比對）語意不變。 |
+| **伺服器評分（grammar 權威路徑）** | `validateGrammarAnswersWithServerKeys()` 先由伺服器把開放式題目分類為 `ungradable`（`scoredBy: 'server'`、`scoringMethod: 'server-key-resolved'`、`countsTowardScore: false`），不再與範文比對。 |
+| **Sessions 聚合** | `computePracticeAggregates()` 排除 `countsTowardScore === false` 的列 → 分子與分母皆不計，寫作題不會壓低準確率（寫作題為主的練習顯示 0/0，而非 0/1）。 |
+| **錯題閘門** | `practice-submission-service.ts`：只有 `result === 'incorrect'` 才寫入錯題（原本 `!isCorrect` 會把 ungradable 一併寫入）。 |
+| **每日挑戰** | `/api/daily-challenge` POST：開放式題目不判錯、不發答對 XP、session 記 0/0，回應新增 `ungradable` 旗標；客戶端改顯示中性訊息與「參考範文」。 |
+| **學生端練習頁** | 移除客戶端第二份 `checkAnswer` 實作（約 100 行）→ 一律使用正典 scorer（單一 owner）；三態判定（正確／錯誤／開放式）；開放式顯示琥珀色中性提示 +「參考範文」；不建錯題、不扣 XP；完成摘要只以可自動評分題目計算，並標示「另有 N 題寫作題不設自動對錯」。 |
+| **Store** | `practiceStore`：`results: Record<string, boolean \\| null>`（`null` = 不自動評分；`correctCount` 只計 `true`，不進分母）。 |
+| **i18n** | 新增 6 個鍵（`practice.question.openEnded*`、`sampleAnswerLabel`、`practice.summaryUngraded`、`practice.summaryNoScored`，中英齊備）。 |
+
+### 測試（+10 用例）
+- `practice-answer-validation.test.ts`：predicate 邊界、`scorePracticeAnswer` 回傳 ungradable
+  （範文完全吻合也**不**給分）、legacy 路徑契約合法、aggregates 排除不計分列、純寫作練習 0/0。
+- `r310d1-grammar-authority.test.ts`：伺服器分類為 ungradable（範文不被偽造鍵取代）、
+  純寫作 session 不產生 scored evidence（`no-counted-items`）、混合 session 只計 MC 題。
+- `trusted-state-poisoning.test.ts`：錯題來源契約（只收 `result === 'incorrect'`）。
+- 完整套件 **2929 pass / 1 skipped（138 files）**；`tsc --noEmit`、`check-i18n.js`、`eslint`（0 errors）全通過。
+
+### 未處理（follow-up，非本次範圍）
+- **作業（assignment）文字題**在 AI 不可用時的 `assignment-fallback-exact-match` 仍可能把寫作題判錯
+  —— assignment item 模型尚未支援 ungradable 結果。
+- **診斷測驗**對寫作題採「有作答即通過」（不會判錯，但與本機制語意不同）。
+
+---
+
 ## 2026-09-15 — 修復 DeepSeek V4.1 思考模式回歸（寫作批改「CLO 評分不完整」/ AI 全線逾時）
 
 ### 症狀（生產環境，學生端）

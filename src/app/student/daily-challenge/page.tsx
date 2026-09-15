@@ -29,6 +29,8 @@ interface ChallengeState {
   selectedAnswer?: string;
   textAnswer?: string;
   isCorrect?: boolean;
+  /** 2026-09-15: 開放式（寫作）題目 — 伺服器判定「不自動評分」，不得顯示答錯。 */
+  ungradable?: boolean;
   xpEarned?: number;
   // R3.10-L (R8): 答案與解釋只在提交後由伺服器返回（GET 不附答案）
   correctAnswer?: string;
@@ -97,6 +99,7 @@ export default function DailyChallengePage() {
       setState(prev => ({
         ...prev,
         isCorrect: typeof data.isCorrect === 'boolean' ? data.isCorrect : prev.isCorrect,
+        ungradable: data.ungradable === true,
         xpEarned: data.xpAwarded || 0,
         correctAnswer: typeof data.correctAnswer === 'string' ? data.correctAnswer : undefined,
         explanationZh: typeof data.explanationZh === 'string' ? data.explanationZh : undefined,
@@ -164,10 +167,12 @@ export default function DailyChallengePage() {
       {/* Answer feedback */}
       {state.status === 'answered' && (
         <div className={`bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border space-y-4 ${
-          state.isCorrect === true ? 'border-green-300 dark:border-green-700' : state.isCorrect === false ? 'border-red-300 dark:border-red-700' : 'border-gray-200 dark:border-gray-700'
+          state.ungradable ? 'border-amber-300 dark:border-amber-700' : state.isCorrect === true ? 'border-green-300 dark:border-green-700' : state.isCorrect === false ? 'border-red-300 dark:border-red-700' : 'border-gray-200 dark:border-gray-700'
         }`}>
           <div className="flex items-center gap-3">
-            {state.isCorrect === true ? (
+            {state.ungradable ? (
+              <Sparkles className="w-8 h-8 text-amber-500" />
+            ) : state.isCorrect === true ? (
               <CheckCircle className="w-8 h-8 text-green-500" />
             ) : state.isCorrect === false ? (
               <XCircle className="w-8 h-8 text-red-500" />
@@ -176,12 +181,21 @@ export default function DailyChallengePage() {
             )}
             <div>
               <p className="font-bold text-lg text-gray-900 dark:text-white">
-                {state.isCorrect === true
-                  ? (language === 'en' ? 'Correct!' : '回答正確！')
-                  : state.isCorrect === false
-                    ? (language === 'en' ? 'Incorrect' : '回答錯誤')
-                    : (language === 'en' ? 'Grading...' : '批改中...')}
+                {state.ungradable
+                  ? (language === 'en' ? 'Open-ended task' : '開放式題目')
+                  : state.isCorrect === true
+                    ? (language === 'en' ? 'Correct!' : '回答正確！')
+                    : state.isCorrect === false
+                      ? (language === 'en' ? 'Incorrect' : '回答錯誤')
+                      : (language === 'en' ? 'Grading...' : '批改中...')}
               </p>
+              {state.ungradable && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  {language === 'en'
+                    ? 'No automatic right/wrong — compare your writing with the sample answer and explanation below.'
+                    : '此題不設自動對錯 — 請對比下方參考範文與解釋自行檢視。'}
+                </p>
+              )}
               {state.xpEarned !== undefined && state.xpEarned > 0 && (
                 <p className="text-sm text-orange-500 flex items-center gap-1">
                   <Sparkles className="w-3 h-3" /> +{state.xpEarned} XP
@@ -191,7 +205,11 @@ export default function DailyChallengePage() {
           </div>
           {!state.isCorrect && state.correctAnswer && (
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-sm">
-              <p className="text-gray-500 mb-1">{language === 'en' ? 'Correct answer:' : '正確答案：'}</p>
+              <p className="text-gray-500 mb-1">
+                {state.ungradable
+                  ? (language === 'en' ? 'Sample answer:' : '參考範文：')
+                  : (language === 'en' ? 'Correct answer:' : '正確答案：')}
+              </p>
               <p className="font-semibold text-gray-900 dark:text-white">{state.correctAnswer}</p>
             </div>
           )}

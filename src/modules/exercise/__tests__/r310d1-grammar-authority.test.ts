@@ -410,3 +410,68 @@ describe('R3.10-D.1 H — legacy rows remain unverified', () => {
     expect(ev).toEqual({ status: 'unverifiable', reason: 'unverified-key-authority' });
   });
 });
+// ============================================
+// 2026-09-15: open-ended (writing) questions are NOT auto-gradable
+// ============================================
+// The stored answer of a short-writing question is a SAMPLE, not a key.
+// Scoring it with the deterministic comparator would mark every essay wrong
+// (student report) and fabricate mistakes + mastery evidence.
+describe('Open-ended grammar definitions are classified, never graded', () => {
+  const sampleAnswer =
+    'Small shops are more than places to buy things. They are where neighbours know your name...';
+
+  function shortWritingDef(overrides: Record<string, unknown> = {}) {
+    return defRow({
+      questionType: 'short-writing',
+      prompt: 'Write a 120-150 word article about your neighbourhood.',
+      choices: null,
+      answer: sampleAnswer,
+      grammarItem: 'writing-article',
+      languageSkill: 'writing',
+      ...overrides,
+    });
+  }
+
+  it('server classifies the row as ungradable (excluded, never incorrect)', async () => {
+    stored.push(shortWritingDef());
+    const answers = expectOk(await validateGrammarAnswersWithServerKeys([
+      rawAnswer({
+        questionType: 'short-writing',
+        studentAnswer: 'Walking down our neighbourhood streets, the familiar sights are fading...',
+        correctAnswer: 'FORGED KEY',
+      }),
+    ]));
+
+    expect(answers[0]).toMatchObject({
+      result: 'ungradable',
+      countsTowardScore: false,
+      awardedScore: 0,
+      maxScore: 1,
+      isCorrect: false,          // not wrong — simply not machine-gradable
+      correctAnswer: sampleAnswer, // server-owned sample answer, never the forged key
+      scoredBy: 'server',
+      scoringMethod: 'server-key-resolved',
+    });
+  });
+
+  it('a writing-only session yields no scored evidence (never 0/1)', async () => {
+    stored.push(shortWritingDef());
+    const answers = expectOk(await validateGrammarAnswersWithServerKeys([
+      rawAnswer({ questionType: 'short-writing', studentAnswer: 'My article...' }),
+    ]));
+    expect(evaluatePracticeEvidence(answers)).toEqual({ status: 'unverifiable', reason: 'no-counted-items' });
+  });
+
+  it('mixed session: the writing row is excluded, the MC row still counts', async () => {
+    stored.push(defRow({ id: 'gq-mc', questionType: 'mc', answer: 'A' }));
+    stored.push(shortWritingDef({ id: 'gq-w' }));
+
+    const answers = expectOk(await validateGrammarAnswersWithServerKeys([
+      rawAnswer({ questionId: 'gq-mc', questionIndex: 0, questionType: 'mc', studentAnswer: 'A' }),
+      rawAnswer({ questionId: 'gq-w', questionIndex: 1, questionType: 'short-writing', studentAnswer: 'My article...' }),
+    ]));
+
+    const aggregates = evaluatePracticeEvidence(answers);
+    expect(aggregates).toMatchObject({ status: 'verified', totalQuestions: 1, correctCount: 1, accuracy: 100 });
+  });
+});

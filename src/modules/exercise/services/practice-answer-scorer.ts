@@ -10,6 +10,10 @@
 // Binary scoring: correct → 1/1, incorrect → 0/1 (the runtime's real
 // semantics — no per-question marks exist in the practice flow).
 //
+// OPEN-ENDED EXCEPTION (2026-09-15): `short-writing` / `writing` answers are
+// NOT auto-gradable — see isOpenEndedQuestionType(). They are reported as
+// result 'ungradable' with countsTowardScore: false instead of 'incorrect'.
+//
 // Reading/writing/speaking/integrated answers are NOT scored here —
 // those paths are explicitly deferred (R3.3 only hardens the
 // deterministic practice trust boundary).
@@ -53,10 +57,33 @@ export interface PracticeScoreInput {
 }
 
 export interface PracticeScoreOutput {
-  result: 'correct' | 'incorrect';
+  result: 'correct' | 'incorrect' | 'ungradable';
   awardedScore: number;
   maxScore: number;
   countsTowardScore: boolean;
+}
+
+/**
+ * Question types whose answer is open-ended prose or audio.
+ *
+ * A deterministic string comparison against the model answer is NOT a valid
+ * verdict for these: the stored "correct answer" is a *sample*, not a key.
+ * Marking a 150-word article "回答錯誤 / Incorrect" because it differs from the
+ * sample is misleading (student report, 2026-09-15) and it poisoned the
+ * mistake book, mastery and accuracy with fabricated "wrong answers".
+ *
+ * Such questions are therefore NOT AUTO-GRADABLE: `result: 'ungradable'` with
+ * `countsTowardScore: false` (the only combination the practice answer
+ * contract permits for an item that must be excluded from scored totals).
+ * Qualitative feedback for writing comes from the AI analysis block
+ * (`analyze-answer` scores short-writing on content + organization + language).
+ */
+export const OPEN_ENDED_QUESTION_TYPES = ['short-writing', 'writing'] as const;
+
+export function isOpenEndedQuestionType(type: string | null | undefined): boolean {
+  if (typeof type !== 'string') return false;
+  const normalized = type.trim().toLowerCase();
+  return (OPEN_ENDED_QUESTION_TYPES as readonly string[]).includes(normalized);
 }
 
 /**
@@ -145,6 +172,11 @@ function containsWord(text: string, word: string): boolean {
  * ignored at the API boundary.
  */
 export function scorePracticeAnswer(input: PracticeScoreInput): PracticeScoreOutput {
+  // Open-ended prose: a string comparison would manufacture a verdict.
+  // Fail closed to "not auto-gradable" — never to "wrong".
+  if (isOpenEndedQuestionType(input.questionType)) {
+    return { result: 'ungradable', awardedScore: 0, maxScore: 1, countsTowardScore: false };
+  }
   const correct = checkAnswer(input.studentAnswer, input.correctAnswer, input.questionType, input.choices);
   return {
     result: correct ? 'correct' : 'incorrect',

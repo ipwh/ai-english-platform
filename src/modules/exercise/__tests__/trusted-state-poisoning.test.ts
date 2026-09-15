@@ -93,6 +93,14 @@ describe('R3.10-D.3 test 1 — forged legacy answer cannot create trusted Mistak
     const mistakeIdx = svc.indexOf('createMistakeIfAbsent({');
     expect(mistakeIdx).toBeGreaterThan(guardIdx);
   });
+
+  it('only answers scored as incorrect become mistakes (open-ended excluded)', () => {
+    // 2026-09-15: ungradable rows (open-ended writing) must never be recorded
+    // as mistakes — `!isCorrect` would sweep them in.
+    const svc = readFileSync(resolve(root, 'src/modules/exercise/services/practice-submission-service.ts'), 'utf-8');
+    expect(svc).toContain("normalizedAnswers.filter(a => a.result === 'incorrect')");
+    expect(svc).not.toContain('normalizedAnswers.filter(a => !a.isCorrect)');
+  });
 });
 
 describe('R3.10-D.3 test 2 — forged legacy answer cannot influence mastery', () => {

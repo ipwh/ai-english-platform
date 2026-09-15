@@ -24,7 +24,7 @@
 // This module is NOT the StudentAssessmentResult mapper (R3.4).
 // ============================================
 
-import { scorePracticeAnswer, checkAnswer } from './practice-answer-scorer';
+import { scorePracticeAnswer, checkAnswer, isOpenEndedQuestionType } from './practice-answer-scorer';
 
 export const PRACTICE_ANSWER_RESULTS = ['correct', 'incorrect', 'partial', 'ungradable'] as const;
 export type PracticeAnswerResult = (typeof PRACTICE_ANSWER_RESULTS)[number];
@@ -95,12 +95,20 @@ export interface PracticeSessionAggregates {
   correctCount: number;
 }
 
+/**
+ * Server-derived session aggregates.
+ *
+ * Rows with `countsTowardScore === false` (open-ended questions that are not
+ * auto-gradable) are EXCLUDED from the denominator — otherwise a writing
+ * answer would silently depress the session accuracy (2026-09-15).
+ */
 export function computePracticeAggregates(
-  answers: ReadonlyArray<{ result?: string | null }>,
+  answers: ReadonlyArray<{ result?: string | null; countsTowardScore?: boolean | null }>,
 ): PracticeSessionAggregates {
+  const counted = answers.filter(a => a.countsTowardScore !== false);
   return {
-    totalQuestions: answers.length,
-    correctCount: answers.filter(a => a.result === 'correct').length,
+    totalQuestions: counted.length,
+    correctCount: counted.filter(a => a.result === 'correct').length,
   };
 }
 
@@ -283,6 +291,32 @@ export async function validateGrammarAnswersWithServerKeys(
   for (const a of rows) {
     const def = definitions.get(a.questionId!)!;
     const studentAnswer = typeof a.studentAnswer === 'string' ? a.studentAnswer : '';
+
+    // Open-ended questions (short-writing) have NO deterministic key: the stored
+    // answer is a sample answer, so scoring it as 'incorrect' would be a
+    // manufactured verdict. Server classification → not auto-gradable, excluded
+    // from scored totals (see isOpenEndedQuestionType).
+    if (isOpenEndedQuestionType(def.questionType)) {
+      normalized.push({
+        questionIndex: a.questionIndex,
+        questionId: a.questionId!,
+        questionType: def.questionType,
+        questionPrompt: def.prompt,
+        correctAnswer: def.answer,
+        studentAnswer,
+        isCorrect: false,
+        result: 'ungradable',
+        awardedScore: 0,
+        maxScore: 1,
+        countsTowardScore: false,
+        timeSpent: isFiniteNumber(a.timeSpent) ? (a.timeSpent as number) : null,
+        scoredBy: 'server',
+        // The server owned the definition and determined that no deterministic
+        // key applies — the same provenance marker as a server-resolved key.
+        scoringMethod: 'server-key-resolved',
+      });
+      continue;
+    }
 
     let correct = checkAnswer(
       studentAnswer,

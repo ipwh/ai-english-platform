@@ -12,7 +12,11 @@ export interface PracticeSession {
   completedAt?: string;
   questions: PracticeQuestion[];
   answers: Record<string, string>;
-  results: Record<string, boolean>;
+  /**
+   * 每題判定。2026-09-15：`null` = 開放式（寫作）題目，不自動評分 —
+   * 不計入對錯，也不進分母（不得向學生聲稱答錯）。
+   */
+  results: Record<string, boolean | null>;
   skill: string;
   skillZh: string;
   difficulty: DifficultyLevel;
@@ -34,7 +38,7 @@ interface PracticeState {
 
   // 動作
   startSession: (session: PracticeSession) => void;
-  submitAnswer: (questionId: string, answer: string, isCorrect: boolean) => void;
+  submitAnswer: (questionId: string, answer: string, isCorrect: boolean | null) => void;
   completeSession: () => void;
   loadPracticeHistory: () => Promise<void>;
   getMasteryBySkill: () => { skill: string; skillZh: string; accuracy: number; total: number }[];
@@ -57,7 +61,8 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
 
     const newAnswers = { ...currentSession.answers, [questionId]: answer };
     const newResults = { ...currentSession.results, [questionId]: isCorrect };
-    const newCorrectCount = Object.values(newResults).filter(Boolean).length;
+    // Only explicitly-correct answers count; `null` (open-ended) is never a score.
+    const newCorrectCount = Object.values(newResults).filter(v => v === true).length;
 
     set({
       currentSession: {
@@ -76,7 +81,7 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
     const completed = {
       ...currentSession,
       completedAt: new Date().toISOString(),
-      correctCount: Object.values(currentSession.results).filter(Boolean).length,
+      correctCount: Object.values(currentSession.results).filter(v => v === true).length,
     };
 
     set({

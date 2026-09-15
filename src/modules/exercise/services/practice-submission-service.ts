@@ -159,7 +159,11 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   //    only server-authoritative classes create trusted Mistake records,
   //    and only via the atomic insert-if-absent (P0-2).
   if (normalizedAnswers.length > 0 && isServerAuthoritativeSubmission(submissionClass)) {
-    const wrongAnswers = normalizedAnswers.filter(a => !a.isCorrect);
+    // Only rows actually scored as WRONG become mistakes. Open-ended questions
+    // are 'ungradable' (not auto-gradable) — recording a 150-word essay as a
+    // mistake because it differs from the sample answer is a manufactured error
+    // (student report, 2026-09-15).
+    const wrongAnswers = normalizedAnswers.filter(a => a.result === 'incorrect');
     // 錯題類型依技能分類：閱讀/聆聽 → comprehension、詞彙 → vocabulary、寫作 → chinglish、其餘 grammar。
     // 舊版一律 'grammar' 令閱讀錯題錯誤地懲罰文法弱項統計。
     const skillLower = String(skill || '').toLowerCase();

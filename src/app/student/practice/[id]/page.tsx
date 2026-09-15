@@ -21,6 +21,12 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import type { AnswerAnalysis } from '@/modules/ai/services/ai-service';
 import type { PracticeQuestion } from '@/shared/types/types';
+// 2026-09-15: 客戶端不再自帶 checkAnswer 副本 — 一律委派正典 scorer
+// （單一 owner；正典 scorer 同時提供 isOpenEndedQuestionType 處理寫作題）。
+import {
+  checkAnswer,
+  isOpenEndedQuestionType,
+} from '@/modules/exercise/services/practice-answer-scorer';
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
@@ -36,106 +42,9 @@ function stripMcqPrefix(choice: string): string {
     .trim();
 }
 
-/** 數字詞彙對照表（英文→數字），用於答案比對時正規化 "fifteen" ↔ "15" */
-const NUMBER_WORDS: Record<string, number> = {
-  one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10,
-  eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16,
-  seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40,
-  fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100,
-};
-
-/** 將答案中的數字詞彙統一轉為數字，例："fifteen" → "15", "15" → "15" */
-function normalizeNumbers(text: string): string {
-  return text.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/gi,
-    (match) => String(NUMBER_WORDS[match.toLowerCase()] ?? match)
-  );
-}
-
 /** Pick a random element from an array (module-level to satisfy React Compiler purity) */
 function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
-}
-
-/** 正規化文字以進行精確比對 */
-function normalizeAnswer(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')           // 多空格 → 單空格
-    .replace(/['']/g, "'")          // 統一撇號
-    .replace(/[""]/g, '"')          // 統一引號
-    .replace(/[–—]/g, '-')          // 統一破折號
-    .replace(/[.!?,;:]$/, '');      // 移除尾部標點
-}
-
-/** 智能答案比對：
- *  - MCQ: 比對字母 (A/B/C/D) 或完整選項文字
- *  - 文字題: 正規化後比對，支援部分匹配（至少一個關鍵詞匹配）
- *  - 改錯題有選項時視為 MC 題處理
- *  - 改錯題 "X → Y" 格式：檢查學生答案是否包含 Y 且不含 X */
-function checkAnswer(student: string, correct: string, type: string, choices?: string[]): boolean {
-  // 改錯題若有 MC 選項，視為 MC 題進行比對
-  const effectiveType = (type === 'error-correction' && choices && choices.length > 0) ? 'mc' : type;
-
-  if (effectiveType === 'mc') {
-    const studentUpper = student.trim().toUpperCase();
-    const correctUpper = correct.trim().toUpperCase();
-
-    // 字母比對
-    if (studentUpper === correctUpper) return true;
-
-    // 學生可能輸入了完整選項文字而非字母
-    const correctLetterIndex = MCQ_LETTERS.indexOf(correctUpper as typeof MCQ_LETTERS[number]);
-    if (choices && correctLetterIndex >= 0 && correctLetterIndex < choices.length) {
-      const correctText = normalizeAnswer(choices[correctLetterIndex]);
-      const normalizedStudent = normalizeAnswer(student);
-      if (normalizedStudent === correctText) return true;
-    }
-
-    return false;
-  }
-
-  // 改錯題 "X → Y" 格式：檢查學生答案是否包含改正後的部分 Y，且不含錯誤 X
-  if (type === 'error-correction') {
-    const arrowMatch = correct.match(/^(.+?)\s*[→>]\s*(.+)$/);
-    if (arrowMatch) {
-      const wrongPart = normalizeAnswer(arrowMatch[1]);   // e.g. "what"
-      const rightPart = normalizeAnswer(arrowMatch[2]);    // e.g. "that/which"
-      const normStudent = normalizeAnswer(student);
-      // 檢查學生答案包含改正（that 或 which），且不含錯誤（what）
-      const rightOptions = rightPart.split('/').map(s => s.trim());
-      const hasCorrection = rightOptions.some(opt => containsWord(normStudent, opt));
-      const hasError = containsWord(normStudent, wrongPart);
-      if (hasCorrection && !hasError) return true;
-      // 即使仍含錯誤部分但已包含改正，也給通過（學生可能寫了完整句子但保留了部分原句）
-      if (hasCorrection) return true;
-    }
-  }
-
-  // 文字題：正規化後比對（含數字格式正規化）
-  const normStudent = normalizeNumbers(normalizeAnswer(student));
-  const normCorrect = normalizeNumbers(normalizeAnswer(correct));
-
-  if (normStudent === normCorrect) return true;
-
-  // 部分匹配：若學生答案包含正確答案的主要詞彙（詞邊界比對 — 避免 "the" 匹配 "weather"）
-  const correctWords = normCorrect.split(' ').filter(w => w.length > 2);
-  if (correctWords.length >= 2 && correctWords.every(w => containsWord(normStudent, w))) {
-    return true;
-  }
-
-  // 單詞匹配：若正確答案只有一個關鍵詞，且學生答案包含它（適用於填充題）
-  if (correctWords.length === 1 && containsWord(normStudent, correctWords[0])) {
-    return true;
-  }
-
-  return false;
-}
-
-/** 詞邊界包含檢查 — 與伺服端 practice-answer-scorer 一致（防止子字串誤判） */
-function containsWord(text: string, word: string): boolean {
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i').test(text);
 }
 
 /** 取得完整答案文字（MC 題從選項中查找完整句子，非 MC 題直接回傳答案） */
@@ -329,8 +238,15 @@ export default function PracticeQuestionPage() {
 
   const isReading = question.languageSkill === 'reading';
 
-  /** 智能答案比對：MC 題精確匹配，文字題忽略大小寫與多餘空白 */
-  const isCorrect = submitted && checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
+  /**
+   * 開放式題型（寫作）：沒有確定性答案鍵，正典 scorer 判定為「不自動評分」。
+   * 這類題目不得向學生顯示「回答錯誤」，也不得計入分數或錯題
+   * （學生回報 2026-09-15）。質性回饋由下方 AI 分析提供。
+   */
+  const isOpenEnded = isOpenEndedQuestionType(question.type);
+
+  /** 智能答案比對（正典 scorer，@/modules/exercise/services/practice-answer-scorer） */
+  const isCorrect = submitted && !isOpenEnded && checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
 
   const handleSubmit = async () => {
     if (!selectedAnswer) return;
@@ -340,18 +256,20 @@ export default function PracticeQuestionPage() {
     window.speechSynthesis?.cancel();
     window.dispatchEvent(new CustomEvent('stop-all-audio'));
 
-    const correct = checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
+    const correct = !isOpenEnded && checkAnswer(selectedAnswer, question.answer, question.type, question.choices);
 
-    // 記錄到 store
+    // 記錄到 store（開放式題目記 null：不計對錯，也不進分母）
     if (isSessionMode) {
-      store.submitAnswer(question.id, selectedAnswer, correct);
+      store.submitAnswer(question.id, selectedAnswer, isOpenEnded ? null : correct);
     }
 
-    // 🎮 答題 XP
-    awardXp(correct ? 'answerCorrect' : 'answerIncorrect', question.difficulty);
+    // 🎮 答題 XP（開放式題目不發對/錯 XP — 內容無法自動驗證，避免刷分）
+    if (!isOpenEnded) {
+      awardXp(correct ? 'answerCorrect' : 'answerIncorrect', question.difficulty);
+    }
 
-    // 💪 答錯時顯示鼓勵語
-    if (!correct) {
+    // 💪 答錯時顯示鼓勵語（開放式題目沒有「錯」，不顯示）
+    if (!isOpenEnded && !correct) {
       setWrongEncouragement(pickRandom(ENCOURAGEMENTS));
     }
 
@@ -414,7 +332,8 @@ export default function PracticeQuestionPage() {
     }
 
     // 答錯時儲存錯題 — mistakeType 依題目技能分類（閱讀/聆聽 → comprehension，詞彙 → vocabulary，寫作 → chinglish，其餘 grammar）
-    if (!correct) {
+    // 開放式（寫作）題目不建錯題：沒有確定性答案鍵，不能斷定學生答錯。
+    if (!isOpenEnded && !correct) {
       const skillLower = String(question.languageSkill || '').toLowerCase();
       const mistakeType = skillLower.includes('read') || skillLower.includes('listen')
         ? 'comprehension'
@@ -773,7 +692,7 @@ export default function PracticeQuestionPage() {
 
       {/* ====== 提交後回饋 ====== */}
       {submitted && (
-        <div className={`rounded-xl p-4 border-2 ${isCorrect ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700'}`}>
+        <div className={`rounded-xl p-4 border-2 ${isCorrect ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700' : isOpenEnded ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700'}`}>
           <div className="flex items-center gap-2 mb-3">
             {isCorrect ? (
               <>
@@ -781,6 +700,13 @@ export default function PracticeQuestionPage() {
                   <Check className="w-5 h-5 text-white" />
                 </div>
                 <span className="font-semibold text-green-800 dark:text-green-200">{t('practice.question.correct')}</span>
+              </>
+            ) : isOpenEnded ? (
+              <>
+                <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-semibold text-amber-800 dark:text-amber-200">{t('practice.question.openEnded')}</span>
               </>
             ) : (
               <>
@@ -792,6 +718,10 @@ export default function PracticeQuestionPage() {
             )}
           </div>
 
+          {isOpenEnded && (
+            <p className="text-sm text-amber-800 dark:text-amber-200 mb-2">{t('practice.question.openEndedNote')}</p>
+          )}
+
           {!isCorrect && (
             <>
               {wrongEncouragement && (
@@ -800,7 +730,7 @@ export default function PracticeQuestionPage() {
                 </p>
               )}
               <div className="text-sm mb-2 flex items-center gap-2">
-              <span className="text-gray-500 dark:text-gray-400">{t('practice.question.correctAnswerLabel')}</span>
+              <span className="text-gray-500 dark:text-gray-400">{isOpenEnded ? t('practice.question.sampleAnswerLabel') : t('practice.question.correctAnswerLabel')}</span>
               <span className="font-bold text-green-700 dark:text-green-300">{question.answer}</span>
               <AudioPlayer
                 text={getFullAnswerText(question)}
@@ -975,27 +905,45 @@ function SessionCompleteSummary({
   onDashboard,
   onRetry,
 }: {
-  session: { questions: PracticeQuestion[]; answers: Record<string, string>; results: Record<string, boolean>; totalQuestions: number; correctCount: number; skillZh: string; difficulty: string };
+  session: { questions: PracticeQuestion[]; answers: Record<string, string>; results: Record<string, boolean | null>; totalQuestions: number; correctCount: number; skillZh: string; difficulty: string };
   onBackToPractice: () => void;
   onReviewMistakes: () => void;
   onDashboard: () => void;
   onRetry: () => void;
 }) {
   const { t, language } = useT();
-  const acc = session.totalQuestions > 0 ? Math.round((session.correctCount / session.totalQuestions) * 100) : 0;
+  // 2026-09-15：開放式題目（results = null）不自動評分 —— 不進分子/分母，
+  // 也不以「答錯」顯示。分母只計可自動評分的題目。
+  const graded = session.questions
+    .map(q => session.results[q.id])
+    .filter((v): v is boolean => v === true || v === false);
+  const ungradedCount = session.questions.filter(q => session.results[q.id] === null).length;
+  const gradedCount = graded.length;
+  const gradedCorrect = graded.filter(Boolean).length;
+  const hasScored = gradedCount > 0;
+  const acc = hasScored ? Math.round((gradedCorrect / gradedCount) * 100) : 0;
   const emoji = acc >= 90 ? '🏆' : acc >= 70 ? '🌟' : acc >= 50 ? '💪' : '📚';
   const color = acc >= 90 ? 'text-amber-600' : acc >= 70 ? 'text-teal-600' : acc >= 50 ? 'text-orange-500' : 'text-red-500';
-  const incorrectCount = session.questions.filter(q => !session.results[q.id]).length;
+  const incorrectCount = graded.filter(v => !v).length;
 
   return (
     <div className="space-y-6">
       <div className="text-center py-8">
         <div className="text-5xl mb-3">{emoji}</div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('practice.completeTitle')}</h1>
-        <div className={`text-5xl font-extrabold ${color}`}>
-          {session.correctCount}<span className="text-2xl text-gray-400">/{session.totalQuestions}</span>
-        </div>
-        <p className="text-sm text-gray-500 mt-2">{t('practice.weeklyAccuracy').replace('{n}', String(acc))}</p>
+        {hasScored ? (
+          <>
+            <div className={`text-5xl font-extrabold ${color}`}>
+              {gradedCorrect}<span className="text-2xl text-gray-400">/{gradedCount}</span>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">{t('practice.weeklyAccuracy').replace('{n}', String(acc))}</p>
+          </>
+        ) : (
+          <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">{t('practice.summaryNoScored')}</p>
+        )}
+        {ungradedCount > 0 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{t('practice.summaryUngraded').replace('{n}', String(ungradedCount))}</p>
+        )}
         <p className="text-xs text-gray-400 mt-1">{session.skillZh} · {session.difficulty === 'remedial' ? t('practice.diffRemedial') : session.difficulty === 'challenge' ? t('practice.diffChallenge') : t('practice.diffCore')}</p>
       </div>
 
@@ -1003,18 +951,21 @@ function SessionCompleteSummary({
         <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{t('practice.answerSummary')}</h3>
         <div className="space-y-2">
           {session.questions.map((q, i) => {
-            const correct = session.results[q.id] ?? false;
+            const verdict = session.results[q.id];
+            const ungraded = verdict === null;
+            const correct = verdict === true;
             const answer = session.answers[q.id] || t('practice.unanswered');
             return (
-              <div key={q.id} className={`flex items-start gap-3 p-3 rounded-lg ${correct ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'}`}>
-                <span className={`mt-0.5 shrink-0 ${correct ? 'text-green-500' : 'text-red-500'}`}>
-                  {correct ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+              <div key={q.id} className={`flex items-start gap-3 p-3 rounded-lg ${ungraded ? 'bg-amber-50 dark:bg-amber-900/10' : correct ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'}`}>
+                <span className={`mt-0.5 shrink-0 ${ungraded ? 'text-amber-500' : correct ? 'text-green-500' : 'text-red-500'}`}>
+                  {ungraded ? <Sparkles className="w-5 h-5" /> : correct ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" dangerouslySetInnerHTML={{ __html: "Q" + (i + 1) + ". " + q.prompt }} />
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {t('practice.yourAnswer')}<span className={correct ? 'text-green-600 font-medium' : 'text-red-500 line-through'}>{answer}</span>
-                    {!correct && <span className="text-green-600 ml-2">✓ {q.answer}</span>}
+                    {t('practice.yourAnswer')}<span className={ungraded ? 'text-gray-600 dark:text-gray-400' : correct ? 'text-green-600 font-medium' : 'text-red-500 line-through'}>{answer}</span>
+                    {ungraded && <span className="text-amber-600 dark:text-amber-400 ml-2">{t('practice.question.openEndedShort')}</span>}
+                    {!correct && !ungraded && <span className="text-green-600 ml-2">✓ {q.answer}</span>}
                   </p>
                 </div>
               </div>

@@ -18,7 +18,7 @@ import {
   resolveGrammarQuestionDefinitions,
   resolveGrammarQuestionExplanations,
 } from '@/modules/exercise/services/grammar-question-service';
-import { checkAnswer } from '@/modules/exercise/services/practice-answer-scorer';
+import { checkAnswer, isOpenEndedQuestionType } from '@/modules/exercise/services/practice-answer-scorer';
 import {
   resolveDailyTopic,
   resolveDailyQuestionType,
@@ -174,13 +174,18 @@ export async function POST(request: NextRequest) {
     // 與 /api/practice 使用相同的正典 scorer（checkAnswer）：對填充題做
     // 正規化 + 部分匹配，並在定義存在時納入 acceptedAnswers —— 不再以單一
     // 答案字串做嚴格全等比對（同義/格式差異會被誤判為錯）。
-    let isCorrect = checkAnswer(
+    //
+    // 2026-09-15：寫作題（short-writing）沒有確定性答案鍵，不得判「錯」。
+    // 與 practice 一致：由伺服器分類為「不自動評分」，並排除於計分之外，
+    // 亦不发放答對 XP（開放式文字可被刷 XP，且內容無從校驗）。
+    const openEnded = isOpenEndedQuestionType(def.questionType);
+    let isCorrect = !openEnded && checkAnswer(
       studentAnswer,
       def.answer,
       def.questionType,
       def.choices ?? undefined,
     );
-    if (!isCorrect && def.acceptedAnswers && def.acceptedAnswers.length > 0) {
+    if (!openEnded && !isCorrect && def.acceptedAnswers && def.acceptedAnswers.length > 0) {
       isCorrect = def.acceptedAnswers.some(acc =>
         checkAnswer(studentAnswer, acc, def.questionType, def.choices ?? undefined),
       );
@@ -194,12 +199,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Save session
+    // Open-ended answers are excluded from the recorded totals — an ungradable
+    // item must not enter any denominator (same policy as /api/practice).
     const created = await createPracticeSession({
       studentId,
       skill: grammarItem || 'daily',
       skillZh: '每日挑戰 Daily Challenge',
       difficulty: 'core',
-      totalQuestions: 1,
+      totalQuestions: openEnded ? 0 : 1,
       correctCount: isCorrect ? 1 : 0,
       source: 'daily-challenge',
       completedAt: new Date(),
@@ -232,6 +239,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       isCorrect,
+      // 'ungradable' 讓客戶端顯示中性訊息，而不是「回答錯誤」。
+      ungradable: openEnded,
       xpAwarded: isCorrect ? calculateXp({ type: 'answerCorrect', difficulty: 'core' }) : 0,
       streakDays,
       correctAnswer: def.answer,

@@ -4,10 +4,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   validatePracticeAnswers,
+  computePracticeAggregates,
   PRACTICE_ANSWER_RESULTS,
   type NormalizedPracticeAnswer,
 } from '../services/practice-answer-validation';
-import { scorePracticeAnswer, checkAnswer } from '../services/practice-answer-scorer';
+import { scorePracticeAnswer, checkAnswer, isOpenEndedQuestionType } from '../services/practice-answer-scorer';
 
 /** Minimal valid practice answer (server-scored path) */
 function practiceAnswer(overrides: Record<string, unknown> = {}) {
@@ -440,5 +441,79 @@ describe('Score invariant violations rejected', () => {
       practiceAnswer({ questionIndex: -1 }),
     ]);
     expect(result.ok).toBe(false);
+  });
+});
+
+// ============================================
+// Open-ended questions are NOT auto-gradable (2026-09-15)
+// ============================================
+// A 150-word article must never be compared against the sample answer as if
+// the sample were an answer key: 'incorrect' would be a manufactured verdict
+// (student report: AI feedback was fine but the score said "回答錯誤").
+describe('Open-ended (writing) questions', () => {
+  const essay = 'Walking down our neighbourhood streets, the familiar sights of small shops are fading...';
+  const sample = 'Small shops are more than places to buy things. They are where neighbours know your name...';
+
+  it('predicate matches only writing types', () => {
+    expect(isOpenEndedQuestionType('short-writing')).toBe(true);
+    expect(isOpenEndedQuestionType('writing')).toBe(true);
+    expect(isOpenEndedQuestionType(' SHORT-WRITING ')).toBe(true);
+    expect(isOpenEndedQuestionType('mc')).toBe(false);
+    expect(isOpenEndedQuestionType('fill-blank')).toBe(false);
+    expect(isOpenEndedQuestionType('error-correction')).toBe(false);
+    expect(isOpenEndedQuestionType(undefined)).toBe(false);
+    expect(isOpenEndedQuestionType(null)).toBe(false);
+  });
+
+  it('scorePracticeAnswer reports ungradable — never incorrect', () => {
+    expect(scorePracticeAnswer({ studentAnswer: essay, correctAnswer: sample, questionType: 'short-writing' }))
+      .toEqual({ result: 'ungradable', awardedScore: 0, maxScore: 1, countsTowardScore: false });
+    expect(scorePracticeAnswer({ studentAnswer: essay, correctAnswer: sample, questionType: 'writing' }).result)
+      .toBe('ungradable');
+    // Deterministic types are untouched:
+    expect(scorePracticeAnswer({ studentAnswer: 'B', correctAnswer: 'B', questionType: 'mc' }))
+      .toEqual({ result: 'correct', awardedScore: 1, maxScore: 1, countsTowardScore: true });
+    expect(scorePracticeAnswer({ studentAnswer: 'nope', correctAnswer: 'B', questionType: 'mc' }).result)
+      .toBe('incorrect');
+  });
+
+  it('legacy validation path yields an excluded ungradable row (valid invariants)', () => {
+    const answers = expectOk(validatePracticeAnswers([
+      practiceAnswer({
+        questionType: 'short-writing',
+        questionPrompt: 'Write a 120-150 word article.',
+        studentAnswer: essay,
+        correctAnswer: sample,
+      }),
+    ]));
+    expect(answers[0]).toMatchObject({
+      result: 'ungradable',
+      countsTowardScore: false,
+      awardedScore: 0,
+      maxScore: 1,
+      isCorrect: false,
+    });
+  });
+
+  it('an exact match to the sample answer is still NOT scored correct (no fake grading)', () => {
+    const answers = expectOk(validatePracticeAnswers([
+      practiceAnswer({ questionType: 'short-writing', studentAnswer: sample, correctAnswer: sample }),
+    ]));
+    expect(answers[0].result).toBe('ungradable');
+  });
+
+  it('aggregates exclude ungradable rows from numerator AND denominator', () => {
+    const aggregates = computePracticeAggregates([
+      { result: 'correct', countsTowardScore: true },
+      { result: 'incorrect', countsTowardScore: true },
+      { result: 'ungradable', countsTowardScore: false },
+    ]);
+    expect(aggregates).toEqual({ totalQuestions: 2, correctCount: 1 });
+  });
+
+  it('a writing-only session produces no scored totals (0/0, never 0/1)', () => {
+    expect(computePracticeAggregates([
+      { result: 'ungradable', countsTowardScore: false },
+    ])).toEqual({ totalQuestions: 0, correctCount: 0 });
   });
 });
