@@ -10,10 +10,10 @@ See `CLAUDE.md` for full architecture documentation.
 
 ## Quick Start (New Maintainer)
 1. Read `CLAUDE.md` for architecture, ownership, and conventions
-2. Read `CHANGELOG.md` for the latest changes (2026-09-14): 錯題庫技能歸屬／題型弱項、SRS 分層、DeepSeek V4.1 模型名
+2. Read `CHANGELOG.md` for the latest changes (2026-09-15 (III): 學生分析頁崩潰修復、弱項／錯題語境；2026-09-15 (II): 開放式寫作題不自動評分；2026-09-14: 錯題庫技能歸屬／題型弱項、SRS 分層、DeepSeek V4.1 模型名)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 2912/2912 pass (137 files, 1 skipped; core files: semantic-evaluator, analyze-writing)
+5. Run `npm test` — expect 2958 pass / 1 skipped (142 files; core files: semantic-evaluator, analyze-writing)
 6. DB migrations: `npx prisma migrate deploy`（本機 DATABASE_URL 由 `.env.local` 優先載入；勿只信 `.env`）
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions

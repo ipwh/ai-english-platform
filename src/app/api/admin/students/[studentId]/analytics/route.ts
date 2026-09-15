@@ -14,6 +14,16 @@ import {
   getVerifiedPracticeSessions,
   type SessionEvidenceEntry,
 } from '@/modules/exercise/services/practice-evidence-service';
+import {
+  resolveMistakeQuestionContexts,
+  type MistakeQuestionContext,
+} from '@/modules/exercise/services/mistake-skill-identity';
+import {
+  buildMistakeSkillBreakdown,
+  bucketKeyLabelEn,
+  bucketKeyLabelZh,
+} from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
+import { getSkillLabel } from '@/shared/utils/nav';
 
 export async function GET(
   request: NextRequest,
@@ -227,17 +237,57 @@ export async function GET(
         correctAnswer: true,
         mistakeType: true,
         createdAt: true,
+        // 2026-09-15: 技能／題型歸屬（正典題目解析結果）— 顯示語境用
+        languageSkill: true,
+        grammarItem: true,
+        questionType: true,
+        skillSource: true,
       },
-    }) as Array<{id: string; questionId: string | null; questionSummary: string; studentAnswer: string | null; correctAnswer: string | null; mistakeType: string; createdAt: Date}>;
+    }) as Array<{id: string; questionId: string; questionSummary: string; studentAnswer: string | null; correctAnswer: string | null; mistakeType: string; createdAt: Date; languageSkill: string | null; grammarItem: string | null; questionType: string | null; skillSource: string | null}>;
 
     // 依 questionSummary 去重（同一題目文字只保留最新一筆）
     const seenSummaries = new Set<string>();
-    const recentMistakes = rawMistakes.filter(m => {
+    const dedupedMistakes = rawMistakes.filter(m => {
       const key = m.questionSummary.trim().toLowerCase();
       if (!key || seenSummaries.has(key)) return false;
       seenSummaries.add(key);
       return true;
     }).slice(0, 10);
+
+    // 語境補齊（2026-09-15）：錯題只存了題目文字時，閱讀題
+    // （例：What does the word 'curiosity' … mean?）沒有篇章、沒有選項 →
+    // 對師生都無意義。正典題庫可補上題型、選項與解說；查不到就只顯示
+    // 錯題列本身（canonical=false），永不推測內容。
+    const questionContexts = await resolveMistakeQuestionContexts(
+      dedupedMistakes.map(m => m.questionId),
+    ).catch((err: unknown) => {
+      logger.warn(
+        { module: 'admin-student-analytics', error: err instanceof Error ? err.message : String(err) },
+        'Mistake question context resolution failed',
+      );
+      return new Map<string, MistakeQuestionContext>();
+    });
+
+    const recentMistakes = dedupedMistakes.map(m => {
+      // 單一分桶 owner：技能／題型 bucket 同時給出可重考性與策略卡。
+      const bucket = buildMistakeSkillBreakdown([{ ...m, reviewed: false }], 1)[0];
+      const context = questionContexts.get(m.questionId) ?? null;
+      return {
+        ...m,
+        bucketKey: bucket?.key ?? m.mistakeType,
+        skillLabelZh: m.languageSkill ? getSkillLabel(m.languageSkill, 'zh') : null,
+        skillLabelEn: m.languageSkill ? getSkillLabel(m.languageSkill, 'en') : null,
+        typeLabelZh: bucketKeyLabelZh(bucket?.key ?? m.mistakeType) ?? m.questionType,
+        typeLabelEn: bucketKeyLabelEn(bucket?.key ?? m.mistakeType) ?? m.questionType,
+        // passage-bound 題目（閱讀／聆聽）依附特定篇章 → 不可重考同一題
+        replayable: bucket?.replayable ?? true,
+        strategy: bucket?.strategy ?? null,
+        canonical: context?.canonical ?? false,
+        choices: context?.choices ?? null,
+        explanationZh: context?.explanationZh ?? null,
+        explanationEn: context?.explanationEn ?? null,
+      };
+    });
 
     // 4. 詞彙概覽
     const vocabStats = await adminDbQuery('vocabItem', 'groupBy', {

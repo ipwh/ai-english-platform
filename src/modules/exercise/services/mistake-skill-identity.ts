@@ -16,6 +16,7 @@
 
 import {
   resolveGrammarQuestionDefinitions,
+  resolveGrammarQuestionExplanationsMany,
   type GrammarQuestionDefinition,
 } from './grammar-question-service';
 import {
@@ -115,6 +116,78 @@ export async function resolveMistakeSkillIdentities(
     }
     const grammarDef = grammar.get(id);
     if (grammarDef) result.set(id, identityFromGrammarDefinition(grammarDef));
+  }
+
+  return result;
+}
+
+/**
+ * 錯題的「語境」— 讓顯示層不必只靠一句無頭無尾的題目文字。
+ *
+ * 2026-09-15: 錯題列表只顯示 questionSummary（題目文字）時，閱讀題
+ * （例如 “What does the word 'curiosity' in the last sentence mean?”）
+ * 沒有篇章、沒有選項，對師生都無意義。本函式把可用的正典語境一次過
+ * 解析出來：選項、題型、解說。題目定義不存在（舊題目／未持久化）時
+ * canonical = false，呼叫方必須接受「只有錯題列本身可顯示」，不推測內容。
+ */
+export interface MistakeQuestionContext {
+  /** 題目定義存在於正典題庫（false = 不可重建，永不推測） */
+  canonical: boolean;
+  /** 正典題目文字（伺服器持有） */
+  questionText: string | null;
+  /** MC 選項（正典定義；未持有 → null） */
+  choices: string[] | null;
+  /** 題型：閱讀 dseType / 文法 questionType */
+  questionType: string | null;
+  /** 作答後解說（文法題庫持有；閱讀題庫不儲存解說 → null） */
+  explanationZh: string | null;
+  explanationEn: string | null;
+}
+
+/**
+ * Resolve display context for a batch of mistake question ids.
+ * Unresolvable ids are absent from the map (never reconstructed).
+ */
+export async function resolveMistakeQuestionContexts(
+  questionIds: string[],
+): Promise<Map<string, MistakeQuestionContext>> {
+  const ids = Array.from(new Set(questionIds.filter(id => typeof id === 'string' && id.length > 0)));
+  const result = new Map<string, MistakeQuestionContext>();
+  if (ids.length === 0) return result;
+
+  const [reading, grammar] = await Promise.all([
+    resolveReadingQuestionDefinitions(ids),
+    resolveGrammarQuestionDefinitions(ids),
+  ]);
+  const grammarExplanations = await resolveGrammarQuestionExplanationsMany(
+    ids.filter(id => grammar.has(id)),
+  );
+
+  for (const id of ids) {
+    const readingDef = reading.get(id);
+    if (readingDef) {
+      result.set(id, {
+        canonical: true,
+        questionText: readingDef.questionText ?? null,
+        choices: readingDef.choices,
+        questionType: readingDef.dseType || readingDef.questionType || null,
+        explanationZh: null,
+        explanationEn: null,
+      });
+      continue;
+    }
+    const grammarDef = grammar.get(id);
+    if (grammarDef) {
+      const explanation = grammarExplanations.get(id) ?? null;
+      result.set(id, {
+        canonical: true,
+        questionText: grammarDef.prompt || grammarDef.promptZh || null,
+        choices: grammarDef.choices,
+        questionType: grammarDef.questionType || null,
+        explanationZh: explanation?.explanationZh ?? null,
+        explanationEn: explanation?.explanationEn ?? null,
+      });
+    }
   }
 
   return result;

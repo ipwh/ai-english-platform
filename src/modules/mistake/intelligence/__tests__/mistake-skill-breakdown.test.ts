@@ -7,6 +7,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  bucketKeyLabelEn,
+  bucketKeyLabelZh,
   buildMistakeSkillBreakdown,
   mistakeBucketKey,
   type BreakdownMistakeInput,
@@ -116,6 +118,36 @@ describe('buildMistakeSkillBreakdown — 弱項聚合', () => {
 
   it('空輸入 → 空結果', () => {
     expect(buildMistakeSkillBreakdown([])).toEqual([]);
+  });
+});
+
+describe('bucketKeyLabelZh / bucketKeyLabelEn — 顯示層標籤', () => {
+  it('閱讀題型桶 → 策略卡標籤（不顯示原始 key）', () => {
+    expect(bucketKeyLabelZh('reading:inference')).toBe(getStrategyCard({ languageSkill: 'reading', questionType: 'inference' })?.labelZh);
+    expect(bucketKeyLabelEn('reading:inference')).toBe(getStrategyCard({ languageSkill: 'reading', questionType: 'inference' })?.labelEn);
+  });
+
+  it('unclassified 桶 → 未分類題型說明，而非 reading:unclassified', () => {
+    expect(bucketKeyLabelZh('reading:unclassified')).toBe('閱讀／聆聽理解（未分類題型）');
+    expect(bucketKeyLabelEn('reading:unclassified')).toBe('Comprehension (unclassified type)');
+  });
+
+  it('文法項目桶 → 技能標籤', () => {
+    expect(bucketKeyLabelZh('grammar:tenses-simple')).toBeTruthy();
+    expect(bucketKeyLabelZh('grammar:tenses-simple')).not.toContain(':');
+    expect(bucketKeyLabelEn('grammar:tenses-simple')).toBeTruthy();
+  });
+
+  it('錯誤類型桶 → 策略卡標籤；未知值回 null（不杜撰）', () => {
+    expect(bucketKeyLabelZh('vocabulary')).toBe(getStrategyCard({ mistakeType: 'vocabulary' })?.labelZh);
+    expect(bucketKeyLabelEn('vocabulary')).toBe(getStrategyCard({ mistakeType: 'vocabulary' })?.labelEn);
+    expect(bucketKeyLabelZh('mystery')).toBeNull();
+    expect(bucketKeyLabelEn('mystery')).toBeNull();
+  });
+
+  it('空 scope 值 → null（不產生空字串標籤）', () => {
+    expect(bucketKeyLabelZh('reading:')).toBeNull();
+    expect(bucketKeyLabelEn('reading:')).toBeNull();
   });
 });
 

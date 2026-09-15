@@ -56,19 +56,31 @@ interface StudentAnalytics {
     weakestSkills: Array<{ skill: string; subSkill: string; masteryScore: number }>;
     strongestSkills: Array<{ skill: string; subSkill: string; masteryScore: number }>;
   } | null;
+  /**
+   * 正典 WeaknessProfile（`mistake/intelligence/types`）。
+   * 2026-09-15: 舊型別宣告成 frequency / recommendationZh 等不存在的欄位，
+   * 令畫面顯示原始 bucket key（reading:unclassified）且次數永遠是空的。
+   */
   weakness: {
     topWeaknesses: Array<{
       grammarCategory: string;
-      frequency: number;
+      grammarCategoryZh: string;
+      mistakeCount: number;
       severity: string;
       trend: string;
-      recommendationZh: string;
-      recommendationEn: string;
+      mastered: boolean;
+      lastSeen: string;
     }>;
     improvementTrend: string;
+    recommendations: string[];
     mostFrequentMistakes: Array<{
-      mistakeType: string;
-      count: number;
+      grammarCategory: string;
+      grammarCategoryZh: string;
+      mistakeCount: number;
+      severity: string;
+      trend: string;
+      mastered: boolean;
+      lastSeen: string;
     }>;
   } | null;
   trends: {
@@ -105,6 +117,22 @@ interface StudentAnalytics {
     correctAnswer: string;
     mistakeType: string;
     createdAt: string;
+    /** 技能／題型（正典解析結果）— 錯題的可複習單位 */
+    languageSkill: string | null;
+    grammarItem: string | null;
+    questionType: string | null;
+    bucketKey?: string;
+    skillLabelZh?: string | null;
+    skillLabelEn?: string | null;
+    typeLabelZh?: string | null;
+    typeLabelEn?: string | null;
+    /** false = 題目依附篇章（閱讀／聆聽）→ 不可重考同一題 */
+    replayable?: boolean;
+    /** 題目定義是否存在於正典題庫 */
+    canonical?: boolean;
+    choices?: string[] | null;
+    explanationZh?: string | null;
+    explanationEn?: string | null;
   }>;
   vocabStats: Array<{ familiarity: string; count: number }>;
   writingStats: Array<{
@@ -193,8 +221,12 @@ function MasteryBar({ label, score, color }: { label: string; score: number; col
 // ============================================
 
 function SeverityBadge({ severity }: { severity: string }) {
+  // 正典嚴重度為 critical | major | minor（mistake-tracker.classifySeverity）；
+  // 舊值 high | medium | low 保留向後兼容。
   const config: Record<string, { color: string; label: string }> = {
     critical: { color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300', label: '嚴重' },
+    major: { color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300', label: '中等' },
+    minor: { color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', label: '輕微' },
     high: { color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300', label: '高' },
     medium: { color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300', label: '中' },
     low: { color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', label: '低' },
@@ -203,9 +235,15 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${c.color}`}>{c.label}</span>;
 }
 
-function TrendBadge({ trend }: { trend: string }) {
+function TrendBadge({ trend, language }: { trend: string; language: string }) {
+  // 正典趨勢為 improving | stable | worsening；舊值 up | down | declining 向後兼容。
   const isUp = trend === 'improving' || trend === 'up';
-  const isDown = trend === 'declining' || trend === 'down';
+  const isDown = trend === 'worsening' || trend === 'declining' || trend === 'down';
+  const label = isUp
+    ? (language === 'en' ? 'Improving' : '進步中')
+    : isDown
+      ? (language === 'en' ? 'Worsening' : '惡化中')
+      : (language === 'en' ? 'Stable' : '平穩');
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
       isUp ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
@@ -213,8 +251,53 @@ function TrendBadge({ trend }: { trend: string }) {
       'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
     }`}>
       {isUp ? '↑' : isDown ? '↓' : '→'}
-      {trend === 'improving' ? '進步中' : trend === 'declining' ? '退步中' : '平穩'}
+      {label}
     </span>
+  );
+}
+
+/**
+ * MC 選項 — 閱讀／詞彙題目沒有篇章時，選項是最起碼的語境。
+ * 正解綠、學生所選（錯）紅，其餘中性。
+ */
+function OptionList({
+  choices,
+  correctAnswer,
+  studentAnswer,
+  label,
+}: {
+  choices: string[];
+  correctAnswer: string;
+  studentAnswer: string;
+  label: string;
+}) {
+  const correct = (correctAnswer || '').trim().toUpperCase();
+  const chosen = (studentAnswer || '').trim().toUpperCase();
+  return (
+    <div className="mt-1.5">
+      <p className="text-[11px] text-gray-400 mb-1">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {choices.map((choice, i) => {
+          const key = String.fromCharCode(65 + i);
+          const isCorrect = key === correct;
+          const isChosenWrong = key === chosen && !isCorrect;
+          return (
+            <span
+              key={key}
+              className={`text-[11px] px-2 py-0.5 rounded-lg border ${
+                isCorrect
+                  ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300'
+                  : isChosenWrong
+                    ? 'border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
+                    : 'border-gray-200 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+              }`}
+            >
+              {key}. {choice}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -431,27 +514,42 @@ export default function StudentAnalyticsPage() {
               {t('admin.students.analytics.weakness')}
             </h3>
             {weakness && (
-              <TrendBadge trend={weakness.improvementTrend} />
+              <TrendBadge trend={weakness.improvementTrend} language={language} />
             )}
           </div>
-          {weakness && weakness.topWeaknesses.length > 0 ? (
+          {weakness && (weakness.topWeaknesses ?? []).length > 0 ? (
             <div className="space-y-3">
-              {weakness.topWeaknesses.slice(0, 6).map((w, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+              {(weakness.topWeaknesses ?? []).slice(0, 6).map((w) => (
+                <div key={w.grammarCategory} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {w.grammarCategory}
+                      {/* 顯示中文標籤，永不把 `reading:inference` 這類 bucket key 直接給用戶 */}
+                      {w.grammarCategoryZh || w.grammarCategory}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
-                      {w.recommendationZh || w.recommendationEn || ''}
+                      {language === 'en' ? 'Last seen' : '最近出現'}：
+                      {w.lastSeen ? new Date(w.lastSeen).toLocaleDateString() : '—'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                    <span className="text-xs text-gray-500">{w.frequency}次</span>
+                    <span className="text-xs text-gray-500">
+                      {w.mistakeCount}{language === 'en' ? '' : '次'}
+                    </span>
                     <SeverityBadge severity={w.severity} />
+                    <TrendBadge trend={w.trend} language={language} />
                   </div>
                 </div>
               ))}
+              {(weakness.recommendations ?? []).length > 0 && (
+                <ul className="pt-1 space-y-1">
+                  {(weakness.recommendations ?? []).slice(0, 3).map((rec, i) => (
+                    <li key={i} className="text-xs text-gray-500 dark:text-gray-400 flex gap-1.5">
+                      <span className="text-purple-500 flex-shrink-0">•</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noWeakness')}</p>
@@ -622,23 +720,71 @@ export default function StudentAnalyticsPage() {
           </h3>
           {recentMistakes.length > 0 ? (
             <div className="space-y-2">
-              {recentMistakes.map(m => (
-                <div key={m.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm text-gray-900 dark:text-white line-clamp-2 flex-1">
-                      {m.questionSummary}
-                    </p>
-                    <span className="text-xs text-gray-500 flex-shrink-0">
-                      {MISTAKE_LABELS[m.mistakeType]?.[language === 'en' ? 'en' : 'zh'] || m.mistakeType}
-                    </span>
+              {recentMistakes.map(m => {
+                const lang: 'zh' | 'en' = language === 'en' ? 'en' : 'zh';
+                const skillLabel = lang === 'en' ? (m.skillLabelEn || m.skillLabelZh) : m.skillLabelZh;
+                const typeLabel = lang === 'en' ? (m.typeLabelEn || m.typeLabelZh) : m.typeLabelZh;
+                const explanation = lang === 'en'
+                  ? (m.explanationEn || m.explanationZh)
+                  : (m.explanationZh || m.explanationEn);
+                return (
+                  <div key={m.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm text-gray-900 dark:text-white line-clamp-2 flex-1">
+                        {m.questionSummary || (lang === 'en' ? 'Question text not stored' : '未儲存題目文字')}
+                      </p>
+                      <span className="text-xs text-gray-500 flex-shrink-0">
+                        {MISTAKE_LABELS[m.mistakeType]?.[lang] || m.mistakeType}
+                      </span>
+                    </div>
+
+                    {/* 技能／題型 = 錯題的可複習單位（閱讀／聆聽題依附篇章） */}
+                    {(skillLabel || typeLabel || m.replayable === false) && (
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {(skillLabel || typeLabel) && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                            {[skillLabel, typeLabel].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                        {m.replayable === false && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                            {lang === 'en'
+                              ? 'Passage-bound — same item cannot be re-tested'
+                              : '篇章依附題目 — 不可重考同一題'}
+                          </span>
+                        )}
+                        {m.canonical === false && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300">
+                            {lang === 'en' ? 'No canonical context stored' : '未存正典語境'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 選項 — 沒有篇章時的最起碼語境 */}
+                    {m.choices && m.choices.length > 0 && (
+                      <OptionList
+                        choices={m.choices}
+                        correctAnswer={m.correctAnswer || ''}
+                        studentAnswer={m.studentAnswer || ''}
+                        label={lang === 'en' ? 'Options' : '選項'}
+                      />
+                    )}
+
+                    <div className="flex items-center gap-3 mt-1.5 text-xs">
+                      <span className="text-red-500 line-through">{m.studentAnswer || '—'}</span>
+                      <ChevronRight className="w-3 h-3 text-gray-400" />
+                      <span className="text-green-600 font-medium">{m.correctAnswer || '—'}</span>
+                    </div>
+
+                    {explanation && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 bg-white dark:bg-gray-800 p-2 rounded-lg">
+                        💡 {explanation}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 mt-1.5 text-xs">
-                    <span className="text-red-500 line-through">{m.studentAnswer}</span>
-                    <ChevronRight className="w-3 h-3 text-gray-400" />
-                    <span className="text-green-600 font-medium">{m.correctAnswer}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noMistakeRecords')}</p>

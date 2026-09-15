@@ -34,8 +34,20 @@ interface PracticeSession {
     totalQuestions?: number;
     correctCount?: number;
   } | null;
-  answers?: { questionIndex: number; questionType: string; questionPrompt: string;
-    correctAnswer: string; studentAnswer: string; isCorrect: boolean; timeSpent?: number }[];
+  /**
+   * 逐題顯示資料。全部欄位皆為 optional：API 只保證回傳「題目身分 + 評分證據」，
+   * 顯示層必須對缺漏欄位 fail-safe，絕不對 undefined 呼叫 String 方法。
+   */
+  answers?: {
+    questionIndex?: number;
+    questionType?: string;
+    questionPrompt?: string;
+    correctAnswer?: string;
+    studentAnswer?: string;
+    isCorrect?: boolean;
+    timeSpent?: number | null;
+    result?: string | null;
+  }[];
 }
 
 interface MistakeData {
@@ -65,6 +77,20 @@ interface FullStudentData {
   writingDrafts: WritingDraft[];
   xpTransactions: XpTransaction[];
   weeklySnapshots: WeeklySnapshot[];
+}
+
+/**
+ * 逐題題目文字 — 缺題目文字時退回題型，永不對 undefined 取 substring。
+ * 2026-09-15: 舊版直接 `a.questionPrompt.substring(0, 60)`，一旦 API 未回傳
+ * 題目文字即整頁被 error boundary 接住（Cannot read properties of undefined）。
+ */
+function displayPrompt(
+  prompt: string | undefined,
+  fallback: string,
+  max = 60,
+): string {
+  const text = (prompt ?? '').trim() || fallback;
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
 export default function StudentDetailPage() {
@@ -391,17 +417,39 @@ export default function StudentDetailPage() {
                 {/* 逐題展開 */}
                 {expandedSessions.has(s.id) && s.answers && (
                   <div className="mt-1 ml-4 border-l-2 border-blue-200 dark:border-blue-800 pl-4 space-y-1.5 py-2">
-                    {s.answers.map((a, ai) => (
-                      <div key={ai} className="text-xs">
-                        <span className="text-gray-400">Q{a.questionIndex + 1}. </span>
-                        <span className="text-gray-600 dark:text-gray-400">{a.questionPrompt.substring(0, 60)}{a.questionPrompt.length > 60 ? '…' : ''}</span>
-                        {' '}
-                        <span className={a.isCorrect ? 'text-teal-600 font-medium' : 'text-red-500 font-medium'}>
-                          {a.isCorrect ? '✓' : `✗ (答: ${a.studentAnswer} / 正: ${a.correctAnswer})`}
-                        </span>
-                        {a.timeSpent && <span className="text-gray-400 ml-1">{a.timeSpent}s</span>}
-                      </div>
-                    ))}
+                    {s.answers.map((a, ai) => {
+                      const isCorrect = a.isCorrect === true;
+                      const isUngradable = a.result === 'ungradable';
+                      const studentAnswer = (a.studentAnswer ?? '').trim();
+                      const correctAnswer = (a.correctAnswer ?? '').trim();
+                      return (
+                        <div key={ai} className="text-xs">
+                          <span className="text-gray-400">Q{(typeof a.questionIndex === 'number' ? a.questionIndex : ai) + 1}. </span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {displayPrompt(
+                              a.questionPrompt,
+                              a.questionType || (store.language === 'en' ? 'Question text unavailable' : '未提供題目文字'),
+                            )}
+                          </span>
+                          {' '}
+                          {/* 開放式題目不自動評分（見 CHANGELOG 2026-09-15 (II)）→ 不顯示「回答錯誤」 */}
+                          {isUngradable ? (
+                            <span className="text-amber-600 font-medium">
+                              ◻ {store.language === 'en' ? 'Not auto-graded' : '不自動評分'}
+                            </span>
+                          ) : (
+                            <span className={isCorrect ? 'text-teal-600 font-medium' : 'text-red-500 font-medium'}>
+                              {isCorrect
+                                ? '✓'
+                                : `✗ (答: ${studentAnswer || '—'} / 正: ${correctAnswer || '—'})`}
+                            </span>
+                          )}
+                          {typeof a.timeSpent === 'number' && a.timeSpent > 0 && (
+                            <span className="text-gray-400 ml-1">{a.timeSpent}s</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

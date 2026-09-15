@@ -118,6 +118,35 @@ export function bucketKeyLabelZh(key: string): string | null {
 }
 
 /**
+ * 由 bucket key 反解英文標籤 — 與 bucketKeyLabelZh 對稱。
+ * 無法解析時回 null，呼叫方自行退回原值（不杜撰標籤）。
+ */
+export function bucketKeyLabelEn(key: string): string | null {
+  const separator = key.indexOf(':');
+
+  if (separator === -1) {
+    return getStrategyCard({ mistakeType: key })?.labelEn ?? null;
+  }
+
+  const scope = key.slice(0, separator);
+  const value = key.slice(separator + 1);
+  if (!value) return null;
+
+  if (scope === 'reading' || scope === 'listening') {
+    if (value === 'unclassified') {
+      return getStrategyCard({ languageSkill: scope })?.labelEn ?? null;
+    }
+    return getStrategyCard({ languageSkill: scope, questionType: value })?.labelEn ?? value;
+  }
+
+  if (scope === 'grammar') {
+    return getSkillLabel(value, 'en') || value;
+  }
+
+  return null;
+}
+
+/**
  * Group mistakes into skill/type buckets, strongest weakness first.
  * `limit` caps the returned buckets (default 6).
  */

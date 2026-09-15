@@ -121,9 +121,23 @@ export async function getStudentAnalytics(studentId: string) {
         source: true,
         startedAt: true,
         completedAt: true,
+        // 2026-09-15: 逐題檢視需要「顯示用」欄位。R3.10-C 曾把 select 收窄成
+        // 只有驗證欄位，令 teacher/students/[studentId] 的
+        // `a.questionPrompt.substring(...)` 讀到 undefined →
+        // 整個頁面被 error boundary 接住（Cannot read properties of
+        // undefined (reading 'substring')）。
+        // 驗證權威不變：verified 仍只由 evaluatePracticeEvidence() 決定，
+        // 這些欄位純粹是顯示資料。
         answers: {
           select: {
+            questionIndex: true,
             questionId: true,
+            questionType: true,
+            questionPrompt: true,
+            correctAnswer: true,
+            studentAnswer: true,
+            isCorrect: true,
+            timeSpent: true,
             result: true,
             awardedScore: true,
             maxScore: true,
@@ -131,6 +145,7 @@ export async function getStudentAnalytics(studentId: string) {
             scoredBy: true,
             scoringMethod: true,
           },
+          orderBy: { questionIndex: 'asc' },
         },
       },
       orderBy: { startedAt: 'desc' },

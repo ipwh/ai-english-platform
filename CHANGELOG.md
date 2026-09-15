@@ -4,6 +4,74 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-15 (III) — 修復教師／管理員「學生個人分析」頁崩潰 + 弱項／錯題顯示無語境
+
+### 症狀（用戶回報）
+1. 開啟學生分析頁（`/teacher/students/[studentId]` 展開練習紀錄）→ 整頁被 error boundary 接住：
+   `發生錯誤 Something went wrong — Cannot read properties of undefined (reading 'substring')`。
+2. `/admin/students/[studentId]` 弱項分析顯示原始 bucket key（`reading:unclassified`）、
+   次數空白（只剩「次」）與永遠「嚴重」的嚴重度。
+3. 最近錯題只有一句問題 + `B → D`，沒有題型、沒有選項、沒有解說——
+   閱讀題依附篇章，單看問題對師生都無意義。
+
+### 根本原因（三處，互相獨立）
+1. **崩潰**：R3.10-C 把 `getStudentAnalytics()` 的 `answers.select` 收窄成只有驗證欄位
+   （questionId / result / scores / authority），但教師頁仍讀 `a.questionPrompt`、
+   `a.questionIndex`、`a.studentAnswer`、`a.correctAnswer` → 展開任何一筆練習紀錄必崩。
+2. **弱項標籤**：`admin/students/[studentId]/page.tsx` 的 `weakness` 型別被宣告成不存在的欄位
+   （`frequency` / `recommendationZh`），實際 `WeaknessItem` 是
+   `grammarCategoryZh` / `mistakeCount` / `severity(critical|major|minor)` / `trend(improving|stable|worsening)`
+   → 頁面顯示原始 key、次數 undefined，且 `major`/`minor` 落回預設「中」、
+   `worsening` 被當成「平穩」。
+3. **錯題語境**：錯題只存 `questionSummary`；API 亦只回傳那一句。閱讀題的篇章**並未**隨錯題持久化
+   （`ReadingQuestion` 只存題目定義），因此篇章無法回溯——可回溯的是正典題庫持有的
+   選項／題型／解說。
+
+### 決策
+- **不重建、不推測**：篇章不存在就明示「篇章依附題目 — 不可重考同一題」，複習單位指向題型弱項
+  （沿用 2026-09-14 ADR-041 的結論）。
+- 顯示層一律使用**解析後的標籤**（zh/en），永不把 `reading:unclassified` 這類 bucket key 給用戶。
+- 顯示需求與評分權威分離：投影同時帶「驗證欄位」與「顯示欄位」，`verified` 仍只由
+  `evaluatePracticeEvidence()` 決定。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **崩潰修正** | `getStudentAnalytics()`（`student/repositories/user-repo.ts`）`answers.select` 補回顯示欄位（questionIndex／questionType／questionPrompt／correctAnswer／studentAnswer／isCorrect／timeSpent）並加 `orderBy: { questionIndex: 'asc' }`；驗證欄位全部保留。 |
+| **顯示層硬化** | `teacher/students/[studentId]/page.tsx`：新增 fail-safe `displayPrompt()`（不再對 undefined 取 substring／length）；題號、答案、時間缺漏時有明確後備值。 |
+| **弱項分析** | `admin/students/[studentId]/page.tsx`：型別改為正典 `WeaknessItem`；顯示 `grammarCategoryZh`、`mistakeCount`、`lastSeen`、整體 `recommendations`；`SeverityBadge` 支援 `major`／`minor`；`TrendBadge` 支援 `worsening` 並雙語化。 |
+| **錯題語境** | 新增 `resolveMistakeQuestionContexts()`（`exercise/services/mistake-skill-identity.ts`，正典題目解析的單一 owner）：批次帶回選項／題型／作答後解說（文法）；`grammar-question-service` 新增批次解說解析 `resolveGrammarQuestionExplanationsMany()`（單 id 版本改為委派）。 |
+| **API** | `/api/admin/students/[studentId]/analytics`：`recentMistakes` 查詢補上 skill 欄位，回傳 `bucketKey`、`skillLabelZh/En`、`typeLabelZh/En`、`replayable`、`strategy`、`canonical`、`choices`、`explanationZh/En`；解析失敗 fail-open（錯題照樣回傳）。`mistake-skill-breakdown` 新增 `bucketKeyLabelEn()`（與 zh 對稱）。 |
+| **UI（錯題卡）** | 題型／技能 chip、篇章依附標示、未存正典語境標示、MC 選項（正解綠／誤選紅）、作答後解說。 |
+| **題型歸類後備** | `practice-submission-service`：閱讀題目不在正典題庫（舊 `rd-*` 題）時，改用白名單內的客戶端 `dseType` 作題型後備（`sanitizeClientSkillClaims`，與 `/api/mistakes` 同一政策），並如實標記 `skillSource = 'client-claimed'`／無法歸類則 `'unresolved'`。舊版在無自報值時仍標記 `client-claimed`（來源記錄不實）且題型永遠 null → 弱項全部落入 `reading:unclassified`。 |
+
+### 測試（+29 用例，4 個檔案）
+- `student/__tests__/student-analytics-projection.test.ts`（新）：投影必含顯示欄位、驗證欄位不得被取代、
+  依 questionIndex 排序；教師頁不得再對 `questionPrompt` 呼叫 substring／length；
+  開放式題目（`ungradable`）不得顯示「回答錯誤」。
+- `api/__tests__/admin-student-analytics-context.test.ts`（新）：標籤解析、可重考性、選項／解說、
+  批次解析（一次過）、fail-open、去重。
+- `exercise/__tests__/mistake-question-type-fallback.test.ts`（新）：白名單外的自報題型被丟棄、
+  無自報值 → `unresolved`、正典定義優先、自報題型不得影響評分。
+- `mistake-skill-identity.test.ts` / `mistake-skill-breakdown.test.ts`：語境解析（含舊題目不可重建）與
+  `bucketKeyLabelEn` 對稱性。
+- 完整套件 **2958 pass / 1 skipped（142 files）**；`tsc --noEmit`、`eslint`（0 errors）、`check-i18n.js`、`node scripts/production-build.js`（exit 0）全通過。
+
+### 生產庫驗證（只讀，2026-09-15）
+- `Mistake` 1443 筆；閱讀 16 筆（8 筆無題型）；抽樣 8 個 questionId → **0 個**可解析到 `ReadingQuestion`
+  （舊 `rd-*` 題目未持久化）。即：新 UI 對舊資料顯示「未存正典語境」＋題型標籤，是資料約束下的正確結果，
+  非解析失敗；題型後備只對新提交生效。
+
+### 未處理（follow-up）
+- 閱讀篇章未持久化 → 錯題無法顯示篇章全文；若要顯示，需在生成時一併保存 passage（schema 變更）。
+- **歷史資料無法回溯**（實測 Neon 生產庫 2026-09-15：錯誤記錄 1443 筆、閱讀 16 筆、其中 8 筆無題型；
+  抽樣 8 個 questionId **0 個**可解析到 `ReadingQuestion`）→ 舊錯題永遠只有「未存正典語境」標示，
+  題型後備政策只對**新提交**生效（不重建、不回填）。
+- 觀察：學生最大弱項桶為 `grammar`（單一學生 754 筆，`bucketKeyLabelZh` → 「文法項目」）——
+  舊錯題無 `grammarItem` 故全數合併為一桶；要細分需為歷史資料解析文法項目（未做，需正典題目對應）。
+- 觀察：`languageSkill = null` 的舊 `comprehension` 錯題在 `buildMistakeSkillBreakdown` 中
+  `replayable = true`（無技能資訊可判定篇章依附）→ 錯題卡不會顯示「篇章依附」標示，只顯示「未存正典語境」。
+
 ## 2026-09-15 (II) — 寫作題不再被判「回答錯誤」（開放式題目改為不自動評分）
 
 ### 症狀（學生回報）

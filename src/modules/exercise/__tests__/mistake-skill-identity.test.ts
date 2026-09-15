@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   resolveReadingQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
+  resolveGrammarQuestionExplanationsMany: vi.fn(),
 }));
 
 vi.mock('@/modules/reading/services/reading-question-service', () => ({
@@ -18,11 +19,13 @@ vi.mock('@/modules/reading/services/reading-question-service', () => ({
 
 vi.mock('../services/grammar-question-service', () => ({
   resolveGrammarQuestionDefinitions: mocks.resolveGrammarQuestionDefinitions,
+  resolveGrammarQuestionExplanationsMany: mocks.resolveGrammarQuestionExplanationsMany,
 }));
 
 import {
   identityFromGrammarDefinition,
   identityFromReadingDefinition,
+  resolveMistakeQuestionContexts,
   resolveMistakeSkillIdentities,
   sanitizeClientSkillClaims,
   sanitizeQuestionSummary,
@@ -33,6 +36,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map());
   mocks.resolveGrammarQuestionDefinitions.mockResolvedValue(new Map());
+  mocks.resolveGrammarQuestionExplanationsMany.mockResolvedValue(new Map());
 });
 
 describe('resolveMistakeSkillIdentities — 正典題目定義優先', () => {
@@ -122,6 +126,84 @@ describe('identityFromReadingDefinition / identityFromGrammarDefinition', () => 
     });
     expect(identity.languageSkill).toBeNull();
     expect(identity.grammarItem).toBe('articles');
+  });
+});
+
+describe('resolveMistakeQuestionContexts — 錯題語境（選項／題型／解說）', () => {
+  it('閱讀題目 → 帶回選項與題型（篇章不儲存，不推測）', async () => {
+    mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map([
+      ['rq-1', {
+        id: 'rq-1',
+        questionType: 'mcq',
+        dseType: 'vocabulary_in_context',
+        questionText: "What does the word 'curiosity' in the last sentence mean?",
+        choices: ['Being eager to know', 'Being afraid', 'Feeling bored', 'Being tired'],
+        answer: 'A',
+        marks: 1,
+        orderIndex: 0,
+      }],
+    ]));
+
+    const context = (await resolveMistakeQuestionContexts(['rq-1'])).get('rq-1');
+
+    expect(context).toMatchObject({
+      canonical: true,
+      questionType: 'vocabulary_in_context',
+      choices: ['Being eager to know', 'Being afraid', 'Feeling bored', 'Being tired'],
+      explanationZh: null,
+      explanationEn: null,
+    });
+  });
+
+  it('文法題目 → 帶回解說（作答後才揭示）', async () => {
+    mocks.resolveGrammarQuestionDefinitions.mockResolvedValue(new Map([
+      ['gq-1', {
+        id: 'gq-1',
+        questionType: 'mc',
+        prompt: 'She ____ to school every day.',
+        promptZh: null,
+        choices: ['goes', 'go'],
+        answer: 'A',
+        acceptedAnswers: null,
+        grammarItem: 'tenses-simple',
+        languageSkill: null,
+        difficulty: 'core',
+        gradeLevel: 'S4',
+        provenance: 'ai-generated',
+      }],
+    ]));
+    mocks.resolveGrammarQuestionExplanationsMany.mockResolvedValue(new Map([
+      ['gq-1', { explanationZh: '第三人稱單數加 -s。', explanationEn: 'Third person singular takes -s.' }],
+    ]));
+
+    const context = (await resolveMistakeQuestionContexts(['gq-1'])).get('gq-1');
+
+    expect(context).toMatchObject({
+      canonical: true,
+      questionType: 'mc',
+      choices: ['goes', 'go'],
+      explanationZh: '第三人稱單數加 -s。',
+      explanationEn: 'Third person singular takes -s.',
+    });
+    // 只查文法 id 的解說，閱讀 id 不會被查
+    expect(mocks.resolveGrammarQuestionExplanationsMany).toHaveBeenCalledWith(['gq-1']);
+  });
+
+  it('無法解析的舊題目 → 不在結果中（canonical 只能由正典定義證明）', async () => {
+    const contexts = await resolveMistakeQuestionContexts(['rd-legacy-1']);
+    expect(contexts.size).toBe(0);
+    expect(mocks.resolveGrammarQuestionExplanationsMany).toHaveBeenCalledWith([]);
+  });
+
+  it('空 id 清單 → 不查詢題庫', async () => {
+    const contexts = await resolveMistakeQuestionContexts(['', '']);
+    expect(contexts.size).toBe(0);
+    expect(mocks.resolveReadingQuestionDefinitions).not.toHaveBeenCalled();
+  });
+
+  it('重複 id 只查一次', async () => {
+    await resolveMistakeQuestionContexts(['rq-1', 'rq-1']);
+    expect(mocks.resolveReadingQuestionDefinitions).toHaveBeenCalledWith(['rq-1']);
   });
 });
 

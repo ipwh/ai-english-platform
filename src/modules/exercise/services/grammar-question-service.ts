@@ -116,6 +116,29 @@ export async function resolveGrammarQuestionDefinitions(
 }
 
 /**
+ * Resolve post-grading explanations (zh/en) for many question ids at once.
+ * Same contract as the single-id variant — explanations are only revealed
+ * AFTER server-side grading. Batched so displays never issue N queries.
+ */
+export async function resolveGrammarQuestionExplanationsMany(
+  ids: string[],
+): Promise<Map<string, { explanationZh: string | null; explanationEn: string | null }>> {
+  const map = new Map<string, { explanationZh: string | null; explanationEn: string | null }>();
+  const unique = Array.from(new Set(ids.filter(id => typeof id === 'string' && id.length > 0)));
+  if (unique.length === 0) return map;
+
+  const rows = await findGrammarQuestionsByIds(unique);
+  for (const row of rows) {
+    const r = row as { id: string; explanationZh?: string | null; explanationEn?: string | null };
+    map.set(r.id, {
+      explanationZh: r.explanationZh ?? null,
+      explanationEn: r.explanationEn ?? null,
+    });
+  }
+  return map;
+}
+
+/**
  * Resolve post-grading explanations (zh/en) for a question id.
  * Kept out of the canonical scoring definition — explanations are only
  * revealed AFTER server-side grading (2026-08-30 audit R8).
@@ -123,11 +146,6 @@ export async function resolveGrammarQuestionDefinitions(
 export async function resolveGrammarQuestionExplanations(
   id: string,
 ): Promise<{ explanationZh: string | null; explanationEn: string | null } | null> {
-  const rows = await findGrammarQuestionsByIds([id]);
-  const row = rows.find(r => r.id === id);
-  if (!row) return null;
-  return {
-    explanationZh: (row as { explanationZh?: string | null }).explanationZh ?? null,
-    explanationEn: (row as { explanationEn?: string | null }).explanationEn ?? null,
-  };
+  const map = await resolveGrammarQuestionExplanationsMany([id]);
+  return map.get(id) ?? null;
 }

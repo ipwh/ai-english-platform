@@ -44,6 +44,7 @@ import {
 import { createMistakeIfAbsent } from '@/modules/mistake/db/repositories/mistake-repo';
 import {
   resolveMistakeSkillIdentities,
+  sanitizeClientSkillClaims,
   type MistakeSkillIdentity,
 } from './mistake-skill-identity';
 
@@ -84,6 +85,29 @@ function deriveAggregates(
     return { totalQuestions: sessionAggregates.totalQuestions, correctCount: sessionAggregates.correctCount };
   }
   return computePracticeAggregates(normalizedAnswers);
+}
+
+/**
+ * 由原始提交抽出白名單內的客戶端題型自報值（questionId → dseType / questionType）。
+ *
+ * 2026-09-15: 閱讀題目若不在正典題庫（未持久化的舊 `rd-*` 即時生成題），
+ * `resolveMistakeSkillIdentities()` 解析不到 dseType，所有閱讀錯題便落入
+ * `reading:unclassified` —— 學生看到「未分類題型」的弱項，無法知道要練什麼。
+ * 題目生成時伺服器藍圖已決定 dseType，客戶端只是把它送回來；白名單驗證後
+ * 作為題型後備，並如實標記 `skillSource = 'client-claimed'`。
+ * 此值永不參與評分，只用於弱項歸類。
+ */
+function collectClaimedQuestionTypes(rawAnswers: unknown): Map<string, string> {
+  const claimed = new Map<string, string>();
+  if (!Array.isArray(rawAnswers)) return claimed;
+  for (const raw of rawAnswers) {
+    const a = (raw ?? {}) as { questionId?: unknown; dseType?: unknown; questionType?: unknown };
+    const id = typeof a.questionId === 'string' ? a.questionId.trim() : '';
+    if (!id || claimed.has(id)) continue;
+    const sanitized = sanitizeClientSkillClaims({ questionType: a.dseType ?? a.questionType });
+    if (sanitized.questionType) claimed.set(id, sanitized.questionType);
+  }
+  return claimed;
 }
 
 /**
@@ -186,6 +210,9 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
       }
     }
 
+    // 題型後備：解析不到正典定義時，用白名單內的客戶端 dseType 歸類題型
+    const claimedQuestionTypes = collectClaimedQuestionTypes(answers);
+
     for (const a of wrongAnswers) {
       try {
         await createMistakeIfAbsent({
@@ -198,9 +225,12 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
           languageSkill: skillIdentities.get(a.questionId)?.languageSkill
             ?? (submissionClass === 'reading' ? 'reading' : null),
           grammarItem: skillIdentities.get(a.questionId)?.grammarItem ?? null,
-          questionType: skillIdentities.get(a.questionId)?.questionType ?? null,
+          questionType: skillIdentities.get(a.questionId)?.questionType
+            ?? claimedQuestionTypes.get(a.questionId)
+            ?? null,
+          // 來源如實記錄：canonical 定義 > 白名單自報 > 無法歸類
           skillSource: skillIdentities.get(a.questionId)?.skillSource
-            ?? (submissionClass === 'reading' ? 'client-claimed' : 'unresolved'),
+            ?? (claimedQuestionTypes.has(a.questionId) ? 'client-claimed' : 'unresolved'),
         });
       } catch (err) {
         logger.warn({ module: 'practice', studentId, error: err instanceof Error ? err.message : String(err) }, 'Auto-mistake sync failed (non-fatal)');
