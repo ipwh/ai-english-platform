@@ -67,7 +67,7 @@ All notable changes to the AI English Platform are documented here.
 - **歷史資料無法回溯**（實測 Neon 生產庫 2026-09-15：錯誤記錄 1443 筆、閱讀 16 筆、其中 8 筆無題型；
   抽樣 8 個 questionId **0 個**可解析到 `ReadingQuestion`）→ 舊錯題永遠只有「未存正典語境」標示，
   題型後備政策只對**新提交**生效（不重建、不回填）。
-- 觀察：學生最大弱項桶為 `grammar`（單一學生 754 筆，`bucketKeyLabelZh` → 「文法項目」）——
+- 觀察：學生最大弱項為 `grammar`（單一學生 754 筆，`bucketKeyLabelZh` → 「文法項目」）——
   舊錯題無 `grammarItem` 故全數合併為一桶；要細分需為歷史資料解析文法項目（未做，需正典題目對應）。
 - 觀察：`languageSkill = null` 的舊 `comprehension` 錯題在 `buildMistakeSkillBreakdown` 中
   `replayable = true`（無技能資訊可判定篇章依附）→ 錯題卡不會顯示「篇章依附」標示，只顯示「未存正典語境」。
