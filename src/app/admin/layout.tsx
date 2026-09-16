@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import SchoolBrand from '@/components/shared/SchoolBrand';
 
 // ---- Error Boundary ----
 class AdminErrorBoundary extends Component<
@@ -110,21 +111,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ${sidebarOpen ? 'w-64' : 'lg:w-20'}
         `}
       >
-        {/* Logo */}
+        {/* 校徽 + 校名 */}
         <div
           className={`flex items-center gap-3 px-4 py-5 border-b border-gray-100 dark:border-gray-700 ${
             !sidebarOpen && 'lg:justify-center'
           }`}
         >
-          <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-            A
-          </div>
-          <div className={`${!sidebarOpen ? 'hidden' : 'block'}`}>
-            <p className="font-semibold text-gray-900 dark:text-white text-sm">
-              AI English Platform
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin.layout.title')}</p>
-          </div>
+          <SchoolBrand
+            variant={!sidebarOpen ? 'icon' : 'inline'}
+            subtitle={t('admin.layout.title')}
+          />
           {/* Close button — mobile only */}
           <button
             onClick={() => setSidebarOpen(false)}

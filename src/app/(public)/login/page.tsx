@@ -8,6 +8,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import SchoolBrand from '@/components/shared/SchoolBrand';
 import { LogIn, Eye, EyeOff, Loader2, Languages } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 
@@ -75,11 +76,9 @@ function LoginForm() {
           </button>
         </div>
 
-        {/* Logo */}
+        {/* 校徽 + 校名（中英並列） */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-500 rounded-2xl mb-4">
-            <span className="text-white text-2xl font-bold">E</span>
-          </div>
+          <SchoolBrand variant="stacked" className="mb-5" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('login.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('login.subtitle')}</p>
         </div>

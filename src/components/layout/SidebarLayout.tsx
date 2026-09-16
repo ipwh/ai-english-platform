@@ -10,6 +10,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Bell, Sun, Moon, Menu, X, Languages, ChevronLeft, Shuffle, LogOut } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
+import SchoolBrand from '@/components/shared/SchoolBrand';
 import { getNavLabel, getSectionTitle, studentTabItems } from '@/shared/utils/nav';
 import type { NavItem, NavSection } from '@/shared/utils/nav';
 
@@ -35,41 +36,21 @@ interface SidebarLayoutProps {
 // Sub-components
 // ============================================
 
-/** 桌面端側欄 Logo 區 */
+/** 側欄品牌區（校徽 + 校名）；收合時只顯示校徽 */
 function SidebarLogo({
   collapsed,
-  accentColor,
   subtitle,
-  language,
 }: {
   collapsed: boolean;
-  accentColor: 'teal' | 'blue';
   subtitle: string;
-  language: string;
 }) {
-  const bgClass = accentColor === 'teal' ? 'bg-teal-600' : 'bg-blue-600';
-
   return (
     <div
       className={`flex items-center gap-3 px-4 py-5 border-b border-gray-100 dark:border-gray-700 ${
         collapsed && 'justify-center'
       }`}
     >
-      <div
-        className={`w-9 h-9 ${bgClass} rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}
-      >
-        E
-      </div>
-      {!collapsed && (
-        <div>
-          <p className="font-semibold text-gray-900 dark:text-white text-sm">
-            AI English Platform
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {subtitle}
-          </p>
-        </div>
-      )}
+      <SchoolBrand variant={collapsed ? 'icon' : 'inline'} subtitle={subtitle} />
     </div>
   );
 }
@@ -235,9 +216,7 @@ export default function SidebarLayout({
     <>
       <SidebarLogo
         collapsed={false}
-        accentColor={accentColor}
         subtitle={subtitle}
-        language={lang}
       />
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
         {navSections
@@ -307,9 +286,7 @@ export default function SidebarLayout({
       >
         <SidebarLogo
           collapsed={sidebarCollapsed}
-          accentColor={accentColor}
           subtitle={subtitle}
-          language={lang}
         />
         <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
           {navSections

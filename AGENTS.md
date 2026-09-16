@@ -10,7 +10,7 @@ See `CLAUDE.md` for full architecture documentation.
 
 ## Quick Start (New Maintainer)
 1. Read `CLAUDE.md` for architecture, ownership, and conventions
-2. Read `CHANGELOG.md` for the latest changes (2026-09-15 (III): 學生分析頁崩潰修復、弱項／錯題語境；2026-09-15 (II): 開放式寫作題不自動評分；2026-09-14: 錯題庫技能歸屬／題型弱項、SRS 分層、DeepSeek V4.1 模型名)
+2. Read `CHANGELOG.md` for the latest changes (2026-09-16: 校徽與校名品牌（登入／學生／老師／管理員）；2026-09-15 (III): 學生分析頁崩潰修復、弱項／錯題語境；2026-09-15 (II): 開放式寫作題不自動評分)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
 5. Run `npm test` — expect 2958 pass / 1 skipped (142 files; core files: semantic-evaluator, analyze-writing)

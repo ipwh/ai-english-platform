@@ -4,6 +4,45 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-16 — 全站加入校徽與校名（登入／學生／老師／管理員）
+
+### 需求
+登入頁、學生版、教師版、管理員版顯示校徽及「天主教普照中學 / Po Chiu Catholic Secondary School」。
+
+### 決策
+- **單一 owner**：新增 `src/components/shared/SchoolBrand.tsx`（variants: `stacked` / `inline` / `icon`），
+  四個版面共用，不各自實作。
+- **校名放 i18n**：`brand.schoolName`（跟隨語言）＋ `brand.schoolNameZh` / `brand.schoolNameEn`（固定中英並列）；
+  校名不得寫死在 JSX（否則 `check-i18n.js` 判為硬編碼中文）。
+- **白底圖處理**：圖檔（95×126，白底不透明）一律置於白色圓角底板內，淺色／深色模式外觀一致
+  （深色模式下呈現為校徽徽章）。日後換透明底 SVG／PNG 只需改 `LOGO_SRC` 與底板樣式。
+- **Next 16 API**：`next/image` 的 `priority` 已於 Next 16 棄用 → 首屏（登入頁）改用 `loading="eager"` ＋
+  `fetchPriority="high"`，側欄維持 lazy。
+- **無障礙**：校徽旁已有校名文字時 `alt=""`（避免重複朗讀）；側欄收合只剩校徽時，容器加
+  `role="img"` + `aria-label` + `title`。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **新元件** | `src/components/shared/SchoolBrand.tsx`：`stacked`（登入頁：校徽置中 ＋ 中英校名並列）、`inline`（側欄展開：校徽 ＋ 校名（跟隨語言）＋ 角色副標）、`icon`（側欄收合 80px：只顯示校徽）。 |
+| **登入頁** | `(public)/login/page.tsx`：移除原字母「E」色塊，改為 `SchoolBrand variant="stacked"`。 |
+| **學生／老師** | `components/layout/SidebarLayout.tsx` 的 `SidebarLogo`：改用 `SchoolBrand`（覆蓋桌面展開／收合／手機抽屜 3 個 render 點）；移除已無用途的 `accentColor`／`language` props。 |
+| **管理員** | `admin/layout.tsx`：移除原字母「A」色塊，改為 `SchoolBrand`（`!sidebarOpen` → `icon`）。 |
+| **i18n** | `shared/utils/i18n-common.ts` 新增 `brand.schoolName`、`brand.schoolNameZh`、`brand.schoolNameEn`、`brand.logoAlt`。 |
+| **資產** | `public/branding/pochiu-logo.png`（95×126）。 |
+
+### 驗證
+- `tsc --noEmit`（exit 0）、`eslint`（0 errors）、`node scripts/check-i18n.js`（exit 0）、
+  `npm test` **2958 pass / 1 skipped**（與基準一致）。
+- 本機瀏覽器目視：`/login` 淺色＋深色；`/student/dashboard` 側欄展開／收合（實測 80px）＋深色。
+- 未目視：`/admin`（需管理員 session）；`/teacher/*` 與學生版共用 `SidebarLayout`（同一程式路徑）。
+
+### 未處理（follow-up）
+- `(public)/role-select`（選身份頁）未加校徽（本次按需求排除）。
+- 手機抽屜頂部仍有一行硬編碼 `AI English Platform` 文字，與下方品牌區重複。
+- metadata 標題（`app/layout.tsx`）與 PWA `manifest.json` 的 `name` / `short_name` 仍為 `AI English Platform`。
+- 校徽來源僅 95×126 像素；日後若要更大尺寸顯示，需較高解析度或向量檔。
+
 ## 2026-09-15 (III) — 修復教師／管理員「學生個人分析」頁崩潰 + 弱項／錯題顯示無語境
 
 ### 症狀（用戶回報）

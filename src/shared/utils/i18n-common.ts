@@ -138,6 +138,12 @@ export const commonTranslations: Record<string, { zh: string; en: string }> = {
   'layout.teacherSubtitle': { zh: '教師版', en: 'Teacher' },
   'layout.closeMenu': { zh: '關閉選單', en: 'Close Menu' },
   'layout.aiPlatform': { zh: 'AI English Platform', en: 'AI English Platform' },
+  // 校徽／校名品牌區（schoolName 跟隨語言；schoolNameZh / schoolNameEn 為固定值，
+  // 供登入頁中英並列使用）
+  'brand.schoolName': { zh: '天主教普照中學', en: 'Po Chiu Catholic Secondary School' },
+  'brand.schoolNameZh': { zh: '天主教普照中學', en: '天主教普照中學' },
+  'brand.schoolNameEn': { zh: 'Po Chiu Catholic Secondary School', en: 'Po Chiu Catholic Secondary School' },
+  'brand.logoAlt': { zh: '天主教普照中學校徽', en: 'Po Chiu Catholic Secondary School emblem' },
   'help.aiHint': { zh: '有任何英文學習問題？直接問 AI', en: 'Have an English question? Ask AI directly' },
   'help.placeholder': { zh: '輸入你的英文學習問題...', en: 'Enter your English learning question...' },
   'help.ask': { zh: '提問', en: 'Ask' },
