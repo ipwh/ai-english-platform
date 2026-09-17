@@ -586,16 +586,18 @@ export default function AudioPlayer({
   // ============================================
   // Web Speech API 播放（必須在 playCloudTTS 之前定義，因為 playCloudTTS fallback 會用到）
   // ============================================
-  const handlePlayWebSpeech = useCallback(() => {
+  /**
+   * 真正啟動 Web Speech 播放。
+   *
+   * 刻意不檢查 `playing`：Cloud TTS 播放中途失敗時（例如音訊觸發 MEDIA_ERR_DECODE），
+   * `playing` 仍然是 true。若沿用「已在播放就只做 cleanup」的判斷，fallback 會變成
+   * 靜默 no-op —— 使用者只見到播放停住、沒有聲音亦沒有錯誤（2026-09-17 修復）。
+   */
+  const startWebSpeechPlayback = useCallback(() => {
     // Access speechSynthesis dynamically (not via closure over `synth` const)
     // so this hook can be declared before the SSR guard
     const speechSynth = typeof window !== 'undefined' ? window.speechSynthesis : null;
     if (!text) return;
-
-    if (playing) {
-      cleanupAllPlayback();
-      return;
-    }
 
     if (!speechSynth) {
       setLoading(false);
@@ -702,7 +704,16 @@ export default function AudioPlayer({
     };
 
     trySpeak();
-  }, [text, playing, onPlayEnd, speed, useCloudTTS, cleanupAllPlayback, estimateDuration, startProgress]);
+  }, [text, onPlayEnd, speed, useCloudTTS, cleanupAllPlayback, estimateDuration, startProgress]);
+
+  /** 使用者按下播放鍵（在同一個按鈕上兼具播放 / 停止切換語意） */
+  const handlePlayWebSpeech = useCallback(() => {
+    if (playing) {
+      cleanupAllPlayback();
+      return;
+    }
+    startWebSpeechPlayback();
+  }, [playing, cleanupAllPlayback, startWebSpeechPlayback]);
 
   // ============================================
   // Google Cloud TTS 播放（v3.1: 預處理文字 + 重試 + 完整 cleanup + 防止疊聲）
@@ -769,9 +780,9 @@ export default function AudioPlayer({
         if (IS_DEV) console.error('[TTS] Cached audio playback error');
         TTS_CACHE.delete(cacheKey);
         setPlaying(false); setLoading(false);
-        handlePlayWebSpeech();
+        startWebSpeechPlayback();
       };
-      try { await audio.play(); } catch { handlePlayWebSpeech(); }
+      try { await audio.play(); } catch { startWebSpeechPlayback(); }
       return;
     }
 
@@ -803,7 +814,7 @@ export default function AudioPlayer({
             if (IS_DEV) console.error('[TTS] Cloud TTS error (attempt', attempt, '):', res.status, errorText);
             setCloudError(res.status === 503 ? 'TTS 服務未設定' : `TTS 錯誤 (${res.status})`);
             setCloudFetching(false); setLoading(false);
-            handlePlayWebSpeech();
+            startWebSpeechPlayback();
             return;
           }
           if (IS_DEV) console.warn('[TTS] Retrying after error:', res.status);
@@ -870,7 +881,7 @@ export default function AudioPlayer({
         }
         if (audioPlayResult === 'error') {
           setPlaying(false); setCloudFetching(false); setLoading(false);
-          handlePlayWebSpeech();
+          startWebSpeechPlayback();
           return;
         }
         return; // success
@@ -889,7 +900,7 @@ export default function AudioPlayer({
         if (IS_DEV) console.error('[TTS] Cloud TTS fetch failed:', err);
         setCloudError('網絡連線失敗');
         setCloudFetching(false); setLoading(false);
-        handlePlayWebSpeech();
+        startWebSpeechPlayback();
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally narrow: cloud fetch depends only on text+speed, callbacks are stable refs

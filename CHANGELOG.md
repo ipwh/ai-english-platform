@@ -4,6 +4,69 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-17 (II) — 聆聽錄音只播第一句即停（段間停頓破壞 MP3 位元流）
+
+### 症狀（用戶回報）
+`/student/integrated-skills` 聆聽錄音只播到第一句
+（「Good morning, everyone. I'm Ms. Wong…」）便停止：進度條剛開始便停住，
+按停止再播放亦一樣，沒有錯誤訊息、沒有降級提示。
+
+### 根本原因（**伺服器自行偽造 MP3 frame**）
+`tts-service.ts` 的 `multiSpeaker` 模式在段落之間拼接 `generateSilenceMP3()` 產生的
+「靜音 frame」，但該 frame 是手寫位元組，與 Google Cloud TTS 的實際輸出格式不符：
+
+| | 偽造靜音 frame | Google TTS 實際輸出 |
+|---|---|---|
+| MPEG 版本 | MPEG1 (`0xFFFB9000`) | MPEG2 (`0xFFF384C4`) |
+| 位元率 | 128 kbps | 64 kbps |
+| 取樣率 | 44100 Hz | 24000 Hz |
+| 聲道 | stereo | mono |
+| frame 長度 | 420 bytes（標頭宣稱 417） | 依標頭 |
+
+Chromium 解碼器播放完第一段後，於該插入點無法續解 → `MEDIA_ERR_DECODE`（error code 3）
+→ `AudioPlayer` 的 `onerror` 觸發 fallback；而 fallback 進入 `handlePlayWebSpeech()` 時
+`playing` 仍為 `true`，舊邏輯判定「已在播放」只做 cleanup 便 return → **靜默 no-op**，
+使用者只見到播放停住。
+
+### 決策
+- **永不自行製造音訊位元**：刪除 `generateSilenceMP3()`。段間停頓改由**該段落自己的
+  SSML `<break time="200ms"/>`** 產生 → 靜音同樣由 Google 編碼器輸出，必與相鄰段落格式一致。
+- **停頓放在段落開頭**（實測：`<break>` 置於段落開頭生效，置於結尾會被裁剪）。
+- **SSML 超限可降級**：SSML 上限 5000 bytes，超過 4500 bytes 即退回純文字
+  （寧可少一個停頓，也不讓整段合成失敗）。
+- **fallback 必須真的會播**：`handlePlayWebSpeech()` 拆出 `startWebSpeechPlayback()`
+  （不檢查 `playing`），Cloud TTS 失敗路徑一律改走後者，避免 fallback 變靜默 no-op。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **TTS** | `ai/services/tts-service.ts`：刪除 `generateSilenceMP3()`（偽造 MP3 frame）；新增 `INTER_SEGMENT_PAUSE_MS`（200ms）與 `SSML_BYTE_LIMIT`（4500）；`wrapSSML()` 支援段前 `<break>`；`synthesizeSegment()` / `synthesizeWithRetry()` 新增 `leadingBreakMs`；多段模式只在「已有音訊」時於下一段加段前停頓（保留原有防 orphan silence 語意）。 |
+| **UI** | `components/shared/AudioPlayer.tsx`：新增 `startWebSpeechPlayback()`（真正啟動 Web Speech、不檢查 `playing`）；`handlePlayWebSpeech()` 保留按鈕的播放／停止切換語意並改為呼叫前者；5 處 Cloud TTS 失敗路徑改呼叫 `startWebSpeechPlayback()`。 |
+
+### 證據（2026-09-17 實測，非推測）
+- **解碼行為（Chromium，實機 / 整合瀏覽器）**：同一批段落
+  - 只放第一段 → 播完 `ended`（8.98s）
+  - 段落 + 偽造靜音拼接 → **`error:3`（MEDIA_ERR_DECODE）於第一段邊界（t=8.71s）停止**
+  - 段落不拼接任何位元 → 正常連續播放
+- **修復後**：以真實 `synthesizeSpeech({ multiSpeaker: true })` 產出的音訊（38.6s、5 段、
+  5 個不同 voice）→ **`ended` 正常播完，無 error**。
+- **SSML break 行為**：`<break time="400ms"/>` 置於段落開頭 → 時長 +384ms（生效）；
+  置於結尾 → +48ms（被裁剪）。
+
+### 測試（+8 用例，1 個新檔案）
+- `ai/__tests__/tts-multispeaker-pause.test.ts`（新）：段前 `<break>` 只出現在第 2 段之後、
+  且必須在段落文字之前；**回傳值逐位元等於各段輸出**（伺服器不得插入任何自製位元，
+  並以舊偽造 frame 標頭 `FFFB9000` 作回歸守門）；長段落（≥200 字）仍強制 SSML；
+  SSML 超限退回純文字；中間段落失敗不留孤立空白；角色→voice 對映不退化成單一 voice；
+  單人模式行為不變。
+- 完整套件 **2981 pass / 1 skipped（144 files 執行，1 skipped）**；`npx tsc --noEmit`（exit 0）、
+  `npx eslint`（0 errors）全通過。
+
+### 未處理（follow-up）
+- `experiment-engine` 的溫度實驗測試使用 `Math.random()` 產生評分，`avgCoherence` 偶爾 > 1
+  而隨機失敗（與本修正無關，非本次範圍）。
+- 段間停頓長度固定 200ms；如要依「同一人連續發言 vs 換人」調整節奏，可再擴充。
+
 ## 2026-09-17 — 閱讀診斷：評分權威單一化（正確答案不再顯示「部分正確」）
 
 ### 症狀（用戶回報）

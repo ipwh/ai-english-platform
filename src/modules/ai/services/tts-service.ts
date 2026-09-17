@@ -127,58 +127,21 @@ export function parseDialogueForTTS(text: string): DialogueSegment[] {
 // ============================================
 
 /**
- * 生成靜音 MP3 buffer（用於多 speaker 段落間的停頓）
- * 使用已知有效的 silent MP3 frame（128kbps, 44100Hz, stereo, ~26ms/frame）
+ * 段落之間的停頓（毫秒）— 由 SSML `<break>` 在「該段落自己的合成請求」內產生。
+ *
+ * ⚠️ 切勿自行拼接偽造的靜音 MP3 frame。舊做法塞入的是 MPEG1 / 128kbps / 44100Hz / stereo
+ * 且長度錯誤（420 bytes，標頭宣稱 417 bytes）的 frame，而 Google 回傳的是
+ * MPEG2 / 24000Hz / mono。格式不一致令 Chromium 解碼器在**第一段之後**丟出
+ * MEDIA_ERR_DECODE（code 3）並停止播放（2026-09-17 修復）。
+ * 改用 SSML break 後，停頓同樣由 Google 編碼器輸出，必與相鄰段落格式一致。
  */
-function generateSilenceMP3(durationMs: number): Buffer {
-  // Valid silent MPEG Audio Layer III frame (128kbps, 44100Hz, stereo, no CRC)
-  // Each frame = 417 bytes for 26.122ms of audio
-  const SILENT_FRAME = Buffer.from([
-    0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  ]);
+const INTER_SEGMENT_PAUSE_MS = 200;
 
-  const framesPerMs = 1 / 26.122;
-  const frameCount = Math.max(1, Math.round(durationMs * framesPerMs));
-  const buffers: Buffer[] = [];
-  for (let i = 0; i < frameCount; i++) {
-    buffers.push(SILENT_FRAME);
-  }
-  return Buffer.concat(buffers);
-}
+/**
+ * Google Cloud TTS 的 SSML 輸入上限為 5000 bytes。
+ * 超過此安全邊界時放棄 SSML（連帶放棄段前停頓），確保合成不會失敗。
+ */
+const SSML_BYTE_LIMIT = 4500;
 
 export interface SynthesizeOptions {
   text: string;
@@ -205,7 +168,9 @@ async function synthesizeSegment(
   text: string,
   voiceName: string,
   speakingRate: number,
-  encoding: 'MP3' | 'OGG_OPUS' | 'LINEAR16'
+  encoding: 'MP3' | 'OGG_OPUS' | 'LINEAR16',
+  /** > 0 時在段落之前插入停頓（必須走 SSML，讓靜音由 Google 編碼器輸出） */
+  leadingBreakMs = 0,
 ): Promise<Buffer> {
   const encodingMap = {
     MP3: 'MP3' as const,
@@ -215,12 +180,21 @@ async function synthesizeSegment(
 
   // 短文本（<200 chars）使用 SSML 以獲得更好的 prosody 控制
   // 長文本使用純文字（更穩定，避免 SSML parse 錯誤）
-  const useSSML = text.length < 200 && !text.includes('<') && !text.includes('&');
+  // 需要段前停頓時一律走 SSML（實測：<break> 置於段落「開頭」有效，置於結尾會被裁掉）
+  let useSSML = leadingBreakMs > 0 || (text.length < 200 && !text.includes('<') && !text.includes('&'));
+
+  let ssml = '';
+  if (useSSML) {
+    ssml = wrapSSML(text, voiceName, speakingRate, leadingBreakMs);
+    // SSML 上限 5000 bytes：超標時退回純文字（寧可少一個停頓，也不讓整段合成失敗）
+    if (Buffer.byteLength(ssml, 'utf8') > SSML_BYTE_LIMIT) {
+      logger.warn({ module: 'tts-service', ssmlBytes: Buffer.byteLength(ssml, 'utf8') }, 'SSML too large — falling back to plain text');
+      useSSML = false;
+    }
+  }
 
   const input: Record<string, unknown> = useSSML
-    ? {
-        ssml: wrapSSML(text, voiceName, speakingRate),
-      }
+    ? { ssml }
     : {
         text: text,
       };
@@ -246,8 +220,8 @@ async function synthesizeSegment(
     : Buffer.from(response.audioContent as Uint8Array);
 }
 
-/** SSML 包裝：加入 prosody 控制以提升自然度 */
-function wrapSSML(text: string, voiceName: string, speakingRate: number): string {
+/** SSML 包裝：加入 prosody 控制以提升自然度，可選擇在段前加入停頓 */
+function wrapSSML(text: string, voiceName: string, speakingRate: number, leadingBreakMs = 0): string {
   // Escape XML special chars
   const escaped = text
     .replace(/&/g, '&amp;')
@@ -256,10 +230,11 @@ function wrapSSML(text: string, voiceName: string, speakingRate: number): string
     .replace(/"/g, '&quot;');
 
   const rate = Math.round(speakingRate * 100) / 100;
+  const pause = leadingBreakMs > 0 ? `<break time="${Math.round(leadingBreakMs)}ms"/>` : '';
   return `<speak>
   <voice name="${voiceName}">
     <prosody rate="${rate}">
-      ${escaped}
+      ${pause}${escaped}
     </prosody>
   </voice>
 </speak>`;
@@ -272,13 +247,14 @@ async function synthesizeWithRetry(
   voiceName: string,
   speakingRate: number,
   encoding: 'MP3' | 'OGG_OPUS' | 'LINEAR16',
-  maxRetries = 3
+  maxRetries = 3,
+  leadingBreakMs = 0,
 ): Promise<Buffer> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await synthesizeSegment(client, text, voiceName, speakingRate, encoding);
+      return await synthesizeSegment(client, text, voiceName, speakingRate, encoding, leadingBreakMs);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       logger.warn({ module: 'tts-service', attempt, maxRetries, error: lastError.message }, 'Segment synthesis attempt failed');
@@ -311,7 +287,8 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
 
   // ============================================
   // 多人對話模式：分段合成 + MP3 拼接
-  // 使用不同 voice 為不同角色合成，並加入短暫停頓
+  // 使用不同 voice 為不同角色合成；段落之間的停頓由各段自己的 SSML <break> 產生，
+  // 確保拼接後的位元流格式一致（見 INTER_SEGMENT_PAUSE_MS 的說明）
   // ============================================
   if (multiSpeaker) {
     const segments = parseDialogueForTTS(text);
@@ -346,14 +323,14 @@ export async function synthesizeSpeech(options: SynthesizeOptions): Promise<Synt
       logger.debug({ module: 'tts-service', segmentIndex: i + 1, totalSegments: segments.length, speaker: seg.speaker, voice: effectiveVoice, textPreview: seg.text.slice(0, 60) }, 'Synthesizing segment');
 
       try {
+        // 段前停頓由本段自己的 SSML <break> 產生（真實且格式一致的靜音）。
+        // 只有「已有音訊」時才加停頓，避免音訊一開始就出現空白，也避免段落合成
+        // 失敗後留下孤立空白（orphan silence）。
         const segBuffer = await synthesizeWithRetry(
-          client, seg.text, effectiveVoice, speakingRate, audioEncoding, 3
+          client, seg.text, effectiveVoice, speakingRate, audioEncoding, 3,
+          audioBuffers.length > 0 ? INTER_SEGMENT_PAUSE_MS : 0,
         );
 
-        // ✅ 只在成功合成後才加入停頓（避免 orphan silence）
-        if (i > 0 && audioBuffers.length > 0) {
-          audioBuffers.push(generateSilenceMP3(200));
-        }
         audioBuffers.push(segBuffer);
         consecutiveFailures = 0; // reset on success
       } catch (err) {
