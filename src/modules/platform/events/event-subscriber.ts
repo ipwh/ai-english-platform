@@ -12,12 +12,16 @@ import { logger } from '@/shared/logger/logger';
 /** Initialize all built-in platform subscribers */
 export function initPlatformSubscribers(): void {
   // AI Request Succeeded → update metrics + circuit breaker
-  platformEventBus.subscribe(EventTypes.AI_REQUEST_SUCCEEDED, (event) => {
+  platformEventBus.subscribe(EventTypes.AI_REQUEST_SUCCEEDED, async (event) => {
     const { provider, latencyMs, tokenCount } = event.payload;
     recordProviderCall(String(provider), true, Number(latencyMs));
     recordSuccess(String(provider));
     recordStage('provider', Number(latencyMs), true);
-    if (tokenCount) recordTokenUsage(Number(tokenCount));
+    // NOTE: token accounting is owned by `provider-registry.call()`, which is the
+    // only place that knows the real prompt/response sizes. If this event path is
+    // ever wired up, do NOT keep both — the ledger would double-count and the
+    // daily budget would trip at half the configured limit.
+    if (tokenCount) await recordTokenUsage(Number(tokenCount));
   });
 
   // AI Request Failed → update metrics + circuit breaker

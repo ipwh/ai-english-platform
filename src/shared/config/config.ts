@@ -286,6 +286,20 @@ const ai = {
   cacheEnabled: process.env.AI_CACHE_ENABLED ? process.env.AI_CACHE_ENABLED !== 'false' : true,
   /** AI 回應快取 TTL（毫秒），預設 1 小時 */
   cacheTTLMs: Number(process.env.AI_CACHE_TTL_MS) || 3_600_000,
+  /** 每日 AI token 額度（估算值；跨 instance 共用，持久化於 AiDailyUsage 表）。
+   *  2026-09-18：原本硬編碼 500000 且只存在單一 instance 記憶體中 —— 實測單一
+   *  warm instance 開機 13 分鐘即用掉 24,672 tokens，全校流量會在數小時內觸頂，
+   *  之後當日所有 AI 呼叫都回 503。改為可設定並提高預設值。
+   *  注意：必須遠小於 PostgreSQL INTEGER 上限 2,147,483,647。 */
+  dailyTokenLimit: (() => {
+    const val = Number(process.env.AI_DAILY_TOKEN_LIMIT);
+    return Number.isFinite(val) && val > 0 ? Math.floor(val) : 20_000_000;
+  })(),
+  /** 每月 AI 成本上限（USD，估算值；以 UTC 月份彙總，非帳單金額） */
+  monthlyCostLimit: (() => {
+    const val = Number(process.env.AI_MONTHLY_COST_LIMIT);
+    return Number.isFinite(val) && val > 0 ? val : 50;
+  })(),
 };
 
 // ============================================

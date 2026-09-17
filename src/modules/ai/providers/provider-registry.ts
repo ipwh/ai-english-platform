@@ -82,7 +82,9 @@ class ProviderRegistry {
     }
 
     // Enforce budget only when a real paid provider call is about to happen.
-    const budget = getBudgetStatus();
+    // The ledger is shared across instances (AiDailyUsage), so an instance that
+    // just booted cannot spend a second full daily quota.
+    const budget = await getBudgetStatus();
     if (budget.exceeded) {
       throw new BudgetExceededError(budget.tokensRemaining <= 0 ? 'token' : 'cost');
     }
@@ -116,12 +118,21 @@ class ProviderRegistry {
 
         // Track token usage (estimated: 1 token ≈ 4 chars) + rough cost
         // estimate so the monthly cost budget actually participates.
+        // Accounting must never fail a call that already succeeded.
         const estimatedInputTokens = Math.ceil(
           messages.reduce((sum, m) => sum + (m.content?.length || 0), 0) / 4
         );
         const estimatedOutputTokens = Math.ceil(text.length / 4);
         const estimatedTokens = estimatedInputTokens + estimatedOutputTokens;
-        recordTokenUsage(estimatedTokens, estimatedTokens * ESTIMATED_USD_PER_TOKEN);
+        try {
+          await recordTokenUsage(estimatedTokens, estimatedTokens * ESTIMATED_USD_PER_TOKEN);
+        } catch (err) {
+          logger.error({
+            module: 'ai-provider',
+            provider: provider.name,
+            error: err instanceof Error ? err.message : String(err),
+          }, 'Failed to record AI token usage — the daily budget will under-count this call');
+        }
 
         logger.info({
           module: 'ai-provider', event: 'call_success', provider: provider.name, latencyMs, fallback,

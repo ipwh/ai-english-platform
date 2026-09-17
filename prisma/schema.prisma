@@ -955,3 +955,21 @@ model DiagnosticStudentStat {
 
   @@unique([gradeLevel, skill, studentId])
 }
+
+// ============================================
+// 2026-09-18: AiDailyUsage — global daily AI usage ledger
+//
+// Backs the LLM budget gate in ai/runtime/budget-policy.ts. The counter used
+// to live only in process memory, but Cloud Run runs minScale 0 / maxScale 20,
+// so each instance tracked its own total: on the same day one instance could
+// report "exhausted" (503 for every AI call) while a sibling instance was still
+// fresh, and any cold start silently reset the "daily" cap.
+//
+// One row per UTC calendar day, shared by every instance.
+// ============================================
+model AiDailyUsage {
+  dayKey    String   @id // 'YYYY-MM-DD' (UTC)
+  tokens    Int      @default(0) // estimated tokens consumed (1 token ≈ 4 chars)
+  costUsd   Float    @default(0) // estimated USD — budget accounting only, never billing
+  updatedAt DateTime @updatedAt
+}

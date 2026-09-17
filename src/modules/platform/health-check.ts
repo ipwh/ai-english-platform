@@ -78,8 +78,8 @@ function checkConfig(): HealthStatus {
 }
 
 export async function runHealthCheck(): Promise<HealthReport> {
-  const [dbHealth, cacheHealth, providerHealth, memoryHealth] = await Promise.all([
-    checkDb(), checkCache(), checkProviders(), checkMemoryRepo(),
+  const [dbHealth, cacheHealth, providerHealth, memoryHealth, budgets] = await Promise.all([
+    checkDb(), checkCache(), checkProviders(), checkMemoryRepo(), getBudgetStatus(),
   ]);
   const configHealth = checkConfig();
 
@@ -104,7 +104,7 @@ export async function runHealthCheck(): Promise<HealthReport> {
       observability: getObservabilityReport(),
       cache: cacheService.getStats(),
       policy: getProviderPolicy(),
-      budgets: getBudgetStatus(),
+      budgets,
       circuitBreakers: getAllCircuitBreakers(),
     },
   };

@@ -4,6 +4,84 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-18 — AI 額度閘門改為持久化全域帳本（503「今日 AI 額度已用完」）
+
+### 症狀（用戶回報）
+`/student/practice`（AI 練習）生成 5 題失敗，畫面顯示
+「AI 生成失敗：今日 AI 額度已用完，請稍後再試 / Daily AI token budget exceeded.」，
+但供應商帳戶本身正常、並未超額。
+
+### 根本原因（**配額存在單一 process 的記憶體中**）
+`ai/runtime/budget-policy.ts` 自 Sprint 100 起把用量計在 module-level 變數
+（`tokensUsedToday`），`dailyTokenLimit` 則硬編碼為 `500000`：
+
+1. **Per-instance**：Cloud Run 為 `minScale 0 / maxScale 20`，每個 instance 各自計數 →
+   同一日內「A instance 已耗盡、回 503；B instance 仍全新」
+   （學生成功或失敗取決於被路由到哪一個 instance），且 cold start **靜默歸零**，
+   所以 20 個 instance 的實際上限是 20 × 500k。
+2. **不可設定、不可重設**：`setBudgetPolicy()` / `resetBudgetTracking()` 在生產程式碼中
+   **零呼叫者**（只有測試），亦無環境變數。唯一恢復方式是等 UTC 午夜（香港 08:00）或換 revision。
+3. **「每月」成本上限永不觸發**：`costRemaining` 以 `monthlyCostLimit` 減去一個
+   **每日歸零**的計數器，語意矛盾。
+
+### 證據（2026-09-18 實測，非推測）
+對正式站 `…asia-east2.run.app/api/health?type=platform` 取樣：
+
+| 指標 | 值 |
+|---|---|
+| `uptime` | **795s**（該 instance 只活了 13 分鐘） |
+| `tokensUsedToday` | **24,672**（＝ 500,000 的 4.9%） |
+| `tokensRemaining` | 475,328 |
+
+即單一 instance 開機 13 分鐘便用掉約 1/20 的日額度（約 10–12 次生成），
+全校流量在數小時內即觸頂，之後當日所有 AI 呼叫一律 503。
+
+### 決策
+- **配額改為持久化帳本**：新增 `AiDailyUsage` 表（每個 UTC 日一列），
+  以 `upsert` + 原子 `increment` 累加 → 跨 instance 共用、cold start 不再歸零。
+- **新增 `ai/runtime/ai-usage-store.ts`**：`AiUsageStore`（計數器 owner）與
+  `budget-policy.ts`（額度 owner）分離；Prisma 實作 + 記憶體實作（測試／無 DB）；
+  `readDay` 與 `readMonthCost` 交由 `Promise.all` 並行。
+- **上限改由設定驅動**：`AI_DAILY_TOKEN_LIMIT`（預設 **20,000,000**，原為硬編碼 500k）、
+  `AI_MONTHLY_COST_LIMIT`（預設 50），沿用 `config.ai` / `AI_TIMEOUT_MS` 的既有慣例。
+- **修正每月成本語意**：成本改以 UTC 月份彙總（不再隨日界線歸零）。
+- **帳本故障 fail-open**：DB 查詢失敗時降級為 process 內鏡像計數並記錄
+  （首次 error、其後 debug，恢復時 info），**不會**讓 AI 功能整體失效；
+  用量寫入失敗亦不得讓「已成功的 AI 呼叫」變成失敗。
+- **API 改為 async**：`getBudgetStatus()` / `recordTokenUsage()` / `isBudgetExceeded()`
+  改回傳 Promise（`provider-registry.call()` 與 `runHealthCheck()` 本來就是 async）。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **DB** | `prisma/schema.prisma`：新增 `AiDailyUsage`（`dayKey` PK、`tokens`、`costUsd`、`updatedAt`）；新增 migration `20260918_ai_daily_usage`（已 `migrate deploy`）。 |
+| **AI** | `ai/runtime/ai-usage-store.ts`（新）：`AiUsageStore`、`MemoryAiUsageStore`、`PrismaAiUsageStore`（延遲 `import('@/shared/db/db')`）、`get/setAiUsageStore()`。 |
+| **AI** | `ai/runtime/budget-policy.ts`：移除 module-level 計數器與 `rollOverIfNeeded()`；額度改由 `defaultBudgetPolicy()` 讀 `config.ai`；新增 `getUtcMonthKey()`；帳本經 `AiUsageStore`。 |
+| **AI** | `ai/providers/provider-registry.ts`：額度檢查 `await getBudgetStatus()`；用量寫入包 try/catch 並記錄。 |
+| **Platform** | `platform/events/event-subscriber.ts`：`AI_REQUEST_SUCCEEDED` 的 `recordTokenUsage()` 改為 `await`（事件處理器改 async），並註明用量記帳的單一 owner 是 `provider-registry.call()`，事件路徑若啟用將雙重計數。 |
+| **Config** | `shared/config/config.ts`：`ai.dailyTokenLimit`、`ai.monthlyCostLimit` 讀環境變數。 |
+| **Platform** | `platform/health-check.ts`：`budgets` 改為 `await`，並併入既有 `Promise.all` 探測。 |
+
+### 測試（+12 用例，1 個新檔案；完整套件 2993 pass / 1 skipped，145 files）
+- `ai/runtime/__tests__/budget-policy.test.ts`：改寫為 store-based async API；新增
+  **跨 instance 共用同一帳本**（原本會各自歸零的回歸守門）、**月成本跨日界線不歸零**、
+  **月界線重置**、**預設上限 ≥ 5,000,000 的回歸守門**（環境變數覆寫時自動略過）。
+- `ai/runtime/__tests__/ai-usage-store.test.ts`（新）：記憶體帳本契約（未觸及日讀為 0、
+  逐日累加、月彙總不跨月、並發遞增不遺失）；Prisma 帳本在 DB 失敗時降級而不拋錯；
+  store 解析（測試環境必為記憶體帳本、注入與重新解析）。
+- 實測（真實 Neon DB，`npx tsx` 一次性腳本，已刪除）：2 次循序寫入 → 250 tokens；
+  **20 個並發寫入 → 450 tokens（無遺失更新）**；月彙總正確；`getBudgetStatus()` 回報
+  20,000,000 上限、`exceeded: false`。
+- `npx tsc --noEmit`（exit 0）、完整 `npm test`（exit 0）通過。
+
+### 未處理（follow-up）
+- **日界線為 UTC**（= 香港 08:00），維持原有語意未改；若希望「香港 00:00」或
+  「早上 08:00 上課前重置」以外的切法，需另議（帳本已持久化 → 屆時屬資料遷移）。
+- **額度耗盡仍無管理端重設介面**：目前需以 SQL／新增列調整；
+  `/api/health?type=platform` 已可觀測 `runtime.budgets`。
+- 額度為 **per-instance 上限提升為全域**，但 20M/日 ≈ $20 估算成本（`1e-6 USD/token`）
+  仍是「護欄」而非精算；DeepSeek 實際單價約 $0.28/1M，估算偏保守約 3 倍。
+
 ## 2026-09-17 (II) — 聆聽錄音只播第一句即停（段間停頓破壞 MP3 位元流）
 
 ### 症狀（用戶回報）

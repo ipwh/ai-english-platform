@@ -1,5 +1,15 @@
 // Sprint 84: Budget Policy — token and cost budget tracking
 // No external billing integration. Estimates only.
+//
+// 2026-09-18: the counters moved out of this module into `AiUsageStore` so the
+// daily budget is durable and shared by every Cloud Run instance. Before that,
+// the limit was evaluated against per-process state: one warm instance could
+// answer 503 for the rest of the day while its siblings were still fresh, and
+// every cold start reset the cap. Limits are now configurable
+// (`AI_DAILY_TOKEN_LIMIT` / `AI_MONTHLY_COST_LIMIT`).
+
+import { config } from '@/shared/config/config';
+import { getAiUsageStore, setAiUsageStore, MemoryAiUsageStore } from './ai-usage-store';
 
 export interface BudgetPolicy {
   /** Daily token budget */
@@ -11,18 +21,25 @@ export interface BudgetPolicy {
 }
 
 export interface BudgetStatus {
+  /** Estimated tokens consumed so far today (UTC day), across all instances */
   tokensUsedToday: number;
+  /** Remaining tokens for today (against `dailyTokenLimit`) */
   tokensRemaining: number;
+  /** Estimated USD spent today (UTC day) */
   costEstimateToday: number;
+  /** Remaining USD for this UTC month (against `monthlyCostLimit`) */
   costRemaining: number;
   exceeded: boolean;
 }
 
-const DEFAULT_BUDGET_POLICY: BudgetPolicy = {
-  dailyTokenLimit: 500000,
-  monthlyCostLimit: 50,
-  providerLimits: {},
-};
+/** Limits come from config (`AI_DAILY_TOKEN_LIMIT` / `AI_MONTHLY_COST_LIMIT`). */
+export function defaultBudgetPolicy(): BudgetPolicy {
+  return {
+    dailyTokenLimit: config.ai.dailyTokenLimit,
+    monthlyCostLimit: config.ai.monthlyCostLimit,
+    providerLimits: {},
+  };
+}
 
 /**
  * Rough blended cost estimate used ONLY for budget accounting (never billing).
@@ -31,29 +48,16 @@ const DEFAULT_BUDGET_POLICY: BudgetPolicy = {
  */
 export const ESTIMATED_USD_PER_TOKEN = 1 / 1_000_000;
 
-let budgetPolicy: BudgetPolicy = { ...DEFAULT_BUDGET_POLICY };
-let dayKey: string | null = null;
-let tokensUsedToday = 0;
-let costEstimateToday = 0;
+let budgetPolicy: BudgetPolicy = defaultBudgetPolicy();
 
-/** UTC calendar day key (YYYY-MM-DD) — budget resets at midnight UTC. */
+/** UTC calendar day key (YYYY-MM-DD) — the token budget resets at midnight UTC. */
 function getUtcDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-/**
- * Lazy day rollover: whenever the budget state is read or written, reset the
- * counters if the UTC calendar day has changed. This gives real "daily"
- * semantics — a warm instance is never permanently blocked by yesterday's
- * usage and the counter never silently accumulates across days.
- */
-function rollOverIfNeeded(): void {
-  const today = getUtcDayKey(new Date());
-  if (dayKey !== today) {
-    dayKey = today;
-    tokensUsedToday = 0;
-    costEstimateToday = 0;
-  }
+/** UTC calendar month key (YYYY-MM) — the cost budget resets at the month boundary. */
+function getUtcMonthKey(date: Date): string {
+  return date.toISOString().slice(0, 7);
 }
 
 export function getBudgetPolicy(): BudgetPolicy {
@@ -64,33 +68,57 @@ export function setBudgetPolicy(policy: Partial<BudgetPolicy>): void {
   budgetPolicy = { ...budgetPolicy, ...policy };
 }
 
-export function recordTokenUsage(tokens: number, estimatedCostUsd = 0): void {
-  rollOverIfNeeded();
-  tokensUsedToday += tokens;
-  costEstimateToday += estimatedCostUsd;
+/**
+ * Record tokens consumed (and their estimated cost) against the current UTC day.
+ *
+ * Writes to the shared ledger, so the daily budget counts every instance rather
+ * than only the process that served the request.
+ */
+export async function recordTokenUsage(tokens: number, estimatedCostUsd = 0): Promise<void> {
+  await getAiUsageStore().addUsage(getUtcDayKey(new Date()), tokens, estimatedCostUsd);
 }
 
-export function getBudgetStatus(): BudgetStatus {
-  rollOverIfNeeded();
-  const tokensRemaining = Math.max(0, budgetPolicy.dailyTokenLimit - tokensUsedToday);
-  const costRemaining = Math.max(0, budgetPolicy.monthlyCostLimit - costEstimateToday);
+/**
+ * Current budget status.
+ *
+ * Token usage is scoped to the UTC day; cost is scoped to the UTC month, so a
+ * day rollover no longer wipes the monthly cost total.
+ */
+export async function getBudgetStatus(): Promise<BudgetStatus> {
+  const now = new Date();
+  const store = getAiUsageStore();
+  const [day, monthCostUsd] = await Promise.all([
+    store.readDay(getUtcDayKey(now)),
+    store.readMonthCost(getUtcMonthKey(now)),
+  ]);
+
+  const tokensRemaining = Math.max(0, budgetPolicy.dailyTokenLimit - day.tokens);
+  const costRemaining = Math.max(0, budgetPolicy.monthlyCostLimit - monthCostUsd);
+
   return {
-    tokensUsedToday,
+    tokensUsedToday: day.tokens,
     tokensRemaining,
-    costEstimateToday: Math.round(costEstimateToday * 10000) / 10000,
+    costEstimateToday: Math.round(day.costUsd * 10000) / 10000,
     costRemaining: Math.round(costRemaining * 100) / 100,
     exceeded: tokensRemaining <= 0 || costRemaining <= 0,
   };
 }
 
-export function isBudgetExceeded(): boolean {
-  return getBudgetStatus().exceeded;
+export async function isBudgetExceeded(): Promise<boolean> {
+  return (await getBudgetStatus()).exceeded;
 }
 
+/**
+ * Restore the default policy and empty the in-memory ledger.
+ *
+ * Test helper: it never deletes durable rows, so it is safe to call anywhere —
+ * in production it only re-resolves the store.
+ */
 export function resetBudgetTracking(): void {
-  dayKey = null;
-  tokensUsedToday = 0;
-  costEstimateToday = 0;
+  budgetPolicy = defaultBudgetPolicy();
+  setAiUsageStore(null);
+  const store = getAiUsageStore();
+  if (store instanceof MemoryAiUsageStore) store.clear();
 }
 
 /**
