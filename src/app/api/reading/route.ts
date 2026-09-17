@@ -91,15 +91,24 @@ const DSE_TYPE_MAP: Record<string, string> = {
   summaryCloze: 'summary_cloze',
   tableCompletion: 'summary_cloze',
   causeEffectCompletion: 'summary_cloze',
-  shortAnswer: 'sentence_transformation',
-  matching: 'sentence_transformation',
-  sequencing: 'sentence_transformation',
-  exampleFinding: 'sentence_transformation',
+  // 2026-09-17 (fix B): extraction / matching / ordering tasks are NOT
+  // sentence transformations. Mapping them to sentence_transformation made
+  // the cloze grammar + copying rules apply to short-answer questions, so a
+  // correct answer such as "carrying capacity" came back as "paraphrase too
+  // close" and "partially correct". They now have their own display type.
+  shortAnswer: 'short_answer',
+  matching: 'short_answer',
+  sequencing: 'short_answer',
+  exampleFinding: 'short_answer',
+  // Genuinely a "correct the errors in the summary" task → cloze/grammar family.
   errorCorrectionSummary: 'sentence_transformation',
 };
 
 function mapDseTypeToFrontend(aiType: string): string {
-  return DSE_TYPE_MAP[aiType] || 'sentence_transformation';
+  // 2026-09-17 (fix B): the fallback used to be 'sentence_transformation',
+  // which silently degraded every unmapped type into the cloze rules.
+  // Unknown types now fall back to the neutral extraction type.
+  return DSE_TYPE_MAP[aiType] || 'short_answer';
 }
 
 /**
@@ -1202,6 +1211,11 @@ async function handleAnswerAnalysis(body: Record<string, unknown>) {
       choices: q.choices,
       evaluation,
       paragraphRef: q.paragraphRef,
+      // 2026-09-17 (fix A): the scorer's verdict is the single authority.
+      // Without this, a quality signal (copying level / word-form fit) could
+      // report "partially correct" for an answer the scorer marked correct.
+      isCorrect: result.isCorrect,
+      isPartiallyCorrect: result.isPartiallyCorrect,
     });
 
     return {

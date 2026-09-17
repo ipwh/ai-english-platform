@@ -4,6 +4,68 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-17 — 閱讀診斷：評分權威單一化（正確答案不再顯示「部分正確」）
+
+### 症狀（用戶回報）
+同一道閱讀題，上方評分說答案正確，下方「🔍 診斷回饋」的徽章卻顯示 **partially correct**，並附上
+「改寫不足（太接近原文）」「詞形文法不符」等錯誤導向建議——同一個畫面同時給出兩個相反結論。
+
+- **Q9** 短答 `carrying capacity`（完全正確、與標準答案相同）→ 標記 `paraphrase_too_close`、
+  verdict 被降為 `partially_correct`。
+- **Q10** 三空格摘要填空，三個空格全對（`indifference numbers carrying`）→ 整個答案被當成
+  「單一空格的一個答案」計算字數 → `grammaticalFitToPrompt = 'poor'` → verdict 被降為 `partially_correct`。
+
+### 根本原因（兩個互相獨立的缺陷）
+1. **兩個評分權威**：`reading-feedback-builder.ts` 的規則式診斷把**品質訊號**（抄襲程度、詞形契合、
+   語調籠統、詞性）直接寫進 `verdict`，而 `verdict` 與評分器（AI 語意評分／伺服器端精確比對）的
+   `isCorrect` 並列顯示。舊碼多處寫成 `verdict: evaluation.isCorrect ? 'partially_correct' : 'incorrect'`
+   ——**答對的題目被降級成「部分正確」**。
+2. **字數判定以「每題」而非「每空格」計算**：`detectGrammarFit()` 用整個答案的字數去對照
+   「Use ONE word for each blank」的單字限制，三空格題的 3 個字（每格 1 字，完全正確）被判 `poor`。
+
+### 決策
+- **單一評分權威**：`verdict` 只能由評分器決定（`isCorrect` / `isPartiallyCorrect`）；規則式訊號只能寫入
+  `qualityFlags` + `qualityAdvice(zh)`，**永不改寫 verdict**。UI 徽章亦改以
+  `diagnosticVerdict()` 讀評分器欄位（與上方分數同源），規則式 `diagnostic.verdict` 只作後備。
+- **正確答案只講正確的話**：`correctFeedback()` 成為 verdict = `correct` 時唯一顯示的措辭；
+  錯誤導向欄位（`paraphraseAdvice` / `grammarAdvice` / `evidenceSummary` / `errorType`）一律清除。
+- **抄襲標記必須有意義**：`isMeaningfulCopy()` 沿用既有 `shouldApplyCopyPenalty()`（過短答案不可改寫）
+  並新增 `answersEquivalent()`（答案本身就是標準答案，含逗號分隔的多空格標準答案）；兩者皆排除
+  → 短答與填空的「提取式答案」不會再被判「太接近原文」。
+- **題型對映不得降級**：`DSE_TYPE_MAP` 未命中時的後備由 `sentence_transformation` 改為中性
+  `short_answer`；`shortAnswer` / `matching` / `sequencing` / `exampleFinding` 亦改為 `short_answer`
+  （它們是提取／配對／排序題，不是改寫題，不應套用填空／改寫的字數與文法規則）。
+- **雙語顯示**：診斷徽章與錯誤類型 code 不再直接把 enum 印進中文介面
+  （`VERDICT_LABELS` / `ERROR_TYPE_LABELS`，前端鏡像同一組標籤）。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **評分權威** | `reading/feedback/reading-feedback-builder.ts`：新增 `isCorrect` / `isPartiallyCorrect` 入參；`verdict` 改由評分器決定；新增 `correctFeedback()`、`withQuality()`、`QUALITY_ADVICE`（雙語）、`isMeaningfulCopy()`；各分支（cloze／rewrite、tone-attitude、vocab-in-context、inference、short-answer）的「正確但可改善」一律改走品質標記，不再降級 verdict。 |
+| **型別** | `reading-feedback-types.ts`：新增 `qualityFlags` / `qualityAdvice` / `qualityAdviceZh`；新增 `VERDICT_LABELS`、`ERROR_TYPE_LABELS`（zh/en）。 |
+| **評分器** | `reading-answer-evaluator.ts`：新增 `countBlanks()`（`(i)/(ii)/(iii)`、`(1)`、`___` 連續底線，或以逗號／分號分隔的多空格標準答案）與 `detectGrammarFit(prompt, answer, { blankCount, maxWordsPerBlank })`——字數期望改為**每空格**計算（`blankCount = 1` 時與舊行為完全一致）；多空格題在 `notes` 標示 `Multi-blank item (N blanks)`。新增 `answersEquivalent()`（忽略大小寫、標點、詞序）。`evaluation/index.ts` 匯出上述新函式。 |
+| **API** | `api/reading/route.ts`：`handleAnswerAnalysis` 傳入評分器的 `isCorrect` / `isPartiallyCorrect`；`DSE_TYPE_MAP` 的 `shortAnswer` / `matching` / `sequencing` / `exampleFinding` 改為 `short_answer`，未命中後備改為 `short_answer`（`errorCorrectionSummary` 保留 `sentence_transformation`，舊資料仍可解析）。 |
+| **UI** | `student/reading/page.tsx`：新增 `diagnosticVerdict()`（評分器優先）、`VERDICT_STYLES`、`VERDICT_LABELS`、`DIAGNOSIS_LABELS`、`diagnosisLabel()`；徽章文字改為雙語並與上方分數同源；新增「品質提示」列（`qualityFlags` / `qualityAdvice`）。 |
+
+### 測試（+15 用例，1 個新檔案）
+- `reading/__tests__/reading-verdict-authority.test.ts`（新）：
+  - **A**（評分權威）Q9／Q10 迴歸案例：正確 ＋ 抄襲訊號／詞形訊號仍為 `correct`，訊號改列
+    `qualityFlags`，且不殘留錯誤導向建議；評分器部分給分 → `partially_correct`；答錯保留錯誤類型；
+    明確傳入的評分器 verdict 勝過過期的 `evaluation.isCorrect`。
+  - **B**（題型對映）以原始碼掃描斷言 `shortAnswer/matching/sequencing/exampleFinding → short_answer`，
+    且未命中後備不再是 `sentence_transformation`。
+  - **C**（抄襲標記）兩字標準答案不觸發；長答案若**就是**標準答案不標記；長答案正確但重抄 → 品質提示而非降級。
+  - **D**（每空格字數）`countBlanks()` 三種來源；3 字答案對 3 空格 = `good`（舊行為 = `poor`）；
+    單空格行為不變；`buildEvaluation()` 對 Q10 不再判 `poor` 且附 `Multi-blank item (3 blanks)` 註記。
+- 完整套件 **2973 pass / 1 skipped（142 files 執行，1 skipped）**；`npx tsc --noEmit`（exit 0）、
+  `npx eslint`（0 errors）、`node scripts/check-i18n.js`（exit 0）全通過。
+
+### 未處理（follow-up）
+- 品質提示目前只在閱讀診斷顯示；聆聽診斷未同步此架構（同一 owner 模式可直接沿用）。
+- `detectGrammarFit` 的 `maxWordsPerBlank` 選項已預留，但呼叫端目前只傳 `blankCount`
+  （題目字數限制尚未結構化傳遞）。
+- 歷史資料不受影響：本修正只改變**顯示與診斷**，不動任何已儲存的分數或錯題紀錄。
+
 ## 2026-09-16 — 全站加入校徽與校名（登入／學生／老師／管理員）
 
 ### 需求

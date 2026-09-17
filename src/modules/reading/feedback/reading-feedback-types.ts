@@ -68,6 +68,20 @@ export interface ReadingDiagnosticFeedback {
   /** 繁體中文：干擾項分析 */
   distractorNotesZh?: string[];
 
+  /**
+   * 2026-09-17 (fix A): quality issues found in an answer that is
+   * nonetheless CORRECT. Quality signals must never change `verdict` — when
+   * the scorer says the answer is right, the same signal is reported here
+   * instead of in `errorType`.
+   */
+  qualityFlags?: ReadingErrorType[];
+
+  /** EN note explaining the quality flags raised on a correct answer */
+  qualityAdvice?: string;
+
+  /** 繁體中文：正確答案的品質提示 */
+  qualityAdviceZh?: string;
+
   /** Confidence in this diagnosis */
   confidence?: 'low' | 'medium' | 'high';
 }
@@ -96,4 +110,34 @@ export const DSE_SKILL_LABELS_ZH: Record<string, string> = {
   summary_cloze: '摘要填充 — 準確完成摘要',
   sentence_transformation: '句子轉換 — 改寫與文法配合',
   short_answer: '短答 — 定位與改寫證據',
+};
+
+/**
+ * 2026-09-17 (fix E): display labels for the diagnostic verdict badge.
+ * The UI used to print the raw enum (`partially correct`) inside an
+ * otherwise Chinese interface.
+ */
+export const VERDICT_LABELS: Record<ReadingDiagnosticFeedback['verdict'], { zh: string; en: string }> = {
+  correct: { zh: '正確', en: 'Correct' },
+  partially_correct: { zh: '部分正確', en: 'Partially correct' },
+  incorrect: { zh: '不正確', en: 'Incorrect' },
+};
+
+/**
+ * 2026-09-17 (fix E): display labels for error types and quality flags, so
+ * the UI never leaks English snake_case codes into Chinese mode.
+ */
+export const ERROR_TYPE_LABELS: Record<ReadingErrorType, { zh: string; en: string }> = {
+  missed_keyword: { zh: '未對應題目關鍵詞', en: 'missed keyword' },
+  missed_contrast: { zh: '忽略對比關係', en: 'missed contrast' },
+  missed_negation: { zh: '忽略否定詞', en: 'missed negation' },
+  wrong_reference: { zh: '前詞判斷錯誤', en: 'wrong reference' },
+  paraphrase_too_close: { zh: '改寫不足（太接近原文）', en: 'paraphrase too close' },
+  paraphrase_too_far: { zh: '改寫偏離原意', en: 'paraphrase too far' },
+  tone_too_vague: { zh: '語調描述太籠統', en: 'tone too vague' },
+  pos_mismatch: { zh: '詞性不符', en: 'part of speech mismatch' },
+  grammar_mismatch: { zh: '詞形文法不符', en: 'grammar mismatch' },
+  incomplete_answer: { zh: '答案不完整', en: 'incomplete answer' },
+  distractor_trap: { zh: '落入干擾項陷阱', en: 'distractor trap' },
+  unsupported_inference: { zh: '推論缺乏文本支持', en: 'unsupported inference' },
 };

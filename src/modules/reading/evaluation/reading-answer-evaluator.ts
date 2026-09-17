@@ -160,10 +160,48 @@ export function classifyParaphraseQuality(params: {
 // ============================================
 
 /**
+ * 2026-09-17 (fix D): how many blanks the item asks the student to fill.
+ *
+ * A summary-cloze item such as
+ *   "Use ONE word for each blank. ... not by (i) ___ but by ... (ii) ___ ... (iii) ___"
+ * has THREE blanks. Counting every word in the answer as if it belonged to a
+ * single-word blank made a fully correct 3-word answer look like
+ * "too many words for a single-word answer" (grammaticalFitToPrompt='poor').
+ */
+export function countBlanks(prompt: string, expectedAnswer?: string): number {
+  const roman = prompt.match(/\((?:i|ii|iii|iv|v|vi|vii|viii|ix|x)\)/gi) ?? [];
+  const numeric = prompt.match(/\(\d+\)/g) ?? [];
+  const underscoreRuns = prompt.match(/_{2,}/g) ?? [];
+
+  let blanks = Math.max(roman.length, numeric.length, underscoreRuns.length);
+
+  // Multi-blank keys are persisted as one comma/semicolon-separated string
+  // ("indifference, numbers, carrying") even when the prompt does not spell
+  // out the (i)/(ii)/(iii) markers for every blank.
+  if (blanks <= 1 && expectedAnswer) {
+    const parts = expectedAnswer.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) blanks = parts.length;
+  }
+
+  return Math.max(1, blanks);
+}
+
+export interface GrammarFitOptions {
+  /** Number of blanks the item asks the student to fill (default 1). */
+  blankCount?: number;
+  /** Explicit per-blank word cap taken from the question's word limit. */
+  maxWordsPerBlank?: number;
+}
+
+/**
  * Estimate how well the answer fits grammatically into the question prompt.
  * Checks: word count adequacy, basic sentence structure, prompt expectations.
  */
-export function detectGrammarFit(prompt: string, answer: string): GrammarFit {
+export function detectGrammarFit(
+  prompt: string,
+  answer: string,
+  options: GrammarFitOptions = {},
+): GrammarFit {
   if (!answer.trim()) return 'poor';
 
   const expectsSentence =
@@ -175,33 +213,64 @@ export function detectGrammarFit(prompt: string, answer: string): GrammarFit {
   const expectsPhrase =
     /no more than three words|a word or phrase|a phrase/i.test(prompt);
 
+  const blankCount = Math.max(1, Math.floor(options.blankCount ?? 1));
   const tokenCount = answer.trim().split(/\s+/).length;
+
+  // Fix D: expectations are per blank, not per item. With blankCount=1 this
+  // is identical to the previous behaviour.
+  const perBlankTokens = blankCount > 1 ? tokenCount / blankCount : tokenCount;
+  const cap = options.maxWordsPerBlank;
+
+  // Explicit word limit (e.g. "no more than TWO words") wins when given.
+  if (cap !== undefined && cap > 0) {
+    if (perBlankTokens <= cap) return 'good';
+    if (perBlankTokens <= cap + 1) return 'acceptable';
+    return 'poor';
+  }
 
   // Single-word expectations
   if (expectsSingleWord) {
-    if (tokenCount === 1) return 'good';
-    if (tokenCount <= 2) return 'acceptable';
+    if (perBlankTokens === 1) return 'good';
+    if (perBlankTokens <= 2) return 'acceptable';
     return 'poor'; // Too many words for a single-word answer
   }
 
   // Phrase expectations
   if (expectsPhrase) {
-    if (tokenCount <= 3) return 'good';
-    if (tokenCount <= 5) return 'acceptable';
+    if (perBlankTokens <= 3) return 'good';
+    if (perBlankTokens <= 5) return 'acceptable';
     return 'poor';
   }
 
   // Sentence expectations
   if (expectsSentence) {
-    if (tokenCount >= 5) return 'good';
-    if (tokenCount >= 3) return 'acceptable';
+    if (perBlankTokens >= 5) return 'good';
+    if (perBlankTokens >= 3) return 'acceptable';
     return 'poor';
   }
 
   // Default: reasonable length = acceptable
-  if (tokenCount >= 3) return 'good';
-  if (tokenCount >= 1) return 'acceptable';
+  if (perBlankTokens >= 3) return 'good';
+  if (perBlankTokens >= 1) return 'acceptable';
   return 'poor';
+}
+
+/**
+ * 2026-09-17 (fix C): whether the student's answer is the same as the
+ * canonical key, ignoring case, punctuation and token order.
+ *
+ * Used to stop the copying heuristic from flagging an answer that simply IS
+ * the extracted key (e.g. "carrying capacity", or a 3-blank key
+ * "indifference, numbers, carrying") as "paraphrase too close".
+ */
+export function answersEquivalent(studentAnswer: string, expectedAnswer: string): boolean {
+  const normalise = (s: string) =>
+    normalizeForComparison(s).split(' ').filter(Boolean).sort().join(' ');
+
+  const a = normalise(studentAnswer);
+  const b = normalise(expectedAnswer);
+  if (!a || !b) return false;
+  return a === b;
 }
 
 // ============================================
@@ -365,8 +434,12 @@ export function buildEvaluation(params: {
     hasStructuralShift,
   });
 
-  // Grammar fit
-  result.grammaticalFitToPrompt = detectGrammarFit(questionPrompt, studentAnswer);
+  // Grammar fit (fix D: expectations are per blank for multi-blank items)
+  const blankCount = countBlanks(questionPrompt, expectedAnswer);
+  result.grammaticalFitToPrompt = detectGrammarFit(questionPrompt, studentAnswer, { blankCount });
+  if (blankCount > 1) {
+    result.notes.push(`Multi-blank item (${blankCount} blanks) — word-form fit judged per blank`);
+  }
 
   // Completeness
   result.completeness = assessCompleteness(studentAnswer, expectedAnswer);

@@ -22,6 +22,8 @@ export {
   detectStructuralShift,
   classifyParaphraseQuality,
   detectGrammarFit,
+  countBlanks,
+  answersEquivalent,
   assessCompleteness,
   evaluateToneAttitude,
   buildEvaluation,

@@ -5,7 +5,8 @@
 // ============================================
 
 import type { ReadingAnswerEvaluation } from '../evaluation/reading-answer-types';
-import type { ReadingDiagnosticFeedback } from './reading-feedback-types';
+import { answersEquivalent, shouldApplyCopyPenalty } from '../evaluation/reading-answer-evaluator';
+import type { ReadingErrorType, ReadingDiagnosticFeedback } from './reading-feedback-types';
 import { DSE_SKILL_LABELS, DSE_SKILL_LABELS_ZH } from './reading-feedback-types';
 
 /** Build diagnostic feedback from evaluation + question context */
@@ -17,15 +18,29 @@ export function buildReadingDiagnosticFeedback(params: {
   choices?: string[];
   evaluation: ReadingAnswerEvaluation;
   paragraphRef?: number;
+  /**
+   * 2026-09-17 (fix A): the AUTHORITATIVE correctness verdict from the
+   * scorer (AI semantic evaluation / server-side exact match). Quality
+   * signals such as copying level, grammar fit or tone vagueness must NEVER
+   * change it — otherwise a fully correct answer displays "partially
+   * correct" next to "answer fully correct".
+   * Falls back to `evaluation.isCorrect`, which the API already fills from
+   * the same scorer, for backwards compatibility.
+   */
+  isCorrect?: boolean;
+  /** Authoritative partial-credit verdict from the scorer (fix A). */
+  isPartiallyCorrect?: boolean;
 }): ReadingDiagnosticFeedback {
   const { dseType, studentAnswer, expectedAnswer, choices, evaluation, paragraphRef } = params;
+  const isCorrect = params.isCorrect ?? evaluation.isCorrect;
+  const isPartiallyCorrect = params.isPartiallyCorrect ?? false;
 
   // ── Per-type specialized feedback ──
   let feedback: ReadingDiagnosticFeedback;
 
   // Summary cloze / sentence transformation → grammar focus
   if (dseType === 'summary_cloze' || dseType === 'sentence_transformation') {
-    feedback = buildClozeTransformationFeedback(dseType, evaluation, paragraphRef);
+    feedback = buildClozeTransformationFeedback(dseType, evaluation, paragraphRef, studentAnswer, expectedAnswer);
   } else if (dseType === 'tone_attitude') {
     // Tone/attitude → vague label + precision focus
     feedback = buildToneAttitudeFeedback(evaluation, paragraphRef);
@@ -37,19 +52,183 @@ export function buildReadingDiagnosticFeedback(params: {
     feedback = buildVocabInContextFeedback(evaluation, paragraphRef);
   } else if (dseType === 'inference') {
     // Inference → evidence + over-inference risk
-    feedback = buildInferenceFeedback(evaluation, paragraphRef);
+    feedback = buildInferenceFeedback(evaluation, paragraphRef, studentAnswer, expectedAnswer);
   } else if (dseType === 'multiple_choice' || dseType === 'true_false_not_given') {
     // Multiple choice / TFNG → distractor analysis
     feedback = buildObjectiveFeedback(evaluation, choices, expectedAnswer);
   } else {
     // Short answer / fallback → paraphrase + locating clue
-    feedback = buildShortAnswerFeedback(dseType, evaluation, paragraphRef);
+    feedback = buildShortAnswerFeedback(dseType, evaluation, paragraphRef, studentAnswer, expectedAnswer);
+  }
+
+  // ── Fix A: single source of truth for the verdict ──
+  // Correctness belongs to the scorer. Everything the rule-based builders
+  // computed above only ANNOTATES that verdict; it can never re-grade it.
+  const verdict: ReadingDiagnosticFeedback['verdict'] = isCorrect
+    ? 'correct'
+    : isPartiallyCorrect
+      ? 'partially_correct'
+      : 'incorrect';
+
+  const normalised: ReadingDiagnosticFeedback = { ...feedback, verdict };
+
+  if (isCorrect) {
+    // Whatever was raised on a correct answer is a quality note, not an error.
+    const flags = new Set<ReadingErrorType>(feedback.qualityFlags ?? []);
+    if (feedback.errorType) flags.add(feedback.errorType);
+
+    const correctBase = correctFeedback(dseType, paragraphRef, {
+      strongParaphrase: evaluation.paraphraseQuality === 'strong',
+    });
+
+    normalised.errorType = undefined;
+    normalised.locatingClue = correctBase.locatingClue;
+    normalised.improvementAdvice = correctBase.improvementAdvice;
+    // Error-flavoured advice must not follow a correct verdict.
+    normalised.paraphraseAdvice = undefined;
+    normalised.grammarAdvice = undefined;
+    normalised.evidenceSummary = undefined;
+
+    if (flags.size > 0) {
+      const primary = [...flags][0];
+      normalised.qualityFlags = [...flags];
+      normalised.qualityAdvice = QUALITY_ADVICE[primary]?.en ?? normalised.qualityAdvice;
+      normalised.qualityAdviceZh = QUALITY_ADVICE[primary]?.zh ?? normalised.qualityAdviceZh;
+    }
   }
 
   // 2026-08-30 audit: every diagnostic carries a curated 繁體中文 counterpart
   // so zh-mode students read the feedback content (not just the labels).
-  return { ...feedback, ...buildZhDiagnostic(dseType, feedback, paragraphRef, studentAnswer, expectedAnswer) };
+  return { ...normalised, ...buildZhDiagnostic(dseType, normalised, paragraphRef, studentAnswer, expectedAnswer) };
 }
+
+/**
+ * 2026-09-17 (fix C): a "heavy copying" flag is only meaningful when the
+ * answer is long enough to be reworded AND is not simply the canonical key.
+ * Cloze/transformation answers are extracted words by definition, and a
+ * two-word answer such as "carrying capacity" cannot be paraphrased.
+ * Mirrors the `shouldApplyCopyPenalty` safeguard already used by
+ * buildEvaluation, which the feedback builder previously ignored.
+ */
+function isMeaningfulCopy(studentAnswer?: string, expectedAnswer?: string): boolean {
+  if (!studentAnswer) return false;
+  if (!shouldApplyCopyPenalty(studentAnswer)) return false;
+  return !answersEquivalent(studentAnswer, expectedAnswer ?? '');
+}
+
+/** Attach a quality flag to an otherwise correct answer (fix A). */
+function withQuality(feedback: ReadingDiagnosticFeedback, flag: ReadingErrorType): ReadingDiagnosticFeedback {
+  return { ...feedback, verdict: 'correct', qualityFlags: [...(feedback.qualityFlags ?? []), flag] };
+}
+
+/**
+ * 2026-09-17 (fix A): the ONLY wording shown when the scorer says the answer
+ * is right — independent of whatever quality signal also fired.
+ */
+function correctFeedback(
+  dseType: string,
+  paragraphRef?: number,
+  opts: { strongParaphrase?: boolean } = {},
+): ReadingDiagnosticFeedback {
+  const skillLabel = DSE_SKILL_LABELS[dseType] || DSE_SKILL_LABELS.short_answer;
+  const base: ReadingDiagnosticFeedback = {
+    verdict: 'correct',
+    skillTarget: skillLabel,
+    locatingClue: paragraphRef
+      ? `Correctly located the answer in paragraph ${paragraphRef}.`
+      : 'Correctly located the answer in the passage.',
+    improvementAdvice: 'Your answer matches the required meaning.',
+    confidence: 'high',
+  };
+
+  switch (dseType) {
+    case 'multiple_choice':
+    case 'true_false_not_given':
+      return {
+        ...base,
+        locatingClue: 'Correctly identified the right option.',
+        improvementAdvice: 'Your answer matches the passage content.',
+      };
+    case 'tone_attitude':
+      return {
+        ...base,
+        locatingClue: 'Correctly identified the writer\'s attitude from evaluative language.',
+        improvementAdvice: 'Good identification of the tone from the text\'s wording.',
+      };
+    case 'reference':
+      return {
+        ...base,
+        locatingClue: 'Correctly identified the pronoun\'s referent from the surrounding sentences.',
+        improvementAdvice: 'Good pronoun resolution — the answer fits logically in place of the pronoun.',
+      };
+    case 'vocabulary_in_context':
+      return {
+        ...base,
+        locatingClue: 'Correctly used context clues to determine the word\'s meaning.',
+        improvementAdvice: 'Good use of surrounding text to infer meaning.',
+      };
+    case 'inference':
+      return {
+        ...base,
+        locatingClue: 'Correctly inferred meaning beyond the literal text.',
+        improvementAdvice: 'Good use of textual evidence to support your inference.',
+      };
+    case 'summary_cloze':
+      return {
+        ...base,
+        locatingClue: paragraphRef
+          ? `Correctly identified the word from paragraph ${paragraphRef}.`
+          : 'Correctly completed the summary.',
+        improvementAdvice: 'Word form and meaning both fit the blank correctly.',
+      };
+    case 'sentence_transformation':
+      return {
+        ...base,
+        locatingClue: paragraphRef
+          ? `Correctly identified the word from paragraph ${paragraphRef}.`
+          : 'Correctly completed the sentence transformation.',
+        improvementAdvice: 'Word form and meaning both fit correctly.',
+      };
+    default: // short_answer + fallback
+      return {
+        ...base,
+        locatingClue: paragraphRef
+          ? `Correctly located and extracted the answer from paragraph ${paragraphRef}.`
+          : 'Correctly located and extracted the answer.',
+        improvementAdvice: opts.strongParaphrase
+          ? 'Good use of paraphrase — meaning preserved with your own wording.'
+          : 'Answer matches the required meaning.',
+      };
+  }
+}
+
+/**
+ * 2026-09-17 (fix A): what to tell a student whose answer is CORRECT but
+ * improvable. Replaces the old behaviour of downgrading the verdict to
+ * "partially correct".
+ */
+const QUALITY_ADVICE: Partial<Record<ReadingErrorType, { en: string; zh: string }>> = {
+  paraphrase_too_close: {
+    en: 'Your answer is correct, but it reuses the passage wording directly. For longer answers DSE rewards rewording — keep the key term and reshape the rest.',
+    zh: '答案正確，但直接沿用原文的用語。長答題宜保留關鍵詞，然後改寫句子。',
+  },
+  grammar_mismatch: {
+    en: 'Your answer is accepted, but still check the required word form (tense, singular/plural, part of speech) for this blank.',
+    zh: '答案已接受，但此空格仍要檢查詞形（時態、單複數、詞性）。',
+  },
+  pos_mismatch: {
+    en: 'Your answer is accepted, but check that the part of speech matches what the context needs.',
+    zh: '答案已接受，但請檢查詞性是否符合語境要求。',
+  },
+  tone_too_vague: {
+    en: 'Your answer is accepted, but a more precise tone label (e.g. "critical", "sceptical") scores higher in DSE.',
+    zh: '答案已接受，但更精確的語調標籤（例如「批評」、「懷疑」）在 DSE 得分更高。',
+  },
+  incomplete_answer: {
+    en: 'Your answer is accepted, but it is on the short side — covering all the key points scores higher.',
+    zh: '答案已接受，但篇幅偏短；涵蓋所有重點會更佳。',
+  },
+};
 
 /**
  * 2026-08-30: curated Traditional-Chinese counterpart for each diagnostic
@@ -70,6 +249,7 @@ function buildZhDiagnostic(
   | 'improvementAdviceZh'
   | 'paraphraseAdviceZh'
   | 'grammarAdviceZh'
+  | 'qualityAdviceZh'
   | 'distractorNotesZh'
 > {
   const p = paragraphRef;
@@ -88,17 +268,29 @@ function buildZhDiagnostic(
     short_answer: { clue: p ? `正確地從第 ${p} 段找到並提取答案。` : '正確地找到並提取答案。', advice: '答案符合所需意思。' },
   };
 
-  if (fb.verdict === 'correct' || fb.verdict === 'partially_correct') {
+  // 2026-09-17 (fix A): these verdict branches are reached for real now. A
+  // correct answer never falls through to error wording, and a partial
+  // answer with no rule-based diagnosis gets its own message instead of the
+  // generic "unknown error" fallback.
+  if (fb.verdict === 'correct') {
     const c = correctZh[dseType] ?? correctZh.short_answer;
-    if (fb.verdict === 'correct' && fb.errorType === undefined) {
-      const strongParaphrase =
-        dseType === 'short_answer' && (fb.improvementAdvice ?? '').includes('Good use of paraphrase');
-      return {
-        skillTargetZh,
-        locatingClueZh: c.clue,
-        improvementAdviceZh: strongParaphrase ? '善用改寫 — 保留原意並以自己文字表達。' : c.advice,
-      };
-    }
+    const strongParaphrase =
+      dseType === 'short_answer' && (fb.improvementAdvice ?? '').includes('Good use of paraphrase');
+    const primaryQuality = fb.qualityFlags?.[0];
+    return {
+      skillTargetZh,
+      locatingClueZh: c.clue,
+      improvementAdviceZh: strongParaphrase ? '善用改寫 — 保留原意並以自己文字表達。' : c.advice,
+      qualityAdviceZh: primaryQuality ? QUALITY_ADVICE[primaryQuality]?.zh : undefined,
+    };
+  }
+
+  if (fb.verdict === 'partially_correct' && !fb.errorType) {
+    return {
+      skillTargetZh,
+      locatingClueZh: p ? `你已找到第 ${p} 段的相關內容，但答案未完全命中。` : '你已找到相關內容，但答案未完全命中。',
+      improvementAdviceZh: '對照參考答案，補回缺少或寫錯的部分。',
+    };
   }
 
   switch (fb.errorType) {
@@ -224,12 +416,16 @@ function buildClozeTransformationFeedback(
   dseType: string,
   evaluation: ReadingAnswerEvaluation,
   paragraphRef?: number,
+  studentAnswer?: string,
+  expectedAnswer?: string,
 ): ReadingDiagnosticFeedback {
   const skillLabel = DSE_SKILL_LABELS[dseType] || DSE_SKILL_LABELS.summary_cloze;
 
   if (evaluation.grammaticalFitToPrompt === 'poor') {
+    // Fix A: a word-form signal annotates a correct answer, never re-grades it.
+    if (evaluation.isCorrect) return withQuality(correctFeedback(dseType, paragraphRef), 'grammar_mismatch');
     return {
-      verdict: evaluation.isCorrect ? 'partially_correct' : 'incorrect',
+      verdict: 'incorrect',
       skillTarget: skillLabel,
       locatingClue: paragraphRef
         ? `Focus on the keywords around the blank in paragraph ${paragraphRef}.`
@@ -241,9 +437,13 @@ function buildClozeTransformationFeedback(
     };
   }
 
-  if (evaluation.copyingLevel === 'heavy') {
+  if (evaluation.copyingLevel === 'heavy' && isMeaningfulCopy(studentAnswer, expectedAnswer)) {
+    // Fix A + C: cloze answers are extracted words by definition, so a
+    // "too close" note only applies to genuinely rewordable long answers and
+    // never downgrades a correct verdict.
+    if (evaluation.isCorrect) return withQuality(correctFeedback(dseType, paragraphRef), 'paraphrase_too_close');
     return {
-      verdict: evaluation.isCorrect ? 'partially_correct' : 'incorrect',
+      verdict: 'incorrect',
       skillTarget: skillLabel,
       locatingClue: 'You identified the correct passage, but the answer should fit the summary\'s grammar.',
       errorType: 'paraphrase_too_close',
@@ -285,8 +485,10 @@ function buildToneAttitudeFeedback(
   const isVague = evaluation.warnings.some(w => /vague/i.test(w));
 
   if (isVague) {
+    // Fix A: a vague-but-accepted tone label is a quality note.
+    if (evaluation.isCorrect) return withQuality(correctFeedback('tone_attitude', paragraphRef), 'tone_too_vague');
     return {
-      verdict: evaluation.isCorrect ? 'partially_correct' : 'incorrect',
+      verdict: 'incorrect',
       skillTarget: DSE_SKILL_LABELS.tone_attitude,
       locatingClue: paragraphRef
         ? `Focus on evaluative words in paragraph ${paragraphRef} (e.g., "unfortunately", "remarkably").`
@@ -358,8 +560,10 @@ function buildVocabInContextFeedback(
   const posNote = evaluation.notes.find(n => /POS/i.test(n));
 
   if (posNote && /mismatch/i.test(posNote)) {
+    // Fix A: a part-of-speech signal annotates a correct answer.
+    if (evaluation.isCorrect) return withQuality(correctFeedback('vocabulary_in_context', paragraphRef), 'pos_mismatch');
     return {
-      verdict: evaluation.isCorrect ? 'partially_correct' : 'incorrect',
+      verdict: 'incorrect',
       skillTarget: DSE_SKILL_LABELS.vocabulary_in_context,
       locatingClue: paragraphRef
         ? `Check the part of speech required by the context in paragraph ${paragraphRef}.`
@@ -396,10 +600,14 @@ function buildVocabInContextFeedback(
 function buildInferenceFeedback(
   evaluation: ReadingAnswerEvaluation,
   paragraphRef?: number,
+  studentAnswer?: string,
+  expectedAnswer?: string,
 ): ReadingDiagnosticFeedback {
-  if (evaluation.copyingLevel === 'heavy') {
+  if (evaluation.copyingLevel === 'heavy' && isMeaningfulCopy(studentAnswer, expectedAnswer)) {
+    // Fix A + C: copied evidence on a correct inference is a quality note.
+    if (evaluation.isCorrect) return withQuality(correctFeedback('inference', paragraphRef), 'paraphrase_too_close');
     return {
-      verdict: evaluation.isCorrect ? 'partially_correct' : 'incorrect',
+      verdict: 'incorrect',
       skillTarget: DSE_SKILL_LABELS.inference,
       locatingClue: 'You found the evidence, but inference requires going beyond the exact words.',
       errorType: 'paraphrase_too_close',
@@ -471,22 +679,17 @@ function buildShortAnswerFeedback(
   dseType: string,
   evaluation: ReadingAnswerEvaluation,
   paragraphRef?: number,
+  studentAnswer?: string,
+  expectedAnswer?: string,
 ): ReadingDiagnosticFeedback {
   const skillLabel = DSE_SKILL_LABELS[dseType] || DSE_SKILL_LABELS.short_answer;
 
-  // Heavy copying
-  if (evaluation.copyingLevel === 'heavy' && evaluation.isCorrect) {
-    return {
-      verdict: 'partially_correct',
-      skillTarget: skillLabel,
-      locatingClue: paragraphRef
-        ? `You found the correct evidence in paragraph ${paragraphRef}, but copied too directly.`
-        : 'You found the correct evidence, but copied too directly from the passage.',
-      errorType: 'paraphrase_too_close',
-      improvementAdvice: 'Keep the key idea but shorten or reshape the wording. DSE rewards paraphrasing.',
-      paraphraseAdvice: 'Try changing the sentence structure or using synonyms for non-key terms.',
-      confidence: 'high',
-    };
+  // Heavy copying on a long answer that is not simply the key (fix A + C):
+  // a quality note on a correct answer, never a downgraded verdict. Short
+  // answers (e.g. "carrying capacity") cannot be paraphrased at all and are
+  // excluded by isMeaningfulCopy.
+  if (evaluation.copyingLevel === 'heavy' && evaluation.isCorrect && isMeaningfulCopy(studentAnswer, expectedAnswer)) {
+    return withQuality(correctFeedback(dseType, paragraphRef), 'paraphrase_too_close');
   }
 
   // Incomplete

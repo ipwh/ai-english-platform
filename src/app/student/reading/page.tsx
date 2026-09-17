@@ -41,7 +41,10 @@ interface ReadingQuestion {
     | 'inference'
     | 'tone_attitude'
     | 'summary_cloze'
-    | 'sentence_transformation';
+    | 'sentence_transformation'
+    // 2026-09-17 (fix B): extraction / matching / ordering questions are no
+    // longer degraded to sentence_transformation.
+    | 'short_answer';
   /** DSE marks for this question (default 1) */
   marks?: number;
   /** DSE word limit string, e.g. "ONE word", "no more than THREE words" */
@@ -92,8 +95,78 @@ interface AnswerState {
       distractorNotes?: string[];
       distractorNotesZh?: string[];
       confidence?: string;
+      /**
+       * 2026-09-17 (fix E): quality notes on a CORRECT answer. Informational
+       * only — the verdict badge mirrors the score shown above.
+       */
+      qualityFlags?: string[];
+      qualityAdvice?: string;
+      qualityAdviceZh?: string;
     };
   };
+}
+
+/**
+ * 2026-09-17 (fix E): the diagnostic badge must show the SAME verdict as the
+ * score above it. The scorer's answer state is authoritative; the rule-based
+ * diagnostic block only annotates it.
+ */
+function diagnosticVerdict(a: {
+  isCorrect?: boolean;
+  isPartiallyCorrect?: boolean;
+  diagnostic?: { verdict?: string };
+}): 'correct' | 'partially_correct' | 'incorrect' {
+  if (a.isCorrect) return 'correct';
+  if (a.isPartiallyCorrect) return 'partially_correct';
+  if (a.diagnostic?.verdict === 'partially_correct') return 'partially_correct';
+  return 'incorrect';
+}
+
+const VERDICT_STYLES: Record<string, string> = {
+  correct: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  partially_correct: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  incorrect: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+};
+
+const VERDICT_LABELS: Record<string, { zh: string; en: string }> = {
+  correct: { zh: '正確', en: 'Correct' },
+  partially_correct: { zh: '部分正確', en: 'Partially correct' },
+  incorrect: { zh: '不正確', en: 'Incorrect' },
+};
+
+/** Fix E: localized badge text for the authoritative verdict. */
+function diagnosisVerdictLabel(
+  a: {
+    isCorrect?: boolean;
+    isPartiallyCorrect?: boolean;
+    diagnostic?: { verdict?: string };
+  },
+  language: 'en' | 'zh',
+): string {
+  const label = VERDICT_LABELS[diagnosticVerdict(a)] ?? VERDICT_LABELS.incorrect;
+  return language === 'en' ? label.en : label.zh;
+}
+
+/** 2026-09-17 (fix E): codes no longer leak as English snake_case in zh mode. */
+const DIAGNOSIS_LABELS: Record<string, { zh: string; en: string }> = {
+  missed_keyword: { zh: '未對應題目關鍵詞', en: 'missed keyword' },
+  missed_contrast: { zh: '忽略對比關係', en: 'missed contrast' },
+  missed_negation: { zh: '忽略否定詞', en: 'missed negation' },
+  wrong_reference: { zh: '前詞判斷錯誤', en: 'wrong reference' },
+  paraphrase_too_close: { zh: '改寫不足（太接近原文）', en: 'paraphrase too close' },
+  paraphrase_too_far: { zh: '改寫偏離原意', en: 'paraphrase too far' },
+  tone_too_vague: { zh: '語調描述太籠統', en: 'tone too vague' },
+  pos_mismatch: { zh: '詞性不符', en: 'part of speech mismatch' },
+  grammar_mismatch: { zh: '詞形文法不符', en: 'grammar mismatch' },
+  incomplete_answer: { zh: '答案不完整', en: 'incomplete answer' },
+  distractor_trap: { zh: '落入干擾項陷阱', en: 'distractor trap' },
+  unsupported_inference: { zh: '推論缺乏文本支持', en: 'unsupported inference' },
+};
+
+function diagnosisLabel(code: string, language: 'en' | 'zh'): string {
+  const label = DIAGNOSIS_LABELS[code];
+  if (!label) return code.replace(/_/g, ' ');
+  return language === 'en' ? label.en : label.zh;
 }
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
@@ -1152,15 +1225,14 @@ export default function ReadingPracticePage() {
                           <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 text-xs space-y-1">
                             <p className="font-semibold text-amber-700 dark:text-amber-300">
                               🔍 {language === 'en' ? 'Diagnostic Feedback' : '診斷回饋'}
-                              {ans.diagnostic.verdict && (
-                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
-                                  ans.diagnostic.verdict === 'correct' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                  ans.diagnostic.verdict === 'partially_correct' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                }`}>
-                                  {ans.diagnostic.verdict.replace(/_/g, ' ')}
-                                </span>
-                              )}
+                              {/* Fix E: mirrors the score above — never a second opinion. */}
+                              <span
+                                className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${
+                                  VERDICT_STYLES[diagnosticVerdict(ans)] ?? VERDICT_STYLES.incorrect
+                                }`}
+                              >
+                                {diagnosisVerdictLabel(ans, language)}
+                              </span>
                             </p>
                             {ans.diagnostic.skillTarget && (
                               <p className="text-amber-600 dark:text-amber-400">
@@ -1189,7 +1261,13 @@ export default function ReadingPracticePage() {
                             {ans.diagnostic.errorType && (
                               <p className="text-red-600 dark:text-red-400">
                                 <span className="font-medium">{language === 'en' ? '⚠️ Issue: ' : '⚠️ 問題：'}</span>
-                                {ans.diagnostic.errorType.replace(/_/g, ' ')}
+                                {diagnosisLabel(ans.diagnostic.errorType, language)}
+                              </p>
+                            )}
+                            {ans.diagnostic.qualityFlags && ans.diagnostic.qualityFlags.length > 0 && (
+                              <p className="text-amber-700 dark:text-amber-300">
+                                <span className="font-medium">{language === 'en' ? '📝 Quality note: ' : '📝 品質提示：'}</span>
+                                {ans.diagnostic.qualityFlags.map(f => diagnosisLabel(f, language)).join(language === 'en' ? ', ' : '、')}
                               </p>
                             )}
                             {ans.diagnostic.improvementAdvice && (
@@ -1214,6 +1292,14 @@ export default function ReadingPracticePage() {
                                 {language === 'en'
                                   ? ans.diagnostic.grammarAdvice
                                   : (ans.diagnostic.grammarAdviceZh || ans.diagnostic.grammarAdvice)}
+                              </p>
+                            )}
+                            {ans.diagnostic.qualityAdvice && (
+                              <p className="text-green-700 dark:text-green-400">
+                                <span className="font-medium">{language === 'en' ? '✅ Quality: ' : '✅ 品質：'}</span>
+                                {language === 'en'
+                                  ? ans.diagnostic.qualityAdvice
+                                  : (ans.diagnostic.qualityAdviceZh || ans.diagnostic.qualityAdvice)}
                               </p>
                             )}
                             {ans.diagnostic.distractorNotes && ans.diagnostic.distractorNotes.length > 0 && (
