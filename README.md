@@ -47,6 +47,8 @@ Writing Evaluation (Sprints 127-130):
 | ADR-009 | Manual barrel exports, not auto-discovery | ✅ Accepted |
 | ADR-022 | Release Governance, Feature Flags & Deployment Safety | ✅ Accepted |
 | ADR-023 | Phase 9 External Release Gate & Credential Rotation Waiver Policy (VERIFIED ≠ ACCEPTED_WITH_EXPLICIT_WAIVER; release decision rule; DeepSeek waiver scope) | ✅ Accepted (2026-08-20) |
+| ADR-041 | Mistake Skill Attribution & Review Layering | ✅ Accepted (2026-09-14) |
+| ADR-042 | Generated Answer Verification — independent pre-delivery answer-key audit | ✅ Accepted (2026-09-20) |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 
@@ -60,7 +62,7 @@ Writing Evaluation (Sprints 127-130):
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
-| Documentation | 41 ADRs (ADR-001–041) in `docs/architecture/` |
+| Documentation | 42 ADRs (ADR-001–042) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) — Vercel 部署已於 2026-09-15 移除 |

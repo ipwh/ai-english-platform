@@ -4,6 +4,99 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-20 (IV) — 生成題目交付前答案覆核：四個選項全錯不得交付（ADR-042）
+
+### 一、用戶回報的錯誤題目
+
+```
+Always ___ ___ your passwords regularly to keep your accounts safe.
+詞彙 / 片語動詞
+A. update in   B. update up   C. update with   D. update on
+💡 update up 不是正確片語。update 作為及物動詞，直接接受詞，無需介詞。
+   …但選項中沒有正確的，因此題目有誤。
+```
+
+四個選項**全部不是正確英語**，而 AI 在自己的解說中承認了這一點，題目仍被交付給學生。
+「update」是及物動詞，不接介詞；`update up / update in / update with / update on`
+四個組合都是憑空拼出的片語。
+
+### 二、根因：生成者同時是解說者，既有檢查全部被繞過
+
+| 既有交付前檢查 | 結果 |
+|---|---|
+| 答案鍵對應得到選項（`normalizeMcqAnswer`） | ✅ 通過（`B` = "update up"） |
+| 選項數目 4／無重複／非數字碎片／非 All-of-the-above | ✅ 通過 |
+| 填充／聆聽答案逐字出現（`validateAndFixQuestion`） | ✅ 通過 |
+| 題目與解說一致性 | ✅ 通過（**解說由同一次生成產生 → 必然自圓其說**） |
+
+結構驗證只能證明題目「形狀正確」，不能證明「語言正確」。而且自 2026-09-20 (III)
+起，文法／閱讀題目會在交付前持久化為伺服器正典題目並以伺服器答案鍵評分 →
+一個錯誤答案鍵同時污染準確率、技能掌握度與診斷等**可驗證證據**。
+
+### 三、修正：新增交付前答案覆核閘門（Layer A + Layer B）
+
+**Layer A（決定性，零成本，永遠執行）** — `ai/services/answer-verification.ts`
+- 選項數目 ≠ 4、選項重複（正規化後）、答案鍵非 A–D 或指向不存在選項。
+- 選項是系統補位文字（`mcq-filters.ts` 的 fallback filler 被當成真實選項交付）。
+- **解說自認題目有誤**（「選項中沒有正確的…因此題目有誤」、"none of the options is
+  correct" 等）。模式刻意收窄：合法解說「B 不是正確的片語」（解釋干擾項為何錯）不誤判。
+
+**Layer B（第二次獨立 LLM pass，blind-solve）** — `ai/prompts/grammar/answer-verification.ts`
+- 驗證器**永不**看到答案鍵（只看題目、選項、篇章／對話）；已看過答案鍵的驗證器會為它辯護。
+- 驗證器逐題自行作答，並判斷 `soundness`：`ok` / `ambiguous` / `flawed`。
+- **改錯題方向相反（`mode: "option-error"`）**：改錯題的答案鍵是「**含有錯誤**的那個選項」
+  （其餘三個正確，見 `grammar/v1.ts` 改錯題規格）——若沿用一般 MC 的判斷方向，
+  每個合法的改錯題都會被誤判為 `flawed`。`option-error` 要求驗證器找出含錯選項，
+  `ok` = 恰好一個選項有錯、其餘三個完全正確；多於一個有錯 ⇒ `ambiguous`；全部無錯 ⇒ `flawed`。
+- 只有 `soundness === 'ok'` **且** blind 答案等於答案鍵才可交付；其餘（flawed、
+  ambiguous、答案不符、無 verdict、verdict 無法解讀）一律**丟棄**。
+- 特別要求驗證憑空拼出的「動詞 + 介詞」組合、片語動詞、搭配詞、及物動詞誤加介詞。
+
+**接線** — `ai/usecases/generate-questions.ts`
+- 流程：生成 → 標準化 → 結構驗證 → **答案覆核** → 計數／重試；丟棄的題目令題數不足 →
+  觸發既有重試，重試提示附上被否決原因（`summarizeVerificationDrops()`）以免重犯。
+- **格式修復（repair）路徑同樣必須通過覆核**，不得繞過交付前把關。
+- 沿用 `executeAI()` 單一管線與既有額度帳本（`AiDailyUsage`），無新 provider／新管線。
+
+### 四、降級策略（明示，不靜默）
+
+- 個別題目沒有 verdict／verdict 無法解讀 → 丟棄（無法確認即不交付）。
+- 驗證器呼叫失敗（供應商逾時、JSON 無法解析）→ 記錄 warning 並交付已通過決定性檢查的題目；
+  設 `AI_ANSWER_VERIFY_STRICT=true` 則改為 fail-closed（全部丟棄）。
+- `AI_ANSWER_VERIFY_DISABLED=true` 可緊急停用，**停用即代表錯誤答案鍵可能交付**（會記錄 warning）。
+- 驗證器**只可否決、不可改寫**答案鍵（AI 輸出不得成為新的評分權威，與閱讀診斷 verdict 同一原則）。
+- 驗證呼叫 `temperature: 0`、`maxTokens ≤ 4096`、`timeoutMs 20000`（批次一次；DeepSeek 實測約
+  200 tok/s，20s 足夠），以限制生成延遲尾端。
+
+### 四之二、交付規則變嚴（品質優先於題數）
+
+- **選擇題必須恰好 4 個選項**：`question-normalizer` 在過濾後剩 2–3 個選項時，2 個會以
+  fallback filler 補到 4 個、3 個則直接交付 3 選項；兩者都不再交付（filler 是
+  「Check the sentence structure carefully.」這類提示文字，不是答案）。題數不足會令重試
+  重新出題，重試提示明確要求「exactly 4 distinct options」。
+- 重試提示加入被否決的具體原因與規則（4 個不重複選項、選項必須是真實英語、答案必須是
+  唯一站得住腳的選項、干擾項必須明確錯誤），避免重犯同一種錯誤。
+- 全部題目被否決時的錯誤訊息改為**雙語且可行動**（「未能生成可靠的題目…請重試或選擇其他文法項目」），
+  技術細節壓縮至 300 字內放在 `[diagnostic: …]` 段（route 會原樣顯示 error 字串）。
+- 學生可能因此**偶爾收到較少題目或需要重試**；這是刻意的取捨 —— 交付一道四個選項全錯的題目
+  會污染練習、錯題本、準確率與診斷等可驗證證據，代價高於少一道題。
+
+### 五、驗證
+
+- 新增 `src/modules/ai/__tests__/answer-verification.test.ts`（33 個測試）：
+  以本事件的實際題目為 regression fixture，並覆蓋重複選項、補位選項、答案鍵不合法、
+  `flawed`／`ambiguous`／覆核答案不符／無 verdict／verdict 無法解讀 → 丟棄、填充題文字比對、
+  **改錯題 `option-error` 反向驗證**、short-writing／無選項改錯題不送覆核、驗證器不可用的降級
+  與 strict fail-closed、丟棄題目的原始索引對應、以及**驗證器輸入不含答案鍵**；
+  另有 5 個反向測試確保「合法解說干擾項為何錯」（「B 不是正確的片語」、
+  「選項 C 沒有正確的詞形」、「本題易錯點…」、「本題錯誤選項…」）**不會**被誤判為自認有誤，
+  以及 2 個提示詞契約測試（系統提示必須保留 `option-error` 反向規則、不得要求驗證器信任答案鍵）。
+- 全套測試：**3067 passed / 1 skipped（149 files passed, 1 skipped）**；`npx tsc --noEmit` 通過；
+  `node scripts/check-i18n.js` 通過。
+- 決策記錄：`docs/architecture/ADR-042-generated-answer-verification.md`（README ADR 總數更新為 42）。
+
+---
+
 ## 2026-09-20 (III) — UTC 日界線全面收口 + 診斷改伺服器評分（D2b/D3）
 
 ### 一、UTC 日界線審核（用戶要求）

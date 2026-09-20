@@ -12,6 +12,7 @@ import { selectDiverseTopic } from '../services/topic-selector';
 import { normalizeGeneratedQuestions } from '../services/question-normalizer';
 import { validateAndFixQuestion } from '../services/question-validator';
 import { validateListeningConsistency } from '../services/listening-normalizer';
+import { verifyGeneratedAnswers, summarizeVerificationDrops } from '../services/answer-verification';
 import { resolveEffectiveQuestionType } from '../services/open-ended-topics';
 import { logger } from '@/shared/logger/logger';
 import type { GenerateQuestionsInput, GeneratedQuestion } from '../types/generation-types';
@@ -123,6 +124,8 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
   // ============================================
   const MAX_RETRIES = 2;
   let lastError = '';
+  /** 上一輪被答案覆核否決的原因 — 帶入重試提示，避免重犯同一種題目（例如憑空拼出的片語） */
+  let verificationFeedback = '';
   
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     // On retry: force different topic and slightly lower temperature
@@ -131,6 +134,9 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       : undefined;
     const retryPrompt = attempt > 0
       ? `\n\n⚠️ RETRY INSTRUCTION: Previous attempt produced insufficient or low-quality questions. Please generate EXACTLY ${count} questions with COMPLETE fields. Use topic: "${retryTopic}". Ensure every question has a valid answer that appears verbatim in the listening/reading content.\n\nDO NOT use the same scenarios or topics as before.`
+        + (verificationFeedback
+          ? `\n\n⚠️ ANSWER VERIFICATION FEEDBACK (previous attempt was REJECTED):\n${verificationFeedback}\nRules: every MC item needs EXACTLY 4 distinct options (never generic advice text such as "Check the sentence structure carefully."); every option must be real, correctly-spelled English (no invented collocations such as "update up"); the keyed answer must be the ONLY defensible option, and every distractor must be clearly wrong — never also correct.`
+          : '')
       : '';
     
     const effectiveSystemPrompt = finalSystemPrompt + retryPrompt;
@@ -189,11 +195,29 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       logger.warn({ module: 'ai-service', warnings: allWarnings }, 'Generated questions had consistency issues (auto-fixed)');
     }
 
+    // === 交付前答案覆核（Answer Verification Gate）===
+    // 結構驗證無法察覺「四個選項全錯」的題目（2026-09-20 實例：
+    // Always ___ your passwords. → update in / update up / update with /
+    // update on，並由 AI 自己在解說中承認「選項中沒有正確的，因此題目有誤」）。
+    // 逐題由第二次獨立 pass blind-solve；不通過即丟棄，令下方重試機制重新出題。
+    const verification = await verifyGeneratedAnswers(fixedQuestions, { userId: input.userId });
+    const verifiedQuestions = verification.kept;
+    if (verification.dropped.length > 0) {
+      verificationFeedback = summarizeVerificationDrops(verification.dropped);
+      logger.warn({
+        module: 'generate-questions',
+        attempt: attempt + 1,
+        droppedCount: verification.dropped.length,
+        keptCount: verifiedQuestions.length,
+        reasons: verificationFeedback,
+      }, 'Questions dropped by answer verification');
+    }
+
     // === 出題後品質檢查 ===
-    const actualCount = fixedQuestions.length;
+    const actualCount = verifiedQuestions.length;
     let hasCriticalFailures = isListening
       ? (() => {
-          const check = validateListeningConsistency(fixedQuestions);
+          const check = validateListeningConsistency(verifiedQuestions);
           if (!check.passed) {
             logger.warn({ module: 'ai-service', attempt: attempt + 1, errors: check.errors, warnings: check.warnings }, 'Listening consistency issues');
           } else {
@@ -201,7 +225,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
           }
           if (check.errors.length > 0) {
             lastError = check.errors.join('; ');
-            return check.questionIndices.length >= fixedQuestions.length * 0.5;
+            return check.questionIndices.length >= verifiedQuestions.length * 0.5;
           }
           return false;
         })()
@@ -209,13 +233,13 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
 
     // === Reading Content Validation ===
     if (isReading) {
-      const readingIssues = fixedQuestions.filter(q => {
+      const readingIssues = verifiedQuestions.filter(q => {
         if (!q.readingContent) return true; // Missing reading content is critical
         return q.readingContent.trim().length < 50; // Too short
       });
       if (readingIssues.length > 0) {
-        logger.warn({ module: 'ai-service', readingIssueCount: readingIssues.length, totalQuestions: fixedQuestions.length }, 'Reading questions have missing/short readingContent');
-        if (readingIssues.length >= fixedQuestions.length * 0.5) {
+        logger.warn({ module: 'ai-service', readingIssueCount: readingIssues.length, totalQuestions: verifiedQuestions.length }, 'Reading questions have missing/short readingContent');
+        if (readingIssues.length >= verifiedQuestions.length * 0.5) {
           lastError = 'Too many reading questions with insufficient content';
           hasCriticalFailures = true;
         }
@@ -227,7 +251,12 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
     
     if (!needsRetry || attempt >= MAX_RETRIES - 1) {
       if (actualCount === 0) {
-        throw new Error(`AI generated 0 valid questions after ${attempt + 1} attempt(s). Last error: ${lastError || 'all questions rejected by quality checks'}`);
+        // 學生可見訊息必須雙語且可行動；技術細節壓縮後放在 diagnostic 段
+        // （route 會原樣顯示 error 字串）。
+        const diagnostic = (lastError
+          || (verificationFeedback ? `答案覆核未通過：${verificationFeedback}` : 'all questions rejected by quality checks'))
+          .slice(0, 300);
+        throw new Error(`未能生成可靠的題目（所有生成的題目都未通過交付前答案覆核）。請重試，或選擇其他文法項目 / Could not generate reliable questions this time (every generated item failed the pre-delivery answer check). Please retry, or choose another grammar item. [diagnostic: ${diagnostic}]`);
       }
       if (actualCount < count && attempt > 0) {
         logger.warn({ module: 'ai-service', attempts: attempt + 1, actualCount, expectedCount: count, lastError: lastError || undefined }, 'Returning best effort after retry attempts');
@@ -236,7 +265,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       const skillForValidation: 'writing' | 'reading' | 'listening' =
         isListening ? 'listening' : isReading ? 'reading' : 'writing';
       const topicCheck = validateDSEtopicMatch(
-        fixedQuestions.map(q => (q.prompt || '') + ' ' + (q.explanationEn || '')).join(' '),
+        verifiedQuestions.map(q => (q.prompt || '') + ' ' + (q.explanationEn || '')).join(' '),
         skillForValidation,
       );
       if (!topicCheck.matched) {
@@ -246,7 +275,7 @@ export async function generateQuestions(input: GenerateQuestionsInput): Promise<
       // === Post-generation answer shuffle: ensure uniform distribution ===
       // LLMs tend to bias correct answers toward B/C. Fisher-Yates shuffle
       // randomizes choice positions and updates answer letters accordingly.
-      const shuffled = fixedQuestions.map(q => shuffleMCAnswers(q));
+      const shuffled = verifiedQuestions.map(q => shuffleMCAnswers(q));
 
       return shuffled;
     }
@@ -285,7 +314,19 @@ ${result.slice(0, 12000)}`;
     if (repairedQuestions.length === 0) {
       throw new Error('AI 回傳格式修復後仍未產生有效題目');
     }
-    return repairedQuestions;
+    // 格式修復路徑同樣必須通過答案覆核，不得繞過交付前把關。
+    const repairedVerification = await verifyGeneratedAnswers(repairedQuestions, { userId: input.userId });
+    if (repairedVerification.dropped.length > 0) {
+      logger.warn({
+        module: 'generate-questions',
+        droppedCount: repairedVerification.dropped.length,
+        reasons: summarizeVerificationDrops(repairedVerification.dropped),
+      }, 'Repaired questions dropped by answer verification');
+    }
+    if (repairedVerification.kept.length === 0) {
+      throw new Error(`未能生成可靠的題目（格式修復後的題目未通過答案覆核）。請重試 / Could not generate reliable questions (repaired items failed the pre-delivery answer check). Please retry. [diagnostic: ${summarizeVerificationDrops(repairedVerification.dropped).slice(0, 300)}]`);
+    }
+    return repairedVerification.kept;
   }
   } // end retry loop
 

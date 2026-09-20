@@ -29,6 +29,30 @@ export const GeneratedQuestionSchema = z.object({
 export const GeneratedQuestionsArraySchema = z.array(GeneratedQuestionSchema);
 
 // ============================================
+// 一之二、答案鍵獨立覆核（Answer Verification）
+//
+// 生成題目的 LLM 同時撰寫解說，因此會「解釋」一個四個選項全錯的題目
+// （2026-09-20：update in / update up / update with / update on）。
+// 交付前由第二次獨立 pass blind-solve 每題並判斷題目是否成立。
+//
+// 刻意寬鬆（字串 + coerce）：驗證器的個別格式偏差不應令整批題目作廢；
+// 無法解讀的 verdict 由 `answer-verification.ts` 逐題 fail-closed 處理。
+// ============================================
+
+export const AnswerVerificationVerdictSchema = z.object({
+  index: z.coerce.number().int(),
+  blindAnswer: z.string().optional(),
+  soundness: z.string(),
+  reason: z.string().optional(),
+});
+
+export const AnswerVerificationSchema = z.object({
+  verdicts: z.array(AnswerVerificationVerdictSchema),
+});
+
+export type AnswerVerificationResponse = z.infer<typeof AnswerVerificationSchema>;
+
+// ============================================
 // 二、答案分析
 // ============================================
 

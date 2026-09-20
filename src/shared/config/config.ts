@@ -51,6 +51,9 @@ const envSchema = z.object({
   AI_TIMEOUT_MS: z.string().optional(),
   AI_CACHE_ENABLED: z.string().optional(),
   AI_CACHE_TTL_MS: z.string().optional(),
+  // Answer verification gate (生成題目交付前答案覆核)
+  AI_ANSWER_VERIFY_DISABLED: z.string().optional(),
+  AI_ANSWER_VERIFY_STRICT: z.string().optional(),
   // RAG
   DSE_RAG_ENABLED: z.string().optional(),
   // Cron
@@ -300,6 +303,14 @@ const ai = {
     const val = Number(process.env.AI_MONTHLY_COST_LIMIT);
     return Number.isFinite(val) && val > 0 ? val : 50;
   })(),
+  /** 生成題目的答案鍵獨立覆核（第二個 LLM pass blind-solve；交付前把關）。
+   *  2026-09-20：生成器會「解釋」四個選項全錯的題目（update in/up/with/on），
+   *  結構驗證無法察覺。預設啟用；設 AI_ANSWER_VERIFY_DISABLED=true 可緊急停用
+   *  （停用即代表錯誤答案鍵可能交付）。 */
+  answerVerificationEnabled: process.env.AI_ANSWER_VERIFY_DISABLED !== 'true',
+  /** 覆核器無法使用時是否 fail-closed（丟棄所有未能覆核的題目）。
+   *  預設 false：記錄警告後交付已通過結構檢查的題目（避免 AI 短暫故障令練習完全無法出題）。 */
+  answerVerificationStrict: process.env.AI_ANSWER_VERIFY_STRICT === 'true',
 };
 
 // ============================================

@@ -50,6 +50,7 @@ const ALLOWED_CHINESE_FILES = [
   '\\usecases\\',          // Windows path variant
   'question-normalizer.ts', // Question validation messages
   'question-validator.ts',  // Question validation messages
+  'answer-verification.ts', // Answer-key verification messages (server-side gate)
   'listening-normalizer.ts', // Listening content normalization
   'reflection-generator.ts', // AI-generated reflection prompts
   'ai-evaluator.ts',      // LLM evaluation prompt instructions (bilingual output by design)

@@ -26,6 +26,14 @@ export {
 // Answer analysis (separate module)
 export { buildAnswerAnalysisPrompt } from './grammar/answer-analysis';
 
+// Answer verification (pre-delivery answer-key audit)
+export {
+  ANSWER_VERIFICATION_SYSTEM_PROMPT,
+  ANSWER_VERIFICATION_VERSION,
+  buildAnswerVerificationUserPrompt,
+  type AnswerVerificationPromptItem,
+} from './grammar/answer-verification';
+
 // Reading (Paper 1) — v2 with full DSE support
 export {
   version as readingVersion,

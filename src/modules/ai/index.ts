@@ -95,6 +95,25 @@ export { ttsService };
 // Hallucination guard
 export { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
 
+// Answer verification — pre-delivery gate for generated answer keys
+// (2026-09-20: generated items with four wrong options must never be delivered)
+import {
+  verifyGeneratedAnswers,
+  inspectGeneratedQuestion,
+  summarizeVerificationDrops,
+} from '@/modules/ai/services/answer-verification';
+export {
+  verifyGeneratedAnswers,
+  inspectGeneratedQuestion,
+  summarizeVerificationDrops,
+};
+export type {
+  AnswerVerificationDrop,
+  AnswerVerificationOptions,
+  AnswerVerifier,
+  GeneratedAnswerVerificationResult,
+} from '@/modules/ai/services/answer-verification';
+
 // Runtime budget policy — typed exhaustion error for 503 mapping in routes
 export { BudgetExceededError, isBudgetExceededError } from '@/modules/ai/runtime/budget-policy';
 
@@ -208,6 +227,7 @@ export const AIFacade = {
   generation: {
     questions: generateQuestions,
     writingPrompt: generateWritingPrompt,
+    verifyAnswers: verifyGeneratedAnswers,
   },
 
   analysis: {

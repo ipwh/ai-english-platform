@@ -6,15 +6,15 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3034 pass / 1 skipped (148 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
+- **Testing**: Vitest 4, 3067 pass / 1 skipped (149 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 21 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 113 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
-- **AI Facade**: 61 exported symbols — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules)
-- **Prompt Registry**: 12 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
-- **AI Module**: 19 directories, 209 non-test TS files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation)
+- **AI Facade**: 63 exported symbols (incl. types) — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules). Answer verification adds `verifyGeneratedAnswers` / `inspectGeneratedQuestion` / `summarizeVerificationDrops`
+- **Prompt Registry**: 13 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
+- **AI Module**: 19 directories, 212 non-test TS files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation, answer verification)
 - **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 7 files — circuit-breaker, budget-policy, ai-usage-store, capacity-planner, provider-policy, regression-detector, saturation-detector
 - **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`, `scripts/set-academic-year.ts`, `scripts/unassign-non-roster.ts`
@@ -52,6 +52,14 @@ Writing Evaluation (Sprints 127-130):
     ├─ CLO_RUBRIC / CLO_RUBRIC_ZH → single source (writing-rubric.ts)
     ├─ Golden Benchmark Runner → MAE/RMSE/bias (golden-runner.ts)
     └─ RAG → reference context only (never scoring)
+
+Question Generation — Pre-Delivery Answer Verification (2026-09-20, ADR-042):
+  generateQuestions → normalize → validateAndFixQuestion → verifyGeneratedAnswers → retry if short
+    ├─ Layer A (deterministic, zero cost): option count / duplicates / invalid key letter /
+    │    fallback-filler option / explanation self-admits the item is defective
+    ├─ Layer B (independent LLM pass, blind): verifier never sees the answer key;
+    │    soundness ok | ambiguous | flawed + blind answer vs key
+    └─ dropped items → retry with feedback (summarizeVerificationDrops); repair path also gated
 
 Supporting modules:
   student/ — mastery, profile (canonical owner)
@@ -106,6 +114,7 @@ Dev tooling:
 - 累積指標投影與週界線（準確率／週快照）: `student/state/StudentStateMutationService.ts` — `collectVerifiedActivities()` + `syncActivityMetrics()`；無可驗證證據 ⇒ `overallAccuracy = null`（**永不寫 0**）；週界線用 `hkWeekStartMondayUtc()`
 - 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀）經正典 `submitPractice` 評分＋持久化（可驗證證據）；聆聽／詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
+- Answer Verification (生成題目答案鍵覆核，交付前把關): `ai/services/answer-verification.ts` — 決定性缺陷螢幕（補位選項／重複選項／解說自認有誤）＋ 第二次獨立 LLM pass **blind-solve**；驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` 且 blind 答案等於答案鍵才可交付（prompt: `ai/prompts/grammar/answer-verification.ts`，PromptRegistry `GenerateQuestionsAnswerVerification`）
 - Adaptive Learning: `learning/services/adaptive-learning-pipeline.ts`
 - Learning Decisions: `learning/decisions/LearningDecisionEngine`
 - Student Mastery: `student/mastery/`

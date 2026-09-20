@@ -12,6 +12,7 @@ import {
   buildExplainMistakeUserPrompt,
   buildProgressAnalysisUserPrompt,
 } from './grammar/v1';
+import { buildAnswerVerificationUserPrompt } from './grammar/answer-verification';
 
 // ============================================
 // Types
@@ -162,4 +163,15 @@ registerPrompt({
   version: 'v1',
   description: 'Full writing analysis with CLO rubric scoring and Chinglish detection',
   feature: 'Writing',
+});
+
+// 13. GenerateQuestionsAnswerVerification — builders in grammar/answer-verification.ts
+// 交付前答案把關：第二次獨立 pass blind-solve 每題並判斷 soundness。
+// 生成器的答案鍵刻意不提供（blind solve），避免驗證器為既有答案鍵護航。
+registerPrompt({
+  name: 'GenerateQuestionsAnswerVerification',
+  version: 'v1',
+  description: 'Independently blind-solve generated questions and judge whether each item has exactly one defensible answer',
+  build: buildAnswerVerificationUserPrompt,
+  feature: 'QuestionGeneration',
 });
