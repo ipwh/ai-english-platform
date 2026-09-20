@@ -10,6 +10,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest, generateQuestionsSchema } from '@/shared/validation/schemas';
 import { logger } from '@/shared/logger/logger';
 import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
+import { persistGeneratedReadingQuestions } from '@/modules/reading/services/reading-question-service';
 
 // R3.10-D: 文法題目（grammarItem 驅動，非閱讀/聆聽/寫作/口語）在交付前
 // 必須持久化到伺服器 GrammarQuestion store，並以伺服器 id 作為正典身份。
@@ -111,6 +112,31 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'Grammar question persistence failed');
         throw new Error('文法題目伺服器持久化失敗，請重試 / Server persistence of grammar questions failed. Please retry.');
+      }
+    }
+
+    // 2026-09-20（D2b/D3）：閱讀選擇題同樣在交付前持久化（ReadingQuestion），
+    // 令診斷等呼叫端可經 `scoreReadingAnswers` 用伺服器持有的答案鍵評分
+    // （reading-server-exact-match → 可驗證證據）。只有客觀題（MC）才持久化；
+    // 其他題型無法以確定性規則評分，維持不持久化（自評顯示）。
+    const isReadingRequest = String(languageSkill ?? '').trim().toLowerCase() === 'reading';
+    if (isReadingRequest && questionType === 'mc' && questionsWithIds.length > 0) {
+      try {
+        const ids = await persistGeneratedReadingQuestions(
+          questionsWithIds.map((q, i) => ({
+            questionType: 'mcq',
+            dseType: 'multiple_choice',
+            questionText: q.prompt,
+            choices: q.choices ?? null,
+            answer: q.answer,
+            marks: 1,
+            orderIndex: i,
+          })),
+        );
+        questionsWithIds = questionsWithIds.map((q, i) => ({ ...q, id: ids[i] }));
+      } catch (err) {
+        logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'Reading question persistence failed');
+        throw new Error('閱讀題目伺服器持久化失敗，請重試 / Server persistence of reading questions failed. Please retry.');
       }
     }
 

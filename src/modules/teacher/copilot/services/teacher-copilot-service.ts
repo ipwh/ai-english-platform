@@ -1,6 +1,7 @@
 // Sprint 38: TeacherCopilotService — full teacher intelligence suite
 // Sprint 132: Integrated with StudentTwin + LearningScience for real data
 import { db } from '@/shared/db/db';
+import { DAY_MS, hkDayKey, hkDayOfWeek, hkStartOfDay } from '@/shared/utils/hk-date';
 import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
 import { GRAMMAR_CATEGORY_LABELS } from '@/modules/mistake/intelligence/types';
 import { bucketKeyLabelZh } from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
@@ -763,15 +764,13 @@ export class TeacherCopilotService {
   }
 
   private nextMonday(): string {
-    const d = new Date();
-    d.setDate(d.getDate() + (8 - d.getDay()) % 7);
-    return d.toISOString().slice(0, 10);
+    // 2026-09-20 稽核：以香港日界線計算（原本本地/UTC）
+    const days = (8 - hkDayOfWeek()) % 7;
+    return hkDayKey(new Date(hkStartOfDay().getTime() + days * DAY_MS));
   }
 
   private addDays(n: number): string {
-    const d = new Date();
-    d.setDate(d.getDate() + n);
-    return d.toISOString().slice(0, 10);
+    return hkDayKey(new Date(hkStartOfDay().getTime() + n * DAY_MS));
   }
 
   /**

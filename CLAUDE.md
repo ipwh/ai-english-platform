@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3027 pass / 1 skipped (147 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
+- **Testing**: Vitest 4, 3034 pass / 1 skipped (148 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 21 under `src/modules/` (including 5 AI infra + foundation modules)
 - **API routes**: 113 under `src/app/api/`
@@ -104,6 +104,7 @@ Dev tooling:
 - 連續天數（連續練習天數）: `student/progress/services/streak-service.ts` — 香港日界線 + 400 日回溯 + 嚴格相鄰日 key；只計有練習的日子（`LoginLog` 實際未被寫入）；`countStreak` 為純函式
 - 累積練習投影（技能掌握度題數 / 每週摘要）: `exercise/services/practice-history-service.ts` — 日期界線 + 全歷史分頁 + 正典 `evaluatePracticeEvidence`；**永不**由「最新 N 筆」切片推算（會令累積數字下降）
 - 累積指標投影與週界線（準確率／週快照）: `student/state/StudentStateMutationService.ts` — `collectVerifiedActivities()` + `syncActivityMetrics()`；無可驗證證據 ⇒ `overallAccuracy = null`（**永不寫 0**）；週界線用 `hkWeekStartMondayUtc()`
+- 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀）經正典 `submitPractice` 評分＋持久化（可驗證證據）；聆聽／詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
 - Adaptive Learning: `learning/services/adaptive-learning-pipeline.ts`
 - Learning Decisions: `learning/decisions/LearningDecisionEngine`

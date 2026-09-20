@@ -1,5 +1,6 @@
 // Sprint 26: CEFR Curriculum + Curriculum Engine
 import type { Curriculum, Course, Unit, Lesson, CurriculumProgress, CourseProgress, CurriculumRecommendation } from '../types';
+import { hkToday } from '@/shared/utils/hk-date';
 import { HKDSE_CURRICULUM } from '../data/hkdse-curriculum';
 import { getKnowledgeGraph } from '@/modules/knowledge-graph/services/knowledge-graph';
 import type { MasteryData } from '@/modules/knowledge-graph/services/dependency-resolver';
@@ -102,7 +103,7 @@ class CurriculumEngine {
     const recs = this.generateRecommendations(curriculumId, completedLessons, masteryData);
 
     return {
-      studentId, curriculumId, startedAt, lastActivityAt: new Date().toISOString().slice(0, 10),
+      studentId, curriculumId, startedAt, lastActivityAt: hkToday(),
       overallProgress: totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0,
       courseProgress, recommendations: recs,
     };

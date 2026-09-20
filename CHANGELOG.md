@@ -4,6 +4,71 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-20 (III) — UTC 日界線全面收口 + 診斷改伺服器評分（D2b/D3）
+
+### 一、UTC 日界線審核（用戶要求）
+
+**方法**：`git grep` 掃描 `toISOString().slice(0,10)`、`setHours(0,0,0,0)`、`getDay()`、`setDate()`
+等模式，逐一分類為（a）業務日判定 → 改香港日；（b）刻意 UTC → 保留並註明；（c）顯示／檔名 → 無影響。
+
+**修正（10 處）**
+
+| 位置 | 舊（UTC／伺服器本地） | 新（香港日） |
+|---|---|---|
+| `api/daily-challenge` | 題目輪替用本地年界線；`date` 為 UTC | 香港日 day-of-year；`date = hkToday()` |
+| `api/gamification`（國中排行榜） | 本週活躍日窗口 = UTC 午夜 | `hkWeekStartUtc(6)` |
+| `mistake-intelligence-repo.getWeekKey` | 本地週一 | 香港週一 |
+| `StudentStateMutationService`（徽章週挑戰） | UTC −6 日 | `hkWeekStartUtc(6)` |
+| `teacher-copilot-service.nextMonday / addDays` | 本地日期 | 香港日 |
+| `learning-analytics-service` 趨勢日期 | UTC 切片 | `hkDayKey` / `hkToday` |
+| `curriculum-engine.lastActivityAt` + `api/curriculum` | UTC 日 | `hkToday()` |
+| `memory-service.lastPracticed` | UTC 日 | `hkToday()` |
+| `utils.todayISO()` | UTC（**零呼叫者**） | 刪除 |
+| `practice-repo.getTodayPracticeCount()` | UTC（**零呼叫者**） | 刪除 |
+
+**刻意保留 UTC（已註明，非缺陷）**
+- `ai/runtime/budget-policy.ts` + `ai-cost/cost-tracker.ts`：AI 額度／成本以 UTC 日結算
+  （2026-09-18 決定，跨 instance／跨 cold start 一致；改動屬資料遷移）。
+- `ai/continuous-evaluation/scheduler.ts`：排程器（infra，非學生可見）。
+- 匯出檔名／報告檔名（`students-export-YYYY-MM-DD.csv` 等）、`getGreeting`（已是 UTC+8 手算）。
+
+### 二、D2b/D3 — 診斷改伺服器評分並成為可驗證證據
+
+**問題**：診斷只用前端 `checkAnswer` 自評，且不經練習管道 → 完全沒有可驗證證據，
+所以學生做完診斷「準確率」仍為 0%（與 2026-09-20 (II) 的 0% 假象疊加）。
+
+**決定（不得放寬證據契約）**
+- **只有伺服器持有答案鍵的題型才提交**：文法（`server-key-resolved`）與閱讀
+  （`reading-server-exact-match`）。經**正典**`submitPractice()` 評分＋持久化
+  → 成為可驗證證據（計入準確率、掌握度、錯題）。
+- **分歧／無法評分 → 整組略過**，回退自評顯示值，**永不製造假分數**（fail-open）。
+- **聆聽／詞彙／寫作仍為自評**：現行 evidence 契約只有上述兩種權威方法，
+  要納入需先為該等題型定義權威評分法（另案）。
+- 閱讀 AI 選擇題在生成時持久化（`ReadingQuestion`，`dseType: multiple_choice`）
+  → 則可被伺服器客觀評分；非客觀題型仍不持久化。
+
+**變更**
+| 類別 | 變更 |
+|------|------|
+| **Assessment** | `services/diagnostic-scoring-service.ts`（新）：`submitDiagnostic()` — 依權威來源分組、呼叫正典 `submitPractice()`、以伺服器分數覆寫自評值、先清後寫 `DiagnosticResult`（-1 未評估保留、上限 clamp 100）。 |
+| **API** | `/api/diagnostic` POST：接受可選 `answers` + `runId`，商業邏輯全部委派新服務（路由維持薄層）；回傳 `results` / `authoritative` / `selfReported`。 |
+| **API** | `/api/ai/generate-questions`：閱讀選擇題（`questionType === 'mc'`）於交付前持久化並附伺服器 id。 |
+| **UI** | 診斷結果頁：送可評分作答（帶幂等 `runId`）並以**伺服器分數**覆寫顯示值；新增「伺服器評分」勳章；寫作未評估顯示「未評估」。 |
+
+### 測試
+- `modules/assessment/__tests__/diagnostic-scoring-service.test.ts`（新，7 用例）：分組提交、
+  非權威題型不提交、`ok:false`／拋錯回退自評、題數 0 不列權威、-1 保留與 clamp、
+  不完整答案列忽略。
+- 契約測試更新：`trusted-state-poisoning` test 6（改指「只有正典管道可寫 mastery」）。
+- 完整套件 **3034 pass / 1 skipped（148 files passed, 1 skipped）**；`tsc`／`eslint`（0 errors）／`check-i18n` 全通過。
+
+### 未處理
+- 聆聽／詞彙／寫作的權威評分法（需改 evidence 契約，另案）。
+- `WeeklySnapshot.accuracy`（Float）與 `/api/admin/stats.avgAccuracy` 仍為 number（見 2026-09-20 (II)）。
+- 閱讀題目僅在 `questionType === 'mc'` 時持久化；如需涵蓋短答／填空需先確定其客觀評分規則。
+
+---
+
 ## 2026-09-20 (II) — 「準確率 0%」：無資料被寫成 0 分（診斷評估結果 vs 準確率）
 
 ### 症狀（用戶回報）

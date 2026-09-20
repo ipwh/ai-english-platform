@@ -5,11 +5,6 @@
 /** Milliseconds per day — use instead of inline 86400000 */
 export const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/** Returns today's date as YYYY-MM-DD */
-export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
  * 將答案中的數字詞彙統一轉為數字，例："fifteen" → "15", "15" → "15"。
  * 正典數字詞彙正規化 — 供 practice / diagnostic 客戶端自評使用，

@@ -25,6 +25,8 @@ interface DiagnosticResult {
   score: number;
   totalQuestions: number;
   suggestion: string;
+  /** D3（2026-09-20）：分數是否由伺服器評分（文法／閱讀）；false = 自評顯示值 */
+  authoritative?: boolean;
 }
 
 interface PracticeRecommendation {
@@ -171,6 +173,8 @@ export default function DiagnosticPage() {
   const lang = language || 'zh';
   const inputRef = useRef<HTMLInputElement>(null);
   const answersRef = useRef<Record<string, string>>({}); // ✅ ref avoids stale closure
+  // D2b/D3（2026-09-20）：同一輪診斷的正典提交幂等鍵（正典提交用 clientSubmissionId）
+  const diagnosticRunIdRef = useRef<string>('');
 
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
@@ -545,6 +549,10 @@ export default function DiagnosticPage() {
     // /api/diagnostic/stats (which skips score < 0) never accumulated a
     // peer average for writing.
     if (studentProfile?.id) {
+      // 同一輪診斷共用一個幂等鍵（重複提交或重試不會產生重複證據）
+      if (!diagnosticRunIdRef.current) {
+        diagnosticRunIdRef.current = `diag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      }
       const persistableResults = computed.map(r => ({
         skill: r.id,
         skillZh: r.label,
@@ -556,14 +564,44 @@ export default function DiagnosticPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: studentProfile.id,
+          runId: diagnosticRunIdRef.current,
           results: persistableResults.map(r => ({
             skill: r.skill, skillZh: r.skillZh, accuracy: r.accuracy,
             weakAreas: r.accuracy >= 0 && r.accuracy < 60 ? [r.skill] : [],
             recommendedGrammar: r.skill === 'grammar' ? (r.accuracy >= 0 && r.accuracy < 60 ? 'tenses' : undefined) : undefined,
             recommendedSkill: r.skill === 'reading' ? 'reading' : r.skill === 'writing' ? 'writing' : undefined,
           })),
+          // D2b/D3：只送「伺服器持有答案鍵」的題目（文法／閱讀）——
+          // 伺服器會以正典管道評分＋持久化（成為可驗證證據），
+          // 無法評分的題型（聆聽／詞彙／寫作）維持自評。
+          answers: questions
+            .map((q, index) => ({ q, index }))
+            .filter(({ q }) => !String(q.id).startsWith('diag-'))
+            .filter(({ q }) => q.languageSkill !== 'writing' && q.type !== 'short-writing')
+            .map(({ q, index }) => {
+              const isReading = q.languageSkill === 'reading';
+              return {
+                questionIndex: index,
+                questionId: q.id,
+                studentAnswer: finalAnswers[q.id] || '',
+                skill: isReading ? 'reading' : (q.grammarItem || 'grammar'),
+                skillZh: isReading ? t('diagnostic.skillReading') : t('diagnostic.skillGrammar'),
+                resultSkill: isReading ? 'reading' : 'grammar',
+              };
+            }),
         }),
-      }).catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Diagnostic save failed'); });
+      })
+        .then(r => (r.ok ? r.json() : null))
+        .then((data: { results?: Array<{ skill: string; accuracy: number; authoritative?: boolean }> } | null) => {
+          if (!data?.results?.length) return;
+          // D3：以**伺服器評分**覆寫顯示值（無法評分者維持自評值）
+          setResults(prev => prev.map(r => {
+            const scored = data.results!.find(x => x.skill === r.id);
+            if (!scored || !scored.authoritative) return r;
+            return { ...r, score: scored.accuracy, authoritative: true };
+          }));
+        })
+        .catch((e) => { logger.error({ module: 'student-diagnostic', error: e instanceof Error ? e.message : String(e) }, 'Diagnostic save failed'); });
 
       // Accumulate scores for peer comparison
       fetch('/api/diagnostic/stats', {
@@ -852,15 +890,22 @@ export default function DiagnosticPage() {
           <div key={r.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-medium text-gray-900 dark:text-white">{r.label}</h3>
-              {r.totalQuestions === 0 ? (
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">
-                  {t('diagnostic.notTested')}
-                </span>
-              ) : (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.score >= 60 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                  {r.score >= 70 ? t('diagnostic.challenge') : r.score >= 50 ? t('diagnostic.core') : t('diagnostic.remedial')}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {r.authoritative && r.totalQuestions > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+                    {t('diagnostic.serverScored')}
+                  </span>
+                )}
+                {r.totalQuestions === 0 ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">
+                    {t('diagnostic.notTested')}
+                  </span>
+                ) : (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.score >= 60 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                    {r.score >= 70 ? t('diagnostic.challenge') : r.score >= 50 ? t('diagnostic.core') : t('diagnostic.remedial')}
+                  </span>
+                )}
+              </div>
             </div>
             {r.totalQuestions === 0 ? (
               <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">

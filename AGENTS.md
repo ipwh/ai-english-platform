@@ -10,10 +10,10 @@ See `CLAUDE.md` for full architecture documentation.
 
 ## Quick Start (New Maintainer)
 1. Read `CLAUDE.md` for architecture, ownership, and conventions
-2. Read `CHANGELOG.md` for the latest changes (2026-09-20 (II): 無可驗證資料時準確率寫 null（不再顯示「0%」）＋診斷自評標示；(I): 連續天數與技能掌握度「越用越少」（UTC 日界線 + 最新 N 筆截斷）；2026-09-18: AI 額度閘門改為持久化全域帳本（503「今日 AI 額度已用完」）；2026-09-17 (II): 聆聽錄音只播第一句即停（段間停頓破壞 MP3 位元流）；2026-09-17: 閱讀診斷評分權威單一化／每空格字數判定；2026-09-16: 校徽與校名品牌（登入／學生／老師／管理員）；2026-09-15 (III): 學生分析頁崩潰修復、弱項／錯題語境；2026-09-15 (II): 開放式寫作題不自動評分)
+2. Read `CHANGELOG.md` for the latest changes (2026-09-20 (III): UTC 日界線全面收口 + 診斷改伺服器評分（D2b/D3）；(II): 無可驗證資料時準確率寫 null（不再顯示「0%」）＋診斷自評標示；(I): 連續天數與技能掌握度「越用越少」（UTC 日界線 + 最新 N 筆截斷）；2026-09-18: AI 額度閘門改為持久化全域帳本（503「今日 AI 額度已用完」）；2026-09-17 (II): 聆聽錄音只播第一句即停（段間停頓破壞 MP3 位元流）；2026-09-17: 閱讀診斷評分權威單一化／每空格字數判定；2026-09-16: 校徽與校名品牌（登入／學生／老師／管理員）)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 3027 pass / 1 skipped (147 files passed, 1 skipped; core files: semantic-evaluator, analyze-writing)
+5. Run `npm test` — expect 3034 pass / 1 skipped (148 files passed, 1 skipped; core files: semantic-evaluator, analyze-writing)
 6. DB migrations: `npx prisma migrate deploy`（本機 DATABASE_URL 由 `.env.local` 優先載入；勿只信 `.env`）
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions

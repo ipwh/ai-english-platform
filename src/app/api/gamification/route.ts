@@ -10,6 +10,7 @@ import { buildLeaderboard } from '@/modules/student/progress/services/gamificati
 import type { XpEvent } from '@/modules/student/progress/services/gamification';
 import { getLeaderboard, getDailyGoalProgress, getWeeklyActiveDays, findUserByIdSelect } from '@/modules/student';
 import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
+import { hkWeekStartUtc } from '@/shared/utils/hk-date';
 
 // GET — 取得學生 gamification 狀態
 export async function GET(req: NextRequest) {
@@ -42,9 +43,8 @@ export async function GET(req: NextRequest) {
       const junior = viewer?.level ? ['S1', 'S2', 'S3'].includes(viewer.level) : false;
       let options: { metric: 'xp' | 'weekly-active-days'; weeklyActiveDays?: Map<string, number> } = { metric: 'xp' };
       if (junior) {
-        const weekStart = new Date();
-        weekStart.setHours(0, 0, 0, 0);
-        weekStart.setDate(weekStart.getDate() - 6);
+        // 2026-09-20 稽核：本週活躍日窗口用香港日界線（原本為 UTC 午夜）
+        const weekStart = hkWeekStartUtc(6);
         const weeklyActiveDays = await getWeeklyActiveDays(students.map((s: { id: string }) => s.id), weekStart);
         options = { metric: 'weekly-active-days', weeklyActiveDays };
       }

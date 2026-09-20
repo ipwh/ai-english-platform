@@ -2,6 +2,7 @@
 // Sprint 74: Uses StudentStateBuilder (canonical read path), no direct repository access
 import type { StudentTrends, TrendPoint, LearningStats } from '../types/index';
 import { computeTrendDirection } from './analytics-formula';
+import { hkDayKey, hkToday } from '@/shared/utils/hk-date';
 
 /**
  * Build student learning trends from canonical StudentState.
@@ -19,7 +20,7 @@ export async function buildStudentTrends(
     const skill = entry.skill;
     if (!masteryTrend[skill]) masteryTrend[skill] = [];
     masteryTrend[skill].push({
-      date: entry.updatedAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+      date: entry.updatedAt ? hkDayKey(entry.updatedAt) : hkToday(),
       value: entry.masteryScore,
       label: entry.subSkill,
     });
@@ -32,7 +33,7 @@ export async function buildStudentTrends(
     : state.mastery.overallScore;
 
   const learningTrend: TrendPoint[] = [{
-    date: new Date().toISOString().slice(0, 10),
+    date: hkToday(),
     value: avgMastery,
     label: 'Overall Mastery',
   }];

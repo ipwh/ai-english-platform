@@ -1,6 +1,7 @@
 // Sprint 25: Memory Service — business logic for learning memory
 // Sprint 75: Uses IMemoryRepository interface (not in-memory Map)
 import type { IMemoryRepository } from '../repositories/memory-repository-interface';
+import { hkToday } from '@/shared/utils/hk-date';
 import { generateLearningContext, shouldUpdateMemory, decayScore } from './memory-scoring';
 import type { LearningMemory, LearningContext, GrammarMemory, VocabularyMemory, WritingStyleMemory, ReadingPreferenceMemory, LearningSpeedMemory, PreferredTopicsMemory, WeaknessMemory, StrengthMemory, RecentErrorsMemory, ReviewHistoryMemory } from '../types';
 import type { SkillDimension } from '@/modules/student/profile/types';
@@ -99,9 +100,9 @@ export class MemoryService {
     if (!correct) {
       if (existing) {
         existing.errorRate = Math.round(((existing.errorRate * 10) + 1) / 11 * 100) / 100;
-        existing.lastPracticed = new Date().toISOString().slice(0, 10);
+        existing.lastPracticed = hkToday();
       } else {
-        mem.grammar.strugglingTopics.push({ topic, topicZh, errorRate: 1, lastPracticed: new Date().toISOString().slice(0, 10) });
+        mem.grammar.strugglingTopics.push({ topic, topicZh, errorRate: 1, lastPracticed: hkToday() });
       }
     } else {
       if (existing) {

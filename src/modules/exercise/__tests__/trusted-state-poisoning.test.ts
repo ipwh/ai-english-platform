@@ -180,13 +180,21 @@ describe('R3.10-D.3 test 5 — forged legacy answer cannot influence adaptive re
 });
 
 describe('R3.10-D.3 test 6 — forged diagnostic accuracy cannot influence studentMastery', () => {
-  it('diagnostic route no longer writes studentMastery and labels results self-reported', () => {
+  it('diagnostic route never writes studentMastery; only the canonical pipeline may', () => {
     const route = readFileSync(resolve(root, 'src/app/api/diagnostic/route.ts'), 'utf-8');
     // the mastery write must be gone entirely:
     expect(route).not.toContain("adminDbQuery('studentMastery'");
     expect(route).not.toContain('masteryScore: Math.round(r.accuracy)');
     expect(route).not.toContain('practiceCount: 5');
-    expect(route).toContain('selfReported: true');
+    // 2026-09-20（D2b/D3）：可評分題組（文法／閱讀）改經正典管道；
+    // 自評值只在伺服器無法評分時作為顯示值回退（selfReported 旗標由服務決定）。
+    expect(route).toContain('submitDiagnostic(');
+    expect(route).toContain('selfReported:');
+    const svc = readFileSync(resolve(root, 'src/modules/assessment/services/diagnostic-scoring-service.ts'), 'utf-8');
+    // 權威分數唯一來源：正典練習提交（server-key-resolved / reading-*）
+    expect(svc).toContain('submitPractice(');
+    // 非權威類別（聆聽／詞彙／寫作）永不提交
+    expect(svc).toContain("cls !== 'grammar' && cls !== 'reading'");
   });
 });
 

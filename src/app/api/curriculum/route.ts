@@ -1,5 +1,6 @@
 // Sprint 26: Curriculum API
 import { NextRequest, NextResponse } from 'next/server';
+import { hkToday } from '@/shared/utils/hk-date';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { curriculumEngine } from '@/modules/curriculum/services/curriculum-engine';
 import { logger } from '@/shared/logger/logger';
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       case 'by-grade': result = curriculumEngine.getCoursesByGrade(curriculumId, grade); break;
       case 'progress': {
         const completed = searchParams.get('completed')?.split(',') || [];
-        result = curriculumEngine.calculateProgress(curriculumId, studentId, completed, [], new Date().toISOString().slice(0, 10));
+        result = curriculumEngine.calculateProgress(curriculumId, studentId, completed, [], hkToday());
         break;
       }
       case 'knowledge-nodes': result = curriculumEngine.getKnowledgeNodeIds(curriculumId); break;

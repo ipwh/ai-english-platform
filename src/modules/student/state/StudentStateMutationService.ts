@@ -3,7 +3,7 @@
 // Architecture: Route → MutationService → Repository
 
 import { logger } from '@/shared/logger/logger';
-import { hkDayKey, hkWeekStartMondayUtc } from '@/shared/utils/hk-date';
+import { hkDayKey, hkWeekStartMondayUtc, hkWeekStartUtc } from '@/shared/utils/hk-date';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, getGradeMultiplier } from '../progress/services/gamification';
 import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '../progress/services/gamification';
 import { studentStateBuilder } from './StudentStateBuilder';
@@ -129,9 +129,8 @@ export class StudentStateMutationService {
     const { countDrafts } = await import('@/modules/writing-coach/repositories/writing-draft-repo');
     const { db } = await import('@/shared/db/db');
 
-    const weekStart = new Date();
-    weekStart.setHours(0, 0, 0, 0);
-    weekStart.setDate(weekStart.getDate() - 6);
+    // 2026-09-20 稽核：每週挑戰窗口改用香港週界線（原本 UTC 午夜）
+    const weekStart = hkWeekStartUtc(6);
 
     const [student, sessions, vocab, writingCount, sessionsCount, mistakesReviewed, weeklyChallenges] = await Promise.all([
       findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true, level: true }).catch(() => null) as Promise<UserSelectResult | null>,

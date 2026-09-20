@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { logger } from '@/shared/logger/logger';
-import { clearDiagnosticResults, createDiagnosticResult } from '@/modules/student';
+import { submitDiagnostic, type DiagnosticAnswerInput, type DiagnosticResultInput } from '@/modules/assessment/services/diagnostic-scoring-service';
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
@@ -31,9 +31,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, results } = body as {
+    const { studentId, results, answers, runId } = body as {
       studentId: string;
-      results: { skill: string; skillZh: string; accuracy: number; weakAreas: string[]; recommendedGrammar?: string; recommendedSkill?: string }[];
+      results: DiagnosticResultInput[];
+      /**
+       * 可選：診斷作答列。僅包含「伺服器持有答案鍵」的題目（文法／閱讀）——
+       * 這些會經正典練習管道評分並持久化，成為可驗證證據（D2b/D3）。
+       */
+      answers?: DiagnosticAnswerInput[];
+      /** 同一輪診斷的穩定 id（正典提交的冪等鍵） */
+      runId?: string;
     };
 
     if (!studentId || !results?.length) {
@@ -45,34 +52,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '無權限為其他用戶儲存診斷結果 / You cannot save diagnostic results for another user' }, { status: 403 });
     }
 
-    await clearDiagnosticResults(studentId);
+    // R3.10-D.3 / 2026-09-20：可評分的題組（文法／閱讀）經 `submitPractice` 成為
+    // 可驗證證據並以**伺服器分數**覆寫自評值；其餘題型（聆聽／詞彙／寫作）
+    // 維持自評（selfReported），不計入準確率。全部商業邏輯由服務擁有。
+    const outcome = await submitDiagnostic({
+      studentId,
+      runId: typeof runId === 'string' && runId ? runId : `diagnostic-${studentId}-${Date.now()}`,
+      results,
+      answers,
+    });
 
-    const created = await Promise.all(
-      results.map(r => {
-        // 🔒 2026-08-30 audit (R5): 自評 accuracy 夾取合法範圍（非有限值 → 0），
-        // 防止任意數值污染同級均值與歷史記錄。
-        // 2026-09-20 稽核：保留 -1 = 「未評估」（寫作未作答／CLO 未完成）。
-        // 舊碼統一 clamp 成 0，令「未評估」在 admin 顯示成「0 分」。
-        const accuracy = Number.isFinite(r.accuracy)
-          ? Math.min(100, Math.max(-1, r.accuracy))
-          : 0;
-        return createDiagnosticResult({
-          studentId,
-          skill: r.skill,
-          skillZh: r.skillZh,
-          accuracy,
-          weakAreas: r.weakAreas || [],
-          recommendedGrammar: r.recommendedGrammar || null,
-          recommendedSkill: r.recommendedSkill || null,
-        });
-      })
+    return NextResponse.json(
+      {
+        results: outcome.results,
+        authoritative: outcome.authoritative,
+        selfReported: outcome.authoritative.length === 0,
+      },
+      { status: 201 },
     );
-
-    // R3.10-D.3 (Priority 1): 診斷結果為客戶端自評（self-reported）。
-    // 客戶端 accuracy 絕不寫入 studentMastery 或任何 trusted learning state。
-    // 診斷只作為學生自我評估的參考顯示（selfReported: true）。
-
-    return NextResponse.json({ results: created, selfReported: true }, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '未知錯誤';
     return NextResponse.json({ error: msg }, { status: 500 });

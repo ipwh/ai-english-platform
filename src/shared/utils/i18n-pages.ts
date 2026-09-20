@@ -64,6 +64,7 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'admin.students.analytics.diagnosticSelfReportedNote': { zh: '此為學生自我評估結果，不計入平台準確率（準確率只計已驗證的練習證據）。', en: 'Self-reported by the student; not counted in platform accuracy (accuracy uses verified practice evidence only).' },
   'admin.students.analytics.notAssessed': { zh: '未評估', en: 'Not assessed' },
   'diagnostic.selfReportedNote': { zh: '此診斷為自我評估，不計入平台準確率（準確率只計已驗證的練習）。', en: 'This diagnostic is self-assessment and is not counted in platform accuracy (verified practice only).' },
+  'diagnostic.serverScored': { zh: '伺服器評分', en: 'Server-scored' },
   'admin.students.analytics.recentWritingSubmissions': { zh: '最近寫作提交', en: 'Recent Writing Submissions' },
   'admin.users.resetPasswordAction': { zh: '重設密碼', en: 'Reset Password' },
   'admin.users.deleteUserAction': { zh: '刪除使用者', en: 'Delete User' },

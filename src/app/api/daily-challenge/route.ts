@@ -12,6 +12,7 @@ import { generateQuestions } from '@/modules/ai';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
 import { findTodaySession, createPracticeSession, countTodaySessions, deletePracticeSession } from '@/modules/student';
+import { DAY_MS, hkToday } from '@/shared/utils/hk-date';
 import { createXpTransaction } from '@/modules/student';
 import {
   persistGeneratedGrammarQuestions,
@@ -57,15 +58,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    // 2026-09-20 稽核：題目輪替以**香港日**計算（原本用伺服器本地年界線 = UTC，
+    // 令每日挑戰在 HK 08:00 才換題）
+    const hkTodayKey = hkToday();
+    const dayOfYear = Math.round((Date.parse(`${hkTodayKey}T00:00:00Z`) - Date.parse(`${hkTodayKey.slice(0, 4)}-01-01T00:00:00Z`)) / DAY_MS) + 1;
     const grammarItem = resolveDailyTopic(dayOfYear);
     // 開放式主題（question-forms 等）的填充題答案不唯一，強制改用 MC
     // 以確保伺服器能以單一答案鍵公平批改。
     const questionType = resolveDailyQuestionType(grammarItem, dayOfYear);
 
-    // Check if already completed today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Check if already completed today（findTodaySession 已用香港日界線）
     const todaySession = await findTodaySession(studentId, 'daily-challenge');
 
     if (todaySession) {
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
     delete safeQuestion.explanationEn;
 
     return NextResponse.json({
-      date: today.toISOString().slice(0, 10),
+      date: hkTodayKey,
       grammarItem,
       questionType,
       question: { ...safeQuestion, id: questionIds[0] },

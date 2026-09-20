@@ -1,5 +1,6 @@
 // Sprint 32: Mistake Intelligence Repository
 import { db } from '@/shared/db/db';
+import { hkDayKey, hkWeekStartMondayUtc } from '@/shared/utils/hk-date';
 import {
   buildMistakeSkillBreakdown,
   mistakeBucketKey,
@@ -130,10 +131,8 @@ export async function getStudentSummaries(studentId: string) {
 // ---- helpers ----
 
 function getWeekKey(date: Date): string {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay()); // Monday
-  return d.toISOString().slice(0, 10);
+  // 2026-09-20 稽核：週界線改用香港週一（原本用本地/UTC 週一）
+  return hkDayKey(hkWeekStartMondayUtc(date));
 }
 
 function getLast4Weeks(): string[] {

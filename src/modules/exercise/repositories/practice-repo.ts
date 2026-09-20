@@ -236,15 +236,3 @@ export async function completePracticeSession(id: string, correctCount: number) 
     data: { completedAt: new Date(), correctCount },
   });
 }
-
-/** Get today's practice session count for daily challenge */
-export async function getTodayPracticeCount(studentId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return db.practiceSession.count({
-    where: {
-      studentId,
-      startedAt: { gte: today },
-    },
-  });
-}
