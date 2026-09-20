@@ -244,7 +244,7 @@ export default function TeacherDashboardPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {s.kind === 'inactive'
                       ? (days === null ? t('teacher.dashboard.neverActive') : t('teacher.dashboard.inactiveDays', { n: days }))
-                      : `${t('teacher.dashboard.lowAccuracy')} · ${Math.round(s.overallAccuracy ?? 0)}%`}
+                      : `${t('teacher.dashboard.lowAccuracy')} · ${s.overallAccuracy != null ? `${Math.round(s.overallAccuracy)}%` : '—'}`}
                   </p>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.kind === 'inactive' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>

@@ -139,9 +139,14 @@ describe('R3.10-C consumer boundary contracts', () => {
 
   it('syncActivityMetrics consumes verified evidence only', () => {
     const svc = readFileSync(resolve(root, 'src/modules/student/state/StudentStateMutationService.ts'), 'utf-8');
-    expect(svc).toContain('listPracticeSessionsWithEvidence');
+    // 2026-09-20 稽核：改為全歷史分頁（原本只讀最新 200 場 → 累積準確率被截斷），
+    // 並把證據投影抽成共用函式（collectVerifiedActivities）。
+    expect(svc).toContain('listAllSessionsWithEvidence');
+    expect(svc).toContain('collectVerifiedActivities');
     expect(svc).toContain('evaluatePracticeEvidence');
     expect(svc).toContain("if (evidence.status !== 'verified') continue;");
+    // 無可驗證證據 → null（不是 0）
+    expect(svc).toContain('? Math.round((correctCount / totalQuestions) * 100) : null');
   });
 
   it('grammar radar consumes verified evidence only', () => {

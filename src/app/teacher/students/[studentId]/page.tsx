@@ -357,16 +357,21 @@ export default function StudentDetailPage() {
             <TrendingUp className="w-5 h-5 text-green-500" /> 每週進度趨勢
           </h3>
           <div className="space-y-2">
-            {weeklySnapshots.slice(0, 8).reverse().map(w => (
-              <div key={w.weekStart} className="flex items-center gap-3 text-sm">
-                <span className="w-28 text-gray-500">{w.weekStart}</span>
-                <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.max(w.accuracy, 3)}%` }} />
+            {weeklySnapshots.slice(0, 8).reverse().map(w => {
+              // 2026-09-20 稽核：該週無已驗證題數 → 「—」，不得顯示 0%
+              const hasData = (w.totalQuestions ?? 0) > 0;
+              const width = hasData ? Math.max(w.accuracy, 3) : 0;
+              return (
+                <div key={w.weekStart} className="flex items-center gap-3 text-sm">
+                  <span className="w-28 text-gray-500">{w.weekStart}</span>
+                  <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${width}%` }} />
+                  </div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 w-10 text-right">{hasData ? `${w.accuracy}%` : '—'}</span>
+                  <span className="text-xs text-gray-400 w-20 text-right">{w.totalQuestions}題</span>
                 </div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300 w-10 text-right">{w.accuracy}%</span>
-                <span className="text-xs text-gray-400 w-20 text-right">{w.totalQuestions}題</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}

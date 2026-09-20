@@ -407,8 +407,11 @@ export async function GET(
         return {
           skill: d.skill,
           skillZh: d.skillZh,
+          /** < 0 = 未評估（例如寫作未作答）；顯示層須與 0% 區分 */
           accuracy: d.accuracy,
           weakAreas: Array.isArray(parsedWeakAreas) ? parsedWeakAreas.join('、') : d.weakAreas,
+          /** 2026-09-20：診斷結果為學生自評，不計入平台準確率（R3.10-D.3） */
+          selfReported: true,
         };
       }),
       generatedAt: new Date().toISOString(),

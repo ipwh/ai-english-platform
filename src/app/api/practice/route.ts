@@ -12,7 +12,9 @@ import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { PracticeRepo } from '@/modules/repositories';
 import { evaluatePracticeEvidence } from '@/modules/exercise/services/practice-evidence-service';
+import { getCumulativeSkillTotals, getWeeklyPracticeSummary } from '@/modules/exercise/services/practice-history-service';
 import { submitPractice } from '@/modules/exercise/services/practice-submission-service';
+import { calculatePracticeStreak } from '@/modules/student';
 
 const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
@@ -93,7 +95,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '無權限查看其他用戶的練習記錄', sessions: [] }, { status: 403 });
     }
 
-    const [sessions, submissions] = await Promise.all([
+    // 2026-09-20 稽核：`sessions` 僅為「最近練習記錄」顯示視窗（最新 50 場），
+    // **不得**再被任何累積/連續指標使用；累積值改由以下伺服器端投影提供：
+    //   - skillTotals：全歷史累積已驗證題數（只升不跌）
+    //   - weekly：香港週界線的每週摘要 + 正典連續練習天數
+    const [sessions, submissions, skillTotals, weekly, streakDays] = await Promise.all([
       PracticeRepo.listPracticeSessions(studentId, 50),
       adminDbQuery('submission', 'findMany', {
         where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } },
@@ -106,6 +112,9 @@ export async function GET(request: NextRequest) {
           assignment: { select: { title: true, grammarItem: true, difficulty: true, questionCount: true } },
         },
       }) as Promise<Array<{id: string; score: number | null; submittedAt: Date | null; assignment: {title: string; grammarItem: string | null; difficulty: string | null; questionCount: number}}>>,
+      getCumulativeSkillTotals(studentId),
+      getWeeklyPracticeSummary(studentId),
+      calculatePracticeStreak(studentId),
     ]);
 
     // 排除 source='assignment' 的 practiceSession，避免與下方 assignmentSessions 重複
@@ -138,6 +147,9 @@ export async function GET(request: NextRequest) {
     // R3.10-C: 每筆 session 附上「可驗證證據」投影（由 persisted rows 推導）。
     // 零答案 / 歷史不可驗證的 sessions → verified = { status: 'unverifiable' }。
     // assignment sessions 的值直接由 Submission.score（伺服器權威）推導。
+    //
+    // 2026-09-20 稽核：**去重與 50 筆上限只影響這份「最近記錄」清單的顯示**；
+    // 技能掌握度／每週統計一律改用 `skillTotals` / `weekly`（不經此視窗）。
     const sessionsWithEvidence = allSessions
       .sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime())
       // 智能去重：相同 (skill, totalQuestions, source) 且 startedAt 在 2 分鐘內 → 只保留 correctCount 最高者
@@ -175,6 +187,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       sessions: sessionsWithEvidence,
+      /** 累積（只升不跌）：技能 → 已驗證題數／正確數 */
+      skillTotals,
+      /** 本週（香港日界線）engagement + scored 摘要；streakDays = 正典連續練習天數 */
+      weekly: { ...weekly, streakDays },
     });
   } catch (err: unknown) {
     logger.error({ module: 'practice', error: err instanceof Error ? err.message : String(err) }, 'Practice GET failed');

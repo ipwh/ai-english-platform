@@ -49,10 +49,12 @@ export async function POST(request: NextRequest) {
 
     const created = await Promise.all(
       results.map(r => {
-        // 🔒 2026-08-30 audit (R5): 自評 accuracy 夾取 0-100（非有限值 → 0），
-        // 防止任意數值污染同級均值與歷史記錄
+        // 🔒 2026-08-30 audit (R5): 自評 accuracy 夾取合法範圍（非有限值 → 0），
+        // 防止任意數值污染同級均值與歷史記錄。
+        // 2026-09-20 稽核：保留 -1 = 「未評估」（寫作未作答／CLO 未完成）。
+        // 舊碼統一 clamp 成 0，令「未評估」在 admin 顯示成「0 分」。
         const accuracy = Number.isFinite(r.accuracy)
-          ? Math.min(100, Math.max(0, r.accuracy))
+          ? Math.min(100, Math.max(-1, r.accuracy))
           : 0;
         return createDiagnosticResult({
           studentId,

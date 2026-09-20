@@ -60,6 +60,10 @@ export const pagesTranslations: Record<string, { zh: string; en: string }> = {
   'admin.students.analytics.vocabMastered': { zh: '已掌握', en: 'Mastered' },
   'admin.students.analytics.weakAreasLabel': { zh: '弱項: ', en: 'Weak areas: ' },
   'admin.students.analytics.noDiagnosticResults': { zh: '暫無診斷結果', en: 'No diagnostic results' },
+  // 2026-09-20：診斷結果為學生自評，與「準確率」（只計已驗證練習）不同來源
+  'admin.students.analytics.diagnosticSelfReportedNote': { zh: '此為學生自我評估結果，不計入平台準確率（準確率只計已驗證的練習證據）。', en: 'Self-reported by the student; not counted in platform accuracy (accuracy uses verified practice evidence only).' },
+  'admin.students.analytics.notAssessed': { zh: '未評估', en: 'Not assessed' },
+  'diagnostic.selfReportedNote': { zh: '此診斷為自我評估，不計入平台準確率（準確率只計已驗證的練習）。', en: 'This diagnostic is self-assessment and is not counted in platform accuracy (verified practice only).' },
   'admin.students.analytics.recentWritingSubmissions': { zh: '最近寫作提交', en: 'Recent Writing Submissions' },
   'admin.users.resetPasswordAction': { zh: '重設密碼', en: 'Reset Password' },
   'admin.users.deleteUserAction': { zh: '刪除使用者', en: 'Delete User' },

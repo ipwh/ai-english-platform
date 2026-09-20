@@ -6,10 +6,21 @@
 
 import { db } from '@/shared/db/db';
 import type { Prisma } from '@prisma/client';
+import { hkDayKey } from '@/shared/utils/hk-date';
 
 // Streak helpers (used by streak-service.ts)
-export async function getLoginDates(userId: string, limit = 90) { return db.loginLog.findMany({ where: { userId }, select: { loginAt: true }, orderBy: { loginAt: 'desc' }, take: limit }); }
-export async function getPracticeDates(studentId: string, limit = 90) { return db.practiceSession.findMany({ where: { studentId }, select: { startedAt: true }, orderBy: { startedAt: 'desc' }, take: limit }); }
+/**
+ * 指定時間之後的全部練習開始時間。
+ * **不設 `take`**：任何「最新 N 筆」截斷都會令連續天數失真
+ * （2026-09-20 稽核：爆量學生 45–98 場／日 → 視窗只覆蓋 1–2 個日曆日）。
+ */
+export async function listPracticeStartedAtSince(studentId: string, since: Date) {
+  return db.practiceSession.findMany({
+    where: { studentId, startedAt: { gte: since } },
+    select: { startedAt: true },
+    orderBy: { startedAt: 'desc' },
+  });
+}
 
 // ============================================
 // XP transactions
@@ -47,6 +58,10 @@ export async function getDailyGoalCounts(studentId: string, todayStart: Date) {
 // ============================================
 // Weekly active days (leaderboard junior mode, Sprint 133)
 // ============================================
+// 活躍日 = 登入日 ∨ 練習日；日界線為**香港日**（2026-09-20 稽核：舊碼用 UTC 日）。
+// 註：`LoginLog` 現時在生產環境從未被寫入（全庫 0 列）—— 登入分支保留是為了
+// 日後接通寫入後自動生效，但現時實際只有練習訊號。
+// ============================================
 
 export async function getWeeklyActiveDaysMap(userIds: string[], weekStart: Date): Promise<Map<string, number>> {
   if (userIds.length === 0) return new Map();
@@ -57,7 +72,7 @@ export async function getWeeklyActiveDaysMap(userIds: string[], weekStart: Date)
   const days = new Map<string, Set<string>>();
   const add = (id: string, at: Date) => {
     if (!days.has(id)) days.set(id, new Set());
-    days.get(id)!.add(at.toISOString().slice(0, 10));
+    days.get(id)!.add(hkDayKey(at));
   };
   for (const l of logins) add(l.userId, l.loginAt);
   for (const p of practices) add(p.studentId, p.startedAt);
@@ -78,14 +93,6 @@ export async function sumXp(userId: string) {
 // ============================================
 // Streak
 // ============================================
-
-export async function getStreakActivityDates(userId: string) {
-  const [loginDates, practiceDates] = await Promise.all([
-    db.loginLog.findMany({ where: { userId }, select: { loginAt: true }, orderBy: { loginAt: 'desc' }, take: 100 }),
-    db.practiceSession.findMany({ where: { studentId: userId }, select: { startedAt: true }, orderBy: { startedAt: 'desc' }, take: 100 }),
-  ]);
-  return { loginDates: loginDates.map(l => l.loginAt), practiceDates: practiceDates.map(p => p.startedAt) };
-}
 
 export async function updateUserXpAndStreak(userId: string, xpGained: number, streakDays: number) {
   return db.user.update({ where: { id: userId }, data: { xp: { increment: xpGained }, streakDays } });

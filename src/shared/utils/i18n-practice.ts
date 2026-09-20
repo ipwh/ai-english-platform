@@ -18,6 +18,8 @@ export const practiceTranslations: Record<string, { zh: string; en: string }> = 
   'practice.noHistory': { zh: '尚無練習記錄，開始你的第一次 AI 練習吧！', en: 'No practice history yet. Start your first AI practice!' },
   'practice.weeklyQuestions': { zh: '本週 {n} 題', en: '{n} questions this week' },
   'practice.weeklyAccuracy': { zh: '正確率 {n}%', en: 'Accuracy {n}%' },
+  // 2026-09-20：無已驗證資料時不得顯示 0%
+  'practice.weeklyAccuracyNoData': { zh: '正確率（無資料）', en: 'Accuracy (no data)' },
   'practice.generateBtn': { zh: '生成 {n} 題 AI 練習', en: 'Generate {n} AI questions' },
 
   'practice.hints.reading.1': { zh: '提示1：仔細閱讀篇章。', en: 'Hint 1: Read the passage carefully.' },

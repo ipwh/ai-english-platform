@@ -107,9 +107,11 @@ export default function StudentDashboardPage() {
   const weeklyStats = getWeeklyStats();
   // Sprint 133: 火燄顯示練習連續天數（與 streak 加碼基礎一致）；尚未回傳時以活躍日暫代
   const displayStreak = practiceStreak ?? weeklyStats.streakDays;
+  // 2026-09-20 稽核：無已驗證資料時準確率為 null → 顯示「—」，不得顯示 0%
+  const accuracyDisplay = weeklyStats.accuracy === null ? '—' : weeklyStats.accuracy;
   const kpis = [
     { label: t('progress.weeklyLabel'), value: weeklyStats.questionsDone || 0, unit: t('common.question'), trend: 'up' as const, change: 0 },
-    { label: t('progress.accuracyLabel'), value: weeklyStats.accuracy || 0, unit: t('common.percent'), trend: 'stable' as const, change: 0 },
+    { label: t('progress.accuracyLabel'), value: accuracyDisplay, unit: weeklyStats.accuracy === null ? undefined : t('common.percent'), trend: 'stable' as const, change: 0 },
     { label: t('progress.sessionsLabel'), value: weeklyStats.sessionsCount || 0, unit: t('common.sessions'), trend: 'up' as const, change: 0 },
     { label: t('student.streak'), value: displayStreak || 0, unit: t('common.days'), trend: 'stable' as const, change: 0 },
   ];

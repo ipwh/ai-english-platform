@@ -165,4 +165,29 @@ describe('R3.10-C.2 syncActivityMetrics (H/I)', () => {
     expect(upsertCall.create.correctCount).toBe(1);
     expect(upsertCall.create.sessionsCount).toBe(1);
   });
+
+  it('I.8: 無可驗證證據 → overallAccuracy 寫 null（不是 0），週快照題數為 0', async () => {
+    // 2026-09-20 稽核：852 名學生中 837 名 overallAccuracy = 0，均屬「無資料」被寫成 0
+    mockListSessions.mockResolvedValue([session({ answers: [] })]);
+
+    const result = await studentStateMutationService.syncActivityMetrics('student-1');
+
+    expect(result.accuracy).toBeNull();
+    expect(mockUpdateUser).toHaveBeenCalledWith('student-1', { overallAccuracy: null });
+    const upsertCall = mockSnapshotUpsert.mock.calls[0][0];
+    expect(upsertCall.create.totalQuestions).toBe(0);
+    expect(upsertCall.create.sessionsCount).toBe(0);
+  });
+
+  it('I.9: 有評分 submissions 但無已驗證練習 → 仍算得出 accuracy（非 null）', async () => {
+    mockListSessions.mockResolvedValue([]);
+    mockSubmissionsFindMany.mockResolvedValue([
+      { score: 50, submittedAt: new Date(), assignment: { questionCount: 10 } },
+    ]);
+
+    const result = await studentStateMutationService.syncActivityMetrics('student-1');
+
+    // 5/10 correct → 50
+    expect(result.accuracy).toBe(50);
+  });
 });

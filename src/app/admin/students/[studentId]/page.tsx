@@ -567,7 +567,9 @@ export default function StudentAnalyticsPage() {
           {weeklySnapshots.length > 0 ? (
             <div className="space-y-2">
               {weeklySnapshots.slice(-12).map(w => {
-                const isUp = w.accuracy >= 60;
+                // 2026-09-20 稽核：該週無已驗證題數 → 「—」，不得顯示 0%
+                const hasData = (w.totalQuestions ?? 0) > 0;
+                const isUp = hasData && w.accuracy >= 60;
                 return (
                   <div key={w.weekStart} className="flex items-center gap-3">
                     <span className="text-xs text-gray-500 w-16 flex-shrink-0">
@@ -576,13 +578,13 @@ export default function StudentAnalyticsPage() {
                     <div className="flex-1 h-5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          isUp ? 'bg-green-400' : 'bg-red-400'
+                          hasData ? (isUp ? 'bg-green-400' : 'bg-red-400') : 'bg-gray-300 dark:bg-gray-600'
                         }`}
-                        style={{ width: `${Math.min(100, w.accuracy)}%` }}
+                        style={{ width: hasData ? `${Math.min(100, w.accuracy)}%` : '0%' }}
                       />
                     </div>
                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-12 text-right flex-shrink-0">
-                      {w.accuracy}%
+                      {hasData ? `${w.accuracy}%` : '—'}
                     </span>
                     <span className="text-xs text-gray-400 w-10 text-right flex-shrink-0">
                       {w.sessionsCount}次
@@ -862,31 +864,39 @@ export default function StudentAnalyticsPage() {
 
         {/* --- Diagnostic Results --- */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            診斷評估結果
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+            {t('admin.students.analytics.diagnosticResults')}
           </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            {t('admin.students.analytics.diagnosticSelfReportedNote')}
+          </p>
           {diagnosticResults.length > 0 ? (
             <div className="space-y-3">
-              {diagnosticResults.map((d, i) => (
+              {diagnosticResults.map((d, i) => {
+                // 2026-09-20 稽核：負值／null = 未評估，不得顯示為 0%
+                const assessed = typeof d.accuracy === 'number' && d.accuracy >= 0;
+                return (
                 <div key={i} className="space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {d.skillZh || d.skill}
                     </span>
                     <span className={`text-sm font-medium ${
+                      !assessed ? 'text-gray-400' :
                       d.accuracy >= 70 ? 'text-green-600' :
                       d.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'
                     }`}>
-                      {Math.round(d.accuracy)}%
+                      {assessed ? `${Math.round(d.accuracy)}%` : t('admin.students.analytics.notAssessed')}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
+                        !assessed ? 'bg-gray-300 dark:bg-gray-600' :
                         d.accuracy >= 70 ? 'bg-green-400' :
                         d.accuracy >= 50 ? 'bg-yellow-400' : 'bg-red-400'
                       }`}
-                      style={{ width: `${Math.min(100, d.accuracy)}%` }}
+                      style={{ width: assessed ? `${Math.min(100, d.accuracy)}%` : '0%' }}
                     />
                   </div>
                   {d.weakAreas && d.weakAreas !== '[]' && d.weakAreas !== '' && (
@@ -895,7 +905,8 @@ export default function StudentAnalyticsPage() {
                     </p>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">{t('admin.students.analytics.noDiagnosticResults')}</p>

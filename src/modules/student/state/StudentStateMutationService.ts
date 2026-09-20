@@ -3,6 +3,7 @@
 // Architecture: Route → MutationService → Repository
 
 import { logger } from '@/shared/logger/logger';
+import { hkDayKey, hkWeekStartMondayUtc } from '@/shared/utils/hk-date';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, getGradeMultiplier } from '../progress/services/gamification';
 import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '../progress/services/gamification';
 import { studentStateBuilder } from './StudentStateBuilder';
@@ -23,6 +24,39 @@ interface VocabStatsResult {
   mastered?: number;
   total?: number;
   [key: string]: unknown;
+}
+
+// ============================================
+// 可驗證活動投影（單一入口；accuracy 與週快照共用）
+// ============================================
+
+/** 具備「可驗證評分證據」的活動（練習場次 + 已評分 submissions） */
+export interface VerifiedActivity {
+  totalQuestions: number;
+  correctCount: number;
+  completedAt: Date;
+}
+
+/**
+ * R3.10-C: 只有具備「可驗證評分證據」的 sessions 才計入 accuracy。
+ * 零答案 / presence / 歷史不可驗證的 sessions 一律排除，永不修復。
+ * 供 `syncActivityMetrics` 與準確率回填腳本共用，避免兩套規則漂移。
+ */
+export async function collectVerifiedActivities(
+  sessions: Iterable<{ startedAt: Date; answers: unknown }>,
+): Promise<VerifiedActivity[]> {
+  const { evaluatePracticeEvidence } = await import('@/modules/exercise/services/practice-evidence-service');
+  const out: VerifiedActivity[] = [];
+  for (const s of sessions) {
+    const evidence = evaluatePracticeEvidence(s.answers);
+    if (evidence.status !== 'verified') continue;
+    out.push({
+      totalQuestions: evidence.totalQuestions,
+      correctCount: evidence.correctCount,
+      completedAt: s.startedAt,
+    });
+  }
+  return out;
 }
 
 // ============================================
@@ -204,14 +238,19 @@ export class StudentStateMutationService {
    * Sync all student activity metrics: recompute accuracy from sessions/submissions,
    * update user record, and upsert weekly snapshot.
    * Canonical mutation path for activity-accounting-service.
+   *
+   * 2026-09-20 稽核修正（DB 實證：852 名學生中 837 名 overallAccuracy = 0）：
+   * 1. **移除「最新 200 場」上限**（同一天改為全歷史分頁），否則累積準確率會被截斷。
+   * 2. **無可驗證證據 → 寫 null（不是 0）**。「無資料」與「答錯全部」必須可區分
+   *    （舊碼寫 0 令所有未練習學生顯示「準確率 0%」，亦壓低班平均）。
+   * 3. 週界線改香港週一（原本用 UTC 週一）。
    */
-  async syncActivityMetrics(studentId: string): Promise<{ accuracy: number; weekStart: string }> {
+  async syncActivityMetrics(studentId: string): Promise<{ accuracy: number | null; weekStart: string }> {
     const { db } = await import('@/shared/db/db');
-    const { listPracticeSessionsWithEvidence } = await import('@/modules/exercise/repositories/practice-repo');
-    const { evaluatePracticeEvidence } = await import('@/modules/exercise/services/practice-evidence-service');
+    const { listAllSessionsWithEvidence } = await import('@/modules/exercise/services/practice-history-service');
 
     const [sessions, submissions] = await Promise.all([
-      listPracticeSessionsWithEvidence(studentId, 200).catch(() => [] as Array<{ id: string; startedAt: Date; answers: unknown[] }>),
+      listAllSessionsWithEvidence(studentId).catch(() => [] as Array<{ id: string; startedAt: Date; answers: unknown[] }>),
       db.submission.findMany({
         where: {
           studentId,
@@ -227,53 +266,34 @@ export class StudentStateMutationService {
       }),
     ]);
 
-    type Activity = { totalQuestions: number; correctCount: number; completedAt: Date };
-
-    // R3.10-C: 只有具備「可驗證評分證據」的 sessions 才計入 accuracy。
-    // 零答案 / presence / 歷史不可驗證的 sessions 一律排除，永不修復。
-    const verifiedActivities: Activity[] = [];
-    for (const s of sessions) {
-      const evidence = evaluatePracticeEvidence(s.answers);
-      if (evidence.status !== 'verified') continue;
-      verifiedActivities.push({
-        totalQuestions: evidence.totalQuestions,
-        correctCount: evidence.correctCount,
-        completedAt: s.startedAt,
-      });
-    }
-
-    const activities: Activity[] = [
-      ...verifiedActivities,
+    const activities: VerifiedActivity[] = [
+      ...(await collectVerifiedActivities(sessions)),
       ...submissions.map(s => ({ totalQuestions: s.assignment.questionCount, correctCount: Math.round((s.score! / 100) * s.assignment.questionCount), completedAt: s.submittedAt! })),
     ];
 
     const totalQuestions = activities.reduce((sum, a) => sum + a.totalQuestions, 0);
     const correctCount = activities.reduce((sum, a) => sum + a.correctCount, 0);
-    const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+    // null = 無可驗證證據（「無資料」≠ 0%）
+    const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : null;
 
     // Update user record
     const { updateUser } = await import('@/modules/student/repositories/user-repo');
     await updateUser(studentId, { overallAccuracy: accuracy });
 
-    // Update weekly snapshot
+    // Update weekly snapshot（週界線 = 香港週一）
     const now = new Date();
-    const monday = new Date(now);
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    const weekStart = monday.toISOString().slice(0, 10);
-    const weekActs = activities.filter(a => {
-      const d = new Date(a.completedAt);
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      return d.toISOString().slice(0, 10) === weekStart;
-    });
+    const weekKey = (d: Date) => hkDayKey(hkWeekStartMondayUtc(d));
+    const weekStart = weekKey(now);
+    const weekActs = activities.filter(a => weekKey(a.completedAt) === weekStart);
     const weekTotal = weekActs.reduce((sum, a) => sum + a.totalQuestions, 0);
     const weekCorrect = weekActs.reduce((sum, a) => sum + a.correctCount, 0);
+    /** Float 欄位不可為 null；無資料時存 0，顯示層以 totalQuestions === 0 判定為「—」 */
+    const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
 
     await db.weeklySnapshot.upsert({
       where: { userId_weekStart: { userId: studentId, weekStart } },
-      create: { userId: studentId, weekStart, totalQuestions: weekTotal, correctCount: weekCorrect, accuracy: weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0, sessionsCount: weekActs.length, xpGained: 0, streakDays: 0, wordsLearned: 0 },
-      update: { totalQuestions: weekTotal, correctCount: weekCorrect, accuracy: weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0, sessionsCount: weekActs.length },
+      create: { userId: studentId, weekStart, totalQuestions: weekTotal, correctCount: weekCorrect, accuracy: weekAccuracy, sessionsCount: weekActs.length, xpGained: 0, streakDays: 0, wordsLearned: 0 },
+      update: { totalQuestions: weekTotal, correctCount: weekCorrect, accuracy: weekAccuracy, sessionsCount: weekActs.length },
     });
 
     return { accuracy, weekStart };

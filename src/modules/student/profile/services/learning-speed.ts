@@ -1,5 +1,6 @@
 // Sprint 8: Learning Speed — calculates student pace metrics
 import type { LearningSpeed } from '../types';
+import { hkDayKey } from '@/shared/utils/hk-date';
 
 export interface SessionRecord {
   questionCount: number;
@@ -32,8 +33,8 @@ export function calculateLearningSpeed(sessions: SessionRecord[]): LearningSpeed
   const sessions7d = sessions.filter(s => (now.getTime() - s.startedAt.getTime()) <= ms7Days);
   const sessions30d = sessions.filter(s => (now.getTime() - s.startedAt.getTime()) <= ms30Days);
 
-  // Consistency: unique active days in last 30 days / 30
-  const activeDays = new Set(sessions30d.map(s => s.startedAt.toISOString().slice(0, 10)));
+  // Consistency: unique active days in last 30 days / 30（日界線 = 香港日）
+  const activeDays = new Set(sessions30d.map(s => hkDayKey(s.startedAt)));
   const consistencyScore = Math.min(1, activeDays.size / 30);
 
   // Words per week (average over last 30 days)

@@ -300,10 +300,19 @@ describe('R3.10-C.2 consumer boundary contracts', () => {
     expect(help).toContain('studentId: profile.id');
   });
 
-  it('B7 store scored metrics gate on verified evidence only', () => {
+  it('B7 store scored metrics come from the server evidence projection (no client derivation)', () => {
+    // 2026-09-20 稽核：store 不再由本機 sessions 推算 scored 指標
+    // （舊實作以「最新 50 場」加總 → 技能題數會隨練習推移下降甚至整列消失）。
     const store = readFileSync(resolve(root, 'src/store/practiceStore.ts'), 'utf-8');
-    expect(store).toContain("if (!v || v.status !== 'verified') continue;");
-    expect(store).toContain('const accuracy = vTotal > 0');
+    expect(store).not.toContain("if (!v || v.status !== 'verified') continue;");
+    expect(store).not.toContain('const accuracy = vTotal > 0');
+    expect(store).toContain('cumulativeSkillTotals');
+    expect(store).toContain('serverWeekly');
+
+    // 證據閘門的唯一 owner 改為伺服器端的累積投影服務：
+    const svc = readFileSync(resolve(root, 'src/modules/exercise/services/practice-history-service.ts'), 'utf-8');
+    expect(svc).toContain('evaluatePracticeEvidence');
+    expect(svc).toContain("if (evidence.status !== 'verified') continue;");
   });
 
   it('B7 progress page never sends raw-total recentPerformance to the AI analysis', () => {

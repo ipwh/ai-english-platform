@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import type { PracticeQuestion, DifficultyLevel } from '@/shared/types/types';
+import type { CumulativeSkillTotal, WeeklyPracticeSummary } from '@/modules/exercise/services/practice-history-service';
 import { useAuthStore } from './authStore';
 
 export interface PracticeSession {
@@ -32,9 +33,23 @@ export interface PracticeSession {
   } | null;
 }
 
+/** 每週統計 + 正典連續練習天數（皆由伺服器提供） */
+type ServerWeeklyStats = WeeklyPracticeSummary & { streakDays: number };
+
 interface PracticeState {
   practiceSessions: PracticeSession[];
   currentSession: PracticeSession | null;
+  /**
+   * 伺服器端**累積**技能題數（全歷史、只計已驗證 evidence）。
+   * 技能掌握度的唯一來源 —— 不得再由 `practiceSessions` 視窗推算
+   * （2026-09-20 稽核：最新 50 場視窗會令題數隨練習推移而下降）。
+   */
+  cumulativeSkillTotals: CumulativeSkillTotal[];
+  /**
+   * 伺服器端每週摘要（香港日界線）+ 連續天數。
+   * `null` = 尚未載入（顯示 0，**不以視窗推算回退**）。
+   */
+  serverWeekly: ServerWeeklyStats | null;
 
   // 動作
   startSession: (session: PracticeSession) => void;
@@ -43,13 +58,15 @@ interface PracticeState {
   loadPracticeHistory: () => Promise<void>;
   getMasteryBySkill: () => { skill: string; skillZh: string; accuracy: number; total: number }[];
   getRecentSessions: (limit?: number) => PracticeSession[];
-  getWeeklyStats: () => { questionsDone: number; accuracy: number; sessionsCount: number; streakDays: number };
+  getWeeklyStats: () => { questionsDone: number; accuracy: number | null; sessionsCount: number; streakDays: number };
   clearCurrentSession: () => void;
 }
 
 export const usePracticeStore = create<PracticeState>((set, get) => ({
   practiceSessions: [],
   currentSession: null,
+  cumulativeSkillTotals: [],
+  serverWeekly: null,
 
   startSession: (session) => {
     set({ currentSession: session });
@@ -109,7 +126,13 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
             seen.add(s.id);
             return true;
           });
-          set({ practiceSessions: deduped });
+          // 2026-09-20 稽核：累積／每週指標一律採用伺服器投影；
+          // `sessions` 只作「最近練習記錄」顯示，且**不得**作任何累積計算的來源。
+          set({
+            practiceSessions: deduped,
+            cumulativeSkillTotals: Array.isArray(data.skillTotals) ? data.skillTotals : [],
+            serverWeekly: data.weekly ?? null,
+          });
         }
       }
     } catch {
@@ -118,27 +141,14 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
   },
 
   getMasteryBySkill: () => {
-    const { practiceSessions } = get();
-    const skillMap = new Map<string, { correct: number; total: number; skillZh: string }>();
-
-    for (const session of practiceSessions) {
-      // R3.10-C.2: 技能掌握度（scored）只計伺服器 verified evidence。
-      const v = session.verified;
-      if (!v || v.status !== 'verified') continue;
-      const skillKey = session.skill || 'general';
-      if (!skillMap.has(skillKey)) {
-        skillMap.set(skillKey, { correct: 0, total: 0, skillZh: session.skillZh });
-      }
-      const entry = skillMap.get(skillKey)!;
-      entry.total += v.totalQuestions ?? 0;
-      entry.correct += v.correctCount ?? 0;
-    }
-
-    return Array.from(skillMap.entries()).map(([skill, data]) => ({
-      skill,
-      skillZh: data.skillZh,
-      accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-      total: data.total,
+    // R3.10-C.2: scored 技能數據只計伺服器已驗證 evidence；
+    // 且必須是**累積**（全歷史）投影，不得由最新 50 場視窗推算
+    // （2026-09-20 稽核：視窗會令題數隨練習推移而下降甚至整列消失）。
+    return get().cumulativeSkillTotals.map((t) => ({
+      skill: t.skill,
+      skillZh: t.skillZh,
+      accuracy: t.questions > 0 ? Math.round((t.correct / t.questions) * 100) : 0,
+      total: t.questions,
     }));
   },
 
@@ -157,48 +167,19 @@ export const usePracticeStore = create<PracticeState>((set, get) => ({
   },
 
   getWeeklyStats: () => {
-    const { practiceSessions } = get();
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    const weeklySessions = practiceSessions.filter(
-      (s) => new Date(s.startedAt) >= oneWeekAgo
-    );
-
-    // 題數（engagement 量）保持原始；準確率（scored）只計 verified evidence。
-    const questionsDone = weeklySessions.reduce((sum, s) => sum + s.totalQuestions, 0);
-    let vTotal = 0;
-    let vCorrect = 0;
-    for (const s of weeklySessions) {
-      const v = s.verified;
-      if (v && v.status === 'verified') {
-        vTotal += v.totalQuestions ?? 0;
-        vCorrect += v.correctCount ?? 0;
-      }
+    // 2026-09-20 稽核：每週題數／準確率原本由「最新 50 場 ∩ 7 日」在客戶端推算，
+    // 爆量學生的本週題數同樣被截斷；連續天數更是只覆蓋 1–2 日。
+    // 現一律採用伺服器（香港日界線）投影；未載入時回 0，**不作視窗回退**。
+    const { serverWeekly } = get();
+    if (!serverWeekly) {
+      // accuracy: null = 尚未載入或尚無已驗證資料（顯示層以「—」呈現，不作 0% 回退）
+      return { questionsDone: 0, accuracy: null, sessionsCount: 0, streakDays: 0 };
     }
-    const accuracy = vTotal > 0 ? Math.round((vCorrect / vTotal) * 100) : 0;
-
-    // 計算連續天數（從 practice sessions 的時間戳記）
-    const days = new Set(
-      weeklySessions.map((s) => new Date(s.startedAt).toISOString().slice(0, 10))
-    );
-    let streakDays = 0;
-    const today = new Date();
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      if (days.has(d.toISOString().slice(0, 10))) {
-        streakDays++;
-      } else if (i > 0) {
-        break;
-      }
-    }
-
     return {
-      questionsDone,
-      accuracy,
-      sessionsCount: weeklySessions.length,
-      streakDays,
+      questionsDone: serverWeekly.questionsDone,
+      accuracy: serverWeekly.accuracy,
+      sessionsCount: serverWeekly.sessionsCount,
+      streakDays: serverWeekly.streakDays,
     };
   },
 }));

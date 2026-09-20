@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
     const stats = {
       totalSessions: state.practice.totalSessions,
       totalQuestions: state.practice.totalQuestions,
-      overallAccuracy: state.engagement.overallAccuracy ?? 0,
+      // 2026-09-20 稽核：null = 尚無可驗證證據（不得降級為 0%，否則「無資料」會被當成「答錯全部」）
+      overallAccuracy: state.engagement.overallAccuracy ?? null,
       streakDays: state.engagement.streakDays,
       level: state.engagement.level,
       xp: state.engagement.xp,

@@ -4,6 +4,185 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-20 (II) — 「準確率 0%」：無資料被寫成 0 分（診斷評估結果 vs 準確率）
+
+### 症狀（用戶回報）
+管理端學生分析頁「診斷評估結果」顯示 詞彙 0%／閱讀 0%／聆聽 50%／寫作 0%／文法 50%
+（各附「弱項: <skill>」），但學生「準確率」卻是 **0%**。
+
+### 根本原因（DB 實證；與同日較早的連續天數／掌握度修正無關）
+1. **「無資料」被寫成 0 分**：`syncActivityMetrics` 在沒有可驗證證據時得出
+   `accuracy = 0` 並**無條件寫入** `User.overallAccuracy`。實測 852 名學生中
+   **837 名 = 0**（null：0），其中只有 12 名真正具備 server-owned key 答案列，
+   34 名有練習場次 → **約 22 名「有練習但無可驗證證據」被顯示為 0%**，
+   818 名從未練習者亦顯示 0%。同模組的 `projectVerifiedProgress` 本已回傳
+   `number | null`，型別契約被違反。
+   副作用：`/api/admin/export-sheets` 以 `overallAccuracy: { not: null }` 取班平均，
+   837 個 0 被計入 → **全校平均被壓低**。
+2. **只讀最新 200 場**（同一天已修的「最新 N 筆」病根，此處未修）→ 累積準確率會被截斷。
+3. **診斷結果與準確率是兩個來源卻並列顯示**：診斷為前端自評
+   （依 `/api/diagnostic` 的 R3.10-D.3 註解，永不寫入 trusted state），
+   準確率只計已驗證練習 evidence；畫面上無來源標示 → 看似矛盾。
+   實證個案 `cmrbd6dz…`：`overallAccuracy = 0`、診斷 0/0/50/0/50 ——
+   **0% 並非由 50%/50% 算出**。
+4. **「未評估」被 clamp 成 0 分**：寫作未作答時前端傳 `accuracy = -1`，
+   POST 路由 `Math.max(0, …)` 統一 clamp 成 0 → admin 顯示「0 分」而非「未評估」。
+
+### 決策
+- **無可驗證證據 ⇒ 寫 `null`（不是 0）**，UI 一律顯示「—」；「無資料」與「答錯全部」
+  必須可區分（既有型別 `number | null` 與 `export-sheets` 的 `not: null` 過濾本來就是此設計）。
+- **移除 200 場上限**：抽出共用的 `collectVerifiedActivities()`，改由
+  `listAllSessionsWithEvidence()` 全歷史分頁讀取（與累積掌握度同一病根收口）。
+- **診斷標示為自評**：admin 診斷區塊加註「此為學生自我評估，不計入平台準確率」，
+  API 回傳 `selfReported: true`；學生端診斷結果頁同樣加註。
+- **`-1` 保留為「未評估」**：POST clamp 由 `[0,100]` 改為 `[-1,100]`；
+  admin 顯示「未評估」、學生端不再顯示永遠轉動的 pending 條。
+- **每週快照週界線改香港週一**（原本用 UTC 週一）；`WeeklySnapshot.accuracy` 為
+  不可為 null 的 Float，無資料時寫 0 但顯示層以 `totalQuestions === 0` 判定「—」。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **Student** | `state/StudentStateMutationService.ts`：新增 `collectVerifiedActivities()` / `VerifiedActivity`；`syncActivityMetrics` 改全歷史分頁、accuracy 可為 null、週界線用 `hkWeekStartMondayUtc`。 |
+| **Shared** | `shared/utils/hk-date.ts`：新增 `hkDayOfWeek()`（取香港日期的星期）、`hkWeekStartMondayUtc()`。 |
+| **Exercise** | `services/practice-history-service.ts`：`iterateSessionsWithEvidence()`（公開分頁）、`listAllSessionsWithEvidence()`；`WeeklyPracticeSummary.accuracy` 改 `number | null`。 |
+| **API** | `/api/diagnostic` POST clamp 改 `[-1,100]`（保留未評估）；`/api/student/analytics` 不再把 null 轉 0；admin 學生分析回傳 `selfReported: true`。 |
+| **UI** | 學生 dashboard／進度／練習本週正確率：無資料顯示「—」或「正確率（無資料）」；老師 dashboard、班級平均、每週趨勢、admin 每週趨勢：無資料顯示「—」（老師班平均只計有資料學生）；admin 診斷區塊加自評說明與「未評估」。 |
+| **Tooling** | `scripts/backfill-null-overall-accuracy.ts`（新，預設 dry-run；`--apply` 才寫入）：一次性把「無證據卻為 0」的舊列校正為 null。 |
+
+### 證據（2026-09-20 實測，非推測）
+- `User.overallAccuracy` 分佈（修正前）：學生 852 → **= 0 者 837**、null 0、>0 15；
+  有練習場次 34；有 server-owned key 答案列 **12**。
+- 回填腳本 dry-run（跑正典投影）：`學生總數=852（有證據來源 34 / 無 818）`
+  → **未變更 12、0 → null 840、其他校正 0**（即 840 筆「無資料被寫成 0」）。
+- 個案：`cmrbd6dz…`（0/0/50/0/50＋準確率 0）、`cmrbd6u8…`（200 場，已到舊上限）。
+
+### 測試（+9 用例；全套 **3027 pass / 1 skipped，147 files**）
+- `student-state-metrics.test.ts`：新增 I.8（無證據 → `overallAccuracy: null`，週快照 0 題）、
+  I.9（有評分 submissions、無練習證據 → 仍算得出 accuracy）。
+- `practice-history-service.test.ts`：無已驗證資料 → `accuracy === null`。
+- `hk-date.test.ts`：`hkDayOfWeek` / `hkWeekStartMondayUtc`（含香港日界線決定週歸屬）。
+- 契約測試更新：`practice-evidence-service.test.ts`（改指 `listAllSessionsWithEvidence` +
+  `collectVerifiedActivities` + null 語意）、`r310c2-authority-closure.test.ts`（老師頁
+  不得出現 `: 0}%` 反模式；改以區域變數計算寬度）。
+- `npx tsc --noEmit`、`npx eslint`（0 errors）、`node scripts/check-i18n.js`（exit 0）全通過。
+
+### 未處理（follow-up）
+- **需手動執行一次性回填**（本次未自動寫入生產資料）：
+  `npx tsx scripts/backfill-null-overall-accuracy.ts`（dry-run）→ 確認後 `--apply`。
+  未回填前，舊列仍顯示 0%；學生下次練習／交作業時 `syncActivityMetrics` 會自動校正。
+- **D2b（另立項目）**：讓診斷作答經 `/api/practice` 持久化＋伺服器評分，使診斷成為可驗證證據
+  —— 會改變「準確率」語意與可比性，需獨立評估。
+- **D3（另立項目）**：診斷 per-skill 分數現由前端 `checkAnswer` 計算（自評，可被改記憶體）。
+- `WeeklySnapshot.accuracy` 仍是不可為 null 的 Float；如要嚴格「無資料 = null」需 migration。
+- `/api/admin/stats` 的 `avgAccuracy` 在「該班／該級完全沒有有資料的學生」時仍回 0
+  （`admin/reports` 的圖表與表格是 number 形狀）；如需顯示「—」需一併調整圖表資料形狀。
+
+---
+
+## 2026-09-20 — 連續天數與技能掌握度「越用越少」（日界線 UTC + 最新 N 筆截斷）
+
+### 症狀（用戶回報）
+1. 「學習連續天數有啲唔正常，我一日比一日少」
+2. 「技能掌握度」的題數越來越少
+
+### 根本原因（兩個症狀同一病根：**累積指標由「最新 N 筆」切片 + UTC 日界線**）
+
+**A. 連續天數用 UTC 日界線（假缺口）**
+`streak-service.ts` 以 `new Date().toISOString().slice(0,10)` 當「今日／昨日」。
+香港 07:00 的練習會被記成前一日 UTC（23:00Z），令相鄰兩個香港日塌縮成同一 UTC 日，
+之後再產生假缺口。2026-09-19T23:33Z 實測：
+
+| 學生 | 香港日（真實） | UTC 日（舊碼） | 舊碼顯示 |
+|---|---|---|---|
+| `cmrbd5kw…`（24 場） | 09-14,15,16,17,**18**,19（連續 6 天） | 09-14,15,16,17,19（缺 18） | **1** |
+| `cmrbd6u8…` | 09-17,18,19 | 同 | 2（真實 3） |
+
+**B. 連續天數只讀最新 90 筆練習（爆量學生被壓成 1–2）**
+`progress-repo.getPracticeDates(limit = 90)`。實測 45–98 場／日的學生，最新 90 筆
+只覆蓋 1–2 個日曆日 → 顯示 1–2（真實 3），且**練習量越大數字越小**（即用戶所見遞減）。
+
+**C. `LoginLog` 在生產環境從未被寫入**
+全庫 **0 列**（唯一 writer `/api/admin/login-logs` POST 無前端呼叫者；
+`/api/auth/login` 不寫 log）。`calculateStudentStreak` 號稱「登入或練習」，
+實際只有練習訊號；`getWeeklyActiveDaysMap`（初中排行榜「本週活躍日」）、
+教師「最後活躍」同理。口徑現已明確為**連續練習天數**。
+
+**D. 技能掌握度題數由「最新 50 場」在客戶端加總**
+`/api/practice` GET 只回最新 50 場（`listPracticeSessions(studentId, 50)` + `.slice(0, 50)`），
+`practiceStore.getMasteryBySkill()` 以該視窗加總。實測：>50 場的學生，視窗題數 ÷ 累積題數
+= **0.30**；學生 `cmrbd6u8…` 片語動詞逐日 `55 → 50 → 0`，介詞 `55 → 15`，
+關係子句／情態動詞直接整列消失（練其他技能就把舊技能擠出視窗）。
+
+### 決策
+- **日界線單一化**：新增 `shared/utils/hk-date.ts`（香港日 key，UTC+8 無 DST）。
+  業務程式碼一律經此取得「日」，**禁止**再用 `toISOString().slice(0,10)` 當日。
+- **連續天數改日期界線 + 全歷史**：新增 `ProgressRepo.listPracticeStartedAtSince(studentId, since)`，
+  回溯 400 日，**不設 take**；新增純函式 `countStreak(dayKeys, todayKey)`（嚴格相鄰日 key）。
+- **技能掌握度改「伺服器端累積投影」**：新增 `exercise/services/practice-history-service.ts`
+  （分頁全歷史 + 沿用正典 `evaluatePracticeEvidence`，unverifiable 整場略過），
+  `/api/practice` GET 回傳 `skillTotals`（累積題數／正確數）與 `weekly`
+  （engagement + scored + 正典 `streakDays`）。
+- **客戶端不再推算 scored 指標**：`practiceStore` 只採用伺服器投影；
+  `sessions` 視窗與 2 分鐘去重降級為「最近練習記錄」**顯示專用**。
+- **「今日」一律香港日**：每日目標（`getDailyGoalProgress`）、登入 XP 每日一次
+  （`/api/streak`）、每日挑戰去重（`findTodaySession` / `countTodaySessions`）、
+  `learning-speed` 活躍日；舊碼用伺服器本地時間（雲端 = UTC → 香港 08:00 才重置）。
+
+### 變更
+| 類別 | 變更 |
+|------|------|
+| **Shared** | `shared/utils/hk-date.ts`（新）：`hkDayKey` / `hkToday` / `hkDaysAgo` / `hkDayStartUtc` / `hkStartOfDay` / `hkWeekStartUtc` / `previousDayKey` / `DAY_MS` / `HK_OFFSET_MS`。 |
+| **Student** | `progress/services/streak-service.ts`：香港日界線、`STREAK_LOOKBACK_DAYS = 400`、純函式 `countStreak`、`calculateStudentStreak` 與 `calculatePracticeStreak` 同源（移除登入分支與 `take: 90`）。 |
+| **Student** | `progress/repositories/progress-repo.ts`：`listPracticeStartedAtSince`（取代 `getLoginDates` / `getPracticeDates`）；`getWeeklyActiveDaysMap` 改用香港日 key；刪除零呼叫者的 `getStreakActivityDates`。 |
+| **Student** | `progress/services/progress-service.ts`：每日目標以 `hkStartOfDay()` 為界。`profile/services/learning-speed.ts`：活躍日改香港日。 |
+| **Exercise** | `services/practice-history-service.ts`（新）：`getCumulativeSkillTotals`、`getWeeklyPracticeSummary`（分頁 + `maxPages` 上限）。`repositories/practice-repo.ts`：`listPracticeSessionsWithEvidence(studentId, limit, skip, since)`；`findTodaySession` / `countTodaySessions` 用香港日。 |
+| **API** | `/api/practice` GET 新增 `skillTotals` 與 `weekly`（含正典 `streakDays`）；`/api/streak` POST 的每日 XP 閘門改香港日。 |
+| **Store** | `store/practiceStore.ts`：新增 `cumulativeSkillTotals` / `serverWeekly`；`getMasteryBySkill()` 改讀累積投影；`getWeeklyStats()` 改讀伺服器（未載入回 0，**不作視窗回退**）。 |
+
+### 證據（2026-09-19–20 實測，非推測）
+以唯讀腳本跑**新生產程式碼**對真實 Neon DB：
+
+| 學生 | 舊（UTC + 最新 90 筆） | 新（香港日 + 全歷史） |
+|---|---|---|
+| `cmrbd5kw…`（24 場，香港連續 6 天） | 1 | **6** |
+| `cmrbd5i4…`（124 場／7 日，單日 98 場） | 1 | **3** |
+| `cmrbd6u8…`（200 場／7 日） | 2 | **3** |
+| `cmrbd6p1…`（11 場） | 3 | **4** |
+| `cmrbd683…` / `cmran5zn…` / `cmrbd5eo…`（真的有斷） | 0 | 0（無假陽性） |
+
+技能掌握度（同批學生）：`cmrbd6u8…` 舊視窗 **295 題 → 新累積 1036 題**
+（片語動詞 220 題／65%、動名詞與不定詞 195 題／89%、時態 136 題／82%…）；
+`cmrbd5i4…` 250 → 465 題。累積值只升不跌。
+另：`User.streakDays` 只在學生當日首次載入 dashboard 時寫入，故 DB 舊值會在
+學生下次開啟時自動校正（無資料損害）。
+
+### 測試（+29 用例，3 個新檔案；完整套件 **3022 pass / 1 skipped，147 files**）
+- `shared/utils/__tests__/hk-date.test.ts`（新）：UTC↔香港日邊界（含 00:00–07:59 不得歸前一日）、
+  日界線起點、跨月／跨年 `previousDayKey`。
+- `modules/student/progress/__tests__/streak-service.test.ts`（新）：
+  `countStreak` 口徑；**回歸守門**以舊演算法證明「香港連續 6 天 → 舊 1 / 新 6」、
+  「單日 200 場 → 舊 1 / 新 5」；查詢起點為香港日界線且無 take 截斷。
+- `modules/exercise/__tests__/practice-history-service.test.ts`（新）：跨分頁累加、
+  unverifiable 排除、**單調性契約**、`maxPages` 上限、香港週界線、engagement/scored 分離。
+- `store/__tests__/practiceStore.test.ts`：改寫為「伺服器投影為唯一來源」契約
+  （偽造本機 sessions 不得影響任何 scored 指標；累積題數只升不跌）。
+- `modules/exercise/__tests__/r310c2-authority-closure.test.ts`：B7 契約改指新 owner
+  （store 不得再由 client 推導；證據閘門在 `practice-history-service`）。
+- `npx tsc --noEmit`、`npx eslint`（0 errors）、`node scripts/check-i18n.js`（exit 0）全通過。
+
+### 未處理（follow-up）
+- `User.streakDays` 為快取值（只在 dashboard 載入時刷新）；如需即時一致，
+  應改為讀取時計算或於練習完成時同步。
+- 若日後單一學生場次 > ~3000，累積投影與連續天數應改為
+  `PracticeSession.dayKey` 欄位 + 索引（屆時才需要 migration）。
+- `/api/practice` GET 的「同技能＋同題數＋同 source、2 分鐘內只留最高分」去重
+  仍存在（現僅影響顯示清單）；如需保留兩筆重複練習，應改為 id 去重。
+- `LoginLog` 仍未接通寫入；如要「登入也算活躍日」，需先在登入路徑寫入 log
+  （屆時 `getWeeklyActiveDaysMap` / `activity-service` 會自動生效）。
+
+---
+
 ## 2026-09-18 — AI 額度閘門改為持久化全域帳本（503「今日 AI 額度已用完」）
 
 ### 症狀（用戶回報）

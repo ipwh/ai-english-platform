@@ -9,6 +9,7 @@ import { syncUserStreak, calculatePracticeStreak } from '@/modules/student/progr
 import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { getTodaysXpTransaction, createXpTransaction } from '@/modules/student';
 import { updateUser } from '@/modules/student';
+import { hkStartOfDay } from '@/shared/utils/hk-date';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -35,8 +36,8 @@ export async function POST(request: NextRequest) {
     ]);
 
     // Check if today already has a login log (avoid duplicate XP)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // 「今日」= 香港日（與連續天數同一日界線，2026-09-20 稽核修正）
+    const today = hkStartOfDay();
     const todayLog = await getTodaysXpTransaction(studentId, 'dailyLogin', today);
 
     // Award dailyLogin XP only once per day.

@@ -307,7 +307,7 @@ function PracticeListPageContent() {
         {/* 本週統計 */}
         <div className="hidden sm:flex items-center gap-4 text-sm text-gray-500">
           <span className="flex items-center gap-1"><BarChart3 className="w-4 h-4" /> {t('practice.weeklyQuestions', { n: weeklyStats.questionsDone })}</span>
-          <span className="flex items-center gap-1"><Target className="w-4 h-4" /> {t('practice.weeklyAccuracy', { n: weeklyStats.accuracy })}</span>
+          <span className="flex items-center gap-1"><Target className="w-4 h-4" /> {weeklyStats.accuracy === null ? t('practice.weeklyAccuracyNoData') : t('practice.weeklyAccuracy', { n: weeklyStats.accuracy })}</span>
         </div>
       </div>
 

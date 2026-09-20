@@ -4,6 +4,7 @@
 // ============================================
 
 import { db } from '@/shared/db/db';
+import { hkStartOfDay } from '@/shared/utils/hk-date';
 
 /** Create a practice session */
 export async function createPracticeSession(data: {
@@ -19,26 +20,22 @@ export async function createPracticeSession(data: {
   return db.practiceSession.create({ data });
 }
 
-/** Find today's session for a student by source */
+/** Find today's session for a student by source（「今日」= 香港日） */
 export async function findTodaySession(studentId: string, source: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   return db.practiceSession.findFirst({
-    where: { studentId, source, startedAt: { gte: today } },
+    where: { studentId, source, startedAt: { gte: hkStartOfDay() } },
   });
 }
 
 /**
- * Count today's sessions for a student by source.
+ * Count today's sessions for a student by source（「今日」= 香港日）。
  * Used for concurrency-safe duplicate detection (2026-08-30 audit R8):
  * the find-then-create window cannot be closed without a DB constraint,
  * so callers re-count after creation and roll back the loser.
  */
 export async function countTodaySessions(studentId: string, source: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   return db.practiceSession.count({
-    where: { studentId, source, startedAt: { gte: today } },
+    where: { studentId, source, startedAt: { gte: hkStartOfDay() } },
   });
 }
 
@@ -183,10 +180,18 @@ export async function listPracticeSessions(studentId: string, limit = 50) {
  * R3.10-C: List practice sessions WITH persisted answer evidence rows.
  * Consumers of verified accuracy must use this (with
  * evaluatePracticeEvidence) instead of trusting session aggregates.
+ *
+ * `skip` / `since` 支援「累積投影」分頁（2026-09-20 稽核）：
+ * 累積統計必須走日期界線 + 全歷史分頁，不可用單一 `take` 當作全量。
  */
-export async function listPracticeSessionsWithEvidence(studentId: string, limit = 200) {
+export async function listPracticeSessionsWithEvidence(
+  studentId: string,
+  limit = 200,
+  skip = 0,
+  since?: Date,
+) {
   return db.practiceSession.findMany({
-    where: { studentId },
+    where: { studentId, ...(since ? { startedAt: { gte: since } } : {}) },
     select: {
       id: true,
       skill: true,
@@ -212,6 +217,7 @@ export async function listPracticeSessionsWithEvidence(studentId: string, limit 
     },
     orderBy: { startedAt: 'desc' },
     take: limit,
+    skip,
   });
 }
 

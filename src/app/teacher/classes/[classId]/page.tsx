@@ -79,9 +79,11 @@ export default function ClassDetailPage() {
     );
   }
 
-  const avgAccuracy = students.length > 0
-    ? Math.round(students.reduce((sum, s) => sum + (s.overallAccuracy || 0), 0) / students.length)
-    : 0;
+  // 2026-09-20 稽核：只計「有可驗證資料」的學生（null = 無資料，不得當 0 拉低平均）
+  const withAccuracy = students.filter(s => s.overallAccuracy != null);
+  const avgAccuracy = withAccuracy.length > 0
+    ? Math.round(withAccuracy.reduce((sum, s) => sum + (s.overallAccuracy ?? 0), 0) / withAccuracy.length)
+    : null;
 
   const inactiveCount = students.filter(s => {
     if (!s.lastActiveAt) return (s._count?.sessions ?? 0) === 0;
@@ -117,7 +119,7 @@ export default function ClassDetailPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: t('teacher.classDetail.studentCount'), value: students.length, unit: t('common.people'), icon: Users, color: 'text-blue-600' },
-          { label: t('teacher.classDetail.avgAccuracy'), value: avgAccuracy, unit: t('common.percent'), icon: ArrowLeft, color: 'text-green-600' },
+          { label: t('teacher.classDetail.avgAccuracy'), value: avgAccuracy ?? '—', unit: avgAccuracy === null ? undefined : t('common.percent'), icon: ArrowLeft, color: 'text-green-600' },
           { label: t('teacher.classDetail.totalSessions'), value: students.reduce((s, stu) => s + (stu._count?.sessions || 0), 0), unit: t('common.sessions'), icon: ChevronRight, color: 'text-teal-600' },
           { label: t('teacher.dashboard.inactiveStudents'), value: inactiveCount, unit: t('common.people'), icon: Users, color: 'text-red-600' },
         ].map((stat, i) => (

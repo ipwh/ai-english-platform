@@ -45,7 +45,8 @@ export default function StudentProgressPage() {
   // R3.10-C.2: 準確率 KPI 只計 verified evidence（由 store 計算）；題數為 engagement 量。
   const kpis = [
     { label: t('progress.weeklyLabel'), value: weeklyStats.questionsDone || 0, unit: t('common.question'), trend: 'up' as const, change: 0 },
-    { label: `${t('progress.accuracyLabel')}${store.language === 'en' ? ' (verified)' : '（已驗證）'}`, value: weeklyStats.accuracy || 0, unit: t('common.percent'), trend: 'up' as const, change: 0 },
+    // 2026-09-20 稽核：無已驗證資料時顯示「—」（不得顯示 0%）
+    { label: `${t('progress.accuracyLabel')}${store.language === 'en' ? ' (verified)' : '（已驗證）'}`, value: weeklyStats.accuracy === null ? '—' : weeklyStats.accuracy, unit: weeklyStats.accuracy === null ? undefined : t('common.percent'), trend: 'up' as const, change: 0 },
     { label: t('progress.sessionsLabel'), value: weeklyStats.sessionsCount || 0, unit: t('common.sessions'), trend: 'stable' as const, change: 0 },
   ];
 

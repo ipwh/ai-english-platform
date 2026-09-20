@@ -844,6 +844,9 @@ export default function DiagnosticPage() {
       </div>
 
       {/* 各技能結果 */}
+      <div className="rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">
+        {t('diagnostic.selfReportedNote')}
+      </div>
       <div className="space-y-3">
         {results.map((r) => (
           <div key={r.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -864,9 +867,16 @@ export default function DiagnosticPage() {
                 <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded-full" style={{ width: '0%' }} />
               </div>
             ) : r.score < 0 ? (
-              <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
-                <div className="h-2 bg-blue-300 dark:bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }} />
-              </div>
+              writingLoading ? (
+                <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+                  <div className="h-2 bg-blue-300 dark:bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }} />
+                </div>
+              ) : (
+                // 2026-09-20 稽核：-1 且已完成（例如未作答／CLO 未完成）→ 「未評估」，不得顯示為 0%
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {t('admin.students.analytics.notAssessed')}
+                </span>
+              )
             ) : (
               <ProgressBar value={r.score} size="sm" showPercentage={true} />
             )}
