@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         .sort((a, b) => (a.level || '').localeCompare(b.level || ''))
         .map(l => [
           l.level || '',
-          l._avg.overallAccuracy ? String(Math.round(l._avg.overallAccuracy)) : '-',
+          l._avg.overallAccuracy != null ? String(Math.round(l._avg.overallAccuracy)) : '-',
           String(l._count),
         ]),
       [''],
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
         s.nameZh || '',
         s.nameEn || '',
         s.level || '',
-        s.overallAccuracy ? String(Math.round(s.overallAccuracy)) : '-',
+        s.overallAccuracy != null ? String(Math.round(s.overallAccuracy)) : '-',
         String(s._count.sessions),
         String(s._count.mistakes),
         String(s._count.vocabItems),

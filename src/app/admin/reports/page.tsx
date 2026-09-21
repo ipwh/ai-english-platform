@@ -26,9 +26,9 @@ interface StatsData {
     totalMistakes: number;
     totalAssignments: number;
   };
-  byLevel: { level: string; studentCount: number; avgAccuracy: number }[];
-  byClass: { className: string; gradeLevel: string; studentCount: number; avgAccuracy: number }[];
-  monthlyTrend: { month: string; sessions: number; accuracy: number }[];
+  byLevel: { level: string; studentCount: number; avgAccuracy: number | null }[];
+  byClass: { className: string; gradeLevel: string; studentCount: number; avgAccuracy: number | null }[];
+  monthlyTrend: { month: string; sessions: number; accuracy: number | null }[];
   accuracyDistribution: { range: string; count: number }[];
 }
 
@@ -64,7 +64,8 @@ function CustomTooltip({ active, payload, label }: any) {
         <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
         {payload.map((p: any, i: number) => (
           <p key={i} className="text-gray-600 dark:text-gray-400">
-            {p.name}: <span className="font-semibold">{p.value}{p.dataKey === 'avgAccuracy' || p.dataKey === 'accuracy' || p.dataKey === 'avgScore' ? '%' : ''}</span>
+            {/* 2026-09-21：無資料的準確率為 null → 顯示「—」而非「null%」 */}
+            {p.name}: <span className="font-semibold">{p.value == null ? '—' : p.value}{p.value != null && (p.dataKey === 'avgAccuracy' || p.dataKey === 'accuracy' || p.dataKey === 'avgScore') ? '%' : ''}</span>
           </p>
         ))}
       </div>
@@ -264,15 +265,20 @@ export default function AdminReportsPage() {
                   <td className="px-6 py-3 font-medium text-gray-900 dark:text-white">{l.level}</td>
                   <td className="px-6 py-3 text-center text-gray-600 dark:text-gray-400">{l.studentCount}</td>
                   <td className="px-6 py-3 text-center">
-                    <span className={`font-medium ${l.avgAccuracy >= 70 ? 'text-green-600' : l.avgAccuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {l.avgAccuracy}%
-                    </span>
+                    {/* 2026-09-21：無可驗證資料 ⇒ 「—」，不得顯示 0%（紅色） */}
+                    {l.avgAccuracy == null ? (
+                      <span className="font-medium text-gray-400">—</span>
+                    ) : (
+                      <span className={`font-medium ${l.avgAccuracy >= 70 ? 'text-green-600' : l.avgAccuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {l.avgAccuracy}%
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-3">
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                       <div
                         className="h-2.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all"
-                        style={{ width: `${Math.min(100, l.avgAccuracy)}%` }}
+                        style={{ width: `${Math.min(100, l.avgAccuracy ?? 0)}%` }}
                       />
                     </div>
                   </td>

@@ -116,7 +116,9 @@ export async function GET(request: NextRequest) {
       .map(([month, data]) => ({
         month,
         sessions: data.sessions,
-        accuracy: data.questions > 0 ? Math.round((data.correct / data.questions) * 100) : 0,
+        // 2026-09-21：「無資料 ≠ 0」。該月無已驗證題數時為 null（圖表留白、
+        // tooltip 顯示「—」），不以 0% 冒充（舊碼令零數據月份看起來像「全錯」）。
+        accuracy: data.questions > 0 ? Math.round((data.correct / data.questions) * 100) : null,
       }));
 
     // ---- 各年級數據 ----
@@ -126,7 +128,10 @@ export async function GET(request: NextRequest) {
       .map(l => ({
         level: l.level,
         studentCount: l._count.id,
-        avgAccuracy: l._avg.overallAccuracy ? Math.round(l._avg.overallAccuracy) : 0,
+        // 2026-09-21：`_avg` 已忽略 NULL（無可驗證證據的學生不拉低平均），
+        // 但整個年級都無證據時 `_avg` 為 null → 必須回 null 而非 0%，
+        // 否則 admin 報表會把「未有數據」顯示成「0%」（紅色）。
+        avgAccuracy: l._avg.overallAccuracy != null ? Math.round(l._avg.overallAccuracy) : null,
       }));
 
     // ---- 各班級數據 ----
@@ -137,7 +142,7 @@ export async function GET(request: NextRequest) {
           className: cls?.name || 'Unknown',
           gradeLevel: cls?.gradeLevel || '',
           studentCount: c._count.id,
-          avgAccuracy: c._avg.overallAccuracy ? Math.round(c._avg.overallAccuracy) : 0,
+          avgAccuracy: c._avg.overallAccuracy != null ? Math.round(c._avg.overallAccuracy) : null,
         };
       })
       .sort((a, b) => a.className.localeCompare(b.className));

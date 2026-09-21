@@ -188,7 +188,7 @@ export default function StudentDetailPage() {
     const name = student.nameZh || student.nameEn || 'student';
     const rows = [
       ['學生', '班級', '準確率', '練習次數', '答題數', '錯題數', '生字數', '已掌握', '寫作', 'XP', '連續天數'],
-      [name, student.class?.name || '', `${student.overallAccuracy ?? 0}%`, practiceSessions.length, totalQuestions, mistakes.length, vocab.total, vocab.mastered, writingDrafts.length, student.xp ?? 0, student.streakDays ?? 0],
+      [name, student.class?.name || '', student.overallAccuracy != null ? `${Math.round(student.overallAccuracy)}%` : '', practiceSessions.length, totalQuestions, mistakes.length, vocab.total, vocab.mastered, writingDrafts.length, student.xp ?? 0, student.streakDays ?? 0],
       [''],
       ['技能', '準確率', '答題數'],
       ...skillBreakdown.map(s => [s.name, `${s.accuracy}%`, s.total]),
@@ -252,7 +252,7 @@ export default function StudentDetailPage() {
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500">{t('teacher.studentDetail.accuracy')}</p>
-              <p className="font-semibold text-teal-600">{student.overallAccuracy ? Math.round(student.overallAccuracy) + '%' : '—'}</p>
+              <p className="font-semibold text-teal-600">{student.overallAccuracy != null ? Math.round(student.overallAccuracy) + '%' : '—'}</p>
             </div>
           </div>
         </div>

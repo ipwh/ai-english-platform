@@ -36,6 +36,21 @@ A read-only audit of every student and teacher surface (static review of the who
 
 ## Evidence
 
-- New regression tests: server-derived submission authority (9), batched cumulative totals incl. >1-page pagination and "no evidence ⇒ null" (6), activity status thresholds / HK boundary / all four activity sources / DB-side counting + fail-open fallback (10), batch streaks equal to per-student streaks (4), lenient vs exact answer matching (5), reading verification coverage extensions (4).
+- New regression tests: server-derived submission authority (9), batched cumulative totals incl. >1-page pagination and "no evidence ⇒ null" (6), activity status thresholds / HK boundary / all four activity sources / DB-side counting + fail-open fallback (10), batch streaks equal to per-student streaks (4), lenient vs exact answer matching (5), reading verification coverage extensions (4), admin stats null semantics (5).
 - Updated contract test: admin export no longer contains a `take` window feeding totals.
-- Release validation on 2026-09-21: `npm test` **3,131 passed / 1 skipped** (160 files passed / 1 skipped); `npx tsc --noEmit`, `node scripts/check-i18n.js`, `npx prisma validate` all pass.
+- Release validation on 2026-09-21: `npm test` **3,136 passed / 1 skipped** (161 files passed / 1 skipped); `npx tsc --noEmit`, `node scripts/check-i18n.js`, `npx prisma validate` all pass.
+
+## Addendum (2026-09-21, post-deployment re-verification)
+
+The migration and backfill ran against production. The backfill reported **0 rows changed**, so the result was verified independently with a temporary read-only script (removed after use) rather than trusting the script's own summary:
+
+- `information_schema.columns` for `User.overallAccuracy` → `column_default = null`, `is_nullable = YES` (the default really is gone).
+- Of 852 students: **`null` = 832, `0` = 0, `> 0` = 20**; no student with graded assignment evidence is `null`, and no student with a score has zero verifiable evidence.
+- Of the 44 students who have practice sessions, **20 have at least one server-authoritative answer row** (and a real accuracy) while the remaining **24 have only unverifiable client-key legacy rows** and are therefore correctly `null` under the evidence contract.
+
+That check surfaced **seven further occurrences of the same truthiness defect**, now fixed:
+
+- `/api/admin/stats`: `byLevel[]/byClass[].avgAccuracy` and `monthlyTrend[].accuracy` used `value ? round(value) : 0` → a level, class or month with no verifiable evidence was reported as **0 %** (red) in the admin report. Now `null`, rendered as `—`, with the Recharts tooltip no longer printing `null%`.
+- `/api/parent-report`: overall and weekly accuracy used the same pattern → the parent report told families of never-practising students that accuracy was 0 % and advised "practise 5–6 times a week". Now `null`/`—` with advice that states there is no verifiable record yet.
+- Inverse error (a genuine 0 % read as no data): the teacher student-detail badge and its CSV export, plus the `overallAccuracy` column of `/api/admin/export-sheets`, used truthiness and rendered a real 0 % as `—` / `-` / empty. Now all use an explicit null check.
+

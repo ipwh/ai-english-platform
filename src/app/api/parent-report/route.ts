@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
 
     const studentName = student.nameZh || student.nameEn || 'Student';
     const className = student.class?.name || 'N/A';
-    const accuracy = student.overallAccuracy ? Math.round(student.overallAccuracy) : 0;
+    // 2026-09-21：「無資料 ≠ 0」。無可驗證證據 ⇒ null，報告顯示「—」
+    // （舊碼以 truthiness 寫 0，令從未練習的學生在家長報告顯示「整體正確率 0%」）。
+    const accuracy = student.overallAccuracy != null ? Math.round(student.overallAccuracy) : null;
+    const accuracyLabel = accuracy != null ? `${accuracy}` : '—';
     const totalSessions = sessionCount;
 
     // Weekly stats — verified row-derived evidence ONLY (never raw totals)
@@ -65,7 +68,8 @@ export async function GET(request: NextRequest) {
       weekTotal += s.evidence.totalQuestions;
       weekCorrect += s.evidence.correctCount;
     }
-    const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : 0;
+    const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : null;
+    const weekAccuracyLabel = weekAccuracy != null ? `${weekAccuracy}` : '—';
 
     // Mistake type distribution
     const mistakeTypes: Record<string, number> = {};
@@ -115,8 +119,8 @@ export async function GET(request: NextRequest) {
 
 <h2>📈 學習概覽 Overview</h2>
 <div class="kpi-grid">
-  <div class="kpi"><div class="kpi-value">${accuracy}%</div><div class="kpi-label">整體正確率 Overall</div></div>
-  <div class="kpi"><div class="kpi-value">${weekAccuracy}%</div><div class="kpi-label">本週正確率（已驗證） This Week (verified)</div></div>
+  <div class="kpi"><div class="kpi-value">${accuracyLabel}${accuracy != null ? '%' : ''}</div><div class="kpi-label">整體正確率 Overall</div></div>
+  <div class="kpi"><div class="kpi-value">${weekAccuracyLabel}${weekAccuracy != null ? '%' : ''}</div><div class="kpi-label">本週正確率（已驗證） This Week (verified)</div></div>
   <div class="kpi"><div class="kpi-value">${totalSessions}</div><div class="kpi-label">練習次數 Sessions</div></div>
   <div class="kpi"><div class="kpi-value">${vocab}</div><div class="kpi-label">已學生字 Vocabulary</div></div>
 </div>
@@ -124,7 +128,7 @@ export async function GET(request: NextRequest) {
 <h2>🎯 技能表現 Skills</h2>
 <div class="section">
   <p style="font-size:12px;color:#6b7280;margin-bottom:4px;">整體正確率 Overall Accuracy</p>
-  <div class="bar"><div class="bar-fill" style="width:${accuracy}%"></div></div>
+  <div class="bar"><div class="bar-fill" style="width:${accuracy ?? 0}%"></div></div>
 </div>
 
 <h2>📝 錯題分佈 Mistake Types</h2>
@@ -142,14 +146,18 @@ export async function GET(request: NextRequest) {
 <div class="advice">
   <h3>💡 給家長的建議 Tips for Parents</h3>
   <p>
-    ${accuracy >= 80
-      ? '同學表現優異！建議繼續保持規律練習，可鼓勵嘗試挑戰難度（Challenge）的題目以進一步提升。'
-      : accuracy >= 60
-        ? '同學表現良好。建議針對錯題較多的範疇（如文法或詞彙）加強練習，並善用平台的「錯題重溫」功能。'
-        : '同學需要更多練習。建議每天使用平台 15-20 分鐘，從補底（Remedial）難度開始，逐步建立信心和基礎能力。'}
+    ${accuracy == null
+      ? '目前尚未有可驗證的練習紀錄，暫未能評估表現。建議先完成一次「診斷測驗」或任何文法／閱讀練習，系統便會自動產生個人化建議。'
+      : accuracy >= 80
+        ? '同學表現優異！建議繼續保持規律練習，可鼓勵嘗試挑戰難度（Challenge）的題目以進一步提升。'
+        : accuracy >= 60
+          ? '同學表現良好。建議針對錯題較多的範疇（如文法或詞彙）加強練習，並善用平台的「錯題重溫」功能。'
+          : '同學需要更多練習。建議每天使用平台 15-20 分鐘，從補底（Remedial）難度開始，逐步建立信心和基礎能力。'}
   </p>
   <p style="margin-top:8px;">
-    建議每週練習 ${accuracy >= 70 ? '3-4' : '5-6'} 次，每次完成 ${accuracy >= 70 ? '10-15' : '5-8'} 題。
+    ${accuracy == null
+      ? '建議先每週使用平台 3-4 次，每次完成 5-8 題，建立穩定習慣。'
+      : `建議每週練習 ${accuracy >= 70 ? '3-4' : '5-6'} 次，每次完成 ${accuracy >= 70 ? '10-15' : '5-8'} 題。`}
     ${mistakes.length > 10 ? '請特別留意錯題中常見的文法或詞彙錯誤，這是進步的關鍵。' : ''}
   </p>
 </div>

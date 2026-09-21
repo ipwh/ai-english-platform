@@ -49,10 +49,20 @@ All notable changes to the AI English Platform are documented here.
 
 ### 七、驗證
 
-- `npm test`：**3131 passed / 1 skipped**（160 files passed / 1 skipped）；`npx tsc --noEmit`、`node scripts/check-i18n.js`、`npx prisma validate` 全部通過；`npx eslint` 於變更檔案 0 error。
-- 新增測試 39 個（提交權威解析、批次累積投影、活動狀態與門檻、批次連續天數、寬鬆／嚴格答案比對、閱讀覆核覆蓋）。
+- `npm test`：**3136 passed / 1 skipped**（161 files passed / 1 skipped）；`npx tsc --noEmit`、`node scripts/check-i18n.js`、`npx prisma validate` 全部通過；`npx eslint` 於變更檔案 0 error。
+- 新增測試 44 個（提交權威解析、批次累積投影、活動狀態與門檻、批次連續天數、寬鬆／嚴格答案比對、閱讀覆核覆蓋、admin 統計空值語意）。
 - 部署順序：先 `npx prisma migrate deploy`（含 `20260923_user_overall_accuracy_drop_default`），再執行 `npm run db:backfill:accuracy:apply`，最後部署應用（Cloud Run 不會自動套用 migration）。
 - 決策記錄：`docs/architecture/ADR-044-measurable-practice-and-teacher-signals.md`。
+
+### 八、部署後複核（同日追加）
+
+migration 與回填已在生產執行（回填回報「0 → null = 0 筆」，代表舊 0 早已校正），隨後以唯讀腳本獨立核對資料庫，並在核對期間發現**同類缺陷仍有 7 處**（皆已修正）：
+
+- 唯讀核對結果：`User.overallAccuracy` 欄位 `column_default = null`、`is_nullable = YES`（migration 確實生效）；852 名學生中 **null = 832、0 = 0、>0 = 20**；冇任何「有已評分作業證據卻為 null」或「有分數但零可驗證證據」的學生。44 名有練習場次的學生中，20 名有伺服器答案列（有真實準確率），其餘 24 名只有不可驗證的舊列 → 依證據契約正確地為 null。
+- `/api/admin/stats`：`byLevel[].avgAccuracy` / `byClass[].avgAccuracy` 由 `? Math.round(...) : 0` 改為 `!= null ? ... : null`；`monthlyTrend[].accuracy` 在該月無已驗證題數時亦回 null。admin 報表改為顯示「—」（不再把「未有數據」畫成紅色 0%），tooltip 不再顯示 `null%`。
+- `/api/parent-report`：整體／本週準確率改為 null 安全（家長報告顯示「—」），並在無資料時改為「尚未有可驗證紀錄，建議先完成診斷」的建議，而非「需要更多練習、每週 5-6 次」這種基於假前提的建議。
+- 反向修正（真 0% 被誤當無資料）：教師個別學生頁的準確率徽章與 CSV 匯出、`/api/admin/export-sheets` 的 `overallAccuracy` 欄位，原本用 truthiness（`value ? ... : '—'`）令**真實 0% 顯示成「—」/「-」/ 空**；現改為 `!= null`。
+- 回歸測試：新增 `admin-stats-accuracy-null.test.ts`（5 個用例：無證據 ⇒ null、真實 0% ⇒ 0、四捨五入、班級同樣語意、分佈查詢排除 null）。
 
 ---
 
