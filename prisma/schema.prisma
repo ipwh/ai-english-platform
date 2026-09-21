@@ -273,6 +273,7 @@ model SubmissionAttempt {
   submissionId  String
   submission    Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   attemptNumber Int       @default(1)
+  clientSubmissionId String?
   score         Float?
   aiFeedback    String?
   submittedAt   DateTime?
@@ -281,6 +282,7 @@ model SubmissionAttempt {
   answers       SubmissionAnswer[]
 
   @@unique([submissionId, attemptNumber])
+  @@unique([submissionId, clientSubmissionId])
   @@index([submissionId])
 }
 
@@ -464,6 +466,7 @@ model PracticeSession {
   source         String    // ai-generated | mock | assignment
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
+  masteryAppliedAt DateTime?
   // R3.10-E.2 P0-3: 客戶端重播/去重鍵 — 僅作 idempotency，絕非權威信號。
   // null = 歷史/未帶鍵的請求（維持現有行為，不強制回溯）。
   clientSubmissionId String?
@@ -696,6 +699,7 @@ model XpTransaction {
   userId    String
   event     String   // dailyLogin | answerCorrect | completeSession | submitWriting | learnWord | masterWord | reviewMistake | streakBonus | achievementBonus
   xpAmount  Int
+  idempotencyKey String? @unique
   metadata  String?  // JSON: { sessionId, questionIndex, wordId, badgeId, ... }
   createdAt DateTime @default(now())
 

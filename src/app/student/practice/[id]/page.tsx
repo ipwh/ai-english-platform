@@ -101,6 +101,7 @@ export default function PracticeQuestionPage() {
   const hasSavedRef = useRef(false); // 防止重複 savePractice（完成時設為 true）
   const [sessionComplete, setSessionComplete] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [pendingCompletionXp, setPendingCompletionXp] = useState<{ sessionId: string; difficulty?: string } | null>(null);
   // 保存 session 快照，因為 completeSession() 會清空 currentSession
   const [completedSession, setCompletedSession] = useState<typeof store.currentSession>(null);
 
@@ -138,17 +139,18 @@ export default function PracticeQuestionPage() {
   }, []);
 
   /** 發放 XP 並顯示 toast */
-  const awardXp = useCallback(async (type: string, difficulty?: string) => {
-    if (!store.userId) return;
+  const awardXp = useCallback(async (type: string, difficulty?: string, metadata?: Record<string, unknown>): Promise<boolean> => {
+    if (!store.userId) return false;
     try {
       const res = await fetch('/api/gamification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: store.userId,
-          event: { type, difficulty },
+          event: { type, difficulty, metadata },
         }),
       });
+      if (!res.ok) throw new Error(`XP request failed: ${res.status}`);
       const data = await res.json();
       if (data.xpGained > 0) {
         const badgeMsg = data.newBadges?.length
@@ -157,8 +159,21 @@ export default function PracticeQuestionPage() {
         setXpToast({ xp: data.xpGained, level: data.level, title: data.levelTitle + badgeMsg });
         setTimeout(() => setXpToast(null), 4000);
       }
-    } catch { /* silent */ }
+      return true;
+    } catch (error) {
+      logger.error({ module: 'student-practice-detail', error: error instanceof Error ? error.message : String(error) }, 'XP award failed');
+      return false;
+    }
   }, [store.userId]);
+
+  const retryCompletionXp = useCallback(async () => {
+    if (!pendingCompletionXp) return;
+    const awarded = await awardXp('completeSession', pendingCompletionXp.difficulty, {
+      idempotencyKey: `practice-complete:${pendingCompletionXp.sessionId}`,
+      sessionId: pendingCompletionXp.sessionId,
+    });
+    if (awarded) setPendingCompletionXp(null);
+  }, [awardXp, pendingCompletionXp]);
 
   // 合併 mock 題目 + AI session 題目
   const allQuestions: PracticeQuestion[] = useMemo(() => {
@@ -203,6 +218,14 @@ export default function PracticeQuestionPage() {
         {saveError && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded-xl p-4 text-sm">
             ⚠️ {saveError}
+          </div>
+        )}
+        {pendingCompletionXp && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded-xl p-4 text-sm flex items-center justify-between gap-3">
+            <span>{store.language === 'en' ? 'Your completion XP has not been recorded.' : '完成練習的 XP 尚未記錄。'}</span>
+            <button onClick={retryCompletionXp} className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-white">
+              {store.language === 'en' ? 'Retry XP' : '重試 XP'}
+            </button>
           </div>
         )}
         <SessionCompleteSummary
@@ -407,18 +430,18 @@ export default function PracticeQuestionPage() {
           answers: answerRecords,
         });
         if (!saved) {
-          // R3.10-E.2 P1: 已知儲存失敗 — 絕不顯示「已儲存」成功狀態。
           setSaveError(store.language === 'en'
-            ? 'Failed to save this practice session. Your progress may not be recorded.'
-            : '未能儲存本次練習記錄，進度可能未被保存。');
+            ? 'Failed to save this practice session. Please try completing it again to save your progress.'
+            : '未能儲存本次練習記錄，請再次按完成練習以保存進度。');
+          hasSavedRef.current = false;
+          return;
         }
         store.completeSession();
-        awardXp('completeSession', difficulty);
-      } else if (store.currentSession) {
-        setCompletedSession({ ...store.currentSession });
-        const sessionDiff = store.currentSession.difficulty;
-        store.completeSession();
-        awardXp('completeSession', sessionDiff);
+        const awarded = await awardXp('completeSession', difficulty, {
+          idempotencyKey: `practice-complete:${session.id}`,
+          sessionId: session.id,
+        });
+        if (!awarded) setPendingCompletionXp({ sessionId: session.id, difficulty });
       }
       setSessionComplete(true);
       return;
@@ -852,6 +875,9 @@ export default function PracticeQuestionPage() {
       )}
 
       {/* ====== 底部操作列 ====== */}
+      {saveError && (
+        <p className="text-sm text-red-600 dark:text-red-400 text-right">{saveError}</p>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {!submitted && (

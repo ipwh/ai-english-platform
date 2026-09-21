@@ -1,7 +1,7 @@
 // Sprint 38: GET /api/teacher/copilot/assignments
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { teacherCopilotService } from '@/modules/teacher/copilot/services/teacher-copilot-service';
+import { teacherCopilotService, verifyTeacherOwnsClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 import { logger } from '@/shared/logger/logger';
 
 export async function GET(request: NextRequest) {
@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId') || 'default';
+    if (authResult.role !== 'admin' && classId !== 'default' && !await verifyTeacherOwnsClass(authResult.userId!, classId)) {
+      return NextResponse.json({ error: 'You do not have access to this class' }, { status: 403 });
+    }
     const assignments = await teacherCopilotService.generateAssignments(classId);
     return NextResponse.json({ assignments });
   } catch (err) {

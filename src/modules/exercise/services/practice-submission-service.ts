@@ -38,7 +38,7 @@ import {
   type ReadingSessionAggregates,
 } from '@/modules/reading/services/reading-answer-scoring';
 import {
-  recordActivityMastery,
+  recordPracticeSessionMasteryOnce,
   syncStudentActivityMetrics,
 } from '@/modules/learning-analytics/services/activity-accounting-service';
 import { createMistakeIfAbsent } from '@/modules/mistake/db/repositories/mistake-repo';
@@ -169,13 +169,23 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
 
   // Replay: original persisted result returned; side effects NOT duplicated.
   if (!persisted.created) {
+    // A previous response may have failed after the atomic submission committed
+    // but before its derived metrics were refreshed. Replaying the same key is
+    // therefore also the recovery path for accuracy and weekly projections.
+    await syncStudentActivityMetrics(studentId);
+    const masteryUpdated = shouldUpdateMastery(submissionClass, aggregates.totalQuestions)
+      ? await recordPracticeSessionMasteryOnce({
+          sessionId: persisted.id, studentId, skill: persisted.skill, subSkill: persisted.skillZh || persisted.skill || 'general',
+          totalQuestions: persisted.totalQuestions, correctCount: persisted.correctCount,
+        })
+      : false;
     return {
       ok: true,
       session: persisted,
       submissionClass,
-      totalQuestions: aggregates.totalQuestions,
-      correctCount: aggregates.correctCount,
-      masteryUpdated: false,
+      totalQuestions: persisted.totalQuestions,
+      correctCount: persisted.correctCount,
+      masteryUpdated,
     };
   }
 
@@ -243,22 +253,25 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   //    server-authoritative paths with non-zero server-derived totals.
   const masteryUpdated = shouldUpdateMastery(submissionClass, aggregates.totalQuestions);
   try {
-    await Promise.all([
-      syncStudentActivityMetrics(studentId).catch(err => {
-        logger.error({ module: 'practice', studentId, error: err instanceof Error ? err.message : String(err) }, 'Practice analytics sync failed');
-      }),
-      masteryUpdated
-        ? recordActivityMastery({
-            studentId,
-            skill,
-            subSkill: skillZh || skill || 'general',
-            totalQuestions: aggregates.totalQuestions,
-            correctCount: aggregates.correctCount,
-          })
-        : Promise.resolve(),
-    ]);
+    await syncStudentActivityMetrics(studentId);
   } catch (error) {
-    logger.error({ module: 'practice', studentId, error: error instanceof Error ? error.message : String(error) }, 'Practice analytics sync failed');
+    // Do not acknowledge a derived-state failure as a completed submission.
+    // The atomic execution remains durable and the client may safely replay its
+    // clientSubmissionId, which refreshes metrics in the branch above.
+    logger.error({ module: 'practice', studentId, error: error instanceof Error ? error.message : String(error) }, 'Practice analytics sync failed; replay required');
+    throw new Error('練習已儲存，但進度統計暫未更新。請重試以完成同步 / Practice was saved but progress metrics were not updated. Please retry to finish syncing.');
+  }
+
+  if (masteryUpdated) {
+    try {
+      await recordPracticeSessionMasteryOnce({
+        sessionId: persisted.id, studentId, skill, subSkill: skillZh || skill || 'general',
+        totalQuestions: aggregates.totalQuestions, correctCount: aggregates.correctCount,
+      });
+    } catch (error) {
+      logger.error({ module: 'practice', studentId, error: error instanceof Error ? error.message : String(error) }, 'Practice mastery update failed');
+      throw new Error('練習已儲存，但掌握度暫未更新。請重試以完成同步 / Practice was saved but mastery was not updated. Please retry to finish syncing.');
+    }
   }
 
   return {

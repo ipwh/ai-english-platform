@@ -63,6 +63,14 @@ export async function countSubmissionAttemptsTx(tx: Prisma.TransactionClient, su
   return tx.submissionAttempt.count({ where: { submissionId } });
 }
 
+export async function findSubmissionAttemptByClientIdTx(
+  tx: Prisma.TransactionClient,
+  submissionId: string,
+  clientSubmissionId: string,
+) {
+  return tx.submissionAttempt.findFirst({ where: { submissionId, clientSubmissionId } });
+}
+
 export async function createSubmissionAttemptTx(
   tx: Prisma.TransactionClient,
   data: Prisma.SubmissionAttemptUncheckedCreateInput,

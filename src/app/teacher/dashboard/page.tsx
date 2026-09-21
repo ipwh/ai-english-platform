@@ -22,6 +22,11 @@ interface StudentBrief {
   _count?: { sessions?: number; writingDrafts?: number };
 }
 
+interface AssignmentBrief {
+  classId?: string | null;
+  completionRate?: number | null;
+}
+
 /** Days since last activity; null = unknown (never active / no data). */
 function daysSince(iso: string | null | undefined): number | null {
   if (!iso) return null;
@@ -37,6 +42,7 @@ export default function TeacherDashboardPage() {
 
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [students, setStudents] = useState<StudentBrief[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -44,23 +50,13 @@ export default function TeacherDashboardPage() {
     Promise.all([
       fetch('/api/classes').then(r => r.json()),
       fetch('/api/teacher/students').then(r => r.json().catch(() => ({ students: [] as StudentBrief[] }))),
+      fetch('/api/assignments').then(r => r.json().catch(() => ({ assignments: [] as AssignmentBrief[] }))),
     ])
-      .then(([classData, studentData]) => {
+      .then(([classData, studentData, assignmentData]) => {
         const classList: ClassInfo[] = classData.classes || [];
         setStudents(studentData.students || []);
-        // Enrich classes with accuracy data from students
-        const classStudents: StudentBrief[] = studentData.students || [];
-        const enriched: ClassInfo[] = classList.map((c) => {
-          const accuracies = classStudents
-            .filter((s) => s.class?.name === c.name)
-            .map((s) => s.overallAccuracy)
-            .filter((a): a is number => a != null);
-          const avgAcc = accuracies.length > 0
-            ? Math.round(accuracies.reduce((sum, a) => sum + a, 0) / accuracies.length)
-            : 0;
-          return { ...c, avgAccuracy: avgAcc };
-        });
-        setClasses(enriched);
+        setAssignments(assignmentData.assignments || []);
+        setClasses(classList);
       })
       .catch(() => {
         setClasses([]);
@@ -71,13 +67,14 @@ export default function TeacherDashboardPage() {
 
   // Build KPI cards from real class data
   const totalStudents = classes.reduce((sum, c) => sum + (c.studentCount || 0), 0);
-  const overallAvgAccuracy = classes.length > 0
-    ? Math.round(classes.reduce((sum, c) => sum + (c.avgAccuracy || 0), 0) / classes.length)
-    : 0;
-  // 計算真實的平均完成率（從班級數據中獲取）
-  const avgCompletionRate = classes.length > 0
-    ? Math.round(classes.reduce((sum, c) => sum + ((c as { completionRate?: number }).completionRate || 0), 0) / classes.length)
-    : 0;
+  const scoredStudents = students.filter((student): student is StudentBrief & { overallAccuracy: number } => student.overallAccuracy != null);
+  const overallAvgAccuracy = scoredStudents.length > 0
+    ? Math.round(scoredStudents.reduce((sum, student) => sum + student.overallAccuracy, 0) / scoredStudents.length)
+    : null;
+  const assignmentsWithRate = assignments.filter((assignment): assignment is AssignmentBrief & { completionRate: number } => assignment.completionRate != null);
+  const avgCompletionRate = assignmentsWithRate.length > 0
+    ? Math.round(assignmentsWithRate.reduce((sum, assignment) => sum + assignment.completionRate, 0) / assignmentsWithRate.length)
+    : null;
 
   // Sprint 133: behavior-based monitoring — disengagement first
   const inactiveStudents = students.filter(s => {
@@ -88,25 +85,37 @@ export default function TeacherDashboardPage() {
   const lowAccuracyStudents = students.filter(s =>
     (s.overallAccuracy ?? 100) < 50 && (s._count?.sessions ?? 0) >= 1
   );
-  const atRiskList: Array<StudentBrief & { kind: 'inactive' | 'low' }> = [
-    ...inactiveStudents.map(s => ({ ...s, kind: 'inactive' as const })),
-    ...lowAccuracyStudents.map(s => ({ ...s, kind: 'low' as const })),
-  ];
+  const atRiskByStudentId = new Map<string, StudentBrief & { kind: 'inactive' | 'low' }>();
+  for (const student of lowAccuracyStudents) atRiskByStudentId.set(student.id, { ...student, kind: 'low' });
+  for (const student of inactiveStudents) atRiskByStudentId.set(student.id, { ...student, kind: 'inactive' });
+  const atRiskList = Array.from(atRiskByStudentId.values());
 
   const kpis = [
     { label: t('teacher.classCount'), value: classes.length, unit: t('generic.classes'), trend: 'stable' as const },
-    { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy || '—', unit: '%', trend: 'stable' as const },
+    { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy ?? '—', unit: overallAvgAccuracy === null ? '' : '%', trend: 'stable' as const },
     { label: t('teacher.studentCount'), value: totalStudents, unit: t('generic.people'), trend: 'stable' as const },
-    { label: t('teacher.completionRate'), value: `${avgCompletionRate || 0}`, unit: '%', trend: 'stable' as const },
+    { label: t('teacher.completionRate'), value: avgCompletionRate ?? '—', unit: avgCompletionRate === null ? '' : '%', trend: 'stable' as const },
     { label: t('teacher.dashboard.inactiveStudents'), value: inactiveStudents.length, unit: t('generic.people'), trend: 'stable' as const },
   ];
 
   // Class chart data from real classes with accuracy
-  const classChartData = classes.slice(0, 8).map((c) => ({
-    name: c.name,
-    [t('teacher.avgAccuracy')]: c.avgAccuracy || 0,
-    [t('teacher.studentCount')]: c.studentCount || 0,
-  }));
+  const classChartData = classes.slice(0, 8).map((c) => {
+    const classStudents = students.filter(student => student.class?.name === c.name);
+    const classScored = classStudents.filter((student): student is StudentBrief & { overallAccuracy: number } => student.overallAccuracy != null);
+    const classAssignments = assignments.filter((assignment): assignment is AssignmentBrief & { completionRate: number } =>
+      assignment.classId === c.id && assignment.completionRate != null,
+    );
+    return {
+      name: c.name,
+      [t('teacher.avgAccuracy')]: classScored.length > 0
+        ? Math.round(classScored.reduce((sum, student) => sum + student.overallAccuracy, 0) / classScored.length)
+        : null,
+      [t('teacher.completionRate')]: classAssignments.length > 0
+        ? Math.round(classAssignments.reduce((sum, assignment) => sum + assignment.completionRate, 0) / classAssignments.length)
+        : null,
+      [t('teacher.studentCount')]: c.studentCount || 0,
+    };
+  });
 
   // AI advice
   const [aiLoading, setAiLoading] = useState(false);
@@ -119,9 +128,9 @@ export default function TeacherDashboardPage() {
       const res = await fetch('/api/ai/analyze-progress', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy || 0,
-          weakSkills: classes.slice(0, 3).map((c) => ({ name: c.name, nameZh: c.name, accuracy: c.avgAccuracy || 0 })),
-          recentPerformance: classes.slice(0, 5).map((c) => ({ date: c.name, accuracy: c.avgAccuracy || 0, questionsDone: c.studentCount || 0 })), streakDays: 0,
+          studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy ?? 0,
+          weakSkills: classChartData.filter(c => typeof c[t('teacher.avgAccuracy')] === 'number').slice(0, 3).map((c) => ({ name: c.name, nameZh: c.name, accuracy: c[t('teacher.avgAccuracy')] as number })),
+          recentPerformance: classChartData.filter(c => typeof c[t('teacher.avgAccuracy')] === 'number').slice(0, 5).map((c) => ({ date: c.name, accuracy: c[t('teacher.avgAccuracy')] as number, questionsDone: c[t('teacher.studentCount')] as number })), streakDays: 0,
         }),
       });
       const json = await res.json();

@@ -18,11 +18,23 @@ interface RealStudent {
   level: string;
   overallAccuracy: number | null;
   class?: { name: string; gradeLevel: string } | null;
+  studentClasses?: Array<{ class: { name: string; gradeLevel: string } }>;
   classNumber?: string;
   lastActiveAt?: string | null;
   dominantDifficulty?: string | null;
   shortWritingCount?: number;
   _count?: { sessions: number; mistakes: number; writingDrafts: number };
+}
+
+function studentClassNames(student: RealStudent): string[] {
+  return [...new Set([
+    student.class?.name,
+    ...(student.studentClasses || []).map(({ class: studentClass }) => studentClass.name),
+  ].filter((name): name is string => Boolean(name)))].sort();
+}
+
+function studentClassLabel(student: RealStudent): string {
+  return studentClassNames(student).join(', ');
 }
 
 /** Days since last activity; null = unknown (never active / no data). */
@@ -73,12 +85,9 @@ export default function TeacherStudentsPage() {
   };
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/teacher/students').then(r => r.json()),
-      fetch('/api/classes').then(r => r.json()),
-    ]).then(([studentData, classData]) => {
+    fetch('/api/teacher/students').then(r => r.json()).then(studentData => {
       setStudents(studentData.students || []);
-      setClasses((classData.classes || []).map((c: Record<string, unknown>) => c.name));
+      setClasses((studentData.classes || []).map((c: Record<string, unknown>) => String(c.name)));
       setLoading(false);
     }).catch((e) => {
       logger.error({ module: 'teacher-students', error: e instanceof Error ? e.message : String(e) }, 'Failed to load students');
@@ -90,7 +99,7 @@ export default function TeacherStudentsPage() {
   const filtered = useMemo(() => {
     return students.filter(s => {
       if (search && !(s.nameZh || '').includes(search) && !(s.nameEn || '').toLowerCase().includes(search.toLowerCase()) && !s.email.includes(search.toLowerCase())) return false;
-      if (classFilter !== 'all' && s.class?.name !== classFilter) return false;
+      if (classFilter !== 'all' && !studentClassNames(s).includes(classFilter)) return false;
       if (levelFilter !== 'all' && s.level !== levelFilter) return false;
       return true;
     });
@@ -176,7 +185,7 @@ export default function TeacherStudentsPage() {
             <tbody>
               {filtered
                 .sort((a, b) => {
-                  const classCmp = (a.class?.name || '').localeCompare(b.class?.name || '');
+                  const classCmp = studentClassLabel(a).localeCompare(studentClassLabel(b));
                   if (classCmp !== 0) return classCmp;
                   const na = parseInt(a.classNumber || '999', 10);
                   const nb = parseInt(b.classNumber || '999', 10);
@@ -199,7 +208,7 @@ export default function TeacherStudentsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{s.class?.name || '-'}</td>
+                  <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{studentClassLabel(s) || '-'}</td>
                   <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{s.level || '-'}</td>
                   <td className="text-center py-3 px-4">
                     {s.overallAccuracy != null ? (
@@ -323,12 +332,12 @@ function GroupStudentSelector({
   const [modalSearch, setModalSearch] = useState('');
   const [modalClassFilter, setModalClassFilter] = useState('');
 
-  const classList = [...new Set(students.map(s => s.class?.name).filter(Boolean) as string[])].sort();
+  const classList = [...new Set(students.flatMap(studentClassNames))].sort();
 
   const modalFiltered = students.filter(s => {
     const searchLower = modalSearch.toLowerCase();
     if (modalSearch && !(s.nameZh || '').includes(searchLower) && !(s.nameEn || '').toLowerCase().includes(searchLower) && !s.email.toLowerCase().includes(searchLower)) return false;
-    if (modalClassFilter && s.class?.name !== modalClassFilter) return false;
+    if (modalClassFilter && !studentClassNames(s).includes(modalClassFilter)) return false;
     return true;
   });
 
@@ -401,7 +410,7 @@ function GroupStudentSelector({
               />
               <span className="flex-1 min-w-0 truncate">{displayName(s)}</span>
               {displayNameSub(s) && <span className="text-xs text-gray-400 hidden sm:inline">{displayNameSub(s)}</span>}
-              <span className="text-xs text-gray-400 flex-shrink-0">{s.class?.name || ''}</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">{studentClassLabel(s)}</span>
             </label>
           ))
         )}

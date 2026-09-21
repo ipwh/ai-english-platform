@@ -38,8 +38,12 @@ export async function listClasses(teacherId?: string) {
   });
 }
 
-export async function listAllClasses() {
-  return db.class.findMany({ select: { id: true, name: true, gradeLevel: true }, orderBy: { name: 'asc' } });
+export async function listAllClasses(academicYear?: string) {
+  return db.class.findMany({
+    where: academicYear ? { academicYear } : undefined,
+    select: { id: true, name: true, gradeLevel: true },
+    orderBy: { name: 'asc' },
+  });
 }
 
 export async function createClass(data: { name: string; gradeLevel: string; academicYear?: string }) {
@@ -67,8 +71,17 @@ export async function findGroupById(id: string) {
   return db.group.findUnique({ where: { id }, select: { createdBy: true } });
 }
 
-export async function createGroup(data: { name: string; description?: string; createdBy: string }) {
-  return db.group.create({ data: { name: data.name, description: data.description || '', createdBy: data.createdBy } });
+export async function createGroup(data: { name: string; description?: string; createdBy: string; studentIds?: string[] }) {
+  return db.group.create({
+    data: {
+      name: data.name,
+      description: data.description || '',
+      createdBy: data.createdBy,
+      members: data.studentIds?.length
+        ? { create: data.studentIds.map(studentId => ({ studentId })) }
+        : undefined,
+    },
+  });
 }
 
 export async function updateGroup(id: string, data: Record<string, unknown>) {

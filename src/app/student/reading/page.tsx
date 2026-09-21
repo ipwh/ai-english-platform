@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, type ReactNode } fro
 import { BookOpen, Sparkles, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, Target, Lightbulb } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
+import { persistWithRetry } from '@/shared/utils/persistence-helper';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { layoutReadingText } from '@/modules/reading/layout';
 import VocabEnabledText from '@/modules/vocabulary/components/VocabEnabledText';
@@ -298,6 +299,10 @@ export default function ReadingPracticePage() {
   const [showPassage, setShowPassage] = useState(true);
   const [showQuestionZh, setShowQuestionZh] = useState(false);
   const savedRef = useRef(false);
+  const readingSubmissionIdRef = useRef('');
+  const pendingPracticePayloadRef = useRef<Record<string, unknown> | null>(null);
+  const [saveError, setSaveError] = useState('');
+  const [savingPractice, setSavingPractice] = useState(false);
   /**
    * Layout params captured ONCE per generated passage, measured via callback
    * ref when the passage card mounts (before paint). The passage is re-chunked
@@ -319,6 +324,26 @@ export default function ReadingPracticePage() {
       width >= 1280 ? 'desktop' : width >= 768 ? 'tablet' : 'mobile';
     setLayoutParams({ viewportMode: mode, paneWidth: el.getBoundingClientRect().width });
   }, []);
+
+  const saveReadingPractice = useCallback(async (payload: Record<string, unknown>): Promise<boolean> => {
+    setSavingPractice(true);
+    const outcome = await persistWithRetry(() =>
+      fetch('/api/practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+    );
+    setSavingPractice(false);
+    if (!outcome.ok) {
+      setSaveError(language === 'en'
+        ? 'Your reading result has not been saved. Please retry saving it.'
+        : '閱讀結果尚未儲存，請重試儲存。');
+      return false;
+    }
+    setSaveError('');
+    return true;
+  }, [language]);
 
   /** Phase 4D.3: Granular chars-per-line tiers for student split-view.
    *  mobile≈44, tablet≈64, narrow desktop≈68, medium desktop≈72, wide desktop≈76. */
@@ -455,6 +480,7 @@ export default function ReadingPracticePage() {
       correctCount: Object.values(answers).filter(a => a.isCorrect).length,
       totalScore: Object.values(answers).reduce((s, a) => s + (a.score ?? (a.isCorrect ? 1 : 0)), 0),
       source: 'dse-reading',
+      clientSubmissionId: readingSubmissionIdRef.current,
       answers: data.questions.map((q, i) => ({
         questionId: q.id,
         questionIndex: i,
@@ -475,13 +501,20 @@ export default function ReadingPracticePage() {
         countsTowardScore: true,
       })),
     };
+    pendingPracticePayloadRef.current = practicePayload;
+    void saveReadingPractice(practicePayload).then(saved => {
+      if (!saved) savedRef.current = false;
+    });
+  }, [answers, data, difficulty, saveReadingPractice]);
 
-    fetch('/api/practice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(practicePayload),
-    }).catch(() => { /* silent — practice save is non-critical */ });
-  }, [answers, data, difficulty]);
+  const retryPracticeSave = useCallback(() => {
+    const payload = pendingPracticePayloadRef.current;
+    if (!payload || savingPractice) return;
+    savedRef.current = true;
+    void saveReadingPractice(payload).then(saved => {
+      if (!saved) savedRef.current = false;
+    });
+  }, [saveReadingPractice, savingPractice]);
 
   async function generate() {
     setLoading(true); setError('');
@@ -498,6 +531,9 @@ export default function ReadingPracticePage() {
         setAnswers({});
         setEvaluatingAI(new Set());
         setError('');
+        setSaveError('');
+        pendingPracticePayloadRef.current = null;
+        readingSubmissionIdRef.current = `reading-${crypto.randomUUID()}`;
       } else {
         const mapped = mapReadingApiError(res.status, json, language === 'en' ? 'en' : 'zh');
         const retryHint = mapped.recoverable
@@ -1350,6 +1386,20 @@ export default function ReadingPracticePage() {
               <p className="text-indigo-100 text-sm">
                 {language === 'en' ? 'Reading Score' : '閱讀成績'} — {Math.round((totalScore / totalMaxScore) * 100)}%
               </p>
+              {saveError && (
+                <div className="mt-3 rounded-lg bg-white/15 p-3 text-sm text-left">
+                  <p>{saveError}</p>
+                  <button
+                    onClick={retryPracticeSave}
+                    disabled={savingPractice}
+                    className="mt-2 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 disabled:opacity-60"
+                  >
+                    {savingPractice
+                      ? (language === 'en' ? 'Saving...' : '儲存中...')
+                      : (language === 'en' ? 'Retry Save' : '重試儲存')}
+                  </button>
+                </div>
+              )}
               <button onClick={() => { setData(null); setAnswers({}); setEvaluatingAI(new Set()); savedRef.current = false; }}
                 className="mt-3 px-4 py-2 bg-white text-indigo-600 rounded-lg text-sm font-medium">
                 {language === 'en' ? 'New Reading' : '新閱讀練習'}

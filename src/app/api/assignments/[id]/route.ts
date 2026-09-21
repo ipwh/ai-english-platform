@@ -14,6 +14,62 @@ import { notifySubmissionReceived } from '@/shared/utils/notifications';
 import { recordActivityMastery, syncStudentActivityMetrics } from '@/modules/learning-analytics/services/activity-accounting-service';
 import { logger } from '@/shared/logger/logger';
 
+type AssignmentTargeting = {
+  id: string;
+  targetType: string | null;
+  classId: string | null;
+  className: string | null;
+};
+
+async function resolveAssignmentClassId(assignment: Pick<AssignmentTargeting, 'classId' | 'className'>): Promise<string | null> {
+  if (assignment.classId) return assignment.classId;
+  if (!assignment.className) return null;
+  const classRecord = await adminDbQuery('class', 'findFirst', {
+    where: { name: assignment.className },
+    select: { id: true },
+  }) as { id: string } | null;
+  return classRecord?.id ?? null;
+}
+
+/** Resolve the unique student population that can access an assignment. */
+export async function resolveAssignmentTargetStudentIds(assignment: AssignmentTargeting): Promise<Set<string>> {
+  if (assignment.targetType === 'students') {
+    const rows = await adminDbQuery('assignmentStudent', 'findMany', {
+      where: { assignmentId: assignment.id },
+      select: { studentId: true },
+    }) as Array<{ studentId: string }>;
+    return new Set(rows.map(row => row.studentId));
+  }
+
+  if (assignment.targetType === 'group') {
+    const groups = await adminDbQuery('assignmentGroup', 'findMany', {
+      where: { assignmentId: assignment.id },
+      select: { groupId: true },
+    }) as Array<{ groupId: string }>;
+    if (groups.length === 0) return new Set();
+    const members = await adminDbQuery('groupMember', 'findMany', {
+      where: { groupId: { in: groups.map(group => group.groupId) } },
+      select: { studentId: true },
+    }) as Array<{ studentId: string }>;
+    return new Set(members.map(member => member.studentId));
+  }
+
+  const classId = await resolveAssignmentClassId(assignment);
+  if (!classId) return new Set();
+
+  const students = await adminDbQuery('user', 'findMany', {
+    where: {
+      role: 'student',
+      OR: [
+        { classId },
+        { studentClasses: { some: { classId } } },
+      ],
+    },
+    select: { id: true },
+  }) as Array<{ id: string }>;
+  return new Set(students.map(student => student.id));
+}
+
 // GET /api/assignments/[id]
 // ?teacher=true → 教師視圖（含正確答案 + 所有學生提交）— 需教師/管理員身分
 export async function GET(
@@ -97,12 +153,9 @@ export async function GET(
           where: { assignmentId: id, group: { members: { some: { studentId: studentUserId } } } },
         });
         isTargeted = !!target;
-      } else if (assignment.classId) {
-        isTargeted = memberClassIds.includes(assignment.classId);
-      } else if (assignment.className) {
-        isTargeted = !!member?.class?.name && member.class.name === assignment.className;
       } else {
-        isTargeted = false;
+        const classId = await resolveAssignmentClassId(assignment);
+        isTargeted = classId !== null && memberClassIds.includes(classId);
       }
       if (!isTargeted) {
         return NextResponse.json({ error: '此作業未指派給你 / This assignment is not assigned to you' }, { status: 403 });
@@ -253,7 +306,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { answers } = body; // { questionId: studentAnswer }
+    const { answers, clientSubmissionId } = body; // { questionId: studentAnswer }
 
     if (!answers || typeof answers !== 'object') {
       return NextResponse.json({ error: '請提供答案 / Please provide answers' }, { status: 400 });
@@ -289,14 +342,9 @@ export async function POST(
         where: { assignmentId: id, group: { members: { some: { studentId: payload.userId } } } },
       });
       isTargeted = !!target;
-    } else if (assignment.classId) {
-      isTargeted = memberClassIds.includes(assignment.classId);
-    } else if (assignment.className) {
-      // 舊資料：僅有 className 而無 classId — 按班名比對
-      isTargeted = !!studentRecord?.class?.name && studentRecord.class.name === assignment.className;
     } else {
-      // 無任何目標欄位的孤兒作業（列表亦不可見）— 不視為任何人的目標
-      isTargeted = false;
+      const classId = await resolveAssignmentClassId(assignment);
+      isTargeted = classId !== null && memberClassIds.includes(classId);
     }
     if (!isTargeted) {
       return NextResponse.json({ error: '此作業未指派給你 / This assignment is not assigned to you' }, { status: 403 });
@@ -348,13 +396,16 @@ export async function POST(
     // R3.5 hardening: 相容視圖 + 嘗試 + 逐題證據在同一個原子交易內提交。
     // 任一步失敗則全部回滾（相容視圖絕不會在缺少對應嘗試證據的情況下提交）；
     // attemptNumber 在交易內以列鎖序列化後計數，並發安全。
-    const { submission, attempt, isNew } = await submitAssignmentAttempt({
+    const { submission, attempt, isNew, replayed } = await submitAssignmentAttempt({
       assignmentId: id,
       studentId: payload.userId,
       answersJson: JSON.stringify(answers),
       score,
       aiFeedback,
       submittedAt: new Date(),
+      clientSubmissionId: typeof clientSubmissionId === 'string' && clientSubmissionId.trim()
+        ? clientSubmissionId.trim()
+        : null,
       items: items.map(item => ({
         questionId: item.questionId,
         response: item.response,
@@ -372,7 +423,7 @@ export async function POST(
     // mastery attempt for the same assignment.
     try {
       await syncStudentActivityMetrics(payload.userId);
-      if (isNew) {
+      if (isNew && !replayed) {
         await recordActivityMastery({
           studentId: payload.userId,
           skill: assignment.languageSkill || assignment.strand,
@@ -384,40 +435,34 @@ export async function POST(
     } catch { /* analytics sync must not prevent a valid submission */ }
 
     // 🔔 通知教師：學生已提交作業
-    const student = await adminDbQuery('user', 'findUnique', {
-      where: { id: payload.userId },
-      select: { name: true, nameZh: true },
-    });
-    const studentDisplayName = student?.nameZh || student?.name || payload.userId;
-    await notifySubmissionReceived(studentDisplayName, assignment.title, id, assignment.createdBy);
+    if (!replayed) {
+      const student = await adminDbQuery('user', 'findUnique', {
+        where: { id: payload.userId },
+        select: { name: true, nameZh: true },
+      });
+      const studentDisplayName = student?.nameZh || student?.name || payload.userId;
+      await notifySubmissionReceived(studentDisplayName, assignment.title, id, assignment.createdBy);
+    }
 
     // 更新作業完成率
     try {
-      const totalSubmissions = await adminDbQuery('submission', 'count', {
+      const targetStudentIds = await resolveAssignmentTargetStudentIds(assignment);
+      const submissions = await adminDbQuery('submission', 'findMany', {
         where: { assignmentId: id, status: { in: ['submitted', 'graded'] } },
+        select: { studentId: true },
+      }) as Array<{ studentId: string }>;
+      const submittedTargetIds = new Set(
+        submissions
+          .map(submission => submission.studentId)
+          .filter(studentId => targetStudentIds.has(studentId)),
+      );
+      const completionRate = targetStudentIds.size > 0
+        ? Math.round((submittedTargetIds.size / targetStudentIds.size) * 100)
+        : 0;
+      await adminDbQuery('assignment', 'update', {
+        where: { id },
+        data: { completionRate },
       });
-      // 估算目標人數：targetStudents / targetGroups / class 學生數
-      let totalTarget = 0;
-      if (assignment.targetType === 'students') {
-        totalTarget = await adminDbQuery('assignmentStudent', 'count', { where: { assignmentId: id } });
-      } else if (assignment.targetType === 'group') {
-        const groupIds = ((await adminDbQuery('assignmentGroup', 'findMany', { where: { assignmentId: id }, select: { groupId: true } })) as Array<{groupId: string}>).map(g => g.groupId);
-        if (groupIds.length > 0) {
-          totalTarget = await adminDbQuery('groupMember', 'count', { where: { groupId: { in: groupIds } } });
-        }
-      } else if (assignment.classId) {
-        totalTarget = await adminDbQuery('user', 'count', { where: { classId: assignment.classId, role: 'student' } });
-      } else if (assignment.className) {
-        // Fallback: lookup by className if classId is null
-        const classRecord = await adminDbQuery('class', 'findFirst', { where: { name: assignment.className } });
-        if (classRecord) {
-          totalTarget = await adminDbQuery('user', 'count', { where: { classId: classRecord.id, role: 'student' } });
-        }
-      }
-      if (totalTarget > 0) {
-        const rate = Math.round((totalSubmissions / totalTarget) * 100);
-        await adminDbQuery('assignment', 'update', { where: { id }, data: { completionRate: rate } });
-      }
     } catch { /* non-critical */ }
 
     return NextResponse.json({

@@ -65,6 +65,7 @@ import {
   buildEvaluation,
 } from '@/modules/reading/evaluation';
 import { persistGeneratedReadingQuestions, resolveReadingQuestionDefinitions } from '@/modules/reading/services/reading-question-service';
+import { verifyReadingQuestionsForDelivery } from '@/modules/reading/services/reading-answer-verification';
 import type { ReadingAnswerEvaluation } from '@/modules/reading/evaluation';
 import { buildReadingDiagnosticFeedback } from '@/modules/reading/feedback';
 import type { ReadingDiagnosticFeedback } from '@/modules/reading/feedback';
@@ -942,6 +943,38 @@ async function handleFullPaperGeneration(body: Record<string, unknown>) {
 
   if (!bpResult.check.passed) {
     warnings.push(...bpResult.check.issueMessages);
+  }
+
+  // Full-paper output is dormant today, but it must never become an escape
+  // hatch around the same pre-delivery answer gate used by student exercises.
+  for (const passage of paper.passages) {
+    const choices = passage.questions.map((question) => ({
+        type: ['mcq', 'mcCloze', 'negativeInference', 'authorIntention', 'toneAttitude', 'trueFalseNG'].includes(question.type)
+          ? 'mc'
+          : 'short-answer',
+        dseType: question.type === 'trueFalseNG'
+          ? 'true_false_not_given'
+          : mapDseTypeToFrontend(question.type),
+        question: question.questionText,
+        questionZh: question.questionTextZh,
+        choices: question.choices,
+        answer: question.answer,
+        explanationZh: question.explanationZh,
+        explanationEn: question.explanationEn,
+      }));
+    const verification = await verifyReadingQuestionsForDelivery(choices, passage.content);
+    if (verification.dropped.length > 0) {
+      logger.error({
+        module: 'reading-api',
+        passage: passage.textNumber,
+        droppedCount: verification.dropped.length,
+        reasons: verification.dropped.map(drop => `Q${drop.index}: ${drop.reasons.join('；')}`),
+      }, 'Full-paper reading questions rejected by pre-delivery answer verification');
+      return NextResponse.json(
+        apiError('Generated paper contains questions that did not pass answer verification. Please generate again.', 'ANSWER_VERIFICATION_FAILED', true),
+        { status: 422 },
+      );
+    }
   }
 
   // Phase 3C.1: MC distractor quality check
@@ -2129,6 +2162,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       );
       response.questions = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
+        cleanContent,
       );
     }
   } else {
@@ -2234,6 +2268,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
       );
       response.questions = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
+        (response.passage as { content?: string } | undefined)?.content ?? '',
       );
     }
   }
@@ -2262,9 +2297,21 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
  */
 async function assignServerOwnedQuestionIds(
   questions: Array<Record<string, unknown>>,
+  readingContent: string,
 ): Promise<Array<Record<string, unknown>>> {
+  const verification = await verifyReadingQuestionsForDelivery(questions, readingContent);
+  if (verification.dropped.length > 0) {
+    logger.error({
+      module: 'reading-api',
+      droppedCount: verification.dropped.length,
+      reasons: verification.dropped.map(drop => `Q${drop.index}: ${drop.reasons.join('；')}`),
+      verifierUnavailable: verification.verifierUnavailable,
+    }, 'Generated reading questions rejected by pre-delivery answer verification');
+    throw new Error('閱讀題目未通過交付前答案覆核，請重新生成 / Generated reading questions did not pass answer verification. Please generate again.');
+  }
+
   const ids = await persistGeneratedReadingQuestions(
-    questions.map((q, i) => ({
+    verification.kept.map((q, i) => ({
       questionType: String(q.type || 'short-answer'),
       dseType: typeof q.dseType === 'string' ? q.dseType : null,
       questionText: String(q.question || ''),
@@ -2274,7 +2321,7 @@ async function assignServerOwnedQuestionIds(
       orderIndex: i,
     })),
   );
-  return questions.map((q, i) => ({ ...q, id: ids[i] }));
+  return verification.kept.map((q, i) => ({ ...q, id: ids[i] }));
 }
 
 function generateRecommendations(

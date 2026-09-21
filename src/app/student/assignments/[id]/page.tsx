@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Loader2, CheckCircle, XCircle, Clock, AlertCircle, Sparkles } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
@@ -62,6 +62,8 @@ export default function AssignmentDetailPage() {
   const [aiFeedback, setAiFeedback] = useState('');
   const [correctCount, setCorrectCount] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  const submissionIdRef = useRef('');
+  const submissionStorageKey = `assignment-submission:${id}`;
 
   // 載入作業詳情
   useEffect(() => {
@@ -93,8 +95,10 @@ export default function AssignmentDetailPage() {
   }, [id]);
 
   const handleAnswerChange = useCallback((questionId: string, value: string) => {
+    submissionIdRef.current = '';
+    window.sessionStorage.removeItem(submissionStorageKey);
     setAnswers(prev => ({ ...prev, [questionId]: value }));
-  }, []);
+  }, [submissionStorageKey]);
 
   const handleSubmit = async () => {
     if (!assignment) return;
@@ -107,12 +111,17 @@ export default function AssignmentDetailPage() {
 
     setSubmitting(true);
     setError('');
+    if (!submissionIdRef.current) {
+      submissionIdRef.current = window.sessionStorage.getItem(submissionStorageKey)
+        || `assignment-${id}-${crypto.randomUUID()}`;
+      window.sessionStorage.setItem(submissionStorageKey, submissionIdRef.current);
+    }
 
     try {
       const res = await fetch(`/api/assignments/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, clientSubmissionId: submissionIdRef.current }),
       });
 
       const data = await res.json();
@@ -128,6 +137,8 @@ export default function AssignmentDetailPage() {
       setGradedAnswers(data.submission.gradedAnswers || {});
       setCorrectCount(data.submission.correctCount);
       setTotalQuestions(data.submission.totalQuestions);
+      window.sessionStorage.removeItem(submissionStorageKey);
+      submissionIdRef.current = '';
     } catch {
       setError(t('assignment.networkError'));
     } finally {

@@ -49,10 +49,8 @@ function daysSinceActivity(lastActiveAt: Date | null, now: Date = new Date()): n
  * or the latest activity was 14+ days ago (self-study disengagement signal).
  */
 function isInactiveStudent(s: StudentSnapshot, now: Date = new Date()): boolean {
-  const hasData = s.overallAccuracy !== null || Object.values(s.scores).some(v => v > 0);
-  if (!hasData) return true;
   const days = daysSinceActivity(s.lastActiveAt, now);
-  return days !== null && days >= 14;
+  return days === null || days >= 14;
 }
 
 interface ClassDataSnapshot {
@@ -233,35 +231,46 @@ export class TeacherCopilotService {
   async analyzeClass(classId: string, className: string): Promise<ClassAnalysis> {
     const classData = await this.loadClassData(classId);
 
-    // Use real student identities for rankings
-    const studentRankings = classData.students.slice(0, 10).map(s => {
-      const scores = Object.values(s.scores);
-      const overallScore = scores.length > 0
-        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 100)
-        : 0;
-      const entries = Object.entries(s.scores);
-      const strongest = entries.sort(([, a], [, b]) => b - a)[0]?.[0] ?? 'grammar';
-      const weakest = entries.sort(([, a], [, b]) => a - b)[0]?.[0] ?? 'grammar';
-      return {
-        studentId: s.studentId,
-        name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
-        overallScore,
-        strongestSkill: strongest,
-        weakestSkill: weakest,
-        trend: 'stable' as const,
-      };
-    });
+    // Rank only students with measured mastery; unmeasured skills are not zeroes.
+    const studentRankings = classData.students
+      .map(s => {
+        const entries = Object.entries(s.scores).filter(([, score]) => score > 0);
+        if (entries.length === 0) return null;
+        const overallScore = Math.round(
+          (entries.reduce((sum, [, score]) => sum + score, 0) / entries.length) * 100,
+        );
+        const strongest = [...entries].sort(([, a], [, b]) => b - a)[0]?.[0] ?? 'grammar';
+        const weakest = [...entries].sort(([, a], [, b]) => a - b)[0]?.[0] ?? 'grammar';
+        return {
+          studentId: s.studentId,
+          name: s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`,
+          overallScore,
+          strongestSkill: strongest,
+          weakestSkill: weakest,
+          trend: 'stable' as const,
+        };
+      })
+      .filter((student): student is NonNullable<typeof student> => student !== null)
+      .sort((a, b) => b.overallScore - a.overallScore)
+      .slice(0, 10);
 
     // Risk students: disengaged first, then bottom 3 by average score.
     // In self-study monitoring, inactivity is the strongest red flag.
     const now = new Date();
+    const measuredAverage = (student: StudentSnapshot): number | null => {
+      const measured = Object.values(student.scores).filter(score => score > 0);
+      return measured.length > 0 ? measured.reduce((sum, score) => sum + score, 0) / measured.length : null;
+    };
     const sorted = [...classData.students].sort((a, b) => {
-      const aAvg = Object.values(a.scores).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(a.scores).length);
-      const bAvg = Object.values(b.scores).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(b.scores).length);
+      const aAvg = measuredAverage(a);
+      const bAvg = measuredAverage(b);
+      if (aAvg === null && bAvg === null) return 0;
+      if (aAvg === null) return 1;
+      if (bAvg === null) return -1;
       return aAvg - bAvg;
     });
     const inactive = sorted.filter(s => isInactiveStudent(s, now));
-    const scored = sorted.filter(s => !isInactiveStudent(s, now));
+    const scored = sorted.filter(s => !isInactiveStudent(s, now) && measuredAverage(s) !== null);
     const riskStudents = [...inactive, ...scored].slice(0, 3).map(s => {
       const name = s.nameEn ?? s.nameZh ?? `Student ${s.studentId.slice(0, 6)}`;
       if (isInactiveStudent(s, now)) {
@@ -273,8 +282,8 @@ export class TeacherCopilotService {
           primaryConcernZh: '近期無活動',
         };
       }
-      const entries = Object.entries(s.scores);
-      const avg = entries.reduce((sum, [, v]) => sum + v, 0) / Math.max(1, entries.length);
+      const entries = Object.entries(s.scores).filter(([, value]) => value > 0);
+      const avg = measuredAverage(s)!;
       const weakest = [...entries].sort(([, a], [, b]) => a - b)[0]?.[0] ?? 'grammar';
       return {
         studentId: s.studentId,
@@ -420,7 +429,7 @@ export class TeacherCopilotService {
   async getOverview(teacherId: string): Promise<CopilotOverview> {
     // Load teacher's classes from DB
     const teacherClasses = await db.teacherClass.findMany({
-      where: { teacherId },
+      where: { teacherId, class: { name: { not: 'Demo' } } },
       include: {
         class: {
           include: {
@@ -461,7 +470,7 @@ export class TeacherCopilotService {
       const classId = tc.classId;
       const classData = classDataMap.get(classId) ?? null;
 
-      const studentCount = tc.class._count.students;
+      const studentCount = classData?.studentCount ?? 0;
       totalStudents += studentCount;
 
       const avgMastery = classData?.avgMastery ?? 0;
@@ -562,8 +571,11 @@ export class TeacherCopilotService {
   private async loadClassData(classId: string): Promise<ClassDataSnapshot> {
     // 1. Get all students in the class — 主班級（User.classId，admin import/sync 寫入）∪ StudentClass 混合上課
     const [primaryStudents, studentClasses] = await Promise.all([
-      db.user.findMany({ where: { classId, role: 'student' }, select: { id: true } }),
-      db.studentClass.findMany({ where: { classId }, select: { studentId: true } }),
+      db.user.findMany({ where: { classId, role: 'student', level: { not: 'Demo' } }, select: { id: true } }),
+      db.studentClass.findMany({
+        where: { classId, student: { role: 'student', level: { not: 'Demo' } } },
+        select: { studentId: true },
+      }),
     ]);
     const studentIds = Array.from(new Set([
       ...primaryStudents.map(u => u.id),
@@ -786,7 +798,7 @@ export const teacherCopilotService = new TeacherCopilotService();
 /** Verify that a teacher owns (teaches) a given class — used by API routes for authorization */
 export async function verifyTeacherOwnsClass(teacherId: string, classId: string): Promise<boolean> {
   const row = await db.teacherClass.findFirst({
-    where: { teacherId, classId },
+    where: { teacherId, classId, class: { name: { not: 'Demo' } } },
     select: { id: true },
   });
   return row !== null;
@@ -795,14 +807,14 @@ export async function verifyTeacherOwnsClass(teacherId: string, classId: string)
 /** Verify a student belongs to at least one of a teacher's classes (主班級 ∪ StudentClass) — returns the classId if found */
 export async function resolveTeacherStudentClass(teacherId: string, studentId: string): Promise<string | null> {
   const primary = await db.user.findFirst({
-    where: { id: studentId, role: 'student', class: { teachers: { some: { teacherId } } } },
+    where: { id: studentId, role: 'student', class: { name: { not: 'Demo' }, teachers: { some: { teacherId } } } },
     select: { classId: true },
   });
   if (primary?.classId) return primary.classId;
   const row = await db.studentClass.findFirst({
     where: {
       studentId,
-      class: { teachers: { some: { teacherId } } },
+      class: { name: { not: 'Demo' }, teachers: { some: { teacherId } } },
     },
     select: { classId: true },
   });

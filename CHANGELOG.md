@@ -4,6 +4,36 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-21 — 交付完整性、重送安全與教師 roster 授權收口（ADR-043）
+
+### 題目與答案鍵
+
+- 生成答案覆核改為**無條件 fail-closed**：驗證器 timeout、供應商失敗、缺少 verdict 或 blind 答案不符時，所有需要客觀覆核的題目一律不交付；移除 `AI_ANSWER_VERIFY_DISABLED` / `AI_ANSWER_VERIFY_STRICT` 繞過路徑。
+- 閱讀交付（含 dormant full-paper）統一接入 canonical verifier：MC、T/F/NG、summary/table/cause-effect cloze、error-correction summary 和 deterministic sequencing 均在持久化／交付前 blind-solve。無選項改錯題亦以文字答案 blind-solve；short-writing 維持主觀評估，不假裝可由單一答案鍵客觀驗證。
+
+### 學生資料與重送
+
+- 練習、閱讀、作業與 completion XP 補上可靠 retry/replay 語義。失去回應、重載後重送同一作業不會新增 attempt、通知或 XP；失敗儲存不會把 session 清掉或發完成獎勵。
+- 新增 `SubmissionAttempt.clientSubmissionId`、`XpTransaction.idempotencyKey`，以唯一索引保護重送。
+- 新增 `PracticeSession.masteryAppliedAt`。mastery claim 與 `StudentMastery` 更新同 transaction；失敗可由同一 submission replay 恢復，完成後不會雙計，且 replay 永遠採用原 session 的已持久化 aggregates。
+
+### 教師資料邊界與 roster
+
+- 教師 roster、class detail、Copilot、class selector、個別作業與 group membership 統一使用正典人口：`User.classId ∪ StudentClass`、去重、排除 Demo。
+- 教師不可讀寫非任教學生的 practice history、不可建立含外班學生的 group、不可呼叫外班 Copilot class endpoint；admin 保留跨班管理權。
+- class/detail UI 顯示及篩選 mixed-class membership；Copilot 統計不再使用只含 primary membership 的 relation count。
+
+### 部署
+
+- 新增 migrations：`20260921_submission_and_xp_idempotency`、`20260922_practice_mastery_idempotency`。生產部署前須先執行 `npx prisma migrate deploy`，Cloud Run deploy script 不會自動套用 migration。
+
+### 驗證
+
+- `npm test`：**3092 passed / 1 skipped**（158 files passed / 1 skipped）。
+- `node scripts/check-i18n.js`、`npx prisma validate`、`npx tsc --noEmit`：通過。
+
+---
+
 ## 2026-09-20 (IV) — 生成題目交付前答案覆核：四個選項全錯不得交付（ADR-042）
 
 ### 一、用戶回報的錯誤題目

@@ -8,6 +8,7 @@ import { StudentRepo } from '@/modules/repositories';
 import { logger } from '@/shared/logger/logger';
 import { AUTHJS_SESSION_COOKIES } from '@/shared/auth/auth-cookies';
 import { config } from '@/shared/config/config';
+import { recordLoginActivity } from '@/shared/auth/auth';
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
@@ -49,7 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             logger.info({ module: 'auth', email: user.email }, 'creating new user');
             const defaultRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
 
-            await StudentRepo.createUser({
+            const created = await StudentRepo.createUser({
               email: user.email,
               name: user.name || (profile as { name?: string } | null)?.name || null,
               nameEn: user.name || (profile as { name?: string } | null)?.name || null,
@@ -57,6 +58,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               role: defaultRole,
             });
             userRole = defaultRole;
+            await recordLoginActivity(created.id).catch((error: unknown) => {
+              logger.warn({ module: 'auth', userId: created.id, error: error instanceof Error ? error.message : String(error) }, 'Failed to record Google login activity');
+            });
           } else {
             // Detect correct role based on email pattern
             const emailPrefix = user.email.split('@')[0];
@@ -74,6 +78,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
 
             logger.info({ module: 'auth', userId: existing.id, role: userRole }, 'existing user found');
+            await recordLoginActivity(existing.id).catch((error: unknown) => {
+              logger.warn({ module: 'auth', userId: existing.id, error: error instanceof Error ? error.message : String(error) }, 'Failed to record Google login activity');
+            });
             // 每次 Google 登入時更新名稱和頭像
             const googleName = user.name || (profile as { name?: string } | null)?.name;
             const googlePic = user.image || (profile as { picture?: string } | null)?.picture;

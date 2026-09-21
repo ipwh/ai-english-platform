@@ -188,10 +188,11 @@ describe('R3.10-E.2 P0-3 — practice idempotency', () => {
     expect(r2.created).toBe(true);
   });
 
-  it('service returns replay result and skips side effects (contract)', () => {
+  it('service returns replay result and applies mastery through the session-idempotent gate (contract)', () => {
     const svc = readFileSync(resolve(import.meta.dirname, '../services/practice-submission-service.ts'), 'utf-8');
     expect(svc).toContain('if (!persisted.created)');
-    expect(svc).toContain('masteryUpdated: false');
+    expect(svc).toContain('recordPracticeSessionMasteryOnce({');
+    expect(svc).toContain('sessionId: persisted.id');
     expect(svc).toContain('clientSubmissionId: clientSubmissionId ?? null');
   });
 });

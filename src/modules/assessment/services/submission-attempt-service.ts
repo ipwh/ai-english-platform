@@ -22,6 +22,7 @@ import {
   updateSubmissionTx,
   lockSubmissionRowTx,
   countSubmissionAttemptsTx,
+  findSubmissionAttemptByClientIdTx,
   createSubmissionAttemptTx,
   createSubmissionAnswerRowsTx,
 } from '../repositories/assessment-repo';
@@ -35,6 +36,8 @@ export interface SubmitAssignmentAttemptInput {
   score: number;
   aiFeedback: string;
   submittedAt: Date;
+  /** Stable client key for safely replaying a lost response. */
+  clientSubmissionId?: string | null;
   /** Per-item evidence WITHOUT attemptId (attached inside the transaction) */
   items: Array<Omit<Prisma.SubmissionAnswerCreateManyInput, 'attemptId'>>;
 }
@@ -44,6 +47,8 @@ export interface SubmitAssignmentAttemptResult {
   attempt: { id: string; attemptNumber: number };
   /** true when this is the student's first submission for the assignment */
   isNew: boolean;
+  /** true when the same client execution had already committed */
+  replayed: boolean;
 }
 
 /**
@@ -98,6 +103,17 @@ async function submitAttemptTx(
       input.studentId,
     );
 
+    if (existing) {
+      await lockSubmissionRowTx(tx, existing.id);
+      const clientSubmissionId = input.clientSubmissionId?.trim();
+      if (clientSubmissionId) {
+        const replay = await findSubmissionAttemptByClientIdTx(tx, existing.id, clientSubmissionId);
+        if (replay) {
+          return { submission: existing, attempt: replay, isNew: false, replayed: true };
+        }
+      }
+    }
+
     const submission = existing
       ? await updateSubmissionTx(tx, existing.id, {
           answers: input.answersJson,
@@ -116,12 +132,13 @@ async function submitAttemptTx(
           submittedAt: input.submittedAt,
         });
 
-    // 序列化並發提交：鎖定該列後再計數，保證 attemptNumber 不會重複
-    await lockSubmissionRowTx(tx, submission.id);
+    // New submissions have no existing row to lock before creation.
+    if (!existing) await lockSubmissionRowTx(tx, submission.id);
     const attemptCount = await countSubmissionAttemptsTx(tx, submission.id);
     const attempt = await createSubmissionAttemptTx(tx, {
       submissionId: submission.id,
       attemptNumber: attemptCount + 1,
+      clientSubmissionId: input.clientSubmissionId?.trim() || null,
       score: input.score,
       aiFeedback: input.aiFeedback,
       submittedAt: input.submittedAt,
@@ -134,6 +151,6 @@ async function submitAttemptTx(
       );
     }
 
-    return { submission, attempt, isNew: !existing };
+    return { submission, attempt, isNew: !existing, replayed: false };
   });
 }

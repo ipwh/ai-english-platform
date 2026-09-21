@@ -137,6 +137,14 @@ describe('R3.10-D.1 a/b — key forgery and unknown identity', () => {
     const result = await validateGrammarAnswersWithServerKeys([]);
     expect(result).toEqual({ ok: true, answers: [] });
   });
+
+  it('b3. quarantined definitions are rejected before scoring', async () => {
+    stored.push(defRow({ provenance: 'invalid' }));
+    const result = await validateGrammarAnswersWithServerKeys([rawAnswer()]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('QUESTION_QUARANTINED');
+  });
 });
 
 describe('R3.10-D.1 c/d/f — choices, full tampering chain, client fields', () => {

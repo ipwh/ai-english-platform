@@ -34,14 +34,23 @@ export async function GET(request: NextRequest) {
       const userId = authResult.userId!;
       const student = await adminDbQuery('user', 'findUnique', {
         where: { id: userId },
-        select: { classId: true, studentClasses: { select: { classId: true } } },
+        select: {
+          classId: true,
+          class: { select: { name: true } },
+          studentClasses: { select: { classId: true, class: { select: { name: true } } } },
+        },
       });
       const memberClassIds = Array.from(new Set([
         ...(student?.studentClasses ?? []).map((sc: { classId: string }) => sc.classId),
         ...(student?.classId ? [student.classId] : []),
       ]));
+      const memberClassNames = Array.from(new Set([
+        ...(student?.studentClasses ?? []).map((sc: { class: { name: string } }) => sc.class.name),
+        ...(student?.class?.name ? [student.class.name] : []),
+      ]));
       const or: Record<string, unknown>[] = [];
       if (memberClassIds.length > 0) or.push({ classId: { in: memberClassIds } });
+      if (memberClassNames.length > 0) or.push({ className: { in: memberClassNames } });
       or.push({ targetStudents: { some: { studentId: userId } } });
       or.push({ targetGroups: { some: { group: { members: { some: { studentId: userId } } } } } });
       where.OR = or;
@@ -225,7 +234,14 @@ export async function POST(request: NextRequest) {
       const validStudents = await adminDbQuery('user', 'findMany', {
         where: isAdmin
           ? { id: { in: studentIds }, role: 'student' }
-          : { id: { in: studentIds }, role: 'student', class: { teachers: { some: { teacherId } } } },
+          : {
+              id: { in: studentIds },
+              role: 'student',
+              OR: [
+                { class: { teachers: { some: { teacherId } } } },
+                { studentClasses: { some: { class: { teachers: { some: { teacherId } } } } } },
+              ],
+            },
         select: { id: true },
       }) as Array<{ id: string }>;
       if (validStudents.length !== new Set(studentIds).size) {

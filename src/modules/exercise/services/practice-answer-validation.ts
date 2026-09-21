@@ -284,6 +284,15 @@ export async function validateGrammarAnswersWithServerKeys(
       error: `找不到文法題目定義（伺服器不持有此題，NOT_PROJECTABLE）: ${unresolved.join(', ')}`,
     };
   }
+  const quarantined = rows
+    .filter(row => definitions.get(row.questionId!)?.provenance === 'invalid')
+    .map(row => row.questionId!);
+  if (quarantined.length > 0) {
+    return {
+      ok: false,
+      error: `此文法題目已因品質問題隔離，請重新產生練習（QUESTION_QUARANTINED）: ${quarantined.join(', ')}`,
+    };
+  }
 
   // 3. Score each row against the canonical key. Client correctAnswer/
   //    choices/questionPrompt are never consulted.

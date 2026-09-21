@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-09-17 — 142 files, 2973 tests pass (+1 gated skip; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-21 — 158 files, 3092 tests pass (+1 gated skip; full non-E2E), plus route-security behavior tests (SEC-001..009).
 
 ## 🏗️ Architecture Overview
 
@@ -49,6 +49,7 @@ Writing Evaluation (Sprints 127-130):
 | ADR-023 | Phase 9 External Release Gate & Credential Rotation Waiver Policy (VERIFIED ≠ ACCEPTED_WITH_EXPLICIT_WAIVER; release decision rule; DeepSeek waiver scope) | ✅ Accepted (2026-08-20) |
 | ADR-041 | Mistake Skill Attribution & Review Layering | ✅ Accepted (2026-09-14) |
 | ADR-042 | Generated Answer Verification — independent pre-delivery answer-key audit | ✅ Accepted (2026-09-20) |
+| ADR-043 | Delivery Integrity, Replay Safety & Teacher Roster Authorization | ✅ Accepted (2026-09-21) |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 
@@ -62,7 +63,7 @@ Writing Evaluation (Sprints 127-130):
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
-| Documentation | 42 ADRs (ADR-001–042) in `docs/architecture/` |
+| Documentation | 43 ADRs (ADR-001–043) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) — Vercel 部署已於 2026-09-15 移除 |
@@ -77,7 +78,7 @@ Writing Evaluation (Sprints 127-130):
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**真實考試陷阱**（distraction、synonym replacement、speaker attitude、numerical precision、number confusion、date correction）、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、完整 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
   - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。此聲明已直接顯示於批改結果頁面。
-- **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）
+- **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）。練習、作業與完成 XP 使用 client idempotency key；同一練習 session 的 mastery 以持久化 claim 原子套用一次，失去回應後重送不會重複累加，未完成的更新可安全復原。
 - **即時批改回饋** — AI 分析答案（依 HKDSE Reading/Listening Descriptors 原則），提供中英雙語解釋、常見錯誤提示。**評分權威單一**：正確性只由評分器（`isCorrect` / `isPartiallyCorrect`）決定，抄襲／詞形／語調等規則式訊號只作「品質提示」（`qualityFlags`），永不改寫判決——診斷徽章與上方分數同源
 - **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正與示範強化。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣；**每道錯題都有技能／題型歸屬**（由伺服器持有的 `ReadingQuestion.dseType` / `GrammarQuestion.grammarItem` 解析，非前端自報）
@@ -97,7 +98,7 @@ Writing Evaluation (Sprints 127-130):
 - **� 手寫作文上傳 (OCR)** — 上傳手寫作文圖片，AI 文字辨識後自動載入編輯器（寫作頁面與教師教材上載）
 - **�👨‍👩‍👧 家長報告** — 教師可一鍵生成雙語 HTML 學習報告（KPI/錯題分佈/建議），適合家長日使用
 - **🔔 通知中心** — 智慧輪詢（有未讀 15s／無未讀 60s），支援 batch mark-read
-- **📋 作業 (Assignments)** — 查看教師指派的作業、作答提交、查看教師回饋與分數
+- **📋 作業 (Assignments)** — 查看教師指派的作業、作答提交、查看教師回饋與分數；重送或重載後沿用提交 key，避免重複 submission attempt、通知或 XP。
 - **⏱️ 作業倒數計時** — 截止日期紅色閃爍提醒（>24h 藍色/<24h 琥珀色/<1h 紅色）
 - **🧠 SRS 專用複習 UI** — 翻卡式 SM-2 評分（Easy/Hard/Again），進度條 + 完成摘要
 - **🗺️ 知識圖譜視覺化** — 互動式 DAG 節點圖，SVG 連線顯示前置/強化/延伸關聯，支援技能篩選、年級篩選、關鍵字搜尋、縮放、Focus Mode（點擊節點高亮相依路徑並淡化無關節點）、節點 hover 顯示學習目標、邊線 hover 顯示關係類型、詳情面板（學習目標 + 前置/後續知識 + 常見錯誤 + 範例題目 + 學習時長），自動載入學生掌握度數據，顏色標記已掌握/未解鎖狀態
@@ -132,7 +133,7 @@ Golden benchmark infrastructure 已就緒（17 個 golden fixtures：5 sample + 
 
 Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LEVEL_ONLY），HKEAA 從不公佈 per-script marks；公開渠道不存在 script+score dataset。因此平台不會從 Level 推算分數、不用 AI 補分 — calibrated marker agreement 需招募 human markers 對 authentic scripts 做 blind CLO marking 才能建立。
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
-- **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁
+- **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁。教師資料權限以正典「主班級 ∪ `StudentClass`」關係判定；教師只可查看、建立組別或指派其任教學生，Demo 班別/帳戶不會出現在日常 roster、selector 或 Copilot 概覽。
 - **🆕 行為監察 (S133)** — 教師端監察由「看分數」升級為「看行為」：失聯偵測（14天+ 未活動／從未開始紅燈）、活動度徽章（活躍／低活躍／失聯）、主要練習難度（暴露「題太易」）、寫作提交數欄位、教師首頁真實風險名單（失聯優先）與「失聯學生」KPI；Copilot 概覽真實活躍人數與待交作業數
 - **🆕 初中誘因再平衡 (S133)** — 遊戲化獎「深度」不獎「點擊」：初中 1.2× 加成只適用於複習錯題／生字掌握；每日目標必須含一項深度（今日挑戰／複習 3 錯題／掌握 3 生字），5 題 MC 無法達標；streak 加碼只隨練習日遞增；新增初中友善徽章（掌握 20 生字／複習 10 錯題／本週 5 次挑戰）；S1-S3 不頒「寫作 5 篇」；初中排行榜按「本週活躍日數」而非總 XP；學生儀表板新增班級排行榜與深度目標進度、極短寫作（<100 字）偵測
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen

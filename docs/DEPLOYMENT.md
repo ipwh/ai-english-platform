@@ -1,6 +1,6 @@
 # Deployment Guide — AI English Platform
 
-> **Deployment Readiness**: **100%** | **Last Audit**: 2026-07-23 (Sprint 55) | **Smoke Test**: `npm run smoke` (49 checks) | **Tests**: 1,027 (48 files, 100% pass) | **Architecture v5**: 100/100
+> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-21 | **Tests**: 3,092 passed / 1 skipped (158 files passed / 1 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
 
 ## Audit Summary (2026-07-19)
 
@@ -46,10 +46,13 @@
 
 ## Quick Deploy
 
-1. **Database**: Create Neon PostgreSQL project → run `CREATE EXTENSION IF NOT EXISTS vector;`
-2. **Cloud Run**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>` → configure env vars → deploy
-3. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain]/api/auth/callback/google`
-4. **Verify**: `GET /api/health` → `{ status: "healthy" }`
+1. **Validate**: Run `npm test`, `node scripts/check-i18n.js`, `npx prisma validate`, and `npx tsc --noEmit`.
+2. **Database migration**: With the production `DATABASE_URL` loaded, run `npx prisma migrate deploy` **before** deploying application code. The Cloud Run scripts build and deploy images but deliberately do not run migrations.
+  - `20260921_submission_and_xp_idempotency`: replay keys for `SubmissionAttempt` and `XpTransaction`.
+  - `20260922_practice_mastery_idempotency`: `PracticeSession.masteryAppliedAt` for exactly-once mastery application.
+3. **Cloud Run**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>` → configure env vars → deploy.
+4. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain]/api/auth/callback/google`.
+5. **Verify**: `GET /api/health` → `{ status: "healthy" }`; check readiness and Cloud Run logs for migration- or database-related errors.
 
 > Vercel 已於 2026-09-15 移除；`vercel.json` / `@vercel/kv` / `vercel-build.js` 皆已不存在。
 

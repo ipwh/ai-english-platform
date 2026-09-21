@@ -11,6 +11,7 @@ import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { logger } from '@/shared/logger/logger';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { syncStudentToSheet } from '@/shared/google/sheets-sync';
+import { currentAcademicYear } from '@/shared/utils/academic-year';
 import type { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get('role') || ''; // 'student' | 'teacher' | 'admin' | ''
     const level = searchParams.get('level') || ''; // S1-S6
     const className = searchParams.get('className') || '';
+    const currentOnly = searchParams.get('currentOnly') === 'true';
+    const academicYear = currentAcademicYear();
 
     // ---- 構建查詢條件 ----
     const where: Prisma.UserWhereInput = {};
@@ -41,8 +44,17 @@ export async function GET(request: NextRequest) {
       where.level = level;
     }
 
+    if (currentOnly) {
+      // Student-analysis rosters represent currently enrolled students. A
+      // historical S6 record must remain accessible in user management, but
+      // cannot appear merely because its grade field still says S6.
+      where.class = { academicYear };
+      where.academicYear = academicYear;
+    }
+
     if (className) {
-      where.class = { name: className };
+      where.AND = [{ class: { name: className } }, ...(currentOnly ? [{ class: { academicYear } }] : [])];
+      delete where.class;
     }
 
     if (search) {
@@ -91,7 +103,7 @@ export async function GET(request: NextRequest) {
       countUsers(where),
     ]);
 
-    const allClasses = await listAllClasses();
+    const allClasses = await listAllClasses(currentOnly ? academicYear : undefined);
 
     return NextResponse.json({
       users,

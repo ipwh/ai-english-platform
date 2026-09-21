@@ -135,6 +135,19 @@ describe('TeacherCopilotService', () => {
     expect(analysis.riskStudents.length).toBeGreaterThan(0);
   });
 
+  it('excludes demo accounts from both class-membership sources', async () => {
+    const mockDb = db as unknown as Record<string, { findMany: ReturnType<typeof vi.fn> }>;
+
+    await service.analyzeClass('4A', '4A');
+
+    expect(mockDb.user.findMany.mock.calls[0][0].where).toMatchObject({
+      classId: '4A', role: 'student', level: { not: 'Demo' },
+    });
+    expect(mockDb.studentClass.findMany.mock.calls[0][0].where).toMatchObject({
+      classId: '4A', student: { role: 'student', level: { not: 'Demo' } },
+    });
+  });
+
   it('should predict exam outcomes', async () => {
     const prediction = await service.predictExam('4A');
     expect(prediction.classId).toBe('4A');
@@ -205,12 +218,23 @@ describe('TeacherCopilotService', () => {
     expect(overview.generatedAt).toBeTruthy();
   });
 
+  it('excludes Demo classes from the overview query', async () => {
+    const mockDb = db as unknown as Record<string, { findMany: ReturnType<typeof vi.fn> }>;
+
+    await service.getOverview('teacher-1');
+
+    expect(mockDb.teacherClass.findMany.mock.calls[0][0].where).toEqual({
+      teacherId: 'teacher-1',
+      class: { name: { not: 'Demo' } },
+    });
+  });
+
   it('should compute real activeStudents and assignmentsDue in overview (Sprint 133)', async () => {
     const mockDb = db as unknown as Record<string, {
       findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; groupBy: ReturnType<typeof vi.fn>;
     }>;
     mockDb.teacherClass.findMany.mockResolvedValue([
-      { classId: 'class-1', class: { name: '4A', _count: { students: 3 } } },
+      { classId: 'class-1', class: { name: '4A', _count: { students: 99 } } },
     ]);
     // Recent activity for all 3 students → all active
     mockDb.loginLog.groupBy.mockResolvedValue([
@@ -223,8 +247,10 @@ describe('TeacherCopilotService', () => {
 
     const overview = await service.getOverview('teacher-1');
     expect(overview.weeklySummary.activeStudents).toBe(3);
+    expect(overview.weeklySummary.totalStudents).toBe(3);
     expect(overview.weeklySummary.assignmentsDue).toBe(2);
     expect(overview.classes[0].activeStudents).toBe(3);
+    expect(overview.classes[0].studentCount).toBe(3);
   });
 
   it('should flag zero-activity students as inactive risk (Sprint 133)', async () => {
@@ -243,6 +269,31 @@ describe('TeacherCopilotService', () => {
     expect(analysis.riskStudents.length).toBeGreaterThan(0);
     expect(analysis.riskStudents[0].riskLevel).toBe('inactive');
     expect(analysis.riskStudents[0].primaryConcernZh).toBe('近期無活動');
+  });
+
+  it('ranks only students with measured skills by their measured average', async () => {
+    const mockDb = db as unknown as Record<string, {
+      findMany: ReturnType<typeof vi.fn>; groupBy: ReturnType<typeof vi.fn>;
+    }>;
+    mockDb.studentClass.findMany.mockResolvedValue([
+      { studentId: 'high' }, { studentId: 'low' }, { studentId: 'unmeasured' },
+    ]);
+    mockDb.user.findMany.mockResolvedValue([
+      { id: 'high', nameEn: 'High', nameZh: null, overallAccuracy: null },
+      { id: 'low', nameEn: 'Low', nameZh: null, overallAccuracy: null },
+      { id: 'unmeasured', nameEn: 'Unmeasured', nameZh: null, overallAccuracy: null },
+    ]);
+    mockDb.studentMastery.findMany.mockResolvedValue([
+      { studentId: 'high', skill: 'reading', masteryScore: 80 },
+      { studentId: 'low', skill: 'grammar', masteryScore: 40 },
+    ]);
+    mockDb.loginLog.groupBy.mockResolvedValue([]);
+    mockDb.practiceSession.groupBy.mockResolvedValue([]);
+
+    const analysis = await service.analyzeClass('4A', '4A');
+
+    expect(analysis.studentRankings.map(student => student.name)).toEqual(['High', 'Low']);
+    expect(analysis.studentRankings.map(student => student.overallScore)).toEqual([80, 40]);
   });
 
   it('should generate bilingual content in all outputs', async () => {

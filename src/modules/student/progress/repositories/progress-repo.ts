@@ -30,6 +30,51 @@ export async function createXpTransaction(data: Prisma.XpTransactionCreateInput)
   return db.xpTransaction.create({ data });
 }
 
+/** Atomically apply an XP event once; duplicate keys leave both XP and history unchanged. */
+export async function applyXpEventOnce(params: {
+  userId: string;
+  event: string;
+  xpAmount: number;
+  metadata: string;
+  idempotencyKey?: string;
+  incrementStreak?: boolean;
+}): Promise<boolean> {
+  try {
+    return await db.$transaction(async tx => {
+      if (params.idempotencyKey) {
+        const existing = await tx.xpTransaction.findUnique({
+          where: { idempotencyKey: params.idempotencyKey },
+          select: { id: true },
+        });
+        if (existing) return false;
+      }
+
+      await tx.user.update({
+        where: { id: params.userId },
+        data: {
+          xp: { increment: params.xpAmount },
+          ...(params.incrementStreak ? { streakDays: { increment: 1 } } : {}),
+        },
+      });
+      await tx.xpTransaction.create({
+        data: {
+          userId: params.userId,
+          event: params.event,
+          xpAmount: params.xpAmount,
+          metadata: params.metadata,
+          idempotencyKey: params.idempotencyKey ?? null,
+        },
+      });
+      return true;
+    });
+  } catch (error) {
+    if (params.idempotencyKey && typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002') {
+      return false;
+    }
+    throw error;
+  }
+}
+
 export async function getTodaysXpTransaction(userId: string, event: string, todayStart: Date) {
   return db.xpTransaction.findFirst({ where: { userId, event, createdAt: { gte: todayStart } } });
 }

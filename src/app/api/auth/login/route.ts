@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateUser } from '@/shared/auth/auth';
+import { authenticateUser, recordLoginActivity } from '@/shared/auth/auth';
 import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { ALL_CLEARABLE_COOKIE_NAMES } from '@/shared/auth/auth-cookies';
@@ -49,6 +49,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Activity monitoring must reflect successful password logins as well as
+    // practice attempts; a failure to write telemetry must not block login.
+    await recordLoginActivity(result.user!.userId).catch((error: unknown) => {
+      logger.warn({ module: 'auth-login', error: error instanceof Error ? error.message : String(error) }, 'Failed to record login activity');
+    });
 
     // 建立 response 並設定 httpOnly cookie
     const response = NextResponse.json({

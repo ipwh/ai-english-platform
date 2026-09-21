@@ -15,6 +15,7 @@ import type { ImportResult } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { syncStudentsToSheet } from '@/shared/google/sheets-sync';
+import { currentAcademicYear } from '@/shared/utils/academic-year';
 import { adminDb as db, adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
 
 export async function POST(request: NextRequest) {
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest) {
     // ---- Phase 5: 分批寫入（每批獨立 commit，避免請求逾時）----
     const BATCH_SIZE = 50;
     const defaultPwHash = hashPasswordSync('student123');
+    const academicYear = currentAcademicYear();
 
     for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
       const batch = validRows.slice(i, i + BATCH_SIZE);
@@ -162,6 +164,7 @@ export async function POST(request: NextRequest) {
                 nameZh: data.nameZh,
                 nameEn: data.nameEn,
                 level: data.level,
+                academicYear,
                 classId: classId || undefined,
                 classNumber: data.classNumber || undefined,
                 joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
@@ -186,6 +189,7 @@ export async function POST(request: NextRequest) {
                 nameEn: data.nameEn,
                 role: 'student',
                 level: data.level,
+                academicYear,
                 classId: classId || undefined,
                 classNumber: data.classNumber || undefined,
                 joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,
@@ -206,6 +210,7 @@ export async function POST(request: NextRequest) {
                       nameEn: data.nameEn,
                       role: 'student',
                       level: data.level,
+                      academicYear,
                       classId: classId || undefined,
                       classNumber: data.classNumber || undefined,
                       joinedAt: data.joinedAt ? new Date(data.joinedAt) : undefined,

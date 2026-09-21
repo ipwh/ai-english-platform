@@ -24,6 +24,7 @@ const {
   mockUpdate,
   mockCreate,
   mockCount,
+  mockAttemptFindFirst,
   mockAttemptCreate,
   mockAnswerCreateMany,
 } = vi.hoisted(() => {
@@ -32,12 +33,13 @@ const {
   const mockUpdate = vi.fn();
   const mockCreate = vi.fn();
   const mockCount = vi.fn();
+  const mockAttemptFindFirst = vi.fn();
   const mockAttemptCreate = vi.fn();
   const mockAnswerCreateMany = vi.fn();
   const client = {
     $queryRaw: mockQueryRaw,
     submission: { findFirst: mockFindFirst, update: mockUpdate, create: mockCreate },
-    submissionAttempt: { count: mockCount, create: mockAttemptCreate },
+    submissionAttempt: { count: mockCount, findFirst: mockAttemptFindFirst, create: mockAttemptCreate },
     submissionAnswer: { createMany: mockAnswerCreateMany },
   };
   return {
@@ -48,6 +50,7 @@ const {
     mockUpdate,
     mockCreate,
     mockCount,
+    mockAttemptFindFirst,
     mockAttemptCreate,
     mockAnswerCreateMany,
   };
@@ -85,6 +88,7 @@ beforeEach(() => {
   mockTx.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(client));
   mockQueryRaw.mockResolvedValue([]);
   mockCount.mockResolvedValue(0);
+  mockAttemptFindFirst.mockResolvedValue(null);
   mockUpdate.mockResolvedValue({ id: 'sub-1' });
   mockAnswerCreateMany.mockResolvedValue({ count: 2 });
   mockAttemptCreate.mockImplementation(
@@ -180,8 +184,8 @@ describe('Concurrency-safe attempt numbering', () => {
 
     await submitAssignmentAttempt(input);
 
-    expect(order.indexOf('update')).toBeLessThan(order.indexOf('lock'));
-    expect(order.indexOf('lock')).toBeLessThan(order.indexOf('count'));
+    expect(order.indexOf('lock')).toBeLessThan(order.indexOf('update'));
+    expect(order.indexOf('update')).toBeLessThan(order.indexOf('count'));
     expect(order.indexOf('count')).toBeLessThan(order.indexOf('attempt'));
     expect(order.indexOf('attempt')).toBeLessThan(order.indexOf('answers'));
   });
@@ -192,6 +196,19 @@ describe('Concurrency-safe attempt numbering', () => {
 // ============================================
 
 describe('Attempt identity semantics (append-only)', () => {
+  it('replays the same client submission key without mutating or appending an attempt', async () => {
+    mockFindFirst.mockResolvedValue({ id: 'sub-1' });
+    mockAttemptFindFirst.mockResolvedValue({ id: 'attempt-1', attemptNumber: 1 });
+
+    const result = await submitAssignmentAttempt({ ...input, clientSubmissionId: 'assignment-run-1' });
+
+    expect(result.replayed).toBe(true);
+    expect(result.attempt.id).toBe('attempt-1');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockAttemptCreate).not.toHaveBeenCalled();
+    expect(mockAnswerCreateMany).not.toHaveBeenCalled();
+  });
+
   it('retry creates a distinct attempt number and never mutates the previous attempt', async () => {
     mockFindFirst.mockResolvedValue({ id: 'sub-1' });
     mockUpdate.mockResolvedValue({ id: 'sub-1' });

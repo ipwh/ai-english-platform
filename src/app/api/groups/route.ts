@@ -9,6 +9,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest } from '@/shared/validation/validate';
 import { groupCreateSchema, groupUpdateSchema } from '@/shared/validation/schemas/group.schema';
 import { listGroups, findGroupById, createGroup, updateGroup, deleteGroup } from '@/modules/student';
+import { resolveTeacherStudentClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 
 export async function GET(request: NextRequest) {
   const authResult = await verifyApiAuth(request, ['teacher', 'admin']);
@@ -53,8 +54,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     // Sprint 104: Zod-validated input
     const { name, description, studentIds } = validateRequest(groupCreateSchema, body);
+    const uniqueStudentIds = [...new Set(studentIds || [])];
+    if (authResult.role !== 'admin' && uniqueStudentIds.length > 0) {
+      const accessible = await Promise.all(
+        uniqueStudentIds.map(studentId => resolveTeacherStudentClass(teacherId, studentId)),
+      );
+      if (accessible.some(classId => classId === null)) {
+        return NextResponse.json({ error: '不可將非任教班別的學生加入組別 / You cannot add students outside your classes' }, { status: 403 });
+      }
+    }
 
-    const group = await createGroup({ name: name.trim(), description: description || '', createdBy: teacherId });
+    const group = await createGroup({
+      name: name.trim(),
+      description: description || '',
+      createdBy: teacherId,
+      studentIds: uniqueStudentIds,
+    });
 
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {

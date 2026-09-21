@@ -36,3 +36,17 @@ export async function recordActivityMastery(params: {
     correctCount: params.correctCount,
   });
 }
+
+export async function recordPracticeSessionMasteryOnce(params: {
+  sessionId: string;
+  studentId: string;
+  skill: string | null | undefined;
+  subSkill: string;
+  totalQuestions: number;
+  correctCount: number;
+}): Promise<boolean> {
+  const allowedSkills = new Set(['grammar', 'vocabulary', 'reading', 'writing', 'listening', 'speaking']);
+  const skill = allowedSkills.has(params.skill || '') ? params.skill! : 'grammar';
+  const { applyPracticeMasteryOnce } = await import('@/modules/student/mastery/repositories/student-mastery-repo');
+  return applyPracticeMasteryOnce({ ...params, skill: skill as 'grammar' | 'vocabulary' | 'reading' | 'writing' | 'listening' | 'speaking' });
+}

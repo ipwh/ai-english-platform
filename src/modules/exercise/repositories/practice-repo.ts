@@ -135,7 +135,7 @@ export async function createPracticeExecutionTx(input: {
     clientSubmissionId?: string | null;
   };
   answers: PracticeAnswerRowInput[];
-}): Promise<{ id: string; created: boolean }> {
+}): Promise<{ id: string; created: boolean; skill: string; skillZh: string; totalQuestions: number; correctCount: number }> {
   const { clientSubmissionId } = input.session;
   const clientKey = clientSubmissionId && clientSubmissionId.length > 0 ? clientSubmissionId : null;
 
@@ -144,7 +144,10 @@ export async function createPracticeExecutionTx(input: {
       const existing = await tx.practiceSession.findUnique({
         where: { studentId_clientSubmissionId: { studentId: input.session.studentId, clientSubmissionId: clientKey } },
       });
-      if (existing) return { id: existing.id, created: false };
+      if (existing) return {
+        id: existing.id, created: false, skill: existing.skill, skillZh: existing.skillZh,
+        totalQuestions: existing.totalQuestions, correctCount: existing.correctCount,
+      };
     }
 
     try {
@@ -152,14 +155,20 @@ export async function createPracticeExecutionTx(input: {
       if (input.answers.length > 0) {
         await tx.practiceAnswer.createMany({ data: mapAnswerRows(session.id, input.answers) });
       }
-      return { id: session.id, created: true };
+      return {
+        id: session.id, created: true, skill: session.skill, skillZh: session.skillZh,
+        totalQuestions: session.totalQuestions, correctCount: session.correctCount,
+      };
     } catch (err) {
       // Concurrent duplicate raced past the pre-check: unique violation.
       if (clientKey && err && typeof err === 'object' && (err as { code?: unknown }).code === 'P2002') {
         const existing = await tx.practiceSession.findUnique({
           where: { studentId_clientSubmissionId: { studentId: input.session.studentId, clientSubmissionId: clientKey } },
         });
-        if (existing) return { id: existing.id, created: false };
+        if (existing) return {
+          id: existing.id, created: false, skill: existing.skill, skillZh: existing.skillZh,
+          totalQuestions: existing.totalQuestions, correctCount: existing.correctCount,
+        };
       }
       throw err;
     }

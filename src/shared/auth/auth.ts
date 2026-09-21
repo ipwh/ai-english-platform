@@ -17,6 +17,7 @@ export { verifySessionToken, type SessionPayload } from '@/shared/auth/jwt';
 
 import { hashPassword, verifyPassword } from '@/shared/auth/crypto';
 import { logger } from '@/shared/logger/logger';
+import { createLoginLog } from '@/modules/student/repositories/user-repo';
 
 // ============================================
 // 認證邏輯（Prisma DB）
@@ -27,6 +28,11 @@ export interface LoginResult {
   error?: string;
   token?: string;
   user?: SessionPayload;
+}
+
+/** Records successful authentication for teacher activity monitoring. */
+export async function recordLoginActivity(userId: string): Promise<void> {
+  await createLoginLog({ userId });
 }
 
 export async function authenticateUser(email: string, password: string): Promise<LoginResult> {

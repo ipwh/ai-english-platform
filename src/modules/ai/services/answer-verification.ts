@@ -26,14 +26,9 @@
 // option was correct. Structural validation could not catch it — the key
 // resolved to a real option, and the option count was 4.
 //
-// Failure policy:
-//   - Per-item verdict missing / unreadable  → drop the item (fail-closed).
-//   - Whole verifier call unavailable        → keep deterministic-passed items
-//     and log loudly (generation would normally fail too); set
-//     AI_ANSWER_VERIFY_STRICT=true to fail-closed in that case as well.
+// Any missing verdict or unavailable verifier drops the item before delivery.
 // ============================================
 
-import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
 import { executeAI } from './ai-execution';
 import { normalizeAnswer, stripMcqPrefix } from './question-validator';
@@ -88,8 +83,6 @@ export interface AnswerVerificationOptions {
   userId?: string;
   /** Injection point for tests / experiments. */
   verify?: AnswerVerifier;
-  /** Fail-closed when the verifier is unavailable (default: config). */
-  strict?: boolean;
 }
 
 // ============================================
@@ -142,10 +135,15 @@ function isOptionBased(question: GeneratedQuestion): boolean {
   return question.type === 'error-correction' && (question.choices?.length ?? 0) >= 2;
 }
 
+function expectedChoiceCount(question: GeneratedQuestion): number {
+  return question.verificationExpectedChoiceCount ?? 4;
+}
+
 function verifyMode(question: GeneratedQuestion): VerifyMode | null {
   // 改錯題的答案鍵是【含有錯誤】的那個選項（其餘三個正確）→ 方向與一般 MC 相反，
   // 必須用 'option-error' 讓驗證器以正確方向判斷（見 grammar/v1.ts 改錯題規格）。
   if (question.type === 'error-correction' && (question.choices?.length ?? 0) >= 2) return 'option-error';
+  if (question.type === 'error-correction') return 'text';
   if (question.type === 'mc') return 'option';
   if (question.type === 'fill-blank') return 'text';
   return null;
@@ -168,8 +166,9 @@ export function inspectGeneratedQuestion(question: GeneratedQuestion): string[] 
   }
 
   if (isOptionBased(question)) {
-    if (choices.length !== 4) {
-      defects.push(`選擇題選項數目必須為 4（實際 ${choices.length} 個）`);
+    const expected = expectedChoiceCount(question);
+    if (choices.length !== expected) {
+      defects.push(`選擇題選項數目必須為 ${expected}（實際 ${choices.length} 個）`);
     }
 
     const seen = new Map<string, number>();
@@ -304,13 +303,6 @@ export async function verifyGeneratedAnswers(
   const keptFromClean = (exclude?: Set<GeneratedQuestion>): GeneratedQuestion[] =>
     cleanEntries.filter((e) => !exclude?.has(e.question)).map((e) => e.question);
 
-  const strict = options.strict ?? config.ai.answerVerificationStrict;
-
-  if (!config.ai.answerVerificationEnabled) {
-    logger.warn({ module: 'answer-verification' }, 'Answer verification disabled by AI_ANSWER_VERIFY_DISABLED — keys are NOT independently checked');
-    return { kept: keptFromClean(), dropped, verifierUnavailable: false, verifiedCount: 0 };
-  }
-
   // Build verifier input (answer key intentionally omitted → blind solve).
   const targets: Array<{ question: GeneratedQuestion; sourceIndex: number; verifyIndex: number; mode: VerifyMode }> = [];
   for (const entry of cleanEntries) {
@@ -346,21 +338,17 @@ export async function verifyGeneratedAnswers(
   }
 
   if (!response) {
-    if (strict) {
-      const rejected = new Set<GeneratedQuestion>();
-      for (const target of targets) {
-        rejected.add(target.question);
-        dropped.push({
-          index: target.sourceIndex,
-          prompt: target.question.prompt,
-          reasons: ['獨立答案覆核無法執行（嚴格模式 fail-closed）'],
-        });
-      }
-      logger.error({ module: 'answer-verification', droppedCount: targets.length }, 'Strict mode: all unverified questions dropped');
-      return { kept: keptFromClean(rejected), dropped, verifierUnavailable: true, verifiedCount: 0 };
+    const rejected = new Set<GeneratedQuestion>();
+    for (const target of targets) {
+      rejected.add(target.question);
+      dropped.push({
+        index: target.sourceIndex,
+        prompt: target.question.prompt,
+        reasons: ['獨立答案覆核無法執行（fail-closed）'],
+      });
     }
-    logger.warn({ module: 'answer-verification', itemCount: targets.length }, 'Answer verification unavailable — deterministic checks only (set AI_ANSWER_VERIFY_STRICT=true to fail-closed)');
-    return { kept: keptFromClean(), dropped, verifierUnavailable: true, verifiedCount: 0 };
+    logger.error({ module: 'answer-verification', droppedCount: targets.length }, 'Answer verifier unavailable: all unverified questions dropped');
+    return { kept: keptFromClean(rejected), dropped, verifierUnavailable: true, verifiedCount: 0 };
   }
 
   const verdicts = new Map<number, AnswerVerificationResponse['verdicts'][number]>();

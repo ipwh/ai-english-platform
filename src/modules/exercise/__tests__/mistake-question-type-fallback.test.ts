@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   scoreReadingAnswers: vi.fn(),
   computeReadingAggregates: vi.fn(),
   createMistakeIfAbsent: vi.fn(),
-  recordActivityMastery: vi.fn(),
+  recordPracticeSessionMasteryOnce: vi.fn(),
   syncStudentActivityMetrics: vi.fn(),
   resolveReadingQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
@@ -40,7 +40,7 @@ vi.mock('@/modules/mistake/db/repositories/mistake-repo', () => ({
 }));
 
 vi.mock('@/modules/learning-analytics/services/activity-accounting-service', () => ({
-  recordActivityMastery: mocks.recordActivityMastery,
+  recordPracticeSessionMasteryOnce: mocks.recordPracticeSessionMasteryOnce,
   syncStudentActivityMetrics: mocks.syncStudentActivityMetrics,
 }));
 
@@ -81,7 +81,7 @@ beforeEach(() => {
   mocks.scoreReadingAnswers.mockResolvedValue({ ok: true, answers: [READING_ANSWER] });
   mocks.computeReadingAggregates.mockReturnValue({ totalQuestions: 1, correctCount: 0 });
   mocks.createMistakeIfAbsent.mockResolvedValue({ inserted: true });
-  mocks.recordActivityMastery.mockResolvedValue(undefined);
+  mocks.recordPracticeSessionMasteryOnce.mockResolvedValue(true);
   mocks.syncStudentActivityMetrics.mockResolvedValue(undefined);
 });
 

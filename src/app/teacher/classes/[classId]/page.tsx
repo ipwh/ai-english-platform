@@ -26,6 +26,7 @@ interface RealStudent {
   classNumber?: string;
   overallAccuracy: number | null;
   class?: { id: string; name: string; gradeLevel: string } | null;
+  studentClasses?: Array<{ class: { id: string; name: string; gradeLevel: string } }>;
   lastActiveAt?: string | null;
   shortWritingCount?: number;
   _count?: { sessions: number; mistakes: number; writingDrafts: number };
@@ -46,14 +47,11 @@ export default function ClassDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/classes').then(r => r.json()),
-      fetch('/api/teacher/students').then(r => r.json()),
-    ]).then(([classData, studentData]) => {
-      const found = (classData.classes || []).find((c: Record<string, unknown>) => c.id === classId);
+    fetch('/api/teacher/students').then(r => r.json()).then(studentData => {
+      const found = (studentData.classes || []).find((c: Record<string, unknown>) => c.id === classId);
       setCls(found || null);
-      const classStudents = (studentData.students || []).filter(
-        (s: RealStudent) => s.class?.id === classId
+      const classStudents = (studentData.students || []).filter((s: RealStudent) =>
+        s.class?.id === classId || s.studentClasses?.some(({ class: studentClass }) => studentClass.id === classId),
       );
       setStudents(classStudents);
       setLoading(false);

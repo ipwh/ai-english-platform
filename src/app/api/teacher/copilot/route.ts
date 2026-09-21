@@ -4,7 +4,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { validateQuery } from '@/shared/validation/schemas';
 import { copilotQuerySchema } from '@/modules/teacher/copilot/schemas';
-import { teacherCopilotService } from '@/modules/teacher/copilot/services/teacher-copilot-service';
+import { teacherCopilotService, verifyTeacherOwnsClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyApiAuth(request);
@@ -18,6 +18,10 @@ export async function GET(request: NextRequest) {
     const query = validateQuery(copilotQuerySchema, searchParams);
     const { teacherId, classId: qClassId } = query;
     const classId = qClassId ?? teacherId;
+
+    if (auth.role !== 'admin' && classId && !await verifyTeacherOwnsClass(auth.userId!, classId)) {
+      return NextResponse.json({ error: 'You do not have access to this class' }, { status: 403 });
+    }
 
     const plan = classId
       ? await teacherCopilotService.generateLessonPlan(classId, `Class ${classId}`)

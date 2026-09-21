@@ -284,7 +284,7 @@ describe('verifyGeneratedAnswers (independent verifier layer)', () => {
     expect(noError.dropped[0].reasons.join(' ')).toContain('flawed');
   });
 
-  it('error-correction without choices is not sent to the verifier', async () => {
+  it('verifies error-correction without choices as a blind text solve', async () => {
     const ec: GeneratedQuestion = {
       type: 'error-correction',
       prompt: 'Find the error: He go to school by bus. → ?',
@@ -294,9 +294,11 @@ describe('verifyGeneratedAnswers (independent verifier layer)', () => {
       explanationEn: 'Third person singular.',
       commonMistake: '',
     };
-    const spy = vi.fn(async () => ({ verdicts: [] })) as unknown as AnswerVerifier;
+    const spy = vi.fn(async () => ({
+      verdicts: [{ index: 1, blindAnswer: 'go → goes', soundness: 'ok', reason: '' }],
+    })) as unknown as AnswerVerifier;
     const result = await verifyGeneratedAnswers([ec], { verify: spy });
-    expect(spy).not.toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledOnce();
     expect(result.kept).toHaveLength(1);
   });
 
@@ -313,39 +315,38 @@ describe('verifyGeneratedAnswers (independent verifier layer)', () => {
     expect(result.kept).toHaveLength(1);
   });
 
-  it('keeps deterministic-passed items with a warning when the verifier is unavailable', async () => {
+  it('fails closed when the verifier is unavailable', async () => {
     const result = await verifyGeneratedAnswers([mc()], { verify: async () => null });
     expect(result.verifierUnavailable).toBe(true);
-    expect(result.kept).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
     expect(result.verifiedCount).toBe(0);
   });
 
-  it('fails closed when strict and the verifier is unavailable', async () => {
+  it('fails closed by default when the verifier is unavailable', async () => {
     const result = await verifyGeneratedAnswers([mc()], {
       verify: async () => null,
-      strict: true,
     });
     expect(result.verifierUnavailable).toBe(true);
     expect(result.kept).toHaveLength(0);
     expect(result.dropped[0].reasons.join(' ')).toContain('fail-closed');
   });
 
-  it('degrades to deterministic checks when the verifier throws', async () => {
+  it('fails closed when the verifier throws', async () => {
     const result = await verifyGeneratedAnswers([mc()], {
       verify: async () => { throw new Error('provider down'); },
     });
     expect(result.verifierUnavailable).toBe(true);
-    expect(result.kept).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
   });
 
-  it('still drops deterministically-defective items when the verifier is unavailable', async () => {
+  it('drops every objective item when the verifier is unavailable', async () => {
     const result = await verifyGeneratedAnswers(
       [mc(), brokenPhrasalVerbItem()],
       { verify: async () => null },
     );
-    expect(result.kept).toHaveLength(1);
-    expect(result.dropped).toHaveLength(1);
-    expect(result.dropped[0].index).toBe(2);
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped).toHaveLength(2);
+    expect(result.dropped.map(drop => drop.index)).toEqual([2, 1]);
   });
 
   it('maps dropped items back to their original 1-based index', async () => {

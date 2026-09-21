@@ -35,26 +35,47 @@ export async function GET(request: NextRequest) {
     const isAdmin = teacherInfo.role === 'admin';
 
     // Get teacher's taught classes (admins see all classes)
+    let taughtClasses: Array<{ classId: string; class: { id: string; name: string; gradeLevel: string } }> = [];
     let taughtClassIds: string[] = [];
     if (!isAdmin) {
-      const taughtClasses = await listTeacherClasses(teacherInfo.userId);
+      taughtClasses = (await listTeacherClasses(teacherInfo.userId))
+        .filter(({ class: taughtClass }) => taughtClass.name !== 'Demo');
       taughtClassIds = taughtClasses.map((tc: { classId: string }) => tc.classId);
+      if (taughtClassIds.length === 0) {
+        return NextResponse.json({ students: [], classes: [], total: 0 });
+      }
     }
 
     // Build student filter: admins see all, teachers see their taught classes
     // 2026-09-03: 只列出仍在學校最新名單的學生。sync-sheets / unassign-non-roster
     // 已把「不在最新名單」的畢業生/轉校生解除班別（classId=null，保留學習紀錄），
     // 因此以「仍有班別」篩選即可隱藏舊生，避免與現有學生混淆。
+    const membershipFilter = {
+      OR: [
+        { classId: { not: null } },
+        { studentClasses: { some: {} } },
+      ],
+    };
     const where: Record<string, unknown> = {
       role: 'student',
       level: { not: 'Demo' },
-      classId: { not: null },
+      AND: [membershipFilter],
     };
     if (!isAdmin && taughtClassIds.length > 0) {
-      where.classId = { in: taughtClassIds };
+      (where.AND as Record<string, unknown>[]).push({
+        OR: [
+          { classId: { in: taughtClassIds } },
+          { studentClasses: { some: { classId: { in: taughtClassIds } } } },
+        ],
+      });
     }
     if (className) {
-      where.class = { name: className };
+      (where.AND as Record<string, unknown>[]).push({
+        OR: [
+          { class: { name: className } },
+          { studentClasses: { some: { class: { name: className } } } },
+        ],
+      });
     }
 
     const students = await listUsersAdmin({
@@ -63,6 +84,7 @@ export async function GET(request: NextRequest) {
         id: true, email: true, nameZh: true, nameEn: true,
         level: true, overallAccuracy: true, classNumber: true,
         class: { select: { id: true, name: true, gradeLevel: true } },
+        studentClasses: { select: { class: { select: { id: true, name: true, gradeLevel: true } } } },
         _count: { select: { sessions: true, mistakes: true, writingDrafts: true } },
       },
       orderBy: [{ class: { name: 'asc' } }, { classNumber: 'asc' }],
@@ -89,7 +111,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const classes = await listAllClasses();
+    const classes = isAdmin ? (await listAllClasses()).filter(({ name }) => name !== 'Demo') : taughtClasses.map(({ class: taughtClass }) => ({
+      id: taughtClass.id,
+      name: taughtClass.name,
+      gradeLevel: taughtClass.gradeLevel,
+    }));
 
     return NextResponse.json({ students: enriched, classes, total: enriched.length });
   } catch (err: unknown) {

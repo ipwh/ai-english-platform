@@ -64,9 +64,9 @@ describe('R3.10-C.2 mastery authority (J)', () => {
     const svc = readFileSync(
       resolve(import.meta.dirname, '../../exercise/services/practice-submission-service.ts'), 'utf-8');
     expect(svc).toContain('shouldUpdateMastery(submissionClass, aggregates.totalQuestions)');
-    expect(svc).toContain('recordActivityMastery({');
+    expect(svc).toContain('recordPracticeSessionMasteryOnce({');
     expect(svc).toContain('correctCount: aggregates.correctCount');
     // zero-answer presence flow never feeds mastery:
-    expect(svc).toContain(': Promise.resolve(),');
+    expect(svc).toContain('if (masteryUpdated)');
   });
 });

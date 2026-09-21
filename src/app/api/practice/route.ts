@@ -15,6 +15,7 @@ import { evaluatePracticeEvidence } from '@/modules/exercise/services/practice-e
 import { getCumulativeSkillTotals, getWeeklyPracticeSummary } from '@/modules/exercise/services/practice-history-service';
 import { submitPractice } from '@/modules/exercise/services/practice-submission-service';
 import { calculatePracticeStreak } from '@/modules/student';
+import { resolveTeacherStudentClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 
 const PRACTICE_RATE_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
@@ -46,8 +47,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId 為必填 / studentId is required' }, { status: 400 });
     }
 
-    // 🔒 Ownership check: only the student themselves or a teacher can write practice data
-    if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+    const canAccessStudent = authResult.userId === studentId
+      || authResult.role === 'admin'
+      || (authResult.role === 'teacher' && await resolveTeacherStudentClass(authResult.userId!, studentId));
+    if (!canAccessStudent) {
       return NextResponse.json({ error: '無權限為其他用戶儲存練習記錄 / You cannot save practice records for another user' }, { status: 403 });
     }
 
@@ -90,8 +93,10 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId');
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
 
-    // 🔒 Ownership check: only the student themselves or a teacher/admin can read practice history
-    if (authResult.userId !== studentId && authResult.role !== 'teacher' && authResult.role !== 'admin') {
+    const canAccessStudent = authResult.userId === studentId
+      || authResult.role === 'admin'
+      || (authResult.role === 'teacher' && await resolveTeacherStudentClass(authResult.userId!, studentId));
+    if (!canAccessStudent) {
       return NextResponse.json({ error: '無權限查看其他用戶的練習記錄', sessions: [] }, { status: 403 });
     }
 

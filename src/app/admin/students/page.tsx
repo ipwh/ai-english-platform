@@ -94,6 +94,7 @@ export default function AdminStudentsPage() {
       params.set('page', String(page));
       params.set('pageSize', String(pageSize));
       params.set('role', 'student');
+      params.set('currentOnly', 'true');
       if (search) params.set('search', search);
       if (levelFilter) params.set('level', levelFilter);
       if (classFilter) params.set('className', classFilter);

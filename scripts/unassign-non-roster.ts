@@ -17,6 +17,7 @@
 import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { currentAcademicYear } from '@/shared/utils/academic-year';
 
 function readEnvValue(path: string, key: string): string | null {
   try {
@@ -65,6 +66,7 @@ async function fetchRosterEmails(spreadsheetId: string): Promise<string[]> {
 async function main() {
   const args = process.argv.slice(2);
   const apply = args.includes('--apply');
+  const academicYear = currentAcademicYear();
   const sheetArgIdx = args.indexOf('--sheet');
   const sheetId = sheetArgIdx >= 0 && args[sheetArgIdx + 1]
     ? args[sheetArgIdx + 1]
@@ -104,7 +106,12 @@ async function main() {
          AND email != ALL($1::text[])`,
       [emails]
     );
-    console.log(`\n✅ 已解除 ${res.rowCount} 名學生的班別（學習紀錄保留）`);
+    const enrolled = await pool.query(
+      `UPDATE "User" SET "academicYear" = $2
+       WHERE role='student' AND email = ANY($1::text[])`,
+      [emails, academicYear],
+    );
+    console.log(`\n✅ 已解除 ${res.rowCount} 名學生的班別；已標記 ${enrolled.rowCount} 名現屆學生為 ${academicYear}（學習紀錄保留）`);
   } finally {
     await pool.end();
   }

@@ -31,6 +31,8 @@ export interface GeneratedQuestion {
   listeningContentZh?: string;
   readingContent?: string;
   readingContentZh?: string;
+  /** Explicit option-count contract for question families such as T/F/NG. */
+  verificationExpectedChoiceCount?: number;
   /** R3.10-D: server-assigned canonical GrammarQuestion id (grammar only). */
   id?: string;
 }

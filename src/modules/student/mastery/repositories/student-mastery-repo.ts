@@ -1,6 +1,7 @@
 // Sprint 31: Student Mastery Repository
 import { db } from '@/shared/db/db';
 import type { MasterySkill, MasterySubSkill } from '../types';
+import { calculateMasteryScore } from '../services/mastery-formula';
 
 /** Get all mastery entries for a student */
 export async function getStudentMastery(studentId: string) {
@@ -70,6 +71,64 @@ export async function recordPracticeAttempt(params: {
       mistakeCount: isCorrect ? 0 : 1,
       lastPracticedAt: now,
     },
+  });
+}
+
+/** Apply one persisted practice session to mastery exactly once. */
+export async function applyPracticeMasteryOnce(params: {
+  sessionId: string;
+  studentId: string;
+  skill: MasterySkill;
+  subSkill: MasterySubSkill;
+  totalQuestions: number;
+  correctCount: number;
+}): Promise<boolean> {
+  const isCorrect = params.correctCount >= Math.ceil(params.totalQuestions / 2);
+  const now = new Date();
+
+  return db.$transaction(async tx => {
+    const claimed = await tx.practiceSession.updateMany({
+      where: { id: params.sessionId, masteryAppliedAt: null },
+      data: { masteryAppliedAt: now },
+    });
+    if (claimed.count === 0) return false;
+
+    const existing = await tx.studentMastery.findUnique({
+      where: { studentId_skill_subSkill: {
+        studentId: params.studentId, skill: params.skill, subSkill: params.subSkill,
+      } },
+    });
+    const entry = existing
+      ? await tx.studentMastery.update({
+          where: { studentId_skill_subSkill: {
+            studentId: params.studentId, skill: params.skill, subSkill: params.subSkill,
+          } },
+          data: {
+            practiceCount: { increment: 1 },
+            correctCount: isCorrect ? { increment: 1 } : undefined,
+            mistakeCount: isCorrect ? undefined : { increment: 1 },
+            lastPracticedAt: now,
+          },
+        })
+      : await tx.studentMastery.create({
+          data: {
+            studentId: params.studentId, skill: params.skill, subSkill: params.subSkill,
+            masteryScore: 0, confidenceScore: 0, retentionScore: 0,
+            practiceCount: 1, correctCount: isCorrect ? 1 : 0,
+            mistakeCount: isCorrect ? 0 : 1, lastPracticedAt: now,
+          },
+        });
+    const scores = calculateMasteryScore({
+      correctCount: entry.correctCount, practiceCount: entry.practiceCount,
+      mistakeCount: entry.mistakeCount, lastPracticedAt: entry.lastPracticedAt,
+    });
+    await tx.studentMastery.update({
+      where: { studentId_skill_subSkill: {
+        studentId: params.studentId, skill: params.skill, subSkill: params.subSkill,
+      } },
+      data: { ...scores, updatedAt: now },
+    });
+    return true;
   });
 }
 

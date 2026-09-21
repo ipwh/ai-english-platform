@@ -48,7 +48,7 @@ export interface WeeklyPracticeSummary {
 
 interface PageOptions {
   pageSize?: number;
-  /** 上限（防止極端歷史造成無界讀取）—— 分頁由新至舊，超出者為最舊場次 */
+  /** Optional caller-controlled page limit for bounded reports; cumulative projections must omit it. */
   maxPages?: number;
 }
 
@@ -63,16 +63,16 @@ interface IterateOptions extends PageOptions {
  */
 export async function* iterateSessionsWithEvidence(
   studentId: string,
-  { pageSize = 200, maxPages = 100, since }: IterateOptions = {},
+  { pageSize = 200, maxPages, since }: IterateOptions = {},
 ) {
-  for (let page = 0; page < maxPages; page++) {
+  for (let page = 0; maxPages === undefined || page < maxPages; page++) {
     const rows = await PracticeRepo.listPracticeSessionsWithEvidence(studentId, pageSize, page * pageSize, since);
     for (const row of rows) yield row;
     if (rows.length < pageSize) return;
   }
 }
 
-/** 全歷史蒐集（分頁、有 maxPages 上限）—— 需要「累積」語意的消費者使用。 */
+/** 全歷史蒐集（分頁、無隱性截斷）—— 需要「累積」語意的消費者使用。 */
 export async function listAllSessionsWithEvidence(
   studentId: string,
   options: IterateOptions = {},

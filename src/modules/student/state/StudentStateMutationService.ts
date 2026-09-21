@@ -70,8 +70,8 @@ export class StudentStateMutationService {
    * Delegates computation to gamification.ts but coordinates the write.
    */
   async awardXp(studentId: string, event: XpEvent): Promise<{ xpGained: number; newLevel: number }> {
-    const { updateUser, findUserByIdSelect } = await import('@/modules/student/repositories/user-repo');
-    const { createXpTransaction } = await import('../progress/repositories/progress-repo');
+    const { findUserByIdSelect } = await import('@/modules/student/repositories/user-repo');
+    const { applyXpEventOnce } = await import('../progress/repositories/progress-repo');
 
     // Sprint 133: 初中 1.2× 只適用於深度學習事件（複習錯題／生字掌握），
     // 刷 MC／登入不再享年級加成。
@@ -79,30 +79,23 @@ export class StudentStateMutationService {
     const gradeMultiplier = getGradeMultiplier(student?.level ?? undefined, event.type);
     const xpGained = Math.round(calculateXp(event) * gradeMultiplier);
 
-    // Persist XP increment + optional streak increment
-    const updateData: Record<string, unknown> = { xp: { increment: xpGained } };
-    if (event.type === 'dailyLogin') {
-      updateData.streakDays = { increment: 1 };
-    }
-    await updateUser(studentId, updateData as Record<string, unknown>);
-
-    // Record XP transaction
-    try {
-      await createXpTransaction({
-        userId: studentId,
-        event: event.type,
-        xpAmount: xpGained,
-        metadata: JSON.stringify(event.metadata || {}),
-      });
-    } catch (err) {
-      logger.error({ module: 'mutation', studentId, error: String(err) }, 'Failed to create XpTransaction');
-    }
+    const idempotencyKey = typeof event.metadata?.idempotencyKey === 'string'
+      ? event.metadata.idempotencyKey
+      : undefined;
+    const created = await applyXpEventOnce({
+      userId: studentId,
+      event: event.type,
+      xpAmount: xpGained,
+      metadata: JSON.stringify(event.metadata || {}),
+      idempotencyKey,
+      incrementStreak: event.type === 'dailyLogin',
+    });
 
     // Read updated XP to compute level
     const state = await studentStateBuilder.build(studentId);
     const newLevel = state.engagement.level;
 
-    return { xpGained, newLevel };
+    return { xpGained: created ? xpGained : 0, newLevel };
   }
 
   /**

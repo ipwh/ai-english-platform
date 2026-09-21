@@ -1,0 +1,1 @@
+ALTER TABLE "PracticeSession" ADD COLUMN "masteryAppliedAt" TIMESTAMP(3);
