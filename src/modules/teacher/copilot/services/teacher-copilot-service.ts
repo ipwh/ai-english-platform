@@ -2,6 +2,7 @@
 // Sprint 132: Integrated with StudentTwin + LearningScience for real data
 import { db } from '@/shared/db/db';
 import { DAY_MS, hkDayKey, hkDayOfWeek, hkStartOfDay } from '@/shared/utils/hk-date';
+import { classifyActivityStatus } from '@/modules/teacher/monitoring/services/activity-service';
 import { studentTwinService } from '@/modules/student/twin/services/student-twin-service';
 import { GRAMMAR_CATEGORY_LABELS } from '@/modules/mistake/intelligence/types';
 import { bucketKeyLabelZh } from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
@@ -38,19 +39,16 @@ const SKILL_LABEL_ZH: Record<string, string> = {
   grammar: '文法', vocabulary: '詞彙', reading: '閱讀', writing: '寫作', listening: '聆聽',
 };
 
-/** Days since last activity; null when unknown. */
-function daysSinceActivity(lastActiveAt: Date | null, now: Date = new Date()): number | null {
-  if (!lastActiveAt) return null;
-  return Math.max(0, Math.floor((now.getTime() - lastActiveAt.getTime()) / 86400000));
-}
-
 /**
  * A student is "inactive" when there is no evidence of activity at all,
  * or the latest activity was 14+ days ago (self-study disengagement signal).
+ *
+ * 2026-09-21：天數與門檻一律委派共用的 `classifyActivityStatus()`（單一 owner，
+ * 香港日界線），Copilot 不再自帶一套 day 計算（該本地函式已刪除）。
  */
 function isInactiveStudent(s: StudentSnapshot, now: Date = new Date()): boolean {
-  const days = daysSinceActivity(s.lastActiveAt, now);
-  return days === null || days >= 14;
+  const status = classifyActivityStatus(s.lastActiveAt, now).status;
+  return status === 'inactive' || status === 'never-started';
 }
 
 interface ClassDataSnapshot {
@@ -460,11 +458,15 @@ export class TeacherCopilotService {
     let totalReviewsDue = 0;
 
     // classId → classData snapshot（避免杜撰：有證據才計算平均/失聯）
+    // 2026-09-21 稽核：改為平行載入（舊碼 `for … await` 逐班序列執行，
+    // 每班 8+ 個聚合查詢 → Copilot 首頁回應時間隨班數線性增加）。
     const classDataMap = new Map<string, ClassDataSnapshot | null>();
-    for (const tc of teacherClasses) {
-      const classData = await this.loadClassData(tc.classId).catch(() => null);
-      classDataMap.set(tc.classId, classData);
-    }
+    const snapshots = await Promise.all(
+      teacherClasses.map(tc => this.loadClassData(tc.classId).catch(() => null)),
+    );
+    teacherClasses.forEach((tc, i) => {
+      classDataMap.set(tc.classId, snapshots[i]);
+    });
 
     for (const tc of teacherClasses) {
       const classId = tc.classId;
@@ -478,10 +480,12 @@ export class TeacherCopilotService {
       totalReviewsDue += reviewDue;
 
       // Real recent-activity filter (was TODO: totalStudents)
+      // 2026-09-21：改用共用的門檻 owner（香港日界線），「從未開始」同樣
+      // 不算活躍，但與「長期未活動」在 UI 上可分開呈現。
       const activeStudents = classData
         ? classData.students.filter(s => {
-            const days = daysSinceActivity(s.lastActiveAt);
-            return days !== null && days < 14;
+            const { status } = classifyActivityStatus(s.lastActiveAt);
+            return status === 'active' || status === 'low';
           }).length
         : 0;
       totalActiveStudents += activeStudents;

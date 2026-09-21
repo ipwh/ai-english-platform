@@ -19,6 +19,9 @@ interface StudentBrief {
   overallAccuracy?: number | null;
   class?: { name: string } | null;
   lastActiveAt?: string | null;
+  /** 2026-09-21：伺服器計算的活動狀態（單一門檻 owner） */
+  daysInactive?: number | null;
+  activityStatus?: 'never-started' | 'inactive' | 'low' | 'active';
   _count?: { sessions?: number; writingDrafts?: number };
 }
 
@@ -77,25 +80,32 @@ export default function TeacherDashboardPage() {
     : null;
 
   // Sprint 133: behavior-based monitoring — disengagement first
-  const inactiveStudents = students.filter(s => {
-    const days = daysSince(s.lastActiveAt);
+  // 2026-09-21：優先採用伺服器計算的狀態；「從未開始」與「長期未活動」
+  // 在 UI 上分開顯示（教學處理不同）。
+  const isInactive = (s: StudentBrief) => {
+    if (s.activityStatus) return s.activityStatus === 'inactive' || s.activityStatus === 'never-started';
+    const days = s.daysInactive ?? daysSince(s.lastActiveAt);
     if (days === null) return (s._count?.sessions ?? 0) === 0;
     return days >= 14;
-  });
+  };
+  const inactiveStudents = students.filter(isInactive);
+  // 無可驗證證據（overallAccuracy = null）**不得**當成 0% 列入低準確率；
+  // 那類學生屬「未開始／無資料」，已在失聯名單處理。
   const lowAccuracyStudents = students.filter(s =>
-    (s.overallAccuracy ?? 100) < 50 && (s._count?.sessions ?? 0) >= 1
+    s.overallAccuracy != null && s.overallAccuracy < 50 && (s._count?.sessions ?? 0) >= 1,
   );
   const atRiskByStudentId = new Map<string, StudentBrief & { kind: 'inactive' | 'low' }>();
   for (const student of lowAccuracyStudents) atRiskByStudentId.set(student.id, { ...student, kind: 'low' });
   for (const student of inactiveStudents) atRiskByStudentId.set(student.id, { ...student, kind: 'inactive' });
   const atRiskList = Array.from(atRiskByStudentId.values());
+  const inactiveCount = inactiveStudents.length;
 
   const kpis = [
     { label: t('teacher.classCount'), value: classes.length, unit: t('generic.classes'), trend: 'stable' as const },
     { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy ?? '—', unit: overallAvgAccuracy === null ? '' : '%', trend: 'stable' as const },
     { label: t('teacher.studentCount'), value: totalStudents, unit: t('generic.people'), trend: 'stable' as const },
     { label: t('teacher.completionRate'), value: avgCompletionRate ?? '—', unit: avgCompletionRate === null ? '' : '%', trend: 'stable' as const },
-    { label: t('teacher.dashboard.inactiveStudents'), value: inactiveStudents.length, unit: t('generic.people'), trend: 'stable' as const },
+    { label: t('teacher.dashboard.inactiveStudents'), value: inactiveCount, unit: t('generic.people'), trend: 'stable' as const },
   ];
 
   // Class chart data from real classes with accuracy
@@ -123,12 +133,18 @@ export default function TeacherDashboardPage() {
   const [aiError, setAiError] = useState('');
 
   const handleAITeachingAdvice = async () => {
+    // 2026-09-21：「無資料 ≠ 0」。舊碼送 `overallAvgAccuracy ?? 0`，
+    // 令 AI 以「全班準確率 0%」為前提給建議（假前提、假建議）。
+    if (overallAvgAccuracy === null) {
+      setAiError(t('teacher.dashboard.notEnoughDataForAdvice'));
+      return;
+    }
     setAiLoading(true); setAiError(''); setAiAdvice('');
     try {
       const res = await fetch('/api/ai/analyze-progress', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy ?? 0,
+          studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy,
           weakSkills: classChartData.filter(c => typeof c[t('teacher.avgAccuracy')] === 'number').slice(0, 3).map((c) => ({ name: c.name, nameZh: c.name, accuracy: c[t('teacher.avgAccuracy')] as number })),
           recentPerformance: classChartData.filter(c => typeof c[t('teacher.avgAccuracy')] === 'number').slice(0, 5).map((c) => ({ date: c.name, accuracy: c[t('teacher.avgAccuracy')] as number, questionsDone: c[t('teacher.studentCount')] as number })), streakDays: 0,
         }),
@@ -235,14 +251,21 @@ export default function TeacherDashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Users className="w-5 h-5 text-red-500" /> {t('teacher.atRiskStudents')}
+              {atRiskList.length > 0 && (
+                <span className="text-xs font-normal text-gray-400">({atRiskList.length})</span>
+              )}
             </h2>
-            <Link href="/teacher/students" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-              {t('common.viewAll')} <ChevronRight className="w-3 h-3" />
+            {/* 2026-09-21：「查看全部」必須帶入篩選，否則第 7 名之後的高風險學生
+                在 UI 上等於不存在（舊碼只連到無篩選的完整名單）。 */}
+            <Link href="/teacher/students?risk=inactive" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              {atRiskList.length > 6
+                ? t('teacher.dashboard.viewAllAtRisk', { n: atRiskList.length })
+                : t('common.viewAll')} <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="space-y-3">
             {atRiskList.slice(0, 6).map((s) => {
-              const days = daysSince(s.lastActiveAt);
+              const days = s.daysInactive ?? daysSince(s.lastActiveAt);
               return (
               <Link key={s.id} href={`/teacher/students/${s.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
@@ -262,7 +285,7 @@ export default function TeacherDashboardPage() {
               </Link>
               );
             })}
-            {atRiskList.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t('generic.noData')}</p>}
+            {atRiskList.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t('teacher.dashboard.atRiskEmpty')}</p>}
           </div>
         </section>
 

@@ -121,13 +121,38 @@ export async function POST(request: NextRequest) {
           // questions are dropped, never delivered with a wrong key.
           // Options are then shuffled server-side so the correct answer
           // position is random (the LLM tends to put the key first → "all A").
+          //
+          // 2026-09-21 稽核（答案鍵語意基礎）：舊碼只驗「word 在生字表 ∧ 在選項內」，
+          // 若 LLM 把中文意思與單字配錯（題幹問「環境」而 word = pollution），
+          // 答案鍵就是錯的，而干擾項全部來自同一生字表 → 同義詞可兩個都對。
+          // 現加兩道決定性檢查：
+          //   1. 題目的中文意思必須與生字表中該字的 meaningZh 一致，且題幹包含它。
+          //   2. 不得存在「中文意思與正解相同」的干擾項（避免一題兩解）。
           const knownWords = new Set(deserialized.map((v) => (v.word as string).toLowerCase()));
+          const meaningByWord = new Map(
+            deserialized.map((v) => [(v.word as string).toLowerCase(), String(v.meaningZh ?? '')]),
+          );
+          const normalizeMeaning = (text: string) => text.replace(/\s+/g, '').toLowerCase();
           const mcQuestions: Array<Record<string, unknown>> = [];
           for (const q of Array.isArray(rawQuestions) ? rawQuestions : []) {
             const word = typeof q?.word === 'string' ? q.word.trim() : '';
             const choices = Array.isArray(q?.choices) ? q.choices.map((c: unknown) => String(c).trim()) : [];
             if (!word || !knownWords.has(word.toLowerCase()) || choices.length < 2) continue;
             if (!choices.some((c: string) => c.toLowerCase() === word.toLowerCase())) continue;
+
+            const dbMeaning = meaningByWord.get(word.toLowerCase()) ?? '';
+            if (!dbMeaning) continue;
+            const claimedMeaning = typeof q?.meaningZh === 'string' ? q.meaningZh.trim() : '';
+            if (claimedMeaning && normalizeMeaning(claimedMeaning) !== normalizeMeaning(dbMeaning)) continue;
+            const promptZh = typeof q?.promptZh === 'string' ? q.promptZh : '';
+            if (!promptZh.includes(dbMeaning)) continue;
+            const hasAmbiguousDistractor = choices.some((c: string) => {
+              if (c.toLowerCase() === word.toLowerCase()) return false;
+              const otherMeaning = meaningByWord.get(c.toLowerCase());
+              return !!otherMeaning && normalizeMeaning(otherMeaning) === normalizeMeaning(dbMeaning);
+            });
+            if (hasAmbiguousDistractor) continue;
+
             const shuffled: string[] = shuffleOptions(choices);
             const idx = shuffled.findIndex((c: string) => c.toLowerCase() === word.toLowerCase());
             mcQuestions.push({ ...q, answer: String.fromCharCode(65 + idx), word, choices: shuffled });

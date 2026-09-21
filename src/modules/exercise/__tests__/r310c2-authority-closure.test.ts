@@ -267,9 +267,13 @@ describe('R3.10-C.2 consumer boundary contracts', () => {
 
   it('B3 admin export separates verified vs recorded totals', () => {
     const route = readFileSync(resolve(root, 'src/app/api/admin/export/students/route.ts'), 'utf-8');
-    expect(route).toContain('aggregateStudentPracticeTotals(s.sessions)');
+    // 2026-09-21 稽核：批次投影改為**全歷史**（`aggregateStudentPracticeTotals(s.sessions)`
+    // 搭配 `sessions: { take: 50 }` 會把「最新 50 場」當成總數）。
+    expect(route).toContain('aggregateVerifiedTotalsForStudents(studentIds)');
     expect(route).toContain('recordedTotalQuestions');
     expect(route).toContain('verifiedTotalQuestions');
+    expect(route).not.toContain('take: 50');
+    expect(route).not.toContain('aggregateStudentPracticeTotals(s.sessions)');
     expect(route).not.toContain("s.sessions.reduce((sum, sess) => sum + sess.totalQuestions, 0)");
   });
 

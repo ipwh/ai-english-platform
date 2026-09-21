@@ -401,6 +401,13 @@ function PracticeListPageContent() {
                   <option value="listening">{t('practice.skillListening')}</option>
                   <option value="speaking">{t('practice.skillSpeaking')}</option>
                 </select>
+                {/* 2026-09-21：誠實標示計分範圍。文法與閱讀題在交付前持久化為
+                    伺服器正典題目，練習結果會計入準確率、技能掌握度與錯題本；
+                    聆聽／寫作／會話在證據契約下沒有伺服器答案鍵，屬自評，
+                    不計入上述指標（舊版沒有任何說明，學生會以為「做了但沒進度」。 */}
+                <p className="mt-1 text-[11px] leading-snug text-gray-400">
+                  {t('practice.countedNote')}
+                </p>
               </div>
 
               {/* 難度 */}

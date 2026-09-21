@@ -10,11 +10,11 @@ See `CLAUDE.md` for full architecture documentation.
 
 ## Quick Start (New Maintainer)
 1. Read `CLAUDE.md` for architecture, ownership, and conventions
-2. Read `CHANGELOG.md` for the latest changes (2026-09-20 (IV): 生成題目交付前答案覆核（四個選項全錯不得交付，ADR-042）；(III): UTC 日界線全面收口 + 診斷改伺服器評分（D2b/D3）；(II): 無可驗證資料時準確率寫 null（不再顯示「0%」）＋診斷自評標示；(I): 連續天數與技能掌握度「越用越少」（UTC 日界線 + 最新 N 筆截斷）；2026-09-18: AI 額度閘門改為持久化全域帳本（503「今日 AI 額度已用完」）；2026-09-17 (II): 聆聽錄音只播第一句即停（段間停頓破壞 MP3 位元流）；2026-09-17: 閱讀診斷評分權威單一化／每空格字數判定；2026-09-16: 校徽與校名品牌（登入／學生／老師／管理員）)
+2. Read `CHANGELOG.md` for the latest changes (2026-09-21 (II): 可量測練習／誠實空值／教師監控訊號（ADR-044，`overallAccuracy` 移除 default 0、匯出改全歷史投影、閱讀覆核部分交付、練習閱讀正式計分、教師名單可篩選排序）；2026-09-21: 交付完整性、重送安全與教師 roster 授權收口（ADR-043）；2026-09-20 (IV): 生成題目交付前答案覆核（四個選項全錯不得交付，ADR-042）；(III): UTC 日界線全面收口 + 診斷改伺服器評分（D2b/D3）；(II): 無可驗證資料時準確率寫 null（不再顯示「0%」）＋診斷自評標示；(I): 連續天數與技能掌握度「越用越少」（UTC 日界線 + 最新 N 筆截斷）)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 3067 pass / 1 skipped (149 files passed, 1 skipped; core files: semantic-evaluator, analyze-writing, answer-verification)
-6. DB migrations: `npx prisma migrate deploy`（本機 DATABASE_URL 由 `.env.local` 優先載入；勿只信 `.env`）
+5. Run `npm test` — expect 3131 pass / 1 skipped (160 files passed, 1 skipped; core files: semantic-evaluator, analyze-writing, answer-verification)
+6. DB migrations: `npx prisma migrate deploy`（本機 DATABASE_URL 由 `.env.local` 優先載入；勿只信 `.env`）。部署 2026-09-21 (II) 後另需一次性回填：`npm run db:backfill:accuracy:apply`（把「無可驗證證據」的 `overallAccuracy = 0` 改為 `null`；真實 0% 不動）
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions
    - `npm run prompt:states` — release lifecycle states
@@ -33,7 +33,10 @@ See `CLAUDE.md` for full architecture documentation.
 - **Single owner**: Every responsibility has exactly one canonical module (see CLAUDE.md Ownership section)
 - **錯題技能歸屬**: 錯題的技能／題型一律由正典題目定義解析（`exercise/services/mistake-skill-identity.ts`）；客戶端自報值只作後備且須通過白名單。閱讀／聆聽題目依附篇章 → 不得當 flashcard（`listDueMistakesForReview` 排除）- **閱讀診斷 verdict 單一權威**：`reading-feedback-builder.ts` 的 `verdict` 只能由評分器（`isCorrect` / `isPartiallyCorrect`）決定；抄襲／詞形／語調／詞性等規則式訊號只能寫入 `qualityFlags`（＋ `qualityAdvice`），**永不改寫 verdict**。UI 徽章須與上方分數同源- **TTS 多角色音訊不得自行拼接位元**：`tts-service.ts` 的 `multiSpeaker` 段間停頓必須用該段自己的 SSML `<break>`（開頭，結尾會被裁剪）產生；**永不**手寫／拼接 MP3 frame（格式不符會令 Chromium 在第一段後 `MEDIA_ERR_DECODE` 並停止播放）- **累積指標不得由「最新 N 筆」推算**：學生端的「累積」數字（連續天數、技能掌握度題數、每週統計、整體準確率）一律由**日期界線查詢／全歷史分頁**或正典投影（`shared/utils/hk-date.ts`、`student/progress/services/streak-service.ts`、`exercise/services/practice-history-service.ts`、`student/state/StudentStateMutationService.collectVerifiedActivities`）產生。任何 `take: N` ／ `.slice(0, N)` 切片只可作「最近記錄清單」顯示，**永不**作為累積或連續指標的來源（2026-09-20 稽核：最新 50／90／200 筆視窗令香港連續 6 天顯示為 1、技能題數遞減至 0、累積準確率被截斷）。
 - **生成題目必須通過交付前答案覆核（Answer Verification）**：生成後的題目在**交付與持久化之前**，必須經 `ai/services/answer-verification.ts` 把關（決定性缺陷螢幕 + 第二次獨立 LLM pass **blind-solve**）。驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` **且** blind 答案等於答案鍵才可交付；`flawed`／`ambiguous`／答案不符／無 verdict 一律丟棄並觸發重新出題（`generate-questions.ts`，格式修復路徑同樣不得繞過）。結構驗證（`question-validator.ts`）**不代表答案正確**：2026-09-20 實例 `update in / update up / update with / update on` 四個選項全錯，仍通過全部結構檢查並交付。
-- **無資料 ≠ 0**：可為空的分數欄位（`User.overallAccuracy` 等）在「沒有可驗證資料」時必須寫 `null` 並顯示「—」，**不得**以 0 代替（2026-09-20 稽核：舊碼寫 0 → 837/852 學生顯示「準確率 0%」、班平均被拉低）。診斷的自評分數需明確標示不計入準確率；「未評估」不得 clamp 成 0 分。
+- **無資料 ≠ 0**：可為空的分數欄位（`User.overallAccuracy` 等）在「沒有可驗證資料」時必須寫 `null` 並顯示「—」，**不得**以 0 代替（2026-09-20 稽核：舊碼寫 0 → 837/852 學生顯示「準確率 0%」、班平均被拉低）。診斷的自評分數需明確標示不計入準確率；「未評估」不得 clamp 成 0 分。`User.overallAccuracy` **沒有 DB default**（2026-09-21 migration `20260923_user_overall_accuracy_drop_default`）；新增欄位／欄位語意時勿再加 `@default(0)`
+- **提交權威由伺服器解析，不信客戶端自報**：`/api/practice` 先以 `questionId` 解析正典題目家族（`exercise/services/practice-authority-resolution.ts`）；全部解析為 `ReadingQuestion` ⇒ `reading`、全部 `GrammarQuestion` ⇒ `grammar`；部分／混合／解析不到才回退既有 client-marker 分類。**不得**以客戶端 `skill`／`source`／`dseType` 直接決定是否計分（2026-09-21 稽核：練習頁的閱讀題有伺服器答案鍵卻被當成 legacy → 不計準確率／掌握度／錯題）
+- **交付前覆核失敗只丢問題題目**：閱讀交付保留所有通過覆核的題目；低於 `MIN_VERIFIED_READING_QUESTIONS` 才整份作廢，並回 **結構化 422**（`ANSWER_VERIFICATION_FAILED` + details）；前端自動重試一次。**不得**再以無語意的 500 表示覆核否決。AI 語意評分的短答題用內容詞重疊（`verificationAnswerMatch: 'overlap'`），確定性題型維持嚴格相等
+- **活躍狀態門檻單一 owner**：`teacher/monitoring/services/activity-service.ts` 的 `classifyActivityStatus()`（香港日界線）區分「未開始／失聯（≥14 日）／低活躍（≥7 日）／活躍」；活動來源＝登入 ∪ 練習 ∪ 寫作草稿 ∪ 作業提交。UI **不得**自行寫第二套天數門檻（2026-09-21 稽核：名單與班級詳情對同一學生給出不同標籤）
 - **日界線必須是香港日**：所有「今日／昨日／本週」判定經 `hkDayKey()`（UTC+8，無夏令）。**禁止**以 `toISOString().slice(0, 10)` 當「日」（雲端為 UTC → 香港 08:00 才換日，且會令早上練習歸入前一日而產生假缺口）。
 - **Budget enforced**: LLM calls are gated by `getBudgetStatus()` in `provider-registry.ts`. Usage is counted in the `AiDailyUsage` table (`ai/runtime/ai-usage-store.ts`), so the limit is **global across instances and survives cold starts** — never reintroduce a per-process counter. Limits: `AI_DAILY_TOKEN_LIMIT` (default 20M) / `AI_MONTHLY_COST_LIMIT` (default 50 USD); over budget ⇒ 503 until the next UTC day (HKT 08:00). Ledger outages degrade to in-process counters (fail-open, logged) rather than failing AI calls.
 - **Evidence over speculation**: Every architectural decision requires git history, metrics, or runtime evidence

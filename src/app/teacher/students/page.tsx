@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Search, ChevronRight, RefreshCw, Users, X, Loader2, Check } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import { useT } from '@/hooks/use-i18n';
-import { gradeLabels } from '@/shared/utils/nav';
+import { gradeLabels, getDifficultyLabel } from '@/shared/utils/nav';
 
 interface RealStudent {
   id: string;
@@ -21,9 +21,23 @@ interface RealStudent {
   studentClasses?: Array<{ class: { name: string; gradeLevel: string } }>;
   classNumber?: string;
   lastActiveAt?: string | null;
+  /** 2026-09-21：由伺服器計算（單一門檻 owner） */
+  daysInactive?: number | null;
+  activityStatus?: 'never-started' | 'inactive' | 'low' | 'active';
   dominantDifficulty?: string | null;
   shortWritingCount?: number;
   _count?: { sessions: number; mistakes: number; writingDrafts: number };
+}
+
+type ActivityFilter = 'all' | 'active' | 'low' | 'inactive' | 'never-started';
+type AccuracyFilter = 'all' | 'low' | 'mid' | 'high' | 'nodata';
+type SortKey = 'class' | 'activity' | 'accuracy-asc' | 'accuracy-desc' | 'mistakes' | 'short-writing';
+
+/** 教師主頁「查看全部 N 人」帶入的 ?risk= 篩選（僅接受已知值）。 */
+function readRiskParam(): ActivityFilter {
+  if (typeof window === 'undefined') return 'all';
+  const risk = new URLSearchParams(window.location.search).get('risk');
+  return risk === 'inactive' || risk === 'low' || risk === 'never-started' ? risk : 'all';
 }
 
 function studentClassNames(student: RealStudent): string[] {
@@ -45,6 +59,23 @@ function daysSince(iso: string | null | undefined): number | null {
   return Math.floor((Date.now() - d) / 86400000);
 }
 
+/**
+ * 活動狀態：優先用伺服器計算的 `activityStatus`（單一門檻 owner）；
+ * 只在舊 API 回應缺少該欄位時以天數回退，且**從未活動**必須與
+ * **長期未活動**分開（教學處理不同）。
+ */
+function activityStatusOf(s: RealStudent): 'never-started' | 'inactive' | 'low' | 'active' {
+  if (s.activityStatus) return s.activityStatus;
+  const days = s.daysInactive ?? daysSince(s.lastActiveAt);
+  if (days === null || days === undefined) {
+    return (s._count?.sessions ?? 0) === 0 ? 'never-started' : 'active';
+  }
+  if (days >= 14) return 'inactive';
+  if (days >= 7) return 'low';
+  return 'active';
+}
+
+
 export default function TeacherStudentsPage() {
   const { t, language } = useT();
   const lang = language || 'zh';
@@ -55,6 +86,13 @@ export default function TeacherStudentsPage() {
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
+  // 2026-09-21：教師辨識工具 — 活動／準確率篩選 + 排序（原本只有搜尋／班別／年級，
+  // 排序硬編碼為班別→班號，老師只能在整張表上用肉眼找紅標）。
+  // 活動篩選的初值由 ?risk= 帶入（教師主頁「查看全部 N 人」的深層連結）；
+  // 此頁在 loading 期間只渲染 spinner，故讀取 window 不會造成 hydration 不一致。
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>(readRiskParam);
+  const [accuracyFilter, setAccuracyFilter] = useState<AccuracyFilter>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('class');
 
   // === 自訂組別狀態 ===
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -97,20 +135,76 @@ export default function TeacherStudentsPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    return students.filter(s => {
+    const rows = students.filter(s => {
       if (search && !(s.nameZh || '').includes(search) && !(s.nameEn || '').toLowerCase().includes(search.toLowerCase()) && !s.email.includes(search.toLowerCase())) return false;
       if (classFilter !== 'all' && !studentClassNames(s).includes(classFilter)) return false;
       if (levelFilter !== 'all' && s.level !== levelFilter) return false;
+      if (activityFilter !== 'all' && activityStatusOf(s) !== activityFilter) return false;
+      if (accuracyFilter !== 'all') {
+        const acc = s.overallAccuracy;
+        if (accuracyFilter === 'nodata' && acc != null) return false;
+        if (accuracyFilter === 'low' && !(acc != null && acc < 50)) return false;
+        if (accuracyFilter === 'mid' && !(acc != null && acc >= 50 && acc < 70)) return false;
+        if (accuracyFilter === 'high' && !(acc != null && acc >= 70)) return false;
+      }
       return true;
     });
-  }, [students, search, classFilter, levelFilter]);
 
-  // Sprint 133: behavior-based activity badge
+    const classThenNumber = (a: RealStudent, b: RealStudent) => {
+      const classCmp = studentClassLabel(a).localeCompare(studentClassLabel(b));
+      if (classCmp !== 0) return classCmp;
+      const na = parseInt(a.classNumber || '999', 10);
+      const nb = parseInt(b.classNumber || '999', 10);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      if (!isNaN(na)) return -1;
+      if (!isNaN(nb)) return 1;
+      return (a.classNumber || '').localeCompare(b.classNumber || '');
+    };
+
+    return [...rows].sort((a, b) => {
+      switch (sortKey) {
+        case 'activity': {
+          // 最久未活動優先；從未開始排最前（最需要介入）
+          const rank = (s: RealStudent) => {
+            const status = activityStatusOf(s);
+            if (status === 'never-started') return Number.POSITIVE_INFINITY;
+            return s.daysInactive ?? daysSince(s.lastActiveAt) ?? -1;
+          };
+          return rank(b) - rank(a) || classThenNumber(a, b);
+        }
+        case 'accuracy-asc': {
+          // 無資料（null）排在最後，不得當成 0% 參與排序
+          const acc = (s: RealStudent) => (s.overallAccuracy == null ? Number.POSITIVE_INFINITY : s.overallAccuracy);
+          return acc(a) - acc(b) || classThenNumber(a, b);
+        }
+        case 'accuracy-desc': {
+          const acc = (s: RealStudent) => (s.overallAccuracy == null ? Number.NEGATIVE_INFINITY : s.overallAccuracy);
+          return acc(b) - acc(a) || classThenNumber(a, b);
+        }
+        case 'mistakes':
+          return (b._count?.mistakes ?? 0) - (a._count?.mistakes ?? 0) || classThenNumber(a, b);
+        case 'short-writing':
+          return (b.shortWritingCount ?? 0) - (a.shortWritingCount ?? 0) || classThenNumber(a, b);
+        default:
+          return classThenNumber(a, b);
+      }
+    });
+  }, [students, search, classFilter, levelFilter, activityFilter, accuracyFilter, sortKey]);
+
+  // Sprint 133: behavior-based activity badge（未開始 / 失聯 分開）
   const activityBadge = (s: RealStudent): { text: string; cls: string } => {
-    const days = daysSince(s.lastActiveAt);
-    if (days === null || days >= 14) return { text: t('teacher.students.inactive'), cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' };
-    if (days >= 7) return { text: t('teacher.students.lowActivity'), cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' };
-    return { text: t('teacher.students.active'), cls: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' };
+    const status = activityStatusOf(s);
+    const days = s.daysInactive ?? daysSince(s.lastActiveAt);
+    switch (status) {
+      case 'never-started':
+        return { text: t('teacher.students.notStarted'), cls: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400' };
+      case 'inactive':
+        return { text: days != null ? `${t('teacher.students.inactive')} · ${t('teacher.students.daysInactive', { n: days })}` : t('teacher.students.inactive'), cls: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' };
+      case 'low':
+        return { text: days != null ? `${t('teacher.students.lowActivity')} · ${t('teacher.students.daysInactive', { n: days })}` : t('teacher.students.lowActivity'), cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' };
+      default:
+        return { text: t('teacher.students.active'), cls: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' };
+    }
   };
 
   if (loading) {
@@ -147,14 +241,46 @@ export default function TeacherStudentsPage() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" />
         </div>
         <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
+          aria-label={t('admin.users.class')}
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
           <option value="all">{t('admin.users.all')} {t('admin.users.class')}</option>
           {classes.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select value={levelFilter} onChange={e => setLevelFilter(e.target.value)}
+          aria-label={t('admin.users.level')}
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
           <option value="all">{t('admin.users.all')} {t('admin.users.level')}</option>
           {['S1','S2','S3','S4','S5','S6'].map(l => <option key={l} value={l}>{gradeLabels[l] || l}</option>)}
+        </select>
+        {/* 2026-09-21：活動狀態篩選 — 一鍵列出長期未使用／從未開始的學生 */}
+        <select value={activityFilter} onChange={e => setActivityFilter(e.target.value as ActivityFilter)}
+          aria-label={t('teacher.students.filterActivity')}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="all">{t('teacher.students.filterActivity')}：{t('teacher.students.filterAll')}</option>
+          <option value="never-started">{t('teacher.students.notStarted')}</option>
+          <option value="inactive">{t('teacher.students.inactive')}</option>
+          <option value="low">{t('teacher.students.lowActivity')}</option>
+          <option value="active">{t('teacher.students.active')}</option>
+        </select>
+        {/* 2026-09-21：準確率篩選 — 找出成績需要照顧的學生（無資料 ≠ 0%） */}
+        <select value={accuracyFilter} onChange={e => setAccuracyFilter(e.target.value as AccuracyFilter)}
+          aria-label={t('teacher.students.filterAccuracy')}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="all">{t('teacher.students.filterAccuracy')}：{t('teacher.students.filterAll')}</option>
+          <option value="low">{t('teacher.students.accuracyLow')}</option>
+          <option value="mid">{t('teacher.students.accuracyMid')}</option>
+          <option value="high">{t('teacher.students.accuracyHigh')}</option>
+          <option value="nodata">{t('teacher.students.accuracyNoData')}</option>
+        </select>
+        <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)}
+          aria-label={t('teacher.students.sortBy')}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+          <option value="class">{t('teacher.students.sortClass')}</option>
+          <option value="activity">{t('teacher.students.sortActivity')}</option>
+          <option value="accuracy-asc">{t('teacher.students.sortAccuracyAsc')}</option>
+          <option value="accuracy-desc">{t('teacher.students.sortAccuracyDesc')}</option>
+          <option value="mistakes">{t('teacher.students.sortMistakes')}</option>
+          <option value="short-writing">{t('teacher.students.sortShortWriting')}</option>
         </select>
         <span className="self-center text-xs text-gray-500">{filtered.length} {t('admin.classes.studentCount')}</span>
         <button
@@ -162,7 +288,7 @@ export default function TeacherStudentsPage() {
           className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors"
         >
           <Users className="w-4 h-4" />
-          建立組別
+          {t('groups.createTitle')}
         </button>
       </div>
 
@@ -178,23 +304,13 @@ export default function TeacherStudentsPage() {
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">{t('admin.users.level')}</th>
                 <th className="text-center py-3 px-4 text-gray-500 font-medium">{t('teacher.classes.accuracy')}</th>
                 <th className="text-center py-3 px-4 text-gray-500 font-medium">{t('teacher.students.lastActive')}</th>
+                <th className="text-center py-3 px-4 text-gray-500 font-medium hidden xl:table-cell">{t('teacher.students.dominantDifficulty')}</th>
                 <th className="text-center py-3 px-4 text-gray-500 font-medium hidden lg:table-cell">{t('teacher.students.writingCount')}</th>
                 <th className="text-right py-3 px-4 text-gray-500 font-medium">{t('teacher.classes.action')}</th>
               </tr>
             </thead>
             <tbody>
-              {filtered
-                .sort((a, b) => {
-                  const classCmp = studentClassLabel(a).localeCompare(studentClassLabel(b));
-                  if (classCmp !== 0) return classCmp;
-                  const na = parseInt(a.classNumber || '999', 10);
-                  const nb = parseInt(b.classNumber || '999', 10);
-                  if (!isNaN(na) && !isNaN(nb)) return na - nb;
-                  if (!isNaN(na)) return -1;
-                  if (!isNaN(nb)) return 1;
-                  return (a.classNumber || '').localeCompare(b.classNumber || '');
-                })
-                .map(s => (
+              {filtered.map(s => (
                 <tr key={s.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
                   <td className="py-3 px-4 text-gray-500 text-xs">{s.classNumber || '-'}</td>
                   <td className="py-3 px-4">
@@ -222,6 +338,11 @@ export default function TeacherStudentsPage() {
                   <td className="text-center py-3 px-4">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activityBadge(s).cls}`}>{activityBadge(s).text}</span>
                   </td>
+                  {/* 2026-09-21：主要練習難度（舊碼已回傳但從未顯示）—— 讓老師一眼看到
+                      「一直只做 remedial／太易的題」這種高準確率但低挑戰的模式。 */}
+                  <td className="text-center py-3 px-4 text-xs text-gray-500 hidden xl:table-cell">
+                    {s.dominantDifficulty ? getDifficultyLabel(s.dominantDifficulty, lang) : '—'}
+                  </td>
                   <td className="text-center py-3 px-4 text-xs text-gray-500 hidden lg:table-cell">
                     {s._count?.writingDrafts ?? 0}
                     {(s.shortWritingCount ?? 0) > 0 && (
@@ -236,7 +357,7 @@ export default function TeacherStudentsPage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="py-10 text-center text-gray-400">{t('generic.noData')}</td></tr>
+                <tr><td colSpan={9} className="py-10 text-center text-gray-400">{t('generic.noData')}</td></tr>
               )}
             </tbody>
           </table>

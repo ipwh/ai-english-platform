@@ -4,6 +4,58 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-21 (II) — 可量測練習、誠實空值與教師監控訊號（ADR-044）
+
+### 一、無可驗證資料不再是 0%
+
+- `User.overallAccuracy` **移除 `@default(0)`**（migration `20260923_user_overall_accuracy_drop_default`）。舊預設令每個未使用平台的匯入學生停在 0%，教師名單顯示紅色「0%」、班平均被拉低，而匯出報表卻把同一個 0 當成「無資料」。
+- 新增一次性回填指令：`npm run db:backfill:accuracy:apply`（以正典投影重算，只把「無可驗證證據」的 0 改為 `null`）。
+- 刪除零呼叫者的 `StudentStateMutationService.updateOverallAccuracy(accuracy: number)` 與 `updateWeeklySnapshot()`（前者簽名容許以 0 冒充「無資料」）。
+
+### 二、匯出報表不再截斷、不再讀快取
+
+- `/api/admin/export/students` 移除 `sessions: { take: 50 }` 窗，改用新的正典批次投影 `aggregateVerifiedTotalsForStudents()`（全歷史分頁、只計已驗證證據、無證據 ⇒ 空值）。
+- 連續天數改由 `getPracticeStreaksForStudents()` 計算（與學生端同一個 `countStreak`、香港日界線），不再平均 `User.streakDays` 快取。
+- `joinedAt` 改用 `hkDayKey()`；`practiceSessions` 與 `assignmentSubmissions` 分開呈現；`overallAccuracy` 改為空值安全（真實 0% 不再被當成無資料）。
+- 週報平均準確率只計「有可驗證證據」的學生，全班皆無證據時輸出空值而非 0。
+- **刻意不變**：教師可匯出全校學生的範圍維持不變（依用戶指示），並在路由加上註解避免日後被「順手」收窄。
+
+### 三、閱讀交付不再全有全無、錯誤訊息可採取行動
+
+- 交付前答案覆核改為**逐題丟棄**：其餘題目照常交付；可交付題數低於門檻才整份作廢，並回傳結構化 `422 ANSWER_VERIFICATION_FAILED`（code + details），不再拋出無語意的 500。
+- 前端 `mapReadingApiError` 新增該 code 分支：顯示可理解的說明與重試指引，並**自動重試一次**（覆核否決、AI 供應商錯誤、5xx 皆屬可重試）。
+- 覆核覆蓋面擴大：`reference` / `inference` / `vocabulary_in_context` / `short_answer`（含退化為短答的 tone 題）的答案鍵首次納入 blind-solve；AI 語意評分題型採**內容詞重疊**寬鬆比對（`verificationAnswerMatch: 'overlap'`），確定性題型（MC／cloze／改錯／排序）維持嚴格相等。
+- `_metadata.verificationDropped` 令「生成失敗」與「覆核否決」可區分。
+
+### 四、文法／閱讀練習正式計分（伺服器解析權威）
+
+- 新增 `exercise/services/practice-authority-resolution.ts`：提交的 `questionId` 全部解析為同一正典家族（`ReadingQuestion` 或 `GrammarQuestion`）時，即以該家族為權威，**不再相信客戶端自報的 `skill`／`source`**；部分／混合／完全解析不到（真正的舊資料）則完全沿用既有分類，行為不變。
+- 修正「同一題在診斷有計分、在練習頁不計分」：練習頁產生的閱讀題早於交付前持久化為 `ReadingQuestion`（帶伺服器答案鍵），現會被正確判為 `reading` → 產生可驗證證據、更新技能掌握度、建立錯題，並以 `source: 'dse-reading'` 保存。
+- 若伺服器解析為閱讀但閱讀評分暫時不可用（例如 AI 語意評分失敗），場次仍以 legacy 路徑保存（`client-key-deterministic`，不可驗證），學生**不會**失去整份練習。
+- 練習設定頁新增說明：文法／閱讀計入準確率、掌握度與錯題本；聆聽／寫作／會話屬自評（無伺服器答案鍵），不計入上述統計。
+
+### 五、詞彙測驗答案鍵加上語意基礎
+
+- `/api/vocabulary/quiz` 的 MCQ 需同時滿足：題目所述中文意思與生字表中該字的 `meaningZh` 一致、題幹包含該意思、且**不存在中文意思相同的干擾項**；否則該題丟棄（不足時回退配對題模式）。
+
+### 六、教師辨識工具與監控訊號
+
+- `activity-service` 成為活動門檻單一 owner：`classifyActivityStatus()`（香港日界線）區分 **未開始**／**失聯（≥14 日）**／**低活躍（≥7 日）**／**活躍**；`/api/teacher/students` 直接回傳 `activityStatus` 與 `daysInactive`。
+- 活動訊號納入 `WritingDraft.updatedAt` 與 `Submission.submittedAt`（只寫作或只交作業的學生不再被誤標「失聯」）。
+- 學生名單新增**活動狀態**與**準確率**篩選、六種排序（含「最久未活動優先」與「準確率低至高」），並顯示**主要練習難度**（舊碼已回傳但從未 render）。
+- 教師主頁「需要關注的學生」顯示總數，`查看全部 N 人` 會帶入 `?risk=` 篩選（第 7 名之後的高風險學生不再等於不存在）；AI 教學建議在無已驗證班級數據時不再以「全班 0%」為前提。
+- 效能：極短寫作偵測改為 DB 端計數（SQL，含 in-memory fail-open 回退），不再每次請求載入所有學生的全部草稿全文；Copilot 的班級快照改為平行載入（原為逐班序列的 N+1）。
+- 個別學生頁的準確率改為空值安全（無已驗證資料顯示「—」而非 0%），KPI 標籤與學生求助頁的建議句全面 i18n（原為硬編碼中文／廣東話）。
+
+### 七、驗證
+
+- `npm test`：**3131 passed / 1 skipped**（160 files passed / 1 skipped）；`npx tsc --noEmit`、`node scripts/check-i18n.js`、`npx prisma validate` 全部通過；`npx eslint` 於變更檔案 0 error。
+- 新增測試 39 個（提交權威解析、批次累積投影、活動狀態與門檻、批次連續天數、寬鬆／嚴格答案比對、閱讀覆核覆蓋）。
+- 部署順序：先 `npx prisma migrate deploy`（含 `20260923_user_overall_accuracy_drop_default`），再執行 `npm run db:backfill:accuracy:apply`，最後部署應用（Cloud Run 不會自動套用 migration）。
+- 決策記錄：`docs/architecture/ADR-044-measurable-practice-and-teacher-signals.md`。
+
+---
+
 ## 2026-09-21 — 交付完整性、重送安全與教師 roster 授權收口（ADR-043）
 
 ### 題目與答案鍵

@@ -10,11 +10,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   listPracticeStartedAtSince: vi.fn(),
+  listPracticeStartedAtSinceForStudents: vi.fn(),
   updateUserStreak: vi.fn(),
 }));
 
 vi.mock('@/modules/repositories', () => ({
-  ProgressRepo: { listPracticeStartedAtSince: mocks.listPracticeStartedAtSince },
+  ProgressRepo: {
+    listPracticeStartedAtSince: mocks.listPracticeStartedAtSince,
+    listPracticeStartedAtSinceForStudents: mocks.listPracticeStartedAtSinceForStudents,
+  },
   StudentRepo: { updateUserStreak: mocks.updateUserStreak },
 }));
 
@@ -23,6 +27,7 @@ import {
   calculatePracticeStreak,
   calculateStudentStreak,
   syncUserStreak,
+  getPracticeStreaksForStudents,
   STREAK_LOOKBACK_DAYS,
 } from '../services/streak-service';
 import { hkDayKey, hkDaysAgo, hkDayStartUtc } from '@/shared/utils/hk-date';
@@ -146,5 +151,62 @@ describe('B. 視窗截斷：練習量再高都不得壓縮連續天數', () => {
   it('無練習 → 0，lastActiveDate = null', async () => {
     mocks.listPracticeStartedAtSince.mockResolvedValue([]);
     await expect(calculateStudentStreak(STUDENT)).resolves.toEqual({ streakDays: 0, lastActiveDate: null });
+  });
+});
+
+// ============================================
+// 2026-09-21: 批次連續天數（教師／行政報表用）
+// ============================================
+// 病根：報表平均 `User.streakDays` 快取（只在學生載入 dashboard 時寫入）
+// → 未載入者為 0、數值可能過期。批次版必須與學生端**同一個** countStreak
+// 口徑（香港日界線、400 日回溯、嚴格相鄰）。
+describe('getPracticeStreaksForStudents', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('以單一查詢取得所有學生，並逐名套用同一個 countStreak', async () => {
+    mocks.listPracticeStartedAtSinceForStudents.mockResolvedValue([
+      { studentId: 's1', startedAt: new Date('2026-09-19T16:00:00Z') }, // HK 09-20
+      { studentId: 's1', startedAt: new Date('2026-09-18T16:00:00Z') }, // HK 09-19
+      { studentId: 's2', startedAt: new Date('2026-09-18T16:00:00Z') }, // HK 09-19（昨日 → 仍算連續）
+      { studentId: 's3', startedAt: new Date('2026-09-01T16:00:00Z') }, // 已中斷
+    ]);
+
+    const result = await getPracticeStreaksForStudents(['s1', 's2', 's3'], NOW);
+
+    expect(mocks.listPracticeStartedAtSinceForStudents).toHaveBeenCalledTimes(1);
+    const [, since] = mocks.listPracticeStartedAtSinceForStudents.mock.calls[0] as [string[], Date];
+    expect(since.toISOString()).toBe(hkDayStartUtc(hkDaysAgo(STREAK_LOOKBACK_DAYS, NOW)).toISOString());
+    expect(result.get('s1')).toBe(2);
+    expect(result.get('s2')).toBe(1);
+    expect(result.get('s3')).toBe(0);
+  });
+
+  it('完全沒有練習記錄的學生不會出現在 map（呼叫端顯示 0 天）', async () => {
+    mocks.listPracticeStartedAtSinceForStudents.mockResolvedValue([]);
+
+    const result = await getPracticeStreaksForStudents(['s1'], NOW);
+
+    expect(result.has('s1')).toBe(false);
+  });
+
+  it('空學生清單不查詢 DB', async () => {
+    const result = await getPracticeStreaksForStudents([], NOW);
+    expect(result.size).toBe(0);
+    expect(mocks.listPracticeStartedAtSinceForStudents).not.toHaveBeenCalled();
+  });
+
+  it('與逐名 calculatePracticeStreak 的結果一致（同一口徑）', async () => {
+    const rows = [
+      { studentId: 's1', startedAt: new Date('2026-09-19T16:00:00Z') },
+      { studentId: 's1', startedAt: new Date('2026-09-18T16:00:00Z') },
+      { studentId: 's1', startedAt: new Date('2026-09-17T16:00:00Z') },
+    ];
+    mocks.listPracticeStartedAtSinceForStudents.mockResolvedValue(rows);
+    mocks.listPracticeStartedAtSince.mockResolvedValue(rows.map(r => ({ startedAt: r.startedAt })));
+
+    const bulk = await getPracticeStreaksForStudents(['s1'], NOW);
+    const single = await calculatePracticeStreak('s1', NOW);
+
+    expect(bulk.get('s1')).toBe(single);
   });
 });

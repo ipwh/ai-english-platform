@@ -22,6 +22,20 @@ export async function listPracticeStartedAtSince(studentId: string, since: Date)
   });
 }
 
+/**
+ * 批次變體（2026-09-21 稽核）：多名學生在指定時間之後的練習開始時間。
+ * 供教師／行政的報表使用，避免逐名學生查詢（N+1）。
+ * 同樣**不設 `take`**，否則連續天數會被截斷（見上）。
+ */
+export async function listPracticeStartedAtSinceForStudents(userIds: string[], since: Date) {
+  if (userIds.length === 0) return [];
+  return db.practiceSession.findMany({
+    where: { studentId: { in: userIds }, startedAt: { gte: since } },
+    select: { studentId: true, startedAt: true },
+    orderBy: { startedAt: 'desc' },
+  });
+}
+
 // ============================================
 // XP transactions
 // ============================================

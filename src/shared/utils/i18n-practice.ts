@@ -60,6 +60,11 @@ export const practiceTranslations: Record<string, { zh: string; en: string }> = 
   'practice.noGrammar': { zh: '不限文法', en: 'Any Grammar' },
   'practice.noSkill': { zh: '不限技能', en: 'Any Skill' },
   'practice.skillListening': { zh: '聆聽', en: 'Listening' },
+  // 2026-09-21：清楚交代哪些練習會計入準確率／技能掌握度／錯題本。
+  'practice.countedNote': {
+    zh: '文法與閱讀題會計入準確率、技能掌握度與錯題本；聆聽、寫作與會話練習屬自評，不計入上述統計。',
+    en: 'Grammar and reading count towards accuracy, skill mastery and your mistake book. Listening, writing and speaking practice are self-assessed and are not counted in those statistics.',
+  },
   'practice.skillSpeaking': { zh: '說話', en: 'Speaking' },
   'practice.diffRemedial': { zh: '🟢 補底', en: '🟢 Remedial' },
   'practice.diffCore': { zh: '🔵 核心', en: '🔵 Core' },

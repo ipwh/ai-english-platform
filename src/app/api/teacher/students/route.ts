@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findUserByIdSelect, listTeacherClasses, listAllClasses, listUsersAdmin } from '@/modules/student';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { auth } from '@/shared/auth/auth-next';
-import { getLastActivityMap, getDominantDifficultyMap, getShortWritingCounts } from '@/modules/teacher/monitoring/services/activity-service';
+import { getLastActivityMap, getDominantDifficultyMap, getShortWritingCounts, classifyActivityStatus } from '@/modules/teacher/monitoring/services/activity-service';
 
 async function getTeacherInfo(request: NextRequest): Promise<{ userId: string; role: string } | null> {
   const token = request.cookies.get('session_token')?.value;
@@ -91,9 +91,12 @@ export async function GET(request: NextRequest) {
     });
 
     // Sprint 133: behavior-based monitoring signals.
-    // lastActiveAt = latest of last login / last practice.
+    // lastActiveAt = latest of last login / last practice / last draft / last submission.
     // dominantDifficulty = most-practised difficulty (exposes "題太易" at a glance).
     // shortWritingCount = drafts under the word threshold (exposes "只交極短").
+    // 2026-09-21 稽核：活躍狀態與天數門檻一律由伺服器計算（單一 owner，
+    // 見 `activity-service.classifyActivityStatus`），令名單與班級詳情
+    // 不可能出現兩套不一致的判定；「從未開始」亦與「長期未活動」分開。
     const studentIds = students.map((s: { id: string }) => s.id);
     const [lastActivity, dominantDifficulty, shortWriting] = await Promise.all([
       getLastActivityMap(studentIds),
@@ -101,11 +104,14 @@ export async function GET(request: NextRequest) {
       getShortWritingCounts(studentIds),
     ]);
 
-    const enriched = students.map((s: { id: string }) => {
+    const enriched = students.map((s: { id: string; _count?: { sessions?: number } }) => {
       const last = lastActivity.get(s.id);
+      const { status, daysInactive } = classifyActivityStatus(last ?? null);
       return {
         ...s,
         lastActiveAt: last ? last.toISOString() : null,
+        daysInactive,
+        activityStatus: status,
         dominantDifficulty: dominantDifficulty.get(s.id) ?? null,
         shortWritingCount: shortWriting.get(s.id) ?? 0,
       };

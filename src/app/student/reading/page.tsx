@@ -220,6 +220,12 @@ function mapReadingApiError(
         return { code, recoverable: true, debugInfo: details, message: language === 'en'
           ? 'The AI service is temporarily busy. Please wait a moment and try again.'
           : 'AI 服務暫時繁忙，請稍候再試。' };
+      // 2026-09-21：交付前答案覆核否決 → 可重試，且必須說明原因
+      // （舊碼把此情況當成一般 500，只顯示「系統暫時發生錯誤」，學生無從得知要重試）。
+      case 'ANSWER_VERIFICATION_FAILED':
+        return { code, recoverable: true, debugInfo: details, message: language === 'en'
+          ? 'Some questions did not pass the independent answer check, so this reading task could not be delivered. Please generate again — a new set is usually fine.'
+          : '部分題目的答案未通過獨立覆核，未能安全交付這份閱讀練習。請再按「生成閱讀練習」重新出題。' };
       default:
         return { code, recoverable, debugInfo: details, message: language === 'en'
           ? 'The request was understood, but the content could not be processed. Please try again.'
@@ -520,22 +526,38 @@ export default function ReadingPracticePage() {
     setLoading(true); setError('');
     savedRef.current = false;
     try {
-      const res = await fetch('/api/reading', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gradeLevel: grade, difficulty, topic, questionCount: 10 }),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        setData(json);
-        setAnswers({});
-        setEvaluatingAI(new Set());
-        setError('');
-        setSaveError('');
-        pendingPracticePayloadRef.current = null;
-        readingSubmissionIdRef.current = `reading-${crypto.randomUUID()}`;
-      } else {
+      // 2026-09-21：覆核否決（ANSWER_VERIFICATION_FAILED）與供應商錯誤屬可重試，
+      // 自動再試一次，避免學生看到訊息後手動重按仍失敗。
+      const MAX_ATTEMPTS = 2;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const res = await fetch('/api/reading', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gradeLevel: grade, difficulty, topic, questionCount: 10 }),
+        });
+        const json = await res.json();
+        if (res.ok) {
+          setData(json);
+          setAnswers({});
+          setEvaluatingAI(new Set());
+          setError('');
+          setSaveError('');
+          pendingPracticePayloadRef.current = null;
+          readingSubmissionIdRef.current = `reading-${crypto.randomUUID()}`;
+          return;
+        }
         const mapped = mapReadingApiError(res.status, json, language === 'en' ? 'en' : 'zh');
+        const retryable = mapped.recoverable
+          && (json?.code === 'ANSWER_VERIFICATION_FAILED'
+            || json?.code === 'MALFORMED_AI_OUTPUT'
+            || json?.code === 'AI_PROVIDER_ERROR'
+            || res.status >= 500);
+        if (attempt < MAX_ATTEMPTS && retryable) {
+          setError(language === 'en'
+            ? 'Retrying with a new question set…'
+            : '正在用新題目重試…');
+          continue;
+        }
         const retryHint = mapped.recoverable
           ? (language === 'en'
               ? ' You can press "Generate Reading Task" to try again.'
@@ -547,6 +569,7 @@ export default function ReadingPracticePage() {
               : ` [除錯：${mapped.debugInfo.slice(0, 500)}]`)
           : '';
         setError(mapped.message + retryHint + debugSuffix);
+        return;
       }
     } catch {
       setError(language === 'en' ? 'Network error' : '網絡錯誤');

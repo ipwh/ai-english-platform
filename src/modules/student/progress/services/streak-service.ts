@@ -79,3 +79,37 @@ export async function syncUserStreak(studentId: string): Promise<number> {
 export async function calculatePracticeStreak(studentId: string, now: Date = new Date()): Promise<number> {
   return countStreak(await getPracticeDayKeys(studentId, now), hkToday(now));
 }
+
+/**
+ * 批次連續練習天數（2026-09-21 稽核）。
+ *
+ * 教師／行政報表舊碼以 `User.streakDays` **快取**平均（只在學生載入
+ * dashboard 時寫入）→ 未載入者為 0、數值可能過期。本函式以單一查詢取得
+ * 所有學生在回溯期內的練習日，再逐名套用**同一個**純函式 `countStreak()`，
+ * 確保與學生端顯示完全同源（不產生第二套口徑）。
+ *
+ * 回傳只包含「有練習日 key」的學生；其餘學生代表連續天數 0。
+ */
+export async function getPracticeStreaksForStudents(
+  studentIds: string[],
+  now: Date = new Date(),
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (studentIds.length === 0) return result;
+
+  const since = hkDayStartUtc(hkDaysAgo(STREAK_LOOKBACK_DAYS, now));
+  const rows = await ProgressRepo.listPracticeStartedAtSinceForStudents(studentIds, since);
+
+  const dayKeysByStudent = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const set = dayKeysByStudent.get(row.studentId) ?? new Set<string>();
+    set.add(hkDayKey(row.startedAt));
+    dayKeysByStudent.set(row.studentId, set);
+  }
+
+  const todayKey = hkToday(now);
+  for (const [studentId, dayKeys] of dayKeysByStudent) {
+    result.set(studentId, countStreak(dayKeys, todayKey));
+  }
+  return result;
+}

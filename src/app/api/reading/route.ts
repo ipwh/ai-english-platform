@@ -624,6 +624,19 @@ export async function POST(request: NextRequest) {
         return handleLegacyGeneration(body);
     }
   } catch (err: unknown) {
+    // 2026-09-21：覆核後可交付題數不足 → 結構化 422（可重試），
+    // 而非不可行動的通用 500。前端據 code 顯示原因並自動重試一次。
+    if (err instanceof AnswerVerificationError) {
+      return NextResponse.json(
+        apiError(
+          '部分題目的答案未通過獨立覆核，已無法安全交付。請按「生成閱讀練習」再試一次。 / Some questions did not pass independent answer verification and could not be delivered safely. Please generate again.',
+          'ANSWER_VERIFICATION_FAILED',
+          true,
+          `dropped=${err.droppedCount} kept=${err.keptCount}`,
+        ),
+        { status: 422 },
+      );
+    }
     const msg = err instanceof Error ? err.message : 'Server error';
     logger.error({ module: 'reading-api', error: msg }, 'Reading API error');
     return NextResponse.json(
@@ -1532,6 +1545,8 @@ async function handlePaperReview(body: Record<string, unknown>) {
 // ============================================
 async function handleLegacyGeneration(body: Record<string, unknown>) {
   const startTime = Date.now();
+  // 2026-09-21：交付前答案覆核而丟棄的題數（> 0 代表部分交付）。
+  let verificationDroppedCount = 0;
 
   // Sprint 102: If called from exercise handler with pre-parsed result, skip AI
   const preParsed = body._preParsedResult as Record<string, unknown> | undefined;
@@ -2160,10 +2175,14 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         response.questions as Array<Record<string, unknown>>,
         cleanContent,
       );
-      response.questions = await assignServerOwnedQuestionIds(
+      const assigned = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
         cleanContent,
       );
+      response.questions = assigned.questions;
+      if (assigned.droppedCount > 0) {
+        verificationDroppedCount = assigned.droppedCount;
+      }
     }
   } else {
     // 2. Transform question format from v2 AI output to legacy frontend format (no passage transform needed)
@@ -2266,13 +2285,22 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         response.questions as Array<Record<string, unknown>>,
         (response.passage as { content?: string } | undefined)?.content ?? '',
       );
-      response.questions = await assignServerOwnedQuestionIds(
+      const assigned = await assignServerOwnedQuestionIds(
         response.questions as Array<Record<string, unknown>>,
         (response.passage as { content?: string } | undefined)?.content ?? '',
       );
+      response.questions = assigned.questions;
+      if (assigned.droppedCount > 0) {
+        verificationDroppedCount = assigned.droppedCount;
+      }
     }
   }
-  response._metadata = { generationTimeMs: elapsed, mode: 'legacy-single-passage' };
+  response._metadata = {
+    generationTimeMs: elapsed,
+    mode: 'legacy-single-passage',
+    // 2026-09-21：把「覆核否決」與「生成失敗」分開（可觀測性）。
+    ...(verificationDroppedCount > 0 ? { verificationDropped: verificationDroppedCount } : {}),
+  };
 
   return NextResponse.json(response);
 }
@@ -2294,20 +2322,64 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
  * persisted or the request fails — there is no partial set. If the
  * write fails, the error propagates (HTTP 500) so the client retries;
  * no rd-* fallback ids are ever produced for new generations.
+ *
+ * 2026-09-21 稽核修正（「全有全無」缺陷）：舊碼只要**任何一題**未通過答案覆核
+ * 就 throw，令整份閱讀作廢，學生只看到無法行動的通用錯誤。
+ * 現改為：
+ *   1. 逐題丟棄不合格題目，其餘照常交付（學生仍可完成練習）。
+ *   2. 可交付題數低於 `MIN_VERIFIED_READING_QUESTIONS` 才整份作廢，並以
+ *      **結構化 422**（`ANSWER_VERIFICATION_FAILED` + 原因）回應，
+ *      讓前端顯示可理解訊息並自動重試一次。
+ *   3. 被丟棄的題目寫入 `_metadata.verificationDropped`，令「生成失敗」與
+ *      「覆核否決」可被區分（可觀測性）。
  */
+const MIN_VERIFIED_READING_QUESTIONS = 4;
+
+/** 覆核後可交付題數不足 — 由 POST handler 轉為結構化 422。 */
+class AnswerVerificationError extends Error {
+  readonly droppedCount: number;
+  readonly keptCount: number;
+  constructor(droppedCount: number, keptCount: number) {
+    super(`Only ${keptCount} reading question(s) passed pre-delivery answer verification (dropped ${droppedCount})`);
+    this.name = 'AnswerVerificationError';
+    this.droppedCount = droppedCount;
+    this.keptCount = keptCount;
+  }
+}
+
+interface ReadingAssignmentResult {
+  questions: Array<Record<string, unknown>>;
+  /** 被丟棄題數（> 0 代表部分交付） */
+  droppedCount: number;
+  verifierUnavailable: boolean;
+}
+
 async function assignServerOwnedQuestionIds(
   questions: Array<Record<string, unknown>>,
   readingContent: string,
-): Promise<Array<Record<string, unknown>>> {
+): Promise<ReadingAssignmentResult> {
   const verification = await verifyReadingQuestionsForDelivery(questions, readingContent);
-  if (verification.dropped.length > 0) {
+  const minRequired = Math.min(MIN_VERIFIED_READING_QUESTIONS, questions.length);
+
+  if (verification.kept.length < minRequired) {
     logger.error({
       module: 'reading-api',
       droppedCount: verification.dropped.length,
+      keptCount: verification.kept.length,
+      minRequired,
       reasons: verification.dropped.map(drop => `Q${drop.index}: ${drop.reasons.join('；')}`),
       verifierUnavailable: verification.verifierUnavailable,
-    }, 'Generated reading questions rejected by pre-delivery answer verification');
-    throw new Error('閱讀題目未通過交付前答案覆核，請重新生成 / Generated reading questions did not pass answer verification. Please generate again.');
+    }, 'Reading generation aborted: too few questions passed pre-delivery answer verification');
+    throw new AnswerVerificationError(verification.dropped.length, verification.kept.length);
+  }
+
+  if (verification.dropped.length > 0) {
+    logger.warn({
+      module: 'reading-api',
+      droppedCount: verification.dropped.length,
+      keptCount: verification.kept.length,
+      reasons: verification.dropped.map(drop => `Q${drop.index}: ${drop.reasons.join('；')}`),
+    }, 'Partial reading delivery: defect questions dropped, remaining questions delivered');
   }
 
   const ids = await persistGeneratedReadingQuestions(
@@ -2321,7 +2393,11 @@ async function assignServerOwnedQuestionIds(
       orderIndex: i,
     })),
   );
-  return verification.kept.map((q, i) => ({ ...q, id: ids[i] }));
+  return {
+    questions: verification.kept.map((q, i) => ({ ...q, id: ids[i] })),
+    droppedCount: verification.dropped.length,
+    verifierUnavailable: verification.verifierUnavailable,
+  };
 }
 
 function generateRecommendations(

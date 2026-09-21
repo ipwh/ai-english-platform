@@ -229,6 +229,34 @@ function normalizeSoundness(raw: string | undefined): 'ok' | 'ambiguous' | 'flaw
   return 'unknown';
 }
 
+/**
+ * 內容詞（長度 ≥ 4）—— 用於 `'overlap'` 比對模式，避免 "the / and / is"
+ * 之類虛詞造成假重疊。刻意不用停用詞表：此處只需一個穩定、可測試的下界。
+ */
+function contentWords(text: string): string[] {
+  return normalizeAnswer(text)
+    .split(' ')
+    .map((w) => w.replace(/[^a-z0-9']/g, ''))
+    .filter((w) => w.length >= 4);
+}
+
+/**
+ * 寬鬆比對（2026-09-21）：覆核器的自答與題目答案鍵是否有足夠內容詞重疊。
+ *
+ * 只用於**由 AI 語意評分**的短答題（答案鍵是參考答案而非唯一字串）。
+ * 目的：攔截「與題目完全無關的錯誤答案鍵」，而不因用字不同（同義改寫、
+ * 多了介系詞）丟棄合法題目。確定性題型（填允／cloze／改錯／排序）一律
+ * 維持嚴格相等（`verificationAnswerMatch` 預設 `'exact'`）。
+ */
+function answersOverlap(blind: string, key: string): boolean {
+  const keyWords = contentWords(key);
+  if (keyWords.length === 0) return false;
+  const blindWords = new Set(contentWords(blind));
+  if (blindWords.size === 0) return false;
+  const shared = new Set(keyWords.filter((w) => blindWords.has(w))).size;
+  return shared >= Math.max(1, Math.ceil(keyWords.length / 2));
+}
+
 /** Resolves the verifier's blind answer to an option letter (text match first). */
 function resolveBlindLetter(blind: string, choices: string[]): string | null {
   const raw = (blind || '').trim();
@@ -379,9 +407,12 @@ export async function verifyGeneratedAnswers(
         if (mode === 'text') {
           const keyNorm = normalizeAnswer(question.answer);
           const blindNorm = normalizeAnswer(blind);
+          // 2026-09-21：AI 語意評分的短答題答案鍵只是「參考答案」，
+          // 逐字相等會大量誤丟 → 容許內容詞重疊（見 verificationAnswerMatch）。
+          const lenient = question.verificationAnswerMatch === 'overlap';
           if (!blindNorm) {
             reasons.push('獨立覆核未提供填充答案（答案無法確認）');
-          } else if (blindNorm !== keyNorm) {
+          } else if (blindNorm !== keyNorm && !(lenient && answersOverlap(blind, question.answer))) {
             reasons.push(`獨立覆核得出不同答案（覆核「${blind}」／題目答案鍵「${question.answer}」）`);
           }
         } else {

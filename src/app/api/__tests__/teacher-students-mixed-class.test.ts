@@ -25,6 +25,15 @@ vi.mock('@/modules/teacher/monitoring/services/activity-service', () => ({
   getLastActivityMap: mocks.getLastActivityMap,
   getDominantDifficultyMap: mocks.getDominantDifficultyMap,
   getShortWritingCounts: mocks.getShortWritingCounts,
+  // 2026-09-21：路由新增的分類函式。測試此模組時以真實規則的簡化版代替，
+  // 確保「從未開始」與「長期未活動」在 API 回應層已被區分。
+  classifyActivityStatus: (lastActiveAt: Date | null) => {
+    if (!lastActiveAt) return { status: 'never-started', daysInactive: null };
+    const days = Math.max(0, Math.floor((Date.now() - lastActiveAt.getTime()) / 86400000));
+    if (days >= 14) return { status: 'inactive', daysInactive: days };
+    if (days >= 7) return { status: 'low', daysInactive: days };
+    return { status: 'active', daysInactive: days };
+  },
 }));
 
 import * as route from '../teacher/students/route';

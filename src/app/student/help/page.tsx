@@ -405,28 +405,39 @@ export default function StudentHelpPage() {
   }, [weakSkills]);
 
   // === 根據弱項生成建議問題 ===
+  // 2026-09-21 i18n：原本為硬編碼廣東話字串（英文介面仍顯示中文，且與專案
+  // 「改用標準中文」的決定相悖）。現依介面語言輸出標準中文／英文。
   const suggestedQuestions = useMemo(() => {
     const suggestions: string[] = [];
+    const en = language === 'en';
     for (const skill of weakSkills.slice(0, 3)) {
       if (skill.accuracy < 0) continue; // 無證據技能不生成建議問題
       const name = skill.name.toLowerCase();
       const nameZh = skill.nameZh;
       if ((name.includes('grammar') || name.includes('文法')) && skill.accuracy < 70) {
-        suggestions.push(`${nameZh}成日錯，點樣系統性改善？`);
+        suggestions.push(en
+          ? 'I keep making grammar mistakes — how can I improve systematically?'
+          : `${nameZh}經常出錯，如何有系統地改善？`);
       }
       if ((name.includes('reading') || name.includes('閱讀')) && skill.accuracy < 70) {
-        suggestions.push(`做閱讀理解時間唔夠，有咩技巧可以加快？`);
+        suggestions.push(en
+          ? 'I run out of time in reading comprehension — what techniques can speed me up?'
+          : '做閱讀理解時間不足，有什麼技巧可以加快？');
       }
       if ((name.includes('vocab') || name.includes('詞彙')) && skill.accuracy < 70) {
-        suggestions.push(`點樣可以有效記住更多英文生字？`);
+        suggestions.push(en
+          ? 'What is an effective way to remember more English vocabulary?'
+          : '如何有效記住更多英文生字？');
       }
       if ((name.includes('writing') || name.includes('寫作')) && skill.accuracy < 70) {
-        suggestions.push(`點樣避免 Chinglish，寫出更地道嘅英文？`);
+        suggestions.push(en
+          ? 'How can I avoid Chinglish and write more natural English?'
+          : '如何避免 Chinglish，寫出更地道的英文？');
       }
     }
     // Deduplicate
     return [...new Set(suggestions)].slice(0, 3);
-  }, [weakSkills]);
+  }, [weakSkills, language]);
 
   const handleAskAI = async () => {
     if (!aiQuestion.trim()) return;

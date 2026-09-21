@@ -16,6 +16,8 @@
 //   - unknown skill → rejected, never routed to grammar authority
 //   - isServerAuthoritativeSubmission() gates mistakes AND mastery
 //   - shouldUpdateMastery() enforces INVARIANT-D9
+// 2026-09-21 稽核補充：權威家族先由**伺服器解析 questionId**（正典題目庫）決定，
+// 解析得到時不使用客戶端自報 skill／source（見 practice-authority-resolution.ts）。
 // ============================================
 
 import { logger } from '@/shared/logger/logger';
@@ -26,6 +28,7 @@ import {
   shouldUpdateMastery,
   type PracticeSubmissionClass,
 } from './practice-submission-classification';
+import { resolveSubmissionAuthorityClass } from './practice-authority-resolution';
 import {
   validatePracticeAnswers,
   validateGrammarAnswersWithServerKeys,
@@ -119,13 +122,35 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   const { studentId, skill, skillZh, difficulty, source, answers, clientSubmissionId } = input;
 
   // 1. Classification contract (R3.10-D.1 F1)
-  const submissionClass = classifyPracticeSubmission({ source, skill, answers });
+  //    2026-09-21 稽核：先以**伺服器解析的題目身分**決定權威（不信客戶端自報）。
+  //    「AI 練習」頁的閱讀／文法題已於交付前持久化為正典題目，但客戶端
+  //    payload 不帶 dseType／source 標記 → 舊碼把閱讀判成 legacy，令學生
+  //    的練習不計入準確率、掌握度與錯題本。解析失敗（真正的舊資料）時
+  //    完全沿用既有 client-marker 分類，行為不變。
+  const resolution = await resolveSubmissionAuthorityClass(answers).catch(() => null);
+  const resolvedClass: PracticeSubmissionClass | null = resolution?.authorityClass ?? null;
+  const submissionClass = resolvedClass
+    ?? classifyPracticeSubmission({ source, skill, answers });
   if (submissionClass === 'unknown') {
     return {
       ok: false,
       status: 400,
       error: `不支援的 skill: ${String(skill ?? '').trim() || '(empty)'}（無法判定題目權威來源）`,
     };
+  }
+  if (resolvedClass) {
+    logger.info(
+      {
+        module: 'practice-submission',
+        studentId,
+        submissionClass,
+        resolutionReason: resolution?.reason,
+        resolvedIds: resolution?.resolvedIds,
+        clientSkill: skill,
+        clientSource: source,
+      },
+      'Submission authority resolved from server-owned question definitions',
+    );
   }
 
   // 2. Scoring dispatch — one authority per class (R3.7 / R3.10-D)
@@ -134,9 +159,27 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
 
   if (submissionClass === 'reading') {
     const scoring = await scoreReadingAnswers(answers);
-    if (!scoring.ok) return { ok: false, status: 400, error: scoring.error };
-    normalizedAnswers = scoring.answers;
-    sessionAggregates = computeReadingAggregates(scoring.answers);
+    if (!scoring.ok) {
+      // 2026-09-21：若權威是由伺服器解析得出（客戶端原本送 legacy），
+      // 閱讀評分失敗時**不得**令學生整份練習儲存失敗（例如 AI 語意評分
+      // 暫時不可用）。回退至 legacy 路徑：場次照常保留供顯示，但
+      // scoringMethod = client-key-deterministic → 不產生可信證據（fail-open）。
+      if (resolvedClass === 'reading') {
+        logger.warn(
+          { module: 'practice-submission', studentId, error: scoring.error },
+          'Reading scoring unavailable for a server-resolved reading submission — falling back to legacy (unverified) persistence',
+        );
+        const fallback = validatePracticeAnswers(answers);
+        if (!fallback.ok) return { ok: false, status: 400, error: fallback.error };
+        normalizedAnswers = fallback.answers;
+        sessionAggregates = null;
+      } else {
+        return { ok: false, status: 400, error: scoring.error };
+      }
+    } else {
+      normalizedAnswers = scoring.answers;
+      sessionAggregates = computeReadingAggregates(scoring.answers);
+    }
   } else if (submissionClass === 'grammar') {
     const grammarValidation = await validateGrammarAnswersWithServerKeys(answers);
     if (!grammarValidation.ok) return { ok: false, status: 400, error: grammarValidation.error };
@@ -152,6 +195,11 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   const aggregates = deriveAggregates(submissionClass, sessionAggregates, normalizedAnswers);
 
   // 3. Authoritative persistence (atomic tx + replay semantics)
+  //    2026-09-21：伺服器解析確認為閱讀時，來源統一寫入 'dse-reading'
+  //    （客戶端舊碼送 'ai-generated' 會令教師端顯示不出 DSE 標記）。
+  const persistedSource = resolvedClass === 'reading'
+    ? 'dse-reading'
+    : source || (submissionClass === 'reading' ? 'dse-reading' : 'ai-generated');
   const persisted = await PracticeRepo.createPracticeExecutionTx({
     session: {
       studentId,
@@ -160,7 +208,7 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
       difficulty: difficulty || 'core',
       totalQuestions: aggregates.totalQuestions,
       correctCount: aggregates.correctCount,
-      source: source || (submissionClass === 'reading' ? 'dse-reading' : 'ai-generated'),
+      source: persistedSource,
       completedAt: new Date(),
       clientSubmissionId: clientSubmissionId ?? null,
     },

@@ -186,6 +186,49 @@ export async function listPracticeSessions(studentId: string, limit = 50) {
 }
 
 /**
+ * R3.10-C（批次變體，2026-09-21 稽核）：多名學生的練習場次 + 逐題證據。
+ *
+ * 供「累積」語意的批次消費者（匯出報表、班級／全校統計）使用。
+ * **不得**單獨以 `take` 當作全量：呼叫端必須分頁迭代到不足一頁為止
+ * （見 `practice-history-service.aggregateVerifiedTotalsForStudents()`）。
+ *
+ * 固定以 `startedAt desc, id asc` 排序，令 `skip` 分頁在全域層面穩定
+ * （同分時間不會令同一列重複或漏掉）。
+ */
+export async function listPracticeSessionsWithEvidenceForStudents(
+  studentIds: string[],
+  limit = 500,
+  skip = 0,
+) {
+  if (studentIds.length === 0) return [];
+  return db.practiceSession.findMany({
+    where: { studentId: { in: studentIds } },
+    select: {
+      studentId: true,
+      skill: true,
+      totalQuestions: true,
+      correctCount: true,
+      source: true,
+      startedAt: true,
+      answers: {
+        select: {
+          countsTowardScore: true,
+          awardedScore: true,
+          maxScore: true,
+          result: true,
+          scoredBy: true,
+          scoringMethod: true,
+        },
+        orderBy: { questionIndex: 'asc' },
+      },
+    },
+    orderBy: [{ startedAt: 'desc' }, { id: 'asc' }],
+    take: limit,
+    skip,
+  });
+}
+
+/**
  * R3.10-C: List practice sessions WITH persisted answer evidence rows.
  * Consumers of verified accuracy must use this (with
  * evaluatePracticeEvidence) instead of trusting session aggregates.
@@ -237,7 +280,6 @@ export async function findPracticeSession(id: string) {
     include: { answers: { orderBy: { questionIndex: 'asc' } } },
   });
 }
-
 /** Update a practice session (e.g., mark as completed) */
 export async function completePracticeSession(id: string, correctCount: number) {
   return db.practiceSession.update({

@@ -184,47 +184,11 @@ export class StudentStateMutationService {
       },
     };
   }
-  /**
-   * Update overall accuracy (called by analytics after activity sync).
-   */
-  async updateOverallAccuracy(studentId: string, accuracy: number): Promise<void> {
-    const { updateUser } = await import('@/modules/student/repositories/user-repo');
-    await updateUser(studentId, { overallAccuracy: accuracy });
-  }
-
-  /**
-   * Upsert weekly snapshot (called by analytics after activity sync).
-   */
-  async updateWeeklySnapshot(params: {
-    studentId: string;
-    weekStart: string;
-    totalQuestions: number;
-    correctCount: number;
-    accuracy: number;
-    sessionsCount: number;
-  }): Promise<void> {
-    const { db } = await import('@/shared/db/db');
-    await db.weeklySnapshot.upsert({
-      where: { userId_weekStart: { userId: params.studentId, weekStart: params.weekStart } },
-      create: {
-        userId: params.studentId,
-        weekStart: params.weekStart,
-        totalQuestions: params.totalQuestions,
-        correctCount: params.correctCount,
-        accuracy: params.accuracy,
-        sessionsCount: params.sessionsCount,
-        xpGained: 0,
-        streakDays: 0,
-        wordsLearned: 0,
-      },
-      update: {
-        totalQuestions: params.totalQuestions,
-        correctCount: params.correctCount,
-        accuracy: params.accuracy,
-        sessionsCount: params.sessionsCount,
-      },
-    });
-  }
+  // 2026-09-21 稽核：`updateOverallAccuracy(accuracy: number)` 與
+  // `updateWeeklySnapshot()` 已刪除 —— 兩者皆**零呼叫者**，而且
+  // `updateOverallAccuracy` 的簽名（`accuracy: number`）容許寫入 0 冒充
+  // 「無資料」，正是本專案明文禁止的模式。所有準確率／週快照寫入一律經
+  // `syncActivityMetrics()`（單一 owner，無證據 ⇒ null）。
 
   /**
    * Sync all student activity metrics: recompute accuracy from sessions/submissions,

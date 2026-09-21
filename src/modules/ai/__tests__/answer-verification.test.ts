@@ -284,8 +284,7 @@ describe('verifyGeneratedAnswers (independent verifier layer)', () => {
     expect(noError.dropped[0].reasons.join(' ')).toContain('flawed');
   });
 
-  it('verifies error-correction without choices as a blind text solve', async () => {
-    const ec: GeneratedQuestion = {
+  it('verifies error-correction without choices as a blind text solve', async () => {    const ec: GeneratedQuestion = {
       type: 'error-correction',
       prompt: 'Find the error: He go to school by bus. → ?',
       choices: [],
@@ -387,5 +386,71 @@ describe('answer-verification prompt contract', () => {
 
   it('never asks the verifier to trust a provided answer key', () => {
     expect(ANSWER_VERIFICATION_SYSTEM_PROMPT).toMatch(/沒有\**提供答案鍵|blind solve/);
+  });
+});
+
+// ============================================
+// 2026-09-21: verificationAnswerMatch — lenient (overlap) textual matching
+// ============================================
+// AI-scored short answers (reference / inference / vocabulary_in_context /
+// short_answer) store a *reference* answer, not a unique string. Requiring
+// byte equality dropped legitimate items, so those types opt into
+// `'overlap'`: only a wholly unrelated verifier answer is rejected.
+// Deterministic types (fill-blank / cloze / error-correction) stay exact.
+
+describe('verificationAnswerMatch', () => {
+  function shortAnswer(overrides: Partial<GeneratedQuestion> = {}): GeneratedQuestion {
+    return {
+      type: 'fill-blank',
+      prompt: 'What does "it" refer to in paragraph 2?',
+      answer: 'the school library',
+      explanationZh: '',
+      explanationEn: '',
+      commonMistake: '',
+      choices: [],
+      verificationAnswerMatch: 'overlap',
+      ...overrides,
+    };
+  }
+
+  const verdict = (blindAnswer: string) => stubVerifier({
+    verdicts: [{ index: 1, blindAnswer, soundness: 'ok', reason: '' }],
+  });
+
+  it('accepts a differently-worded but content-equivalent answer', async () => {
+    const result = await verifyGeneratedAnswers([shortAnswer()], {
+      verify: verdict('the school library building'),
+    });
+    expect(result.kept).toHaveLength(1);
+  });
+
+  it('still rejects a wholly unrelated answer', async () => {
+    const result = await verifyGeneratedAnswers([shortAnswer()], {
+      verify: verdict('the sports team'),
+    });
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped[0].reasons.join(' ')).toContain('獨立覆核得出不同答案');
+  });
+
+  it('rejects an empty verifier answer even in overlap mode', async () => {
+    const result = await verifyGeneratedAnswers([shortAnswer()], { verify: verdict('') });
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped[0].reasons.join(' ')).toContain('未提供填充答案');
+  });
+
+  it('keeps exact matching by default (no leniency for deterministic keys)', async () => {
+    const deterministic = shortAnswer({
+      answer: 'quiet',
+      verificationAnswerMatch: undefined,
+    });
+    const result = await verifyGeneratedAnswers([deterministic], { verify: verdict('quietly') });
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it('accepts an exact match in either mode', async () => {
+    const result = await verifyGeneratedAnswers([shortAnswer()], {
+      verify: verdict('The School Library'),
+    });
+    expect(result.kept).toHaveLength(1);
   });
 });

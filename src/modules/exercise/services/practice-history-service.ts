@@ -16,7 +16,7 @@
 // ============================================
 
 import { PracticeRepo } from '@/modules/repositories';
-import { evaluatePracticeEvidence } from './practice-evidence-service';
+import { evaluatePracticeEvidence, aggregateStudentPracticeTotals } from './practice-evidence-service';
 import { hkWeekStartUtc } from '@/shared/utils/hk-date';
 
 /** 單一技能累積（只計已驗證 evidence 的題數） */
@@ -145,3 +145,87 @@ export async function getWeeklyPracticeSummary(
     accuracy: verifiedQuestions > 0 ? Math.round((verifiedCorrect / verifiedQuestions) * 100) : null,
   };
 }
+
+// ============================================
+// 批次累積投影（2026-09-21 稽核）— 多學生的全歷史統計
+// ============================================
+// 病根：`/api/admin/export/students` 舊碼以 `sessions: { take: 50 }` 的 nested
+// select 交給 `aggregateStudentPracticeTotals()`，令匯出報表的
+// `totalQuestionsAnswered / totalCorrectAnswers / sessionAccuracy`
+// 只算「最新 50 場」卻以「總數」為欄名（高練習量學生被系統性低估）。
+//
+// 本投影**不設 take 上限**：以 `skip` 分頁迭代到不足一頁為止，
+// 並沿用正典 `evaluatePracticeEvidence`（與 `collectVerifiedActivities()`
+// 同一個證據規則），避免第二套計分口徑。
+
+/** 單一學生的批次累積統計 */
+export interface StudentCumulativeTotals {
+  /** 已驗證題數（`countsTowardScore` 的 answer rows，全歷史） */
+  verifiedTotalQuestions: number;
+  /** 已驗證答對題數（全歷史） */
+  verifiedCorrectCount: number;
+  /** 已驗證準確率（0-100）；**null = 無可驗證證據**（不得顯示 0%） */
+  accuracy: number | null;
+  /** 原始紀錄值（session 聚合，含不可驗證場次；engagement 用，不得當分數） */
+  recordedTotalQuestions: number;
+  recordedCorrectCount: number;
+  /** 練習場次數（含不可驗證） */
+  sessionsCount: number;
+}
+
+/**
+ * 批次累積統計（全歷史；只計已驗證 evidence）。
+ *
+ * `studentIds` 為空時回傳空 Map；未出現在結果的學生代表「無任何練習」，
+ * 呼叫端必須以 null 呈現（**永不**以 0% 代替）。
+ */
+export async function aggregateVerifiedTotalsForStudents(
+  studentIds: string[],
+  options: { pageSize?: number; maxPages?: number } = {},
+): Promise<Map<string, StudentCumulativeTotals>> {
+  const { pageSize = 500, maxPages = 400 } = options;
+  if (studentIds.length === 0) return new Map();
+
+  // 依學生分桶後交給**既有正典 owner** `aggregateStudentPracticeTotals()`
+  // （內部使用 `classifySessionEvidence` → `evaluatePracticeEvidence`），
+  // 避免出現第二套評分口徑。
+  const sessionsByStudent = new Map<string, Array<{
+    totalQuestions: number;
+    correctCount: number;
+    answers: unknown;
+  }>>();
+
+  for (let page = 0; page < maxPages; page++) {
+    const rows = await PracticeRepo.listPracticeSessionsWithEvidenceForStudents(
+      studentIds,
+      pageSize,
+      page * pageSize,
+    );
+    for (const session of rows) {
+      const bucket = sessionsByStudent.get(session.studentId) ?? [];
+      bucket.push({
+        totalQuestions: session.totalQuestions,
+        correctCount: session.correctCount,
+        answers: session.answers,
+      });
+      sessionsByStudent.set(session.studentId, bucket);
+    }
+    if (rows.length < pageSize) break;
+  }
+
+  const result = new Map<string, StudentCumulativeTotals>();
+  for (const [studentId, sessions] of sessionsByStudent) {
+    const totals = aggregateStudentPracticeTotals(sessions);
+    result.set(studentId, {
+      ...totals,
+      // 準確率一律由累積值推導；無證據 ⇒ null（「無資料」≠ 0%）
+      accuracy: totals.verifiedTotalQuestions > 0
+        ? Math.round((totals.verifiedCorrectCount / totals.verifiedTotalQuestions) * 100)
+        : null,
+      sessionsCount: sessions.length,
+    });
+  }
+
+  return result;
+}
+

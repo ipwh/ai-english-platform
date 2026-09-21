@@ -151,7 +151,7 @@ export default function StudentDetailPage() {
 
   const totalQuestions = practiceSessions.reduce((sum, s) => sum + (s.verified?.status === 'verified' ? (s.verified.totalQuestions ?? 0) : 0), 0);
   const totalCorrect = practiceSessions.reduce((sum, s) => sum + (s.verified?.status === 'verified' ? (s.verified.correctCount ?? 0) : 0), 0);
-  const sessionAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+  const sessionAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : null;
 
   // 各技能準確率（R3.10-C: 只計 verified 證據）
   const skillMap = new Map<string, { total: number; correct: number }>();
@@ -287,14 +287,16 @@ export default function StudentDetailPage() {
 
       {/* 練習統計 KPI + 學生分析 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* 2026-09-21：「無資料 ≠ 0」— 準確率無已驗證證據時顯示「—」，
+            而非紅色的 0%（同一學生在其他頁面顯示「—」，不得自相矛盾）。 */}
         {[
-          { label: '練習次數', value: practiceSessions.length, unit: '次', icon: Hash },
-          { label: '總答題數', value: totalQuestions, unit: '題', icon: BookOpen },
-          { label: '準確率', value: sessionAccuracy, unit: '%', icon: Target },
-          { label: '錯題數', value: mistakes.length, unit: '題', icon: AlertCircle },
-          { label: '生字', value: vocab.total, unit: '詞', icon: Languages },
-          { label: '寫作', value: writingDrafts.length, unit: '篇', icon: FileText },
-          { label: '已掌握', value: vocab.mastered, unit: '詞', icon: GraduationCap },
+          { label: t('teacher.studentDetail.practiceCount'), value: practiceSessions.length, unit: t('teacher.studentDetail.unitTimes'), icon: Hash },
+          { label: t('teacher.studentDetail.totalAnswered'), value: totalQuestions, unit: t('teacher.studentDetail.unitQuestions'), icon: BookOpen },
+          { label: t('teacher.classes.accuracy'), value: sessionAccuracy ?? '—', unit: sessionAccuracy === null ? '' : '%', icon: Target },
+          { label: t('teacher.studentDetail.mistakeCount'), value: mistakes.length, unit: t('teacher.studentDetail.unitQuestions'), icon: AlertCircle },
+          { label: t('teacher.studentDetail.vocab'), value: vocab.total, unit: t('teacher.studentDetail.unitWords'), icon: Languages },
+          { label: t('teacher.studentDetail.writing'), value: writingDrafts.length, unit: t('teacher.studentDetail.unitPieces'), icon: FileText },
+          { label: t('teacher.studentDetail.mastered'), value: vocab.mastered, unit: t('teacher.studentDetail.unitWords'), icon: GraduationCap },
         ].map((stat, i) => (
           <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <stat.icon className="w-4 h-4 text-gray-400 mb-2" />

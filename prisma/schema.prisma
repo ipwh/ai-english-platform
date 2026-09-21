@@ -36,7 +36,10 @@ model User {
   class         Class?    @relation(fields: [classId], references: [id])
   classNumber   String?   // 班號 (e.g. "15")
   level         String?   // GradeLevel: S1-S6
-  overallAccuracy Float?  @default(0)
+  // 2026-09-21 稽核：**不得**有 @default(0)。舊預設令每個新匯入學生在
+  // 「尚未有任何可驗證證據」時即為 0%，被教師名單當成「答錯全部」，
+  // 並把班平均／全校平均拉低（`syncActivityMetrics` 只寫 null 或真實值）。
+  overallAccuracy Float?
   academicYear  String?   // 學年追蹤 (e.g. "2026-2027")
   xp            Int       @default(0)
   badgeIds      String    @default("[]")  // JSON 陣列: ["streak-3", "accuracy-80"]
