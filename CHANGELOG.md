@@ -40,7 +40,8 @@ All notable changes to the AI English Platform are documented here.
 
 - `npm test`：**3172 passed / 1 skipped**（163 files passed / 1 skipped，較上版 +36）；`npx tsc --noEmit`、`node scripts/check-i18n.js`、`npx prisma validate` 全部通過；`npx eslint` 於變更檔案 0 error。
 - 新增測試 36 個：聆聽評分契約（含偽造客戶端答案鍵被忽略、NOT_PROJECTABLE 各情境）、交付判準（逐字／詞邊界／非 MC／選項越界）、端到端提交（證據、錯題歸屬、掌握度閘門、legacy fail-open、家族優先序、混合回退）、權威解析、分類契約、錯題歸屬、診斷分組、路由與 schema。
-- 部署順序：先 `npx prisma migrate deploy`（`20260924_listening_question_store`），再部署應用（Cloud Run 不會自動套用 migration）。無需回填。
+- 生產核實（2026-09-21 12:54 UTC，唯讀；不單靠 `prisma migrate status` 的帳本）：`_prisma_migrations` 該筆 `finished_at` 已寫入且無 rollback；`ListeningQuestion` 存在、12 個欄位與 schema 完全一致（`marks` default 1、`provenance` default `ai-generated`）、兩個索引齊全；`ListeningSession`/`ListeningAnswer` 確認已刪除；新表 0 列（依設計不回填）。既有聆聽練習列皆為 `source='ai-generated'` 且 `scoringMethod` 為 NULL 或 `client-key-deterministic` → 仍屬不可驗證。
+- **部署順序（重要）**：本 migration 會 DROP 兩張表，而**舊 revision** 的 `GET /api/admin/students/[studentId]/analytics` 仍在 `_count` 查 `listeningSessions` → 舊 revision 上該 admin 頁面會 500。因此套用 migration 後**須立即部署新 revision**（Cloud Run 不自動套用 migration）；新 revision 已完全移除該引用（`createListeningSession()` 全專案零呼叫者，無風險）。
 - 決策記錄：`docs/architecture/ADR-045-server-owned-listening-store.md`。
 
 ---

@@ -2,7 +2,7 @@
 
 > **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-21 | **Tests**: 3,172 passed / 1 skipped (163 files passed / 1 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
 >
-> **2026-09-21 (III) 部署注意**：先 `npx prisma migrate deploy`（`20260924_listening_question_store`：建立 `ListeningQuestion`、刪除休眠的 `ListeningSession`/`ListeningAnswer`），再讓新 revision 接收流量。**無需回填**（聆聽題目自本次起才開始持久化）。
+> **2026-09-21 (III) 部署注意**：先 `npx prisma migrate deploy`（`20260924_listening_question_store`：建立 `ListeningQuestion`、刪除休眠的 `ListeningSession`/`ListeningAnswer`），**然後立即部署新 revision**（Cloud Run 不會自動套用 migration）。這個 migration 會 **DROP 兩張表**，而舊 revision 的 `GET /api/admin/students/[studentId]/analytics` 仍在 `_count` 查 `listeningSessions` → 在舊 revision 上該 admin 頁面會 500；新 revision 已完全移除該引用。無需回填。（若必須先套 migration、延後部署，請拆成兩步：先只建表，部署後再另開 migration 刪除休眠表。）
 >
 > **2026-09-21 (II) 部署注意**：先 `npx prisma migrate deploy`（含 `20260923_user_overall_accuracy_drop_default`），再 `npm run db:backfill:accuracy:apply`（一次性校正舊資料；dry-run 為 `npm run db:backfill:accuracy`），最後才讓新 revision 接收流量。
 

@@ -52,9 +52,51 @@ Evidence for the hole (audit, 2026-09-21):
 - Release validation on 2026-09-21: `npm test` **3,172 passed / 1 skipped** (163 files passed / 1 skipped); `npx tsc --noEmit`, `node scripts/check-i18n.js`, `npx prisma validate` all pass; ESLint reports no error-level problem in the changed files.
 - **Deployment requires** `npx prisma migrate deploy` for `20260924_listening_question_store`; Cloud Run does not apply migrations. No backfill.
 
+## Deployment order (IMPORTANT)
+
+This migration **drops** two tables. Any application revision that predates ADR-045 still declares
+`User.listeningSessions` in its generated Prisma client, and `GET /api/admin/students/[studentId]/analytics`
+selects `_count: { listeningSessions: true }`. Prisma turns that into a `COUNT(*)` subquery against
+`"ListeningSession"`, so after the drop the **old revision returns 500 on the admin student-detail page**
+until the new revision is live. (`createListeningSession()` was reached by no caller, so it poses no risk.)
+
+Recommended and safest order — migration and application revision are effectively one unit:
+
+1. `npx prisma migrate deploy` (creates `ListeningQuestion`, drops the dormant tables).
+2. **Deploy the new revision immediately** (`git push` already triggers the Cloud Run build); do not leave the
+   app running on a pre-ADR-045 revision.
+
+If the migration has to be applied well before the app revision can ship, split it: apply the `CREATE TABLE`
+part, deploy the app, and only then drop the dormant tables in a follow-up migration.
+
 ## Verification after deployment (read-only)
 
-1. A new listening session row carries a child answer with `scoredBy = 'server'` and `scoringMethod = 'listening-server-exact-match'`.
-2. `StudentMastery` gains/updates a `listening` row only for such sessions.
-3. `ListeningQuestion` row count grows on each listening generation; a delivery attempt whose items all fail the verbatim check returns 422 and persists nothing.
-4. `ListeningSession` / `ListeningAnswer` no longer exist in `information_schema.tables`.
+Recorded 2026-09-21 12:54 UTC (migration `20260924_listening_question_store`, finished, not rolled back):
+
+- `_prisma_migrations` → `finished_at = 2026-09-21T12:54:54.328Z`, `rolled_back_at = NULL`, `applied_steps_count = 1`.
+- `to_regclass('public."ListeningQuestion"')` → present; `ListeningSession` / `ListeningAnswer` → absent.
+- `information_schema.columns` for `ListeningQuestion` → exactly the 12 declared columns, with
+  `marks` default `1`, `orderIndex` default `0`, `provenance` default `'ai-generated'`, `createdAt` default `CURRENT_TIMESTAMP`.
+- Indexes present: `ListeningQuestion_pkey`, `ListeningQuestion_createdAt_idx`.
+- `ListeningQuestion` row count `0` at deploy time (nothing is backfilled, by design).
+- Existing listening practice rows were all `source = 'ai-generated'` with `scoringMethod = NULL` or
+  `client-key-deterministic` → still unverifiable, and the new code classifies them as `legacy-language-skill`.
+
+Post-deploy functional checks (after one student completes listening practice):
+
+1. A new listening answer row carries `scoredBy = 'server'` and `scoringMethod = 'listening-server-exact-match'`:
+
+   ```sql
+   SELECT pa."scoringMethod", pa.result, COUNT(*)::int AS n
+     FROM "PracticeAnswer" pa
+     JOIN "PracticeSession" ps ON ps.id = pa."sessionId"
+    WHERE ps.source = 'dse-listening'
+    GROUP BY 1, 2 ORDER BY n DESC;
+   ```
+
+2. `StudentMastery` gains/updates a `listening` row only for such sessions:
+   `SELECT * FROM "StudentMastery" WHERE skill = 'listening';`
+3. `ListeningQuestion` grows on each listening generation, and a generation whose items all fail the verbatim
+   check returns 422 and persists nothing:
+   `SELECT COUNT(*) FROM "ListeningQuestion";`
+4. `ListeningSession` / `ListeningAnswer` no longer exist in `information_schema.tables` (asserted by a contract test too).
