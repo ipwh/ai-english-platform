@@ -11,8 +11,11 @@
 // 評分並持久化 → 成為可驗證證據（計入準確率與掌握度），分數即為伺服器評分（D3）。
 //
 // 邊界（不得默默放寬證據契約）：
-//   - 只有 `server-key-resolved` / `reading-server-exact-match` 兩種權威方法存在；
-//     聆聽 / 詞彙 / 寫作尚無權威評分法 → 維持自評並由呼叫端標示為「不計入準確率」。
+//   - 只有 `server-key-resolved` / `reading-server-exact-match` /
+//     `listening-server-exact-match` 三種權威方法存在；
+//     詞彙 / 寫作尚無權威評分法 → 維持自評並由呼叫端標示為「不計入準確率」。
+//   - 2026-09-21 ADR-045：聆聽題目現有伺服器題庫（ListeningQuestion），
+//     因此與閱讀同一路徑可評分；題目 id 解析不到（舊資料）→ 該組整組略過。
 //   - 伺服器無法評分（題目 id 非正典、AI 評分不可用）→ **該組整組略過**，
 //     回退為自評顯示值，永不製造假分數。
 // ============================================
@@ -29,7 +32,7 @@ export interface DiagnosticAnswerInput {
   /** 練習提交用的技能鍵（文法組 = grammarItem，閱讀組 = 'reading'） */
   skill: string;
   skillZh: string;
-  /** 對應的診斷結果技能 id（'grammar' | 'reading'…）；預設同 `skill` */
+  /** 對應的診斷結果技能 id（'grammar' | 'reading' | 'listening'…）；預設同 `skill` */
   resultSkill?: string;
   dseType?: string;
   timeSpent?: number;
@@ -60,7 +63,7 @@ export interface DiagnosticSubmitOutcome {
 }
 
 interface AnswerGroup {
-  key: 'grammar' | 'reading';
+  key: 'grammar' | 'reading' | 'listening';
   skill: string;
   skillZh: string;
   resultSkill: string;
@@ -95,25 +98,28 @@ function normalizeAnswers(raw: unknown): DiagnosticAnswerInput[] {
 }
 
 /**
- * 依**權威來源**分組：只有 grammar（server-key-resolved）與 reading
- * （reading-server-exact-match / reading-ai-semantic-evaluation）兩類可提交。
+ * 依**權威來源**分組：只有 grammar（server-key-resolved）、reading
+ * （reading-server-exact-match / reading-ai-semantic-evaluation）與
+ * listening（listening-server-exact-match，ADR-045）可提交。
+ * 無法由伺服器評分的技能（詞彙／寫作）不建立題組。
  */
 function groupByAuthority(answers: DiagnosticAnswerInput[]): AnswerGroup[] {
-  const groups = new Map<'grammar' | 'reading', AnswerGroup>();
+  const groups = new Map<'grammar' | 'reading' | 'listening', AnswerGroup>();
 
   for (const a of answers) {
     const isReading = a.skill === 'reading';
-    const source = isReading ? 'dse-reading' : 'diagnostic';
+    const isListening = a.skill === 'listening';
+    const source = isReading ? 'dse-reading' : isListening ? 'dse-listening' : 'diagnostic';
     const cls = classifyPracticeSubmission({ source, skill: a.skill, answers: [{ dseType: a.dseType }] });
-    if (cls !== 'grammar' && cls !== 'reading') continue; // 非權威類別（聆聽/詞彙/寫作）→ 不提交
+    if (cls !== 'grammar' && cls !== 'reading' && cls !== 'listening') continue; // 非權威類別（詞彙/寫作）→ 不提交
 
     const key = cls;
     const existing = groups.get(key);
     const group: AnswerGroup = existing ?? {
       key,
-      skill: isReading ? 'reading' : a.skill,
+      skill: isReading ? 'reading' : isListening ? 'listening' : a.skill,
       skillZh: isReading ? 'reading' : a.skillZh,
-      resultSkill: a.resultSkill || (isReading ? 'reading' : 'grammar'),
+      resultSkill: a.resultSkill || (isReading ? 'reading' : isListening ? 'listening' : 'grammar'),
       source,
       answers: [],
     };

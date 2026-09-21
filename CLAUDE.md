@@ -6,9 +6,9 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3131 pass / 1 skipped (160 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
+- **Testing**: Vitest 4, 3172 pass / 1 skipped (163 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
-- **Key modules**: 21 under `src/modules/` (including 5 AI infra + foundation modules)
+- **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
 - **API routes**: 113 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
@@ -67,6 +67,21 @@ Question Generation — Pre-Delivery Answer Verification (2026-09-20 ADR-042 / 2
     ANSWER_VERIFICATION_FAILED + details) when fewer than MIN_VERIFIED_READING_QUESTIONS
     survive — never an opaque all-or-nothing 500; client retries once automatically
 
+Listening — Server-Owned Question Store (2026-09-21 ADR-045):
+  generateQuestions (languageSkill: 'listening') → isDeliverableListeningMc() filter
+    → persistGeneratedListeningQuestions() → server ids returned to the client
+    ├─ deliverable = mc + non-empty dialogue + answer appears VERBATIM in the dialogue
+    │    (word-boundary; option prefixes tolerated); undeliverable items dropped + logged
+    ├─ nothing deliverable ⇒ structured 422 LISTENING_QUESTIONS_NOT_DELIVERABLE (retryable)
+    └─ persistence failure ⇒ nothing delivered (never a client-side key)
+  submit → resolveSubmissionAuthorityClass() resolves 3 stores → 'listening'
+    → scoreListeningAnswers() (listening-server-exact-match) → verified evidence
+    · client correctAnswer/isCorrect/awardedScore/maxScore/countsTowardScore ALL ignored
+    · unresolvable id / invalid marks / open-ended type ⇒ NOT_PROJECTABLE (no partial scoring)
+    · scoring unavailable ⇒ fail-open legacy persistence (unverified, no evidence/mistakes/mastery)
+  Invariant: submissionClass alone never authorises side effects — usedServerScoring must also
+    hold (mistakes + mastery gating), otherwise client-key rows would become trusted data.
+
 Supporting modules:
   student/ — mastery, profile (canonical owner)
   learning/ — decisions, pipeline (canonical owner)
@@ -121,9 +136,11 @@ Dev tooling:
 - 批次累積投影（多學生，匯出／班級統計）: `exercise/services/practice-history-service.ts` — `aggregateVerifiedTotalsForStudents()`（全歷史分頁、委派 `aggregateStudentPracticeTotals()`；**永不**以 `take: N` 當總數）；連續天數批次版見 `student/progress/services/streak-service.ts` `getPracticeStreaksForStudents()`
 - 提交權威解析（客戶端標記不可信）: `exercise/services/practice-authority-resolution.ts` — `questionId` 全部解析為同一正典家族（`ReadingQuestion`／`GrammarQuestion`）⇒ 該家族為權威；部分／混合／解析不到 ⇒ 回退既有 client-marker 分類（舊資料零行為改變）
 - 活躍狀態門檻（未開始／失聯／低活躍／活躍）: `teacher/monitoring/services/activity-service.ts` — `classifyActivityStatus()`（香港日界線；活動來源＝登入 ∪ 練習 ∪ 寫作草稿 ∪ 作業提交）；`getShortWritingCounts()` 為 DB 端計數（in-memory fail-open 回退）
-- 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀）經正典 `submitPractice` 評分＋持久化（可驗證證據）；聆聽／詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
+- 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀／聆聽）經正典 `submitPractice` 評分＋持久化（可驗證證據）；詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
 - Answer Verification (生成題目答案鍵覆核，交付前把關): `ai/services/answer-verification.ts` — 決定性缺陷螢幕（補位選項／重複選項／解說自認有誤）＋ 第二次獨立 LLM pass **blind-solve**；驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` 且 blind 答案等於答案鍵才可交付（prompt: `ai/prompts/grammar/answer-verification.ts`，PromptRegistry `GenerateQuestionsAnswerVerification`）
+- Listening Question Store (聆聽題庫與交付判準): `listening/services/listening-question-service.ts` — 交付前持久化 `ListeningQuestion`（含對話）；`isDeliverableListeningMc()` 為唯一交付判準（MC + 對話非空 + 答案**逐字**出現在對話中，詞邊界比對）；全數不可交付 ⇒ 結構化 422 `LISTENING_QUESTIONS_NOT_DELIVERABLE`
+- Listening Answer Scoring (聆聽評分權威): `listening/services/listening-answer-scoring.ts` — `listening-server-exact-match`；忽略所有客戶端評分欄位；委派正典 `scorePracticeAnswer()`；解析不到／marks 無效／開放式題型 ⇒ NOT_PROJECTABLE（不部分計分）
 - Adaptive Learning: `learning/services/adaptive-learning-pipeline.ts`
 - Learning Decisions: `learning/decisions/LearningDecisionEngine`
 - Student Mastery: `student/mastery/`

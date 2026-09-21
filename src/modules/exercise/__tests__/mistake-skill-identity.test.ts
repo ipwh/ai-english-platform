@@ -1,20 +1,25 @@
 // ============================================
 // 2026-09-14: 錯題技能歸屬解析
 //
-// 正典題目定義（ReadingQuestion / GrammarQuestion）是技能歸屬的唯一權威；
-// 解析不到時才使用白名單內的自報值，並標記來源。
+// 正典題目定義（ReadingQuestion / ListeningQuestion / GrammarQuestion）
+// 是技能歸屬的唯一權威；解析不到時才使用白名單內的自報值，並標記來源。
 // ============================================
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   resolveReadingQuestionDefinitions: vi.fn(),
+  resolveListeningQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionExplanationsMany: vi.fn(),
 }));
 
 vi.mock('@/modules/reading/services/reading-question-service', () => ({
   resolveReadingQuestionDefinitions: mocks.resolveReadingQuestionDefinitions,
+}));
+
+vi.mock('@/modules/listening/services/listening-question-service', () => ({
+  resolveListeningQuestionDefinitions: mocks.resolveListeningQuestionDefinitions,
 }));
 
 vi.mock('../services/grammar-question-service', () => ({
@@ -24,6 +29,7 @@ vi.mock('../services/grammar-question-service', () => ({
 
 import {
   identityFromGrammarDefinition,
+  identityFromListeningDefinition,
   identityFromReadingDefinition,
   resolveMistakeQuestionContexts,
   resolveMistakeSkillIdentities,
@@ -35,6 +41,7 @@ import { getStrategyCard } from '@/modules/mistake/intelligence/services/mistake
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map());
+  mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map());
   mocks.resolveGrammarQuestionDefinitions.mockResolvedValue(new Map());
   mocks.resolveGrammarQuestionExplanationsMany.mockResolvedValue(new Map());
 });
@@ -63,6 +70,56 @@ describe('resolveMistakeSkillIdentities — 正典題目定義優先', () => {
       skillSource: 'canonical',
     });
     expect(identity?.questionSummary).toBe('What does the writer imply about recycling?');
+  });
+
+  it('聆聽題目 → languageSkill=listening 且題型取 listeningType（ADR-045）', async () => {
+    mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map([
+      ['lq-1', {
+        id: 'lq-1',
+        questionType: 'mc',
+        listeningType: 'detail',
+        questionText: 'What time does the tour start?',
+        choices: ['At nine', 'At ten'],
+        answer: 'B',
+        marks: 1,
+        orderIndex: 0,
+        dialogue: 'The tour starts at ten.',
+      }],
+    ]));
+
+    const resolved = await resolveMistakeSkillIdentities(['lq-1']);
+    const identity = resolved.get('lq-1');
+
+    expect(identity).toMatchObject({
+      languageSkill: 'listening',
+      grammarItem: null,
+      questionType: 'detail',
+      skillSource: 'canonical',
+    });
+    expect(identity?.questionSummary).toBe('What time does the tour start?');
+  });
+
+  it('聆聽題目無 listeningType → 題型退回格式（mc）', async () => {
+    mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map([
+      ['lq-2', {
+        id: 'lq-2',
+        questionType: 'mc',
+        listeningType: null,
+        questionText: 'Where does the speaker suggest meeting?',
+        choices: null,
+        answer: 'A',
+        marks: 1,
+        orderIndex: 0,
+        dialogue: null,
+      }],
+    ]));
+
+    const identity = await identityFromListeningDefinition({
+      id: 'lq-2', questionType: 'mc', listeningType: null, questionText: 'Where does the speaker suggest meeting?',
+      choices: null, answer: 'A', marks: 1, orderIndex: 0, dialogue: null,
+    });
+
+    expect(identity).toMatchObject({ languageSkill: 'listening', questionType: 'mc', skillSource: 'canonical' });
   });
 
   it('文法題目 → 取 grammarItem / questionType / languageSkill', async () => {

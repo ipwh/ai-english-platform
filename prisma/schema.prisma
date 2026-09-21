@@ -65,7 +65,6 @@ model User {
   reviews       Review[]
   notifications Notification[]
   sessions      PracticeSession[]
-  listeningSessions ListeningSession[]
   spellingSessions  SpellingSession[]
   accounts      Account[]
   sessionsAuth  Session[]
@@ -745,38 +744,32 @@ model MistakeReviewLog {
 }
 
 // ============================================
-// 十五、聆聽練習記錄
+// 十五、伺服器持有的正典聆聽題目定義（2026-09-21 ADR-045）
 // ============================================
+// 聆聽練習／診斷的選擇題在**交付前**持久化於此，令伺服器握有答案鍵，
+// 提交時可用自己的鍵評分（scoringMethod = listening-server-exact-match）
+// → 計入準確率、技能掌握度與錯題本（與 ReadingQuestion 同一契約）。
+//
+// 只收「答案在對話中逐字出現」的客觀選擇題；需要語意判斷的題型
+// （筆記、填空、自由作答）不持久化，維持自評。
+//
+// 註：舊的休眠表 ListeningSession / ListeningAnswer 已於 2026-09-21 刪除
+// （生產實測 0 列，且唯一寫入函式全專案零呼叫者）。
+model ListeningQuestion {
+  id            String   @id @default(cuid())
+  questionType  String   // mc | fill-blank
+  listeningType String?  // detail | gist | inference（供錯題技能聚合）
+  questionText  String
+  choices       String?  // JSON array（MC 選項）
+  answer        String   // 正典答案鍵 — 伺服器持有
+  marks         Float    @default(1)
+  orderIndex    Int      @default(0)
+  dialogue      String?  // 該題專屬對話（供重播／錯題重溫／審計）
+  dialogueZh    String?
+  provenance    String   @default("ai-generated")
+  createdAt     DateTime @default(now())
 
-model ListeningSession {
-  id             String    @id @default(cuid())
-  studentId      String
-  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  title          String
-  audioUrl       String?
-  totalQuestions Int
-  correctCount   Int       @default(0)
-  noteTaking     String?   // 學生筆記
-  source         String    @default("ai-generated") // ai-generated | past-paper | assignment
-  startedAt      DateTime  @default(now())
-  completedAt    DateTime?
-
-  answers        ListeningAnswer[]
-}
-
-model ListeningAnswer {
-  id             String    @id @default(cuid())
-  sessionId      String
-  session        ListeningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionIndex  Int
-  questionPrompt String
-  correctAnswer  String
-  studentAnswer  String
-  isCorrect      Boolean
-  timeSpent      Int?
-  createdAt      DateTime  @default(now())
-
-  @@index([sessionId])
+  @@index([createdAt])
 }
 
 // ============================================

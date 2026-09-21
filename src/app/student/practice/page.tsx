@@ -163,9 +163,10 @@ function PracticeListPageContent() {
       }
 
       // 將 AI 生成的題目轉換為 PracticeQuestion 格式（並清理 listeningContent）
-      // R3.10-D: 文法題目使用伺服器賦予的正典 id（GrammarQuestion.id）；
-      // 絕不從 Date.now() / 陣列索引推導權威 id。非文法技能（聆聽/閱讀等）
-      // 沒有伺服器題目庫，維持本機臨時 id（非權威、不入評分）。
+      // R3.10-D / ADR-045: 文法、閱讀與聆聽題目都使用伺服器賦予的正典 id
+      // （GrammarQuestion.id / ReadingQuestion.id / ListeningQuestion.id）；
+      // 絕不從 Date.now() / 陣列索引推導權威 id。只有尚未支援的技能
+      // （詞彙／寫作／會話）維持本機臨時 id（非權威、不入評分）。
       const questions = json.questions.map((q: Record<string, unknown>, i: number) => ({
         id: (typeof q.id === 'string' && q.id.length > 0 ? q.id : `ai-${Date.now()}-${i}`) as string,
         type: q.type || activeForm.questionType,
@@ -197,6 +198,9 @@ function PracticeListPageContent() {
       }));
 
       // 建立練習 session
+      // 2026-09-21 ADR-045：聆聽選擇題在交付前已持久化為伺服器題目
+      // （ListeningQuestion），提交時以伺服器答案鍵評分。`dse-listening`
+      // 標記令分類契約無需猜測（解析題目 id 仍是最終權威）。
       const session: PracticeSession = {
         id: `session-${Date.now()}`,
         startedAt: new Date().toISOString(),
@@ -208,7 +212,7 @@ function PracticeListPageContent() {
         difficulty: activeForm.difficulty,
         totalQuestions: questions.length,
         correctCount: 0,
-        source: 'ai-generated',
+        source: activeForm.languageSkill === 'listening' ? 'dse-listening' : 'ai-generated',
       };
 
       store.startSession(session);

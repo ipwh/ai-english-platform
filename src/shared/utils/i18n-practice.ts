@@ -61,9 +61,11 @@ export const practiceTranslations: Record<string, { zh: string; en: string }> = 
   'practice.noSkill': { zh: '不限技能', en: 'Any Skill' },
   'practice.skillListening': { zh: '聆聽', en: 'Listening' },
   // 2026-09-21：清楚交代哪些練習會計入準確率／技能掌握度／錯題本。
+  // 文法、閱讀與聆聽都有伺服器持有的題目與答案鍵 → 可驗證計分；
+  // 寫作與會話沒有單一答案鍵 → 自評（另有 AI 批改回饋）。
   'practice.countedNote': {
-    zh: '文法與閱讀題會計入準確率、技能掌握度與錯題本；聆聽、寫作與會話練習屬自評，不計入上述統計。',
-    en: 'Grammar and reading count towards accuracy, skill mastery and your mistake book. Listening, writing and speaking practice are self-assessed and are not counted in those statistics.',
+    zh: '文法、閱讀與聆聽題會計入準確率、技能掌握度與錯題本（答案由伺服器批改）；寫作與會話練習屬自評，不計入上述統計。',
+    en: 'Grammar, reading and listening count towards accuracy, skill mastery and your mistake book (answers are marked on the server). Writing and speaking practice are self-assessed and excluded from those statistics.',
   },
   'practice.skillSpeaking': { zh: '說話', en: 'Speaking' },
   'practice.diffRemedial': { zh: '🟢 補底', en: '🟢 Remedial' },

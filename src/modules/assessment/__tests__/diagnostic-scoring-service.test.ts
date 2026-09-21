@@ -111,13 +111,35 @@ describe('D2b/D3 submitDiagnostic — 權威題組經正典管道評分', () => 
     expect(outcome.authoritative.map(a => a.skill).sort()).toEqual(['grammar', 'reading']);
   });
 
-  it('聆聽／詞彙／寫作永不提交（無權威評分法）', async () => {
+  it('聆聽題目自 ADR-045 起與閱讀同一路徑提交（伺服器題庫）；詞彙／寫作永不提交', async () => {
+    mocks.submitPractice.mockResolvedValue({ ok: true, totalQuestions: 1, correctCount: 1 });
+
     await submitDiagnostic({
       studentId: STUDENT,
       runId: RUN,
       results: baseResults(),
       answers: [
-        { questionIndex: 4, questionId: 'lq-1', studentAnswer: 'A', skill: 'listening', skillZh: '聆聽' },
+        { questionIndex: 4, questionId: 'lq-1', studentAnswer: 'A', skill: 'listening', skillZh: '聆聽', resultSkill: 'listening' },
+        { questionIndex: 5, questionId: 'vq-1', studentAnswer: 'x', skill: 'vocabulary', skillZh: '詞彙' },
+        { questionIndex: 6, questionId: 'wq-1', studentAnswer: 'essay', skill: 'writing', skillZh: '寫作' },
+      ],
+    });
+
+    // 只有聆聽一組提交（附帶自己的技能與來源，不得被標成文法）
+    expect(mocks.submitPractice).toHaveBeenCalledTimes(1);
+    expect(mocks.submitPractice.mock.calls[0][0]).toMatchObject({
+      skill: 'listening',
+      source: 'dse-listening',
+      clientSubmissionId: `${RUN}-listening`,
+    });
+  });
+
+  it('詞彙／寫作永不提交（無權威評分法）', async () => {
+    await submitDiagnostic({
+      studentId: STUDENT,
+      runId: RUN,
+      results: baseResults(),
+      answers: [
         { questionIndex: 5, questionId: 'vq-1', studentAnswer: 'x', skill: 'vocabulary', skillZh: '詞彙' },
         { questionIndex: 6, questionId: 'wq-1', studentAnswer: 'essay', skill: 'writing', skillZh: '寫作' },
       ],

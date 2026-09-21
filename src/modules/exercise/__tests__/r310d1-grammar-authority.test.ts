@@ -291,6 +291,23 @@ describe('R3.10-D.1 route plumbing contracts', () => {
     expect(route).toContain('文法題目伺服器持久化失敗');
   });
 
+  it('generate-questions persists listening MCs before delivery and refuses undeliverable ones (ADR-045)', () => {
+    const route = readFileSync(resolve(root, 'src/app/api/ai/generate-questions/route.ts'), 'utf-8');
+    expect(route).toContain('persistGeneratedListeningQuestions(');
+    expect(route).toContain('isDeliverableListeningMc');
+    expect(route).toContain('LISTENING_QUESTIONS_NOT_DELIVERABLE');
+    // 全數不可交付 → 結構化 422（可重試），不得交付沒有答案依據的題目
+    expect(route).toMatch(/status:\s*422/);
+  });
+
+  it('Prisma schema contains the server-owned ListeningQuestion store (and no dormant listening tables)', () => {
+    const schema = readFileSync(resolve(root, 'prisma/schema.prisma'), 'utf-8');
+    expect(schema).toContain('model ListeningQuestion');
+    expect(schema).toContain('dialogue');
+    expect(schema).not.toContain('model ListeningSession');
+    expect(schema).not.toContain('model ListeningAnswer');
+  });
+
   it('client uses the server-assigned id and never derives authority from Date.now()', () => {
     const page = readFileSync(resolve(root, 'src/app/student/practice/page.tsx'), 'utf-8');
     expect(page).toContain("typeof q.id === 'string' && q.id.length > 0 ? q.id :");
@@ -302,6 +319,7 @@ describe('R3.10-D.1 route plumbing contracts', () => {
     expect(svc).toContain("'server-key-resolved'");
     expect(svc).toContain("'reading-server-exact-match'");
     expect(svc).toContain("'reading-ai-semantic-evaluation'");
+    expect(svc).toContain("'listening-server-exact-match'");
     expect(svc).toContain("reason: 'unverified-key-authority'");
   });
 
@@ -325,6 +343,7 @@ describe('R3.10-D.1 A/B — practice submission classification contract', () => 
     expect(classifyPracticeSubmission({ skill: 'grammar' })).toBe('grammar');
     expect(classifyPracticeSubmission({ skill: 'general' })).toBe('grammar');
     // legacy language skills — integrated-skills must NOT fall through:
+    // （listening 在**無標記**時仍為 legacy，見 ADR-045 的歷史相容條款）
     for (const skill of ['reading', 'listening', 'writing', 'speaking', 'integrated', 'integrated-skills', 'vocabulary']) {
       expect(classifyPracticeSubmission({ skill })).toBe('legacy-language-skill');
     }
@@ -332,6 +351,26 @@ describe('R3.10-D.1 A/B — practice submission classification contract', () => 
     expect(classifyPracticeSubmission({ source: 'dse-reading', skill: 'reading' })).toBe('reading');
     expect(classifyPracticeSubmission({ skill: 'tenses', answers: [{ dseType: 'multiple_choice' }] })).toBe('reading');
     expect(classifyPracticeSubmission({ skill: 'reading', answers: [{ dseType: 'mc' }] })).toBe('reading');
+    // 2026-09-21 ADR-045：listening 有伺服器題庫 → dse-listening / listeningType
+    // 標記時進入 listening 權威（無標記的舊資料仍為 legacy）
+    expect(classifyPracticeSubmission({ source: 'dse-listening', skill: 'listening' })).toBe('listening');
+    expect(classifyPracticeSubmission({ skill: 'listening', answers: [{ listeningType: 'detail' }] })).toBe('listening');
+    expect(classifyPracticeSubmission({ skill: 'tenses', answers: [{ listeningType: 'gist' }] })).toBe('listening');
+  });
+
+  it('A2. reading marker wins over a listening marker (order is fixed, never ambiguous)', () => {
+    expect(classifyPracticeSubmission({
+      source: 'dse-reading',
+      skill: 'listening',
+      answers: [{ listeningType: 'detail' }],
+    })).toBe('reading');
+  });
+
+  it('A3. listening is a server-authoritative class (evidence + mastery eligible)', () => {
+    expect(isServerAuthoritativeSubmission('listening')).toBe(true);
+    expect(shouldUpdateMastery('listening', 3)).toBe(true);
+    expect(shouldUpdateMastery('listening', 0)).toBe(false);
+    expect(isServerAuthoritativeSubmission('legacy-language-skill')).toBe(false);
   });
 
   it('B. unknown skill values NEVER enter the grammar authority path', () => {

@@ -1,6 +1,8 @@
 # Deployment Guide — AI English Platform
 
-> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-21 | **Tests**: 3,131 passed / 1 skipped (160 files passed / 1 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
+> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-21 | **Tests**: 3,172 passed / 1 skipped (163 files passed / 1 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
+>
+> **2026-09-21 (III) 部署注意**：先 `npx prisma migrate deploy`（`20260924_listening_question_store`：建立 `ListeningQuestion`、刪除休眠的 `ListeningSession`/`ListeningAnswer`），再讓新 revision 接收流量。**無需回填**（聆聽題目自本次起才開始持久化）。
 >
 > **2026-09-21 (II) 部署注意**：先 `npx prisma migrate deploy`（含 `20260923_user_overall_accuracy_drop_default`），再 `npm run db:backfill:accuracy:apply`（一次性校正舊資料；dry-run 為 `npm run db:backfill:accuracy`），最後才讓新 revision 接收流量。
 

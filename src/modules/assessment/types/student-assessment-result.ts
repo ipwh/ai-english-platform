@@ -41,7 +41,9 @@
 //   Submission.id            →  assessmentId  (context: 'assignment')
 //   Assignment.id            →  assignmentId (task-template reference)
 //   AssignmentQuestion.id    →  questionId
-//   ListeningSession.id      →  assessmentId  (R3+)
+//   Submission.id            →  assessmentId  (R3+)
+//   (ListeningSession.id 已於 2026-09-21 隨休眠表一併移除；聆聽以
+//    ListeningQuestion + PracticeSession 記錄，與閱讀同一契約)
 //   SpellingSession.id       →  assessmentId  (R3+)
 //   DiagnosticResult         →  aggregate only; per-item mapping deferred
 //

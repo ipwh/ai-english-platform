@@ -397,6 +397,7 @@ export default function StudentDetailPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
                       {s.source === 'dse-reading' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">DSE</span>}
+                      {s.source === 'dse-listening' && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">DSE</span>}
                       {s.source === 'ai-generated' && <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-600 rounded-full">AI</span>}
                       {s.source === 'assignment' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-full">{t('teacher.students.tasks')}</span>}
                     </div>

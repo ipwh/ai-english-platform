@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   listMistakes: vi.fn(),
   resolveReadingQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
+  resolveListeningQuestionDefinitions: vi.fn(),
 }));
 
 vi.mock('@/shared/auth/api-auth', () => ({
@@ -44,6 +45,11 @@ vi.mock('@/modules/exercise/services/grammar-question-service', () => ({
   resolveGrammarQuestionDefinitions: mocks.resolveGrammarQuestionDefinitions,
 }));
 
+// ADR-045：聆聽題庫（此測試不需要，預設空）
+vi.mock('@/modules/listening/services/listening-question-service', () => ({
+  resolveListeningQuestionDefinitions: mocks.resolveListeningQuestionDefinitions,
+}));
+
 import * as mistakesRoute from '../mistakes/route';
 
 const studentA = { authenticated: true, userId: 'student-A', role: 'student' };
@@ -57,6 +63,7 @@ beforeEach(() => {
   mocks.verifyApiAuth.mockResolvedValue(studentA);
   mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map());
   mocks.resolveGrammarQuestionDefinitions.mockResolvedValue(new Map());
+  mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map());
   mocks.createMistakeIfAbsent.mockResolvedValue({ inserted: true });
   mocks.findMistakeByQuestion.mockResolvedValue({ id: 'm1' });
   mocks.listMistakes.mockResolvedValue([]);

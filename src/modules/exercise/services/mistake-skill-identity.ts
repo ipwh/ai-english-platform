@@ -23,6 +23,10 @@ import {
   resolveReadingQuestionDefinitions,
   type ReadingQuestionDefinition,
 } from '@/modules/reading/services/reading-question-service';
+import {
+  resolveListeningQuestionDefinitions,
+  type ListeningQuestionDefinition,
+} from '@/modules/listening/services/listening-question-service';
 import { DSE_SKILL_LABELS } from '@/modules/reading/feedback/reading-feedback-types';
 import type { LanguageSkill } from '@/shared/types/types';
 
@@ -82,6 +86,21 @@ export function identityFromReadingDefinition(d: ReadingQuestionDefinition): Mis
   };
 }
 
+/**
+ * 2026-09-21 ADR-045：聆聽題目現在有伺服器題庫 → 技能歸屬可為 canonical
+ * （不再依賴客戶端自報值）。題型取 listeningType（detail/gist/inference），
+ * 未提供時退回格式（mc）。
+ */
+export function identityFromListeningDefinition(d: ListeningQuestionDefinition): MistakeSkillIdentity {
+  return {
+    languageSkill: 'listening',
+    grammarItem: null,
+    questionType: d.listeningType || d.questionType || null,
+    skillSource: 'canonical',
+    questionSummary: d.questionText ? d.questionText.slice(0, SUMMARY_MAX) : null,
+  };
+}
+
 export function identityFromGrammarDefinition(d: GrammarQuestionDefinition): MistakeSkillIdentity {
   return {
     languageSkill: LANGUAGE_SKILLS.has(String(d.languageSkill)) ? String(d.languageSkill) : null,
@@ -103,8 +122,9 @@ export async function resolveMistakeSkillIdentities(
   const result = new Map<string, MistakeSkillIdentity>();
   if (ids.length === 0) return result;
 
-  const [reading, grammar] = await Promise.all([
+  const [reading, listening, grammar] = await Promise.all([
     resolveReadingQuestionDefinitions(ids),
+    resolveListeningQuestionDefinitions(ids),
     resolveGrammarQuestionDefinitions(ids),
   ]);
 
@@ -112,6 +132,11 @@ export async function resolveMistakeSkillIdentities(
     const readingDef = reading.get(id);
     if (readingDef) {
       result.set(id, { ...identityFromReadingDefinition(readingDef), languageSkill: 'reading' });
+      continue;
+    }
+    const listeningDef = listening.get(id);
+    if (listeningDef) {
+      result.set(id, identityFromListeningDefinition(listeningDef));
       continue;
     }
     const grammarDef = grammar.get(id);
@@ -155,8 +180,9 @@ export async function resolveMistakeQuestionContexts(
   const result = new Map<string, MistakeQuestionContext>();
   if (ids.length === 0) return result;
 
-  const [reading, grammar] = await Promise.all([
+  const [reading, listening, grammar] = await Promise.all([
     resolveReadingQuestionDefinitions(ids),
+    resolveListeningQuestionDefinitions(ids),
     resolveGrammarQuestionDefinitions(ids),
   ]);
   const grammarExplanations = await resolveGrammarQuestionExplanationsMany(
@@ -171,6 +197,19 @@ export async function resolveMistakeQuestionContexts(
         questionText: readingDef.questionText ?? null,
         choices: readingDef.choices,
         questionType: readingDef.dseType || readingDef.questionType || null,
+        explanationZh: null,
+        explanationEn: null,
+      });
+      continue;
+    }
+    const listeningDef = listening.get(id);
+    if (listeningDef) {
+      // 2026-09-21 ADR-045：聆聽題庫持有對話（供重播／理解語境）。
+      result.set(id, {
+        canonical: true,
+        questionText: listeningDef.questionText ?? null,
+        choices: listeningDef.choices,
+        questionType: listeningDef.listeningType || listeningDef.questionType || null,
         explanationZh: null,
         explanationEn: null,
       });

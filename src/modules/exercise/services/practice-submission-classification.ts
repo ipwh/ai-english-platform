@@ -5,6 +5,7 @@
 // Every production caller must map to exactly one class:
 //
 //   reading              → server ReadingQuestion authority
+//   listening            → server ListeningQuestion authority (2026-09-21 ADR-045)
 //   grammar              → server GrammarQuestion authority
 //   legacy-language-skill→ client-key scoring (persistable for history;
 //                          NEVER trusted by evidence or mastery)
@@ -21,6 +22,7 @@ import { GRAMMAR_GRAPH } from '@/modules/learning/services/knowledge-graph';
 
 export type PracticeSubmissionClass =
   | 'reading'
+  | 'listening'
   | 'grammar'
   | 'legacy-language-skill'
   | 'unknown';
@@ -55,12 +57,31 @@ export function hasReadingMarker(input: { source?: string | null; answers?: unkn
   });
 }
 
+/**
+ * Listening submission = dse-listening source OR any answer carrying
+ * listeningType (2026-09-21 ADR-045).
+ *
+ * `listening` remains in LEGACY_LANGUAGE_SKILLS: a listening submission
+ * with NO marker (historical rows generated before the server-owned
+ * listening store existed) must keep the legacy, unverifiable behaviour.
+ */
+export function hasListeningMarker(input: { source?: string | null; answers?: unknown }): boolean {
+  if (input.source === 'dse-listening') return true;
+  if (!Array.isArray(input.answers)) return false;
+  return input.answers.some(a => {
+    if (!a || typeof a !== 'object') return false;
+    const t = (a as { listeningType?: unknown }).listeningType;
+    return typeof t === 'string' && t.length > 0;
+  });
+}
+
 export function classifyPracticeSubmission(input: {
   source?: string | null;
   skill?: string | null;
   answers?: unknown;
 }): PracticeSubmissionClass {
   if (hasReadingMarker(input)) return 'reading';
+  if (hasListeningMarker(input)) return 'listening';
   const skill = String(input.skill ?? '').trim().toLowerCase();
   if (!skill) return 'unknown';
   if (LEGACY_LANGUAGE_SKILLS.has(skill)) return 'legacy-language-skill';
@@ -70,11 +91,12 @@ export function classifyPracticeSubmission(input: {
 
 /**
  * INVARIANT-D9: only server-authoritative paths (server-key grammar /
- * server reading) may update trusted mastery. Legacy client-key paths
- * may persist rows for history/display but must never feed mastery.
+ * server reading / server listening) may update trusted mastery. Legacy
+ * client-key paths may persist rows for history/display but must never
+ * feed mastery.
  */
 export function isServerAuthoritativeSubmission(cls: PracticeSubmissionClass): boolean {
-  return cls === 'grammar' || cls === 'reading';
+  return cls === 'grammar' || cls === 'reading' || cls === 'listening';
 }
 
 /** Mastery update eligibility: authoritative path AND non-zero server-derived totals. */

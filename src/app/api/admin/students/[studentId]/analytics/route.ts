@@ -63,12 +63,11 @@ export async function GET(
             vocabItems: true,
             submissions: true,
             writingDrafts: true,
-            listeningSessions: true,
             spellingSessions: true,
           },
         },
       },
-    }) as {id: string; email: string; nameZh: string | null; nameEn: string | null; role: string; level: string | null; classNumber: number | null; overallAccuracy: number | null; streakDays: number; xp: number; academicYear: string | null; badgeIds: string | null; createdAt: Date; class: {id: string; name: string; gradeLevel: string; academicYear: string | null} | null; _count: {sessions: number; mistakes: number; vocabItems: number; submissions: number; writingDrafts: number; listeningSessions: number; spellingSessions: number}} | null;
+    }) as {id: string; email: string; nameZh: string | null; nameEn: string | null; role: string; level: string | null; classNumber: number | null; overallAccuracy: number | null; streakDays: number; xp: number; academicYear: string | null; badgeIds: string | null; createdAt: Date; class: {id: string; name: string; gradeLevel: string; academicYear: string | null} | null; _count: {sessions: number; mistakes: number; vocabItems: number; submissions: number; writingDrafts: number; spellingSessions: number}} | null;
 
     if (!student || student.role !== 'student') {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });

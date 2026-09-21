@@ -38,8 +38,12 @@ import {
 import {
   scoreReadingAnswers,
   computeReadingAggregates,
-  type ReadingSessionAggregates,
 } from '@/modules/reading/services/reading-answer-scoring';
+import {
+  scoreListeningAnswers,
+  computeListeningAggregates,
+  type ScoredListeningAnswer,
+} from '@/modules/listening/services/listening-answer-scoring';
 import {
   recordPracticeSessionMasteryOnce,
   syncStudentActivityMetrics,
@@ -81,10 +85,11 @@ export type SubmitPracticeResult =
 
 function deriveAggregates(
   submissionClass: PracticeSubmissionClass,
-  sessionAggregates: ReadingSessionAggregates | null,
+  sessionAggregates: { totalQuestions: number; correctCount: number } | null,
   normalizedAnswers: NormalizedPracticeAnswer[],
 ): { totalQuestions: number; correctCount: number } {
-  if (submissionClass === 'reading' && sessionAggregates) {
+  // reading / listening：由伺服器評分結果推導總數（客戶端 aggregates 永不採用）
+  if ((submissionClass === 'reading' || submissionClass === 'listening') && sessionAggregates) {
     return { totalQuestions: sessionAggregates.totalQuestions, correctCount: sessionAggregates.correctCount };
   }
   return computePracticeAggregates(normalizedAnswers);
@@ -155,7 +160,12 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
 
   // 2. Scoring dispatch — one authority per class (R3.7 / R3.10-D)
   let normalizedAnswers: NormalizedPracticeAnswer[];
-  let sessionAggregates: ReadingSessionAggregates | null = null;
+  let sessionAggregates: { totalQuestions: number; correctCount: number } | null = null;
+  // 2026-09-21 ADR-045 稽核：`submissionClass` 只是**分類**，不代表本次確實
+  // 由伺服器評分。只有真正用到伺服器答案鍵（authoritative 分支成功）才得建立
+  // 錯題與更新掌握度 — 否則 fail-open 回退的客戶端自評列會變成可信資料
+  // （客戶端可在自評列偽造 isCorrect，而錯題/掌握度閘門原本只看 class）。
+  let usedServerScoring = false;
 
   if (submissionClass === 'reading') {
     const scoring = await scoreReadingAnswers(answers);
@@ -179,11 +189,38 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
     } else {
       normalizedAnswers = scoring.answers;
       sessionAggregates = computeReadingAggregates(scoring.answers);
+      usedServerScoring = true;
     }
   } else if (submissionClass === 'grammar') {
     const grammarValidation = await validateGrammarAnswersWithServerKeys(answers);
     if (!grammarValidation.ok) return { ok: false, status: 400, error: grammarValidation.error };
     normalizedAnswers = grammarValidation.answers;
+    usedServerScoring = true;
+  } else if (submissionClass === 'listening') {
+    // 2026-09-21 ADR-045: listening MC scored against the server-owned
+    // ListeningQuestion store → verified evidence (accuracy / mastery / mistakes).
+    const scoring = await scoreListeningAnswers(answers);
+    if (!scoring.ok) {
+      // 聆聽在 ADR-045 之前**沒有**任何伺服器權威，因此每一份舊 payload 都是
+      // legacy。評分不可用時（例如舊題目的 `ai-*` 本機 id、題庫暫時不可讀）
+      // 一律 fail-open 回退 legacy 儲存：學生的練習記錄不會流失，但
+      // scoringMethod = client-key-deterministic → 永不產生證據／錯題／掌握度。
+      // （閱讀維持原本的 400：閱讀自 R3.7 起就是權威契約，客戶端聲稱閱讀
+      //   就必須帶伺服器題目 id；聆聽是反向相容問題，故不對稱處理。）
+      logger.warn(
+        { module: 'practice-submission', studentId, error: scoring.error, resolvedClass },
+        'Listening scoring unavailable — falling back to legacy (unverified) persistence',
+      );
+      const fallback = validatePracticeAnswers(answers);
+      if (!fallback.ok) return { ok: false, status: 400, error: fallback.error };
+      normalizedAnswers = fallback.answers;
+      sessionAggregates = null;
+      usedServerScoring = false;
+    } else {
+      normalizedAnswers = scoring.answers;
+      sessionAggregates = computeListeningAggregates(scoring.answers as ScoredListeningAnswer[]);
+      usedServerScoring = true;
+    }
   } else {
     // legacy-language-skill: client-key path (persistable for history/display
     // ONLY; scoringMethod = client-key-deterministic — never trusted).
@@ -195,16 +232,29 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   const aggregates = deriveAggregates(submissionClass, sessionAggregates, normalizedAnswers);
 
   // 3. Authoritative persistence (atomic tx + replay semantics)
-  //    2026-09-21：伺服器解析確認為閱讀時，來源統一寫入 'dse-reading'
-  //    （客戶端舊碼送 'ai-generated' 會令教師端顯示不出 DSE 標記）。
+  //    2026-09-21：伺服器解析確認題目家族時，來源／技能統一寫入正典值
+  //    （客戶端舊碼送 'ai-generated' 會令教師端顯示不出 DSE 標記，
+  //    亦令聆聽練習在報告中顯示為「綜合」）。
   const persistedSource = resolvedClass === 'reading'
     ? 'dse-reading'
-    : source || (submissionClass === 'reading' ? 'dse-reading' : 'ai-generated');
+    : resolvedClass === 'listening'
+      ? 'dse-listening'
+      : source || (submissionClass === 'reading' ? 'dse-reading' : 'ai-generated');
+  const persistedSkill = skill || (submissionClass === 'reading'
+    ? 'reading'
+    : submissionClass === 'listening'
+      ? 'listening'
+      : 'general');
+  const persistedSkillZh = skillZh || (submissionClass === 'reading'
+    ? 'DSE 閱讀模擬'
+    : submissionClass === 'listening'
+      ? 'DSE 聆聽'
+      : '綜合');
   const persisted = await PracticeRepo.createPracticeExecutionTx({
     session: {
       studentId,
-      skill: skill || (submissionClass === 'reading' ? 'reading' : 'general'),
-      skillZh: skillZh || (submissionClass === 'reading' ? 'DSE 閱讀模擬' : '綜合'),
+      skill: persistedSkill,
+      skillZh: persistedSkillZh,
       difficulty: difficulty || 'core',
       totalQuestions: aggregates.totalQuestions,
       correctCount: aggregates.correctCount,
@@ -221,7 +271,8 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
     // but before its derived metrics were refreshed. Replaying the same key is
     // therefore also the recovery path for accuracy and weekly projections.
     await syncStudentActivityMetrics(studentId);
-    const masteryUpdated = shouldUpdateMastery(submissionClass, aggregates.totalQuestions)
+    const masteryUpdated = usedServerScoring
+      && shouldUpdateMastery(submissionClass, aggregates.totalQuestions)
       ? await recordPracticeSessionMasteryOnce({
           sessionId: persisted.id, studentId, skill: persisted.skill, subSkill: persisted.skillZh || persisted.skill || 'general',
           totalQuestions: persisted.totalQuestions, correctCount: persisted.correctCount,
@@ -240,7 +291,7 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   // 4. Mistake gating (R3.10-D.3 Priority 2 / INVARIANT-D11):
   //    only server-authoritative classes create trusted Mistake records,
   //    and only via the atomic insert-if-absent (P0-2).
-  if (normalizedAnswers.length > 0 && isServerAuthoritativeSubmission(submissionClass)) {
+  if (usedServerScoring && normalizedAnswers.length > 0 && isServerAuthoritativeSubmission(submissionClass)) {
     // Only rows actually scored as WRONG become mistakes. Open-ended questions
     // are 'ungradable' (not auto-gradable) — recording a 150-word essay as a
     // mistake because it differs from the sample answer is a manufactured error
@@ -281,7 +332,11 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
           correctAnswer: a.correctAnswer || '',
           mistakeType,
           languageSkill: skillIdentities.get(a.questionId)?.languageSkill
-            ?? (submissionClass === 'reading' ? 'reading' : null),
+            ?? (submissionClass === 'reading'
+              ? 'reading'
+              : submissionClass === 'listening'
+                ? 'listening'
+                : null),
           grammarItem: skillIdentities.get(a.questionId)?.grammarItem ?? null,
           questionType: skillIdentities.get(a.questionId)?.questionType
             ?? claimedQuestionTypes.get(a.questionId)
@@ -299,7 +354,7 @@ export async function submitPractice(input: SubmitPracticeInput): Promise<Submit
   // 5. Analytics + mastery gating (INVARIANT-D9):
   //    accuracy recompute uses verified evidence only; mastery only from
   //    server-authoritative paths with non-zero server-derived totals.
-  const masteryUpdated = shouldUpdateMastery(submissionClass, aggregates.totalQuestions);
+  const masteryUpdated = usedServerScoring && shouldUpdateMastery(submissionClass, aggregates.totalQuestions);
   try {
     await syncStudentActivityMetrics(studentId);
   } catch (error) {

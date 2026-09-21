@@ -31,6 +31,7 @@ A read-only audit of every student and teacher surface (static review of the who
 - A verification failure is no longer a dead end: learners receive a partial task or a retryable, explained error.
 - Teachers can answer "who has not used this for two weeks" and "whose results need attention" with a filter and a count instead of scanning a table.
 - **Known limitation (unchanged by design):** listening, vocabulary-quiz and speaking practice still carry no server-owned answer key, so they remain self-assessed and are excluded from accuracy/mastery. The practice page now states this explicitly. The dormant `ListeningSession`/`ListeningAnswer` tables remain unused; giving listening a measurable path requires a server-owned listening question store (tracked as future work).
+  - **Superseded in part (2026-09-21, ADR-045):** listening now *does* have a server-owned store (`ListeningQuestion`), so listening practice is scored, counted and attributed canonically. The dormant tables were deleted rather than reused. Vocabulary-quiz and speaking practice remain self-assessed.
 - **Deliberate non-change:** teacher access to `/api/admin/export/students` and `/api/admin/export/stream/students` stays school-wide (not narrowed to taught classes) per owner instruction; the route documents this so it is not "helpfully" tightened later.
 - Deployment requires migration `20260923_user_overall_accuracy_drop_default` **and** the backfill script; Cloud Run deployment does not apply migrations.
 

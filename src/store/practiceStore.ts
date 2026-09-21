@@ -23,7 +23,7 @@ export interface PracticeSession {
   difficulty: DifficultyLevel;
   totalQuestions: number;
   correctCount: number;
-  source: 'ai-generated' | 'mock' | 'assignment';
+  source: 'ai-generated' | 'mock' | 'assignment' | 'dse-listening';
   /** R3.10-C.2: 伺服器 canonical verified evidence（由 /api/practice 提供）。
    * 本機 session（尚未伺服器驗證）沒有此欄位 → 不計入 scored 準確率。 */
   verified?: {

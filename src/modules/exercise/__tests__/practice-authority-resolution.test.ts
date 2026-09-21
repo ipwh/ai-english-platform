@@ -6,16 +6,22 @@
 // → 舊分類判為 legacy-language-skill → 不計入準確率／掌握度／錯題本。
 // 修正：以提交的 questionId 是否全部解析到同一正典家族決定權威；
 // 解析不到時完全沿用舊的客戶端標記分類（對舊資料零行為改變）。
+// 2026-09-21 ADR-045：聆聽題目亦在交付前持久化為 ListeningQuestion，
+// 同一解析規則涵蓋 listening（全部解析 → 聆聽為權威；混合／部分 → 回退）。
 // ============================================
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   resolveReadingQuestionDefinitions: vi.fn(),
+  resolveListeningQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
 }));
 
 vi.mock('@/modules/reading/services/reading-question-service', () => ({
   resolveReadingQuestionDefinitions: mocks.resolveReadingQuestionDefinitions,
+}));
+vi.mock('@/modules/listening/services/listening-question-service', () => ({
+  resolveListeningQuestionDefinitions: mocks.resolveListeningQuestionDefinitions,
 }));
 vi.mock('@/modules/exercise/services/grammar-question-service', () => ({
   resolveGrammarQuestionDefinitions: mocks.resolveGrammarQuestionDefinitions,
@@ -28,6 +34,7 @@ const answers = (...ids: string[]) => ids.map((questionId, i) => ({ questionId, 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map());
+  mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map());
   mocks.resolveGrammarQuestionDefinitions.mockResolvedValue(new Map());
 });
 
@@ -49,6 +56,35 @@ describe('resolveSubmissionAuthorityClass', () => {
 
     expect(result.authorityClass).toBe('grammar');
     expect(result.reason).toBe('all-grammar');
+  });
+
+  it('resolves listening when every id is a persisted ListeningQuestion (ADR-045)', async () => {
+    mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map([['l1', {}], ['l2', {}]]));
+
+    const result = await resolveSubmissionAuthorityClass(answers('l1', 'l2'));
+
+    expect(result.authorityClass).toBe('listening');
+    expect(result.reason).toBe('all-listening');
+    expect(result.resolvedIds).toBe(2);
+  });
+
+  it('falls back (null) on a mixed reading+listening submission', async () => {
+    mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map([['r1', {}]]));
+    mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map([['l1', {}]]));
+
+    const result = await resolveSubmissionAuthorityClass(answers('r1', 'l1'));
+
+    expect(result.authorityClass).toBeNull();
+    expect(result.reason).toBe('mixed');
+  });
+
+  it('falls back (null) when only some listening ids resolve', async () => {
+    mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map([['l1', {}]]));
+
+    const result = await resolveSubmissionAuthorityClass(answers('l1', 'ai-legacy-0'));
+
+    expect(result.authorityClass).toBeNull();
+    expect(result.reason).toBe('partial');
   });
 
   it('falls back (null) when only some ids resolve — never partial authority', async () => {

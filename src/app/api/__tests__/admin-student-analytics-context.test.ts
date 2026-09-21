@@ -55,7 +55,7 @@ const STUDENT = {
   class: null,
   _count: {
     sessions: 1, mistakes: 4, vocabItems: 0, submissions: 0,
-    writingDrafts: 0, listeningSessions: 0, spellingSessions: 0,
+    writingDrafts: 0, spellingSessions: 0,
   },
 };
 

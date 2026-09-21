@@ -571,22 +571,29 @@ export default function DiagnosticPage() {
             recommendedGrammar: r.skill === 'grammar' ? (r.accuracy >= 0 && r.accuracy < 60 ? 'tenses' : undefined) : undefined,
             recommendedSkill: r.skill === 'reading' ? 'reading' : r.skill === 'writing' ? 'writing' : undefined,
           })),
-          // D2b/D3：只送「伺服器持有答案鍵」的題目（文法／閱讀）——
-          // 伺服器會以正典管道評分＋持久化（成為可驗證證據），
-          // 無法評分的題型（聆聽／詞彙／寫作）維持自評。
+          // D2b/D3（2026-09-21 ADR-045 延伸）：只送「伺服器持有答案鍵」的題目
+          // （文法／閱讀／聆聽）— 伺服器會以正典管道評分＋持久化（成為可驗證
+          // 證據）；無法評分的題型（詞彙／寫作）維持自評。
+          // 注意：聆聽題自 ADR-045 起亦有伺服器 id，必須帶上自己的技能標記，
+          // 否則會被標成文法並以聆聽分數覆寫文法分數（且掌握度會歸錯技能）。
           answers: questions
             .map((q, index) => ({ q, index }))
             .filter(({ q }) => !String(q.id).startsWith('diag-'))
             .filter(({ q }) => q.languageSkill !== 'writing' && q.type !== 'short-writing')
             .map(({ q, index }) => {
               const isReading = q.languageSkill === 'reading';
+              const isListening = q.languageSkill === 'listening';
               return {
                 questionIndex: index,
                 questionId: q.id,
                 studentAnswer: finalAnswers[q.id] || '',
-                skill: isReading ? 'reading' : (q.grammarItem || 'grammar'),
-                skillZh: isReading ? t('diagnostic.skillReading') : t('diagnostic.skillGrammar'),
-                resultSkill: isReading ? 'reading' : 'grammar',
+                skill: isReading ? 'reading' : isListening ? 'listening' : (q.grammarItem || 'grammar'),
+                skillZh: isReading
+                  ? t('diagnostic.skillReading')
+                  : isListening
+                    ? t('diagnostic.skillListening')
+                    : t('diagnostic.skillGrammar'),
+                resultSkill: isReading ? 'reading' : isListening ? 'listening' : 'grammar',
               };
             }),
         }),

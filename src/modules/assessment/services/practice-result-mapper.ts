@@ -160,8 +160,8 @@ export function mapSessionSkillToMasterySkill(skill: string): MasterySkill | und
  *
  *   'practice'    ← 'ai-generated' | 'mock' (practice family)
  *   'practice'    ← practice-family executions recorded under
- *                   'daily-challenge' | 'dse-reading' | 'dse-speaking'
- *                   | 'dse-writing' | 'dse-integrated-skills'
+ *                   'daily-challenge' | 'dse-reading' | 'dse-listening'
+ *                   | 'dse-speaking' | 'dse-writing' | 'dse-integrated-skills'
  *   'assignment'  ← 'assignment'
  *   'diagnostic'  ← 'diagnostic'
  *
@@ -173,6 +173,7 @@ export function mapPracticeSourceToContext(source: string): StudentAssessmentCon
     case 'mock':
     case 'daily-challenge':
     case 'dse-reading':
+    case 'dse-listening':
     case 'dse-speaking':
     case 'dse-writing':
     case 'dse-integrated-skills':

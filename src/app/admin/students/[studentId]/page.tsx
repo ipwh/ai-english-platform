@@ -40,7 +40,6 @@ interface StudentAnalytics {
       vocabItems: number;
       submissions: number;
       writingDrafts: number;
-      listeningSessions: number;
       spellingSessions: number;
     };
   };

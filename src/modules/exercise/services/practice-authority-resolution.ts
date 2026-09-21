@@ -20,9 +20,10 @@
 // - 此檔為純資料存取層（無業務判斷），可被單元測試以 mock 注入。
 
 import { resolveReadingQuestionDefinitions } from '@/modules/reading/services/reading-question-service';
+import { resolveListeningQuestionDefinitions } from '@/modules/listening/services/listening-question-service';
 import { resolveGrammarQuestionDefinitions } from '@/modules/exercise/services/grammar-question-service';
 
-export type ResolvedAuthorityClass = 'reading' | 'grammar';
+export type ResolvedAuthorityClass = 'reading' | 'listening' | 'grammar';
 
 export interface AuthorityResolution {
   /** 解析出的權威家族；null = 無法判定（呼叫端回退既有分類） */
@@ -31,7 +32,7 @@ export interface AuthorityResolution {
   totalIds: number;
   /** 成功解析到正典定義的題數 */
   resolvedIds: number;
-  reason: 'all-reading' | 'all-grammar' | 'no-ids' | 'partial' | 'mixed' | 'none';
+  reason: 'all-reading' | 'all-listening' | 'all-grammar' | 'no-ids' | 'partial' | 'mixed' | 'none';
 }
 
 /**
@@ -56,23 +57,29 @@ export async function resolveSubmissionAuthorityClass(
     return { authorityClass: null, totalIds: 0, resolvedIds: 0, reason: 'no-ids' };
   }
 
-  const [reading, grammar] = await Promise.all([
+  const [reading, listening, grammar] = await Promise.all([
     resolveReadingQuestionDefinitions(unique).catch(() => new Map()),
+    resolveListeningQuestionDefinitions(unique).catch(() => new Map()),
     resolveGrammarQuestionDefinitions(unique).catch(() => new Map()),
   ]);
 
   const readingCount = unique.filter(id => reading.has(id)).length;
+  const listeningCount = unique.filter(id => listening.has(id)).length;
   const grammarCount = unique.filter(id => grammar.has(id)).length;
-  const resolvedIds = readingCount + grammarCount;
+  const resolvedIds = readingCount + listeningCount + grammarCount;
 
   if (resolvedIds < unique.length) {
     return { authorityClass: null, totalIds: unique.length, resolvedIds, reason: 'partial' };
   }
-  if (readingCount > 0 && grammarCount > 0) {
+  const families = [readingCount, listeningCount, grammarCount].filter(n => n > 0).length;
+  if (families > 1) {
     return { authorityClass: null, totalIds: unique.length, resolvedIds, reason: 'mixed' };
   }
   if (readingCount === unique.length) {
     return { authorityClass: 'reading', totalIds: unique.length, resolvedIds, reason: 'all-reading' };
+  }
+  if (listeningCount === unique.length) {
+    return { authorityClass: 'listening', totalIds: unique.length, resolvedIds, reason: 'all-listening' };
   }
   if (grammarCount === unique.length) {
     return { authorityClass: 'grammar', totalIds: unique.length, resolvedIds, reason: 'all-grammar' };

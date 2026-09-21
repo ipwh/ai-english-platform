@@ -11,10 +11,19 @@ import { validateRequest, generateQuestionsSchema } from '@/shared/validation/sc
 import { logger } from '@/shared/logger/logger';
 import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
 import { persistGeneratedReadingQuestions } from '@/modules/reading/services/reading-question-service';
+import { persistGeneratedListeningQuestions, isDeliverableListeningMc } from '@/modules/listening/services/listening-question-service';
+import type { GeneratedQuestion } from '@/modules/ai';
 
 // R3.10-D: 文法題目（grammarItem 驅動，非閱讀/聆聽/寫作/口語）在交付前
 // 必須持久化到伺服器 GrammarQuestion store，並以伺服器 id 作為正典身份。
 const NON_GRAMMAR_LANGUAGE_SKILLS = new Set(['reading', 'listening', 'writing', 'speaking', 'integrated', 'vocabulary']);
+
+/**
+ * 2026-09-21 ADR-045：聆聽選擇題能否交付的判準由 listening 模組持有
+ * （`isDeliverableListeningMc`，單一 owner，可單元測試）。
+ * 此處僅保留給舊呼叫端的別名。
+ */
+export const isVerbatimListeningMc = isDeliverableListeningMc;
 
 function isRetryableGenerationError(message: string): boolean {
   return /AI 回傳格式無法解析|AI 回傳資料格式異常|Unexpected end of JSON|is not valid JSON/i.test(message);
@@ -137,6 +146,53 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'Reading question persistence failed');
         throw new Error('閱讀題目伺服器持久化失敗，請重試 / Server persistence of reading questions failed. Please retry.');
+      }
+    }
+
+    // 2026-09-21 ADR-045：聆聽選擇題同樣在交付前持久化（ListeningQuestion），
+    // 令提交時可用伺服器答案鍵評分（listening-server-exact-match → 可驗證證據），
+    // 練習因而計入準確率、技能掌握度與錯題本。
+    //
+    // 只持久化「答案在對話中逐字出現」的 MC：
+    //   1. 沒有逐字依據的題目無法確定性評分（需要語意判斷）→ 不交付，
+    //      避免學生收到無法公平批改的題目。
+    //   2. 同一批交付的聆聽題必須**全部**有伺服器 id，否則提交時
+    //      `resolveSubmissionAuthorityClass()` 會因部分解析而回退 legacy，
+    //      令整場練習仍然不計分（那就是本修正要消除的症狀）。
+    //   3. 全部被丟棄 → 結構化 422（可重試），不交付無解答的題目。
+    const isListeningRequest = String(languageSkill ?? '').trim().toLowerCase() === 'listening';
+    if (isListeningRequest && questionsWithIds.length > 0) {
+      const deliverable = questionsWithIds.filter(q => isDeliverableListeningMc(q));
+      const droppedCount = questionsWithIds.length - deliverable.length;
+      if (droppedCount > 0) {
+        logger.warn({ module: 'generate-questions', droppedCount, keptCount: deliverable.length }, 'Dropped listening questions whose answer is not verbatim in the dialogue');
+      }
+      if (deliverable.length === 0) {
+        return NextResponse.json({
+          error: '系統未能生成可公平批改的聆聽題目（答案未在對話中出現）。請再試一次。 / Could not generate fairly gradable listening questions (the answer was not stated in the dialogue). Please try again.',
+          code: 'LISTENING_QUESTIONS_NOT_DELIVERABLE',
+          recoverable: true,
+        }, { status: 422 });
+      }
+      try {
+        const ids = await persistGeneratedListeningQuestions(
+          deliverable.map((q, i) => ({
+            questionType: 'mc',
+            listeningType: null,
+            questionText: q.prompt,
+            choices: q.choices ?? null,
+            answer: q.answer,
+            marks: 1,
+            orderIndex: i,
+            dialogue: q.listeningContent ?? null,
+            dialogueZh: q.listeningContentZh ?? null,
+            provenance: 'ai-generated',
+          })),
+        );
+        questionsWithIds = deliverable.map((q, i) => ({ ...q, id: ids[i] }));
+      } catch (err) {
+        logger.error({ module: 'generate-questions', error: err instanceof Error ? err.message : String(err) }, 'Listening question persistence failed');
+        throw new Error('聆聽題目伺服器持久化失敗，請重試 / Server persistence of listening questions failed. Please retry.');
       }
     }
 

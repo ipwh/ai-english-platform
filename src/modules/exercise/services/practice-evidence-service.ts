@@ -69,6 +69,9 @@ const SERVER_KEY_AUTHORITATIVE: ReadonlyArray<readonly [string, string]> = [
   ['server', 'server-key-resolved'],
   ['server', 'reading-server-exact-match'],
   ['ai', 'reading-ai-semantic-evaluation'],
+  // 2026-09-21 ADR-045: listening objective answers scored against the
+  // server-owned ListeningQuestion store.
+  ['server', 'listening-server-exact-match'],
 ];
 
 function hasServerKeyAuthority(scoredBy: string | null | undefined, scoringMethod: string | null | undefined): boolean {

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   syncStudentActivityMetrics: vi.fn(),
   resolveReadingQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
+  resolveListeningQuestionDefinitions: vi.fn(),
 }));
 
 vi.mock('@/modules/repositories', () => ({
@@ -55,6 +56,11 @@ vi.mock('@/modules/exercise/services/grammar-question-service', () => ({
   resolveGrammarQuestionExplanationsMany: vi.fn().mockResolvedValue(new Map()),
 }));
 
+// ADR-045：聆聽題庫（本測試不需要，預設空）
+vi.mock('@/modules/listening/services/listening-question-service', () => ({
+  resolveListeningQuestionDefinitions: mocks.resolveListeningQuestionDefinitions,
+}));
+
 import { submitPractice } from '../services/practice-submission-service';
 
 const READING_ANSWER = {
@@ -77,6 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.resolveReadingQuestionDefinitions.mockResolvedValue(new Map());
   mocks.resolveGrammarQuestionDefinitions.mockResolvedValue(new Map());
+  mocks.resolveListeningQuestionDefinitions.mockResolvedValue(new Map());
   mocks.createPracticeExecutionTx.mockResolvedValue({ created: true, id: 'ps-1' });
   mocks.scoreReadingAnswers.mockResolvedValue({ ok: true, answers: [READING_ANSWER] });
   mocks.computeReadingAggregates.mockReturnValue({ totalQuestions: 1, correctCount: 0 });

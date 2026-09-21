@@ -4,6 +4,47 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-21 (III) — 聆聽成為可量測：伺服器題庫（ADR-045）
+
+### 一、聆聽練習正式計分（最後一個「不可量測」的技能缺口）
+
+- 新增 **`ListeningQuestion` 題庫**（migration `20260924_listening_question_store`）：聆聽題在**交付前**持久化（答案鍵、選項、題型、分數、順序、對話），前端取得伺服器 id → 提交時可用伺服器答案鍵評分，產生 `listening-server-exact-match` 可驗證證據。
+- 記憶舊帳：`ListeningSession` / `ListeningAnswer` 兩張休眠表（生產 0 列、唯一寫入函式 `createListeningSession` 無呼叫者）與該函式一併刪除；**不需回填**。
+- ADR-044 的「已知限制」正式解除：聆聽不再是自評，會計入準確率、技能掌握度與錯題本。
+
+### 二、只有「可公平批改」的聆聽題才會交付
+
+- 新增交付前唯一判準 `isDeliverableListeningMc()`（owner：`listening/services/listening-question-service.ts`）：必須是 MC、對話非空、選項 ≥2，且**答案在對話中逐字出現**（詞邊界比對，容忍 `A.` / `1.` 選項前綴）。沒有逐字依據的題目無法確定性評分，一律丟棄（記錄 warning）。
+- 全部題目皆不可交付 → 結構化、可重試的 `422 LISTENING_QUESTIONS_NOT_DELIVERABLE`，**絕不**交付沒有答案依據的題目；持久化失敗則整批不交付（絕不回退客戶端答案鍵）。
+
+### 三、評分權威與證據契約
+
+- 新增 `listening/services/listening-answer-scoring.ts`：解析每個 `questionId` 的正典定義；**忽略**客戶端 `correctAnswer` / `isCorrect` / `awardedScore` / `maxScore` / `countsTowardScore`；`maxScore` 取自題庫 `marks`；輸出依伺服器 `orderIndex` 排序；比對規則委派正典 `scorePracticeAnswer()`（不另寫第二套）。解析不到／`marks` 無效／開放式題型 ⇒ 整份 NOT_PROJECTABLE（不部分計分、不製造假判決）。
+- `practice-evidence-service` 白名單新增 `('server', 'listening-server-exact-match')` — 這一個字串就是「可否計入準確率」的開關。
+- 提交分類新增 `listening`（標記：`source: 'dse-listening'` 或答案帶 `listeningType`）；`resolveSubmissionAuthorityClass()` 解析第三個題庫；`listening` **保留**在 `LEGACY_LANGUAGE_SKILLS`，沒有標記的歷史 payload 行為完全不變。
+- **新不變量**：`submissionClass` 不再單獨授權副作用。`submitPractice()` 新增 `usedServerScoring`，**錯題建立與掌握度更新都必須同時成立**；否則 fail-open 回退的客戶端自評列（可偽造 `isCorrect`）會變成可信資料。
+- 聆聽評分不可用時（舊 `ai-*` 本機 id、題庫暫時不可讀）**不會**令學生整份練習失敗：場次照常以 `client-key-deterministic` 保存（不可驗證、永不產生證據／錯題／掌握度）。閱讀維持原本較嚴格的 400 契約（此為刻意的不對稱，已在程式碼註明）。
+
+### 四、診斷與教師端一致化
+
+- 診斷題組新增第三個權威家族（`source: 'dse-listening'`、`resultSkill: 'listening'`）：聆聽分數改由**伺服器分數**覆寫自評值；診斷頁為聆聽答案帶上自己的技能標記（否則會被誤標文法並以聆聽分數覆寫文法分數、掌握度歸錯技能）。
+- 錯題技能歸屬：聆聽題由正典題目定義解析 → `languageSkill: 'listening'`、`skillSource: 'canonical'`（不再依賴客戶端自報）。
+- 教師個別學生頁：`dse-listening` 場次顯示 DSE 標記；`mapPracticeSourceToContext()` 把 `dse-listening` 映射到 practice 家族（否則學生的學習歷程投影會靜默變成 NOT_PROJECTABLE）。
+- 練習設定頁說明更新：文法／閱讀／聆聽計入準確率與掌握度；寫作／會話維持自評。
+
+### 五、已知限制（明確記錄，非靜默）
+
+- 第一階段只支援 MC；`listeningType` 目前寫入 `null`（生成 prompt 尚未產生穩定子題型），故錯題分桶退回格式（`listening:mc`），策略卡退回通用 comprehension 卡。由文字推測子題型即是臆測，留待 prompt 版本更新。
+
+### 六、驗證
+
+- `npm test`：**3172 passed / 1 skipped**（163 files passed / 1 skipped，較上版 +36）；`npx tsc --noEmit`、`node scripts/check-i18n.js`、`npx prisma validate` 全部通過；`npx eslint` 於變更檔案 0 error。
+- 新增測試 36 個：聆聽評分契約（含偽造客戶端答案鍵被忽略、NOT_PROJECTABLE 各情境）、交付判準（逐字／詞邊界／非 MC／選項越界）、端到端提交（證據、錯題歸屬、掌握度閘門、legacy fail-open、家族優先序、混合回退）、權威解析、分類契約、錯題歸屬、診斷分組、路由與 schema。
+- 部署順序：先 `npx prisma migrate deploy`（`20260924_listening_question_store`），再部署應用（Cloud Run 不會自動套用 migration）。無需回填。
+- 決策記錄：`docs/architecture/ADR-045-server-owned-listening-store.md`。
+
+---
+
 ## 2026-09-21 (II) — 可量測練習、誠實空值與教師監控訊號（ADR-044）
 
 ### 一、無可驗證資料不再是 0%

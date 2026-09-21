@@ -79,11 +79,3 @@ export async function getDiagnosticGrammarStats(studentId: string) {
   ]);
   return { results, mistakeCount };
 }
-
-// ============================================
-// Listening sessions
-// ============================================
-
-export async function createListeningSession(data: Prisma.ListeningSessionCreateInput) {
-  return db.listeningSession.create({ data });
-}

@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-09-21 — 160 files, 3131 tests pass (+1 gated skip; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-21 — 163 files, 3172 tests pass (+1 gated skip; full non-E2E), plus route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
 
 ## 🏗️ Architecture Overview
@@ -52,6 +52,7 @@ Writing Evaluation (Sprints 127-130):
 | ADR-042 | Generated Answer Verification — independent pre-delivery answer-key audit | ✅ Accepted (2026-09-20) |
 | ADR-043 | Delivery Integrity, Replay Safety & Teacher Roster Authorization | ✅ Accepted (2026-09-21) |
 | ADR-044 | Measurable Practice, Honest Empty States & Teacher Monitoring Signals | ✅ Accepted (2026-09-21) |
+| ADR-045 | Server-Owned Listening Question Store (listening becomes measurable) | ✅ Accepted (2026-09-21) |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 
