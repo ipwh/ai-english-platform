@@ -56,6 +56,14 @@ export async function GET(req: NextRequest) {
         // 2026-09-14: 只取「到期且可重考」的錯題（剔除閱讀／聆聽 passage 題目）。
         // 舊版把所有錯題當成每日卡片 → 同一批卡片永遠重複，且篇章題無法當 flashcard。
         dueMistakes = await listDueMistakesForReview(studentId, 50);
+        // 2026-09-23 稽核修正：已由伺服器答案鍵評為答對的題目，不再排入複習佇列。
+        const { findResolvedQuestionIds } = await import('@/modules/exercise/services/practice-evidence-service');
+        const dueRows = dueMistakes as Array<{ questionId: string }>;
+        const resolvedQuestionIds = await findResolvedQuestionIds(
+          studentId,
+          dueRows.map(m => m.questionId),
+        ).catch(() => new Set<string>());
+        dueMistakes = dueRows.filter(m => !resolvedQuestionIds.has(m.questionId)) as typeof dueMistakes;
       } catch { /* silently fail */ }
     }
 

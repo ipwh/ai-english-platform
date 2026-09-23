@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [student, sessionCount, verifiedSessions, mistakes, vocab] = await Promise.all([
+    // 2026-09-23 稽核修正：本週準確率改用正典週摘要（香港週一界線 + 全歷史日期查詢）。
+    const { getWeeklyPracticeSummary } = await import('@/modules/exercise/services/practice-history-service');
+    const [student, sessionCount, weeklySummary, mistakes, vocab] = await Promise.all([
       adminDbQuery('user', 'findUnique', {
         where: { id: studentId },
         select: {
@@ -35,8 +37,10 @@ export async function GET(request: NextRequest) {
       }) as Promise<{nameZh: string | null; nameEn: string | null; level: string | null; overallAccuracy: number | null; xp: number; streakDays: number; class: {name: string; gradeLevel: string} | null} | null>,
       // 練習次數 = 原始 engagement 計數（非 scored 準確率）
       adminDbQuery('practiceSession', 'count', { where: { studentId } }) as Promise<number>,
-      // R3.10-D.3 (Priority 3): 本週準確率只使用 canonical verified evidence。
-      getVerifiedPracticeSessions(studentId, 30),
+      // 2026-09-23 稽核修正：舊碼為 getVerifiedPracticeSessions(studentId, 30) ∩ 滾動
+      // 7×24 小時視窗：既會被 30 場截斷，週界線也與全站（香港週一）不一致，
+      // 令同一週的數字在家長報告與 App 內不同。
+      getWeeklyPracticeSummary(studentId).catch(() => null),
       adminDbQuery('mistake', 'findMany', {
         where: { studentId },
         orderBy: { createdAt: 'desc' },
@@ -58,17 +62,8 @@ export async function GET(request: NextRequest) {
     const accuracyLabel = accuracy != null ? `${accuracy}` : '—';
     const totalSessions = sessionCount;
 
-    // Weekly stats — verified row-derived evidence ONLY (never raw totals)
-    const weekAgo = new Date(Date.now() - 7 * 86400000);
-    let weekTotal = 0;
-    let weekCorrect = 0;
-    for (const s of verifiedSessions) {
-      if (new Date(s.startedAt) < weekAgo) continue;
-      if (s.evidence.status !== 'verified') continue;
-      weekTotal += s.evidence.totalQuestions;
-      weekCorrect += s.evidence.correctCount;
-    }
-    const weekAccuracy = weekTotal > 0 ? Math.round((weekCorrect / weekTotal) * 100) : null;
+    // Weekly stats — canonical HK-week verified evidence (single owner)
+    const weekAccuracy = weeklySummary?.accuracy ?? null;
     const weekAccuracyLabel = weekAccuracy != null ? `${weekAccuracy}` : '—';
 
     // Mistake type distribution

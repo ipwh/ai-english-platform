@@ -326,27 +326,31 @@ export async function GET(
 
     // 7. 總練習統計（按技能分類）— R3.10-C.2:
     // sessions 計數 = 原始 engagement；question/correct/accuracy = verified evidence only。
-    const [sessionCountsBySkill, verifiedSkillSessions] = await Promise.all([
+    //
+    // 2026-09-23 稽核修正：題數／正確數改用**全歷史**正典投影
+    // （getCumulativeSkillTotals）。舊碼用 `getVerifiedPracticeSessions(studentId, 300)`
+    // 只在最新 300 場內累加，令高練習量學生的題數與準確率被系統性低估，
+    // 而且會與左邊「全歷史場次數」自相矛盾。
+    const { getCumulativeSkillTotals } = await import('@/modules/exercise/services/practice-history-service');
+    const [sessionCountsBySkill, cumulativeSkillTotals] = await Promise.all([
       adminDbQuery('practiceSession', 'groupBy', {
         by: ['skill'],
         where: { studentId },
         _count: { id: true },
       }) as Promise<Array<{skill: string; _count: {id: number}}>>,
-      getVerifiedPracticeSessions(studentId, 300).catch(() => [] as SessionEvidenceEntry[]),
+      getCumulativeSkillTotals(studentId).catch(() => [] as Array<{ skill: string; questions: number; correct: number }>),
     ]);
 
     const skillTotals = new Map<string, { sessions: number; total: number; correct: number }>();
     for (const c of sessionCountsBySkill) {
       skillTotals.set(c.skill, { sessions: c._count.id, total: 0, correct: 0 });
     }
-    for (const s of verifiedSkillSessions) {
+    for (const s of cumulativeSkillTotals) {
       const key = s.skill || 'general';
-      let entry = skillTotals.get(key);
-      if (!entry) { entry = { sessions: 0, total: 0, correct: 0 }; skillTotals.set(key, entry); }
-      if (s.evidence.status === 'verified') {
-        entry.total += s.evidence.totalQuestions;
-        entry.correct += s.evidence.correctCount;
-      }
+      const entry = skillTotals.get(key) ?? { sessions: 0, total: 0, correct: 0 };
+      entry.total += s.questions;
+      entry.correct += s.correct;
+      skillTotals.set(key, entry);
     }
 
     // 8. HKDSE 診斷結果

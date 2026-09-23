@@ -138,7 +138,18 @@ export async function listDueMistakesForReview(studentId: string, limit = 50) {
 
 /** Bulk update mistakes (mark reviewed, add to review list) */
 export async function bulkUpdateMistakes(where: Record<string, unknown>, data: Record<string, unknown>) {
-  return db.mistake.updateMany({ where, data });
+  return db.mistake.updateMany({ where: where as Prisma.MistakeWhereInput, data: data as Prisma.MistakeUpdateManyMutationInput });
+}
+
+/**
+ * 2026-09-23 稽核：列舉符合條件的錯題（供批次操作套用 SRS 排程）。
+ * `where` 的形狀與 `bulkUpdateMistakes` 相同。
+ */
+export async function listMistakesMatching(where: Record<string, unknown>) {
+  return db.mistake.findMany({
+    where: where as Prisma.MistakeWhereInput,
+    select: { id: true, reviewInterval: true, easeFactor: true },
+  });
 }
 
 /** Bulk delete mistakes */

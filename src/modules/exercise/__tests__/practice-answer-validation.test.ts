@@ -240,6 +240,33 @@ describe('Scorer — faithful port of checkAnswer semantics', () => {
     expect(checkAnswer('He went to school', 'went', 'fill-blank')).toBe(true);
   });
 
+  // ============================================
+  // 2026-09-23 稽核回歸：以下案例在舊碼全部被判為「對」（以實際函式實測），
+  // 屬評分準確性缺陷 —— 錯答被判對會令準確率虛高、並令應有的錯題不會產生。
+  // ============================================
+  it('rejects a wrong sentence that merely contains a short function-word key', () => {
+    expect(checkAnswer('He went to the market to buy fish', 'the', 'fill-blank')).toBe(false);
+    expect(checkAnswer('He is not a doctor', 'not', 'fill-blank')).toBe(false);
+    expect(checkAnswer('I was eating rice', 'was', 'fill-blank')).toBe(false);
+  });
+
+  it('requires EVERY key token to be present (missing word no longer counts as correct)', () => {
+    expect(checkAnswer('have to', 'have to go', 'fill-blank')).toBe(false);
+    expect(checkAnswer('have to go', 'have to go', 'fill-blank')).toBe(true);
+    expect(checkAnswer('I have to go home', 'have to go', 'fill-blank')).toBe(true);
+  });
+
+  it('accepts alternative keys separated by slash, pipe or "or"', () => {
+    expect(checkAnswer('which', 'that/which', 'fill-blank')).toBe(true);
+    expect(checkAnswer('who', 'that/which', 'fill-blank')).toBe(false);
+    expect(checkAnswer('went, saw', 'went / saw', 'fill-blank')).toBe(true);
+  });
+
+  it('still accepts a full sentence when the key contains an identifying word', () => {
+    expect(checkAnswer('He went to school by bus', 'went', 'fill-blank')).toBe(true);
+    expect(checkAnswer('I think the answer is fifteen', 'fifteen', 'fill-blank')).toBe(true);
+  });
+
   it('scorePracticeAnswer always produces bounded 1-point binary output', () => {
     expect(scorePracticeAnswer({ studentAnswer: 'A', correctAnswer: 'A', questionType: 'mc' }))
       .toEqual({ result: 'correct', awardedScore: 1, maxScore: 1, countsTowardScore: true });

@@ -107,7 +107,11 @@ export async function GET(request: NextRequest) {
     const [sessions, submissions, skillTotals, weekly, streakDays] = await Promise.all([
       PracticeRepo.listPracticeSessions(studentId, 50),
       adminDbQuery('submission', 'findMany', {
-        where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null } },
+        // 2026-09-23 稽核修正：必須同時要求 score not null。
+        // 舊碼只濾 status/submittedAt，未批改的提交（score=null）會被
+        // `(score || 0)` 轉成 correctCount=0 並標記為 status:'verified'、accuracy:0
+        // → 老師看到學生「0 分」，其實只是尚未批改（違反「無資料 ≠ 0」）。
+        where: { studentId, status: { in: ['submitted', 'graded'] }, submittedAt: { not: null }, score: { not: null } },
         orderBy: { submittedAt: 'desc' },
         take: 50,
         select: {

@@ -117,7 +117,8 @@ export class StudentStateMutationService {
     newBadges: BadgeDefinition[];
   }> {
     const { findUserByIdSelect, updateUser } = await import('@/modules/student/repositories/user-repo');
-    const { listPracticeSessions, countPracticeSessions } = await import('@/modules/exercise/repositories/practice-repo');
+    const { countPracticeSessions } = await import('@/modules/exercise/repositories/practice-repo');
+    const { getCumulativeSkillTotals } = await import('@/modules/exercise/services/practice-history-service');
     const { getVocabStats } = await import('@/modules/vocabulary/repositories/vocabulary-repo');
     const { countDrafts } = await import('@/modules/writing-coach/repositories/writing-draft-repo');
     const { db } = await import('@/shared/db/db');
@@ -125,9 +126,13 @@ export class StudentStateMutationService {
     // 2026-09-20 稽核：每週挑戰窗口改用香港週界線（原本 UTC 午夜）
     const weekStart = hkWeekStartUtc(6);
 
-    const [student, sessions, vocab, writingCount, sessionsCount, mistakesReviewed, weeklyChallenges] = await Promise.all([
+    const [student, cumulativeSkillTotals, vocab, writingCount, sessionsCount, mistakesReviewed, weeklyChallenges] = await Promise.all([
       findUserByIdSelect(studentId, { streakDays: true, overallAccuracy: true, xp: true, badgeIds: true, level: true }).catch(() => null) as Promise<UserSelectResult | null>,
-      listPracticeSessions(studentId, 200).catch(() => [] as { totalQuestions: number }[]),
+      // 2026-09-23 稽核修正：徽章統計的累積題數改由**全歷史正典投影**推導。
+      // 舊碼用 listPracticeSessions(studentId, 200)（最新 200 場），而且是
+      // **recorded** 而非 verified 總數 —— 長期使用者的累積題數會被截斷，
+      // 令 `totalQuestions >= 50/100` 這類徽章條件失真。
+      getCumulativeSkillTotals(studentId).catch(() => [] as Array<{ questions: number }>),
       getVocabStats(studentId).catch(() => ({ mastered: 0 })) as Promise<VocabStatsResult>,
       countDrafts(studentId).catch(() => 0),
       countPracticeSessions(studentId).catch(() => 0),
@@ -135,7 +140,7 @@ export class StudentStateMutationService {
       db.practiceSession.count({ where: { studentId, source: 'daily-challenge', startedAt: { gte: weekStart } } }).catch(() => 0),
     ]);
 
-    const totalQuestions = sessions.reduce((sum: number, s: { totalQuestions: number }) => sum + s.totalQuestions, 0);
+    const totalQuestions = cumulativeSkillTotals.reduce((sum: number, s: { questions: number }) => sum + s.questions, 0);
 
     const stats: BadgeCheckStats = {
       totalQuestions,

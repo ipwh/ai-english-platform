@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   resolveReadingQuestionDefinitions: vi.fn(),
   resolveGrammarQuestionDefinitions: vi.fn(),
   resolveListeningQuestionDefinitions: vi.fn(),
+  findVerifiedIncorrectAnswer: vi.fn(),
 }));
 
 vi.mock('@/shared/auth/api-auth', () => ({
@@ -50,6 +51,11 @@ vi.mock('@/modules/listening/services/listening-question-service', () => ({
   resolveListeningQuestionDefinitions: mocks.resolveListeningQuestionDefinitions,
 }));
 
+// 2026-09-23：錯題建立閘門（必須有伺服器權威的答錯證據）
+vi.mock('@/modules/exercise/services/practice-evidence-service', () => ({
+  findVerifiedIncorrectAnswer: mocks.findVerifiedIncorrectAnswer,
+}));
+
 import * as mistakesRoute from '../mistakes/route';
 
 const studentA = { authenticated: true, userId: 'student-A', role: 'student' };
@@ -67,6 +73,12 @@ beforeEach(() => {
   mocks.createMistakeIfAbsent.mockResolvedValue({ inserted: true });
   mocks.findMistakeByQuestion.mockResolvedValue({ id: 'm1' });
   mocks.listMistakes.mockResolvedValue([]);
+  // 預設：確實存在伺服器答案鍵評為 incorrect 的作答列
+  mocks.findVerifiedIncorrectAnswer.mockResolvedValue({
+    studentAnswer: 'B',
+    correctAnswer: 'A',
+    sessionId: 'sess-1',
+  });
 });
 
 describe('POST /api/mistakes — 技能歸屬', () => {
@@ -171,6 +183,39 @@ describe('POST /api/mistakes — 技能歸屬', () => {
 
     expect(res.status).toBe(403);
     expect(mocks.createMistakeIfAbsent).not.toHaveBeenCalled();
+  });
+
+  // ============================================
+  // 2026-09-23 稽核修正：錯題建立必須有伺服器權威證據
+  // ============================================
+  it('沒有伺服器批改紀錄 → 拒絕建立（不得由客戶端偽造錯題）', async () => {
+    mocks.findVerifiedIncorrectAnswer.mockResolvedValue(null);
+
+    const res = await mistakesRoute.POST(post('http://localhost/api/mistakes', {
+      studentId: 'student-A',
+      questionId: 'ai-1750000000000-2',
+      studentAnswer: 'A',
+      correctAnswer: 'B',
+      mistakeType: 'grammar',
+    }));
+
+    expect(res.status).toBe(409);
+    expect(mocks.createMistakeIfAbsent).not.toHaveBeenCalled();
+  });
+
+  it('記錄的答案一律採用伺服器權威作答列（忽略客戶端自報）', async () => {
+    await mistakesRoute.POST(post('http://localhost/api/mistakes', {
+      studentId: 'student-A',
+      questionId: 'q-server',
+      studentAnswer: '客戶端亂報的作答',
+      correctAnswer: '客戶端亂報的答案鍵',
+      mistakeType: 'grammar',
+    }));
+
+    expect(mocks.createMistakeIfAbsent).toHaveBeenCalledWith(expect.objectContaining({
+      studentAnswer: 'B',
+      correctAnswer: 'A',
+    }));
   });
 });
 

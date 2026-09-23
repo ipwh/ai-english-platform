@@ -274,6 +274,41 @@ export async function listPracticeSessionsWithEvidence(
 }
 
 /** Find a practice session by ID */
+/**
+ * 2026-09-23 稽核：取某學生對某題的作答列（含評分權威欄位），供錯題建立閘門。
+ * 只讀，永不修改；DB 先做粗篩（incorrect + server/ai），精確的
+ * (scoredBy, scoringMethod) 授權配對由 practice-evidence-service 判定。
+ */
+export async function listServerScoredIncorrectAnswersForQuestion(studentId: string, questionId: string) {
+  return db.practiceAnswer.findMany({
+    where: {
+      questionId,
+      result: 'incorrect',
+      scoredBy: { in: ['server', 'ai'] },
+      session: { studentId },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+    select: { studentAnswer: true, correctAnswer: true, scoredBy: true, scoringMethod: true, sessionId: true },
+  });
+}
+
+/**
+ * 2026-09-23 稽核：取某學生對多題的伺服器評分作答列（最新在前），
+ * 供「錯題是否已解除」推導。只讀，永不修改。
+ */
+export async function listServerScoredAnswersForQuestions(studentId: string, questionIds: string[]) {
+  return db.practiceAnswer.findMany({
+    where: {
+      questionId: { in: questionIds },
+      scoredBy: { in: ['server', 'ai'] },
+      session: { studentId },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { questionId: true, result: true, scoredBy: true, scoringMethod: true },
+  });
+}
+
 export async function findPracticeSession(id: string) {
   return db.practiceSession.findUnique({
     where: { id },

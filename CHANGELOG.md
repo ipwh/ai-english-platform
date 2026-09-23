@@ -4,7 +4,77 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-09-23 (II) — 評分／紀錄準確性稽核：6 項已確認缺陷（**尚未修復**）
+## 2026-09-23 (III) — 修復 (II) 稽核的全部 6 項缺陷
+
+### 一、錯題不再是客戶端說了算（缺陷 1）
+- `student/practice/[id]/page.tsx` **移除**客戶端 POST `/api/mistakes`。
+- `POST /api/mistakes` 新增唯一閘門 `findVerifiedIncorrectAnswer()`
+  （`exercise/services/practice-evidence-service.ts`）：只接受該學生對該題
+  「確實由伺服器答案鍵評為 `incorrect`」的作答列，並以**該列**的 studentAnswer /
+  correctAnswer 為準（客戶端送來的一律忽略）；沒有證據 ⇒ 409，不建立。
+- 修正的舊行為：錯題可被偽造、session 未提交也能留下錯題，且因
+  `createMistakeIfAbsent` 是 ON CONFLICT DO NOTHING，客戶端那筆會**贏過**
+  之後伺服器評分產生的權威版本。
+
+### 二、錯答不再被判為對（缺陷 2）
+- `practice-answer-scorer.ts`：移除 `filter(w => w.length > 2)` 造成的塌縮，改為兩條件：
+  (1) 答案鍵須含「可識別詞」（長度 ≥ 4 或含數字）——純功能詞答案鍵
+  （the / not / was / an）只能精確相等；(2) **全部**答案鍵詞彙均須以完整詞出現。
+  另支援 ` / `、`|`、` or ` 分隔的替代答案（如 `that/which`）。
+- 回歸測試涵蓋實測案例：`the` ＋ "He went to the market to buy fish" 與
+  `have to go` ＋ "have to" 皆**不再**判為 correct。
+
+### 三、AI 故障不再變成學生成績（缺陷 3）
+- `assignment-grader.ts`：AI 失敗時改回 `result: 'ungradable'`、
+  `countsTowardScore: false`、`scoringMethod: 'assignment-ai-unavailable'`，
+  **不再**以逐字比對偽造 `incorrect`。
+- `api/assignments/[id]`：分數只由確實計分的題目推導；有任何題目未能自動評分 ⇒
+  `score: null`（待老師批改）；`ungradableCount === 0` 才記掌握度（避免偽造「退步」）。
+
+### 四、未批改不再顯示為 0%（缺陷 4）
+- `api/practice/route.ts`：作業提交查詢補上 `score: { not: null }`
+  （舊碼 `(score || 0)` 把未批改的提交標成 `status:'verified'`、accuracy 0）。
+- 學生作業頁：`score === null` 顯示「已提交，待老師批改」，逐題 `correct: null` 顯示中性色
+  （`gradedAnswers.correct` 型別改為 `boolean | null`）。
+
+### 五、累積數字一律改回全歷史投影（缺陷 5）
+- 教師個別學生頁：改用 API 新回傳的 `cumulativeSkillTotals`（`getCumulativeSkillTotals`）
+  計算答題數／準確率／技能分佈，不再由「最新 50 場」推算。
+- 管理端學生分析：技能題數／正確數改由 `getCumulativeSkillTotals`，
+  不再用 `getVerifiedPracticeSessions(studentId, 300)`（那會與旁邊的全歷史場次數自相矛盾）。
+- `api/ai/analyze-progress`：整體準確率不得再由「最新 30 場」的投影冒充。
+- `api/parent-report`：本週準確率改用正典 `getWeeklyPracticeSummary()`
+  （香港週界線 + 全歷史分頁），不再用滾動 7×24 小時視窗。
+- 徽章統計：累積題數改用 `getCumulativeSkillTotals`，不再用最新 200 場。
+
+### 六、已掌握的錯題不再永久糾纏（缺陷 6）
+- 新增 `findResolvedQuestionIds()`（**衍生計算**）：一題視為已解除 ⇔ 該題
+  **最新一筆伺服器權威評分**為 correct。
+- 套用於錯題弱項摘要（`aggregateMistakes` → `StudentMistakeSummary.mastered` 可正常翻轉，
+  老師不再永遠看到同一批舊弱項）與每日複習佇列（`/api/srs/review`）。
+- 刻意**不**採用「答對就刪除錯題」（MCQ 猜中率 25%，刪除會丟失真實弱項），
+  也刻意**不**新增 DB 欄位（避免程式與 migration 的部署次序風險）。
+
+### 七、批次標記不再繞過 SRS（缺陷 6 附帶）
+- `POST /api/mistakes/bulk` 的 `markAllReviewed` 改為逐列套用 `nextMistakeReviewState()`
+  （SRS 單一 owner）。舊碼只設 `reviewed: true`，`nextReviewDate` 仍為 null
+  （= 從未排程 = 永遠到期），同一批卡片永遠佔用每日 50 張上限。
+
+### 八、驗證
+- `npx tsc --noEmit` → 0 errors。
+- `npx vitest run` → **3178 passed / 1 skipped**。
+- 新增回歸測試：評分器 4 項、錯題閘門 2 項、作業 AI 故障 1 項、bulk SRS 1 項。
+
+### 九、尚未處理（明確記錄，非靜默）
+- `student/profile/services/profile-service.ts` 的 `overallAccuracy: … : 0`：
+  檢視後確認**無任何 runtime consumer**（只有 barrel re-export 與自身的測試）→
+  屬零呼叫者死碼，依「No speculative abstractions」應**刪除**而非修改，另行處理。
+- `teacher/copilot` 空班的「班平均 0%」與掌握度「總覽 0%」屬顯示層文案，
+  不影響任何記錄或教師追蹤的數值，未在本次改動範圍。
+
+---
+
+## 2026-09-23 (II) — 評分／紀錄準確性稽核：6 項已確認缺陷（**已於 (III) 修復**）
 
 > 本次稽核以「實際執行評分函式 + 逐行讀碼」進行，非只讀註解。以下缺陷**全部仍然存在**，
 > 記錄於此以確保不被忘記。**未經產品決定不得自行變更評分語意**（會直接改動學生成績）。

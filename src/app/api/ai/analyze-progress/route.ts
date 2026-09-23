@@ -82,8 +82,16 @@ export async function POST(request: NextRequest) {
 
         // 弱項 / 近期表現只來自 verified sessions（row-derived evidence）。
         const projection = projectVerifiedProgress(verifiedSessions);
-        if (resolvedAccuracy === null && projection.overallAccuracy !== null) {
-          resolvedAccuracy = projection.overallAccuracy;
+        if (resolvedAccuracy === null) {
+          // 2026-09-23 稽核修正：**不得**以「最新 30 場」的投影冒充整體準確率。
+          // 改由全歷史累積投影推導（與教師端、User.overallAccuracy 同源）。
+          const { getCumulativeSkillTotals } = await import('@/modules/exercise/services/practice-history-service');
+          const cumulative = await getCumulativeSkillTotals(studentId).catch(() => []);
+          const cumulativeQuestions = cumulative.reduce((n, s) => n + s.questions, 0);
+          const cumulativeCorrect = cumulative.reduce((n, s) => n + s.correct, 0);
+          if (cumulativeQuestions > 0) {
+            resolvedAccuracy = Math.round((cumulativeCorrect / cumulativeQuestions) * 100);
+          }
         }
         resolvedWeakSkills = projection.weakSkills;
         resolvedRecentPerformance = projection.recentPerformance;

@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   listDueMistakesForReview: vi.fn(),
   findMistakeById: vi.fn(),
   updateMistake: vi.fn(),
+  listMistakesMatching: vi.fn(),
   bulkUpdateMistakes: vi.fn(),
   bulkDeleteMistakes: vi.fn(),
   getTodaysXpTransaction: vi.fn(),
@@ -72,6 +73,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/modules/repositories', () => ({
   StudentRepo: { findRecordOwner: vi.fn() },
+  MistakeRepo: {
+    listMistakesMatching: mocks.listMistakesMatching,
+    updateMistake: mocks.updateMistake,
+    findMistakeById: mocks.findMistakeById,
+  },
 }));
 
 vi.mock('@/shared/auth/api-auth', async (importOriginal) => {
@@ -118,6 +124,7 @@ vi.mock('@/modules/admin/services/admin-operations', () => ({
 vi.mock('@/modules/exercise/services/practice-evidence-service', () => ({
   getVerifiedPracticeSessions: mocks.getVerifiedPracticeSessions,
   projectVerifiedProgress: mocks.projectVerifiedProgress,
+  findResolvedQuestionIds: vi.fn().mockResolvedValue(new Set()),
 }));
 
 vi.mock('@/modules/exercise/services/grammar-question-service', () => ({
@@ -397,14 +404,21 @@ describe('SEC-005: /api/mistakes/bulk — cross-user mutation blocked', () => {
 
   it('student A can operate own mistakes (scoped where)', async () => {
     authAs(studentA);
+    mocks.listMistakesMatching.mockResolvedValue([
+      { id: 'm1', reviewInterval: 0, easeFactor: 2.5 },
+    ]);
     const res = await mistakesBulkRoute.POST(post('http://localhost/api/mistakes/bulk', {
       studentId: 'student-A', action: 'markAllReviewed',
     }));
     expect(res.status).toBe(200);
-    expect(mocks.bulkUpdateMistakes).toHaveBeenCalledWith(
-      { studentId: 'student-A' },
-      { reviewed: true },
+    // 2026-09-23 稽核修正：批次標記已複習必須同時套用 SRS 排程，
+    // 否則 nextReviewDate 永遠是 null → 卡片永遠留在每日複習佇列。
+    expect(mocks.listMistakesMatching).toHaveBeenCalledWith({ studentId: 'student-A' });
+    expect(mocks.updateMistake).toHaveBeenCalledWith(
+      'm1',
+      expect.objectContaining({ reviewed: true }),
     );
+    expect(mocks.updateMistake.mock.calls[0][1].nextReviewDate).toBeInstanceOf(Date);
   });
 
   it('deleteSelected is scoped to own ids', async () => {

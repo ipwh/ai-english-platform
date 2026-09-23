@@ -372,12 +372,14 @@ export async function POST(
       answers as Record<string, string>,
       analyzeAnswer,
     );
-    const { items, totalScore } = grading;
+    const { items, totalScore, ungradableCount, gradedQuestionCount } = grading;
 
-    const gradedAnswers: Record<string, { correct: boolean; feedback: string }> = {};
+    // 2026-09-23 稽核修正：`correct` 可為 null（該題未能自動評分），
+    // 不得把「未能評分」顯示成答錯。
+    const gradedAnswers: Record<string, { correct: boolean | null; feedback: string }> = {};
     for (const item of items) {
       gradedAnswers[item.questionId] = {
-        correct: item.result === 'correct',
+        correct: item.countsTowardScore ? item.result === 'correct' : null,
         feedback: item.feedback,
       };
     }
@@ -385,13 +387,18 @@ export async function POST(
       .filter(i => i.aiFeedbackPart !== undefined)
       .map(i => i.aiFeedbackPart as string);
 
-    const score = assignment.questions.length > 0
-      ? Math.round((totalScore / assignment.questions.length) * 100)
-      : 0;
+    // 分數只由「確實計分」的題目推導。有題目未能自動評分時**不發佈分數**
+    // （部分分數會誤導），交由老師批改；無可計分題目同樣為 null（永不寫 0）。
+    // `syncStudentActivityMetrics` 只收 score not null → 不會拉低 overallAccuracy。
+    const score = ungradableCount > 0 || gradedQuestionCount === 0
+      ? null
+      : Math.round((totalScore / gradedQuestionCount) * 100);
 
     const aiFeedback = aiFeedbackParts.length > 0
       ? aiFeedbackParts.join('\n\n')
-      : `得分：${score}%（${totalScore}/${assignment.questions.length}） / Score: ${score}% (${totalScore}/${assignment.questions.length})`;
+      : score === null
+        ? `已完成作答，部分題目需由老師批改 / Submitted — awaiting teacher review (auto-graded ${totalScore}/${gradedQuestionCount} correct)`
+        : `得分：${score}%（${totalScore}/${assignment.questions.length}） / Score: ${score}% (${totalScore}/${assignment.questions.length})`;
 
     // R3.5 hardening: 相容視圖 + 嘗試 + 逐題證據在同一個原子交易內提交。
     // 任一步失敗則全部回滾（相容視圖絕不會在缺少對應嘗試證據的情況下提交）；
@@ -423,7 +430,8 @@ export async function POST(
     // mastery attempt for the same assignment.
     try {
       await syncStudentActivityMetrics(payload.userId);
-      if (isNew && !replayed) {
+      // 有題目未能自動評分時不記掌握度：correctCount 會偏低，會偽造「退步」。
+      if (isNew && !replayed && ungradableCount === 0) {
         await recordActivityMastery({
           studentId: payload.userId,
           skill: assignment.languageSkill || assignment.strand,
@@ -474,6 +482,8 @@ export async function POST(
         gradedAnswers,
         totalQuestions: assignment.questions.length,
         correctCount: totalScore,
+        gradedQuestionCount,
+        ungradableCount,
         // R3.5: 本次提交的獨立執行身份與逐題證據
         attemptId: attempt.id,
         attemptNumber: attempt.attemptNumber,

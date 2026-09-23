@@ -247,23 +247,27 @@ export default function AssignmentDetailPage() {
               key={q.id}
               className={`bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border transition-colors ${
                 submitted && graded
-                  ? graded.correct
+                  ? graded.correct === true
                     ? 'border-green-300 dark:border-green-700'
-                    : 'border-red-300 dark:border-red-700'
+                    : graded.correct === false
+                      ? 'border-red-300 dark:border-red-700'
+                      : 'border-amber-300 dark:border-amber-700'
                   : 'border-gray-100 dark:border-gray-700'
               }`}
             >
               <div className="flex items-start gap-3">
                 <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                   submitted && graded
-                    ? graded.correct
+                    ? graded.correct === true
                       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      : graded.correct === false
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                     : hasAnswer
                       ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
                       : 'bg-gray-100 text-gray-500 dark:bg-gray-700'
                 }`}>
-                  {submitted && graded ? (graded.correct ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />) : i + 1}
+                  {submitted && graded ? (graded.correct === true ? <CheckCircle className="w-4 h-4" /> : graded.correct === false ? <XCircle className="w-4 h-4" /> : i + 1) : i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
                   {/* 閱讀/聆聽內容 */}
@@ -289,7 +293,7 @@ export default function AssignmentDetailPage() {
                               submitted
                                 ? isCorrectAnswer
                                   ? 'border-green-400 bg-green-50 dark:bg-green-900/10'
-                                  : isSelected && !graded?.correct
+                                  : isSelected && graded?.correct === false
                                     ? 'border-red-400 bg-red-50 dark:bg-red-900/10'
                                     : 'border-gray-200 dark:border-gray-600 opacity-60'
                                 : isSelected
@@ -395,10 +399,18 @@ export default function AssignmentDetailPage() {
             <Sparkles className="w-5 h-5 text-teal-500" />
             {t('assignment.resultSummary')}
           </h3>
-          <ProgressBar value={score || 0} max={100} color={score && score >= 60 ? 'green' : 'red'} />
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {t('assignment.resultDetail', { correct: correctCount, total: totalQuestions, score: score ?? 0 })}
-          </p>
+          {score === null ? (
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              {t('assignment.pendingReview')}
+            </p>
+          ) : (
+            <>
+              <ProgressBar value={score} max={100} color={score >= 60 ? 'green' : 'red'} />
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {t('assignment.resultDetail', { correct: correctCount, total: totalQuestions, score })}
+              </p>
+            </>
+          )}
           {aiFeedback && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {aiFeedback}

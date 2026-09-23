@@ -21,6 +21,12 @@
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
+/**
+ * 寬鬆比對要求答案鍵至少有一個「可識別詞」：長度 ≥ 4，或含數字。
+ * 純功能詞答案鍵（the / not / was / an / to …）只能精確相等 —— 幾乎任何句子都包含它們。
+ */
+const IDENTIFYING_WORD_MIN_LENGTH = 4;
+
 /** 數字詞彙對照表（英文→數字），用於答案比對時正規化 "fifteen" ↔ "15" */
 const NUMBER_WORDS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
@@ -143,15 +149,38 @@ export function checkAnswer(
 
   if (normStudent === normCorrect) return true;
 
-  // 部分匹配：若學生答案包含正確答案的主要詞彙（詞邊界比對 — 避免 "the" 匹配 "weather"）
-  const correctWords = normCorrect.split(' ').filter(w => w.length > 2);
-  if (correctWords.length >= 2 && correctWords.every(w => containsWord(normStudent, w))) {
-    return true;
-  }
+  // === 寬鬆包含比對（僅供填充／簡答的自由輸入）===
+  //
+  // 2026-09-23 稽核修正（以實際函式實測出的缺陷）：舊碼以
+  // `filter(w => w.length > 2)` 取「主要詞彙」，短詞被丟棄後答案鍵塌縮成單一詞，
+  // 再觸發單詞包含比對，令**錯答被判為對**：
+  //   答案鍵 "the"       ＋ "He went to the market to buy fish" → 判對
+  //   答案鍵 "was"       ＋ "I was eating rice"                → 判對
+  //   答案鍵 "have to go" ＋ "have to"（缺少關鍵詞 go）          → 判對
+  //
+  // 新規則（兩項條件同時成立才可用寬鬆比對）：
+  //   1. 答案鍵必須含可識別內容詞（長度 ≥ IDENTIFYING_WORD_MIN_LENGTH）
+  //      —— 純功能詞答案鍵只能精確相等。
+  //      刻意不引入停用詞表：把 have / does 之類列為停用詞，會反過來誤殺
+  //      「學生寫出完整正確句子」的合法答案（與 answer-verification 的
+  //      contentWords 採同一取捨）。
+  //   2. **全部**答案鍵詞彙（含 to / of 等短詞）都必須以完整詞形式出現。
+  //
+  // 以 " / "、" | " 或 " or " 分隔的替代答案（如 "that/which"、"went / saw"）
+  // 逐個替代項比對，任一項成立即為正確。
+  const keyAlternatives = normalizeAnswer(correct)
+    .split(/\s*(?:\/|\|)\s*|\s+or\s+/)
+    .map(a => a.trim())
+    .filter(Boolean);
 
-  // 單詞匹配：若正確答案只有一個關鍵詞，且學生答案包含它（適用於填充題）
-  if (correctWords.length === 1 && containsWord(normStudent, correctWords[0])) {
-    return true;
+  // 「可識別詞」以**數字轉換前**的詞形判斷：數字詞（fifteen）本身是可識別內容詞，
+  // 不可因它被正規化成 "15"（長度 2）而誤判為功能詞；純數字（15、2020）同樣可識別。
+  const isIdentifyingWord = (w: string) => w.length >= IDENTIFYING_WORD_MIN_LENGTH || /\d/.test(w);
+
+  for (const alternative of keyAlternatives) {
+    const tokens = alternative.split(' ').filter(Boolean);
+    if (!tokens.some(isIdentifyingWord)) continue;
+    if (tokens.every(w => containsWord(normStudent, normalizeNumbers(w)))) return true;
   }
 
   return false;

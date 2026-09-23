@@ -90,20 +90,27 @@ describe('Text AI scoring (evaluator=ai)', () => {
     expect(items[0].awardedScore).toBe(0);
   });
 
-  it('AI failure fallback → evaluator=server, method=assignment-fallback-exact-match', async () => {
+  // 2026-09-23 稽核修正：AI 不可用時不再以逐字比對偽造判定（連答案完全相同
+  // 也不得標記為 correct）；改為 ungradable 且不計分，交由老師批改。
+  it('AI failure → ungradable, not counted (never a fabricated verdict)', async () => {
     const failingAnalyzer: AssignmentAnswerAnalyzer = async () => {
       throw new Error('AI down');
     };
-    const { items } = await gradeAssignmentItems(
+    const { items, totalScore, ungradableCount, gradedQuestionCount } = await gradeAssignmentItems(
       [q({ questionType: 'short-answer', answer: 'expected' })],
       { 'aq-1': 'expected' },
       failingAnalyzer,
     );
     expect(items[0]).toMatchObject({
-      result: 'correct',
+      result: 'ungradable',
+      awardedScore: 0,
+      countsTowardScore: false,
       evaluator: 'server',
-      scoringMethod: 'assignment-fallback-exact-match',
+      scoringMethod: 'assignment-ai-unavailable',
     });
+    expect(totalScore).toBe(0);
+    expect(ungradableCount).toBe(1);
+    expect(gradedQuestionCount).toBe(0);
   });
 });
 

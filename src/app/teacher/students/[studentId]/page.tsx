@@ -69,9 +69,20 @@ interface WeeklySnapshot {
   accuracy: number; sessionsCount: number; xpGained: number; streakDays: number; wordsLearned: number;
 }
 
+interface CumulativeSkillTotalView {
+  skill: string;
+  skillZh: string;
+  /** 全歷史累積已驗證題數 */
+  questions: number;
+  /** 全歷史累積答對題數 */
+  correct: number;
+}
+
 interface FullStudentData {
   student: StudentDetail;
   practiceSessions: PracticeSession[];
+  /** 2026-09-23：全歷史累積技能投影（累積數字唯一來源） */
+  cumulativeSkillTotals: CumulativeSkillTotalView[];
   mistakes: MistakeData[];
   vocab: { total: number; mastered: number };
   writingDrafts: WritingDraft[];
@@ -147,26 +158,20 @@ export default function StudentDetailPage() {
     );
   }
 
-  const { student, practiceSessions, mistakes, vocab, writingDrafts, xpTransactions, weeklySnapshots } = data;
+  const { student, practiceSessions, mistakes, vocab, writingDrafts, xpTransactions, weeklySnapshots, cumulativeSkillTotals = [] } = data;
 
-  const totalQuestions = practiceSessions.reduce((sum, s) => sum + (s.verified?.status === 'verified' ? (s.verified.totalQuestions ?? 0) : 0), 0);
-  const totalCorrect = practiceSessions.reduce((sum, s) => sum + (s.verified?.status === 'verified' ? (s.verified.correctCount ?? 0) : 0), 0);
+  // 2026-09-23 稽核修正：累積數字一律採用伺服器全歷史投影。
+  // 舊碼由 `practiceSessions`（最新 50 場顯示視窗）累加，卻當成總數顯示給老師
+  // → 高練習量學生的「答題數／準確率」被系統性低估（違反「累積不得由最新 N 筆推算」）。
+  const totalQuestions = cumulativeSkillTotals.reduce((sum, s) => sum + s.questions, 0);
+  const totalCorrect = cumulativeSkillTotals.reduce((sum, s) => sum + s.correct, 0);
   const sessionAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : null;
 
-  // 各技能準確率（R3.10-C: 只計 verified 證據）
-  const skillMap = new Map<string, { total: number; correct: number }>();
-  practiceSessions.forEach(s => {
-    if (s.verified?.status !== 'verified') return;
-    const key = s.skillZh || s.skill;
-    const entry = skillMap.get(key) || { total: 0, correct: 0 };
-    entry.total += s.verified.totalQuestions ?? 0;
-    entry.correct += s.verified.correctCount ?? 0;
-    skillMap.set(key, entry);
-  });
-  const skillBreakdown = Array.from(skillMap.entries()).map(([name, v]) => ({
-    name,
-    accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
-    total: v.total,
+  // 各技能準確率（R3.10-C: 只計 verified 證據；全歷史）
+  const skillBreakdown = cumulativeSkillTotals.map(s => ({
+    name: s.skillZh || s.skill,
+    accuracy: s.questions > 0 ? Math.round((s.correct / s.questions) * 100) : 0,
+    total: s.questions,
   }));
 
   // 錯題類型分布

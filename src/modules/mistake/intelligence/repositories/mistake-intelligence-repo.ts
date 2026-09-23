@@ -25,9 +25,10 @@ const MISTAKE_CATEGORIES = new Set([
  * `vocabulary`。顯示層用 GRAMMAR_CATEGORY_LABELS → bucketKeyLabelZh 解析中文標籤。
  */
 export async function aggregateMistakes(studentId: string) {
-  const mistakes = await db.mistake.findMany({
+  const allMistakes = await db.mistake.findMany({
     where: { studentId },
     select: {
+      questionId: true,
       mistakeType: true,
       createdAt: true,
       reviewed: true,
@@ -36,6 +37,16 @@ export async function aggregateMistakes(studentId: string) {
       questionType: true,
     },
   });
+
+  // 2026-09-23 稽核修正：已由**伺服器答案鍵**評為答對的題目，不再算作現存弱項。
+  // 舊碼只問「錯題列是否存在」，而錯題是 insert-only（答對不會移除）→
+  // StudentMistakeSummary.mastered 幾乎永不翻轉，老師永遠看到同一批舊弱項。
+  const { findResolvedQuestionIds } = await import('@/modules/exercise/services/practice-evidence-service');
+  const resolvedQuestionIds = await findResolvedQuestionIds(
+    studentId,
+    allMistakes.map(m => m.questionId),
+  ).catch(() => new Set<string>());
+  const mistakes = allMistakes.filter(m => !resolvedQuestionIds.has(m.questionId));
 
   const buckets = buildMistakeSkillBreakdown(mistakes, MAX_BUCKETS);
 

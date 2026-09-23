@@ -78,6 +78,65 @@ function hasServerKeyAuthority(scoredBy: string | null | undefined, scoringMetho
   return SERVER_KEY_AUTHORITATIVE.some(([authority, method]) => scoredBy === authority && scoringMethod === method);
 }
 
+/**
+ * 2026-09-23 稽核：錯題建立閘門（單一 owner）。
+ *
+ * 只有當學生對該題確實存在「伺服器答案鍵評分」且結果為 `incorrect` 的作答列
+ * 時，才允許建立錯題 —— 且以**該列**的 studentAnswer / correctAnswer 為準，
+ * 永不採用客戶端自報值。
+ *
+ * 修正的缺陷：`POST /api/mistakes` 原本接受瀏覽器自算的對錯與客戶端答案，
+ * 繞過 `usedServerScoring` 閘門（且 `createMistakeIfAbsent` 為
+ * ON CONFLICT DO NOTHING，客戶端那筆會贏過之後伺服器產生的權威版本）。
+ *
+ * 回傳 null 表示「沒有可驗證的答錯證據」→ 呼叫端必須拒絕建立。
+ */
+export async function findVerifiedIncorrectAnswer(
+  studentId: string,
+  questionId: string,
+): Promise<{ studentAnswer: string; correctAnswer: string; sessionId: string } | null> {
+  if (!studentId || !questionId) return null;
+  const { listServerScoredIncorrectAnswersForQuestion } = await import('../repositories/practice-repo');
+  const rows = await listServerScoredIncorrectAnswersForQuestion(studentId, questionId);
+  for (const row of rows) {
+    if (hasServerKeyAuthority(row.scoredBy, row.scoringMethod)) {
+      return { studentAnswer: row.studentAnswer, correctAnswer: row.correctAnswer, sessionId: row.sessionId };
+    }
+  }
+  return null;
+}
+
+/**
+ * 2026-09-23 稽核：推導「已被答對而解除」的錯題題目。
+ *
+ * 一個題目視為已解除 ⇔ 該學生對它的**最新一筆伺服器答案鍵評分**結果為 `correct`。
+ * 非權威的列（例如 `client-key-deterministic`）會被略過，改看更早的權威列。
+ *
+ * 刻意不採用「答對就刪除錯題」：MCQ 猜中率 25%，刪除會丟失真實弱項。
+ * 也刻意不新增 `resolvedAt` 欄位 —— 那需要在部署應用程式前先跑 migration，
+ * 衍生計算是同樣準確但無部署次序風險的做法。
+ */
+export async function findResolvedQuestionIds(
+  studentId: string,
+  questionIds: string[],
+): Promise<Set<string>> {
+  const ids = questionIds.filter(id => typeof id === 'string' && id.length > 0);
+  if (!studentId || ids.length === 0) return new Set();
+  const { listServerScoredAnswersForQuestions } = await import('../repositories/practice-repo');
+  const rows = await listServerScoredAnswersForQuestions(studentId, ids);
+  const resolved = new Set<string>();
+  const seen = new Set<string>();
+  for (const row of rows) {
+    // rows 已依 createdAt DESC 排序 → 首次遇到的權威列即為該題最新的一筆
+    if (typeof row.questionId !== 'string' || row.questionId.length === 0) continue;
+    if (seen.has(row.questionId)) continue;
+    if (!hasServerKeyAuthority(row.scoredBy, row.scoringMethod)) continue;
+    seen.add(row.questionId);
+    if (row.result === 'correct') resolved.add(row.questionId);
+  }
+  return resolved;
+}
+
 // ============================================
 // R3.10-C: verified session listing (service-level DB access)
 // ============================================

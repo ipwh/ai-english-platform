@@ -11,7 +11,12 @@
 // - Text questions:  evaluator='ai',     method='assignment-ai-answer-analysis'
 //                    (AI via analyzeAnswer)
 // - AI failure fallback: evaluator='server',
-//                    method='assignment-fallback-exact-match'
+//                    method='assignment-ai-unavailable', result='ungradable',
+//                    countsTowardScore=false
+//   2026-09-23 稽核修正：舊碼以逐字比對偽造 'incorrect'（且 countsTowardScore=true），
+//   令系統故障直接變成學生成績（經 syncActivityMetrics 進入 overallAccuracy）。
+//   現在改為不評分、不計分，交由老師批改 —— 與閱讀主觀題「不可用確定性比對
+//   替代語意評分」的既有原則一致。
 //
 // Current grading policy (verified in route code): one point per
 // correctly answered item — maxScore=1, awardedScore=0|1,
@@ -38,7 +43,7 @@ export type AssignmentAnswerMap = Record<string, string>;
 export interface AssignmentGradedItem {
   questionId: string;
   response: string;
-  result: 'correct' | 'incorrect';
+  result: 'correct' | 'incorrect' | 'ungradable';
   awardedScore: number;
   maxScore: number;
   countsTowardScore: boolean;
@@ -69,6 +74,10 @@ export type AssignmentAnswerAnalyzer = (
 export interface AssignmentGradingResult {
   items: AssignmentGradedItem[];
   totalScore: number;
+  /** 未能自動評分的題數（AI 不可用）—— 呼叫端不得發佈分數 */
+  ungradableCount: number;
+  /** 實際計分的題數（countsTowardScore 為 true） */
+  gradedQuestionCount: number;
 }
 
 /**
@@ -91,6 +100,7 @@ export async function gradeAssignmentItems(
     const isMcq = q.questionType === 'mc';
 
     let correct: boolean;
+    let ungradable = false;
     let evaluator: 'server' | 'ai';
     let scoringMethod: string;
     let feedback: string;
@@ -119,24 +129,28 @@ export async function gradeAssignmentItems(
           aiFeedbackPart = `Q${(q.orderIndex ?? 0) + 1}: ${analysis.feedbackZh}`;
         }
       } catch {
-        // AI 不可用時 fallback 到簡單比對（與 route 完全一致）
-        const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
-        correct = normalize(studentAnswer) === normalize(q.answer);
+        // 2026-09-23 稽核修正：AI 不可用時**不得偽造判定**。
+        // 舊碼 `normalize(studentAnswer) === normalize(q.answer)` 會把任何用字不同
+        // 但語意正確的散文判為 incorrect，且 countsTowardScore=true → 經
+        // syncActivityMetrics 拉低學生 overallAccuracy（系統故障變成學生成績）。
+        // 現改為 ungradable（不計分、不發布分數），保留學生作答交由老師批改。
+        correct = false;
+        ungradable = true;
         evaluator = 'server';
-        scoringMethod = 'assignment-fallback-exact-match';
-        feedback = correct ? '正確！' : `參考答案：${q.answer}`;
+        scoringMethod = 'assignment-ai-unavailable';
+        feedback = 'AI 批改暫時不可用，此題已保留作答並待老師批改 / Auto-grading unavailable; awaiting teacher review';
       }
     }
 
-    if (correct) totalScore += 1;
+    if (correct && !ungradable) totalScore += 1;
 
     items.push({
       questionId: q.id,
       response: studentAnswer,
-      result: correct ? 'correct' : 'incorrect',
-      awardedScore: correct ? 1 : 0,
+      result: ungradable ? 'ungradable' : correct ? 'correct' : 'incorrect',
+      awardedScore: correct && !ungradable ? 1 : 0,
       maxScore: 1,
-      countsTowardScore: true,
+      countsTowardScore: !ungradable,
       evaluator,
       scoringMethod,
       feedback,
@@ -144,5 +158,7 @@ export async function gradeAssignmentItems(
     });
   }
 
-  return { items, totalScore };
+  const ungradableCount = items.filter(i => i.result === 'ungradable').length;
+  const gradedQuestionCount = items.filter(i => i.countsTowardScore).length;
+  return { items, totalScore, ungradableCount, gradedQuestionCount };
 }

@@ -33,7 +33,8 @@ export interface SubmitAssignmentAttemptInput {
   studentId: string;
   /** Raw client answers JSON — stored verbatim in the compatibility view */
   answersJson: string;
-  score: number;
+  /** null = 未能自動評分（部分題目待老師批改）—— 不得以 0 冒充 */
+  score: number | null;
   aiFeedback: string;
   submittedAt: Date;
   /** Stable client key for safely replaying a lost response. */

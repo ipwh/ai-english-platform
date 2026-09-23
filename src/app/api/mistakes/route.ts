@@ -19,6 +19,7 @@ import {
 } from '@/modules/exercise/services/mistake-skill-identity';
 import { buildMistakeSkillBreakdown } from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
 import { nextMistakeReviewState } from '@/modules/mistake/db/services/mistake-tracker';
+import { findVerifiedIncorrectAnswer } from '@/modules/exercise/services/practice-evidence-service';
 
 const MISTAKE_TYPES = new Set([
   'grammar', 'vocabulary', 'comprehension', 'careless', 'time-management', 'chinglish',
@@ -72,6 +73,31 @@ export async function POST(request: NextRequest) {
           questionSummary: null,
         };
 
+    // 2026-09-23 稽核修正：錯題建立必須有**伺服器權威**證據。
+    // 舊碼直接接受客戶端自報的 studentAnswer / correctAnswer（客戶端自行判定對錯）
+    // → 錯題可被偽造、session 未提交也能留下錯題，而且因為
+    // createMistakeIfAbsent 是 ON CONFLICT DO NOTHING，客戶端那筆會贏過之後
+    // 伺服器評分產生的權威版本。現只接受「確實由伺服器答案鍵評為 incorrect」
+    // 的作答列，並以該列的答案為準（見 findVerifiedIncorrectAnswer）。
+    let evidence: { studentAnswer: string; correctAnswer: string; sessionId: string } | null = null;
+    try {
+      evidence = await findVerifiedIncorrectAnswer(studentId, String(questionId));
+    } catch (err) {
+      logger.warn(
+        { module: 'mistakes', error: err instanceof Error ? err.message : String(err) },
+        'Mistake evidence lookup failed',
+      );
+    }
+    if (!evidence) {
+      return NextResponse.json(
+        {
+          error:
+            '找不到此題的伺服器批改紀錄，無法建立錯題（只接受伺服器答案鍵評為答錯的題目）/ No server-scored incorrect attempt found for this question',
+        },
+        { status: 409 },
+      );
+    }
+
     const claimedType = MISTAKE_TYPES.has(String(mistakeType)) ? String(mistakeType) : 'grammar';
     // 閱讀／聆聽題目一律歸為 comprehension（不採用客戶端分類）
     const effectiveType = identity.languageSkill === 'reading' || identity.languageSkill === 'listening'
@@ -89,8 +115,9 @@ export async function POST(request: NextRequest) {
       studentId,
       questionId,
       questionSummary,
-      studentAnswer: studentAnswer || '',
-      correctAnswer: correctAnswer || '',
+      // 伺服器權威作答紀錄（客戶端送來的 studentAnswer / correctAnswer 一律忽略）
+      studentAnswer: evidence.studentAnswer,
+      correctAnswer: evidence.correctAnswer,
       mistakeType: effectiveType,
       aiExplanation,
       languageSkill: identity.languageSkill,

@@ -354,35 +354,13 @@ export default function PracticeQuestionPage() {
       setAiLoading(false);
     }
 
-    // 答錯時儲存錯題 — mistakeType 依題目技能分類（閱讀/聆聽 → comprehension，詞彙 → vocabulary，寫作 → chinglish，其餘 grammar）
-    // 開放式（寫作）題目不建錯題：沒有確定性答案鍵，不能斷定學生答錯。
-    if (!isOpenEnded && !correct) {
-      const skillLower = String(question.languageSkill || '').toLowerCase();
-      const mistakeType = skillLower.includes('read') || skillLower.includes('listen')
-        ? 'comprehension'
-        : skillLower.includes('vocab')
-          ? 'vocabulary'
-          : skillLower.includes('writ') || question.type === 'short-writing'
-            ? 'chinglish'
-            : 'grammar';
-      fetch('/api/mistakes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: store.userId || '',
-          questionId: question.id,
-          // 2026-09-14: 錯題摘要與技能為顯示／聚合用途。
-          // 伺服器會優先以正典題目定義（ReadingQuestion / GrammarQuestion）覆寫；
-          // 這些自報值只在題目未被持久化時作為後備。
-          questionSummary: question.prompt,
-          languageSkill: question.languageSkill,
-          studentAnswer: selectedAnswer,
-          correctAnswer: question.answer,
-          mistakeType,
-          aiExplanation: '',
-        }),
-      }).catch((e) => { logger.error({ module: 'student-practice-detail', error: e instanceof Error ? e.message : String(e) }, 'Mistake record POST failed'); });
-    }
+    // 2026-09-23 稽核修正：**不再**由客戶端建立錯題。
+    // 舊碼在這裡以瀏覽器算出的 `correct` 與客戶端自報的答案 POST /api/mistakes，
+    // 繞過 usedServerScoring 閘門（而且因為 ON CONFLICT DO NOTHING，客戶端
+    // 那筆會贏過之後伺服器評分產生的權威版本）→ 可被偽造、無證據的錯題。
+    // 錯題現由伺服器於 submitPractice() 以伺服器答案鍵評分後建立
+    // （見 practice-submission-service.ts，必須 usedServerScoring），
+    // 且 /api/mistakes 只接受已有伺服器批改紀錄的題目。
   };
 
   const handleNext = async () => {

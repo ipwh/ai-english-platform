@@ -82,9 +82,16 @@ export async function GET(
       verified: evaluatePracticeEvidence(s.answers),
     }));
 
+    // 2026-09-23 稽核修正：累積（全歷史）技能題數／答對數由正典投影提供。
+    // `practiceSessions` 只是「最新 50 場」顯示視窗，頁面不得再由它推算累積數字
+    //（那會令高練習量學生的答題數與準確率被截斷）。
+    const { getCumulativeSkillTotals } = await import('@/modules/exercise/services/practice-history-service');
+    const cumulativeSkillTotals = await getCumulativeSkillTotals(studentId).catch(() => []);
+
     return NextResponse.json({
       student,
       practiceSessions,
+      cumulativeSkillTotals,
       mistakes,
       vocab: { total: vocabTotal, mastered: vocabMastered },
       writingDrafts,
