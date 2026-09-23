@@ -1,6 +1,5 @@
 // Sprint 8: Student Learning Profile Tests
 import { describe, it, expect } from 'vitest';
-import { generateProfile } from '../services/profile-service';
 import { aggregateSkillStats, mapToDimension, type PracticeRecord } from '../services/skill-tracker';
 import { analyzeTopicPreferences, type TopicEngagement } from '../services/topic-preferences';
 import { calculateLearningSpeed, type SessionRecord } from '../services/learning-speed';
@@ -126,68 +125,5 @@ describe('LearningSpeed', () => {
     expect(speed.totalSessions).toBe(0);
     expect(speed.questionsPerSession).toBe(0);
     expect(speed.consistencyScore).toBe(0);
-  });
-});
-
-// ============================================
-// Profile Service Tests
-// ============================================
-
-describe('ProfileService', () => {
-  it('should generate a complete profile', () => {
-    const now = new Date();
-    const practiceRecords: PracticeRecord[] = [
-      { skillId: 'tenses-simple', skillName: 'Simple Tenses', skillNameZh: '簡單時態', correct: true, practicedAt: now },
-      { skillId: 'tenses-simple', skillName: 'Simple Tenses', skillNameZh: '簡單時態', correct: true, practicedAt: now },
-      { skillId: 'present-perfect', skillName: 'Present Perfect', skillNameZh: '現在完成式', correct: false, practicedAt: now },
-      { skillId: 'writing', skillName: 'Writing', skillNameZh: '寫作', correct: true, practicedAt: now },
-    ];
-    const sessions: SessionRecord[] = [
-      { questionCount: 10, correctCount: 7, durationMs: 600000, startedAt: now, wordsWritten: 200 },
-    ];
-    const topicEngagements: TopicEngagement[] = [
-      { topic: 'school club', score: 80, engagedAt: now },
-      { topic: 'AI technology', score: 90, engagedAt: now },
-    ];
-
-    const profile = generateProfile({
-      studentId: 'student-1',
-      gradeLevel: 'S3',
-      practiceRecords,
-      sessions,
-      topicEngagements,
-      streakDays: 5,
-      vocabularyStats: { total: 50, mastered: 30, learning: 15, dueForReview: 5 },
-      weakAreaIds: ['present-perfect'],
-      recommendedSkillIds: ['passive-voice', 'relative-clauses'],
-    });
-
-    expect(profile.studentId).toBe('student-1');
-    expect(profile.gradeLevel).toBe('S3');
-    expect(profile.totalQuestionsAnswered).toBe(4);
-    expect(profile.overallAccuracy).toBe(0.75);
-    expect(profile.totalPracticeSessions).toBe(1);
-    expect(profile.currentStreak).toBe(5);
-
-    // Skills
-    expect(profile.skills.grammar.totalAttempts).toBe(3);
-    expect(profile.skills.writing.totalAttempts).toBe(1);
-    expect(profile.skills.reading.totalAttempts).toBe(0);
-
-    // Topics
-    expect(profile.preferredTopics.length).toBe(2);
-    expect(profile.preferredTopics[0].topic).toBe('school club');
-
-    // Learning speed
-    expect(profile.learningSpeed.questionsPerSession).toBe(10);
-
-    // Weak areas + recommendations
-    expect(profile.weakAreas).toContain('present-perfect');
-    expect(profile.recommendedSkills).toContain('passive-voice');
-
-    // Vocabulary
-    expect(profile.vocabulary.total).toBe(50);
-    expect(profile.vocabulary.mastered).toBe(30);
-    expect(profile.vocabulary.dueForReview).toBe(5);
   });
 });

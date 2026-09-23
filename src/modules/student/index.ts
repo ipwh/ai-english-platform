@@ -6,9 +6,8 @@
 // ============================================
 // Profile (identity, preferences, learning speed)
 // ============================================
-import { generateProfile } from './profile/services/profile-service';
-export { generateProfile };
-export type { ProfileInput } from './profile/services/profile-service';
+// 2026-09-23：「generateProfile」已刪除 —— 零 runtime consumer（只有 facade 轉出與
+// 自身的測試），且其 `overallAccuracy: … : 0` 容許以 0 冒充「無資料」。
 import { aggregateSkillStats, mapToDimension } from './profile/services/skill-tracker';
 export { aggregateSkillStats, mapToDimension };
 export type { PracticeRecord } from './profile/services/skill-tracker';
@@ -143,7 +142,7 @@ export { updateVocab } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export const StudentFacade = {
   // Profile
   profile: {
-    generate: generateProfile,
+    // 2026-09-23：`generate` 已刪除（零 runtime consumer 的死碼）
     aggregateSkills: aggregateSkillStats,
     analyzeTopics: analyzeTopicPreferences,
     learningSpeed: calculateLearningSpeed,

@@ -62,14 +62,17 @@ All notable changes to the AI English Platform are documented here.
 
 ### 八、驗證
 - `npx tsc --noEmit` → 0 errors。
-- `npx vitest run` → **3178 passed / 1 skipped**。
+- `npx vitest run` → **3177 passed / 1 skipped**（刪除死碼後；見第九節）。
 - 新增回歸測試：評分器 4 項、錯題閘門 2 項、作業 AI 故障 1 項、bulk SRS 1 項。
 
-### 九、尚未處理（明確記錄，非靜默）
-- `student/profile/services/profile-service.ts` 的 `overallAccuracy: … : 0`：
-  檢視後確認**無任何 runtime consumer**（只有 barrel re-export 與自身的測試）→
-  屬零呼叫者死碼，依「No speculative abstractions」應**刪除**而非修改，另行處理。
-- `teacher/copilot` 空班的「班平均 0%」與掌握度「總覽 0%」屬顯示層文案，
+### 九、死碼清除
+- **已刪除** `student/profile/services/profile-service.ts`（含 `generateProfile()` 與 `ProfileInput`）：
+  確認**零 runtime consumer**（只有 `StudentFacade.profile.generate` 轉出與自身的測試），
+  且其 `overallAccuracy: … : 0` 容許以 0 冒充「無資料」，正是本專案明文禁止的模式。
+  同步移除 barrel re-export、facade 的 `generate` 條目、專屬測試與型別轉出。
+  `StudentLearningProfile` 型別與其餘三個元件（skill-tracker / topic-preferences /
+  learning-speed）**保留**，仍各有測試與 facade 轉出。
+- 尚未處理（明確記錄）：`teacher/copilot` 空班的「班平均 0%」與掌握度「總覽 0%」屬顯示層文案，
   不影響任何記錄或教師追蹤的數值，未在本次改動範圍。
 
 ---
