@@ -4,6 +4,100 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-23 (II) — 評分／紀錄準確性稽核：6 項已確認缺陷（**尚未修復**）
+
+> 本次稽核以「實際執行評分函式 + 逐行讀碼」進行，非只讀註解。以下缺陷**全部仍然存在**，
+> 記錄於此以確保不被忘記。**未經產品決定不得自行變更評分語意**（會直接改動學生成績）。
+
+### 🔴 高：錯誤的成績或錯題（3 項）
+
+1. **錯題由客戶端建立（違反專案自身不變式）**
+   - `src/app/student/practice/[id]/page.tsx:359` 在瀏覽器用 `checkAnswer` 自判對錯後 POST `/api/mistakes`；
+     `src/app/api/mistakes/route.ts:36` 不做任何伺服器評分／session／證據檢查即寫入。
+   - `createMistakeIfAbsent` 為 `ON CONFLICT (studentId, questionId) DO NOTHING` → **客戶端那筆先寫就贏**，
+     之後 `submitPractice()` 的伺服器權威版本無法修正。
+   - 後果：錯題可被偽造（學生可直呼 API）、session 未提交也能留下錯題、記錄的「正確答案」可能與正典答案鍵不符。
+   - `AGENTS.md` 明文要求錯題必須同時滿足 `usedServerScoring` —— 此路徑完全繞過。
+
+2. **確定性評分器把錯答判為「對」**（`exercise/services/practice-answer-scorer.ts:143`）
+   - 成因：`filter(w => w.length > 2)` 丟棄短詞，令多詞答案鍵塌縮為單一內容詞，再觸發單詞包含比對。
+   - 實測（以正典 `scorePracticeAnswer()` 執行）：答案鍵 `the` ＋ `He went to the market to buy fish` → **correct**；
+     `not`／`was` 同理；`have to go` ＋ `have to`（缺關鍵字）→ **correct**；`go have to`（語序無意義）→ **correct**。
+   - 後果：準確率虛高、應有的錯題不會產生。影響文法填充／cloze／排序／配對與聆聽填充。
+
+3. **作業 AI 故障時把散文判錯**（`assessment/services/assignment-grader.ts:120`）
+   - AI 失敗 → fallback 以逐字比對判散文，`result: 'incorrect'`、`countsTowardScore: true`。
+   - 這些分數經 `StudentStateMutationService.syncActivityMetrics()` 進入 `overallAccuracy`
+     （該函式把作業提交一併計入）→ **基礎設施故障直接變成學生成績下降**。
+   - 正確方向：沿用閱讀主觀題的既有原則（不可用確定性比對替代 → 不可評分／整份 fail-closed）。
+
+### 🔴 高：顯示錯誤數字（1 項）
+
+4. **未批改的作業顯示為「已驗證 0%」**（`src/app/api/practice/route.ts:110`）
+   - 查詢缺少 `score: { not: null }`，`Math.round(((submission.score || 0) / 100) * totalQuestions)` ⇒ `null → 0`，
+     並被標記為 `status: 'verified'`、`accuracy: 0`。
+   - 後果：老師看到學生「0 分」，其實只是尚未批改。違反「無資料 ≠ 0」。
+   - （`syncActivityMetrics` 有正確過濾 `score: { not: null }`，故僅顯示路徑有誤。）
+
+### 🟠 中：累積數字被截斷 / 錯題不會解除（2 項）
+
+5. **教師／管理端「累積」數字取自視窗**
+   - `student/repositories/user-repo.ts:165` `take: 50`，被 `api/teacher/students/[id]/route.ts:75` 使用
+     → 教師個別學生頁的答題數／準確率只計最新 50 場，卻以總數呈現。
+   - `api/admin/students/[studentId]/analytics/route.ts:335`（300 場）、
+     `api/ai/analyze-progress/route.ts:68`（30 場，且會冒充 overall accuracy）。
+   - 違反「累積指標不得由最新 N 筆推算」。
+
+6. **錯題只增不減**
+   - `mistake/db/repositories/mistake-repo.ts:83` 為 insert-only，且沒有任何路徑在學生答對同一題後解除錯題
+     → `StudentMistakeSummary.mastered` 幾乎不會翻轉，教師端弱項永遠是舊資料。
+   - 另：`POST /api/mistakes/bulk` 的 `markAllReviewed` 只設 `reviewed: true`、不設 `nextReviewDate`，
+     繞過 SRS 單一 owner（`nextMistakeReviewState`），令卡片永遠留在待複習佇列
+     （`listDueMistakesForReview` 把 `nextReviewDate: null` 視為到期）。
+
+### ✅ 本次查證為正確的部分（可放心）
+
+- 交付前答案覆核（Layer A 決定性缺陷 ＋ Layer B 獨立 blind-solve）確實 fail-closed：
+  `flawed`／`ambiguous`／答案不符／覆核器不可用 ⇒ 一律丟棄，**永不**交付猜測的答案鍵
+  —— 即「MCQ 沒有合適答案／多於一個合適答案」的防線有效。
+- 聆聽另有「答案須逐字出現在對話中」閘門（詞邊界比對、容忍選項前綴）。
+- `usedServerScoring` 同時把關掌握度與錯題（**正典路徑**）；閱讀／聆聽主觀題在 AI 不可用時
+  fail-closed 成 NOT_PROJECTABLE，不偽造分數。
+- `syncActivityMetrics` 與 `User.overallAccuracy` 寫入路徑正確（無可驗證證據 ⇒ `null`，無 DB default）。
+- 香港日／週界線在正典 owner 正確；`practice-history-service`／`streak-service` 使用全歷史分頁（無 `take`）。
+- `npx vitest run` → 3172 passed / 1 skipped。
+
+### 建議修復順序
+
+1. 缺陷 3、4（影響最大、改動最小）
+2. 缺陷 2（需設計新的比對規則：保留精確比對＋多詞全含，只在答案鍵本身是單一實詞時才容許包含比對，並補回歸測試）
+3. 缺陷 1（需產品決定：移除客戶端建立後，未持久化題目將不再產生錯題）
+4. 缺陷 5、6（會改變教師看到的歷史數字，需先確認期望語意）
+
+---
+
+## 2026-09-23 — 舊 iPad 無法登入：下調瀏覽器基線至 Safari 15.4
+
+### 一、症狀與根因（問題不在登入程式碼，也不是伺服器）
+- 症狀：iPad Air 2 等機種在 `/login` 點「以學校的Google帳戶登入」完全沒反應（連 spinner 也不動），不會跳去 Google 輸入帳密的頁面。
+- 根因：Next.js 16 的支援基線是 **Safari 16.4+**（`node_modules/next/dist/docs/03-architecture/supported-browsers.md`；預設 `browserslist: ["chrome 111","edge 111","firefox 111","safari 16.4"]`）。Next 16 **自己的 client runtime**（`node_modules/next/dist/client/components/error-boundary.js`）就含 **class static block**：`static{ this.contextType = AppRouterContext }`（Safari 16.4 才可解析）。而 **iPad Air 2 最高只能升至 iPadOS 15.8（Safari 15.6）**。
+- 後果：該 chunk（建構產物 `static/chunks/1ociiv4r4lew1.js`，由 `.next/server/app/(public)/login/page/build-manifest.json` 載入）在 Safari 15 直接 **SyntaxError** → React 從未 hydrate → 所有 `onClick`（含 Google 按鈕）根本不存在 → 表現為「按了沒反應」。同一 chunk 由數十個路由載入，故**整個 app 在該機種都無法互動**，不限登入頁。
+- Next.js 15 的基線是 Safari 12+（doc 15 `supported-browsers`），故此為**升級 Next 16 造成的迴歸**。
+
+### 二、修正
+- `package.json` 新增 `"browserslist": ["chrome 111","edge 111","firefox 111","safari 15.4","ios_saf 15.4"]`（Next.js 官方支援的相容性開關，同時保留現代瀏覽器目標）。
+- 實測 Next 會把**自己的 runtime 一併降級**：`static{this.contextType=…}` → `static #e=this.contextType=…`（private static field，Safari 14.1+），故**不需要**降級 Next.js。
+- 下限選 15.4 而非更低：建構產物使用 `Object.hasOwn` 與 `structuredClone`（Safari 15.4 才支援），SWC 不會為這類 runtime API 產生 polyfill。
+
+### 三、驗證
+- 完整正式建構後掃描 `.next/static/**/*.js`：class static block／regex lookbehind／brand check／`Object.groupBy`／`Promise.withResolvers`／`Array.fromAsync`／regex `v` flag 全部為 **0**（修正前 class static block = 1）。
+- 對照實驗（隔離的最小 Next 16 App、共用同一 `node_modules`）：預設基線輸出 `static{`，加上 `browserslist` 後消失 —— 證明 Next 會以自己的 runtime 套用 browserslist 目標。
+
+### 四、已知限制（明確記錄，非靜默）
+- Tailwind 4 產出的 CSS 使用 `@layer`（Safari 15.4 ✓）、`@property`（**Safari 16.4 ✗**）、`color-mix()`（**Safari 16.2 ✗**，產物 254 處）。iPadOS 15.4–15.8 的版面與多數工具類仍可用（`@property` 有 Tailwind 自帶 `@supports` fallback），但**帶透明度的顏色與部分漸層會失效**。若要視覺完全一致，需降級 Tailwind 3 或避開 `color-mix()`。
+
+---
+
 ## 2026-09-21 (III) — 聆聽成為可量測：伺服器題庫（ADR-045）
 
 ### 一、聆聽練習正式計分（最後一個「不可量測」的技能缺口）

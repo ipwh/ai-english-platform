@@ -169,7 +169,9 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - **學生手機底部快捷列**：5 個常用功能快速切換（主頁、練習、錯題、進度、更多）
 - **全平台觸控優化**：所有按鈕 ≥ 36px 觸控面積、長按支援（HighlightContextMenu 600ms long-press）、文字選取彈出加入（`mouseup` + `touchend` + `pointerup` 三模式，涵蓋 Desktop / Android / iPad）、模態框 `max-w-[calc(100vw-2rem)]`、iPhone safe-area（`safe-bottom`）、iOS 鍵盤縮放防護（`text-base`）
 - **響應式網格系統**：全站網格已適配 `grid-cols-1 sm:grid-cols-N` 模式（統計、CLO 評分、KPI、過濾列等）
-- 所有功能在手機與桌面完全一致，無功能缺漏
+- **瀏覽器基線（校內 iPad）**：`package.json` 的 `browserslist` 設為 `safari 15.4` / `ios_saf 15.4`，**此清單不可刪除**。Next.js 16 預設基線是 Safari 16.4+，其 client runtime 會輸出 class static block（`static{…}`）；iPadOS 15（iPad Air 2 / iPad mini 4 等，最高 iPadOS 15.8）解析該 chunk 即 SyntaxError → React 永不 hydrate → **所有按鈕（含 Google 登入）按了沒反應**。改動此清單或升級 Next.js 後必須重驗建構產物：`.next/static/**/*.js` 內 `static\s*\{` 必須為 0。
+- **已知限制（iPadOS 15 的 CSS）**：Tailwind 4 的產物使用 `@property`（需 Safari 16.4）與 `color-mix()`（需 Safari 16.2），故 iPadOS 15 上**帶透明度的顏色與部分漸層會失效**；版面與多數樣式仍正常。功能下限為 iPadOS 15.4（產物使用 `Object.hasOwn` / `structuredClone`）。
+- 手機／桌面功能一致；iPadOS 15.4+ 可完整操作，iPadOS ≤ 15.3 不在支援範圍
 
 ## 域架構 (v4.1)
 
