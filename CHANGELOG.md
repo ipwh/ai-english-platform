@@ -4,6 +4,36 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-23 (IV) — 封鎖瀏覽器自動翻譯（修復 removeChild 崩潰）
+
+### 一、症狀
+錯誤頁顯示 `Failed to execute 'removeChild' on 'Node': The node to be removed is not a
+child of this node.`，且錯誤頁本身被翻成**簡體中文**（`发生错误`／`重新载入`／`返回首页`）。
+本專案**沒有任何簡體字串**（正典字串為 `發生錯誤`／`重新載入`／`返回首頁`），
+證明簡體字是**瀏覽器施加的機器翻譯**，不是伺服器或 i18n 輸出。
+
+### 二、根因
+瀏覽器翻譯（Chrome／Edge／Google 翻譯）會改寫 DOM：把文字節點包進 `<font>` 並搬移父子關係。
+React 之後在 commit 階段對「當初記錄的 parent」呼叫 `removeChild`，
+該節點已不再是它的子節點 ⇒ 拋錯 ⇒ 由 `src/app/error.tsx` 接住。
+`<html lang>` 由 lang cookie 決定（`en`）而頁面含繁中內容，令瀏覽器更容易判定「此頁需要翻譯」。
+
+### 三、修復
+- `src/app/layout.tsx`：`metadata.other = { google: 'notranslate' }`（Google 官方訊號）
+  ＋ `<html translate="no">`（HTML 標準）。平台**不依賴**瀏覽器翻譯（自家 lang cookie／i18n
+  切換 ＋ `/api/ai/translate`）；機器翻譯亦會破壞 DSE 篇章的行號排版與答案比對。
+- `src/app/error.tsx`：移除巢狀 html/body 輸出。區段錯誤邊界渲染在 root layout **之內**，
+  依 Next 16 `docs/01-app/03-api-reference/03-file-conventions/error.md` 只有
+  `global-error.jsx` 可以定義 html/body；舊碼形成無效 DOM，令之後的 React 調解更容易失手。
+  重試改用 Next 16 的 `unstable_retry()`（`next/dist/client/components/error-boundary.js`
+  兩個 prop 皆會傳入），並以 `reset` 為後備。
+- 迴歸測試：`src/app/__tests__/browser-translation-guard.test.ts`（4 assertions，掃描 app shell 原始碼）。
+
+### 四、已知限制
+瀏覽器擴充元件（文法檢查、朗讀工具）同樣會改寫文字節點並造成同類錯誤；
+`notranslate` 只涵蓋瀏覽器自身的翻譯器。錯誤邊界已改用 `unstable_retry()`（重新抓取＋重新渲染），
+學生亦可直接重新載入整個頁面。
+
 ## 2026-09-23 (III) — 修復 (II) 稽核的全部 6 項缺陷
 
 ### 一、錯題不再是客戶端說了算（缺陷 1）

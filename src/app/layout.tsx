@@ -26,6 +26,19 @@ export const metadata: Metadata = {
   },
   description: t('layout.description'),
   manifest: '/manifest.json',
+  /**
+   * 封鎖瀏覽器自動翻譯（Chrome／Edge／Google 翻譯）。
+   *
+   * 2026-09-23 稽核：瀏覽器翻譯會把文字節點包進 <font> 並改寫父子關係，
+   * 令 React 之後的 removeChild 拋出
+   * "Failed to execute 'removeChild' on 'Node': The node to be removed is not a
+   * child of this node."（實測：錯誤頁被翻成簡體中文後，整個 App 被錯誤邊界接住）。
+   *
+   * 平台不依賴瀏覽器翻譯：介面語言由 lang cookie + i18n 決定，題目翻譯走自家
+   * /api/ai/translate。機器翻譯亦會破壞 DSE 篇章的行號排版與答案比對，
+   * 因此 app shell 明確封鎖（meta 為 Google 官方訊號，translate="no" 為 HTML 標準）。
+   */
+  other: { google: 'notranslate' },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -57,6 +70,7 @@ export default async function RootLayout({
   return (
     <html
       lang={htmlLang}
+      translate="no"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >

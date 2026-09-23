@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3172 pass / 1 skipped (163 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
+- **Testing**: Vitest 4, 3181 pass / 1 skipped (164 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
 - **API routes**: 113 under `src/app/api/`
@@ -37,6 +37,7 @@ See AGENTS.md for shared agent instructions.
 - **Golden Benchmark**: 17 fixtures in `ai/evaluation/fixtures/writing-golden/` (5 sample + 12 calibration), runner in `ai/evaluation/golden-runner.ts` (MAE/RMSE/bias), all `expected` null (awaiting human calibration)
 - **Continuous Evaluation Durability**: EvaluationStore (MemoryStore/Repository), crash recovery with at-least-once replay + idempotent side effects, generation-scoped exactly-once, metrics dedup, terminal-state immutability, recovery serialization, 165+ CE integration tests
 - **Layout**: v6 block lines + floating line-number gutter (`.dse-line` + `.dse-line-gutter` + justify text); paragraph labels above; layout locked once per generation (selection-safe, no innerHTML)
+- **Browser translation**: blocked at the app shell — `<html translate="no">` + `metadata.other = { google: 'notranslate' }` in `src/app/layout.tsx`. Browser auto-translation rewrites text nodes (wraps them in `<font>`) and breaks React's `removeChild`, crashing the page into `src/app/error.tsx` (2026-09-23). Machine translation also corrupts DSE line numbering and answer matching; the app ships its own lang cookie/i18n and `/api/ai/translate` instead.
 - **Debug**: `DEEPSEEK_DEBUG=true` for full API request/response logging
 
 ## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)
