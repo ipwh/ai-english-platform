@@ -12,7 +12,6 @@ import { logger } from '@/shared/logger/logger';
 import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
 import { persistGeneratedReadingQuestions } from '@/modules/reading/services/reading-question-service';
 import { persistGeneratedListeningQuestions, isDeliverableListeningMc } from '@/modules/listening/services/listening-question-service';
-import type { GeneratedQuestion } from '@/modules/ai';
 
 // R3.10-D: 文法題目（grammarItem 驅動，非閱讀/聆聽/寫作/口語）在交付前
 // 必須持久化到伺服器 GrammarQuestion store，並以伺服器 id 作為正典身份。
@@ -60,6 +59,19 @@ export async function POST(request: NextRequest) {
 
     const safeCount = Math.min(Math.max(1, count), 20);
 
+    const normalizedSkill = String(languageSkill ?? '').trim().toLowerCase();
+    const isGrammarRequest = !NON_GRAMMAR_LANGUAGE_SKILLS.has(normalizedSkill);
+    const isReadingRequest = normalizedSkill === 'reading';
+    const isListeningRequest = normalizedSkill === 'listening';
+
+    // 2026-09-25（使用者回報「預設 5 題最後不足 5 題」）：
+    // 聆聽交付判準（答案必須逐字出現在對話中）必須在**生成階段**逐題套用，
+    // 令補題迴圈為被丟棄的題目補生新題；只在交付層過濾的話，題數會靜靜地
+    // 少掉（生成 5 題 → 交付 2–4 題）而且永遠補不回來。
+    const generateOptions = isListeningRequest
+      ? { acceptQuestion: isDeliverableListeningMc }
+      : undefined;
+
     let questions: Awaited<ReturnType<typeof generateQuestions>> | null = null;
     let lastErr: unknown = null;
 
@@ -76,7 +88,7 @@ export async function POST(request: NextRequest) {
           questionType,
           topic: topic ? sanitizeForAI(topic) : undefined,
           userId: authResult.userId,
-        });
+        }, generateOptions);
         break;
       } catch (err) {
         lastErr = err;
@@ -96,7 +108,6 @@ export async function POST(request: NextRequest) {
 
     // R3.10-D: 文法題目在交付前持久化，伺服器 id 為正典身份。
     // 持久化失敗 → 不交付（客戶端無法在伺服器評分，絕不回退客戶端 key）。
-    const isGrammarRequest = !NON_GRAMMAR_LANGUAGE_SKILLS.has(String(languageSkill ?? '').trim().toLowerCase());
     let questionsWithIds = questions;
     if (isGrammarRequest && questions.length > 0) {
       try {
@@ -128,7 +139,6 @@ export async function POST(request: NextRequest) {
     // 令診斷等呼叫端可經 `scoreReadingAnswers` 用伺服器持有的答案鍵評分
     // （reading-server-exact-match → 可驗證證據）。只有客觀題（MC）才持久化；
     // 其他題型無法以確定性規則評分，維持不持久化（自評顯示）。
-    const isReadingRequest = String(languageSkill ?? '').trim().toLowerCase() === 'reading';
     if (isReadingRequest && questionType === 'mc' && questionsWithIds.length > 0) {
       try {
         const ids = await persistGeneratedReadingQuestions(
@@ -160,7 +170,9 @@ export async function POST(request: NextRequest) {
     //      `resolveSubmissionAuthorityClass()` 會因部分解析而回退 legacy，
     //      令整場練習仍然不計分（那就是本修正要消除的症狀）。
     //   3. 全部被丟棄 → 結構化 422（可重試），不交付無解答的題目。
-    const isListeningRequest = String(languageSkill ?? '').trim().toLowerCase() === 'listening';
+    //
+    // 2026-09-25：此過濾條件已於生成階段逐題套用（generateOptions.acceptQuestion），
+    // 因此正常情況下這裡不會再丟任何題目；保留作交付前的最後防線。
     if (isListeningRequest && questionsWithIds.length > 0) {
       const deliverable = questionsWithIds.filter(q => isDeliverableListeningMc(q));
       const droppedCount = questionsWithIds.length - deliverable.length;
@@ -196,11 +208,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 2026-09-25：交付數量必須誠實回報。`count` 是**實際交付**的題數
+    // （生成迴圈補題後、交付前最後一道閘門之後），never 假設等於要求數量；
+    // 不足時附 `shortfall` 並記 warning，令「數量不足」可被觀測而非靜默。
+    const deliveredCount = questionsWithIds.length;
+    if (deliveredCount < safeCount) {
+      logger.warn(
+        { module: 'generate-questions', requestedCount: safeCount, deliveredCount, skill: languageSkill, difficulty },
+        'Delivered fewer questions than requested (every gate is fail-closed)',
+      );
+    }
+
     return NextResponse.json({
       questions: questionsWithIds,
       _meta: {
         provider: getLastAIProvider(),
-        count: questions.length,
+        count: deliveredCount,
+        requestedCount: safeCount,
+        deliveredCount,
+        ...(deliveredCount < safeCount ? { shortfall: safeCount - deliveredCount } : {}),
         ...(wasFallbackUsed() ? { warning: 'DeepSeek 暫時無法使用，已自動切換至備用 AI，生成品質可能略有差異。 / DeepSeek is temporarily unavailable; switched to a fallback AI provider. Quality may differ.' } : {}),
       },
     }, {

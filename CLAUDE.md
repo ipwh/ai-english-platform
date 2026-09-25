@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3181 pass / 1 skipped (164 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
+- **Testing**: Vitest 4, 3197 pass / 1 skipped (165 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
 - **API routes**: 113 under `src/app/api/`
@@ -56,6 +56,16 @@ Writing Evaluation (Sprints 127-130):
 
 Question Generation — Pre-Delivery Answer Verification (2026-09-20 ADR-042 / 2026-09-21 ADR-044):
   generateQuestions → normalize → validateAndFixQuestion → verifyGeneratedAnswers → retry if short
+    ├─ Count contract (2026-09-25): rounds ACCUMULATE accepted items and top up only the
+    │    deficit (MAX_ROUNDS = 3) — never "regenerate the whole batch, return the last
+    │    round". Callers inject their own delivery condition (e.g.
+    │    `isDeliverableListeningMc`) via `GenerateQuestionsOptions.acceptQuestion` so the
+    │    top-up loop compensates for items the delivery layer would drop.
+    │    Quality parity: every round (incl. the JSON-repair path) runs the SAME gates
+    │    (structure → answer verification → delivery condition → per-item QA, fail-closed
+    │    per item); dedupe keys include the attached dialogue/passage; the top-up prompt
+    │    carries the rejection reasons; a failed round returns the items already accepted
+    │    (original error type preserved so BudgetExceededError still maps to 503).
     ├─ Layer A (deterministic, zero cost): option count / duplicates / invalid key letter /
     │    fallback-filler option / explanation self-admits the item is defective
     ├─ Layer B (independent LLM pass, blind): verifier never sees the answer key;
@@ -69,7 +79,8 @@ Question Generation — Pre-Delivery Answer Verification (2026-09-20 ADR-042 / 2
     survive — never an opaque all-or-nothing 500; client retries once automatically
 
 Listening — Server-Owned Question Store (2026-09-21 ADR-045):
-  generateQuestions (languageSkill: 'listening') → isDeliverableListeningMc() filter
+  generateQuestions (languageSkill: 'listening', acceptQuestion = isDeliverableListeningMc)
+    → top-up loop replaces items with no verbatim answer → isDeliverableListeningMc() final gate
     → persistGeneratedListeningQuestions() → server ids returned to the client
     ├─ deliverable = mc + non-empty dialogue + answer appears VERBATIM in the dialogue
     │    (word-boundary; option prefixes tolerated); undeliverable items dropped + logged
