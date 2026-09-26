@@ -4,6 +4,65 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-26 — Neon egress 收口（全歷史投影改走 SQL 聚合）＋ 修掉靜默覆蓋準確率的 fail-open
+
+### 一、症狀
+Neon 通知 public network transfer 已用 **4 GB / 5 GB（80 %）**，而專案資料庫只有
+**30.9 MB** —— egress 約為練習資料量的 **130 倍**。Free plan 的失敗模式是**暫停 compute**
+（全校停用），不是降級。
+
+### 二、根因（實測，非推測）
+`npm run db:diagnose:egress`（唯讀）量測：全校跑一次全歷史投影 **3.2 MB**、單一學生最大
+**1.3 MB**（該帳號 4,853 場，佔全部 72 %）、admin 匯出一次 **2.4 MB**。以已消耗量反推校準
+係數 k ≈ 11.4 → 實際 egress 是「練習場次驅動模型」的 11 倍。
+
+三個消費者都以分頁把**每一列** session + answer 搬進 Node 才加總，其中
+`syncActivityMetrics` **每次練習提交**執行、`getCumulativeSkillTotals` **每次練習頁載入**執行。
+
+### 三、修復：伺服器端 SQL 聚合（只回傳數字）
+- 新增 `practice-repo.aggregateVerifiedTotalsForStudent() / ...BySkillForStudent() /
+  ...ForStudentsByIds()`：只回傳每名學生（或每個技能）**一列**數字。
+  全校逐學生 **3.2 MB → 55 KB（58×）**；admin 匯出 **2.4 MB → 82 列**。
+- **規則單一定義**：新增 leaf module `practice-evidence-rules.ts` 同時供 TS 判定與 SQL
+  predicate 生成；測試禁止任一邊手寫 literals（新增權威只改一處）。
+- **SQL 必須重現場次層級 all-or-nothing**（`evaluatePracticeEvidence` 語意）：一個場次只要
+  有一列不合法就整場 0 分。故以 `flags → verdict` 兩段 CTE 實作，**不可**寫成逐列 `WHERE`
+  （那會把不可驗證的場次一起算進去，方向性錯誤：高估分數）。
+- **本週窗口改為有界抓取**：`collectVerifiedActivities()` 以 `startedAt` 作 `completedAt`，
+  故 `since = hkWeekStartMondayUtc()` 與原本的 `weekKey` 過濾涵蓋完全相同的場次（精確等價）。
+- 刪除零消費者的死碼 `listPracticeSessionsWithEvidenceForStudents`。
+
+### 四、同時修掉一個靜默的資料完整性缺陷（fail-closed）
+`syncActivityMetrics` 舊碼 `listAllSessionsWithEvidence(...).catch(() => [])` 會把一次短暫的
+DB 讀取失敗當成「無場次」→ 寫入 `overallAccuracy = null`，**覆蓋原本正確的準確率**，而且
+函式正常返回 → 呼叫端的 fail-closed 保護（`practice-submission-service` 會 throw 並要求
+客戶端重播）**永遠不會觸發**。現在失敗一律往上拋。**不得改回 catch-to-empty。**
+
+### 五、被實測否證的假設（重要：不要為 egress 動通知輪詢）
+Cloud Run 存取日誌（`npm run profile:requests`，2026-09-24 10:00–11:00 HKT，6,620 個請求）：
+`/api/notifications` = **6,227 次（94.1 %）**的請求。但 `pg_stat_statements`（上課時段）顯示
+該查詢 **444 次呼叫、0 列** → 通知是**請求**層面的主導者，**幾乎不產生 DB egress**。
+同一窗口顯示應用層最大來源是練習歷史投影（`PracticeAnswer` 平均 **205.2 列/次**，正是全歷史
+分頁的特徵）。**結論：不應為 egress 調整 15 秒輪詢間隔。**
+
+### 六、驗證（全綠）
+- 對抗性等價性 22/22（DB-gated，交易內強制回滾、零落地）：涵蓋 legacy 列、零答案、presence、
+  NaN/Infinity、同場混合
+- 真實資料等價性：82 名學生逐名比對 SQL vs 正典投影（含技能標籤）
+- **部署閘門 0 差異**：`npm run db:verify:metrics-parity` → 99 名學生（`overallAccuracy` +
+  週快照）與批次投影 82 名，逐欄完全相同
+- `npx tsc --noEmit` 0 error；全套 **3,203 passed / 2 skipped（168 files, 1 gated + 1 DB-gated）**；
+  `npm run build:prod` exit 0；`npm run lint` **0 errors**（473 既有 warnings）
+
+> 等價性驗證在開發中**兩度揪出真實分歧**（`min(skillZh)` 標籤、「最新**已驗證**場次」的標籤
+> 來源），兩者都只有靠真實資料才會現形 —— 這是堅持「以真實資料證明等價」的理由。
+
+### 七、部署（無 schema 變更）
+本次**不含 migration**（`npx prisma migrate deploy` 顯示無待套用），回滾 = 切回上一個
+Cloud Run revision。部署前後量測流程見 README「Neon Egress 維運」與 docs/DEPLOYMENT.md。
+
+---
+
 ## 2026-09-25 — 生成練習數量不足（預設 5 題最後不足 5 題）＋補題不得降低品質
 
 ### 一、症狀

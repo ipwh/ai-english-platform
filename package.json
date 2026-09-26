@@ -69,6 +69,11 @@
     "db:reset": "prisma migrate reset --force",
     "db:backfill:accuracy": "npx tsx scripts/backfill-null-overall-accuracy.ts",
     "db:backfill:accuracy:apply": "npx tsx scripts/backfill-null-overall-accuracy.ts --apply",
+    "db:diagnose:egress": "npx tsx scripts/diagnose-db-egress.ts",
+    "db:verify:evidence-sql": "npx tsx scripts/verify-evidence-sql-equivalence.ts",
+    "db:query-stats": "npx tsx scripts/db-query-stats.ts",
+    "db:verify:metrics-parity": "npx tsx scripts/verify-activity-metrics-parity.ts",
+    "profile:requests": "powershell -ExecutionPolicy Bypass -File scripts/profile-requests.ps1",
     "analytics:sync": "npx tsx scripts/sync-learning-activity-metrics.ts",
     "postinstall": "npx --yes prisma generate"
   },

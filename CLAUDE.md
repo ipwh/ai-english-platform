@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3197 pass / 1 skipped (165 files passed, 1 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed)
+- **Testing**: Vitest 4, 3203 pass / 2 skipped (166 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
 - **API routes**: 113 under `src/app/api/`
@@ -17,7 +17,7 @@ See AGENTS.md for shared agent instructions.
 - **AI Module**: 19 directories, 212 non-test TS files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation, answer verification)
 - **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 7 files — circuit-breaker, budget-policy, ai-usage-store, capacity-planner, provider-policy, regression-detector, saturation-detector
-- **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`, `scripts/set-academic-year.ts`, `scripts/unassign-non-roster.ts`
+- **Tooling**: `scripts/benchmark-ai.ts`, `scripts/load-test.ts`, `scripts/validate-prompts.ts`, `scripts/reliability-report.ts`, `scripts/prompt-version.ts`, `scripts/evaluate-regression.ts`, `scripts/experiment.ts`, `scripts/monitor.ts`, `scripts/set-academic-year.ts`, `scripts/unassign-non-roster.ts`, `scripts/diagnose-db-egress.ts`, `scripts/verify-evidence-sql-equivalence.ts`, `scripts/verify-activity-metrics-parity.ts`, `scripts/db-query-stats.ts`, `scripts/profile-requests.ps1`
 - **AI Infra CLI**: `npm run prompt:*` (list/history/diff/snapshot/changelog/release/states), `npm run evaluate:*`, `npm run prompt:experiment:*`, `npm run prompt:monitor:*`, `npm run calibration:*` (ingest/report/intake/verify/marker-pack/marker-intake/adjudicate/freeze)
 - **Shared utilities**: `computeWeightedScore()`, `skillLabelZh()`, `memoryService`, `BaseRuleEngine`, `CLO_RUBRIC`, `CLO_RUBRIC_ZH`, `hkDayKey()`（香港日界線，`shared/utils/hk-date.ts`）
 - **i18n**: 19 files (18 module files + i18n.ts), 1661 unique keys (zh/en pairs), check: `node scripts/check-i18n.js` (exit 0 = no hardcoded Chinese)
@@ -94,6 +94,18 @@ Listening — Server-Owned Question Store (2026-09-21 ADR-045):
   Invariant: submissionClass alone never authorises side effects — usedServerScoring must also
     hold (mistakes + mastery gating), otherwise client-key rows would become trusted data.
 
+Practice Evidence Aggregation — Server-side (2026-09-26, ADR-046):
+  Cumulative projections (accuracy / weekly snapshot / per-skill totals / admin export)
+    → practice-evidence-rules.ts (SINGLE rule definition, shared by TS + SQL)
+    → practice-repo.aggregateVerifiedTotals*() (one row per student/skill; session-level
+       all-or-nothing reproduced in SQL — a naive row WHERE would OVER-count)
+    → StudentStateMutationService.syncActivityMetrics (fail-closed: read failure THROWS;
+       never catch-to-empty, which would silently overwrite a correct accuracy with null)
+  Measured: full-school projection 3.2 MB → 55 KB; admin export 2.4 MB → 82 rows.
+  Gates: practice-evidence-sql-equivalence (22 adversarial fixtures, rolled back),
+    db:verify:evidence-sql (real data), db:verify:metrics-parity (deploy gate, 0 diffs).
+  NOT an egress target: /api/notifications = 94% of requests but returns 0 rows.
+
 Supporting modules:
   student/ — mastery, profile (canonical owner)
   learning/ — decisions, pipeline (canonical owner)
@@ -143,9 +155,12 @@ Dev tooling:
 ## Ownership (Single Owner per Responsibility)
 - 香港日界線（Hong Kong Day Keys）: `shared/utils/hk-date.ts` — 所有「日」的判定（連續天數、活躍日、週界線、每日目標、今日 XP）。**禁止**在業務程式碼用 `toISOString().slice(0,10)` 當「日」（UTC 日界線會令香港早上的活動歸入前一日，造成假缺口）
 - 連續天數（連續練習天數）: `student/progress/services/streak-service.ts` — 香港日界線 + 400 日回溯 + 嚴格相鄰日 key；只計有練習的日子（`LoginLog` 實際未被寫入）；`countStreak` 為純函式
-- 累積練習投影（技能掌握度題數 / 每週摘要）: `exercise/services/practice-history-service.ts` — 日期界線 + 全歷史分頁 + 正典 `evaluatePracticeEvidence`；**永不**由「最新 N 筆」切片推算（會令累積數字下降）
-- 累積指標投影與週界線（準確率／週快照）: `student/state/StudentStateMutationService.ts` — `collectVerifiedActivities()` + `syncActivityMetrics()`；無可驗證證據 ⇒ `overallAccuracy = null`（**永不寫 0**；`User.overallAccuracy` 無 DB default）；週界線用 `hkWeekStartMondayUtc()`
-- 批次累積投影（多學生，匯出／班級統計）: `exercise/services/practice-history-service.ts` — `aggregateVerifiedTotalsForStudents()`（全歷史分頁、委派 `aggregateStudentPracticeTotals()`；**永不**以 `take: N` 當總數）；連續天數批次版見 `student/progress/services/streak-service.ts` `getPracticeStreaksForStudents()`
+- 累積練習投影（技能掌握度題數 / 每週摘要）: `exercise/services/practice-history-service.ts` — 日期界線 + 正典 `evaluatePracticeEvidence`；**永不**由「最新 N 筆」切片推算（會令累積數字下降）。**2026-09-26（ADR-046）**：累積投影一律走 **SQL 聚合**（`PracticeRepo.aggregateVerifiedTotalsBySkillForStudent`），只回傳每技能一列；**永不**逐列搬全歷史（3.2 MB → 55 KB）
+- 證據規則單一定義（SQL 與 TS 共用）: `exercise/services/practice-evidence-rules.ts` — `PRACTICE_EVIDENCE_RULES` 同時供 `evaluatePracticeEvidence()`（TS）與 `practice-repo.evidenceRulesSql()`（SQL predicate）；**禁止**任一邊手寫 literals（source-scan 測試強制）
+- 伺服器端證據聚合（SQL）: `exercise/repositories/practice-repo.ts` — `aggregateVerifiedTotalsForStudent()` / `...BySkillForStudent()` / `...ForStudentsByIds()`；必須重現場次層級 all-or-nothing（**不可**逐列 `WHERE`）
+- egress 量測與等價性閘門: `scripts/diagnose-db-egress.ts`、`scripts/verify-evidence-sql-equivalence.ts`、`scripts/verify-activity-metrics-parity.ts`（部署閘門 0 差異）、`scripts/db-query-stats.ts`、`scripts/profile-requests.ps1`
+- 累積指標投影與週界線（準確率／週快照）: `student/state/StudentStateMutationService.ts` — `collectVerifiedActivities()` + `syncActivityMetrics()`；無可驗證證據 ⇒ `overallAccuracy = null`（**永不寫 0**；`User.overallAccuracy` 無 DB default）；週界線用 `hkWeekStartMondayUtc()`。**2026-09-26（ADR-046）**：全歷史改走 SQL 聚合（只回傳數字）、本週為 `since = 香港週一` 的**有界抓取**；**失敗一律往上拋（fail-closed）——永不 catch-to-empty**，否則短暫 DB 故障會靜默覆蓋正確的準確率
+- 批次累積投影（多學生，匯出／班級統計）: `exercise/services/practice-history-service.ts` — `aggregateVerifiedTotalsForStudents()`（**單一 SQL 聚合、每名學生一列**；**永不**以 `take: N` 當總數、亦不逐列搬全歷史）；連續天數批次版見 `student/progress/services/streak-service.ts` `getPracticeStreaksForStudents()`
 - 提交權威解析（客戶端標記不可信）: `exercise/services/practice-authority-resolution.ts` — `questionId` 全部解析為同一正典家族（`ReadingQuestion`／`GrammarQuestion`）⇒ 該家族為權威；部分／混合／解析不到 ⇒ 回退既有 client-marker 分類（舊資料零行為改變）
 - 活躍狀態門檻（未開始／失聯／低活躍／活躍）: `teacher/monitoring/services/activity-service.ts` — `classifyActivityStatus()`（香港日界線；活動來源＝登入 ∪ 練習 ∪ 寫作草稿 ∪ 作業提交）；`getShortWritingCounts()` 為 DB 端計數（in-memory fail-open 回退）
 - 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀／聆聽）經正典 `submitPractice` 評分＋持久化（可驗證證據）；詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率

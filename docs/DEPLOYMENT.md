@@ -1,6 +1,10 @@
 # Deployment Guide — AI English Platform
 
-> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-21 | **Tests**: 3,172 passed / 1 skipped (163 files passed / 1 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
+> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-26 | **Tests**: 3,203 passed / 2 skipped (166 files passed / 2 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
+>
+> **2026-09-26（ADR-046）**：全歷史投影改走伺服器端 SQL 聚合（Neon egress 收口）。本次
+> **不含 schema 變更／migration** → 回滾 = 切回上一個 Cloud Run revision。
+> 部署前後量測流程與等價性閘門見 README「Neon Egress 維運」。
 >
 > **2026-09-21 (III) 部署注意**：先 `npx prisma migrate deploy`（`20260924_listening_question_store`：建立 `ListeningQuestion`、刪除休眠的 `ListeningSession`/`ListeningAnswer`），**然後立即部署新 revision**（Cloud Run 不會自動套用 migration）。這個 migration 會 **DROP 兩張表**，而舊 revision 的 `GET /api/admin/students/[studentId]/analytics` 仍在 `_count` 查 `listeningSessions` → 在舊 revision 上該 admin 頁面會 500；新 revision 已完全移除該引用。無需回填。（若必須先套 migration、延後部署，請拆成兩步：先只建表，部署後再另開 migration 刪除休眠表。）
 >

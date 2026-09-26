@@ -316,11 +316,29 @@ describe('R3.10-D.1 route plumbing contracts', () => {
 
   it('evidence service gates on server key authority (scoringMethod provenance)', () => {
     const svc = readFileSync(resolve(root, 'src/modules/exercise/services/practice-evidence-service.ts'), 'utf-8');
-    expect(svc).toContain("'server-key-resolved'");
-    expect(svc).toContain("'reading-server-exact-match'");
-    expect(svc).toContain("'reading-ai-semantic-evaluation'");
-    expect(svc).toContain("'listening-server-exact-match'");
     expect(svc).toContain("reason: 'unverified-key-authority'");
+    // 2026-09-25：權威配對改為**單一定義**（practice-evidence-rules.ts），
+    // service 必須引用而非自行複製 —— 否則 SQL 聚合與 TS 判定會各自漂移。
+    expect(svc).toContain('PRACTICE_EVIDENCE_RULES.serverKeyAuthoritative');
+    expect(svc).not.toContain("'server-key-resolved'");
+
+    const rules = readFileSync(resolve(root, 'src/modules/exercise/services/practice-evidence-rules.ts'), 'utf-8');
+    expect(rules).toContain("'server-key-resolved'");
+    expect(rules).toContain("'reading-server-exact-match'");
+    expect(rules).toContain("'reading-ai-semantic-evaluation'");
+    expect(rules).toContain("'listening-server-exact-match'");
+  });
+
+  it('SQL evidence aggregate is generated from the same rules (無手寫複製的 literals)', () => {
+    const repo = readFileSync(resolve(root, 'src/modules/exercise/repositories/practice-repo.ts'), 'utf-8');
+    expect(repo).toContain("from '../services/practice-evidence-rules'");
+    expect(repo).toContain('PRACTICE_EVIDENCE_RULES.serverKeyAuthoritative');
+    expect(repo).toContain('PRACTICE_EVIDENCE_RULES.supportedAuthorities');
+    expect(repo).toContain('PRACTICE_EVIDENCE_RULES.validResults');
+    // 任一 literals 出現在 SQL 檔即代表規則被複製 → 兩套口徑
+    expect(repo).not.toContain("'server-key-resolved'");
+    expect(repo).not.toContain("'listening-server-exact-match'");
+    expect(repo).not.toContain("'ungradable'");
   });
 
   it('Prisma schema contains the GrammarQuestion store', () => {

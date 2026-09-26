@@ -168,6 +168,18 @@ function buildPracticeRecommendation(results: DiagnosticResult[], level: string)
   };
 }
 
+/**
+ * 產生一輪診斷的幂等鍵（時間 + 隨機）。
+ *
+ * 置於模組層級而非元件內：`Date.now()` / `Math.random()` 是不純呼叫，寫在元件
+ * 內會被 `react-hooks/purity`（React Compiler）判為「render 期呼叫不純函式」——
+ * 即使實際上位於 `handleComplete` 這個 async 事件處理器內、根本不在 render 期。
+ * 抽出後語意完全不變（字串格式相同），且符合本檔既有的模組層級 helper 慣例。
+ */
+function createDiagnosticRunId(): string {
+  return `diag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export default function DiagnosticPage() {
   const { t, language } = useT();
   const lang = language || 'zh';
@@ -551,7 +563,7 @@ export default function DiagnosticPage() {
     if (studentProfile?.id) {
       // 同一輪診斷共用一個幂等鍵（重複提交或重試不會產生重複證據）
       if (!diagnosticRunIdRef.current) {
-        diagnosticRunIdRef.current = `diag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        diagnosticRunIdRef.current = createDiagnosticRunId();
       }
       const persistableResults = computed.map(r => ({
         skill: r.id,

@@ -10,10 +10,16 @@
 // ============================================
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ listPracticeSessionsWithEvidence: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  listPracticeSessionsWithEvidence: vi.fn(),
+  aggregateVerifiedTotalsBySkillForStudent: vi.fn(),
+}));
 
 vi.mock('@/modules/repositories', () => ({
-  PracticeRepo: { listPracticeSessionsWithEvidence: mocks.listPracticeSessionsWithEvidence },
+  PracticeRepo: {
+    listPracticeSessionsWithEvidence: mocks.listPracticeSessionsWithEvidence,
+    aggregateVerifiedTotalsBySkillForStudent: mocks.aggregateVerifiedTotalsBySkillForStudent,
+  },
 }));
 
 import { getCumulativeSkillTotals, getWeeklyPracticeSummary } from '../services/practice-history-service';
@@ -46,53 +52,64 @@ const sessionRow = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValue([]);
+});
 
 describe('getCumulativeSkillTotals — 累積（全歷史）技能題數', () => {
-  it('跨分頁累加同一技能，並回傳已驗證題數／正確數', async () => {
-    mocks.listPracticeSessionsWithEvidence
-      .mockResolvedValueOnce([sessionRow({ id: 'a' }), sessionRow({ id: 'b' })]) // 2 場 × 2 題（1 對 1 錯）
-      .mockResolvedValueOnce([sessionRow({ id: 'c' })]);                        // 尾頁不足 pageSize → 停止
-
-    const totals = await getCumulativeSkillTotals(STUDENT, { pageSize: 2 });
-
-    expect(mocks.listPracticeSessionsWithEvidence).toHaveBeenNthCalledWith(1, STUDENT, 2, 0, undefined);
-    expect(mocks.listPracticeSessionsWithEvidence).toHaveBeenNthCalledWith(2, STUDENT, 2, 2, undefined);
-    expect(totals).toEqual([{ skill: 'tenses', skillZh: '時態', questions: 6, correct: 3 }]);
-  });
-
-  it('不同技能分開累加，並按題數多→少排序', async () => {
-    mocks.listPracticeSessionsWithEvidence.mockResolvedValueOnce([
-      sessionRow({ id: 'a', skill: 'tenses', skillZh: '時態' }),
-      sessionRow({ id: 'b', skill: 'connectives', skillZh: '連接詞', answers: [verifiedRow()] }),
+  it('由 SQL 聚合逐技能加總，並按題數多→少排序', async () => {
+    mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValueOnce([
+      { skill: 'tenses', skillZh: '時態', verifiedTotalQuestions: 2, verifiedCorrectCount: 1, recordedTotalQuestions: 99, recordedCorrectCount: 99, sessionsCount: 2 },
+      { skill: 'connectives', skillZh: '連接詞', verifiedTotalQuestions: 1, verifiedCorrectCount: 1, recordedTotalQuestions: 5, recordedCorrectCount: 5, sessionsCount: 1 },
     ]);
 
     const totals = await getCumulativeSkillTotals(STUDENT);
 
+    expect(mocks.aggregateVerifiedTotalsBySkillForStudent).toHaveBeenCalledWith(STUDENT);
     expect(totals).toEqual([
       { skill: 'tenses', skillZh: '時態', questions: 2, correct: 1 },
       { skill: 'connectives', skillZh: '連接詞', questions: 1, correct: 1 },
     ]);
   });
 
-  it('unverifiable 場次（零答案／舊 authority）不計入累積題數', async () => {
-    mocks.listPracticeSessionsWithEvidence.mockResolvedValueOnce([
-      sessionRow({ id: 'no-answers', answers: [] }),
-      sessionRow({ id: 'legacy-key', answers: [verifiedRow({ scoringMethod: 'deterministic-answer-comparison' })] }),
+  it('全歷史：單次聚合查詢，永不逐列分頁讀取（無 take／maxPages 上限）', async () => {
+    mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValueOnce([]);
+
+    await getCumulativeSkillTotals(STUDENT);
+
+    expect(mocks.aggregateVerifiedTotalsBySkillForStudent).toHaveBeenCalledTimes(1);
+    // 舊碼以 listPracticeSessionsWithEvidence 分頁搬全歷史每一列 —— egress 主因
+    expect(mocks.listPracticeSessionsWithEvidence).not.toHaveBeenCalled();
+  });
+
+  it('未達已驗證門檻的技能（verified 0 題）不得顯示', async () => {
+    mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValueOnce([
+      { skill: 'legacy', skillZh: '舊資料', verifiedTotalQuestions: 0, verifiedCorrectCount: 0, recordedTotalQuestions: 999, recordedCorrectCount: 999, sessionsCount: 3 },
     ]);
 
     await expect(getCumulativeSkillTotals(STUDENT)).resolves.toEqual([]);
   });
 
+  it('不得以 recorded（場次聚合）值冒充累積題數', async () => {
+    mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValueOnce([
+      { skill: 'tenses', skillZh: '時態', verifiedTotalQuestions: 3, verifiedCorrectCount: 2, recordedTotalQuestions: 999, recordedCorrectCount: 999, sessionsCount: 1 },
+    ]);
+
+    await expect(getCumulativeSkillTotals(STUDENT)).resolves.toEqual([
+      { skill: 'tenses', skillZh: '時態', questions: 3, correct: 2 },
+    ]);
+  });
+
   it('單調性契約：新增場次後任何技能的累積題數不得下降', async () => {
-    mocks.listPracticeSessionsWithEvidence.mockResolvedValueOnce([
-      sessionRow({ id: 'a', skill: 'phrasal-verbs', skillZh: '片語動詞', answers: [verifiedRow()] }), // 1 題
+    mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValueOnce([
+      { skill: 'phrasal-verbs', skillZh: '片語動詞', verifiedTotalQuestions: 1, verifiedCorrectCount: 1, recordedTotalQuestions: 1, recordedCorrectCount: 1, sessionsCount: 1 },
     ]);
     const before = await getCumulativeSkillTotals(STUDENT);
 
-    mocks.listPracticeSessionsWithEvidence.mockResolvedValueOnce([
-      sessionRow({ id: 'new', skill: 'tenses', skillZh: '時態' }),                                   // 新技能
-      sessionRow({ id: 'a', skill: 'phrasal-verbs', skillZh: '片語動詞', answers: [verifiedRow()] }), // 舊技能仍在
+    mocks.aggregateVerifiedTotalsBySkillForStudent.mockResolvedValueOnce([
+      { skill: 'tenses', skillZh: '時態', verifiedTotalQuestions: 2, verifiedCorrectCount: 1, recordedTotalQuestions: 2, recordedCorrectCount: 1, sessionsCount: 1 },
+      { skill: 'phrasal-verbs', skillZh: '片語動詞', verifiedTotalQuestions: 1, verifiedCorrectCount: 1, recordedTotalQuestions: 1, recordedCorrectCount: 1, sessionsCount: 1 },
     ]);
     const after = await getCumulativeSkillTotals(STUDENT);
 
@@ -102,12 +119,6 @@ describe('getCumulativeSkillTotals — 累積（全歷史）技能題數', () =>
       expect(row.questions).toBeGreaterThanOrEqual(beforeMap[row.skill] ?? 0);
     }
     expect(bySkill(after)['phrasal-verbs']).toBeGreaterThanOrEqual(1);
-  });
-
-  it('maxPages 邊界：避免極端歷史造成無界讀取', async () => {
-    mocks.listPracticeSessionsWithEvidence.mockResolvedValue([sessionRow()]); // 永遠滿頁
-    await getCumulativeSkillTotals(STUDENT, { pageSize: 1, maxPages: 3 });
-    expect(mocks.listPracticeSessionsWithEvidence).toHaveBeenCalledTimes(3);
   });
 });
 

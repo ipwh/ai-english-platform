@@ -205,13 +205,39 @@ export class StudentStateMutationService {
    * 2. **無可驗證證據 → 寫 null（不是 0）**。「無資料」與「答錯全部」必須可區分
    *    （舊碼寫 0 令所有未練習學生顯示「準確率 0%」，亦壓低班平均）。
    * 3. 週界線改香港週一（原本用 UTC 週一）。
+   *
+   * 2026-09-26（Neon egress）：**全歷史部分改由 SQL 聚合**（只回傳數字，不再搬每一列）。
+   * 病根：本函式每次練習提交都執行，而舊碼把**全歷史每一列** session + answer 搬進
+   * Node 才加總（實測單一學生一次 1.3 MB、全校一次 345 MB）。
+   * 全歷史其實只需要兩個數字；只有「本週」需要逐列，因此本週改為以香港週一為
+   * `since` 的**有界抓取**。等價性是精確的而非近似：`collectVerifiedActivities()`
+   * 以 `startedAt` 作為 `completedAt`，故 `since = hkWeekStartMondayUtc()` 與原本的
+   * 週過濾涵蓋完全相同的場次；原本的 `weekKey` 過濾仍保留為第二道防線。
+   * SQL 與正典投影的等價性由 `practice-evidence-sql-equivalence.test.ts`（對抗性
+   * fixtures）與 `db:verify:evidence-sql`（真實資料）共同保證。
+   *
+   * ⚠️ 失敗政策（**刻意改變**）：舊碼對讀取結果 `.catch(() => [])`，令一次短暫的
+   * DB 失敗被當成「無場次」→ 寫入 `overallAccuracy = null`，**覆蓋原本正確的值**，
+   * 而且函式正常返回 → 呼叫端的 fail-closed 保護（`practice-submission-service`
+   * 會 throw 並要求客戶端重播）**永遠不會觸發**。
+   * 現在失敗一律往上拋，交由呼叫端既有的 fail-closed 路徑處理。
+   * **不得改回 catch-to-empty**：那會令系統故障靜默變成學生的「無資料」。
    */
   async syncActivityMetrics(studentId: string): Promise<{ accuracy: number | null; weekStart: string }> {
     const { db } = await import('@/shared/db/db');
+    const { PracticeRepo } = await import('@/modules/repositories');
     const { listAllSessionsWithEvidence } = await import('@/modules/exercise/services/practice-history-service');
 
-    const [sessions, submissions] = await Promise.all([
-      listAllSessionsWithEvidence(studentId).catch(() => [] as Array<{ id: string; startedAt: Date; answers: unknown[] }>),
+    // Update weekly snapshot（週界線 = 香港週一）；同時作為本週抓取的界線
+    const now = new Date();
+    const weekKey = (d: Date) => hkDayKey(hkWeekStartMondayUtc(d));
+    const weekStart = weekKey(now);
+
+    const [verifiedTotals, weekSessions, submissions] = await Promise.all([
+      // 全歷史：SQL 聚合，只回傳數字（規則單一來源見 practice-evidence-rules.ts）
+      PracticeRepo.aggregateVerifiedTotalsForStudent(studentId),
+      // 本週：有界抓取（逐列，但範圍限於香港週一之後）
+      listAllSessionsWithEvidence(studentId, { since: hkWeekStartMondayUtc(now) }),
       db.submission.findMany({
         where: {
           studentId,
@@ -227,13 +253,17 @@ export class StudentStateMutationService {
       }),
     ]);
 
-    const activities: VerifiedActivity[] = [
-      ...(await collectVerifiedActivities(sessions)),
-      ...submissions.map(s => ({ totalQuestions: s.assignment.questionCount, correctCount: Math.round((s.score! / 100) * s.assignment.questionCount), completedAt: s.submittedAt! })),
-    ];
+    const submissionActivities: VerifiedActivity[] = submissions.map(s => ({
+      totalQuestions: s.assignment.questionCount,
+      correctCount: Math.round((s.score! / 100) * s.assignment.questionCount),
+      completedAt: s.submittedAt!,
+    }));
 
-    const totalQuestions = activities.reduce((sum, a) => sum + a.totalQuestions, 0);
-    const correctCount = activities.reduce((sum, a) => sum + a.correctCount, 0);
+    // 全歷史 accuracy = 已驗證練習（SQL）+ 已評分 submissions（與舊碼同一組加總）
+    const totalQuestions = verifiedTotals.verifiedTotalQuestions
+      + submissionActivities.reduce((sum, a) => sum + a.totalQuestions, 0);
+    const correctCount = verifiedTotals.verifiedCorrectCount
+      + submissionActivities.reduce((sum, a) => sum + a.correctCount, 0);
     // null = 無可驗證證據（「無資料」≠ 0%）
     const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : null;
 
@@ -241,11 +271,10 @@ export class StudentStateMutationService {
     const { updateUser } = await import('@/modules/student/repositories/user-repo');
     await updateUser(studentId, { overallAccuracy: accuracy });
 
-    // Update weekly snapshot（週界線 = 香港週一）
-    const now = new Date();
-    const weekKey = (d: Date) => hkDayKey(hkWeekStartMondayUtc(d));
-    const weekStart = weekKey(now);
-    const weekActs = activities.filter(a => weekKey(a.completedAt) === weekStart);
+    const weekActs = [
+      ...(await collectVerifiedActivities(weekSessions)),
+      ...submissionActivities,
+    ].filter(a => weekKey(a.completedAt) === weekStart);
     const weekTotal = weekActs.reduce((sum, a) => sum + a.totalQuestions, 0);
     const weekCorrect = weekActs.reduce((sum, a) => sum + a.correctCount, 0);
     /** Float 欄位不可為 null；無資料時存 0，顯示層以 totalQuestions === 0 判定為「—」 */

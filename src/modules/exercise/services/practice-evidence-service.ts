@@ -21,6 +21,8 @@
 // rows), not question-definition ownership.
 // ============================================
 
+import { PRACTICE_EVIDENCE_RULES } from './practice-evidence-rules';
+
 export interface PracticeEvidenceRow {
   questionId: string | null;
   result: string | null | undefined;
@@ -54,25 +56,16 @@ export interface UnverifiablePracticeEvidence {
 
 export type PracticeEvidenceResult = VerifiedPracticeEvidence | UnverifiablePracticeEvidence;
 
-const SUPPORTED_AUTHORITIES = new Set(['server', 'ai']);
-const VALID_RESULTS = new Set(['correct', 'incorrect', 'partial', 'ungradable']);
+const SUPPORTED_AUTHORITIES = new Set<string>(PRACTICE_EVIDENCE_RULES.supportedAuthorities);
+const VALID_RESULTS = new Set<string>(PRACTICE_EVIDENCE_RULES.validResults);
 
 // R3.10-D: explicit key-authority provenance. A row is only verified
 // evidence when its scoringMethod proves the answer key was
-// server-owned at scoring time:
-// - 'server-key-resolved'           → grammar, scored against GrammarQuestion store
-// - 'reading-server-exact-match'    → reading objective, scored against ReadingQuestion store
-// - 'reading-ai-semantic-evaluation'→ reading subjective, AI vs server-owned key
+// server-owned at scoring time (see PRACTICE_EVIDENCE_RULES).
 // Legacy 'deterministic-answer-comparison' (client-supplied key) and
 // null/unknown methods are NOT authoritative → unverifiable, never repaired.
-const SERVER_KEY_AUTHORITATIVE: ReadonlyArray<readonly [string, string]> = [
-  ['server', 'server-key-resolved'],
-  ['server', 'reading-server-exact-match'],
-  ['ai', 'reading-ai-semantic-evaluation'],
-  // 2026-09-21 ADR-045: listening objective answers scored against the
-  // server-owned ListeningQuestion store.
-  ['server', 'listening-server-exact-match'],
-];
+const SERVER_KEY_AUTHORITATIVE: ReadonlyArray<readonly [string, string]> =
+  PRACTICE_EVIDENCE_RULES.serverKeyAuthoritative;
 
 function hasServerKeyAuthority(scoredBy: string | null | undefined, scoringMethod: string | null | undefined): boolean {
   return SERVER_KEY_AUTHORITATIVE.some(([authority, method]) => scoredBy === authority && scoringMethod === method);

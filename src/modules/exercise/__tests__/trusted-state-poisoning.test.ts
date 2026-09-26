@@ -12,11 +12,13 @@ import { resolve } from 'node:path';
 
 const {
   mockListSessions,
+  mockAggregateVerified,
   mockSubmissionsFindMany,
   mockSnapshotUpsert,
   mockUpdateUser,
 } = vi.hoisted(() => ({
   mockListSessions: vi.fn(),
+  mockAggregateVerified: vi.fn(),
   mockSubmissionsFindMany: vi.fn(),
   mockSnapshotUpsert: vi.fn(),
   mockUpdateUser: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock('@/shared/db/db', () => ({
 
 vi.mock('@/modules/exercise/repositories/practice-repo', () => ({
   listPracticeSessionsWithEvidence: mockListSessions,
+  aggregateVerifiedTotalsForStudent: mockAggregateVerified,
 }));
 
 vi.mock('@/modules/student/repositories/user-repo', () => ({
@@ -146,6 +149,20 @@ describe('R3.10-D.3 test 4 — forged legacy answer cannot influence weekly snap
         answers: [grammarRow(), grammarRow({ questionId: 'gq-2', result: 'incorrect', awardedScore: 0 })],
       },
     ]);
+
+    // 2026-09-26：全歷史總數改由 SQL 聚合提供。這裡模擬 SQL 的**正確輸出**
+    // （legacy 列已被 SQL predicate 排除）：1 correct / 2 total。
+    //  ⚠️ 「legacy 列不得計入」這個**列級排除**保證已移至 SQL 層驗證：
+    //     `practice-evidence-sql-equivalence.test.ts` 的對抗性 fixtures
+    //     （含「同一場次內 valid + legacy ⇒ 整場不可驗證」）與 `db:verify:evidence-sql`。
+    //     本測試**仍真實有效**的是週快照那一半 —— 週窗仍走 TS 逐列投影。
+    mockAggregateVerified.mockResolvedValue({
+      verifiedTotalQuestions: 2,
+      verifiedCorrectCount: 1,
+      recordedTotalQuestions: 1998,
+      recordedCorrectCount: 1998,
+      sessionsCount: 2,
+    });
 
     const result = await studentStateMutationService.syncActivityMetrics('student-1');
 

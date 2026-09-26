@@ -5,6 +5,7 @@
 
 import { db } from '@/shared/db/db';
 import { hkStartOfDay } from '@/shared/utils/hk-date';
+import { PRACTICE_EVIDENCE_RULES } from '../services/practice-evidence-rules';
 
 /** Create a practice session */
 export async function createPracticeSession(data: {
@@ -186,55 +187,14 @@ export async function listPracticeSessions(studentId: string, limit = 50) {
 }
 
 /**
- * R3.10-C（批次變體，2026-09-21 稽核）：多名學生的練習場次 + 逐題證據。
- *
- * 供「累積」語意的批次消費者（匯出報表、班級／全校統計）使用。
- * **不得**單獨以 `take` 當作全量：呼叫端必須分頁迭代到不足一頁為止
- * （見 `practice-history-service.aggregateVerifiedTotalsForStudents()`）。
- *
- * 固定以 `startedAt desc, id asc` 排序，令 `skip` 分頁在全域層面穩定
- * （同分時間不會令同一列重複或漏掉）。
- */
-export async function listPracticeSessionsWithEvidenceForStudents(
-  studentIds: string[],
-  limit = 500,
-  skip = 0,
-) {
-  if (studentIds.length === 0) return [];
-  return db.practiceSession.findMany({
-    where: { studentId: { in: studentIds } },
-    select: {
-      studentId: true,
-      skill: true,
-      totalQuestions: true,
-      correctCount: true,
-      source: true,
-      startedAt: true,
-      answers: {
-        select: {
-          countsTowardScore: true,
-          awardedScore: true,
-          maxScore: true,
-          result: true,
-          scoredBy: true,
-          scoringMethod: true,
-        },
-        orderBy: { questionIndex: 'asc' },
-      },
-    },
-    orderBy: [{ startedAt: 'desc' }, { id: 'asc' }],
-    take: limit,
-    skip,
-  });
-}
-
-/**
  * R3.10-C: List practice sessions WITH persisted answer evidence rows.
  * Consumers of verified accuracy must use this (with
  * evaluatePracticeEvidence) instead of trusting session aggregates.
  *
- * `skip` / `since` 支援「累積投影」分頁（2026-09-20 稽核）：
- * 累積統計必須走日期界線 + 全歷史分頁，不可用單一 `take` 當作全量。
+ * `skip` / `since` 支援分頁與日期界線視窗（2026-09-20 稽核）。
+ * 注意（2026-09-26）：「累積」語意已改由 SQL 聚合提供（見
+ * `aggregateVerifiedTotalsForStudent`），**不再**靠本函式分頁搬全歷史列。
+ * 本函式現供逐列消費者（本週有界抓取、單場查詢）使用。
  */
 export async function listPracticeSessionsWithEvidence(
   studentId: string,
@@ -271,6 +231,223 @@ export async function listPracticeSessionsWithEvidence(
     take: limit,
     skip,
   });
+}
+
+// ============================================
+// 2026-09-25: 伺服器端證據聚合（SQL）— 消除「全歷史列串流」egress
+// ============================================
+// 病根：`getCumulativeSkillTotals()` / `syncActivityMetrics()` /
+// `aggregateVerifiedTotalsForStudents()` 原本以分頁把**每一列**
+// session + answer 讀進 Node 才自行加總。實測（2026-09-25）：
+// 單一學生一次全歷史投影 = 1.3 MB、全校一次 = 345 MB，而每次練習提交
+// 會跑 2 次、每次頁面載入再跑 1 次 → Neon Free 5 GB/月 額度一個月用掉 4 GB
+// （DB 本身只有 31 MB，即 egress ≈ 練習資料量的 130 倍）。
+//
+// 這裡用 SQL 執行**同一套**規則（規則來源：`practice-evidence-rules.ts`），
+// 只回傳數字（每個學生／技能一列），把搬運量由 MB 降為 KB。
+//
+// 等價性的關鍵 —— `evaluatePracticeEvidence()` 是**場次層級 all-or-nothing**：
+//   場次成立 ⇔ 至少一列 且 所有列通過 tier-1 且 至少一列 counted；
+//   任一列不合法 ⇒ 整個場次不可驗證（0 分）。
+// 所以**不能**寫成單純的 `WHERE` 列過濾 —— 那會把 TS 判為不可驗證的場次
+// 一起算進來（方向性錯誤：會高估而非低估）。
+//   tier-1（所有列都須通過）：questionId 非空、result 合法、scoredBy 合法、
+//                             (scoredBy, scoringMethod) 為權威配對
+//   tier-2（僅 checked 列）：awardedScore/maxScore 為有限數、maxScore > 0、
+//                             0 <= awardedScore <= maxScore
+//   `countsTowardScore = false` 的列被跳過，但仍必須通過 tier-1。
+//
+// 等價性以 `scripts/verify-evidence-sql-equivalence.ts` 對真實資料驗證。
+// 注意：本聚合使用 PostgreSQL 語法（FILTER / ::timestamptz / btrim），
+// 與 `assessment-repo`、`mistake-repo` 既有 raw SQL 相同的前提。
+
+/** SQL predicate 片段 — 一律由 `PRACTICE_EVIDENCE_RULES` 生成，永不手寫複製 */
+function evidenceRulesSql(): { authorities: string; results: string; pairs: string } {
+  const q = (v: string) => `'${v.replace(/'/g, "''")}'`;
+  return {
+    authorities: PRACTICE_EVIDENCE_RULES.supportedAuthorities.map(q).join(', '),
+    results: PRACTICE_EVIDENCE_RULES.validResults.map(q).join(', '),
+    pairs: PRACTICE_EVIDENCE_RULES.serverKeyAuthoritative
+      .map(([authority, method]) => `(a."scoredBy" = ${q(authority)} AND a."scoringMethod" = ${q(method)})`)
+      .join('\n             OR '),
+  };
+}
+
+export interface VerifiedTotalsAggregate {
+  verifiedTotalQuestions: number;
+  verifiedCorrectCount: number;
+  recordedTotalQuestions: number;
+  recordedCorrectCount: number;
+  sessionsCount: number;
+}
+
+export interface VerifiedStudentTotalsAggregate extends VerifiedTotalsAggregate {
+  studentId: string;
+}
+
+export interface VerifiedSkillTotalsAggregate extends VerifiedTotalsAggregate {
+  skill: string;
+  skillZh: string;
+}
+
+/**
+ * 建立全歷史證據聚合查詢。
+ * `selectColumns` 為空 ⇒ 全學生彙總為一列；否則每組一列。
+ * `groupColumns` 為 GROUP BY 運算式（**不含**別名 —— GROUP BY 不接受 `AS`）。
+ * `scope`：
+ *   · `single`（預設）⇒ `$1 = studentId`（單一學生）
+ *   · `many` ⇒ `$1 = studentIds text[]`（批次；供 admin 匯出用，一次 GROUP BY studentId）
+ * `$2` = since（null ⇒ 全歷史）。
+ *
+ * **已匯出**：等價性測試（`practice-evidence-sql-equivalence.test.ts`）需要以
+ * 「與正式路徑完全相同的 SQL 文字」在**交易內**執行並回滾，因此必須取得此
+ * builder。這不是為測試而抽象 —— SQL 文字若在測試中另寫一份，就等於繞過
+ * 被驗證的對象。
+ */
+export function buildVerifiedTotalsSql(
+  selectColumns: string[],
+  groupColumns: string[],
+  options: { scope?: 'single' | 'many' } = {},
+): string {
+  const { authorities, results, pairs } = evidenceRulesSql();
+  const groupSelect = selectColumns.length > 0 ? `${selectColumns.join(', ')},` : '';
+  const groupBy = groupColumns.length > 0 ? `GROUP BY ${groupColumns.join(', ')}` : '';
+  const studentScope = options.scope === 'many'
+    ? `s."studentId" = ANY($1::text[])`
+    : `s."studentId" = $1`;
+
+  return `
+    WITH scoped AS (
+      SELECT s.id, s."studentId", s.skill, s."skillZh", s."totalQuestions", s."correctCount", s."startedAt"
+      FROM "PracticeSession" s
+      WHERE ${studentScope}
+        AND ($2::timestamptz IS NULL OR s."startedAt" >= $2::timestamptz)
+    ),
+    flags AS (
+      SELECT
+        a."sessionId",
+        (a."questionId" IS NULL OR btrim(a."questionId") = '') AS bad_question_id,
+        (a.result IS NULL OR a.result NOT IN (${results})) AS bad_result,
+        (a."scoredBy" IS NULL OR a."scoredBy" NOT IN (${authorities})) AS bad_authority,
+        COALESCE(NOT (
+             ${pairs}
+           ), TRUE) AS bad_key_authority,
+        (a."countsTowardScore" IS NULL OR a."countsTowardScore") AS counted,
+        (a.result = 'correct') AS is_correct,
+        (
+          a."awardedScore" IS NULL OR a."maxScore" IS NULL
+          -- Number.isFinite 等價：排除 NaN 與 +/-Infinity
+          OR NOT (a."awardedScore" BETWEEN '-Infinity'::float8 AND 'Infinity'::float8)
+          OR NOT (a."maxScore" BETWEEN '-Infinity'::float8 AND 'Infinity'::float8)
+          OR a."awardedScore" IN ('Infinity'::float8, '-Infinity'::float8)
+          OR a."maxScore" IN ('Infinity'::float8, '-Infinity'::float8)
+          OR a."maxScore" <= 0
+          OR a."awardedScore" < 0
+          OR a."awardedScore" > a."maxScore"
+        ) AS bad_score
+      FROM "PracticeAnswer" a
+      WHERE a."sessionId" IN (SELECT id FROM scoped)
+    ),
+    verdict AS (
+      -- 場次層級判定：bad_rows = 0 且 counted_rows > 0 才計入
+      SELECT
+        f."sessionId",
+        count(*) FILTER (
+          WHERE f.bad_question_id
+             OR f.bad_result
+             OR f.bad_authority
+             OR f.bad_key_authority
+             OR (f.counted AND f.bad_score)
+        )::int AS bad_rows,
+        count(*) FILTER (WHERE f.counted)::int AS counted_rows,
+        count(*) FILTER (WHERE f.counted AND f.is_correct)::int AS correct_rows
+      FROM flags f
+      GROUP BY f."sessionId"
+    )
+    SELECT
+      ${groupSelect}
+      COALESCE(sum(v.counted_rows) FILTER (WHERE v.bad_rows = 0 AND v.counted_rows > 0), 0)::int AS "verifiedTotalQuestions",
+      COALESCE(sum(v.correct_rows) FILTER (WHERE v.bad_rows = 0 AND v.counted_rows > 0), 0)::int AS "verifiedCorrectCount",
+      COALESCE(sum(sc."totalQuestions"), 0)::int AS "recordedTotalQuestions",
+      COALESCE(sum(sc."correctCount"), 0)::int AS "recordedCorrectCount",
+      count(sc.id)::int AS "sessionsCount"
+    FROM scoped sc
+    LEFT JOIN verdict v ON v."sessionId" = sc.id
+    ${groupBy}
+  `;
+}
+
+/**
+ * 單一學生的全歷史已驗證／原始總數（**只回傳數字**，不搬列）。
+ *
+ * 語意與 `aggregateStudentPracticeTotals(allSessionsWithEvidence)` 相同，
+ * 但 egress 由 MB 級降為單列。`since` 供日期界線視窗使用（例：本週快照）；
+ * 累積語意的呼叫端必須省略 `since`。
+ */
+export async function aggregateVerifiedTotalsForStudent(
+  studentId: string,
+  since?: Date,
+): Promise<VerifiedTotalsAggregate> {
+  const rows = await db.$queryRawUnsafe<VerifiedTotalsAggregate[]>(
+    buildVerifiedTotalsSql([], []),
+    studentId,
+    since ?? null,
+  );
+  return rows[0] ?? {
+    verifiedTotalQuestions: 0,
+    verifiedCorrectCount: 0,
+    recordedTotalQuestions: 0,
+    recordedCorrectCount: 0,
+    sessionsCount: 0,
+  };
+}
+
+/**
+ * 批次：多學生的全歷史已驗證／原始總數（**每名學生一列**，只回傳數字）。
+ * 取代 `aggregateVerifiedTotalsForStudents()` 的逐列分頁搬運
+ * （實測 admin 匯出一次 2.4 MB；改後為每名學生一列）。
+ *
+ * 只回傳「有場次」的學生 —— 沒有練習的學生**不會**出現，呼叫端必須以
+ * 「—」呈現（**永不**以 0% 代替，2026-09-20 稽核）。
+ */
+export async function aggregateVerifiedTotalsForStudentsByIds(
+  studentIds: string[],
+): Promise<VerifiedStudentTotalsAggregate[]> {
+  if (studentIds.length === 0) return [];
+  return db.$queryRawUnsafe<VerifiedStudentTotalsAggregate[]>(
+    buildVerifiedTotalsSql(['sc."studentId"'], ['sc."studentId"'], { scope: 'many' }),
+    studentIds,
+    null,
+  );
+}
+
+/**
+ * 單一學生的全歷史「每技能」已驗證總數（**只回傳每個技能一列**）。
+ * 取代 `getCumulativeSkillTotals()` 的逐列分頁加總。
+ *
+ * `skillZh` 必須與正典 TS 投影一致：舊碼逐列迭代（`startedAt DESC`）時
+ * **最新一場「已驗證」場次**的標籤勝出（未通過證據判定的場次會被 `continue`
+ * 跳過、不提供標籤），因此這裡必須同時限制排序來源與 FILTER：
+ *   `array_agg(... ORDER BY startedAt DESC) FILTER (WHERE 該場次已驗證)`。
+ * 不可用 `min()`，也不可只看最新場次 —— 2026-09-25 等價性驗證實測兩種寫法
+ * 都會與 TS 分歧（同一技能歷史列標籤不一致：`Reading` vs `閱讀`；最新場次
+ * 為不可驗證的舊 authority 列時，TS 會沿用下一場的標籤）。
+ * 空字串回退為 `skill`（與 TS 的 `skillZh || skill` 相同）。
+ */
+export async function aggregateVerifiedTotalsBySkillForStudent(
+  studentId: string,
+): Promise<VerifiedSkillTotalsAggregate[]> {
+  const verifiedLabel = `
+    COALESCE(NULLIF((
+      array_agg(sc."skillZh" ORDER BY sc."startedAt" DESC, sc.id ASC)
+      FILTER (WHERE v.bad_rows = 0 AND v.counted_rows > 0)
+    )[1], ''), sc.skill) AS "skillZh"`;
+
+  return db.$queryRawUnsafe<VerifiedSkillTotalsAggregate[]>(
+    buildVerifiedTotalsSql(['sc.skill', verifiedLabel], ['sc.skill']),
+    studentId,
+    null,
+  );
 }
 
 /** Find a practice session by ID */

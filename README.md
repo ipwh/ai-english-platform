@@ -10,8 +10,66 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-09-21 — 163 files, 3172 tests pass (+1 gated skip; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-26 — 166 files, 3203 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
+- **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
+
+## 📉 Neon Egress 維運（2026-09-26，ADR-046）
+
+### 背景
+Neon 只計算「經 proxy 送出的位元組」（egress），與 DB 大小無關。2026-09-25 曾達
+**4 GB / 5 GB（80 %）**，而資料庫僅 **30.9 MB** —— 原因是**全歷史投影被反覆重讀**，
+不是資料量。現已改為伺服器端 SQL 聚合（每次回傳每名學生／技能**一列**數字）。
+
+### 量測工具（均為唯讀）
+
+| 指令 | 用途 |
+|---|---|
+| `npm run db:diagnose:egress` | egress 分布、計費週期消耗推算、主要消耗者（`--used-gb 4 --limit-gb 5`） |
+| `npm run db:query-stats` | `pg_stat_statements` 排行（`--enable` 建立擴充、`--reset` 清空觀測窗） |
+| `npm run profile:requests` | Cloud Run 日誌：每端點請求數與回應位元組（可指定歷史時段） |
+
+### 等價性／部署閘門（修改證據規則或聚合路徑後**必須**重跑）
+
+```
+npm run db:verify:evidence-sql     # SQL 聚合 vs TS 正典投影（真實資料，要求完全一致）
+npm run db:verify:metrics-parity   # 部署閘門：新舊路徑逐欄比對，要求 0 差異
+```
+
+### 部署指令
+
+本批改動**不含 schema 變更／migration**；`npx prisma migrate deploy` 應回報無待套用。
+回滾 = 切回上一個 Cloud Run revision。
+
+```
+npm run build:prod                 # 正式建構（必須 exit 0）
+powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId "amiable-nirvana-500300-a0"
+```
+
+脚本經 **Cloud Build** 建構並部署（不需本機 Docker）；region 預設 `asia-east2`。
+
+### 部署前後量測流程
+
+1. **部署前（基準）**：`npm run db:diagnose:egress --used-gb <本期已用> --limit-gb 5`
+   → 記錄「全校跑一次全歷史投影」與「寫入路徑」的規模
+2. **部署前（驗收閘門）**：`npm run db:verify:metrics-parity` → 必須 **0 差異**
+3. **部署**：見上方指令
+4. **部署後（確認下降）**：上課時段跑 `npm run db:query-stats`
+   → 觀察 `PracticeSession` / `PracticeAnswer` 的 `rows` 佔比是否下降；
+   同時 `npm run profile:requests` 確認請求分布（通知那 94 % 不應變）
+5. **回報差異**：若 `PracticeSession` / `PracticeAnswer` 仍高，先確認新 revision 確实已接流量
+
+### 已知限制（實測）
+
+- **scale-to-zero 會清空 `pg_stat_statements`**（compute 啟動時間與 `stats_reset` 相同）：
+  要累積涵蓋上課日的窗口，需在 Console 暫時關閉 scale-to-zero；上課時段的持續輪詢本身
+  會讓 compute 保持喚醒，通常無需調整。
+- **計費週期每月 1 日重置**；Neon **無逐查詢位元組統計**，`rows` 是唯一可得的代理指標。
+- `profile:requests` 走 **Logging REST API**（filter 置於 JSON body）：PowerShell 5.1 會弄壞
+  含 `>` / `<` 的原生指令參數內層引號，故**不得**改回 `gcloud logging read`（且
+  `httpRequest.requestUrl!=""` 語法無效，存在性要用 `:*`）。需先 `gcloud auth login`。
+- **通知輪詢不是 egress 目標**（實測）：`/api/notifications` 佔 94 % 的請求，但其查詢回傳
+  **0 列**。要動它請先以 `db:query-stats` 提出證據。
 
 ## 🏗️ Architecture Overview
 
@@ -53,6 +111,7 @@ Writing Evaluation (Sprints 127-130):
 | ADR-043 | Delivery Integrity, Replay Safety & Teacher Roster Authorization | ✅ Accepted (2026-09-21) |
 | ADR-044 | Measurable Practice, Honest Empty States & Teacher Monitoring Signals | ✅ Accepted (2026-09-21) |
 | ADR-045 | Server-Owned Listening Question Store (listening becomes measurable) | ✅ Accepted (2026-09-21) |
+| ADR-046 | Server-Side Evidence Aggregation (Neon egress) & Fail-Closed Metric Sync | ✅ Accepted (2026-09-26) |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 
@@ -66,7 +125,7 @@ Writing Evaluation (Sprints 127-130):
 | Validation | Zod v4 |
 | Testing | Vitest + Playwright E2E |
 | Architecture | Enforcement tests (import direction, service size, provider isolation, cache ownership, repository isolation) |
-| Documentation | 43 ADRs (ADR-001–043) in `docs/architecture/` |
+| Documentation | 46 ADRs (ADR-001–046) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
 | Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) — Vercel 部署已於 2026-09-15 移除 |
@@ -639,7 +698,7 @@ npm run test:watch    # 持續監控模式
 
 測試涵蓋：AI 服務、學習引擎、學生檔案、錯題資料庫、詞彙關聯圖、領域事件、快取、AI 成本、效能、安全、可觀測性、評量、練習、回饋、學生、進度、詞彙、學習科學、知識圖譜、學習記憶、學生數位分身、教師副駕駛、寫作分析、LLM 評測、實驗平台等模組。
 
-> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-09-17，142 files，2973 tests pass（+1 skipped）。
+> 目前測試數量會隨開發變動，執行 `npm test` 取得最新統計。最後驗證：2026-09-26，166 files，3203 tests pass（+2 gated skips）。
 
 ## 目前狀態
 
