@@ -213,6 +213,21 @@ export function inspectGeneratedQuestion(question: GeneratedQuestion): string[] 
     }
   }
 
+  // 解說不得把「正確答案的字母」說成學生會誤選的對象。
+  // 這是洗牌未重對應字母的徵狀（2026-09-26 回報）：解說寫「學生可能誤選B」，
+  // 而洗牌後 B 正是正確答案 → 叫學生不要選的正是答案本身。
+  // 根因已在 `shuffleMCAnswers()` 以 `remapOptionLetters()` 修正；此處為
+  // 交付前的最後一道確定性防線（涵蓋未經洗牌或人工寫入的題目）。
+  const keyLetter = typeof answer === 'string' ? answer.trim().toUpperCase() : '';
+  if (/^[A-D]$/.test(keyLetter)) {
+    const contradiction = narrative.match(new RegExp(`[誤錯](?:選|答)\\s*${keyLetter}\\b`));
+    if (contradiction) {
+      defects.push(
+        `解說把正確答案（${keyLetter}）說成學生可能誤選的選項：「${contradiction[0].trim()}」`,
+      );
+    }
+  }
+
   return defects;
 }
 

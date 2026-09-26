@@ -4,6 +4,42 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-26 (III) — 選項洗牌後未重對應解說字母（常犯錯誤叫學生不要選正確答案）
+
+### 一、症狀（使用者回報）
+閱讀篇章題（天星小輪）正確答案為 B（`few passengers`），解說亦正確解釋 B，
+但「⚠️ 常犯錯誤」寫：「學生可能誤選B，因為70,000是今天的乘客量，不是1888年的數字。」
+—— 該理由屬於選項 A（70,000 是**今日**乘客量），字母卻指向**正確答案 B**。
+學生若照著「常犯錯誤」避開 B，就會答錯。
+
+### 二、根因
+`ai/usecases/generate-questions.ts` 的 `shuffleMCAnswers()` 在交付前以 Fisher–Yates
+重排選項（避免 LLM 偏好 B/C），但只更新 `choices` 與答案鍵字母，**沒有**同步更新
+`explanationZh` / `explanationEn` / `commonMistake` 中硬寫的選項字母 → 洗牌後同一字母
+指向不同選項，解說與答案鍵互相矛盾。舊碼另以 `choices.indexOf(correctText)` 反查新位置，
+選項文字重複時會誤判。
+
+### 三、修正
+1. `shuffleMCAnswers()` 改洗「索引陣列」`order`，據以導出 `choices` 與**完整**的舊→新
+   字母對應（含所有干擾項），再以 `remapOptionLetters()` 同步改寫三個解說欄位。
+2. 新增 `remapOptionLetters()`：只在**明確的選項參照語境**（`誤選／錯選／錯答`、`選項`、
+   英文 `option|choice|answer X`、`(X)`／`（X）`）改寫字母 —— 英文句首冠詞 `A` 不受影響。
+3. 交付前確定性螢幕加一道防線：`inspectGeneratedQuestion()` 若見「`誤選／錯答` + 答案鍵
+   字母」即列為缺陷（涵蓋未經洗牌或人工寫入的題目），由既有補題迴圈重新出題。
+
+### 四、驗證
+`ai/__tests__/shuffle-option-letter-remap.test.ts`（11 個測試）以**回報案例原文**為 fixture，
+固定 `Math.random() = 0`（置換 `[1,2,3,0]` ⇒ 對應 `A→D / B→A / C→B / D→C`），斷言新正確
+答案的文字不變、`常犯錯誤` 由「誤選A」改為「誤選D」且**不再**指涉正確答案；另涵蓋英文
+`option` 句型、句首冠詞 `A` 不得被改寫、非 mc／缺欄位原樣回傳。
+`tsc --noEmit` 乾淨、lint 0 問題、全套 **3214 passed / 2 skipped**（167 files）。
+
+### 五、已知殘留
+**已寫入資料庫的題目**（`ReadingQuestion.commonMistake` 等）仍保有矛盾字母；本次修正只
+保證**新生成**的題目正確，歷史資料需另行掃描修復。
+
+---
+
 ## 2026-09-26 (II) — 生產事故：部署腳本清空 Cloud Run 環境變數導致全站 500（已修復）
 
 ### 一、症狀

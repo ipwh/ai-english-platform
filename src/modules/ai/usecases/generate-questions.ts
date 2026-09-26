@@ -31,32 +31,85 @@ export interface GenerateQuestionsOptions {
 }
 
 /**
+ * 選項字母引用的比對樣式。
+ *
+ * ⚠️ 必須有**明確的「選項參照」語境**（選項／誤選／option／括號），
+ * 不能在英文解說裡把句首冠詞 `A` 誤改成選項字母。
+ */
+const OPTION_LETTER_PATTERNS: readonly RegExp[] = [
+  /[誤錯](?:選|答)\s*([A-D])\b/g,
+  /選項\s*([A-D])\b/g,
+  /\b(?:option|choice|answer)\s+([A-D])\b/gi,
+  /[（(]([A-D])[）)]/g,
+];
+
+/**
+ * 將解說文字中的選項字母由「舊編號」重對應為「洗牌後編號」。
+ *
+ * 病根（2026-09-26 回報）：`shuffleMCAnswers()` 會重排選項並更新答案鍵字母，
+ * 但解說／常犯錯誤裡硬寫的字母沒有跟著重對應 → 洗牌後同一字母指向不同選項。
+ * 實例：解說寫「學生可能誤選B，因為 70,000 是今天的乘客量」，洗牌後 B 正是
+ * 正確答案 → 叫學生不要選的正是答案本身。
+ */
+export function remapOptionLetters(text: string | undefined, oldToNew: Record<string, string>): string {
+  if (!text) return '';
+  let out = text;
+  for (const pattern of OPTION_LETTER_PATTERNS) {
+    out = out.replace(pattern, (...args: unknown[]) => {
+      const match = args[0] as string;
+      // 最後兩個 args 是 offset 與原字串；第一個非空捕獲群組即字母
+      const groups = args.slice(1, -2) as Array<string | undefined>;
+      const letter = groups.find((g) => typeof g === 'string' && /^[A-D]$/.test(g));
+      if (!letter) return match;
+      const mapped = oldToNew[letter];
+      if (!mapped || mapped === letter) return match;
+      // 語境片語（選項／option／括號）本身不含大寫 A–D，故首次取代即為該字母
+      return match.replace(letter, mapped);
+    });
+  }
+  return out;
+}
+
+/**
  * Fisher-Yates shuffle for MCQ choices.
  * Randomizes choice positions and updates the answer letter accordingly.
  * Ensures LLM answer-position bias (usually B/C) does not affect the student.
+ *
+ * 2026-09-26：**同步重對應解說文字中的選項字母**。只換選項與答案鍵、不換解說
+ * 會產生自相矛盾的解說（見 `remapOptionLetters`）。
  */
-function shuffleMCAnswers(q: GeneratedQuestion): GeneratedQuestion {
+export function shuffleMCAnswers(q: GeneratedQuestion): GeneratedQuestion {
   if (!q.choices || q.choices.length < 2 || q.type !== 'mc') return q;
   if (!q.answer || !/^[A-D]$/i.test(q.answer)) return q;
 
   const answerIndex = q.answer.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, ...
   if (answerIndex < 0 || answerIndex >= q.choices.length) return q;
 
-  const correctText = q.choices[answerIndex];
-  const choices = [...q.choices];
-
-  // Fisher-Yates shuffle
-  for (let i = choices.length - 1; i > 0; i--) {
+  const original = [...q.choices];
+  // 洗牌「舊索引」再據此重排：這様才能取得**完整**的舊→新字母對應（含錯誤選項），
+  // 只洗 choices 會拿不到其餘選項的對應。同時避免重複文字造成 indexOf 誤判。
+  const order = original.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [choices[i], choices[j]] = [choices[j], choices[i]];
+    [order[i], order[j]] = [order[j], order[i]];
   }
-
-  // Find new position of correct answer
-  const newIndex = choices.indexOf(correctText);
-  if (newIndex === -1) return q; // safety: if text not found (shouldn't happen), keep original
+  const choices = order.map(k => original[k]);
 
   const letters = ['A', 'B', 'C', 'D'];
-  return { ...q, choices, answer: letters[newIndex] || q.answer };
+  const letter = (i: number) => letters[i] ?? String.fromCharCode(65 + i);
+  const oldToNew: Record<string, string> = {};
+  order.forEach((oldIdx, newIdx) => { oldToNew[letter(oldIdx)] = letter(newIdx); });
+
+  const newIndex = order.indexOf(answerIndex);
+
+  return {
+    ...q,
+    choices,
+    answer: letter(newIndex) || q.answer,
+    explanationZh: remapOptionLetters(q.explanationZh, oldToNew),
+    explanationEn: remapOptionLetters(q.explanationEn, oldToNew),
+    commonMistake: remapOptionLetters(q.commonMistake, oldToNew),
+  };
 }
 
 export async function generateQuestions(
