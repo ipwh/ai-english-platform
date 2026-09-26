@@ -62,7 +62,12 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 >   會從既有 revision 複製純值變數回服務範本（**全程不輸出機密值**，含逗號／引號的
 >   值會中止並要求改用 Secret Manager）。
 > - 應急回滾（不動範本）：`gcloud run services update-traffic english-platform --region asia-east2 --to-revisions <良好 revision>=100`
+> - **回滾後必須收斂回 `--to-latest`**：應急回滾使用的 `--to-revisions <rev>=100` 會**飩選（pin）**
+>   流量設定，之後的部署只會建立新 revision 而**不會**接手流量 —— 服務會與最新程式碼**漂移**
+>   （2026-09-26 實例：最新為 `00121`，但流量仍在 `00118`）。收斂指令：
+>   `gcloud run services update-traffic english-platform --region asia-east2 --to-latest`
 > - 安全預覽單一 revision（不動流量）：`--set-tags candidate=<revision>` 後開 `https://candidate---<service-url>`。
+>   預覽完畢請 `--clear-tags`。
 >
 > 注意：自動部署的 `cloudbuild.yaml` **沒有**任何 env-vars 旗標，因此它會**繼承服務範本**；
 > 範本一旦被清空，連 push 觸發的自動部署也會產生故障 revision。
