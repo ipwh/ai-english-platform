@@ -140,6 +140,15 @@ describe('PDF export route — bundled-runtime guards (2026-09-26 production inc
     expect(route).toContain("doc.registerFont('CJK', cjkFont)");
   });
 
+  it('lays out text with measured block heights (no fixed offsets → no overlap)', () => {
+    // 2026-09-26 使用者回報：PDF 文字重疊難讀。舊版六欄表格用固定列高 + 固定 +8pt
+    // 位移畫中譯 → 例句換行即重疊。改為逐塊 heightOfString 量測後才排版。
+    // 掃描前先移除註解（修正說明會提及舊實作的 `rowY2 + 8`）。
+    const code = route.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).toContain('heightOfString');
+    expect(code).not.toContain('rowY2');
+  });
+
   it('never falls back to an HTML 200 when format=pdf (HTML saved as .pdf = "corrupted" file)', () => {
     expect(route).toContain("format === 'pdf'");
     expect(route).toContain('PDF_GENERATION_FAILED');

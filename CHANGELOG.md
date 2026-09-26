@@ -4,6 +4,34 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-26 (V) — 生字簿 PDF 版式：固定列高令內文重疊（改為逐塊量測後排版）
+
+### 一、症狀（使用者回報）
+PDF 現可正常匯出及開啟，但內文**互相重疊、難以閱讀**（同日上一輪修正之後）。
+
+### 二、根因
+舊版以六欄表格排版，但所有位置都是**固定值**：
+- 每列列高固定 22pt、背景 rect 亦固定；
+- 例句欄的「英文例句」與「中文翻譯」硬寫在同一列的 `rowY2` 與 `rowY2 + 8`；
+  7pt 英文例句在 115pt 寬欄位幾乎必然換行到第二行 → 第二行與下方中譯**必然重疊**；
+- 中文意思（9pt、115pt 寬）亦無視換行高度，與 POS／星號欄互相擠壓。
+
+### 三、修正
+`generateVocabPdf()` 改為**單欄區塊式佈局**：每個單字一個區塊
+（編號＋單字＋POS＋★ → 意思 → 英文例句 → 例句中譯 → 同義／反義／搭配），
+區塊內每一段都以 `doc.heightOfString(text, { width })` **先量測**、再依實際回報的
+`doc.y` 接續排版；分頁由 `contentBottom()` 與區塊高度判斷，續頁輸出
+「Vocabulary Book 生字簿（續）」標頭（同 writing-analysis 的排版原則）。
+星號補上 `Math.min(5, Math.max(0, masteryLevel))` 防護。
+
+### 四、驗證
+- 原始碼護欄測試：`heightOfString` 必須存在，去註解後不得再出現固定位移（`rowY2`）。
+- 全套 **3223 passed / 2 skipped**（168 files）、`tsc` 乾淨、lint 0 errors。
+- standalone（生產同 bundle）E2E：37 字匯出 5 頁，Chromium 逐頁檢視（含換行、跨頁、
+  續頁標頭、頁尾）**全部無重疊**；多行內容（如「搭配」換行）亦正確接續。
+
+---
+
 ## 2026-09-26 (IV) — 生字簿：批量匯入「顯示成功但無加入」＋ PDF 匯出回傳 HTML 被判定為損壞檔
 
 ### 一、症狀（使用者回報）

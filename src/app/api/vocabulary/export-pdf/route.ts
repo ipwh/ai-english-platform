@@ -50,7 +50,10 @@ type ExportVocabRow = {
  * （HTTP 200），客戶端存成 .pdf 後被判「corrupted」。因此：
  *   1. 建構子傳 `font: ''` 跳過預設 Helvetica 載入（同 writing-analysis 匯出）；
  *   2. 所有文字一律用內嵌 CJK 字型（Noto Sans TC，含 Latin 與 ★☆ 字符）；
- *   3. 沒有字型檔時直接拋錯（由呼叫端轉成結構化錯誤，永不靜默回傳 HTML）。
+ *   3. 沒有字型檔時直接拋錯（由呼叫端轉成結構化錯誤，永不靜默回傳 HTML）；
+ *   4. 版式採「逐塊量測（heightOfString）後才排版」的單欄區塊式佈局 —— 舊版的
+ *      六欄表格以固定列高 + 固定位移（例：例句譯文硬寫在 `rowY2 + 8`）繪製，
+ *      英文例句一換行就會與下方中譯／下一列重疊（使用者回報「文字重疊、難以閱讀」）。
  */
 async function generateVocabPdf(vocab: ExportVocabRow[]): Promise<Buffer> {
   const PDFDocument = (await import('pdfkit')).default;
@@ -59,7 +62,8 @@ async function generateVocabPdf(vocab: ExportVocabRow[]): Promise<Buffer> {
     throw new Error('PDF export requires the bundled CJK font (public/fonts/NotoSansTC-Regular.ttf)');
   }
 
-  const doc = new PDFDocument({ size: 'A4', margin: 36, layout: 'portrait', font: '' });
+  const MARGIN = 40;
+  const doc = new PDFDocument({ size: 'A4', margin: MARGIN, layout: 'portrait', font: '' });
   const chunks: Buffer[] = [];
   const pdfPromise = new Promise<Buffer>((resolve, reject) => {
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -69,106 +73,93 @@ async function generateVocabPdf(vocab: ExportVocabRow[]): Promise<Buffer> {
 
   doc.registerFont('CJK', cjkFont);
   const FONT = 'CJK';
+  const CONTENT_W = doc.page.width - MARGIN * 2;
+  const FOOTER_ZONE = 30;
+  const contentBottom = () => doc.page.height - MARGIN - FOOTER_ZONE;
 
-  const PAGE_W = 595 - 72; // A4 width minus margins
+  const startPage = (continuation: boolean) => {
+    doc.addPage();
+    doc.y = MARGIN;
+    if (continuation) {
+      doc.font(FONT).fontSize(9).fillColor('#9ca3af')
+        .text('Vocabulary Book 生字簿（續）', MARGIN, MARGIN, { width: CONTENT_W });
+      doc.moveTo(MARGIN, doc.y + 4).lineTo(MARGIN + CONTENT_W, doc.y + 4).stroke('#e5e7eb');
+      doc.y += 14;
+    }
+  };
 
-  // === HEADER ===
-  doc.fontSize(22).font(FONT).fillColor('#0d9488')
-    .text('Vocabulary Book  生字簿', { align: 'left' });
-  doc.fontSize(9).font(FONT).fillColor('#6b7280')
-    .text(`${vocab.length} words · ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`);
-  doc.moveDown(0.5);
-  doc.moveTo(36, doc.y).lineTo(PAGE_W + 36, doc.y).stroke('#0d9488').moveDown(0.3);
+  // === HEADER（首頁）===
+  doc.font(FONT).fontSize(22).fillColor('#0d9488')
+    .text('Vocabulary Book  生字簿', MARGIN, MARGIN, { width: CONTENT_W });
+  doc.font(FONT).fontSize(9).fillColor('#6b7280')
+    .text(`${vocab.length} words · ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, MARGIN, doc.y + 2, { width: CONTENT_W });
+  doc.moveTo(MARGIN, doc.y + 6).lineTo(MARGIN + CONTENT_W, doc.y + 6).stroke('#0d9488');
+  doc.y += 16;
 
-  // === TABLE HEADER ===
-  const colX = [36, 130, 180, 260, 380, 500]; // #, Word, POS, Meaning, Example, Mastery
-  const headerY = doc.y;
-  doc.fontSize(8).font(FONT).fillColor('#6b7280');
-  doc.text('#', colX[0], headerY, { width: 80 });
-  doc.text('Word', colX[1], headerY, { width: 45 });
-  doc.text('POS', colX[2], headerY, { width: 45 });
-  doc.text('Meaning 意思', colX[3], headerY, { width: 110 });
-  doc.text('Example / Synonyms', colX[4], headerY, { width: 110 });
-  doc.text('★', colX[5], headerY, { width: 50, align: 'right' });
-  doc.moveTo(36, doc.y + 4).lineTo(PAGE_W + 36, doc.y + 4).stroke('#e5e7eb');
-  doc.moveDown(0.5);
-
-  // === ROWS ===
+  // === WORDS（每字一區塊；先量測、後排版 —— 固定列高／固定位移在例句換行時會與
+  // 下一段文字重疊，這正是使用者回報的「文字重疊、難以閱讀」）===
   for (let i = 0; i < vocab.length; i++) {
     const v = vocab[i];
     const synonyms = tryParse(v.synonyms);
     const antonyms = tryParse(v.antonyms);
     const collocations = tryParse(v.collocations);
-    const stars = '★'.repeat(v.masteryLevel ?? 0) + '☆'.repeat(5 - (v.masteryLevel ?? 0));
-    const rowY = doc.y;
+    const mastery = Math.max(0, Math.min(5, v.masteryLevel ?? 0));
+    const stars = '★'.repeat(mastery) + '☆'.repeat(5 - mastery);
 
-    // Check page break
-    if (rowY > 700) {
-      doc.addPage();
-      // Reprint header
-      doc.fontSize(8).font(FONT).fillColor('#6b7280');
-      doc.text('#', colX[0], 36, { width: 80 });
-      doc.text('Word', colX[1], 36, { width: 45 });
-      doc.text('POS', colX[2], 36, { width: 45 });
-      doc.text('Meaning', colX[3], 36, { width: 110 });
-      doc.text('Example/Synonyms', colX[4], 36, { width: 110 });
-      doc.text('★', colX[5], 36, { width: 50, align: 'right' });
-      doc.moveTo(36, doc.y + 4).lineTo(PAGE_W + 36, doc.y + 4).stroke('#e5e7eb');
-      doc.moveDown(0.3);
-    }
-
-    const rowY2 = doc.y;
-    // Row background (alternating)
-    if (i % 2 === 0) {
-      doc.rect(36, rowY2 - 2, PAGE_W, 22).fill('#f9fafb');
-    }
-
-    // # (index)
-    doc.fontSize(8).font(FONT).fillColor('#9ca3af');
-    doc.text(String(i + 1), colX[0], rowY2, { width: 80 });
-
-    // Word
-    doc.fontSize(10).font(FONT).fillColor('#111827');
-    doc.text(v.word, colX[1], rowY2 - 1, { width: 55 });
-
-    // POS
-    doc.fontSize(7).font(FONT).fillColor('#6b7280');
-    doc.text(v.partOfSpeech, colX[2], rowY2 + 1, { width: 50 });
-
-    // Meaning (CJK)
-    const meaningText = v.meaningZh + (v.secondaryMeaningZh ? '; ' + v.secondaryMeaningZh : '');
-    doc.fontSize(9).font(FONT).fillColor('#374151');
-    doc.text(meaningText, colX[3], rowY2 - 1, { width: 115 });
-
-    // Example / Synonyms / Antonyms (CJK)
+    const meaningText = v.meaningZh + (v.secondaryMeaningZh ? `；${v.secondaryMeaningZh}` : '');
+    const exampleText = v.exampleSentence ? `"${v.exampleSentence}"` : '';
+    const exampleZhText = v.exampleZh || '';
     const extraParts: string[] = [];
-    if (v.exampleSentence) extraParts.push(`"${v.exampleSentence.slice(0, 60)}${v.exampleSentence.length > 60 ? '...' : ''}"`);
-    if (synonyms.length > 0) extraParts.push('Syn: ' + synonyms.slice(0, 2).join(', '));
-    if (antonyms.length > 0) extraParts.push('Ant: ' + antonyms.slice(0, 2).join(', '));
-    if (collocations.length > 0) extraParts.push('Col: ' + collocations.slice(0, 2).join(', '));
-    if (extraParts.length > 0) {
-      doc.fontSize(7).font(FONT).fillColor('#6b7280');
-      doc.text(extraParts.join('  |  '), colX[4], rowY2, { width: 115 });
+    if (synonyms.length > 0) extraParts.push('同義：' + synonyms.join(' · '));
+    if (antonyms.length > 0) extraParts.push('反義：' + antonyms.join(' · '));
+    if (collocations.length > 0) extraParts.push('搭配：' + collocations.join(' · '));
+    const extraText = extraParts.join('　');
+
+    // --- 量測：與繪製使用相同字型大小／寬度 ---
+    const WORD_COL_W = CONTENT_W - 150; // 右側留給 POS 與 ★
+    doc.font(FONT).fontSize(12);
+    const wordH = Math.max(doc.heightOfString(`${i + 1}. ${v.word}`, { width: WORD_COL_W }), 15);
+    doc.fontSize(9.5);
+    const meaningH = doc.heightOfString(meaningText, { width: CONTENT_W });
+    doc.fontSize(8.5);
+    const exampleH = exampleText ? doc.heightOfString(exampleText, { width: CONTENT_W }) : 0;
+    doc.fontSize(8);
+    const exampleZhH = exampleZhText ? doc.heightOfString(exampleZhText, { width: CONTENT_W }) : 0;
+    doc.fontSize(7.5);
+    const extraH = extraText ? doc.heightOfString(extraText, { width: CONTENT_W }) : 0;
+
+    const GAP = 3;
+    const blockH = wordH + (meaningH + GAP) + (exampleH ? exampleH + GAP : 0) + (exampleZhH ? exampleZhH + GAP : 0) + (extraH ? extraH + GAP : 0) + 18;
+
+    if (doc.y + blockH > contentBottom()) startPage(true);
+
+    // --- 繪製（每一段都以實際回報的 doc.y 接著排版，不與任何固定位移混用） ---
+    const top = doc.y;
+    doc.font(FONT).fontSize(12).fillColor('#111827').text(`${i + 1}. ${v.word}`, MARGIN, top, { width: WORD_COL_W });
+    doc.fontSize(8).fillColor('#6b7280').text(v.partOfSpeech, MARGIN + WORD_COL_W, top + 3, { width: 90 });
+    doc.fontSize(9).fillColor('#f59e0b').text(stars, MARGIN + WORD_COL_W + 90, top + 2, { width: CONTENT_W - WORD_COL_W - 90, align: 'right' });
+    doc.y = top + wordH;
+
+    doc.font(FONT).fontSize(9.5).fillColor('#374151').text(meaningText, MARGIN, doc.y + GAP, { width: CONTENT_W });
+    if (exampleText) {
+      doc.font(FONT).fontSize(8.5).fillColor('#4b5563').text(exampleText, MARGIN, doc.y + GAP, { width: CONTENT_W });
     }
-    // CJK example translation
-    if (v.exampleZh) {
-      doc.fontSize(7).font(FONT).fillColor('#9ca3af');
-      doc.text(v.exampleZh.slice(0, 50), colX[4], rowY2 + 8, { width: 115 });
+    if (exampleZhText) {
+      doc.font(FONT).fontSize(8).fillColor('#6b7280').text(exampleZhText, MARGIN, doc.y + GAP, { width: CONTENT_W });
+    }
+    if (extraText) {
+      doc.font(FONT).fontSize(7.5).fillColor('#6b7280').text(extraText, MARGIN, doc.y + GAP, { width: CONTENT_W });
     }
 
-    // Mastery stars
-    doc.fontSize(7).font(FONT).fillColor('#f59e0b');
-    doc.text(stars, colX[5], rowY2, { width: 50, align: 'right' });
-
-    // Separator line
-    doc.moveTo(36, doc.y + 6).lineTo(PAGE_W + 36, doc.y + 6).stroke('#f3f4f6');
-    doc.moveDown(0.3);
+    doc.moveTo(MARGIN, doc.y + 7).lineTo(MARGIN + CONTENT_W, doc.y + 7).stroke('#f3f4f6');
+    doc.y += 14;
   }
 
   // === FOOTER ===
-  doc.moveDown(1);
-  doc.fontSize(7).font(FONT).fillColor('#d1d5db');
-  doc.text(`Generated by AI English Platform · ${new Date().toISOString().slice(0, 10)}`, { align: 'center' });
+  if (doc.y + 24 > contentBottom()) startPage(false);
+  doc.y += 6;
+  doc.font(FONT).fontSize(7).fillColor('#9ca3af');
+  doc.text(`Generated by AI English Platform · ${new Date().toISOString().slice(0, 10)}`, MARGIN, doc.y, { width: CONTENT_W, align: 'center' });
 
   doc.end();
   return pdfPromise;
