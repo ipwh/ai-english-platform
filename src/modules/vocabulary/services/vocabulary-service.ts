@@ -9,20 +9,40 @@ import type { Prisma } from '@prisma/client';
 export interface VocabInput {
   studentId: string; word: string; translation: string;
   partOfSpeech?: string; example?: string; source?: string;
+  // 2026-09-26: AI 分析（快速加入／批量匯入）的擴充欄位 — DB 以 JSON 字串儲存
+  allPartOfSpeech?: string[];
+  secondaryMeaningZh?: string;
+  exampleZh?: string;
+  synonyms?: string[];
+  antonyms?: string[];
+  collocations?: string[];
 }
 
+/** 空陣列 / undefined 一律不寫入（避免 '[]' 蓋掉既有資料）。 */
+function toJsonArray(arr?: string[]): string | undefined {
+  return arr && arr.length > 0 ? JSON.stringify(arr) : undefined;
+}
+
+/** 新增單字。回傳 `created` 讓呼叫端能區分「新加入」與「本來已存在」。 */
 export async function addWord(input: VocabInput) {
   const existing = await findVocabByWord(input.studentId, input.word);
-  if (existing) return existing;
+  if (existing) return { item: existing, created: false };
   logger.info({ module: 'vocabulary-service', word: input.word, studentId: input.studentId }, 'Adding word');
-  return createVocab({
+  const item = await createVocab({
     student: { connect: { id: input.studentId } },
     word: input.word,
     partOfSpeech: input.partOfSpeech || 'noun',
     meaningZh: input.translation,
     exampleSentence: input.example,
+    allPartOfSpeech: toJsonArray(input.allPartOfSpeech),
+    secondaryMeaningZh: input.secondaryMeaningZh || undefined,
+    exampleZh: input.exampleZh || undefined,
+    synonyms: toJsonArray(input.synonyms),
+    antonyms: toJsonArray(input.antonyms),
+    collocations: toJsonArray(input.collocations),
     familiarity: 'new',
   });
+  return { item, created: true };
 }
 
 export async function getStudentWords(studentId: string) { return listVocab(studentId); }

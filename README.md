@@ -10,9 +10,10 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-09-26 — 166 files, 3203 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-26 — 168 files, 3222 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
+- **Deployment (2026-09-26 — 生字簿修正)**: **no schema change / no migration.** 批量匯入欄位契約修正（`translation`/`example` ＋擴充欄位保存；重複單字回 409、失敗如實顯示）；PDF 匯出改用內嵌 CJK 字型（`font: ''`，不依賴 PDFKit 標準字型）且 `format=pdf` 失敗回結構化 500、**永不**以 HTML 冒充。部署後請驗證（見 [CHANGELOG 2026-09-26 (IV)](CHANGELOG.md)）：① 批量匯入後生字即時出現在列表；② 下載 PDF 的回應為 `application/pdf` 且可正常開啟（不應出現 corrupted）。
 
 ## 📉 Neon Egress 維運（2026-09-26，ADR-046）
 
@@ -171,7 +172,7 @@ Writing Evaluation (Sprints 127-130):
 - **🎯 題型弱項（錯題本）** — 錯題按技能／題型聚合（例如「閱讀・推論」），附**確定性雙語策略卡**（常見錯因 + 下次作答步驟）。**閱讀／聆聽錯題依附特定篇章，無法重考同一題**，因此該類項目不再提供無效的「重做」，改為「練 DSE 閱讀（涵蓋此題型）」；文法／詞彙則練同項目新題，語境詞義錯題可一鍵加入生字簿
 - **進度分析** — 學習數據儀表板，AI 對照 HKDSE Subject Descriptors 提供個人化學習建議及週計劃
 - **詞彙庫** — 生字學習及語音播放
-- **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化複習建議，掌握度 ★ 評級（0-5），自動去重
+- **📚 智能生字簿 2.0** — AI 一鍵分析單字（詞性、中英意思、例句、同義字、反義字、搭配詞），浮動按鈕快速加入，右鍵選取文字即時加入，批量匯入，CSV/Anki/PDF 匯出，個人化複習建議，掌握度 ★ 評級（0-5），自動去重。**2026-09-26 修正**：批量匯入成功計數只計伺服器確認新增（重複字回 409、失敗可重試），AI 分析擴充欄位（詞性變化／例句翻譯／同反義／搭配）完整保存；PDF 匯出以內嵌字型生成，失敗回結構化錯誤（不再產生「corrupted」檔案）
 - **📝 生字簿 2.1 強化** — API 分頁支援（`page`/`limit`/`search`/`familiarity`/`pos`/`sort`）、`/api/vocabulary/example` 專用例句生成、`/api/vocabulary/quiz` 互動式詞彙測驗（MCQ + 配對題）、VocabCard 策略提示根據掌握度動態推導
 - **✏️ 串字練習 (Spelling Practice)** — 看中文意思及英文例句提示，自行輸入正確英文單詞；支援 5 種選字模式（最新/隨機/最弱/到期/自選）、即時批改、錯誤重試、SRS 掌握度自動更新；完成後顯示成績及逐字結果回顧（`SpellingSession` + `SpellingAttempt` DB 模型）
 - **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕

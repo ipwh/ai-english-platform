@@ -319,8 +319,13 @@ export default function VocabularyPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId, wordIds: ids, format: 'pdf' }),
     })
-      .then(r => {
-        if (!r.ok) throw new Error('Export failed');
+      .then(async r => {
+        const contentType = r.headers.get('content-type') || '';
+        // 2026-09-26: 必須確認真的是 PDF 才存檔 —— 舊碼把任何 200 回應存成 .pdf，
+        // 伺服器回退成 HTML 時使用者會拿到「corrupted」檔案且沒有任何錯誤提示。
+        if (!r.ok || !contentType.includes('application/pdf')) {
+          throw new Error(`Export failed (${r.status}, ${contentType || 'unknown type'})`);
+        }
         return r.blob();
       })
       .then(blob => {
@@ -333,7 +338,10 @@ export default function VocabularyPage() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       })
-      .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'PDF export failed'); });
+      .catch((e) => {
+        logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'PDF export failed');
+        alert(t('vocab.exportFailed'));
+      });
   };
 
   // ============================================

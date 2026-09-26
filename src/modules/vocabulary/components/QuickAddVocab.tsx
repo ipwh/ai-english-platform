@@ -105,6 +105,13 @@ export default function QuickAddVocab({
           partOfSpeech: analysis.partOfSpeech,
           translation: analysis.meaningZh,
           example: analysis.exampleSentence,
+          // 2026-09-26: AI 分析的擴充欄位一併保存（詞性變化／例句翻譯／同反義／搭配）
+          allPartOfSpeech: analysis.allPartOfSpeech,
+          secondaryMeaningZh: analysis.secondaryMeaningZh,
+          exampleZh: analysis.exampleZh,
+          synonyms: analysis.synonyms,
+          antonyms: analysis.antonyms,
+          collocations: analysis.collocations,
           source: 'quick-add',
         }),
       });

@@ -28,6 +28,152 @@ function getCJKFont(): Buffer | null {
   return null;
 }
 
+type ExportVocabRow = {
+  word: string;
+  partOfSpeech: string;
+  meaningZh: string;
+  secondaryMeaningZh?: string | null;
+  exampleSentence?: string | null;
+  exampleZh?: string | null;
+  synonyms?: unknown;
+  antonyms?: unknown;
+  collocations?: unknown;
+  masteryLevel?: number | null;
+};
+
+/**
+ * 產生生字簿 PDF。
+ *
+ * 2026-09-26 生產事故修正：Turbopack 會把 pdfkit 打包進 server chunk 並將
+ * `__dirname` 換成建構期佔位符（`/ROOT/...`），令 PDFKit 標準字型（Helvetica 等）的
+ * AFM 檔在執行期讀不到 → `new PDFDocument()` 直接 ENOENT 拋錯 → 舊碼回退成 HTML
+ * （HTTP 200），客戶端存成 .pdf 後被判「corrupted」。因此：
+ *   1. 建構子傳 `font: ''` 跳過預設 Helvetica 載入（同 writing-analysis 匯出）；
+ *   2. 所有文字一律用內嵌 CJK 字型（Noto Sans TC，含 Latin 與 ★☆ 字符）；
+ *   3. 沒有字型檔時直接拋錯（由呼叫端轉成結構化錯誤，永不靜默回傳 HTML）。
+ */
+async function generateVocabPdf(vocab: ExportVocabRow[]): Promise<Buffer> {
+  const PDFDocument = (await import('pdfkit')).default;
+  const cjkFont = getCJKFont();
+  if (!cjkFont) {
+    throw new Error('PDF export requires the bundled CJK font (public/fonts/NotoSansTC-Regular.ttf)');
+  }
+
+  const doc = new PDFDocument({ size: 'A4', margin: 36, layout: 'portrait', font: '' });
+  const chunks: Buffer[] = [];
+  const pdfPromise = new Promise<Buffer>((resolve, reject) => {
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+  });
+
+  doc.registerFont('CJK', cjkFont);
+  const FONT = 'CJK';
+
+  const PAGE_W = 595 - 72; // A4 width minus margins
+
+  // === HEADER ===
+  doc.fontSize(22).font(FONT).fillColor('#0d9488')
+    .text('Vocabulary Book  生字簿', { align: 'left' });
+  doc.fontSize(9).font(FONT).fillColor('#6b7280')
+    .text(`${vocab.length} words · ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`);
+  doc.moveDown(0.5);
+  doc.moveTo(36, doc.y).lineTo(PAGE_W + 36, doc.y).stroke('#0d9488').moveDown(0.3);
+
+  // === TABLE HEADER ===
+  const colX = [36, 130, 180, 260, 380, 500]; // #, Word, POS, Meaning, Example, Mastery
+  const headerY = doc.y;
+  doc.fontSize(8).font(FONT).fillColor('#6b7280');
+  doc.text('#', colX[0], headerY, { width: 80 });
+  doc.text('Word', colX[1], headerY, { width: 45 });
+  doc.text('POS', colX[2], headerY, { width: 45 });
+  doc.text('Meaning 意思', colX[3], headerY, { width: 110 });
+  doc.text('Example / Synonyms', colX[4], headerY, { width: 110 });
+  doc.text('★', colX[5], headerY, { width: 50, align: 'right' });
+  doc.moveTo(36, doc.y + 4).lineTo(PAGE_W + 36, doc.y + 4).stroke('#e5e7eb');
+  doc.moveDown(0.5);
+
+  // === ROWS ===
+  for (let i = 0; i < vocab.length; i++) {
+    const v = vocab[i];
+    const synonyms = tryParse(v.synonyms);
+    const antonyms = tryParse(v.antonyms);
+    const collocations = tryParse(v.collocations);
+    const stars = '★'.repeat(v.masteryLevel ?? 0) + '☆'.repeat(5 - (v.masteryLevel ?? 0));
+    const rowY = doc.y;
+
+    // Check page break
+    if (rowY > 700) {
+      doc.addPage();
+      // Reprint header
+      doc.fontSize(8).font(FONT).fillColor('#6b7280');
+      doc.text('#', colX[0], 36, { width: 80 });
+      doc.text('Word', colX[1], 36, { width: 45 });
+      doc.text('POS', colX[2], 36, { width: 45 });
+      doc.text('Meaning', colX[3], 36, { width: 110 });
+      doc.text('Example/Synonyms', colX[4], 36, { width: 110 });
+      doc.text('★', colX[5], 36, { width: 50, align: 'right' });
+      doc.moveTo(36, doc.y + 4).lineTo(PAGE_W + 36, doc.y + 4).stroke('#e5e7eb');
+      doc.moveDown(0.3);
+    }
+
+    const rowY2 = doc.y;
+    // Row background (alternating)
+    if (i % 2 === 0) {
+      doc.rect(36, rowY2 - 2, PAGE_W, 22).fill('#f9fafb');
+    }
+
+    // # (index)
+    doc.fontSize(8).font(FONT).fillColor('#9ca3af');
+    doc.text(String(i + 1), colX[0], rowY2, { width: 80 });
+
+    // Word
+    doc.fontSize(10).font(FONT).fillColor('#111827');
+    doc.text(v.word, colX[1], rowY2 - 1, { width: 55 });
+
+    // POS
+    doc.fontSize(7).font(FONT).fillColor('#6b7280');
+    doc.text(v.partOfSpeech, colX[2], rowY2 + 1, { width: 50 });
+
+    // Meaning (CJK)
+    const meaningText = v.meaningZh + (v.secondaryMeaningZh ? '; ' + v.secondaryMeaningZh : '');
+    doc.fontSize(9).font(FONT).fillColor('#374151');
+    doc.text(meaningText, colX[3], rowY2 - 1, { width: 115 });
+
+    // Example / Synonyms / Antonyms (CJK)
+    const extraParts: string[] = [];
+    if (v.exampleSentence) extraParts.push(`"${v.exampleSentence.slice(0, 60)}${v.exampleSentence.length > 60 ? '...' : ''}"`);
+    if (synonyms.length > 0) extraParts.push('Syn: ' + synonyms.slice(0, 2).join(', '));
+    if (antonyms.length > 0) extraParts.push('Ant: ' + antonyms.slice(0, 2).join(', '));
+    if (collocations.length > 0) extraParts.push('Col: ' + collocations.slice(0, 2).join(', '));
+    if (extraParts.length > 0) {
+      doc.fontSize(7).font(FONT).fillColor('#6b7280');
+      doc.text(extraParts.join('  |  '), colX[4], rowY2, { width: 115 });
+    }
+    // CJK example translation
+    if (v.exampleZh) {
+      doc.fontSize(7).font(FONT).fillColor('#9ca3af');
+      doc.text(v.exampleZh.slice(0, 50), colX[4], rowY2 + 8, { width: 115 });
+    }
+
+    // Mastery stars
+    doc.fontSize(7).font(FONT).fillColor('#f59e0b');
+    doc.text(stars, colX[5], rowY2, { width: 50, align: 'right' });
+
+    // Separator line
+    doc.moveTo(36, doc.y + 6).lineTo(PAGE_W + 36, doc.y + 6).stroke('#f3f4f6');
+    doc.moveDown(0.3);
+  }
+
+  // === FOOTER ===
+  doc.moveDown(1);
+  doc.fontSize(7).font(FONT).fillColor('#d1d5db');
+  doc.text(`Generated by AI English Platform · ${new Date().toISOString().slice(0, 10)}`, { align: 'center' });
+
+  doc.end();
+  return pdfPromise;
+}
+
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
   if (!authResult.authenticated) {
@@ -55,127 +201,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No vocabulary items to export' }, { status: 404 });
     }
 
-    // Real PDF via pdfkit with CJK font support
+    // Real PDF via pdfkit with embedded CJK font
     if (format === 'pdf') {
       try {
-        const PDFDocument = (await import('pdfkit')).default;
-        const doc = new PDFDocument({ size: 'A4', margin: 36, layout: 'portrait' });
-        const chunks: Buffer[] = [];
-        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-        const pdfPromise = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
-
-        // Register CJK font for Chinese text (dynamic import avoids NFT tracing)
-        const cjkFont = getCJKFont();
-        if (cjkFont) {
-          doc.registerFont('CJK', cjkFont);
-        }
-
-        const PAGE_W = 595 - 72; // A4 width minus margins
-
-        // === HEADER ===
-        doc.fontSize(22).font('Helvetica-Bold').fillColor('#0d9488')
-          .text('Vocabulary Book  生字簿', { align: 'left' });
-        doc.fontSize(9).font('Helvetica').fillColor('#6b7280')
-          .text(`${vocab.length} words · ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`);
-        doc.moveDown(0.5);
-        doc.moveTo(36, doc.y).lineTo(PAGE_W + 36, doc.y).stroke('#0d9488').moveDown(0.3);
-
-        // === TABLE HEADER ===
-        const colX = [36, 130, 180, 260, 380, 500]; // #, Word, POS, Meaning, Example, Mastery
-        const headerY = doc.y;
-        doc.fontSize(8).font('Helvetica-Bold').fillColor('#6b7280');
-        doc.text('#', colX[0], headerY, { width: 80 });
-        doc.text('Word', colX[1], headerY, { width: 45 });
-        doc.text('POS', colX[2], headerY, { width: 45 });
-        doc.text('Meaning 意思', colX[3], headerY, { width: 110 });
-        doc.text('Example / Synonyms', colX[4], headerY, { width: 110 });
-        doc.text('★', colX[5], headerY, { width: 50, align: 'right' });
-        doc.moveTo(36, doc.y + 4).lineTo(PAGE_W + 36, doc.y + 4).stroke('#e5e7eb');
-        doc.moveDown(0.5);
-
-        // === ROWS ===
-        for (let i = 0; i < vocab.length; i++) {
-          const v = vocab[i];
-          const synonyms = tryParse(v.synonyms);
-          const antonyms = tryParse(v.antonyms);
-          const collocations = tryParse(v.collocations);
-          const stars = '★'.repeat(v.masteryLevel ?? 0) + '☆'.repeat(5 - (v.masteryLevel ?? 0));
-          const rowY = doc.y;
-
-          // Check page break
-          if (rowY > 700) {
-            doc.addPage();
-            // Reprint header
-            doc.fontSize(8).font('Helvetica-Bold').fillColor('#6b7280');
-            doc.text('#', colX[0], 36, { width: 80 });
-            doc.text('Word', colX[1], 36, { width: 45 });
-            doc.text('POS', colX[2], 36, { width: 45 });
-            doc.text('Meaning', colX[3], 36, { width: 110 });
-            doc.text('Example/Synonyms', colX[4], 36, { width: 110 });
-            doc.text('★', colX[5], 36, { width: 50, align: 'right' });
-            doc.moveTo(36, doc.y + 4).lineTo(PAGE_W + 36, doc.y + 4).stroke('#e5e7eb');
-            doc.moveDown(0.3);
-          }
-
-          const rowY2 = doc.y;
-          // Row background (alternating)
-          if (i % 2 === 0) {
-            doc.rect(36, rowY2 - 2, PAGE_W, 22).fill('#f9fafb');
-          }
-
-          // # (index)
-          doc.fontSize(8).font('Helvetica').fillColor('#9ca3af');
-          doc.text(String(i + 1), colX[0], rowY2, { width: 80 });
-
-          // Word
-          doc.fontSize(10).font('Helvetica-Bold').fillColor('#111827');
-          doc.text(v.word, colX[1], rowY2 - 1, { width: 55 });
-
-          // POS
-          doc.fontSize(7).font('Helvetica').fillColor('#6b7280');
-          doc.text(v.partOfSpeech, colX[2], rowY2 + 1, { width: 50 });
-
-          // Meaning (CJK)
-          const meaningText = v.meaningZh + (v.secondaryMeaningZh ? '; ' + v.secondaryMeaningZh : '');
-          if (cjkFont) {
-            doc.fontSize(9).font('CJK').fillColor('#374151');
-          } else {
-            doc.fontSize(9).font('Helvetica').fillColor('#374151');
-          }
-          doc.text(meaningText, colX[3], rowY2 - 1, { width: 115 });
-
-          // Example / Synonyms / Antonyms (CJK)
-          const extraParts: string[] = [];
-          if (v.exampleSentence) extraParts.push(`"${v.exampleSentence.slice(0, 60)}${v.exampleSentence.length > 60 ? '...' : ''}"`);
-          if (synonyms.length > 0) extraParts.push('Syn: ' + synonyms.slice(0, 2).join(', '));
-          if (antonyms.length > 0) extraParts.push('Ant: ' + antonyms.slice(0, 2).join(', '));
-          if (collocations.length > 0) extraParts.push('Col: ' + collocations.slice(0, 2).join(', '));
-          if (extraParts.length > 0) {
-            doc.fontSize(7).font('Helvetica-Oblique').fillColor('#6b7280');
-            doc.text(extraParts.join('  |  '), colX[4], rowY2, { width: 115 });
-          }
-          // CJK example translation
-          if (v.exampleZh && cjkFont) {
-            doc.fontSize(7).font('CJK').fillColor('#9ca3af');
-            doc.text(v.exampleZh.slice(0, 50), colX[4], rowY2 + 8, { width: 115 });
-          }
-
-          // Mastery stars
-          doc.fontSize(7).font('Helvetica').fillColor('#f59e0b');
-          doc.text(stars, colX[5], rowY2, { width: 50, align: 'right' });
-
-          // Separator line
-          doc.moveTo(36, doc.y + 6).lineTo(PAGE_W + 36, doc.y + 6).stroke('#f3f4f6');
-          doc.moveDown(0.3);
-        }
-
-        // === FOOTER ===
-        doc.moveDown(1);
-        doc.fontSize(7).font('Helvetica').fillColor('#d1d5db');
-        doc.text(`Generated by AI English Platform · ${new Date().toISOString().slice(0, 10)}`, { align: 'center' });
-
-        doc.end();
-        const pdfBuffer = await pdfPromise;
+        const pdfBuffer = await generateVocabPdf(vocab);
 
         logger.info({ module: 'vocabulary-export', sizeKB: (pdfBuffer.length / 1024).toFixed(0), wordCount: vocab.length }, 'PDF generated');
         return new NextResponse(new Uint8Array(pdfBuffer), {
@@ -185,11 +214,18 @@ export async function POST(request: NextRequest) {
           },
         });
       } catch (pdfErr) {
-        logger.error({ module: 'export-pdf', error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr) }, 'PDFKit generation failed, falling back to HTML');
+        // 2026-09-26: format==='pdf' 永不回退成 HTML —— 舊碼把 HTML 以 200 回傳，
+        // 客戶端存成 .pdf 後被 PDF 開啟器判為「corrupted」（生產事故）。
+        // PDF 生成失敗必須是可辨識的錯誤，讓客戶端能顯示重試提示。
+        logger.error({ module: 'export-pdf', error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr) }, 'PDF generation failed');
+        return NextResponse.json(
+          { error: 'PDF_GENERATION_FAILED', message: 'PDF 匯出失敗，請重試 / PDF export failed, please retry' },
+          { status: 500 }
+        );
       }
     }
 
-    // Default: HTML printable page (works as PDF via browser print)
+    // 其他 format（如 html）：HTML printable page（可用瀏覽器列印成 PDF）
     const rows = vocab.map((v, i) => {
       const synonyms = tryParse(v.synonyms);
       const antonyms = tryParse(v.antonyms);

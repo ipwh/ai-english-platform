@@ -4,6 +4,57 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-26 (IV) — 生字簿：批量匯入「顯示成功但無加入」＋ PDF 匯出回傳 HTML 被判定為損壞檔
+
+### 一、症狀（使用者回報）
+1. 生字簿「批量匯入」按「加入 N 個單字」後顯示「成功加入」，但生字簿**沒有任何新單字**。
+2. 下載的 `vocabulary-*.pdf` 無法開啟，PDF 閱讀器回報檔案 **corrupted**。
+
+### 二、根因
+**批量匯入（靜默失敗 ×2）**
+- `BatchImportVocab.tsx` POST 的是 AI 分析欄位（`meaningZh` / `exampleSentence` …），
+  但 `POST /api/vocabulary` 的 Zod `vocabularyCreateSchema` 要求 `translation`（必填）
+  → `validateRequest` 回 **400**，單字根本沒有寫入。
+- 客戶端 `handleAddAll()` 對「非 ok、非 409」的回應**沒有任何分支**，且成功畫面用
+  「分析成功」的 `status === 'success'` 計數 → 400 被靜默吞掉並顯示「成功加入 N 個」。
+- 附帶：`allPartOfSpeech` / `secondaryMeaningZh` / `exampleZh` / `synonyms` / `antonyms` /
+  `collocations` 不在 schema 內被整批丟棄（DB 明明有欄位）。
+
+**PDF 匯出（HTML 冒充 PDF）**
+- Turbopack 會把 `pdfkit` 打包進 server chunk，並把 `__dirname` 換成建構期佔位符
+  `/ROOT/...`；`new PDFDocument()` 預設載入 Helvetica，其 AFM 檔以
+  `fs.readFileSync('/ROOT/node_modules/pdfkit/js/data/Helvetica.afm')` 讀取 → **ENOENT**。
+- 舊碼 catch 後「fallback to HTML」，以 **HTTP 200 / text/html** 回傳列印頁；客戶端
+  `if (!r.ok)` 過關並把 HTML 存成 `.pdf` → 開啟器判為 corrupted。（同款事故防範早已
+  寫在 `export/writing-analysis`：「跳過 PDFKit 內建 Helvetica…容器映像中不存在」，
+  生字簿路由漏了同一修正。）
+- 以重建後的 standalone 產物（與 Cloud Run 相同 bundle）重現，伺服器日誌：
+  `PDFKit generation failed, falling back to HTML` / `ENOENT ... D:\ROOT\node_modules\pdfkit\js\data\Helvetica.afm`。
+
+### 三、修正
+1. `crud.schema.ts` / `vocabulary-service.ts` / `POST /api/vocabulary`：`vocabularyCreateSchema`
+   新增擴充欄位（選填）；`addWord()` 保存 JSON 陣列欄位（空陣列不寫入）並回傳
+   `{ item, created }`；重複單字改回 **409 duplicate**（附既有 `vocab`），不再回 201。
+2. `BatchImportVocab.tsx`：改送正名欄位（`translation` / `example`）＋全部擴充欄位；
+   加入失敗如實標成 `error`（含伺服器訊息）、完成畫面只計「伺服器確認新增」的數量、
+   顯示失敗/分析失敗數並提供「重試失敗的 N 個」；`QuickAddVocab.tsx` 同步附上擴充欄位。
+3. `export-pdf/route.ts`：`new PDFDocument({ font: '' })` 跳過標準字型，全文改用內嵌
+   Noto Sans TC（含 Latin 與 ★☆）；無字型檔即拋錯；**`format === 'pdf'` 失敗改回
+   結構化 500 `PDF_GENERATION_FAILED`，永不回退成 HTML**（HTML 列印頁僅保留給其他 format）。
+4. `student/vocabulary/page.tsx`：下載前驗證 `content-type` 必須是 `application/pdf`，
+   失敗時 `alert(t('vocab.exportFailed'))`（新增 i18n key）。
+
+### 四、驗證
+- `src/modules/vocabulary/__tests__/vocabulary-add-word.test.ts`（8 tests）：schema 接受
+  批量 payload、拒絕缺 `translation` 的舊 payload、`addWord` JSON 映射與 `created` 語意、
+  客戶端原始碼護欄、export-pdf 原始碼護欄（`font: ''`、零 `Helvetica`、非 2xx）。
+- 全套 **3222 passed / 2 skipped**（168 files）、`tsc --noEmit` 乾淨、lint 0 errors。
+- **standalone E2E（與生產相同 bundle）**：修復前 `200 text/html`（ENOENT /ROOT）→ 修復後
+  `200 application/pdf`（54 KB、`%PDF-1.3`）並在 Chromium 檢視器正常開啟（27 字、CJK 正常）；
+  批量匯入 E2E：重複字 → 409、新字（全擴充欄位）→ 201 且回傳陣列、搜尋可見、清理刪除後歸零。
+
+---
+
 ## 2026-09-26 (III) — 選項洗牌後未重對應解說字母（常犯錯誤叫學生不要選正確答案）
 
 ### 一、症狀（使用者回報）

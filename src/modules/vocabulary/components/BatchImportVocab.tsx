@@ -24,6 +24,8 @@ interface WordResult {
   status: 'pending' | 'analyzing' | 'success' | 'duplicate' | 'error';
   analysis?: WordAnalysis;
   error?: string;
+  /** true 只在伺服器確認新增成功後設定（避免分析成功被誤報為加入成功） */
+  imported?: boolean;
 }
 
 export default function BatchImportVocab({
@@ -97,8 +99,9 @@ export default function BatchImportVocab({
     setStatus('idle'); // Ready to add
   };
 
-  const handleAddAll = async () => {
-    const toAdd = results.filter(r => r.status === 'success' && r.analysis);
+  const handleAddAll = async (onlyFailed = false) => {
+    // items: 分析完成且待加入；onlyFailed: 只重試上次加入失敗的
+    const toAdd = results.filter(r => r.analysis && (onlyFailed ? r.status === 'error' : r.status === 'success' && !r.imported));
     if (toAdd.length === 0) return;
 
     setStatus('adding');
@@ -113,11 +116,12 @@ export default function BatchImportVocab({
           body: JSON.stringify({
             studentId,
             word: item.analysis.word,
+            // API 欄位正名（translation/example）＋ AI 分析的擴充欄位
+            translation: item.analysis.meaningZh,
             partOfSpeech: item.analysis.partOfSpeech,
             allPartOfSpeech: item.analysis.allPartOfSpeech,
-            meaningZh: item.analysis.meaningZh,
             secondaryMeaningZh: item.analysis.secondaryMeaningZh,
-            exampleSentence: item.analysis.exampleSentence,
+            example: item.analysis.exampleSentence,
             exampleZh: item.analysis.exampleZh,
             synonyms: item.analysis.synonyms,
             antonyms: item.analysis.antonyms,
@@ -128,16 +132,26 @@ export default function BatchImportVocab({
         if (res.ok) {
           added++;
           setResults(prev => prev.map(r =>
-            r.word === item.word ? { ...r, status: 'success' as const } : r
+            r.word === item.word ? { ...r, status: 'success' as const, imported: true, error: undefined } : r
           ));
         } else if (res.status === 409) {
           setResults(prev => prev.map(r =>
             r.word === item.word ? { ...r, status: 'duplicate' as const } : r
           ));
+        } else {
+          // 失敗必須如實反映（舊碼沒有任何失敗分支 → 一律顯示「成功加入」）
+          const data = await res.json().catch(() => null) as { error?: string; details?: Array<{ message?: string }> } | null;
+          const message = data?.details?.[0]?.message || data?.error
+            || (language === 'en' ? 'Add failed' : '加入失敗，請重試');
+          setResults(prev => prev.map(r =>
+            r.word === item.word ? { ...r, status: 'error' as const, error: message } : r
+          ));
         }
       } catch {
         setResults(prev => prev.map(r =>
-          r.word === item.word ? { ...r, status: 'error' as const, error: 'Add failed' } : r
+          r.word === item.word
+            ? { ...r, status: 'error' as const, error: language === 'en' ? 'Network error' : '網絡錯誤' }
+            : r
         ));
       }
     }
@@ -146,8 +160,12 @@ export default function BatchImportVocab({
     onImported?.(added);
   };
 
-  const successCount = results.filter(r => r.status === 'success').length;
+  const addedCount = results.filter(r => r.imported).length;
   const duplicateCount = results.filter(r => r.status === 'duplicate').length;
+  // 加入失敗（有分析結果但新增被拒）vs 分析失敗（連分析都沒有）
+  const failedCount = results.filter(r => r.status === 'error' && r.analysis).length;
+  const analysisFailedCount = results.filter(r => r.status === 'error' && !r.analysis).length;
+  const readyCount = results.filter(r => r.status === 'success' && r.analysis && !r.imported).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -167,11 +185,15 @@ export default function BatchImportVocab({
         {status === 'done' ? (
           /* Done state */
           <div className="text-center py-6">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            {addedCount === 0 && failedCount + analysisFailedCount > 0 ? (
+              <XCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+            ) : (
+              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            )}
             <p className="text-lg font-semibold text-gray-900 dark:text-white">
               {language === 'en'
-                ? `Added ${successCount} words!`
-                : `成功加入 ${successCount} 個單字！`}
+                ? `Added ${addedCount} words!`
+                : `成功加入 ${addedCount} 個單字！`}
             </p>
             {duplicateCount > 0 && (
               <p className="text-sm text-gray-500 mt-1">
@@ -179,6 +201,24 @@ export default function BatchImportVocab({
                   ? `${duplicateCount} already existed`
                   : `${duplicateCount} 個已存在`}
               </p>
+            )}
+            {failedCount > 0 && (
+              <p className="text-sm text-red-500 mt-1">
+                {language === 'en' ? `${failedCount} failed to add` : `${failedCount} 個加入失敗`}
+              </p>
+            )}
+            {analysisFailedCount > 0 && (
+              <p className="text-sm text-red-500 mt-1">
+                {language === 'en' ? `${analysisFailedCount} could not be analyzed` : `${analysisFailedCount} 個分析失敗`}
+              </p>
+            )}
+            {failedCount > 0 && (
+              <button
+                onClick={() => handleAddAll(true)}
+                className="mt-4 mr-2 px-6 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm"
+              >
+                {language === 'en' ? `Retry ${failedCount} failed` : `重試失敗的 ${failedCount} 個`}
+              </button>
             )}
             <button
               onClick={onClose}
@@ -293,8 +333,8 @@ export default function BatchImportVocab({
                 </button>
               ) : (
                 <button
-                  onClick={handleAddAll}
-                  disabled={status === 'analyzing' || status === 'adding' || successCount === 0}
+                  onClick={() => handleAddAll()}
+                  disabled={status === 'analyzing' || status === 'adding' || readyCount === 0}
                   className="flex-1 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1.5"
                 >
                   {status === 'adding' ? (
@@ -304,7 +344,7 @@ export default function BatchImportVocab({
                   )}
                   {status === 'adding'
                     ? (language === 'en' ? 'Adding...' : '加入中...')
-                    : (language === 'en' ? `Add ${successCount} Words` : `加入 ${successCount} 個單字`)}
+                    : (language === 'en' ? `Add ${readyCount} Words` : `加入 ${readyCount} 個單字`)}
                 </button>
               )}
             </div>

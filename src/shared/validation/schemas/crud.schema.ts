@@ -43,6 +43,15 @@ export const vocabularyCreateSchema = z.object({
   partOfSpeech: optionalString,
   example: optionalString,
   source: optionalString,
+  // 2026-09-26: AI 分析（快速加入／批量匯入）附帶的擴充欄位。
+  // 先前 schema 會把它們全部丟棄 → 生字簿缺少詞性變化／例句翻譯／同反義／搭配；
+  // 批量匯入更因缺少 `translation`（只送 meaningZh）被 400 拒絕而無法新增。
+  allPartOfSpeech: z.array(z.string()).optional(),
+  secondaryMeaningZh: optionalString,
+  exampleZh: optionalString,
+  synonyms: z.array(z.string()).optional(),
+  antonyms: z.array(z.string()).optional(),
+  collocations: z.array(z.string()).optional(),
 });
 
 export const vocabularySuggestSchema = z.object({

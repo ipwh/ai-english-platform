@@ -21,6 +21,7 @@ export const vocabTranslations: Record<string, { zh: string; en: string }> = {
   'vocab.selectedCount': { zh: '已選取 {n} 個', en: '{n} selected' },
   'vocab.spellingPractice': { zh: '拼寫練習', en: 'Spelling Practice' },
   'vocab.exportPdf': { zh: '匯出 PDF', en: 'Export PDF' },
+  'vocab.exportFailed': { zh: 'PDF 匯出失敗，請重試', en: 'PDF export failed, please retry' },
 
   'vocab.total': { zh: '總生字', en: 'Total' },
   'vocab.search': { zh: '搜尋生字...', en: 'Search vocabulary...' },

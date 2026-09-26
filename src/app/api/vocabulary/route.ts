@@ -25,23 +25,36 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     // Sprint 104: Zod-validated input
-    const { studentId, word, partOfSpeech, translation: meaningZh, example: exampleSentence } =
-      validateRequest(vocabularyCreateSchema, body);
+    // 2026-09-26: 擴充欄位（AI 分析附帶）納入 schema — 先前被丟棄，批量匯入因
+    // 只送 meaningZh（缺 `translation`）被 400 拒絕卻顯示加入成功
+    const {
+      studentId, word, partOfSpeech, translation: meaningZh, example: exampleSentence,
+      allPartOfSpeech, secondaryMeaningZh, exampleZh, synonyms, antonyms, collocations,
+    } = validateRequest(vocabularyCreateSchema, body);
 
     if (authResult.role !== 'teacher' && authResult.role !== 'admin' && studentId !== authResult.userId) {
       return NextResponse.json({ error: '只能為自己的帳號新增單字 / You can only add words to your own account' }, { status: 403 });
     }
 
-    // Use service layer — handles dedup internally (returns existing on duplicate)
-    const result = await addWord({
+    // Use service layer — handles dedup internally
+    const { item, created } = await addWord({
       studentId, word: word.trim(),
       translation: meaningZh || '',
       partOfSpeech: partOfSpeech || 'unknown',
       example: exampleSentence,
+      allPartOfSpeech, secondaryMeaningZh, exampleZh, synonyms, antonyms, collocations,
       source: undefined,
     });
 
-    return NextResponse.json({ vocab: serializeVocab(result) }, { status: 201 });
+    // 已存在 ⇒ 409（客戶端據此顯示「已存在」，不再誤報成功加入）
+    if (!created) {
+      return NextResponse.json(
+        { error: 'duplicate', message: '此單字已在生字簿中 / This word is already in your vocabulary book', vocab: serializeVocab(item) },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json({ vocab: serializeVocab(item) }, { status: 201 });
   } catch (err: unknown) {
     // Return NextResponse (e.g. from validateRequest) so it reaches the client
     // with its real status/body instead of an empty 500.

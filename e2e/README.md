@@ -90,6 +90,8 @@ e2e/
 | 7 | 進入 Vocab Quiz | 5 題測驗生成 | MCQ/Matching 題目顯示 |
 | 8 | 作答全部 → 查看分數 | Quiz 結果顯示 | Accuracy 百分比 |
 | 9 | 點擊「Export CSV」 | 下載 CSV | 檔案含 word/meaning/pos 欄位 |
+| 10 | 點擊「批量匯入」→ 貼上 3 個生字 → AI 批量分析 → 加入 | 完成畫面只計伺服器確認新增數 | 3 個生字出現在列表；重複字顯示「已存在」而非誤報成功 |
+| 11 | 點擊「PDF」匯出 | 下載 `vocabulary-*.pdf` | 回應為 `application/pdf`；檔案可正常開啟（非 HTML、不報 corrupted） |
 
 ### TC-S07: Mistakes 錯題本 — 題型弱項 → AI 解說 → SRS 複習
 | 步驟 | 動作 | 預期結果 | 檢查點 |
