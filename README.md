@@ -48,6 +48,25 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 
 脚本經 **Cloud Build** 建構並部署（不需本機 Docker）；region 預設 `asia-east2`。
 
+> ⚠️ **部署前必讀（2026-09-26 生產事故）**
+>
+> Cloud Run 環境變數**不在** repo 裡（`cloud-run.yaml` 只有 `NODE_ENV`）。
+> `scripts/cloud-run-deploy.ps1` 曾使用 `gcloud run deploy --set-env-vars`，而該旗標的
+> 語意是**取代整組**環境變數（非合併）→ `JWT_SECRET` / `AUTH_SECRET` / `DATABASE_URL` /
+> `AUTH_GOOGLE_*` / `CRON_SECRET` / `DEEPSEEK_API_KEY` / `NEXTAUTH_URL` 全被清空 →
+> 模組載入時 config 驗證拋錯 → **全站 500（含 `/api/health`）**。
+> 已修正為 `--update-env-vars`（合併）。
+>
+> - **任何部署後，先驗證 `GET /api/health` 回 200**（不要只看部署指令的「成功」）。
+> - 若變數再次被清空：`scripts/cloud-run-restore-env.ps1 -SourceRevision <已知良好 revision>`
+>   會從既有 revision 複製純值變數回服務範本（**全程不輸出機密值**，含逗號／引號的
+>   值會中止並要求改用 Secret Manager）。
+> - 應急回滾（不動範本）：`gcloud run services update-traffic english-platform --region asia-east2 --to-revisions <良好 revision>=100`
+> - 安全預覽單一 revision（不動流量）：`--set-tags candidate=<revision>` 後開 `https://candidate---<service-url>`。
+>
+> 注意：自動部署的 `cloudbuild.yaml` **沒有**任何 env-vars 旗標，因此它會**繼承服務範本**；
+> 範本一旦被清空，連 push 觸發的自動部署也會產生故障 revision。
+
 ### 部署前後量測流程
 
 1. **部署前（基準）**：`npm run db:diagnose:egress --used-gb <本期已用> --limit-gb 5`

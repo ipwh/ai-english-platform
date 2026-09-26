@@ -4,6 +4,52 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-26 (II) — 生產事故：部署腳本清空 Cloud Run 環境變數導致全站 500（已修復）
+
+### 一、症狀
+部署 revision `english-platform-00119-tq5` 後，**所有**路由（含 `/api/health`）回 500，
+瀏覽器顯示 `Failed to load resource: the server responded with a status of 500`。
+
+### 二、根因（**與本次 egress 改動無關**）
+`scripts/cloud-run-deploy.ps1` 使用 `gcloud run deploy --set-env-vars "NODE_ENV=production"`，
+而 gcloud 的 `--set-env-vars` 語意是**取代整組**環境變數（非合併）。該次部署把服務上的
+`JWT_SECRET` / `AUTH_SECRET` / `DATABASE_URL` / `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` /
+`CRON_SECRET` / `DEEPSEEK_API_KEY` / `NEXTAUTH_URL` / `GCP_PROJECT_ID` /
+`GOOGLE_SHEETS_CLASS_ROSTER_ID` / `AUTH_TRUST_HOST` 全部清空，只留下 `NODE_ENV` 與
+secretRef 型的 `GCP_SERVICE_ACCOUNT_JSON`。
+
+證據：stderr 日誌 `[config] 生產環境缺少必要安全變數: JWT_SECRET (min 32 chars),
+AUTH_SECRET (min 32 chars)` + `at module evaluation (...)`；`/api/health` 的 latency 僅 ~12ms
+（載入期失敗，非查詢逾時）。該路由的 try/catch 本會回傳帶訊息的 JSON，實際卻收到純文字
+`Internal Server Error` —— 證明錯誤發生在**框架載入階段**，而非路由內部。
+
+### 三、處置（依序）
+1. **先回滾流量**至 `english-platform-00117-b8k` → 服務立即恢復（`/api/health` 200）。
+2. 發現自動部署 trigger（`cloudbuild.yaml`，**不帶任何 env-vars 旗標**）所產生的
+   `english-platform-00118-2xd` 保留了**完整 12 個變數**且 `commit-sha = 7df96ee`（即本次
+   egress 修正）→ 以 `--set-tags candidate` 先做**不動流量的預覽驗證**（`/api/health` 與
+   `/login` 皆 200），再切 100% 流量過去 → **服務恢復且修正上線**。
+3. 修復**服務範本**的環境變數（見「四」）—— trigger 與手動部署都繼承範本，範本被清空會令
+   **任何**後續部署（含 push 觸發）再次產生故障 revision。
+
+### 四、修復根因
+- `scripts/cloud-run-deploy.ps1`：`--set-env-vars` → **`--update-env-vars`**（合併），
+  並加註事故說明，避免被改回。
+- 新增 `scripts/cloud-run-restore-env.ps1`：從「已知良好 revision」把純值環境變數**合併**回
+  服務範本。安全設計：**全程不輸出機密值**（只印鍵名與長度）；值含逗號／引號／換行時
+  **中止**（避免 gcloud 逗號分隔語法拆錯），並只顯示鍵名。
+- README 新增「部署前必讀」警告與應急程序（安全預覽 tag、traffic 回滾、部署後必須驗證
+  `/api/health`）。
+
+### 五、教訓
+- **部署成功 ≠ 服務健康**：`gcloud run deploy` 回報 `Done` 且 `serving 100 percent`，但當時
+  已全站 500。部署後**必須**驗證 `/api/health`。
+- **回滾先於診斷**：生產中斷時先切到已知良好 revision，再从容找根因（本次回滾 < 1 分鐘）。
+- **先預覽再切流量**：`--set-tags` 可對單一 revision 做不影響生產的驗證。
+- **被清空的服務範本是持續性風險**：即使當下服務正常，下一次部署仍會故障。
+
+---
+
 ## 2026-09-26 — Neon egress 收口（全歷史投影改走 SQL 聚合）＋ 修掉靜默覆蓋準確率的 fail-open
 
 ### 一、症狀

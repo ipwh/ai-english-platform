@@ -66,6 +66,14 @@ Write-Host "✅ Image built and pushed: ${ImageName}:${Timestamp}"
 Write-Host ""
 Write-Host "🔧 Step 3/3: Deploying to Cloud Run..."
 
+# ⚠️ 2026-09-26 事故（切勿改回）：本行原本使用 `--set-env-vars "NODE_ENV=production"`。
+#    gcloud 的 `--set-env-vars` 語意是「**取代整組**」環境變數（非合併），因此該次
+#    部署把 Cloud Run 服務上的 JWT_SECRET / AUTH_SECRET / DATABASE_URL / AUTH_GOOGLE_* /
+#    CRON_SECRET / DEEPSEEK_API_KEY / NEXTAUTH_URL 全部清空 →
+#    模組載入時 config 驗證拋錯（[config] 生產環境缺少必要安全變數）→
+#    **全站 500，包含 /api/health**（latency 僅 ~12ms，屬載入期失敗而非查詢失敗）。
+#    必須維持 `--update-env-vars`（合併語意）。
+#    事後還原工具：scripts/cloud-run-restore-env.ps1（從既有 revision 複製，不輸出機密）。
 gcloud run deploy $ServiceName `
   --image "${ImageName}:latest" `
   --region $Region `
@@ -78,7 +86,7 @@ gcloud run deploy $ServiceName `
   --max-instances 20 `
   --concurrency 80 `
   --cpu-boost `
-  --set-env-vars "NODE_ENV=production"
+  --update-env-vars "NODE_ENV=production"
 
 if ($LASTEXITCODE -ne 0) {
   Write-Host "❌ Deployment failed"
