@@ -44,7 +44,22 @@ export async function createXpTransaction(data: Prisma.XpTransactionCreateInput)
   return db.xpTransaction.create({ data });
 }
 
-/** Atomically apply an XP event once; duplicate keys leave both XP and history unchanged. */
+/**
+ * Interactive-transaction guardrails (2026-09-26 晚上事故：高併發下多個互動交易
+ * 佔用連線池，請求堆叠後以 P2028／逾時回 500）。
+ * maxWait：等待「取得一條連線以開始交易」的上限；timeout：交易總時長上限。
+ * 兩者都在交易不能如期完成時令它失敗回滾，避免壅塞擴散。
+ */
+const XP_TX_OPTIONS = { maxWait: 5_000, timeout: 10_000 } as const;
+
+/**
+ * Atomically apply an XP event once; duplicate keys leave both XP and history unchanged.
+ *
+ * 2026-09-27 事故處理：回傳值由 boolean 擴展為 `{ created, xp }`，讓高頻呼叫端
+ * （awardXp）不必為了取得最新等級而重建整個 StudentState（十餘個查詢）。
+ * P2002（並發重播競賽）改為**交易外**讀取現值——在交易內捕捉 P2002 後繼續查詢
+ * 會遇到 Postgres「current transaction is aborted」，反而製造新的 500。
+ */
 export async function applyXpEventOnce(params: {
   userId: string;
   event: string;
@@ -52,7 +67,7 @@ export async function applyXpEventOnce(params: {
   metadata: string;
   idempotencyKey?: string;
   incrementStreak?: boolean;
-}): Promise<boolean> {
+}): Promise<{ created: boolean; xp: number | null }> {
   try {
     return await db.$transaction(async tx => {
       if (params.idempotencyKey) {
@@ -60,15 +75,16 @@ export async function applyXpEventOnce(params: {
           where: { idempotencyKey: params.idempotencyKey },
           select: { id: true },
         });
-        if (existing) return false;
+        if (existing) return { created: false, xp: null };
       }
 
-      await tx.user.update({
+      const updated = await tx.user.update({
         where: { id: params.userId },
         data: {
           xp: { increment: params.xpAmount },
           ...(params.incrementStreak ? { streakDays: { increment: 1 } } : {}),
         },
+        select: { xp: true },
       });
       await tx.xpTransaction.create({
         data: {
@@ -79,11 +95,13 @@ export async function applyXpEventOnce(params: {
           idempotencyKey: params.idempotencyKey ?? null,
         },
       });
-      return true;
-    });
+      return { created: true, xp: updated.xp };
+    }, XP_TX_OPTIONS);
   } catch (error) {
     if (params.idempotencyKey && typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002') {
-      return false;
+      // 交易已回滾；在交易外取目前的 XP（單列主鍵讀取）。
+      const user = await db.user.findUnique({ where: { id: params.userId }, select: { xp: true } });
+      return { created: false, xp: user?.xp ?? null };
     }
     throw error;
   }

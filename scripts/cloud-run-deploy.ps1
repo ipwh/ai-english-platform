@@ -74,6 +74,12 @@ Write-Host "🔧 Step 3/3: Deploying to Cloud Run..."
 #    **全站 500，包含 /api/health**（latency 僅 ~12ms，屬載入期失敗而非查詢失敗）。
 #    必須維持 `--update-env-vars`（合併語意）。
 #    事後還原工具：scripts/cloud-run-restore-env.ps1（從既有 revision 複製，不輸出機密）。
+# ⚠️ 2026-09-26 晚上事故：高併發時延遲尖峰（P95 > 5s）與 /api/gamification 500
+#    （P2028／deadlock／逾時）。2026-09-27 起將併發由 80 降為 50：
+#    令較多實例分擔同一批請求（更快橫向擴容）、每個實例同時持住的
+#    DB 連線工作集較小；配合互動交易護欄（maxWait/timeout）與輕量化
+#    XP 路徑，降低連線池壅塞。
+#    變更前請先以 `npm run profile:requests` 與 Cloud Run 延遲指標量測。
 gcloud run deploy $ServiceName `
   --image "${ImageName}:latest" `
   --region $Region `
@@ -84,7 +90,7 @@ gcloud run deploy $ServiceName `
   --cpu 1 `
   --min-instances 0 `
   --max-instances 20 `
-  --concurrency 80 `
+  --concurrency 50 `
   --cpu-boost `
   --update-env-vars "NODE_ENV=production"
 

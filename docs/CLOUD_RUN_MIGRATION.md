@@ -89,8 +89,8 @@ gcloud run deploy english-platform \
 
 | 變數 | 說明 |
 |---|---|
-| `DATABASE_URL` | Neon PostgreSQL 連線字串 |
-| `DIRECT_URL` | Prisma migrate 用（同 DATABASE_URL 或無 pgbouncer 版本） |
+| `DATABASE_URL` | Neon PostgreSQL 連線字串（執行期；`-pooler` 主機） |
+| `DIRECT_DATABASE_URL` | Prisma CLI 遷移用**直連**主機（無 `-pooler`；2026-09-27 起 `prisma.config.ts` 優先採用）。執行期不需要 |
 | `AUTH_SECRET` | NextAuth 密鑰 (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` | Google OAuth Client ID |
 | `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret |

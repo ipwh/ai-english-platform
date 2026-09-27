@@ -39,6 +39,11 @@ spec:
       # Cloud Run 預設: 300s，最大: 3600s（60 分鐘）
       timeoutSeconds: 300
 
+      # 併發（2026-09-26 晚上事故後由 80 降至 50）：高併發時互動交易擠壓連線池，
+      # 令請求堆叠（P95 > 5s、gamification 500）。降低單實例併發令較多實例
+      # 分擔流量（更快擴容），配合交易護欄降低壅塞。變更前先量測。
+      containerConcurrency: 50
+
       # Service account: 自動驗證 GCP API（Vertex Gemini, Vision, TTS）
       serviceAccountName: english-platform@PROJECT_ID.iam.gserviceaccount.com
 

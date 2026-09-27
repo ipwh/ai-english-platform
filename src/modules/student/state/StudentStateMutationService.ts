@@ -82,7 +82,7 @@ export class StudentStateMutationService {
     const idempotencyKey = typeof event.metadata?.idempotencyKey === 'string'
       ? event.metadata.idempotencyKey
       : undefined;
-    const created = await applyXpEventOnce({
+    const outcome = await applyXpEventOnce({
       userId: studentId,
       event: event.type,
       xpAmount: xpGained,
@@ -91,11 +91,20 @@ export class StudentStateMutationService {
       incrementStreak: event.type === 'dailyLogin',
     });
 
-    // Read updated XP to compute level
-    const state = await studentStateBuilder.build(studentId);
-    const newLevel = state.engagement.level;
+    // 2026-09-27 事故優化：awardXp 是每次完成練習都會打的高頻路徑。
+    // 舊碼為取得等級而呼叫 `studentStateBuilder.build()`（十餘個查詢、包含
+    // 學習檔案與單字剖析）；等級其實只由 XP 決定（builder 的
+    // `engagement.level` 即 `getLevelFromXp(xp)`），故改為直接由交易回傳的
+    // XP 計算，縮短請求與連線池佔用。重播（duplicate key）時 xp 為 null，
+    // 補一筆單列讀取。
+    let xp = outcome.xp;
+    if (xp === null) {
+      const current = await findUserByIdSelect(studentId, { xp: true }).catch(() => null) as UserSelectResult | null;
+      xp = current?.xp ?? 0;
+    }
+    const newLevel = getLevelInfo(xp).level;
 
-    return { xpGained: created ? xpGained : 0, newLevel };
+    return { xpGained: outcome.created ? xpGained : 0, newLevel };
   }
 
   /**

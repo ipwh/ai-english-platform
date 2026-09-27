@@ -110,6 +110,12 @@ export async function createPracticeAnswers(
 }
 
 /**
+ * 2026-09-26 晚上事故（高併發延遲）：互動交易護欄。
+ * 等待連線／交易總時長都有上限，避免壅塞時請求無限堆叠成 500。
+ */
+const PRACTICE_TX_OPTIONS = { maxWait: 5_000, timeout: 15_000 } as const;
+
+/**
  * R37-H01/H02: Atomic practice execution.
  * PracticeSession (which carries the authoritative aggregate values) and
  * ALL PracticeAnswer rows commit or roll back together. No partial
@@ -121,7 +127,12 @@ export async function createPracticeAnswers(
  * ({ created: false }) with no writes and no side effects. The key is
  * ONLY a replay/dedup mechanism, never an authority signal.
  * Concurrent duplicates resolve via the (studentId, clientSubmissionId)
- * unique index with a P2002 race catch.
+ * unique index.
+ *
+ * 2026-09-27 修正：P2002（並發重播競賽）改為在**交易外**解決。舊碼在交易內
+ * 捕捉 P2002 後繼續查詢——Postgres 在語句錯誤後即中止交易，後續查詢只會回
+ * 「current transaction is aborted」，令競賽路徑反而變成 500（客戶端會重試，
+ * 再加重負載）。現在讓交易乾淨回滾，再以一般連線讀取既有場次。
  */
 export async function createPracticeExecutionTx(input: {
   session: {
@@ -140,29 +151,13 @@ export async function createPracticeExecutionTx(input: {
   const { clientSubmissionId } = input.session;
   const clientKey = clientSubmissionId && clientSubmissionId.length > 0 ? clientSubmissionId : null;
 
-  return db.$transaction(async tx => {
-    if (clientKey) {
-      const existing = await tx.practiceSession.findUnique({
-        where: { studentId_clientSubmissionId: { studentId: input.session.studentId, clientSubmissionId: clientKey } },
-      });
-      if (existing) return {
-        id: existing.id, created: false, skill: existing.skill, skillZh: existing.skillZh,
-        totalQuestions: existing.totalQuestions, correctCount: existing.correctCount,
-      };
-    }
+  const readExisting = async () => db.practiceSession.findUnique({
+    where: { studentId_clientSubmissionId: { studentId: input.session.studentId, clientSubmissionId: clientKey! } },
+  });
 
-    try {
-      const session = await tx.practiceSession.create({ data: input.session });
-      if (input.answers.length > 0) {
-        await tx.practiceAnswer.createMany({ data: mapAnswerRows(session.id, input.answers) });
-      }
-      return {
-        id: session.id, created: true, skill: session.skill, skillZh: session.skillZh,
-        totalQuestions: session.totalQuestions, correctCount: session.correctCount,
-      };
-    } catch (err) {
-      // Concurrent duplicate raced past the pre-check: unique violation.
-      if (clientKey && err && typeof err === 'object' && (err as { code?: unknown }).code === 'P2002') {
+  try {
+    return await db.$transaction(async tx => {
+      if (clientKey) {
         const existing = await tx.practiceSession.findUnique({
           where: { studentId_clientSubmissionId: { studentId: input.session.studentId, clientSubmissionId: clientKey } },
         });
@@ -171,9 +166,28 @@ export async function createPracticeExecutionTx(input: {
           totalQuestions: existing.totalQuestions, correctCount: existing.correctCount,
         };
       }
-      throw err;
+
+      const session = await tx.practiceSession.create({ data: input.session });
+      if (input.answers.length > 0) {
+        await tx.practiceAnswer.createMany({ data: mapAnswerRows(session.id, input.answers) });
+      }
+      return {
+        id: session.id, created: true, skill: session.skill, skillZh: session.skillZh,
+        totalQuestions: session.totalQuestions, correctCount: session.correctCount,
+      };
+    }, PRACTICE_TX_OPTIONS);
+  } catch (err) {
+    // Concurrent duplicate raced past the pre-check: unique violation aborts the
+    // whole transaction — resolve it OUTSIDE the (now rolled back) transaction.
+    if (clientKey && err && typeof err === 'object' && (err as { code?: unknown }).code === 'P2002') {
+      const existing = await readExisting();
+      if (existing) return {
+        id: existing.id, created: false, skill: existing.skill, skillZh: existing.skillZh,
+        totalQuestions: existing.totalQuestions, correctCount: existing.correctCount,
+      };
     }
-  });
+    throw err;
+  }
 }
 
 /** List practice sessions for a student */

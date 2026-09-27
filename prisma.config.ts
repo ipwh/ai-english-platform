@@ -66,8 +66,21 @@ if (process.env.DATABASE_URL) {
   );
 }
 
+// 2026-09-27：CLI（prisma migrate deploy / db push / studio）優先走**直連**。
+// 背景：Neon 的 `-pooler` 主機是 PgBouncer（transaction mode）——Prisma schema
+// engine 的遷移流程使用 advisory lock 與長時間工作階段，官方建議經 directUrl
+// 執行；交易模式的 pooler 可能令遷移卡住或失敗。
+// 命名：正典為 `DIRECT_DATABASE_URL`（同 Neon 直連主機、無 `-pooler`）；兼容
+// 舊文件曾出現的 `DIRECT_URL`；兩者皆無則沿用 dbUrl（維持既有行為）。
+// 執行期（app）不經此檔——`src/shared/db/db.ts` 以 @prisma/adapter-pg + pg Pool
+// 連接 DATABASE_URL（pooler）。
+const directUrl = process.env.DIRECT_DATABASE_URL || process.env.DIRECT_URL || null;
+if (!directUrl && /-pooler\./.test(dbUrl)) {
+  console.warn('[prisma.config] DIRECT_DATABASE_URL 未設定——遷移將經由 pooler 主機執行（Neon 建議直連；見 AGENTS.md）');
+}
+
 export default defineConfig({
   datasource: {
-    url: dbUrl,
+    url: directUrl ?? dbUrl,
   },
 });

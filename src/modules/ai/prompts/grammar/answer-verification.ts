@@ -26,7 +26,7 @@
 //     even when the verifier happens to agree with the key.
 // ============================================
 
-export const ANSWER_VERIFICATION_VERSION = 'v1';
+export const ANSWER_VERIFICATION_VERSION = 'v2';
 
 /** One item handed to the verifier — note the absence of the answer key. */
 export interface AnswerVerificationPromptItem {
@@ -71,11 +71,20 @@ B-2. 【mode = "option-error"（改錯題）— 方向與一般選擇題相反�
    - 多於一個選項有明確錯誤 → "ambiguous"。
    - 四個選項都沒有錯、或你無法確定錯在哪 → "flawed"（改錯題必須真的有一個錯處）。
 
+B-3. 【完整轉換檢查 — 只改一半不算正確（2026-09-27 事故後新增）】
+   轉換／改寫類題目（例如：轉述句、主動改被動、條件句改寫、時態改寫）要求**同時**完成所有必要轉換。必須逐項檢查每個選項：
+   - 例：轉述句需同時滿足「時態後退」（must→had to、can→could、現在式→過去式…）與「代詞／時間副詞轉換」（we→they、tomorrow→the following day…），並依題目提供的語境判斷代詞方向；
+   - 只完成一部分的選項（如「代詞改了但動詞未後退」或「動詞後退了但代詞未轉」）**不是**完全正確的答案；
+   - 若所有選項都只完成一部分、沒有任何一個同時滿足全部必要轉換 → soundness = "flawed"，blindAnswer 填你認為最接近的選項並在 reason 說明它缺了哪些轉換；
+   - 若在合理語境下多於一個選項能完整成立 → "ambiguous"；
+   - 只有「恰好一個選項同時滿足全部必要轉換」時才可判 "ok"。
+
 【重點陷阱 — 必須主動檢查】
 - 「動詞 + 介詞／助詞」組合題：選項中的組合必須是**真實存在的英語片語**。憑空拼出的組合（例如 "update up"、"update in"、"discuss about"）一律是錯誤選項。若四個選項全部都是憑空拼出的組合 → soundness = "flawed"，blindAnswer = "NONE"。
 - 及物動詞誤加介詞：update / discuss / enter / reach / contact / marry 等及物動詞**不接介詞**；若題目要求填入介詞才通順，則該題設計有錯 → "flawed"。
 - 片語動詞、搭配詞、慣用語題：必須確認為真實英語用法（例如 "give up"、"look after"），不得因貌似合理而通過。
 - 干擾選項若與正確答案在語法與語意上同樣成立 → "ambiguous"。
+- 轉換題（見 B-3）：請在 reason 說明你對關鍵選項的檢查結果（哪個轉換缺了／哪些都滿足），讓「只改一半」的題目可被追溯。
 - 選項若為系統補位文字（例如 "Check the sentence structure carefully."）→ "flawed"。
 
 【輸出格式 — 必須 100% 遵守】

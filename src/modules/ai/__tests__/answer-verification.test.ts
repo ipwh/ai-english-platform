@@ -21,7 +21,10 @@ import {
 } from '@/modules/ai/services/answer-verification';
 import type { GeneratedQuestion } from '@/modules/ai/types/generation-types';
 import type { AnswerVerificationResponse } from '@/modules/ai/schemas/ai-schema';
-import { ANSWER_VERIFICATION_SYSTEM_PROMPT } from '@/modules/ai/prompts/grammar/answer-verification';
+import {
+  ANSWER_VERIFICATION_SYSTEM_PROMPT,
+  ANSWER_VERIFICATION_VERSION,
+} from '@/modules/ai/prompts/grammar/answer-verification';
 
 function mc(overrides: Partial<GeneratedQuestion> = {}): GeneratedQuestion {
   return {
@@ -386,6 +389,16 @@ describe('answer-verification prompt contract', () => {
 
   it('never asks the verifier to trust a provided answer key', () => {
     expect(ANSWER_VERIFICATION_SYSTEM_PROMPT).toMatch(/沒有\**提供答案鍵|blind solve/);
+  });
+
+  // 2026-09-27 事故（使用者回報）：轉述句題目四個選項都沒有同時完成
+  // must→had to 與 we→they（唯一正解 "they had to" 不在選項中），覆核器當時
+  // 選了唯一完成時態後退的選項並判 ok → 壞題被交付。
+  it('requires full-transformation checking so half-converted options are not "ok"', () => {
+    expect(ANSWER_VERIFICATION_VERSION).toBe('v2');
+    expect(ANSWER_VERIFICATION_SYSTEM_PROMPT).toContain('完整轉換檢查');
+    expect(ANSWER_VERIFICATION_SYSTEM_PROMPT).toContain('沒有任何一個同時滿足全部必要轉換');
+    expect(ANSWER_VERIFICATION_SYSTEM_PROMPT).toContain('只完成一部分');
   });
 });
 

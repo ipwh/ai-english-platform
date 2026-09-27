@@ -188,6 +188,22 @@ describe('R3.10-E.2 P0-3 — practice idempotency', () => {
     expect(r2.created).toBe(true);
   });
 
+  // 2026-09-27：P2002 必須在交易外解決——在已中止的交易內再查詢只會得到
+  // 「current transaction is aborted」。此測模擬 in-tx pre-check 没看到
+  // 並行已提交的列（回 null），create 再撞 unique 鍵而拋 P2002。
+  it('P2002 race (pre-check miss) resolves via a fresh read outside the transaction', async () => {
+    const store = makeSessionStore();
+    store.sessions.set('student-1\u0000key-1', { id: 'session-existing' });
+    // 第一次 findUnique（交易內 pre-check）回答 null；之後恢復 store 實作。
+    mockSessionFindUnique.mockResolvedValueOnce(null);
+
+    const result = await createPracticeExecutionTx({ session: sessionInput('key-1'), answers });
+
+    expect(result.created).toBe(false);
+    expect(result.id).toBe('session-existing');
+    expect(mockAnswerCreateMany).not.toHaveBeenCalled();
+  });
+
   it('service returns replay result and applies mastery through the session-idempotent gate (contract)', () => {
     const svc = readFileSync(resolve(import.meta.dirname, '../services/practice-submission-service.ts'), 'utf-8');
     expect(svc).toContain('if (!persisted.created)');

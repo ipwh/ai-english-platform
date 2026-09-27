@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3223 pass / 2 skipped (168 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
+- **Testing**: Vitest 4, 3227 pass / 2 skipped (168 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
 - **API routes**: 113 under `src/app/api/`
@@ -165,7 +165,7 @@ Dev tooling:
 - 活躍狀態門檻（未開始／失聯／低活躍／活躍）: `teacher/monitoring/services/activity-service.ts` — `classifyActivityStatus()`（香港日界線；活動來源＝登入 ∪ 練習 ∪ 寫作草稿 ∪ 作業提交）；`getShortWritingCounts()` 為 DB 端計數（in-memory fail-open 回退）
 - 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀／聆聽）經正典 `submitPractice` 評分＋持久化（可驗證證據）；詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
-- Answer Verification (生成題目答案鍵覆核，交付前把關): `ai/services/answer-verification.ts` — 決定性缺陷螢幕（補位選項／重複選項／解說自認有誤）＋ 第二次獨立 LLM pass **blind-solve**；驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` 且 blind 答案等於答案鍵才可交付（prompt: `ai/prompts/grammar/answer-verification.ts`，PromptRegistry `GenerateQuestionsAnswerVerification`）
+- Answer Verification (生成題目答案鍵覆核，交付前把關): `ai/services/answer-verification.ts` — 決定性缺陷螢幕（補位選項／重複選項／解說自認有誤）＋ 第二次獨立 LLM pass **blind-solve**；驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` 且 blind 答案等於答案鍵才可交付（prompt: `ai/prompts/grammar/answer-verification.ts`，PromptRegistry `GenerateQuestionsAnswerVerification`）。**2026-09-27（覆核 v2）**：轉換題（轉述句等）必須有**單一選項同時滿足解說列出的全部轉換**，否則判 `flawed` 丟棄；禁止挑「最接近」的半對選項（實例：`we had to` 曾以半對選項被當成正解交付，學生選 `they must` 被誤判錯）
 - Listening Question Store (聆聽題庫與交付判準): `listening/services/listening-question-service.ts` — 交付前持久化 `ListeningQuestion`（含對話）；`isDeliverableListeningMc()` 為唯一交付判準（MC + 對話非空 + 答案**逐字**出現在對話中，詞邊界比對）；全數不可交付 ⇒ 結構化 422 `LISTENING_QUESTIONS_NOT_DELIVERABLE`
 - Listening Answer Scoring (聆聽評分權威): `listening/services/listening-answer-scoring.ts` — `listening-server-exact-match`；忽略所有客戶端評分欄位；委派正典 `scorePracticeAnswer()`；解析不到／marks 無效／開放式題型 ⇒ NOT_PROJECTABLE（不部分計分）
 - Adaptive Learning: `learning/services/adaptive-learning-pipeline.ts`

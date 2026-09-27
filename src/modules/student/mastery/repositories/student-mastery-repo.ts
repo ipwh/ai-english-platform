@@ -74,6 +74,12 @@ export async function recordPracticeAttempt(params: {
   });
 }
 
+/**
+ * 2026-09-26 晚上事故：互動交易護欄（等待連線與總時長上限），
+ * 避免高併發時交易堆叠佔滿連線池。
+ */
+const MASTERY_TX_OPTIONS = { maxWait: 5_000, timeout: 10_000 } as const;
+
 /** Apply one persisted practice session to mastery exactly once. */
 export async function applyPracticeMasteryOnce(params: {
   sessionId: string;
@@ -129,7 +135,7 @@ export async function applyPracticeMasteryOnce(params: {
       data: { ...scores, updatedAt: now },
     });
     return true;
-  });
+  }, MASTERY_TX_OPTIONS);
 }
 
 /** Get weakest skills (lowest mastery, minimum 1 practice) */

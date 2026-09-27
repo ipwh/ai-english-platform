@@ -4,6 +4,33 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-27 — 轉述句壞題補救（修題＋學生補償＋覆核 v2）與 2026-09-26 晚間效能事故修復
+
+### 一、使用者回報：轉述句題目答案有誤（fact check 結論：題目為壞題）
+- 實例 `05f1815e-ea20-41c7-bea3-a92bf25ed833`（2026-09-26 18:53 HKT 生成）：四個選項中**沒有一個**同時滿足其解說列出的兩條轉換（must→had to **且** we→they）；唯一完全正解 "they had to" 不在選項內，系統卻以 "we had to" 為答案鍵交付 → 學生選 "they must"（代詞對、動詞未後退）被誤判錯。
+- 同批次其餘 4 題與近 12 題轉述句經查均正常（個別生成滑落，非系統性模板問題；亦與選項洗牌字母無關——解說未引用字母）。
+- **交付前覆核（v1）漏網原因**：blind-solve 只比對「覆核自答 ↔ 答案鍵」；"we had to" 是唯一完成時態後退的選項，覆核器很可能也選它 → 通過。v1 沒有「解說所列規則 vs 各選項」的完整性檢查。
+
+### 二、修題＋學生補償（`scripts/remediate-20260927-defective-question.ts`；dry-run 預設、`--apply` 寫入）
+- 選項 D 文字 "we had to" → "they had to"（答案鍵維持 D，與解說一致）。
+- 該題唯一一次作答（1 名學生、1 筆錯題）：`PracticeAnswer` `result→ungradable`、`countsTowardScore→false`（證據投影自此不計此題；場次其餘 4 題照常計分＝3/4、不整場作廢）；刪除對應 `Mistake`；反向該場次一次性的 session 級 mastery 累積（以正典 `calculateMasteryScore` 重算）；`syncActivityMetrics` 重算準確率（61→62）。
+- 首次執行曾誤配對鄰近場次的 mastery 列（以「時間窗內最新」而非 `subSkill`），已即日以 `--repair-mastery` 修正：還原誤改列、補做正確反轉（兩列皆已用確切現值作前置條件，重跑安全）。
+
+### 三、覆核硬化（v2）
+- `ai/prompts/grammar/answer-verification.ts` v2：新增「**完整轉換檢查**」——轉換題（轉述句、被動、條件句等）必須逐項檢查每個選項是否**同時**滿足全部必要轉換；只要沒有任何選項同時滿足 → 判 `flawed` 丟棄重出，**不得**挑「最接近」的半對選項；PromptRegistry `GenerateQuestionsAnswerVerification` 同步為 v2；prompt 合約測試守門。
+
+### 四、2026-09-26 晚間效能事故（18:00–23:00 HKT）修復
+- 現象：高併發下互動交易擠壓 DB 連線池——`POST /api/gamification` 500（P2028「Unable to start a transaction…」／`deadlock detected`／個別 3.6–12.3s），P95 一度超過 5s。
+- 修復：
+  1. **互動交易一律加護欄**（`{ maxWait, timeout }`）：`applyXpEventOnce`、`applyPracticeMasteryOnce`、`createPracticeExecutionTx`。
+  2. **P2002 一律在交易外解決**：在已中止的交易內繼續查詢會回 25P02（`current transaction is aborted`）→ 讓交易回滾、交易外重讀（`practice-repo` 重構；`progress-repo.applyXpEventOnce` 改回傳 `{ created, xp }`）。
+  3. **XP 路徑輕量化**：`awardXp` 不再為等級呼叫 `studentStateBuilder.build()`（十餘查詢）→ 直接由交易回傳的 xp 以 `getLevelInfo` 計算。
+  4. **遷移／執行連線分離**：`prisma.config.ts` 優先 `DIRECT_DATABASE_URL`（Neon 直連主機）供 CLI 遷移；執行期 `DATABASE_URL`（pooler）不變。`.env.local`、`cloud-run-env.yaml`、`.env.cloud-run.example` 已更新。**`pgbouncer=true` 已評估但不加入**——本專案為 Prisma 7 + `@prisma/adapter-pg`（pg Pool），`pg` 會忽略該參數（僅舊版 Prisma engine 有效），加了反而誤導。
+  5. **Cloud Run 併發 80→50**（`scripts/cloud-run-deploy.ps1`、`cloud-run.yaml`）；後續調整前先以 `npm run profile:requests` 及延遲指標量測。
+- 驗證：`tsc` 0；全套 **3227 passed / 2 skipped**（170 files）；`check:i18n` 0；變更檔案 lint 0 errors；`prisma validate` OK、`prisma migrate status` 經直連主機成功。
+
+---
+
 ## 2026-09-26 (V) — 生字簿 PDF 版式：固定列高令內文重疊（改為逐塊量測後排版）
 
 ### 一、症狀（使用者回報）
