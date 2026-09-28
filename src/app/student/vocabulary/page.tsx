@@ -184,7 +184,7 @@ export default function VocabularyPage() {
       fetch('/api/gamification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: store.userId, event: { type: 'masterWord' } }),
+          body: JSON.stringify({ studentId: store.userId, event: { type: 'masterWord', metadata: { wordId: v.id } } }),
       }).catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Gamification masterWord XP failed'); });
     }
   };
@@ -248,7 +248,7 @@ export default function VocabularyPage() {
         fetch('/api/gamification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: store.userId, event: { type: 'learnWord' } }),
+          body: JSON.stringify({ studentId: store.userId, event: { type: 'learnWord', metadata: { wordId: newVocab.id } } }),
         }).catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'Gamification learnWord XP failed'); });
       }
     } else {
@@ -667,15 +667,12 @@ export default function VocabularyPage() {
               studentId={studentId}
               embedded
               wordIds={selectionMode && selectedWordIds.size > 0 ? Array.from(selectedWordIds) : undefined}
-              onComplete={(result) => {
-                // 🎮 XP for completing spelling
-                if (store.userId && result.correct > 0) {
-                  fetch('/api/gamification', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ studentId: store.userId, event: { type: 'completeSession', metadata: { type: 'spelling', correct: result.correct } } }),
-                  }).catch(() => {});
-                }
+              onComplete={() => {
+                // 🎮 串字完成 XP 已改由伺服器發放（POST /api/vocabulary/spelling
+                // 已验证場次擁有權）；客戶端不再自行發 `completeSession`（那在
+                // 新政策下無法對應真實場次，且可被無限重發）。重載以反映伺服器
+                // 剛更新的掌握度／SRS 狀態。
+                loadVocab();
               }}
             />
           )}

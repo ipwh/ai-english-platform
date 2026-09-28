@@ -170,7 +170,7 @@ sequenceDiagram
     participant DB as Database
 
     S->>API: POST /api/practice
-    API->>SF: awardXp(studentId, 'answerCorrect')
+    API->>SF: StudentStateMutationService.awardXp(studentId, event)
     SF->>DB: UPDATE xp
     API->>SF: updateAfterExercise(result)
     SF->>DB: UPDATE StudentMastery

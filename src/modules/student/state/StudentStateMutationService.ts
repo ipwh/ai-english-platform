@@ -79,6 +79,14 @@ export class StudentStateMutationService {
     const gradeMultiplier = getGradeMultiplier(student?.level ?? undefined, event.type);
     const xpGained = Math.round(calculateXp(event) * gradeMultiplier);
 
+    // 2026-09-28：0 XP 事件（例如已歸零的 `answerIncorrect`）不寫帳本、也不建立
+    // 去重鍵。如此既不污染交易歷史，亦不會佔用該題的鍵 —— 學生之後答對同一題
+    // 仍能正常領取 XP。
+    if (xpGained <= 0) {
+      const current = await findUserByIdSelect(studentId, { xp: true }).catch(() => null) as UserSelectResult | null;
+      return { xpGained: 0, newLevel: getLevelInfo(current?.xp ?? 0).level };
+    }
+
     const idempotencyKey = typeof event.metadata?.idempotencyKey === 'string'
       ? event.metadata.idempotencyKey
       : undefined;

@@ -51,8 +51,8 @@ export { memoryEngine };
 // ============================================
 // Progress — gamification, XP, streaks, badges, leaderboard
 // ============================================
-import { getStudentProgress, awardXp, getDailyGoalProgress, getWeeklyActiveDays } from './progress/services/progress-service';
-export { getStudentProgress, awardXp, getDailyGoalProgress, getWeeklyActiveDays };
+import { getStudentProgress, getDailyGoalProgress, getWeeklyActiveDays } from './progress/services/progress-service';
+export { getStudentProgress, getDailyGoalProgress, getWeeklyActiveDays };
 import { calculateStudentStreak, syncUserStreak, calculatePracticeStreak } from './progress/services/streak-service';
 export { calculateStudentStreak, syncUserStreak, calculatePracticeStreak };
 import {
@@ -106,8 +106,8 @@ export {
 } from '@/modules/student/repositories/user-repo';
 
 // Re-export common repos through facade (Route ≠ Repository rule)
-export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions, countTodaySessions, deletePracticeSession } from '@/modules/exercise/repositories/practice-repo';
-export { createXpTransaction, updateUserXpAndStreak, getTodaysXpTransaction, getLeaderboard } from './progress/repositories/progress-repo';
+export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions, countTodaySessions, deletePracticeSession, findPracticeSessionByClientId } from '@/modules/exercise/repositories/practice-repo';
+export { createXpTransaction, getTodaysXpTransaction, getLeaderboard, applyXpEventOnce } from './progress/repositories/progress-repo';
 export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';
 export { listMistakes, listMistakesByType, listDueMistakesForReview, findMistakeById, updateMistake, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake/db/repositories/mistake-repo';
@@ -137,7 +137,7 @@ export { updateVocab } from '@/modules/vocabulary/repositories/vocabulary-repo';
  * @example
  * import { StudentFacade } from '@/modules/student';
  * const profile = await StudentFacade.getLearningProfile(studentId);
- * await StudentFacade.awardXp(studentId, 'answerCorrect');
+ * await StudentFacade.progress.get(studentId);
  */
 export const StudentFacade = {
   // Profile
@@ -165,7 +165,6 @@ export const StudentFacade = {
   // Progress
   progress: {
     get: getStudentProgress,
-    awardXp,
     streak: calculateStudentStreak,
     syncStreak: syncUserStreak,
     levelInfo: getLevelInfo,

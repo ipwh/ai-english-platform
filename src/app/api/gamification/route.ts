@@ -8,7 +8,14 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { buildLeaderboard } from '@/modules/student/progress/services/gamification';
 import type { XpEvent } from '@/modules/student/progress/services/gamification';
-import { getLeaderboard, getDailyGoalProgress, getWeeklyActiveDays, findUserByIdSelect } from '@/modules/student';
+import { resolveXpEventPolicy } from '@/modules/student/progress/services/xp-event-policy';
+import { calculatePracticeStreak } from '@/modules/student/progress/services/streak-service';
+import {
+  resolveQuestionDifficulty,
+  normalizePracticeDifficulty,
+  type PracticeDifficulty,
+} from '@/modules/exercise/services/question-difficulty-resolution';
+import { getLeaderboard, getDailyGoalProgress, getWeeklyActiveDays, findUserByIdSelect, findPracticeSessionByClientId } from '@/modules/student';
 import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
 import { hkWeekStartUtc } from '@/shared/utils/hk-date';
 
@@ -84,6 +91,15 @@ export async function GET(req: NextRequest) {
 }
 
 // POST — 記錄 XP 事件
+//
+// 2026-09-28 反刷分重寫（實證：一名學生以反覆切換單字熟悉度刷得 95,904 XP）：
+//   1. **事件白名單** — 未知事件一律 400（從前可送任意 event）。
+//   2. **去重鍵由伺服器建立** — `metadata.idempotencyKey` 客戶端送來的一律忽略；
+//      缺少必要識別碼（questionId / mistakeId / wordId / attemptId / sessionId）
+//      直接 400，讓可重複事件再也無法無限領取。
+//   3. **難度由伺服器解析** — 忽略 `event.difficulty`（從前送 challenge 即 1.5×）。
+//   4. **連續天數由伺服器計算** — 忽略 `event.streakDays`（從前可自報天文數字）。
+//   5. **完成練習須對應真實場次** — 以 (studentId, clientSubmissionId) 驗證。
 export async function POST(req: NextRequest) {
   // 🔒 Auth check
   const authResult = await verifyApiAuth(req);
@@ -95,7 +111,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { studentId, event } = body as {
       studentId: string;
-      event: XpEvent;
+      event: { type?: unknown; metadata?: unknown };
     };
 
     if (!studentId || !event) {
@@ -107,7 +123,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '只能記錄自己的 XP 事件 / You can only record your own XP events' }, { status: 403 });
     }
 
-    const { xpGained, newLevel } = await studentStateMutationService.awardXp(studentId, event);
+    // 1) 事件白名單 + 伺服器建立去重鍵（去重鍵已按 studentId 界定）
+    const policyResult = resolveXpEventPolicy(event.type, event.metadata, { studentId });
+    if (!policyResult.ok) {
+      return NextResponse.json({ error: policyResult.error }, { status: 400 });
+    }
+    const { policy } = policyResult;
+
+    // 2) 難度：伺服器解析（永不採信 event.difficulty）
+    let difficulty: PracticeDifficulty = 'core';
+    if (policy.type === 'answerCorrect' || policy.type === 'answerIncorrect') {
+      difficulty = await resolveQuestionDifficulty(policy.identifiers.questionId);
+    } else if (policy.type === 'completeSession') {
+      const session = await findPracticeSessionByClientId(studentId, policy.identifiers.sessionId);
+      if (!session) {
+        return NextResponse.json(
+          { error: '找不到對應的練習場次 / Practice session not found' },
+          { status: 404 },
+        );
+      }
+      difficulty = normalizePracticeDifficulty(session.difficulty);
+    }
+
+    // 3) 連續天數：伺服器計算（永不採信 event.streakDays）
+    let streakDays: number | undefined;
+    if (policy.type === 'dailyLogin') {
+      streakDays = await calculatePracticeStreak(studentId);
+    }
+
+    // 4) 組合最終事件（metadata 只含伺服器解析出的識別碼與去重鍵）
+    const resolvedEvent: XpEvent = {
+      type: policy.type,
+      difficulty,
+      streakDays,
+      metadata: {
+        ...policy.identifiers,
+        idempotencyKey: policy.idempotencyKey,
+        source: 'api',
+      },
+    };
+
+    const { xpGained, newLevel } = await studentStateMutationService.awardXp(studentId, resolvedEvent);
 
     return NextResponse.json({ xpGained, level: newLevel });
   } catch (error) {

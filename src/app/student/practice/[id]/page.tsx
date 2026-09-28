@@ -101,7 +101,7 @@ export default function PracticeQuestionPage() {
   const hasSavedRef = useRef(false); // 防止重複 savePractice（完成時設為 true）
   const [sessionComplete, setSessionComplete] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [pendingCompletionXp, setPendingCompletionXp] = useState<{ sessionId: string; difficulty?: string } | null>(null);
+  const [pendingCompletionXp, setPendingCompletionXp] = useState<{ sessionId: string } | null>(null);
   // 保存 session 快照，因為 completeSession() 會清空 currentSession
   const [completedSession, setCompletedSession] = useState<typeof store.currentSession>(null);
 
@@ -138,8 +138,8 @@ export default function PracticeQuestionPage() {
     return true;
   }, []);
 
-  /** 發放 XP 並顯示 toast */
-  const awardXp = useCallback(async (type: string, difficulty?: string, metadata?: Record<string, unknown>): Promise<boolean> => {
+  /** 發放 XP 並顯示 toast（難度由伺服器以 questionId 解析，客戶端不自報） */
+  const awardXp = useCallback(async (type: string, metadata?: Record<string, unknown>): Promise<boolean> => {
     if (!store.userId) return false;
     try {
       const res = await fetch('/api/gamification', {
@@ -147,7 +147,7 @@ export default function PracticeQuestionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: store.userId,
-          event: { type, difficulty, metadata },
+          event: { type, metadata },
         }),
       });
       if (!res.ok) throw new Error(`XP request failed: ${res.status}`);
@@ -168,8 +168,8 @@ export default function PracticeQuestionPage() {
 
   const retryCompletionXp = useCallback(async () => {
     if (!pendingCompletionXp) return;
-    const awarded = await awardXp('completeSession', pendingCompletionXp.difficulty, {
-      idempotencyKey: `practice-complete:${pendingCompletionXp.sessionId}`,
+    // 2026-09-28：去重鍵由伺服器以已驗證的 sessionId 建立（客戶端不再自報鍵）
+    const awarded = await awardXp('completeSession', {
       sessionId: pendingCompletionXp.sessionId,
     });
     if (awarded) setPendingCompletionXp(null);
@@ -286,9 +286,12 @@ export default function PracticeQuestionPage() {
       store.submitAnswer(question.id, selectedAnswer, isOpenEnded ? null : correct);
     }
 
-    // 🎮 答題 XP（開放式題目不發對/錯 XP — 內容無法自動驗證，避免刷分）
-    if (!isOpenEnded) {
-      awardXp(correct ? 'answerCorrect' : 'answerIncorrect', question.difficulty);
+    // 🎮 答題 XP（開放式題目不發 XP — 內容無法自動驗證，避免刷分）
+    // 2026-09-28 反刷分：**只有答對**才發（答錯 0 XP，不再鼓勵亂答）；難度由
+    // 伺服器以 questionId 解析（客戶端不自報）；questionId 同時是伺服器去重鍵
+    // → 同一題重複作答不會重複領取。
+    if (!isOpenEnded && correct) {
+      awardXp('answerCorrect', { questionId: question.id });
     }
 
     // 💪 答錯時顯示鼓勵語（開放式題目沒有「錯」，不顯示）
@@ -415,11 +418,12 @@ export default function PracticeQuestionPage() {
           return;
         }
         store.completeSession();
-        const awarded = await awardXp('completeSession', difficulty, {
-          idempotencyKey: `practice-complete:${session.id}`,
+        // 2026-09-28：完成練習 XP 須對應真實場次（伺服器以
+        // (studentId, clientSubmissionId) 驗證並自行建立去重鍵）
+        const awarded = await awardXp('completeSession', {
           sessionId: session.id,
         });
-        if (!awarded) setPendingCompletionXp({ sessionId: session.id, difficulty });
+        if (!awarded) setPendingCompletionXp({ sessionId: session.id });
       }
       setSessionComplete(true);
       return;

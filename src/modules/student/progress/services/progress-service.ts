@@ -1,10 +1,8 @@
 // Sprint 4: Progress Service — aggregated progress, gamification, streaks
 import { calculateStudentStreak } from '@/modules/student/progress/services/streak-service';
-import { calculateXp, getLevelInfo, getDailyGoal, evaluateDailyGoal, type XpEvent, type DailyGoalStatus } from '@/modules/student/progress/services/gamification';
-import { updateUserXp } from '@/modules/student/repositories/student-repo';
+import { getLevelInfo, getDailyGoal, evaluateDailyGoal, type DailyGoalStatus } from '@/modules/student/progress/services/gamification';
 import { getDailyGoalCounts, getWeeklyActiveDaysMap } from '../repositories/progress-repo';
 import { hkStartOfDay } from '@/shared/utils/hk-date';
-import { logger } from '@/shared/logger/logger';
 
 export async function getStudentProgress(studentId: string) {
   const { streakDays } = await calculateStudentStreak(studentId);
@@ -26,11 +24,4 @@ export async function getDailyGoalProgress(studentId: string, gradeLevel?: strin
 /** 每週活躍日數（排行榜初中模式）— Sprint 133 */
 export async function getWeeklyActiveDays(userIds: string[], weekStart: Date): Promise<Map<string, number>> {
   return getWeeklyActiveDaysMap(userIds, weekStart);
-}
-
-export async function awardXp(studentId: string, event: string, difficulty = 'core') {
-  const xp = calculateXp({ type: event as XpEvent['type'], difficulty } as XpEvent);
-  await updateUserXp(studentId, xp);
-  logger.info({ module: 'progress-service', studentId, event, xp }, 'XP awarded');
-  return xp;
 }

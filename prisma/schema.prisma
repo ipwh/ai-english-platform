@@ -699,7 +699,7 @@ model DiagnosticResult {
 model XpTransaction {
   id        String   @id @default(cuid())
   userId    String
-  event     String   // dailyLogin | answerCorrect | completeSession | submitWriting | learnWord | masterWord | reviewMistake | streakBonus | achievementBonus
+  event     String   // answerCorrect | answerIncorrect | completeSession | completeDiagnostic | completeSpelling | submitWriting | dailyLogin | reviewMistake | learnWord | masterWord（'streakBonus'/'achievementBonus' 僅為 2026-09-28 前的歷史值）
   xpAmount  Int
   idempotencyKey String? @unique
   metadata  String?  // JSON: { sessionId, questionIndex, wordId, badgeId, ... }

@@ -9,11 +9,10 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { generateQuestions } from '@/modules/ai';
-import { calculateXp } from '@/modules/student/progress/services/gamification';
 import { syncUserStreak } from '@/modules/student/progress/services/streak-service';
 import { findTodaySession, createPracticeSession, countTodaySessions, deletePracticeSession } from '@/modules/student';
-import { DAY_MS, hkToday } from '@/shared/utils/hk-date';
-import { createXpTransaction } from '@/modules/student';
+import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
+import { DAY_MS, hkDayKey, hkToday } from '@/shared/utils/hk-date';
 import {
   persistGeneratedGrammarQuestions,
   resolveGrammarQuestionDefinitions,
@@ -227,9 +226,18 @@ export async function POST(request: NextRequest) {
     }
 
     // XP: correct answer bonus
+    // 2026-09-28 修正：舊碼只寫 `XpTransaction`，**沒有** increment `User.xp`
+    // → 每日挑戰的 XP 永遠不會計入學生總分（實測一名學生帳本比總分多 30 XP
+    // ＝ 3 次每日挑戰）。改走正典 `awardXp`（會 increment 總分），並以
+    // 每香港日一鍵去重。
+    let xpAwarded = 0;
     if (isCorrect) {
-      const xp = calculateXp({ type: 'answerCorrect', difficulty: 'core' });
-      await createXpTransaction({ userId: studentId, event: 'answerCorrect', xpAmount: xp });
+      const award = await studentStateMutationService.awardXp(studentId, {
+        type: 'answerCorrect',
+        difficulty: 'core', // 每日挑戰固定核心難度（伺服器已知，非客戶端自報）
+        metadata: { idempotencyKey: `${studentId}:daily-challenge:${hkDayKey(new Date())}` },
+      });
+      xpAwarded = award.xpGained;
     }
 
     // Sync streak
@@ -243,7 +251,7 @@ export async function POST(request: NextRequest) {
       isCorrect,
       // 'ungradable' 讓客戶端顯示中性訊息，而不是「回答錯誤」。
       ungradable: openEnded,
-      xpAwarded: isCorrect ? calculateXp({ type: 'answerCorrect', difficulty: 'core' }) : 0,
+      xpAwarded,
       streakDays,
       correctAnswer: def.answer,
       explanationZh: explanations?.explanationZh ?? undefined,

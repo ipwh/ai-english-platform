@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-09-27 — 168 files, 3227 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-09-28 — 169 files, 3245 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
 - **Deployment (2026-09-26 — 生字簿修正)**: **no schema change / no migration.** 批量匯入欄位契約修正（`translation`/`example` ＋擴充欄位保存；重複單字回 409、失敗如實顯示）；PDF 匯出改用內嵌 CJK 字型（`font: ''`，不依賴 PDFKit 標準字型）、版式改為逐塊量測（內文不重疊），且 `format=pdf` 失敗回結構化 500、**永不**以 HTML 冒充。部署後請驗證（見 [CHANGELOG 2026-09-26 (IV)/(V)](CHANGELOG.md)）：① 批量匯入後生字即時出現在列表；② 下載 PDF 的回應為 `application/pdf` 且可正常開啟、內文無重疊（不應出現 corrupted）。
@@ -165,7 +165,7 @@ Writing Evaluation (Sprints 127-130):
 - **聆聽練習** — 內建 TTS 語音播放，支援聆聽理解題型；DSE Paper 3 風格對話（含 distraction、synonym replacement、speaker attitude 等真實考試陷阱），題型涵蓋 MCQ / fill-blank / form-filling / inference / matching
 - **🎧✍️ Integrated Skills 綜合訓練 v6** — 完整模擬 DSE Paper 3 Part B 考試流程。**9 種 DSE 文體**、**Data File 資料夾模擬**、**平台診斷分析**、**真實考試陷阱**（distraction、synonym replacement、speaker attitude、numerical precision、number confusion、date correction）、**12 種速記符號面板**、**抄襲偵測強化**、步驟鎖定（聆聽→筆記→寫作）、**Note-taking 中英雙語指引**（英文 + 繁體中文切換按鈕）、**AI 參考範本答案**（平台教學參考，非官方評分樣本）、**PDF 匯出**（完整報告含聆聽原文/Data File/筆記/學生寫作/AI 分析/範本答案）、AudioPlayer 播放控制、完整 AI 分析結果展示、桌面 Sidebar + 行動裝置 Bottom Tabs、15 秒自動儲存草稿
   - **⚠️ Integrated Skills 診斷分析是平台內部評估，並非 HKEAA 官方評分。** 百分比權重及等級對照為平台教學參考，並非來自官方文件。此聲明已直接顯示於批改結果頁面。
-- **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）。練習、作業與完成 XP 使用 client idempotency key；同一練習 session 的 mastery 以持久化 claim 原子套用一次，失去回應後重送不會重複累加，未完成的更新可安全復原。
+- **🗄️ 完整資料持久化** — 逐題答案儲存（`PracticeAnswer`）、XP 審計記錄（`XpTransaction`）、詞彙掌握度歷史（`VocabMasteryLog`）、錯題複習記錄（`MistakeReviewLog`）、診斷結果儲存（`DiagnosticResult`）、每週進度快照（`WeeklySnapshot`）。練習、作業**提交**沿用 client `clientSubmissionId` 作重播鍵；**XP 發放的去重鍵則一律由伺服器建立**（依 `questionId`／`wordId`／`mistakeId`／`sessionId` 或香港日，並按學生界定；客戶端自報鍵一律忽略）；同一練習 session 的 mastery 以持久化 claim 原子套用一次，失去回應後重送不會重複累加，未完成的更新可安全復原。
 - **即時批改回饋** — AI 分析答案（依 HKDSE Reading/Listening Descriptors 原則），提供中英雙語解釋、常見錯誤提示。**評分權威單一**：正確性只由評分器（`isCorrect` / `isPartiallyCorrect`）決定，抄襲／詞形／語調等規則式訊號只作「品質提示」（`qualityFlags`），永不改寫判決——診斷徽章與上方分數同源
 - **寫作批改** — 平台提供以 HKDSE English Writing descriptors 為參考的英文寫作自學回饋。評估流程包括：(1) 題目要求及語義證據分析、(2) Content / Language / Organization 三向度平台評估（各 0-7 分，總分 21 分）、(3) 確定性分數標準化、(4) 具原文證據的教育回饋、(5) 優先改進行動、忠實修正與示範強化。**平台分數是寫作練習診斷估算，並非 HKEAA 官方評級，亦不代表公開考試成績預測。**
 - **錯題本** — AI 解釋每道錯題的原因、文法規則、記憶口訣；**每道錯題都有技能／題型歸屬**（由伺服器持有的 `ReadingQuestion.dseType` / `GrammarQuestion.grammarItem` 解析，非前端自報）
@@ -223,6 +223,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - **📈 學習分析 (S37)** — 學生趨勢儀表板 + 教師班級分析（弱項/強項/進度/風險預測/雷達圖）
 - **👨‍🏫 教師 Copilot (S38)** — AI 生成教案/家課/工作紙/小測/溫習卷、班級分析、考試預測、🆕 專屬前端頁面（`/teacher/copilot`）含 6 大功能分頁。教師資料權限以正典「主班級 ∪ `StudentClass`」關係判定；教師只可查看、建立組別或指派其任教學生，Demo 班別/帳戶不會出現在日常 roster、selector 或 Copilot 概覽。
 - **🆕 行為監察 (S133)** — 教師端監察由「看分數」升級為「看行為」：失聯偵測（14天+ 未活動／從未開始紅燈）、活動度徽章（活躍／低活躍／失聯）、主要練習難度（暴露「題太易」）、寫作提交數欄位、教師首頁真實風險名單（失聯優先）與「失聯學生」KPI；Copilot 概覽真實活躍人數與待交作業數
+- **🛡️ XP 反刷分 + 獎勵再平衡 (2026-09-28)** — XP 發放收歸伺服器權威：事件白名單、去重鍵由伺服器依識別碼（`questionId`／`wordId`／`mistakeId`／`sessionId`）或香港日建立並按學生界定，難度與連續天數一律伺服器解析（客戶端自報值全數忽略）；完成練習需對應真實場次。數值再平衡使深層行為 ≥ 淺層（完成 45、寫作 40、複習錯題 20、掌握生字 25、學新字 12；答錯 0）；`streakBonus` 加 7 日上限。實證事故：一名學生反覆切換單字熟悉度刷得 95,904 XP（佔其總分 94.7%），已回調 5,456 列 / 130,944 XP
 - **🆕 初中誘因再平衡 (S133)** — 遊戲化獎「深度」不獎「點擊」：初中 1.2× 加成只適用於複習錯題／生字掌握；每日目標必須含一項深度（今日挑戰／複習 3 錯題／掌握 3 生字），5 題 MC 無法達標；streak 加碼只隨練習日遞增；新增初中友善徽章（掌握 20 生字／複習 10 錯題／本週 5 次挑戰）；S1-S3 不頒「寫作 5 篇」；初中排行榜按「本週活躍日數」而非總 XP；學生儀表板新增班級排行榜與深度目標進度、極短寫作（<100 字）偵測
 - **🔄 自適應學習引擎 (S39)** — Facade 模式 5 階段 Pipeline：Mastery→Mistakes→KnowledgeGraph→Recommendations→ExerciseGen
 - **🏛️ 統一 LearningFacade (S40)** — 所有學習模組的單一入口點，零重複業務邏輯

@@ -25,9 +25,9 @@ describe('calculateXp', () => {
     expect(calculateXp(event)).toBe(10);
   });
 
-  it('should return 2 XP for incorrect answer', () => {
+  it('should return 0 XP for incorrect answer (2026-09-28 再平衡：答錯不再給獎)', () => {
     const event: XpEvent = { type: 'answerIncorrect' };
-    expect(calculateXp(event)).toBe(2);
+    expect(calculateXp(event)).toBe(0);
   });
 
   it('should apply difficulty multiplier: challenge 1.5×', () => {
@@ -47,8 +47,17 @@ describe('calculateXp', () => {
 
   it('should add streak bonus for dailyLogin', () => {
     const event: XpEvent = { type: 'dailyLogin', streakDays: 5 };
-    // base 5 + streakBonus 5*5 = 25 + 5 = 30
+    // base 5 + 每練習日 5 XP × 5 日 = 5 + 25 = 30
     expect(calculateXp(event)).toBe(30);
+  });
+
+  it('caps the streak bonus at 7 days (2026-09-28：斷開無上限正回饋)', () => {
+    // 舊設計為 streakDays * 5 無上限（連續 100 天 = 505 XP/日）。
+    expect(calculateXp({ type: 'dailyLogin', streakDays: 7 })).toBe(5 + 35);
+    expect(calculateXp({ type: 'dailyLogin', streakDays: 30 })).toBe(5 + 35);
+    expect(calculateXp({ type: 'dailyLogin', streakDays: 100 })).toBe(5 + 35);
+    // 負數／NaN 不得變成負加成或爆量
+    expect(calculateXp({ type: 'dailyLogin', streakDays: -5 })).toBe(5);
   });
 
   it('should not add streak bonus for non-login events', () => {
@@ -61,14 +70,26 @@ describe('calculateXp', () => {
     expect(calculateXp(event)).toBe(50);
   });
 
-  it('should return 30 XP for submit writing', () => {
+  it('should return 40 XP for submit writing', () => {
     const event: XpEvent = { type: 'submitWriting' };
-    expect(calculateXp(event)).toBe(30);
+    expect(calculateXp(event)).toBe(40);
   });
 
-  it('should return 20 XP for master word', () => {
+  it('should return 25 XP for master word', () => {
     const event: XpEvent = { type: 'masterWord' };
-    expect(calculateXp(event)).toBe(20);
+    expect(calculateXp(event)).toBe(25);
+  });
+
+  it('2026-09-28 再平衡：深層行為 XP ≥ 淺層行為（answerCorrect）', () => {
+    const shallow = calculateXp({ type: 'answerCorrect' });
+    expect(calculateXp({ type: 'reviewMistake' })).toBeGreaterThan(shallow);
+    expect(calculateXp({ type: 'learnWord' })).toBeGreaterThan(shallow);
+    expect(calculateXp({ type: 'masterWord' })).toBeGreaterThan(shallow);
+    expect(calculateXp({ type: 'completeSession' })).toBeGreaterThan(shallow);
+    expect(calculateXp({ type: 'submitWriting' })).toBeGreaterThan(shallow);
+    expect(calculateXp({ type: 'completeSpelling' })).toBeGreaterThan(shallow);
+    // 答錯不應有任何 XP
+    expect(calculateXp({ type: 'answerIncorrect' })).toBe(0);
   });
 
   it('should round XP to integer', () => {

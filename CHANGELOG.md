@@ -4,6 +4,62 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-09-28 — XP 反刷分 + 獎勵再平衡（DB 實證：單一學生刷得 95,904 XP）
+
+### 一、事故（DB 實證，非推測）
+- 用戶反映「加生字 XP 超過 100」。查核（新工具 `scripts/audit-student-xp.ts`，唯讀、SQL 端聚合）確認**並非** `learnWord`（固定 5 XP），而是 **`masterWord` 被無限重複領取**：
+  - 翁晟燁（S2）總 XP 101,226，其中 `masterWord` **3,996 次 × 24 XP = 95,904（94.7%）**；練習類（作答＋完成）僅約 2.5%。
+  - 2026-09-26 單日 90,657 XP；**同一分鐘最多 111 筆**（19:22）；生字簿 1,478 字中 1,475 已標記 mastered。
+  - 全校 `masterWord` 幾乎只集中在兩名學生（3,996 / 1,460，其餘 ≤13）。
+- 根因三重：
+  1. `POST /api/gamification` **採信客戶端送來的整個 event**（`type` / `difficulty` / `streakDays` / `metadata.idempotencyKey` 全無驗證）。
+  2. 只有 `completeSession` 帶去重鍵；`masterWord`／`learnWord`／`reviewMistake`／`answerCorrect` **完全沒有** → 可無限領取。
+  3. `vocabulary/page.tsx` 的 `handleToggleFamiliarity()` 每當熟悉度循環回到 `mastered` 就發一次 `masterWord`（`PATCH /api/vocabulary` 無狀態機驗證，可任意回捲）。
+- 附帶缺陷：`/api/daily-challenge` 只寫 `XpTransaction`、**未 increment `User.xp`** → 每日挑戰 XP 永遠不計入總分（該生帳本比總分多 30 XP ＝ 3 次）。
+
+### 二、修復
+1. **事件白名單 + 伺服器建立去重鍵**（新 `student/progress/services/xp-event-policy.ts`）：
+   - 未知事件 ⇒ 400；客戶端 `idempotencyKey` 一律忽略。
+   - `masterWord`→`wordId`、`learnWord`→`wordId`、`reviewMistake`→`mistakeId`、`answerCorrect`/`answerIncorrect`→`questionId`、`completeSession`→`sessionId`；`dailyLogin`／`completeDiagnostic`／`submitWriting` 為**每香港日一鍵**。
+   - 鍵**按 `studentId` 界定**（`XpTransaction.idempotencyKey` 是全庫唯一索引 —— 否則 A 生領過的鍵會令 B 生永遠領不到，共用 id 的 mock 題尤甚）。
+   - 缺少識別碼 ⇒ 400，**不再存在「無鍵可重複領取」的路徑**；白名單為明示清單（`completeSpelling` 等僅供伺服器發放）。
+2. **難度與連續天數由伺服器解析**（新 `exercise/services/question-difficulty-resolution.ts`）：忽略 `event.difficulty`；`answerCorrect` 由 `questionId` 查正典難度（只有 `GrammarQuestion` 有 difficulty 欄位；閱讀／聆聽與解析失敗一律 `core` —— 寧可少給，不可讓客戶端放大）；`dailyLogin` 由 `calculatePracticeStreak()` 重算。`completeSession` 另以 `(studentId, clientSubmissionId)` 驗證場次真實存在（防偽造 sessionId 重複領取）。
+3. **數值再平衡**（使深度行為 ≥ 淺層）：`completeSession` 15→**45**、`submitWriting` 30→**40**、`reviewMistake` 8→**20**、`learnWord` 5→**12**、`masterWord` 20→**25**、`answerIncorrect` 2→**0**（答錯不再給獎，不再鼓勵亂答）；`streakBonus` 由無上限 `streakDays × 5` 改為 **`min(streakDays, 7) × 5`**（最高 +35；舊制連續 100 天單是登入即 505 XP/日，且登入令加成上升＝正回饋）。
+4. **串字完成 XP 改由伺服器發放**（`/api/vocabulary/spelling` 已驗證場次擁有權）—— 從前由客戶端發送假造的 `completeSession`。
+5. **`/api/streak` 與 `POST /api/gamification` 共用同一每日鍵**（`{studentId}:daily-login:{香港日}`），兩條路徑永不重複發放。
+6. **`/api/daily-challenge` 改走正典 `awardXp`**（修正 `User.xp` 未 increment）。
+7. **`awardXp` 對 0 XP 事件不寫帳本、不佔鍵** —— 之後答對同一題仍可正常領取。
+
+### 三、驗證
+- `tsc` 0；`npm run lint` exit 0（0 errors）；**3245 passed / 2 skipped**（169 files passed, 2 skipped）；`node scripts/check-i18n.js` exit 0；`npm run build:prod` exit 0；iPad（Safari 15.4）基線產物 `static{` 計數 **0**。
+- 新增／更新測試：`xp-event-policy.test.ts`（14：白名單、識別碼必填、學生界定、每日閘門、客戶端偽造鍵被忽略）、`gamification.test.ts`（再平衡與 streak 上限 +3）、`route-security.test.ts`（改驗 `applyXpEventOnce` 冪等路徑）。
+
+### 四、資料回調（已執行，`scripts/clawback-farmed-xp.ts`）
+刪除刷分所得的 `masterWord` 列並扣減 `User.xp`（dry-run 預設、`--apply` 寫入、重跑冪等）：
+
+| 學生 | 刪除列數 | 回調 XP | `User.xp` 變化 |
+|---|---|---|---|
+| 翁晟燁（S2） | 3,996 | 95,904 | 101,226 → **5,322** |
+| 許樂（S3） | 1,460 | 35,040 | 42,074 → **7,034** |
+| **合計** | **5,456** | **130,944** | |
+
+- **為何刪除而非補一筆負數列**：這些列不是學習證據（平台原則 evidence-only），保留會令任何以 event 分組的統計（例如 `masterWord` 佔比）繼續失真。**已知取捨**：舊記錄 `metadata` 為空 `{}`、不含 `wordId`，無法辨識「刷分前是否已有少量合法 `masterWord`」，故整個 event 一併移除。
+- **安全設計**：交易內以「刪除前的 `User.xp` 確切值」作前置條件（`updateMany` where `xp = 舊值`），期間若有並行入帳則不匹配 → 整筆回滾，永不覆蓋並行的合法入帳。
+- **無 XP 衍生的資料需重算**：`overallAccuracy`／`WeeklySnapshot` 與 XP 無關；徽章條件不含 XP（皆為題數／正確率／連續天數／字數／寫作數）；排行榜即時讀 `User.xp`，自動反映。
+- **回調後複查（`audit-student-xp.ts`）**：翁晟燁 `User.xp` = 5,322，**帳本與餘額仍差 30 XP** —— 已定位為 **3 筆 2026-09-28 之前的每日挑戰 `answerCorrect` 列（`metadata IS NULL`）**，即舊碼「只寫帳本、未 increment 總分」的已賺未付 XP。本次**不**補發（不屬回調範圍，且涉及「給予 XP」的決定）。
+
+### 五、程式碼審核（同批清掃）
+- **刪除無守衛的 XP 入口（安全相關的死碼）**：`progress-service.awardXp`（經 `StudentFacade.progress.awardXp` 暴露、**零 runtime consumer**）與 `progress-repo.updateUserXpAndStreak`（零 consumer）。兩者都**不經**新政策（無白名單、無去重鍵），保留等於留下可被重新接上的刷分後門。
+- **移除本次引入的死碼**：`question-difficulty-resolution.resolveSessionDifficulty`（未被使用）、`xp-event-policy` 的 `idempotencyKey: string | null`（恆有值）、`/api/daily-challenge` 未使用的 `calculateXp` import、`practice/[id]` 客戶端 `awardXp` 已死的 `difficulty` 參數與 `pendingCompletionXp.difficulty` 欄位。
+- **消除重複編碼**：新增 `scripts/lib/db-env.ts`（`readEnvValue`／`getDbUrl`／`argValue`），兩個新腳本改用之（原為 8 個腳本各自複製同一段逐字相同的程式；其餘既有腳本列為後續跟進，未在本次一併改動以控制未受 typecheck 覆蓋的風險）。
+- **文件校正**：`prisma/schema.prisma` 的 `XpTransaction.event` 註解更新為現行事件集（並注明 `streakBonus`／`achievementBonus` 僅為歷史值）；`docs/DOMAIN_AUDIT.md` 移除已刪除的 facade `awardXp`；`docs/ARCHITECTURE_V4.md` 時序圖改指 `StudentStateMutationService.awardXp`；`README.md` 更正「XP 使用 client idempotency key」的過時描述；`AGENTS.md`／`CLAUDE.md` 新增 XP 政策 owner 與工具清單。
+
+### 六、驗證（最終）
+- `tsc` 0；`npm run lint` exit 0（0 errors；變更檔案 0 warnings）；**3245 passed / 2 skipped**（169 files passed, 2 skipped）；`node scripts/check-i18n.js` exit 0；`npm run build:prod` exit 0；iPad（Safari 15.4）基線產物 `static{` 計數 **0**。
+- 回調腳本以 `--apply` 重跑兩次皆回報「已無可回調列」→ 冪等確認。
+
+---
+
 ## 2026-09-27 — 轉述句壞題補救（修題＋學生補償＋覆核 v2）與 2026-09-26 晚間效能事故修復
 
 ### 一、使用者回報：轉述句題目答案有誤（fact check 結論：題目為壞題）

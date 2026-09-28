@@ -7,9 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { syncUserStreak, calculatePracticeStreak } from '@/modules/student/progress/services/streak-service';
 import { calculateXp } from '@/modules/student/progress/services/gamification';
-import { getTodaysXpTransaction, createXpTransaction } from '@/modules/student';
+import { getTodaysXpTransaction, applyXpEventOnce } from '@/modules/student';
 import { updateUser } from '@/modules/student';
-import { hkStartOfDay } from '@/shared/utils/hk-date';
+import { hkDayKey, hkStartOfDay } from '@/shared/utils/hk-date';
 
 export async function POST(request: NextRequest) {
   const authResult = await verifyApiAuth(request);
@@ -42,14 +42,25 @@ export async function POST(request: NextRequest) {
 
     // Award dailyLogin XP only once per day.
     // Sprint 133: streakBonus 只隨「練習日」遞增（只登入不漲加成）。
+    // 2026-09-28：去重鍵由**伺服器**建立（每香港日一鍵），與
+    // `POST /api/gamification` 的 dailyLogin 共用同一鍵 → 兩條路徑永不重複發放。
     let xpAwarded = 0;
     if (!todayLog) {
       const xpAmount = calculateXp({ type: 'dailyLogin', streakDays: practiceStreakDays });
-      await createXpTransaction({ userId: studentId, event: 'dailyLogin', xpAmount, metadata: JSON.stringify({ streakDays: practiceStreakDays }) });
-
-      await updateUser(studentId, { xp: { increment: xpAmount }, streakDays });
-
-      xpAwarded = xpAmount;
+      const outcome = await applyXpEventOnce({
+        userId: studentId,
+        event: 'dailyLogin',
+        xpAmount,
+        metadata: JSON.stringify({ streakDays: practiceStreakDays }),
+        idempotencyKey: `${studentId}:daily-login:${hkDayKey(new Date())}`,
+        // streakDays 由 syncUserStreak() 以實際練習日算出後設定；不可再由
+        // 交易自行 +1（兩套口徑會互相打架）。
+        incrementStreak: false,
+      });
+      if (outcome.created) {
+        await updateUser(studentId, { streakDays });
+        xpAwarded = xpAmount;
+      }
     }
 
     return NextResponse.json({

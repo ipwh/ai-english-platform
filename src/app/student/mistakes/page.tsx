@@ -154,7 +154,7 @@ export default function MistakesPage() {
         fetch('/api/gamification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: store.userId, event: { type: 'reviewMistake' } }),
+          body: JSON.stringify({ studentId: store.userId, event: { type: 'reviewMistake', metadata: { mistakeId: id } } }),
         }).catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Gamification reviewMistake XP failed'); });
       }
     }

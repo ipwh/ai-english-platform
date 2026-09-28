@@ -15,7 +15,7 @@ Unified entry point wrapping all 5 student sub-domains:
 | **Profile** | `profile/` | `generate`, `aggregateSkills`, `analyzeTopics`, `learningSpeed` |
 | **Mastery** | `student-mastery/` (S31) | `getProfile`, `updateAfterExercise`, `updateAfterWriting`, `updateAfterVocabulary` |
 | **Memory** | `learning-memory/` (S36) | `service` (MemoryService), `engine` (MemoryEngine) |
-| **Progress** | `progress/` | `get`, `awardXp`, `streak`, `syncStreak`, `levelInfo`, `checkBadges`, `allBadges`, `studyRecommendation`, `leaderboard`, `dailyGoal` |
+| **Progress** | `progress/` | `get`, `streak`, `syncStreak`, `levelInfo`, `checkBadges`, `allBadges`, `studyRecommendation`, `leaderboard`, `dailyGoal` |
 | **Twin** | `student-twin/` (S20) | `service` (StudentTwinService) |
 
 ### Design Rule Compliance

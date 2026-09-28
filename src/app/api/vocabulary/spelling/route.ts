@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { serializeVocab } from '@/shared/utils/utils';
+import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
 import {
   getVocabForSpelling,
   createSpellingSession,
@@ -194,11 +195,32 @@ export async function POST(request: NextRequest) {
     // 更新 session 狀態
     await completeSpellingSession(sessionId, correctCount);
 
+    // 🎮 串字完成 XP（2026-09-28）
+    // 從前由客戶端自行發 `completeSession`（附帶假造的場次 metadata）—— 在
+    // 新政策下無法對應真實場次，且客戶端可無限重發。改為**伺服器發放**：
+    // 場次已於上方驗證擁有權，`status === 'completed'` 的早退分支亦令本區段
+    // 每個 session 只執行一次。
+    let xpAwarded = 0;
+    if (correctCount > 0) {
+      try {
+        const award = await studentStateMutationService.awardXp(studentId, {
+          type: 'completeSpelling',
+          difficulty: 'core',
+          metadata: { spellingSessionId: sessionId, idempotencyKey: `${studentId}:spelling:${sessionId}` },
+        });
+        xpAwarded = award.xpGained;
+      } catch (e) {
+        // 非致命：XP 發放失敗不得影響串字結果的回傳
+        logger.error({ module: 'spelling', error: e instanceof Error ? e.message : String(e) }, 'Spelling XP award failed');
+      }
+    }
+
     return NextResponse.json({
       sessionId,
       correctCount,
       totalWords: records.length,
       accuracy: records.length > 0 ? Math.round((correctCount / records.length) * 100) : 0,
+      xpAwarded,
       records: records.map((r) => ({
         word: r.word,
         studentInput: r.studentInput,

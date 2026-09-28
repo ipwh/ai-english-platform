@@ -95,16 +95,20 @@ export function useTextSelectionVocab({
     setShowQuickAdd(false);
   }, []);
 
-  const handleWordAdded = useCallback((vocab: { word: string } | null) => {
+  const handleWordAdded = useCallback((vocab: { id?: string; word?: string } | null) => {
     const word = vocab?.word || selectedText;
     setShowQuickAdd(false);
     setPopupPos(null);
     onWordAdded?.(word);
-    fetch('/api/gamification', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
-    }).catch(() => {});
+    // 2026-09-28：learnWord 需要 wordId 作伺服器去重鍵；沒有 id（例如重複
+    // 加入被 409 拒絕）就不發，避免舊碼那種「無條件發放」的刷分路徑。
+    if (vocab?.id) {
+      fetch('/api/gamification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, event: { type: 'learnWord', metadata: { wordId: vocab.id } } }),
+      }).catch(() => {});
+    }
   }, [selectedText, studentId, onWordAdded]);
 
   // Cleanup
@@ -271,11 +275,14 @@ export function InlineWordBadge({
           onAdded={(vocab) => {
             setShowQuickAdd(false);
             onAdded?.(vocab?.word || word);
-            fetch('/api/gamification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ studentId, event: { type: 'learnWord' } }),
-            }).catch(() => {});
+            // 2026-09-28：需要 wordId 作伺服器去重鍵（沒有 id 就不發）
+            if (vocab?.id) {
+              fetch('/api/gamification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, event: { type: 'learnWord', metadata: { wordId: vocab.id } } }),
+              }).catch(() => {});
+            }
           }}
         />
       )}

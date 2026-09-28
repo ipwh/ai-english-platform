@@ -168,14 +168,6 @@ export async function sumXp(userId: string) {
 }
 
 // ============================================
-// Streak
-// ============================================
-
-export async function updateUserXpAndStreak(userId: string, xpGained: number, streakDays: number) {
-  return db.user.update({ where: { id: userId }, data: { xp: { increment: xpGained }, streakDays } });
-}
-
-// ============================================
 // Leaderboard
 // ============================================
 

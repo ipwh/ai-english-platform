@@ -13,7 +13,7 @@ See `CLAUDE.md` for full architecture documentation.
 2. Read `CHANGELOG.md` for the latest changes (2026-09-26: Neon egress 收口 —— 全歷史投影改走 SQL 聚合（3.2 MB → 55 KB）＋修掉靜默覆蓋準確率的 fail-open；2026-09-23 (IV): 封鎖瀏覽器自動翻譯（`removeChild` 崩潰）；(III): 修復 (II) 稽核的全部 6 項缺陷；2026-09-21 (III): 聆聽成為可量測 — 伺服器 `ListeningQuestion` 題庫、交付前逐字可批改判準、`listening-server-exact-match` 證據、聆聽不再自評（ADR-045）)
 3. Read `README.md` for features and ADRs
 4. Reference `docs/architecture/ADR-*.md` for architectural decisions
-5. Run `npm test` — expect 3227 pass / 2 skipped (168 files passed, 2 skipped; core files: semantic-evaluator, analyze-writing, answer-verification, listening-answer-scoring, generate-questions-topup, vocabulary-add-word). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs when `DATABASE_URL` is localhost — i.e. in CI — or `EVIDENCE_SQL_TEST=1`)
+5. Run `npm test` — expect 3245 pass / 2 skipped (169 files passed, 2 skipped; core files: semantic-evaluator, analyze-writing, answer-verification, listening-answer-scoring, generate-questions-topup, vocabulary-add-word). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs when `DATABASE_URL` is localhost — i.e. in CI — or `EVIDENCE_SQL_TEST=1`)
 6. DB migrations: `npx prisma migrate deploy`（CLI 自 2026-09-27 起優先使用 `.env.local` 的 `DIRECT_DATABASE_URL` 直連主機；執行期仍用 `DATABASE_URL` pooler；勿只信 `.env`）。部署 2026-09-21 (III) 後需套用 `20260924_listening_question_store`（建 `ListeningQuestion`、刪除休眠的 `ListeningSession`/`ListeningAnswer`，無需回填）；部署 2026-09-21 (II) 後另需一次性回填：`npm run db:backfill:accuracy:apply`（把「無可驗證證據」的 `overallAccuracy = 0` 改為 `null`；真實 0% 不動）
 6. AI Infra CLI quick reference:
    - `npm run prompt:list` — list all prompt versions
@@ -32,9 +32,15 @@ See `CLAUDE.md` for full architecture documentation.
    - `npm run db:verify:metrics-parity` — **部署閘門**：`syncActivityMetrics` 與 admin 匯出批次投影的新舊路徑逐欄比對，要求 0 差異
    - `npm run db:query-stats` — `pg_stat_statements` 排行（`--enable` 建立擴充、`--reset` 清空觀測窗）
    - `npm run profile:requests` — Cloud Run 日誌：每端點請求數與回應位元組（走 Logging REST API，非 `gcloud logging read`）
+9. XP 稽核與回調（唯讀；預設 dry-run）：
+   - `npx tsx scripts/audit-student-xp.ts --name=<姓名>` — 單生 XP 來源、逐香港日、爆量偵測、帳本 vs 餘額對帳
+   - `npx tsx scripts/audit-student-xp.ts --top` — 全校 `masterWord` 次數排行
+   - `npx tsx scripts/clawback-farmed-xp.ts [--apply]` — 刪除刷分 `XpTransaction` 列並扣減 `User.xp`（預設 dry-run；冪等）
+   - 共用工具：`scripts/lib/db-env.ts`（新腳本請用它載入 `DATABASE_URL`，勿再複製 `readEnvValue`）
 
 ## Key Rules
 - **Single pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. Never create another pipeline.
+- **XP 發放必須經單一政策閘門**（2026-09-28 事故）：`student/progress/services/xp-event-policy.ts` 是唯一的事件白名單與去重鍵來源。`POST /api/gamification` **永不**採信客戶端的 `idempotencyKey`／`streakDays`／`difficulty`：去重鍵一律由伺服器依識別碼（`questionId`／`wordId`／`mistakeId`／`sessionId`）或香港日建立，且**必須按 `studentId` 界定**（`XpTransaction.idempotencyKey` 是全庫唯一索引，否則 A 生領過的鍵會令 B 生領不到）；難度由正典題目解析（`exercise/services/question-difficulty-resolution.ts`，只有 `GrammarQuestion` 有 difficulty），連續天數由 `calculatePracticeStreak()` 重算；缺少識別碼 ⇒ 400。**禁止**新增無閘門事件、**禁止**回復無守衛的 XP 入口（已刪除 `progress-service.awardXp`／`student-service.addXp` 等）。實測事故：一名學生反覆切換單字熟悉度刷得 95,904 XP（同一分鐘 111 筆），已回調 5,456 列 / 130,944 XP（`scripts/clawback-farmed-xp.ts`）
 - **DeepSeek V4.1 thinking is opt-in**: the provider sends `thinking: {type:'disabled'}` unless a caller passes `thinking: true`. The API default (thinking on, effort `high`) ignores `temperature` and spends `max_tokens` on `reasoning_content` — measured 2026-09-15: omitting it returned an EMPTY answer after 21s with `max_tokens: 4096` (see CHANGELOG 2026-09-15). Opting in means raising `maxTokens`/`timeoutMs` too.
 - **Single owner**: Every responsibility has exactly one canonical module (see CLAUDE.md Ownership section)
 - **`submissionClass` 不單獨授權副作用**：`exercise/services/practice-submission-service.ts` 的錯題建立與掌握度更新必須同時滿足 `usedServerScoring`（本次確實用伺服器答案鍵評分）。fail-open 回退的客戶端自評列可被偽造 `isCorrect`，**永不**可變成錯題／掌握度／證據（2026-09-21 ADR-045 稽核）。

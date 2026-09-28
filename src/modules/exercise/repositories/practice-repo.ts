@@ -506,6 +506,18 @@ export async function findPracticeSession(id: string) {
     include: { answers: { orderBy: { questionIndex: 'asc' } } },
   });
 }
+
+/**
+ * 2026-09-28：以 (studentId, clientSubmissionId) 唯一鍵找場次。
+ * 供 `POST /api/gamification` 驗證「完成練習」XP 事件確實對應真實場次
+ * （防止以偽造 sessionId 重複領取 completeSession XP）。
+ */
+export async function findPracticeSessionByClientId(studentId: string, clientSubmissionId: string) {
+  return db.practiceSession.findUnique({
+    where: { studentId_clientSubmissionId: { studentId, clientSubmissionId } },
+    select: { id: true, studentId: true, difficulty: true, totalQuestions: true, correctCount: true },
+  });
+}
 /** Update a practice session (e.g., mark as completed) */
 export async function completePracticeSession(id: string, correctCount: number) {
   return db.practiceSession.update({

@@ -40,6 +40,7 @@ const mocks = vi.hoisted(() => ({
   bulkDeleteMistakes: vi.fn(),
   getTodaysXpTransaction: vi.fn(),
   createXpTransaction: vi.fn(),
+  applyXpEventOnce: vi.fn(),
   updateUser: vi.fn(),
   listNotifications: vi.fn(),
   countUnreadNotifications: vi.fn(),
@@ -142,6 +143,7 @@ vi.mock('@/modules/student', () => ({
   bulkDeleteMistakes: mocks.bulkDeleteMistakes,
   getTodaysXpTransaction: mocks.getTodaysXpTransaction,
   createXpTransaction: mocks.createXpTransaction,
+  applyXpEventOnce: mocks.applyXpEventOnce,
   updateUser: mocks.updateUser,
   listNotifications: mocks.listNotifications,
   countUnreadNotifications: mocks.countUnreadNotifications,
@@ -205,6 +207,7 @@ beforeEach(() => {
   mocks.calculateXp.mockReturnValue(10);
   mocks.getTodaysXpTransaction.mockResolvedValue(null);
   mocks.createXpTransaction.mockResolvedValue({ id: 'xp-1' });
+  mocks.applyXpEventOnce.mockResolvedValue({ created: true, xp: 103 });
   mocks.updateUser.mockResolvedValue({});
   mocks.adminDbQuery.mockResolvedValue(null);
   mocks.getVerifiedPracticeSessions.mockResolvedValue([]);
@@ -453,8 +456,12 @@ describe('SEC-006: /api/streak — cross-user XP/read blocked', () => {
     const json = await res.json();
     expect(json.streakDays).toBe(3);
     expect(json.xpAwarded).toBe(10);
-    expect(mocks.createXpTransaction).toHaveBeenCalledWith(expect.objectContaining({ userId: 'student-A' }));
-    expect(mocks.updateUser).toHaveBeenCalledWith('student-A', expect.objectContaining({ xp: expect.anything() }));
+    expect(mocks.applyXpEventOnce).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'student-A',
+      event: 'dailyLogin',
+      idempotencyKey: expect.stringContaining('daily-login:'),
+    }));
+    expect(mocks.updateUser).toHaveBeenCalledWith('student-A', { streakDays: 3 });
   });
 });
 

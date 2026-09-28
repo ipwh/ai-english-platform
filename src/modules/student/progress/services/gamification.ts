@@ -6,19 +6,41 @@
 // XP 計算
 // ============================================
 
-/** 每種操作的基礎 XP */
+/**
+ * 每種操作的基礎 XP。
+ *
+ * 2026-09-28 再平衡（與反刷分修正同批，見 `xp-event-policy.ts`）：
+ * - **深度行為一律 ≥ 淺層行為**：`reviewMistake` 20、`masterWord` 25、
+ *   `learnWord` 12、`submitWriting` 40、`completeSession` 45，全部高於單題
+ *   作答 `answerCorrect` 10。舊表倒置（複習錯題 8 < 答對一題 MC 10），
+ *   等於獎勵「隨手刷選擇題」而非深度學習。
+ * - `answerIncorrect` 由 2 改為 **0**：舊值令「亂答」也有獎，與學習訊號相反。
+ *   仍保留鍵值，未知／舊客戶端送來時不會 400，只是不給 XP。
+ * - `completeSession` 由 15 調高至 45：舊值只值 1.5 題選擇題，而作答 XP 是
+ *   每題即時發放 → 中途放棄幾乎零損失，「完成整套」形同沒有誘因。
+ */
 const XP_VALUES = {
   answerCorrect: 10,
-  answerIncorrect: 2,
-  completeSession: 15,
+  answerIncorrect: 0,
+  completeSession: 45,
   completeDiagnostic: 50,
-  submitWriting: 30,
+  completeSpelling: 15,
+  submitWriting: 40,
   dailyLogin: 5,
-  streakBonus: 5, // per streak day
-  reviewMistake: 8,
-  learnWord: 5,
-  masterWord: 20,
+  reviewMistake: 20,
+  learnWord: 12,
+  masterWord: 25,
 };
+
+/**
+ * 連續天數加成：每「練習日」+5 XP，**上限 7 日**（最高 +35）。
+ *
+ * 2026-09-28：舊設計為 `streakDays * 5` 且**無上限** → 連續 100 天時單是登入
+ * 就 505 XP/日（比整套 20 題練習還多），且登入即令加成上升，形成正回饋。
+ * 實測有學生單日 90,657 XP 幾乎全來自可重複事件的刷取。
+ */
+export const STREAK_BONUS_PER_DAY = 5;
+export const STREAK_BONUS_MAX_DAYS = 7;
 
 /** 難度加成倍率 */
 const DIFFICULTY_MULTIPLIER: Record<string, number> = {
@@ -37,16 +59,41 @@ export interface XpEvent {
   type: keyof typeof XP_VALUES;
   difficulty?: string;
   streakDays?: number;
-  metadata?: Record<string, unknown>;  // sessionId, questionIndex, wordId, badgeId, ...
+  metadata?: Record<string, unknown>;  // sessionId, questionId, wordId, mistakeId, ...
+}
+
+/**
+ * 客戶端可透過 `POST /api/gamification` 請求的 XP 事件（**伺服器白名單**）。
+ *
+ * 注意：這是**明示清單**，不是 `keyof XP_VALUES` 的自動推導 ——
+ * `completeSpelling` 等「只由伺服器發放」的事件必須留在清單之外，
+ * 否則客戶端可繞過業務驗證直接聲請。
+ */
+export const CLIENT_XP_EVENT_TYPES = [
+  'answerCorrect',
+  'answerIncorrect',
+  'completeSession',
+  'completeDiagnostic',
+  'submitWriting',
+  'dailyLogin',
+  'reviewMistake',
+  'learnWord',
+  'masterWord',
+] as const satisfies readonly XpEvent['type'][];
+
+export type ClientXpEventType = (typeof CLIENT_XP_EVENT_TYPES)[number];
+
+export function isClientXpEventType(value: unknown): value is ClientXpEventType {
+  return typeof value === 'string' && (CLIENT_XP_EVENT_TYPES as readonly string[]).includes(value);
 }
 
 export function calculateXp(event: XpEvent): number {
-  const base = XP_VALUES[event.type] || 0;
+  const base = XP_VALUES[event.type] ?? 0;
   const multiplier = event.difficulty
     ? (DIFFICULTY_MULTIPLIER[event.difficulty] || 1.0)
     : 1.0;
   const streakBonus = event.type === 'dailyLogin' && event.streakDays
-    ? event.streakDays * XP_VALUES.streakBonus
+    ? Math.min(Math.max(0, Math.floor(event.streakDays)), STREAK_BONUS_MAX_DAYS) * STREAK_BONUS_PER_DAY
     : 0;
   return Math.round(base * multiplier + streakBonus);
 }
