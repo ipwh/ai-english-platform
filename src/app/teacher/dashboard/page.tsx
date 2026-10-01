@@ -9,7 +9,7 @@ import { Users, BarChart3, ChevronRight, BookOpen, Sparkles, Loader2, RefreshCw,
 import { useAppStore } from '@/store/appStore';
 import KpiCard from '@/components/shared/KpiCard';
 import { useT } from '@/hooks/use-i18n';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { ClassInfo } from '@/shared/types/types';
 
 interface StudentBrief {
@@ -30,6 +30,50 @@ interface AssignmentBrief {
   completionRate?: number | null;
 }
 
+/** 班級練習數據（GET /api/teacher/class-stats；見 class-stats-service.ts 契約） */
+interface ClassPracticeStats {
+  classId: string;
+  className: string;
+  gradeLevel: string;
+  studentCount: number;
+  participantCount: number;
+  /** 0-100；null = 名單為空（顯示「—」） */
+  participationRate: number | null;
+  /** 完成次數（全歷史練習場次） */
+  sessionsCount: number;
+  /** 0-100；null = 無可驗證證據（顯示「—」，不得當 0%） */
+  accuracy: number | null;
+}
+
+/** 百分比顯示；null（無資料）一律「—」，不得顯示 0% */
+function formatPercent(value: number | null | undefined): string {
+  return value == null ? '—' : `${value}%`;
+}
+
+/** 圖表 tooltip：一次顯示該班全部數據（完成次數／參與人數／參與率／正確率） */
+function ClassStatsTooltip({
+  active, payload, t,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: ClassPracticeStats & { displayName?: string } }>;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const row = active ? payload?.[0]?.payload : undefined;
+  if (!row) return null;
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-xs shadow-lg">
+      <p className="font-semibold text-gray-900 dark:text-white mb-1">{row.displayName || row.className || t('teacher.classStats.unnamedClass')}</p>
+      <div className="space-y-0.5 text-gray-600 dark:text-gray-300">
+        <p>{t('teacher.studentCount')}: {row.studentCount}</p>
+        <p>{t('teacher.classStats.participants')}: {row.participantCount}</p>
+        <p>{t('teacher.classStats.completions')}: {row.sessionsCount}</p>
+        <p>{t('teacher.classStats.participationRate')}: {formatPercent(row.participationRate)}</p>
+        <p>{t('teacher.tableAccuracy')}: {formatPercent(row.accuracy)}</p>
+      </div>
+    </div>
+  );
+}
+
 /** Days since last activity; null = unknown (never active / no data). */
 function daysSince(iso: string | null | undefined): number | null {
   if (!iso) return null;
@@ -46,6 +90,9 @@ export default function TeacherDashboardPage() {
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [students, setStudents] = useState<StudentBrief[]>([]);
   const [assignments, setAssignments] = useState<AssignmentBrief[]>([]);
+  // 2026-10-01：班級練習數據（全校每班一列；不再以「最新 8 班」在客戶端拼圖表）
+  const [classStats, setClassStats] = useState<ClassPracticeStats[]>([]);
+  const [classStatsError, setClassStatsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -54,12 +101,21 @@ export default function TeacherDashboardPage() {
       fetch('/api/classes').then(r => r.json()),
       fetch('/api/teacher/students').then(r => r.json().catch(() => ({ students: [] as StudentBrief[] }))),
       fetch('/api/assignments').then(r => r.json().catch(() => ({ assignments: [] as AssignmentBrief[] }))),
+      fetch('/api/teacher/class-stats')
+        .then(async (res) => {
+          const json = await res.json().catch(() => ({ classes: [] as ClassPracticeStats[] }));
+          return { ok: res.ok, classes: (json.classes || []) as ClassPracticeStats[] };
+        })
+        .catch(() => ({ ok: false, classes: [] as ClassPracticeStats[] })),
     ])
-      .then(([classData, studentData, assignmentData]) => {
+      .then(([classData, studentData, assignmentData, statsData]) => {
         const classList: ClassInfo[] = classData.classes || [];
         setStudents(studentData.students || []);
         setAssignments(assignmentData.assignments || []);
         setClasses(classList);
+        setClassStats(statsData.classes);
+        // 查詢失敗 ≠ 沒有班別數據：分開標示，不得混為一談
+        setClassStatsError(!statsData.ok);
       })
       .catch(() => {
         setClasses([]);
@@ -100,32 +156,31 @@ export default function TeacherDashboardPage() {
   const atRiskList = Array.from(atRiskByStudentId.values());
   const inactiveCount = inactiveStudents.length;
 
+  // 2026-10-01：圖表與明細表直接使用伺服器端聚合（全校所有班別）。
+  // 舊碼只取 `classes.slice(0, 8)` 並以作業完成率／學生快取準確率在客戶端拼合
+  // → 第 9 班之後的班別不存在、沒有作業的班別整條棒空白（用戶回報）。
+  const hasClassStats = classStats.length > 0 && !classStatsError;
+  // KPI「班級數／學生人數」與下方總覽同源：教師帳號未有 TeacherClass 連結時
+  // `/api/classes` 為空 → 舊 KPI 會顯示 0 班 0 人，與全校圖表自相矛盾。
+  const classCountKpi = hasClassStats ? classStats.length : classes.length;
+  const studentCountKpi = hasClassStats
+    ? classStats.reduce((sum, c) => sum + c.studentCount, 0)
+    : totalStudents;
+  // 未命名班別（資料庫存在 name='' 的匯入殘留）顯示型別安全的名稱
+  const classNameOf = (c: ClassPracticeStats) => (c.className?.trim() ? c.className : t('teacher.classStats.unnamedClass'));
+  const classChartData = classStats.map((c) => ({ ...c, displayName: classNameOf(c) }));
+  const weakestClasses = classStats
+    .filter((c): c is ClassPracticeStats & { accuracy: number } => c.accuracy != null)
+    .sort((a, b) => a.accuracy - b.accuracy)
+    .slice(0, 3);
+
   const kpis = [
-    { label: t('teacher.classCount'), value: classes.length, unit: t('generic.classes'), trend: 'stable' as const },
+    { label: t('teacher.classCount'), value: classCountKpi, unit: t('generic.classes'), trend: 'stable' as const },
     { label: t('teacher.avgAccuracy'), value: overallAvgAccuracy ?? '—', unit: overallAvgAccuracy === null ? '' : '%', trend: 'stable' as const },
-    { label: t('teacher.studentCount'), value: totalStudents, unit: t('generic.people'), trend: 'stable' as const },
+    { label: t('teacher.studentCount'), value: studentCountKpi, unit: t('generic.people'), trend: 'stable' as const },
     { label: t('teacher.completionRate'), value: avgCompletionRate ?? '—', unit: avgCompletionRate === null ? '' : '%', trend: 'stable' as const },
     { label: t('teacher.dashboard.inactiveStudents'), value: inactiveCount, unit: t('generic.people'), trend: 'stable' as const },
   ];
-
-  // Class chart data from real classes with accuracy
-  const classChartData = classes.slice(0, 8).map((c) => {
-    const classStudents = students.filter(student => student.class?.name === c.name);
-    const classScored = classStudents.filter((student): student is StudentBrief & { overallAccuracy: number } => student.overallAccuracy != null);
-    const classAssignments = assignments.filter((assignment): assignment is AssignmentBrief & { completionRate: number } =>
-      assignment.classId === c.id && assignment.completionRate != null,
-    );
-    return {
-      name: c.name,
-      [t('teacher.avgAccuracy')]: classScored.length > 0
-        ? Math.round(classScored.reduce((sum, student) => sum + student.overallAccuracy, 0) / classScored.length)
-        : null,
-      [t('teacher.completionRate')]: classAssignments.length > 0
-        ? Math.round(classAssignments.reduce((sum, assignment) => sum + assignment.completionRate, 0) / classAssignments.length)
-        : null,
-      [t('teacher.studentCount')]: c.studentCount || 0,
-    };
-  });
 
   // AI advice
   const [aiLoading, setAiLoading] = useState(false);
@@ -145,8 +200,9 @@ export default function TeacherDashboardPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentLevel: classes[0]?.gradeLevel || 'S4', overallAccuracy: overallAvgAccuracy,
-          weakSkills: classChartData.filter(c => typeof c[t('teacher.avgAccuracy')] === 'number').slice(0, 3).map((c) => ({ name: c.name, nameZh: c.name, accuracy: c[t('teacher.avgAccuracy')] as number })),
-          recentPerformance: classChartData.filter(c => typeof c[t('teacher.avgAccuracy')] === 'number').slice(0, 5).map((c) => ({ date: c.name, accuracy: c[t('teacher.avgAccuracy')] as number, questionsDone: c[t('teacher.studentCount')] as number })), streakDays: 0,
+          // 2026-10-01：改用伺服器聚合數據（全歷史已驗證正確率；完成量＝練習場次）
+          weakSkills: weakestClasses.map((c) => ({ name: c.className, nameZh: c.className, accuracy: c.accuracy })),
+          recentPerformance: classStats.filter((c): c is ClassPracticeStats & { accuracy: number } => c.accuracy != null).slice(0, 5).map((c) => ({ date: c.className, accuracy: c.accuracy, questionsDone: c.sessionsCount })), streakDays: 0,
         }),
       });
       const json = await res.json();
@@ -194,23 +250,65 @@ export default function TeacherDashboardPage() {
         </div>
       )}
 
-      {/* Class chart + AI advice */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-500" /> {t('teacher.classCompletion')}
+      {/* Class overview (all classes) + AI advice */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-2">
+          <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-500" /> {t('teacher.classStats.title')}
           </h2>
-          {classChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={classChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey={t('teacher.completionRate')} fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey={t('teacher.avgAccuracy')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-4">{t('teacher.classStats.caption')}</p>
+          {classStatsError ? (
+            <p className="text-sm text-red-500 text-center py-16">{t('teacher.classStats.loadFailed')}</p>
+          ) : classChartData.length > 0 ? (
+            <div className="space-y-4">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={classChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="displayName" tick={{ fontSize: 11 }} interval={0} angle={-40} textAnchor="end" height={48} />
+                  <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} unit="%" />
+                  <Tooltip content={<ClassStatsTooltip t={t} />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="participationRate" name={t('teacher.classStats.participationRate')} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="accuracy" name={t('teacher.tableAccuracy')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* 每個班別明細（全校；可滾動；完成次數／正確率／參與人數／參與率） */}
+              <div className="max-h-80 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                      <th className="text-left py-2 px-3 font-medium text-gray-500">{t('teacher.classStats.className')}</th>
+                      <th className="text-center py-2 px-2 font-medium text-gray-500">{t('teacher.studentCount')}</th>
+                      <th className="text-center py-2 px-2 font-medium text-gray-500">{t('teacher.classStats.participants')}</th>
+                      <th className="text-center py-2 px-2 font-medium text-gray-500">{t('teacher.classStats.participationRate')}</th>
+                      <th className="text-center py-2 px-2 font-medium text-gray-500">{t('teacher.classStats.completions')}</th>
+                      <th className="text-center py-2 px-3 font-medium text-gray-500">{t('teacher.tableAccuracy')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classChartData.map((c) => (
+                      <tr key={c.classId} className="border-b border-gray-50 dark:border-gray-700/50">
+                        <td className="py-2 px-3 font-medium text-gray-900 dark:text-white">{c.displayName}</td>
+                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-300">{c.studentCount}</td>
+                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-300">{c.participantCount}</td>
+                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-300">{formatPercent(c.participationRate)}</td>
+                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-300">{c.sessionsCount}</td>
+                        <td className="py-2 px-3 text-center">
+                          {c.accuracy != null ? (
+                            <span className={`font-medium ${c.accuracy >= 70 ? 'text-green-600' : c.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {c.accuracy}%
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           ) : (
             <p className="text-gray-400 text-center py-16">{t('generic.noData')}</p>
           )}

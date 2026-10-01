@@ -55,3 +55,20 @@ That check surfaced **seven further occurrences of the same truthiness defect**,
 - `/api/parent-report`: overall and weekly accuracy used the same pattern → the parent report told families of never-practising students that accuracy was 0 % and advised "practise 5–6 times a week". Now `null`/`—` with advice that states there is no verifiable record yet.
 - Inverse error (a genuine 0 % read as no data): the teacher student-detail badge and its CSV export, plus the `overallAccuracy` column of `/api/admin/export-sheets`, used truthiness and rendered a real 0 % as `—` / `-` / empty. Now all use an explicit null check.
 
+## Addendum (2026-10-01, teacher dashboard class stats)
+
+Owner report: the teacher dashboard's "class completion" section showed **at most 8 classes** (`classes.slice(0, 8)`), most classes had no bars at all, and the legend (completion rate / average accuracy) did not match the section title. Request: per-class **completions, accuracy, participants and participation rate for the whole school** on that page.
+
+Root cause (read-only DB audit on production): the chart was assembled client-side from `slice(0, 8)` + `Assignment.completionRate` averages (only a minority of the school's 25 non-Demo classes have assignments); additionally the dataset had **zero `TeacherClass` rows**, so a non-admin teacher's `/api/classes` was empty while an admin saw 25 classes capped to 8.
+
+Decision (extends Decision #2/#6 to the class dimension):
+
+- New `teacher/monitoring/services/class-stats-service.ts` — one row per class (school-wide, Demo excluded): roster (`User.classId` ∪ `StudentClass`), participants (≥ 1 session), participation rate, completions (full-history sessions), accuracy (**verified** answer rows only). All cumulative numbers go through the canonical batch projection `aggregateVerifiedTotalsForStudents()` (one row per student; no `take` window, no row streaming).
+- Honest empty states hold at class level too: no verifiable evidence ⇒ `accuracy = null` (rendered `—`); empty roster ⇒ `participationRate = null`.
+- New `GET /api/teacher/class-stats` (teacher + admin, dual auth, 30 s cache; failures return non-2xx so the UI distinguishes "failed to load" from "no classes").
+- The dashboard section is now "各班級練習總覽": all classes in one chart (participation rate + accuracy, explicit legend, five-field tooltip) plus a scrollable table (class / students / participants / participation rate / completions / accuracy). No client-side slicing; the class-count and student-count KPIs share the same source.
+
+Verification: 25 classes compared against an independent SQL aggregation on production data — **0 mismatch** (roster / participants / sessions); accuracy counts verified answers only (a class with 63 sessions but no verifiable rows shows `—`). `npm test` 3,288 passed / 2 skipped; `npm run build:prod` exit 0; iPad baseline `static{` count 0.
+
+Scope note: this exposes **aggregate** class-level numbers school-wide (no student-level data), consistent with the owner's earlier instruction that teacher export access stays school-wide. A blank-name legacy class (0 students) renders as "(unnamed class)" instead of an empty label.
+

@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-10-01 — 171 files, 3280 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-10-01 — 173 files, 3288 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
 - **Deployment (2026-09-26 — 生字簿修正)**: **no schema change / no migration.** 批量匯入欄位契約修正（`translation`/`example` ＋擴充欄位保存；重複單字回 409、失敗如實顯示）；PDF 匯出改用內嵌 CJK 字型（`font: ''`，不依賴 PDFKit 標準字型）、版式改為逐塊量測（內文不重疊），且 `format=pdf` 失敗回結構化 500、**永不**以 HTML 冒充。部署後請驗證（見 [CHANGELOG 2026-09-26 (IV)/(V)](CHANGELOG.md)）：① 批量匯入後生字即時出現在列表；② 下載 PDF 的回應為 `application/pdf` 且可正常開啟、內文無重疊（不應出現 corrupted）。
@@ -99,7 +99,7 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 ## 🏗️ Architecture Overview
 
 ```
-Routes (113) → AIFacade → UseCases (13) → executeAI / executeAIRaw
+Routes (115) → AIFacade → UseCases (13) → executeAI / executeAIRaw
                  ├─ Prompts (PromptRegistry)
                  ├─ Providers (6-model chain + circuit-breaker + budget)
                  ├─ Services (RAG, TTS, evaluator, enrichment)
@@ -233,6 +233,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
 - **教材上載** — 匯入文字教材，AI 自動分析關鍵詞彙、文法點及建議題目
 - **班級管理** — 建立班級、查看學生進度（按班號數字排序）、學生名單（含學號欄位，按班別→學號排序）
+- **🆕 各班級練習總覽 (2026-10-01)** — 教師主頁顯示全校每個班別的完成次數、參與人數、參與率及正確率（全歷史累計；正確率只計已驗證題目，「—」＝暫時未有數據）；圖表（參與率／正確率）＋可滾動明細表；資料由伺服器端單一 SQL 聚合（每生一列），不再以「最新 8 班」或作業完成率在客戶端拼圖
 - **學生詳情** — 個別學生完整學習數據：XP/徽章/技能準確率/錯題分布/每週趨勢/逐題答案/CSV 匯出
 - **課業管理** — 指派練習、查看完成狀況
 - **組別管理** — 建立跨班級自訂組別（如拔尖組/補底組），作業可指派至組別

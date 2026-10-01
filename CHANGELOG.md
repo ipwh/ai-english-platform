@@ -4,6 +4,50 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-01（II）— 教師主頁「班級完成率」重構為「各班級練習總覽」（全校所有班別＋明細）
+
+### 一、用戶回報
+1. 教師主頁「班級完成率」**看不到全校所有班別**；
+2. 棒型圖的圖例／解說與區塊標題**不符**；
+3. 要求於同一主頁閱覽**每個班別的完成次數、正確率、參與人數及百分比**。
+
+### 二、稽核（DB 實證，唯讀）
+| 發現 | 證據 |
+|---|---|
+| 圖表只繪最多 8 班 | `teacher/dashboard/page.tsx` 的 `classes.slice(0, 8)`；全院非 Demo 班別 = **25** |
+| 大部分班別整條棒空白 | 舊「完成率」由 `Assignment.completionRate` 平均 —— 25 班中僅少數班別有作業紀錄，其餘沒有資料可繪 |
+| 圖例與標題不符 | 標題「班級完成率」，圖表實繪「完成率 ＋ 平均正確率」兩系列，且沒有 `<Legend>`（只有預設 tooltip 顯示 dataKey 名稱） |
+| 教師帳號儀表板幾乎全空 | `TeacherClass` 關聯 **0 列** → `/api/classes`（非 admin 只列任教班級）為空；管理員則見 25 班但只繪 8 班 |
+| 班級資料殘留 | DB 存在 `name=''`、gradeLevel `S4`、0 人的匯入殘留班級（連同 Demo 班） |
+
+### 三、修復
+1. **新 `teacher/monitoring/services/class-stats-service.ts`** — 全校（排除 Demo）每班一列：
+   - 名單＝`User.classId` ∪ `StudentClass`（與 `/api/teacher/students` roster 同一語意）；參與人數＝有 ≥1 場練習的學生；參與率＝參與人數 ÷ 名單人數；
+   - 完成次數＝全歷史練習場次（engagement）；正確率＝全歷史**已驗證題目**聚合（`正確題數 ÷ 已驗證題數`）；
+   - 累積一律走正典批次投影 `aggregateVerifiedTotalsForStudents()`（單一 SQL、每生一列，ADR-046；**永不**以「最新 N 筆」或逐列搬運推算）；
+   - 「無資料 ≠ 0」：無可驗證證據 ⇒ `accuracy = null`；名單為空 ⇒ `participationRate = null`（UI 顯示「—」）。
+2. **新 API `GET /api/teacher/class-stats`**（教師＋管理員、JWT/NextAuth 雙重認證；`CACHE_SHORT` 30 秒）。查詢失敗回非 2xx ＋ 空陣列，前端據此區分「載入失敗」與「沒有班別」。
+3. **主頁區塊重構「各班級練習總覽」**：
+   - 圖表：**全部 25 班**（移除 `slice(0, 8)` 與客戶端拼合）、X 軸標籤斜排、`<Legend>` 明確標示「參與率／正確率」、自訂 tooltip 一次顯示五項數據（學生人數／參與人數／完成次數／參與率／正確率）；
+   - 明細表：班別／學生人數／參與人數／參與率／完成次數／正確率（全部班別、可滾動、正確率顏色分級、「—」＝ 無資料）；
+   - KPI「班級數／學生人數」與總覽同源（教師帳號未有 TeacherClass 連結時，不再顯示 0 班 0 人而與下方全校圖表矛盾）；
+   - AI 教學建議 payload 改用伺服器聚合（最弱 3 班準確率＋各班場次數）。
+4. i18n：新增 `teacher.classStats.*` 鍵（zh/en）；移除死鍵 `teacher.classCompletion`。
+
+### 四、驗證
+- **真實資料（唯讀）**：25 班 ×（名單／參與／場次）與獨立 SQL 對照 **0 mismatch**；正確率只計已驗證（實例：6C 有 4 人參與、63 場，全部為不可驗證舊列 ⇒ 顯示「—」；3A 1301 場／參與 33 人、4A 559 場，與人工核對一致）。
+- **瀏覽器實渲染**（臨時公開預覽頁，驗證後已刪）：25 班軸標籤、圖例、tooltip（五項數據）、明細表全部正常。中途建構曾因臨時頁殘留的 `.next/dev` 生成型別失敗 → 清除 `.next` 後重建通過（教訓：刪除臨時路由後需清 `.next/dev`）。
+- `npm test`：**3288 passed / 2 skipped（173 files）**（新增 8 測試：`class-stats-service` 4、`teacher-class-stats` 4）。
+- `tsc --noEmit` 0；變更檔 eslint 0 error；`node scripts/check-i18n.js` exit 0；`npm run build:prod` exit 0；iPad（Safari 15.4）基線產物 `static{` = **0**。
+
+### 五、已知取捨
+- 本區塊為**全校聚合**（依用戶明確要求；與「教師可匯出全校學生」的既有指示一致）：只含班級層級數字，**不含**任何學生層級資料（姓名／id）；學生層級仍限任教班級。若日後要收窄為「任教班級」，只需改 `class-stats-service` 的班級查詢。
+- 正確率為全歷史已驗證題目聚合，與學生個人檔案的平均值（每生 `overallAccuracy` 快取的算術平均）口徑不同，數字可能略有出入。
+- **部署**：本變更**無** schema／migration 變更（不需 `prisma migrate`）；重新部署（`build:prod` → Cloud Run）後即生效。
+- 資料衛生：DB 有 1 個 `name=''` 的空班（0 人）；Demo 班已排除、空名稱班在 UI 顯示「（未命名班別）」，建議於管理員後台清理。
+
+---
+
 ## 2026-10-01 — 同題快速重複＋XP 重複發放稽核；學生端「我的進度」改為逐日練習歷史（ADR-047）
 
 ### 一、用戶回報與稽核（唯讀 SQL，DB 實證）

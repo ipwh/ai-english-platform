@@ -27,7 +27,17 @@ export const teacherTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.disconnected': { zh: '未連線', en: 'Disconnected' },
   'teacher.dashboard.title': { zh: '教師主頁', en: 'Teacher Dashboard' },
   'teacher.greeting': { zh: '歡迎回來，{name}', en: 'Welcome back, {name}' },
-  'teacher.classCompletion': { zh: '班級完成率', en: 'Class Completion' },
+  // 2026-10-01：教師主頁「班級完成率」區塊重構為全班級練習總覽
+  // （圖表＋明細表：完成次數／參與人數／參與率／正確率）。
+  // 舊 key `teacher.classCompletion` 已無消費者，一併移除。
+  'teacher.classStats.title': { zh: '各班級練習總覽', en: 'Class Practice Overview' },
+  'teacher.classStats.caption': { zh: '全校班別累計；正確率只計已驗證題目，「—」代表暫時未有數據', en: 'School-wide cumulative totals; accuracy counts verified answers only. “—” = no data yet' },
+  'teacher.classStats.className': { zh: '班別', en: 'Class' },
+  'teacher.classStats.unnamedClass': { zh: '（未命名班別）', en: '(Unnamed class)' },
+  'teacher.classStats.participants': { zh: '參與人數', en: 'Participants' },
+  'teacher.classStats.participationRate': { zh: '參與率', en: 'Participation Rate' },
+  'teacher.classStats.completions': { zh: '完成次數', en: 'Completions' },
+  'teacher.classStats.loadFailed': { zh: '班級數據載入失敗，請重新載入頁面。', en: 'Failed to load class data — please reload the page.' },
   'teacher.skill': { zh: '技能分佈', en: 'Skill Distribution' },
   'teacher.atRiskStudents': { zh: '🔴 需要關注的學生', en: '🔴 At-Risk Students' },
   'teacher.dashboard.inactiveStudents': { zh: '⚠️ 失聯學生', en: '⚠️ Inactive Students' },

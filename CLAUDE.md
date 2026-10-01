@@ -6,10 +6,10 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3280 pass / 2 skipped (171 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
+- **Testing**: Vitest 4, 3288 pass / 2 skipped (173 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
-- **API routes**: 114 under `src/app/api/`
+- **API routes**: 115 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
 - **AI Facade**: 63 exported symbols (incl. types) — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules). Answer verification adds `verifyGeneratedAnswers` / `inspectGeneratedQuestion` / `summarizeVerificationDrops`
@@ -42,7 +42,7 @@ See AGENTS.md for shared agent instructions.
 
 ## Architecture (Post-Sprint 130 — Writing Evaluation Hardened, Production-Ready)
 ```
-Routes (113) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
+Routes (115) → AIFacade → UseCases (13) → executeAI / executeAIRaw / callLLM
                   ├─ Prompts (PromptRegistry + builders)
                   ├─ Providers (6-model chain + circuit-breaker)
                   ├─ Services (RAG, TTS, evaluator, enrichment)
@@ -172,6 +172,7 @@ Dev tooling:
 - 批次累積投影（多學生，匯出／班級統計）: `exercise/services/practice-history-service.ts` — `aggregateVerifiedTotalsForStudents()`（**單一 SQL 聚合、每名學生一列**；**永不**以 `take: N` 當總數、亦不逐列搬全歷史）；連續天數批次版見 `student/progress/services/streak-service.ts` `getPracticeStreaksForStudents()`
 - 提交權威解析（客戶端標記不可信）: `exercise/services/practice-authority-resolution.ts` — `questionId` 全部解析為同一正典家族（`ReadingQuestion`／`GrammarQuestion`）⇒ 該家族為權威；部分／混合／解析不到 ⇒ 回退既有 client-marker 分類（舊資料零行為改變）
 - 活躍狀態門檻（未開始／失聯／低活躍／活躍）: `teacher/monitoring/services/activity-service.ts` — `classifyActivityStatus()`（香港日界線；活動來源＝登入 ∪ 練習 ∪ 寫作草稿 ∪ 作業提交）；`getShortWritingCounts()` 為 DB 端計數（in-memory fail-open 回退）
+- 教師主頁班級數據（各班完成次數／參與人數／參與率／正確率；2026-10-01）: `teacher/monitoring/services/class-stats-service.ts` — 全校（排除 Demo）每班一列；累積走 `aggregateVerifiedTotalsForStudents()`（每生一列，**禁止**「最新 N 筆」）；名單＝`User.classId` ∪ `StudentClass`；無證據 ⇒ `accuracy = null`；入口 `GET /api/teacher/class-stats`（教師＋管理員；**只含聚合數字、無學生層級資料**）；UI 端**禁止**再以 `slice(0, N)`／作業完成率自行拼圖
 - 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀／聆聽）經正典 `submitPractice` 評分＋持久化（可驗證證據）；詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
 - XP 事件政策（白名單＋伺服器去重鍵）: `student/progress/services/xp-event-policy.ts` — 唯一的事件白名單與去重鍵來源；`POST /api/gamification` 永不採信客戶端 `idempotencyKey`／`streakDays`／`difficulty`；鍵按 `studentId` 界定（全庫唯一索引）。數值表：`student/progress/services/gamification.ts`
