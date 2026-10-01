@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth, verifyStudentSelfAccess } from '@/shared/auth/api-auth';
 import { generateQuestions } from '@/modules/ai';
 import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
+import { getRecentQuestionPromptsForGeneration } from '@/modules/exercise/services/practice-history-service';
 
 // 40 個 HKDSE 文法點（對應 ELE KLACG 2017 Appendix 4）
 const GRAMMAR_POINTS = [
@@ -142,6 +143,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studentId and grammarPointIds required' }, { status: 400 });
     }
 
+    // 2026-10-01：studentId 用於跨請求去重（讀取該生近期練習紀錄）→ 必須先
+    // 驗證擁有權（與 GET 同一契約 SEC-009），不得先查資料再驗權。
+    const ownership = verifyStudentSelfAccess(authResult, studentId);
+    if (ownership) return ownership;
+
     // 每個文法點生成 3 題 MCQ，難度預設 core，可由請求參數覆蓋。
     // 🔒 2026-08-30 audit (R5): 未知 id 直接 400 — 舊邏輯會靜默回退到
     // 「Simple Tenses」生成不相關題目（杜撰式 fallback）。
@@ -152,6 +158,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    // 2026-10-01：跨請求去重 —— 診斷重測不得重複相同題目（否則測不出進展）。
+    const recentPrompts = await getRecentQuestionPromptsForGeneration(studentId)
+      .catch(() => [] as string[]);
     const questions = await generateQuestions({
       count: 3,
       gradeLevel: gradeLevel || 'S4',
@@ -159,7 +168,7 @@ export async function POST(request: NextRequest) {
       grammarItemZh: grammarPoint.nameZh,
       questionType: 'mc',
       difficulty: (difficulty as 'remedial' | 'core' | 'challenge') || 'core',
-    });
+    }, recentPrompts.length > 0 ? { recentPrompts } : undefined);
 
     // R3.10-D.1 (F3 / INVARIANT-D5): 文法題目在交付前必須持久化到
     // GrammarQuestion store；持久化失敗 → 不交付（500），客戶端永不

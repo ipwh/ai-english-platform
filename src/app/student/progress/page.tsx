@@ -4,8 +4,8 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
-import { TrendingUp, Target, Flame, Sparkles, Loader2, Clock } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { TrendingUp, Target, Sparkles, Loader2, CalendarDays, ChevronDown } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line,
@@ -15,10 +15,69 @@ import ProgressBar from '@/components/shared/ProgressBar';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { getDifficultyLabel } from '@/shared/utils/nav';
+import { hkMonthKey, nextMonthKey, previousMonthKey } from '@/shared/utils/hk-date';
+
+// ============================================
+// 練習歷史（逐日回顧）型別與格式化 — 2026-10-01
+// 「每日練習次數及類型」由 /api/practice/history 提供（月摘要＝DB 聚合；
+// 日明細＝單日有界查詢）。絕不由「最近 N 筆」視窗推算。
+// ============================================
+interface HistoryDaySkill {
+  skill: string;
+  skillZh: string;
+  sessionsCount: number;
+  questionsTotal: number;
+}
+
+interface HistoryDay {
+  dayKey: string;
+  sessionsCount: number;
+  questionsTotal: number;
+  skills: HistoryDaySkill[];
+}
+
+interface HistorySession {
+  id: string;
+  skill: string;
+  skillZh: string;
+  difficulty: string;
+  totalQuestions: number;
+  correctCount: number;
+  source: string;
+  startedAt: string;
+  completedAt: string | null;
+  verified:
+    | { status: 'verified'; totalQuestions: number; correctCount: number; accuracy: number | null }
+    | { status: 'unverifiable'; reason: string };
+}
+
+interface HistoryDayDetailState {
+  loading: boolean;
+  sessions: HistorySession[] | null;
+  error: boolean;
+}
+
+function formatHistoryMonth(month: string, language: string): string {
+  return new Date(`${month}-01T00:00:00Z`).toLocaleDateString(
+    language === 'en' ? 'en-US' : 'zh-HK',
+    { year: 'numeric', month: 'long', timeZone: 'UTC' },
+  );
+}
+
+function formatHistoryDay(dayKey: string, language: string): string {
+  return new Date(`${dayKey}T00:00:00Z`).toLocaleDateString(
+    language === 'en' ? 'en-US' : 'zh-HK',
+    { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' },
+  );
+}
+
+function formatHistoryTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function StudentProgressPage() {
   const store = useAppStore();
-  const { t } = useT();
+  const { t, language } = useT();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -26,6 +85,14 @@ export default function StudentProgressPage() {
   const [aiAnalysis, setAiAnalysis] = useState<{
     summary: string; urgentAreas: string[]; studyPlan: string; encouragementMessage: string;
   } | null>(null);
+
+  // === 練習歷史（逐日回顧）狀態 ===
+  const [historyMonth, setHistoryMonth] = useState('');
+  const [historyDays, setHistoryDays] = useState<HistoryDay[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [dayDetails, setDayDetails] = useState<Record<string, HistoryDayDetailState>>({});
 
   // 載入練習歷史（先確保 session 就緒）
   useEffect(() => {
@@ -36,6 +103,56 @@ export default function StudentProgressPage() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
+
+  // 預設顯示香港當前月份（在 effect 設定，避免 SSR/hydration 跨日界線不一致）
+  useEffect(() => {
+    setHistoryMonth((prev) => prev || hkMonthKey());
+  }, []);
+
+  const loadHistoryMonth = useCallback(async (month: string) => {
+    if (!store.userId) return;
+    setHistoryLoading(true);
+    setHistoryError(false);
+    try {
+      const res = await fetch(`/api/practice/history?studentId=${encodeURIComponent(store.userId)}&view=month&month=${month}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.days)) {
+        setHistoryDays(data.days as HistoryDay[]);
+      } else {
+        setHistoryDays([]);
+        setHistoryError(true);
+      }
+    } catch {
+      setHistoryDays([]);
+      setHistoryError(true);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [store.userId]);
+
+  useEffect(() => {
+    if (historyMonth) void loadHistoryMonth(historyMonth);
+  }, [historyMonth, loadHistoryMonth]);
+
+  const toggleHistoryDay = useCallback((dayKey: string) => {
+    setExpandedDay((prev) => (prev === dayKey ? null : dayKey));
+    const cached = dayDetails[dayKey];
+    if (cached?.sessions || cached?.loading) return;
+    setDayDetails((prev) => ({ ...prev, [dayKey]: { loading: true, sessions: null, error: false } }));
+    void (async () => {
+      try {
+        const res = await fetch(`/api/practice/history?studentId=${encodeURIComponent(store.userId ?? '')}&view=day&day=${encodeURIComponent(dayKey)}`);
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.sessions)) {
+          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: data.sessions as HistorySession[], error: false } }));
+        } else {
+          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, error: true } }));
+        }
+      } catch {
+        setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, error: true } }));
+      }
+    })();
+  }, [dayDetails, store.userId]);
 
   const weeklyStats = store.getWeeklyStats();
   const masteryBySkill = store.getMasteryBySkill();
@@ -194,48 +311,145 @@ export default function StudentProgressPage() {
         </section>
       </div>
 
-      {/* 最近練習記錄 */}
-      {recentSessions.length > 0 && (
-        <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-teal-500" />
-            {t('progress.recentSessions')}
+      {/* 練習歷史 — 逐日回顧（2026-10-01：取代只列最近 5 筆的「最近練習記錄」） */}
+      <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-teal-500" />
+            {t('progress.historyTitle')}
           </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHistoryMonth(previousMonthKey(historyMonth))}
+              disabled={!historyMonth || historyLoading}
+              aria-label={t('progress.historyPrevMonth')}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
+            >
+              ‹
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[6.5rem] text-center">
+              {historyMonth ? formatHistoryMonth(historyMonth, language) : ''}
+            </span>
+            <button
+              type="button"
+              onClick={() => setHistoryMonth(nextMonthKey(historyMonth))}
+              disabled={!historyMonth || historyMonth >= hkMonthKey() || historyLoading}
+              aria-label={t('progress.historyNextMonth')}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+
+        {historyLoading && (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
+          </div>
+        )}
+
+        {!historyLoading && historyError && (
+          <div className="py-6 text-center">
+            <p className="text-sm text-gray-500 mb-3">{t('progress.loadFailed')}</p>
+            <button
+              type="button"
+              onClick={() => historyMonth && void loadHistoryMonth(historyMonth)}
+              className="px-4 py-2 bg-teal-500 text-white rounded-lg text-sm"
+            >
+              {t('progress.retry')}
+            </button>
+          </div>
+        )}
+
+        {!historyLoading && !historyError && historyDays && historyDays.length === 0 && (
+          <p className="text-sm text-gray-400 py-8 text-center">{t('progress.historyEmpty')}</p>
+        )}
+
+        {!historyLoading && !historyError && historyDays && historyDays.length > 0 && (
           <div className="space-y-2">
-            {recentSessions.map((s) => (
-              <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh}</span>
-                    {s.source === 'ai-generated' && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">AI</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400">{s.totalQuestions} {t('progress.questionsSuffix')}{getDifficultyLabel(s.difficulty, store.language)}</p>
-                  {s.completedAt && (
-                    <p className="text-xs text-gray-400">
-                      <Clock className="w-3 h-3 inline mr-0.5" />
-                      {new Date(s.completedAt).toLocaleString('zh-HK', {
-                        month: 'numeric', day: 'numeric',
-                        hour: '2-digit', minute: '2-digit',
-                      })}
-                    </p>
+            <p className="text-xs text-gray-400 mb-2">{t('progress.historyDayHint')}</p>
+            {historyDays.map((day) => {
+              const detail = dayDetails[day.dayKey];
+              const isExpanded = expandedDay === day.dayKey;
+              return (
+                <div key={day.dayKey} className="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleHistoryDay(day.dayKey)}
+                    aria-expanded={isExpanded}
+                    className="w-full flex items-center justify-between gap-3 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatHistoryDay(day.dayKey, language)}</span>
+                        <span className="text-xs text-gray-400">
+                          {day.sessionsCount} {t('common.sessions')} · {day.questionsTotal}{t('progress.questionsSuffix')}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {day.skills.map((skill) => (
+                          <span
+                            key={skill.skill}
+                            className="text-[11px] px-2 py-0.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 rounded-full"
+                          >
+                            {skill.skillZh || skill.skill} ×{skill.sessionsCount}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 dark:border-gray-700 px-3 py-2">
+                      {detail?.loading && (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
+                        </div>
+                      )}
+                      {!detail?.loading && detail?.error && (
+                        <p className="text-xs text-gray-400 py-3 text-center">{t('progress.loadFailed')}</p>
+                      )}
+                      {!detail?.loading && detail?.sessions && detail.sessions.length === 0 && (
+                        <p className="text-xs text-gray-400 py-3 text-center">{t('progress.historyEmptyDay')}</p>
+                      )}
+                      {!detail?.loading && detail?.sessions && detail.sessions.length > 0 && (
+                        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                          {detail.sessions.map((s) => (
+                            <div key={s.id} className="flex items-center justify-between gap-3 py-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs text-gray-400">{formatHistoryTime(s.startedAt)}</span>
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">{s.skillZh || s.skill}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full">
+                                    {getDifficultyLabel(s.difficulty, store.language)}
+                                  </span>
+                                  {s.source === 'ai-generated' && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">AI</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-400 mt-0.5">{s.totalQuestions}{t('progress.questionsSuffix')}</p>
+                              </div>
+                              <span className="text-sm font-semibold text-teal-600 shrink-0">
+                                {s.verified.status === 'verified'
+                                  ? `${Math.round(((s.verified.correctCount ?? 0) / Math.max(1, s.verified.totalQuestions ?? 0)) * 100)}%`
+                                  : (
+                                    <span className="text-xs font-medium text-gray-400">{t('progress.unverified')}</span>
+                                  )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-                <span className="text-lg font-bold text-teal-600">
-                  {s.verified && s.verified.status === 'verified'
-                    ? `${Math.round(((s.verified.correctCount ?? 0) / Math.max(1, s.verified.totalQuestions ?? 0)) * 100)}%`
-                    : (
-                      <span className="text-xs font-medium text-gray-400">
-                        {store.language === 'en' ? 'Unverified' : '未驗證'}
-                      </span>
-                    )}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* AI 個人化分析 */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">

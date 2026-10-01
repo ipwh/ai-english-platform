@@ -18,6 +18,7 @@ import {
   resolveGrammarQuestionDefinitions,
   resolveGrammarQuestionExplanations,
 } from '@/modules/exercise/services/grammar-question-service';
+import { getRecentQuestionPromptsForGeneration } from '@/modules/exercise/services/practice-history-service';
 import { checkAnswer, isOpenEndedQuestionType } from '@/modules/exercise/services/practice-answer-scorer';
 import {
   resolveDailyTopic,
@@ -80,6 +81,11 @@ export async function GET(request: NextRequest) {
     // Generate daily question. R3.10-L: the question is persisted as a
     // server-owned definition BEFORE delivery, and the persisted id is
     // returned — the POST handler scores against that definition only.
+    //
+    // 2026-10-01：跨請求去重 —— 學生近 14 日練過的題目不得再作為每日挑戰
+    // （讀取失敗不阻斷挑戰生成；寧可少提示，不可令學生今日無題）。
+    const recentPrompts = await getRecentQuestionPromptsForGeneration(studentId)
+      .catch(() => [] as string[]);
     const questions = await generateQuestions({
       count: 1,
       gradeLevel: gradeLevel as 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6',
@@ -87,7 +93,7 @@ export async function GET(request: NextRequest) {
       grammarItemZh: grammarItem,
       questionType: questionType as 'mc' | 'fill-blank' | 'short-writing' | 'matching',
       difficulty: 'core',
-    });
+    }, recentPrompts.length > 0 ? { recentPrompts } : undefined);
 
     const generated = questions[0];
     if (!generated) {

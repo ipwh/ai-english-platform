@@ -113,3 +113,45 @@ describe('resolveXpEventPolicy — 客戶端不可偽造去重鍵', () => {
     expect(p.idempotencyKey).toBe('stu-1:daily-login:2026-09-28');
   });
 });
+
+// ============================================
+// 2026-10-01 同題重複稽核：以「內容指紋」作去重鍵
+// ============================================
+// 病根：答案事件鍵原本只用 questionId，而重新生成會產生新 id
+// → 同一題內容可重複領取（DB 實測：同一內容以 7 個不同 id 各領一次）。
+describe('resolveXpEventPolicy — answer 事件使用內容指紋（2026-10-01）', () => {
+  it('伺服器提供指紋 ⇒ 鍵用指紋（重新生成的新 id 不再重複發放）', () => {
+    const result = resolveXpEventPolicy(
+      'answerCorrect',
+      { questionId: 'q-new-id' },
+      { studentId: STUDENT, now: NOW, answerContentKey: 'fp-abc123' },
+    );
+    expect(result.ok && result.policy.idempotencyKey).toBe('stu-1:answer:fp-abc123');
+    // 識別碼仍保留原 questionId（供審計）
+    expect(result.ok && result.policy.identifiers).toEqual({ questionId: 'q-new-id' });
+  });
+
+  it('同一指紋、不同 questionId ⇒ 同一鍵（跨重生成）', () => {
+    const a = resolveXpEventPolicy('answerCorrect', { questionId: 'q1' }, { studentId: STUDENT, now: NOW, answerContentKey: 'fp-same' });
+    const b = resolveXpEventPolicy('answerCorrect', { questionId: 'q2' }, { studentId: STUDENT, now: NOW, answerContentKey: 'fp-same' });
+    expect(a.ok && b.ok && a.policy.idempotencyKey === b.policy.idempotencyKey).toBe(true);
+  });
+
+  it('客戶端 metadata 的 answerContentKey 永不採用（只從 context 取）', () => {
+    const p = policyOf('answerCorrect', { questionId: 'q-1', answerContentKey: 'client-forged-fingerprint' });
+    expect(p.idempotencyKey).toBe('stu-1:answer:q-1');
+  });
+
+  it('未提供指紋（伺服器端呼叫／單元測試）⇒ 回退 questionId，維持既有語意', () => {
+    expect(policyOf('answerCorrect', { questionId: 'q-1' }).idempotencyKey).toBe('stu-1:answer:q-1');
+  });
+
+  it('answerIncorrect 同樣使用指紋（0 XP 事件仍保留同一去重語意）', () => {
+    const result = resolveXpEventPolicy(
+      'answerIncorrect',
+      { questionId: 'q-new-id' },
+      { studentId: STUDENT, now: NOW, answerContentKey: 'fp-abc123' },
+    );
+    expect(result.ok && result.policy.idempotencyKey).toBe('stu-1:answer:fp-abc123');
+  });
+});

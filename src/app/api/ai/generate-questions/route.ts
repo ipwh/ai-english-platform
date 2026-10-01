@@ -12,6 +12,7 @@ import { logger } from '@/shared/logger/logger';
 import { persistGeneratedGrammarQuestions } from '@/modules/exercise/services/grammar-question-service';
 import { persistGeneratedReadingQuestions } from '@/modules/reading/services/reading-question-service';
 import { persistGeneratedListeningQuestions, isDeliverableListeningMc } from '@/modules/listening/services/listening-question-service';
+import { getRecentQuestionPromptsForGeneration, getRecentListeningDialoguesForGeneration } from '@/modules/exercise/services/practice-history-service';
 
 // R3.10-D: 文法題目（grammarItem 驅動，非閱讀/聆聽/寫作/口語）在交付前
 // 必須持久化到伺服器 GrammarQuestion store，並以伺服器 id 作為正典身份。
@@ -68,9 +69,37 @@ export async function POST(request: NextRequest) {
     // 聆聽交付判準（答案必須逐字出現在對話中）必須在**生成階段**逐題套用，
     // 令補題迴圈為被丟棄的題目補生新題；只在交付層過濾的話，題數會靜靜地
     // 少掉（生成 5 題 → 交付 2–4 題）而且永遠補不回來。
-    const generateOptions = isListeningRequest
-      ? { acceptQuestion: isDeliverableListeningMc }
-      : undefined;
+    //
+    // 2026-10-01（同題快速重複稽核）：帶入學生近 14 日已練過的題目文字與
+    // （聆聽）已用過的對話（跨請求去重）—— 生成端原本只對同一次請求去重，
+    // 重複生成時會再發幾乎相同的題目（實測同一內容曾以 7 個不同 questionId
+    // 重複領取 XP）。讀取失敗不阻斷出題（只是少了去重提示，不能因此令學生
+    // 無法練習）。
+    const [recentPrompts, recentContexts] = await Promise.all([
+      authResult.userId
+        ? getRecentQuestionPromptsForGeneration(authResult.userId).catch((err) => {
+            logger.warn(
+              { module: 'generate-questions', error: err instanceof Error ? err.message : String(err) },
+              'Recent practice prompts unavailable — generating without cross-request dedupe',
+            );
+            return [] as string[];
+          })
+        : Promise.resolve([] as string[]),
+      authResult.userId && isListeningRequest
+        ? getRecentListeningDialoguesForGeneration(authResult.userId).catch((err) => {
+            logger.warn(
+              { module: 'generate-questions', error: err instanceof Error ? err.message : String(err) },
+              'Recent listening dialogues unavailable — generating without content-level dedupe',
+            );
+            return [] as string[];
+          })
+        : Promise.resolve([] as string[]),
+    ]);
+    const generateOptions = {
+      ...(isListeningRequest ? { acceptQuestion: isDeliverableListeningMc } : {}),
+      ...(recentPrompts.length > 0 ? { recentPrompts } : {}),
+      ...(recentContexts.length > 0 ? { recentContexts } : {}),
+    };
 
     let questions: Awaited<ReturnType<typeof generateQuestions>> | null = null;
     let lastErr: unknown = null;

@@ -22,7 +22,6 @@ export const progressTranslations: Record<string, { zh: string; en: string }> = 
   'progress.radar': { zh: '能力雷達圖', en: 'Skill Radar' },
   'progress.earlyMonth': { zh: '月初', en: 'Early Month' },
   'progress.now': { zh: '現在', en: 'Now' },
-  'progress.recentSessions': { zh: '最近練習記錄', en: 'Recent Sessions' },
   'progress.weeklyLabel': { zh: '本週練習量', en: 'Weekly Practice' },
   'progress.sessionsLabel': { zh: '練習次數', en: 'Sessions' },
   'progress.volumeChart': { zh: '練習量', en: 'Volume' },
@@ -40,4 +39,12 @@ export const progressTranslations: Record<string, { zh: string; en: string }> = 
   'progress.studyPlan': { zh: '📋 學習計劃', en: '📋 Study Plan' },
   'progress.questionsSuffix': { zh: ' 題', en: ' Q' },
   'progress.accuracyChart': { zh: '正確率', en: 'Accuracy' },
+  // 練習歷史（逐日回顧）— 2026-10-01
+  'progress.historyTitle': { zh: '練習歷史', en: 'Practice History' },
+  'progress.historyPrevMonth': { zh: '上一個月', en: 'Previous month' },
+  'progress.historyNextMonth': { zh: '下一個月', en: 'Next month' },
+  'progress.historyEmpty': { zh: '這個月還沒有練習記錄', en: 'No practice recorded this month' },
+  'progress.historyEmptyDay': { zh: '這天沒有練習記錄', en: 'No practice recorded on this day' },
+  'progress.historyDayHint': { zh: '點擊日期可查看當日逐場練習', en: 'Tap a day to see its sessions' },
+  'progress.unverified': { zh: '未驗證', en: 'Unverified' },
 };

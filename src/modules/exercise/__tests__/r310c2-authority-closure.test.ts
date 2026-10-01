@@ -323,8 +323,11 @@ describe('R3.10-C.2 consumer boundary contracts', () => {
     const page = readFileSync(resolve(root, 'src/app/student/progress/page.tsx'), 'utf-8');
     expect(page).toContain("if (!v || v.status !== 'verified') return [];");
     expect(page).not.toContain("accuracy: Math.round((s.correctCount / Math.max(1, s.totalQuestions)) * 100)");
-    // unverified recent sessions show an explicit label, not raw accuracy:
-    expect(page).toContain("store.language === 'en' ? 'Unverified' : '未驗證'");
+    // unverified sessions show an explicit label, not raw accuracy:
+    // 2026-10-01：改由 i18n key 提供（字串在 i18n-progress.ts；契約不變）
+    expect(page).toContain("t('progress.unverified')");
+    const i18n = readFileSync(resolve(root, 'src/shared/utils/i18n-progress.ts'), 'utf-8');
+    expect(i18n).toContain("'progress.unverified'");
   });
 
   it('teacher dashboard never displays raw totals as accuracy for unverified sessions', () => {

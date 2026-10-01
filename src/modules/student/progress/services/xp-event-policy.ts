@@ -36,10 +36,8 @@ export type XpPolicyResult =
   | { ok: true; policy: XpEventPolicy }
   | { ok: false; error: string };
 
-/** 需要識別碼才能去重的事件 → 鍵前綴 */
+/** 需要識別碼才能去重的事件 → 鍵前綴（answer 事件見下方專屬分支） */
 const REQUIRED_IDENTIFIER: Partial<Record<ClientXpEventType, { field: string; keyPrefix: string }>> = {
-  answerCorrect: { field: 'questionId', keyPrefix: 'answer' },
-  answerIncorrect: { field: 'questionId', keyPrefix: 'answer' },
   reviewMistake: { field: 'mistakeId', keyPrefix: 'mistake-review' },
   masterWord: { field: 'wordId', keyPrefix: 'master-word' },
   learnWord: { field: 'wordId', keyPrefix: 'learn-word' },
@@ -66,6 +64,17 @@ export interface XpPolicyContext {
   studentId: string;
   /** 可注入以便測試香港日界線 */
   now?: Date;
+  /**
+   * `answerCorrect` / `answerIncorrect` 的**內容指紋**（由 route 經
+   * `resolveAnswerXpIdentity()` 以正典題目定義計算）。
+   *
+   * 2026-10-01 稽核：去重鍵原本只用 questionId，而重新生成會產生新 id
+   * → 同一題內容可重複領取（DB 實測：同一內容以 7 個不同 id 各領一次）。
+   * 指紋對「選項洗牌」與「重新生成的新 id」皆穩定；客戶端無法注入
+   * （只從本 context 取，metadata 的同名值一律忽略）。未提供時回退
+   * questionId（維持既有語意，供單元測試與伺服器端呼叫）。
+   */
+  answerContentKey?: string | null;
 }
 
 /**
@@ -110,6 +119,28 @@ export function resolveXpEventPolicy(
     return {
       ok: true,
       policy: { type: rawType, idempotencyKey: `${scope}:writing:${hkDayKey(now)}`, identifiers: {} },
+    };
+  }
+
+  // 答題事件：以**伺服器解析的內容指紋**作去重鍵（2026-10-01）。
+  // 病根：鍵原本只用 questionId，但每次重新生成都會產生新 id → 同一題內容
+  // 可重複領取 XP（實測同一內容以 7 個不同 id 各領一次）。指紋由 route 提供
+  // （見 `XpPolicyContext.answerContentKey`）；metadata 中的同名值永不採用。
+  if (rawType === 'answerCorrect' || rawType === 'answerIncorrect') {
+    const value = readIdentifier(meta, 'questionId');
+    if (!value) {
+      return { ok: false, error: `事件 ${rawType} 需要 metadata.questionId` };
+    }
+    const fingerprint = typeof context.answerContentKey === 'string'
+      ? context.answerContentKey.trim()
+      : '';
+    return {
+      ok: true,
+      policy: {
+        type: rawType,
+        idempotencyKey: `${scope}:answer:${fingerprint || value}`,
+        identifiers: { questionId: value },
+      },
     };
   }
 

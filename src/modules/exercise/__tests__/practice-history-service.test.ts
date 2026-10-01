@@ -13,17 +13,30 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   listPracticeSessionsWithEvidence: vi.fn(),
   aggregateVerifiedTotalsBySkillForStudent: vi.fn(),
+  listRecentQuestionPrompts: vi.fn(),
+  listRecentListeningDialogues: vi.fn(),
+  aggregatePracticeSessionsByDayAndSkill: vi.fn(),
 }));
 
 vi.mock('@/modules/repositories', () => ({
   PracticeRepo: {
     listPracticeSessionsWithEvidence: mocks.listPracticeSessionsWithEvidence,
     aggregateVerifiedTotalsBySkillForStudent: mocks.aggregateVerifiedTotalsBySkillForStudent,
+    listRecentQuestionPrompts: mocks.listRecentQuestionPrompts,
+    listRecentListeningDialogues: mocks.listRecentListeningDialogues,
+    aggregatePracticeSessionsByDayAndSkill: mocks.aggregatePracticeSessionsByDayAndSkill,
   },
 }));
 
-import { getCumulativeSkillTotals, getWeeklyPracticeSummary } from '../services/practice-history-service';
-import { hkWeekStartUtc } from '@/shared/utils/hk-date';
+import {
+  getCumulativeSkillTotals,
+  getWeeklyPracticeSummary,
+  getRecentQuestionPromptsForGeneration,
+  getRecentListeningDialoguesForGeneration,
+  getPracticeHistoryMonth,
+  getPracticeHistoryDay,
+} from '../services/practice-history-service';
+import { hkWeekStartUtc, hkMonthStartUtc, hkDayStartUtc, DAY_MS } from '@/shared/utils/hk-date';
 
 const STUDENT = 's1';
 
@@ -156,5 +169,123 @@ describe('getWeeklyPracticeSummary — 香港週界線、engagement 與 scored �
     expect(weekly.verifiedQuestions).toBe(0);
     // 2026-09-20 稽核：無資料 ≠ 0%（顯示層才不會誤報「答錯全部」）
     expect(weekly.accuracy).toBeNull();
+  });
+});
+
+// ============================================
+// 2026-10-01：出題跨請求去重素材 + 練習歷史（逐日回顧）
+// ============================================
+describe('getRecentQuestionPromptsForGeneration — 出題去重素材', () => {
+  it('依正規化（大小寫／空白）去重、去除空字串並保留原文字', async () => {
+    mocks.listRecentQuestionPrompts.mockResolvedValueOnce([
+      { prompt: 'She ___ to school every day.' },
+      { prompt: '  she   ___ TO school EVERY day.  ' },
+      { prompt: 'They ___ football on Sundays.' },
+      { prompt: '' },
+    ]);
+
+    const prompts = await getRecentQuestionPromptsForGeneration(STUDENT, 10);
+
+    expect(mocks.listRecentQuestionPrompts).toHaveBeenCalledWith(STUDENT);
+    expect(prompts).toEqual(['She ___ to school every day.', 'They ___ football on Sundays.']);
+  });
+
+  it('遵守上限（避免提示詞無限膨脹）', async () => {
+    mocks.listRecentQuestionPrompts.mockResolvedValueOnce([
+      { prompt: 'Prompt one.' }, { prompt: 'Prompt two.' }, { prompt: 'Prompt three.' },
+    ]);
+    const prompts = await getRecentQuestionPromptsForGeneration(STUDENT, 2);
+    expect(prompts).toEqual(['Prompt one.', 'Prompt two.']);
+  });
+});
+
+describe('getRecentListeningDialoguesForGeneration — 對話去重素材', () => {
+  it('依正規化去重（換行／空白／大小寫視為同一段對話）', async () => {
+    mocks.listRecentListeningDialogues.mockResolvedValueOnce([
+      { dialogue: 'Boy: When does it start?\nGirl: It starts at ten.' },
+      { dialogue: 'BOY: When does it start? Girl: It starts at ten.' },
+      { dialogue: '   ' },
+    ]);
+
+    const dialogues = await getRecentListeningDialoguesForGeneration(STUDENT, 10);
+
+    expect(mocks.listRecentListeningDialogues).toHaveBeenCalledWith(STUDENT);
+    expect(dialogues).toEqual(['Boy: When does it start?\nGirl: It starts at ten.']);
+  });
+});
+
+describe('getPracticeHistoryMonth — 每日 × 技能聚合（engagement）', () => {
+  it('以香港月界線查詢，組成逐日摘要（日新→舊；技能多→少）', async () => {
+    mocks.aggregatePracticeSessionsByDayAndSkill.mockResolvedValueOnce([
+      { dayKey: '2026-10-01', skill: 'reading', skillZh: '閱讀', sessionsCount: 1, questionsTotal: 5 },
+      { dayKey: '2026-10-01', skill: 'tenses', skillZh: '時態', sessionsCount: 2, questionsTotal: 10 },
+      { dayKey: '2026-09-30', skill: 'tenses', skillZh: '時態', sessionsCount: 1, questionsTotal: 3 },
+    ]);
+
+    const result = await getPracticeHistoryMonth(STUDENT, '2026-10');
+
+    expect(mocks.aggregatePracticeSessionsByDayAndSkill).toHaveBeenCalledWith(
+      STUDENT,
+      hkMonthStartUtc('2026-10'),
+      hkMonthStartUtc('2026-11'),
+    );
+    expect(result.monthKey).toBe('2026-10');
+    expect(result.days.map((d) => d.dayKey)).toEqual(['2026-10-01', '2026-09-30']);
+    expect(result.days[0]).toEqual({
+      dayKey: '2026-10-01',
+      sessionsCount: 3,
+      questionsTotal: 15,
+      skills: [
+        { skill: 'tenses', skillZh: '時態', sessionsCount: 2, questionsTotal: 10 },
+        { skill: 'reading', skillZh: '閱讀', sessionsCount: 1, questionsTotal: 5 },
+      ],
+    });
+  });
+
+  it('沒有練習的月份回傳空 days（不得假造資料）', async () => {
+    mocks.aggregatePracticeSessionsByDayAndSkill.mockResolvedValueOnce([]);
+    const result = await getPracticeHistoryMonth(STUDENT, '2026-08');
+    expect(result.days).toEqual([]);
+  });
+});
+
+describe('getPracticeHistoryDay — 單日逐場明細（有界）', () => {
+  it('以香港日界線查詢、按時間舊→新排序、附正典證據投影', async () => {
+    mocks.listPracticeSessionsWithEvidence.mockResolvedValueOnce([
+      sessionRow({ id: 'later', startedAt: new Date('2026-10-01T10:00:00Z') }),
+      sessionRow({ id: 'earlier', startedAt: new Date('2026-10-01T02:00:00Z') }),
+    ]);
+
+    const result = await getPracticeHistoryDay(STUDENT, '2026-10-01');
+
+    const dayStart = hkDayStartUtc('2026-10-01');
+    expect(mocks.listPracticeSessionsWithEvidence).toHaveBeenCalledWith(
+      STUDENT,
+      201,
+      0,
+      dayStart,
+      new Date(dayStart.getTime() + DAY_MS),
+    );
+    expect(result.sessions.map((s) => s.id)).toEqual(['earlier', 'later']);
+    expect(result.sessions[0].verified).toEqual({
+      status: 'verified',
+      totalQuestions: 2,
+      correctCount: 1,
+      accuracy: 50,
+    });
+    expect(result.truncated).toBe(false);
+  });
+
+  it('超過上限時截斷並標示 truncated（極端爆量日）', async () => {
+    mocks.listPracticeSessionsWithEvidence.mockResolvedValueOnce([
+      sessionRow({ id: 'a' }),
+      sessionRow({ id: 'b' }),
+      sessionRow({ id: 'c' }),
+    ]);
+
+    const result = await getPracticeHistoryDay(STUDENT, '2026-10-01', 2);
+
+    expect(result.sessions).toHaveLength(2);
+    expect(result.truncated).toBe(true);
   });
 });

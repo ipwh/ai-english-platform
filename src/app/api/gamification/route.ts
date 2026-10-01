@@ -6,18 +6,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
-import { buildLeaderboard } from '@/modules/student/progress/services/gamification';
+import { buildLeaderboard, isAnswerXpEventType } from '@/modules/student/progress/services/gamification';
 import type { XpEvent } from '@/modules/student/progress/services/gamification';
 import { resolveXpEventPolicy } from '@/modules/student/progress/services/xp-event-policy';
 import { calculatePracticeStreak } from '@/modules/student/progress/services/streak-service';
 import {
-  resolveQuestionDifficulty,
+  resolveAnswerXpIdentity,
   normalizePracticeDifficulty,
+  type AnswerXpIdentity,
   type PracticeDifficulty,
 } from '@/modules/exercise/services/question-difficulty-resolution';
 import { getLeaderboard, getDailyGoalProgress, getWeeklyActiveDays, findUserByIdSelect, findPracticeSessionByClientId } from '@/modules/student';
 import { studentStateMutationService } from '@/modules/student/state/StudentStateMutationService';
+import { VocabularyRepo, MistakeRepo } from '@/modules/repositories';
+import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { hkWeekStartUtc } from '@/shared/utils/hk-date';
+
+// 2026-10-01：XP 端點原本**完全無限流**，配合「任意唯一字串即可領取」的缺陷
+// 可被腳本大量刷分。正常使用每題／每場各一個請求（<20/分鐘）；60/分鐘上限
+// 足以阻斷腳本，亦不影響正常作答。（與其他路由相同的 in-memory limiter：
+// per-instance 有效，非全域精確 —— 防護而非保證。）
+const XP_RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 } as const;
 
 // GET — 取得學生 gamification 狀態
 export async function GET(req: NextRequest) {
@@ -100,6 +109,14 @@ export async function GET(req: NextRequest) {
 //   3. **難度由伺服器解析** — 忽略 `event.difficulty`（從前送 challenge 即 1.5×）。
 //   4. **連續天數由伺服器計算** — 忽略 `event.streakDays`（從前可自報天文數字）。
 //   5. **完成練習須對應真實場次** — 以 (studentId, clientSubmissionId) 驗證。
+//
+// 2026-10-01 同題重複稽核補強（實證：同一題內容以 7 個不同 questionId 重複
+// 領取 XP；且任意唯一字串即可當識別碼）：
+//   6. **答題事件須解析到正典題目** — 查無此題 ⇒ 404；鍵改用伺服器計算的
+//      **內容指紋**（同一內容重生成的新 id 不再重複發放）。
+//   7. **識別碼真實性** — `reviewMistake` 的錯題、`learnWord`/`masterWord` 的
+//      生字必須**屬於該學生**，未知字串一律 404（從前無任何存在性檢查）。
+//   8. **端點限流** — 每名學生 60 次/分鐘（腳本刷分的防護層）。
 export async function POST(req: NextRequest) {
   // 🔒 Auth check
   const authResult = await verifyApiAuth(req);
@@ -108,6 +125,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // 🔒 Rate limiting（2026-10-01；per-user，認證後才能識別）
+    const rateLimit = await checkRateLimit({
+      ...XP_RATE_LIMIT,
+      identifier: `gamification:${authResult.userId ?? 'unknown'}`,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.message }, {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) },
+      });
+    }
+
     const body = await req.json();
     const { studentId, event } = body as {
       studentId: string;
@@ -123,17 +152,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '只能記錄自己的 XP 事件 / You can only record your own XP events' }, { status: 403 });
     }
 
-    // 1) 事件白名單 + 伺服器建立去重鍵（去重鍵已按 studentId 界定）
-    const policyResult = resolveXpEventPolicy(event.type, event.metadata, { studentId });
+    // 1) 答題事件：先解析正典題目身分（存在性 + 內容指紋）。
+    //    解析不到 ⇒ 403/404 拒絕 —— 任意字串不得當 questionId；重新生成
+    //    產生的新 id 亦因內容指紋相同而不重複發放。查詢失敗往外拋（5xx）
+    //    ——「故障」與「查無此題」不得混為一談。
+    let answerIdentity: AnswerXpIdentity | null = null;
+    if (isAnswerXpEventType(event.type)) {
+      const meta = typeof event.metadata === 'object' && event.metadata !== null
+        ? event.metadata as Record<string, unknown>
+        : {};
+      const rawId = typeof meta.questionId === 'string' ? meta.questionId.trim() : '';
+      if (!rawId) {
+        return NextResponse.json({ error: `事件 ${event.type} 需要 metadata.questionId` }, { status: 400 });
+      }
+      answerIdentity = await resolveAnswerXpIdentity(rawId);
+      if (!answerIdentity) {
+        return NextResponse.json(
+          { error: '找不到對應的正典題目，無法發放 XP / Canonical question not found' },
+          { status: 404 },
+        );
+      }
+    }
+
+    // 2) 事件白名單 + 伺服器建立去重鍵（去重鍵已按 studentId 界定）
+    const policyResult = resolveXpEventPolicy(event.type, event.metadata, {
+      studentId,
+      answerContentKey: answerIdentity?.contentKey ?? null,
+    });
     if (!policyResult.ok) {
       return NextResponse.json({ error: policyResult.error }, { status: 400 });
     }
     const { policy } = policyResult;
 
-    // 2) 難度：伺服器解析（永不採信 event.difficulty）
+    // 3) 難度：伺服器解析（永不採信 event.difficulty）
     let difficulty: PracticeDifficulty = 'core';
-    if (policy.type === 'answerCorrect' || policy.type === 'answerIncorrect') {
-      difficulty = await resolveQuestionDifficulty(policy.identifiers.questionId);
+    if (answerIdentity) {
+      difficulty = answerIdentity.difficulty;
     } else if (policy.type === 'completeSession') {
       const session = await findPracticeSessionByClientId(studentId, policy.identifiers.sessionId);
       if (!session) {
@@ -145,13 +199,28 @@ export async function POST(req: NextRequest) {
       difficulty = normalizePracticeDifficulty(session.difficulty);
     }
 
-    // 3) 連續天數：伺服器計算（永不採信 event.streakDays）
+    // 3.5) 識別碼真實性（2026-10-01）：錯題／生字必須屬於該學生。
+    //      從前任意唯一字串即可換取 XP（實測：無存在性檢查）。
+    if (policy.type === 'reviewMistake') {
+      const mistake = await MistakeRepo.findMistakeById(policy.identifiers.mistakeId);
+      if (!mistake || mistake.studentId !== studentId) {
+        return NextResponse.json({ error: '找不到對應的錯題 / Mistake not found' }, { status: 404 });
+      }
+    }
+    if (policy.type === 'learnWord' || policy.type === 'masterWord') {
+      const vocab = await VocabularyRepo.findVocabById(policy.identifiers.wordId);
+      if (!vocab || vocab.studentId !== studentId) {
+        return NextResponse.json({ error: '找不到對應的生字 / Vocabulary word not found' }, { status: 404 });
+      }
+    }
+
+    // 4) 連續天數：伺服器計算（永不採信 event.streakDays）
     let streakDays: number | undefined;
     if (policy.type === 'dailyLogin') {
       streakDays = await calculatePracticeStreak(studentId);
     }
 
-    // 4) 組合最終事件（metadata 只含伺服器解析出的識別碼與去重鍵）
+    // 5) 組合最終事件（metadata 只含伺服器解析出的識別碼與去重鍵）
     const resolvedEvent: XpEvent = {
       type: policy.type,
       difficulty,
@@ -160,6 +229,7 @@ export async function POST(req: NextRequest) {
         ...policy.identifiers,
         idempotencyKey: policy.idempotencyKey,
         source: 'api',
+        ...(answerIdentity ? { contentKey: answerIdentity.contentKey } : {}),
       },
     };
 

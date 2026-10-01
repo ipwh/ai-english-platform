@@ -87,6 +87,16 @@ export function isClientXpEventType(value: unknown): value is ClientXpEventType 
   return typeof value === 'string' && (CLIENT_XP_EVENT_TYPES as readonly string[]).includes(value);
 }
 
+/**
+ * 答題事件 — 由伺服器重新解析「正典題目身分 + 內容指紋」才可發放
+ * （2026-10-01 稽核：任意字串／重新生成的新 id 永不重複領取）。
+ */
+export const ANSWER_XP_EVENT_TYPES = ['answerCorrect', 'answerIncorrect'] as const satisfies readonly ClientXpEventType[];
+
+export function isAnswerXpEventType(value: unknown): value is (typeof ANSWER_XP_EVENT_TYPES)[number] {
+  return typeof value === 'string' && (ANSWER_XP_EVENT_TYPES as readonly string[]).includes(value);
+}
+
 export function calculateXp(event: XpEvent): number {
   const base = XP_VALUES[event.type] ?? 0;
   const multiplier = event.difficulty

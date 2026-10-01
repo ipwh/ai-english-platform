@@ -4,6 +4,66 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-01 — 同題快速重複＋XP 重複發放稽核；學生端「我的進度」改為逐日練習歷史（ADR-047）
+
+### 一、用戶回報與稽核（唯讀 SQL，DB 實證）
+用戶回報：**相同題目很快再次重複出現，能刷高分**。查核（DB 端聚合，未搬逐列資料）：
+
+| 指標（近 14 日） | 實測 |
+|---|---|
+| 重複出現的題目（同一學生、同一題目文字） | 最多 **57 次**（其中 **40 次在 24 小時內、20 次在 2 小時內**） |
+| 最重複的單一題目 | `what do people in spain do at midnight on new year's eve?` **13 次 / 13 個場次**；`what is the main idea of the passage?` 亦 13 次 |
+| **同一題內容以不同 questionId 重複領取 `answerCorrect` XP** | 17 組、**23 次額外發放**（單一內容最多 **7 個不同 id**） |
+| `answerCorrect` 聲請可解析到正典題目 | 1402 / 1416（其餘為歷史列）—— 「任意字串」漏洞**尚未**被大規模利用，但為潛在風險 |
+
+**重複集中在哪些流程（重複題目組數，近 14 日，按 session source）**：
+
+| 流程（source） | 重複組數 | 說明 |
+|---|---|---|
+| `ai-generated`（文法練習） | 60 | `/api/ai/generate-questions` |
+| `dse-listening`（聆聽練習） | 33 | 同一生成路由；另查「同一段對話換題目重用」＝ **0 組** |
+| `dse-reading`（閱讀練習） | 23 | 全部為 `mcq` ＋ `reading-server-exact-match` ⇒ 同樣來自練習生成路由；`/api/reading` 完整試卷流程 **0 重複** |
+| `daily-challenge`（每日挑戰） | 0（60 日） | 每日一題，未見跨日重複 |
+
+根因（兩個獨立缺陷疊加）：
+1. **生成端跨請求零記憶**：`generate-questions.ts` 只對「同一次請求內」去重（`acceptedPromptKeys`）；每次生成都以 `randomUUID()` 持久化**新的**正典題目 id → 學生重複生成時會再收到幾乎相同的題目。
+2. **XP 去重鍵以 id 為準**：`answerCorrect` 的鍵為 `{studentId}:answer:{questionId}` → 同一內容重生成即為新 id ⇒ 再領一次；且 `reviewMistake`／`learnWord`／`masterWord` 的識別碼**無任何存在性／擁有權檢查**（任意唯一字串即可換 XP）、`answerCorrect` 的任意字串亦無需解析（延遲風險）、端點無限流。
+
+### 二、修復
+1. **出題跨請求去重（覆蓋所有生成入口）**：
+   - 素材一：學生**近 14 日**已練題目文字（`listRecentQuestionPrompts`；DB 端 GROUP BY 正規化文字、每題只回一列、上限 150、新至舊 —— 重度學生一天完成 16+ 場，「最近 N 場」只覆蓋約一天，故改用時間窗）。
+   - 素材二：學生近 14 日用過的**聆聽對話**（`listRecentListeningDialogues`；由 `ListeningQuestion.dialogue` 回推；同一段對話換了問題文字仍是重複內容；上限 40、截斷 600 字元）。
+   - 生成階段**硬性排除**（與「同一請求內的重複」分開計數）＋提示詞帶題目樣本（`AVOID REPETITION`，經 `sanitizeForAI` 去注入）＋補題輪帶「REPETITION FEEDBACK」具體原因；被排除的數量由既有**補題迴圈**補足（交付標準不變）。
+   - **所有** `generateQuestions` 入口都必須傳入近期素材：`/api/ai/generate-questions`（文法／閱讀／聆聽）、`/api/daily-challenge`、`/api/diagnostic/grammar`。診斷路由並補上 POST 的 **SEC-009 擁有權檢查**（讀取該生歷史前先驗權）。
+   - 讀取失敗不阻斷出題（少去重提示，不令學生無法練習）。
+2. **XP 身分解析與真實性**（`question-difficulty-resolution.ts` → `resolveAnswerXpIdentity()`）：
+   - 答題事件必須解析到**正典題目**（Grammar / Reading / Listening）；查無此題 ⇒ 404（任意字串不得當 questionId）；查詢故障 ⇒ 5xx（故障 ≠ 查無此題）。
+   - 去重鍵改用**內容指紋**（sha256：題型＋題目文字＋**排序後選項**＋**正確選項文字**）—— 對選項洗牌與重新生成的新 id 皆穩定；同一內容永遠只發一次 `answerCorrect`（`xp-event-policy` 由 context 取指紋，客戶端 metadata 的同名值永不採用；未提供時回退 questionId，保持既有語意）。
+   - `reviewMistake`／`learnWord`／`masterWord` 的識別碼必須**屬於該學生**（錯題／生字查無或非本人 ⇒ 404）。
+   - `POST /api/gamification` 新增**端點限流**（60 次/分鐘/學生；in-memory，與其他路由同樣的近似保證）。
+   - `XpTransaction.metadata` 額外記錄 `contentKey`（供日後審計以內容聚合）。
+3. **學生端「我的進度」逐日練習歷史**（新 `/api/practice/history` ＋ 重寫頁面區段）：
+   - 月檢視：香港月內「每日 × 技能」的**場次數／題數**（DB 端 GROUP BY 聚合；只回傳聚合列，遵守 ADR-046 egress 契約）；可切換上一月／下一月回看。
+   - 日檢視（點擊日期展開）：當日逐場明細（時間、技能、難度、題數、已驗證準確率或「未驗證」）；單日有界查詢。
+   - 新增 `hkMonthKey` / `nextMonthKey` / `previousMonthKey` / `hkMonthStartUtc`（香港月界線，HK 日界線單一 owner）。
+   - 移除只顯示 5 筆的「最近練習記錄」區段（`progress.recentSessions` key 移除）。
+
+### 三、驗證
+- `tsc --noEmit` 0 errors；`npx eslint`（變更檔案）0 errors；`node scripts/check-i18n.js` exit 0。
+- **3273 passed / 2 skipped（170 files passed, 2 skipped）**（新增 28 個測試：`question-xp-identity.test.ts` 8、`xp-event-policy` +5、`generate-questions-topup` +5、`practice-history-service` +7、`hk-date` +3）。
+- **真實資料驗證（唯讀）**：月摘要 SQL 分組 vs TS `hkDayKey()` 逐日比對 —— 166 場、5 日、**0 差異**；日明細每列 `hkDayKey(startedAt)` 與所查日一致（0 mismatch）；示例（重度學生）近 14 日去重題目 813 → 取最近 150 列、聆聽對話 40 列，回傳量有上限。
+- 合約測試更新：`r310c2-authority-closure` B7 改驗 `t('progress.unverified')`（unverified 一律顯式標示，不得顯示原始準確率）。
+
+### 四、已知取捨與殘留風險（誠實記錄）
+- **內容指紋鍵為新鍵**：舊制已用 `answer:<questionId>` 領過的題目，部署後若「再次」以同一內容領取（需再次答對同一題）會多領一次 10 XP —— 一次性、有界（每次需重新作答），不構成刷分途徑。
+- **`answerCorrect` 的正確性仍由客戶端在作答當下自報**（伺服器評分發生在場次提交時）：本修正封閉了「任意 id／重生成重複發放」與腳本可達性（需真實正典題目），但無法在領取時點證明「學生確實答對」。徹底做法是將答題 XP 改為**提交時由伺服器依評分結果發放**（列為後續工作；屆時客戶端 toast 需改為場次結算顯示）。
+- **`completeSession` 仍為每場 45 XP**：重播同一組題目（需腳本偽造場次）仍可取得完成 XP；已以端點限流 + 內容指紋降低誘因，是否加每日上限屬產品決策。
+- 跨請求排除以「題目文字完全相同」與「聆聽對話完全相同」為準：閱讀／聆聽的通用問句（如 "What is the main idea…"）會被排除並由補題生成不同措辭 —— 這是刻意的（那正是學生感受到的重複來源）；閱讀**篇章本身未持久化**（`ReadingQuestion` 不存 passage），故篇章層級去重目前不可行（若要覆蓋需新增欄位＋migration）；`/api/reading` 完整試卷流程在 14 日內 0 重複，暫不變更。極端情況下補題不足會 best-effort 交付較少題數（既有機制會記 warning）。
+- 重度學生（近 14 日 >150 道不同題目）只排除「最近 150 道」與最近 40 段對話 —— 上限是為了控制 egress；「很快重複」的實際案例全部落在此窗口內。
+- 刻意重複的流程不在排除範圍：錯題 SRS 複習、單字間隔重複、老師指派的同一份作業（教學設計如此，非缺陷）。
+
+---
+
 ## 2026-09-28 — XP 反刷分 + 獎勵再平衡（DB 實證：單一學生刷得 95,904 XP）
 
 ### 一、事故（DB 實證，非推測）

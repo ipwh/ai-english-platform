@@ -59,6 +59,30 @@ export function previousDayKey(dayKey: string): string {
   return new Date(Date.parse(`${dayKey}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
 }
 
+/** 現在（或指定時刻）所屬的香港月 key（`YYYY-MM`） */
+export function hkMonthKey(now: Date = new Date()): string {
+  return hkDayKey(now).slice(0, 7);
+}
+
+/** `YYYY-MM` → 下一個月 key（純字串運算，與時區無關） */
+export function nextMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  const next = month === 12 ? [year + 1, 1] : [year, month + 1];
+  return `${next[0]}-${String(next[1]).padStart(2, '0')}`;
+}
+
+/** `YYYY-MM` → 上一個月 key（純字串運算，與時區無關） */
+export function previousMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  const prev = month === 1 ? [year - 1, 12] : [year, month - 1];
+  return `${prev[0]}-${String(prev[1]).padStart(2, '0')}`;
+}
+
+/** `YYYY-MM` → 該月 1 日香港 00:00 對應的 UTC 時刻（月範圍查詢起點） */
+export function hkMonthStartUtc(monthKey: string): Date {
+  return hkDayStartUtc(`${monthKey}-01`);
+}
+
 /** 香港日的星期（0 = 星期日 … 6 = 星期六）—— 取香港「日期」的星期，非該 UTC 時刻的星期 */
 export function hkDayOfWeek(now: Date = new Date()): number {
   return new Date(`${hkDayKey(now)}T00:00:00Z`).getUTCDay();

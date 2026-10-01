@@ -14,6 +14,10 @@ import {
   hkDayOfWeek,
   hkWeekStartMondayUtc,
   previousDayKey,
+  hkMonthKey,
+  nextMonthKey,
+  previousMonthKey,
+  hkMonthStartUtc,
 } from '../hk-date';
 
 describe('hkDayKey — UTC → 香港日', () => {
@@ -96,5 +100,26 @@ describe('hkWeekStartMondayUtc — 每週快照的香港週一界線', () => {
     const hkMondayEarly = new Date('2026-09-13T18:00:00Z');
     expect(hkDayKey(hkMondayEarly)).toBe('2026-09-14');
     expect(hkWeekStartMondayUtc(hkMondayEarly).toISOString()).toBe('2026-09-13T16:00:00.000Z');
+  });
+});
+
+// ============================================
+// 月界線（2026-10-01：學生端練習歷史的月份檢視）
+// ============================================
+describe('hkMonthKey / month key 算術', () => {
+  it('hkMonthKey 以香港日為準（UTC 15:59 仍是當月、16:00 起跨日）', () => {
+    expect(hkMonthKey(new Date('2026-09-30T15:59:59Z'))).toBe('2026-09'); // HK 09-30 23:59
+    expect(hkMonthKey(new Date('2026-09-30T16:00:00Z'))).toBe('2026-10'); // HK 10-01 00:00
+  });
+
+  it('nextMonthKey / previousMonthKey 跨年正確', () => {
+    expect(nextMonthKey('2026-10')).toBe('2026-11');
+    expect(nextMonthKey('2026-12')).toBe('2027-01');
+    expect(previousMonthKey('2026-10')).toBe('2026-09');
+    expect(previousMonthKey('2026-01')).toBe('2025-12');
+  });
+
+  it('hkMonthStartUtc = 該月 1 日香港 00:00（回傳 UTC）', () => {
+    expect(hkMonthStartUtc('2026-10').toISOString()).toBe('2026-09-30T16:00:00.000Z');
   });
 });

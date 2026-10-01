@@ -13,6 +13,7 @@ import { validateAndFixQuestion } from '../services/question-validator';
 import { validateListeningConsistency } from '../services/listening-normalizer';
 import { verifyGeneratedAnswers, summarizeVerificationDrops } from '../services/answer-verification';
 import { resolveEffectiveQuestionType } from '../services/open-ended-topics';
+import { sanitizeForAI } from '../services/sanitizer';
 import { logger } from '@/shared/logger/logger';
 import type { GenerateQuestionsInput, GeneratedQuestion } from '../types/generation-types';
 
@@ -25,9 +26,21 @@ export type { GenerateQuestionsInput, GeneratedQuestion };
  * `isDeliverableListeningMc` —— 答案必須逐字出現在對話中）。條件在**生成
  * 階段**逐題套用，補題迴圈因而能為不合格的題目補生新題；若只在交付層
  * （route）過濾，題數會靜靜地少掉且永遠補不回來（2026-09-25 回報）。
+ *
+ * `recentPrompts`：學生**近期已練過**的題目文字（呼叫端由練習歷史取得，
+ * 不含答案）。2026-10-01 稽核：生成端原本只對同一次請求去重，跨請求零記憶
+ * → 重複生成時會再發幾乎相同的題目（同一內容曾以 7 個不同 questionId 重複
+ * 領取 XP）。現在這些題目在生成階段被硬性排除（並提示模型避開），
+ * 由補題迴圈補足數量。傳入文字會被視為**不可信資料**（去識別化＋去注入）。
+ *
+ * `recentContexts`：學生近期用過的**所依附內容**（聆聽對話，由正典題庫
+ * 回推）—— 即使換了問題文字，同一段對話對學生仍是重複內容。比對方式與
+ * 同一請求內的 `contextKey` 一致（正規化後前 200 字），命中即拒絕。
  */
 export interface GenerateQuestionsOptions {
   acceptQuestion?: (question: GeneratedQuestion) => boolean;
+  recentPrompts?: string[];
+  recentContexts?: string[];
 }
 
 /**
@@ -196,12 +209,45 @@ export async function generateQuestions(
   let verificationFeedback = '';
   /** 上一輪被交付條件否決的原因 — 同樣帶入補題提示，否則模型只會重複同一種錯 */
   let deliveryFeedback = '';
+  /** 上一輪因「學生近期已練過」被拒絕的情形 — 帶入補題提示，要求真正的新內容 */
+  let repetitionFeedback = '';
 
   const normText = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
   const promptKey = (q: GeneratedQuestion) => normText(q.prompt);
   /** 題目所依附的內容（聆聽對話／閱讀篇章）；文法題為空字串 */
   const contextKey = (q: GeneratedQuestion) =>
     normText(q.listeningContent || q.readingContent).slice(0, 200);
+
+  /**
+   * 跨請求去重（2026-10-01）：把學生近期（近 14 日）已練過的題目與已用過的
+   * 聆聽對話加入拒絕集合，並把題目樣本放進提示詞（模型據此避開相同句子／
+   * 篇章／情境）。短句（例："What is the main idea of the passage?"）同樣列入
+   * 排除 —— 那正是學生感受到「很快重複」的來源；被排除的題目由補題迴圈補生。
+   */
+  const recentPromptKeys = new Set<string>();
+  const recentPromptSamples: string[] = [];
+  for (const sample of options.recentPrompts ?? []) {
+    const text = String(sample ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    const key = normText(text);
+    if (!key || recentPromptKeys.has(key)) continue;
+    recentPromptKeys.add(key);
+    if (recentPromptSamples.length < 12 && text.length >= 8) {
+      recentPromptSamples.push(sanitizeForAI(text.slice(0, 140), 200));
+    }
+  }
+  const recentContextKeys = new Set<string>();
+  for (const sample of options.recentContexts ?? []) {
+    const key = normText(String(sample ?? '')).slice(0, 200);
+    if (key) recentContextKeys.add(key);
+  }
+  const recentPromptInstruction =
+    (recentPromptSamples.length > 0
+      ? `\n\n⚠️ AVOID REPETITION: the student has ALREADY practised the following item(s) recently. DO NOT generate the same questions or near-identical variants; use different sentences, passages, dialogues, scenarios and topics:\n${recentPromptSamples.map((p, i) => `${i + 1}. ${p}`).join('\n')}`
+      : '')
+    + (recentContextKeys.size > 0
+      ? `\n\n⚠️ AVOID REPETITION (CONTENT): do NOT reuse any dialogue or passage the student has practised recently — write completely new dialogues/passages with different speakers, settings and details.`
+      : '');
 
   /**
    * 交付條件（呼叫端注入，例：`isDeliverableListeningMc`）+ 跨輪去重。
@@ -237,9 +283,23 @@ export async function generateQuestions(
 
     const seenPrompt = new Set<string>();
     const seenContext = new Set<string>();
-    return kept.filter((q) => {
+    let recentlyPractised = 0;
+    const acceptedNow = kept.filter((q) => {
       const pk = promptKey(q);
       const ck = contextKey(q);
+      // 1) 跨請求去重（近 14 日已練過的題目文字／已用過的聆聽對話）—— 硬性排除。
+      //    與「同一請求內的重複」分開計數，補題提示才能明確指出原因。
+      const repeatsRecent = (pk !== '' && recentPromptKeys.has(pk))
+        || (ck !== '' && recentContextKeys.has(ck));
+      if (repeatsRecent) {
+        recentlyPractised += 1;
+        logger.info(
+          { module: 'generate-questions', label, prompt: (q.prompt || '').slice(0, 80) },
+          'Recently practised question/content skipped',
+        );
+        return false;
+      }
+      // 2) 同一請求內的重複（已接受題目，或其對話／篇章已被使用）
       const duplicate = !pk
         || acceptedPromptKeys.has(pk)
         || seenPrompt.has(pk)
@@ -255,6 +315,10 @@ export async function generateQuestions(
       if (ck) seenContext.add(ck);
       return true;
     });
+    repetitionFeedback = recentlyPractised > 0
+      ? `${recentlyPractised} item(s) repeated content the student practised in the last 14 days (identical question text, or a dialogue already used). Generate genuinely NEW items — different sentences, scenarios, speakers and details; do NOT reword or paraphrase the same content.`
+      : '';
+    return acceptedNow;
   };
 
   /**
@@ -330,10 +394,14 @@ export async function generateQuestions(
         + (deliveryFeedback
           ? `\n\n⚠️ DELIVERY-REQUIREMENT FEEDBACK (previous items were REJECTED):\n${deliveryFeedback}`
           : '')
+        + (repetitionFeedback
+          ? `\n\n⚠️ REPETITION FEEDBACK (previous items were REJECTED):\n${repetitionFeedback}`
+          : '')
       : '';
     
     // 每輪重建系統提示：補題輪的題數必須與題目敘述一致，否則模型會照原數量出題。
-    const effectiveSystemPrompt = buildCompactSystemPrompt({ ...input, count: batchSize }, dseContextPrompt) + retryPrompt;
+    // 亦重附「近期已練題目」排除清單（首輪與補題輪一致）。
+    const effectiveSystemPrompt = buildCompactSystemPrompt({ ...input, count: batchSize }, dseContextPrompt) + retryPrompt + recentPromptInstruction;
     const userPrompt = buildUserPrompt(batchSize);
 
     // `result` must be declared before the guarded block: a failing round

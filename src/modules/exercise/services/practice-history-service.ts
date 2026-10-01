@@ -16,8 +16,8 @@
 // ============================================
 
 import { PracticeRepo } from '@/modules/repositories';
-import { evaluatePracticeEvidence } from './practice-evidence-service';
-import { hkWeekStartUtc } from '@/shared/utils/hk-date';
+import { evaluatePracticeEvidence, type PracticeEvidenceResult } from './practice-evidence-service';
+import { hkWeekStartUtc, hkDayStartUtc, hkMonthStartUtc, nextMonthKey, DAY_MS } from '@/shared/utils/hk-date';
 
 /** 單一技能累積（只計已驗證 evidence 的題數） */
 export interface CumulativeSkillTotal {
@@ -212,5 +212,193 @@ export async function aggregateVerifiedTotalsForStudents(
   }
 
   return result;
+}
+
+// ============================================
+// 出題去重素材（2026-10-01 同題重複稽核）
+// ============================================
+// 病根：生成端只對「同一次請求內」去重（acceptedPromptKeys），跨請求零記憶 →
+// 學生短期內重複生成時會再收到幾乎相同的題目。實測（唯讀 SQL 稽核）：
+//   · 重複題目集中於三條管線：ai-generated 60 組、dse-listening 33 組、
+//     dse-reading 23 組（全部經 /api/ai/generate-questions；/api/reading 完整
+//     試卷流程 14 日內 0 重複）；同一學生同題最多跨 13 場
+//   · 同一題內容（`what do people in spain do at midnight on new year's eve?`）
+//     以 **7 個不同 questionId** 各領了一次 `answerCorrect` XP
+// 本模組提供兩類近期素材供生成端硬性排除 + 提示模型避開：
+//   1. 題目文字（近 14 日，DB 端去重；不含答案）
+//   2. 聆聽對話（由 `ListeningQuestion` 回推；換了問題文字仍是重複內容）
+// 兩者都只是**去重／提示**用途（永不入敘述、永不當證據），呼叫端會再截斷長度。
+
+/** 學生近 14 日已練習的題目文字（已正規化去重、新至舊），供出題避免重複。 */
+export async function getRecentQuestionPromptsForGeneration(
+  studentId: string,
+  limit = 150,
+): Promise<string[]> {
+  if (!studentId) return [];
+  const raw = await PracticeRepo.listRecentQuestionPrompts(studentId);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const text = String(item?.prompt ?? '').trim();
+    if (!text) continue;
+    const key = text.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** 學生近 14 日用過的聆聽對話（已正規化去重），供出題避免重用同一段內容。 */
+export async function getRecentListeningDialoguesForGeneration(
+  studentId: string,
+  limit = 40,
+): Promise<string[]> {
+  if (!studentId) return [];
+  const raw = await PracticeRepo.listRecentListeningDialogues(studentId);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const text = String(item?.dialogue ?? '').trim();
+    if (!text) continue;
+    const key = text.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// ============================================
+// 學生端「練習歷史」逐日檢視（2026-10-01）
+// ============================================
+// 需求：學生在「我的進度」只想看到最近 5 筆，無法回看每日的練習次數與類型。
+// 設計（遵守 ADR-046 egress 契約）：
+//   · 月摘要＝DB 端 GROUP BY（每日 × 技能）聚合，只回傳聚合列（不搬逐場記錄）
+//   · 日明細＝按需查詢「單一日」（有界），逐場附正典 `evaluatePracticeEvidence`
+//   · engagement（場次／題數）與 scored（準確率）分離，從不互相推導
+
+/** 單一（香港日 × 技能）的練習量（engagement，非分數） */
+export interface PracticeHistoryDaySkill {
+  skill: string;
+  skillZh: string;
+  /** 該日該技能的場次數 */
+  sessionsCount: number;
+  /** 該日該技能的題數（含未驗證／開放式，不得當分數） */
+  questionsTotal: number;
+}
+
+/** 單一香港日的練習摘要 */
+export interface PracticeHistoryDay {
+  /** 香港日 key（`YYYY-MM-DD`） */
+  dayKey: string;
+  sessionsCount: number;
+  questionsTotal: number;
+  skills: PracticeHistoryDaySkill[];
+}
+
+export interface PracticeHistoryMonth {
+  /** 香港月 key（`YYYY-MM`） */
+  monthKey: string;
+  /** 只有「有練習」的日子；新至舊 */
+  days: PracticeHistoryDay[];
+}
+
+/**
+ * 指定香港月的逐日練習摘要（每日 × 技能聚合）。
+ * 只回傳聚合數字（每（日, 技能）一列），單次呼叫為 KB 級。
+ */
+export async function getPracticeHistoryMonth(
+  studentId: string,
+  monthKey: string,
+): Promise<PracticeHistoryMonth> {
+  const since = hkMonthStartUtc(monthKey);
+  const until = hkMonthStartUtc(nextMonthKey(monthKey));
+  const rows = await PracticeRepo.aggregatePracticeSessionsByDayAndSkill(studentId, since, until);
+
+  const days = new Map<string, PracticeHistoryDay>();
+  for (const row of rows) {
+    const skill = row.skill || 'general';
+    const day = days.get(row.dayKey) ?? {
+      dayKey: row.dayKey,
+      sessionsCount: 0,
+      questionsTotal: 0,
+      skills: [],
+    };
+    day.sessionsCount += row.sessionsCount;
+    day.questionsTotal += row.questionsTotal;
+    day.skills.push({
+      skill,
+      skillZh: row.skillZh || skill,
+      sessionsCount: row.sessionsCount,
+      questionsTotal: row.questionsTotal,
+    });
+    days.set(row.dayKey, day);
+  }
+
+  const dayList = Array.from(days.values());
+  for (const day of dayList) {
+    day.skills.sort((a, b) =>
+      b.sessionsCount - a.sessionsCount
+      || b.questionsTotal - a.questionsTotal
+      || a.skill.localeCompare(b.skill));
+  }
+  dayList.sort((a, b) => b.dayKey.localeCompare(a.dayKey));
+  return { monthKey, days: dayList };
+}
+
+/** 單場練習（供「日明細」顯示；`verified` 由 persisted answer rows 推導） */
+export interface PracticeHistorySession {
+  id: string;
+  skill: string;
+  skillZh: string;
+  difficulty: string;
+  totalQuestions: number;
+  correctCount: number;
+  source: string;
+  startedAt: Date;
+  completedAt: Date | null;
+  verified: PracticeEvidenceResult;
+}
+
+export interface PracticeHistoryDayDetail {
+  dayKey: string;
+  /** 按時間（舊→新）排序 */
+  sessions: PracticeHistorySession[];
+  /** 超過上限被截斷（極端爆量日；正常不會發生） */
+  truncated: boolean;
+}
+
+/**
+ * 指定香港日的逐場明細（有界：只查該日）。
+ * 每場附正典證據投影（`evaluatePracticeEvidence`）——「未驗證」不得顯示為 0%。
+ */
+export async function getPracticeHistoryDay(
+  studentId: string,
+  dayKey: string,
+  maxSessions = 200,
+): Promise<PracticeHistoryDayDetail> {
+  const since = hkDayStartUtc(dayKey);
+  const until = new Date(since.getTime() + DAY_MS);
+  const rows = await PracticeRepo.listPracticeSessionsWithEvidence(studentId, maxSessions + 1, 0, since, until);
+  const truncated = rows.length > maxSessions;
+  const sessions = rows
+    .slice(0, maxSessions)
+    .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
+    .map(row => ({
+      id: row.id,
+      skill: row.skill,
+      skillZh: row.skillZh,
+      difficulty: row.difficulty,
+      totalQuestions: row.totalQuestions,
+      correctCount: row.correctCount,
+      source: row.source,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      verified: evaluatePracticeEvidence(row.answers),
+    }));
+  return { dayKey, sessions, truncated };
 }
 

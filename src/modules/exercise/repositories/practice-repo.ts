@@ -201,23 +201,92 @@ export async function listPracticeSessions(studentId: string, limit = 50) {
 }
 
 /**
+ * 學生近 14 日練習過的題目文字（供出題「避免重複」用）。
+ *
+ * 2026-10-01（同題快速重複稽核）：生成端只對「同一次請求內」去重，跨請求
+ * 完全沒有記憶 → 學生重複生成時會再收到幾乎相同的題目（實測同一題內容
+ * `what do people in spain do at midnight on new year's eve?` 曾以 7 個不同
+ * questionId 重複領取 `answerCorrect` XP）。本函式提供跨請求去重的素材，
+ * **只回傳題目文字**（不含答案）。
+ *
+ * 視窗為**14 日**（而非「最近 N 場」）—— 重度學生一天可完成 16+ 場，
+ * 「最新 20 場」只覆蓋約一天，會令「三天前練過」的題目重新出現。
+ * 去重與排序都在 DB 端完成（GROUP BY 正規化文字、每題只回傳一列），
+ * 傳輸量有上限；文字只作去重提示／過濾，非證據、非敘述授權。
+ */
+export async function listRecentQuestionPrompts(studentId: string, days = 14, promptLimit = 150) {
+  return db.$queryRawUnsafe<Array<{ prompt: string }>>(
+    `
+    SELECT (array_agg(a."questionPrompt" ORDER BY a."createdAt" DESC))[1] AS prompt
+    FROM "PracticeAnswer" a
+    JOIN "PracticeSession" s ON s.id = a."sessionId"
+    WHERE s."studentId" = $1
+      AND s."startedAt" >= now() - make_interval(days => $2::int)
+      AND a."questionPrompt" IS NOT NULL
+      AND btrim(a."questionPrompt") <> ''
+    GROUP BY lower(btrim(a."questionPrompt"))
+    ORDER BY max(a."createdAt") DESC
+    LIMIT $3
+    `,
+    studentId,
+    days,
+    promptLimit,
+  );
+}
+
+/**
+ * 學生近 14 日練習中用過的聆聽對話（供出題避免重用同一段內容）。
+ *
+ * 對話在生成時已持久化於 `ListeningQuestion`（ADR-045），故可由既有
+ * 作答記錄回推「這段對話學生已見過」—— 即使換了問題文字，同一段對話
+ * 對學生仍是重複內容。只回傳截斷後（≤600 字元）的對話，每題一列，
+ * 去重與排序都在 DB 端完成。
+ */
+export async function listRecentListeningDialogues(studentId: string, days = 14, dialogueLimit = 40) {
+  return db.$queryRawUnsafe<Array<{ dialogue: string }>>(
+    `
+    SELECT (array_agg(left(l.dialogue, 600) ORDER BY a."createdAt" DESC))[1] AS dialogue
+    FROM "PracticeAnswer" a
+    JOIN "PracticeSession" s ON s.id = a."sessionId"
+    JOIN "ListeningQuestion" l ON l.id = a."questionId"
+    WHERE s."studentId" = $1
+      AND s."startedAt" >= now() - make_interval(days => $2::int)
+      AND l.dialogue IS NOT NULL
+      AND btrim(l.dialogue) <> ''
+    GROUP BY l.id
+    ORDER BY max(a."createdAt") DESC
+    LIMIT $3
+    `,
+    studentId,
+    days,
+    dialogueLimit,
+  );
+}
+
+/**
  * R3.10-C: List practice sessions WITH persisted answer evidence rows.
  * Consumers of verified accuracy must use this (with
  * evaluatePracticeEvidence) instead of trusting session aggregates.
  *
- * `skip` / `since` 支援分頁與日期界線視窗（2026-09-20 稽核）。
+ * `skip` / `since` / `until` 支援分頁與日期界線視窗（2026-09-20 稽核；
+ * 2026-10-01 加入 `until` 供「指定一日」的歷史檢視使用）。
  * 注意（2026-09-26）：「累積」語意已改由 SQL 聚合提供（見
  * `aggregateVerifiedTotalsForStudent`），**不再**靠本函式分頁搬全歷史列。
- * 本函式現供逐列消費者（本週有界抓取、單場查詢）使用。
+ * 本函式現供逐列消費者（本週有界抓取、單場／單日查詢）使用。
  */
 export async function listPracticeSessionsWithEvidence(
   studentId: string,
   limit = 200,
   skip = 0,
   since?: Date,
+  until?: Date,
 ) {
+  const startedAtRange =
+    since || until
+      ? { startedAt: { ...(since ? { gte: since } : {}), ...(until ? { lt: until } : {}) } }
+      : {};
   return db.practiceSession.findMany({
-    where: { studentId, ...(since ? { startedAt: { gte: since } } : {}) },
+    where: { studentId, ...startedAtRange },
     select: {
       id: true,
       skill: true,
@@ -524,4 +593,53 @@ export async function completePracticeSession(id: string, correctCount: number) 
     where: { id },
     data: { completedAt: new Date(), correctCount },
   });
+}
+
+// ============================================
+// 練習歷史的逐日聚合（2026-10-01，學生端「每日練習回顧」）
+// ============================================
+
+/** 每（香港日 × 技能）一列的 engagement 聚合（不含分數語意） */
+export interface PracticeDaySkillAggregate {
+  dayKey: string;
+  skill: string;
+  skillZh: string;
+  sessionsCount: number;
+  questionsTotal: number;
+}
+
+/**
+ * 指定日期範圍內，學生的**每日 × 技能**練習場次／題數（DB 端 GROUP BY，
+ * 只回傳聚合列，不搬逐場記錄）。
+ *
+ * 香港日界線以 `startedAt + 8h` 的日期取 key（與 `hkDayKey()` 同一算法；
+ * 香港無夏令時間）。`skillZh` 取該（日, 技能）內最新一場的標籤，
+ * 與累積投影的標籤回退規則一致（空字串回退為 `skill`）。
+ *
+ * ⚠️ 這是 **engagement** 聚合：題數含未驗證／開放式，**不得**當作分數
+ * （分數語意一律經 `evaluatePracticeEvidence`／SQL 證據投影）。
+ */
+export async function aggregatePracticeSessionsByDayAndSkill(
+  studentId: string,
+  since: Date,
+  until: Date,
+): Promise<PracticeDaySkillAggregate[]> {
+  return db.$queryRawUnsafe<PracticeDaySkillAggregate[]>(
+    `
+    SELECT to_char(s."startedAt" + interval '8 hours', 'YYYY-MM-DD') AS "dayKey",
+           s.skill AS "skill",
+           COALESCE(NULLIF((array_agg(s."skillZh" ORDER BY s."startedAt" DESC, s.id ASC))[1], ''), s.skill) AS "skillZh",
+           count(*)::int AS "sessionsCount",
+           COALESCE(sum(s."totalQuestions"), 0)::int AS "questionsTotal"
+    FROM "PracticeSession" s
+    WHERE s."studentId" = $1
+      AND s."startedAt" >= $2::timestamptz
+      AND s."startedAt" < $3::timestamptz
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, 2 ASC
+    `,
+    studentId,
+    since,
+    until,
+  );
 }

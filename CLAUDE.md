@@ -6,10 +6,10 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3245 pass / 2 skipped (169 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
+- **Testing**: Vitest 4, 3273 pass / 2 skipped (170 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
 - **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
-- **API routes**: 113 under `src/app/api/`
+- **API routes**: 114 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
 - **AI Facade**: 63 exported symbols (incl. types) — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules). Answer verification adds `verifyGeneratedAnswers` / `inspectGeneratedQuestion` / `summarizeVerificationDrops`
@@ -56,6 +56,13 @@ Writing Evaluation (Sprints 127-130):
 
 Question Generation — Pre-Delivery Answer Verification (2026-09-20 ADR-042 / 2026-09-21 ADR-044):
   generateQuestions → normalize → validateAndFixQuestion → verifyGeneratedAnswers → retry if short
+    ├─ Cross-request dedupe (2026-10-01, ADR-047): every caller MUST pass the student's recent
+    │    14-day question texts (`recentPrompts`) and recently used listening dialogues
+    │    (`recentContexts`, from the canonical ListeningQuestion store). The generator
+    │    hard-excludes exact repeats (question text / dialogue) and feeds rejection reasons
+    │    into the top-up prompt; excluded items are topped up, never silently dropped.
+    │    Entry points: /api/ai/generate-questions, /api/daily-challenge, /api/diagnostic/grammar.
+    │    Reading passages are not persisted → passage-level dedupe is not possible yet (known).
     ├─ Count contract (2026-09-25): rounds ACCUMULATE accepted items and top up only the
     │    deficit (MAX_ROUNDS = 3) — never "regenerate the whole batch, return the last
     │    round". Callers inject their own delivery condition (e.g.
@@ -156,6 +163,8 @@ Dev tooling:
 - 香港日界線（Hong Kong Day Keys）: `shared/utils/hk-date.ts` — 所有「日」的判定（連續天數、活躍日、週界線、每日目標、今日 XP）。**禁止**在業務程式碼用 `toISOString().slice(0,10)` 當「日」（UTC 日界線會令香港早上的活動歸入前一日，造成假缺口）
 - 連續天數（連續練習天數）: `student/progress/services/streak-service.ts` — 香港日界線 + 400 日回溯 + 嚴格相鄰日 key；只計有練習的日子（`LoginLog` 實際未被寫入）；`countStreak` 為純函式
 - 累積練習投影（技能掌握度題數 / 每週摘要）: `exercise/services/practice-history-service.ts` — 日期界線 + 正典 `evaluatePracticeEvidence`；**永不**由「最新 N 筆」切片推算（會令累積數字下降）。**2026-09-26（ADR-046）**：累積投影一律走 **SQL 聚合**（`PracticeRepo.aggregateVerifiedTotalsBySkillForStudent`），只回傳每技能一列；**永不**逐列搬全歷史（3.2 MB → 55 KB）
+- 學生端練習歷史（逐日檢視；2026-10-01）: `exercise/services/practice-history-service.ts` — 月摘要＝DB 端（每日 × 技能）聚合（`aggregatePracticeSessionsByDayAndSkill`；只回傳聚合列）、日明細＝單日有界（`getPracticeHistoryDay`，附正典證據投影）；API `/api/practice/history`；**禁止**回退成「只顯示最近 N 筆」或於客戶端推算
+- 出題跨請求去重素材（2026-10-01）: `exercise/services/practice-history-service.ts` 的 `getRecentQuestionPromptsForGeneration`／`getRecentListeningDialoguesForGeneration`（資料源：`PracticeRepo.listRecentQuestionPrompts`／`listRecentListeningDialogues`，近 14 日、DB 端去重、有上限）— 所有生成入口的唯一素材來源；**禁止**各入口自行查詢或自行截斷
 - 證據規則單一定義（SQL 與 TS 共用）: `exercise/services/practice-evidence-rules.ts` — `PRACTICE_EVIDENCE_RULES` 同時供 `evaluatePracticeEvidence()`（TS）與 `practice-repo.evidenceRulesSql()`（SQL predicate）；**禁止**任一邊手寫 literals（source-scan 測試強制）
 - 伺服器端證據聚合（SQL）: `exercise/repositories/practice-repo.ts` — `aggregateVerifiedTotalsForStudent()` / `...BySkillForStudent()` / `...ForStudentsByIds()`；必須重現場次層級 all-or-nothing（**不可**逐列 `WHERE`）
 - egress 量測與等價性閘門: `scripts/diagnose-db-egress.ts`、`scripts/verify-evidence-sql-equivalence.ts`、`scripts/verify-activity-metrics-parity.ts`（部署閘門 0 差異）、`scripts/db-query-stats.ts`、`scripts/profile-requests.ps1`
@@ -166,7 +175,7 @@ Dev tooling:
 - 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀／聆聽）經正典 `submitPractice` 評分＋持久化（可驗證證據）；詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
 - XP 事件政策（白名單＋伺服器去重鍵）: `student/progress/services/xp-event-policy.ts` — 唯一的事件白名單與去重鍵來源；`POST /api/gamification` 永不採信客戶端 `idempotencyKey`／`streakDays`／`difficulty`；鍵按 `studentId` 界定（全庫唯一索引）。數值表：`student/progress/services/gamification.ts`
-- XP 難度解析（伺服器權威）: `exercise/services/question-difficulty-resolution.ts` — 由 `questionId` 查正典難度（只有 `GrammarQuestion` 有 difficulty；其餘 `core`）
+- XP 難度與身分解析（伺服器權威）: `exercise/services/question-difficulty-resolution.ts` — `resolveAnswerXpIdentity()` 由 `questionId` 查正典題目（Grammar／Reading／Listening）：難度（只有 `GrammarQuestion` 有 difficulty；其餘 `core`）＋**內容指紋**（sha256；對選項洗牌／重新生成的新 id 穩定，供 answer XP 去重鍵）；查無此題 ⇒ null（呼叫端拒絕發 XP）、查詢故障 ⇒ 拋出
 - Answer Verification (生成題目答案鍵覆核，交付前把關): `ai/services/answer-verification.ts` — 決定性缺陷螢幕（補位選項／重複選項／解說自認有誤）＋ 第二次獨立 LLM pass **blind-solve**；驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` 且 blind 答案等於答案鍵才可交付（prompt: `ai/prompts/grammar/answer-verification.ts`，PromptRegistry `GenerateQuestionsAnswerVerification`）。**2026-09-27（覆核 v2）**：轉換題（轉述句等）必須有**單一選項同時滿足解說列出的全部轉換**，否則判 `flawed` 丟棄；禁止挑「最接近」的半對選項（實例：`we had to` 曾以半對選項被當成正解交付，學生選 `they must` 被誤判錯）
 - Listening Question Store (聆聽題庫與交付判準): `listening/services/listening-question-service.ts` — 交付前持久化 `ListeningQuestion`（含對話）；`isDeliverableListeningMc()` 為唯一交付判準（MC + 對話非空 + 答案**逐字**出現在對話中，詞邊界比對）；全數不可交付 ⇒ 結構化 422 `LISTENING_QUESTIONS_NOT_DELIVERABLE`
 - Listening Answer Scoring (聆聽評分權威): `listening/services/listening-answer-scoring.ts` — `listening-server-exact-match`；忽略所有客戶端評分欄位；委派正典 `scorePracticeAnswer()`；解析不到／marks 無效／開放式題型 ⇒ NOT_PROJECTABLE（不部分計分）
