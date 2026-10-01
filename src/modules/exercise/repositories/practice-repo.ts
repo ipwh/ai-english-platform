@@ -316,6 +316,27 @@ export async function listPracticeSessionsWithEvidence(
   });
 }
 
+/**
+ * 單日「逐場 + 完整逐題答案」列表 —— **僅供教師逐題檢視**。
+ *
+ * 2026-10-01：教師端歷史瀏覽需要與「最近 50 場」相同的逐題明細，但改為按
+ * **單日**有界查詢（一次只看一天，不搬全歷史）。學生端維持精簡選取
+ * （`listPracticeSessionsWithEvidence`），不在此放大 egress。
+ */
+export async function listPracticeSessionsWithAnswersInRange(
+  studentId: string,
+  since: Date,
+  until: Date,
+  limit = 200,
+) {
+  return db.practiceSession.findMany({
+    where: { studentId, startedAt: { gte: since, lt: until } },
+    include: { answers: { orderBy: { questionIndex: 'asc' } } },
+    orderBy: { startedAt: 'asc' },
+    take: limit,
+  });
+}
+
 // ============================================
 // 2026-09-25: 伺服器端證據聚合（SQL）— 消除「全歷史列串流」egress
 // ============================================

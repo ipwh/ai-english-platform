@@ -85,13 +85,19 @@ export async function GET(
     // 2026-09-23 稽核修正：累積（全歷史）技能題數／答對數由正典投影提供。
     // `practiceSessions` 只是「最新 50 場」顯示視窗，頁面不得再由它推算累積數字
     //（那會令高練習量學生的答題數與準確率被截斷）。
-    const { getCumulativeSkillTotals } = await import('@/modules/exercise/services/practice-history-service');
-    const cumulativeSkillTotals = await getCumulativeSkillTotals(studentId).catch(() => []);
+    const { getCumulativeSkillTotals, getCumulativeSessionsCount } = await import('@/modules/exercise/services/practice-history-service');
+    // 2026-10-01：「練習次數」真總數同樣不得由 50 場視窗推算（單列 SQL 聚合）；
+    // 讀取失敗回 null → 頁面顯示「—」，不得回退成 50。
+    const [cumulativeSkillTotals, sessionsCount] = await Promise.all([
+      getCumulativeSkillTotals(studentId).catch(() => []),
+      getCumulativeSessionsCount(studentId).catch(() => null),
+    ]);
 
     return NextResponse.json({
       student,
       practiceSessions,
       cumulativeSkillTotals,
+      sessionsCount,
       mistakes,
       vocab: { total: vocabTotal, mastered: vocabMastered },
       writingDrafts,

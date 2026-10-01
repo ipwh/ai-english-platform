@@ -16,6 +16,7 @@ import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { getDifficultyLabel } from '@/shared/utils/nav';
 import { hkMonthKey, nextMonthKey, previousMonthKey } from '@/shared/utils/hk-date';
+import { formatHistoryMonthLabel, formatHistoryDayLabel, formatHistoryTime } from '@/shared/utils/practice-history-format';
 
 // ============================================
 // 練習歷史（逐日回顧）型別與格式化 — 2026-10-01
@@ -55,24 +56,6 @@ interface HistoryDayDetailState {
   loading: boolean;
   sessions: HistorySession[] | null;
   error: boolean;
-}
-
-function formatHistoryMonth(month: string, language: string): string {
-  return new Date(`${month}-01T00:00:00Z`).toLocaleDateString(
-    language === 'en' ? 'en-US' : 'zh-HK',
-    { year: 'numeric', month: 'long', timeZone: 'UTC' },
-  );
-}
-
-function formatHistoryDay(dayKey: string, language: string): string {
-  return new Date(`${dayKey}T00:00:00Z`).toLocaleDateString(
-    language === 'en' ? 'en-US' : 'zh-HK',
-    { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' },
-  );
-}
-
-function formatHistoryTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function StudentProgressPage() {
@@ -329,7 +312,7 @@ export default function StudentProgressPage() {
               ‹
             </button>
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[6.5rem] text-center">
-              {historyMonth ? formatHistoryMonth(historyMonth, language) : ''}
+              {historyMonth ? formatHistoryMonthLabel(historyMonth, language) : ''}
             </span>
             <button
               type="button"
@@ -382,7 +365,7 @@ export default function StudentProgressPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatHistoryDay(day.dayKey, language)}</span>
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatHistoryDayLabel(day.dayKey, language)}</span>
                         <span className="text-xs text-gray-400">
                           {day.sessionsCount} {t('common.sessions')} · {day.questionsTotal}{t('progress.questionsSuffix')}
                         </span>

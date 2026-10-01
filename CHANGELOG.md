@@ -47,11 +47,18 @@ All notable changes to the AI English Platform are documented here.
    - 日檢視（點擊日期展開）：當日逐場明細（時間、技能、難度、題數、已驗證準確率或「未驗證」）；單日有界查詢。
    - 新增 `hkMonthKey` / `nextMonthKey` / `previousMonthKey` / `hkMonthStartUtc`（香港月界線，HK 日界線單一 owner）。
    - 移除只顯示 5 筆的「最近練習記錄」區段（`progress.recentSessions` key 移除）。
+4. **教師端「學生詳情」改用同一逐日瀏覽（2026-10-01 同日）**：
+   - 原本「最近練習紀錄」只列最新 10 場（資料來源取最新 50 場）→ 改為與學生端共用的月／日檢視，可回看**任何月份**的完整歷史。
+   - 教師需要逐題檢視：`/api/practice/history` 新增 `includeAnswers=1`（**僅教師／管理員**）→ `getPracticeHistoryDayForTeacher()` 回傳該日逐題答案（**單日有界**；學生端維持精簡選取，不放大 egress）。
+   - 月／日標籤格式化抽到共用 `shared/utils/practice-history-format.ts`（學生／教師兩個頁面不得各自實作，避免漂移；時間一律以香港時區顯示）。
+   - 端點限流由 60 → **120 次/分鐘/IP**（兩頁校內共用 NAT 的現實）。
+   - 「練習次數」KPI／徽章統計／CSV 改由伺服器全歷史聚合（`getCumulativeSessionsCount`，含不可驗證場次）—— 舊碼以 `practiceSessions.length`（最新 50 場顯示視窗）當總數，高練習量學生被截斷在 50（違反「累積不得由最新 N 筆推算」）。
 
 ### 三、驗證
 - `tsc --noEmit` 0 errors；`npx eslint`（變更檔案）0 errors；`node scripts/check-i18n.js` exit 0。
-- **3273 passed / 2 skipped（170 files passed, 2 skipped）**（新增 28 個測試：`question-xp-identity.test.ts` 8、`xp-event-policy` +5、`generate-questions-topup` +5、`practice-history-service` +7、`hk-date` +3）。
+- **3280 passed / 2 skipped（171 files passed, 2 skipped）**（新增 35 個測試：`question-xp-identity.test.ts` 8、`xp-event-policy` +5、`generate-questions-topup` +5、`practice-history-service` +10［含教師逐題明細、全歷史練習次數］、`hk-date` +3、`practice-history-format` +3［香港時區與日 key 不位移］、`r310c2` 合約 +1）。
 - **真實資料驗證（唯讀）**：月摘要 SQL 分組 vs TS `hkDayKey()` 逐日比對 —— 166 場、5 日、**0 差異**；日明細每列 `hkDayKey(startedAt)` 與所查日一致（0 mismatch）；示例（重度學生）近 14 日去重題目 813 → 取最近 150 列、聆聽對話 40 列，回傳量有上限。
+- 教師逐題明細另抽驗（同一重度學生，唯讀）：2026-09-30 共 16 場／76 題、2026-09-29 共 26 場／130 題 —— `verified` 投影正確、逐題欄位 0 缺漏（malformed = 0）。
 - 合約測試更新：`r310c2-authority-closure` B7 改驗 `t('progress.unverified')`（unverified 一律顯式標示，不得顯示原始準確率）。
 
 ### 四、已知取捨與殘留風險（誠實記錄）

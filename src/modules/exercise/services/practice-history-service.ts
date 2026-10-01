@@ -119,6 +119,19 @@ export async function getCumulativeSkillTotals(
 }
 
 /**
+ * 全歷史練習場次數（含不可驗證場次）—— 教師端「練習次數」顯示用。
+ *
+ * 2026-10-01：教師端舊碼以 `practiceSessions.length`（最新 50 場顯示視窗）
+ * 當「練習次數」總數 —— 高練習量學生被截斷在 50（違反「累積數字不得由
+ * 最新 N 筆推算」）。改走與 `syncActivityMetrics` 相同的單列 SQL 聚合
+ * （全歷史語意與 `aggregateVerifiedTotalsForStudents` 一致）。
+ */
+export async function getCumulativeSessionsCount(studentId: string): Promise<number> {
+  const totals = await PracticeRepo.aggregateVerifiedTotalsForStudent(studentId);
+  return totals.sessionsCount;
+}
+
+/**
  * 本週摘要（香港週界線：今日起往前 6 日）。
  * 取代舊碼由「最新 50 場 ∩ 7 日」在客戶端計算（爆量學生的本週題數同樣被截斷）。
  */
@@ -399,6 +412,75 @@ export async function getPracticeHistoryDay(
       completedAt: row.completedAt,
       verified: evaluatePracticeEvidence(row.answers),
     }));
+  return { dayKey, sessions, truncated };
+}
+
+// ============================================
+// 教師端：單日逐場 + 逐題明細（2026-10-01）
+// ============================================
+// 需求：教師端「學生詳情」原本只列最新 10 場（資料來源取最新 50 場），
+// 無法回看歷史。與學生端共用同一個逐日瀏覽（月摘要／日明細），但教師需要
+// **逐題答案**；學生端維持精簡選取，逐題明細僅在教師檢視時按「單日」有界
+// 查詢（一次一天，不搬全歷史）。
+
+/** 教師檢視用：逐題顯示欄位（評分權威仍在 persisted rows，不由此推導） */
+export interface PracticeHistoryAnswerDetail {
+  questionIndex: number;
+  questionType: string;
+  questionPrompt: string;
+  correctAnswer: string;
+  studentAnswer: string;
+  isCorrect: boolean;
+  result: string | null;
+  timeSpent: number | null;
+}
+
+export interface PracticeHistoryTeacherSession extends PracticeHistorySession {
+  answers: PracticeHistoryAnswerDetail[];
+}
+
+export interface PracticeHistoryTeacherDayDetail {
+  dayKey: string;
+  /** 按時間（舊→新）排序 */
+  sessions: PracticeHistoryTeacherSession[];
+  truncated: boolean;
+}
+
+/**
+ * 指定香港日的逐場明細（含逐題答案）——**僅供教師端**。
+ * 學生端請用 `getPracticeHistoryDay`（不搬題目文字）。
+ */
+export async function getPracticeHistoryDayForTeacher(
+  studentId: string,
+  dayKey: string,
+  maxSessions = 200,
+): Promise<PracticeHistoryTeacherDayDetail> {
+  const since = hkDayStartUtc(dayKey);
+  const until = new Date(since.getTime() + DAY_MS);
+  const rows = await PracticeRepo.listPracticeSessionsWithAnswersInRange(studentId, since, until, maxSessions + 1);
+  const truncated = rows.length > maxSessions;
+  const sessions = rows.slice(0, maxSessions).map(row => ({
+    id: row.id,
+    skill: row.skill,
+    skillZh: row.skillZh,
+    difficulty: row.difficulty,
+    totalQuestions: row.totalQuestions,
+    correctCount: row.correctCount,
+    source: row.source,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+    verified: evaluatePracticeEvidence(row.answers),
+    answers: row.answers.map(a => ({
+      questionIndex: a.questionIndex,
+      questionType: a.questionType,
+      questionPrompt: a.questionPrompt,
+      correctAnswer: a.correctAnswer,
+      studentAnswer: a.studentAnswer,
+      isCorrect: a.isCorrect,
+      result: a.result,
+      timeSpent: a.timeSpent,
+    })),
+  }));
   return { dayKey, sessions, truncated };
 }
 

@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   listRecentQuestionPrompts: vi.fn(),
   listRecentListeningDialogues: vi.fn(),
   aggregatePracticeSessionsByDayAndSkill: vi.fn(),
+  listPracticeSessionsWithAnswersInRange: vi.fn(),
+  aggregateVerifiedTotalsForStudent: vi.fn(),
 }));
 
 vi.mock('@/modules/repositories', () => ({
@@ -25,16 +27,20 @@ vi.mock('@/modules/repositories', () => ({
     listRecentQuestionPrompts: mocks.listRecentQuestionPrompts,
     listRecentListeningDialogues: mocks.listRecentListeningDialogues,
     aggregatePracticeSessionsByDayAndSkill: mocks.aggregatePracticeSessionsByDayAndSkill,
+    listPracticeSessionsWithAnswersInRange: mocks.listPracticeSessionsWithAnswersInRange,
+    aggregateVerifiedTotalsForStudent: mocks.aggregateVerifiedTotalsForStudent,
   },
 }));
 
 import {
   getCumulativeSkillTotals,
+  getCumulativeSessionsCount,
   getWeeklyPracticeSummary,
   getRecentQuestionPromptsForGeneration,
   getRecentListeningDialoguesForGeneration,
   getPracticeHistoryMonth,
   getPracticeHistoryDay,
+  getPracticeHistoryDayForTeacher,
 } from '../services/practice-history-service';
 import { hkWeekStartUtc, hkMonthStartUtc, hkDayStartUtc, DAY_MS } from '@/shared/utils/hk-date';
 
@@ -287,5 +293,99 @@ describe('getPracticeHistoryDay — 單日逐場明細（有界）', () => {
 
     expect(result.sessions).toHaveLength(2);
     expect(result.truncated).toBe(true);
+  });
+});
+
+// ============================================
+// 2026-10-01：教師端逐題明細（單日有界）
+// ============================================
+const teacherRow = (overrides: Record<string, unknown> = {}) => ({
+  id: 'sess-t1',
+  skill: 'tenses',
+  skillZh: '時態',
+  difficulty: 'core',
+  totalQuestions: 2,
+  correctCount: 1,
+  source: 'ai-generated',
+  startedAt: new Date('2026-10-01T02:00:00Z'),
+  completedAt: new Date('2026-10-01T02:10:00Z'),
+  answers: [
+    {
+      questionIndex: 0, questionId: 'q1', questionType: 'mc', questionPrompt: 'Q1 text',
+      correctAnswer: 'A', studentAnswer: 'A', isCorrect: true, result: 'correct',
+      awardedScore: 1, maxScore: 1, countsTowardScore: true,
+      scoredBy: 'server', scoringMethod: 'server-key-resolved', timeSpent: 12,
+    },
+    {
+      questionIndex: 1, questionId: 'q2', questionType: 'mc', questionPrompt: 'Q2 text',
+      correctAnswer: 'B', studentAnswer: 'C', isCorrect: false, result: 'incorrect',
+      awardedScore: 0, maxScore: 1, countsTowardScore: true,
+      scoredBy: 'server', scoringMethod: 'server-key-resolved', timeSpent: 8,
+    },
+  ],
+  ...overrides,
+});
+
+describe('getPracticeHistoryDayForTeacher — 教師端逐題明細', () => {
+  it('回傳逐場 + 逐題答案，並以正典證據投影 verified', async () => {
+    mocks.listPracticeSessionsWithAnswersInRange.mockResolvedValueOnce([teacherRow()]);
+
+    const result = await getPracticeHistoryDayForTeacher(STUDENT, '2026-10-01');
+
+    const dayStart = hkDayStartUtc('2026-10-01');
+    expect(mocks.listPracticeSessionsWithAnswersInRange).toHaveBeenCalledWith(
+      STUDENT,
+      dayStart,
+      new Date(dayStart.getTime() + DAY_MS),
+      201,
+    );
+    expect(result.sessions[0].answers).toHaveLength(2);
+    expect(result.sessions[0].answers[1]).toEqual({
+      questionIndex: 1,
+      questionType: 'mc',
+      questionPrompt: 'Q2 text',
+      correctAnswer: 'B',
+      studentAnswer: 'C',
+      isCorrect: false,
+      result: 'incorrect',
+      timeSpent: 8,
+    });
+    expect(result.sessions[0].verified).toEqual({
+      status: 'verified',
+      totalQuestions: 2,
+      correctCount: 1,
+      accuracy: 50,
+    });
+    expect(result.truncated).toBe(false);
+  });
+
+  it('超過上限時截斷並標示 truncated（單日有界）', async () => {
+    mocks.listPracticeSessionsWithAnswersInRange.mockResolvedValueOnce([
+      teacherRow({ id: 'a' }),
+      teacherRow({ id: 'b' }),
+    ]);
+
+    const result = await getPracticeHistoryDayForTeacher(STUDENT, '2026-10-01', 1);
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.truncated).toBe(true);
+  });
+});
+
+// ============================================
+// 2026-10-01：全歷史「練習次數」（教師端顯示；不得由最新 50 場視窗推算）
+// ============================================
+describe('getCumulativeSessionsCount — 全歷史練習次數', () => {
+  it('回傳 SQL 聚合的 sessionsCount（含不可驗證場次；不受 50 場視窗截斷）', async () => {
+    mocks.aggregateVerifiedTotalsForStudent.mockResolvedValueOnce({
+      verifiedTotalQuestions: 0,
+      verifiedCorrectCount: 0,
+      recordedTotalQuestions: 260,
+      recordedCorrectCount: 200,
+      sessionsCount: 52,
+    });
+
+    await expect(getCumulativeSessionsCount(STUDENT)).resolves.toBe(52);
+    expect(mocks.aggregateVerifiedTotalsForStudent).toHaveBeenCalledWith(STUDENT);
   });
 });

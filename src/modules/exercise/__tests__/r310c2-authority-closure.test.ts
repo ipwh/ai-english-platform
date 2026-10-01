@@ -332,8 +332,18 @@ describe('R3.10-C.2 consumer boundary contracts', () => {
 
   it('teacher dashboard never displays raw totals as accuracy for unverified sessions', () => {
     const page = readFileSync(resolve(root, 'src/app/teacher/students/[studentId]/page.tsx'), 'utf-8');
-    expect(page).toContain("store.language === 'en' ? 'Unverified' : '未驗證'");
+    // 2026-10-01：歷史瀏覽改用 i18n key（字串在 i18n-progress.ts；契約不變）
+    expect(page).toContain("t('progress.unverified')");
     expect(page).not.toContain(': 0}%');
+  });
+
+  it('teacher dashboard practice count uses the full-history aggregate, not the 50-session window', () => {
+    const page = readFileSync(resolve(root, 'src/app/teacher/students/[studentId]/page.tsx'), 'utf-8');
+    // 2026-10-01：舊碼 `value: practiceSessions.length` 把「最新 50 場」視窗當總數。
+    expect(page).not.toContain('value: practiceSessions.length');
+    expect(page).toContain('sessionsCount ??');
+    const route = readFileSync(resolve(root, 'src/app/api/teacher/students/[id]/route.ts'), 'utf-8');
+    expect(route).toContain('getCumulativeSessionsCount');
   });
 
   it('K grammar radar ignores unverifiable sessions (existing R3.10-C edge)', () => {

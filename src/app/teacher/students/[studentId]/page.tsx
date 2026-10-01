@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -12,10 +12,11 @@ import {
   FileText, Download, BarChart3, Languages, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import ProgressBar from '@/components/shared/ProgressBar';
-import { formatDate } from '@/shared/utils/utils';
 import { getGradeLabel } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
+import { hkMonthKey, nextMonthKey, previousMonthKey } from '@/shared/utils/hk-date';
+import { formatHistoryMonthLabel, formatHistoryDayLabel, formatHistoryTime } from '@/shared/utils/practice-history-format';
 import { getAllBadges } from '@/modules/student/progress/services/gamification';
 
 interface StudentDetail {
@@ -83,11 +84,64 @@ interface FullStudentData {
   practiceSessions: PracticeSession[];
   /** 2026-09-23：全歷史累積技能投影（累積數字唯一來源） */
   cumulativeSkillTotals: CumulativeSkillTotalView[];
+  /** 2026-10-01：全歷史「練習次數」（單列 SQL 聚合；讀取失敗為 null → 顯示「—」） */
+  sessionsCount: number | null;
   mistakes: MistakeData[];
   vocab: { total: number; mastered: number };
   writingDrafts: WritingDraft[];
   xpTransactions: XpTransaction[];
   weeklySnapshots: WeeklySnapshot[];
+}
+
+// === 練習歷史（逐日回顧；2026-10-01）===
+// 教師端原本只能看到最新 10 場（資料取最新 50 場）；改與學生端共用
+// /api/practice/history：月＝DB 端（每日 × 技能）聚合、日＝單日有界查詢。
+// 教師檢視帶 includeAnswers=1 取得逐題答案（僅教師／管理員可用）。
+interface HistoryDaySkill {
+  skill: string;
+  skillZh: string;
+  sessionsCount: number;
+  questionsTotal: number;
+}
+
+interface HistoryDay {
+  dayKey: string;
+  sessionsCount: number;
+  questionsTotal: number;
+  skills: HistoryDaySkill[];
+}
+
+interface HistorySessionAnswer {
+  questionIndex: number;
+  questionType: string;
+  questionPrompt: string;
+  correctAnswer: string;
+  studentAnswer: string;
+  isCorrect: boolean;
+  result: string | null;
+  timeSpent: number | null;
+}
+
+interface HistorySession {
+  id: string;
+  skill: string;
+  skillZh: string;
+  difficulty: string;
+  totalQuestions: number;
+  correctCount: number;
+  source: string;
+  startedAt: string;
+  completedAt: string | null;
+  verified:
+    | { status: 'verified'; totalQuestions: number; correctCount: number; accuracy: number | null }
+    | { status: 'unverifiable'; reason: string };
+  answers: HistorySessionAnswer[];
+}
+
+interface HistoryDayDetailState {
+  loading: boolean;
+  sessions: HistorySession[] | null;
+  error: boolean;
 }
 
 /**
@@ -138,6 +192,65 @@ export default function StudentDetailPage() {
     });
   };
 
+  // === 練習歷史（逐日回顧）狀態 ===
+  const [historyMonth, setHistoryMonth] = useState('');
+  const [historyDays, setHistoryDays] = useState<HistoryDay[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [dayDetails, setDayDetails] = useState<Record<string, HistoryDayDetailState>>({});
+
+  // 預設顯示香港當前月份（在 effect 設定，避免 SSR/hydration 跨月不一致）
+  useEffect(() => {
+    setHistoryMonth((prev) => prev || hkMonthKey());
+  }, []);
+
+  const loadHistoryMonth = useCallback(async (month: string) => {
+    if (!studentId) return;
+    setHistoryLoading(true);
+    setHistoryError(false);
+    try {
+      const res = await fetch(`/api/practice/history?studentId=${encodeURIComponent(studentId)}&view=month&month=${month}`);
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.days)) {
+        setHistoryDays(json.days as HistoryDay[]);
+      } else {
+        setHistoryDays([]);
+        setHistoryError(true);
+      }
+    } catch {
+      setHistoryDays([]);
+      setHistoryError(true);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [studentId]);
+
+  useEffect(() => {
+    if (historyMonth) void loadHistoryMonth(historyMonth);
+  }, [historyMonth, loadHistoryMonth]);
+
+  const toggleHistoryDay = useCallback((dayKey: string) => {
+    setExpandedDay((prev) => (prev === dayKey ? null : dayKey));
+    const cached = dayDetails[dayKey];
+    if (cached?.sessions || cached?.loading) return;
+    setDayDetails((prev) => ({ ...prev, [dayKey]: { loading: true, sessions: null, error: false } }));
+    void (async () => {
+      try {
+        // includeAnswers=1：逐題答案僅教師／管理員可取得（學生端維持精簡）
+        const res = await fetch(`/api/practice/history?studentId=${encodeURIComponent(studentId)}&view=day&day=${encodeURIComponent(dayKey)}&includeAnswers=1`);
+        const json = await res.json();
+        if (res.ok && Array.isArray(json.sessions)) {
+          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: json.sessions as HistorySession[], error: false } }));
+        } else {
+          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, error: true } }));
+        }
+      } catch {
+        setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, error: true } }));
+      }
+    })();
+  }, [dayDetails, studentId]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -158,7 +271,7 @@ export default function StudentDetailPage() {
     );
   }
 
-  const { student, practiceSessions, mistakes, vocab, writingDrafts, xpTransactions, weeklySnapshots, cumulativeSkillTotals = [] } = data;
+  const { student, practiceSessions, mistakes, vocab, writingDrafts, weeklySnapshots, cumulativeSkillTotals = [], sessionsCount = null } = data;
 
   // 2026-09-23 稽核修正：累積數字一律採用伺服器全歷史投影。
   // 舊碼由 `practiceSessions`（最新 50 場顯示視窗）累加，卻當成總數顯示給老師
@@ -184,7 +297,7 @@ export default function StudentDetailPage() {
   let badges: { id: string; name: string; nameZh: string; icon: string }[] = [];
   try {
     const unlocked: string[] = student.badgeIds ? JSON.parse(student.badgeIds) : [];
-    badges = getAllBadges({ totalQuestions, overallAccuracy: student.overallAccuracy ?? 0, streakDays: student.streakDays ?? 0, sessionsCompleted: practiceSessions.length, wordsMastered: vocab.mastered, writingSubmissions: writingDrafts.length, diagnosticCompleted: false, skillAccuracy: {} }, unlocked)
+    badges = getAllBadges({ totalQuestions, overallAccuracy: student.overallAccuracy ?? 0, streakDays: student.streakDays ?? 0, sessionsCompleted: sessionsCount ?? practiceSessions.length, wordsMastered: vocab.mastered, writingSubmissions: writingDrafts.length, diagnosticCompleted: false, skillAccuracy: {} }, unlocked)
       .filter(b => unlocked.includes(b.id));
   } catch { /* ignore */ }
 
@@ -193,7 +306,7 @@ export default function StudentDetailPage() {
     const name = student.nameZh || student.nameEn || 'student';
     const rows = [
       ['學生', '班級', '準確率', '練習次數', '答題數', '錯題數', '生字數', '已掌握', '寫作', 'XP', '連續天數'],
-      [name, student.class?.name || '', student.overallAccuracy != null ? `${Math.round(student.overallAccuracy)}%` : '', practiceSessions.length, totalQuestions, mistakes.length, vocab.total, vocab.mastered, writingDrafts.length, student.xp ?? 0, student.streakDays ?? 0],
+      [name, student.class?.name || '', student.overallAccuracy != null ? `${Math.round(student.overallAccuracy)}%` : '', sessionsCount ?? '', totalQuestions, mistakes.length, vocab.total, vocab.mastered, writingDrafts.length, student.xp ?? 0, student.streakDays ?? 0],
       [''],
       ['技能', '準確率', '答題數'],
       ...skillBreakdown.map(s => [s.name, `${s.accuracy}%`, s.total]),
@@ -295,7 +408,7 @@ export default function StudentDetailPage() {
         {/* 2026-09-21：「無資料 ≠ 0」— 準確率無已驗證證據時顯示「—」，
             而非紅色的 0%（同一學生在其他頁面顯示「—」，不得自相矛盾）。 */}
         {[
-          { label: t('teacher.studentDetail.practiceCount'), value: practiceSessions.length, unit: t('teacher.studentDetail.unitTimes'), icon: Hash },
+          { label: t('teacher.studentDetail.practiceCount'), value: sessionsCount ?? '—', unit: sessionsCount == null ? '' : t('teacher.studentDetail.unitTimes'), icon: Hash },
           { label: t('teacher.studentDetail.totalAnswered'), value: totalQuestions, unit: t('teacher.studentDetail.unitQuestions'), icon: BookOpen },
           { label: t('teacher.classes.accuracy'), value: sessionAccuracy ?? '—', unit: sessionAccuracy === null ? '' : '%', icon: Target },
           { label: t('teacher.studentDetail.mistakeCount'), value: mistakes.length, unit: t('teacher.studentDetail.unitQuestions'), icon: AlertCircle },
@@ -383,90 +496,193 @@ export default function StudentDetailPage() {
         </section>
       )}
 
-      {/* 最近練習（可展開逐題） */}
+      {/* 練習歷史 — 逐日回顧（2026-10-01：取代只列最近 10 筆的「最近練習紀錄」） */}
       <section className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-blue-500" /> 最近練習紀錄
-        </h3>
-        {practiceSessions.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">{t('teacher.students.noPractice')}</p>
-        ) : (
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Clock className="w-5 h-5 text-blue-500" /> {t('progress.historyTitle')}
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHistoryMonth(previousMonthKey(historyMonth))}
+              disabled={!historyMonth || historyLoading}
+              aria-label={t('progress.historyPrevMonth')}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
+            >
+              ‹
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[6.5rem] text-center">
+              {historyMonth ? formatHistoryMonthLabel(historyMonth, store.language) : ''}
+            </span>
+            <button
+              type="button"
+              onClick={() => setHistoryMonth(nextMonthKey(historyMonth))}
+              disabled={!historyMonth || historyMonth >= hkMonthKey() || historyLoading}
+              aria-label={t('progress.historyNextMonth')}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+
+        {historyLoading && (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+          </div>
+        )}
+
+        {!historyLoading && historyError && (
+          <div className="py-6 text-center">
+            <p className="text-sm text-gray-500 mb-3">{t('progress.loadFailed')}</p>
+            <button
+              type="button"
+              onClick={() => historyMonth && void loadHistoryMonth(historyMonth)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm"
+            >
+              {t('progress.retry')}
+            </button>
+          </div>
+        )}
+
+        {!historyLoading && !historyError && historyDays && historyDays.length === 0 && (
+          <p className="text-sm text-gray-400 py-8 text-center">{t('progress.historyEmpty')}</p>
+        )}
+
+        {!historyLoading && !historyError && historyDays && historyDays.length > 0 && (
           <div className="space-y-2">
-            {practiceSessions.slice(0, 10).map((s) => (
-              <div key={s.id}>
-                <button
-                  onClick={() => toggleSession(s.id)}
-                  className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="text-left">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
-                      {s.source === 'dse-reading' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">DSE</span>}
-                      {s.source === 'dse-listening' && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">DSE</span>}
-                      {s.source === 'ai-generated' && <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-600 rounded-full">AI</span>}
-                      {s.source === 'assignment' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-full">{t('teacher.students.tasks')}</span>}
-                    </div>
-                    <p className="text-xs text-gray-400">{s.totalQuestions || 0} 題 · {formatDate(s.startedAt)} · {s.difficulty}</p>
-                    {s.completedAt && (
-                      <p className="text-xs text-gray-400">
-                        <Clock className="w-3 h-3 inline mr-0.5" />
-                        完成: {new Date(s.completedAt).toLocaleString('zh-HK', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {s.verified?.status === 'verified' ? (
-                      <span className={`text-sm font-bold ${((s.verified.correctCount ?? 0) / Math.max(1, (s.verified.totalQuestions ?? 0))) >= 0.7 ? 'text-teal-600' : 'text-red-500'}`}>
-                        {Math.round(((s.verified.correctCount ?? 0) / Math.max(1, (s.verified.totalQuestions ?? 0))) * 100)}%
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">{store.language === 'en' ? 'Unverified' : '未驗證'}</span>
-                    )}
-                    {s.answers && s.answers.length > 0 && (
-                      expandedSessions.has(s.id) ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />
-                    )}
-                  </div>
-                </button>
-                {/* 逐題展開 */}
-                {expandedSessions.has(s.id) && s.answers && (
-                  <div className="mt-1 ml-4 border-l-2 border-blue-200 dark:border-blue-800 pl-4 space-y-1.5 py-2">
-                    {s.answers.map((a, ai) => {
-                      const isCorrect = a.isCorrect === true;
-                      const isUngradable = a.result === 'ungradable';
-                      const studentAnswer = (a.studentAnswer ?? '').trim();
-                      const correctAnswer = (a.correctAnswer ?? '').trim();
-                      return (
-                        <div key={ai} className="text-xs">
-                          <span className="text-gray-400">Q{(typeof a.questionIndex === 'number' ? a.questionIndex : ai) + 1}. </span>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {displayPrompt(
-                              a.questionPrompt,
-                              a.questionType || (store.language === 'en' ? 'Question text unavailable' : '未提供題目文字'),
-                            )}
+            <p className="text-xs text-gray-400 mb-2">{t('progress.historyDayHint')}</p>
+            {historyDays.map((day) => {
+              const detail = dayDetails[day.dayKey];
+              const isDayExpanded = expandedDay === day.dayKey;
+              return (
+                <div key={day.dayKey} className="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleHistoryDay(day.dayKey)}
+                    aria-expanded={isDayExpanded}
+                    className="w-full flex items-center justify-between gap-3 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatHistoryDayLabel(day.dayKey, store.language)}</span>
+                        <span className="text-xs text-gray-400">
+                          {day.sessionsCount} {t('common.sessions')} · {day.questionsTotal}{t('progress.questionsSuffix')}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {day.skills.map((skill) => (
+                          <span
+                            key={skill.skill}
+                            className="text-[11px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full"
+                          >
+                            {skill.skillZh || skill.skill} ×{skill.sessionsCount}
                           </span>
-                          {' '}
-                          {/* 開放式題目不自動評分（見 CHANGELOG 2026-09-15 (II)）→ 不顯示「回答錯誤」 */}
-                          {isUngradable ? (
-                            <span className="text-amber-600 font-medium">
-                              ◻ {store.language === 'en' ? 'Not auto-graded' : '不自動評分'}
-                            </span>
-                          ) : (
-                            <span className={isCorrect ? 'text-teal-600 font-medium' : 'text-red-500 font-medium'}>
-                              {isCorrect
-                                ? '✓'
-                                : `✗ (答: ${studentAnswer || '—'} / 正: ${correctAnswer || '—'})`}
-                            </span>
-                          )}
-                          {typeof a.timeSpent === 'number' && a.timeSpent > 0 && (
-                            <span className="text-gray-400 ml-1">{a.timeSpent}s</span>
-                          )}
+                        ))}
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isDayExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isDayExpanded && (
+                    <div className="border-t border-gray-100 dark:border-gray-700 px-3 py-2">
+                      {detail?.loading && (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                      )}
+                      {!detail?.loading && detail?.error && (
+                        <p className="text-xs text-gray-400 py-3 text-center">{t('progress.loadFailed')}</p>
+                      )}
+                      {!detail?.loading && detail?.sessions && detail.sessions.length === 0 && (
+                        <p className="text-xs text-gray-400 py-3 text-center">{t('progress.historyEmptyDay')}</p>
+                      )}
+                      {!detail?.loading && detail?.sessions && detail.sessions.length > 0 && (
+                        <div className="space-y-2">
+                          {detail.sessions.map((s) => (
+                            <div key={s.id}>
+                              <button
+                                onClick={() => toggleSession(s.id)}
+                                className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                <div className="text-left">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-gray-400">{formatHistoryTime(s.startedAt)}</span>
+                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.skillZh || s.skill || '練習'}</p>
+                                    {s.source === 'dse-reading' && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">DSE</span>}
+                                    {s.source === 'dse-listening' && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">DSE</span>}
+                                    {s.source === 'ai-generated' && <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-600 rounded-full">AI</span>}
+                                    {s.source === 'assignment' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-full">{t('teacher.students.tasks')}</span>}
+                                  </div>
+                                  <p className="text-xs text-gray-400">{s.totalQuestions || 0} 題 · {s.difficulty}</p>
+                                  {s.completedAt && (
+                                    <p className="text-xs text-gray-400">
+                                      <Clock className="w-3 h-3 inline mr-0.5" />
+                                      完成: {new Date(s.completedAt).toLocaleString('zh-HK', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {s.verified?.status === 'verified' ? (
+                                    <span className={`text-sm font-bold ${((s.verified.correctCount ?? 0) / Math.max(1, (s.verified.totalQuestions ?? 0))) >= 0.7 ? 'text-teal-600' : 'text-red-500'}`}>
+                                      {Math.round(((s.verified.correctCount ?? 0) / Math.max(1, (s.verified.totalQuestions ?? 0))) * 100)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">{t('progress.unverified')}</span>
+                                  )}
+                                  {s.answers && s.answers.length > 0 && (
+                                    expandedSessions.has(s.id) ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </div>
+                              </button>
+                              {/* 逐題展開（教師檢視；includeAnswers=1） */}
+                              {expandedSessions.has(s.id) && s.answers && (
+                                <div className="mt-1 ml-4 border-l-2 border-blue-200 dark:border-blue-800 pl-4 space-y-1.5 py-2">
+                                  {s.answers.map((a, ai) => {
+                                    const isCorrect = a.isCorrect === true;
+                                    const isUngradable = a.result === 'ungradable';
+                                    const studentAnswer = (a.studentAnswer ?? '').trim();
+                                    const correctAnswer = (a.correctAnswer ?? '').trim();
+                                    return (
+                                      <div key={ai} className="text-xs">
+                                        <span className="text-gray-400">Q{(typeof a.questionIndex === 'number' ? a.questionIndex : ai) + 1}. </span>
+                                        <span className="text-gray-600 dark:text-gray-400">
+                                          {displayPrompt(
+                                            a.questionPrompt,
+                                            a.questionType || (store.language === 'en' ? 'Question text unavailable' : '未提供題目文字'),
+                                          )}
+                                        </span>
+                                        {' '}
+                                        {/* 開放式題目不自動評分（見 CHANGELOG 2026-09-15 (II)）→ 不顯示「回答錯誤」 */}
+                                        {isUngradable ? (
+                                          <span className="text-amber-600 font-medium">
+                                            ◻ {store.language === 'en' ? 'Not auto-graded' : '不自動評分'}
+                                          </span>
+                                        ) : (
+                                          <span className={isCorrect ? 'text-teal-600 font-medium' : 'text-red-500 font-medium'}>
+                                            {isCorrect
+                                              ? '✓'
+                                              : `✗ (答: ${studentAnswer || '—'} / 正: ${correctAnswer || '—'})`}
+                                          </span>
+                                        )}
+                                        {typeof a.timeSpent === 'number' && a.timeSpent > 0 && (
+                                          <span className="text-gray-400 ml-1">{a.timeSpent}s</span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

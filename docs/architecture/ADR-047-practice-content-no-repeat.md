@@ -52,7 +52,8 @@
 ### 2.3 學生端練習歷史（逐日檢視）
 
 - 新 `GET /api/practice/history`：月檢視＝DB 端（每日 × 技能）聚合（`aggregatePracticeSessionsByDayAndSkill`，只回傳聚合列，延伸 ADR-046 的 egress 契約）；日檢視＝單日有界查詢（附正典 `evaluatePracticeEvidence` 投影）。
-- 香港月界線工具（`hkMonthKey` / `nextMonthKey` / `previousMonthKey` / `hkMonthStartUtc`）納入 `shared/utils/hk-date.ts`（單一 owner）。
+- **教師端共用同一端點**：教師「學生詳情」原本只列最新 10 場（資料取最新 50 場）→ 改用同一逐日瀏覽，可回看任何月份；`includeAnswers=1`（**僅教師／管理員**）在日明細上加逐題答案（`getPracticeHistoryDayForTeacher`，單日有界）；學生端維持精簡選取。「練習次數」KPI 同步改走全歷史聚合（`getCumulativeSessionsCount`），不再以 50 場視窗當總數。
+- 香港月界線工具（`hkMonthKey` / `nextMonthKey` / `previousMonthKey` / `hkMonthStartUtc`）納入 `shared/utils/hk-date.ts`（單一 owner）；月／日顯示格式化在 `shared/utils/practice-history-format.ts`（兩個頁面共用）。
 - 「我的進度」以逐日練習歷史（可回看任何月份）取代只顯示 5 筆的「最近練習記錄」。
 
 ### 2.4 刻意重複不在排除範圍
