@@ -6,14 +6,14 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3288 pass / 2 skipped (173 files passed, 2 skipped — fully green; dead adaptive-tutor, legacy writing-coach, teacher-analytics, teacher-decisions, analytics modules removed). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
-- **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run
-- **Key modules**: 22 under `src/modules/` (including 5 AI infra + foundation modules, and `listening/` — the server-owned listening question store added 2026-09-21)
+- **Testing**: Vitest 4, 3559 pass / 2 skipped (193 files passed, 2 skipped — fully green; IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates, 2026-10-03). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
+- **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run。**部署必先套用遷移**（2026-10-03 V）：`cloudbuild.yaml` Step 1 執行 `prisma migrate deploy`（Secret Manager `DIRECT_DATABASE_URL`；失敗即中止），`scripts/cloud-run-deploy.ps1` Step 2 亦先遷移；Cloud Build 併發 = 50（事故基線）
+- **Key modules**: 23 under `src/modules/` (including 5 AI infra + foundation modules, `listening/` — the server-owned listening question store added 2026-09-21 — and `ielts/` — the isolated IELTS-style practice subsystem added 2026-10-03)
 - **API routes**: 115 under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
-- **AI Facade**: 63 exported symbols (incl. types) — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules). Answer verification adds `verifyGeneratedAnswers` / `inspectGeneratedQuestion` / `summarizeVerificationDrops`
-- **Prompt Registry**: 13 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning
+- **AI Facade**: 63+ exported symbols (incl. types) — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses vertex-embeddings, `reading` route uses prompt builders, `generate-model-essay` uses core modules). Answer verification adds `verifyGeneratedAnswers` / `inspectGeneratedQuestion` / `summarizeVerificationDrops`; IELTS adds `assessIeltsWritingWithAI` / `prepareIeltsSpeakingWithAI` / `generateIeltsQuestionSetWithAI` / `verifyIeltsItemsWithAI` / `generateIeltsWritingPromptWithAI` / `verifyIeltsWritingPromptWithAI` / `explainIeltsMistakeWithAI` (+ prompt-version constants)
+- **Prompt Registry**: 17 prompts registered in `ai/prompts/prompt-registry.ts` — centralized discovery & versioning (13 + IELTS writing assessment, speaking preparation, question generation, item verification, 2026-10-03)
 - **AI Module**: 19 directories, 212 non-test TS files (includes Shared PromptOps Foundation, prompt-versioning, regression, experiments, continuous-evaluation, answer verification)
 - **Shared PromptOps Foundation**: `src/modules/ai/foundation/` — BaseRegistry, VersionedRegistry, HistoryRegistry, BaseRunner, PipelineRunner, LifecycleEngine, ReportBuilder, EventBus, MetricsCollector, Repository/MemoryStore, Validator. 36 files, 0 external deps, strict PromptOps→Foundation dependency direction. 256 contract tests.
 - **Runtime**: 7 files — circuit-breaker, budget-policy, ai-usage-store, capacity-planner, provider-policy, regression-detector, saturation-detector
@@ -100,6 +100,92 @@ Listening — Server-Owned Question Store (2026-09-21 ADR-045):
     · scoring unavailable ⇒ fail-open legacy persistence (unverified, no evidence/mistakes/mastery)
   Invariant: submissionClass alone never authorises side effects — usedServerScoring must also
     hold (mistakes + mastery gating), otherwise client-key rows would become trusted data.
+
+IELTS — Isolated Practice Subsystem (2026-10-03, PHASE IELTS-01):
+  src/modules/ielts/ — IELTS-style practice (NOT the official test), fully isolated from
+    HKDSE evidence/accuracy/mastery/mistakes/XP. Docs: docs/ielts/ (SPECIFICATION, SOURCES,
+    SCORING, ASSESSMENT_GOVERNANCE).
+    ├─ Domain: bands (whole/half only; official .25↑/.75↑ rounding), word-count policy
+    │    (hyphenated = single word), versioned raw→band conversion (official anchor points
+    │    → RANGE estimates, provenance in every estimate), conservative normalization
+    ├─ Scoring: scoreIeltsItem() — deterministic, server-only; over-limit answers lose the
+    │    mark; numbers figures↔words; acceptedAnswers authored before publication only
+    ├─ Validation: machine screen (evidence spans slice-match passages; listening answers
+    │    verbatim in transcripts / MC-matching checked by correct OPTION TEXT; MC key/options
+    │    checks; ONE answer per numbered question — multi-answer items rejected) + status
+    │    machine DRAFT → AI_VALIDATED → QA_REQUIRED → HUMAN_APPROVED → PUBLISHED (AI never
+    │    publishes; reviewer stamp required)
+    ├─ AI authoring (2026-10-03 IV): generation-service.ts — generate (DeepSeek) →
+    │    deterministic screen → independent BLIND-SOLVE verification (verifier never sees
+    │    keys; mismatch/ambiguous/flawed/unavailable ⇒ item dropped, fail-closed) →
+    │    QA_REQUIRED inside a DRAFT test. Writing prompts use a conformance checker.
+    │    scope='set' (3–14 reading / 3–10 listening) or 'full_component' (official 40:
+    │    13+13+14 / 10×4). Honest meta (dropped reasons + shortfall); nothing persists when
+    │    nothing survives; budget errors propagate (503). Entry: POST /api/ielts/admin/generate
+    │    (teacher/admin). Prompts: ai/prompts/ielts/{question-generation,materials-reference}.ts
+    │    (official blueprints + instruction phrasings; materials/IELTS books are pattern-only
+    │    and excluded from the deploy image).
+    ├─ Writing: assessIeltsWriting() — 4 official criteria, verbatim-evidence verification
+    │    (hallucinated quotes stripped; majority-hallucination ⇒ AI_EVIDENCE_MISMATCH;
+    │    empty-evidence criterion ⇒ AI_MISSING_EVIDENCE — audit 2026-10-03), rubric +
+    │    task-spec versions stamped (rubricVersion column / specVersion in task type
+    │    analysis), forbidden-claim filter, requirement coverage, SERVER-computed task band,
+    │    Task 2 double weighting (scoring/aggregate + domain/bands), deterministic
+    │    task-type analysis (classifyTask2QuestionType / classifyGeneralLetterType /
+    │    classifyAcademicTask1VisualType → obligations merged into the checklist as
+    │    `tasktype:<type>-<i>` and passed to the prompt as the platform task-type section)
+    ├─ Speaking: PREPARATION ONLY — no scoring surface exists (2026-10-03 II).
+    │    Retired & deleted: speaking assessment service/usecase/prompt/route/tests,
+    │    combineSpeakingBands, computeSpeakingSectionBand (never re-add),
+    │    IeltsSpeakingAssessmentSchema → IeltsSpeakingPrepSchema (NO score fields).
+    │    Delivered instead: topic bank (speaking/topic-bank.ts: Part1/2/3, People/
+    │    Places/Objects/Events taxonomy), methods (speaking/strategies.ts: 4-quadrant
+    │    note grid, story merging, self-recording loop, self-check), AI prep coach
+    │    (prepareIeltsSpeakingWithAI, IELTS_SPEAKING_PREP_V1 → POST
+    │    /api/ielts/speaking/prepare). Coach output is kind:'PREPARATION_ONLY',
+    │    notice:'NO_SPEAKING_SCORE_OFFERED'; leaked score language is stripped
+    │    (SCORE_LANGUAGE_FILTERED); rows persist estimatedBand/languageBandEstimate
+    │    null. criteria.ts marks each criterion preparable_from_transcript |
+    │    acoustic_required (pronunciation always acoustic_required).
+    │    Speaking assessment & pronunciation scoring = NOT_AVAILABLE; no examiner
+    │    simulation exists.
+    ├─ Mistake explanation (2026-10-03 VI): explainIeltsMistake() — advisory
+    │    "why your wrong answer fails" for OBJECTIVE items (owner + SUBMITTED + verdict
+    │    'incorrect' only; 403/404/409 otherwise, AI never called). Never changes a mark
+    │    (deterministic scoring stands); band/examiner wording stripped sentence-wise
+    │    (FORBIDDEN_CLAIM_FILTERED; all-filtered ⇒ 422 AI_OUTPUT_FILTERED); quotes the
+    │    passage/transcript; prompt injection defended; POST /api/ielts/mistakes/explain.
+    ├─ Instant self-study (2026-10-03 VII): generateIeltsInstantPractice() — on-demand
+    │    practice WITHOUT weakening the no-publish invariant. IeltsTest.origin='INSTANT'
+    │    + ownerUserId; delivered to the requester ONLY, labelled "not teacher-reviewed";
+    │    never listed (catalogue filters origin='CATALOGUE'); same machine screen +
+    │    blind-solve gates; persisted state stays DRAFT + QA_REQUIRED. Non-owner blocked
+    │    on EVERY surface (load/start/submit/audio/explanation). Cap: 8 sets per student
+    │    per HKT day + route rate limit + AI budget gate (503). Owner may get advisory
+    │    explanations; teacher publish flips origin → CATALOGUE (graduation).
+    │    POST /api/ielts/practice/instant; migration 20261003_ielts_instant_practice.
+    └─ Governance: HUMAN_EVIDENCE = INSUFFICIENT, MARKER_EQUIVALENCE = UNPROVEN,
+         CALIBRATED_HUMAN_VALIDATED impossible (guarded + contract test), calibration
+         report INSUFFICIENT_DATA until ≥8 REAL paired human marks, AI_COST = UNKNOWN.
+         Subsystem status = BETA (IELTS_SUBSYSTEM_STATUS; no human calibration) — shown
+         as a badge in the UI and returned by /api/ielts/status.
+         Starter content (2026-10-03 V): ensureStarterContent() auto-provisions
+         content/starter-sets.ts (repo-authored, machine-screened) as PUBLISHED on the
+         first catalogue load when the subsystem is empty — carve-out NEVER applies to
+         AI content; idempotent + P2002 race-safe; provisioning failure never breaks reads.
+  API: /api/ielts/* (tests, attempts + submit, practice/instant (on-demand self-study,
+       owner-only, never listed), writing/assess, writing/prompts (published
+       prompt bank), speaking/prepare, mistakes/explain, progress, status, admin
+       questions workflow, admin/tests(+transition) authoring console, admin/generate
+       (AI authoring), sections/[id]/audio via platform TTS with explicit AI-voice
+       provenance).
+       UI: /student/ielts/* (dashboard with Academic/GT variant explainer + Beta badge,
+       instant self-study panel (clearly labelled unreviewed),
+       runner, writing (mode-first task selection + prompt bank), speaking preparation
+       centre, progress) + /teacher/ielts (generation + per-question QA + publish console).
+       Seed: scripts/seed-ielts.ts (stops at QA_REQUIRED unless --reviewer=).
+       Pattern digest: docs/ielts/IELTS_PRACTICE_PATTERNS.md.
+       Compliance audit (2026-10-03): docs/ielts/IELTS_COMPLIANCE_AUDIT.md.
 
 Practice Evidence Aggregation — Server-side (2026-09-26, ADR-046):
   Cumulative projections (accuracy / weekly snapshot / per-skill totals / admin export)

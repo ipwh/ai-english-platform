@@ -38,13 +38,27 @@ Write-Host "============================================"
 Write-Host ""
 
 # Step 1: Verify gcloud
-Write-Host "🔧 Step 1/3: Verifying gcloud setup..."
+Write-Host "🔧 Step 1/4: Verifying gcloud setup..."
 gcloud config set project $ProjectId
 Write-Host "✅ gcloud project set to $ProjectId"
 
-# Step 2: Build & Push using Cloud Build (no local Docker!)
+# Step 2: Apply database migrations BEFORE deploying new code
+#   2026-10-03 (V): 部署路徑原本不執行 migrate，導致「新程式碼 + 舊 schema」
+#   （IELTS 資料表不存在 → IELTS 頁面全數 500）。此步使用本機 .env.local /
+#   .env 的 DIRECT_DATABASE_URL（Neon 直連；見 prisma.config.ts）跑遷移，
+#   失敗即中止部署。
 Write-Host ""
-Write-Host "🔧 Step 2/3: Building & pushing with Cloud Build..."
+Write-Host "🔧 Step 2/4: Applying database migrations (prisma migrate deploy)..."
+npx prisma migrate deploy
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "❌ Migration failed — deployment aborted (no new code will be deployed)"
+  exit 1
+}
+Write-Host "✅ Database migrations applied"
+
+# Step 3: Build & Push using Cloud Build (no local Docker!)
+Write-Host ""
+Write-Host "🔧 Step 3/4: Building & pushing with Cloud Build..."
 Write-Host "   (This sends your source to GCP, builds Docker image in the cloud,"
 Write-Host "    and pushes to Container Registry — all remote, ~3-5 minutes)"
 Write-Host ""
@@ -62,9 +76,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "✅ Image built and pushed: ${ImageName}:${Timestamp}"
 
-# Step 3: Deploy to Cloud Run
+# Step 4: Deploy to Cloud Run
 Write-Host ""
-Write-Host "🔧 Step 3/3: Deploying to Cloud Run..."
+Write-Host "🔧 Step 4/4: Deploying to Cloud Run..."
 
 # ⚠️ 2026-09-26 事故（切勿改回）：本行原本使用 `--set-env-vars "NODE_ENV=production"`。
 #    gcloud 的 `--set-env-vars` 語意是「**取代整組**」環境變數（非合併），因此該次

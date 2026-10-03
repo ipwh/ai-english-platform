@@ -68,6 +68,9 @@ model User {
   spellingSessions  SpellingSession[]
   accounts      Account[]
   sessionsAuth  Session[]
+  // 2026-10-03: IELTS 子系統（與 HKDSE 資料完全隔離）
+  ieltsAttempts IeltsAttempt[]
+  ieltsAssessments IeltsAssessment[]
 
   // === RAG 關聯 ===
   uploadedMaterials Material[]
@@ -972,4 +975,176 @@ model AiDailyUsage {
   tokens    Int      @default(0) // estimated tokens consumed (1 token ≈ 4 chars)
   costUsd   Float    @default(0) // estimated USD — budget accounting only, never billing
   updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 2026-10-03: IELTS Preparation Subsystem
+//
+// COMPLETELY ISOLATED from HKDSE scoring / calibration / evidence / XP:
+//   * never writes PracticeSession, PracticeAnswer, Mistake, mastery, XP or HKDSE evidence
+//   * every band value here is a PLATFORM PRACTICE ESTIMATE, never an official IELTS score
+//   * human evidence state = INSUFFICIENT (no fabricated calibration rows)
+//
+// Status pipeline (IeltsQuestion.validationStatus):
+//   DRAFT → AI_VALIDATED → QA_REQUIRED → HUMAN_APPROVED → PUBLISHED (or REJECTED)
+// Published items are served via the catalogue (human-reviewed); AI can never publish.
+// AI-authored content may ALSO be delivered on demand as INSTANT self-study practice:
+// owner-only, clearly labelled unreviewed, never listed in the catalogue, and
+// graduation into the catalogue requires the normal human publish path.
+// ============================================
+
+model IeltsTest {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  testType        String   // "ACADEMIC" | "GENERAL_TRAINING"
+  skill           String   // "LISTENING" | "READING" | "WRITING" | "SPEAKING"
+  description     String?
+  durationMinutes Int?
+  status          String   @default("DRAFT") // IeltsValidationStatus
+  origin          String   @default("CATALOGUE") // CATALOGUE | INSTANT (on-demand self-study; owner-only, never listed)
+  ownerUserId     String?  // set for INSTANT tests: only this student may open/attempt them
+  contentSource   String   @default("{\"type\":\"ORIGINAL_GENERATED\"}") // JSON IeltsContentSource
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sections  IeltsSection[]
+  questions IeltsQuestion[]
+  attempts  IeltsAttempt[]
+
+  @@index([testType, skill, status])
+  @@index([origin, ownerUserId, createdAt])
+}
+
+model IeltsSection {
+  id             String   @id @default(cuid())
+  testId         String
+  test           IeltsTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  orderIndex     Int
+  label          String   // "Part 1" | "Section 1" | "Task 1" …
+  instructions   String?
+  passageText    String?  // reading passage (platform-original content)
+  transcriptText String?  // listening transcript (platform-original content; TTS source)
+  wordCount      Int?
+  createdAt      DateTime @default(now())
+
+  questions IeltsQuestion[]
+
+  @@unique([testId, orderIndex])
+}
+
+model IeltsQuestion {
+  id               String   @id @default(cuid())
+  testId           String
+  test             IeltsTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  sectionId        String?
+  section          IeltsSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  orderIndex       Int      @default(0)
+  questionType     String   // official IELTS question-type enum (see domain/types.ts)
+  skill            String   // LISTENING | READING | WRITING | SPEAKING
+  prompt           String
+  options          String?  // JSON: string[] | { code, text }[]
+  answerKey        String?  // JSON: string | string[] — NEVER sent to clients before submission
+  acceptedAnswers  String?  // JSON: string[] — authored + validated BEFORE publication
+  wordLimit        String?  // JSON: { maxWords?, allowsNumber? }
+  evidence         String?  // JSON: IELTSReadingItemEvidence | IELTSListeningItemEvidence
+  explanation      String?
+  difficulty       String   @default("MEDIUM") // EASY | MEDIUM | HARD (platform estimate)
+  difficultyModel  String?  // e.g. "ielts-platform-difficulty-v1"
+  contentSource    String   @default("{\"type\":\"ORIGINAL_GENERATED\"}") // JSON IeltsContentSource
+  generatorVersion String?
+  validationStatus String   @default("QA_REQUIRED")
+  validationNotes  String?  // JSON: validator issues + review history
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  responses IeltsResponse[]
+
+  @@index([testId, orderIndex])
+  @@index([skill, validationStatus])
+}
+
+model IeltsAttempt {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId       String
+  test         IeltsTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  skill        String
+  testType     String
+  status       String   @default("IN_PROGRESS") // IN_PROGRESS | SUBMITTED | ABANDONED
+  startedAt    DateTime @default(now())
+  submittedAt  DateTime?
+  rawScore     Int?
+  totalItems   Int?
+  bandEstimate String?  // JSON IeltsBandEstimate (estimate: true + official caveat)
+  metadata     String?  // JSON: subset warnings, timing info
+  updatedAt    DateTime @updatedAt
+
+  responses   IeltsResponse[]
+  assessments IeltsAssessment[]
+
+  @@index([userId, skill])
+  @@index([userId, startedAt])
+}
+
+model IeltsResponse {
+  id            String   @id @default(cuid())
+  attemptId     String
+  attempt       IeltsAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      IeltsQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  rawAnswer     String
+  verdict       String?  // correct | incorrect | ungradable (server-side only)
+  scoringDetail String?  // JSON: { scoredBy, wordCount?, limitExceeded?, reason? }
+  answeredAt    DateTime @default(now())
+
+  @@unique([attemptId, questionId])
+}
+
+model IeltsAssessment {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptId       String?
+  attempt         IeltsAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  skill           String   // WRITING | SPEAKING
+  taskType        String?  // academic_task1 | academic_task2 | general_task1 | general_task2 | speaking_part1 | …
+  promptVersion   String   // e.g. IELTS_WRITING_TASK1_V1 / IELTS_SPEAKING_V1
+  rubricVersion   String?  // stamped rubric version (audit; e.g. ielts-writing-rubric-v1)
+  assessmentSource String  // AI_ESTIMATE | HUMAN_MARKER | CALIBRATED_HUMAN_VALIDATED (guard: last one impossible while HUMAN_EVIDENCE=INSUFFICIENT)
+  confidence      String   // HIGH | MEDIUM | LOW | NOT_CALIBRATED
+  status          String   @default("COMPLETED") // COMPLETED | FAILED
+  failureCode     String?  // typed failure mode when status = FAILED
+  estimatedBand   Float?   // estimated task/overall band; null when not computable
+  languageBandEstimate Float? // speaking: language estimate only (pronunciation NOT_VERIFIED)
+  criteria        String?  // JSON: criterion-level assessments with evidence
+  taskCoverage    String?  // JSON: requirement coverage (writing)
+  taskTypeAnalysis String? // JSON: deterministic task-type classification + obligations (writing)
+  prepContent     String?  // JSON: speaking preparation coaching output (no scores)
+  evidence        String?  // JSON: verified evidence items
+  limitations     String   @default("[]") // JSON string[]
+  pronunciation   String?  // JSON: { status: NOT_VERIFIED, reason } (speaking)
+  provider        String?
+  model           String?
+  usage           String?  // JSON: { costStatus: 'UNKNOWN' | …, tokens? }
+  promptHash      String?  // sha256 of system+user prompt (audit; no secrets)
+  durationMs      Int?
+  createdAt       DateTime @default(now())
+
+  calibrationRecords IeltsCalibrationRecord[]
+
+  @@index([userId, skill, createdAt])
+}
+
+model IeltsCalibrationRecord {
+  id             String   @id @default(cuid())
+  assessmentId   String   @unique
+  assessment     IeltsAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  aiBand         Float
+  humanBand      Float?   // null until a REAL human mark exists — never fabricated
+  humanMarkerRef String?  // opaque marker reference (no personal data)
+  pairedAt       DateTime?
+  createdAt      DateTime @default(now())
 }

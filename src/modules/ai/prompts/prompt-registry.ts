@@ -177,3 +177,55 @@ registerPrompt({
   build: buildAnswerVerificationUserPrompt,
   feature: 'QuestionGeneration',
 });
+
+// 14. IeltsWritingAssessment — builders in ielts/writing-assessment.ts
+// 2026-10-03 PHASE IELTS-01：四項官方準則逐項評估；版本常數
+// IELTS_WRITING_TASK1_V1 / IELTS_WRITING_TASK2_V1 會連同評估一併持久化。
+// 平台自身由準則分數平均計算 task band（AI 只回準則分，不回總分）。
+registerPrompt({
+  name: 'IeltsWritingAssessment',
+  version: 'v1',
+  description: 'Criterion-specific IELTS writing assessment (Task Achievement/Response, Coherence & Cohesion, Lexical Resource, Grammar) with verbatim evidence',
+  feature: 'IELTS',
+});
+
+// 15. IeltsSpeakingPreparation — builders in ielts/speaking-preparation.ts
+// 2026-10-03 (II)：口說改為「準備教練」——不評分、不模擬考官、不評發音。
+// 版本常數 IELTS_SPEAKING_PREP_V1 會連同每次準備計劃一併持久化。
+registerPrompt({
+  name: 'IeltsSpeakingPreparation',
+  version: 'v1',
+  description: 'IELTS speaking preparation coach (plan, language functions, pitfalls, follow-up practice); NO scoring, NO examiner simulation',
+  feature: 'IELTS',
+});
+
+// 16. IeltsQuestionGeneration — builders in ielts/question-generation.ts
+// 2026-10-03 (IV)：AI 出題（Reading/Listening 套卷＋Writing 題目）。AI 輸出只是
+// 原料：先經決定性屏檢（question-validator），再經獨立 blind-solve 覆核（答案鍵
+// 永不提供給驗證器），通過者才以 QA_REQUIRED 儲存；AI 永不發佈。
+// 版本常數 IELTS_QUESTION_GENERATION_V1 / IELTS_WRITING_PROMPT_GEN_V1。
+registerPrompt({
+  name: 'IeltsQuestionGeneration',
+  version: 'v1',
+  description: 'AI authoring of IELTS-style practice (Reading/Listening sets, Writing task prompts) under official-format rules; screened + verified before QA_REQUIRED storage',
+  feature: 'IELTS',
+});
+
+// 17. IeltsItemVerification — blind-solve verifier（答案鍵永不出現在 prompt）
+registerPrompt({
+  name: 'IeltsItemVerification',
+  version: 'v1',
+  description: 'Independent blind-solve verification of generated IELTS items (answer keys never shown); per-item soundness ok/ambiguous/flawed',
+  feature: 'IELTS',
+});
+
+// 18. IeltsMistakeExplanation — builders in ielts/mistake-explanation.ts
+// 2026-10-03 (VI)：錯題 AI 解說——只解釋、不改分數（判定已由決定性評分器定案）；
+// 只對「已提交且被評為 incorrect」的客觀題生成；違禁宣稱過濾。
+// 版本常數 IELTS_MISTAKE_EXPLANATION_V1。
+registerPrompt({
+  name: 'IeltsMistakeExplanation',
+  version: 'v1',
+  description: 'Advisory explanation of a wrong IELTS objective answer (never changes the mark); quotes the passage/transcript and addresses the student\'s specific answer',
+  feature: 'IELTS',
+});

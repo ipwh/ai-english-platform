@@ -2,10 +2,26 @@
 # Cloud Build 設定 — GitHub push 自動部署
 # 觸發條件：push 到 main 分支
 # 不會覆蓋已設定的 Cloud Run 環境變數
+#
+# 2026-10-03 (V)：新增 Step 1「資料庫遷移」。
+#   1. 本步驟需要 GCP Secret Manager 內存在 secret：DIRECT_DATABASE_URL
+#      （Neon 直連主機；見 prisma.config.ts 說明），並在觸發條件的
+#      availableSecrets 下方已宣告。若未建立 secret，此步會失敗 → 部署中止
+#      （此為刻意設計：防止「新程式碼 + 舊 schema」的靜默損壞）。
+#   2. 併發由 80 修正為 50，對齊 2026-09-26 事故後的既定基線
+#      （scripts/cloud-run-deploy.ps1／cloud-run.yaml，調整前須先量測）。
 # ============================================
 
 steps:
-  # Step 1: 建構 Docker 映像檔
+  # Step 1: 套用資料庫遷移（在部署新程式碼之前；失敗即中止）
+  - name: 'node:22-alpine'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'npm ci && npx prisma migrate deploy'
+    secretEnv: ['DIRECT_DATABASE_URL']
+
+  # Step 2: 建構 Docker 映像檔
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -13,13 +29,13 @@ steps:
       - 'asia-east2-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/ai-english-platform/english-platform:$COMMIT_SHA'
       - '.'
 
-  # Step 2: 推送映像檔
+  # Step 3: 推送映像檔
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - 'asia-east2-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/ai-english-platform/english-platform:$COMMIT_SHA'
 
-  # Step 3: 部署到 Cloud Run（不覆蓋環境變數）
+  # Step 4: 部署到 Cloud Run（不覆蓋環境變數）
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: 'gcloud'
     args:
@@ -35,8 +51,13 @@ steps:
       - '--cpu=1'
       - '--min-instances=0'
       - '--max-instances=20'
-      - '--concurrency=80'
+      - '--concurrency=50'
       - '--cpu-boost'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/DIRECT_DATABASE_URL/versions/latest
+      env: 'DIRECT_DATABASE_URL'
 
 images:
   - 'asia-east2-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/ai-english-platform/english-platform:$COMMIT_SHA'

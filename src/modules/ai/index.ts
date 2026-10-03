@@ -114,6 +114,104 @@ export type {
   GeneratedAnswerVerificationResult,
 } from '@/modules/ai/services/answer-verification';
 
+// ============================================
+// IELTS Assessment (2026-10-03 PHASE IELTS-01) — AI estimates only
+// ============================================
+// Criterion-specific writing assessment through the canonical pipeline.
+// Speaking is preparation-only (2026-10-03 II): the platform does NOT score
+// Speaking and does NOT simulate an examiner.
+// See docs/ielts/IELTS_ASSESSMENT_GOVERNANCE.md.
+import { assessIeltsWritingWithAI } from '@/modules/ai/usecases/ielts-writing-assessment';
+import { prepareIeltsSpeakingWithAI } from '@/modules/ai/usecases/ielts-speaking-prep';
+import { IELTS_SPEAKING_PREP_PROMPT_VERSION } from '@/modules/ai/prompts/ielts/speaking-preparation';
+import {
+  IELTS_WRITING_TASK1_PROMPT_VERSION,
+  IELTS_WRITING_TASK2_PROMPT_VERSION,
+  writingPromptVersionFor,
+} from '@/modules/ai/prompts/ielts/writing-assessment';
+export {
+  assessIeltsWritingWithAI,
+  prepareIeltsSpeakingWithAI,
+  IELTS_WRITING_TASK1_PROMPT_VERSION,
+  IELTS_WRITING_TASK2_PROMPT_VERSION,
+  writingPromptVersionFor,
+  IELTS_SPEAKING_PREP_PROMPT_VERSION,
+};
+export type {
+  IeltsWritingAiRequest,
+  IeltsWritingAiResult,
+  IeltsWritingAiFailure,
+} from '@/modules/ai/usecases/ielts-writing-assessment';
+export type {
+  IeltsSpeakingPrepAiRequest,
+  IeltsSpeakingPrepAiResult,
+  IeltsSpeakingPrepAiFailure,
+} from '@/modules/ai/usecases/ielts-speaking-prep';
+export type {
+  IeltsWritingAssessmentResponse,
+  IeltsSpeakingPrepResponse,
+} from '@/modules/ai/schemas/ielts-assessment-schema';
+
+// ============================================
+// IELTS Question Generation (2026-10-03 PHASE IELTS-01 IV) — DRAFT → QA only
+// ============================================
+// AI-authored practice content for the isolated IELTS subsystem. The AI output
+// is RAW: the IELTS module machine-screens it and blind-solve-verifies every
+// answer before anything is stored. Generated content can only reach
+// QA_REQUIRED — a human must approve and publish. See IELTS_SPECIFICATION.md §5.
+import {
+  generateIeltsQuestionSetWithAI,
+  verifyIeltsItemsWithAI,
+  generateIeltsWritingPromptWithAI,
+  verifyIeltsWritingPromptWithAI,
+} from '@/modules/ai/usecases/ielts-question-generation';
+import {
+  IELTS_QUESTION_GENERATION_V1,
+  IELTS_ITEM_VERIFICATION_V1,
+  IELTS_WRITING_PROMPT_GENERATION_V1,
+  IELTS_WRITING_PROMPT_VERIFICATION_V1,
+} from '@/modules/ai/prompts/ielts/question-generation';
+export {
+  generateIeltsQuestionSetWithAI,
+  verifyIeltsItemsWithAI,
+  generateIeltsWritingPromptWithAI,
+  verifyIeltsWritingPromptWithAI,
+  IELTS_QUESTION_GENERATION_V1,
+  IELTS_ITEM_VERIFICATION_V1,
+  IELTS_WRITING_PROMPT_GENERATION_V1,
+  IELTS_WRITING_PROMPT_VERIFICATION_V1,
+};
+export type {
+  IeltsQuestionGenerationAiRequest,
+  IeltsItemVerificationAiRequest,
+  IeltsWritingPromptGenerationAiRequest,
+  IeltsWritingPromptVerificationAiRequest,
+  IeltsGenerationAiResult,
+  IeltsGenerationAiFailure,
+} from '@/modules/ai/usecases/ielts-question-generation';
+export type {
+  IeltsGeneratedSet,
+  IeltsGeneratedQuestion,
+  IeltsItemVerificationResponse,
+  IeltsWritingPromptGeneration,
+  IeltsWritingPromptVerification,
+} from '@/modules/ai/schemas/ielts-generation-schema';
+
+// ============================================
+// IELTS Mistake Explanation (2026-10-03 VI) — advisory only
+// ============================================
+// Explains a WRONG objective answer the student gave. Never changes the mark
+// (scoring is deterministic and server-side); forbidden-claim screened.
+import { explainIeltsMistakeWithAI } from '@/modules/ai/usecases/ielts-mistake-explanation';
+import { IELTS_MISTAKE_EXPLANATION_V1 } from '@/modules/ai/prompts/ielts/mistake-explanation';
+export { explainIeltsMistakeWithAI, IELTS_MISTAKE_EXPLANATION_V1 };
+export type {
+  IeltsMistakeExplanationAiRequest,
+  IeltsMistakeExplanationAiResult,
+  IeltsMistakeExplanationAiFailure,
+} from '@/modules/ai/usecases/ielts-mistake-explanation';
+export type { IeltsMistakeExplanationResponse } from '@/modules/ai/schemas/ielts-assessment-schema';
+
 // Runtime budget policy — typed exhaustion error for 503 mapping in routes
 export { BudgetExceededError, isBudgetExceededError } from '@/modules/ai/runtime/budget-policy';
 

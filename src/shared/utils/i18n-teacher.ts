@@ -6,6 +6,7 @@ export const teacherTranslations: Record<string, { zh: string; en: string }> = {
   'teacher.classes': { zh: '班級進度', en: 'Class Progress' },
   'teacher.students': { zh: '學生名單', en: 'Student List' },
   'teacher.review': { zh: '批改覆核', en: 'Review' },
+  'teacher.ielts': { zh: 'IELTS 出題管理', en: 'IELTS Authoring' },
   'teacher.copilot': { zh: 'AI Copilot', en: 'AI Copilot' },
   'teacher.groups': { zh: '組別管理', en: 'Group Management' },
   'teacher.materials': { zh: '教材中心', en: 'Materials' },

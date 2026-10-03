@@ -10,10 +10,45 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-10-01 — 173 files, 3288 tests pass (+2 gated skips; full non-E2E), plus route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-10-03 — 193 files, 3559 tests pass (+2 gated skips; full non-E2E), including the IELTS module suite (incl. audit-invariants source scans) and route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
+- **Deployment (2026-10-03 — IELTS 子系統)**: 需套用 3 個遷移（`20261003_ielts_module`、`20261003_ielts_instant_practice`、`20261003_ielts_assessment_rubric_version`）。部署路徑已內建：`cloudbuild.yaml` Step 1 與 `scripts/cloud-run-deploy.ps1` Step 2 先跑 `npx prisma migrate deploy`（Cloud Build 需 Secret Manager `DIRECT_DATABASE_URL`；失敗即中止）。遷移全部為加法（僅 IELTS 新表＋可空欄位），**無需回填**。
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
 - **Deployment (2026-09-26 — 生字簿修正)**: **no schema change / no migration.** 批量匯入欄位契約修正（`translation`/`example` ＋擴充欄位保存；重複單字回 409、失敗如實顯示）；PDF 匯出改用內嵌 CJK 字型（`font: ''`，不依賴 PDFKit 標準字型）、版式改為逐塊量測（內文不重疊），且 `format=pdf` 失敗回結構化 500、**永不**以 HTML 冒充。部署後請驗證（見 [CHANGELOG 2026-09-26 (IV)/(V)](CHANGELOG.md)）：① 批量匯入後生字即時出現在列表；② 下載 PDF 的回應為 `application/pdf` 且可正常開啟、內文無重疊（不應出現 corrupted）。
+
+## 🎓 IELTS 備考子系統（2026-10-03，**測試版 BETA**）
+
+> **這是 IELTS 風格的練習平台，並非官方考試、亦非官方分數。** 系統整體標示
+> **測試版（BETA）**：尚無人工評分校準（`HUMAN_EVIDENCE = INSUFFICIENT`），
+> 所有 band 均為**練習估算（範圍）**；AI 生成的題目必須經人工審核才能發佈。
+
+### 學生（自學，隨時可用）
+- 登入後前往 **`/student/ielts`**（導航：「IELTS 備考（測試版）」）。
+- **即時自學練習**：無需等待審核即可出卷（AI 生成 → 機械屏檢＋盲解覆核 → 只交付本人、
+  明確標示「未經教師審核」、**永不進入題庫**；每香港日上限 8 卷）。
+- **起始卷**：系統首次載入時自動 provision 平台起始卷（repo 人工內容），新學生立即有卷可練。
+- **批改與建議**：客觀題（閱讀／聆聽）伺服器決定性評分（逐題對錯＋答案＋解釋）；
+  錯題可要求 **AI 解說**（只解釋、永不改分）；**寫作**提交後獲四項官方準則的逐項
+  估算＋逐字證據＋強弱項＋改善重點（AI 估算，非考官分數）；**口說**只提供準備教學
+  與 AI 準備教練（**不評分**）；進度頁追蹤練習歷史。
+- **學術組 / 通用組**在介面上分開選擇；聆聽／口說兩組相同（官方亦相同）。
+
+### 教師／管理員（出題與審核台）
+- **`/teacher/ielts`**：AI 生成（官方格式；`scope=set` 或 `full_component` 40 題）→
+  逐題核准 → 發佈；AI **永不自動發佈**；發佈即時卷時自動納入題庫。
+
+### 不變式（可稽核）
+- HKDSE 完全隔離（雙向 import = 0；永不寫入 HKDSE 證據／XP／掌握度）；
+- 客觀題一律決定性伺服器評分（`scoringMethod = DETERMINISTIC_OBJECTIVE`）；
+- 寫作評估證據優先（`AI_MISSING_EVIDENCE` / `AI_EVIDENCE_MISMATCH` fail-closed；
+  rubric／prompt 版本戳）；
+- 口說：**零評分程式碼路徑**（`NOT_VERIFIED`）；
+- 生成 fail-closed：機械屏檢＋blind-solve＋品質閘；不合格一律丟棄。
+
+### 文件與驗證
+- 規格／計分／治理／來源：[`docs/ielts/`](docs/ielts/)（SPECIFICATION、SCORING、
+  ASSESSMENT_GOVERNANCE、SOURCES、COMPLIANCE_AUDIT、FULL_AUDIT 2026-10-03）。
+- 驗證：`npm test`（IELTS 套件 20 檔／271 測試；全套 3559 pass／2 gated skips）。
 
 ## 📉 Neon Egress 維運（2026-09-26，ADR-046）
 

@@ -4,6 +4,387 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-03（XI）— 學生端就緒審核＋文件全面更新（README）
+
+### 一、就緒審核（本機）
+- **學生自學路徑**：儀表板（起始卷自動 provision＋即時自學面板）→ 應試 → 提交 →
+  逐題批改（答案／解釋）→ 錯題 AI 解說；**寫作**四準則逐項估算＋逐字證據＋強弱項＋
+  limitations；**口說**準備教練（零評分）；進度頁——全部路由存在並由測試覆蓋。
+- **測試版標示**：六個 IELTS 頁面（dashboard／runner／writing／speaking／progress／
+  teacher）均顯示「測試版」徽章；導航「IELTS 備考（測試版）」；`/api/ielts/status`
+  回傳 `BETA`；治理常數測試釘住。
+- **生成與部署**：Dockerfile 於建構前執行 `npx prisma generate`（schema 變更可正確
+  部署）；生成讀寫路徑由 259+ 測試以 mock 驗證（正式供應商呼叫不在本機驗證範圍，
+  標示 **NOT_TESTED**）。
+
+### 二、文件
+- README 新增「IELTS 備考子系統（BETA）」完整章節（學生／教師流程、不變式、
+  文件索引、驗證數字）；測試數字更新至 2026-10-03（193 files／3559）；
+  部署遷移說明（3 個遷移，cloudbuild Step 1 自動套用、失敗即中止）。
+
+### 三、驗證
+- `tsc` 0；`npm test` **3559 passed / 2 skipped（193 files）**；eslint 0 error；
+  `check-i18n` 0；`next build` 0；Safari 基線 `static{` 0。
+
+---
+
+## 2026-10-03（X）— 硬化（答案泄露閘、Listening 縮寫詞閘、整體分嚴格四項、邊界矩陣）
+
+### 一、新增 fail-closed 規則（官方頁面二次重核後）
+- `ANSWER_LEAKED_IN_PROMPT`：填空／短答題若答案（或接受變體）已原文出現於題目
+  提示 ⇒ 拒絕（學習者必須從來源取答，不能從題面抄）。
+- `LISTENING_CONTRACTION_KEY`：官方明文「contracted words 不考」——Listening
+  填空／短答答案鍵為縮寫詞（isn't／they're／don't…）⇒ 拒絕；名字／所有格
+  （O'Brien、Halley's）不受影響（字典式 pattern）。
+- `computeOverallBand` 現在**必須恰好四個**技能分：缺項／多項一律拋錯，永不對
+  不完整組合平均。
+- `IELTS_TARGET_BAND_BASIS = 'AUTHOR_HEURISTIC'` 常數（可 grep 的映射依據記錄）。
+
+### 二、新增測試（+6）
+- 官方 .25↑/.75↑ 八分界矩陣（6.000→6.125→6.250→…→6.875）＋缺項／多項拒絕；
+- 答案泄淏（拒）／保留空格（過）／縮寫詞鍵（拒）／O'Brien 正控（過）；
+- TARGET_BAND 全 10 值＋未知值矩陣；GT 生成之 testType 持久化傳遞。
+
+### 三、官方來源二次重核
+- Listening／Speaking／Scoring-in-detail 頁面現場重核；全部與既有實作一致（無需
+  改換算表）；記錄於 `docs/ielts/IELTS_SOURCES.md`。
+
+### 四、驗證（本機）
+- `tsc` 0；`npm test` **3559 passed / 2 skipped（193 files）**；eslint 0 error；
+  `check-i18n` 0；`next build` 0；Safari 基線 `static{` 0。
+
+---
+
+## 2026-10-03（IX）— master-prompt 合規追加（TARGET_BAND、scoringMethod、快取／注入掃描）
+
+### 一、新增
+- `domain/difficulty.ts`：`IELTS_TARGET_BAND_VALUES`（TARGET_BAND_4…9）＋
+  `difficultyForTargetBand()`——**平台作者啟發式**（4–5.5⇒EASY、6–7⇒MEDIUM、
+  7.5–9⇒HARD）；明確**不是**官方難度分類、不作 CEFR↔IELTS 等價宣稱
+  （已記錄為產品決策，SPECIFICATION §6）；生成服務 `targetBand?` 選項，admin
+  `POST /api/ielts/admin/generate` 接受並驗證（未知標籤 ⇒ 400／INVALID_INPUT）。
+- `IeltsBandEstimate.scoringMethod = 'DETERMINISTIC_OBJECTIVE'`——每個估算都能
+  回答「分數從何而來」；與寫作 `assessmentSource = AI_ESTIMATE` 永不混同。
+
+### 二、可執行掃描（audit-invariants 追加）
+- IELTS 路由不得出現 public 快取指令（audio 維持 `private, max-age`）；
+- 三個接壤學生內容的 prompt（寫作評估／錯題解說／口說準備筆記）必須含反注入
+  圍欄字句；TARGET_BAND 映射＋未知標籤拒絕；band estimate scoringMethod 釘住。
+
+### 三、驗證（本機）
+- `tsc` 0；`npm test` **3553 passed / 2 skipped（193 files）**；eslint 0 error；
+  `check-i18n` 0；`next build` 0；Safari 基線 `static{` 0。
+
+---
+
+## 2026-10-03（VIII）— IELTS 工程審核（無證據評分修正＋版本戳＋可執行不變式）
+
+### 一、審核發現並修正的真實缺陷（fail-closed）
+- **寫作「無證據評分」漏洞**：準則若回傳空 evidence 陣列，舊碼只降低信心而未拒收。
+  現已強制：任何準則**完全沒有證據** ⇒ `AI_MISSING_EVIDENCE`（整份拒絕，只落 typed
+  FAILED 審核列）；引文多數造假仍為 `AI_EVIDENCE_MISMATCH`；逐字核實與剝除機制不變。
+- **未版本化的評分準則**：新增 `IELTS_WRITING_RUBRIC_VERSION`
+  （`ielts-writing-rubric-v1`）＋`IELTS_TASK_SPECIFICATION_VERSION`
+  （`ielts-task-spec-v1`）；每筆評估（成功／失敗）持久化 `rubricVersion`
+  （新欄位，遷移 `20261003_ielts_assessment_rubric_version`，**未執行**），
+  任務分析 JSON 加 `specVersion`；新增 UI 錯誤字串 `ielts.error.AI_MISSING_EVIDENCE`。
+
+### 二、新增可執行審核不變式（`__tests__/audit-invariants.test.ts`）
+- IELTS runtime → HKDSE 模組 import＝0；反向依賴＝0；禁用 provenance 標籤＝0；
+- 5 個 IELTS prompt 全部帶版本；rubric／spec 常數非佔位且確實被戳記；
+- 客觀題評分決定性（重複呼叫＋選項順序不變）；口說預設 `NOT_VERIFIED`。
+
+### 三、審核驗證（本機）
+- `tsc` 0；`npm test` **3547 passed / 2 skipped（193 files）**；eslint 0 error；
+  `check-i18n` 0；`next build` 0；Safari 基線 `static{` 0；
+  HKDSE/DSE 提及掃描（僅註釋／作業字串誤配）；來源重核見
+  `docs/ielts/IELTS_SOURCES.md`；完整審核報告與矩陣見
+  `docs/ielts/IELTS_FULL_AUDIT_2026-10-03.md`。
+
+---
+
+## 2026-10-03（VII）— 即時自學練習（無卷即練；AI 仍然永不自動發佈）
+
+### 一、問題與解法
+「AI 生成內容永不自動發佈」令學生在無教師在場時無法練習。解法：新增**即時自學練習（INSTANT）**——學生可隨時自行出卷，但**這不是發佈**：題目只交付給本人、明確標示「未經教師審核」、永不進入題庫；正式發佈仍只可由教師經審核路徑完成。
+
+### 二、機制
+- `POST /api/ielts/practice/instant`（任何已登入學生）：`{ skill: READING|LISTENING, testType, count?: 3–14（閱讀）/3–10（聆聽）, topicHint? }` → 生成 → **同一組閘門**（決定性機械屏檢＋blind-solve 覆核）→ 建立 `origin='INSTANT'`、`ownerUserId=本人` 的 DRAFT 卷（題目 QA_REQUIRED，狀態機不變）→ 回傳 testId 供練習頁使用。
+- 交付閘門（每個介面都檢查）：即時卷**只限擁有者**——載入 `/api/ielts/tests/[id]`、開始作答、提交評分、聆聽音訊、AI 解說；非擁有者一律 403；`REJECTED` 卷連擁有者都不能再開。目錄（`listPublishedTests`）只列 `origin='CATALOGUE'`，即時卷永不出現在題庫。
+- 標示：練習頁橫幅「AI 即時自學練習（未經教師審核）」＋說明；教師台佇列標示「學生即時自學（未經審核）」；AI 解說額外附 limitation（與目錄題相同的逐句過濾不變）。
+- 成本護欄：每位學生**每香港日 8 卷**（`hkStartOfDay` 界線）、路由限流 6 次/分鐘、全域 AI 額度閘門（耗盡 ⇒ 503，錯誤原樣上拋）；主題提示截斷 200 字。
+- 畢業路徑：教師在 `/teacher/ielts` 照常逐題核准；發佈即時卷時自動轉為 `origin='CATALOGUE'`，正式納入題庫——**AI 仍然永不自動發佈**。
+- 遷移：`20261003_ielts_instant_practice`（`IeltsTest.origin` 預設 CATALOGUE、`ownerUserId`、索引）；起始卷 provision 改為只計 `origin='CATALOGUE'`（即時卷不會阻擋起始卷）。
+
+### 三、驗證（本機；未 commit、未部署）
+- `tsc` 0；`npm test` **3537 passed / 2 skipped（192 files passed, 2 skipped）**；
+  `eslint` 0 error；`check-i18n` exit 0；`next build` 0；Safari 15.4 基線
+  `static{` = 0。
+
+---
+
+## 2026-10-03（VI）— AI 解說錯題（只解釋、不改分）
+
+### 一、學生端
+- 練習頁（閱讀／聆聽）提交後，**錯誤題目**旁新增「AI 解說此題」按鈕：顯示
+  ① 正確答案為何成立（須引用篇章／逐字稿原文）② 你的答案問題所在 ③ 下次提醒。
+- 明示「AI 輔助解說：只作解釋，永不改分（分數由伺服器決定性評分，判定不變）」；
+  失敗時顯示重試提示，既有決定性解釋（題庫內建）不受影響。
+
+### 二、服務與治理
+- 新 API `POST /api/ielts/mistakes/explain`（學生本人；限每分鐘 20 次）：
+  - 資格嚴格：attempt 必須屬於本人且已提交；該題必須有 `verdict='incorrect'` 的作答列；
+    題目必須 PUBLISHED 且屬於同一試卷——否則 403／404／409，**不會呼叫 AI**；
+  - 提示詞禁止 band／分數／考官／保證字眼；輸出逐句過濾
+    （`FORBIDDEN_CLAIM_FILTERED`），全數被移除則回 422（`AI_OUTPUT_FILTERED`），
+    永不展示捏造內容；
+  - 失敗有型別（timeout 504／provider 502／invalid 422）；額度耗盡 503；
+    事件 `ielts.mistake.explained`；PromptRegistry #18 `IeltsMistakeExplanation`
+    （版本 `IELTS_MISTAKE_EXPLANATION_V1`）；疑難內容（篇章、題目、學生答案）一律視為
+    不可信資料（防提示注入）。
+
+### 三、驗證（本機；未 commit、未部署）
+- `tsc` 0；`npm test` **3507 passed / 2 skipped（191 files passed, 2 skipped）**；
+  `eslint` 0 error；`check-i18n` exit 0；`next build` 0；Safari 15.4 基線 `static{` = 0。
+
+---
+
+## 2026-10-03（V）— 學生登入即可用 IELTS（起始卷自動 provision）＋教師出題審核台＋部署遷移修正
+
+### 一、學生即時可用（不破壞 AI 閘門）
+- 新增正典 `src/modules/ielts/content/starter-sets.ts`（人工編寫、repo 審核的平台原創起始卷）
+  與 `ensureStarterContent()`：IELTS 子系統無任何試卷時，首次載入 `GET /api/ielts/tests`
+  會自動將起始卷 provision 為 **PUBLISHED**（儲存前仍經決定性機械屏檢；冪等；跨實例
+  unique slug／P2002 安全；provision 失敗只記 log，不影響目錄讀取）。
+- **此豁免只限 repo 人工內容**；AI 生成內容仍然只到 QA_REQUIRED，必須人工核准才可發佈
+  （AI 永不自動發佈——維持不變）。`scripts/seed-ielts.ts` 標註正典來源。
+
+### 二、教師／管理員出題審核台（補上「無後台 UI」缺口）
+- 新頁面 `/teacher/ielts`（導航「IELTS 出題管理」）：
+  1. 觸發 DeepSeek 生成（技能／組別／範圍 set|full_component／題數／主題）；
+  2. 審核佇列：逐題顯示題目、正典答案、解釋、狀態，並提供「核准」→「發佈」；
+  3. 發佈試卷（所有題目必須先個別發佈；reviewer 身分取自登入 session）。
+- 新 API：`GET /api/ielts/admin/tests`、`POST /api/ielts/admin/tests/[id]/transition`；
+  `GET /api/ielts/admin/questions` 額外回傳正典答案＋解釋供審核。
+
+### 三、部署路徑修正（實際 blocker）
+- `cloudbuild.yaml`：新增 Step 1 `npx prisma migrate deploy`（使用 Secret Manager
+  `DIRECT_DATABASE_URL`；失敗即中止，避免「新程式碼＋舊 schema」）；併發由 80 修正為
+  既定基線 **50**。
+- `scripts/cloud-run-deploy.ps1`：新增 Step 2 本機先跑遷移（讀 .env.local 直連），
+  失敗即中止部署。
+- 效果（部署後）：migration 先套用 → 起始卷首次載入自動 provision → 學生可即時練習；
+  教師可生成＋發佈更多內容。
+
+### 四、驗證（本機；未 commit、未部署）
+- `tsc` 0；`npm test` **3493 passed / 2 skipped（190 files passed, 2 skipped）**（+13 測試：
+  起始卷服務 3、起始卷完整性 3、路由 7）；`eslint` 0 error；`check-i18n` exit 0；
+  `next build` 0；Safari 15.4 基線 `static{` = 0。
+- 部署前置：GCP Secret Manager 需建立 `DIRECT_DATABASE_URL`，否則 push 觸發的 build
+  會在第一步入止（刻意 fail loud）。
+
+---
+
+## 2026-10-03（IV）— AI 出題（官方格式＋三重防護）＋BETA 標示＋學術／通用組分流
+
+### 一、AI 出題（DeepSeek，符合官方要求）
+- 新管線（`generation-service.ts`）：**生成 → 決定性機械屏檢 → 獨立 blind-solve
+  覆核 → QA_REQUIRED（DRAFT 卷）→ 人工發佈**。驗證器永不見答案鍵；答案不符／
+  ambiguous／flawed／驗證器不可用 ⇒ 該題丟棄（fail-closed）；全軍覆沒 ⇒ 有型別失敗且
+  **不儲存任何東西**；短欠數（requested vs delivered）誠實回報。**AI 永不發佈。**
+- 覆蓋：Reading（學術長文／通用短文）、Listening（Part 1–4 傾向）、Writing（Academic
+  Task 1 資料表、Task 2、GT 書信＋三個要點）；`scope='full_component'` 可一鍵生成
+  官方 40 題形狀（閱讀 13+13+14；聆聽 10×4），令 band 換算可比。
+- 官方格式強制：一題一答一鍵（多答案題一律丟棄）；completion 答案須逐字在文；
+  MC／matching 以「正確選項文字是否獲文本支持」審核（本次修復舊驗證器盲點）；字數上限
+  用官方措辭；閱讀證據 span 一律以 indexOf 重算；寫作須含 "You should spend about X
+  minutes…" 與最低字數，且經 conformance pass。
+- 入口：`POST /api/ielts/admin/generate`（教師／管理員；額度 503、逾時 504、供應商 502、
+  拒絕／空結果／不合規 422）。跨請求去重：帶入近期題目提示與篇章節錄。
+- **materials/IELTS 參考**：本地三本教材（含 Cambridge IELTS 21、Crack IELTS Reading、
+  Mastering the IELTS）只用於**模式萃取**——題組藍圖、官方指示措辭、寫作 scaffold
+  存於 `ai/prompts/ielts/materials-reference.ts`（全部平台原創文字，無書本內容）；
+  PDF 已被 `.dockerignore` 排除，永不進入部署映像。
+
+### 二、BETA 標示（因未有人工校正）
+- 治理常數 `IELTS_SUBSYSTEM_STATUS='BETA'`（＋原因）随 `GET /api/ielts/status` 回傳；
+  導航改名「IELTS 備考（測試版）」；儀表板、練習頁、寫作頁、口說頁、進度頁均顯示
+  測試版徒章與原因（無人工校正、AI 內容須人工審核才能發佈）。
+
+### 三、學術組 vs 通用組分流
+- 儀表板：組別切換＋差異說明（閱讀文體不同；寫作 Task 1 不同——表格 vs 書信；
+  聆聽／口說完全相同）。
+- 寫作頁改為「先選組別 → 再選題型 → 選題目來源（內建範例／平台題庫／自訂）」；
+  新端點 `GET /api/ielts/writing/prompts`（只回已發佈題目）。口說頁加相同註明。
+- 生成 API 必須指定組別，令內容與所選模式一致。
+
+### 四、驗證（全部本機、未部署）
+- `tsc` 0；`npm test` **3480 passed / 2 skipped（188 files passed, 2 skipped）**；
+  `eslint` 0 error（2 個全庫既有 React warning）；`check-i18n` exit 0；`next build` 0；
+  Safari 15.4 基線 `static{` = 0。新增測試 +23（生成服務 11、驗證器 2、治理 1、路由 9）。
+- 未部署、未 commit、migration 未執行。
+
+---
+
+## 2026-10-03（III）— IELTS 合規審核：修正 3 項缺陷＋官方格式強制（評審模式對照）
+
+### 一、審核方法
+以官方 scoring 頁（即時重核）＋全路徑追蹤（交付投影→評分→回饋→顯示→i18n）＋全套
+閘門重驗；完整報告見 `docs/ielts/IELTS_COMPLIANCE_AUDIT.md`（含「已實作 vs 未實作」
+評審模式對照表）。官方錨點（L 16/23/30/35；Acad R 15/23/30/35；GT R 15/23/30/35）
+與 .25↑/.75↑ 四捨五入均與官方頁逐項核對一致。
+
+### 二、修正缺陷
+1. 🔴 聆聽音訊端點未檢查擁有試卷的發佈狀態 — 任何已登入用户取得 section id 即可為
+   **未發佈（DRAFT）** 內容合成音訊。已加 `PUBLISHED` 閘門（否則 403／404，fail-closed）
+   ＋新 `catalog-service.test.ts`。
+2. 🟠 已發佈試卷的題數統計含後來新增的 DRAFT 題 — 學生看到的題數可能多於實際交付。
+   改用 filtered relation count（只計 `PUBLISHED`），與交付完全一致。
+3. 🟠 多答案客觀題（一題多 key）可被發佈且採全對全錯評分 — 與官方編號格式不符
+   （「Choose TWO letters」= 兩個題號各 1 分）。驗證器現在拒收多 key MC／matching／
+   completion（`*_KEY_COUNT`＋編寫指引；替代寫法用 `acceptedAnswers`）；
+   評分器保留防禦性 all-or-nothing 路徑並加註；`IELTS_SCORING.md` §6 已更新；＋4 測試。
+4. 🟡 MC 驗證訊息提及不存在的 answerMode 例外 — 已改正為官方一題一答案規則。
+5. 🟡 進度頁提交列可能顯示「0/0」— 缺 total 時改顯示「—」。
+
+### 三、驗證（修復後）
+`tsc` 0；`npm test` **3457 passed / 2 skipped（187 files passed, 2 skipped）**；
+`eslint` 0 error；`check-i18n` 0；`next build` 0（Safari 15.4 基線 `static{` = 0）。
+未部署、未 commit、migration 未執行。
+
+---
+
+## 2026-10-03（II）— 口說改為「準備教學」（全面移除評分）＋寫作題型對齊真實考試形狀
+
+### 一、範圍與用戶指示
+用戶指示：**因應技術所限，不實作 speaking 的模擬真人對答及評分，但可以教授如何準備
+speaking 的題目**；並提供第三方備考網站（IELTS Online Tests 題庫頁、Threads 口說題庫貼文、
+GitHub openIELTS）作**模式參考**。第三方只用於歸納**題型／方法模式**，**不複製內容**，
+官方規格仍以 `IELTS_SOURCES.md` 的官方來源為準；整理見新檔 `IELTS_PRACTICE_PATTERNS.md`。
+
+### 二、口說評分**全面退役**（刪除，不是停用）
+- 刪除：`assessIeltsSpeakingWithAI` usecase、`speaking-assessment` prompt、
+  `speaking-assessment-service` 及其測試、`POST /api/ielts/speaking/assess` 路由、
+  `combineSpeakingBands`／`IeltsSpeakingCriterionBands`、`computeSpeakingSectionBand`
+  （附「never re-add」註記）、`IeltsSpeakingAssessmentSchema`。
+- 治理事件 `speaking.assessment.*` → `speaking.prep.*`；功能狀態
+  `speakingAssessment = NOT_AVAILABLE`、`speakingPreparation = IMPLEMENTED`。
+- 新契約：**系統內不存在任何口說 band／language estimate 程式碼路徑**；契約測試強制
+  coach 輸出不含分數欄位、持久化列 `estimatedBand = null`、`languageBandEstimate = null`。
+
+### 三、口說準備中心（教學，不評分）
+- `speaking/topic-bank.ts`：26 條**平台原創**題材——Part 1 主題 ×8、Part 2 cue card ×12
+  （人物／地點／物品／事件經驗）、Part 3 討論功能 ×6；每條含準備重點、實用語言功能
+  （可改寫、非背稿）與常見陷阱。
+- `speaking/strategies.ts`：Part 2 四宮格筆記法（含 P/N/F 時態旗標）、串題工作台
+  （一故事多用＋反背誦警告）、自錄自聽練習循環、自評檢查表、平台限制聲明。
+- `speaking-prep-service` ＋ prompt `IELTS_SPEAKING_PREP_V1` ＋
+  `prepareIeltsSpeakingWithAI` ＋ `POST /api/ielts/speaking/prepare`：AI 準備教練**合約上
+  禁止**給分／給 band、冒充考官或提供背誦稿；漏出的分數語言由伺服器剝除並記
+  `SCORE_LANGUAGE_FILTERED`；輸出不合用 ⇒ 有型別失敗（**永不**變成「成功的空計劃」）。
+  回應型別 `kind: 'PREPARATION_ONLY'`／`notice: 'NO_SPEAKING_SCORE_OFFERED'`。
+- `criteria.ts` 每項準則標示 `evidenceType: preparable_from_transcript | acoustic_required`
+  （發音**永遠** acoustic_required，任何文字管線不得判它）。
+- UI：`/student/ielts/speaking` 重寫為「口說準備中心」（題庫瀏覽、互動四宮格、串題工作台、
+  AI 教練、自錄自聽）；進度頁口說改顯示「不提供口說評分」聲明，不再出現 placeholder band。
+
+### 四、寫作批改對齊真實題型（決定性、出題時分析）
+- `writing/criteria.ts`：新增 `classifyTask2QuestionType()`（discuss both views／outweigh／
+  advantages-disadvantages／positive-negative／problem-solution／agree-disagree／two-part／
+  direct questions）、`classifyGeneralLetterType()`、`classifyAcademicTask1VisualType()`、
+  `describeTaskTypeExpectations()`；任務要求樣式擴充（both-questions、reasons、measures、implications）。
+- `buildTaskTypeAnalysis()` 把題型義務併入檢查表（ids `tasktype:<type>-<i>`），並以
+  「PLATFORM TASK-TYPE ANALYSIS」段落傳給 AI；結果與持久化新增 `taskTypeAnalysis`
+  （同一未發佈 migration 內的新 nullable TEXT 欄位）。
+
+### 五、驗證（本機；未部署、未 commit）
+- `npx tsc --noEmit` exit 0；`npm test` **3448 passed / 2 skipped（186 files passed, 2 skipped）**；
+  `npx eslint`（改動路徑）0 error；`node scripts/check-i18n.js` exit 0；`npx next build` exit 0；
+  iPad（Safari 15.4）基線產物 `static{` = **0**。
+- 新測試：口說準備服務（不評分契約／剝除／有型別失敗／持久化）、題庫完整性、
+  prepare 路由安全（401／400／422／503＋回應不含分數欄位）；刪除評分時代的口說測試。
+
+### 六、不變項
+`AI_COST = UNKNOWN`、`HUMAN_EVIDENCE = INSUFFICIENT`、`MARKER_EQUIVALENCE = UNPROVEN`、
+`CALIBRATED_HUMAN_VALIDATED` 不可產生、AI 永不自動發佈、生產環境零改動。
+
+---
+
+## 2026-10-03 — PHASE IELTS-01：IELTS 備考子系統（完全隔離＋AI 評估治理）
+
+> **修訂註（同日 II）：** 本節所述之口說評分（`assessIeltsSpeakingWithAI`、三項語言
+> 準則估算、`IELTS_SPEAKING_V1`、`POST /speaking/assess`）已於同日壓後全面**退役刪除**，
+> 改為「口說準備教學」——詳見上一節 2026-10-03（II）。其餘（客觀評分、寫作評估、
+> 生命週期、治理常數）不變。
+
+### 一、範圍（新子系統，不動 HKDSE 語意）
+新增 `src/modules/ielts/` — IELTS 風格練習（**非**官方考試），支援 Academic / General
+Training × 四項技能，**永不**寫入 HKDSE 證據／準確率／掌握度／錯題／XP。
+規格與來源：`docs/ielts/IELTS_SPECIFICATION.md`、`IELTS_SOURCES.md`（8 大官方來源，
+2026-10-03 查核）、`IELTS_SCORING.md`、`IELTS_ASSESSMENT_GOVERNANCE.md`。
+
+### 二、決定性評分（Objective Scoring）
+- `scoreIeltsItem()`：MC（字母；唯一選項全文才接受）、T/F/NG、Y/N/NG（正典 tokens）、
+  Matching（代號）、Completion/短答（保守正規化＋數字詞↔阿拉伯數字等價）。
+- 字數限制是**規則**不是提示文字：超限即失分（`WORD_LIMIT_EXCEEDED`）；
+  連字號算**一個字**；**不**做拼寫寬容（官方對拼錯視為錯）。
+- Band 換算：官方明言各版本界線略有差異 → 只以官方公開錨點（L 5/6/7/8 = 16/23/30/35；
+  Acad R = 15/23/30/35；GT R = 15/23/30/35（Band 4–7））作**範圍估算**
+  （`estimate: true`＋版本＋來源）；非 40 題練習標示 `NOT_COMPARABLE_SUBSET`。
+- 整體 band：四人平均 `.25↑ / .75↑`（以官方三個實例驗證）；寫作 **Task 2 雙倍權重**。
+
+### 三、AI 評估治理（Writing / Speaking）
+- 新 usecases：`assessIeltsWritingWithAI` / `assessIeltsSpeakingWithAI`（canonical
+  `executeAI` 管線＋Zod；PromptRegistry 新增 `IeltsWritingAssessment` /
+  `IeltsSpeakingAssessment`，版本常數 `IELTS_WRITING_TASK*_V1` / `IELTS_SPEAKING_V1` 隨評估儲存）。
+- 寫作：四項官方準則**逐項**評估（非單一「grade this essay」）；引文必須逐字存在，
+  ≥一半未能核實 ⇒ `AI_EVIDENCE_MISMATCH`（絕不顯示未核實分數）；考官／保證類字句被過濾；
+  **任務分數由伺服器計算**（AI 不回總分）；題目要求覆蓋以決定性 checklist 逐項核對。
+- 口說：只評三項語言準則（Fluency 為**文字代理**）；**發音一律 `NOT_VERIFIED`**、
+  完整口說 band 為 `null`（永不捏造）；語言估算分獨立顯示。
+- 失敗有型別（timeout / provider / invalid JSON / missing criterion / unsupported band /
+  evidence mismatch / task not answered…），一律寫成 `FAILED` 稽核列，**永不**變成成功狀態。
+- 治理常數：`HUMAN_EVIDENCE = INSUFFICIENT`、`MARKER_EQUIVALENCE = UNPROVEN`、
+  `CALIBRATION = INSUFFICIENT_DATA`、`AI_COST = UNKNOWN`；
+  `CALIBRATED_HUMAN_VALIDATED` 由 guard＋契約測試**封鎖**；confidence 在未校準下封頂 MEDIUM。
+
+### 四、題目生命週期與內容治理
+- 狀態機 `DRAFT → AI_VALIDATED → QA_REQUIRED → HUMAN_APPROVED → PUBLISHED`（可 REJECTED）：
+  AI 只能到 `AI_VALIDATED`／`REJECTED`；發佈需 **reviewer id**；只有 `PUBLISHED` 會派送。
+- 機器驗證：閱讀題證據 span 必須與篇章**逐字切片相等**、聆聽答案必須**逐字在逐字稿**（詞邊界）、
+  MC 重複選項／key 不在選項／禁用「all of the above」一律拒絕；批內重複題拒絕。
+- 出題內容全屬平台原創（`ORIGINAL_GENERATED`）；聆聽音訊由平台 TTS 以 AI 語音合成並
+  明確標示（非官方錄音；TTS 不可用時 fail closed 503，永不假造音檔）。
+- `scripts/seed-ielts.ts`：建立原創閱讀／聆聽起始卷，跑到 `QA_REQUIRED` 為止；
+  只有明示 `--reviewer=<teacher/adminUserId>` 才人工核准＋發佈。
+
+### 五、DB／API／UI
+- Migration `20261003_ielts_module`（**純新增** 6 張表：IeltsTest／Section／Question／
+  Attempt／Response／Assessment＋IeltsCalibrationRecord；不改任何既有表；未對任何 DB 執行）。
+- API：`/api/ielts/tests`、`/tests/[id]`、`/attempts`、`/attempts/[id]`、`/attempts/[id]/submit`、
+  `/writing/assess`、`/speaking/assess`、`/progress`、`/status`、`/sections/[id]/audio`、
+  `/admin/questions(+/validate,+/transition)` — 全部沿用 `verifyApiAuth`＋rate limit；
+  attempt 讀取限本人／admin／有班級關係的教師；客戶端自報對錯**永不**採信。
+- UI：`/student/ielts`（儀表板）、`/tests/[id]`（練習＋提交後回饋）、`/writing`、`/speaking`、
+  `/progress`；導航加入「IELTS 備考」；新 i18n 檔 `i18n-ielts.ts`（check:i18n exit 0）。
+
+### 六、驗證（全部本機、未部署）
+- `npm test`：**3435 passed / 2 skipped（185 files）** — HKDSE 回歸零變動（基準 3288/2；
+  新增 147：ielts 模組 132＋路由安全 15）。
+- `npx tsc --noEmit` exit 0；新檔 eslint **0 error**（2 個 React 19 `set-state-in-effect`
+  warning 屬全庫既有降級規則）；`node scripts/check-i18n.js` exit 0。
+- `npx next build` exit 0（新路由全部編譯）；iPad（Safari 15.4）基線產物 `static{` = **0**。
+- `scripts/production-build.js` 內含 `prisma migrate deploy`（需真實 DB）；本機無法連 DB
+  （P1001），**未**對任何資料庫執行 migration — 部署屬另案授權。
+
+### 七、已知限制（誠實標示）
+- 聆聽生產音訊資產 `PARTIALLY_IMPLEMENTED`（只有平台 TTS；無官方錄音，也不假造）。
+- 發音評估 `NOT_VERIFIED`（無聲學分析）；口說完整 band 保留。
+- 校準 `INSUFFICIENT_DATA`（0 對真實人工評分；≥8 對才開始報告一致性，且非官方驗證）。
+- AI 成本 `UNKNOWN`（管線未提供可靠 per-call 成本，不編造數字）；provider 名稱與延遲有記錄。
+
+---
+
 ## 2026-10-01（II）— 教師主頁「班級完成率」重構為「各班級練習總覽」（全校所有班別＋明細）
 
 ### 一、用戶回報
