@@ -46,6 +46,14 @@ describe('starter sets pass the machine screen', () => {
     const slugs = IELTS_STARTER_SETS.map((s) => s.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const set of IELTS_STARTER_SETS) {
+      if (set.skill === 'WRITING') {
+        // Writing sets (2026-10-03 XII): no questions — the full task text is
+        // the teachable content, and the label must be a machine task type.
+        expect(set.questions).toHaveLength(0);
+        expect((set.sectionInstructions ?? '').length).toBeGreaterThan(80);
+        expect(set.sectionLabel).toMatch(/^(academic|general)_task[12]$/);
+        continue;
+      }
       expect(set.questions.length).toBeGreaterThanOrEqual(2);
       expect((set.passageText ?? set.transcriptText ?? '').length).toBeGreaterThan(200);
       // Reading sets need a passage; listening sets need a transcript.

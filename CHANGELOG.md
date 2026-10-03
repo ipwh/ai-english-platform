@@ -4,6 +4,58 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-03（XII）— 生產事故修復：IELTS 遷移未套用、發佈死鎖、寫作題庫空
+
+### 背景（生產實測回報）
+學生端：即時自學「暫時未能出題」；寫作頁「沒有可以練習的題目」。調查確認 AI 預算正常
+（當日 716K／20M tokens），問題在部署層與程式層。
+
+### 一、根因
+1. **遷移排序缺陷（部署層）**：三個同日遷移資料夾名的**字母序**為
+   `..._assessment_rubric_version` ＜ `..._instant_practice` ＜ `..._module`，但
+   rubric_version 依賴 module 建立的 `IeltsAssessment` 表 ⇒ 任何**全新目標庫**第一次
+   `prisma migrate deploy` 一律 P3018（42P01）中止。生產庫（891 生／7,733 場）
+   `_prisma_migrations` 停在 `20260924_listening_question_store` ⇒ IELTS 全表缺失 ⇒
+   所有 IELTS 查詢 P2021 ⇒ 即時出題 500（前端只顯示通用錯誤）。
+2. **狀態機死鎖（程式層）**：教師主控台以**單一動作** POST `{to:'PUBLISHED'}`，但測試卷
+   建於 `DRAFT`；狀態機只允許單步 ⇒ `ILLEGAL_TRANSITION` ⇒ **任何卷（含閱讀／聆聽）
+   都無法發佈**，題庫永遠長不出來。
+3. **寫作題庫結構性空**：起始內容只有閱讀／聆聽；舊 `ensureStarterContent()` 只在
+   「全庫 0 卷」時執行 ⇒ 其他起始卷一旦 provision，寫作題庫永遠補不上。
+
+### 二、修復
+- **遷移更名（強制正確順序）**：`20261003000100_ielts_module` →
+  `20261003000200_ielts_instant_practice` → `20261003000300_ielts_assessment_rubric_version`
+  （舊名從未在任何環境成功套用；失敗記錄已 `resolve --rolled-back` 清理）。
+  **生產庫已補套用全部三個遷移**（本機以 `.env.local` 直連 `prisma migrate deploy`）：
+  7 張 IELTS 表建立完成、0 錯誤。
+- **發佈逐級推進**（`admin-service.transitionIeltsTestStatus`）：目標在正鏈較後時，逐步經
+  `applyTransition`（actor HUMAN、同一 reviewer）驗證後一次寫入；`PUBLISHED` 最終閘門
+  （全題 PUBLISHED、非空、INSTANT 畢業翻 origin）完全不變。
+- **寫作題庫**：起始內容新增 4 個平台自撰寫作任務（Academic T1/T2、GT T1/T2；
+  `sectionInstructions` 寫入 `section.instructions`，0 題目）；`ensureStarterContent()`
+  新增 **top-up 路徑**：已有卷但「無任何 PUBLISHED 寫作 prompt」時只補寫作卷（冪等、
+  P2002 安全；永不適用於 AI 內容）；`GET /api/ielts/writing/prompts` 首次載入自我修復
+  （provision 失敗不影響讀取）。
+- **客觀目錄排除非客觀技能**：`listPublishedTests` 預設 `skill IN (READING, LISTENING)`
+  ——寫作卷永不進入客觀目錄（否則儀表板會給出無法應試的 start 連結）。
+- **即時自學錯誤分流**（學生端）：逐一對應 `AI_BUDGET_EXHAUSTED`／供應商逾時或錯誤／
+  `GENERATION_EMPTY`／每日上限（新增 3 個 i18n 鍵），不再一律通用錯誤。
+- **寫作題型清單單一來源**：`IELTS_WRITING_TASK_TYPES`（domain/types）供 catalog-service
+  與 generation-service 共用（移除兩處本地複本）。
+
+### 三、新增測試
+- `admin-service-transition.test.ts`（7 項）：DRAFT／QA_REQUIRED 逐級發佈、
+  TEST_NOT_READY／TEST_EMPTY 保留、INSTANT 畢業、REJECTED 直達與終態不可復活。
+- 起始卷測試更新：top-up 路徑、寫作卷 0 題目、section instructions 寫入。
+
+### 四、營運備註（部署管線）
+- 請確認 Cloud Build 觸發器使用 `cloudbuild.yaml`（inline／autodetect 設定不會執行
+  Step 1 遷移），且 Secret Manager `DIRECT_DATABASE_URL` 與 Cloud Run 執行期
+  `DATABASE_URL` 指向**同一資料庫**——本次事故的稽核順序顯示兩者可能不一致。
+
+---
+
 ## 2026-10-03（XI）— 學生端就緒審核＋文件全面更新（README）
 
 ### 一、就緒審核（本機）

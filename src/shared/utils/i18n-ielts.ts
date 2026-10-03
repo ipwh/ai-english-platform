@@ -129,6 +129,19 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
     zh: '今日即時練習次數已用完（每日上限 8 次），明天再來。',
     en: 'Daily instant-practice limit reached (8 sets per day). Come back tomorrow.',
   },
+  // 2026-10-03 (XII): distinct failure surfaces — never a single generic error.
+  'ielts.instant.budget': {
+    zh: '今日 AI 用量已達上限，暫停出題（香港時間上午 8 時重置）。閱讀／聆聽既有題庫不受影響。',
+    en: 'The daily AI budget is exhausted, so generation is paused (resets at 8 am HKT). Existing catalogue practice is unaffected.',
+  },
+  'ielts.instant.provider': {
+    zh: 'AI 供應商暫時未能回應，請再試一次（若持續發生，請通知老師）。',
+    en: 'The AI provider did not respond in time. Please try again in a moment.',
+  },
+  'ielts.instant.noContent': {
+    zh: '今次未能生成合格題目（全數未通過品質覆核），請再試一次。',
+    en: 'This attempt produced no items that passed the quality gates. Please try again.',
+  },
   'ielts.instant.banner': {
     zh: 'AI 即時自學練習（未經教師審核）',
     en: 'AI instant self-study (not teacher-reviewed)',

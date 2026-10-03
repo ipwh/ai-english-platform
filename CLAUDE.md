@@ -163,7 +163,7 @@ IELTS — Isolated Practice Subsystem (2026-10-03, PHASE IELTS-01):
     │    on EVERY surface (load/start/submit/audio/explanation). Cap: 8 sets per student
     │    per HKT day + route rate limit + AI budget gate (503). Owner may get advisory
     │    explanations; teacher publish flips origin → CATALOGUE (graduation).
-    │    POST /api/ielts/practice/instant; migration 20261003_ielts_instant_practice.
+    │    POST /api/ielts/practice/instant; migration 20261003000200_ielts_instant_practice.
     └─ Governance: HUMAN_EVIDENCE = INSUFFICIENT, MARKER_EQUIVALENCE = UNPROVEN,
          CALIBRATED_HUMAN_VALIDATED impossible (guarded + contract test), calibration
          report INSUFFICIENT_DATA until ≥8 REAL paired human marks, AI_COST = UNKNOWN.

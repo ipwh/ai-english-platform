@@ -52,6 +52,7 @@ import { emitIeltsEvent } from '../governance/events';
 import * as ieltsRepo from '../repositories/ielts-repo';
 import { IELTS_WRITING_TASKS } from '../writing/criteria';
 import type { IeltsWritingTaskType } from '../domain/types';
+import { IELTS_WRITING_TASK_TYPES } from '../domain/types';
 
 // ============================================
 // Constants
@@ -92,12 +93,8 @@ const LISTENING_ALLOWED_TYPES = new Set<string>([
   'listening_short_answer',
 ]);
 
-const WRITING_TASK_TYPES: readonly IeltsWritingTaskType[] = [
-  'academic_task1',
-  'academic_task2',
-  'general_task1',
-  'general_task2',
-];
+// Single owner: domain/types.ts (2026-10-03 XII).
+const WRITING_TASK_TYPES: readonly IeltsWritingTaskType[] = IELTS_WRITING_TASK_TYPES;
 
 // ============================================
 // Public input / outcome types

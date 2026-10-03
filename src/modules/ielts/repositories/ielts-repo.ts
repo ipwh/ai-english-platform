@@ -32,14 +32,18 @@ export async function createQuestion(data: Prisma.IeltsQuestionCreateInput) {
 }
 
 /** Published CATALOGUE tests only — the delivery surface. Never exposes answer keys.
- * INSTANT (self-study) tests are owner-only and never listed, even once published. */
+ * INSTANT (self-study) tests are owner-only and never listed, even once published.
+ * Objective catalogue only (2026-10-03 XII): WRITING tasks are served through
+ * the writing prompt bank (`listPublishedWritingTests`) and SPEAKING has no test
+ * runner — a writing test must never appear here, or the dashboard would render
+ * an objective "start" link for a task that cannot run. */
 export async function listPublishedTests(filter: { testType?: string; skill?: string }) {
   return db.ieltsTest.findMany({
     where: {
       status: 'PUBLISHED',
       origin: 'CATALOGUE',
+      skill: filter.skill ?? { in: ['READING', 'LISTENING'] },
       ...(filter.testType ? { testType: filter.testType } : {}),
-      ...(filter.skill ? { skill: filter.skill } : {}),
     },
     orderBy: [{ testType: 'asc' }, { skill: 'asc' }, { createdAt: 'asc' }],
     select: {
@@ -184,6 +188,13 @@ export async function listRecentWritingPrompts(testType: string, take = 30) {
     take,
     select: { prompt: true },
   });
+}
+
+/** Count of PUBLISHED writing tests (any origin) — writing-bank provisioning
+ * gate (2026-10-03 XII): a subsystem that predates the writing starter content
+ * only tops up when NO published writing prompt exists at all. */
+export async function countPublishedWritingTests() {
+  return db.ieltsTest.count({ where: { status: 'PUBLISHED', skill: 'WRITING' } });
 }
 
 /** Published WRITING tests with their (single) task section — prompt bank source. */

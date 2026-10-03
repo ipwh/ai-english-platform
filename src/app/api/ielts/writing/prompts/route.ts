@@ -9,7 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { listPublishedWritingPrompts } from '@/modules/ielts';
+import { logger } from '@/shared/logger/logger';
+import { ensureStarterContent, listPublishedWritingPrompts } from '@/modules/ielts';
 
 const RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 };
 
@@ -37,6 +38,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 2026-10-03 (XII): the bank self-heals on first load — when no published
+    // writing prompt exists the platform starter tasks are provisioned
+    // (idempotent; never applies to AI content). A provisioning failure must
+    // never break the bank read.
+    try {
+      await ensureStarterContent();
+    } catch (err) {
+      logger.warn(
+        { module: 'ielts', event: 'ielts.starter.provision_failed', error: err instanceof Error ? err.message : String(err) },
+        'IELTS starter content provisioning failed (writing bank continues)',
+      );
+    }
     const prompts = await listPublishedWritingPrompts(testType);
     return NextResponse.json({ prompts });
   } catch (err) {

@@ -42,6 +42,9 @@ export interface IeltsStarterSet {
   skill: IeltsSkill;
   description: string;
   sectionLabel: string;
+  /** Writing tasks (2026-10-03 XII): full task instructions served as the
+   * section text — the writing bank reads label + instructions, no questions. */
+  sectionInstructions?: string;
   passageText?: string;
   transcriptText?: string;
   questions: IeltsStarterQuestion[];
@@ -288,5 +291,59 @@ export const IELTS_STARTER_SETS: readonly IeltsStarterSet[] = [
         },
       },
     ],
+  },
+  // ---------- Writing starter tasks (2026-10-03 XII, original content) ----------
+  // Students must ALWAYS have writing practice available; these platform-authored
+  // tasks fill the writing bank when no published writing prompt exists. The
+  // section label is the machine task type; `sectionInstructions` is the full
+  // task text shown to the writer (no questions — writing is assessed by the
+  // AI writing evaluator, never by the objective scorer).
+  {
+    slug: 'seed-writing-academic-task1',
+    title: 'Academic Writing Task 1 — Household Technology (original practice task)',
+    testType: 'ACADEMIC',
+    skill: 'WRITING',
+    description:
+      'Original platform-authored practice task: official-style Academic Task 1 (≥150 words, 20 minutes). Not official IELTS material.',
+    sectionLabel: 'academic_task1',
+    sectionInstructions:
+      'The chart below shows the percentage of households in three countries with access to the internet between 2000 and 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words.',
+    questions: [],
+  },
+  {
+    slug: 'seed-writing-academic-task2',
+    title: 'Academic Writing Task 2 — Public Libraries (original practice task)',
+    testType: 'ACADEMIC',
+    skill: 'WRITING',
+    description:
+      'Original platform-authored practice task: official-style Academic Task 2 (≥250 words, 40 minutes). Not official IELTS material.',
+    sectionLabel: 'academic_task2',
+    sectionInstructions:
+      'Some people think that governments should invest more money in public libraries, while others believe this money would be better spent on digital services. Discuss both views and give your own opinion. Write at least 250 words.',
+    questions: [],
+  },
+  {
+    slug: 'seed-writing-general-task1',
+    title: 'General Training Writing Task 1 — Damaged Furniture (original practice task)',
+    testType: 'GENERAL_TRAINING',
+    skill: 'WRITING',
+    description:
+      'Original platform-authored practice task: official-style General Training Task 1 letter (≥150 words, 20 minutes). Not official IELTS material.',
+    sectionLabel: 'general_task1',
+    sectionInstructions:
+      'You recently bought a piece of furniture from a shop, but it arrived damaged. Write a letter to the shop manager. In your letter: explain what you bought and when; describe the damage; say what you would like the manager to do. Write at least 150 words. Begin your letter as follows: Dear Sir or Madam,',
+    questions: [],
+  },
+  {
+    slug: 'seed-writing-general-task2',
+    title: 'General Training Writing Task 2 — Funding University (original practice task)',
+    testType: 'GENERAL_TRAINING',
+    skill: 'WRITING',
+    description:
+      'Original platform-authored practice task: official-style General Training Task 2 (≥250 words, 40 minutes). Not official IELTS material.',
+    sectionLabel: 'general_task2',
+    sectionInstructions:
+      'Some people believe that university education should be free for all students, while others think that students should pay for their own studies. Discuss both views and give your own opinion. Write at least 250 words.',
+    questions: [],
   },
 ];

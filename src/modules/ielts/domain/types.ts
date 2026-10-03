@@ -293,6 +293,16 @@ export type IeltsWritingTaskType =
   | 'general_task1'
   | 'general_task2';
 
+/** Canonical writing task types — SINGLE OWNER (2026-10-03 XII).
+ * Section labels carry the machine task type; delivery surfaces (writing bank,
+ * generation, provisioning) must use this list, never a local copy. */
+export const IELTS_WRITING_TASK_TYPES: readonly IeltsWritingTaskType[] = [
+  'academic_task1',
+  'academic_task2',
+  'general_task1',
+  'general_task2',
+];
+
 export type IeltsSpeakingPartType = 'speaking_part1' | 'speaking_part2' | 'speaking_part3';
 
 export type IeltsWritingCriterionKey =

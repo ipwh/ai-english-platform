@@ -246,9 +246,12 @@ Review-specific questions for this phase:
   import in client code by design).
 - Dedupe material for generation is “recent prompts + recent section-text
   prefixes” (bounded take) — not exhaustive semantic dedupe.
-- **Migrations are not applied to production by this change set.** Both
-  `20261003_ielts_module` and `20261003_ielts_instant_practice` apply through
-  the normal deploy paths (below).
+- **Migrations (updated 2026-10-03 (XII)): renamed to enforce application order
+  and APPLIED to production** — `20261003000100_ielts_module` →
+  `20261003000200_ielts_instant_practice` →
+  `20261003000300_ielts_assessment_rubric_version` (the old ordering hit P3018 on
+  any fresh database). See `CHANGELOG.md` (XII) for the production incident
+  (missing tables → instant practice 500) and the publish-walk fix.
 - `materials/IELTS/` books are pattern-extraction only; no book text/items
   exist in code, prompts or DB (`docs/ielts/IELTS_SOURCES.md` §M1–M3).
 
@@ -294,3 +297,10 @@ executable audit invariants. Reviewers should include this delta:
   i18n / build / Safari baseline unchanged (all green).
 - Migrations pending deployment authorization: `20261003_ielts_module`,
   `20261003_ielts_instant_practice`, `20261003_ielts_assessment_rubric_version`.
+
+**Update (2026-10-03 (XII)):** the three migrations were renamed
+(`20261003000100_ielts_module` → `20261003000200_ielts_instant_practice` →
+`20261003000300_ielts_assessment_rubric_version`) to fix an alphabetical-ordering
+P3018 abort, and were APPLIED to the production database. The publish-path
+deadlock (single-action `PUBLISHED` from `DRAFT` → `ILLEGAL_TRANSITION`) and the
+writing-bank gap were fixed in the same change set — see `CHANGELOG.md` (XII).

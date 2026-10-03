@@ -7,6 +7,10 @@
 //   * Only runs when the IELTS subsystem has NO CATALOGUE tests at all
 //     (idempotent). INSTANT self-study sets created by students never count
 //     and never block provisioning.
+//   * Top-up path (2026-10-03 XII): a subsystem provisioned before the writing
+//     starter tasks existed only receives the writing sets, and only when NO
+//     published writing prompt exists anywhere. Objective sets are never
+//     re-provisioned by the top-up.
 //   * Only provisions `content/starter-sets.ts` — hand-authored, repo-reviewed
 //     platform content. Every question still passes the DETERMINISTIC machine
 //     screen before it is stored.
@@ -18,14 +22,14 @@
 //     Cloud Run instances.
 // ============================================
 
-import { IELTS_STARTER_SETS } from '../content/starter-sets';
+import { IELTS_STARTER_SETS, type IeltsStarterSet } from '../content/starter-sets';
 import { IELTS_DIFFICULTY_MODEL_VERSION } from '../domain/types';
 import { countIeltsWords } from '../domain/word-count';
 import { emitIeltsEvent } from '../governance/events';
 import * as ieltsRepo from '../repositories/ielts-repo';
 import { emptyBatchContext, validateIeltsQuestion } from '../validation/question-validator';
 
-export const STARTER_CONTENT_VERSION = 'starter-content-v1';
+export const STARTER_CONTENT_VERSION = 'starter-content-v2';
 /** Provenance stamp recorded in `reviewedBy` — NOT a user account. */
 export const STARTER_CONTENT_REVIEWER = 'platform-starter-content';
 
@@ -50,12 +54,18 @@ function isUniqueViolation(error: unknown): boolean {
  */
 export async function ensureStarterContent(): Promise<IeltsStarterProvisionResult> {
   const total = await ieltsRepo.countTests();
-  if (total > 0) return { provisioned: false, createdSlugs: [], skipped: [] };
+  let setsToProvision: readonly IeltsStarterSet[] = IELTS_STARTER_SETS;
+  if (total > 0) {
+    const publishedWriting = await ieltsRepo.countPublishedWritingTests();
+    if (publishedWriting > 0) return { provisioned: false, createdSlugs: [], skipped: [] };
+    setsToProvision = IELTS_STARTER_SETS.filter((s) => s.skill === 'WRITING');
+    if (setsToProvision.length === 0) return { provisioned: false, createdSlugs: [], skipped: [] };
+  }
 
   const createdSlugs: string[] = [];
   const skipped: Array<{ slug: string; reason: string }> = [];
 
-  for (const set of IELTS_STARTER_SETS) {
+  for (const set of setsToProvision) {
     try {
       // ---- Deterministic machine screen BEFORE persisting (no AI) ----------
       const batch = emptyBatchContext();
@@ -111,9 +121,10 @@ export async function ensureStarterContent(): Promise<IeltsStarterProvisionResul
         test: { connect: { id: test.id } },
         orderIndex: 0,
         label: set.sectionLabel,
+        instructions: set.sectionInstructions ?? null,
         passageText: set.passageText ?? null,
         transcriptText: set.transcriptText ?? null,
-        wordCount: countIeltsWords(set.passageText ?? set.transcriptText),
+        wordCount: countIeltsWords(set.sectionInstructions ?? set.passageText ?? set.transcriptText),
       });
       await ieltsRepo.createQuestions(
         set.questions.map((q, i) => ({

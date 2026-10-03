@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   countTests: vi.fn(),
+  countPublishedWritingTests: vi.fn(),
   createTest: vi.fn(),
   createSection: vi.fn(),
   createQuestions: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
   countTests: mocks.countTests,
+  countPublishedWritingTests: mocks.countPublishedWritingTests,
   createTest: mocks.createTest,
   createSection: mocks.createSection,
   createQuestions: mocks.createQuestions,
@@ -30,6 +32,8 @@ beforeEach(() => {
   mocks.createTest.mockImplementation(async (data: { slug: string }) => ({ id: `test-${data.slug}` }));
   mocks.createSection.mockResolvedValue({ id: 'section-1' });
   mocks.createQuestions.mockResolvedValue({ count: 1 });
+  // Default: the writing bank already has content (legacy "do nothing" path).
+  mocks.countPublishedWritingTests.mockResolvedValue(1);
 });
 
 describe('ensureStarterContent', () => {
@@ -54,14 +58,38 @@ describe('ensureStarterContent', () => {
       expect(call[0].status).toBe('PUBLISHED');
     }
 
+    // Writing sets carry no questions — every stored question row must still be
+    // stamped PUBLISHED with the platform reviewer.
     for (const call of mocks.createQuestions.mock.calls) {
       const rows = call[0] as Array<{ validationStatus: string; reviewedBy: string; reviewedAt: Date }>;
-      expect(rows.length).toBeGreaterThan(0);
       for (const row of rows) {
         expect(row.validationStatus).toBe('PUBLISHED');
         expect(row.reviewedBy).toBe(STARTER_CONTENT_REVIEWER);
         expect(row.reviewedAt).toBeInstanceOf(Date);
       }
+    }
+
+    // The writing sets must store their task text as section instructions
+    // (the writing bank reads label + instructions; there are no questions).
+    const writingSectionCalls = mocks.createSection.mock.calls.filter((call) => {
+      const data = call[0] as { instructions?: string | null };
+      return typeof data.instructions === 'string' && data.instructions.length > 0;
+    });
+    expect(writingSectionCalls.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('tops up ONLY the writing sets when the subsystem has tests but no published writing prompt', async () => {
+    mocks.countTests.mockResolvedValue(3);
+    mocks.countPublishedWritingTests.mockResolvedValue(0);
+    const result = await ensureStarterContent();
+
+    const writingSlugs = IELTS_STARTER_SETS.filter((s) => s.skill === 'WRITING').map((s) => s.slug);
+    expect(writingSlugs.length).toBeGreaterThan(0);
+    expect(result.provisioned).toBe(true);
+    expect(result.createdSlugs).toEqual(writingSlugs);
+
+    for (const call of mocks.createTest.mock.calls) {
+      expect((call[0] as { skill: string }).skill).toBe('WRITING');
     }
   });
 

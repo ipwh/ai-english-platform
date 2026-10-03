@@ -202,6 +202,15 @@ export async function transitionIeltsQuestionStatus(input: {
   return { ok: true, data: { questionId: input.questionId, status: input.to } };
 }
 
+/** Forward chain of TEST states (2026-10-03 XII). */
+const TEST_STATUS_CHAIN: readonly IeltsValidationStatus[] = [
+  'DRAFT',
+  'AI_VALIDATED',
+  'QA_REQUIRED',
+  'HUMAN_APPROVED',
+  'PUBLISHED',
+];
+
 export async function transitionIeltsTestStatus(input: {
   testId: string;
   to: IeltsValidationStatus;
@@ -210,14 +219,40 @@ export async function transitionIeltsTestStatus(input: {
   const test = await ieltsRepo.getTestById(input.testId);
   if (!test) return { ok: false, status: 404, error: 'Test not found' };
 
-  const transition = applyTransition({
-    from: test.status as IeltsValidationStatus,
-    to: input.to,
-    actor: 'HUMAN',
-    reviewerId: input.reviewerId,
-  });
-  if (!transition.allowed) {
-    return { ok: false, status: 409, error: transition.error ?? 'Transition not allowed' };
+  // 2026-10-03 (XII) — publish fix. The console publishes with ONE human
+  // action, but the state machine only allows single steps. When the target is
+  // further along the forward chain than the current state, each intermediate
+  // step is validated (actor HUMAN, same reviewer) and the walk is applied as
+  // one action. Nothing is bypassed: every step still goes through
+  // applyTransition, and the final PUBLISHED gates below are unchanged.
+  // (Production bug: publishing from DRAFT returned ILLEGAL_TRANSITION, so no
+  // test — objective or writing — could ever reach the catalogue.)
+  const forwardIdx = TEST_STATUS_CHAIN.indexOf(input.to as (typeof TEST_STATUS_CHAIN)[number]);
+  const currentIdx = TEST_STATUS_CHAIN.indexOf(test.status as (typeof TEST_STATUS_CHAIN)[number]);
+  if (forwardIdx > -1 && currentIdx > -1 && forwardIdx > currentIdx) {
+    let walkedStatus = test.status as IeltsValidationStatus;
+    for (let i = currentIdx + 1; i <= forwardIdx; i++) {
+      const step = applyTransition({
+        from: walkedStatus,
+        to: TEST_STATUS_CHAIN[i],
+        actor: 'HUMAN',
+        reviewerId: input.reviewerId,
+      });
+      if (!step.allowed) {
+        return { ok: false, status: 409, error: step.error ?? 'Transition not allowed' };
+      }
+      walkedStatus = TEST_STATUS_CHAIN[i];
+    }
+  } else {
+    const transition = applyTransition({
+      from: test.status as IeltsValidationStatus,
+      to: input.to,
+      actor: 'HUMAN',
+      reviewerId: input.reviewerId,
+    });
+    if (!transition.allowed) {
+      return { ok: false, status: 409, error: transition.error ?? 'Transition not allowed' };
+    }
   }
 
   if (input.to === 'PUBLISHED') {

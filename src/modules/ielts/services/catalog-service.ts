@@ -6,6 +6,7 @@
 // ============================================
 
 import * as ieltsRepo from '../repositories/ielts-repo';
+import { IELTS_WRITING_TASK_TYPES } from '../domain/types';
 import { rowToClientQuestion } from './row-mappers';
 
 export interface IeltsTestSummary {
@@ -50,12 +51,7 @@ export interface IeltsWritingPromptSummary {
   prompt: string;
 }
 
-const WRITING_TASK_TYPES = new Set([
-  'academic_task1',
-  'academic_task2',
-  'general_task1',
-  'general_task2',
-]);
+const WRITING_TASK_TYPES = new Set<string>(IELTS_WRITING_TASK_TYPES);
 
 /**
  * Published Writing task prompts (generated or authored): the section label

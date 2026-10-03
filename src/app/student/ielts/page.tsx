@@ -53,16 +53,24 @@ export default function IeltsDashboardPage() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error === 'INSTANT_DAILY_LIMIT_REACHED' ? 'LIMIT' : String(res.status));
+        const code = body.error ?? '';
+        const key =
+          code === 'INSTANT_DAILY_LIMIT_REACHED'
+            ? 'ielts.instant.dailyLimit'
+            : code === 'AI_BUDGET_EXHAUSTED'
+              ? 'ielts.instant.budget'
+              : code === 'AI_PROVIDER_TIMEOUT' || code === 'AI_PROVIDER_ERROR'
+                ? 'ielts.instant.provider'
+                : code === 'GENERATION_EMPTY' || code === 'AI_INVALID_JSON'
+                  ? 'ielts.instant.noContent'
+                  : 'ielts.instant.failed';
+        setInstantError(t(key));
+        return;
       }
       const data = (await res.json()) as { instant: { testId: string } };
       router.push(`/student/ielts/tests/${data.instant.testId}`);
-    } catch (err) {
-      setInstantError(
-        err instanceof Error && err.message === 'LIMIT'
-          ? t('ielts.instant.dailyLimit')
-          : t('ielts.instant.failed'),
-      );
+    } catch {
+      setInstantError(t('ielts.instant.failed'));
     } finally {
       setInstantLoading(false);
     }
