@@ -12,20 +12,25 @@
 //
 // Failure mapping: bad input → 400 · daily cap → 429 · nothing survived the
 // gates → 422 · timeout → 504 · provider → 502 · budget → 503.
+//
+// 2026-10-04: skill=WRITING is supported (requires writingTaskType); the task
+// is delivered to its owner only and is never listed until a teacher publishes
+// it — instant delivery is NOT publication.
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
 import { isBudgetExceededError } from '@/modules/ai';
-import { generateIeltsInstantPractice } from '@/modules/ielts';
+import { generateIeltsInstantPractice, IELTS_WRITING_TASK_TYPES, type IeltsWritingTaskType } from '@/modules/ielts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 const RATE_LIMIT = { maxRequests: 6, windowMs: 60_000 };
-const SKILLS = new Set(['READING', 'LISTENING']);
+const SKILLS = new Set(['READING', 'LISTENING', 'WRITING']);
 const TEST_TYPES = new Set(['ACADEMIC', 'GENERAL_TRAINING']);
+const WRITING_TASK_TYPES = new Set<string>(IELTS_WRITING_TASK_TYPES);
 const MAX_TOPIC_CHARS = 200;
 
 export async function POST(request: NextRequest) {
@@ -51,12 +56,19 @@ export async function POST(request: NextRequest) {
       testType?: string;
       count?: number;
       topicHint?: string;
+      writingTaskType?: string;
     };
     if (!body.skill || !SKILLS.has(body.skill)) {
-      return NextResponse.json({ error: 'skill must be READING or LISTENING' }, { status: 400 });
+      return NextResponse.json({ error: 'skill must be READING, LISTENING or WRITING' }, { status: 400 });
     }
     if (!body.testType || !TEST_TYPES.has(body.testType)) {
       return NextResponse.json({ error: 'testType must be ACADEMIC or GENERAL_TRAINING' }, { status: 400 });
+    }
+    if (body.skill === 'WRITING' && (!body.writingTaskType || !WRITING_TASK_TYPES.has(body.writingTaskType))) {
+      return NextResponse.json(
+        { error: `writingTaskType must be one of ${IELTS_WRITING_TASK_TYPES.join(', ')} when skill is WRITING` },
+        { status: 400 },
+      );
     }
     if (body.count !== undefined && (typeof body.count !== 'number' || !Number.isInteger(body.count))) {
       return NextResponse.json({ error: 'count must be an integer' }, { status: 400 });
@@ -66,10 +78,13 @@ export async function POST(request: NextRequest) {
 
     const outcome = await generateIeltsInstantPractice({
       userId: authResult.userId,
-      skill: body.skill as 'READING' | 'LISTENING',
+      skill: body.skill as 'READING' | 'LISTENING' | 'WRITING',
       testType: body.testType as 'ACADEMIC' | 'GENERAL_TRAINING',
       count: body.count,
       ...(topicHint ? { topicHint } : {}),
+      ...(body.writingTaskType
+        ? { writingTaskType: body.writingTaskType as IeltsWritingTaskType }
+        : {}),
     });
     if (!outcome.ok) {
       const status =
@@ -81,7 +96,7 @@ export async function POST(request: NextRequest) {
               ? 504
               : outcome.code === 'AI_PROVIDER_ERROR'
                 ? 502
-                : 422; // GENERATION_EMPTY / AI_INVALID_JSON
+                : 422; // GENERATION_EMPTY / WRITING_PROMPT_NOT_CONFORMING / AI_INVALID_JSON
       return NextResponse.json({ error: outcome.code, message: outcome.message }, { status });
     }
     return NextResponse.json({ instant: outcome.data }, { status: 201 });

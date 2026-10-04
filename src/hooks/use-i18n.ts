@@ -7,15 +7,19 @@
 // ============================================
 'use client';
 
+import { useCallback } from 'react';
 import { useUIStore } from '@/store/uiStore';
-import { t } from '@/shared/utils/i18n';
+import { t as translate } from '@/shared/utils/i18n';
 
 export function useT() {
   const language = useUIStore((s) => s.language);
-  return {
-    t: (key: string, vars?: Record<string, string | number>) => {
+  // Identity must be stable per language: callers put `t` in useCallback/useMemo/
+  // useEffect dependency arrays, so a fresh function each render re-fires their
+  // effects (infinite fetch loops, e.g. POST /api/ielts/attempts → 429).
+  const t = useCallback(
+    (key: string, vars?: Record<string, string | number>) => {
       if (!key) return '';
-      let text = t(key, language);
+      let text = translate(key, language);
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
           text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
@@ -23,6 +27,8 @@ export function useT() {
       }
       return text;
     },
-    language,
-  };
+    [language],
+  );
+
+  return { t, language };
 }

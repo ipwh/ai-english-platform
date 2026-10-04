@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
 import { countIeltsWords } from '@/modules/ielts/domain/word-count';
-import { Loader2, Info, AlertTriangle, PencilLine } from 'lucide-react';
+import { Loader2, Info, AlertTriangle, PencilLine, Sparkles } from 'lucide-react';
 
 type TaskType = 'academic_task1' | 'academic_task2' | 'general_task1' | 'general_task2';
 
@@ -77,12 +77,14 @@ export default function IeltsWritingPage() {
   const { t } = useT();
   const [mode, setMode] = useState<'ACADEMIC' | 'GENERAL_TRAINING'>('ACADEMIC');
   const [taskType, setTaskType] = useState<TaskType>('academic_task2');
-  const [source, setSource] = useState<'sample' | 'bank' | 'custom'>('sample');
+  const [source, setSource] = useState<'sample' | 'bank' | 'custom' | 'generated'>('sample');
   const [prompt, setPrompt] = useState(SAMPLE_PROMPTS.academic_task2);
   const [bankPrompts, setBankPrompts] = useState<BankPrompt[]>([]);
   const [bankMode, setBankMode] = useState<string | null>(null);
   const [essay, setEssay] = useState('');
   const [assessing, setAssessing] = useState(false);
+  const [generatingPrompt, setGeneratingPrompt] = useState(false);
+  const [generatedRemaining, setGeneratedRemaining] = useState<number | null>(null);
   const [errorKey, setErrorKey] = useState('');
   const [assessment, setAssessment] = useState<WritingAssessment | null>(null);
 
@@ -139,6 +141,67 @@ export default function IeltsWritingPage() {
     setPrompt(item.prompt);
     setSource('bank');
     resetAssessment();
+  }
+
+  /**
+   * 2026-10-04: on-demand AI writing task (INSTANT self-study).
+   * The task is generated through the same conformance gates as authoring,
+   * belongs to this student only, is clearly labelled NOT teacher-reviewed and
+   * never enters the bank until a teacher publishes it.
+   */
+  async function generateTask() {
+    setGeneratingPrompt(true);
+    setErrorKey('');
+    try {
+      const res = await fetch('/api/ielts/practice/instant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill: 'WRITING', testType: mode, writingTaskType: taskType }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        instant?: { testId: string; remainingToday: number };
+      };
+      if (!res.ok || !body.instant) {
+        const code = body.error ?? '';
+        setErrorKey(
+          code === 'INSTANT_DAILY_LIMIT_REACHED'
+            ? 'ielts.instant.dailyLimit'
+            : code === 'AI_BUDGET_EXHAUSTED'
+              ? 'ielts.instant.budget'
+              : code === 'AI_PROVIDER_TIMEOUT' || code === 'AI_PROVIDER_ERROR'
+                ? 'ielts.instant.provider'
+                : code === 'WRITING_PROMPT_NOT_CONFORMING' ||
+                    code === 'GENERATION_EMPTY' ||
+                    code === 'AI_INVALID_JSON'
+                  ? 'ielts.instant.noContent'
+                  : 'ielts.instant.failed',
+        );
+        return;
+      }
+
+      // The prompt text comes from the canonical task record (never duplicated
+      // in the generation response).
+      const detail = await fetch(`/api/ielts/tests/${body.instant.testId}`);
+      if (!detail.ok) throw new Error('TASK_LOAD_FAILED');
+      const data = (await detail.json()) as {
+        test: { sections: Array<{ instructions: string | null }> };
+      };
+      const promptText =
+        data.test.sections.map((s) => (s.instructions ?? '').trim()).find((text) => text.length > 0) ?? '';
+      if (!promptText) {
+        setErrorKey('ielts.instant.noContent');
+        return;
+      }
+      setPrompt(promptText);
+      setSource('generated');
+      setGeneratedRemaining(body.instant.remainingToday);
+      resetAssessment();
+    } catch {
+      setErrorKey('ielts.instant.failed');
+    } finally {
+      setGeneratingPrompt(false);
+    }
   }
 
   async function assess() {
@@ -247,6 +310,31 @@ export default function IeltsWritingPage() {
             </button>
           ))}
         </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void generateTask()}
+            disabled={generatingPrompt}
+            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+          >
+            {generatingPrompt ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            {generatingPrompt ? t('ielts.writing.generating') : t('ielts.writing.generate')}
+          </button>
+          <span className="text-[11px] text-slate-500">
+            {generatedRemaining === null
+              ? t('ielts.writing.generateHint')
+              : t('ielts.writing.generateRemaining', { count: generatedRemaining })}
+          </span>
+        </div>
+        {source === 'generated' && (
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            {t('ielts.writing.generatedNotice')}
+          </p>
+        )}
         {source === 'bank' && (
           <div className="mt-2 space-y-1.5">
             <p className="text-[11px] text-slate-500">

@@ -187,6 +187,13 @@ Rules:
    Longer term, `audioId` will reference stored audio assets. See
    `IELTS_IMPLEMENTATION_REPORT.md` §Known limitations (production audio assets
    remain `PARTIALLY_IMPLEMENTED`).
+   **Speaker labels are never spoken** (2026-10-04): `parseDialogueForTTS` strips
+   every recognisable speaker label — known voices (`Man:`/`Woman:`/`Boy:`/`Girl:`),
+   role words (`Librarian:`, `RECEPTIONIST:`), markdown-decorated and inline labels
+   (single-line transcripts) — and assigns one voice per role (unknown roles
+   alternate female/male). Label-only lines are silent. The stored transcript is
+   **never rewritten** (evidence quotes keep matching); stripping happens only on
+   the synthesis path.
 4. **Contracted words are never tested** (official Listening wording, re-fetched
    2026-10-03): word-limited Listening keys that are contractions (`isn't`,
    `they're`, `don't`…) are **rejected** (`LISTENING_CONTRACTION_KEY`). Names
@@ -241,15 +248,21 @@ Rules:
 > provides generation + per-question approval + test publishing; students only
 > ever see PUBLISHED items.
 >
-> **Instant self-study (2026-10-03 VII).** `POST /api/ielts/practice/instant`
-> lets a student generate practice on demand — explicitly NOT publication. The
-> set is stored as a DRAFT test with `origin='INSTANT'` + `ownerUserId` and
-> QA_REQUIRED questions; it is deliverable ONLY to its owner, is never listed
-> in the catalogue, and is labelled “AI instant self-study (NOT
-> teacher-reviewed)” on every surface. The same machine screen + blind-solve
-> gates apply; per-student cap = 8 sets per Hong Kong day. A teacher can review
-> the set in the console; publishing it flips `origin` to 'CATALOGUE'
-> (graduation through the normal human path — AI still never publishes).
+> **Instant self-study (2026-10-03 VII · writing added 2026-10-04).**
+> `POST /api/ielts/practice/instant` lets a student generate practice on demand —
+> explicitly NOT publication. The set is stored as a DRAFT test with
+> `origin='INSTANT'` + `ownerUserId` and QA_REQUIRED questions; it is deliverable
+> ONLY to its owner, is never listed in the catalogue, and is labelled “AI instant
+> self-study (NOT teacher-reviewed)” on every surface. Reading/listening sets pass
+> the machine screen + blind-solve gates; writing tasks (`skill:'WRITING'` +
+> `writingTaskType`, which must match the variant) pass the same prompt-conformance
+> check used for authoring (`generateIeltsWritingTask` with `deliveryMode:'INSTANT'`).
+> The per-student cap is **8 sets per Hong Kong day, shared across reading,
+> listening and writing**. Writing self-study is solved and assessed on
+> `/student/ielts/writing` (the prompt is read from the canonical owner-only
+> record; the AI assessment flow is unchanged). A teacher can review any generated
+> set/task in the console; publishing it flips `origin` to 'CATALOGUE' (graduation
+> through the normal human path — AI still never publishes).
 
 ```
 SOURCE → CONTENT EXTRACTION → QUESTION GENERATION → STRUCTURAL VALIDATION

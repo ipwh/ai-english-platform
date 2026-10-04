@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3559 pass / 2 skipped (193 files passed, 2 skipped — fully green; IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates, 2026-10-03). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
+- **Testing**: Vitest 4, 3590 pass / 2 skipped (196 files passed, 2 skipped — fully green; incl. the `useT()` stability guard and the TTS speaker-label guard; IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates, 2026-10-03). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run。**部署必先套用遷移**（2026-10-03 V）：`cloudbuild.yaml` Step 1 執行 `prisma migrate deploy`（Secret Manager `DIRECT_DATABASE_URL`；失敗即中止），`scripts/cloud-run-deploy.ps1` Step 2 亦先遷移；Cloud Build 併發 = 50（事故基線）
 - **Key modules**: 23 under `src/modules/` (including 5 AI infra + foundation modules, `listening/` — the server-owned listening question store added 2026-09-21 — and `ielts/` — the isolated IELTS-style practice subsystem added 2026-10-03)
 - **API routes**: 115 under `src/app/api/`
@@ -155,14 +155,21 @@ IELTS — Isolated Practice Subsystem (2026-10-03, PHASE IELTS-01):
     │    (deterministic scoring stands); band/examiner wording stripped sentence-wise
     │    (FORBIDDEN_CLAIM_FILTERED; all-filtered ⇒ 422 AI_OUTPUT_FILTERED); quotes the
     │    passage/transcript; prompt injection defended; POST /api/ielts/mistakes/explain.
-    ├─ Instant self-study (2026-10-03 VII): generateIeltsInstantPractice() — on-demand
-    │    practice WITHOUT weakening the no-publish invariant. IeltsTest.origin='INSTANT'
-    │    + ownerUserId; delivered to the requester ONLY, labelled "not teacher-reviewed";
-    │    never listed (catalogue filters origin='CATALOGUE'); same machine screen +
-    │    blind-solve gates; persisted state stays DRAFT + QA_REQUIRED. Non-owner blocked
-    │    on EVERY surface (load/start/submit/audio/explanation). Cap: 8 sets per student
-    │    per HKT day + route rate limit + AI budget gate (503). Owner may get advisory
-    │    explanations; teacher publish flips origin → CATALOGUE (graduation).
+    ├─ Instant self-study (2026-10-03 VII · WRITING added 2026-10-04):
+    │    generateIeltsInstantPractice() — on-demand practice WITHOUT weakening the
+    │    no-publish invariant. IeltsTest.origin='INSTANT' + ownerUserId; delivered to
+    │    the requester ONLY, labelled "not teacher-reviewed"; never listed (catalogue
+    │    filters origin='CATALOGUE'); same machine screen + blind-solve gates; persisted
+    │    state stays DRAFT + QA_REQUIRED. Non-owner blocked on EVERY surface
+    │    (load/start/submit/audio/explanation). Cap: 8 sets per student per HKT day
+    │    (ONE shared budget for reading/listening sets AND writing tasks) + route rate
+    │    limit + AI budget gate (503). WRITING requires `writingTaskType`
+    │    (academic_task1/2 ↔ ACADEMIC, general_task1/2 ↔ GENERAL_TRAINING) and is a
+    │    single task generated through the SAME conformance check as authoring
+    │    (generateIeltsWritingTask with deliveryMode:'INSTANT'); the student UI
+    │    (/student/ielts/writing) reads the prompt from the canonical owner-only record,
+    │    never a duplicated copy. Owner may get advisory explanations; teacher publish
+    │    flips origin → CATALOGUE (graduation).
     │    POST /api/ielts/practice/instant; migration 20261003000200_ielts_instant_practice.
     └─ Governance: HUMAN_EVIDENCE = INSUFFICIENT, MARKER_EQUIVALENCE = UNPROVEN,
          CALIBRATED_HUMAN_VALIDATED impossible (guarded + contract test), calibration
@@ -261,6 +268,7 @@ Dev tooling:
 - 教師主頁班級數據（各班完成次數／參與人數／參與率／正確率；2026-10-01）: `teacher/monitoring/services/class-stats-service.ts` — 全校（排除 Demo）每班一列；累積走 `aggregateVerifiedTotalsForStudents()`（每生一列，**禁止**「最新 N 筆」）；名單＝`User.classId` ∪ `StudentClass`；無證據 ⇒ `accuracy = null`；入口 `GET /api/teacher/class-stats`（教師＋管理員；**只含聚合數字、無學生層級資料**）；UI 端**禁止**再以 `slice(0, N)`／作業完成率自行拼圖
 - 診斷評分與自評邊界（Diagnostic Scoring Authority）: `assessment/services/diagnostic-scoring-service.ts` — 可評分題組（文法／閱讀／聆聽）經正典 `submitPractice` 評分＋持久化（可驗證證據）；詞彙／寫作在 evidence 契約無權威評分法 → 永久標示自評、不計入準確率
 - AI Execution: `ai/services/ai-execution.ts`
+- TTS 對話解析（講者標籤剝離與角色配音）: `ai/services/tts-service.ts` 的 `parseDialogueForTTS` — 對話 → 語音分段的唯一 owner；必須剝離所有可辨識講者標籤（`Man:`／`Woman:`、角色詞 `Librarian:`／`NARRATOR:`、markdown／括號裝飾、**行內標籤**），每角色固定一把聲音（未知角色女／男輪替），只有標籤的行靜音；**儲存的逐字稿永不改寫**（`transcriptQuote` 證據比對依賴原文）；正文連接詞（`However:`／`Note:`）永不當作角色（2026-10-04 生產事故：起始卷 `Librarian:`／`Visitor:` 標籤被朗讀）
 - XP 事件政策（白名單＋伺服器去重鍵）: `student/progress/services/xp-event-policy.ts` — 唯一的事件白名單與去重鍵來源；`POST /api/gamification` 永不採信客戶端 `idempotencyKey`／`streakDays`／`difficulty`；鍵按 `studentId` 界定（全庫唯一索引）。數值表：`student/progress/services/gamification.ts`
 - XP 難度與身分解析（伺服器權威）: `exercise/services/question-difficulty-resolution.ts` — `resolveAnswerXpIdentity()` 由 `questionId` 查正典題目（Grammar／Reading／Listening）：難度（只有 `GrammarQuestion` 有 difficulty；其餘 `core`）＋**內容指紋**（sha256；對選項洗牌／重新生成的新 id 穩定，供 answer XP 去重鍵）；查無此題 ⇒ null（呼叫端拒絕發 XP）、查詢故障 ⇒ 拋出
 - Answer Verification (生成題目答案鍵覆核，交付前把關): `ai/services/answer-verification.ts` — 決定性缺陷螢幕（補位選項／重複選項／解說自認有誤）＋ 第二次獨立 LLM pass **blind-solve**；驗證器**永不**看到答案鍵；只有 `soundness === 'ok'` 且 blind 答案等於答案鍵才可交付（prompt: `ai/prompts/grammar/answer-verification.ts`，PromptRegistry `GenerateQuestionsAnswerVerification`）。**2026-09-27（覆核 v2）**：轉換題（轉述句等）必須有**單一選項同時滿足解說列出的全部轉換**，否則判 `flawed` 丟棄；禁止挑「最接近」的半對選項（實例：`we had to` 曾以半對選項被當成正解交付，學生選 `they must` 被誤判錯）

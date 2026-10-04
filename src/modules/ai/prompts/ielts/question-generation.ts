@@ -126,6 +126,11 @@ export function buildIeltsQuestionGenerationSystemPrompt(
   about study/academic work; Part 4: academic-style monologue (lecture extract).
 - Write the transcript as speaker-labelled dialogue or monologue, 350–600 words,
   natural spoken register (contractions, hesitation allowed but limited).
+- Label EVERY speaker turn exactly \`Man:\` or \`Woman:\` (a third speaker in a
+  Part 3 discussion: \`Woman 2:\`), each turn starting on its own line. Never use
+  job titles, role words or personal names as labels. The platform synthesises
+  the audio from this transcript and would otherwise read the label aloud.
+  A monologue needs no labels (one voice is used).
 - Item types available: multiple_choice (3 options), matching,
   form_note_table_flowchart_completion, sentence_completion, short_answer,
   plan_map_diagram_labelling (text-answer variant only).

@@ -123,11 +123,19 @@ export default function IeltsTestPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ testId }),
       });
-      if (!attemptRes.ok) throw new Error('ATTEMPT_START_FAILED');
+      if (!attemptRes.ok) {
+        // Surface the server's own message (e.g. the bilingual rate-limit text)
+        // instead of an opaque generic error, so a blocked student can act.
+        const body = (await attemptRes.json().catch(() => ({}))) as { message?: string; error?: string };
+        throw new Error(body.message || body.error || 'ATTEMPT_START_FAILED');
+      }
       const attemptData = (await attemptRes.json()) as { attempt: { id: string } };
       setAttemptId(attemptData.attempt.id);
-    } catch {
-      setError(t('ielts.error.generic'));
+    } catch (err) {
+      // Show the server's own message (e.g. the bilingual rate-limit text) when it
+      // is human-readable; internal SCREAMING_CASE codes fall back to the generic one.
+      const serverMessage = err instanceof Error ? err.message : '';
+      setError(serverMessage && !/^[A-Z_]+$/.test(serverMessage) ? serverMessage : t('ielts.error.generic'));
     } finally {
       setLoading(false);
     }
@@ -211,9 +219,21 @@ export default function IeltsTestPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
         <p className="text-sm text-red-600">{error || t('ielts.error.generic')}</p>
-        <Link href="/student/ielts" className="mt-4 inline-block text-sm text-indigo-600 hover:underline">
-          ← {t('ielts.title')}
-        </Link>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              void load();
+            }}
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            {t('common.retry')}
+          </button>
+          <Link href="/student/ielts" className="text-sm text-indigo-600 hover:underline">
+            ← {t('ielts.title')}
+          </Link>
+        </div>
       </div>
     );
   }

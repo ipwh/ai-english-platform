@@ -51,14 +51,28 @@ function generationOk(overrides: Record<string, unknown> = {}) {
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
+  generateWriting: vi.fn(),
   countCreatedSince: vi.fn(),
 }));
 
 function deps() {
   return {
     generate: mocks.generate,
+    generateWriting: mocks.generateWriting,
     countCreatedSince: mocks.countCreatedSince,
     now: () => NOW,
+  };
+}
+
+function writingOk(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true as const,
+    testId: 'instant-writing-1',
+    testStatus: 'DRAFT' as const,
+    taskType: 'academic_task2' as const,
+    testType: 'ACADEMIC' as const,
+    durationMs: 400,
+    ...overrides,
   };
 }
 
@@ -73,6 +87,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.countCreatedSince.mockResolvedValue(0);
   mocks.generate.mockResolvedValue(generationOk());
+  mocks.generateWriting.mockResolvedValue(writingOk());
 });
 
 describe('generateIeltsInstantPractice — delivery + quota', () => {
@@ -139,7 +154,7 @@ describe('generateIeltsInstantPractice — delivery + quota', () => {
 describe('generateIeltsInstantPractice — validation & typed failures', () => {
   it('rejects unsupported skills and test types (INVALID_INPUT, no generation)', async () => {
     const badSkill = await generateIeltsInstantPractice(
-      { ...baseInput, skill: 'WRITING' as never },
+      { ...baseInput, skill: 'SPEAKING' as never },
       deps(),
     );
     expect(badSkill.ok).toBe(false);
@@ -153,6 +168,7 @@ describe('generateIeltsInstantPractice — validation & typed failures', () => {
     if (!badType.ok) expect(badType.code).toBe('INVALID_INPUT');
 
     expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.generateWriting).not.toHaveBeenCalled();
   });
 
   it('rejects out-of-range counts per skill (3–14 reading, 3–10 listening)', async () => {
@@ -190,5 +206,104 @@ describe('generateIeltsInstantPractice — validation & typed failures', () => {
     await expect(generateIeltsInstantPractice(baseInput, deps())).rejects.toThrow(
       'AI daily budget exhausted',
     );
+  });
+});
+
+// 2026-10-04: WRITING joins the on-demand self-study path (same owner-only /
+// never-listed semantics, one shared daily budget).
+describe('generateIeltsInstantPractice — instant writing tasks', () => {
+  const writingInput = {
+    userId: 'student-1',
+    skill: 'WRITING' as const,
+    testType: 'ACADEMIC' as const,
+    writingTaskType: 'academic_task2' as const,
+  };
+
+  it('generates one INSTANT writing task and reports quota', async () => {
+    mocks.countCreatedSince.mockResolvedValue(3);
+
+    const outcome = await generateIeltsInstantPractice(writingInput, deps());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.data.testId).toBe('instant-writing-1');
+    expect(outcome.data.skill).toBe('WRITING');
+    expect(outcome.data.requestedCount).toBe(1);
+    expect(outcome.data.deliveredCount).toBe(1);
+    expect(outcome.data.shortfall).toBe(0);
+    expect(outcome.data.remainingToday).toBe(IELTS_INSTANT_PRACTICE_DAILY_LIMIT - 4);
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.generateWriting).toHaveBeenCalledWith({
+      userId: 'student-1',
+      testType: 'ACADEMIC',
+      writingTaskType: 'academic_task2',
+      topicHint: undefined,
+      deliveryMode: 'INSTANT',
+    });
+  });
+
+  it('shares the same Hong Kong-day cap as reading/listening instant practice', async () => {
+    mocks.countCreatedSince.mockResolvedValue(IELTS_INSTANT_PRACTICE_DAILY_LIMIT);
+
+    const outcome = await generateIeltsInstantPractice(writingInput, deps());
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('INSTANT_DAILY_LIMIT_REACHED');
+    expect(mocks.generateWriting).not.toHaveBeenCalled();
+    const since = mocks.countCreatedSince.mock.calls[0][1] as Date;
+    expect(since.toISOString()).toBe(hkStartOfDay(NOW).toISOString());
+  });
+
+  it('requires a writing task type and a matching test variant', async () => {
+    const missing = await generateIeltsInstantPractice(
+      { userId: 'student-1', skill: 'WRITING', testType: 'ACADEMIC' },
+      deps(),
+    );
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) expect(missing.code).toBe('INVALID_INPUT');
+
+    const unknown = await generateIeltsInstantPractice(
+      { ...writingInput, writingTaskType: 'academic_task9' as never },
+      deps(),
+    );
+    expect(unknown.ok).toBe(false);
+    if (!unknown.ok) expect(unknown.code).toBe('INVALID_INPUT');
+
+    const wrongVariant = await generateIeltsInstantPractice(
+      { ...writingInput, testType: 'GENERAL_TRAINING' },
+      deps(),
+    );
+    expect(wrongVariant.ok).toBe(false);
+    if (!wrongVariant.ok) expect(wrongVariant.code).toBe('INVALID_INPUT');
+
+    expect(mocks.generateWriting).not.toHaveBeenCalled();
+  });
+
+  it('accepts general training task types for the GT variant', async () => {
+    mocks.generateWriting.mockResolvedValue(
+      writingOk({ taskType: 'general_task1', testType: 'GENERAL_TRAINING' }),
+    );
+
+    const outcome = await generateIeltsInstantPractice(
+      { userId: 'student-1', skill: 'WRITING', testType: 'GENERAL_TRAINING', writingTaskType: 'general_task1' },
+      deps(),
+    );
+
+    expect(outcome.ok).toBe(true);
+    expect(mocks.generateWriting).toHaveBeenCalledWith(
+      expect.objectContaining({ writingTaskType: 'general_task1', testType: 'GENERAL_TRAINING' }),
+    );
+  });
+
+  it('passes a non-conforming prompt failure through untouched', async () => {
+    mocks.generateWriting.mockResolvedValue({
+      ok: false,
+      code: 'WRITING_PROMPT_NOT_CONFORMING',
+      message: 'Did not pass the conformance check after retrying.',
+    });
+
+    const outcome = await generateIeltsInstantPractice(writingInput, deps());
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('WRITING_PROMPT_NOT_CONFORMING');
   });
 });

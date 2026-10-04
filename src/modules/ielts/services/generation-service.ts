@@ -750,6 +750,13 @@ export interface IeltsWritingGenerationInput {
   testType: IeltsTestType;
   writingTaskType: IeltsWritingTaskType;
   topicHint?: string;
+  /**
+   * 'CATALOGUE' (default): teacher-reviewed catalogue content.
+   * 'INSTANT': on-demand self-study task owned by the requesting student —
+   * owner-only delivery, never listed. Persisted state is UNCHANGED (DRAFT test
+   * + QA_REQUIRED question): instant delivery is not publication.
+   */
+  deliveryMode?: 'CATALOGUE' | 'INSTANT';
 }
 
 export async function generateIeltsWritingTask(
@@ -835,9 +842,12 @@ export async function generateIeltsWritingTask(
     }
 
     // ---- Persist (QA_REQUIRED — human approval still required) ------------
+    const isInstant = input.deliveryMode === 'INSTANT';
     const contentSource = {
       type: 'ORIGINAL_GENERATED' as const,
-      notes: 'AI-assisted generation (DeepSeek) — platform-original IELTS-style task; not official IELTS material; awaiting human QA review.',
+      notes: isInstant
+        ? 'AI-assisted generation (DeepSeek) — platform-original IELTS-style task; not official IELTS material. Delivered as INSTANT self-study practice to the requesting student (conformance-checked only; NOT human-reviewed).'
+        : 'AI-assisted generation (DeepSeek) — platform-original IELTS-style task; not official IELTS material; awaiting human QA review.',
     };
     const variantTag = input.testType === 'ACADEMIC' ? 'academic' : 'gt';
     const test = await ieltsRepo.createTest({
@@ -848,8 +858,12 @@ export async function generateIeltsWritingTask(
         } — AI-generated task`,
       testType: input.testType,
       skill: 'WRITING',
-      description: 'AI-generated IELTS-style writing task (platform original). Conformance-checked; awaiting human QA before publication.',
+      description: isInstant
+        ? 'AI-generated IELTS-style writing task (platform original). Conformance-checked; not teacher-reviewed self-study practice (never listed until a teacher publishes it).'
+        : 'AI-generated IELTS-style writing task (platform original). Conformance-checked; awaiting human QA before publication.',
       status: 'DRAFT',
+      origin: isInstant ? 'INSTANT' : 'CATALOGUE',
+      ownerUserId: isInstant ? input.userId : null,
       durationMinutes: config.recommendedMinutes,
       contentSource: JSON.stringify(contentSource),
     });

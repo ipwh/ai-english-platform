@@ -245,6 +245,21 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
     zh: '此組別暫無已發佈題目，可使用內建範例或自訂題目。',
     en: 'No published prompts for this variant yet — use a built-in sample or a custom prompt.',
   },
+  // 2026-10-04：學生可即時 AI 生成寫作題目（即時自學；未經教師審核、永不自動入庫）
+  'ielts.writing.generate': { zh: 'AI 生成題目', en: 'AI-generate a task' },
+  'ielts.writing.generating': { zh: '生成中…（可能需 1–2 分鐘）', en: 'Generating… (may take 1–2 minutes)' },
+  'ielts.writing.generateHint': {
+    zh: '依你選取的組別與題型即時出題；與閱讀／聆聽即時練習共用每日上限（8 次）。',
+    en: 'Generates a task for the selected variant and task type; shares the daily cap (8 sets) with instant reading/listening practice.',
+  },
+  'ielts.writing.generateRemaining': {
+    zh: '今日尚可生成 {count} 份即時練習。',
+    en: '{count} instant set(s) left today.',
+  },
+  'ielts.writing.generatedNotice': {
+    zh: '此題目由 AI 即時生成、未經教師審核（只作練習用途，永不自動加入題庫）；題目已通過格式一致性檢查。',
+    en: 'This task was generated on demand and is NOT teacher-reviewed (practice only; never auto-published). It passed the format conformance check.',
+  },
 
   'ielts.assessment.taskBand': { zh: '任務估算分', en: 'Estimated task band' },
   'ielts.assessment.criteria': { zh: '四項官方準則', en: 'Four official criteria' },

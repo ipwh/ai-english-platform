@@ -67,6 +67,8 @@ vi.mock('@/modules/ielts', () => ({
   explainIeltsMistake: mocks.explainIeltsMistake,
   // Route module-scope constant (admin/generate validates targetBand against it).
   IELTS_TARGET_BAND_VALUES: ['TARGET_BAND_6'],
+  // Route module-scope constant (practice/instant validates writingTaskType).
+  IELTS_WRITING_TASK_TYPES: ['academic_task1', 'academic_task2', 'general_task1', 'general_task2'],
 }));
 
 vi.mock('@/modules/teacher/copilot/services/teacher-copilot-service', () => ({
@@ -449,9 +451,62 @@ describe('POST /api/ielts/practice/instant — on-demand self-study, never publi
 
   it('rejects invalid skill (400)', async () => {
     const response = await instantPractice(
-      jsonRequest('http://x/api/ielts/practice/instant', { ...validBody, skill: 'WRITING' }),
+      jsonRequest('http://x/api/ielts/practice/instant', { ...validBody, skill: 'SPEAKING' }),
     );
     expect(response.status).toBe(400);
+  });
+
+  it('rejects WRITING without a writingTaskType (400)', async () => {
+    const response = await instantPractice(
+      jsonRequest('http://x/api/ielts/practice/instant', { skill: 'WRITING', testType: 'ACADEMIC' }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects an unknown writingTaskType (400)', async () => {
+    const response = await instantPractice(
+      jsonRequest('http://x/api/ielts/practice/instant', {
+        skill: 'WRITING',
+        testType: 'ACADEMIC',
+        writingTaskType: 'academic_task9',
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.generateIeltsInstantPractice).not.toHaveBeenCalled();
+  });
+
+  it('accepts an on-demand WRITING task and forwards it as INSTANT self-study (201)', async () => {
+    mocks.generateIeltsInstantPractice.mockResolvedValue({
+      ok: true,
+      data: {
+        testId: 'instant-writing-1',
+        skill: 'WRITING',
+        testType: 'ACADEMIC',
+        requestedCount: 1,
+        deliveredCount: 1,
+        shortfall: 0,
+        remainingToday: 5,
+        durationMs: 800,
+      },
+    });
+
+    const response = await instantPractice(
+      jsonRequest('http://x/api/ielts/practice/instant', {
+        skill: 'WRITING',
+        testType: 'ACADEMIC',
+        writingTaskType: 'academic_task2',
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.generateIeltsInstantPractice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'student-1',
+        skill: 'WRITING',
+        testType: 'ACADEMIC',
+        writingTaskType: 'academic_task2',
+      }),
+    );
   });
 
   it('delivers the owner-scoped set id with honest remaining-quota meta (201)', async () => {

@@ -85,38 +85,180 @@ export interface DialogueSegment {
   text: string;
 }
 
-const SPEAKER_LINE_RE = /^(Woman|Man|Boy|Girl)\s*[:：\-–—]\s*(.+)$/i;
+type DialogueSpeaker = DialogueSegment['speaker'];
 
-/** Catch abbreviated labels (W:, M:, B:, G:) that slipped past normalization */
-const ABBREVIATED_SPEAKER_RE = /^([WwMmBbGg])\s*[:：\-–—]\s*(.+)$/;
+/** 未知角色取用語音的輪替順序（依首次出現順序取未被佔用者）。 */
+const VOICE_ROTATION: readonly DialogueSpeaker[] = ['woman', 'man', 'boy', 'girl'];
 
-/** Expand single-letter abbreviation to full speaker label */
-const SPEAKER_ABBREV_MAP: Record<string, 'woman' | 'man' | 'boy' | 'girl'> = {
-  w: 'woman', m: 'man', b: 'boy', g: 'girl',
+/** 固定語音標籤：性別／年齡有意義，亦含單字母縮寫 W/M/B/G。 */
+const FIXED_LABELS: Record<string, DialogueSpeaker> = {
+  w: 'woman', woman: 'woman', female: 'woman', lady: 'woman',
+  m: 'man', man: 'man', male: 'man',
+  b: 'boy', boy: 'boy',
+  g: 'girl', girl: 'girl',
 };
 
-export function parseDialogueForTTS(text: string): DialogueSegment[] {
-  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-  const segments: DialogueSegment[] = [];
+/**
+ * 角色詞：即使只出現一次也必然是講者標籤。
+ * 2026-10-04 事故：正式環境 IELTS 起始卷的講者寫成 "Librarian:"／"Visitor:"，
+ * 舊碼只認 Woman/Man/Boy/Girl，於是整句連角色名一併朗讀（且全用同一把女聲）。
+ */
+const SPEAKER_ROLE_WORDS = new Set([
+  'narrator', 'speaker', 'presenter', 'host', 'announcer', 'guide', 'instructor',
+  'examiner', 'interviewer', 'receptionist', 'librarian', 'clerk', 'assistant', 'agent',
+  'officer', 'manager', 'secretary', 'waiter', 'waitress', 'shopkeeper', 'driver',
+  'passenger', 'student', 'teacher', 'tutor', 'lecturer', 'professor', 'doctor', 'nurse',
+  'patient', 'customer', 'visitor', 'caller', 'applicant', 'colleague', 'classmate',
+  'neighbour', 'neighbor', 'tourist', 'friend', 'coach', 'supervisor', 'technician',
+  'adviser', 'advisor', 'coordinator', 'organiser', 'organizer', 'volunteer', 'member',
+  'guest', 'resident', 'owner', 'employer', 'employee', 'client', 'candidate',
+  'chair', 'chairperson', 'moderator', 'panelist', 'spokesperson', 'representative',
+]);
 
-  for (const line of lines) {
-    const match = line.match(SPEAKER_LINE_RE);
-    if (match) {
-      const speaker = match[1].toLowerCase() as 'woman' | 'man' | 'boy' | 'girl';
-      const spokenText = match[2].trim();
-      segments.push({ speaker, text: spokenText });
-    } else {
-      // Check for abbreviated labels (W:, M:, B:, G:) that escaped normalization
-      const abbrevMatch = line.match(ABBREVIATED_SPEAKER_RE);
-      if (abbrevMatch) {
-        const speaker = SPEAKER_ABBREV_MAP[abbrevMatch[1].toLowerCase()] || 'woman';
-        const spokenText = abbrevMatch[2].trim();
-        segments.push({ speaker, text: spokenText });
-      } else {
-        // 沒有角色標籤的行 → 用預設女聲
-        segments.push({ speaker: 'woman', text: line });
-      }
+/** 看似標籤、實為話語本身的連接詞／標記 —— 永不當作講者，否則會吃掉正文。 */
+const NON_SPEAKER_MARKERS = new Set([
+  'however', 'therefore', 'moreover', 'furthermore', 'firstly', 'secondly', 'thirdly',
+  'finally', 'note', 'notes', 'question', 'answer', 'example', 'tip', 'summary',
+  'warning', 'conclusion', 'importantly', 'interestingly', 'remember',
+]);
+
+/**
+ * 一個標籤最多 3 個詞（詞間只允許空格／Tab —— 不得跨行）。
+ * 詞內不得含句點：否則 "… she is nine. Librarian:" 會被貪婪匹配成
+ * "is nine. Librarian" 這個假標籤，吃掉上一句正文。縮寫（Ms.／Dr.）以
+ * 專用前綴支援。
+ */
+const LABEL_WORDS =
+  String.raw`(?:[A-Za-z]{1,3}\.[ \t]+)?[A-Za-z][A-Za-z0-9&'’\-]*(?:[ \t]+[A-Za-z0-9&'’\-]+){0,2}`;
+const LABEL_DECORATION = String.raw`(?:\*\*|__|\*|_|\[|\()?`;
+const LABEL_DECORATION_END = String.raw`(?:\]|\))?`;
+const LABEL_DECORATION_TRAIL = String.raw`(?:\*\*|__|\*|_)?`;
+const LABEL_SEPARATOR = String.raw`[:：\-–—]`;
+
+/**
+ * 行首（或空白／換行後）的講者標籤，容忍 markdown／括號裝飾，後接冒號或破折號。
+ * 標籤本身保留在輸出中，交由行解析決定角色（避免切段時遺失角色身份）。
+ */
+const LABEL_TOKEN_RE = new RegExp(
+  `(^|\\s)${LABEL_DECORATION}[ \\t]*(${LABEL_WORDS})[ \\t]*${LABEL_DECORATION_END}[ \\t]*${LABEL_DECORATION_TRAIL}[ \\t]*${LABEL_SEPARATOR}`,
+  'g',
+);
+
+/** 已切成單行的講者標籤（保留標籤後的台詞）。 */
+const LINE_LABEL_RE = new RegExp(
+  `^${LABEL_DECORATION}[ \\t]*(${LABEL_WORDS})[ \\t]*${LABEL_DECORATION_END}[ \\t]*${LABEL_DECORATION_TRAIL}[ \\t]*${LABEL_SEPARATOR}\\s*(.*)$`,
+);
+
+interface LabelHit {
+  /** 正規化後的標籤（小寫、去句點、壓縮空白）——同一角色的識別鍵 */
+  key: string;
+  /** 原始標籤文字（用於全大寫判斷） */
+  label: string;
+  /** 標籤前的邊界字元位置（空白或字串開頭） */
+  boundaryStart: number;
+}
+
+function normalizeLabel(raw: string): string {
+  return raw.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 標籤的偏好聲音：完全符合已知標籤（Man）或首詞為已知性別／年齡詞
+ * （Woman 1 → woman、Man B → man）時沿用該聲音，否則回 undefined（交由輪替決定）。
+ */
+function preferredSpeaker(key: string): DialogueSpeaker | undefined {
+  return FIXED_LABELS[key] ?? FIXED_LABELS[key.split(' ')[0]];
+}
+
+/**
+ * 是否為講者標籤。以「已知角色詞／性別標籤／全大寫」或「重複出現且首字母大寫」
+ * 判定 —— 正文中偶然出現的 "However:"／"Note:" 不會被誤認為角色（避免吃掉台詞），
+ * 而重複出現的任意角色名（Librarian／Visitor）必定是角色。
+ */
+function isSpeakerLabel(label: string, key: string, counts: Map<string, number>): boolean {
+  if (NON_SPEAKER_MARKERS.has(key)) return false;
+  if (preferredSpeaker(key)) return true;
+  if (SPEAKER_ROLE_WORDS.has(key.split(' ')[0])) return true;
+  if (label.length > 1 && label === label.toUpperCase() && /[A-Z]/.test(label)) return true;
+  // 其他人名：只有重複出現（且首字母大寫）才當作角色，單次出現視為正文。
+  return (counts.get(key) ?? 0) >= 2 && /^[A-Z]/.test(label);
+}
+
+function collectLabelHits(text: string): LabelHit[] {
+  const hits: LabelHit[] = [];
+  LABEL_TOKEN_RE.lastIndex = 0;
+  for (const match of text.matchAll(LABEL_TOKEN_RE)) {
+    const boundary = match[0].slice(0, match[1].length);
+    hits.push({
+      key: normalizeLabel(match[2]),
+      label: match[2],
+      boundaryStart: (match.index ?? 0) + boundary.length,
+    });
+  }
+  return hits;
+}
+
+/**
+ * 將對話文字解析為「角色 + 台詞」段落。
+ * - 角色標籤永不進入合成文字（行內標籤 "…join? Visitor: Yes" 亦會被切成新行）
+ * - 同一角色固定同一把聲音；未知角色依首次出現順序輪替（女/男/童）
+ * - 只有標籤、沒有台詞的行整行略過（不再朗讀角色名）
+ * - 沒有可辨識標籤 → 逐行回退預設女聲（維持舊行為，供單人篇章使用）
+ */
+export function parseDialogueForTTS(text: string): DialogueSegment[] {
+  if (!text) return [];
+
+  const hits = collectLabelHits(text);
+  const counts = new Map<string, number>();
+  for (const hit of hits) counts.set(hit.key, (counts.get(hit.key) ?? 0) + 1);
+
+  const qualifying = hits.filter((hit) => isSpeakerLabel(hit.label, hit.key, counts));
+
+  // 角色 → 語音（首次出現順序；已知標籤用固定聲音，未知標籤取未被佔用者）
+  const speakerOf = new Map<string, DialogueSpeaker>();
+  const used = new Set<DialogueSpeaker>();
+  for (const hit of qualifying) {
+    if (speakerOf.has(hit.key)) continue;
+    const preferred = preferredSpeaker(hit.key);
+    const speaker =
+      preferred && !used.has(preferred)
+        ? preferred
+        : VOICE_ROTATION.find((voice) => !used.has(voice)) ?? preferred ?? 'woman';
+    speakerOf.set(hit.key, speaker);
+    used.add(speaker);
+  }
+
+  // 行內標籤 → 行首（標籤保留，交由下方逐行解析決定角色）
+  let normalized = text;
+  if (qualifying.length > 0) {
+    let out = '';
+    let cursor = 0;
+    for (const hit of qualifying) {
+      if (hit.boundaryStart < cursor) continue;
+      out += `${text.slice(cursor, hit.boundaryStart)}\n`;
+      cursor = hit.boundaryStart;
     }
+    normalized = out + text.slice(cursor);
+  }
+
+  const segments: DialogueSegment[] = [];
+  let lastSpeaker: DialogueSpeaker | null = null;
+  for (const rawLine of normalized.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const match = line.match(LINE_LABEL_RE);
+    if (match && isSpeakerLabel(match[1], normalizeLabel(match[1]), counts)) {
+      const key = normalizeLabel(match[1]);
+      const speaker = speakerOf.get(key) ?? 'woman';
+      lastSpeaker = speaker;
+      // 標籤後的 markdown 裝飾（**Man:** 的收尾 **）不得殘留在台詞中
+      const body = match[2].trim().replace(/^[*_`~]{1,3}\s*/, '').trim();
+      if (body) segments.push({ speaker, text: body }); // 只有標籤的行：靜音，不朗讀角色名
+      continue;
+    }
+
+    segments.push({ speaker: lastSpeaker ?? 'woman', text: line });
   }
 
   return segments;

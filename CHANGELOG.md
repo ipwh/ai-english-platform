@@ -4,6 +4,116 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-04（III）— 學生可即時 AI 生成 IELTS 寫作題目（即時自學擴展至寫作）
+
+### 背景（產品要求）
+學生自學原則：**學生應能自行以 AI 生成練習**，包括 IELTS 寫作題目（此前只有教師／管理員可在
+審核台生成）。閱讀／聆聽已有「即時自學」路徑，寫作缺同等待遇。
+
+### 實作（不削弱任何既有不變式）
+- **服務層**（`instant-practice-service.ts`）：`skill` 新增 `'WRITING'`；寫作必須提供
+  `writingTaskType`（`academic_task1/2`、`general_task1/2`）且**必須與組別相符**
+  （academic_* ↔ ACADEMIC、general_* ↔ GENERAL_TRAINING），否則 `INVALID_INPUT`。
+  寫作固定 1 題（不看 `count`），並**與閱讀／聆聽共用同一個香港日上限（8 次）**。
+- **生成層**（`generation-service.generateIeltsWritingTask`）：新增 `deliveryMode`；`'INSTANT'`
+  時建立 `origin='INSTANT'` ＋ `ownerUserId=學生` 的 DRAFT 卷，題目仍為 `QA_REQUIRED`
+  ——**即時交付不是發佈**（AI 永不自動發佈）；教師發佈時仍走正常路徑轉為 CATALOGUE。
+- **路由**（`POST /api/ielts/practice/instant`）：接受 `skill:'WRITING'` ＋ `writingTaskType`
+  （未知／缺漏 ⇒ 400；沿用同一限流與 AI 預算閘，超額 ⇒ 503，每日上限 ⇒ 429）。
+- **學生介面**（`/student/ielts/writing`）：新增「AI 生成題目」按鈕——依所選組別與題型即時出題，
+  題目文字由**正典記錄**（`GET /api/ielts/tests/{id}`，owner-only）讀取，不重複一份於生成回應；
+  產生後明確標示「未經教師審核、只作練習用途、永不自動入庫」，並顯示今日剩餘額度。
+  題目 → 寫作 → 既有 AI 四項準則評估流程完全不變。
+- **不變式保持**：題庫（`listPublishedWritingPrompts`）只列 `PUBLISHED` ⇒ INSTANT 卷（DRAFT）
+  永不出現在題庫；非擁有者讀取任何介面（載入／應試／音訊／解說）一律拒絕（既有 owner 檢查）；
+  生成仍經 conformance 檢查，不符者 retry 後失敗（`WRITING_PROMPT_NOT_CONFORMING` ⇒ 422），
+  **不會**存入不合格題目。
+
+### 驗證（新增 12 個測試）
+`instant-practice-service.test.ts`（寫作輸入驗證／配對／共用上限／typed 失敗）、
+`generation-service.test.ts`（INSTANT ⇒ origin/owner、仍 QA_REQUIRED、教師路徑維持 CATALOGUE＋無 owner）、
+`ielts-route-security.test.ts`（寫作缺 taskType ⇒ 400、未知 taskType ⇒ 400、成功 ⇒ 201 且轉發 INSTANT）。
+`npx tsc --noEmit`、`npx eslint`、`node scripts/check-i18n.js`（0 硬編碼中文）全部通過；
+`npm test` **3590 pass / 2 gated skips（196 檔）**。
+
+---
+
+## 2026-10-04（II）— IELTS 聆聽音訊朗讀角色名（Librarian／Visitor／MAN／WOMAN）
+
+### 背景（生產實測回報）
+學生反映 IELTS 聆聽錄音會**讀出角色名稱**（例如 MAN／WOMAN 等角色標籤），嚴重影響聆聽體驗。
+
+### 根因（以生產庫唯讀查詢取證）
+生產庫 `IeltsSection.transcriptText` 唯一一卷的逐字稿為**單行、行內標籤**：
+
+```
+Librarian: Welcome to Eastside Library. … Visitor: Yes, please. … Librarian: …
+```
+
+`tts-service.ts` 的 `parseDialogueForTTS` 有兩個缺陷：
+1. **只認 Woman/Man/Boy/Girl**（與 W/M/B/G）：`Librarian:`／`Visitor:` 落到 fallback
+   分支 → 整行（**含角色名**）交給 TTS 朗讀。
+2. **以 `\n` 逐行解析**：單行逐字稿只有一行 → 完全不做角色分段，全部用同一把女聲。
+
+AI 生成的逐字稿同樣受限：生成 prompt 只說「speaker-labelled dialogue」而未限定標籤詞彙，
+模型可自由輸出任意角色名（結果會與上述相同地被朗讀）。
+
+### 修復
+- **`parseDialogueForTTS`（對話 → 語音分段，單一 owner）重寫**：
+  - 標籤辨識擴及**角色詞**（librarian／receptionist／narrator／tutor／customer…）、
+    **全大寫**（MAN／NARRATOR／SPEAKER 1）、**重複出現的人名**、markdown／括號裝飾
+    （`**Man:**`、`[Woman 1]:`）與**行內標籤**（單行逐字稿亦切出每個話輪）。
+  - 每個角色固定一把聲音（`Woman 1`→女聲、未知角色依首次出現順序女／男輪替）；
+    **只有標籤、沒有台詞的行整行略過**（不再朗讀角色名）。
+  - 反向護欄：正文連接詞（`However:`／`Note:`／`Firstly:`）**永不**被當成角色，
+    標籤**不得跨行、不得含句點**（否則 "… she is nine. Librarian:" 會被貪婪匹配成
+    假標籤而吃掉上一句正文）。
+  - 沒有可辨識標籤者維持舊行為（逐行、預設女聲）——單人篇章不受影響。
+  - **儲存的逐字稿永不改寫**（`transcriptQuote` 證據比對不受影響）；剝離只發生在合成路徑。
+- **生成 prompt**（`IELTS_QUESTION_GENERATION_V1`，`question-generation.ts`）：要求逐句以
+  `Man:`／`Woman:`（第三位講者 `Woman 2:`）標示，**禁止**使用職稱／角色詞／人名作標籤，
+  並說明原因（平台據此合成音訊）；獨白可省略標籤。
+- HKDSE 聆聽（`/api/tts` + `AudioPlayer` 客戶端正規化）走同一解析器，一併受益。
+
+### 驗證
+新增 `src/modules/ai/__tests__/tts-dialogue-labels.test.ts`（10 測試）：以**生產庫實際逐字稿**
+驗證 5 個話輪、女／男兩把聲音、任何送往 TTS 的請求都不含 `Librarian`／`Visitor`；並涵蓋
+角色詞／全大寫／markdown／行內／只有標籤的行／`However:` 反例／舊行為。
+`npx tsc --noEmit`（exit 0）、`npx eslint`（exit 0）、`npm test`（**3580 pass / 2 gated skips，196 檔**）。
+
+---
+
+## 2026-10-04（I）— 生產事故修復：IELTS 練習卷無限重試（429 Too Many Requests）
+
+### 背景（生產實測回報）
+學生打開 IELTS 練習卷（`/student/ielts/tests/<id>`）後，瀏覽器主控台不斷出現
+`POST /api/ielts/attempts 429 (Too Many Requests)`（單次載入數十次），頁面卡在載入狀態。
+
+### 根因
+`useT()`（`src/hooks/use-i18n.ts`）**每次 render 都回傳全新的 `t` 函式**（回傳物件內嵌
+箭頭函式，未 memo 化）。練習卷以 `useCallback(load, [testId, t])` → `useEffect(load, [load])`
+載入，於是：render → `t` 新識別 → `load` 新識別 → effect 重跑 → `setTest()` 新物件 →
+再 render……形成**無限迴圈**，每個循環都發一次 `POST /api/ielts/attempts`，約 20 次即觸發
+端點限流（20 次／分鐘／學生）→ 429。
+
+同一缺陷亦影響所有把 `t` 列入依賴陣列的頁面（IELTS 首頁／進度頁、教師 IELTS 主控台、
+拼字練習、診斷等）——它們會無限重打各自的 GET／POST 端點（僅 IELTS 練習卷因限流才外顯）。
+
+### 修復
+- `useT()` 改用 `useCallback(..., [language])` 建立 `t`：語言未變時識別穩定（effect 不再
+  失控），切換語言時仍會更新翻譯；回傳物件不再內嵌箭頭函式。**單一 owner 修正 ⇒ 所有
+  以 `t` 為依賴的 effect 一併恢復正常。**
+- 新增來源掃描護欄測試 `src/hooks/__tests__/use-i18n.test.ts`：強制 `t` 必須 memo 化、
+  依賴為 `[language]`、回傳物件不得內嵌箭頭函式（本專案無 jsdom／react-test-renderer，
+  無法以渲染方式驗證，故以掃描鎖定契約）。
+
+### 驗證
+`npx tsc --noEmit`（exit 0）、`npx eslint src/hooks/use-i18n.ts`（exit 0）、`npm test`
+（**3580 pass / 2 gated skips，196 檔**）。修復後練習卷只在掛載時發一次
+`POST /api/ielts/attempts`。
+
+---
+
 ## 2026-10-03（XII）— 生產事故修復：IELTS 遷移未套用、發佈死鎖、寫作題庫空
 
 ### 背景（生產實測回報）

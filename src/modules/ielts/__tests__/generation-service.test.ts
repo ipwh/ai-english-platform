@@ -426,4 +426,51 @@ describe('generateIeltsWritingTask — conformance-gated persistence', () => {
     if (!outcome.ok) expect(outcome.code).toBe('INVALID_INPUT');
     expect(mocks.generateIeltsWritingPromptWithAI).not.toHaveBeenCalled();
   });
+
+  // 2026-10-04: student on-demand self-study — same gates, but the persisted
+  // test is INSTANT + owner-scoped so it can never be listed for others.
+  it('marks an INSTANT delivery as origin INSTANT, owner-scoped and still QA_REQUIRED', async () => {
+    mocks.generateIeltsWritingPromptWithAI.mockResolvedValue(
+      aiOk({ title: 'Public libraries task', promptText: WRITING_PROMPT_OK }),
+    );
+    mocks.verifyIeltsWritingPromptWithAI.mockResolvedValue(aiOk({ conforms: true, issues: [] }));
+
+    const outcome = await generateIeltsWritingTask({
+      userId: 'student-1',
+      testType: 'ACADEMIC',
+      writingTaskType: 'academic_task2',
+      deliveryMode: 'INSTANT',
+    });
+
+    expect(outcome.ok).toBe(true);
+    expect(mocks.createTest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'DRAFT',
+        skill: 'WRITING',
+        origin: 'INSTANT',
+        ownerUserId: 'student-1',
+      }),
+    );
+    expect(mocks.createQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({ validationStatus: 'QA_REQUIRED' }),
+    );
+    expect(JSON.stringify(mocks.createTest.mock.calls)).not.toContain('"PUBLISHED"');
+  });
+
+  it('keeps the catalogue default for teacher authoring (no owner, CATALOGUE)', async () => {
+    mocks.generateIeltsWritingPromptWithAI.mockResolvedValue(
+      aiOk({ title: 'Public libraries task', promptText: WRITING_PROMPT_OK }),
+    );
+    mocks.verifyIeltsWritingPromptWithAI.mockResolvedValue(aiOk({ conforms: true, issues: [] }));
+
+    await generateIeltsWritingTask({
+      userId: 'teacher-1',
+      testType: 'ACADEMIC',
+      writingTaskType: 'academic_task2',
+    });
+
+    expect(mocks.createTest).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: 'CATALOGUE', ownerUserId: null }),
+    );
+  });
 });
