@@ -248,7 +248,7 @@ Rules:
 > provides generation + per-question approval + test publishing; students only
 > ever see PUBLISHED items.
 >
-> **Instant self-study (2026-10-03 VII · writing added 2026-10-04).**
+> **Instant self-study (2026-10-03 VII · writing + complete components 2026-10-04).**
 > `POST /api/ielts/practice/instant` lets a student generate practice on demand —
 > explicitly NOT publication. The set is stored as a DRAFT test with
 > `origin='INSTANT'` + `ownerUserId` and QA_REQUIRED questions; it is deliverable
@@ -257,12 +257,23 @@ Rules:
 > the machine screen + blind-solve gates; writing tasks (`skill:'WRITING'` +
 > `writingTaskType`, which must match the variant) pass the same prompt-conformance
 > check used for authoring (`generateIeltsWritingTask` with `deliveryMode:'INSTANT'`).
-> The per-student cap is **8 sets per Hong Kong day, shared across reading,
-> listening and writing**. Writing self-study is solved and assessed on
-> `/student/ielts/writing` (the prompt is read from the canonical owner-only
-> record; the AI assessment flow is unchanged). A teacher can review any generated
-> set/task in the console; publishing it flips `origin` to 'CATALOGUE' (graduation
-> through the normal human path — AI still never publishes).
+> `scope:'full_component'` generates the complete official component (reading
+> 3 passages / listening 4 parts, 40 items) and reports the shortfall honestly
+> (partial components are delivered with the exact dropped-item explanation —
+> fail-closed, never padded).
+> Caps: **8 sets per Hong Kong day shared across reading, listening and writing**;
+> complete components have their own cap (**2 per day**) because they cost ~8× a
+> set. The Cloud Run request timeout is **900s** (a component needs 4 generations +
+> 4 blind-solve verifications).
+> Writing self-study is solved and assessed on `/student/ielts/writing` (the prompt
+> is read from the canonical owner-only record; the AI assessment flow is unchanged).
+> Attempts are **reload-safe**: an unfinished attempt is resumed and a submitted one
+> is returned as-is (the runner restores the student's answers and result; an
+> explicit “practise again” sends `force:true`) — refreshing never mints a second
+> attempt nor discards a result.
+> A teacher can review any generated set/task in the console; publishing it flips
+> `origin` to 'CATALOGUE' (graduation through the normal human path — AI still never
+> publishes).
 
 ```
 SOURCE → CONTENT EXTRACTION → QUESTION GENERATION → STRUCTURAL VALIDATION

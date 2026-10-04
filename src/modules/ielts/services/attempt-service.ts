@@ -48,6 +48,8 @@ export type IeltsAttemptOperationResult<T> =
 export async function startIeltsAttempt(input: {
   userId: string;
   testId: string;
+  /** Explicit retake: ignore an existing attempt for this test and start a new one. */
+  force?: boolean;
 }): Promise<IeltsAttemptOperationResult<IeltsAttemptSummary>> {
   const test = await ieltsRepo.getTestById(input.testId);
   if (!test) return { ok: false, status: 404, error: 'Test not found' };
@@ -63,6 +65,21 @@ export async function startIeltsAttempt(input: {
     }
   } else if (test.status !== 'PUBLISHED') {
     return { ok: false, status: 403, error: 'Test is not published' };
+  }
+
+  // Reload safety (2026-10-04): a page load (or a refresh) must never mint a
+  // second attempt for the same test + student.
+  //   * an unfinished attempt is RESUMED — the student continues where they were
+  //   * a submitted attempt is RETURNED as-is so the client can restore the
+  //     result and the student's own answers (retaking is explicit: `force`)
+  //   * ABANDONED attempts are ignored (a fresh attempt is created)
+  // Before this, every mount created a new attempt, so refreshing polluted the
+  // practice history and silently discarded the student's result.
+  if (!input.force) {
+    const existing = await ieltsRepo.findLatestAttemptForTest(input.userId, test.id);
+    if (existing && existing.status !== 'ABANDONED') {
+      return { ok: true, data: toSummary(existing) };
+    }
   }
 
   const attempt = await ieltsRepo.createAttempt({

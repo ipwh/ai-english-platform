@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   findAttemptById: vi.fn(),
   findAttemptWithResponses: vi.fn(),
+  findLatestAttemptForTest: vi.fn(),
   getTestForAttempt: vi.fn(),
   findQuestionsByIds: vi.fn(),
   createResponses: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
   findAttemptById: mocks.findAttemptById,
   findAttemptWithResponses: mocks.findAttemptWithResponses,
+  findLatestAttemptForTest: mocks.findLatestAttemptForTest,
   getTestForAttempt: mocks.getTestForAttempt,
   findQuestionsByIds: mocks.findQuestionsByIds,
   createResponses: mocks.createResponses,
@@ -91,6 +93,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.createResponses.mockResolvedValue({ count: 1 });
   mocks.markAttemptSubmitted.mockResolvedValue(attemptRow({ status: 'SUBMITTED' }));
+  // No prior attempt by default — resuming/restoring is opt-in per test.
+  mocks.findLatestAttemptForTest.mockResolvedValue(null);
   // Default catalogue test (origin CATALOGUE, PUBLISHED) — instant tests override.
   mocks.getTestById.mockResolvedValue({
     id: 'test-1',
@@ -116,6 +120,67 @@ describe('startIeltsAttempt', () => {
     const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.userId).toBe('student-1');
+  });
+});
+
+// 2026-10-04 reload safety: a page load must not mint a second attempt, and a
+// submitted attempt must stay readable instead of being silently replaced.
+describe('startIeltsAttempt — reload safety (resume / restore)', () => {
+  beforeEach(() => {
+    mocks.getTestById.mockResolvedValue({ id: 'test-1', status: 'PUBLISHED', skill: 'READING', testType: 'ACADEMIC' });
+    mocks.createAttempt.mockResolvedValue(attemptRow({ id: 'attempt-new' }));
+  });
+
+  it('resumes the existing unfinished attempt instead of creating another', async () => {
+    mocks.findLatestAttemptForTest.mockResolvedValue(
+      attemptRow({ id: 'attempt-open', status: 'IN_PROGRESS' }),
+    );
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.id).toBe('attempt-open');
+      expect(result.data.status).toBe('IN_PROGRESS');
+    }
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it('returns a submitted attempt as-is (the client restores its result)', async () => {
+    mocks.findLatestAttemptForTest.mockResolvedValue(
+      attemptRow({ id: 'attempt-done', status: 'SUBMITTED', submittedAt: new Date(), rawScore: 3 }),
+    );
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.id).toBe('attempt-done');
+      expect(result.data.status).toBe('SUBMITTED');
+    }
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it('ignores abandoned attempts (a fresh attempt is created)', async () => {
+    mocks.findLatestAttemptForTest.mockResolvedValue(attemptRow({ status: 'ABANDONED' }));
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.id).toBe('attempt-new');
+    expect(mocks.createAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it('force=true starts a new attempt even when one exists (explicit retake)', async () => {
+    mocks.findLatestAttemptForTest.mockResolvedValue(
+      attemptRow({ id: 'attempt-done', status: 'SUBMITTED' }),
+    );
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1', force: true });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.id).toBe('attempt-new');
+    expect(mocks.findLatestAttemptForTest).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,48 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-04（IV）— 學生可生成「完整組件」練習＋IELTS 學生流程稽核修復
+
+### 一、學生可生成完整練習（完整組件）
+需求：學生要能取得**完整長度**的 IELTS 練習，以提升練習成效與可信度。
+- **服務層**（`instant-practice-service.ts`）：`scope` 新增 `'full_component'`（閱讀 3 篇
+  ／聆聽 4 部分，官方 **40 題**；閱讀 60 分鐘／聆聽 40 分鐘）。使用**獨立的每日上限
+  （2 次／香港日，`countInstantComponentsCreatedSince` 以 `durationMinutes != null` 判別）**，
+  不消耗單節額度（8 次仍適用於單節與寫作）。`count` 對完整組件不適用（固定官方題數）。
+- **介面**（`/student/ielts`）：即時自學面板新增「完整組件（40 題）」選項與誠實說明
+  （需時可能數分鐘、獨立上限）。
+- **誠實交付**：練習卷頁顯示「官方 40 題中已交付 N 題」；不足時明示「部分題目未通過品質
+  閘門（結構／盲解／交付條件）而遭丟棄——刻意 fail-closed，不以劣質題目湊數」。
+- **逾時**：完整組件＝4 次生成＋4 次盲解覆核（含重試），300 秒不足。Cloud Run 請求 timeout
+  由 300s 提升至 **900s**（`cloudbuild.yaml`、`cloud-run.yaml`、`scripts/cloud-run-deploy.ps1`
+  與路由 `maxDuration` 一致）。
+
+### 二、模擬學生使用流程的稽核與修復
+1. **重新整理會另開新嘗試並丟失成績**（實測級缺陷）：舊碼每次載入都 `createAttempt`，
+   學生重新整理／返回即產生一筆新的空白嘗試，**已提交的成績無法再查看**（練習歷史被灌水）。
+   修復：`startIeltsAttempt` 加入 **reload safety** —— 未完成的嘗試**續用**、已提交的嘗試
+   **原樣回傳**（前端還原逐題作答與成績），只有明確按「再練一次」才帶 `force: true` 開新嘗試；
+   `ABANDONED` 略過。
+2. **聆聽音訊**：重複點擊會疊聲播放、blob URL 從不釋放、離開頁面仍在播放。修復：單一播放器
+   （播放前暫停並釋放上一段）、`ended` 後釋放、離開頁面清理。
+3. **練習卷載入失敗**：顯示伺服器訊息（如雙語限流文字）＋**重試按鈕**（上一輪加入，本輪保留）。
+4. **空狀態文案**：原只說「等教師發佈」——已改為同時引導學生使用即時自學與寫作 AI 生成。
+5. **客戶端／伺服器形狀稽核**：逐頁比對 IELTS 學生端介面與伺服器實際輸出
+   （儀表板、練習卷、寫作、口說、進度、狀態），確認無 crash 級不一致
+   （曾疑似 `status.disclaimers` 缺失，查證為誤報：`getGovernanceSnapshot()` 確有回傳）。
+6. **不公平計分（無 section 的題目）**：`IeltsQuestion.sectionId` 可為 null（教師草稿 API 允許省略），
+   但練習卷只會渲染隸屬 section 的題目，而提交時 `totalItems` 會計入**所有**可交付客觀題 ⇒
+   學生會為「從未看到」的題目失分。修復：`getTestForAttempt` 的交付投影加入
+   `sectionId: { not: null }` —— 交付與評分因此共用**同一條**規則（提交路徑由同一投影解析列）；
+   新增 source-scan 不變式測試。
+
+### 驗證
+`npx tsc --noEmit`、`npx eslint`、`node scripts/check-i18n.js`（0 硬編碼中文）、
+`npm test` **3604 pass / 2 gated skips（196 檔）**（新增：完整組件 6、嘗試續用／還原 4、
+路由 scope 2、不變式 2）。`npm run build:prod` 成功。
+
+---
+
 ## 2026-10-04（III）— 學生可即時 AI 生成 IELTS 寫作題目（即時自學擴展至寫作）
 
 ### 背景（產品要求）

@@ -37,12 +37,19 @@ import {
 
 /** On-demand AI sets a student may generate per Hong Kong day. */
 export const IELTS_INSTANT_PRACTICE_DAILY_LIMIT = 8;
+/**
+ * Full-component generations are ~8× the size of a set (4 passages/parts +
+ * ~40 items + blind-solve verification), so they get their own small daily cap
+ * instead of consuming the set budget.
+ */
+export const IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT = 2;
 export const IELTS_INSTANT_DEFAULT_ITEMS = 5;
 export const IELTS_INSTANT_MIN_ITEMS = 3;
 export const IELTS_INSTANT_MAX_READING_ITEMS = 14;
 export const IELTS_INSTANT_MAX_LISTENING_ITEMS = 10;
 
 export type IeltsInstantPracticeSkill = 'READING' | 'LISTENING' | 'WRITING';
+export type IeltsInstantPracticeScope = 'set' | 'full_component';
 
 export const IELTS_WRITING_TASK_TYPE_SET: ReadonlySet<string> = new Set(IELTS_WRITING_TASK_TYPES);
 
@@ -55,12 +62,24 @@ export interface IeltsInstantPracticeInput {
   topicHint?: string;
   /** Required when skill === 'WRITING'; must match testType (academic_* / general_*). */
   writingTaskType?: IeltsWritingTaskType;
+  /**
+   * 'set' (default) = one section/passage; 'full_component' = the complete
+   * official component (4 sections/parts, ~40 items; READING/LISTENING only).
+   */
+  scope?: IeltsInstantPracticeScope;
 }
+
+/** Official item targets for a complete component (13+13+14 / 10×4). */
+export const IELTS_FULL_COMPONENT_TOTAL_ITEMS: Record<'READING' | 'LISTENING', number> = {
+  READING: 40,
+  LISTENING: 40,
+};
 
 export interface IeltsInstantPracticeResult {
   testId: string;
   skill: IeltsInstantPracticeSkill;
   testType: IeltsTestType;
+  scope: IeltsInstantPracticeScope;
   requestedCount: number;
   deliveredCount: number;
   shortfall: number;
@@ -89,6 +108,8 @@ export interface IeltsInstantPracticeDeps {
   generate?: (input: IeltsGenerationInput) => Promise<IeltsGenerationOutcome>;
   generateWriting?: (input: IeltsWritingGenerationInput) => Promise<IeltsWritingGenerationOutcome>;
   countCreatedSince?: (ownerUserId: string, since: Date) => Promise<number>;
+  /** Injected for tests; defaults to the component counter (durationMinutes != null). */
+  countComponentsCreatedSince?: (ownerUserId: string, since: Date) => Promise<number>;
   now?: () => Date;
 }
 
@@ -99,6 +120,8 @@ export async function generateIeltsInstantPractice(
   const generate = deps.generate ?? generateIeltsPracticeContent;
   const generateWriting = deps.generateWriting ?? generateIeltsWritingTask;
   const countCreatedSince = deps.countCreatedSince ?? ieltsRepo.countInstantTestsCreatedSince;
+  const countComponentsCreatedSince =
+    deps.countComponentsCreatedSince ?? ieltsRepo.countInstantComponentsCreatedSince;
   const now = deps.now ?? (() => new Date());
 
   if (input.skill !== 'READING' && input.skill !== 'LISTENING' && input.skill !== 'WRITING') {
@@ -118,6 +141,18 @@ export async function generateIeltsInstantPractice(
 
   const skill = input.skill;
   const isWriting = skill === 'WRITING';
+  const scope: IeltsInstantPracticeScope = input.scope ?? 'set';
+  if (scope !== 'set' && scope !== 'full_component') {
+    return { ok: false, code: 'INVALID_INPUT', message: 'scope must be set or full_component.' };
+  }
+  if (isWriting && scope !== 'set') {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      message: 'A writing task is always a single item; scope must be set.',
+    };
+  }
+
   let count = 1;
   if (isWriting) {
     // Writing is always ONE task; the task type must belong to the chosen variant.
@@ -135,6 +170,9 @@ export async function generateIeltsInstantPractice(
         message: `Writing task ${input.writingTaskType} does not belong to ${input.testType}.`,
       };
     }
+  } else if (scope === 'full_component') {
+    // A complete component has fixed official targets — `count` is not used.
+    count = IELTS_FULL_COMPONENT_TOTAL_ITEMS[skill];
   } else {
     const maxItems =
       skill === 'READING'
@@ -150,18 +188,28 @@ export async function generateIeltsInstantPractice(
     }
   }
 
-  // Per-student cap — Hong Kong day boundary (never a UTC day). One shared budget:
-  // reading, listening and writing self-study sets all count against it.
-  const usedToday = await countCreatedSince(input.userId, hkStartOfDay(now()));
-  if (usedToday >= IELTS_INSTANT_PRACTICE_DAILY_LIMIT) {
+  // Per-student caps — Hong Kong day boundary (never a UTC day).
+  // Sets share ONE budget (reading/listening sets + writing tasks); complete
+  // components have their own small budget because they cost ~8× a set.
+  const since = hkStartOfDay(now());
+  const cap = scope === 'full_component'
+    ? IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT
+    : IELTS_INSTANT_PRACTICE_DAILY_LIMIT;
+  const usedToday =
+    scope === 'full_component'
+      ? await countComponentsCreatedSince(input.userId, since)
+      : await countCreatedSince(input.userId, since);
+  if (usedToday >= cap) {
     return {
       ok: false,
       code: 'INSTANT_DAILY_LIMIT_REACHED',
-      message: `Daily instant-practice limit reached (${IELTS_INSTANT_PRACTICE_DAILY_LIMIT} sets per Hong Kong day).`,
+      message:
+        scope === 'full_component'
+          ? `Daily full-component limit reached (${cap} complete components per Hong Kong day).`
+          : `Daily instant-practice limit reached (${cap} sets per Hong Kong day).`,
     };
   }
-
-  const remainingToday = IELTS_INSTANT_PRACTICE_DAILY_LIMIT - usedToday - 1;
+  const remainingToday = cap - usedToday - 1;
 
   if (isWriting) {
     const outcome = await generateWriting({
@@ -190,6 +238,7 @@ export async function generateIeltsInstantPractice(
         testId: outcome.testId,
         skill: 'WRITING',
         testType: input.testType,
+        scope: 'set',
         requestedCount: 1,
         deliveredCount: 1,
         shortfall: 0,
@@ -203,7 +252,7 @@ export async function generateIeltsInstantPractice(
     userId: input.userId,
     skill,
     testType: input.testType,
-    scope: 'set',
+    scope,
     count,
     topicHint: input.topicHint,
     deliveryMode: 'INSTANT',
@@ -229,6 +278,7 @@ export async function generateIeltsInstantPractice(
       testId: outcome.testId,
       skill,
       testType: input.testType,
+      scope,
       requestedCount: outcome.requestedCount,
       deliveredCount: outcome.deliveredCount,
       shortfall: outcome.shortfall,

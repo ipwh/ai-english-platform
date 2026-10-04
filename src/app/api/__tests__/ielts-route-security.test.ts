@@ -509,6 +509,57 @@ describe('POST /api/ielts/practice/instant — on-demand self-study, never publi
     );
   });
 
+  it('accepts a complete component and forwards scope=full_component (201)', async () => {
+    mocks.generateIeltsInstantPractice.mockResolvedValue({
+      ok: true,
+      data: {
+        testId: 'instant-component-1',
+        skill: 'READING',
+        testType: 'ACADEMIC',
+        scope: 'full_component',
+        requestedCount: 40,
+        deliveredCount: 37,
+        shortfall: 3,
+        remainingToday: 1,
+        durationMs: 240_000,
+      },
+    });
+
+    const response = await instantPractice(
+      jsonRequest('http://x/api/ielts/practice/instant', {
+        skill: 'READING',
+        testType: 'ACADEMIC',
+        scope: 'full_component',
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    const json = (await response.json()) as { instant: { scope: string; deliveredCount: number } };
+    expect(json.instant.scope).toBe('full_component');
+    expect(json.instant.deliveredCount).toBe(37);
+    expect(mocks.generateIeltsInstantPractice).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'full_component', userId: 'student-1' }),
+    );
+  });
+
+  it('rejects an unknown scope (400) and a component scope for writing (400)', async () => {
+    const unknown = await instantPractice(
+      jsonRequest('http://x/api/ielts/practice/instant', { ...validBody, scope: 'everything' }),
+    );
+    expect(unknown.status).toBe(400);
+
+    const writingComponent = await instantPractice(
+      jsonRequest('http://x/api/ielts/practice/instant', {
+        skill: 'WRITING',
+        testType: 'ACADEMIC',
+        writingTaskType: 'academic_task2',
+        scope: 'full_component',
+      }),
+    );
+    expect(writingComponent.status).toBe(400);
+    expect(mocks.generateIeltsInstantPractice).not.toHaveBeenCalled();
+  });
+
   it('delivers the owner-scoped set id with honest remaining-quota meta (201)', async () => {
     mocks.generateIeltsInstantPractice.mockResolvedValue({
       ok: true,

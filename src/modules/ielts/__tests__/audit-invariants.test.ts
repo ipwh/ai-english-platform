@@ -160,6 +160,36 @@ describe('scoring integrity invariants', () => {
     expect(IELTS_PRONUNCIATION_NOT_VERIFIED).toBe('NOT_VERIFIED');
     expect(defaultPronunciationState().status).toBe(IELTS_PRONUNCIATION_NOT_VERIFIED);
   });
+
+  // 2026-10-04 fairness invariant: the attempt-time projection must drop
+  // section-less questions, because the runner can only render questions inside
+  // a section while the scorer counts every deliverable objective row — a student
+  // would otherwise lose marks for questions they never saw.
+  it('attempt-time delivery + scoring exclude questions that have no section', () => {
+    const repo = readFileSync(
+      join(ROOT, 'src/modules/ielts/repositories/ielts-repo.ts'),
+      'utf-8',
+    );
+    const projection = repo.slice(
+      repo.indexOf('export async function getTestForAttempt'),
+      repo.indexOf('export async function findQuestionsByIds'),
+    );
+    expect(projection).toContain('sectionId: { not: null }');
+  });
+
+  it('a reload never mints a second attempt (resume/restore is server-side)', () => {
+    const service = readFileSync(
+      join(ROOT, 'src/modules/ielts/services/attempt-service.ts'),
+      'utf-8',
+    );
+    const start = service.slice(
+      service.indexOf('export async function startIeltsAttempt'),
+      service.indexOf('// ============================================\n// Submit'),
+    );
+    expect(start).toContain('findLatestAttemptForTest');
+    expect(start).toContain('ABANDONED');
+    expect(start).toContain('input.force');
+  });
 });
 
 describe('master-prompt compliance invariants (2026-10-03)', () => {

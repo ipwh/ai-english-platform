@@ -29,11 +29,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as { testId?: string };
+    const body = (await request.json()) as { testId?: string; force?: boolean };
     if (!body.testId || typeof body.testId !== 'string') {
       return NextResponse.json({ error: 'testId is required' }, { status: 400 });
     }
-    const result = await startIeltsAttempt({ userId: authResult.userId, testId: body.testId });
+    const result = await startIeltsAttempt({
+      userId: authResult.userId,
+      testId: body.testId,
+      force: body.force === true,
+    });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
     return NextResponse.json({ attempt: result.data }, { status: 201 });
   } catch (err) {

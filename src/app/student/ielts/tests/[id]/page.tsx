@@ -5,7 +5,7 @@
 // ============================================
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
@@ -47,8 +47,24 @@ interface TestDetail {
   description: string | null;
   /** 'CATALOGUE' | 'INSTANT' — INSTANT sets show the unreviewed-practice banner. */
   origin?: string;
+  /** Set for complete components (60 reading / 40 listening minutes). */
+  durationMinutes?: number | null;
   sections: SectionInfo[];
   questions: ClientQuestion[];
+}
+
+/** Official item target for a complete READING/LISTENING component. */
+const FULL_COMPONENT_TARGET = 40;
+
+interface AttemptDetail {
+  id: string;
+  status: string;
+  rawScore: number | null;
+  totalItems: number | null;
+  bandEstimate: BandEstimate | null;
+  notComparableReason: string | null;
+  responses?: Array<{ questionId: string; rawAnswer: string }>;
+  feedback?: ResponseFeedback[];
 }
 
 interface ResponseFeedback {
@@ -105,45 +121,89 @@ export default function IeltsTestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [audioState, setAudioState] = useState<Record<string, 'idle' | 'loading' | 'error'>>({});
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const [explanations, setExplanations] = useState<
     Record<string, { loading?: boolean; error?: boolean; data?: MistakeExplanationData }>
   >({});
 
-  const load = useCallback(async () => {
-    if (!testId) return;
-    setError('');
-    try {
-      const testRes = await fetch(`/api/ielts/tests/${testId}`);
-      if (!testRes.ok) throw new Error('TEST_LOAD_FAILED');
-      const testData = (await testRes.json()) as { test: TestDetail };
-      setTest(testData.test);
+  const load = useCallback(
+    async (force = false) => {
+      if (!testId) return;
+      setError('');
+      try {
+        const testRes = await fetch(`/api/ielts/tests/${testId}`);
+        if (!testRes.ok) throw new Error('TEST_LOAD_FAILED');
+        const testData = (await testRes.json()) as { test: TestDetail };
+        setTest(testData.test);
 
-      const attemptRes = await fetch('/api/ielts/attempts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ testId }),
-      });
-      if (!attemptRes.ok) {
-        // Surface the server's own message (e.g. the bilingual rate-limit text)
-        // instead of an opaque generic error, so a blocked student can act.
-        const body = (await attemptRes.json().catch(() => ({}))) as { message?: string; error?: string };
-        throw new Error(body.message || body.error || 'ATTEMPT_START_FAILED');
+        // Server-side reload safety: an unfinished attempt is resumed and a
+        // submitted one is returned as-is (only `force` mints a new attempt).
+        const attemptRes = await fetch('/api/ielts/attempts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ testId, ...(force ? { force: true } : {}) }),
+        });
+        if (!attemptRes.ok) {
+          // Surface the server's own message (e.g. the bilingual rate-limit text)
+          // instead of an opaque generic error, so a blocked student can act.
+          const body = (await attemptRes.json().catch(() => ({}))) as { message?: string; error?: string };
+          throw new Error(body.message || body.error || 'ATTEMPT_START_FAILED');
+        }
+        const attemptData = (await attemptRes.json()) as {
+          attempt: { id: string; status?: string };
+        };
+        setAttemptId(attemptData.attempt.id);
+
+        // Already submitted → restore the result AND the student's own answers so
+        // a refresh never discards their work or silently starts a blank attempt.
+        if (attemptData.attempt.status === 'SUBMITTED') {
+          const detailRes = await fetch(`/api/ielts/attempts/${attemptData.attempt.id}`);
+          if (detailRes.ok) {
+            const detail = (await detailRes.json()) as { attempt: AttemptDetail };
+            const restored: Record<string, string> = {};
+            for (const response of detail.attempt.responses ?? []) {
+              restored[response.questionId] = response.rawAnswer;
+            }
+            setAnswers(restored);
+            setResult({
+              id: detail.attempt.id,
+              rawScore: detail.attempt.rawScore ?? 0,
+              totalItems: detail.attempt.totalItems ?? 0,
+              bandEstimate: detail.attempt.bandEstimate,
+              notComparableReason: detail.attempt.notComparableReason,
+              results: detail.attempt.feedback ?? [],
+            });
+          }
+        } else {
+          setResult(null);
+        }
+      } catch (err) {
+        // Show the server's own message (e.g. the bilingual rate-limit text) when it
+        // is human-readable; internal SCREAMING_CASE codes fall back to the generic one.
+        const serverMessage = err instanceof Error ? err.message : '';
+        setError(serverMessage && !/^[A-Z_]+$/.test(serverMessage) ? serverMessage : t('ielts.error.generic'));
+      } finally {
+        setLoading(false);
       }
-      const attemptData = (await attemptRes.json()) as { attempt: { id: string } };
-      setAttemptId(attemptData.attempt.id);
-    } catch (err) {
-      // Show the server's own message (e.g. the bilingual rate-limit text) when it
-      // is human-readable; internal SCREAMING_CASE codes fall back to the generic one.
-      const serverMessage = err instanceof Error ? err.message : '';
-      setError(serverMessage && !/^[A-Z_]+$/.test(serverMessage) ? serverMessage : t('ielts.error.generic'));
-    } finally {
-      setLoading(false);
-    }
-  }, [testId, t]);
+    },
+    [testId, t],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Stop any playing clip when leaving the page (and release its blob URL).
+  useEffect(
+    () => () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        URL.revokeObjectURL(currentAudioRef.current.src);
+        currentAudioRef.current = null;
+      }
+    },
+    [],
+  );
 
   const objectiveQuestions = useMemo(
     () => (test ? test.questions.filter((q) => q.skill !== 'WRITING' && q.skill !== 'SPEAKING') : []),
@@ -154,11 +214,22 @@ export default function IeltsTestPage() {
   async function playSectionAudio(sectionId: string) {
     setAudioState((prev) => ({ ...prev, [sectionId]: 'loading' }));
     try {
+      // Never leave the previous clip running (and never leak its blob URL).
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        URL.revokeObjectURL(currentAudioRef.current.src);
+        currentAudioRef.current = null;
+      }
       const res = await fetch(`/api/ielts/sections/${sectionId}/audio`, { method: 'POST' });
       if (!res.ok) throw new Error(String(res.status));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      currentAudioRef.current = audio;
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(url);
+        if (currentAudioRef.current === audio) currentAudioRef.current = null;
+      });
       await audio.play();
       setAudioState((prev) => ({ ...prev, [sectionId]: 'idle' }));
     } catch {
@@ -264,6 +335,22 @@ export default function IeltsTestPage() {
             <p className="font-semibold">{t('ielts.instant.banner')}</p>
             <p className="mt-1 text-xs text-amber-800">{t('ielts.instant.bannerDetail')}</p>
           </div>
+        </div>
+      )}
+
+      {typeof test.durationMinutes === 'number' && objectiveQuestions.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+          <p className="font-semibold text-slate-800">{t('ielts.component.title')}</p>
+          <p className="mt-1">
+            {t('ielts.component.progress', {
+              delivered: objectiveQuestions.length,
+              official: FULL_COMPONENT_TARGET,
+              minutes: test.durationMinutes,
+            })}
+          </p>
+          {objectiveQuestions.length < FULL_COMPONENT_TARGET && (
+            <p className="mt-1 text-amber-700">{t('ielts.component.shortfall')}</p>
+          )}
         </div>
       )}
 
@@ -499,9 +586,24 @@ export default function IeltsTestPage() {
           </button>
         </div>
       ) : (
-        <div className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>{t('ielts.disclaimer')}</p>
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
+          <div className="flex items-start gap-2">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{t('ielts.disclaimer')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              setResult(null);
+              setAnswers({});
+              setExplanations({});
+              void load(true);
+            }}
+            className="self-start rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            {t('ielts.retake')}
+          </button>
         </div>
       )}
     </div>

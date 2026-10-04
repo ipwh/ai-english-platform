@@ -90,8 +90,8 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
 
   'ielts.dashboard.tests': { zh: '練習卷', en: 'Practice Tests' },
   'ielts.dashboard.noTests': {
-    zh: '目前沒有已發佈的練習卷。內容需經人工審核發佈後才會顯示。',
-    en: 'No published practice tests yet. Content appears only after human review and publication.',
+    zh: '此組別目前沒有已發佈的練習卷（發佈須經人工審核）。你仍可即時自學練習——按上方「即時自學練習」即時生成閱讀／聆聽題目，或前往寫作 AI 練習生成寫作題目。',
+    en: 'No published tests for this variant yet (publication requires human review). You can still practise now: use the instant self-study panel above to generate reading/listening practice, or open Writing AI practice to generate a writing task.',
   },
   'ielts.dashboard.writingLink': { zh: '寫作 AI 練習', en: 'Writing AI practice' },
   'ielts.dashboard.speakingLink': { zh: '口說準備教練', en: 'Speaking preparation coach' },
@@ -115,6 +115,12 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
     en: 'Note: instant sets are NOT teacher-reviewed and are practice-only. Teachers can later review them in the console and publish suitable items into the catalogue.',
   },
   'ielts.instant.start': { zh: '開始即時練習', en: 'Start instant practice' },
+  // 2026-10-04：完整組件（官方 4 節／4 部分、約 40 題）——學生可生成完整練習。
+  'ielts.instant.fullComponent': { zh: '完整組件（40 題）', en: 'Complete component (40 items)' },
+  'ielts.instant.fullComponentNote': {
+    zh: '完整組件＝官方全長度（閱讀 3 篇／聆聽 4 部分，共 40 題；建議時間 {minutes} 分鐘）。生成需時較長（可能數分鐘），並使用獨立的每日上限（每日 2 次）。',
+    en: 'A complete component = the official full length (reading: 3 passages / listening: 4 parts; 40 items; recommended {minutes} minutes). Generation takes longer (possibly several minutes) and uses its own daily cap (2 per day).',
+  },
   'ielts.instant.starting': {
     zh: '正在出題…（可能需 1–3 分鐘）',
     en: 'Generating… (may take 1–3 minutes)',
@@ -169,6 +175,18 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
   'ielts.section': { zh: '部分', en: 'Section' },
   'ielts.questions': { zh: '題目', en: 'Questions' },
   'ielts.submit': { zh: '提交答案', en: 'Submit answers' },
+  // 2026-10-04：重新整理後不再丟失成績——已提交的作答會還原並可明確重做。
+  'ielts.retake': { zh: '再練一次（新作答）', en: 'Practise again (new attempt)' },
+  // 2026-10-04：完整組件（官方 40 題）的誠實交付資訊。
+  'ielts.component.title': { zh: '完整組件練習', en: 'Complete component practice' },
+  'ielts.component.progress': {
+    zh: '官方 {official} 題中已交付 {delivered} 題；建議時間 {minutes} 分鐘。',
+    en: '{delivered} of {official} official items delivered; recommended time {minutes} minutes.',
+  },
+  'ielts.component.shortfall': {
+    zh: '部分題目未通過品質閘門（結構檢查／盲解覆核／交付條件），因此未交付——這是刻意 fail-closed，不會以劣質題目湊數。',
+    en: 'Some items did not pass the quality gates (structural screen / blind-solve verification / delivery rules) and were dropped — a deliberate fail-closed policy rather than padding with weak items.',
+  },
   'ielts.submitting': { zh: '批改中…', en: 'Scoring…' },
   'ielts.answered': { zh: '已作答 {answered}/{total}', en: 'Answered {answered}/{total}' },
   'ielts.play': { zh: '播放語音', en: 'Play audio' },

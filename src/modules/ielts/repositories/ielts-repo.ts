@@ -91,7 +91,15 @@ export async function listTestsForAdmin() {
 /** Test detail WITHOUT answer keys (attempt-time view).
  * `questionStatuses` defaults to PUBLISHED (catalogue delivery). INSTANT
  * self-study delivery passes its own allow-list (QA_REQUIRED/HUMAN_APPROVED/
- * PUBLISHED — never DRAFT/REJECTED). */
+ * PUBLISHED — never DRAFT/REJECTED).
+ *
+ * FAIRNESS INVARIANT (2026-10-04): only questions ATTACHED TO A SECTION are
+ * deliverable. A section-less question has no passage/transcript to reason from,
+ * so the runner cannot display it — yet the scorer counts every deliverable
+ * objective row, i.e. the student would silently lose a mark for a question they
+ * never saw. Filtering here keeps delivery and scoring on the SAME rule
+ * (`questionStatuses` + `sectionId != null`), because the submit path resolves
+ * its rows from this same projection. */
 export async function getTestForAttempt(
   testId: string,
   opts?: { questionStatuses?: string[] },
@@ -102,7 +110,7 @@ export async function getTestForAttempt(
     include: {
       sections: { orderBy: { orderIndex: 'asc' } },
       questions: {
-        where: { validationStatus: { in: questionStatuses } },
+        where: { validationStatus: { in: questionStatuses }, sectionId: { not: null } },
         orderBy: { orderIndex: 'asc' },
         select: {
           id: true,
@@ -256,6 +264,22 @@ export async function countInstantTestsCreatedSince(ownerUserId: string, since: 
   });
 }
 
+/**
+ * Full-component INSTANT generations for a student since a timestamp.
+ * A full component is created with `durationMinutes` set (60 reading / 40
+ * listening); single sets leave it null — that is the discriminator.
+ */
+export async function countInstantComponentsCreatedSince(ownerUserId: string, since: Date) {
+  return db.ieltsTest.count({
+    where: {
+      origin: 'INSTANT',
+      ownerUserId,
+      createdAt: { gte: since },
+      durationMinutes: { not: null },
+    },
+  });
+}
+
 export async function getSectionById(id: string) {
   return db.ieltsSection.findUnique({ where: { id } });
 }
@@ -278,6 +302,18 @@ export async function findAttemptWithResponses(id: string) {
     include: {
       responses: { orderBy: { answeredAt: 'asc' } },
     },
+  });
+}
+
+/**
+ * Latest attempt by this student for this test (reload safety):
+ * an unchanged page load must never mint a second attempt, and a submitted
+ * attempt must stay readable instead of being silently replaced.
+ */
+export async function findLatestAttemptForTest(userId: string, testId: string) {
+  return db.ieltsAttempt.findFirst({
+    where: { userId, testId },
+    orderBy: { startedAt: 'desc' },
   });
 }
 

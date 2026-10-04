@@ -39,6 +39,7 @@ export default function IeltsDashboardPage() {
   // 即時自學練習（2026-10-03 VII）— on-demand AI set, NOT teacher-reviewed.
   const [instantSkill, setInstantSkill] = useState<'READING' | 'LISTENING'>('READING');
   const [instantCount, setInstantCount] = useState(5);
+  const [instantScope, setInstantScope] = useState<'set' | 'full_component'>('set');
   const [instantLoading, setInstantLoading] = useState(false);
   const [instantError, setInstantError] = useState('');
 
@@ -49,7 +50,11 @@ export default function IeltsDashboardPage() {
       const res = await fetch('/api/ielts/practice/instant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: instantSkill, testType, count: instantCount }),
+        body: JSON.stringify({
+          skill: instantSkill,
+          testType,
+          ...(instantScope === 'full_component' ? { scope: 'full_component' } : { count: instantCount }),
+        }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -200,9 +205,12 @@ export default function IeltsDashboardPage() {
                 <button
                   key={n}
                   type="button"
-                  onClick={() => setInstantCount(n)}
+                  onClick={() => {
+                    setInstantScope('set');
+                    setInstantCount(n);
+                  }}
                   className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                    instantCount === n
+                    instantScope === 'set' && instantCount === n
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white text-slate-700 hover:bg-slate-100'
                   }`}
@@ -210,6 +218,19 @@ export default function IeltsDashboardPage() {
                   {t('ielts.questionCount', { count: n })}
                 </button>
               ))}
+              {/* 完整組件（2026-10-04）：官方 4 節／4 部分、約 40 題；成本約為單節 8 倍，
+                  因此使用獨立的每日上限。 */}
+              <button
+                type="button"
+                onClick={() => setInstantScope('full_component')}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  instantScope === 'full_component'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {t('ielts.instant.fullComponent')}
+              </button>
               <button
                 type="button"
                 onClick={() => void startInstantPractice()}
@@ -224,6 +245,11 @@ export default function IeltsDashboardPage() {
                 {instantLoading ? t('ielts.instant.starting') : t('ielts.instant.start')}
               </button>
             </div>
+            {instantScope === 'full_component' && (
+              <p className="text-[11px] text-indigo-700">
+                {t('ielts.instant.fullComponentNote', { minutes: instantSkill === 'READING' ? 60 : 40 })}
+              </p>
+            )}
             {instantError && <p className="text-xs text-red-600">{instantError}</p>}
           </div>
         </div>

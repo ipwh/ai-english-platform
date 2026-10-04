@@ -25,11 +25,14 @@ import { isBudgetExceededError } from '@/modules/ai';
 import { generateIeltsInstantPractice, IELTS_WRITING_TASK_TYPES, type IeltsWritingTaskType } from '@/modules/ielts';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+// Complete-component generation = 4 sections × (generation + blind-solve
+// verification, with retries); the Cloud Run request timeout is 900s.
+export const maxDuration = 900;
 
 const RATE_LIMIT = { maxRequests: 6, windowMs: 60_000 };
 const SKILLS = new Set(['READING', 'LISTENING', 'WRITING']);
 const TEST_TYPES = new Set(['ACADEMIC', 'GENERAL_TRAINING']);
+const SCOPES = new Set(['set', 'full_component']);
 const WRITING_TASK_TYPES = new Set<string>(IELTS_WRITING_TASK_TYPES);
 const MAX_TOPIC_CHARS = 200;
 
@@ -57,12 +60,22 @@ export async function POST(request: NextRequest) {
       count?: number;
       topicHint?: string;
       writingTaskType?: string;
+      scope?: string;
     };
     if (!body.skill || !SKILLS.has(body.skill)) {
       return NextResponse.json({ error: 'skill must be READING, LISTENING or WRITING' }, { status: 400 });
     }
     if (!body.testType || !TEST_TYPES.has(body.testType)) {
       return NextResponse.json({ error: 'testType must be ACADEMIC or GENERAL_TRAINING' }, { status: 400 });
+    }
+    if (body.scope !== undefined && !SCOPES.has(body.scope)) {
+      return NextResponse.json({ error: 'scope must be set or full_component' }, { status: 400 });
+    }
+    if (body.scope === 'full_component' && body.skill === 'WRITING') {
+      return NextResponse.json(
+        { error: 'A writing task is always a single item; scope must be set' },
+        { status: 400 },
+      );
     }
     if (body.skill === 'WRITING' && (!body.writingTaskType || !WRITING_TASK_TYPES.has(body.writingTaskType))) {
       return NextResponse.json(
@@ -85,6 +98,7 @@ export async function POST(request: NextRequest) {
       ...(body.writingTaskType
         ? { writingTaskType: body.writingTaskType as IeltsWritingTaskType }
         : {}),
+      ...(body.scope ? { scope: body.scope as 'set' | 'full_component' } : {}),
     });
     if (!outcome.ok) {
       const status =

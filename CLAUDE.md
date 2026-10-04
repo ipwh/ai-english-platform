@@ -6,7 +6,7 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, 3590 pass / 2 skipped (196 files passed, 2 skipped — fully green; incl. the `useT()` stability guard and the TTS speaker-label guard; IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates, 2026-10-03). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
+- **Testing**: Vitest 4, 3604 pass / 2 skipped (196 files passed, 2 skipped — fully green; incl. the `useT()` stability guard and the TTS speaker-label guard; IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates, 2026-10-03). The 2 skipped are gated: one needs `TEST_DATABASE_URL`, one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run。**部署必先套用遷移**（2026-10-03 V）：`cloudbuild.yaml` Step 1 執行 `prisma migrate deploy`（Secret Manager `DIRECT_DATABASE_URL`；失敗即中止），`scripts/cloud-run-deploy.ps1` Step 2 亦先遷移；Cloud Build 併發 = 50（事故基線）
 - **Key modules**: 23 under `src/modules/` (including 5 AI infra + foundation modules, `listening/` — the server-owned listening question store added 2026-09-21 — and `ielts/` — the isolated IELTS-style practice subsystem added 2026-10-03)
 - **API routes**: 115 under `src/app/api/`
@@ -155,22 +155,33 @@ IELTS — Isolated Practice Subsystem (2026-10-03, PHASE IELTS-01):
     │    (deterministic scoring stands); band/examiner wording stripped sentence-wise
     │    (FORBIDDEN_CLAIM_FILTERED; all-filtered ⇒ 422 AI_OUTPUT_FILTERED); quotes the
     │    passage/transcript; prompt injection defended; POST /api/ielts/mistakes/explain.
-    ├─ Instant self-study (2026-10-03 VII · WRITING added 2026-10-04):
+    ├─ Instant self-study (2026-10-03 VII · WRITING 2026-10-04 · COMPONENTS 2026-10-04):
     │    generateIeltsInstantPractice() — on-demand practice WITHOUT weakening the
     │    no-publish invariant. IeltsTest.origin='INSTANT' + ownerUserId; delivered to
     │    the requester ONLY, labelled "not teacher-reviewed"; never listed (catalogue
     │    filters origin='CATALOGUE'); same machine screen + blind-solve gates; persisted
     │    state stays DRAFT + QA_REQUIRED. Non-owner blocked on EVERY surface
-    │    (load/start/submit/audio/explanation). Cap: 8 sets per student per HKT day
-    │    (ONE shared budget for reading/listening sets AND writing tasks) + route rate
-    │    limit + AI budget gate (503). WRITING requires `writingTaskType`
-    │    (academic_task1/2 ↔ ACADEMIC, general_task1/2 ↔ GENERAL_TRAINING) and is a
-    │    single task generated through the SAME conformance check as authoring
-    │    (generateIeltsWritingTask with deliveryMode:'INSTANT'); the student UI
-    │    (/student/ielts/writing) reads the prompt from the canonical owner-only record,
-    │    never a duplicated copy. Owner may get advisory explanations; teacher publish
-    │    flips origin → CATALOGUE (graduation).
-    │    POST /api/ielts/practice/instant; migration 20261003000200_ielts_instant_practice.
+    │    (load/start/submit/audio/explanation). Caps: sets share 8/student/HKT-day
+    │    (reading/listening sets AND writing tasks); scope='full_component'
+    │    (reading 3 passages / listening 4 parts, official 40 items) has its OWN cap
+    │    (2/day, counted by durationMinutes != null) because it costs ~8× a set.
+    │    WRITING requires `writingTaskType` (academic_task1/2 ↔ ACADEMIC,
+    │    general_task1/2 ↔ GENERAL_TRAINING) and is a single task generated through the
+    │    SAME conformance check as authoring (generateIeltsWritingTask with
+    │    deliveryMode:'INSTANT'); the student UI (/student/ielts/writing) reads the
+    │    prompt from the canonical owner-only record, never a duplicated copy.
+    │    Shortfall is reported honestly (runner shows "N of 40 official items delivered"
+    │    + the fail-closed explanation). Cloud Run request timeout = 900s (a component
+    │    needs 4 generations + 4 blind-solve verifications). Delivery AND scoring share
+    │    ONE rule: only questions attached to a section are deliverable
+    │    (`getTestForAttempt` filters `sectionId != null`) — a section-less question is
+    │    unrenderable, so it must never count toward the score. Attempts are reload-safe:
+    │    an unfinished attempt is RESUMED and a submitted one is RETURNED as-is (the
+    │    runner restores the student's answers + result; 'retake' sends force=true) —
+    │    a page refresh never mints a second attempt or discards a result.
+    │    Owner may get advisory explanations; teacher publish flips origin → CATALOGUE
+    │    (graduation). POST /api/ielts/practice/instant; migration
+    │    20261003000200_ielts_instant_practice.
     └─ Governance: HUMAN_EVIDENCE = INSUFFICIENT, MARKER_EQUIVALENCE = UNPROVEN,
          CALIBRATED_HUMAN_VALIDATED impossible (guarded + contract test), calibration
          report INSUFFICIENT_DATA until ≥8 REAL paired human marks, AI_COST = UNKNOWN.

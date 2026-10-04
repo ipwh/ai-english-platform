@@ -35,9 +35,10 @@ spec:
         # 啟動時 CPU 加速（1→2 vCPU），減少 cold start 延遲
         run.googleapis.com/startup-cpu-boost: "true"
     spec:
-      # 請求 timeout：5 分鐘（300s），足以處理所有 AI API 呼叫
-      # Cloud Run 預設: 300s，最大: 3600s（60 分鐘）
-      timeoutSeconds: 300
+      # 請求 timeout：15 分鐘（900s）。2026-10-04：學生可生成「完整組件」
+      # （官方 4 節／4 部分、約 40 題）＝ 4 次生成 + 4 次盲解覆核（含重試），
+      # 300s 往往不足。Cloud Run 最大可設 3600s。
+      timeoutSeconds: 900
 
       # 併發（2026-09-26 晚上事故後由 80 降至 50）：高併發時互動交易擠壓連線池，
       # 令請求堆叠（P95 > 5s、gamification 500）。降低單實例併發令較多實例

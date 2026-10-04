@@ -27,6 +27,7 @@ vi.mock('@/modules/ai', () => ({
 
 import {
   generateIeltsInstantPractice,
+  IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT,
   IELTS_INSTANT_PRACTICE_DAILY_LIMIT,
 } from '../services/instant-practice-service';
 
@@ -53,6 +54,7 @@ const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   generateWriting: vi.fn(),
   countCreatedSince: vi.fn(),
+  countComponentsCreatedSince: vi.fn(),
 }));
 
 function deps() {
@@ -60,6 +62,7 @@ function deps() {
     generate: mocks.generate,
     generateWriting: mocks.generateWriting,
     countCreatedSince: mocks.countCreatedSince,
+    countComponentsCreatedSince: mocks.countComponentsCreatedSince,
     now: () => NOW,
   };
 }
@@ -86,6 +89,7 @@ const baseInput = {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.countCreatedSince.mockResolvedValue(0);
+  mocks.countComponentsCreatedSince.mockResolvedValue(0);
   mocks.generate.mockResolvedValue(generationOk());
   mocks.generateWriting.mockResolvedValue(writingOk());
 });
@@ -305,5 +309,97 @@ describe('generateIeltsInstantPractice — instant writing tasks', () => {
     const outcome = await generateIeltsInstantPractice(writingInput, deps());
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.code).toBe('WRITING_PROMPT_NOT_CONFORMING');
+  });
+});
+
+// 2026-10-04: complete components (official 4 sections/parts, ~40 items) — the
+// student may practise a full-length component, with its own small daily cap.
+describe('generateIeltsInstantPractice — complete components', () => {
+  const componentInput = {
+    userId: 'student-1',
+    skill: 'READING' as const,
+    testType: 'ACADEMIC' as const,
+    scope: 'full_component' as const,
+  };
+
+  it('generates a full component with the official target count and reports scope', async () => {
+    mocks.countComponentsCreatedSince.mockResolvedValue(0);
+    mocks.generate.mockResolvedValue(
+      generationOk({ requestedCount: 40, deliveredCount: 38, shortfall: 2 }),
+    );
+
+    const outcome = await generateIeltsInstantPractice(componentInput, deps());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.data.scope).toBe('full_component');
+    expect(outcome.data.requestedCount).toBe(40);
+    expect(outcome.data.deliveredCount).toBe(38);
+    expect(outcome.data.shortfall).toBe(2);
+    expect(outcome.data.remainingToday).toBe(IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT - 1);
+    expect(mocks.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'full_component', count: 40, deliveryMode: 'INSTANT' }),
+    );
+    // A component must NOT consume the per-set budget.
+    expect(mocks.countCreatedSince).not.toHaveBeenCalled();
+  });
+
+  it('enforces the separate component cap (sets are unaffected)', async () => {
+    mocks.countComponentsCreatedSince.mockResolvedValue(
+      IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT,
+    );
+
+    const outcome = await generateIeltsInstantPractice(componentInput, deps());
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('INSTANT_DAILY_LIMIT_REACHED');
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('does not require or validate `count` for a component', async () => {
+    mocks.generate.mockResolvedValue(generationOk({ requestedCount: 40, deliveredCount: 40, shortfall: 0 }));
+
+    const outcome = await generateIeltsInstantPractice(
+      { ...componentInput, count: 999 as never },
+      deps(),
+    );
+
+    expect(outcome.ok).toBe(true);
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ count: 40 }));
+  });
+
+  it('rewrites a set back to scope=set when count is supplied', async () => {
+    await generateIeltsInstantPractice(
+      { userId: 'student-1', skill: 'LISTENING', testType: 'GENERAL_TRAINING', count: 8 },
+      deps(),
+    );
+    expect(mocks.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'set', count: 8 }),
+    );
+  });
+
+  it('rejects a component scope for writing tasks', async () => {
+    const outcome = await generateIeltsInstantPractice(
+      {
+        userId: 'student-1',
+        skill: 'WRITING',
+        testType: 'ACADEMIC',
+        writingTaskType: 'academic_task2',
+        scope: 'full_component',
+      },
+      deps(),
+    );
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('INVALID_INPUT');
+    expect(mocks.generateWriting).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown scope', async () => {
+    const outcome = await generateIeltsInstantPractice(
+      { ...componentInput, scope: 'everything' as never },
+      deps(),
+    );
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('INVALID_INPUT');
   });
 });

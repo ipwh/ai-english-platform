@@ -99,7 +99,7 @@ gcloud run deploy $ServiceName `
   --region $Region `
   --platform managed `
   --allow-unauthenticated `
-  --timeout 300 `
+  --timeout 900 `
   --memory 1Gi `
   --cpu 1 `
   --min-instances 0 `
