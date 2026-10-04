@@ -4,6 +4,36 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-04（VI）— push 自動部署正式併入資料庫遷移（Secret Manager ＋ cloudbuild.yaml）
+
+### 一、背景
+(V) 查證發現：push 觸發的 GitHub→Cloud Build trigger 使用**內嵌**設定（只做
+`gcloud run services update --image`），故 push **不會**套用遷移；repo `cloudbuild.yaml` 的遷移步驟從未在
+自動路徑上執行過，且它要求的 Secret `DIRECT_DATABASE_URL` 也不存在。此為「新程式碼＋舊 schema」的溫床。
+
+### 二、變更（採完整方案）
+1. **Secret Manager**：建立 `DIRECT_DATABASE_URL`（Neon **直連**主機，取自本機 `.env.local`；值不進 repo／log），
+   並授予 Cloud Build 服務帳戶 `694494166764-compute@developer.gserviceaccount.com`
+   `roles/secretmanager.secretAccessor`（專案原本只有 `gcp-service-account`）。
+2. **觸發條件改指向 repo 設定檔**：
+   `gcloud builds triggers update github d504aced-… --build-config=cloudbuild.yaml --repo-owner=ipwh
+   --repo-name=ai-english-platform --branch-pattern='^main$' --service-account=projects/…/694494166764-compute@…`
+   ——`--service-account` 是必要旗標（缺它只回 `INVALID_ARGUMENT`，無其他線索）；內嵌 `build` 設定已被清除
+   （`filename=cloudbuild.yaml`），分支樣式維持 `^main$`，服務帳戶不變。
+3. **`cloudbuild.yaml` 硬化**：四個步驟補上 `id`（`Migrate`／`Build`／`Push`／`Deploy`）；Build 步驟補回
+   `--no-cache -f Dockerfile` 對齊原內嵌設定；Deploy 步驟維持 timeout 900s／併發 50／記憶體 1Gi／maxScale 20／
+   `--cpu-boost`（首次讓這些基線由設定檔明確帶上，而非只繼承服務範本）。
+
+### 三、驗證（真實建置，非推論）
+- 手動觸發 trigger（commit `54885ed`）→ Build `1eef1571-5f48-4e43-ab74-1b621a2fb80a` **SUCCESS**，四步驟全 `SUCCESS`。
+- `Migrate` 日誌：`Loaded Prisma config from prisma.config.ts` → `23 migrations found` →
+  `No pending migrations to apply.`（成功走 Secret Manager 直連主機）。
+- 新修訂版 `english-platform-00138-nvw` 接 100% 流量；timeout **900**、併發 **50**、記憶體 1Gi、maxScale 20；
+  **13 個環境變數逐項比對全部保留**（`gcloud run deploy` 未覆蓋既有 env）。
+- ⇒ 之後 push 到 `main`：**先遷移（失敗即中止）→ 建構 → 部署**，不再需要先手動遷移。
+
+---
+
 ## 2026-10-04（V）— 部署實況查證：push 自動部署不套用遷移；服務 timeout 300s → 900s
 
 ### 一、查證結果（先前文件與實況不符）
@@ -29,6 +59,7 @@ All notable changes to the AI English Platform are documented here.
 （2）授予 Cloud Build 服務帳戶 `secretmanager.secretAccessor`、（3）把 trigger 改指向
 repo 的 `cloudbuild.yaml`（即可同時帶上 timeout 900／併發 50／遷移步驟）。未執行前，
 每次有 schema 變更的部署都必須先手動遷移。
+→ **已於 2026-10-04（VI）三項全部執行完畢並以真實建置驗證**（本節保留為當時狀態記錄）。
 
 ---
 

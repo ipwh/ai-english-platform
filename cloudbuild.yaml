@@ -3,6 +3,9 @@
 # 觸發條件：push 到 main 分支
 # 不會覆蓋已設定的 Cloud Run 環境變數
 #
+# 2026-10-04 (VI)：GitHub push 觸發條件已改為 --build-config=cloudbuild.yaml，
+#   因此本檔（連同 Step 1 遷移）現在真的會在 push 到 main 時執行。
+#
 # 2026-10-03 (V)：新增 Step 1「資料庫遷移」。
 #   1. 本步驟需要 GCP Secret Manager 內存在 secret：DIRECT_DATABASE_URL
 #      （Neon 直連主機；見 prisma.config.ts 說明），並在觸發條件的
@@ -14,7 +17,11 @@
 
 steps:
   # Step 1: 套用資料庫遷移（在部署新程式碼之前；失敗即中止）
+  #   連線用 secretEnv 注入的 DIRECT_DATABASE_URL（Neon 直連主機）。
+  #   2026-10-04 實測（Build 1eef1571）：`23 migrations found` /
+  #   `No pending migrations to apply.`，`prisma.config.ts` 在此環境可正常載入。
   - name: 'node:22-alpine'
+    id: 'Migrate'
     entrypoint: 'sh'
     args:
       - '-c'
@@ -22,15 +29,22 @@ steps:
     secretEnv: ['DIRECT_DATABASE_URL']
 
   # Step 2: 建構 Docker 映像檔
+  #   `--no-cache` 與原內嵌觸發設定一致：避免 Next.js 建構產物沿用 Docker layer
+  #   快取而交付過期前端。
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build'
     args:
       - 'build'
+      - '--no-cache'
       - '-t'
       - 'asia-east2-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/ai-english-platform/english-platform:$COMMIT_SHA'
       - '.'
+      - '-f'
+      - 'Dockerfile'
 
   # Step 3: 推送映像檔
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push'
     args:
       - 'push'
       - 'asia-east2-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/ai-english-platform/english-platform:$COMMIT_SHA'

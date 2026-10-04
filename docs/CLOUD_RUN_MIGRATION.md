@@ -17,6 +17,7 @@ gcloud config set project YOUR_PROJECT_ID
 gcloud services enable run.googleapis.com
 gcloud services enable cloudbuild.googleapis.com
 gcloud services enable artifactregistry.googleapis.com
+gcloud services enable secretmanager.googleapis.com
 
 # 設定 Docker 認證（推送映像檔用）
 gcloud auth configure-docker
@@ -90,7 +91,7 @@ gcloud run deploy english-platform \
 | 變數 | 說明 |
 |---|---|
 | `DATABASE_URL` | Neon PostgreSQL 連線字串（執行期；`-pooler` 主機） |
-| `DIRECT_DATABASE_URL` | Prisma CLI 遷移用**直連**主機（無 `-pooler`；2026-09-27 起 `prisma.config.ts` 優先採用）。執行期不需要 |
+| `DIRECT_DATABASE_URL` | Prisma CLI 遷移用**直連**主機（無 `-pooler`；2026-09-27 起 `prisma.config.ts` 優先採用）。**Cloud Run 執行期不需要**，但 Cloud Build 的 `Migrate` 步驟以同名的 Secret Manager secret 讀取（2026-10-04 建立） |
 | `AUTH_SECRET` | NextAuth 密鑰 (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` | Google OAuth Client ID |
 | `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret |
@@ -155,14 +156,18 @@ gcloud run deploy english-platform \
 **可選優化**：如需全域精確限流／共享快取，接入 Cloud Memorystore (Redis) 或 Upstash Redis。
 
 ### 2. 資料庫 Migration
-Cloud Run 不會在部署時自動執行 `prisma migrate deploy`。有三種做法：
+**A. 隨 push 自動套用（現行預設，2026-10-04 起）：**
+GitHub→Cloud Build trigger 使用 repo 的 `cloudbuild.yaml`，Step `Migrate` 在**部署新程式碼之前**
+執行 `npm ci && prisma migrate deploy`（連線取自 Secret Manager `DIRECT_DATABASE_URL`；build SA
+`<PROJECT_NUMBER>-compute@developer.gserviceaccount.com` 具 `roles/secretmanager.secretAccessor`）。
+遷移失敗 ⇒ 建置中止 ⇒ 不會出現「新程式碼＋舊 schema」。
 
-**A. 部署前手動執行（目前最簡單）：**
+**B. 手動執行（本機補救／排錯）：**
 ```bash
-npx prisma migrate deploy
+npx prisma migrate deploy   # 讀 .env.local 的 DIRECT_DATABASE_URL（Neon 直連主機）
 ```
 
-**B. 使用 Cloud Run Jobs（排程或手動觸發）：**
+**C. 使用 Cloud Run Jobs（排程或手動觸發）：**
 ```bash
 gcloud run jobs create db-migrate \
   --image gcr.io/YOUR_PROJECT_ID/english-platform \

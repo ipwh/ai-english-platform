@@ -114,10 +114,13 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 > - 安全預覽單一 revision（不動流量）：`--set-tags candidate=<revision>` 後開 `https://candidate---<service-url>`。
 >   預覽完畢請 `--clear-tags`。
 >
-> 注意：自動部署（GitHub→Cloud Build trigger 的**內嵌**設定）只執行
-> `gcloud run services update --image=…`，**沒有**任何 env-vars／timeout／併發旗標，
-> 因此它會**繼承服務範本**（現行：timeout 900s、併發 50、記憶體 1Gi）；範本一旦被清空，
-> 連 push 觸發的自動部署也會產生故障 revision。`cloudbuild.yaml` 不在此自動路徑上。
+> 注意：自動部署（GitHub→Cloud Build trigger）自 2026-10-04 起使用 repo 的
+> `cloudbuild.yaml`（`filename=cloudbuild.yaml`）：push 到 `main` 會**先套用遷移**
+> （Step `Migrate`：`prisma migrate deploy`，經 Secret Manager `DIRECT_DATABASE_URL`；
+> 失敗即中止 ⇒ 不會出現「新程式碼＋舊 schema」），再 docker build（`--no-cache`）→ push
+> → `gcloud run deploy`（帶 timeout 900s／併發 50／記憶體 1Gi，不再只繼承服務範本）。
+> 該 Secret 由 build SA `694494166764-compute@developer.gserviceaccount.com` 以
+> `roles/secretmanager.secretAccessor` 讀取。
 
 ### 部署前後量測流程
 
@@ -407,9 +410,9 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] PWA 安裝（manifest.json + SVG icons）
 
 ### Cloud Run 部署要點
-- **自動部署**: push 到 `main` 觸發 GitHub→Cloud Build trigger（docker build → push → `gcloud run services update --image`；**不套用遷移、不覆蓋環境變數**，僅繼承既有服務設定）；或 `npm run cloud-run:deploy:win -- -ProjectId ...`（**先遷移後部署**）
+- **自動部署**: push 到 `main` 觸發 GitHub→Cloud Build trigger，使用 repo 的 `cloudbuild.yaml`（`prisma migrate deploy` → docker build `--no-cache` → push → `gcloud run deploy`，帶 timeout 900s／併發 50／記憶體 1Gi；**不會覆蓋環境變數**）；或 `npm run cloud-run:deploy:win -- -ProjectId ...`（**先遷移後部署**）
 - **建構**: Dockerfile 多階段建構（`next build` + standalone output），建構時用 placeholder DB，**不會**在映像檔建構期間執行 migration
-- **資料庫遷移**: 部署前/後手動 `npx prisma migrate deploy`（詳見 [`docs/CLOUD_RUN_MIGRATION.md`](./docs/CLOUD_RUN_MIGRATION.md)）
+- **資料庫遷移**: 已內含於 push 自動部署（遷移失敗即中止）；亦可手動 `npx prisma migrate deploy`（詳見 [`docs/CLOUD_RUN_MIGRATION.md`](./docs/CLOUD_RUN_MIGRATION.md)）
 - **GCP 憑證**: 映像檔**不包含**任何憑證檔案；在 Cloud Run 設定 `GCP_SERVICE_ACCOUNT_JSON` 環境變數（建議 Secret Manager）
 - **機密**: `cloud-run-env.yaml` 僅保留在本地（已加入 `.gitignore`），勿 commit
 - **健康檢查**: `/api/health`（liveness probe）+ TCP 8080（startup probe）
