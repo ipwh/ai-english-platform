@@ -12,7 +12,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
 - **Tests**: Run `npm test` for current count. Last verified: 2026-10-04 — 196 files, 3604 tests pass (+2 gated skips; full non-E2E), including the IELTS module suite (incl. audit-invariants source scans), the `useT()` stability guard, the TTS speaker-label guard and route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
-- **Deployment (2026-10-03 — IELTS 子系統)**: 需套用 3 個遷移（`20261003000100_ielts_module`、`20261003000200_ielts_instant_practice`、`20261003000300_ielts_assessment_rubric_version`；**2026-10-03 (XII) 更名**以修正字母序 P3018——舊名的 `..._assessment_rubric_version` 字母序排在建表遷移之前會令全新庫部署中止）。部署路徑已內建：`cloudbuild.yaml` Step 1 與 `scripts/cloud-run-deploy.ps1` Step 2 先跑 `npx prisma migrate deploy`（Cloud Build 需 Secret Manager `DIRECT_DATABASE_URL`；失敗即中止）。遷移全部為加法（僅 IELTS 新表＋可空欄位），**無需回填**；**2026-10-03 (XII) 已補套用至生產庫**。
+- **Deployment (2026-10-03 — IELTS 子系統)**: 需套用 3 個遷移（`20261003000100_ielts_module`、`20261003000200_ielts_instant_practice`、`20261003000300_ielts_assessment_rubric_version`；**2026-10-03 (XII) 更名**以修正字母序 P3018——舊名的 `..._assessment_rubric_version` 字母序排在建表遷移之前會令全新庫部署中止）。**遷移不會由 push 自動套用**（2026-10-04 查證：GitHub→Cloud Build trigger 使用**內嵌**設定，只做 `gcloud run services update --image`，不含遷移步驟；`cloudbuild.yaml` 的遷移步驟僅在手動 `gcloud builds submit --config cloudbuild.yaml` 或 `scripts/cloud-run-deploy.ps1` Step 2 時執行，且該 Secret `DIRECT_DATABASE_URL` 目前**未建立**於專案）。請先以 `.env.local` 直連套用 `npx prisma migrate deploy`（或跑 `scripts/cloud-run-deploy.ps1`）再依賴新程式碼。遷移全部為加法（僅 IELTS 新表＋可空欄位），**無需回填**；**2026-10-03 (XII) 已補套用至生產庫**。
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
 - **Deployment (2026-09-26 — 生字簿修正)**: **no schema change / no migration.** 批量匯入欄位契約修正（`translation`/`example` ＋擴充欄位保存；重複單字回 409、失敗如實顯示）；PDF 匯出改用內嵌 CJK 字型（`font: ''`，不依賴 PDFKit 標準字型）、版式改為逐塊量測（內文不重疊），且 `format=pdf` 失敗回結構化 500、**永不**以 HTML 冒充。部署後請驗證（見 [CHANGELOG 2026-09-26 (IV)/(V)](CHANGELOG.md)）：① 批量匯入後生字即時出現在列表；② 下載 PDF 的回應為 `application/pdf` 且可正常開啟、內文無重疊（不應出現 corrupted）。
 
@@ -114,8 +114,10 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 > - 安全預覽單一 revision（不動流量）：`--set-tags candidate=<revision>` 後開 `https://candidate---<service-url>`。
 >   預覽完畢請 `--clear-tags`。
 >
-> 注意：自動部署的 `cloudbuild.yaml` **沒有**任何 env-vars 旗標，因此它會**繼承服務範本**；
-> 範本一旦被清空，連 push 觸發的自動部署也會產生故障 revision。
+> 注意：自動部署（GitHub→Cloud Build trigger 的**內嵌**設定）只執行
+> `gcloud run services update --image=…`，**沒有**任何 env-vars／timeout／併發旗標，
+> 因此它會**繼承服務範本**（現行：timeout 900s、併發 50、記憶體 1Gi）；範本一旦被清空，
+> 連 push 觸發的自動部署也會產生故障 revision。`cloudbuild.yaml` 不在此自動路徑上。
 
 ### 部署前後量測流程
 
@@ -384,7 +386,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 3. **DeepSeek API**: [platform.deepseek.com](https://platform.deepseek.com) → API Keys
 4. **Cloud Run 環境變數**: 設定上述變數（建議用 Secret Manager 管理機密值）
 5. **Prisma 遷移**: 映像檔建構期間不執行 migration；請以 `npx prisma migrate deploy` 套用（`scripts/production-build.js` 在 CI/本機建構時即為此流程）
-6. **首次部署**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>`（或 push 到 `main` 觸發 `cloudbuild.yaml`）
+6. **首次部署**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>`（此路徑先跑遷移再部署；**push 到 `main` 只觸發映像更新**，不會套用遷移）
 7. **驗證**: 
    - 訪問 `/login` → Google 登入 → 角色選擇 → Dashboard
    - 測試 AI 練習生成（至少 3 題）
@@ -405,7 +407,7 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - [ ] PWA 安裝（manifest.json + SVG icons）
 
 ### Cloud Run 部署要點
-- **自動部署**: push 到 `main` 觸發 `cloudbuild.yaml`（docker build → push → `gcloud run deploy`，環境變數不覆蓋）；或 `npm run cloud-run:deploy:win -- -ProjectId ...`
+- **自動部署**: push 到 `main` 觸發 GitHub→Cloud Build trigger（docker build → push → `gcloud run services update --image`；**不套用遷移、不覆蓋環境變數**，僅繼承既有服務設定）；或 `npm run cloud-run:deploy:win -- -ProjectId ...`（**先遷移後部署**）
 - **建構**: Dockerfile 多階段建構（`next build` + standalone output），建構時用 placeholder DB，**不會**在映像檔建構期間執行 migration
 - **資料庫遷移**: 部署前/後手動 `npx prisma migrate deploy`（詳見 [`docs/CLOUD_RUN_MIGRATION.md`](./docs/CLOUD_RUN_MIGRATION.md)）
 - **GCP 憑證**: 映像檔**不包含**任何憑證檔案；在 Cloud Run 設定 `GCP_SERVICE_ACCOUNT_JSON` 環境變數（建議 Secret Manager）

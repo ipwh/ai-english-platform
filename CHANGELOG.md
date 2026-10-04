@@ -4,6 +4,34 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-04（V）— 部署實況查證：push 自動部署不套用遷移；服務 timeout 300s → 900s
+
+### 一、查證結果（先前文件與實況不符）
+以 `gcloud` 直查生產專案（`amiable-nirvana-500300-a0` = number 694494166764）：
+- GitHub→Cloud Build trigger 使用**內嵌 build 設定**（`Build` → `Push` → `Deploy`），Deploy 步驟只是
+  `gcloud run services update english-platform --image=… --region=asia-east2 --quiet`
+  ——**沒有** migraton 步驟、**沒有** `--timeout`／`--concurrency`／env 旗標（全靠繼承服務範本）。
+- repo 的 `cloudbuild.yaml`（含 `prisma migrate deploy` Step 1）**不在**此自動路徑上；
+  且它要求的 Secret Manager `DIRECT_DATABASE_URL` **不存在**於專案（只有 `gcp-service-account`）⇒
+  若把 trigger 直接改指向該檔，建置會失敗。
+- ⇒ 文件先前聲稱「部署路徑已內建遷移」是**不準確**的；遷移一直是**手動**（`scripts/cloud-run-deploy.ps1`
+  Step 2 或本機 `npx prisma migrate deploy`），與 2026-10-03 (XII) 事故的處理方式一致。
+
+### 二、修正
+- **服務 timeout 300s → 900s**：`gcloud run services update english-platform --region asia-east2
+  --timeout 900`（自動部署只更新映像 ⇒ 此設定會被保留）。完整組件生成（4 次生成＋4 次盲解覆核）需要。
+  查證後服務為 timeout **900**、併發 **50**、記憶體 **1Gi**，修訂版 `english-platform-00136-sdf` 100% 流量。
+- **文件更正**：`CLAUDE.md`／`AGENTS.md`／`README.md`／`docs/CLOUD_RUN_MIGRATION.md` 全部改為實況
+  （自動部署＝只更新映像、不遷移；遷移須先手動套用；`cloudbuild.yaml` 僅供手動 `gcloud builds submit --config`）。
+
+### 三、待決（需產品／運維決定，未逕自變更）
+把遷移併入自動部署：需（1）在 Secret Manager 建立 `DIRECT_DATABASE_URL`（Neon 直連）、
+（2）授予 Cloud Build 服務帳戶 `secretmanager.secretAccessor`、（3）把 trigger 改指向
+repo 的 `cloudbuild.yaml`（即可同時帶上 timeout 900／併發 50／遷移步驟）。未執行前，
+每次有 schema 變更的部署都必須先手動遷移。
+
+---
+
 ## 2026-10-04（IV）— 學生可生成「完整組件」練習＋IELTS 學生流程稽核修復
 
 ### 一、學生可生成完整練習（完整組件）
