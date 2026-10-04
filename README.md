@@ -31,7 +31,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   已交付／官方題數與 fail-closed 原因。
 - **即時自學寫作題**（2026-10-04）：寫作頁可按所選組別／題型 **AI 生成題目**（同一 conformance
   檢查；同樣只交付本人、標示未經教師審核、**永不自動入庫**），寫完即取得四項官方準則的練習估算，
-  與閱讀／聆聽即時練習共用每日上限。
+  與閱讀／聆聽即時練習共用每日上限。寫作以**單一任務**為單位（官方寫作組件＝任務 1＋任務 2，
+  可分兩次生成練習）。
 - **重新整理不會丟失成績**（2026-10-04）：未完成的嘗試會續用、已提交的成績會還原（含逐題作答），
   要重做須明確按「再練一次」。
 - **起始卷**：系統首次載入時自動 provision 平台起始卷（repo 人工內容），新學生立即有卷可練。
@@ -197,7 +198,7 @@ Writing Evaluation (Sprints 127-130):
 | Documentation | 47 ADRs (ADR-001–047) in `docs/architecture/` |
 | State | Zustand |
 | CSS | Tailwind 4 |
-| Deployment | **Cloud Run** (asia-east2, 300s timeout, auto-deploy via `cloudbuild.yaml`) — Vercel 部署已於 2026-09-15 移除 |
+| Deployment | **Cloud Run** (asia-east2, 900s timeout, auto-deploy via `cloudbuild.yaml`) — Vercel 部署已於 2026-09-15 移除 |
 
 ## 功能
 
@@ -799,7 +800,7 @@ npm run test:watch    # 持續監控模式
 ## 部署
 
 ### Cloud Run（唯一部署目標）
-專案已配置 `Dockerfile` + `cloudbuild.yaml`，可自動部署至 Google Cloud Run（asia-east2, 300s timeout, 1 vCPU/1GiB）。
+專案已配置 `Dockerfile` + `cloudbuild.yaml`，可自動部署至 Google Cloud Run（asia-east2, 900s timeout, 1 vCPU/1GiB）。
 詳見 [`docs/CLOUD_RUN_MIGRATION.md`](docs/CLOUD_RUN_MIGRATION.md) 及 `scripts/cloud-run-deploy.ps1` / `cloud-run-deploy.sh`。
 
 > **2026-09-15 — Vercel 部署已移除**：`vercel.json`、`@vercel/kv`、middleware 的 `_vercel_jwt` 處理及所有 `VERCEL*` 環境變數分支皆已刪除。
@@ -871,7 +872,7 @@ materials/_extracted/*.txt  →  import-past-papers.ts  →  Material + Material
 ### 平台設計限制（非 bug，屬設計取捨）
 - **新用戶尚無學習記錄**：首次登入的用戶尚無練習/錯題/詞彙數據，部分頁面會顯示 empty state 或引導提示。開始練習後會自動累積真實數據。
 - **Speaking Practice**：目前僅支援文字 transcript 輸入分析（文法/詞彙/內容），無法評估流暢度、發音及互動表現。未來可整合 STT（語音辨識）。
-- **Cloud Run 部署**：AI 函數需要足夠 timeout（Cloud Run 請求上限 300s，見 `cloud-run.yaml`）。程式內部的 AI 時間預算仍保守設為 115s（`provider-registry.ts`）。
+- **Cloud Run 部署**：AI 函數需要足夠 timeout（Cloud Run 請求上限 900s，見 `cloud-run.yaml`；2026-10-04 由 300s 提升，因 IELTS 完整組件生成需 4 次生成＋4 次盲解覆核）。程式內部的 AI 時間預算仍保守設為 115s（`provider-registry.ts`）。
 - **Web Speech API Fallback**：Google Cloud TTS 不可用時自動降級至瀏覽器 Web Speech API，不同瀏覽器的語音品質不一（建議使用 Chrome）。
 - **Rate Limiter（多實例限制）**：`src/shared/utils/rate-limiter.ts` 目前為 per-instance in-memory 計數。Cloud Run 最多 20 instances（`cloud-run.yaml`），故實際全域上限約為 `maxRequests × instance 數`。原本的 Vercel KV 分散式後端已隨 Vercel 一起移除；如需全域精確限流，需接入 Redis / Memorystore。
 - **AI Hallucination Guard**: 集中式 10 規則 guard（`src/modules/ai/services/hallucination-guard.ts`），所有 prompt 模板統一引用，防止 AI 生成虛構內容。

@@ -71,7 +71,7 @@ gcloud run deploy english-platform \
   --region asia-east2 \
   --platform managed \
   --allow-unauthenticated \
-  --timeout 300 \
+  --timeout 900 \
   --memory 1Gi \
   --cpu 1 \
   --min-instances 0 \
