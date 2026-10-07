@@ -40,6 +40,31 @@ function readRiskParam(): ActivityFilter {
   return risk === 'inactive' || risk === 'low' || risk === 'never-started' ? risk : 'all';
 }
 
+/**
+ * 班別篩選的初值（`?class=<班名>`；未帶則「全部班別」）。
+ * 讀取 window 於初始化進行（與 `readRiskParam` 相同做法）。
+ */
+function readClassParam(): string {
+  if (typeof window === 'undefined') return 'all';
+  return new URLSearchParams(window.location.search).get('class') || 'all';
+}
+
+/**
+ * 同步班別篩選到 URL（`history.replaceState`：不觸發導航、不重新抓資料）。
+ *
+ * 2026-10-07（使用者回報）：點入學生詳情再返回時，列表原本會重設成「全部班別」。
+ * 班別篩選一律寫回 URL，故詳情頁的 `router.back()`（或瀏覽器上一頁）會回到同一個
+ * 帶 `?class=` 的網址，篩選得以保留。
+ */
+function syncClassParamToUrl(value: string): void {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  if (value === 'all') params.delete('class');
+  else params.set('class', value);
+  const query = params.toString();
+  window.history.replaceState(null, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
+}
+
 function studentClassNames(student: RealStudent): string[] {
   return [...new Set([
     student.class?.name,
@@ -84,7 +109,7 @@ export default function TeacherStudentsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
-  const [classFilter, setClassFilter] = useState('all');
+  const [classFilter, setClassFilter] = useState<string>(readClassParam);
   const [levelFilter, setLevelFilter] = useState('all');
   // 2026-09-21：教師辨識工具 — 活動／準確率篩選 + 排序（原本只有搜尋／班別／年級，
   // 排序硬編碼為班別→班號，老師只能在整張表上用肉眼找紅標）。
@@ -102,6 +127,12 @@ export default function TeacherStudentsPage() {
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [groupError, setGroupError] = useState('');
   const [groupSuccess, setGroupSuccess] = useState(false);
+
+  /** 套用班別篩選並同步 URL（令「列表 → 學生詳情 → 返回」保留所在班別）。 */
+  const applyClassFilter = (value: string) => {
+    setClassFilter(value);
+    syncClassParamToUrl(value);
+  };
 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || selectedForGroup.length === 0) return;
@@ -125,7 +156,15 @@ export default function TeacherStudentsPage() {
   useEffect(() => {
     fetch('/api/teacher/students').then(r => r.json()).then(studentData => {
       setStudents(studentData.students || []);
-      setClasses((studentData.classes || []).map((c: Record<string, unknown>) => String(c.name)));
+      const classNames = (studentData.classes || []).map((c: Record<string, unknown>) => String(c.name));
+      setClasses(classNames);
+      // URL 帶入的班別若已不在名單（班別已刪除／非任教班別）⇒ 回退「全部班別」，
+      // 避免出現永遠空白的列表。
+      const requested = readClassParam();
+      if (requested !== 'all' && !classNames.includes(requested)) {
+        setClassFilter('all');
+        syncClassParamToUrl('all');
+      }
       setLoading(false);
     }).catch((e) => {
       logger.error({ module: 'teacher-students', error: e instanceof Error ? e.message : String(e) }, 'Failed to load students');
@@ -240,7 +279,7 @@ export default function TeacherStudentsPage() {
             placeholder={t('admin.users.searchPlaceholder')}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none" />
         </div>
-        <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
+        <select value={classFilter} onChange={e => applyClassFilter(e.target.value)}
           aria-label={t('admin.users.class')}
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
           <option value="all">{t('admin.users.all')} {t('admin.users.class')}</option>

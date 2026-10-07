@@ -7,6 +7,8 @@
 // - 累積走正典 `aggregateVerifiedTotalsForStudents`（單一 SQL、每生一列）
 // - 「無資料 ≠ 0」：無已驗證證據 ⇒ accuracy = null；空名單 ⇒ participationRate = null
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const mocks = vi.hoisted(() => ({
   classFindMany: vi.fn(),
@@ -128,5 +130,31 @@ describe('getClassPracticeStats', () => {
 
     const result = await getClassPracticeStats();
     expect(result.map(row => row.className)).toEqual(['1A', '1B', '2B', 'X1']);
+  });
+});
+
+// ============================================
+// 教師主頁「各班級練習總覽」顯示契約（source scan）
+// ============================================
+// 2026-10-07 用戶回報：「各班級練習總覽沒有練習次數的標示，只有正確率」。
+// 練習次數（`sessionsCount`）必須同時出現在長條圖與明細表 —— 圖表不得只留比率。
+describe('teacher dashboard — class practice overview shows the practice count', () => {
+  const page = readFileSync(
+    resolve(import.meta.dirname, '../../../../../src/app/teacher/dashboard/page.tsx'),
+    'utf-8',
+  );
+
+  it('長條圖畫出練習次數，並使用獨立的右軸（單位是「次」而非百分比）', () => {
+    expect(page).toContain('dataKey="sessionsCount"');
+    expect(page).toContain("name={t('teacher.classStats.completions')}");
+    // 0-100% 的軸會把次數壓平 → 必須另設右軸
+    expect(page).toMatch(/<YAxis yAxisId="count" orientation="right"/);
+    // 使用 yAxisId 後每個 YAxis／Bar 都必須指定軸，否則 Recharts 不渲染
+    expect(page).toContain('yAxisId="rate"');
+  });
+
+  it('明細表保留「完成次數」欄', () => {
+    expect(page).toContain("{t('teacher.classStats.completions')}</th>");
+    expect(page).toContain('{c.sessionsCount}');
   });
 });

@@ -265,11 +265,14 @@ export default function TeacherDashboardPage() {
                 <BarChart data={classChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="displayName" tick={{ fontSize: 11 }} interval={0} angle={-40} textAnchor="end" height={48} />
-                  <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} unit="%" />
+                  <YAxis yAxisId="rate" tick={{ fontSize: 12 }} domain={[0, 100]} unit="%" />
+                  {/* 練習次數是「次」不是百分比 → 另設右軸，否則 0-100% 的尺度會把它壓平 */}
+                  <YAxis yAxisId="count" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} />
                   <Tooltip content={<ClassStatsTooltip t={t} />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="participationRate" name={t('teacher.classStats.participationRate')} fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="accuracy" name={t('teacher.tableAccuracy')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="count" dataKey="sessionsCount" name={t('teacher.classStats.completions')} fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="rate" dataKey="participationRate" name={t('teacher.classStats.participationRate')} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="rate" dataKey="accuracy" name={t('teacher.tableAccuracy')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
 
