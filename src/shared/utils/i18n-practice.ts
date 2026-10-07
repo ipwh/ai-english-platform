@@ -81,6 +81,14 @@ export const practiceTranslations: Record<string, { zh: string; en: string }> = 
   'practice.count8': { zh: '8 題（標準）', en: '8 Questions' },
   'practice.recommendHint': { zh: '💡 根據你的弱項，建議練習：', en: '💡 Based on your weak areas, try:' },
   'practice.genProgress': { zh: 'AI 正在生成題目...', en: 'AI generating questions...' },
+  // 2026-10-08：交付數量不足必須如實告知（永不靜默少交付）
+  'practice.shortfallTitle': { zh: '題目數量不足', en: 'Fewer questions generated' },
+  'practice.shortfallMsg': {
+    zh: '你要求 {requested} 題，AI 這次只生成到 {delivered} 題（未通過交付前答案覆核的題目一律丟棄）。',
+    en: 'You asked for {requested} questions; only {delivered} passed the pre-delivery answer check this time.',
+  },
+  'practice.shortfallStart': { zh: '開始練習（{delivered} 題）', en: 'Start practice ({delivered} questions)' },
+  'practice.shortfallRetry': { zh: '重新生成', en: 'Generate again' },
   'practice.question.notFound': { zh: '找不到此題目', en: 'Question not found' },
   'practice.question.backToPractice': { zh: '← 返回練習頁面', en: '← Back to Practice' },
   'practice.question.backToCenter': { zh: '返回練習中心', en: 'Back to Practice Center' },

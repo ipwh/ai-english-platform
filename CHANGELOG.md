@@ -4,6 +4,43 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08 — 修復「題目數量生成不足」（說話 MC 提示詞矛盾＋交付數量如實告知）
+
+### 一、背景（使用者回報）
+「題目數量生成不足」——要求 5 題時經常只交付 2–4 題。
+
+### 二、實測（真實生成路徑，帶入真實學生近 14 日 150 條已練題目）
+- 文法（tenses）：5/5 交付，通常在首輪完成。
+- **說話（Paper 4）＋ MC：首輪 5 題全部被交付前答案覆核判為 `ambiguous` 而丟棄**
+  （覆核原文：`Both A … and D … are plausible effective ways …, and no criterion uniquely
+  determines the 'most'`），只能靠補題輪補回 ⇒ 首輪延遲 18.8s 且數量極易不足。
+
+### 三、病根
+`buildCompactSystemPrompt()` 的說話段落不論題型都輸出
+「`Answer field: 3-5 bullet points (not full answer). Choices: [].`」——
+與上方「`type: mc`／4 個選項／answer A–D」互相矛盾。模型於是自行改出
+**主觀比較題**（「哪一項最有效／最重要／最強論點」）；這類題目本質上沒有唯一
+答案，獨立 blind-solve 覆核會（正確地）判 `ambiguous` 並丟棄 ⇒ 整批作廢。
+
+### 四、修正
+1. `ai/prompts/generate-questions-prompt.ts`
+   - `buildSpeakingSection()` 依**實際題型**給指引：MC 時要求「**恰好一個**可辯護答案」，
+     以明示判準出題（例：「哪一項是反駁……／支持講者提出的理由」），並**禁止**未定義判準
+     的主觀最高級題目（most effective / most important / strongest / best）；每個干擾項
+     必須有明確錯誤理由。非 MC（開放式）維持 bullet points 指引（行為不變）。
+   - 全域 MCQ 規則同步加上「恰好一個可辯護答案」與禁止主觀最高級（所有技能適用）。
+2. `app/student/practice/page.tsx`：讀取 `_meta.shortfall`，**不足時不再靜默開始練習**，
+   改為顯示雙語提示（要求 N 題／實際交付 M 題、原因為交付前答案覆核）＋兩個動作：
+   「開始練習（M 題）」與「重新生成」。i18n 新增 4 鍵（`practice.shortfall*`）。
+
+### 五、驗證
+- 修正後同一實測：**說話 5/5 於首輪交付、8.8s、零覆核丟棄**（修正前：首輪 5/5 被丟棄、18.8s）。
+- 新增 `ai/__tests__/generate-questions-prompt.test.ts`（4 cases）：MC 說話要求唯一可辯護
+  答案且不得再出現矛盾指引；非 MC 維持 bullet points；全域 MC 規則含唯一答案要求。
+- 全套測試、`tsc --noEmit`、`check:i18n`、`npm run build:prod` 皆通過。
+
+---
+
 ## 2026-10-07（IV）— 修復「作答後，題目重複出現」（練習場次題目身分＋作答狀態還原）
 
 ### 一、背景（使用者回報）

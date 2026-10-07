@@ -55,7 +55,7 @@ export function buildCompactSystemPrompt(input: GenerateQuestionsInput, dseConte
   } else if (isWriting) {
     skillSection = buildWritingSection(input.difficulty, input.gradeLevel);
   } else if (isSpeaking) {
-    skillSection = buildSpeakingSection(input.difficulty, input.gradeLevel);
+    skillSection = buildSpeakingSection(input.difficulty, input.gradeLevel, effectiveQuestionType);
   }
 
   // ── Assemble ──
@@ -80,6 +80,7 @@ ${isListening ? '- listeningContent: independent short dialogue per question (Bo
 - explanationZh, explanationEn, commonMistake, grammarPoint
 
 MCQ rules: 4 complete options, same category, no "All/None of the above", no time fragments like "00 PM".
+Exactly ONE option may be defensible: the keyed answer must be provably correct from the prompt and every distractor clearly wrong for a stated reason. NEVER write opinion-only superlative items ("most effective", "most important", "best", "strongest") unless the prompt itself states the criterion that uniquely decides the answer — an independent reviewer must be able to confirm a single correct option (2026-10-08：此類題目曾被獨立覆核判為 ambiguous 而整批丟棄，令交付數量不足)。
 ${isListening ? 'Time must be spelled out: "three o\'clock", NOT "3:00".' : ''}
 
 Example JSON format:
@@ -138,15 +139,29 @@ Answer field: model answer (${answerRange}). Choices: []. Grade: ${gradeLevel}. 
 Topics close to HK student life experience.`;
 }
 
-function buildSpeakingSection(difficulty: string, gradeLevel: string): string {
+function buildSpeakingSection(difficulty: string, gradeLevel: string, effectiveQuestionType: string): string {
   const promptRange = difficulty === 'remedial' ? '15-30 words' : difficulty === 'core' ? '25-40 words' : '35-50 words';
   const depth = difficulty === 'remedial'
     ? 'Simple discussion topic with basic opinion-sharing.'
     : difficulty === 'challenge'
       ? 'Complex discussion topic requiring critical analysis, comparison of viewpoints, and justification.'
       : 'Standard discussion topic with structured argumentation.';
+  // 2026-10-08：說話課要求 MC 時，舊碼仍叫模型交「3-5 bullet points / Choices: []」，
+  // 與上方「type: mc / 4 options」互相矛盾 → 模型改出「哪一項最有效／最重要」這類
+  // 主觀題，獨立答案覆核一律判 ambiguous 而整批丟棄，交付數量因而不足。
+  // MC 時必須明確要求「只有一個站得住腳的答案」。
+  const answerFormGuide = effectiveQuestionType === 'mc'
+    ? `
+Choices: 4 strings. answer: "A"/"B"/"C"/"D".
+The MC item must be OBJECTIVELY decidable and have exactly ONE defensible option.
+Frame it with an explicit criterion, e.g. "Which of the following is a counterargument to the claim …",
+"Which option supports the reason the speaker gives …", "Which suggestion contradicts the proposal …".
+NEVER ask for opinions or subjective superlatives ("the most effective", "the most important",
+"the strongest argument", "the best way") unless the prompt itself states the criterion that
+uniquely decides the answer. Every distractor must be clearly wrong for a stated reason.`
+    : `
+Answer field: 3-5 bullet points (not full answer). Choices: [].`;
   return `─── DSE Paper 4 Speaking ───
 Generate a discussion topic or individual response prompt (${promptRange}). Grade: ${gradeLevel}.
-${depth}
-Answer field: 3-5 bullet points (not full answer). Choices: [].`;
+${depth}${answerFormGuide}`;
 }

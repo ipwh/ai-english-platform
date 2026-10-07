@@ -75,6 +75,8 @@ function PracticeListPageContent() {
   const [genError, setGenError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [recommendationNote, setRecommendationNote] = useState('');
+  /** 2026-10-08：交付數量不足時如實告知，交由學生選擇開始或重新生成（永不靜默少交付） */
+  const [shortfall, setShortfall] = useState<{ requested: number; delivered: number; firstQuestionId: string } | null>(null);
 
   // === 載入學生年級設定 ===
   useEffect(() => {
@@ -130,6 +132,7 @@ function PracticeListPageContent() {
     }
     setGenerating(true);
     setGenError('');
+    setShortfall(null);
     if (note) setRecommendationNote(note);
 
     try {
@@ -235,6 +238,17 @@ function PracticeListPageContent() {
       };
 
       store.startSession(session);
+
+      // 2026-10-08：交付數量不足時如實告知（永不靜默少交付）—— 先讓學生決定
+      // 「以現有題數開始」或「重新生成」，而不是默默給出比要求更少的題目。
+      const meta = (json._meta ?? {}) as { requestedCount?: unknown; shortfall?: unknown };
+      const requested = typeof meta.requestedCount === 'number' ? meta.requestedCount : uniqueQuestions.length;
+      if (typeof meta.shortfall === 'number' && meta.shortfall > 0) {
+        setShortfall({ requested, delivered: uniqueQuestions.length, firstQuestionId: uniqueQuestions[0].id });
+        setTab('generate');
+        return;
+      }
+
       // 導向第一題
       router.push(`/student/practice/${uniqueQuestions[0].id}`);
     } catch (err: unknown) {
@@ -504,6 +518,32 @@ function PracticeListPageContent() {
             {/* 生成按鈕 */}
             {genError && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-600">{genError}</div>
+            )}
+
+            {shortfall && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg text-sm text-amber-800 dark:text-amber-200 space-y-2">
+                <p className="font-medium">{t('practice.shortfallTitle')}</p>
+                <p>
+                  {t('practice.shortfallMsg')
+                    .replace('{requested}', String(shortfall.requested))
+                    .replace('{delivered}', String(shortfall.delivered))}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => router.push(`/student/practice/${shortfall.firstQuestionId}`)}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md"
+                  >
+                    {t('practice.shortfallStart').replace('{delivered}', String(shortfall.delivered))}
+                  </button>
+                  <button
+                    onClick={() => { setShortfall(null); void handleGenerate(); }}
+                    disabled={generating}
+                    className="px-3 py-1.5 border border-amber-500 text-amber-800 dark:text-amber-200 rounded-md disabled:opacity-50"
+                  >
+                    {t('practice.shortfallRetry')}
+                  </button>
+                </div>
+              </div>
             )}
 
             {recommendationNote && !genError && (
