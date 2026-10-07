@@ -32,6 +32,8 @@ interface GenerateForm {
   questionType: string;
   questionCount: number;
   gradeLevel: GradeLevel;
+  /** 求助頁帶入的問題（作為出題的 topic hint）；文法出題時的唯一情境來源 */
+  topic?: string;
 }
 
 const defaultForm: GenerateForm = {
@@ -119,7 +121,9 @@ function PracticeListPageContent() {
   // === AI 生成練習 ===
   const handleGenerate = useCallback(async (inputForm?: GenerateForm, note?: string) => {
     const activeForm = inputForm || form;
-    if (!activeForm.grammarItem && !activeForm.languageSkill) {
+    // 求助頁來的文法問題沒有 grammarItem／languageSkill，只有 topic hint
+    // —— 舊碼在此直接報「請選擇技能」，令「前往完整練習」永遠無法出題。
+    if (!activeForm.grammarItem && !activeForm.languageSkill && !activeForm.topic) {
       setGenError(t('practice.validationSelectSkill'));
       return;
     }
@@ -147,6 +151,7 @@ function PracticeListPageContent() {
           gradeLevel: activeForm.gradeLevel,
           count: activeForm.questionCount,
           questionType: activeForm.questionType,
+          topic: activeForm.topic || undefined,
         }),
       });
 
@@ -282,6 +287,7 @@ function PracticeListPageContent() {
       questionType: 'mc',
       questionCount: 5,
       gradeLevel,
+      topic,
     };
 
     setTab('generate');
@@ -374,7 +380,7 @@ function PracticeListPageContent() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('practice.grammarItem')}</label>
                 <select
                   value={form.grammarItem}
-                  onChange={(e) => setForm({ ...form, grammarItem: e.target.value, languageSkill: '' })}
+                  onChange={(e) => setForm({ ...form, grammarItem: e.target.value, languageSkill: '', topic: undefined })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >
                   <option value="">{t('practice.noGrammar')}</option>
@@ -395,7 +401,7 @@ function PracticeListPageContent() {
                     const qType = skill === 'writing' ? 'short-writing'
                       : skill === 'listening' || skill === 'reading' ? 'mc'
                       : form.questionType;
-                    setForm({ ...form, languageSkill: skill, grammarItem: '', questionType: qType });
+                    setForm({ ...form, languageSkill: skill, grammarItem: '', questionType: qType, topic: undefined });
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none"
                 >

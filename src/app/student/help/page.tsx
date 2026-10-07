@@ -155,10 +155,13 @@ export default function StudentHelpPage() {
 
   // === AI 生成練習 ===
   const [genLoading, setGenLoading] = useState(false);
-  const [genQuestions, setGenQuestions] = useState<{ prompt: string; answer: string; explanationZh: string; type?: string; choices?: string[] }[]>([]);
+  const [genQuestions, setGenQuestions] = useState<{
+    prompt: string; answer: string; explanationZh: string; type?: string; choices?: string[];
+    readingContent?: string; readingContentZh?: string;
+    listeningContent?: string; listeningContentZh?: string;
+  }[]>([]);
   const [genError, setGenError] = useState('');
   const [genTopic, setGenTopic] = useState('');
-  const [genSkill, setGenSkill] = useState('grammar');
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
 
@@ -172,15 +175,15 @@ export default function StudentHelpPage() {
     const topic = aiQuestion.trim();
     setGenTopic(topic);
 
-    // 根據問題關鍵字判斷技能類型（API 僅接受 reading|writing|listening|speaking|integrated）
+    // 依問題關鍵字判斷技能；其餘（含文法問題）一律走文法出題。
+    // 舊碼把文法／無法判斷的問題當成 'reading'，會生成「According to the passage」
+    // 但沒有篇章可看的閱讀題（2026-10-07 用戶回報）。
     const q = topic.toLowerCase();
     const skill = q.includes('寫') || q.includes('write') || q.includes('essay') || q.includes('作文') || q.includes('writing') ? 'writing'
       : q.includes('聽') || q.includes('listen') || q.includes('listening') ? 'listening'
       : q.includes('說') || q.includes('speak') || q.includes('口語') || q.includes('speaking') ? 'speaking'
       : q.includes('讀') || q.includes('read') || q.includes('理解') || q.includes('comprehension') || q.includes('詞彙') || q.includes('vocab') ? 'reading'
-      : q.includes('文法') || q.includes('grammar') ? 'writing'   // DSE grammar assessed via writing
-      : 'reading';  // safe default
-    setGenSkill(skill);
+      : '';  // 省略 languageSkill ⇒ 文法路徑
 
     try {
       const res = await fetch('/api/ai/generate-questions', {
@@ -192,7 +195,7 @@ export default function StudentHelpPage() {
           count: 3,
           questionType: 'mc',
           topic,
-          languageSkill: skill,
+          languageSkill: skill || undefined,
         }),
       });
       const data = await res.json();
@@ -203,6 +206,12 @@ export default function StudentHelpPage() {
           explanationZh: q.explanationZh || '',
           type: q.type,
           choices: q.choices || [],
+          // 閱讀／聆聽題必須連同篇章（對話）一起交付，否則題目無法作答
+          // （例：「According to the passage, …」卻看不到篇章）。
+          readingContent: (q.readingContent as string) || undefined,
+          readingContentZh: (q.readingContentZh as string) || undefined,
+          listeningContent: (q.listeningContent as string) || undefined,
+          listeningContentZh: (q.listeningContentZh as string) || undefined,
         })));
       } else {
         setGenError(data.error || t('help.genFailedShort'));
@@ -589,6 +598,24 @@ export default function StudentHelpPage() {
 
                     return (
                       <div key={i} className="border border-teal-200 dark:border-teal-700 rounded-lg p-3 bg-white/50 dark:bg-gray-800/50">
+                        {/* 閱讀篇章 — 題目可能引用篇章，必須一併顯示 */}
+                        {q.readingContent && (
+                          <div className="mb-2 p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700">
+                            <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-1">📖 {t('practice.question.readingPassage')}</p>
+                            <p className="text-xs text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">{q.readingContent}</p>
+                            {q.readingContentZh && <p className="text-[11px] text-indigo-500 mt-1 italic">{q.readingContentZh}</p>}
+                          </div>
+                        )}
+
+                        {/* 聆聽對話 — 同上 */}
+                        {q.listeningContent && (
+                          <div className="mb-2 p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700">
+                            <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-1">🎧 {t('practice.question.listeningContent')}</p>
+                            <p className="text-xs text-purple-800 dark:text-purple-200 leading-relaxed whitespace-pre-line">{q.listeningContent}</p>
+                            {q.listeningContentZh && <p className="text-[11px] text-purple-500 mt-1 italic">{q.listeningContentZh}</p>}
+                          </div>
+                        )}
+
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
                           {i + 1}. {q.prompt}
                         </p>
