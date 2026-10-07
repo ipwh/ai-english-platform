@@ -14,6 +14,7 @@ import {
 import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
+import { dedupeSessionQuestions } from '@/modules/exercise/services/practice-session-questions';
 import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel, getSkillLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
@@ -202,6 +203,19 @@ function PracticeListPageContent() {
           : [t('practice.hints.default.1'), t('practice.hints.default.2'), t('practice.hints.default.3'), t('practice.hints.default.4')],
       }));
 
+      // 2026-10-07：場次內不得有重複題目（同一 id 或同一內容）。
+      // 重複題目會令 runner 的「下一題」推入當前 URL（原地不動），學生剛答完的
+      // 題目便會以未作答的樣子再次出現（學生回報「作答後，題目重複出現」）；
+      // 而且作答紀錄以題目 id 為鍵，重複交付的同一題永遠無法分別計分。
+      // 保留第一筆、丟棄其餘（不改寫伺服器正典 id —— 評分權威依賴它）。
+      const { questions: uniqueQuestions, dropped } = dedupeSessionQuestions(questions);
+      if (dropped.length > 0) {
+        logger.warn(
+          { module: 'student-practice', skill: skillKey, dropped },
+          'Dropped duplicate questions while building the practice session',
+        );
+      }
+
       // 建立練習 session
       // 2026-09-21 ADR-045：聆聽選擇題在交付前已持久化為伺服器題目
       // （ListeningQuestion），提交時以伺服器答案鍵評分。`dse-listening`
@@ -209,20 +223,20 @@ function PracticeListPageContent() {
       const session: PracticeSession = {
         id: `session-${Date.now()}`,
         startedAt: new Date().toISOString(),
-        questions,
+        questions: uniqueQuestions,
         answers: {},
         results: {},
         skill: skillKey,
         skillZh,
         difficulty: activeForm.difficulty,
-        totalQuestions: questions.length,
+        totalQuestions: uniqueQuestions.length,
         correctCount: 0,
         source: activeForm.languageSkill === 'listening' ? 'dse-listening' : 'ai-generated',
       };
 
       store.startSession(session);
       // 導向第一題
-      router.push(`/student/practice/${questions[0].id}`);
+      router.push(`/student/practice/${uniqueQuestions[0].id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('practice.networkError');
       logger.error({ module: 'student-practice', error: msg }, 'AI generate error');

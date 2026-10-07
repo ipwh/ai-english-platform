@@ -27,8 +27,13 @@ import {
   checkAnswer,
   isOpenEndedQuestionType,
 } from '@/modules/exercise/services/practice-answer-scorer';
+import { findNextSessionQuestionIndex } from '@/modules/exercise/services/practice-session-questions';
 
 const MCQ_LETTERS = ['A', 'B', 'C', 'D'] as const;
+
+/** 穩定的空陣列參考：`currentSession?.questions || []` 每次都建立新陣列，
+ *  會令相依它的 useMemo／useEffect 每次渲染都重算（React Compiler 亦警告）。 */
+const EMPTY_QUESTIONS: PracticeQuestion[] = [];
 
 function getMcqLetterByIndex(index: number): string | undefined {
   return MCQ_LETTERS[index];
@@ -82,8 +87,14 @@ export default function PracticeQuestionPage() {
   const store = useAppStore();
   const { t, language } = useT();
 
-  const [selectedAnswer, setSelectedAnswer] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  // 2026-10-07：「作答狀態」由 store（單一真實來源）還原，不得只存在本機 state。
+  // 題目 id 改變時本頁會重新掛載 → 初始化時即讀回該題的作答紀錄；因此導覽
+  // 若沒有真正換題（失敗／被中止），本機狀態不會被清空，學生剛答完的題目
+  // 不會以**未作答**的樣子再次出現（學生回報「作答後，題目重複出現」）。
+  // 還原時刻意**不**重跑 AI 解說（避免重複計費）：對錯回饋為本機確定性判定。
+  const initialStoredAnswer = store.currentSession?.answers?.[String(params.id)];
+  const [selectedAnswer, setSelectedAnswer] = useState(initialStoredAnswer ?? '');
+  const [submitted, setSubmitted] = useState(initialStoredAnswer !== undefined);
   const [currentHint, setCurrentHint] = useState(0);
   const [showZh, setShowZh] = useState(true);
 
@@ -185,11 +196,28 @@ export default function PracticeQuestionPage() {
 
   // === Session 進度（必須在 early return 之前計算，供 useEffect 使用）===
   const isSessionMode = !!store.currentSession;
-  const sessionQuestions = store.currentSession?.questions || [];
+  const sessionQuestions = store.currentSession?.questions ?? EMPTY_QUESTIONS;
   const sessionIndex = sessionQuestions.findIndex(q => q.id === params.id);
   const sessionTotal = sessionQuestions.length;
   const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
-  const hasNextSession = sessionIndex < sessionTotal - 1;
+
+  // 2026-10-07：下一題一律由 findNextSessionQuestionIndex 決定 ——
+  // 它會跳過 id 與當前題目相同的項目（否則 router.push 會指向當前 URL，
+  // 形成「原地不動、但作答狀態已被清空」的陷阱）以及本場次**已作答**的題目。
+  // 回傳 -1 表示後面沒有可前進的題目 → 視為完成練習，學生永遠不會被困在同一題。
+  const nextSessionIndex = useMemo(
+    () => findNextSessionQuestionIndex(
+      sessionQuestions,
+      sessionIndex,
+      (questionId) => store.currentSession?.answers?.[questionId] !== undefined,
+    ),
+    [sessionQuestions, sessionIndex, store.currentSession],
+  );
+  const hasNextSession = nextSessionIndex >= 0;
+
+  // 2026-10-07：作答狀態不是本機私有狀態 —— 題目 id 改變時本頁重新掛載並由
+  // store 還原（見上方 useState 初始化），因此重繪／重新進入（上一頁、導覽失敗）
+  // 都會看到先前的作答與對錯回饋，而不是把已作答題目當成未作答重新要求作答。
 
   // ⚠️ 不再使用 cleanup auto-save — 只在 handleNext 最後一題時儲存
   // 避免題目間導航 (Q1→Q2→...→Q5) 每題都建立獨立 PracticeSession
@@ -200,7 +228,7 @@ export default function PracticeQuestionPage() {
   // 預載入下一題聆聽音訊（減少等待時間）
   useEffect(() => {
     if (!isSessionMode || !hasNextSession || !question) return;
-    const nextQ = sessionQuestions[sessionIndex + 1];
+    const nextQ = sessionQuestions[nextSessionIndex];
     if (nextQ?.listeningContent && nextQ.languageSkill === 'listening') {
       // 延遲 1 秒載入，避免影響當前頁面渲染
       const timer = setTimeout(() => {
@@ -208,7 +236,7 @@ export default function PracticeQuestionPage() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isSessionMode, hasNextSession, sessionIndex, sessionQuestions, question]);
+  }, [isSessionMode, hasNextSession, nextSessionIndex, sessionQuestions, question]);
   
   // 練習完成摘要 — 必須在 !question 檢查之前，因為 completeSession() 後 currentSession 為 null
   if (sessionComplete && (store.currentSession || completedSession)) {
@@ -368,14 +396,13 @@ export default function PracticeQuestionPage() {
 
   const handleNext = async () => {
     if (isSessionMode && hasNextSession) {
-      const nextQ = sessionQuestions[sessionIndex + 1];
-      router.push(`/student/practice/${nextQ.id}`);
-      setSelectedAnswer('');
-      setSubmitted(false);
-      setCurrentHint(0);
-      setAiAnalysis(null);
-      setAiError('');
-      setListeningRevealed(false);
+      // 2026-10-07：目標索引由 findNextSessionQuestionIndex 決定（永不指向當前題目）。
+      // 這裡**不再**清空本機作答狀態：題目 id 真的改變時本頁會重新掛載，狀態自然
+      // 重置（並由 store 還原該題已有的作答紀錄）。導覽若沒有真正發生（失敗／被
+      // 中止／同一 id 造成原地不動），狀態因而保留 —— 學生不會看到剛答完的題目
+      // 以未作答的樣子再次出現（學生回報的「作答後，題目重複出現」）。
+      const nextQ = sessionQuestions[nextSessionIndex];
+      if (nextQ) router.push(`/student/practice/${nextQ.id}`);
       return;
     } else if (isSessionMode) {
       // 完成所有題目 → 儲存完整練習記錄 + 顯示摘要

@@ -4,6 +4,51 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-07（IV）— 修復「作答後，題目重複出現」（練習場次題目身分＋作答狀態還原）
+
+### 一、背景（使用者回報）
+「用家反映，作答後，題目重複出現」——學生在練習 runner（`/student/practice/[id]`）
+作答並按「下一題」後，剛答完的題目會以**未作答**的樣子再次出現。
+
+### 二、病根
+1. **前進以題目 id 推導 URL，但狀態在 push 之後立刻被清空**：`handleNext()`
+   先 `router.push('/student/practice/<下一題 id>')`，再立刻 `setSubmitted(false)`／
+   `setSelectedAnswer('')`。只要導覽沒有真正換題（導覽失敗／被中止，或場次內出現
+   同一 id 的題目 → push 指向當前 URL），狀態已被清空而題目不動，學生看到的就是
+   「剛答完的題目重新出現且未作答」。影片實證（10 秒螢幕錄影逐格比對）：轉換前後
+   選項位置完全相同、進度條（60%）從未回到頂部 → **沒有發生導覽**，但作答狀態已消失。
+2. **作答狀態只存在本機 state**：因此任何重新掛載／重新進入（上一頁、導覽失敗）
+   都會把已作答題目顯示成未作答。
+3. **場次內沒有題目去重**：同一 id（或同一內容經 `shuffleMCAnswers()` 洗牌後以
+   不同 id 交付）的題目會令「下一題」原地不動；而且作答紀錄以題目 id 為鍵，
+   重複交付的同一題永遠無法分別計分。
+
+### 三、修正
+1. **新增單一 owner**：`src/modules/exercise/services/practice-session-questions.ts`
+   - `questionContentKey()`：題目內容指紋（**對選項次序不敏感** —— 洗牌後同一題仍判為同一題）
+   - `dedupeSessionQuestions()`：建立場次時去除同一 id／同一內容的題目（保留第一筆，
+     **不改寫伺服器正典 id** —— 評分權威依賴它），並回報被丟棄清單（never 靜默）
+   - `findNextSessionQuestionIndex()`：下一題索引；跳過同 id 與本場次已作答的題目，
+     無可前進者回 `-1`（呼叫端視為完成練習 → 學生永遠不會被困在同一題）
+2. `src/app/student/practice/page.tsx`：以 `dedupeSessionQuestions()` 建立場次
+   （`totalQuestions` 及首題導向皆以去重後結果為準），有丟棄時記 warning。
+3. `src/app/student/practice/[id]/page.tsx`
+   - **不再於 `handleNext()` 清空本機作答狀態**（導覽成功時本頁本來就會重新掛載，
+     狀態自然重置；導覽失敗時保留狀態才是正確行為）。
+   - 作答狀態改由 store 還原（`useState` 初始化讀 `currentSession.answers[題目 id]`）：
+     重新進入已作答題目時顯示先前的作答與對錯回饋，而非重新要求作答；刻意**不**重跑
+     AI 解說（避免重複計費）。
+   - 「下一題」索引改用 `findNextSessionQuestionIndex()`（含 TTS 預載入）。
+   - `sessionQuestions` 改用模組層穩定的空陣列常數（消除每次渲染重算的相依警告）。
+
+### 四、測試
+`src/modules/exercise/__tests__/practice-session-questions.test.ts`（13 cases）：
+洗牌／大小寫／空白／選項字母前置下的內容指紋一致；同一 id 與同一內容只保留第一筆
+（保留正典 id）；順序保留；下一題索引跳過同 id、跳過已作答、窮盡時回 `-1`；
+空陣列／無效索引安全。
+
+---
+
 ## 2026-10-07（III）— 記住 IELTS 上次組別＋教師學生名單返回時保留班別
 
 ### 一、背景（使用者要求／回報）
