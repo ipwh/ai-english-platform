@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-10-04 — 196 files, 3604 tests pass (+2 gated skips; full non-E2E), including the IELTS module suite (incl. audit-invariants source scans), the `useT()` stability guard, the TTS speaker-label guard and route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-10-07 — 199 files, 3620 tests pass (+2 gated skips; full non-E2E), including the IELTS module suite (incl. audit-invariants source scans and the student-flow contract), the `useT()` stability guard, the TTS speaker-label guard and route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
 - **Deployment (2026-10-03 — IELTS 子系統)**: 需套用 3 個遷移（`20261003000100_ielts_module`、`20261003000200_ielts_instant_practice`、`20261003000300_ielts_assessment_rubric_version`；**2026-10-03 (XII) 更名**以修正字母序 P3018——舊名的 `..._assessment_rubric_version` 字母序排在建表遷移之前會令全新庫部署中止）。**遷移不會由 push 自動套用**（2026-10-04 查證：GitHub→Cloud Build trigger 使用**內嵌**設定，只做 `gcloud run services update --image`，不含遷移步驟；`cloudbuild.yaml` 的遷移步驟僅在手動 `gcloud builds submit --config cloudbuild.yaml` 或 `scripts/cloud-run-deploy.ps1` Step 2 時執行，且該 Secret `DIRECT_DATABASE_URL` 目前**未建立**於專案）。請先以 `.env.local` 直連套用 `npx prisma migrate deploy`（或跑 `scripts/cloud-run-deploy.ps1`）再依賴新程式碼。遷移全部為加法（僅 IELTS 新表＋可空欄位），**無需回填**；**2026-10-03 (XII) 已補套用至生產庫**。
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
@@ -40,7 +40,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   錯題可要求 **AI 解說**（只解釋、永不改分）；**寫作**提交後獲四項官方準則的逐項
   估算＋逐字證據＋強弱項＋改善重點（AI 估算，非考官分數）；**口說**只提供準備教學
   與 AI 準備教練（**不評分**）；進度頁追蹤練習歷史。
-- **學術組 / 通用組**在介面上分開選擇；聆聽／口說兩組相同（官方亦相同）。
+- **學術組 / 通用組（2026-10-07 流程改善）**：`/student/ielts` 改為**兩步流程**——① 先選組別，卡片明確標示「學術組＝**較高級的程度**（學術導向）」、「通用組＝**較適合中學生**（日常／職場導向）」；未選組別前不顯示任何卷別。② 選組後列出該組**全部卷別**（聆聽／閱讀／寫作／口說），每卷都可**即時 AI 生成**練習（未經教師審核、只交付本人、永不入庫）或選用**已發佈、經教師審核**的試卷；寫作卷的 Task 1／Task 2 按鈕會帶同組別跳到寫作頁。聆聽／口說兩組相同（官方亦相同）。**組別會被記住**（`localStorage`，`useSyncExternalStore` 讀取，無 hydration mismatch；隱私模式只失去記住能力）：下次進入直接顯示該組卷別，仍可一鍵「更改組別」。
 
 ### 教師／管理員（出題與審核台）
 - **`/teacher/ielts`**：AI 生成（官方格式；`scope=set` 或 `full_component` 40 題）→
@@ -57,7 +57,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 文件與驗證
 - 規格／計分／治理／來源：[`docs/ielts/`](docs/ielts/)（SPECIFICATION、SCORING、
   ASSESSMENT_GOVERNANCE、SOURCES、COMPLIANCE_AUDIT、FULL_AUDIT 2026-10-03）。
-- 驗證：`npm test`（IELTS 套件 20 檔／251 測試；全套 3604 pass／2 gated skips）。
+- 驗證：`npm test`（IELTS 套件 21 檔／258 測試；全套 3620 pass／2 gated skips）。
 
 ## 📉 Neon Egress 維運（2026-09-26，ADR-046）
 
@@ -72,6 +72,7 @@ Neon 只計算「經 proxy 送出的位元組」（egress），與 DB 大小無�
 |---|---|
 | `npm run db:diagnose:egress` | egress 分布、計費週期消耗推算、主要消耗者（`--used-gb 4 --limit-gb 5`） |
 | `npm run db:query-stats` | `pg_stat_statements` 排行（`--enable` 建立擴充、`--reset` 清空觀測窗） |
+| `npm run report:usage` | 最近 N 個香港日的使用狀況（使用人數／練習次數／每級最活躍班別／每班最活躍學生；`--days=7`）；`--unassigned` 列出未分班學生；`--json` 輸出機器可讀 JSON |
 | `npm run profile:requests` | Cloud Run 日誌：每端點請求數與回應位元組（可指定歷史時段） |
 
 ### 等價性／部署閘門（修改證據規則或聚合路徑後**必須**重跑）
@@ -226,7 +227,7 @@ Writing Evaluation (Sprints 127-130):
 - **📝 生字簿 2.1 強化** — API 分頁支援（`page`/`limit`/`search`/`familiarity`/`pos`/`sort`）、`/api/vocabulary/example` 專用例句生成、`/api/vocabulary/quiz` 互動式詞彙測驗（MCQ + 配對題）、VocabCard 策略提示根據掌握度動態推導
 - **✏️ 串字練習 (Spelling Practice)** — 看中文意思及英文例句提示，自行輸入正確英文單詞；支援 5 種選字模式（最新/隨機/最弱/到期/自選）、即時批改、錯誤重試、SRS 掌握度自動更新；完成後顯示成績及逐字結果回顧（`SpellingSession` + `SpellingAttempt` DB 模型）
 - **➕ 無縫添加生字** — 任何 AI 輸出（passage、寫作分析、詞彙建議、改寫版本、Integrated Skills 評語）均可一鍵加入生字簿：`InlineWordBadge`（hover/+ 按鈕）、`TextSelectionPopup`（選取文字浮動加入）、`VocabEnabledText`（包裝任何文字區域）；寫作頁詞彙建議旁直接顯示 + 按鈕
-- **AI 求助助手** — 🆕 **個人化求助與建議 v2**：讀取學生練習紀錄、錯題數據及連續學習天數後，自動計算**建議信心度**（0-100 分，四維度加權）；AI 對照 HKDSE 各卷別等級描述提供**具體量化**的個人化英文學習建議（含改善目標及時間表）；**弱項驅動 FAQ 動態排序**（文法/詞彙/寫作/閱讀分類按相關性自動排列，弱項類別標記 🔴 優先關注）；**AI 建議問題**（根據弱項自動生成 2-3 條建議提問，一鍵發問）；**個人化 FAQ**（從 AI 分析結果生成針對性 Q&A，附具體量化改善步驟）；**數據不足提示**（練習少於 3 次或作答少於 30 題時顯示基本英語提升建議，提示多用平台累積數據）；回答後可一鍵生成相關練習題目，即時練習改進
+- **AI 求助助手** — 🆕 **個人化求助與建議 v2**：讀取學生練習紀錄、錯題數據及連續學習天數後，自動計算**建議信心度**（0-100 分，四維度加權）；AI 對照 HKDSE 各卷別等級描述提供**具體量化**的個人化英文學習建議（含改善目標及時間表）；**弱項驅動 FAQ 動態排序**（文法/詞彙/寫作/閱讀分類按相關性自動排列，弱項類別標記 🔴 優先關注）；**AI 建議問題**（根據弱項自動生成 2-3 條建議提問，一鍵發問）；**個人化 FAQ**（從 AI 分析結果生成針對性 Q&A，附具體量化改善步驟）；**數據不足提示**（練習少於 3 次或作答少於 30 題時顯示基本英語提升建議，提示多用平台累積數據）；回答後可一鍵生成相關練習題目，即時練習改進；**生成題目附篇章 (2026-10-07)**：文法／無法判斷的問題走文法出題（不再誤當閱讀題），閱讀／聆聽題連同篇章／對話一併顯示（舊碼丟棄篇章，令「According to the passage」的題目無法作答）
 - **🎮 遊戲化學習** — XP 經驗值與等級系統（Lv.1-20）、18 款成就徽章（連續學習、正確率、練習量、寫作、詞彙、初中友善徽章）、匿名班級排行榜、每日連續學習火焰動畫
 - **🧠 間隔重溫 (SRS)** — 基於 SM-2 演算法，詞彙與錯題自動排程每日複習，支援 Easy/Hard/Again 評分，動態調整複習間隔，確保長期記憶。錯題卡片只抽「**到期且可重考**」的項目（閱讀／聆聽篇章題目不在 flashcard 隊列），每次評分以 SM-2 排定下次複習日
 - **✍️ 互動寫作** — AI 批改後一鍵改寫作文，原文與改寫版左右對比 (Diff View)，分層反饋（簡潔 / 詳細），一鍵採用 AI 改寫內容
@@ -282,7 +283,8 @@ Phase 9 真實證據審計結論：官方 exemplar booklets 只公佈 level（LE
 - **題目生成** — 按文法項目、技能範疇、難度、年級生成練習題
 - **教材上載** — 匯入文字教材，AI 自動分析關鍵詞彙、文法點及建議題目
 - **班級管理** — 建立班級、查看學生進度（按班號數字排序）、學生名單（含學號欄位，按班別→學號排序）
-- **🆕 各班級練習總覽 (2026-10-01)** — 教師主頁顯示全校每個班別的完成次數、參與人數、參與率及正確率（全歷史累計；正確率只計已驗證題目，「—」＝暫時未有數據）；圖表（參與率／正確率）＋可滾動明細表；資料由伺服器端單一 SQL 聚合（每生一列），不再以「最新 8 班」或作業完成率在客戶端拼圖
+- **🆕 學生名單班別篩選可保留 (2026-10-07)** — 教師學生名單（`/teacher/students`）的**班別篩選會同步寫回網址**（`?class=`）：點入學生詳情後按返回（或瀏覽器上一頁）仍停留在同一班別，不再重設為「全部班別」；若網址帶入的班別已不存在，自動回退「全部班別」（不會出現永遠空白的列表）
+- **🆕 各班級練習總覽 (2026-10-01；圖表 2026-10-07 補上練習次數)** — 教師主頁顯示全校每個班別的完成次數、參與人數、參與率及正確率（全歷史累計；正確率只計已驗證題目，「—」＝暫時未有數據）；長條圖（練習次數＋參與率／正確率；練習次數另設右軸，單位是「次」）＋可滾動明細表；資料由伺服器端單一 SQL 聚合（每生一列），不再以「最新 8 班」或作業完成率在客戶端拼圖
 - **學生詳情** — 個別學生完整學習數據：XP/徽章/技能準確率/錯題分布/每週趨勢/逐題答案/CSV 匯出
 - **課業管理** — 指派練習、查看完成狀況
 - **組別管理** — 建立跨班級自訂組別（如拔尖組/補底組），作業可指派至組別

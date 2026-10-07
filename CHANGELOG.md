@@ -4,6 +4,138 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-07（III）— 記住 IELTS 上次組別＋教師學生名單返回時保留班別
+
+### 一、背景（使用者要求／回報）
+1. 「加上『記住上次組別』」：IELTS 兩步流程每次進入都要重選學術組／通用組。
+2. 教師「學生名單」選好班別 → 點入學生詳情 → 按返回，列表重設成「全部班別」
+   （篩選只存在 React state，重新掛載即遺失）。
+
+### 二、變更
+1. **記住 IELTS 組別**
+   - 新增 `src/hooks/use-ielts-variant-preference.ts`（單一 owner；key
+     `ielts.preferredVariant.v1`）：以 `useSyncExternalStore` 讀取 localStorage——
+     server snapshot 固定 `null`，hydration 後才套用真實值 ⇒ **不可能** hydration
+     mismatch，亦**不需要** setState-in-effect；localStorage 不可用（隱私模式／停用）
+     一律回 `null`（只失去「記住」能力，不影響練習），寫入失敗不拋錯。
+   - `src/app/student/ielts/page.tsx`：`sessionVariant`（本次選擇；`undefined`＝本次尚未選）
+     ＋ `storedVariant`（已記住）⇒ `variant = sessionVariant === undefined ? storedVariant : sessionVariant`。
+     選擇組別時寫入偏好；「更改組別」**只清本次選擇**（偏好保留，下次進入仍自動套用）；
+     摘要列新增「已記住你上次的組別…」提示（`ielts.dashboard.rememberedVariant`）。
+   - 寫作頁不變：App 內所有 `/student/ielts/writing` 連結都由卷別卡帶 `?mode=`，
+     故組別一致；直接開啟網址仍以 Academic 為預設（已記錄於 README）。
+2. **教師學生名單保留班別**
+   - `src/app/teacher/students/page.tsx`：班別篩選初值由 `?class=<班名>` 帶入
+     （`readClassParam`，與既有 `?risk=` 相同做法——此頁 loading 期間只渲染 spinner，
+     初始化讀取 window 不會造成 hydration 不一致）；變更時以 `history.replaceState`
+     同步 URL（不觸發導航、不重新抓資料；選「全部班別」會刪除參數）。
+     詳情頁既有的 `router.back()` 因而回到帶 `?class=` 的同一網址。
+   - 網址帶入的班別若已不在名單（班別刪除／非任教班別）⇒ 回退「全部班別」並清掉參數，
+     避免永遠空白的列表。
+
+### 三、驗證
+- 新增 `src/app/__tests__/teacher-students-list-filter.test.ts`（4 項契約：`?class=` 初值、
+  replaceState 同步、無效班別回退、詳情頁 `router.back()`）。
+- `src/modules/ielts/__tests__/student-flow-contract.test.ts` 追加「記住上次組別」契約
+  （`useSyncExternalStore` ＋ server snapshot null、主頁以記憶值為預設、選擇時寫入、
+  更改組別只清本次、提示文案存在）。
+- `npx vitest run`：**199 passed / 2 skipped（201 檔）**、**3620 passed / 2 skipped（3622 測試）**；
+  IELTS 套件 21 檔／258 測試。
+- `npx tsc --noEmit` exit 0；`npx next build` **exit 0**；
+  `node scripts/check-i18n.js` exit 0；`npx eslint`（5 個變更檔）0 error（僅既有 warning）。
+
+---
+
+## 2026-10-07（II）— IELTS 學生自學流程（先選組別 → 再挑卷別 → 即時 AI 生成）
+
+### 一、背景（使用者要求：改善 `/student/ielts` 流程及 UI）
+1. 舊版把「學術組／通用組」做成題庫過濾器，**沒有先選組別、也沒有任何程度說明**
+   （未選時預設 Academic 並同時顯示卷別與其他面板）。
+2. 使用者要求：先選組別並注明「學術組＝較高級的程度、通用組＝較適合中學生」；
+   選組後列出**所有相關卷別**，讓學生自行挑選並即時 AI 生成練習（**不用教師審核**），
+   達致隨時自學。
+
+### 二、變更（`src/app/student/ielts/page.tsx`）
+1. **兩步流程**
+   - 第一步：`variant` 預設 `null` ⇒ 只顯示組別選擇卡（兩個選項：學術組／通用組），
+     每張卡有程度徽章（`ielts.dashboard.academicLevel`＝「較高級的程度（學術導向）」、
+     `generalLevel`＝「較適合中學生（日常／職場導向）」）＋內容差異說明；未選組別前
+     **不顯示任何卷別**。
+   - 第二步：顯示「目前組別」摘要（可一鍵**更改組別**回到第一步）＋全部卷別卡片。
+2. **卷別卡片（聆聽／閱讀／寫作／口說，官方考卷順序）**，每卷同時提供
+   - **即時 AI 生成（未經教師審核）**：聆聽／閱讀＝5 題、10 題、完整組件（40 題，
+     獨立每日上限）；按鈕只在被按時顯示載入狀態，生成成功即進入該卷練習頁。
+   - **已發佈練習卷（經教師審核）**：該卷別的 catalogue 試卷直接列在卡內（含題數與
+     描述），無卷時顯示誠實空狀態。
+   - 寫作卷：Task 1／Task 2（依組別）按鈕**帶同組別**跳轉（`?mode=&task=`）；
+     口說卷：前往準備中心並明示**不評分、不模擬考官**（沿用 `ielts.speaking.noScoreNotice`）。
+   - 每日上限提示（短卷／寫作合共 8 次、完整組件 2 次）與「AI 永不自動發佈」說明。
+3. 舊版單一「即時自學練習」面板移除（功能併入各卷別卡片）；錯誤碼一律映射為 i18n
+   訊息（不顯示內部錯誤碼）。
+4. `src/app/student/ielts/writing/page.tsx`：支援由卷別卡帶入的 `?mode=&task=`，
+   作為**初始狀態**（不經 effect，避免多餘 render；值以 `TASKS_BY_MODE` 驗證）；
+   因使用 `useSearchParams()` 而以 `Suspense` 邊界包裝（Next App Router 要求）。
+5. i18n：新增 `ielts.dashboard.step1/2*`、`selectAcademic/General`、`academicLevel/generalLevel`、
+   `currentVariant`、`changeVariant`、`dailyHint`、`flowHint`、`ielts.paper.*`（instantLabel、
+   publishedLabel、各卷 meta）等 zh/en 條目；改寫 `ielts.dashboard.noTests` 為卷別層級訊息。
+
+### 三、治理不變
+- AI **永不自動發佈**；即時卷 `origin='INSTANT'`＋只交付本人＋標示未經審核＋永不進入
+  catalogue（卡片以「即時 AI 生成（未經教師審核）」與已發佈卷分開標示）。
+- 口說維持**零評分路徑**（卷別卡只連往準備教學，明示不評分）。
+- HKDSE 隔離與既有 IELTS 不變式不變（`audit-invariants` 全套通過）。
+
+### 四、驗證
+- 新增 `src/modules/ielts/__tests__/student-flow-contract.test.ts`（5 項 source-scan 契約：
+  先選組別才見卷別、兩個組別的程度說明必須存在、四個卷別都有即時生成入口、
+  不提供口說評分路徑、寫作頁接受 `?mode=&task=` 且有 Suspense 邊界）。
+- `npx vitest run`：**198 passed / 2 skipped（200 檔）**、**3614 passed / 2 skipped（3616 測試）**。
+- `npx tsc --noEmit` exit 0；`npx next build` **exit 0**（含 TypeScript 檢查；建構期曾攔下
+  一個 `useSearchParams` 收窄型別錯誤，已修正為明確聯集收窄）。
+- `node scripts/check-i18n.js` exit 0；`npx eslint`（IELTS 學生頁）0 error。
+- Safari 15.4 產物護欄：`.next/static` 掃描 `static {` class block = **0**。
+
+---
+
+## 2026-10-07（I）— 求助頁出題修正（篇章缺失）＋教師總覽長條圖補上練習次數
+
+### 一、背景（用戶回報）
+1. 學生在求助頁問「what is zero conditional」，生成的練習第 1 題是
+   「According to the passage, what happens if you heat ice above zero degrees Celsius?」，
+   但畫面上**沒有篇章** → 題目無法作答。
+2. 教師主頁「各班級練習總覽」的長條圖只畫「參與率」與「正確率」，看不到「練習次數」。
+
+### 二、變更
+1. `src/app/student/help/page.tsx`
+   - **出題技能判斷**：文法／無法判斷的問題一律走**文法出題**（省略 `languageSkill`；空字串轉
+     `undefined`，否則 Zod enum 會回 400）。舊碼 `: 'reading'` 預設與 `grammar → 'writing'`
+     分支是本次缺陷主因 ——「what is zero conditional」沒有任何閱讀關鍵字卻走了閱讀出題。
+   - **交付契約**：保留並逐題渲染 API 回傳的 `readingContent`／`listeningContent`（＋中文摘要），
+     與 `/student/practice/[id]` 同語意（重用 `practice.question.readingPassage` 等 i18n key）。
+     舊碼只渲染 `prompt`，即使模型正確附上篇章，學生仍然看不到。
+   - 移除從未被讀取的 `genSkill` 狀態（write-only）。
+2. `src/app/teacher/dashboard/page.tsx`
+   - 長條圖加入「完成次數」（＝全歷史練習場次，即練習次數）長條，使用**獨立右軸**
+     （`yAxisId="count"`；單位是「次」而非百分比，共用 0-100% 軸會把次數壓平）；
+     參與率／正確率留在左軸（`yAxisId="rate"`）。明細表的「完成次數」欄與 tooltip 不變。
+3. `src/app/student/practice/page.tsx`（求助頁「前往完整練習」deep link）
+   - `GenerateForm` 新增 `topic`，`mode=help` 的表單帶入問題文字，並在生成請求附上 `topic`
+     （＝AI prompt 的 topic hint）。舊碼只帶技能，求助頁的情境在跳轉後完全遺失。
+   - 交付守衛由「必須有 grammarItem 或 languageSkill」放寬為「**或**有 topic」——
+     舊碼令「what is zero conditional」這類文法問題在跳轉後直接報「請選擇技能」而永不生成。
+   - 手動改選文法項目／語言技能時清除 `topic`，避免求助頁的情境黏到不相關的選擇。
+
+### 三、測試與驗證
+- 新增 `src/modules/exercise/__tests__/help-practice-generation-contract.test.ts`
+  （source scan 鎖住「文法走文法路徑」「篇章／對話必須一併渲染」「deep link 帶 topic 且可出題」三項契約）。
+- `src/modules/teacher/monitoring/__tests__/class-stats-service.test.ts` 新增教師總覽顯示契約
+  （圖表須有 `sessionsCount` 序列＋獨立右軸；明細表保留「完成次數」欄）。
+- `npx vitest run`：**197 passed / 2 skipped（199 檔）**、**3609 passed / 2 skipped（3611 測試）**
+  （較基線 +1 檔 / +5 測試）。
+- `node scripts/check-i18n.js` exit 0；`npx eslint`（變更檔）0 error（僅既有 warning）。
+
+---
+
 ## 2026-10-04（VI）— push 自動部署正式併入資料庫遷移（Secret Manager ＋ cloudbuild.yaml）
 
 ### 一、背景

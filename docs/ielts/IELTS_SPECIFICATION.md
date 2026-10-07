@@ -274,6 +274,21 @@ Rules:
 > A teacher can review any generated set/task in the console; publishing it flips
 > `origin` to 'CATALOGUE' (graduation through the normal human path — AI still never
 > publishes).
+>
+> **Student entry flow (2026-10-07, UI contract).** `/student/ielts` is
+> **variant-first**: the student must choose Academic or General Training before any
+> paper is listed, and the choice cards state that Academic is the more advanced level
+> while General Training suits secondary students. The choice is remembered in
+> `localStorage` (`src/hooks/use-ielts-variant-preference.ts`, read through
+> `useSyncExternalStore` with a `null` server snapshot so hydration can never
+> mismatch; unavailable storage only loses the memory, never blocks practice) and can
+> be changed at any time. Step 2 lists the variant's four papers, each combining
+> **instant AI generation** (reading/listening: 5- or 10-item sets, or the complete
+> component; writing: Task 1 / Task 2 links that carry `?mode=&task=` into
+> `/student/ielts/writing`; speaking: preparation centre only, never scored) with the
+> **published, teacher-reviewed** sets for that paper. Instant material remains
+> labelled unreviewed everywhere it appears, and the flow never offers a scored
+> Speaking path.
 
 ```
 SOURCE → CONTENT EXTRACTION → QUESTION GENERATION → STRUCTURAL VALIDATION
