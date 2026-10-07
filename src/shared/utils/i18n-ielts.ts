@@ -90,10 +90,9 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
 
   'ielts.dashboard.tests': { zh: '練習卷', en: 'Practice Tests' },
   'ielts.dashboard.noTests': {
-    zh: '此組別目前沒有已發佈的練習卷（發佈須經人工審核）。你仍可即時自學練習——按上方「即時自學練習」即時生成閱讀／聆聽題目，或前往寫作 AI 練習生成寫作題目。',
-    en: 'No published tests for this variant yet (publication requires human review). You can still practise now: use the instant self-study panel above to generate reading/listening practice, or open Writing AI practice to generate a writing task.',
+    zh: '此卷別暫無已發佈練習卷（發佈須經人工審核）；可直接用上方即時 AI 生成練習。',
+    en: 'No published sets for this paper yet (publication needs human review); use instant AI generation above.',
   },
-  'ielts.dashboard.writingLink': { zh: '寫作 AI 練習', en: 'Writing AI practice' },
   'ielts.dashboard.speakingLink': { zh: '口說準備教練', en: 'Speaking preparation coach' },
   'ielts.dashboard.progressLink': { zh: '我的 IELTS 進度', en: 'My IELTS progress' },
   'ielts.dashboard.adminNote': {
@@ -102,28 +101,19 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
   },
   'ielts.questionCount': { zh: '{count} 題', en: '{count} questions' },
 
-  // ---- 即時自學練習（2026-10-03 VII）：
+  // ---- 即時自學練習（2026-10-03 VII）：卷別卡片內的即時生成 ----
   // 不需等待人手審核即可練習；但內容一律明確標示「未經教師審核」，
-  // 且永不進入正式題庫（發佈仍須人工） ----
-  'ielts.instant.title': { zh: '即時自學練習', en: 'Instant self-study practice' },
-  'ielts.instant.desc': {
-    zh: '按你的選擇即時生成閱讀／聆聽練習；每題必須通過機械屏檢與盲解覆核（與教師出題同一組把關），無需等待人手安排即可練習。',
-    en: 'Reading/listening practice generated on demand; every item passes the same machine screen and blind-solve verification used for authoring — practise without waiting for human review.',
-  },
+  // 且永不進入正式題庫（發佈仍須人工）。
+  // 2026-10-07：面板式標題／按鈕文案已由卷別卡片（`ielts.paper.*`）取代，故移除。
   'ielts.instant.note': {
     zh: '注意：即時練習「未經教師審核」，只作練習用途；教師日後可在審核台檢視，並把合用的題目發佈為正式題庫內容。',
     en: 'Note: instant sets are NOT teacher-reviewed and are practice-only. Teachers can later review them in the console and publish suitable items into the catalogue.',
   },
-  'ielts.instant.start': { zh: '開始即時練習', en: 'Start instant practice' },
   // 2026-10-04：完整組件（官方 4 節／4 部分、約 40 題）——學生可生成完整練習。
   'ielts.instant.fullComponent': { zh: '完整組件（40 題）', en: 'Complete component (40 items)' },
   'ielts.instant.fullComponentNote': {
     zh: '完整組件＝官方全長度（閱讀 3 篇／聆聽 4 部分，共 40 題；建議時間 {minutes} 分鐘）。生成需時較長（可能數分鐘），並使用獨立的每日上限（每日 2 次）。',
     en: 'A complete component = the official full length (reading: 3 passages / listening: 4 parts; 40 items; recommended {minutes} minutes). Generation takes longer (possibly several minutes) and uses its own daily cap (2 per day).',
-  },
-  'ielts.instant.starting': {
-    zh: '正在出題…（可能需 1–3 分鐘）',
-    en: 'Generating… (may take 1–3 minutes)',
   },
   'ielts.instant.failed': {
     zh: '暫時未能出題，請稍後再試。',
@@ -169,6 +159,74 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
   'ielts.dashboard.sameNote': {
     zh: '聆聽與口說在兩組完全相同（官方相同）；本平台口說只提供準備教學、不評分。',
     en: 'Listening and Speaking are identical in both variants (as in the official test); Speaking here is preparation coaching only and is never scored.',
+  },
+
+  // ---- 2026-10-07（使用者要求）：兩步流程 —— 先選組別，再挑卷別 ----
+  'ielts.dashboard.flowHint': {
+    zh: '先選考試組別，再挑選卷別；每個卷別都可即時 AI 生成練習，隨時自學。',
+    en: 'Choose your test variant first, then pick a paper; every paper can be generated on demand for self-study.',
+  },
+  'ielts.dashboard.step1Title': { zh: '選擇考試組別', en: 'Choose your test variant' },
+  'ielts.dashboard.step1Desc': {
+    zh: '學術組與通用組的聆聽、口說完全相同，只有閱讀與寫作的題型不同。先選組別，之後會列出該組的全部練習卷別。',
+    en: 'Listening and Speaking are identical in both variants — only Reading and Writing differ. Pick a variant to see all of its papers.',
+  },
+  'ielts.dashboard.academicLevel': {
+    zh: '較高級的程度（學術導向）',
+    en: 'More advanced (academic-oriented)',
+  },
+  'ielts.dashboard.generalLevel': {
+    zh: '較適合中學生（日常／職場導向）',
+    en: 'More suitable for secondary students (everyday/workplace)',
+  },
+  'ielts.dashboard.selectAcademic': { zh: '選擇學術組', en: 'Choose Academic' },
+  'ielts.dashboard.selectGeneral': { zh: '選擇通用組', en: 'Choose General Training' },
+  'ielts.dashboard.currentVariant': { zh: '目前組別', en: 'Current variant' },
+  'ielts.dashboard.rememberedVariant': {
+    zh: '已記住你上次的組別，可直接挑選卷別；如需更改請按「更改組別」。',
+    en: 'Your last variant was remembered — pick a paper directly, or press “Change variant”.',
+  },
+  'ielts.dashboard.changeVariant': { zh: '更改組別', en: 'Change variant' },
+  'ielts.dashboard.step2Title': { zh: '選擇練習卷別', en: 'Choose a paper' },
+  'ielts.dashboard.step2Desc': {
+    zh: '以下為此組的全部卷別（聆聽、閱讀、寫作、口說）。每個卷別都可即時 AI 生成練習（未經教師審核，只作自學用途）；亦可選用已發佈、經教師審核的練習卷。',
+    en: 'All papers for this variant (Listening, Reading, Writing, Speaking). Each can be generated on demand (not teacher-reviewed, self-study only), or you can use a published, teacher-reviewed set.',
+  },
+  'ielts.dashboard.dailyHint': {
+    zh: '即時生成每日上限：短卷與寫作任務合共 8 次；完整組件（40 題）2 次（以香港時間日界線計算）。',
+    en: 'Instant-generation daily caps: 8 short sets/writing tasks combined; 2 complete components (40 items) — counted by Hong Kong day.',
+  },
+  'ielts.paper.instantLabel': {
+    zh: '即時 AI 生成（未經教師審核）',
+    en: 'Instant AI generation (not teacher-reviewed)',
+  },
+  'ielts.paper.publishedLabel': {
+    zh: '已發佈練習卷（經教師審核）',
+    en: 'Published sets (teacher-reviewed)',
+  },
+  'ielts.paper.listeningMeta': {
+    zh: '4 部分・約 40 題；兩組相同',
+    en: '4 parts · ~40 items; identical in both variants',
+  },
+  'ielts.paper.readingMetaAcademic': {
+    zh: '3 篇學術文章・40 題',
+    en: '3 academic passages · 40 items',
+  },
+  'ielts.paper.readingMetaGeneral': {
+    zh: '3 部分日常／職場短文・40 題',
+    en: '3 sections of everyday/workplace texts · 40 items',
+  },
+  'ielts.paper.writingMetaAcademic': {
+    zh: 'Task 1 圖表描述（≥150 字）＋ Task 2 議論文（≥250 字）',
+    en: 'Task 1 visual description (≥150 words) + Task 2 essay (≥250 words)',
+  },
+  'ielts.paper.writingMetaGeneral': {
+    zh: 'Task 1 書信（≥150 字）＋ Task 2 議論文（≥250 字）',
+    en: 'Task 1 letter (≥150 words) + Task 2 essay (≥250 words)',
+  },
+  'ielts.paper.speakingMeta': {
+    zh: '準備教學：題庫、四宮格筆記法、AI 準備教練',
+    en: 'Preparation only: topic bank, note grid, AI prep coach',
   },
 
   'ielts.start': { zh: '開始練習', en: 'Start practice' },

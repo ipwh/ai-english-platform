@@ -2,11 +2,14 @@
 // 學生端 — IELTS 寫作 AI 輔助練習
 // ============================================
 // AI_ESTIMATE only：四項官方準則、逐項依據、練習估算分；永不宣稱考官等價。
+// 2026-10-07：支援由 IELTS 主頁卷別卡帶入的 `?mode=&task=`（先選組別 → 再挑卷別
+// 的流程延續），學生仍可自行更改。
 // ============================================
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useT } from '@/hooks/use-i18n';
 import { countIeltsWords } from '@/modules/ielts/domain/word-count';
 import { Loader2, Info, AlertTriangle, PencilLine, Sparkles } from 'lucide-react';
@@ -73,12 +76,28 @@ const CRITERION_LABELS: Record<string, string> = {
   grammaticalRangeAndAccuracy: 'ielts.assessment.criterion.grammar',
 };
 
-export default function IeltsWritingPage() {
+function IeltsWritingPageContent() {
   const { t } = useT();
-  const [mode, setMode] = useState<'ACADEMIC' | 'GENERAL_TRAINING'>('ACADEMIC');
-  const [taskType, setTaskType] = useState<TaskType>('academic_task2');
+  const searchParams = useSearchParams();
+
+  // 來自 IELTS 主頁卷別卡的 `?mode=&task=`：直接作為**初始狀態**（不經 effect，
+  // 避免多餘 render）；學生其後仍可自由更改。只帶 `?mode=` 亦可（用該組第一個任務）。
+  const initialSelection = useMemo(() => {
+    // 明確把 `string` 收窄成組別聯集（只排除兩個 literals 仍會是 `string`）。
+    const rawMode = searchParams.get('mode');
+    const resolvedMode: 'ACADEMIC' | 'GENERAL_TRAINING' | null =
+      rawMode === 'ACADEMIC' || rawMode === 'GENERAL_TRAINING' ? rawMode : null;
+    if (!resolvedMode) return null;
+    const requestedTask = searchParams.get('task');
+    const resolvedTask = TASKS_BY_MODE[resolvedMode].find((candidate) => candidate === requestedTask)
+      ?? TASKS_BY_MODE[resolvedMode][0];
+    return { mode: resolvedMode, task: resolvedTask };
+  }, [searchParams]);
+
+  const [mode, setMode] = useState<'ACADEMIC' | 'GENERAL_TRAINING'>(initialSelection?.mode ?? 'ACADEMIC');
+  const [taskType, setTaskType] = useState<TaskType>(initialSelection?.task ?? 'academic_task2');
   const [source, setSource] = useState<'sample' | 'bank' | 'custom' | 'generated'>('sample');
-  const [prompt, setPrompt] = useState(SAMPLE_PROMPTS.academic_task2);
+  const [prompt, setPrompt] = useState(SAMPLE_PROMPTS[initialSelection?.task ?? 'academic_task2']);
   const [bankPrompts, setBankPrompts] = useState<BankPrompt[]>([]);
   const [bankMode, setBankMode] = useState<string | null>(null);
   const [essay, setEssay] = useState('');
@@ -498,5 +517,20 @@ export default function IeltsWritingPage() {
         </section>
       )}
     </div>
+  );
+}
+
+export default function IeltsWritingPage() {
+  // useSearchParams() 需要 Suspense 邊界（Next App Router 靜態預渲染要求）。
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center gap-2 text-slate-500">
+          <Loader2 className="h-5 w-5 animate-spin" /> …
+        </div>
+      }
+    >
+      <IeltsWritingPageContent />
+    </Suspense>
   );
 }
