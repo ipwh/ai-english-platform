@@ -45,6 +45,10 @@ jobs:
       # Cloud Run). Placeholders are enough — no test exercises Google sign-in.
       AUTH_GOOGLE_ID: ci-google-client-id.apps.googleusercontent.com
       AUTH_GOOGLE_SECRET: ci-google-client-secret
+      # /api/drive/download resolves its service-account key at module scope and throws
+      # without a credential source. Nothing in the suite calls Google APIs, so a
+      # placeholder object (never used to sign anything) is enough.
+      GCP_SERVICE_ACCOUNT_JSON: '{"type":"service_account","project_id":"ci-test","private_key_id":"ci","private_key":"ci-placeholder","client_email":"ci-test@ci-test.iam.gserviceaccount.com","client_id":"0","token_uri":"https://oauth2.googleapis.com/token"}'
 
     steps:
       - uses: actions/checkout@v4

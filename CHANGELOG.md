@@ -72,6 +72,14 @@ All notable changes to the AI English Platform are documented here.
   其餘照舊 ⇒ 全綠。
 
 ### 四、注意
+- **CI 的 build 步驟需要完整的 import-time 環境變數**：`next build` 會為每個路由收集 page data，
+  任何在 module scope 讀取環境變數的模組都必須可被滿足，否則建構在該路由失敗。2026-10-08 一次補齊
+  （每一步都是「首次真正執行 build」才暴露，之前 CI 從未跑到這裡）：
+  `JWT_SECRET`／`AUTH_SECRET` **必須 ≥ 32 字元**（config schema；舊 placeholder 只有 28／29 ⇒ 在
+  `/api/admin/cleanup-mock-data` 失敗）、`AUTH_GOOGLE_ID`／`AUTH_GOOGLE_SECRET`（`auth-next.ts`
+  module scope 讀取 ⇒ 在 `/api/admin/classes` 失敗）、`GCP_SERVICE_ACCOUNT_JSON`（
+  `/api/drive/download` 的 `resolveServiceAccountKey()` module scope 讀取 ⇒ 在該路由失敗；用
+  placeholder 物件即可，測試從不呼叫 Google API）。
 - **CI 的 `Production Build Simulation` 必須用 `npm run build`（`next build`），不是 `build:prod`**：
   CI 測試庫由 `prisma db push` 建立、**沒有 migration 歷史**，而 `scripts/production-build.js` 在
   `NODE_ENV=production` 下對任何無歷史的庫 fail-closed（2026-10-08 實測 **P3005**，"database schema
