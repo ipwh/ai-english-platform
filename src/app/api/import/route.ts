@@ -10,7 +10,7 @@ import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { parseCSV } from '@/shared/utils/import-utils';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { bulkImportStudents, bulkImportTeachers } from '@/modules/admin/services/import-service';
+import { isSchoolDomainEmail } from '@/shared/auth/sign-in-role';
 import { adminGetBulkDb as getBulkDb } from '@/modules/admin/services/admin-operations';
 import { logger } from '@/shared/logger/logger';
 
@@ -127,6 +127,20 @@ export async function POST(request: NextRequest) {
             nameZh: importRow.nameZh || '(無)',
             status: 'skipped',
             reason: '缺少 email 或 nameZh',
+          });
+          continue;
+        }
+
+        // 2026-10-08 政策：只有校內網域帳號可以是教師（非校內網域一律視為學生；
+        // 規則單一 owner：`@/shared/auth/sign-in-role`）→ 匯入時即拒絕，避免建立
+        // 一個登入後會被自動降為學生的教師帳號。
+        if (importRow.role === 'teacher' && !isSchoolDomainEmail(importRow.email)) {
+          results.skipped++;
+          results.details.push({
+            email: importRow.email,
+            nameZh: importRow.nameZh,
+            status: 'skipped',
+            reason: '非校內網域帳號不得設為教師 / Non-school-domain account cannot be a teacher',
           });
           continue;
         }

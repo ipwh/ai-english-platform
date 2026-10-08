@@ -8,6 +8,7 @@ import {
 import type { ImportResult } from '@/shared/utils/import-utils';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
+import { isSchoolDomainEmail, SCHOOL_EMAIL_DOMAINS } from '@/shared/auth/sign-in-role';
 import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 export async function POST(request: NextRequest) {
@@ -43,6 +44,14 @@ export async function POST(request: NextRequest) {
         result.failed++;
         result.errors.push(`第 ${i + 2} 列: ${issues}`);
         result.details.push({ row: i + 2, email: rows[i].email || '(無)', nameZh: rows[i].nameZh || '(無)', status: 'error', reason: issues });
+      } else if (!isSchoolDomainEmail(parsed.data.email)) {
+        // 2026-10-08 政策：只有校內網域帳號可以是教師（規則單一 owner：
+        // `@/shared/auth/sign-in-role`）。非校內網域帳號登入時一律判定為學生，
+        // 故匯入時即拒絕，避免建立一個登入後被自動降權的教師帳號。
+        const reason = `非校內網域帳號不得設為教師（只接受 ${SCHOOL_EMAIL_DOMAINS.map(d => `@${d}`).join(' / ')}）/ Non-school-domain account cannot be a teacher`;
+        result.failed++;
+        result.errors.push(`第 ${i + 2} 列 (${parsed.data.email}): ${reason}`);
+        result.details.push({ row: i + 2, email: parsed.data.email, nameZh: parsed.data.nameZh || '(無)', status: 'error', reason });
       } else {
         validRows.push({ rowNum: i + 2, data: parsed.data });
       }

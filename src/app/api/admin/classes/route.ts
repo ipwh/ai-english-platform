@@ -1,4 +1,4 @@
-import { adminDbQuery } from '@/modules/admin/services/admin-operations';
+import { adminDbQuery, adminFindEducators, adminLinkEducators } from '@/modules/admin/services/admin-operations';
 // ============================================
 // GET /api/admin/classes — 班級管理 CRUD
 // ============================================
@@ -61,18 +61,9 @@ export async function POST(request: NextRequest) {
 
     // Auto-link new class to all existing teachers AND admins so they can assign work to it
     try {
-      const educators = await adminDbQuery('user', 'findMany', {
-        where: { role: { in: ['teacher', 'admin'] } },
-        select: { id: true, role: true },
-      });
-      for (const educator of educators) {
-        await adminDbQuery('teacherClass', 'upsert', {
-          where: { teacherId_classId: { teacherId: educator.id, classId: cls.id } },
-          update: {},
-          create: { teacherId: educator.id, classId: cls.id },
-        });
-      }
-      logger.info({ module: 'admin-classes', classId: cls.id, educatorCount: educators.length }, 'Auto-linked class to educators');
+      const educators = await adminFindEducators();
+      const linked = await adminLinkEducators(cls.id, educators);
+      logger.info({ module: 'admin-classes', classId: cls.id, educatorCount: linked }, 'Auto-linked class to educators');
     } catch (err) {
       logger.error({ module: 'admin-classes', classId: cls.id, error: err instanceof Error ? err.message : String(err) }, 'Failed to auto-link class to educators');
     }

@@ -1,21 +1,15 @@
 // ============================================
 // 角色選擇頁面（僅教師/管理員使用；純學生會被自動導向）
-// 使用 email 模式判斷真實身份（不受 DB role 污染影響）
+// 使用 email 政策判斷真實身份（不受 DB role 污染影響）
+// 規則單一 owner：`@/shared/auth/sign-in-role`
 // ============================================
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/hooks/use-i18n';
+import { resolveSignInRole } from '@/shared/auth/sign-in-role';
 import { GraduationCap, Users, Shield } from 'lucide-react';
-
-/** 根據 email 判斷用戶可選的最高角色 */
-function getMaxRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
-  if (email === 'ipwh@pochiu.edu.hk') return 'admin';
-  const prefix = email.split('@')[0];
-  if (/^s\d{7}$/i.test(prefix)) return 'student';
-  return 'teacher';
-}
 
 export default function RoleSelectPage() {
   const { t } = useT();
@@ -27,7 +21,7 @@ export default function RoleSelectPage() {
   useEffect(() => {
     // 使用 email 模式判斷身份（不依賴 DB/JWT role，避免被舊版角色切換污染）
     const checkAccess = (email: string) => {
-      const role = getMaxRoleByEmail(email);
+      const role = resolveSignInRole(email);
       setMaxRole(role);
       if (role === 'student') {
         // 純學生不可切換角色 → 直接導向學生頁
@@ -123,7 +117,7 @@ export default function RoleSelectPage() {
             </button>
           </form>
 
-          {/* 管理員 — 僅 email 為 ipwh@pochiu.edu.hk 的用戶可見 */}
+          {/* 管理員 — 僅 `resolveSignInRole()` 判定為 admin 的帳號可見（政策單一 owner：@/shared/auth/sign-in-role） */}
           {maxRole === 'admin' && (
             <form action="/api/auth/role" method="post" className="w-full sm:w-48">
               <input type="hidden" name="role" value="admin" />

@@ -69,6 +69,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:backfill:accuracy": "npx tsx scripts/backfill-null-overall-accuracy.ts",
     "db:backfill:accuracy:apply": "npx tsx scripts/backfill-null-overall-accuracy.ts --apply",
+    "db:link:teacher-classes": "npx tsx scripts/link-teachers-to-classes.ts",
+    "db:link:teacher-classes:apply": "npx tsx scripts/link-teachers-to-classes.ts --apply",
     "db:diagnose:egress": "npx tsx scripts/diagnose-db-egress.ts",
     "db:verify:evidence-sql": "npx tsx scripts/verify-evidence-sql-equivalence.ts",
     "db:query-stats": "npx tsx scripts/db-query-stats.ts",

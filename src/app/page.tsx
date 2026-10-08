@@ -2,16 +2,9 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
+import { resolveSignInRole } from '@/shared/auth/sign-in-role';
 import { StudentRepo } from '@/modules/repositories';
 import { logger } from '@/shared/logger/logger';
-
-/** 根據 email 判斷用戶的「真實最高角色」（不可被角色切換降級） */
-function getRealRoleByEmail(email: string): 'admin' | 'teacher' | 'student' {
-  if (email === 'ipwh@pochiu.edu.hk') return 'admin';
-  const prefix = email.split('@')[0];
-  if (/^s\d{7}$/i.test(prefix)) return 'student';
-  return 'teacher';
-}
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -23,7 +16,7 @@ export default async function Home() {
     const jwtPayload = await verifySessionToken(jwtToken);
     if (jwtPayload) {
       const email = jwtPayload.email;
-      const realRole = getRealRoleByEmail(email);
+      const realRole = resolveSignInRole(email);
       let role = selectedRole || jwtPayload.role;
 
       // 從 DB 查詢最新角色（以 DB 為準），並自動修復被角色切換污染的 DB role
@@ -62,7 +55,7 @@ export default async function Home() {
 
   if (session?.user?.id) {
     const email = session.user.email || '';
-    const realRole = getRealRoleByEmail(email);
+    const realRole = resolveSignInRole(email);
     let role = selectedRole || (session.user as { role?: string }).role;
     try {
       const dbUser = await StudentRepo.findUserByEmailMinimal(email);

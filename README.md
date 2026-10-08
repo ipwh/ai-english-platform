@@ -482,15 +482,18 @@ npm run dev
 
 #### Google OAuth 自動角色識別
 
-系統根據 email 格式自動判斷身份：
+系統根據 email **網域與格式**自動判斷身份（規則單一 owner：[`src/shared/auth/sign-in-role.ts`](src/shared/auth/sign-in-role.ts)）：
 
 | Email 格式 | 角色 | 登入後 |
 |-----------|------|--------|
-| `s` + 7 位數字（如 `abc@xxx.edu.hk`） | 學生 | → 直接進入學生主頁 |
-| 英文姓名縮寫（如 `abc@xxx.edu.hk`） | 教師 | → 角色選擇頁（學生/教師/管理員） |
-| `abc@xxx.edu.hk` | 管理員 | → 角色選擇頁（學生/教師/管理員） |
+| **校內網域**且學號形式（`s` + 7 位數字，如 `s2024146@pochiu.edu.hk`） | 學生 | → 直接進入學生主頁 |
+| **校內網域**的其他帳號（如 `abc@pochiu.edu.hk`） | 教師 | → 角色選擇頁（學生/教師/管理員） |
+| 管理員帳號（`ADMIN_EMAILS`，目前為 `ipwh@pochiu.edu.hk`） | 管理員 | → 角色選擇頁（學生/教師/管理員） |
+| **非校內網域**（如 `xxx@gmail.com`、`xxx@hateroblox.com`） | 學生 | → 直接進入學生主頁（**永不**取得教師權限） |
 
-> 新教師首次 Google OAuth 登入時會自動建立帳號並設為教師角色。學生需先透過 [Google Sheets 同步](#google-sheets-班別同步-🔄) 匯入。
+- **只有校內網域帳號可以是教師／管理員**（2026-10-08 政策）。非校內網域一律視為學生 —— 修正前「凡非 `s\d{7}` 即為教師」，令校外 Google 帳號可取得教師權限（含匯出全校學生資料）。網域比對要求**完整網域標籤**，故 `x@notpochiu.edu.hk`、`x@pochiu.edu.hk.evil.com` 一律判為學生。
+- 新教師首次 Google OAuth 登入時會自動建立帳號、設為教師角色，並**自動連結所有現行班級**（不含 Demo），令教師端立即看得到學生名單與作答情況。學生需先透過 [Google Sheets 同步](#google-sheets-班別同步-🔄) 匯入。
+- 新增校內網域時改 `SCHOOL_EMAIL_DOMAINS`；教師 CSV 匯入（`/api/import`、`/api/admin/import/teachers`）會**拒絕**非校內網域的列。
 
 ## 環境變數
 
@@ -748,6 +751,31 @@ npx tsx scripts/set-academic-year.ts 2027-2028 --apply
 > 💡 2026-09-14：`prisma.config.ts` 現已採用相同順序（`.env.local` → `.env`），因此 `npx prisma migrate deploy` / `npx prisma db execute` 在本機可直接連線（此前只讀 `.env`，會以過期密碼得到 P1000）。真實環境變數（Cloud Run）永遠優先，部署行為不變。
 >
 > 💡 2026-09-14：`.env.local`、`.env`、`cloud-run-env.yaml` 三處的 `DATABASE_URL` **已同步為同一組有效憑證**（此前 Neon 密碼重設後只有 `.env.local` 更新）。下次由此 yaml 部署時不會再帶入過期密碼。
+
+---
+
+### C. 修復教師 ↔ 班級對照（TeacherClass）
+
+教師端的**學生名單、班級清單與作答情況**一律以 `TeacherClass`（教師 ↔ 班級）為授權來源；沒有關聯的教師會看到空名單（`/api/teacher/students` 直接回空）、`/api/classes` 回 0 班，學生詳情與逐題答案回 403。只有 `role = 'admin'` 繞過這些檢查。
+
+2026-10-08 生產庫曾為 **0 列**：教師帳號由「首次 Google 登入」自動建立（只寫 `User`，不建關聯），而 `/api/import`／`bulkImportTeachers()` 只在**新建教師**時連結班級（既有教師重匯不入帳），教師自助設定頁的班級清單又取自 `/api/classes`（非管理員只回自己任教的班級）⇒ 教師無法自救。
+
+```bash
+# dry-run 預覽（只報告缺少多少配對）
+npm run db:link:teacher-classes
+
+# 正式寫入（冪等：只補缺少的 teacherId × classId 配對）
+npm run db:link:teacher-classes:apply
+
+# 只處理指定班級
+npx tsx scripts/link-teachers-to-classes.ts --class=4A --apply
+```
+
+- 語意：**每個班級**（不含 `Demo`）連結到**所有**教師與管理員，等同管理員在「班級管理」逐一重新儲存班級時的自動連結（`POST /api/admin/classes` 與本腳本共用 `adminLinkEducators()`）。
+- **學校網域政策**：只有**校內網域**帳號可以是教師／管理員（規則單一 owner：[`src/shared/auth/sign-in-role.ts`](src/shared/auth/sign-in-role.ts)）；`adminFindEducators()` 已按網域過濾，`--apply` 亦會**清除不合法的既有關聯**（帳號非教師／管理員或非校內網域，例：曾被自動判為教師的校外帳號），dry-run 會先列出。
+- **新教師會自動連結**：`auth-next.ts` 的 signIn callback 在**建立教師帳號**時呼叫 `adminLinkTeacherToAllClasses()`（同樣 fail-closed：非校內網域／非教師角色一律不連結），自動連結所有現行班級。刻意**只**在建立時連結 —— 管理員日後移除該教師的全部班級即可收回權限，之後的登入不會自動復原。
+- 由 CSV 匯入的教師只取得 CSV 指定的班級（可能比自動連結更窄）；需要放寬時跑本腳本。
+- 既有教師若在任何介面仍看到空名單，跑一次 `npm run db:link:teacher-classes:apply` 即可（冪等，只補缺少的配對）。
 
 ---
 

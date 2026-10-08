@@ -7,6 +7,7 @@ import Google from 'next-auth/providers/google';
 import { StudentRepo } from '@/modules/repositories';
 import { logger } from '@/shared/logger/logger';
 import { AUTHJS_SESSION_COOKIES } from '@/shared/auth/auth-cookies';
+import { resolveSignInRole } from '@/shared/auth/sign-in-role';
 import { config } from '@/shared/config/config';
 import { recordLoginActivity } from '@/shared/auth/auth';
 
@@ -25,6 +26,25 @@ function getRequiredEnv(name: string): string {
 const googleClientId = getRequiredEnv('AUTH_GOOGLE_ID');
 const googleClientSecret = getRequiredEnv('AUTH_GOOGLE_SECRET');
 
+/**
+ * 新教師首次登入時連結所有現行班級（不含 Demo）。
+ *
+ * 2026-10-08 生產事故：教師帳號由此 callback 自動建立（只寫 `User`），令
+ * `TeacherClass` 全空 ⇒ 教師端學生名單／班級清單／作答情況一律看不到。
+ * 動態載入 admin 服務（避免把 Prisma 服務併入本模組的靜態圖）；失敗只記 log，
+ * **永不**阻擋登入（教師仍可由管理員補連結，或跑
+ * `npm run db:link:teacher-classes:apply`）。
+ */
+async function linkNewTeacherToAllClasses(teacherId: string): Promise<void> {
+  try {
+    const { adminLinkTeacherToAllClasses } = await import('@/modules/admin/services/admin-operations');
+    const classCount = await adminLinkTeacherToAllClasses(teacherId);
+    logger.info({ module: 'auth', userId: teacherId, classCount }, 'Linked new teacher to all classes');
+  } catch (error) {
+    logger.error({ module: 'auth', userId: teacherId, error: error instanceof Error ? error.message : String(error) }, 'Failed to link new teacher to classes');
+  }
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google({
@@ -40,34 +60,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (account?.provider === 'google' && user.email) {
         try {
+          // 角色一律由 email 政策判定（單一 owner：`shared/auth/sign-in-role.ts`）：
+          // 校內網域且非學號形式 ⇒ 教師；非校內網域 ⇒ 學生（永不取得教師權限）。
+          const correctRole = resolveSignInRole(user.email);
           const existing = await StudentRepo.findUserByEmailMinimal(user.email);
 
           if (!existing) {
-            // 自動判斷角色：學生 email = s + 數字；其餘為教師
-            const emailPrefix = user.email.split('@')[0];
-            const isStudent = /^s\d{7}$/i.test(emailPrefix);
-            const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
             logger.info({ module: 'auth', email: user.email }, 'creating new user');
-            const defaultRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
-
             const created = await StudentRepo.createUser({
               email: user.email,
               name: user.name || (profile as { name?: string } | null)?.name || null,
               nameEn: user.name || (profile as { name?: string } | null)?.name || null,
               image: user.image || (profile as { picture?: string } | null)?.picture || null,
-              role: defaultRole,
+              role: correctRole,
             });
-            userRole = defaultRole;
+            userRole = correctRole;
+            if (correctRole === 'teacher') {
+              // 只在此（帳號建立）時連結：管理員日後移除全部班級即可收回權限。
+              await linkNewTeacherToAllClasses(created.id);
+            }
             await recordLoginActivity(created.id).catch((error: unknown) => {
               logger.warn({ module: 'auth', userId: created.id, error: error instanceof Error ? error.message : String(error) }, 'Failed to record Google login activity');
             });
           } else {
-            // Detect correct role based on email pattern
-            const emailPrefix = user.email.split('@')[0];
-            const isStudent = /^s\d{7}$/i.test(emailPrefix);
-            const isAdmin = user.email === 'ipwh@pochiu.edu.hk';
-            const correctRole = isAdmin ? 'admin' : (isStudent ? 'student' : 'teacher');
-
             // Auto-correct DB role if it doesn't match email pattern
             if (existing.role !== correctRole) {
               logger.info({ module: 'auth', email: user.email, oldRole: existing.role, newRole: correctRole }, 'Auto-correcting DB role');

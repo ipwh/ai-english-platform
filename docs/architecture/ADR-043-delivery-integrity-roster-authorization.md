@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-09-21
 - **Related**: ADR-041 (mistake attribution), ADR-042 (answer verification), ADR-023 (release governance)
+- **Extended by**: ADR-048 — §4 (teacher population) now additionally requires a **school-domain** account and defines the class auto-link (§ below)
 
 ## Context
 
@@ -16,6 +17,7 @@ These defects are not merely display issues. They can corrupt persistent learnin
 2. **Client retries are replay-safe.** Practice sessions, assignment attempts, and completion XP use durable idempotency keys. Assignment keys survive a browser reload in session storage. Server replay does not create a second attempt, notification, or XP event.
 3. **Practice mastery is exactly once per persisted session.** `PracticeSession.masteryAppliedAt` is claimed and `StudentMastery` updated in one database transaction. A failed transaction leaves the claim unset, so replay can recover; a completed claim prevents double counting. Replay applies the original persisted session aggregates, never a changed retry payload.
 4. **Teacher population is canonical and authorized.** A teacher's student set is the deduplicated union of `User.classId` and `StudentClass`, excluding Demo classes/accounts. This definition applies to roster queries, class detail, Copilot counts, class selectors, group membership, individual assignments, and practice-history access. Admins retain intended cross-class access.
+   *2026-10-08 (ADR-048): teacher eligibility is additionally restricted to **school-domain** accounts, and the teacher→class relation is auto-established at account creation — see ADR-048.*
 5. **Production deployment applies schema before code.** `prisma migrate deploy` runs with production credentials before Cloud Run deployment; the deployment scripts do not implicitly mutate the database.
 
 ## Consequences

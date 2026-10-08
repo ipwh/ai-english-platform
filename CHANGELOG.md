@@ -4,6 +4,137 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（VII）— 教師身份限校內網域＋新教師自動連結所有班級（ADR-048）
+
+### 一、需求（使用者指示）
+1. 往後新加入的老師**自動關聯到所有班級**；
+2. 自動關聯**不包括非學校網域**的帳號；
+3. `ihateroblox@hateroblox.com` 降為學生角色；
+4. 仔細審核所有程式碼後更新相關文件、提交並推送。
+
+### 二、程式碼審核發現（全庫掃描）
+1. **角色規則重複 4 份**：`auth-next.ts`（建立帳號／修正角色各一份）、`app/page.tsx`、
+   `app/(public)/role-select/page.tsx`。三處對「非 `s\d{7}` 即為教師」的實作令
+   **降權無法持續** —— 帳號被降為學生後，下一次登入或載入首頁即被自動升回教師。
+2. **任何校外 Google 帳號都會成為教師**：無網域限制，且教師可匯出全校學生資料
+   （`/api/admin/export/students` 刻意允許 teacher）。
+3. **CSV 匯入路徑無網域驗證**：`/api/import` 與 `/api/admin/import/teachers` 會直接把
+   任意 email 建成教師（登入後又會被政策降為學生 ⇒ 帳號與意圖不一致）。
+   另 `/api/import` 匯入 `bulkImportStudents/bulkImportTeachers` 為**未使用的死碼**（已移除）。
+4. 實測該帳號的成因：它是**真實學生的個人 Gmail**（班級名單表的 `GMAIL` 欄），
+   首次 Google 登入時因「非 `s\d{7}`」被自動建為教師，其後名單同步又替它指派班級。
+
+### 三、修正（單一 owner）
+1. **新增** `src/shared/auth/sign-in-role.ts`：`SCHOOL_EMAIL_DOMAINS`／`ADMIN_EMAILS`／
+   `isSchoolDomainEmail()`／`resolveSignInRole()`（純函式、零依賴，client 與 Edge 皆可用）。
+   **只有校內網域**帳號可為教師／管理員；非校內網域一律學生；網域要求**完整標籤**
+   （`x@notpochiu.edu.hk`、`x@pochiu.edu.hk.evil.com` 一律判學生）。
+2. `auth-next.ts`／`app/page.tsx`／`role-select/page.tsx` 一律改用 `resolveSignInRole()`
+   （刪除 3 份本機實作），並以 source-scan 契約測試防止再次分歧。
+3. **新教師自動連結**：建立教師帳號時呼叫 `adminLinkTeacherToAllClasses()`
+   （`adminLinkEducators()` 為 `TeacherClass` 寫入單一 owner）；**只**在建立時連結，
+   管理員移除全部班級即可撤權。失敗只記 log，**永不**阻擋登入。
+4. **非校內網域永不自動連結**：`adminFindEducators()` 以網域過濾；
+   `adminLinkTeacherToAllClasses()` 再驗角色＋網域，不合法即 fail-closed（回 0、不寫入）。
+5. `scripts/link-teachers-to-classes.ts`：`--apply` 亦**清除不合法既有關聯**
+   （帳號非教師／管理員或非校內網域），dry-run 先列出。
+6. CSV 教師匯入（`/api/import`、`/api/admin/import/teachers`）改為**拒絕非校內網域的列**並回報原因。
+
+### 四、資料修復（生產庫）
+- 非校內網域帳號 `ihateroblox@hateroblox.com`：角色 **teacher → student**，
+  並刪除其 **24 筆** `TeacherClass` 關聯。
+- `TeacherClass` 總數：**648 → 624**（= 24 班 × 26 位校內網域教師／管理員）；
+  重跑 dry-run：每班 **26/26 無需處理**、**不合法關聯 0 筆**。
+
+### 五、驗證
+- 新增測試：`src/shared/auth/__tests__/sign-in-role.test.ts`（角色矩陣含冒充／畸形網域、
+  政策常數、三處呼叫端 source scan）、`src/modules/admin/__tests__/admin-link-teacher-to-all-classes.test.ts`
+  （每班一筆冪等 upsert；非校內網域／非教師角色／查不到的帳號 fail-closed；
+  `adminFindEducators()` 網域過濾；auth 接線 source scan）——共 30 項。
+- 真實環境：確認該帳號降為學生後**不再**出現在教師自動連結對象（educators 27 → 26），
+  且 `resolveSignInRole('ihateroblox@hateroblox.com') === 'student'`（測試覆蓋）。
+- `npx tsc --noEmit` 0 錯；變更檔 eslint 0 error；全套測試見提交訊息。
+
+### 六、部署與注意
+- **無 schema 變更／migration**；純程式 + 資料修復，push 即生效。
+- 校內網域常數目前為 `pochiu.edu.hk`（`SCHOOL_EMAIL_DOMAINS`）；新增網域需改此常數。
+- 非校內網域教師（如以個人 Gmail 登入的教職員）一律為學生；如需例外，請改政策常數而非個別帳號。
+- 由 CSV 匯入的教師只取得 CSV 指定的班級（比自動連結窄）；需要放寬時跑
+  `npm run db:link:teacher-classes:apply`。
+
+---
+
+## 2026-10-08（VI）— 修復「其他老師登入後看不到學生名單及作答情況」（教師 ↔ 班級對照全空）
+
+### 一、背景（使用者回報）
+其他教師登入教師端後，**學生名單與作答情況都是空的**（班別篩選亦無選項），只有
+管理員帳號正常。
+
+### 二、取證（生產庫唯讀）
+`TeacherClass`（教師 ↔ 班級）**總列數 = 0**：26 位教師**全部**沒有任何任教班級，
+1 位 admin 帳號。所有受影響端點皆以 `TeacherClass` 為授權來源 ⇒ 對非 admin 一律為空：
+| 端點 | 行為 |
+|---|---|
+| `GET /api/teacher/students` | `taughtClassIds.length === 0` ⇒ **直接回 `{students: [], classes: [], total: 0}`**（不是錯誤） |
+| `GET /api/classes`（非 admin） | `teachers: { some: { teacherId } }` 過濾 ⇒ **0 班**（連帶出作業目標班級、報告匯出的班級按鈕、教師設定的班級勾選框全空） |
+| `GET /api/teacher/students/[id]`、`resolveTeacherStudentClass()`（`/api/practice/history?includeAnswers=1`） | **403「不屬於您任教的班級」** ⇒ 逐題作答情況無法取得 |
+| `getClassPracticeStats()`（教師主頁班級數據） | 刻意全校聚合 ⇒ 仍顯示 25 班數字（造成「看得到班級數字、點不出學生」的矛盾） |
+
+### 三、病根（關聯從未被建立，且沒有任何路徑能補）
+1. **教師帳號由首次 Google 登入自動建立**：`src/shared/auth/auth-next.ts` 的 signIn callback
+   依 email 判斷角色（非 `s\d{7}` ⇒ `teacher`）並只建立 `User`，**不建立班級關聯**
+   （實查這些帳號 `subjects`／`level` 幾乎全空，符合自動建立）。
+2. **匯入路徑只在新建教師時連結**：`/api/import`（`教師 ↔ 班級關聯` 區塊）與
+   `import-service.bulkImportTeachers()` 的 `teacherClass.create` 皆位於「新建教師」分支內
+   ⇒ 既有教師**重新匯入永遠不會補上**關聯。
+3. **教師無法自救（雞生蛋）**：教師設定頁的班級勾選清單取自 `/api/classes`，
+   而該端點對非管理員只回「自己任教的班級」⇒ 永遠是空。
+4. 唯一會建立關聯的路徑是 `POST /api/admin/classes`（儲存班級時自動連結所有 educators），
+   但既有 24 班是在該邏輯之前建立、之後從未重新儲存。
+
+### 四、修正（依使用者決定：最寬鬆語意）
+1. **單一 owner**：連結實作收斂為 `admin-operations.adminLinkEducators(classId, educators)`
+   （原本內嵌於 `/api/admin/classes` 路由的 upsert 迴圈），路由改為呼叫
+   `adminFindEducators()` + `adminLinkEducators()`。
+2. **新增修復腳本** `scripts/link-teachers-to-classes.ts`（預設 dry-run、`--apply` 寫入、
+   `--class=<名稱>` 可限定班級；冪等 upsert，只補缺少的 `teacherId × classId` 配對）；
+   `npm run db:link:teacher-classes` / `:apply`。
+3. **臨時防護（避免新教師再中同一問題）**：`auth-next.ts` 的 signIn callback 在**建立教師帳號**時
+   呼叫 `admin-operations.adminLinkTeacherToAllClasses()`（與 `adminLinkEducators()` 共用同一
+   upsert 實作），自動連結所有現行班級；**只**在建立時連結，故管理員移除某教師全部班級即可
+   收回權限（登入不會復原權限）。失敗只記 log，**永不**阻擋登入。
+4. **已套用至生產庫**：把 24 班（不含 Demo）連結到全部 27 位教師／管理員 → 建立 **648 筆**
+   `TeacherClass` 關聯（重跑 dry-run 顯示全部「無需處理」，確認冪等）。
+
+### 五、驗證
+- 取樣教師（`lamyt@pochiu.edu.hk`）：任教班級 **0 → 24**；`resolveTeacherStudentClass(4A 學生)`
+  由 `null` → **正確回 4A**（逐題作答情況授權打通）；`/api/classes` 由 0 → 24 班；
+  教師名單查詢回 **712** 名學生；`educators without any class` = **0**。
+- **真實路由 end-to-end**（真實教師 session token + 生產庫）：
+  `GET /api/teacher/students` → 200（712 名學生、24 班）、`GET /api/classes` → 200（24 班）、
+  `GET /api/practice/history?view=day&includeAnswers=1` → 200（18 場 / 83 題逐題答案）。
+- **自動連結實測**：對既有教師重跑 → 24 筆、`TeacherClass` 總數不變（冪等）；
+  建立臨時教師後呼叫 → 24 筆關聯；清理後總數回到 648（臨時列已刪除）。
+- 新增契約測試：`src/app/api/__tests__/admin-classes-educator-link.test.ts`（路由必須經
+  `adminLinkEducators` 建立關聯、未授權不得連結、連結失敗不影響建班）、
+  `src/modules/admin/__tests__/admin-link-teacher-to-all-classes.test.ts`
+  （每個非 Demo 班級各一筆冪等 upsert、空班級不動、auth 接線 source scan）。
+- 全套測試：**206 檔通過 / 3 檔跳過（3713 passed / 11 skipped）**；`npx tsc --noEmit` 0 錯；
+  變更檔 eslint 0 error（僅既有 `any` warning）。
+
+### 六、部署與注意
+- **無 schema 變更／migration**：純資料修復 + 路由重構，部署即生效。
+- **權限語意已改變**：所有教師現在可看到**全校**班級的學生名單與作答情況
+  （與「教師可匯出全校學生」的既有指示一致）。若要回到「只限任教班級」，需另行提供
+  實際任教分配並改以精確對照建立（腳本支援逐班處理）。
+- **未處理的非學校網域帳號**：`ihateroblox@hateroblox.com`（自動判為 teacher）現亦取得
+  全校班級關聯 —— 已於同日 **2026-10-08（VII）** 處理（降為學生＋移除其關聯）；
+  並新增「只有校內網域可為教師」政策（ADR-048）。
+- **仍未根治的來源**：`/api/import`／`bulkImportTeachers()` 對既有教師重匯仍不補 `classes`、
+  教師自助設定頁的班級清單仍自我過濾（雞生蛋）⇒ 需要時再另行實作（見 README C 節）。
+
+---
+
 ## 2026-10-08（V）— 修復「提交答案後，未有顯示逐字稿」（IELTS 聆聽逐字稿交付閘門）
 
 ### 一、背景（使用者回報）

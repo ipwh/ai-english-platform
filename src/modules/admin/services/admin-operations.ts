@@ -2,6 +2,7 @@
 // Exists ONLY to eliminate db imports from admin routes.
 // Each method corresponds to a route's db needs.
 import { db, getBulkDb } from '@/shared/db/db';
+import { SCHOOL_EMAIL_DOMAINS, isSchoolDomainEmail } from '@/shared/auth/sign-in-role';
 
 // ── admin/classes ──
 export async function adminGetClasses() {
@@ -13,13 +14,65 @@ export async function adminCreateClass(data: { name: string; gradeLevel: string;
 export async function adminDeleteClass(id: string) {
   return db.class.delete({ where: { id } });
 }
-export async function adminLinkEducators(cls: any, educators: any[]) {
+/**
+ * 把班級連結到指定的教師／管理員（冪等）。
+ *
+ * 2026-10-08：由 `/api/admin/classes` POST 抽出的**唯一實作**，修復腳本
+ * `scripts/link-teachers-to-classes.ts` 亦呼叫同一函式 —— 教師名單／作答情況
+ * 的授權一律以 `TeacherClass` 為權威，兩處各自手寫 upsert 會再次分歧。
+ * 回傳已建立／已存在的關聯數（＝educators.length）。
+ */
+export async function adminLinkEducators(classId: string, educators: Array<{ id: string }>) {
   for (const educator of educators) {
-    await db.teacherClass.upsert({ where: { teacherId_classId: { teacherId: educator.id, classId: cls.id } }, update: {}, create: { teacherId: educator.id, classId: cls.id } });
+    await db.teacherClass.upsert({
+      where: { teacherId_classId: { teacherId: educator.id, classId } },
+      update: {},
+      create: { teacherId: educator.id, classId },
+    });
   }
+  return educators.length;
 }
+/**
+ * 教師／管理員名單（自動連結的對象）。
+ *
+ * 2026-10-08 政策：**只有校內網域帳號**可以取得教師權限（規則單一 owner：
+ * `@/shared/auth/sign-in-role`）⇒ 這裡一併以網域過濾，非校內網域帳號永不
+ * 取得任何班級關聯（此過濾同時適用於管理員路由與
+ * `scripts/link-teachers-to-classes.ts`）。
+ */
 export async function adminFindEducators() {
-  return db.user.findMany({ where: { role: { in: ['teacher', 'admin'] } }, select: { id: true, role: true } });
+  return db.user.findMany({
+    where: {
+      role: { in: ['teacher', 'admin'] },
+      OR: SCHOOL_EMAIL_DOMAINS.map(domain => ({ email: { endsWith: `@${domain}`, mode: 'insensitive' as const } })),
+    },
+    select: { id: true, role: true, email: true },
+  });
+}
+
+/**
+ * 新教師首次登入的自動授權：把該教師連結到**所有現行班級**（不含 Demo）。
+ *
+ * 2026-10-08 生產事故：教師帳號由首次 Google 登入自動建立，該路徑只寫 `User`,
+ * 令 `TeacherClass` 全空 ⇒ 教師端學生名單／班級清單／作答情況全部看不到。
+ * 與 `adminLinkEducators()` 共用同一 upsert 實作（TeacherClass 寫入單一 owner）。
+ *
+ * 護欄：**只有校內網域的教師／管理員**會被連結（非校內網域帳號一律判定為學生，
+ * 永不取得班級關聯）；不合法或查不到的帳號回 0 並不做任何寫入（fail-closed）。
+ *
+ * **刻意只在帳號建立時呼叫**：管理員日後移除某教師的全部班級即可收回權限，
+ * 之後的登入不會自動復原（否則無法用「解除關聯」撤權）。
+ */
+export async function adminLinkTeacherToAllClasses(teacherId: string): Promise<number> {
+  const teacher = await db.user.findUnique({ where: { id: teacherId }, select: { role: true, email: true } });
+  const isEducator = teacher?.role === 'teacher' || teacher?.role === 'admin';
+  if (!teacher || !isEducator || !isSchoolDomainEmail(teacher.email)) return 0;
+
+  const classes = await adminGetClasses();
+  for (const cls of classes) {
+    await adminLinkEducators(cls.id, [{ id: teacherId }]);
+  }
+  return classes.length;
 }
 
 // ── admin/ensure-admin ──
