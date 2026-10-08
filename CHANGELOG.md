@@ -72,6 +72,11 @@ All notable changes to the AI English Platform are documented here.
   其餘照舊 ⇒ 全綠。
 
 ### 四、注意
+- **CI 的 `Production Build Simulation` 必須用 `npm run build`（`next build`），不是 `build:prod`**：
+  CI 測試庫由 `prisma db push` 建立、**沒有 migration 歷史**，而 `scripts/production-build.js` 在
+  `NODE_ENV=production` 下對任何無歷史的庫 fail-closed（2026-10-08 實測 **P3005**，"database schema
+  is not empty"）⇒ 該步驟必然紅燈。部署映像本身也是 `next build`（Dockerfile builder），遷移由
+  Cloud Build `Migrate` 步驟（`prisma migrate deploy`）負責 —— 兩者職責不同，不應在 CI 互相要求。
 - **Lint 上限已重新基準（225 → 480，棘輪只可下調）**：CI 的 `Lint check` 自 2026-09-21 起從未執行
   （前面步驟先失敗），期間 warnings 由 225 累積到 **471**（0 errors；`no-unused-vars` 333、
   `no-explicit-any` 50、`react-hooks/*` 63…，散落約 100 檔）。本日以 ADR-050 記錄為**技術債**並把

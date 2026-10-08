@@ -88,7 +88,12 @@ jobs:
       - name: Lint check
         run: npx eslint . --max-warnings 480
 
+      # Builds the app exactly like the deployable image does (Dockerfile builder stage:
+      # `npm run build`); migrations are applied by the Cloud Build `Migrate` step.
+      #
+      # scripts/production-build.js is deliberately NOT used here: with NODE_ENV=production
+      # its migration gate fails closed on any database without migration history (measured
+      # 2026-10-08: P3005) and `db push` is never a production fallback — but this CI database
+      # IS created with `prisma db push`, so the gate's precondition cannot hold here.
       - name: Production Build Simulation
-        run: node scripts/production-build.js
-        env:
-          NODE_ENV: production
+        run: npm run build

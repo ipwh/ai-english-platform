@@ -83,6 +83,12 @@ they were pre-existing, and two separate mechanisms had been hiding them.
 
 ## Consequences
 
+- **CI builds the app the way the image is built.** The `Production Build Simulation` step runs
+  `npm run build`, not `scripts/production-build.js`: the latter fails closed with
+  `NODE_ENV=production` on any database without migration history (measured 2026-10-08: P3005),
+  and the CI database is created with `prisma db push`. Migrations belong to the Cloud Build
+  `Migrate` step (`prisma migrate deploy`) and the image is built by `next build` (Dockerfile
+  builder stage), so CI now exercises exactly the build the deployment performs.
 - The lint warning budget is a **ratchet**: it was re-baselined 225 → 480 (ADR-050) because the
   step never executed while CI was blocked, and 471 warnings (0 errors; dominated by 333
   `no-unused-vars` and 50 `no-explicit-any` over ~100 files) had accumulated unobserved. The
