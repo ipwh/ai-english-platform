@@ -79,8 +79,14 @@ jobs:
       - name: i18n Coverage Check
         run: node scripts/check-i18n.js
 
+      # Warning budget is a RATCHET: it may only ever be lowered. The 471 warnings that
+      # accumulated while this step never ran (CI stopped earlier at the schema step since
+      # 2026-09-21) are tracked debt — mostly @typescript-eslint/no-unused-vars (333) and
+      # no-explicit-any (50), spread over ~100 files. Re-baselined 225 -> 480 on 2026-10-08
+      # (ADR-050) so CI reports the real state again; reduce it as the debt is paid down and
+      # never raise it without a new recorded decision.
       - name: Lint check
-        run: npx eslint . --max-warnings 225
+        run: npx eslint . --max-warnings 480
 
       - name: Production Build Simulation
         run: node scripts/production-build.js

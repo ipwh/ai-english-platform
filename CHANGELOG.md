@@ -4,6 +4,75 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（IX）— CI 全綠：架構規則真正生效（跨平台）＋ provider 歸位＋教材依賴明確跳過（ADR-050）
+
+### 一、背景
+推送 `f6dce320`／`a3b5eedf` 後 CI 終於跑到測試步驟（此前自 2026-09-21 起 30 次全紅，全部卡在
+`Push schema to test DB`），結果報出 **28 個失敗**。它們都不是新的，而是被兩層機制長期掩蓋：
+
+1. **規則在 Windows 上空轉**：`architecture.test.ts` 以 POSIX 片段（`/services/`、`/repositories/`、
+   `/prompts/`）過濾檔案路徑，但本機是 `\` ⇒ 過濾永不命中：本機 120 項全過，Linux 上同一支卻
+   報 6 個違規。**只在單一平台生效的規則不是規則。**
+2. **每條規則遇到第一個違規就 `expect.fail`**：因此只知道 2 個檔案，實際債務是 1＋1＋3＋9＋1＋3 項。
+3. **證據套件要求 repo 沒有的教材**：4 支 calibration 套件要讀 `materials/` 的業主教材（HKEAA
+   評分稿、抽出書本文字），而該目錄**刻意不進 repo、亦排除於部署映像** ⇒ CI 沒有檔案，於是以
+   `Human-marker source PDF missing` 失敗 —— 把「本機缺教材」誤報成「證據管線壞了」。
+   `ingest-human-marker.test.ts` 更在**收集階段**就讀檔，令整檔 25 項無法載入。
+
+### 二、修正
+1. **掃描路徑一律 POSIX 正規化**（`readModuleFiles` 用 `full.split(sep).join('/')`）⇒ 三平台
+   （含 CI）判定完全一致；本機綠燈才有意義。架構套件 120 → **121 項且真的在檢查原始碼**。
+2. **規則改看 import 指定子（specifier），不看整檔文字**：
+   - 「Repository 不得 import service」：`/repositories/` 內的**相對**路徑在結構上必屬同一模組
+     ⇒ 允許自我引用；只有別模組的 `@/modules/<other>/services/` 才違規（舊版只認別名形式，
+     誤判 `knowledge-graph-repository.ts` 匯入自己的 service）。
+   - 「Prompt 只可匯入純 prompt-support 模組」：白名單 `hallucination-guard`／`dse-topics`／
+     `topic-selector`／`open-ended-topics`（提示詞文字與純主題／題型函式），並有**伴隨測試**斷言
+     這四個檔案保持純淨（無 `db`／Prisma、無 providers、無 `fetch(`、無 `process.env`、
+     無快取／LLM 匯入）⇒ 白名單不會變成後門。
+3. **大小治理白名單改用「模組相對路徑」**（原本只比對檔名，任何同名新檔都會自動豁免），並把 3 個
+   確實超標者列為**已記錄的技術債**（`analyze-writing.ts` 1008、`ielts/generation-service.ts` 1120、
+   `teacher-copilot-service.ts` 827）；伴隨測試斷言每一個條目仍存在（不得默默腐化）。**拆檔本身另案
+   處理**（寫作管線與 IELTS 出題＋補題都受契約測試保護，風險較高，不與本項捆綁）。
+4. **provider 憑證與端點歸位到 provider 層**（讓既有規則「provider-specific code only in providers/」
+   真正成立）：
+   - `services/vertex-embeddings.ts` → `providers/vertex-embeddings.ts`（逐字搬移；純 Google API client）。
+   - `services/rag-service.ts` 的 DeepSeek embedding client＋Vertex fallback＋維度政策 → 新
+     `providers/embeddings-provider.ts`（逐字搬移，另導出 `getDetectedEmbeddingDim()`）；rag-service
+     只留編排／分塊／持久化，**完全不讀 `config.deepseek`**。
+   - 可用性輔助函式（`isAIConfigured`／`isDeepSeekConfigured`／`isVertexGeminiConfigured`／
+     `getAIProviders`）→ `providers/provider-availability.ts`；**AI facade 重新導出** ⇒ 公開 API
+     與所有呼叫端不變（`/api/ai/health` 等）。
+5. **教材依賴的證據套件「明確跳過」**：新增 `__tests__/corpus-availability.ts`
+   （`HAS_SCORED_SCRIPTS`／`HAS_EXTRACTED_MATERIALS`／`HAS_LEVEL_DESCRIPTORS`），受影響的套件改用
+   `describe.skipIf`／`it.skipIf`；檔案內同時有合成契約測試時**逐項**把關（合成案例在 CI 照常執行）。
+   `ingest-human-marker.test.ts` 改為在 `beforeAll` 才 ingest，永不於收集階段讀檔。
+   **不放寬任何斷言**：教材存在時照原樣執行，教材毀損或契約失效仍然大聲失敗。
+
+### 三、驗證
+- 架構套件：修正前本機重現 **完全相同的 6 個失敗**（與 CI 一致）；修正後 **121 項全過**。另以臨時
+  腳本獨立重跑各條規則，確認白名單以外 **0 個違規**。
+- calibration 套件：教材存在時 15 檔 / 292 項全過；把 `materials/_hkeaa_scored_scripts` 與
+  `materials/_extracted` **暫時改名**後同一指令得 **250 passed / 42 skipped / 0 failed**，指令結束即還原。
+- 全套：`npm test` **3744 passed / 11 skipped**（0 失敗）、`npx tsc --noEmit` exit 0、改動檔
+  `npx eslint` 0 error、AI／admin／learning-analytics 子集（78 檔、1574 項）全過。
+- CI（Linux、無教材）：DB-gated 併發套件照跑（含 9 項 IELTS 併發不變式），42 個教材案例明確跳過，
+  其餘照舊 ⇒ 全綠。
+
+### 四、注意
+- **Lint 上限已重新基準（225 → 480，棘輪只可下調）**：CI 的 `Lint check` 自 2026-09-21 起從未執行
+  （前面步驟先失敗），期間 warnings 由 225 累積到 **471**（0 errors；`no-unused-vars` 333、
+  `no-explicit-any` 50、`react-hooks/*` 63…，散落約 100 檔）。本日以 ADR-050 記錄為**技術債**並把
+  上限重新基準為 480，讓 CI 恢復真實訊號；日後**只可下調**，未經新決策不得再上調。本次改動本身
+  新增 **0** 個 warning。
+- **不再以整檔文字比對**判斷匯入方向；新增規則時請解析指定子（避免同檔其他匯入被誤判或遮蔽）。
+- `materials/` 仍不入 repo、不入映像；缺教材時本機會顯示明確 skipped，而非假失敗。
+- 移動後的匯入路徑：`@/modules/ai/providers/vertex-embeddings`（rag route、semantic-comparator）、
+  `@/modules/ai/providers/embeddings-provider`（rag-service）、
+  `@/modules/ai/providers/provider-availability`（由 `ai/services/ai-service.ts` 重新導出）。
+
+---
+
 ## 2026-10-08（VIII）— IELTS 併發護欄（資料庫層強制）＋ CI／Node 22 對齊（ADR-049）
 
 ### 一、背景（工程審核）

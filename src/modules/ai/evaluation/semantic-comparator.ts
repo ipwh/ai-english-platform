@@ -139,7 +139,7 @@ export async function computeSemanticScoreWithEmbedding(
 async function computeEmbeddingSimilarity(textA: string, textB: string): Promise<number> {
   // Lazy import to avoid loading embeddings module when not needed
   const { getEmbedding, cosineSimilarity } = await import(
-    '@/modules/ai/services/vertex-embeddings'
+    '@/modules/ai/providers/vertex-embeddings'
   );
 
   const [embA, embB] = await Promise.all([

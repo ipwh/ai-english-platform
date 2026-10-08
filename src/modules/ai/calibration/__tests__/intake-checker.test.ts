@@ -13,6 +13,7 @@ import {
   classifyProvenanceQuality,
 } from "../intake";
 import { ingestHumanMarkerSources, buildEvidenceInventory } from "../ingestion/ingest-human-marker";
+import { HAS_SCORED_SCRIPTS } from "./corpus-availability";
 import type { HumanMarkerEvidenceIntake } from "../types";
 
 const ROOT = resolve(__dirname, "..", "..", "..", "..", "..");
@@ -220,7 +221,7 @@ describe("R3.10-J — deterministic + isolation", () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  it("synthetic TEST_ONLY inputs never change the real inventory", () => {
+  it.skipIf(!HAS_SCORED_SCRIPTS)("synthetic TEST_ONLY inputs never change the real inventory", () => {
     checkHumanMarkerEvidenceIntake(validIntake());
     checkHumanMarkerEvidenceIntake(validIntake({ evidenceId: "hm-test-intake-002" }));
     const result = ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR });
@@ -232,7 +233,7 @@ describe("R3.10-J — deterministic + isolation", () => {
     expect(inventory.candidates.some(c => c.fixtureId === "hm-test-intake-001")).toBe(false);
   });
 
-  it("the ledger never collapses categories", () => {
+  it.skipIf(!HAS_SCORED_SCRIPTS)("the ledger never collapses categories", () => {
     const inventory = buildEvidenceInventory(
       ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR }),
     );

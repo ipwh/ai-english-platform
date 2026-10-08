@@ -103,11 +103,17 @@ export {
   findIntegratedSkillsDraft, upsertIntegratedSkillsDraft, deleteIntegratedSkillsDraft,
   getUnreadNotificationCount,
   listGroupMembers, getUserXp, getUserStreakDays, listUsersAdmin,
+  // Admin-facing CRUD (2026-10-08): the admin module must reach these through this
+  // facade, not through the repository (architecture: services never import another
+  // domain's repositories).
+  getAdminStats, cleanupMockData, ensureAdmin, listLoginLogs, createLoginLog,
+  findUserByEmail, createUser, upsertClass,
 } from '@/modules/student/repositories/user-repo';
 
 // Re-export common repos through facade (Route ≠ Repository rule)
 export { findTodaySession, createPracticeSession, listPracticeSessionsSimple as listPracticeSessions, countPracticeSessions, countTodaySessions, deletePracticeSession, findPracticeSessionByClientId } from '@/modules/exercise/repositories/practice-repo';
 export { createXpTransaction, getTodaysXpTransaction, getLeaderboard, applyXpEventOnce } from './progress/repositories/progress-repo';
+export { applyPracticeMasteryOnce } from './mastery/repositories/student-mastery-repo';
 export { countVocab, getVocabStats, listVocabFiltered } from '@/modules/vocabulary/repositories/vocabulary-repo';
 export { listDrafts, createDraft, findDraftById, updateDraft, countDrafts, findLatestDraft, findDraftWithRevisions } from '@/modules/writing-coach/repositories/writing-draft-repo';
 export { listMistakes, listMistakesByType, listDueMistakesForReview, findMistakeById, updateMistake, bulkUpdateMistakes, bulkDeleteMistakes } from '@/modules/mistake/db/repositories/mistake-repo';

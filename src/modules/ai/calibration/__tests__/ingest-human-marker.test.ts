@@ -7,7 +7,7 @@
 // authoritative datasets.
 // ============================================
 
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
@@ -23,10 +23,15 @@ import {
 import { runHumanMarkerCalibrationBenchmark } from "../runner";
 import type { CalibrationAnalyzer } from "../runner";
 import type { HumanMarkerCalibrationFixture } from "../types";
+import { HAS_SCORED_SCRIPTS } from "./corpus-availability";
 
 const ROOT = resolve(__dirname, "..", "..", "..", "..", "..");
 const SOURCES_DIR = join(ROOT, "materials", "_hkeaa_scored_scripts");
 const FIXTURES_DIR = join(__dirname, "..", "fixtures", "human-marker");
+
+// The owner-supplied corpus is not committed (see ./corpus-availability.ts): the suites that
+// ingest it are SKIPPED when it is absent, instead of reporting the missing corpus as a
+// broken pipeline.
 
 function perfectAnalyzer(): CalibrationAnalyzer {
   return async () => ({
@@ -47,8 +52,14 @@ function perfectAnalyzer(): CalibrationAnalyzer {
   });
 }
 
-describe("R3.10-G — real source ingestion", () => {
-  const result = ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR });
+describe.skipIf(!HAS_SCORED_SCRIPTS)("R3.10-G — real source ingestion", () => {
+  // Loaded in beforeAll — never while vitest collects this file: a skipped suite must not
+  // touch the corpus at all (the previous version ingested at collection time and threw
+  // "Human-marker source PDF missing" in CI, taking all 25 tests with it).
+  let result!: ReturnType<typeof ingestHumanMarkerSources>;
+  beforeAll(() => {
+    result = ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR });
+  });
 
   it("ingests exactly 3 human-marker fixtures from the 2018 source", () => {
     expect(result.fixtures).toHaveLength(3);
@@ -168,7 +179,7 @@ describe("R3.10-G — real source ingestion", () => {
   });
 });
 
-describe("R3.10-G — sub-score semantics (no inference)", () => {
+describe.skipIf(!HAS_SCORED_SCRIPTS)("R3.10-G — sub-score semantics (no inference)", () => {
   function makeFixture(): HumanMarkerCalibrationFixture {
     return ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR })
       .fixtures.find(f => f.provenance.sourceYear === 2018) as HumanMarkerCalibrationFixture;
@@ -258,7 +269,7 @@ describe("R3.10-G — source classification rules", () => {
   });
 });
 
-describe("R3.10-G — authority assertion is metadata, not a bypass", () => {
+describe.skipIf(!HAS_SCORED_SCRIPTS)("R3.10-G — authority assertion is metadata, not a bypass", () => {
   function fixtureFromSource(): HumanMarkerCalibrationFixture {
     return ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR })
       .fixtures.find(f => f.provenance.sourceYear === 2012) as HumanMarkerCalibrationFixture;

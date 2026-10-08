@@ -1,5 +1,6 @@
 // ============================================
-// Vertex AI Embeddings Service
+// Vertex AI Embeddings provider (moved out of services/ 2026-10-08 — it is a
+// provider client: credentials + raw Google API access belong to the provider layer)
 // 使用 Google Vertex AI text-embedding-004 模型
 // 設定統一從 config.ts 讀取
 // ============================================

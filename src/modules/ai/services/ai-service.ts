@@ -16,22 +16,14 @@ export { callLLM } from './llm-call';
 export { sanitizeForAI } from './sanitizer';
 
 // ═══ Configuration helpers ═══
-import { config } from '@/shared/config/config';
-import { hasServiceAccountSource } from '@/modules/ai/services/gcp-auth';
-export function isDeepSeekConfigured(): boolean { return isAIConfigured(); }
-export function isAIConfigured(): boolean {
-  return (!!config.deepseek.apiKey && config.deepseek.apiKey !== 'sk-your-deepseek-api-key-here')
-    || (!!config.vertex.projectId && hasServiceAccountSource())
-    || !!config.gemini.apiKey;
-}
-export function isVertexGeminiConfigured(): boolean { return !!config.vertex.projectId && hasServiceAccountSource(); }
-export function getAIProviders() {
-  return {
-    deepseek: !!config.deepseek.apiKey && config.deepseek.apiKey !== 'sk-your-deepseek-api-key-here',
-    vertexGemini: isVertexGeminiConfigured(), geminiApiKey: !!config.gemini.apiKey,
-    vertexProjectId: config.vertex.projectId || null, vertexLocation: config.vertex.location, vertexModel: config.vertex.model,
-  };
-}
+// Provider credentials are provider-layer knowledge (providers/provider-availability.ts);
+// the facade re-exports those helpers so the public API is unchanged.
+export {
+  isDeepSeekConfigured,
+  isAIConfigured,
+  isVertexGeminiConfigured,
+  getAIProviders,
+} from '@/modules/ai/providers/provider-availability';
 
 // ═══ Retry Stats ═══
 interface RetryStats { totalAttempts: number; retryCount: number; retrySuccesses: number; failedTopics: string[]; lastReset: number; }

@@ -19,6 +19,7 @@ import { parseExemplarBooklet } from "../ingestion/parse-exemplar-booklet";
 import { parseLevelDescriptors } from "../ingestion/parse-level-descriptors";
 import { parsePaper4Samples } from "../ingestion/parse-paper4-samples";
 import { ingestHKEAAMaterials } from "../ingestion/ingest-hkeaa";
+import { HAS_EXTRACTED_MATERIALS } from "./corpus-availability";
 import { writeIngestionOutput } from "../ingestion/write-ingestion-output";
 import { validateAuthoritativeFixture } from "../provenance";
 import type { HKEAAPaper } from "../types";
@@ -218,7 +219,7 @@ describe("Ingestion — level descriptor parser", () => {
 });
 
 describe("Ingestion — real HKEAA source material (evidence)", () => {
-  it("ingests the real materials deterministically and fail-closed", () => {
+  it.skipIf(!HAS_EXTRACTED_MATERIALS)("ingests the real materials deterministically and fail-closed", () => {
     const r = ingestHKEAAMaterials({ materialsDir: MATERIALS_DIR, descriptorsDir: DESCRIPTORS_DIR });
     for (const f of r.fixtures) {
       expect(validateAuthoritativeFixture(f).ok, `fixture ${f.id} must validate`).toBe(true);
@@ -228,7 +229,7 @@ describe("Ingestion — real HKEAA source material (evidence)", () => {
     expect(r.quarantined.filter(q => q.reason === "duplicate-source-sample")).toHaveLength(40);
   });
 
-  it("ingestion is idempotent over the real materials", () => {
+  it.skipIf(!HAS_EXTRACTED_MATERIALS)("ingestion is idempotent over the real materials", () => {
     const a = ingestHKEAAMaterials({ materialsDir: MATERIALS_DIR, descriptorsDir: DESCRIPTORS_DIR });
     const b = ingestHKEAAMaterials({ materialsDir: MATERIALS_DIR, descriptorsDir: DESCRIPTORS_DIR });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));

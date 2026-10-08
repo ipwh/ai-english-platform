@@ -25,9 +25,14 @@ import {
 import { classifyFixtureKind } from "../provenance";
 import { runHumanMarkerCalibrationBenchmark } from "../runner";
 import type { HumanMarkerCalibrationFixture } from "../types";
+import { HAS_SCORED_SCRIPTS } from "./corpus-availability";
 
 const ROOT = resolve(__dirname, "..", "..", "..", "..", "..");
 const SOURCES_DIR = join(ROOT, "materials", "_hkeaa_scored_scripts");
+
+// Tests that read the owner-supplied corpus are skipped when it is absent (CI) — it is not
+// committed; see ./corpus-availability.ts. Every case that uses `real()` / `realFixture()`
+// is gated individually so the synthetic contracts keep running everywhere.
 
 const real = () => ingestHumanMarkerSources({ sourcesDir: SOURCES_DIR });
 
@@ -76,19 +81,19 @@ describe("R3.10-H — explicit overall-score parsing", () => {
 // ── Evidence classification taxonomy (items 3, 4, 5, 13, 14) ──
 
 describe("R3.10-H — evidence classification", () => {
-  it("classifies the ingested M1/M2 script as NON_COMPARABLE_SCORE", () => {
+  it.skipIf(!HAS_SCORED_SCRIPTS)("classifies the ingested M1/M2 script as NON_COMPARABLE_SCORE", () => {
     expect(classifyHumanMarkerEvidence(realFixture(2018)))
       .toBe("NON_COMPARABLE_SCORE");
   });
 
-  it("classifies the ingested C/L/O scripts as ACCEPT_CRITERION_ONLY", () => {
+  it.skipIf(!HAS_SCORED_SCRIPTS)("classifies the ingested C/L/O scripts as ACCEPT_CRITERION_ONLY", () => {
     expect(classifyHumanMarkerEvidence(realFixture(2012)))
       .toBe("ACCEPT_CRITERION_ONLY");
     expect(classifyHumanMarkerEvidence(realFixture(2016)))
       .toBe("ACCEPT_CRITERION_ONLY");
   });
 
-  it("classifies level-only evidence as LEVEL_ONLY (never a score)", () => {
+  it.skipIf(!HAS_SCORED_SCRIPTS)("classifies level-only evidence as LEVEL_ONLY (never a score)", () => {
     const levelOnly = {
       ...realFixture(2012),
       contentScore: null,
@@ -101,7 +106,7 @@ describe("R3.10-H — evidence classification", () => {
     expect(levelOnly.overallScore).toBeNull();
   });
 
-  it("classifies overall-scored evidence as ACCEPT_OVERALL_SCORE", () => {
+  it.skipIf(!HAS_SCORED_SCRIPTS)("classifies overall-scored evidence as ACCEPT_OVERALL_SCORE", () => {
     const overall = {
       ...realFixture(2012),
       contentScore: null,
@@ -143,7 +148,7 @@ describe("R3.10-H — evidence classification", () => {
 
 // ── No-inference guarantees (items 16-19) ──
 
-describe("R3.10-H — score inference audit", () => {
+describe.skipIf(!HAS_SCORED_SCRIPTS)("R3.10-H — score inference audit", () => {
   it("never converts a level into a numeric score", () => {
     const f = realFixture(2012);
     expect(f.publishedLevel).toBe("5**");
@@ -259,7 +264,7 @@ describe("R3.10-H — end-to-end overall-score ingestion", () => {
 
 // ── Duplicates, conflicts, serialization (items 11, 12, 15) ──
 
-describe("R3.10-H — duplicates, conflicts, serialization", () => {
+describe.skipIf(!HAS_SCORED_SCRIPTS)("R3.10-H — duplicates, conflicts, serialization", () => {
   it("conflicting duplicate overall scores are rejected, never averaged", () => {
     const makeOverall = (score: number): HumanMarkerCalibrationFixture => ({
       ...realFixture(2012),
@@ -336,7 +341,7 @@ describe("R3.10-H — duplicates, conflicts, serialization", () => {
 
 // ── Missing-script / missing-hash rejections (items 9, 10) ──
 
-describe("R3.10-H — required evidence fields", () => {
+describe.skipIf(!HAS_SCORED_SCRIPTS)("R3.10-H — required evidence fields", () => {
   it("missing student script is rejected", () => {
     const noScript = { ...realFixture(2012), studentScript: "   " };
     const result = validateHumanMarkerFixture(noScript);
