@@ -171,7 +171,14 @@ Honesty obligations: dropped items are reported with reason + count; a set with
 no survivors is a typed failure and persists nothing; delivered vs requested
 counts (shortfall) are reported as-is. Prompts embed official format rules and
 materials-derived blueprints; recent prompts/excerpts are supplied so repeated
-generation is de-duplicated. Marketing/quality claims about generated content
+generation is de-duplicated. **Target-completeness never overrides an honesty or
+fairness obligation** (2026-10-08 III): a short section is filled by generating
+MORE items for its frozen text (`extendIeltsSectionWithAI`, ≤3 rounds inside a
+wall-clock budget, same
+gates) — no gate is relaxed for the count, extra survivors are trimmed back to
+the official item count with a recorded reason, and a failed or budget-exhausted
+round yields a partial section with an honest shortfall rather than discarding
+items that already passed. Marketing/quality claims about generated content
 remain prohibited (see §11).
 
 ### 7.2 Starter content carve-out & the authoring console (2026-10-03 V)

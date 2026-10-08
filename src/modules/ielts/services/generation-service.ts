@@ -75,8 +75,24 @@ export const IELTS_GENERATION_MAX_ATTEMPTS_PER_SET = 2;
  * fixed once accepted, so a short section is filled by asking for MORE questions about
  * that same text — never by re-running the set generator (which authors a new text).
  * Bounded because every round costs one generation + one blind-solve verification.
+ * Measured 2026-10-08: with 2 rounds reading reached 40/40 but listening stopped at
+ * 37–39/40; with 3 rounds the final verification run reached 40/40 for BOTH components
+ * (reading 77s, listening 103s). The residual gap is the unchanged verbatim-transcript
+ * gate, which still destroys 13–27 listening items per run — hence the honest shortfall
+ * path rather than a relaxed gate.
  */
-export const IELTS_SECTION_TOPUP_MAX_ROUNDS = 2;
+export const IELTS_SECTION_TOPUP_MAX_ROUNDS = 3;
+/**
+ * Wall-clock budget for top-up rounds within one generation request (2026-10-08).
+ *
+ * Why this exists: content is persisted only after EVERY section is finished, so a
+ * Cloud Run timeout (900s) would discard the whole component — worse than a small
+ * shortfall. Provider latency is genuinely variable (the same 5-item set was measured at
+ * 12s and at 146s), so top-ups stop once the elapsed time exceeds this budget and the
+ * request returns with an honest shortfall instead of risking a total loss. The budget is
+ * generous relative to the measured 62–100s end-to-end times.
+ */
+export const IELTS_GENERATION_TOPUP_TIME_BUDGET_MS = 240_000;
 /** Official full-component shapes (40 questions). */
 export const IELTS_FULL_COMPONENT_TARGETS: Record<'READING' | 'LISTENING', number[]> = {
   READING: [13, 13, 14],
@@ -550,6 +566,8 @@ async function topUpSection(args: {
   difficulty?: IeltsDifficulty | undefined;
   /** Recent prompts plus prompts already used by other sections of this run. */
   baseAvoidPrompts: string[];
+  /** Wall-clock deadline for top-up rounds (see IELTS_GENERATION_TOPUP_TIME_BUDGET_MS). */
+  deadlineAt: number;
   batch: IeltsBatchContext;
   seenPrompts: Set<string>;
   drops: Map<string, number>;
@@ -568,6 +586,12 @@ async function topUpSection(args: {
   for (let round = 0; round < IELTS_SECTION_TOPUP_MAX_ROUNDS; round++) {
     const deficit = plan.target - section.items.length;
     if (deficit <= 0) return;
+    if (Date.now() > args.deadlineAt) {
+      // Out of time: a shortfall is strictly better than risking a request timeout that
+      // would discard every section (content is persisted only at the very end).
+      record('TOPUP_DEADLINE');
+      return;
+    }
     // Over-ask a little: the gates are strict, so asking for exactly the deficit rarely
     // fills it. Anything extra that passes is trimmed back to the official target below.
     const requestCount = Math.min(deficit + Math.max(1, Math.ceil(deficit / 2)), maxItems);
@@ -643,7 +667,11 @@ export async function generateIeltsPracticeContent(
   if (input.itemTypes && input.itemTypes.length > 0) {
     const allowed = input.skill === 'READING' ? READING_ALLOWED_TYPES : LISTENING_ALLOWED_TYPES;
     for (const t of input.itemTypes) {
-      if (!allowed.has(t)) {
+      // Resolve through the single owner: callers may use either the prompt vocabulary
+      // (unprefixed official names) or the canonical prefixed names. Unknown types stay
+      // a hard 400-class failure (fail-closed) — never silently ignored.
+      const resolved = resolveIeltsQuestionType(input.skill, t);
+      if (!resolved || !allowed.has(resolved)) {
         return { ok: false, code: 'INVALID_INPUT', message: `Unsupported item type for ${input.skill}: ${t}` };
       }
     }
@@ -771,6 +799,7 @@ export async function generateIeltsPracticeContent(
         section: preparedSet,
         difficulty: effectiveDifficulty,
         baseAvoidPrompts: [...avoidPrompts, ...sets.flatMap((s) => s.items.map((i) => i.prompt))],
+        deadlineAt: started + IELTS_GENERATION_TOPUP_TIME_BUDGET_MS,
         batch,
         seenPrompts,
         drops,

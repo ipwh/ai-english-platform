@@ -203,7 +203,9 @@ registerPrompt({
 // 2026-10-03 (IV)：AI 出題（Reading/Listening 套卷＋Writing 題目）。AI 輸出只是
 // 原料：先經決定性屏檢（question-validator），再經獨立 blind-solve 覆核（答案鍵
 // 永不提供給驗證器），通過者才以 QA_REQUIRED 儲存；AI 永不發佈。
-// 版本常數 IELTS_QUESTION_GENERATION_V1 / IELTS_WRITING_PROMPT_GEN_V1。
+// 版本常數 IELTS_QUESTION_GENERATION_V1 / IELTS_WRITING_PROMPT_GEN_V1 /
+// IELTS_SECTION_EXTENSION_V1（2026-10-08：對**同一段落文本**補題，只回 questions，
+// 用來把短少的段落補足到官方題數 —— 見 generation-service.topUpSection()）。
 registerPrompt({
   name: 'IeltsQuestionGeneration',
   version: 'v1',

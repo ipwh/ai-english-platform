@@ -4,6 +4,73 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（IV）— 全練習生成審核＋IELTS 補題硬化（發布前總驗）
+
+### 一、背景
+使用者要求：仔細審核程式碼、確保**所有練習**都能順利生成、更新文件後 commit 並 push。
+
+### 二、程式碼審核（逐檔）與修正
+1. **`itemTypes` 前置驗證未經單一 owner**（`generation-service.ts`）：`POST
+   /api/ielts/admin/generate` 直送 `itemTypes`，舊碼以 `allowed.has(t)` **硬比對正典名稱**，
+   因此呼叫端用**提示詞的官方名稱**（`multiple_choice`）會被判 `INVALID_INPUT` —— 正是
+   2026-10-08（II）事故的同一類缺陷。改為經 `resolveIeltsQuestionType()` 對照（兩種詞彙
+   皆接受），未知題型仍 fail-closed 回 400 級錯誤。
+2. **補題系統提示詞與基礎提示詞的 OUTPUT 段落互相矛盾**（`ai/prompts/ielts/question-generation.ts`）：
+   基礎提示詞要求輸出 `title/passage/transcript/questions[]`，補題則要求只回 `{"questions":[]}`。
+   與 2026-10-08「說話 MC 提示詞矛盾」同類風險 → 明示覆寫範圍（含 OUTPUT 段落）。
+3. **測試衛生缺陷（本次才暴露）**：`generation-service.test.ts` 的 `beforeEach` 用
+   `vi.clearAllMocks()`，它**不會**清除已排入的 `mockResolvedValueOnce` → 前一測試未消費的
+   佇列會洩漏到下一個測試，令其行為被靜默改變（本次兩個新測試因此在整檔執行時失敗、單獨
+   執行卻通過）。改為 `vi.resetAllMocks()` 後再建立預設值。
+4. 其餘審核（皆無缺陷）：`questionContentKey`／`dedupeSessionQuestions`／
+   `findNextSessionQuestionIndex`（不改寫正典 id、無可前進回 `-1`）；runner `handleNext()`
+   不清空狀態且狀態由 store 還原（`submitAnswer` 產生新物件 ⇒ `useMemo` 重算，無過期讀取）；
+   空題目已有守衛（`uniqueQuestions[0]` 不會拋錯）；`canonicalizeCodeAnswerKey` 只接受
+   **唯一**選項原文命中、自由填答鍵永不轉換；`topUpSection` 的裁剪／記錄與 fail-closed 路徑。
+
+### 三、生成硬化（回應「確保所有練習都能順利生成」）
+1. `IELTS_SECTION_TOPUP_MAX_ROUNDS` **2 → 3**（實測 2 輪時聆聽仍常差 1–3 題）。
+2. **新增牆鐘上限** `IELTS_GENERATION_TOPUP_TIME_BUDGET_MS = 240_000`：內容**只在全部段落
+   完成後才持久化**，故 Cloud Run 逾時（900s）會**整份作廢**（比短欠更差）；供應商延遲確實
+   可變（同一個 5 題套卷實測 12s 與 146s），因此超過預算即停止補題並記 `TOPUP_DEADLINE`，
+   以誠實短欠取代全損風險。
+
+### 四、實測（真實 API／真實 AI，不留下任何資料）
+| 練習類型 | 交付 | 時間 |
+| --- | --- | --- |
+| HKDSE 文法（tenses, MC） | 5/5 | 20.7s |
+| HKDSE 文法（prepositions, 填充） | 5/5 | 20.4s |
+| HKDSE 閱讀（MC） | 5/5 | 40.8s |
+| HKDSE 聆聽（MC，含交付條件閘門） | 5/5 | 38.8s |
+| HKDSE 說話（MC） | 5/5 | 14.1s |
+| HKDSE 寫作（short-writing） | 3/3 | 12.5s |
+| HKDSE 詞彙（MC） | 5/5 | 18.4s |
+| IELTS 閱讀套卷（5 題） | **5/5** | 12.3s |
+| IELTS 聆聽套卷（10 題） | **10/10** | 13.4s |
+| IELTS 閱讀完整組件（40 題） | **40/40**（13+13+14） | 77.2s |
+| IELTS 聆聽完整組件（40 題） | **40/40**（最終 3 輪設定；2 輪時為 37–39/40） | 102.8s |
+| IELTS 寫作 academic_task2／general_task1 | ok | 2.8s／2.8s |
+
+- HKDSE 探測帶入**真實學生近 14 日**去重素材（該生 4,855 場次）；IELTS 探測為
+  `full_component`＋套卷＋寫作全路徑，且**自我清理**（測後刪除自己建立的 DRAFT 卷）。
+- 先前為定位事故而跑的真實生成探測**曾在生產庫留下 7 份 DRAFT/QA_REQUIRED 卷**
+  （33/21/23/40/39/40/40 題，`attempts=0`、`owner=null`、`durationMinutes=60/40`，
+  建立時間與各次探測逐筆對應）→ 已以安全條件（DRAFT＋CATALOGUE＋owner null＋
+  durationMinutes 非 null＋attempts 0）逐筆刪除並覆核（剩餘 0、孤兒段落 0）。
+- 殘餘短欠僅來自**未放寬**的聆聽逐字稿逐字判準（`LISTENING_ANSWER_NOT_IN_TRANSCRIPT`，
+  本次每輪仍丟棄 13–27 題）；3 輪設定下兩個完整組件在最終驗證皆達 40/40，
+  但**該判準確實可能令題數不足**，屆時一律**誠實回報**（`DELIVERED_WITH_SHORTFALL`）。
+
+### 五、驗證
+- 新增測試：補題輪次上限（`IELTS_SECTION_TOPUP_MAX_ROUNDS`）、牆鐘預算
+  （`TOPUP_DEADLINE` 且只呼叫一次）、多輪補題直到達標；`itemTypes` 雙詞彙接受。
+- **負向對照 ×2**：停用補題輪 → 該檔 7 測試失敗；把輪次上限改為 99 並停用牆鐘守衛 →
+  2 個新測試失敗（停用前後檔案雜湊一致，已還原）。
+- `tsc --noEmit`、`check:i18n`、`npm test`（203 檔／3678 通過、2 gated skips）、
+  `npm run build:prod`、Safari 15.4 基線掃描（`.next/static` 的 `static{` = 0）皆通過。
+
+---
+
 ## 2026-10-08（III）— IELTS 完整組件補題：40 題目標改為「盡量補足」（每段對同一文本補題）
 
 ### 一、背景
@@ -28,7 +95,8 @@ All notable changes to the AI English Platform are documented here.
      版本常數 `IELTS_SECTION_EXTENSION_V1`，沿用已註冊的 `IeltsQuestionGeneration` 名稱 ——
      與 `IELTS_WRITING_PROMPT_GEN_V1` 同例）＋ items-only schema `IeltsGeneratedItemsSchema`
      （**刻意**不接受回傳篇章／逐字稿：要模型重印 700 字篇章既貴又會與題目靜默漂移）。
-   - `IELTS_SECTION_TOPUP_MAX_ROUNDS = 2`；每輪只補不足的題數（並小幅超額請求，
+   - `IELTS_SECTION_TOPUP_MAX_ROUNDS = 2`（**同日（IV）提升為 3 輪並加入牆鐘預算**）；
+     每輪只補不足的題數（並小幅超額請求，
      因為閘門嚴格），**超額通過者會裁剪回官方題數並記錄 `TOPUP_TRIMMED`（永不靜默）**。
    - 補題題目通過**同一組閘門**（機械屏檢 → blind-solve）；被否決原因回饋下一輪提示詞。
 2. **永不丟棄已通過的題目**：補題輪的供應商失敗記 `TOPUP_<failure>` 後停止；
@@ -125,7 +193,7 @@ All notable changes to the AI English Platform are documented here.
 誠實 `shortfall`），不再整組 422 失敗。另：AI 產出的聆聽選項與逐字稿對應品質本身
 是後續可改善的提示詞/驗證工作。
 **→ 已於同日（III）處理**：判準維持不放寬，但（a）提示詞現在明示該逐字稿規則，
-（b）新增每段補題輪把缺口補回 —— 實測 Reading 40/40、Listening 39–40/40。
+（b）新增每段補題輪把缺口補回 —— 實測 Reading 40/40、Listening 40/40（(IV) 的最終設定）。
 
 ---
 

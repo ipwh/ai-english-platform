@@ -146,6 +146,16 @@ choose their own practice mode/type.
   unavailable verifier drops the item (fail-closed); nothing persists when
   nothing survives; shortfall is reported honestly (`POST
   /api/ielts/admin/generate`, teacher/admin only, budget→503).
+- **Per-section top-up (2026-10-08 III)**: a section's text is frozen once
+  accepted, so a short section is filled by `extendIeltsSectionWithAI` for the
+  SAME text (≤3 rounds within a wall-clock budget, same gates, trim recorded as
+  `TOPUP_TRIMMED`), never by regenerating the section and never by relaxing a gate.
+  Accepted items survive a failed/exhausted round (`TOPUP_ABORTED` ⇒ partial
+  delivery + honest shortfall). Measured: reading 33→40/40, listening 23→40/40
+  (final run). Also fixed the same day:
+  AI question-type vocabulary → canonical names via `resolveIeltsQuestionType()`
+  and MC answer keys given as option TEXT → option CODES (both had reduced whole
+  components to a `GENERATION_EMPTY` 422).
 - Official-format conformance: one answer per numbered question; verbatim
   completion answers; MC/matching checked by option text support (validator fix
   — previously a listening MC letter could never pass the transcript check);

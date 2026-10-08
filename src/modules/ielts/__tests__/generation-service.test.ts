@@ -49,6 +49,8 @@ vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
 import {
   generateIeltsPracticeContent,
   generateIeltsWritingTask,
+  IELTS_GENERATION_TOPUP_TIME_BUDGET_MS,
+  IELTS_SECTION_TOPUP_MAX_ROUNDS,
 } from '../services/generation-service';
 
 // ============================================
@@ -138,7 +140,10 @@ function baseInput() {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // resetAllMocks (not clearAllMocks): clearAllMocks keeps queued `mockResolvedValueOnce`
+  // values, so an unconsumed queue leaks into the NEXT test and silently changes its
+  // behaviour. Defaults are re-established immediately below.
+  vi.resetAllMocks();
   mocks.listRecentQuestionPromptsBySkill.mockResolvedValue([]);
   mocks.listRecentSectionTextsBySkill.mockResolvedValue([]);
   mocks.listRecentWritingPrompts.mockResolvedValue([]);
@@ -658,6 +663,77 @@ describe('per-section top-up — filling a short section against the same text',
     const extendCall = mocks.extendIeltsSectionWithAI.mock.calls[0][0] as { avoidPrompts: string[] };
     expect(extendCall.avoidPrompts.join(' ')).toContain('[T7]');
     expect(extendCall.avoidPrompts.join(' ')).toContain('Membership costs');
+  });
+
+  it('retries top-up rounds while the section is still short (bounded by the round cap)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(1, 'R1')));
+    mocks.verifyIeltsItemsWithAI
+      .mockResolvedValueOnce(verification({ q1: 'TRUE' }))
+      .mockResolvedValueOnce(verification({ q1: 'Monday' }))
+      .mockResolvedValueOnce(verification({ q1: 'fifteen' }));
+    // Each round must offer DIFFERENT items: repeating an already-screened prompt is
+    // (correctly) rejected as a duplicate, so an identical payload could never fill a gap.
+    mocks.extendIeltsSectionWithAI
+      .mockResolvedValueOnce(aiOk({ questions: extensionQuestions() }))
+      .mockResolvedValueOnce(
+        aiOk({
+          questions: [
+            {
+              ...extensionQuestions()[0],
+              prompt: 'Membership costs ______ pounds per year.',
+              answerKey: 'fifteen',
+              evidenceQuotes: ['fifteen pounds per year'],
+            },
+          ],
+        }),
+      );
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(3);
+    expect(mocks.extendIeltsSectionWithAI).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds the number of top-up rounds (cost guard)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(1, 'C1')));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'TRUE' }));
+    mocks.extendIeltsSectionWithAI.mockImplementation(async () => aiOk({ questions: [] }));
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    // Unproductive rounds still stop at the cap — every round costs a generation.
+    expect(mocks.extendIeltsSectionWithAI).toHaveBeenCalledTimes(IELTS_SECTION_TOPUP_MAX_ROUNDS);
+    expect(outcome.deliveredCount).toBe(1);
+    expect(outcome.shortfall).toBe(2);
+  });
+
+  it('stops topping up once the wall-clock budget is spent (never risks a request timeout)', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'D1')));
+      mocks.verifyIeltsItemsWithAI.mockResolvedValueOnce(verification({ q1: 'TRUE', q2: 'fifteen' }));
+      // The first top-up round is slow enough to exhaust the budget.
+      mocks.extendIeltsSectionWithAI.mockImplementation(async () => {
+        vi.advanceTimersByTime(IELTS_GENERATION_TOPUP_TIME_BUDGET_MS + 1);
+        return aiOk({ questions: [] });
+      });
+
+      const outcome = await generateIeltsPracticeContent(baseInput());
+
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      // Content is persisted only at the very end, so a timeout would lose everything:
+      // the guard stops further rounds instead.
+      expect(mocks.extendIeltsSectionWithAI).toHaveBeenCalledTimes(1);
+      expect(outcome.drops.some((d) => d.reason === 'TOPUP_DEADLINE')).toBe(true);
+      expect(outcome.deliveredCount).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

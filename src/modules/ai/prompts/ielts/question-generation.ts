@@ -283,7 +283,8 @@ export function buildIeltsSectionExtensionSystemPrompt(
     // Single source of the format rules: the full set-authoring system prompt.
     buildIeltsQuestionGenerationSystemPrompt(skill, testType),
     ``,
-    `EXTENSION TASK (this request only — it overrides the "write ONE section" framing above):`,
+    `EXTENSION TASK (this request only — it overrides the "write ONE section" framing above,`,
+    `including the OUTPUT line about title/passage/transcript):`,
     `The ${label} ALREADY EXISTS and is supplied below. Do NOT write, rewrite, retitle,`,
     `shorten or continue it, and do NOT invent facts it does not contain.`,
     `Write ONLY the additional questions requested, based exclusively on that exact ${label}.`,

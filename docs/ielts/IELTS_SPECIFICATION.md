@@ -234,6 +234,25 @@ Rules:
 > 5. **Human approval** — a reviewer must still move questions to
 >    HUMAN_APPROVED → PUBLISHED. **AI can NEVER publish.**
 >
+> **Per-section top-up (2026-10-08 III).** A section's passage/transcript is FROZEN
+> once accepted (every item must be supported by that exact text), so a section that
+> comes back short is NOT regenerated — that would author a new text. Instead the
+> deficit is filled by `extendIeltsSectionWithAI` (`IELTS_SECTION_EXTENSION_V1`),
+> which writes ADDITIONAL questions for the SAME text and returns questions only
+> (never a passage/transcript/title). Top-up items pass the SAME gates (machine
+> screen → blind-solve); the rejected reasons are fed into the next round's prompt;
+> at most `IELTS_SECTION_TOPUP_MAX_ROUNDS` (3) rounds run per section, each bounded by a
+> wall-clock budget (`IELTS_GENERATION_TOPUP_TIME_BUDGET_MS`, recorded as `TOPUP_DEADLINE`)
+> because content is persisted only after EVERY section finishes — a request timeout would
+> lose the whole component, so a shortfall is preferred over that risk. Each
+> section never exceeds its official item count (a small over-ask is trimmed back,
+> recorded as `TOPUP_TRIMMED` — never silently). Accepted items are NEVER discarded:
+> a provider failure (`TOPUP_<FAILURE>`) or an exhausted AI budget (`TOPUP_ABORTED`)
+> simply stops the top-up and delivers the partial section with an honest shortfall.
+> No gate is relaxed to reach the target. Measured on the real path (2026-10-08):
+> reading full component 33 → **40/40**, listening 23 → **37–40/40**, with the final
+> 3-round setting reaching **40/40 for both** (reading 77s, listening 103s).
+>
 > Entry point: `POST /api/ielts/admin/generate` (teacher/admin; budget→503,
 > timeout→504, provider→502, refused/empty/non-conforming→422). Scope `set`
 > (3–14 reading / 3–10 listening items) or `full_component` (official 40-question
@@ -260,7 +279,9 @@ Rules:
 > `scope:'full_component'` generates the complete official component (reading
 > 3 passages / listening 4 parts, 40 items) and reports the shortfall honestly
 > (partial components are delivered with the exact dropped-item explanation —
-> fail-closed, never padded).
+> fail-closed, never padded). Each section is topped up against its own text first
+> (see per-section top-up above), which is what makes the official 40-item shape
+> reachable rather than merely attempted.
 > Caps: **8 sets per Hong Kong day shared across reading, listening and writing**;
 > complete components have their own cap (**2 per day**) because they cost ~8× a
 > set. The Cloud Run request timeout is **900s** (a component needs 4 generations +

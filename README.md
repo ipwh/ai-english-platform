@@ -10,7 +10,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 > **AI Infra**: Prompt Versioning | Regression Eval | Experiment Platform | Continuous Monitoring | Golden Benchmark Runner | Calibration Evidence Pipeline
 > **Budget**: Enforced per-request ($50/month cap, 500K tokens/day)
 > **Circuit Breaker**: 5 failures → open (30s) → half-open → 2 successes → closed
-- **Tests**: Run `npm test` for current count. Last verified: 2026-10-07 — 199 files, 3620 tests pass (+2 gated skips; full non-E2E), including the IELTS module suite (incl. audit-invariants source scans and the student-flow contract), the `useT()` stability guard, the TTS speaker-label guard and route-security behavior tests (SEC-001..009).
+- **Tests**: Run `npm test` for current count. Last verified: 2026-10-08 — 203 files, 3678 tests pass (+2 gated skips; full non-E2E), including the IELTS module suite (incl. audit-invariants source scans, generation prompt/top-up contracts and the student-flow contract), the `useT()` stability guard, the TTS speaker-label guard and route-security behavior tests (SEC-001..009).
 - **Deployment (2026-09-21)**: apply `npx prisma migrate deploy` (includes `20260923_user_overall_accuracy_drop_default`) and run `npm run db:backfill:accuracy:apply` **before** the new revision receives traffic. The backfill recomputes the canonical projection and only rewrites the legacy "no verifiable evidence" zeros to `NULL`; a genuine 0 % is untouched. Cloud Run deployment does not apply migrations.
 - **Deployment (2026-10-03 — IELTS 子系統)**: 需套用 3 個遷移（`20261003000100_ielts_module`、`20261003000200_ielts_instant_practice`、`20261003000300_ielts_assessment_rubric_version`；**2026-10-03 (XII) 更名**以修正字母序 P3018——舊名的 `..._assessment_rubric_version` 字母序排在建表遷移之前會令全新庫部署中止）。**遷移不會由 push 自動套用**（2026-10-04 查證：GitHub→Cloud Build trigger 使用**內嵌**設定，只做 `gcloud run services update --image`，不含遷移步驟；`cloudbuild.yaml` 的遷移步驟僅在手動 `gcloud builds submit --config cloudbuild.yaml` 或 `scripts/cloud-run-deploy.ps1` Step 2 時執行，且該 Secret `DIRECT_DATABASE_URL` 目前**未建立**於專案）。請先以 `.env.local` 直連套用 `npx prisma migrate deploy`（或跑 `scripts/cloud-run-deploy.ps1`）再依賴新程式碼。遷移全部為加法（僅 IELTS 新表＋可空欄位），**無需回填**；**2026-10-03 (XII) 已補套用至生產庫**。
 - **Deployment (2026-09-26 — egress work)**: **no schema change / no migration.** `npx prisma migrate deploy` reports nothing pending → rollback is simply re-deploying the previous Cloud Run revision. See the egress operations section below.
@@ -26,9 +26,12 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 - 登入後前往 **`/student/ielts`**（導航：「IELTS 備考（測試版）」）。
 - **即時自學練習**：無需等待審核即可出卷（閱讀／聆聽：AI 生成 → 機械屏檢＋盲解覆核 →
   只交付本人、明確標示「未經教師審核」、**永不進入題庫**；每香港日上限 8 次）。
-- **完整組件練習**（2026-10-04）：可生成**官方全長度**組件（閱讀 3 篇／聆聽 4 部分，共 40 題；
-  建議時間 60／40 分鐘），同一組品質閘門、獨立每日上限（2 次）；題數不足時**誠實顯示**
-  已交付／官方題數與 fail-closed 原因。
+- **完整組件練習**（2026-10-04；2026-10-08 補題）：可生成**官方全長度**組件（閱讀 3 篇／聆聽 4 部分，共 40 題；
+  建議時間 60／40 分鐘），同一組品質閘門、獨立每日上限（2 次）。**每段落生成後會對同一篇章／
+  逐字稿追加題目補足官方題數**（最多 3 輪、受 4 分鐘牆鐘預算限制），因此實測閱讀與聆聽
+  完整組件**皆可達 40/40**（77s／103s）；若仍未足數（聆聽逐字稿逐字判準未放寬，偶爾仍
+  丟棄 13–27 題），**誠實顯示**已交付／官方題數與 fail-closed 原因（**絕不放寬任何判準**、
+  **絕不**為湊數加入未經覆核的題目）。
 - **即時自學寫作題**（2026-10-04）：寫作頁可按所選組別／題型 **AI 生成題目**（同一 conformance
   檢查；同樣只交付本人、標示未經教師審核、**永不自動入庫**），寫完即取得四項官方準則的練習估算，
   與閱讀／聆聽即時練習共用每日上限。寫作以**單一任務**為單位（官方寫作組件＝任務 1＋任務 2，
@@ -57,7 +60,7 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 文件與驗證
 - 規格／計分／治理／來源：[`docs/ielts/`](docs/ielts/)（SPECIFICATION、SCORING、
   ASSESSMENT_GOVERNANCE、SOURCES、COMPLIANCE_AUDIT、FULL_AUDIT 2026-10-03）。
-- 驗證：`npm test`（IELTS 套件 21 檔／258 測試；全套 3620 pass／2 gated skips）。
+- 驗證：`npm test`（IELTS 套件 23 檔／299 測試；全套 3678 pass／2 gated skips）。
 
 ## 📉 Neon Egress 維運（2026-09-26，ADR-046）
 
