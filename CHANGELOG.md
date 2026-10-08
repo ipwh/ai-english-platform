@@ -4,6 +4,116 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（VIII）— IELTS 併發護欄（資料庫層強制）＋ CI／Node 22 對齊（ADR-049）
+
+### 一、背景（工程審核）
+對 IELTS 子系統做併發審核（Sprint 131），找出**四個靠「應用層 read-check-write」把關的
+不變式**，以及**一個令既有重試機制靜默失效**的錯誤分類缺陷。這四項在單一請求下看不出
+問題，只有在併發或部分失敗時才會產生**超額生成、重複場次、重複計分、半寫入的卷**。
+
+### 二、病根
+1. **每日生成上限可被突破**：`instant-practice-service.ts` 先
+   `countInstantTestsCreatedSince()` → `if (count >= cap) reject` → 才生成。兩個併發請求
+   讀到同一個計數 ⇒ 兩者都通過檢查（7 + 7 → 8 上限的一天產生兩份）。而且計數來自
+   **已建立的** `IeltsTest` 列，生成中的請求完全不可見。
+2. **同一（學生, 卷）可累積兩個「進行中」場次**：`startIeltsAttempt()` 是
+   `findFirst({ status: 'IN_PROGRESS' })` → `create()`。兩個同時開始的請求都看到「沒有進行
+   中場次」⇒ 兩筆 INSERT，學生同時有兩個 `IN_PROGRESS` 場次（破壞 2026-10-04 的「重新整理
+   不另開場次」契約，且一張卷可產生兩份互不相干的成績）。
+3. **提交可被完成兩次**：舊流程是 `讀狀態 → 評分 → createResponses → 更新狀態`。兩個併發
+   提交可**同時**完成同一次作答 ⇒ 重複 response 列、重複完成事件，甚至「成績來自 A 請求、
+   作答內容來自 B 請求」。次序上也可能出現 **`SUBMITTED` 但沒有 response 列**。
+4. **生成可被半寫入**：test／sections／questions 是各自獨立的寫入語句。中途失敗會留下**殘缺
+   的卷** —— 而 INSTANT 卷除 `REJECTED` 外任何狀態都可交付，學生可能開到空白／不完整的練習
+   卷，同時那些孤兒列還佔著一個額度。
+5. **併發首次提交的重試從未觸發（Prisma 7 metadata 漂移）**：
+   `assessment/services/submission-attempt-service.ts` 的 `isSubmissionUniqueViolation()`
+   讀 `error.meta.target`。本專案是 Prisma 7 + driver adapter
+   （`@prisma/client` 7.8.0 + `@prisma/adapter-pg`）：`meta.target` 是 `undefined`，欄位在
+   `meta.driverAdapterError.cause.constraint.fields`，而且是**帶 SQL 引號**的識別碼
+   （`'"assignmentId"'`）。⇒ 該判斷式**永遠為 false**，DB-001 的「併發首次提交」重試從未
+   執行，輸的請求以錯誤結束而不是接到贏家的列。
+
+### 三、修正（改由資料庫強制）
+1. **`IeltsGenerationQuota`（唯一 `(ownerUserId, dayKey, bucket)`）為每日額度唯一權威**：
+   `reserveInstantQuota()` 以**單一條件式 `updateMany`（`usedCount < cap`）** 佔位 ——
+   Postgres 取列鎖後，輸的請求以贏家已提交的列重判、比對 0 列而被拒 ⇒ 不論多少併發請求，
+   最多只有 `cap` 次成功。首筆佔位以**一次 INSERT + 最多一次**條件式重試解決（刻意無迴圈：
+   N+1 查詢檢查器正確地禁止迴圈內查詢）。生成**未持久化任何卷**時
+   `releaseInstantQuota()` 歸還額度（正是舊「按列計數」也不計的情況 ⇒ 產品語意不變）。
+   桶彼此獨立：`set`（閱讀／聆聽單卷＋寫作題，上限 8）與 `full_component`（上限 2，成本約
+   8 倍）。`dayKey` 一律是**香港日**（`hkDayKey()`）。
+2. **`IeltsAttempt.activeKey` 唯一索引 = 每（學生, 卷）最多一個進行中場次**：`IN_PROGRESS`
+   期間持有 `'<userId>:<testId>'`，提交／放棄時清為 `NULL`（SQL 唯一索引允許無限多個 NULL）。
+   `startIeltsAttempt()` 交由資料庫仲裁：建立競爭的輸家收 `P2002`，改為回傳**贏家的**場次
+   （`findActiveAttemptForTest()`）⇒ 兩個呼叫端得到同一個一致的結果。`force: true`（明確重考）
+   先經 `abandonActiveAttempts()` 退休舊場次。**刻意不回填**：既有 `IN_PROGRESS` 保持 `NULL`、
+   永不佔用鍵，故歷史重複列不會令唯一索引無法建立。
+3. **提交只經 `finalizeAttemptSubmission()`**：條件式狀態轉移
+   （`updateMany({ id, userId, status: 'IN_PROGRESS' })`）**與** response 列在**同一交易**內
+   完成（`{ maxWait: 5_000, timeout: 15_000 }`）。敗者比對 0 列、整個交易回滾（其作答永不混入
+   贏家結果）並回**確定性 `409 ATTEMPT_ALREADY_SUBMITTED`**；只有贏家發完成事件。因為兩者共用
+   交易，**永不**出現「已提交但沒有 response 列」。
+4. **一次生成＝一個邏輯持久化單位**：`persistGeneratedTest()`（test＋sections＋questions＋
+   `QA_REQUIRED` 標記）／`persistGeneratedWritingTask()`（test＋task section＋prompt）各自在
+   單一交易內完成。**AI 呼叫（生成＋blind-solve 覆核）一律在交易之前**，故永不把 provider
+   呼叫包進資料庫交易。
+5. **P2002 解析單一 owner = `src/shared/db/prisma-errors.ts`**：
+   `isUniqueViolation()`／`uniqueViolationFields()`／`isUniqueViolationOn()` 同時處理經典
+   `meta.target` 與 Prisma 7 driver adapter 形狀，並正規化 SQL 引號；
+   `isSubmissionUniqueViolation()` 改為 `isUniqueViolationOn(err, ['assignmentId','studentId'])`，
+   **禁止**任何模組自行解析 P2002 metadata；`isUniqueViolationOn()` 要求預期欄位必須存在，
+   故無關的唯一鍵衝突（如 `attemptNumber`）永不觸發提交重試。
+
+### 四、CI 與環境對齊
+1. **CI 全面改 Node 22**（`ci.yml`／`regression.yml`／`calibration.yml`／
+   `continuous-evaluation.yml`／`experiment.yml`；`@types/node` 由 `^20` 升 `^22`）——
+   Dockerfile 的 builder 與 runner 都是 `node:22-alpine`，Prisma 7 要求
+   `^20.19 || ^22.12 || >=24`；此前 CI 與正式環境的型別不同步。
+   `package-lock.json` **必須**一併更新，否則 `npm ci`（CI 與 Docker build）直接失敗。
+2. **`ci.yml` 設 `TEST_DATABASE_URL`**（與 `DATABASE_URL` 同一個 Postgres service）⇒
+   擱置中的資料庫整合測試（含新增的 IELTS 併發不變式套件）在 CI 真正執行。
+3. `npx prisma db push --skip-generate` → `npx prisma db push`（Prisma 7 CLI 已移除該旗標，
+   舊寫法會以 "unknown or unexpected option" 失敗）。
+4. **regression workflow 拆成兩層**：Layer A（決定性、無 provider key、PR 安全）跑
+   `validate:prompts` ＋ prompt/schema/parser/scoring 契約套件；Layer B（真實模型）
+   只在 schedule／workflow_dispatch／push to main 執行，並**先 preflight**：
+   沒有 provider key 時回報 **PROVIDER UNAVAILABLE（基礎設施結果）**，而不是誤報
+   「模型回歸」；`scripts/evaluate-regression.ts` 的 exit code 因此定為
+   0 通過／1 模型回歸／2 harness 錯誤／3 provider 不可用。**門檻未為此放寬**。
+
+### 五、驗證
+- 新增 **真實 Postgres 整合套件** `ielts-concurrency.integration.test.ts`（DB-gated）：
+  F1 10 個併發佔位對上限 8 ⇒ **恰好 8 個成功**、只有一列、新的一天第 9 次被拒、歸還恰好釋放
+  一格、桶彼此獨立；F2 兩個同時開始 ⇒ **恰好一個** `IN_PROGRESS` 且兩呼叫端取得同一 id
+  （其後再開始＝續用）、`force` 重考退休舊場次後仍只有一個；F3 兩次相同併發提交 ⇒ 恰好一個
+  贏家＋一個 `409`、兩次**不同**併發提交 ⇒ 一份內部一致結果（一列 response 與持久化分數相符）、
+  提交後重試 ⇒ 確定性 `409 ATTEMPT_ALREADY_SUBMITTED` 且不新增列、提交後 `activeKey` 為 `NULL`。
+- 單元／契約：`attempt-service.test.ts`、`generation-service.test.ts`、
+  `instant-practice-service.test.ts`（額度以 `reserveQuota`／`releaseQuota` 注入；失敗歸還、
+  設定錯誤與 provider／預算例外皆歸還；`remainingToday` 取自權威計數）、
+  `submission-unique-retry.test.ts`、`prisma-errors.test.ts`（兩種 metadata 形狀、SQL 引號、
+  欄位順序無關、無關唯一鍵被拒）。
+- 全套驗證：`npm test` **3743 passed / 11 skipped**（208 檔通過、3 檔擱置）、
+  `npx tsc --noEmit` exit 0、改動檔 `npx eslint` 0 error、`npm run build:prod` 成功。
+- 本機無法執行 DB 整合套件（無本機 Postgres／無 Docker）⇒ 由 CI 執行（已設
+  `TEST_DATABASE_URL`）。
+
+### 六、部署與注意
+- **有 migration**：`20261008000100_ielts_concurrency_guards`（新增
+  `IeltsGenerationQuota` 表、`IeltsAttempt.activeKey` 欄位與唯一索引、`IeltsGenerationQuota`
+  唯一索引），**無回填**。push 觸發的 Cloud Build 會先跑 `prisma migrate deploy`（Step
+  `Migrate`，失敗即中止）。
+- `IeltsGenerationQuota` 永不刪列：每名活躍學生每日最多 2 列（兩個桶各一）。
+- 額度語意由「已存在的列」改為「已佔位且未歸還」；可觀察行為不變（未持久化即歸還；有持久化
+  部分卷的失敗輪仍然計數，因為它是可交付的）。
+- 併發**開始**現在讓兩個呼叫端拿到同一場次 id（而非其中一方收到錯誤）；併發**提交**保留一個
+  贏家，敗者得到可用 `GET` 解決的 `409`。
+- **禁止**再以 `count()` → `if (count < cap)` 當閘門、以 `findFirst` + `create` 當檢查、
+  或以「讀狀態再更新」當提交；詳見 ADR-049。
+
+---
+
 ## 2026-10-08（VII）— 教師身份限校內網域＋新教師自動連結所有班級（ADR-048）
 
 ### 一、需求（使用者指示）

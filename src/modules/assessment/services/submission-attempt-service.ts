@@ -26,6 +26,7 @@ import {
   createSubmissionAttemptTx,
   createSubmissionAnswerRowsTx,
 } from '../repositories/assessment-repo';
+import { isUniqueViolationOn } from '@/shared/db/prisma-errors';
 import type { Prisma } from '@prisma/client';
 
 export interface SubmitAssignmentAttemptInput {
@@ -53,28 +54,19 @@ export interface SubmitAssignmentAttemptResult {
 }
 
 /**
- * Prisma unique-violation detection (P2002) — structural check so no runtime
- * class import is required.
- */
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'P2002';
-}
-
-/**
  * True ONLY when the P2002 came from the Submission composite unique
  * (assignmentId + studentId). Other unique violations (e.g. attemptNumber)
  * must NOT trigger the retry — they indicate a different kind of bug.
+ *
+ * 2026-10-08: the field list MUST be read through the shared helper. Prisma 7
+ * (driver adapters / query compiler) no longer populates `meta.target`; it
+ * reports `meta.driverAdapterError.cause.constraint.fields` with SQL-quoted
+ * identifiers. Parsing `meta.target` here meant this predicate was ALWAYS false
+ * on this Prisma version, so the DB-001 retry never fired and the losing request
+ * of a concurrent first submission failed instead of attaching to the winner.
  */
 function isSubmissionUniqueViolation(err: unknown): boolean {
-  if (!isUniqueViolation(err)) return false;
-  const meta = (err as { meta?: { target?: unknown } }).meta;
-  const target = meta?.target;
-  const fields: string[] = Array.isArray(target)
-    ? (target as string[])
-    : typeof target === 'string'
-      ? [target]
-      : [];
-  return fields.includes('assignmentId') && fields.includes('studentId');
+  return isUniqueViolationOn(err, ['assignmentId', 'studentId']);
 }
 
 export async function submitAssignmentAttempt(

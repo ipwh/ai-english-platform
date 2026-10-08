@@ -15,17 +15,20 @@
 //     normal human review + publish path (which flips origin → CATALOGUE).
 //   * Bounded cost: per-student Hong Kong-day cap here, plus the route rate
 //     limit and the global AI budget gate (budget errors propagate untouched
-//     so routes map them to 503).
+//     so routes map them to 503). 2026-10-08: the cap is reserved ATOMICALLY
+//     (conditional `usedCount < cap` UPDATE) instead of counting rows — a
+//     count-then-generate check is not concurrency safe on Cloud Run.
 //
 // 2026-10-04: WRITING joins the on-demand path — a student may generate an
 //   IELTS-style writing task (conformance-checked, same owner-only/never-listed
 //   semantics, one shared daily budget with reading/listening).
 // ============================================
 
-import { hkStartOfDay } from '@/shared/utils/hk-date';
+import { hkDayKey } from '@/shared/utils/hk-date';
 import { IELTS_WRITING_TASK_TYPES, type IeltsTestType, type IeltsWritingTaskType } from '../domain/types';
 import { emitIeltsEvent } from '../governance/events';
 import * as ieltsRepo from '../repositories/ielts-repo';
+import type { IeltsQuotaBucket, IeltsQuotaReservation } from '../repositories/ielts-repo';
 import {
   generateIeltsPracticeContent,
   generateIeltsWritingTask,
@@ -107,9 +110,24 @@ export interface IeltsInstantPracticeDeps {
   /** Injected for tests; defaults to the canonical generation pipeline. */
   generate?: (input: IeltsGenerationInput) => Promise<IeltsGenerationOutcome>;
   generateWriting?: (input: IeltsWritingGenerationInput) => Promise<IeltsWritingGenerationOutcome>;
-  countCreatedSince?: (ownerUserId: string, since: Date) => Promise<number>;
-  /** Injected for tests; defaults to the component counter (durationMinutes != null). */
-  countComponentsCreatedSince?: (ownerUserId: string, since: Date) => Promise<number>;
+  /**
+   * Atomic daily-quota reservation — the ONLY authoritative gate. Defaults to
+   * the repository implementation, which reserves a slot with a single
+   * conditional UPDATE (`usedCount < cap`). Never re-introduce a
+   * count-then-generate check here: it is not concurrency safe.
+   */
+  reserveQuota?: (args: {
+    ownerUserId: string;
+    dayKey: string;
+    bucket: IeltsQuotaBucket;
+    cap: number;
+  }) => Promise<IeltsQuotaReservation>;
+  /** Returns a reserved slot when the generation persisted nothing. */
+  releaseQuota?: (args: {
+    ownerUserId: string;
+    dayKey: string;
+    bucket: IeltsQuotaBucket;
+  }) => Promise<void>;
   now?: () => Date;
 }
 
@@ -119,9 +137,8 @@ export async function generateIeltsInstantPractice(
 ): Promise<IeltsInstantPracticeOutcome> {
   const generate = deps.generate ?? generateIeltsPracticeContent;
   const generateWriting = deps.generateWriting ?? generateIeltsWritingTask;
-  const countCreatedSince = deps.countCreatedSince ?? ieltsRepo.countInstantTestsCreatedSince;
-  const countComponentsCreatedSince =
-    deps.countComponentsCreatedSince ?? ieltsRepo.countInstantComponentsCreatedSince;
+  const reserveQuota = deps.reserveQuota ?? ieltsRepo.reserveInstantQuota;
+  const releaseQuota = deps.releaseQuota ?? ieltsRepo.releaseInstantQuota;
   const now = deps.now ?? (() => new Date());
 
   if (input.skill !== 'READING' && input.skill !== 'LISTENING' && input.skill !== 'WRITING') {
@@ -188,40 +205,70 @@ export async function generateIeltsInstantPractice(
     }
   }
 
-  // Per-student caps — Hong Kong day boundary (never a UTC day).
+  // Per-student caps — Hong Kong day boundary (never a UTC day), reserved
+  // ATOMICALLY (2026-10-08).
+  //
+  // The previous implementation was `count today's generations` →
+  // `if (count >= cap) reject` → generate, i.e. a read-check-write that two
+  // concurrent requests both pass (7 + 7 → two generations on an 8-cap day).
+  // `reserveQuota()` performs a single conditional UPDATE
+  // (`usedCount < cap`) so the DATABASE bounds the count.
+  //
   // Sets share ONE budget (reading/listening sets + writing tasks); complete
   // components have their own small budget because they cost ~8× a set.
-  const since = hkStartOfDay(now());
-  const cap = scope === 'full_component'
-    ? IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT
-    : IELTS_INSTANT_PRACTICE_DAILY_LIMIT;
-  const usedToday =
-    scope === 'full_component'
-      ? await countComponentsCreatedSince(input.userId, since)
-      : await countCreatedSince(input.userId, since);
-  if (usedToday >= cap) {
+  const dayKey = hkDayKey(now());
+  const bucket: IeltsQuotaBucket = scope === 'full_component' ? 'full_component' : 'set';
+  const cap =
+    bucket === 'full_component'
+      ? IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT
+      : IELTS_INSTANT_PRACTICE_DAILY_LIMIT;
+  const reservation = await reserveQuota({
+    ownerUserId: input.userId,
+    dayKey,
+    bucket,
+    cap,
+  });
+  if (!reservation.reserved) {
     return {
       ok: false,
       code: 'INSTANT_DAILY_LIMIT_REACHED',
       message:
-        scope === 'full_component'
+        bucket === 'full_component'
           ? `Daily full-component limit reached (${cap} complete components per Hong Kong day).`
           : `Daily instant-practice limit reached (${cap} sets per Hong Kong day).`,
     };
   }
-  const remainingToday = cap - usedToday - 1;
+  const remainingToday = cap - reservation.usedCount;
+
+  /**
+   * A reserved slot is KEPT only when the generation persisted a test.
+   *
+   * A typed generation failure (nothing stored) or a thrown provider/budget
+   * error releases it. That is exactly the set of cases the previous
+   * row-counting implementation did not count either (the counter was derived
+   * from created IeltsTest rows), so the product semantics are unchanged.
+   * A failed round that DID persist a partial test still counts.
+   */
+  const release = () => releaseQuota({ ownerUserId: input.userId, dayKey, bucket });
 
   if (isWriting) {
-    const outcome = await generateWriting({
-      userId: input.userId,
-      testType: input.testType,
-      writingTaskType: input.writingTaskType as IeltsWritingTaskType,
-      topicHint: input.topicHint,
-      deliveryMode: 'INSTANT',
-    });
+    let outcome: IeltsWritingGenerationOutcome;
+    try {
+      outcome = await generateWriting({
+        userId: input.userId,
+        testType: input.testType,
+        writingTaskType: input.writingTaskType as IeltsWritingTaskType,
+        topicHint: input.topicHint,
+        deliveryMode: 'INSTANT',
+      });
+    } catch (err) {
+      // Budget/provider failures throw; the slot is released before rethrowing
+      // (routes map the original error to 503).
+      await release();
+      throw err;
+    }
     if (!outcome.ok) {
-      // Typed generation failures pass through; budget errors in `generateWriting`
-      // throw and are intentionally NOT caught (routes map them to 503).
+      await release();
       return { ok: false, code: outcome.code, message: outcome.message };
     }
     emitIeltsEvent('ielts.instant.delivered', {
@@ -248,18 +295,23 @@ export async function generateIeltsInstantPractice(
     };
   }
 
-  const outcome = await generate({
-    userId: input.userId,
-    skill,
-    testType: input.testType,
-    scope,
-    count,
-    topicHint: input.topicHint,
-    deliveryMode: 'INSTANT',
-  });
+  let outcome: IeltsGenerationOutcome;
+  try {
+    outcome = await generate({
+      userId: input.userId,
+      skill,
+      testType: input.testType,
+      scope,
+      count,
+      topicHint: input.topicHint,
+      deliveryMode: 'INSTANT',
+    });
+  } catch (err) {
+    await release();
+    throw err;
+  }
   if (!outcome.ok) {
-    // Typed generation failures pass through; budget errors in `generate` throw
-    // and are intentionally NOT caught (routes map them to 503).
+    await release();
     return { ok: false, code: outcome.code, message: outcome.message };
   }
 

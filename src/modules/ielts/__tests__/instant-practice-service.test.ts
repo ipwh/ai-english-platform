@@ -5,16 +5,20 @@
 //   * the delivery mode is INSTANT — the persisted state stays DRAFT +
 //     QA_REQUIRED (instant delivery is NOT publication)
 //   * the per-student Hong Kong-day cap (and that the day boundary is HKT)
+//   * the cap is a RESERVATION, not a count (2026-10-08) — a count-then-generate
+//     check is not concurrency safe (real concurrency is covered by
+//     ielts-concurrency.integration.test.ts)
 //   * input validation bounds per skill
 //   * typed generation failures pass through; budget errors propagate untouched
 //   * remaining quota is reported honestly
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { hkStartOfDay } from '@/shared/utils/hk-date';
+import { hkDayKey } from '@/shared/utils/hk-date';
 
 // The repository module is mocked so the real DB client is never constructed;
 // every test injects its own `deps`, so these functions are not even called.
 vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
-  countInstantTestsCreatedSince: vi.fn(),
+  reserveInstantQuota: vi.fn(),
+  releaseInstantQuota: vi.fn(),
 }));
 
 // The canonical AI pipeline is mocked (never invoked: tests inject `generate`).
@@ -54,16 +58,16 @@ function generationOk(overrides: Record<string, unknown> = {}) {
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   generateWriting: vi.fn(),
-  countCreatedSince: vi.fn(),
-  countComponentsCreatedSince: vi.fn(),
+  reserveQuota: vi.fn(),
+  releaseQuota: vi.fn(),
 }));
 
 function deps() {
   return {
     generate: mocks.generate,
     generateWriting: mocks.generateWriting,
-    countCreatedSince: mocks.countCreatedSince,
-    countComponentsCreatedSince: mocks.countComponentsCreatedSince,
+    reserveQuota: mocks.reserveQuota,
+    releaseQuota: mocks.releaseQuota,
     now: () => NOW,
   };
 }
@@ -89,15 +93,17 @@ const baseInput = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.countCreatedSince.mockResolvedValue(0);
-  mocks.countComponentsCreatedSince.mockResolvedValue(0);
+  // Default: the slot is granted, this is the 1st generation of the day.
+  mocks.reserveQuota.mockResolvedValue({ reserved: true, usedCount: 1 });
+  mocks.releaseQuota.mockResolvedValue(undefined);
   mocks.generate.mockResolvedValue(generationOk());
   mocks.generateWriting.mockResolvedValue(writingOk());
 });
 
 describe('generateIeltsInstantPractice — delivery + quota', () => {
   it('generates an INSTANT set (never a catalogue publication) and reports remaining quota', async () => {
-    mocks.countCreatedSince.mockResolvedValue(2);
+    // 2 slots were already used today → this reservation is the 3rd.
+    mocks.reserveQuota.mockResolvedValue({ reserved: true, usedCount: 3 });
 
     const outcome = await generateIeltsInstantPractice(baseInput, deps());
 
@@ -128,16 +134,24 @@ describe('generateIeltsInstantPractice — delivery + quota', () => {
   });
 
   it('enforces the per-student daily cap on the Hong Kong day boundary', async () => {
-    mocks.countCreatedSince.mockResolvedValue(IELTS_INSTANT_PRACTICE_DAILY_LIMIT);
+    mocks.reserveQuota.mockResolvedValue({
+      reserved: false,
+      usedCount: IELTS_INSTANT_PRACTICE_DAILY_LIMIT,
+    });
 
     const outcome = await generateIeltsInstantPractice(baseInput, deps());
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.code).toBe('INSTANT_DAILY_LIMIT_REACHED');
     expect(mocks.generate).not.toHaveBeenCalled();
-    // The count must be scoped to the HKT day start — never a UTC day.
-    const since = mocks.countCreatedSince.mock.calls[0][1] as Date;
-    expect(since.toISOString()).toBe(hkStartOfDay(NOW).toISOString());
+    // The reservation must be scoped to the HKT day (never a UTC day) and to
+    // the shared 'set' bucket at the documented cap.
+    expect(mocks.reserveQuota).toHaveBeenCalledWith({
+      ownerUserId: 'student-1',
+      dayKey: hkDayKey(NOW),
+      bucket: 'set',
+      cap: IELTS_INSTANT_PRACTICE_DAILY_LIMIT,
+    });
   });
 
   it('reports shortfall honestly (gates dropped items)', async () => {
@@ -214,6 +228,73 @@ describe('generateIeltsInstantPractice — validation & typed failures', () => {
   });
 });
 
+// 2026-10-08 (Sprint 131): the cap is a RESERVATION. A reserved slot is kept
+// only when the generation persisted a test — the same set of cases the old
+// row-counting implementation counted (it counted created IeltsTest rows).
+describe('generateIeltsInstantPractice — quota reservation policy', () => {
+  const reserveArgs = {
+    ownerUserId: 'student-1',
+    dayKey: hkDayKey(NOW),
+    bucket: 'set' as const,
+  };
+
+  it('keeps the reservation when a test was persisted', async () => {
+    const outcome = await generateIeltsInstantPractice(baseInput, deps());
+    expect(outcome.ok).toBe(true);
+    expect(mocks.releaseQuota).not.toHaveBeenCalled();
+  });
+
+  it('releases the reservation when a typed generation failure stored nothing', async () => {
+    mocks.generate.mockResolvedValue({
+      ok: false,
+      code: 'GENERATION_EMPTY',
+      message: 'No item passed the machine screen and blind-solve verification.',
+    });
+
+    const outcome = await generateIeltsInstantPractice(baseInput, deps());
+
+    expect(outcome.ok).toBe(false);
+    expect(mocks.releaseQuota).toHaveBeenCalledWith(reserveArgs);
+  });
+
+  it('releases the reservation before rethrowing a budget/provider error', async () => {
+    mocks.generate.mockRejectedValue(new Error('AI daily budget exhausted'));
+
+    await expect(generateIeltsInstantPractice(baseInput, deps())).rejects.toThrow(
+      'AI daily budget exhausted',
+    );
+    expect(mocks.releaseQuota).toHaveBeenCalledWith(reserveArgs);
+  });
+
+  it('releases the reservation when the WRITING task never persisted', async () => {
+    mocks.generateWriting.mockResolvedValue({
+      ok: false,
+      code: 'WRITING_PROMPT_NOT_CONFORMING',
+      message: 'Did not pass the conformance check after retrying.',
+    });
+
+    const outcome = await generateIeltsInstantPractice(
+      { userId: 'student-1', skill: 'WRITING', testType: 'ACADEMIC', writingTaskType: 'academic_task2' },
+      deps(),
+    );
+
+    expect(outcome.ok).toBe(false);
+    expect(mocks.releaseQuota).toHaveBeenCalledWith(reserveArgs);
+  });
+
+  it('never generates when the reservation is refused (fail-closed)', async () => {
+    mocks.reserveQuota.mockResolvedValue({ reserved: false, usedCount: 8 });
+
+    const outcome = await generateIeltsInstantPractice(baseInput, deps());
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('INSTANT_DAILY_LIMIT_REACHED');
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.generateWriting).not.toHaveBeenCalled();
+    expect(mocks.releaseQuota).not.toHaveBeenCalled();
+  });
+});
+
 // 2026-10-04: WRITING joins the on-demand self-study path (same owner-only /
 // never-listed semantics, one shared daily budget).
 describe('generateIeltsInstantPractice — instant writing tasks', () => {
@@ -225,7 +306,8 @@ describe('generateIeltsInstantPractice — instant writing tasks', () => {
   };
 
   it('generates one INSTANT writing task and reports quota', async () => {
-    mocks.countCreatedSince.mockResolvedValue(3);
+    // 3 slots used → this reservation is the 4th.
+    mocks.reserveQuota.mockResolvedValue({ reserved: true, usedCount: 4 });
 
     const outcome = await generateIeltsInstantPractice(writingInput, deps());
 
@@ -248,15 +330,23 @@ describe('generateIeltsInstantPractice — instant writing tasks', () => {
   });
 
   it('shares the same Hong Kong-day cap as reading/listening instant practice', async () => {
-    mocks.countCreatedSince.mockResolvedValue(IELTS_INSTANT_PRACTICE_DAILY_LIMIT);
+    mocks.reserveQuota.mockResolvedValue({
+      reserved: false,
+      usedCount: IELTS_INSTANT_PRACTICE_DAILY_LIMIT,
+    });
 
     const outcome = await generateIeltsInstantPractice(writingInput, deps());
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.code).toBe('INSTANT_DAILY_LIMIT_REACHED');
     expect(mocks.generateWriting).not.toHaveBeenCalled();
-    const since = mocks.countCreatedSince.mock.calls[0][1] as Date;
-    expect(since.toISOString()).toBe(hkStartOfDay(NOW).toISOString());
+    // Writing shares the 'set' bucket with reading/listening sets.
+    expect(mocks.reserveQuota).toHaveBeenCalledWith({
+      ownerUserId: 'student-1',
+      dayKey: hkDayKey(NOW),
+      bucket: 'set',
+      cap: IELTS_INSTANT_PRACTICE_DAILY_LIMIT,
+    });
   });
 
   it('requires a writing task type and a matching test variant', async () => {
@@ -324,7 +414,7 @@ describe('generateIeltsInstantPractice — complete components', () => {
   };
 
   it('generates a full component with the official target count and reports scope', async () => {
-    mocks.countComponentsCreatedSince.mockResolvedValue(0);
+    mocks.reserveQuota.mockResolvedValue({ reserved: true, usedCount: 1 });
     mocks.generate.mockResolvedValue(
       generationOk({ requestedCount: 40, deliveredCount: 38, shortfall: 2 }),
     );
@@ -341,14 +431,22 @@ describe('generateIeltsInstantPractice — complete components', () => {
     expect(mocks.generate).toHaveBeenCalledWith(
       expect.objectContaining({ scope: 'full_component', count: 40, deliveryMode: 'INSTANT' }),
     );
-    // A component must NOT consume the per-set budget.
-    expect(mocks.countCreatedSince).not.toHaveBeenCalled();
+    // A component must NOT consume the per-set budget — it reserves ONLY the
+    // dedicated 'full_component' bucket.
+    expect(mocks.reserveQuota).toHaveBeenCalledTimes(1);
+    expect(mocks.reserveQuota).toHaveBeenCalledWith({
+      ownerUserId: 'student-1',
+      dayKey: hkDayKey(NOW),
+      bucket: 'full_component',
+      cap: IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT,
+    });
   });
 
   it('enforces the separate component cap (sets are unaffected)', async () => {
-    mocks.countComponentsCreatedSince.mockResolvedValue(
-      IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT,
-    );
+    mocks.reserveQuota.mockResolvedValue({
+      reserved: false,
+      usedCount: IELTS_INSTANT_FULL_COMPONENT_DAILY_LIMIT,
+    });
 
     const outcome = await generateIeltsInstantPractice(componentInput, deps());
 

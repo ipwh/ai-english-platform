@@ -28,6 +28,10 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://ci_user:ci_pass@localhost:5432/ci_test
+      # Enables the DB-gated integration suites (e.g. the IELTS concurrency
+      # invariants in src/modules/ielts/__tests__/ielts-concurrency.integration.test.ts).
+      # Same database as DATABASE_URL — the flag only lifts the skip guard.
+      TEST_DATABASE_URL: postgresql://ci_user:ci_pass@localhost:5432/ci_test
       JWT_SECRET: ci-jwt-secret-for-tests-only
       AUTH_SECRET: ci-auth-secret-for-tests-only
       CRON_SECRET: ci-cron-secret-for-tests-only
@@ -35,9 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22 = the production/deployment runtime (Dockerfile builder AND runner
+      # are node:22-alpine). Prisma 7 requires ^20.19 || ^22.12 || >=24.0, so CI and
+      # production must not drift onto different major versions.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -47,7 +54,9 @@ jobs:
         run: npx prisma generate
 
       - name: Push schema to test DB
-        run: npx prisma db push --skip-generate
+        # `--skip-generate` was removed in Prisma 7 (the CLI rejects it:
+        # "unknown or unexpected option"). `prisma generate` is already its own step.
+        run: npx prisma db push
 
       - name: TypeScript type check
         run: npx tsc --noEmit

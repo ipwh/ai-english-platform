@@ -6,16 +6,56 @@
 // - The schema/migration contract tests prove the DB-level guarantee exists.
 // - Real-Postgres concurrency coverage lives in
 //   submission-concurrency.integration.test.ts (gated on TEST_DATABASE_URL).
+//
+// 2026-10-08: these fixtures must reproduce the ERROR SHAPE THE RUNTIME ACTUALLY
+// PRODUCES. The previous fixture used `meta: { target: [...] }`, which Prisma 7
+// (driver adapters / query compiler) NO LONGER POPULATES — the fixture therefore
+// kept passing while the real retry predicate was dead (the DB-001 integration
+// test failed against real Postgres). Both shapes are now covered:
+//   * Prisma 7: meta.driverAdapterError.cause.constraint.fields (SQL-quoted)
+//   * classic engine (<= 6): meta.target
 // ============================================
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+/**
+ * MEASURED Prisma 7 + @prisma/adapter-pg P2002 shape (2026-10-08, client 7.8.0).
+ * `meta.target` is absent; the constraint fields keep their SQL quoting.
+ */
+function prisma7UniqueViolation(fields: string[]): Error {
+  return Object.assign(
+    new Error(`Unique constraint failed on the fields: (${fields.map((f) => `\`${f}\``).join(',')})`),
+    {
+      code: 'P2002',
+      meta: {
+        modelName: 'Submission',
+        driverAdapterError: {
+          name: 'DriverAdapterError',
+          cause: {
+            originalCode: '23505',
+            kind: 'UniqueConstraintViolation',
+            constraint: { fields: fields.map((f) => `"${f}"`) },
+          },
+        },
+      },
+    },
+  );
+}
+
+/** Legacy classic-engine P2002 shape (Prisma <= 6) — kept for compatibility. */
+function classicUniqueViolation(fields: string[]): Error {
+  return Object.assign(
+    new Error(`Unique constraint failed on the fields: (${fields.join(',')})`),
+    { code: 'P2002', meta: { target: fields } },
+  );
+}
+
 const state = vi.hoisted(() => ({
   submissions: [] as Array<Record<string, unknown>>,
   attempts: [] as Array<Record<string, unknown>>,
-  failNextCreate: false,
+  failNextCreateError: null as Error | null,
   throwNext: null as Error | null,
   createCount: 0,
 }));
@@ -32,10 +72,9 @@ vi.mock('@/modules/assessment/repositories/assessment-repo', () => ({
       state.throwNext = null;
       throw thrown;
     }
-    if (state.failNextCreate) {
-      state.failNextCreate = false;
-      const err = new Error('Unique constraint failed on the fields: (`assignmentId`,`studentId`)');
-      Object.assign(err, { code: 'P2002', meta: { target: ['assignmentId', 'studentId'] } });
+    if (state.failNextCreateError) {
+      const err = state.failNextCreateError;
+      state.failNextCreateError = null;
       throw err;
     }
     const sub = { id: `sub-${state.submissions.length + 1}`, ...data };
@@ -75,7 +114,7 @@ function makeInput() {
 beforeEach(() => {
   state.submissions = [];
   state.attempts = [];
-  state.failNextCreate = false;
+  state.failNextCreateError = null;
   state.throwNext = null;
   state.createCount = 0;
 });
@@ -92,7 +131,7 @@ describe('submitAssignmentAttempt — unique-constraint retry', () => {
     expect(state.attempts).toHaveLength(1);
   });
 
-  it('recovers from a concurrent-create P2002 by attaching to the existing row', async () => {
+  it('recovers from a concurrent-create P2002 by attaching to the existing row (Prisma 7 shape)', async () => {
     // Simulate the race: another request has ALREADY committed the canonical
     // row, and our create collides with the unique constraint.
     state.submissions.push({
@@ -104,7 +143,7 @@ describe('submitAssignmentAttempt — unique-constraint retry', () => {
       status: 'submitted',
     });
     state.attempts.push({ id: 'att-winner', submissionId: 'sub-winner', attemptNumber: 1 });
-    state.failNextCreate = true;
+    state.failNextCreateError = prisma7UniqueViolation(['assignmentId', 'studentId']);
 
     const result = await submitAssignmentAttempt(makeInput());
 
@@ -118,6 +157,24 @@ describe('submitAssignmentAttempt — unique-constraint retry', () => {
     expect(state.attempts[1].submissionId).toBe('sub-winner');
   });
 
+  it('recovers from a concurrent-create P2002 in the legacy engine shape too', async () => {
+    state.submissions.push({
+      id: 'sub-winner',
+      assignmentId: 'asg-1',
+      studentId: 'stu-1',
+      answers: '{}',
+      score: 75,
+      status: 'submitted',
+    });
+    state.attempts.push({ id: 'att-winner', submissionId: 'sub-winner', attemptNumber: 1 });
+    state.failNextCreateError = classicUniqueViolation(['assignmentId', 'studentId']);
+
+    const result = await submitAssignmentAttempt(makeInput());
+
+    expect(result.submission.id).toBe('sub-winner');
+    expect(state.attempts).toHaveLength(2);
+  });
+
   it('propagates non-P2002 errors untouched (no retry)', async () => {
     state.throwNext = new Error('db down');
     await expect(submitAssignmentAttempt(makeInput())).rejects.toThrow('db down');
@@ -128,10 +185,14 @@ describe('submitAssignmentAttempt — unique-constraint retry', () => {
   it('does NOT retry on unrelated P2002 (e.g. attemptNumber)', async () => {
     // A unique violation on a different constraint must not trigger the
     // submission retry — the whole transaction rejects exactly once.
-    state.throwNext = Object.assign(
-      new Error('Unique constraint failed on the fields: (`submissionId`,`attemptNumber`)'),
-      { code: 'P2002', meta: { target: ['submissionId', 'attemptNumber'] } },
-    );
+    state.throwNext = prisma7UniqueViolation(['submissionId', 'attemptNumber']);
+    await expect(submitAssignmentAttempt(makeInput())).rejects.toThrow();
+    expect(state.createCount).toBe(1);
+  });
+
+  it('does NOT retry when the P2002 carries no constraint metadata', async () => {
+    // An unrecognised shape must fail closed (no blind retry).
+    state.throwNext = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
     await expect(submitAssignmentAttempt(makeInput())).rejects.toThrow();
     expect(state.createCount).toBe(1);
   });

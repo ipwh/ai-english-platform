@@ -3,14 +3,17 @@
 // ============================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const events = vi.hoisted(() => ({ emit: vi.fn() }));
+
 const mocks = vi.hoisted(() => ({
   findAttemptById: vi.fn(),
   findAttemptWithResponses: vi.fn(),
   findLatestAttemptForTest: vi.fn(),
+  findActiveAttemptForTest: vi.fn(),
+  abandonActiveAttempts: vi.fn(),
   getTestForAttempt: vi.fn(),
   findQuestionsByIds: vi.fn(),
-  createResponses: vi.fn(),
-  markAttemptSubmitted: vi.fn(),
+  finalizeAttemptSubmission: vi.fn(),
   createAttempt: vi.fn(),
   getTestById: vi.fn(),
   listSectionsForTest: vi.fn(),
@@ -20,14 +23,19 @@ vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
   findAttemptById: mocks.findAttemptById,
   findAttemptWithResponses: mocks.findAttemptWithResponses,
   findLatestAttemptForTest: mocks.findLatestAttemptForTest,
+  findActiveAttemptForTest: mocks.findActiveAttemptForTest,
+  abandonActiveAttempts: mocks.abandonActiveAttempts,
   getTestForAttempt: mocks.getTestForAttempt,
   findQuestionsByIds: mocks.findQuestionsByIds,
-  createResponses: mocks.createResponses,
-  markAttemptSubmitted: mocks.markAttemptSubmitted,
+  finalizeAttemptSubmission: mocks.finalizeAttemptSubmission,
   createAttempt: mocks.createAttempt,
   getTestById: mocks.getTestById,
   listSectionsForTest: mocks.listSectionsForTest,
 }));
+
+// Observability sink — used to prove a LOSING concurrent submission emits no
+// completion/answered events (exactly one logical finalisation).
+vi.mock('../governance/events', () => ({ emitIeltsEvent: events.emit }));
 
 import { startIeltsAttempt, submitIeltsAttempt, getIeltsAttemptDetail } from '../services/attempt-service';
 
@@ -93,8 +101,10 @@ function publishedTest(questionIds: string[]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.createResponses.mockResolvedValue({ count: 1 });
-  mocks.markAttemptSubmitted.mockResolvedValue(attemptRow({ status: 'SUBMITTED' }));
+  // The atomic finalisation wins the transition by default.
+  mocks.finalizeAttemptSubmission.mockResolvedValue({ finalized: true });
+  mocks.abandonActiveAttempts.mockResolvedValue({ count: 0 });
+  mocks.findActiveAttemptForTest.mockResolvedValue(null);
   // No prior attempt by default — resuming/restoring is opt-in per test.
   mocks.findLatestAttemptForTest.mockResolvedValue(null);
   // Default catalogue test (origin CATALOGUE, PUBLISHED) — instant tests override.
@@ -205,9 +215,15 @@ describe('submitIeltsAttempt — deterministic, server-authoritative', () => {
       expect(result.data.results[0].correctAnswer).toBe('B');
       expect(result.data.results[0].explanation).toContain('paragraph 2');
     }
-    expect(mocks.markAttemptSubmitted).toHaveBeenCalledTimes(1);
-    const update = mocks.markAttemptSubmitted.mock.calls[0][1] as Record<string, unknown>;
-    expect(update.rawScore).toBe(1);
+    expect(mocks.finalizeAttemptSubmission).toHaveBeenCalledTimes(1);
+    const call = mocks.finalizeAttemptSubmission.mock.calls[0][0] as {
+      attemptId: string;
+      userId: string;
+      score: Record<string, unknown>;
+    };
+    expect(call.attemptId).toBe('attempt-1');
+    expect(call.userId).toBe('student-1');
+    expect(call.score.rawScore).toBe(1);
   });
 
   it('rejects unknown/foreign question ids with 422', async () => {
@@ -303,9 +319,12 @@ describe('submitIeltsAttempt — deterministic, server-authoritative', () => {
       expect(result.data.totalItems).toBe(2);
       expect(result.data.answeredCount).toBe(1);
     }
-    // Only the answered question is persisted as a response row.
-    const persisted = mocks.createResponses.mock.calls[0][0] as Array<Record<string, unknown>>;
-    expect(persisted).toHaveLength(1);
+    // Only the answered question is persisted as a response row (inside the
+    // same transaction as the status transition).
+    const call = mocks.finalizeAttemptSubmission.mock.calls[0][0] as {
+      responses: Array<Record<string, unknown>>;
+    };
+    expect(call.responses).toHaveLength(1);
   });
 });
 
@@ -519,5 +538,135 @@ describe('listening transcript release', () => {
     expect(detail.data.transcripts).toHaveLength(2);
     expect(detail.data.transcripts[0].transcript).toContain('tour starts at ten');
     expect(mocks.listSectionsForTest).toHaveBeenCalledWith('test-1');
+  });
+});
+
+// ============================================
+// Concurrency invariants (2026-10-08, Sprint 131)
+// ============================================
+// These pin the APPLICATION-side contract of the DB-enforced guards. The
+// database guarantees themselves (the unique `activeKey` index and the
+// conditional IN_PROGRESS → SUBMITTED transition) are exercised against REAL
+// PostgreSQL in `ielts-concurrency.integration.test.ts`.
+describe('startIeltsAttempt — single active attempt per (student, test)', () => {
+  beforeEach(() => {
+    mocks.getTestById.mockResolvedValue({
+      id: 'test-1',
+      status: 'PUBLISHED',
+      origin: 'CATALOGUE',
+      ownerUserId: null,
+      skill: 'READING',
+      testType: 'ACADEMIC',
+    });
+  });
+
+  it('stamps the active-attempt key so a duplicate INSERT is rejected by the DB', async () => {
+    mocks.createAttempt.mockResolvedValue(attemptRow());
+
+    await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
+
+    const data = mocks.createAttempt.mock.calls[0][0] as { activeKey?: string };
+    expect(data.activeKey).toBe('student-1:test-1');
+  });
+
+  it('returns the concurrent winner when the INSERT loses the unique-key race', async () => {
+    mocks.createAttempt.mockRejectedValue(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+    );
+    mocks.findActiveAttemptForTest.mockResolvedValue(attemptRow({ id: 'attempt-winner' }));
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.id).toBe('attempt-winner');
+  });
+
+  it('falls back to the latest attempt if the winner submitted in between', async () => {
+    mocks.createAttempt.mockRejectedValue(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+    );
+    mocks.findActiveAttemptForTest.mockResolvedValue(null);
+    mocks.findLatestAttemptForTest.mockResolvedValue(
+      attemptRow({ id: 'attempt-done', status: 'SUBMITTED' }),
+    );
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.id).toBe('attempt-done');
+  });
+
+  it('propagates non-unique create failures untouched', async () => {
+    mocks.createAttempt.mockRejectedValue(new Error('connection reset'));
+    await expect(startIeltsAttempt({ userId: 'student-1', testId: 'test-1' })).rejects.toThrow(
+      'connection reset',
+    );
+  });
+
+  it('force=true retires the active attempt so the unique key is free for the retake', async () => {
+    mocks.createAttempt.mockResolvedValue(attemptRow({ id: 'attempt-new' }));
+
+    const result = await startIeltsAttempt({ userId: 'student-1', testId: 'test-1', force: true });
+
+    expect(mocks.abandonActiveAttempts).toHaveBeenCalledWith('student-1', 'test-1');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.id).toBe('attempt-new');
+  });
+});
+
+describe('submitIeltsAttempt — exactly one finalisation', () => {
+  beforeEach(() => {
+    mocks.findAttemptById.mockResolvedValue(attemptRow());
+    mocks.getTestForAttempt.mockResolvedValue(publishedTest(['q-1']));
+    mocks.findQuestionsByIds.mockResolvedValue([questionRow()]);
+  });
+
+  it('finalises the status transition AND the response rows in one call', async () => {
+    const result = await submitIeltsAttempt({
+      userId: 'student-1',
+      attemptId: 'attempt-1',
+      answers: [{ questionId: 'q-1', answer: 'B' }],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.finalizeAttemptSubmission).toHaveBeenCalledTimes(1);
+    const call = mocks.finalizeAttemptSubmission.mock.calls[0][0] as {
+      attemptId: string;
+      userId: string;
+      responses: unknown[];
+    };
+    expect(call.attemptId).toBe('attempt-1');
+    expect(call.userId).toBe('student-1');
+    expect(call.responses).toHaveLength(1);
+  });
+
+  it('the LOSING concurrent submission gets a deterministic 409 and no side effects', async () => {
+    mocks.finalizeAttemptSubmission.mockResolvedValue({ finalized: false });
+
+    const result = await submitIeltsAttempt({
+      userId: 'student-1',
+      attemptId: 'attempt-1',
+      answers: [{ questionId: 'q-1', answer: 'B' }],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.error).toContain('ATTEMPT_ALREADY_SUBMITTED');
+    }
+    // The loser must not emit completion/answered events (exactly one finalisation).
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it('the WINNER emits exactly one completion event', async () => {
+    const result = await submitIeltsAttempt({
+      userId: 'student-1',
+      attemptId: 'attempt-1',
+      answers: [{ questionId: 'q-1', answer: 'B' }],
+    });
+
+    expect(result.ok).toBe(true);
+    const completed = events.emit.mock.calls.filter(([name]) => name === 'ielts.practice.completed');
+    expect(completed).toHaveLength(1);
   });
 });

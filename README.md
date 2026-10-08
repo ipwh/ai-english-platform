@@ -194,6 +194,8 @@ Writing Evaluation (Sprints 127-130):
 | ADR-045 | Server-Owned Listening Question Store (listening becomes measurable) | ✅ Accepted (2026-09-21) |
 | ADR-046 | Server-Side Evidence Aggregation (Neon egress) & Fail-Closed Metric Sync | ✅ Accepted (2026-09-26) |
 | ADR-047 | Practice Content Must Not Repeat — Cross-Request Dedupe & Content-Fingerprint XP Keys | ✅ Accepted (2026-10-01) |
+| ADR-048 | Teacher Eligibility by School Domain & Class Auto-Link | ✅ Accepted (2026-10-08) |
+| ADR-049 | Database-Enforced Concurrency Guards (IELTS practice, attempts, submissions, generations) | ✅ Accepted (2026-10-08) |
 
 > 詳細架構請見 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 及 [ADRs](docs/architecture/)
 

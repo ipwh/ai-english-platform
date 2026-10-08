@@ -256,28 +256,136 @@ export async function getTestById(id: string) {
   return db.ieltsTest.findUnique({ where: { id } });
 }
 
-/** Count of INSTANT self-study sets created for a student since a timestamp
- * (the per-student daily cap on on-demand AI generation). */
-export async function countInstantTestsCreatedSince(ownerUserId: string, since: Date) {
-  return db.ieltsTest.count({
-    where: { origin: 'INSTANT', ownerUserId, createdAt: { gte: since } },
-  });
+// ============================================
+// On-demand generation quota (ATOMIC; 2026-10-08 Sprint 131)
+// ============================================
+//
+// The daily cap is enforced by RESERVING a slot with a single conditional
+// UPDATE, never by counting rows and comparing in application code:
+//
+//     UPDATE "IeltsGenerationQuota"
+//        SET "usedCount" = "usedCount" + 1
+//      WHERE "ownerUserId" = ? AND "dayKey" = ? AND "bucket" = ?
+//        AND "usedCount" < cap
+//
+// Under READ COMMITTED the losing UPDATE re-evaluates the predicate against the
+// winner's committed row, fails it, and reports 0 rows — so at most `cap`
+// reservations can ever succeed, however many requests run concurrently.
+// A `count()` → `if (count < cap)` check cannot provide that guarantee.
+
+export type IeltsQuotaBucket = 'set' | 'full_component';
+
+export interface IeltsQuotaReservation {
+  /** True when this call owns a slot (the caller must generate or release). */
+  reserved: boolean;
+  /** Slots used AFTER this call (cap - usedCount = remaining). */
+  usedCount: number;
+}
+
+/** Postgres/SQLite unique-violation detector (no Prisma runtime import needed). */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: string }).code === 'P2002'
+  );
 }
 
 /**
- * Full-component INSTANT generations for a student since a timestamp.
- * A full component is created with `durationMinutes` set (60 reading / 40
- * listening); single sets leave it null — that is the discriminator.
+ * Atomically reserve ONE on-demand generation slot, or report that the cap is
+ * already reached. The caller MUST call {@link releaseInstantQuota} when the
+ * generation does not produce a persisted test (see the service's policy note).
+ *
+ * Deliberately LOOP-FREE: the first-ever reservation of a (student, day, bucket)
+ * racing on the unique index is resolved with a single INSERT plus at most one
+ * conditional re-increment, so there is no per-iteration query (the N+1 source
+ * checker rightly flags queries inside `for` loops).
  */
-export async function countInstantComponentsCreatedSince(ownerUserId: string, since: Date) {
-  return db.ieltsTest.count({
+export async function reserveInstantQuota(args: {
+  ownerUserId: string;
+  dayKey: string;
+  bucket: IeltsQuotaBucket;
+  cap: number;
+}): Promise<IeltsQuotaReservation> {
+  const { ownerUserId, dayKey, bucket, cap } = args;
+  const where = { ownerUserId_dayKey_bucket: { ownerUserId, dayKey, bucket } };
+  const conditionalScope = { ownerUserId, dayKey, bucket, usedCount: { lt: cap } };
+
+  /** One atomic conditional increment; returns the slot count after it. */
+  const tryIncrement = async (): Promise<IeltsQuotaReservation> => {
+    const updated = await db.ieltsGenerationQuota.updateMany({
+      where: conditionalScope,
+      data: { usedCount: { increment: 1 } },
+    });
+    if (updated.count !== 1) {
+      const atCap = await db.ieltsGenerationQuota.findUnique({ where, select: { usedCount: true } });
+      return { reserved: false, usedCount: atCap?.usedCount ?? cap };
+    }
+    const after = await db.ieltsGenerationQuota.findUnique({ where, select: { usedCount: true } });
+    return { reserved: true, usedCount: after?.usedCount ?? cap };
+  };
+
+  const incremented = await tryIncrement();
+  // `count === 0` means either "at the cap" (refused above) or "no row yet".
+  // Distinguishing them needs one read — but only when the increment failed.
+  if (incremented.reserved) return incremented;
+  const existing = await db.ieltsGenerationQuota.findUnique({ where, select: { usedCount: true } });
+  if (existing) return incremented;
+
+  // First reservation for this (student, day, bucket): INSERT. Exactly one
+  // concurrent INSERT wins the unique index; the losers re-run the conditional
+  // increment once against the row that now exists.
+  try {
+    const created = await db.ieltsGenerationQuota.create({
+      data: { ownerUserId, dayKey, bucket, usedCount: 1 },
+      select: { usedCount: true },
+    });
+    return { reserved: true, usedCount: created.usedCount };
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    return tryIncrement();
+  }
+}
+
+/**
+ * Give a reserved slot back. Used when a generation produced NO persisted test,
+ * which is exactly the set of cases the previous row-counting implementation
+ * did not count either (the count was derived from created IeltsTest rows), so
+ * the product semantics are unchanged.
+ */
+export async function releaseInstantQuota(args: {
+  ownerUserId: string;
+  dayKey: string;
+  bucket: IeltsQuotaBucket;
+}): Promise<void> {
+  await db.ieltsGenerationQuota.updateMany({
     where: {
-      origin: 'INSTANT',
-      ownerUserId,
-      createdAt: { gte: since },
-      durationMinutes: { not: null },
+      ownerUserId: args.ownerUserId,
+      dayKey: args.dayKey,
+      bucket: args.bucket,
+      usedCount: { gt: 0 },
     },
+    data: { usedCount: { decrement: 1 } },
   });
+}
+
+/** Slots already used today (reporting only — never the gate). */
+export async function readInstantQuotaUsed(args: {
+  ownerUserId: string;
+  dayKey: string;
+  bucket: IeltsQuotaBucket;
+}): Promise<number> {
+  const row = await db.ieltsGenerationQuota.findUnique({
+    where: {
+      ownerUserId_dayKey_bucket: {
+        ownerUserId: args.ownerUserId,
+        dayKey: args.dayKey,
+        bucket: args.bucket,
+      },
+    },
+    select: { usedCount: true },
+  });
+  return row?.usedCount ?? 0;
 }
 
 export async function getSectionById(id: string) {
@@ -329,6 +437,26 @@ export async function findLatestAttemptForTest(userId: string, testId: string) {
   });
 }
 
+/** The single ACTIVE attempt for (student, test), if any (concurrency winner lookup). */
+export async function findActiveAttemptForTest(userId: string, testId: string) {
+  return db.ieltsAttempt.findFirst({
+    where: { userId, testId, status: 'IN_PROGRESS' },
+  });
+}
+
+/**
+ * Explicit retake: retire any active attempt so the unique `activeKey` is free
+ * for the replacement. Without this, `force: true` could not insert a second
+ * IN_PROGRESS row (the unique index would reject it) and the old attempt would
+ * linger as IN_PROGRESS forever.
+ */
+export async function abandonActiveAttempts(userId: string, testId: string) {
+  return db.ieltsAttempt.updateMany({
+    where: { userId, testId, status: 'IN_PROGRESS' },
+    data: { status: 'ABANDONED', activeKey: null },
+  });
+}
+
 export async function findAttemptsByUser(userId: string, opts?: { skill?: string; take?: number }) {
   return db.ieltsAttempt.findMany({
     where: { userId, ...(opts?.skill ? { skill: opts.skill } : {}) },
@@ -349,11 +477,6 @@ export async function findAttemptsByUser(userId: string, opts?: { skill?: string
   });
 }
 
-export async function createResponses(data: Prisma.IeltsResponseCreateManyInput[]) {
-  if (!data || data.length === 0) return { count: 0 };
-  return db.ieltsResponse.createMany({ data, skipDuplicates: true });
-}
-
 /** One response row for a question inside an attempt (mistake explanations). */
 export async function findResponseForQuestion(attemptId: string, questionId: string) {
   return db.ieltsResponse.findFirst({
@@ -362,14 +485,154 @@ export async function findResponseForQuestion(attemptId: string, questionId: str
   });
 }
 
-export async function markAttemptSubmitted(
-  id: string,
-  data: { rawScore: number; totalItems: number; bandEstimate?: string | null; metadata?: string | null },
-) {
-  return db.ieltsAttempt.update({
-    where: { id },
-    data: { status: 'SUBMITTED', submittedAt: new Date(), ...data },
-  });
+/**
+ * Atomically finalise an attempt submission — the ONLY way an attempt may move
+ * IN_PROGRESS → SUBMITTED.
+ *
+ * 2026-10-08 (Sprint 131): the previous flow was
+ * `read status → score → createResponses → update status`, so two concurrent
+ * submissions of the same attempt could BOTH finalise it (duplicate response
+ * rows / duplicate completion events / a response set computed from one request
+ * and a score written by the other).
+ *
+ * The conditional status transition and the response rows are now written in a
+ * single short transaction:
+ *
+ *   * `updateMany({ where: { id, userId, status: 'IN_PROGRESS' } })` is the
+ *     single winner — Postgres serialises the row lock, and the loser
+ *     re-evaluates the predicate against the committed row, matches 0 rows and
+ *     rolls its own transaction back (so it cannot mix its answers in).
+ *   * Because both writes share the transaction, an attempt can never end up
+ *     SUBMITTED without its responses (the previous order could).
+ *
+ * Only the winner may emit completion events.
+ */
+export async function finalizeAttemptSubmission(args: {
+  attemptId: string;
+  userId: string;
+  responses: Prisma.IeltsResponseCreateManyInput[];
+  score: {
+    rawScore: number;
+    totalItems: number;
+    bandEstimate: string | null;
+    metadata: string | null;
+  };
+}): Promise<{ finalized: boolean }> {
+  return db.$transaction(
+    async (tx) => {
+      const claimed = await tx.ieltsAttempt.updateMany({
+        where: { id: args.attemptId, userId: args.userId, status: 'IN_PROGRESS' },
+        data: {
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+          activeKey: null,
+          rawScore: args.score.rawScore,
+          totalItems: args.score.totalItems,
+          bandEstimate: args.score.bandEstimate,
+          metadata: args.score.metadata,
+        },
+      });
+      if (claimed.count !== 1) return { finalized: false };
+      if (args.responses.length > 0) {
+        await tx.ieltsResponse.createMany({ data: args.responses, skipDuplicates: true });
+      }
+      return { finalized: true };
+    },
+    { maxWait: 5_000, timeout: 15_000 },
+  );
+}
+
+// ============================================
+// Transactional generation persistence (2026-10-08 Sprint 131)
+// ============================================
+//
+// A generation is ONE logical persistence unit: its test row, sections and
+// questions must all exist, or none may. The previous implementation issued
+// them as independent statements, so a failure part-way through left a
+// half-written test — and an INSTANT (owner-only) test is deliverable at any
+// status except REJECTED, so the student could open a truncated or empty
+// practice set, while the orphan rows still occupied a quota slot.
+//
+// The AI calls (generation + blind-solve verification) happen BEFORE these
+// functions, so the transaction stays short and never wraps a provider call.
+
+export interface IeltsGeneratedSectionInput {
+  label: string;
+  passageText: string | null;
+  transcriptText: string | null;
+  wordCount: number | null;
+  /** Question rows WITHOUT testId / sectionId / orderIndex (assigned here). */
+  questions: Array<Omit<Prisma.IeltsQuestionCreateManyInput, 'testId' | 'sectionId' | 'orderIndex'>>;
+}
+
+/** Atomically persist a generated objective test (test + sections + questions). */
+export async function persistGeneratedTest(args: {
+  test: Prisma.IeltsTestCreateInput;
+  sections: IeltsGeneratedSectionInput[];
+  validationNotes: string;
+}): Promise<{ testId: string }> {
+  return db.$transaction(
+    async (tx) => {
+      const test = await tx.ieltsTest.create({ data: args.test });
+      let orderIndex = 0;
+      for (let s = 0; s < args.sections.length; s++) {
+        const input = args.sections[s];
+        const section = await tx.ieltsSection.create({
+          data: {
+            testId: test.id,
+            orderIndex: s,
+            label: input.label,
+            passageText: input.passageText,
+            transcriptText: input.transcriptText,
+            wordCount: input.wordCount,
+          },
+        });
+        if (input.questions.length > 0) {
+          await tx.ieltsQuestion.createMany({
+            data: input.questions.map((q) => ({
+              ...q,
+              testId: test.id,
+              sectionId: section.id,
+              orderIndex: orderIndex++,
+            })),
+          });
+        }
+      }
+      await tx.ieltsQuestion.updateMany({
+        where: { testId: test.id },
+        data: { validationStatus: 'QA_REQUIRED', validationNotes: args.validationNotes },
+      });
+      return { testId: test.id };
+    },
+    { maxWait: 5_000, timeout: 20_000 },
+  );
+}
+
+/** Atomically persist a generated writing task (test + task section + prompt). */
+export async function persistGeneratedWritingTask(args: {
+  test: Prisma.IeltsTestCreateInput;
+  section: { label: string; instructions: string; wordCount: number };
+  question: Omit<Prisma.IeltsQuestionCreateManyInput, 'testId' | 'sectionId' | 'orderIndex'>;
+}): Promise<{ testId: string }> {
+  return db.$transaction(
+    async (tx) => {
+      const test = await tx.ieltsTest.create({ data: args.test });
+      const section = await tx.ieltsSection.create({
+        data: {
+          testId: test.id,
+          orderIndex: 0,
+          label: args.section.label,
+          instructions: args.section.instructions,
+          wordCount: args.section.wordCount,
+        },
+      });
+      await tx.ieltsQuestion.create({
+        data: { ...args.question, testId: test.id, sectionId: section.id, orderIndex: 0 },
+      });
+      return { testId: test.id };
+    },
+    { maxWait: 5_000, timeout: 15_000 },
+  );
 }
 
 // ============================================

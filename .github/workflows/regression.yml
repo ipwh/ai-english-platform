@@ -1,3 +1,24 @@
+# ============================================
+# Prompt Regression Evaluation — two clearly separated layers
+#
+# Layer A (deterministic, PR-safe):
+#   No provider secret, no network. Validates prompt construction, schemas,
+#   parser/scoring contracts, regression fixtures, thresholds and architecture
+#   invariants. A missing model key can never block a pull request.
+#
+# Layer B (live model evaluation):
+#   Genuinely requires a provider key, so it runs on a schedule, by manual
+#   dispatch, or on a push to main. It PREFLIGHTS the configuration and, when no
+#   key exists, reports an explicit INFRASTRUCTURE outcome instead of a
+#   misleading "regression" failure.
+#
+# Regression thresholds are NOT weakened to keep CI green.
+#
+# Before this split, a missing DEEPSEEK_API_KEY made the workflow fail before a
+# meaningful evaluation ran — conflating an infrastructure/configuration failure
+# with a model regression.
+# ============================================
+
 name: Prompt Regression Evaluation
 
 on:
@@ -16,12 +37,52 @@ on:
       - 'src/modules/ai/prompts/**'
       - 'src/modules/ai/regression/fixtures/**'
       - 'src/modules/ai/regression/golden/**'
+  schedule:
+    # Daily live evaluation (02:00 UTC).
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 jobs:
-  regression:
-    name: Prompt Regression
+  # ---------------------------------------------------------------
+  # Layer A — deterministic, no external provider
+  # ---------------------------------------------------------------
+  regression-deterministic:
+    name: Deterministic prompt & regression contracts
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Prompt source contract check (static, offline)
+        run: npm run validate:prompts
+
+      - name: Prompt / schema / parser / scoring contract suites
+        run: >
+          npx vitest run
+          src/modules/ai/regression
+          src/modules/ai/prompt-versioning
+          src/modules/ielts/__tests__/generation-prompts.test.ts
+          src/modules/ielts/__tests__/question-type-mapping.test.ts
+
+  # ---------------------------------------------------------------
+  # Layer B — live model evaluation (provider dependent)
+  # ---------------------------------------------------------------
+  regression-live:
+    name: Live prompt regression (model provider required)
+    if: >
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     env:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -32,14 +93,26 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - run: npm ci
 
-      - name: Run Regression Evaluation
+      # Distinguish PROVIDER UNAVAILABLE (infrastructure/configuration) from a
+      # model regression. Without a key there is nothing to evaluate against.
+      - name: Preflight — provider configuration
+        id: preflight
+        run: |
+          if [ -z "${DEEPSEEK_API_KEY}" ] && [ -z "${GEMINI_API_KEY}" ]; then
+            echo "::warning::PROVIDER UNAVAILABLE — no model API key is configured. Live prompt regression was NOT evaluated. This is an INFRASTRUCTURE/CONFIGURATION outcome, NOT a model regression."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run live regression evaluation
+        if: steps.preflight.outputs.available == 'true'
         run: npm run evaluate
-        continue-on-error: false
 
       - name: Upload Report
         if: always()

@@ -17,11 +17,8 @@ const mocks = vi.hoisted(() => ({
   verifyIeltsItemsWithAI: vi.fn(),
   generateIeltsWritingPromptWithAI: vi.fn(),
   verifyIeltsWritingPromptWithAI: vi.fn(),
-  createTest: vi.fn(),
-  createSection: vi.fn(),
-  createQuestions: vi.fn(),
-  createQuestion: vi.fn(),
-  updateQuestionsStatusForTest: vi.fn(),
+  persistGeneratedTest: vi.fn(),
+  persistGeneratedWritingTask: vi.fn(),
   listRecentQuestionPromptsBySkill: vi.fn(),
   listRecentSectionTextsBySkill: vi.fn(),
   listRecentWritingPrompts: vi.fn(),
@@ -36,11 +33,8 @@ vi.mock('@/modules/ai', () => ({
 }));
 
 vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
-  createTest: mocks.createTest,
-  createSection: mocks.createSection,
-  createQuestions: mocks.createQuestions,
-  createQuestion: mocks.createQuestion,
-  updateQuestionsStatusForTest: mocks.updateQuestionsStatusForTest,
+  persistGeneratedTest: mocks.persistGeneratedTest,
+  persistGeneratedWritingTask: mocks.persistGeneratedWritingTask,
   listRecentQuestionPromptsBySkill: mocks.listRecentQuestionPromptsBySkill,
   listRecentSectionTextsBySkill: mocks.listRecentSectionTextsBySkill,
   listRecentWritingPrompts: mocks.listRecentWritingPrompts,
@@ -52,6 +46,35 @@ import {
   IELTS_GENERATION_TOPUP_TIME_BUDGET_MS,
   IELTS_SECTION_TOPUP_MAX_ROUNDS,
 } from '../services/generation-service';
+
+// ============================================
+// Persistence-inspection helpers
+// ============================================
+// A generation persists through ONE transactional call (2026-10-08) — test +
+// sections + questions either all land or none do.
+
+/** Arguments of the single objective-generation persistence call. */
+function persistArgs() {
+  return mocks.persistGeneratedTest.mock.calls[0][0] as {
+    test: Record<string, unknown>;
+    sections: Array<{ label: string; questions: Array<Record<string, unknown>> }>;
+    validationNotes: string;
+  };
+}
+
+/** Every persisted question row, across all sections. */
+function persistedQuestions(): Array<Record<string, unknown>> {
+  return persistArgs().sections.flatMap((s) => s.questions);
+}
+
+/** Arguments of the single writing-task persistence call. */
+function persistWritingArgs() {
+  return mocks.persistGeneratedWritingTask.mock.calls[0][0] as {
+    test: Record<string, unknown>;
+    section: Record<string, unknown>;
+    question: Record<string, unknown>;
+  };
+}
 
 // ============================================
 // Fixtures & builders
@@ -151,11 +174,8 @@ beforeEach(() => {
   // Top-up tests override this; explicit here so a missing mock can never silently
   // disable the per-section top-up.
   mocks.extendIeltsSectionWithAI.mockResolvedValue(aiOk({ questions: [] }));
-  mocks.createTest.mockResolvedValue({ id: 'test-1' });
-  mocks.createSection.mockResolvedValue({ id: 'sec-1' });
-  mocks.createQuestions.mockResolvedValue({ count: 3 });
-  mocks.createQuestion.mockResolvedValue({ id: 'q-1' });
-  mocks.updateQuestionsStatusForTest.mockResolvedValue({ count: 3 });
+  mocks.persistGeneratedTest.mockResolvedValue({ testId: 'test-1' });
+  mocks.persistGeneratedWritingTask.mockResolvedValue({ testId: 'test-1' });
 });
 
 // ============================================
@@ -176,17 +196,16 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
     expect(outcome.shortfall).toBe(0);
     expect(outcome.testStatus).toBe('DRAFT');
 
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistArgs().test).toEqual(
       expect.objectContaining({ status: 'DRAFT', skill: 'READING', testType: 'ACADEMIC' }),
     );
-    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ validationStatus: string }>;
+    const rows = persistedQuestions() as Array<{ validationStatus: string }>;
     expect(rows).toHaveLength(3);
     for (const row of rows) expect(row.validationStatus).toBe('QA_REQUIRED');
-    expect(JSON.stringify(mocks.createQuestions.mock.calls)).not.toContain('"PUBLISHED"');
-    expect(mocks.updateQuestionsStatusForTest).toHaveBeenCalledWith(
-      'test-1',
-      'QA_REQUIRED',
-      expect.any(String),
+    expect(JSON.stringify(persistedQuestions())).not.toContain('"PUBLISHED"');
+    // The QA_REQUIRED notes ride in the SAME transaction as the rows.
+    expect(JSON.parse(persistArgs().validationNotes)).toEqual(
+      expect.objectContaining({ machineScreen: 'PASS', blindSolve: 'PASS' }),
     );
   });
 
@@ -202,10 +221,10 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
 
     expect(outcome.ok).toBe(true);
     // Instant delivery is NOT publication: the persisted state is unchanged.
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistArgs().test).toEqual(
       expect.objectContaining({ status: 'DRAFT', origin: 'INSTANT', ownerUserId: 'student-9' }),
     );
-    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ validationStatus: string }>;
+    const rows = persistedQuestions() as Array<{ validationStatus: string }>;
     for (const row of rows) expect(row.validationStatus).toBe('QA_REQUIRED');
   });
 
@@ -216,7 +235,7 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
     const outcome = await generateIeltsPracticeContent(baseInput());
 
     expect(outcome.ok).toBe(true);
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistArgs().test).toEqual(
       expect.objectContaining({ origin: 'CATALOGUE', ownerUserId: null }),
     );
   });
@@ -249,7 +268,7 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
     const outcome = await generateIeltsPracticeContent({ ...baseInput(), testType: 'GENERAL_TRAINING' });
 
     expect(outcome.ok).toBe(true);
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistArgs().test).toEqual(
       expect.objectContaining({ testType: 'GENERAL_TRAINING', origin: 'CATALOGUE' }),
     );
     const aiCall = mocks.generateIeltsQuestionSetWithAI.mock.calls[0][0] as { testType?: string };
@@ -313,8 +332,8 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
 
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.code).toBe('GENERATION_EMPTY');
-    expect(mocks.createTest).not.toHaveBeenCalled();
-    expect(mocks.createQuestions).not.toHaveBeenCalled();
+    // Nothing is written at all — persistence is a single transactional unit.
+    expect(mocks.persistGeneratedTest).not.toHaveBeenCalled();
   });
 
   it('accepts a listening multiple-choice item whose option text is in the transcript', async () => {
@@ -364,7 +383,7 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
   it('propagates budget exhaustion untouched (route maps to 503)', async () => {
     mocks.generateIeltsQuestionSetWithAI.mockRejectedValue(new Error('AI daily budget exhausted'));
     await expect(generateIeltsPracticeContent(baseInput())).rejects.toThrow('budget');
-    expect(mocks.createTest).not.toHaveBeenCalled();
+    expect(mocks.persistGeneratedTest).not.toHaveBeenCalled();
   });
 });
 
@@ -411,7 +430,7 @@ describe('answer-key form — AI option text ↔ canonical option code', () => {
     expect(outcome.deliveredCount).toBe(1);
     expect(outcome.drops).toHaveLength(0);
     // The canonical code is what gets persisted (and what the validator/scorer require).
-    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ answerKey: string }>;
+    const rows = persistedQuestions() as Array<{ answerKey: string }>;
     expect(rows[0].answerKey).toBe('"A"');
   });
 
@@ -448,7 +467,7 @@ describe('answer-key form — AI option text ↔ canonical option code', () => {
     // Nothing survived the gates ⇒ the documented fail-closed outcome (422 GENERATION_EMPTY).
     expect(outcome.code).toBe('GENERATION_EMPTY');
     expect(outcome.message).toContain('MC_KEY_NOT_IN_OPTIONS');
-    expect(mocks.createQuestions).not.toHaveBeenCalled();
+    expect(mocks.persistGeneratedTest).not.toHaveBeenCalled();
   });
 
   it('never rewrites a free-text completion key that happens to equal an option text', async () => {
@@ -463,7 +482,7 @@ describe('answer-key form — AI option text ↔ canonical option code', () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.deliveredCount).toBe(3);
-    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ questionType: string; answerKey: string }>;
+    const rows = persistedQuestions() as Array<{ questionType: string; answerKey: string }>;
     const completion = rows.find((r) => r.questionType === 'reading_sentence_completion');
     expect(completion?.answerKey).toBe('"Six in the evening"');
     const mc = rows.find((r) => r.questionType === 'reading_multiple_choice');
@@ -550,7 +569,7 @@ describe('per-section top-up — filling a short section against the same text',
     expect(extendCall.sectionText).toBe(PASSAGE);
     expect(extendCall.skill).toBe('READING');
     expect(extendCall.itemCount).toBeGreaterThanOrEqual(1);
-    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ prompt: string }>;
+    const rows = persistedQuestions() as Array<{ prompt: string }>;
     expect(rows).toHaveLength(3);
   });
 
@@ -649,7 +668,7 @@ describe('per-section top-up — filling a short section against the same text',
     expect(outcome.deliveredCount).toBe(3);
     expect(outcome.shortfall).toBe(0);
     expect(outcome.drops.some((d) => d.reason === 'TOPUP_TRIMMED')).toBe(true);
-    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ prompt: string }>;
+    const rows = persistedQuestions() as Array<{ prompt: string }>;
     expect(rows).toHaveLength(3);
   });
 
@@ -765,16 +784,16 @@ describe('generateIeltsWritingTask — conformance-gated persistence', () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.testStatus).toBe('DRAFT');
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistWritingArgs().test).toEqual(
       expect.objectContaining({ status: 'DRAFT', skill: 'WRITING', testType: 'ACADEMIC' }),
     );
-    expect(mocks.createSection).toHaveBeenCalledWith(
+    expect(persistWritingArgs().section).toEqual(
       expect.objectContaining({ label: 'academic_task2' }),
     );
-    expect(mocks.createQuestion).toHaveBeenCalledWith(
+    expect(persistWritingArgs().question).toEqual(
       expect.objectContaining({ validationStatus: 'QA_REQUIRED', skill: 'WRITING' }),
     );
-    expect(JSON.stringify(mocks.createQuestion.mock.calls)).not.toContain('"PUBLISHED"');
+    expect(JSON.stringify(persistWritingArgs())).not.toContain('"PUBLISHED"');
   });
 
   it('retries a non-conforming task once, then fails typed without persisting', async () => {
@@ -797,7 +816,7 @@ describe('generateIeltsWritingTask — conformance-gated persistence', () => {
       expect(outcome.issues).toContain('missing three bullet points');
     }
     expect(mocks.generateIeltsWritingPromptWithAI).toHaveBeenCalledTimes(2);
-    expect(mocks.createTest).not.toHaveBeenCalled();
+    expect(mocks.persistGeneratedWritingTask).not.toHaveBeenCalled();
   });
 
   it('rejects a task type from the wrong variant (INVALID_INPUT)', async () => {
@@ -827,7 +846,7 @@ describe('generateIeltsWritingTask — conformance-gated persistence', () => {
     });
 
     expect(outcome.ok).toBe(true);
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistWritingArgs().test).toEqual(
       expect.objectContaining({
         status: 'DRAFT',
         skill: 'WRITING',
@@ -835,10 +854,10 @@ describe('generateIeltsWritingTask — conformance-gated persistence', () => {
         ownerUserId: 'student-1',
       }),
     );
-    expect(mocks.createQuestion).toHaveBeenCalledWith(
+    expect(persistWritingArgs().question).toEqual(
       expect.objectContaining({ validationStatus: 'QA_REQUIRED' }),
     );
-    expect(JSON.stringify(mocks.createTest.mock.calls)).not.toContain('"PUBLISHED"');
+    expect(JSON.stringify(persistWritingArgs())).not.toContain('"PUBLISHED"');
   });
 
   it('keeps the catalogue default for teacher authoring (no owner, CATALOGUE)', async () => {
@@ -853,7 +872,7 @@ describe('generateIeltsWritingTask — conformance-gated persistence', () => {
       writingTaskType: 'academic_task2',
     });
 
-    expect(mocks.createTest).toHaveBeenCalledWith(
+    expect(persistWritingArgs().test).toEqual(
       expect.objectContaining({ origin: 'CATALOGUE', ownerUserId: null }),
     );
   });

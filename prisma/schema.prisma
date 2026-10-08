@@ -1074,6 +1074,19 @@ model IeltsAttempt {
   skill        String
   testType     String
   status       String   @default("IN_PROGRESS") // IN_PROGRESS | SUBMITTED | ABANDONED
+  /**
+   * Concurrency guard (2026-10-08): the DATABASE-ENFORCED invariant that a
+   * (student, test) pair has at most ONE active attempt.
+   *
+   * Holds `${userId}:${testId}` while the attempt is IN_PROGRESS and is cleared
+   * to NULL the moment it is submitted or abandoned. Postgres/SQLite allow many
+   * NULLs in a UNIQUE index, so only the single active attempt occupies the key.
+   *
+   * Without this, two simultaneous starts both observe "no active attempt" and
+   * both INSERT (a `findFirst` + `create` check is not concurrency safe). With
+   * it, the loser gets P2002 and returns the winner's attempt.
+   */
+  activeKey    String?  @unique
   startedAt    DateTime @default(now())
   submittedAt  DateTime?
   rawScore     Int?
@@ -1101,6 +1114,32 @@ model IeltsResponse {
   answeredAt    DateTime @default(now())
 
   @@unique([attemptId, questionId])
+}
+
+/// Per-student, per-Hong-Kong-day on-demand generation counters.
+///
+/// 2026-10-08 (Sprint 131): the daily cap used to be enforced by
+/// `countInstantTestsCreatedSince()` → `if (count >= cap) reject` → generate.
+/// That read-check-write is NOT concurrency safe: two requests that both read
+/// `7` both pass an 8-cap check and both create a generation (9 for the day).
+///
+/// The row is now the ONLY authoritative gate, reserved with a single atomic
+/// conditional UPDATE (`usedCount < cap`), so the database — not the
+/// application check — bounds the count under concurrency.
+///
+/// Buckets are independent: `set` (reading/listening single sets + writing
+/// tasks) and `full_component` (complete official components, a much costlier
+/// generation with its own smaller cap).
+model IeltsGenerationQuota {
+  id          String   @id @default(cuid())
+  ownerUserId String
+  dayKey      String   // 'YYYY-MM-DD' — Hong Kong day (never a UTC day)
+  bucket      String   // 'set' | 'full_component'
+  usedCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([ownerUserId, dayKey, bucket])
 }
 
 model IeltsAssessment {

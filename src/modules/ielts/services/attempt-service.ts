@@ -41,6 +41,15 @@ export type IeltsAttemptOperationResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; error: string };
 
+/** Postgres/SQLite unique-violation detector (no Prisma runtime import needed). */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: string }).code === 'P2002'
+  );
+}
+
 // ============================================
 // Start
 // ============================================
@@ -75,19 +84,42 @@ export async function startIeltsAttempt(input: {
   //   * ABANDONED attempts are ignored (a fresh attempt is created)
   // Before this, every mount created a new attempt, so refreshing polluted the
   // practice history and silently discarded the student's result.
-  if (!input.force) {
+  //
+  // Concurrency (2026-10-08): `findFirst` + `create` is NOT safe — two
+  // simultaneous starts both observe "no active attempt" and both INSERT, so
+  // the student ends up with two IN_PROGRESS attempts. The database now
+  // enforces the invariant through the unique `activeKey`:
+  //   * `force` (explicit retake) first retires any active attempt, freeing it
+  //   * a create that loses the race gets P2002 and returns the winner's row
+  if (input.force) {
+    await ieltsRepo.abandonActiveAttempts(input.userId, test.id);
+  } else {
     const existing = await ieltsRepo.findLatestAttemptForTest(input.userId, test.id);
     if (existing && existing.status !== 'ABANDONED') {
       return { ok: true, data: toSummary(existing) };
     }
   }
 
-  const attempt = await ieltsRepo.createAttempt({
-    user: { connect: { id: input.userId } },
-    test: { connect: { id: test.id } },
-    skill: test.skill,
-    testType: test.testType,
-  });
+  let attempt: Awaited<ReturnType<typeof ieltsRepo.createAttempt>>;
+  try {
+    attempt = await ieltsRepo.createAttempt({
+      user: { connect: { id: input.userId } },
+      test: { connect: { id: test.id } },
+      skill: test.skill,
+      testType: test.testType,
+      // Occupied only while IN_PROGRESS; cleared on submit/abandon, so at most
+      // ONE active attempt can exist per (student, test).
+      activeKey: `${input.userId}:${test.id}`,
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    // Lost the create race — hand both callers the same, coherent attempt.
+    const winner =
+      (await ieltsRepo.findActiveAttemptForTest(input.userId, test.id)) ??
+      (await ieltsRepo.findLatestAttemptForTest(input.userId, test.id));
+    if (winner) return { ok: true, data: toSummary(winner) };
+    throw err;
+  }
 
   emitIeltsEvent('ielts.practice.started', {
     userId: input.userId,
@@ -252,21 +284,6 @@ export async function submitIeltsAttempt(input: {
     isIeltsObjectiveType(r.questionType as never),
   ).length;
 
-  await ieltsRepo.createResponses(
-    scored.map((s) => ({
-      attemptId: attempt.id,
-      questionId: s.row.id,
-      rawAnswer: s.answer.answer,
-      verdict: s.score.verdict,
-      scoringDetail: JSON.stringify({
-        scoredBy: s.score.scoredBy,
-        reason: s.score.reason,
-        wordCount: s.score.wordCount,
-        limitExceeded: s.score.limitExceeded,
-      }),
-    })),
-  );
-
   // Band estimate for objective components (subset-safe).
   let bandEstimate: IeltsBandEstimate | null = null;
   let notComparableReason: string | null = null;
@@ -289,12 +306,43 @@ export async function submitIeltsAttempt(input: {
     notComparableReason,
   });
 
-  await ieltsRepo.markAttemptSubmitted(attempt.id, {
-    rawScore: aggregate.rawScore,
-    totalItems: objectiveQuestionCount,
-    bandEstimate: bandEstimate ? JSON.stringify(bandEstimate) : null,
-    metadata,
+  // Atomic finalisation (2026-10-08): the conditional status transition
+  // (IN_PROGRESS → SUBMITTED, owner-scoped) and the response rows are written in
+  // ONE transaction. Concurrent submissions of the same attempt therefore have
+  // exactly one winner; the loser's transaction is rolled back (so its answers
+  // are never mixed into the winner's result) and it gets a deterministic 409.
+  // A submitted attempt can never exist without its persisted responses.
+  const finalize = await ieltsRepo.finalizeAttemptSubmission({
+    attemptId: attempt.id,
+    userId: input.userId,
+    responses: scored.map((s) => ({
+      attemptId: attempt.id,
+      questionId: s.row.id,
+      rawAnswer: s.answer.answer,
+      verdict: s.score.verdict,
+      scoringDetail: JSON.stringify({
+        scoredBy: s.score.scoredBy,
+        reason: s.score.reason,
+        wordCount: s.score.wordCount,
+        limitExceeded: s.score.limitExceeded,
+      }),
+    })),
+    score: {
+      rawScore: aggregate.rawScore,
+      totalItems: objectiveQuestionCount,
+      bandEstimate: bandEstimate ? JSON.stringify(bandEstimate) : null,
+      metadata,
+    },
   });
+  if (!finalize.finalized) {
+    // Another request already won the submission — never emit completion events
+    // or recompute side effects for a losing request.
+    return {
+      ok: false,
+      status: 409,
+      error: 'ATTEMPT_ALREADY_SUBMITTED: use GET to read the existing result.',
+    };
+  }
 
   emitIeltsEvent('ielts.practice.completed', {
     userId: input.userId,

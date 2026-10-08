@@ -848,39 +848,39 @@ export async function generateIeltsPracticeContent(
       : 'AI-assisted generation (DeepSeek) — platform-original IELTS-style practice; not official IELTS material; awaiting human QA review.',
   };
   const shortfall = requestedCount - deliveredCount;
-  const test = await ieltsRepo.createTest({
-    slug: `ai-${input.skill.toLowerCase()}-${variantTag}-${Date.now().toString(36)}`,
-    title: `${input.testType === 'ACADEMIC' ? 'Academic' : 'General Training'} ${
-      input.skill === 'READING' ? 'Reading' : 'Listening'
-    } — AI-generated practice (${deliveredCount} questions)`,
-    testType: input.testType,
-    skill: input.skill,
-    description: 'AI-generated IELTS-style practice (platform original). Machine-screened + blind-solve verified; awaiting human QA before publication.',
-    status: 'DRAFT',
-    origin: isInstant ? 'INSTANT' : 'CATALOGUE',
-    ownerUserId: isInstant ? input.userId : null,
-    durationMinutes:
-      (input.scope ?? 'set') === 'full_component' ? COMPONENT_DURATION_MINUTES[input.skill] : null,
-    contentSource: JSON.stringify(contentSource),
-  });
+  const setSummaries: IeltsGenerationSetSummary[] = sets.map((set) => ({
+    label: set.label,
+    itemCount: set.items.length,
+    contentWords: set.contentWords,
+  }));
 
-  let orderIndex = 0;
-  const setSummaries: IeltsGenerationSetSummary[] = [];
-  for (let s = 0; s < sets.length; s++) {
-    const set = sets[s];
-    const section = await ieltsRepo.createSection({
-      test: { connect: { id: test.id } },
-      orderIndex: s,
+  // ONE transaction (2026-10-08): the test row, its sections and its questions
+  // are a single logical persistence unit. Written as independent statements a
+  // failure part-way through left a half-written test — and an INSTANT test is
+  // deliverable at any status except REJECTED, so the student could open a
+  // truncated or empty set while the orphaned rows still held a quota slot.
+  const { testId: testId } = await ieltsRepo.persistGeneratedTest({
+    test: {
+      slug: `ai-${input.skill.toLowerCase()}-${variantTag}-${Date.now().toString(36)}`,
+      title: `${input.testType === 'ACADEMIC' ? 'Academic' : 'General Training'} ${
+        input.skill === 'READING' ? 'Reading' : 'Listening'
+      } — AI-generated practice (${deliveredCount} questions)`,
+      testType: input.testType,
+      skill: input.skill,
+      description: 'AI-generated IELTS-style practice (platform original). Machine-screened + blind-solve verified; awaiting human QA before publication.',
+      status: 'DRAFT',
+      origin: isInstant ? 'INSTANT' : 'CATALOGUE',
+      ownerUserId: isInstant ? input.userId : null,
+      durationMinutes:
+        (input.scope ?? 'set') === 'full_component' ? COMPONENT_DURATION_MINUTES[input.skill] : null,
+      contentSource: JSON.stringify(contentSource),
+    },
+    sections: sets.map((set) => ({
       label: set.label,
       passageText: set.passage,
       transcriptText: set.transcript,
       wordCount: set.contentWords,
-    });
-    await ieltsRepo.createQuestions(
-      set.items.map((item) => ({
-        testId: test.id,
-        sectionId: section.id,
-        orderIndex: orderIndex++,
+      questions: set.items.map((item) => ({
         questionType: item.questionType,
         skill: input.skill,
         prompt: item.prompt,
@@ -896,14 +896,8 @@ export async function generateIeltsPracticeContent(
         generatorVersion: IELTS_GENERATION_GENERATOR_VERSION,
         validationStatus: 'QA_REQUIRED',
       })),
-    );
-    setSummaries.push({ label: set.label, itemCount: set.items.length, contentWords: set.contentWords });
-  }
-
-  await ieltsRepo.updateQuestionsStatusForTest(
-    test.id,
-    'QA_REQUIRED',
-    JSON.stringify({
+    })),
+    validationNotes: JSON.stringify({
       machineScreen: 'PASS',
       blindSolve: 'PASS',
       generatorVersion: IELTS_GENERATION_GENERATOR_VERSION,
@@ -912,7 +906,7 @@ export async function generateIeltsPracticeContent(
       shortfall,
       generatedAt: new Date().toISOString(),
     }),
-  );
+  });
 
   emitIeltsEvent('ielts.generation.completed', {
     userId: input.userId,
@@ -925,7 +919,7 @@ export async function generateIeltsPracticeContent(
 
   return {
     ok: true,
-    testId: test.id,
+    testId: testId,
     testStatus: 'DRAFT',
     skill: input.skill,
     testType: input.testType,
@@ -1047,47 +1041,48 @@ export async function generateIeltsWritingTask(
         : 'AI-assisted generation (DeepSeek) — platform-original IELTS-style task; not official IELTS material; awaiting human QA review.',
     };
     const variantTag = input.testType === 'ACADEMIC' ? 'academic' : 'gt';
-    const test = await ieltsRepo.createTest({
-      slug: `ai-writing-${variantTag}-${input.writingTaskType.split('_')[1]}-${Date.now().toString(36)}`,
-      title: generated.data.title.trim() ||
-        `${input.testType === 'ACADEMIC' ? 'Academic' : 'General Training'} Writing ${
-          input.writingTaskType.endsWith('task1') ? 'Task 1' : 'Task 2'
-        } — AI-generated task`,
-      testType: input.testType,
-      skill: 'WRITING',
-      description: isInstant
-        ? 'AI-generated IELTS-style writing task (platform original). Conformance-checked; not teacher-reviewed self-study practice (never listed until a teacher publishes it).'
-        : 'AI-generated IELTS-style writing task (platform original). Conformance-checked; awaiting human QA before publication.',
-      status: 'DRAFT',
-      origin: isInstant ? 'INSTANT' : 'CATALOGUE',
-      ownerUserId: isInstant ? input.userId : null,
-      durationMinutes: config.recommendedMinutes,
-      contentSource: JSON.stringify(contentSource),
-    });
-    await ieltsRepo.createSection({
-      test: { connect: { id: test.id } },
-      orderIndex: 0,
-      label: input.writingTaskType,
-      instructions: promptText,
-      wordCount: countIeltsWords(promptText),
-    });
-    await ieltsRepo.createQuestion({
-      test: { connect: { id: test.id } },
-      orderIndex: 0,
-      questionType: 'writing_task',
-      skill: 'WRITING',
-      prompt: promptText,
-      difficulty: 'MEDIUM',
-      difficultyModel: IELTS_DIFFICULTY_MODEL_VERSION,
-      contentSource: JSON.stringify(contentSource),
-      generatorVersion: IELTS_GENERATION_GENERATOR_VERSION,
-      validationStatus: 'QA_REQUIRED',
-      validationNotes: JSON.stringify({
-        conformance: 'PASS',
-        checker: 'IeltsWritingPromptVerification',
+    // ONE transaction (2026-10-08): test + task section + prompt are a single
+    // logical unit — a half-persisted INSTANT writing task would be openable by
+    // its owner with no prompt at all.
+    const { testId: writingTestId } = await ieltsRepo.persistGeneratedWritingTask({
+      test: {
+        slug: `ai-writing-${variantTag}-${input.writingTaskType.split('_')[1]}-${Date.now().toString(36)}`,
+        title: generated.data.title.trim() ||
+          `${input.testType === 'ACADEMIC' ? 'Academic' : 'General Training'} Writing ${
+            input.writingTaskType.endsWith('task1') ? 'Task 1' : 'Task 2'
+          } — AI-generated task`,
+        testType: input.testType,
+        skill: 'WRITING',
+        description: isInstant
+          ? 'AI-generated IELTS-style writing task (platform original). Conformance-checked; not teacher-reviewed self-study practice (never listed until a teacher publishes it).'
+          : 'AI-generated IELTS-style writing task (platform original). Conformance-checked; awaiting human QA before publication.',
+        status: 'DRAFT',
+        origin: isInstant ? 'INSTANT' : 'CATALOGUE',
+        ownerUserId: isInstant ? input.userId : null,
+        durationMinutes: config.recommendedMinutes,
+        contentSource: JSON.stringify(contentSource),
+      },
+      section: {
+        label: input.writingTaskType,
+        instructions: promptText,
+        wordCount: countIeltsWords(promptText),
+      },
+      question: {
+        questionType: 'writing_task',
+        skill: 'WRITING',
+        prompt: promptText,
+        difficulty: 'MEDIUM',
+        difficultyModel: IELTS_DIFFICULTY_MODEL_VERSION,
+        contentSource: JSON.stringify(contentSource),
         generatorVersion: IELTS_GENERATION_GENERATOR_VERSION,
-        generatedAt: new Date().toISOString(),
-      }),
+        validationStatus: 'QA_REQUIRED',
+        validationNotes: JSON.stringify({
+          conformance: 'PASS',
+          checker: 'IeltsWritingPromptVerification',
+          generatorVersion: IELTS_GENERATION_GENERATOR_VERSION,
+          generatedAt: new Date().toISOString(),
+        }),
+      },
     });
 
     emitIeltsEvent('ielts.generation.completed', {
@@ -1100,7 +1095,7 @@ export async function generateIeltsWritingTask(
     });
     return {
       ok: true,
-      testId: test.id,
+      testId: writingTestId,
       testStatus: 'DRAFT',
       taskType: input.writingTaskType,
       testType: input.testType,
