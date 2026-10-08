@@ -60,12 +60,15 @@ Prisma version this project runs.
    however many requests run concurrently. The first-ever reservation of a
    `(student, day, bucket)` races on the unique index with ONE `create` plus at most one
    conditional re-increment (deliberately loop-free: the N+1 query checker rightly
-   rejects queries inside `for` loops). `releaseInstantQuota()` returns the slot when a
-   generation persisted **no** test — exactly the cases the old row-counting
-   implementation did not count, so the product semantics are unchanged. Buckets are
-   independent: `set` (reading/listening single sets + writing tasks, cap 8) and
-   `full_component` (cap 2, ~8× the cost). `dayKey` is a **Hong Kong** day
-   (`hkDayKey()`), never a UTC day.
+   rejects queries inside `for` loops); when the conditional UPDATE matches 0 rows but the
+   existence read then finds the row — a concurrent request committed it in between — the
+   caller re-runs the conditional increment **once** instead of being refused, because it
+   has not competed for a slot yet (see the 2026-10-08 CI measurement below).
+   `releaseInstantQuota()` returns the slot when a generation persisted **no** test —
+   exactly the cases the old row-counting implementation did not count, so the product
+   semantics are unchanged. Buckets are independent: `set` (reading/listening single sets +
+   writing tasks, cap 8) and `full_component` (cap 2, ~8× the cost). `dayKey` is a
+   **Hong Kong** day (`hkDayKey()`), never a UTC day.
 
 2. **At most ONE active attempt per (student, test), enforced by a unique index.**
    `IeltsAttempt.activeKey` holds `'<userId>:<testId>'` while the attempt is
@@ -148,7 +151,11 @@ Prisma version this project runs.
   consistent result (one response row agreeing with the persisted score), a retry after
   submission is a deterministic `409 ATTEMPT_ALREADY_SUBMITTED` with no extra rows, and
   `activeKey` is `NULL` after submission.
-- Unit/contract suites: `src/modules/ielts/__tests__/attempt-service.test.ts`,
+- Unit/contract suites: `src/modules/ielts/__tests__/instant-quota-reservation.test.ts`
+  (deterministic coverage of the reservation interleavings with a stubbed db client: a row
+  created mid-flight must be retried, an at-cap row must be refused, the first reservation
+  must `create` once, a lost INSERT race (P2002) must re-increment, a non-unique failure must
+  propagate), `src/modules/ielts/__tests__/attempt-service.test.ts`,
   `generation-service.test.ts`, `instant-practice-service.test.ts` (quota injected through
   `reserveQuota` / `releaseQuota` deps; a released slot on typed failure and on thrown
   provider/budget errors; `remainingToday` from the authoritative counter),
@@ -158,6 +165,10 @@ Prisma version this project runs.
 - Prisma metadata shape measured 2026-10-08 against `@prisma/client` 7.8.0 +
   `@prisma/adapter-pg` (recorded in the header of `src/shared/db/prisma-errors.ts`).
 - Migration: `prisma/migrations/20261008000100_ielts_concurrency_guards/migration.sql`.
+- Measured 2026-10-08 (first full CI run after the test step was unblocked): F1 failed with
+  **6 of 10** concurrent reservations granted against a cap of 8 — the mid-flight
+  row-creation window described in Decision 1. The retry fixed it; the integration suite
+  keeps asserting the exact-`cap` outcome against real Postgres on every push.
 - Full local validation of the change set: `npm test` (3743 passed / 11 skipped),
   `npx tsc --noEmit`, `npx eslint` on the touched files, and `npm run build:prod` all
   green; `package-lock.json` re-synced so `npm ci` (CI and the Docker build) succeeds.

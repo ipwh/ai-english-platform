@@ -330,7 +330,19 @@ export async function reserveInstantQuota(args: {
   // Distinguishing them needs one read — but only when the increment failed.
   if (incremented.reserved) return incremented;
   const existing = await db.ieltsGenerationQuota.findUnique({ where, select: { usedCount: true } });
-  if (existing) return incremented;
+  if (existing) {
+    // The row appeared BETWEEN the conditional UPDATE and this read: a concurrent first
+    // reservation won the INSERT race, so this call has not competed for a slot yet.
+    // Re-run the conditional increment exactly once.
+    //
+    // Returning the earlier refusal here dropped callers while capacity remained —
+    // measured in CI 2026-10-08: 10 concurrent reservations against a cap of 8 granted
+    // only 6 (the two callers that landed in this window were refused although
+    // `usedCount` was still 1). Still loop-free: one extra attempt, and a failed second
+    // attempt is a trustworthy refusal because a row exists and the predicate (`usedCount
+    // < cap`) was evaluated against it.
+    return tryIncrement();
+  }
 
   // First reservation for this (student, day, bucket): INSERT. Exactly one
   // concurrent INSERT wins the unique index; the losers re-run the conditional

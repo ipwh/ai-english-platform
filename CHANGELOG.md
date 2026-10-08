@@ -49,7 +49,19 @@ All notable changes to the AI English Platform are documented here.
    `ingest-human-marker.test.ts` 改為在 `beforeAll` 才 ingest，永不於收集階段讀檔。
    **不放寬任何斷言**：教材存在時照原樣執行，教材毀損或契約失效仍然大聲失敗。
 
-### 三、驗證
+### 三、驗證與後續（首次 CI 執行後又抓到兩個缺陷）
+0. **第一次跑完整 CI 立即抓到兩個缺陷（同日修正）**：
+   1. **F1 併發額度發放不足（真實競態）**：`reserveInstantQuota()` 在「條件式 UPDATE 命中 0 列 →
+      讀取存在性」之間，若**其他請求恰在此時建立該列**，舊碼直接回 `reserved:false`（把「列已存在」
+      當成「已達上限」）⇒ CI 實測 **10 個併發只發 8 分之 6**。修正：該分支**重試一次**條件式 UPDATE
+      （仍為無迴圈；第二次失敗才是可信的拒絕，因為列確實存在且已以 `usedCount < cap` 判定）。
+   2. **教材閘門判斷錯誤**：repo **只提交 `.pdf.txt` 抽取文字**，來源 PDF 被 gitignore ⇒ CI 有**目錄**
+      但沒有 PDF，`existsSync(目錄)` 判為「有教材」⇒ 套件照跑並以 "source PDF missing" 失敗。
+      修正：`corpus-availability.ts` 改為**檢查實際可用檔案**（`_hkeaa_scored_scripts` 需有 `.pdf`、
+      `_extracted` 需有 `.txt`），而非只看目錄存在。
+   3. 新增**決定性單元測試** `src/modules/ielts/__tests__/instant-quota-reservation.test.ts`（stub db
+      client，逐一把競態交錯固定下來）：mid-flight 建列要重試、已達上限要誠實拒絕、首筆只 INSERT
+      一次、INSERT 輸掉（P2002）要重試、非唯一鍵錯誤要往外拋。
 - 架構套件：修正前本機重現 **完全相同的 6 個失敗**（與 CI 一致）；修正後 **121 項全過**。另以臨時
   腳本獨立重跑各條規則，確認白名單以外 **0 個違規**。
 - calibration 套件：教材存在時 15 檔 / 292 項全過；把 `materials/_hkeaa_scored_scripts` 與

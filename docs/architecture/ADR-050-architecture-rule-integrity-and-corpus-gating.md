@@ -46,6 +46,12 @@ they were pre-existing, and two separate mechanisms had been hiding them.
      `open-ended-topics` — prompt text and pure topic/type helpers. A companion test asserts
      those four files stay pure (no `db`/`Prisma`, no `providers`, no `fetch(`, no
      `process.env`, no cache/LLM imports), so the allowlist cannot rot into a loophole.
+   - *The corpus gate asks for a usable FILE, never for a directory*: the repository commits
+     only the small `.pdf.txt` extracts while the source PDFs are gitignored, so a CI checkout
+     has `materials/_hkeaa_scored_scripts/` **with no `.pdf`**. An `existsSync(dir)` gate
+     therefore reported "corpus present", the suites ran, and CI failed again with
+     `Human-marker source PDF missing`. `HAS_SCORED_SCRIPTS` now requires a `.pdf` (and
+     `HAS_EXTRACTED_MATERIALS` a `.txt`) — a directory alone must never be read as a corpus.
 3. **Size governance whitelists by module-relative path**, not by bare filename (`ai-service.ts`
    would have exempted any future file with that name). Three genuinely oversized files are
    recorded as tracked debt — `ai/usecases/analyze-writing.ts` (1008), `ielts/services/
@@ -103,10 +109,16 @@ they were pre-existing, and two separate mechanisms had been hiding them.
   before (identical to CI), 121 passed / 0 failed after; independently confirmed with a
   throwaway enumerator that reproduced each rule over the whole tree (0 offenders left outside
   the documented whitelists).
-- Calibration suites: 15 files / 292 tests pass with the corpus present; with
-  `materials/_hkeaa_scored_scripts` and `materials/_extracted` temporarily renamed, the same
-  run reports **250 passed / 42 skipped / 0 failed**, and the directories were restored
-  immediately afterwards.
+- Calibration suites: 15 files / 292 tests pass with the corpus present; with the three source
+  PDFs moved aside (exactly CI's state: the directory and the committed `.pdf.txt` extracts
+  exist, the PDFs do not) the same run reports **252 passed / 40 skipped / 0 failed**, and the
+  PDFs were restored immediately afterwards. Hiding the whole directories instead reports
+  250 passed / 42 skipped / 0 failed.
+- Quota reservation race: `src/modules/ielts/__tests__/instant-quota-reservation.test.ts`
+  pins the interleaving that broke CI (10 concurrent reservations granted 6) with a stubbed db
+  client — mid-flight row creation must retry, an at-cap row must be refused, the first
+  reservation must `create` exactly once, a lost INSERT race (P2002) must re-increment, and a
+  non-unique failure must propagate.
 - Full local validation: `npm test` 3744 passed / 11 skipped, `npx tsc --noEmit` exit 0,
   `npx eslint` on the touched files (0 errors), and the AI/admin/learning-analytics subset
   (78 files, 1574 tests) green after the provider moves.
