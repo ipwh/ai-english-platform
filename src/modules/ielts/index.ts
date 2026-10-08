@@ -143,6 +143,7 @@ export {
   getIeltsAttemptDetail,
   type IeltsSubmissionSummary,
   type IeltsAttemptDetail,
+  type IeltsSectionTranscript,
   type IeltsSubmittedAnswerInput,
 } from './services/attempt-service';
 export {

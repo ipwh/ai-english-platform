@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   markAttemptSubmitted: vi.fn(),
   createAttempt: vi.fn(),
   getTestById: vi.fn(),
+  listSectionsForTest: vi.fn(),
 }));
 
 vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
@@ -25,9 +26,10 @@ vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
   markAttemptSubmitted: mocks.markAttemptSubmitted,
   createAttempt: mocks.createAttempt,
   getTestById: mocks.getTestById,
+  listSectionsForTest: mocks.listSectionsForTest,
 }));
 
-import { startIeltsAttempt, submitIeltsAttempt } from '../services/attempt-service';
+import { startIeltsAttempt, submitIeltsAttempt, getIeltsAttemptDetail } from '../services/attempt-service';
 
 function questionRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -405,5 +407,117 @@ describe('instant self-study attempts (2026-10-03 VII) — owner-only, never pub
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(404);
     expect(mocks.getTestForAttempt).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================
+// Listening transcript release (2026-10-08)
+// ============================================
+// The runner promised "the transcript is revealed after submission", but nothing
+// delivered or rendered it: `getSectionTranscriptForDelivery()` existed yet was only
+// wired to the TTS audio route. The reveal now travels with the submitted result,
+// gated on the attempt being SUBMITTED (pre-answer delivery would hand over answers).
+describe('listening transcript release', () => {
+  const LISTENING_SECTIONS = [
+    { id: 'sec-1', orderIndex: 0, label: 'Part 1', transcriptText: 'Man: The tour starts at ten.' },
+    { id: 'sec-2', orderIndex: 1, label: 'Part 2', transcriptText: 'Woman: Welcome to the garden.' },
+  ];
+
+  function listeningTest() {
+    return {
+      ...publishedTest(['q-1']),
+      skill: 'LISTENING',
+      sections: LISTENING_SECTIONS,
+    };
+  }
+
+  it('releases every section transcript together with the submitted result', async () => {
+    mocks.findAttemptById.mockResolvedValue(attemptRow({ skill: 'LISTENING' }));
+    mocks.getTestById.mockResolvedValue({
+      id: 'test-1',
+      status: 'PUBLISHED',
+      origin: 'CATALOGUE',
+      ownerUserId: null,
+      skill: 'LISTENING',
+      testType: 'ACADEMIC',
+    });
+    mocks.getTestForAttempt.mockResolvedValue(listeningTest());
+    mocks.findQuestionsByIds.mockResolvedValue([
+      questionRow({ questionType: 'listening_multiple_choice', answerKey: JSON.stringify('B') }),
+    ]);
+
+    const result = await submitIeltsAttempt({
+      userId: 'student-1',
+      attemptId: 'attempt-1',
+      answers: [{ questionId: 'q-1', answer: 'B' }],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcripts).toEqual([
+      { sectionId: 'sec-1', label: 'Part 1', orderIndex: 0, transcript: 'Man: The tour starts at ten.' },
+      { sectionId: 'sec-2', label: 'Part 2', orderIndex: 1, transcript: 'Woman: Welcome to the garden.' },
+    ]);
+  });
+
+  it('omits empty transcripts and reports [] when the test has none', async () => {
+    mocks.findAttemptById.mockResolvedValue(attemptRow());
+    mocks.getTestForAttempt.mockResolvedValue({
+      ...publishedTest(['q-1']),
+      sections: [{ id: 'sec-1', orderIndex: 0, label: 'Section 1', transcriptText: '   ' }],
+    });
+    mocks.findQuestionsByIds.mockResolvedValue([questionRow()]);
+
+    const result = await submitIeltsAttempt({
+      userId: 'student-1',
+      attemptId: 'attempt-1',
+      answers: [{ questionId: 'q-1', answer: 'B' }],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcripts).toEqual([]);
+  });
+
+  it('keeps transcripts hidden while the attempt is still in progress', async () => {
+    mocks.findAttemptWithResponses.mockResolvedValue({
+      ...attemptRow({ status: 'IN_PROGRESS', skill: 'LISTENING' }),
+      responses: [],
+    });
+
+    const detail = await getIeltsAttemptDetail('attempt-1');
+
+    expect(detail.ok).toBe(true);
+    if (!detail.ok) return;
+    expect(detail.data.transcripts).toEqual([]);
+    // Never even read the section text for an open attempt.
+    expect(mocks.listSectionsForTest).not.toHaveBeenCalled();
+  });
+
+  it('reveals transcripts when re-reading a SUBMITTED attempt (refresh safety)', async () => {
+    mocks.findAttemptWithResponses.mockResolvedValue({
+      ...attemptRow({ status: 'SUBMITTED', skill: 'LISTENING', submittedAt: new Date() }),
+      responses: [
+        {
+          questionId: 'q-1',
+          rawAnswer: 'B',
+          verdict: 'correct',
+          scoringDetail: JSON.stringify({ reason: 'MC_LETTER_MATCH' }),
+          answeredAt: new Date(),
+        },
+      ],
+    });
+    mocks.findQuestionsByIds.mockResolvedValue([
+      questionRow({ questionType: 'listening_multiple_choice' }),
+    ]);
+    mocks.listSectionsForTest.mockResolvedValue(LISTENING_SECTIONS);
+
+    const detail = await getIeltsAttemptDetail('attempt-1');
+
+    expect(detail.ok).toBe(true);
+    if (!detail.ok) return;
+    expect(detail.data.transcripts).toHaveLength(2);
+    expect(detail.data.transcripts[0].transcript).toContain('tour starts at ten');
+    expect(mocks.listSectionsForTest).toHaveBeenCalledWith('test-1');
   });
 });

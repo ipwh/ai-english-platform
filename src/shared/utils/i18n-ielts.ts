@@ -254,6 +254,7 @@ export const ieltsTranslations: Record<string, { zh: string; en: string }> = {
     zh: '逐字稿將於提交後顯示（作答前不顯示以避免洩題）',
     en: 'The transcript is revealed after submission (hidden beforehand to avoid answer leakage)',
   },
+  'ielts.transcript': { zh: '逐字稿（AI 語音依據）', en: 'Transcript (basis of the AI voice)' },
   'ielts.wordLimit': { zh: '{instruction}', en: '{instruction}' },
   'ielts.wordLimitShort': { zh: '限 {n} 字內', en: 'Max {n} words' },
   'ielts.answerPlaceholder': { zh: '輸入答案…', en: 'Type your answer…' },

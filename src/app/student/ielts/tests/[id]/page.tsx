@@ -65,6 +65,15 @@ interface AttemptDetail {
   notComparableReason: string | null;
   responses?: Array<{ questionId: string; rawAnswer: string }>;
   feedback?: ResponseFeedback[];
+  /** Listening transcripts — present only for a SUBMITTED attempt. */
+  transcripts?: SectionTranscript[];
+}
+
+interface SectionTranscript {
+  sectionId: string;
+  label: string;
+  orderIndex: number;
+  transcript: string;
 }
 
 interface ResponseFeedback {
@@ -92,6 +101,8 @@ interface SubmitResult {
   bandEstimate: BandEstimate | null;
   notComparableReason: string | null;
   results: ResponseFeedback[];
+  /** Listening transcripts — released together with the submitted result. */
+  transcripts?: SectionTranscript[];
 }
 
 function optionPairs(options: ClientQuestion['options']): Array<{ code: string; text: string }> {
@@ -172,6 +183,8 @@ export default function IeltsTestPage() {
               bandEstimate: detail.attempt.bandEstimate,
               notComparableReason: detail.attempt.notComparableReason,
               results: detail.attempt.feedback ?? [],
+              // A refresh must not lose the revealed transcript either.
+              transcripts: detail.attempt.transcripts ?? [],
             });
           }
         } else {
@@ -310,6 +323,11 @@ export default function IeltsTestPage() {
   }
 
   const feedbackById = new Map((result?.results ?? []).map((r) => [r.questionId, r]));
+  // Transcripts arrive with the submitted result (server-gated on SUBMITTED status),
+  // so this map is empty until the student submits — never before.
+  const transcriptBySectionId = new Map(
+    (result?.transcripts ?? []).map((s) => [s.sectionId, s.transcript]),
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-6">
@@ -394,7 +412,7 @@ export default function IeltsTestPage() {
               )}
             </div>
             {section.instructions && <p className="mt-1 text-xs text-slate-500">{section.instructions}</p>}
-            {test.skill === 'LISTENING' && (
+            {test.skill === 'LISTENING' && !result && (
               <p className="mt-1 text-[11px] text-slate-400">
                 {t('ielts.aiVoiceNotice')} · {t('ielts.transcriptAfterSubmit')}
               </p>
@@ -406,6 +424,17 @@ export default function IeltsTestPage() {
             {section.passageText && (
               <div className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
                 {section.passageText}
+              </div>
+            )}
+
+            {/* Listening transcript — revealed with the submitted result (2026-10-08).
+                Withheld beforehand: showing it earlier would give away every answer. */}
+            {transcriptBySectionId.has(section.id) && (
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                <p className="text-xs font-semibold text-emerald-900">{t('ielts.transcript')}</p>
+                <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                  {transcriptBySectionId.get(section.id)}
+                </div>
               </div>
             )}
 

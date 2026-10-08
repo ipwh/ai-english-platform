@@ -253,6 +253,15 @@ Rules:
 > reading full component 33 → **40/40**, listening 23 → **37–40/40**, with the final
 > 3-round setting reaching **40/40 for both** (reading 77s, listening 103s).
 >
+> **Listening transcript reveal (2026-10-08 V).** A listening section's transcript is
+> WITHHELD while the attempt is open — delivering it early would hand over every
+> answer — and is released together with the submitted result
+> (`toDeliveredTranscripts()`, inserted into both the submit response and the attempt
+> detail, so a refresh keeps it). Empty transcripts are never delivered. Note that
+> `catalog-service.getSectionTranscriptForDelivery()` deliberately does NOT gate on
+> submission: it feeds the platform TTS audio route, which must work BEFORE the
+> student answers. Any new TEXT transcript surface must use the attempt gate instead.
+>
 > Entry point: `POST /api/ielts/admin/generate` (teacher/admin; budget→503,
 > timeout→504, provider→502, refused/empty/non-conforming→422). Scope `set`
 > (3–14 reading / 3–10 listening items) or `full_component` (official 40-question

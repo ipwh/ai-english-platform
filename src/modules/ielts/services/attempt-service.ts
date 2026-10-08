@@ -126,6 +126,46 @@ export interface IeltsSubmissionSummary extends IeltsAttemptSummary {
   incorrectCount: number;
   ungradableCount: number;
   results: IeltsResponseFeedback[];
+  /**
+   * Listening transcripts, released ONLY with a submitted result (2026-10-08).
+   * Withheld while the attempt is open: delivering the transcript before the
+   * student answers would hand over every answer.
+   */
+  transcripts: IeltsSectionTranscript[];
+}
+
+export interface IeltsSectionTranscript {
+  sectionId: string;
+  label: string;
+  orderIndex: number;
+  transcript: string;
+}
+
+/**
+ * SINGLE gate for releasing listening transcripts to a candidate.
+ *
+ * The transcript is hidden while the attempt is open (pre-answer delivery = answer
+ * leakage) and released with the submitted result. Two callers depend on this:
+ *   * the submit/detail payloads below (post-submission reveal)
+ *   * `catalog-service.getSectionTranscriptForDelivery()` — which deliberately does
+ *     NOT gate on submission, because it feeds the platform TTS audio route that the
+ *     student must be able to play BEFORE answering
+ *
+ * 2026-10-08: the runner promised "the transcript is revealed after submission" but
+ * nothing ever delivered or rendered it (the service existed, yet was only wired to
+ * the audio route). The reveal now travels with the submitted result.
+ */
+function toDeliveredTranscripts(
+  sections: Array<{ id: string; orderIndex: number; label: string; transcriptText: string | null }>,
+): IeltsSectionTranscript[] {
+  return sections
+    .filter((s): s is typeof s & { transcriptText: string } => Boolean(s.transcriptText && s.transcriptText.trim()))
+    .map((s) => ({
+      sectionId: s.id,
+      label: s.label,
+      orderIndex: s.orderIndex,
+      transcript: s.transcriptText,
+    }));
 }
 
 export async function submitIeltsAttempt(input: {
@@ -313,6 +353,8 @@ export async function submitIeltsAttempt(input: {
       incorrectCount: aggregate.incorrect,
       ungradableCount: aggregate.ungradable,
       results,
+      // The result is being delivered here, so the transcript is released with it.
+      transcripts: toDeliveredTranscripts(test.sections),
     },
   };
 }
@@ -330,6 +372,8 @@ export interface IeltsAttemptDetail extends IeltsAttemptSummary {
     answeredAt: Date;
   }>;
   feedback: IeltsResponseFeedback[];
+  /** Released only for a SUBMITTED attempt (see toDeliveredTranscripts). */
+  transcripts: IeltsSectionTranscript[];
 }
 
 export async function getIeltsAttemptDetail(
@@ -339,6 +383,11 @@ export async function getIeltsAttemptDetail(
   if (!row) return { ok: false, status: 404, error: 'Attempt not found' };
 
   let feedback: IeltsResponseFeedback[] = [];
+  // Transcript release mirrors the feedback gate exactly: a submitted attempt only.
+  let transcripts: IeltsSectionTranscript[] = [];
+  if (row.status === 'SUBMITTED') {
+    transcripts = toDeliveredTranscripts(await ieltsRepo.listSectionsForTest(row.testId));
+  }
   if (row.status === 'SUBMITTED' && row.responses.length > 0) {
     const questions = await ieltsRepo.findQuestionsByIds(row.responses.map((r) => r.questionId));
     const byId = new Map(questions.map((q) => [q.id, q]));
@@ -376,6 +425,7 @@ export async function getIeltsAttemptDetail(
         answeredAt: r.answeredAt,
       })),
       feedback,
+      transcripts,
     },
   };
 }

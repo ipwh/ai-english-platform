@@ -4,6 +4,49 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（V）— 修復「提交答案後，未有顯示逐字稿」（IELTS 聆聽逐字稿交付閘門）
+
+### 一、背景（使用者回報）
+`/student/ielts/tests/<id>` 提交答案後**看不到逐字稿**（頁面卻寫著「逐字稿將於提交後顯示」）。
+
+### 二、取證（生產庫唯讀）
+該卷（LISTENING／INSTANT／40 題、4 段 × 10）**資料完好**：4 段逐字稿都在資料庫
+（1587／2222／3247／2914 字），學生亦已提交（40 題、8/40）。
+⇒ 缺陷**不在資料生成**，而在**交付與渲染**：承諾沒有實作。
+
+### 三、病根（承諾 → 實作斷鏈）
+1. **沒有交付路徑**：`getSectionTranscriptForDelivery()` 存在，但**只接在 TTS 語音路由**
+   （`/api/ielts/sections/[id]/audio`）上 —— 沒有任何端點把逐字稿文字交給學生。
+   （該函式**刻意**不檢查提交狀態：語音必須在作答**前**可播放。）
+2. **沒有渲染路徑**：runner 只渲染 `section.passageText`（閱讀篇章），**從未**渲染逐字稿；
+   提交結果的型別（`SubmitResult`）也完全沒有逐字稿欄位。
+3. 平台整體測試（含 IELTS 307 項）從未涵蓋「文案承諾是否有對應實作」⇒ 這個斷鏈長期存在。
+
+### 四、修正（單一閘門）
+1. `attempt-service.ts`：新增 `toDeliveredTranscripts()` —— **逐字稿交付的唯一閘門**，
+   並把 `transcripts: IeltsSectionTranscript[]` 併入
+   `IeltsSubmissionSummary`（提交回傳）與 `IeltsAttemptDetail`（重新載入）。
+   **只在 `status === 'SUBMITTED'` 時釋出**：作答前交付逐字稿等於直接把答案交給學生。
+   空逐字稿不交付。
+2. `ielts-repo.ts`：新增 `listSectionsForTest()`（有界投影：只取 id／orderIndex／label／
+   transcriptText，不含題目與答案鍵）。
+3. Runner（`tests/[id]/page.tsx`）：提交後於各段顯示逐字稿區塊；**重新整理亦會還原**
+   （由已提交嘗試的 detail 帶回）。作答前完全沒有逐字稿區塊。
+4. i18n 新增 `ielts.transcript`（zh：逐字稿（AI 語音依據）／en：Transcript (basis of the AI voice)）。
+
+### 五、實測驗證
+- **真實生產資料**：對使用者回報的那次提交重新執行 `getIeltsAttemptDetail()` ⇒
+  `transcripts=4`（Part 1–4 逐字稿全文），此前為 0。
+- 新增 `attempt-service.test.ts` 4 項：提交回傳含全部段落逐字稿；空逐字稿不交付；
+  **進行中的嘗試不得釋出**（且不得讀取段落文字）；重新載入已提交嘗試會還原
+  （`listSectionsForTest` 以 testId 呼叫）。
+- 新增 `transcript-reveal-contract.test.ts`（4 項 source scan）：runner 必須有渲染路徑、
+  文案與 i18n 必須成對存在、伺服器必須以 SUBMITTED 為閘門、交付必須經單一函式、
+  detail 契約必須帶 transcripts 且重新整理會還原 —— 令「只有承諾沒有實作」無法回歸。
+- **負向對照**：把閘門改為無條件釋出 ⇒ 「進行中不得釋出」測試失敗（檔案雜湊已還原）。
+
+---
+
 ## 2026-10-08（IV）— 全練習生成審核＋IELTS 補題硬化（發布前總驗）
 
 ### 一、背景

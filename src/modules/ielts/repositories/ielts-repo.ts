@@ -284,6 +284,18 @@ export async function getSectionById(id: string) {
   return db.ieltsSection.findUnique({ where: { id } });
 }
 
+/**
+ * Sections of a test, ordered, with only the text needed for delivery decisions
+ * (transcript presence/length + label). Bounded projection: no questions, no keys.
+ */
+export async function listSectionsForTest(testId: string) {
+  return db.ieltsSection.findMany({
+    where: { testId },
+    orderBy: { orderIndex: 'asc' },
+    select: { id: true, orderIndex: true, label: true, transcriptText: true },
+  });
+}
+
 // ============================================
 // Attempts
 // ============================================
