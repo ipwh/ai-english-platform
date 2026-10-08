@@ -75,7 +75,10 @@ function sampleReadingSet(firstPromptTag: string) {
     transcript: null,
     questions: [
       {
-        questionType: 'reading_true_false_not_given',
+        // 2026-10-08：AI 提示詞使用**不帶技能前綴**的官方題型名稱
+        // （見 ai/prompts/ielts/question-generation.ts）。此 fixture 代表 *AI 輸出*，
+        // 必須照實使用該詞彙，否則測試會掩蓋「題型名稱對照缺失 ⇒ 全軍覆沒」的缺陷。
+        questionType: 'true_false_not_given',
         prompt: `[${firstPromptTag}] The community workshop opens on Monday.`,
         options: null,
         answerKey: 'TRUE',
@@ -86,7 +89,7 @@ function sampleReadingSet(firstPromptTag: string) {
         difficulty: 'EASY',
       },
       {
-        questionType: 'reading_sentence_completion',
+        questionType: 'sentence_completion',
         prompt: `[${firstPromptTag}] Membership costs £______ per year.`,
         options: null,
         answerKey: 'fifteen',
@@ -98,7 +101,7 @@ function sampleReadingSet(firstPromptTag: string) {
         difficulty: 'EASY',
       },
       {
-        questionType: 'reading_multiple_choice',
+        questionType: 'multiple_choice',
         prompt: `[${firstPromptTag}] When does the workshop close?`,
         options: ['Six in the evening', 'Five in the morning', 'Seven at night', 'Four in the afternoon'],
         answerKey: 'A',
@@ -311,7 +314,8 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
         transcript: TRANSCRIPT,
         questions: [
           {
-            questionType: 'listening_multiple_choice',
+            // 同上：AI 輸出使用不帶技能前綴的名稱
+            questionType: 'multiple_choice',
             prompt: 'When does the tour start?',
             options: ['Ten in the morning', 'Nine in the morning', 'Eleven in the morning'],
             answerKey: 'A',
@@ -350,6 +354,109 @@ describe('generateIeltsPracticeContent — guarded persistence', () => {
     mocks.generateIeltsQuestionSetWithAI.mockRejectedValue(new Error('AI daily budget exhausted'));
     await expect(generateIeltsPracticeContent(baseInput())).rejects.toThrow('budget');
     expect(mocks.createTest).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================
+// Answer-key form contract (2026-10-08)
+// ============================================
+// The generation prompt asks for "the correct option"; the model reliably answers with the
+// option TEXT while the canonical contract (validator MC_KEY_NOT_IN_OPTIONS, scorer
+// MC_LETTER_MATCH) requires the option CODE. Measured on the real path: 11 of 13 listening
+// MC items were rejected by MC_KEY_NOT_IN_OPTIONS. The screen owns the single conversion.
+describe('answer-key form — AI option text ↔ canonical option code', () => {
+  it('converts a listening MC answer key given as the option TEXT into its code', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(
+      aiOk({
+        title: 'Library tour',
+        passage: null,
+        transcript: TRANSCRIPT,
+        questions: [
+          {
+            questionType: 'multiple_choice',
+            prompt: 'When does the tour start?',
+            options: ['Ten in the morning', 'Nine in the morning', 'Eleven in the morning'],
+            // Real AI shape: the option text, not the letter.
+            answerKey: 'Ten in the morning',
+            acceptedAnswers: [],
+            evidenceReasoning: 'The guide states the start time.',
+            explanation: 'The guide states ten in the morning.',
+            difficulty: 'EASY',
+          },
+        ],
+      }),
+    );
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'A' }));
+
+    const outcome = await generateIeltsPracticeContent({
+      userId: 'teacher-1',
+      skill: 'LISTENING',
+      testType: 'ACADEMIC',
+      count: 3,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(1);
+    expect(outcome.drops).toHaveLength(0);
+    // The canonical code is what gets persisted (and what the validator/scorer require).
+    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ answerKey: string }>;
+    expect(rows[0].answerKey).toBe('"A"');
+  });
+
+  it('leaves a text key that matches no option untouched (validator rejects, fail-closed)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(
+      aiOk({
+        title: 'Library tour',
+        passage: null,
+        transcript: TRANSCRIPT,
+        questions: [
+          {
+            questionType: 'multiple_choice',
+            prompt: 'When does the tour start?',
+            options: ['Ten in the morning', 'Nine in the morning', 'Eleven in the morning'],
+            answerKey: 'At noon',
+            acceptedAnswers: [],
+            explanation: 'No such option exists.',
+            difficulty: 'EASY',
+          },
+        ],
+      }),
+    );
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'A' }));
+
+    const outcome = await generateIeltsPracticeContent({
+      userId: 'teacher-1',
+      skill: 'LISTENING',
+      testType: 'ACADEMIC',
+      count: 3,
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    // Nothing survived the gates ⇒ the documented fail-closed outcome (422 GENERATION_EMPTY).
+    expect(outcome.code).toBe('GENERATION_EMPTY');
+    expect(outcome.message).toContain('MC_KEY_NOT_IN_OPTIONS');
+    expect(mocks.createQuestions).not.toHaveBeenCalled();
+  });
+
+  it('never rewrites a free-text completion key that happens to equal an option text', async () => {
+    const set = sampleReadingSet('K');
+    set.questions[1].answerKey = 'Six in the evening';
+    set.questions[1].wordLimit = { maxWords: 4, allowsNumber: true, instruction: 'Write NO MORE THAN FOUR WORDS' };
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(set));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'TRUE', q2: 'Six in the evening', q3: 'A' }));
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(3);
+    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ questionType: string; answerKey: string }>;
+    const completion = rows.find((r) => r.questionType === 'reading_sentence_completion');
+    expect(completion?.answerKey).toBe('"Six in the evening"');
+    const mc = rows.find((r) => r.questionType === 'reading_multiple_choice');
+    expect(mc?.answerKey).toBe('"A"');
   });
 });
 

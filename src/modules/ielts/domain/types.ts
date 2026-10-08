@@ -131,6 +131,43 @@ export function isIeltsObjectiveType(type: IeltsQuestionType): boolean {
 }
 
 // ============================================
+// Question-type name resolution (SINGLE OWNER)
+// ============================================
+/**
+ * 官方題型名稱的**單一對照 owner**。
+ *
+ * AI 出題提示詞使用**不帶技能前綴**的官方名稱（`sentence_completion`、
+ * `true_false_not_given`、`matching`… —— 見 `ai/prompts/ielts/question-generation.ts`），
+ * 而正典（validator／scorer／資料庫／種子內容／starter sets）一律使用**帶技能前綴**
+ * 的名稱（`reading_sentence_completion`、`listening_form_note_table_flowchart_completion`…）。
+ *
+ * 2026-10-08 事故（學生回報「未能生成完整組件（40 題）」→ 422
+ * `GENERATION_EMPTY`）：缺此對照時，AI 產出的**每一題**都被機器屏檢判
+ * `QUESTION_TYPE_NOT_ALLOWED`（若繞過屏檢則被評分器判 `ungradable` →
+ * `VERIFY_ANSWER_MISMATCH`），整份組件全軍覆沒。**不得在別處另寫一份對照。**
+ *
+ * @returns 正典題型名稱；`null` = 未知題型 → 呼叫端必須逐題丟棄（fail-closed）。
+ */
+export function resolveIeltsQuestionType(
+  skill: 'READING' | 'LISTENING' | 'WRITING' | 'SPEAKING',
+  rawType: string,
+): IeltsQuestionType | null {
+  const raw = String(rawType ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (!raw) return null;
+  const prefix = `${skill.toLowerCase()}_`;
+  // 已帶前綴者原樣接受；未帶前綴者補上技能前綴（提示詞的官方名稱即為此形式）。
+  // 一律要求候選名稱帶有**本技能**的前綴，否則「閱讀技能 + listening_*」這種
+  // 跨技能誤用會被當成有效題型。
+  const candidates = raw.startsWith(prefix) ? [raw] : [raw, `${prefix}${raw}`];
+  for (const candidate of candidates) {
+    if (!candidate.startsWith(prefix)) continue;
+    if (candidate === `${prefix}task`) return candidate as IeltsQuestionType;
+    if (isIeltsObjectiveType(candidate as IeltsQuestionType)) return candidate as IeltsQuestionType;
+  }
+  return null;
+}
+
+// ============================================
 // Word limits
 // ============================================
 

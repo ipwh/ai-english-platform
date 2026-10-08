@@ -110,7 +110,11 @@ export default function IeltsDashboardPage() {
         }),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        // 診斷可見性（2026-10-08）：伺服器的 message 帶有 fail-closed 閘門的機器丟棄原因
+        // （例：VALIDATOR_REJECT:MC_KEY_NOT_IN_OPTIONS）。學生不該看到內部代碼，但維運
+        // 需要 —— 先前整段被丟棄，令 422 只能盲猜（40 題全軍覆沒事故花了很久才定位）。
+        console.warn('[ielts] instant generation failed', body.error ?? res.status, body.message ?? '');
         setInstantError(instantErrorKey(body.error ?? ''));
         return;
       }

@@ -32,14 +32,19 @@ import type {
 } from '../domain/types';
 import {
   IELTS_DIFFICULTY_MODEL_VERSION,
+  isIeltsMcType,
+  isIeltsMatchingType,
+  resolveIeltsQuestionType,
   type IeltsDifficulty,
   type IeltsEvidenceSpan,
   type IeltsItemEvidence,
   type IeltsOption,
   type IeltsQuestionDefinition,
+  type IeltsQuestionType,
   type IeltsWordLimit,
 } from '../domain/types';
 import { countIeltsWords } from '../domain/word-count';
+import { normalizeIeltsAnswer, stripOptionPrefix } from '../domain/normalization';
 import { difficultyForTargetBand, type IeltsTargetBand } from '../domain/difficulty';
 import { scoreIeltsItem, extractOptionPairs, type IeltsScorableItem } from '../scoring/objective-scorer';
 import {
@@ -234,6 +239,33 @@ function toKeyArray(key: string | string[]): string[] {
   return Array.isArray(key) ? key.map(String) : [String(key)];
 }
 
+/**
+ * Code-family answer keys must be OPTION CODES (validator: MC_KEY_NOT_IN_OPTIONS;
+ * scorer: MC_LETTER_MATCH). The generation prompt asks for the correct option, and the
+ * model reliably answers with the option TEXT instead of its letter — every such item was
+ * rejected before this conversion (measured 2026-10-08: 11 of 13 listening MC items).
+ * Conversion is deterministic and only happens on an UNAMBIGUOUS match of exactly one
+ * option (same policy as scoreCodeAnswer's full-text match); anything else is left
+ * untouched so the validator rejects it (fail-closed).
+ */
+function canonicalizeCodeAnswerKey(
+  answerKey: string,
+  canonicalType: IeltsQuestionType,
+  pairs: Array<{ code: string; text: string }>,
+): string {
+  if (pairs.length === 0) return answerKey;
+  const isCodeFamily =
+    isIeltsMcType(canonicalType) ||
+    isIeltsMatchingType(canonicalType) ||
+    canonicalType === 'listening_plan_map_diagram_labelling';
+  if (!isCodeFamily) return answerKey;
+  const keyText = normalizeIeltsAnswer(answerKey);
+  const matches = pairs.filter(
+    (p) => normalizeIeltsAnswer(p.text) === keyText || normalizeIeltsAnswer(stripOptionPrefix(p.text)) === keyText,
+  );
+  return matches.length === 1 ? matches[0].code : answerKey;
+}
+
 function aggregateDrops(drops: Map<string, number>): IeltsGenerationDrops[] {
   return [...drops.entries()]
     .map(([reason, count]) => ({ reason, count }))
@@ -270,20 +302,32 @@ function screenGeneratedItems(args: {
 }): PreparedItem[] {
   const { skill, passage, transcript, batch, seenPrompts, drops } = args;
   const allowed = skill === 'READING' ? READING_ALLOWED_TYPES : LISTENING_ALLOWED_TYPES;
-  const restrictTo = args.allowedTypes && args.allowedTypes.length > 0 ? new Set(args.allowedTypes) : null;
+  // 題型名稱以正典（帶技能前綴）為準：AI 提示詞使用的是不帶前綴的官方名稱，
+  // 兩者必須經 resolveIeltsQuestionType() 這個唯一 owner 對照（2026-10-08 事故：
+  // 缺此對照 ⇒ 每一題都被判 QUESTION_TYPE_NOT_ALLOWED／ungradable ⇒ 全軍覆沒）。
+  const requestedTypes = args.allowedTypes && args.allowedTypes.length > 0
+    ? new Set(
+        args.allowedTypes
+          .map((t) => resolveIeltsQuestionType(skill, t))
+          .filter((t): t is IeltsQuestionType => !!t),
+      )
+    : null;
   const prepared: PreparedItem[] = [];
 
   const drop = (reason: string) => drops.set(reason, (drops.get(reason) ?? 0) + 1);
 
   args.rawQuestions.forEach((raw, index) => {
     const tempId = `q${index + 1}`;
-    if (!allowed.has(raw.questionType)) return drop('QUESTION_TYPE_NOT_ALLOWED');
-    if (restrictTo && !restrictTo.has(raw.questionType)) return drop('QUESTION_TYPE_NOT_REQUESTED');
+    const canonicalType = resolveIeltsQuestionType(skill, raw.questionType);
+    if (!canonicalType || !allowed.has(canonicalType)) return drop('QUESTION_TYPE_NOT_ALLOWED');
+    if (requestedTypes && !requestedTypes.has(canonicalType)) return drop('QUESTION_TYPE_NOT_REQUESTED');
 
     const keys = toKeyArray(raw.answerKey);
     // Official numbering: one numbered question = one answer = one mark.
     if (keys.length !== 1 || !keys[0].trim()) return drop('MULTI_ANSWER_NOT_OFFICIAL');
-    const answerKey = keys[0].trim();
+    const options = (raw.options as IeltsOption[] | string[] | undefined) ?? null;
+    const pairs = extractOptionPairs(options);
+    const answerKey = canonicalizeCodeAnswerKey(keys[0].trim(), canonicalType, pairs);
 
     const promptKey = normalizePrompt(raw.prompt);
     if (!promptKey) {
@@ -294,8 +338,6 @@ function screenGeneratedItems(args: {
       drop('DUPLICATE_OF_RECENT');
       return;
     }
-
-    const options = (raw.options as IeltsOption[] | string[] | undefined) ?? null;
 
     // ---- Evidence (skill-specific) -------------------------------------
     let evidence: IeltsItemEvidence;
@@ -310,16 +352,15 @@ function screenGeneratedItems(args: {
         passageId: 'generated-section',
         evidenceSpans: spans,
         reasoning: raw.evidenceReasoning?.trim() || 'Generated evidence span.',
-        answerType: raw.questionType,
+        answerType: canonicalType,
       };
     } else {
       if (!transcript) return drop('MISSING_TRANSCRIPT');
-      const pairs = extractOptionPairs(options);
       const usesOptionCodes =
         pairs.length > 0 &&
-        (raw.questionType === 'listening_multiple_choice' ||
-          raw.questionType === 'listening_matching' ||
-          raw.questionType === 'listening_plan_map_diagram_labelling');
+        (canonicalType === 'listening_multiple_choice' ||
+          canonicalType === 'listening_matching' ||
+          canonicalType === 'listening_plan_map_diagram_labelling');
       // For code families the validator checks the correct OPTION TEXT; supply it.
       const optionText = usesOptionCodes
         ? pairs.find((p) => p.code.trim().toLowerCase() === answerKey.toLowerCase())?.text
@@ -339,7 +380,7 @@ function screenGeneratedItems(args: {
       id: `pending-${tempId}`,
       testId: 'pending',
       orderIndex: index,
-      questionType: raw.questionType as IeltsQuestionDefinition['questionType'],
+      questionType: canonicalType,
       skill,
       prompt: raw.prompt,
       options: options ?? undefined,
@@ -367,7 +408,7 @@ function screenGeneratedItems(args: {
     seenPrompts.add(promptKey);
     prepared.push({
       tempId,
-      questionType: raw.questionType,
+      questionType: canonicalType,
       prompt: raw.prompt,
       options,
       answerKey,
@@ -377,7 +418,7 @@ function screenGeneratedItems(args: {
       explanation: raw.explanation?.trim() ?? '',
       difficulty: raw.difficulty ?? 'MEDIUM',
       scorable: {
-        questionType: raw.questionType as IeltsScorableItem['questionType'],
+        questionType: canonicalType,
         options,
         answerKey,
         acceptedAnswers: raw.acceptedAnswers ?? null,

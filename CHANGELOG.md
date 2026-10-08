@@ -4,6 +4,70 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（II）— 修復 IELTS「未能生成完整組件（40 題）」422（AI 詞彙 ↔ 正典形式對照）
+
+### 一、背景（使用者回報）
+`/student/ielts` 選「完整組件（40 題）」即時生成 → `422`，前端只顯示
+`ielts.instant.noContent`（`GENERATION_EMPTY`）。同一頁的 `notifications`
+`ERR_NAME_NOT_RESOLVED`／`ERR_NETWORK_IO_SUSPENDED` 屬客戶端暫時性網路錯誤，與本事故無關。
+
+### 二、病根（兩層，同一類缺陷：AI 提示詞詞彙 ↔ 正典形式之間沒有對照）
+1. **題型名稱無對照 ⇒ 全軍覆沒（主因）**
+   AI 提示詞（`ai/prompts/ielts/question-generation.ts`）使用**不帶技能前綴**的官方名稱
+   （`multiple_choice`／`sentence_completion`／`true_false_not_given`…），
+   而正典（`domain/types.ts`、validator、scorer、`READING_ALLOWED_TYPES`／
+   `LISTENING_ALLOWED_TYPES`）全部是**帶前綴**名稱（`reading_*`／`listening_*`），
+   **全倉庫沒有任何對照程式** ⇒ `screenGeneratedItems` 的型別白名單全部不通過，
+   即使勉強進入評分，`scoreIeltsItem()` 也因題型不屬客觀題而回 `ungradable`
+   ⇒ blind-solve 一律判 `VERIFY_ANSWER_MISMATCH` ⇒ `deliveredCount = 0` ⇒ `GENERATION_EMPTY`。
+2. **選擇題答案鍵形式不符 ⇒ 聆聽題大量流失（次要，但同樣致命）**
+   提示詞要求「正確選項」，模型因此回**選項原文**當 `answerKey`，而正典契約要求
+   **選項代碼**（validator `MC_KEY_NOT_IN_OPTIONS`；scorer `MC_LETTER_MATCH`）
+   ⇒ 實測（2026-10-08）**13 題聆聽選擇題中有 11 題被 `MC_KEY_NOT_IN_OPTIONS` 拒絕**。
+
+### 三、修正
+1. `ielts/domain/types.ts`：新增 **唯一 owner** `resolveIeltsQuestionType(skill, rawType)`
+   —— 支援不帶前綴／已帶前綴／大小寫、空白、連字號正規化，**並要求候選名稱帶有本技能
+   前綴**（否則「閱讀技能 + `listening_*`」這種跨技能誤用會被當成有效題型）；無法對照回 `null`。
+2. `ielts/services/generation-service.ts` 的 `screenGeneratedItems` 全面改用該 owner
+   （型別白名單、`definition.questionType`、`scorable.questionType`、`evidence.answerType`、
+   聆聽 `usesOptionCodes` 比對、`restrictTo` 對照），並新增
+   `canonicalizeCodeAnswerKey()`：選擇／配對家族的答案鍵若**唯一**命中某選項原文
+   （含 `A. text` 這類前綴形式），轉為該選項代碼 —— 與 `scoreCodeAnswer` 的全文比對政策一致；
+   **無法唯一判定則原樣保留，交由 validator 拒絕（fail-closed）**。
+3. 測試 fixture 曾以**帶前綴**名稱書寫 AI 輸出，掩蓋了缺陷 ⇒
+   `ielts/__tests__/generation-service.test.ts` 的 AI 輸出改用**真實模型詞彙**。
+4. 診斷可見性：`app/student/ielts/page.tsx` 的即時生成失敗改為同時 `console.warn`
+   伺服器 `{ error, message }`（含 fail-closed 丟棄原因）。學生 UI 不變（仍只顯示 i18n 文案），
+   但維運不再被迫盲猜 422 的原因。
+
+### 四、實測驗證（真實生成路徑，皆不持久化）
+| 量測 | 修正前 | 修正後 |
+| --- | --- | --- |
+| 13 題閘門探測（生成 → blind-solve → `scoreIeltsItem`） | `VERIFY_ANSWER_MISMATCH×13`（全滅） | `KEPT×13` |
+| `generateIeltsPracticeContent` READING `full_component` | `GENERATION_EMPTY`（422） | `ok=true`，交付 **33/40**（12+10+11） |
+| 同上 LISTENING `full_component` | `GENERATION_EMPTY`（422） | `ok=true`，交付 **23/40**（修正答案鍵前為 21/40） |
+| 聆聽 `VALIDATOR_REJECT:MC_KEY_NOT_IN_OPTIONS` | 11 | **0** |
+
+- 新增 `ielts/__tests__/question-type-mapping.test.ts`（21 cases：提示詞詞彙 → 正典名稱、
+  已帶前綴／未知題型／跨技能回 `null`、`ungradable` 症狀）。
+- 新增 `generation-service.test.ts` 3 cases（答案鍵原文 → 代碼並以代碼持久化；
+  無法對照者維持 fail-closed 至 `GENERATION_EMPTY`；**自由填答鍵即使等於某選項原文也不得轉換**）。
+- **負向對照**：暫時停用上述兩項修正後重跑，`ielts` 套件 **12 個測試失敗** ⇒ 測試確為回歸護欄
+  （非套套邏輯）；停用前後檔案雜湊一致（已還原）。
+- 全套測試、`tsc --noEmit`、`check:i18n`、`npm run build:prod` 皆通過。
+
+### 五、已知限制（誠實回報，未在此次修改中放寬）
+`LISTENING_ANSWER_NOT_IN_TRANSCRIPT` 仍是聆聽組件的主要缺口（本次實測 18 題）：
+正典要求**正確選項原文逐字出現於逐字稿**（`validation/question-validator.ts`
+的 code-family 規則，屬已文件的公平性判準），而官方風格的聆聽選擇題常以**改寫**
+方式對應逐字稿 ⇒ 這類（可能合格的）題目被 fail-closed 丟棄。放寬此判準等同變更
+合規契約（需另行舉證與調整契約測試），故本次只把它變成**可見的短欠**（`ok=true` ＋
+誠實 `shortfall`），不再整組 422 失敗。另：AI 產出的聆聽選項與逐字稿對應品質本身
+是後續可改善的提示詞/驗證工作。
+
+---
+
 ## 2026-10-08 — 修復「題目數量生成不足」（說話 MC 提示詞矛盾＋交付數量如實告知）
 
 ### 一、背景（使用者回報）
