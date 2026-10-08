@@ -20,6 +20,7 @@ vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
 // The canonical AI pipeline is mocked (never invoked: tests inject `generate`).
 vi.mock('@/modules/ai', () => ({
   generateIeltsQuestionSetWithAI: vi.fn(),
+  extendIeltsSectionWithAI: vi.fn(),
   verifyIeltsItemsWithAI: vi.fn(),
   generateIeltsWritingPromptWithAI: vi.fn(),
   verifyIeltsWritingPromptWithAI: vi.fn(),

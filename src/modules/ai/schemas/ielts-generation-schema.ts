@@ -56,6 +56,22 @@ export const IeltsGeneratedSetSchema = z.object({
 export type IeltsGeneratedQuestion = z.infer<typeof IeltsGeneratedQuestionSchema>;
 export type IeltsGeneratedSet = z.infer<typeof IeltsGeneratedSetSchema>;
 
+/**
+ * Section EXTENSION output — questions ONLY (2026-10-08).
+ *
+ * A section's passage/transcript is fixed once it has been accepted: every item
+ * attached to it must be supported by THAT text. Topping a section up therefore
+ * cannot re-run the set generator (which always authors a new text); it asks for
+ * more questions against the existing text and deliberately does NOT accept a
+ * passage/transcript back — asking the model to echo a 700-word passage would
+ * cost tokens and invite silent drift between the text and its items.
+ */
+export const IeltsGeneratedItemsSchema = z.object({
+  questions: z.array(IeltsGeneratedQuestionSchema).default([]),
+});
+
+export type IeltsGeneratedItems = z.infer<typeof IeltsGeneratedItemsSchema>;
+
 // ============================================
 // Blind-solve verification (objective items)
 // ============================================

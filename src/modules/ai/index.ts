@@ -161,28 +161,33 @@ export type {
 // QA_REQUIRED — a human must approve and publish. See IELTS_SPECIFICATION.md §5.
 import {
   generateIeltsQuestionSetWithAI,
+  extendIeltsSectionWithAI,
   verifyIeltsItemsWithAI,
   generateIeltsWritingPromptWithAI,
   verifyIeltsWritingPromptWithAI,
 } from '@/modules/ai/usecases/ielts-question-generation';
 import {
   IELTS_QUESTION_GENERATION_V1,
+  IELTS_SECTION_EXTENSION_V1,
   IELTS_ITEM_VERIFICATION_V1,
   IELTS_WRITING_PROMPT_GENERATION_V1,
   IELTS_WRITING_PROMPT_VERIFICATION_V1,
 } from '@/modules/ai/prompts/ielts/question-generation';
 export {
   generateIeltsQuestionSetWithAI,
+  extendIeltsSectionWithAI,
   verifyIeltsItemsWithAI,
   generateIeltsWritingPromptWithAI,
   verifyIeltsWritingPromptWithAI,
   IELTS_QUESTION_GENERATION_V1,
+  IELTS_SECTION_EXTENSION_V1,
   IELTS_ITEM_VERIFICATION_V1,
   IELTS_WRITING_PROMPT_GENERATION_V1,
   IELTS_WRITING_PROMPT_VERIFICATION_V1,
 };
 export type {
   IeltsQuestionGenerationAiRequest,
+  IeltsSectionExtensionAiRequest,
   IeltsItemVerificationAiRequest,
   IeltsWritingPromptGenerationAiRequest,
   IeltsWritingPromptVerificationAiRequest,
@@ -192,6 +197,7 @@ export type {
 export type {
   IeltsGeneratedSet,
   IeltsGeneratedQuestion,
+  IeltsGeneratedItems,
   IeltsItemVerificationResponse,
   IeltsWritingPromptGeneration,
   IeltsWritingPromptVerification,

@@ -22,10 +22,12 @@ import { executeAI } from '@/modules/ai/services/ai-execution';
 import { isBudgetExceededError } from '@/modules/ai/runtime/budget-policy';
 import { getLastAIProvider } from '@/modules/ai/services/ai-service';
 import {
+  IeltsGeneratedItemsSchema,
   IeltsGeneratedSetSchema,
   IeltsItemVerificationSchema,
   IeltsWritingPromptGenerationSchema,
   IeltsWritingPromptVerificationSchema,
+  type IeltsGeneratedItems,
   type IeltsGeneratedSet,
   type IeltsItemVerificationResponse,
   type IeltsWritingPromptGeneration,
@@ -36,16 +38,20 @@ import {
   buildIeltsItemVerificationUserPrompt,
   buildIeltsQuestionGenerationSystemPrompt,
   buildIeltsQuestionGenerationUserPrompt,
+  buildIeltsSectionExtensionSystemPrompt,
+  buildIeltsSectionExtensionUserPrompt,
   buildIeltsWritingGenerationSystemPrompt,
   buildIeltsWritingGenerationUserPrompt,
   buildIeltsWritingVerificationSystemPrompt,
   buildIeltsWritingVerificationUserPrompt,
   IELTS_ITEM_VERIFICATION_V1,
   IELTS_QUESTION_GENERATION_V1,
+  IELTS_SECTION_EXTENSION_V1,
   IELTS_WRITING_PROMPT_GENERATION_V1,
   IELTS_WRITING_PROMPT_VERIFICATION_V1,
   type BuildIeltsGenerationUserPromptInput,
   type BuildIeltsItemVerificationUserPromptInput,
+  type BuildIeltsSectionExtensionUserPromptInput,
   type IeltsGenSkill,
   type IeltsGenTestType,
   type IeltsWritingTaskTypeName,
@@ -180,6 +186,49 @@ export function generateIeltsQuestionSetWithAI(
     maxTokens: GENERATION_MAX_TOKENS,
     timeoutMs: GENERATION_TIMEOUT_MS,
     promptVersion: IELTS_QUESTION_GENERATION_V1,
+    overrides: { maxTokens: input.maxTokens, timeoutMs: input.timeoutMs },
+  });
+}
+
+// ============================================
+// 1b. Section extension (top-up against an existing passage/transcript)
+// ============================================
+// Returns questions ONLY: the caller owns the section text and screens the new
+// items against it. Same gates as set generation — this call is never trusted.
+
+export interface IeltsSectionExtensionAiRequest
+  extends Omit<BuildIeltsSectionExtensionUserPromptInput, 'skill' | 'testType'> {
+  skill: IeltsGenSkill;
+  testType: IeltsGenTestType;
+  /** Optional overrides (tests / future tuning). */
+  maxTokens?: number;
+  timeoutMs?: number;
+}
+
+export function extendIeltsSectionWithAI(
+  input: IeltsSectionExtensionAiRequest,
+): Promise<IeltsGenerationAiResult<IeltsGeneratedItems>> {
+  const systemPrompt = buildIeltsSectionExtensionSystemPrompt(input.skill, input.testType);
+  const userPrompt = buildIeltsSectionExtensionUserPrompt({
+    skill: input.skill,
+    testType: input.testType,
+    sectionLabel: input.sectionLabel,
+    itemCount: input.itemCount,
+    sectionText: input.sectionText,
+    itemTypes: input.itemTypes,
+    difficulty: input.difficulty,
+    avoidPrompts: input.avoidPrompts,
+    rejectionNotes: input.rejectionNotes,
+  });
+  return runGenerationCall({
+    context: { useCase: 'IeltsSectionExtension', promptName: 'IeltsQuestionGeneration' },
+    systemPrompt,
+    userPrompt,
+    schema: IeltsGeneratedItemsSchema,
+    temperature: 0.6,
+    maxTokens: GENERATION_MAX_TOKENS,
+    timeoutMs: GENERATION_TIMEOUT_MS,
+    promptVersion: IELTS_SECTION_EXTENSION_V1,
     overrides: { maxTokens: input.maxTokens, timeoutMs: input.timeoutMs },
   });
 }

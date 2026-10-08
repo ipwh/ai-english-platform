@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   generateIeltsQuestionSetWithAI: vi.fn(),
+  extendIeltsSectionWithAI: vi.fn(),
   verifyIeltsItemsWithAI: vi.fn(),
   generateIeltsWritingPromptWithAI: vi.fn(),
   verifyIeltsWritingPromptWithAI: vi.fn(),
@@ -28,6 +29,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/modules/ai', () => ({
   generateIeltsQuestionSetWithAI: mocks.generateIeltsQuestionSetWithAI,
+  extendIeltsSectionWithAI: mocks.extendIeltsSectionWithAI,
   verifyIeltsItemsWithAI: mocks.verifyIeltsItemsWithAI,
   generateIeltsWritingPromptWithAI: mocks.generateIeltsWritingPromptWithAI,
   verifyIeltsWritingPromptWithAI: mocks.verifyIeltsWritingPromptWithAI,
@@ -140,6 +142,10 @@ beforeEach(() => {
   mocks.listRecentQuestionPromptsBySkill.mockResolvedValue([]);
   mocks.listRecentSectionTextsBySkill.mockResolvedValue([]);
   mocks.listRecentWritingPrompts.mockResolvedValue([]);
+  // Default: the section cannot be extended any further (no extra items offered).
+  // Top-up tests override this; explicit here so a missing mock can never silently
+  // disable the per-section top-up.
+  mocks.extendIeltsSectionWithAI.mockResolvedValue(aiOk({ questions: [] }));
   mocks.createTest.mockResolvedValue({ id: 'test-1' });
   mocks.createSection.mockResolvedValue({ id: 'sec-1' });
   mocks.createQuestions.mockResolvedValue({ count: 3 });
@@ -457,6 +463,201 @@ describe('answer-key form — AI option text ↔ canonical option code', () => {
     expect(completion?.answerKey).toBe('"Six in the evening"');
     const mc = rows.find((r) => r.questionType === 'reading_multiple_choice');
     expect(mc?.answerKey).toBe('"A"');
+  });
+});
+
+// ============================================
+// Per-section top-up (2026-10-08)
+// ============================================
+// A section's passage/transcript is frozen once accepted, so a short section is filled
+// by asking for MORE questions about the SAME text. Measured before this existed: an
+// official 40-question component delivered 33 (reading) / 23 (listening) because a
+// section was accepted as soon as one item survived and the deficit was never recovered.
+describe('per-section top-up — filling a short section against the same text', () => {
+  /** A reading set containing only the first `keep` items (short of the target). */
+  function shortReadingSet(keep: number, tag: string) {
+    const set = sampleReadingSet(tag);
+    set.questions = set.questions.slice(0, keep);
+    return set;
+  }
+
+  /** Extra completion items about the SAME fixture passage (distinct prompts/answers). */
+  function extensionQuestions() {
+    return [
+      {
+        questionType: 'sentence_completion',
+        prompt: 'The workshop opens on ______.',
+        options: null,
+        answerKey: 'Monday',
+        acceptedAnswers: [],
+        wordLimit: { maxWords: 1, allowsNumber: false, instruction: 'Choose ONE WORD ONLY' },
+        evidenceQuotes: ['opens on Monday'],
+        evidenceReasoning: 'The opening day is stated.',
+        explanation: 'The text states Monday.',
+        difficulty: 'EASY',
+      },
+      {
+        questionType: 'sentence_completion',
+        prompt: 'The workshop closes at ______ in the evening.',
+        options: null,
+        answerKey: 'six',
+        acceptedAnswers: [],
+        wordLimit: { maxWords: 1, allowsNumber: false, instruction: 'Choose ONE WORD ONLY' },
+        evidenceQuotes: ['closes at six in the evening'],
+        evidenceReasoning: 'The closing time is stated.',
+        explanation: 'The text states six.',
+        difficulty: 'EASY',
+      },
+      {
+        questionType: 'sentence_completion',
+        prompt: 'The membership includes all ______.',
+        options: null,
+        answerKey: 'materials',
+        acceptedAnswers: [],
+        wordLimit: { maxWords: 1, allowsNumber: false, instruction: 'Choose ONE WORD ONLY' },
+        evidenceQuotes: ['includes all materials'],
+        evidenceReasoning: 'The inclusion is stated.',
+        explanation: 'The text states all materials.',
+        difficulty: 'EASY',
+      },
+    ];
+  }
+
+  it('tops a short section up to its target using the SAME passage', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'T1')));
+    mocks.verifyIeltsItemsWithAI
+      .mockResolvedValueOnce(verification({ q1: 'TRUE', q2: 'fifteen' }))
+      .mockResolvedValueOnce(verification({ q1: 'Monday' }));
+    mocks.extendIeltsSectionWithAI.mockResolvedValue(aiOk({ questions: extensionQuestions() }));
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(3);
+    expect(outcome.shortfall).toBe(0);
+    // The extension is asked about the section's OWN text, never a new one.
+    const extendCall = mocks.extendIeltsSectionWithAI.mock.calls[0][0] as {
+      sectionText: string;
+      itemCount: number;
+      skill: string;
+    };
+    expect(extendCall.sectionText).toBe(PASSAGE);
+    expect(extendCall.skill).toBe('READING');
+    expect(extendCall.itemCount).toBeGreaterThanOrEqual(1);
+    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ prompt: string }>;
+    expect(rows).toHaveLength(3);
+  });
+
+  it('never calls the extension when the section already meets its target', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(sampleReadingSet('T2')));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'TRUE', q2: 'fifteen', q3: 'A' }));
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(3);
+    expect(mocks.extendIeltsSectionWithAI).not.toHaveBeenCalled();
+  });
+
+  it('runs top-up items through the SAME gates (unsupported evidence is dropped)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'T3')));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'TRUE', q2: 'fifteen' }));
+    mocks.extendIeltsSectionWithAI
+      .mockResolvedValueOnce(
+        aiOk({
+          questions: [
+            {
+              ...extensionQuestions()[0],
+              // Not a substring of the passage ⇒ the machine screen must reject it.
+              evidenceQuotes: ['a sentence that is not in the passage'],
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(aiOk({ questions: [] }));
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    // No invented item was delivered: the deficit stays an honest shortfall.
+    expect(outcome.deliveredCount).toBe(2);
+    expect(outcome.shortfall).toBe(1);
+    expect(outcome.drops.some((d) => d.reason === 'EVIDENCE_QUOTE_NOT_FOUND')).toBe(true);
+  });
+
+  it('keeps the accepted items when the extension provider fails (honest shortfall)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'T4')));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'TRUE', q2: 'fifteen' }));
+    mocks.extendIeltsSectionWithAI.mockResolvedValue(aiFail());
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(2);
+    expect(outcome.shortfall).toBe(1);
+    expect(outcome.drops.some((d) => d.reason === 'TOPUP_AI_PROVIDER_ERROR')).toBe(true);
+  });
+
+  it('never discards accepted items when the top-up hits the AI budget (no 503)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'T5')));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValue(verification({ q1: 'TRUE', q2: 'fifteen' }));
+    mocks.extendIeltsSectionWithAI.mockRejectedValue(new Error('AI daily budget exhausted'));
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    // The section was already generated and verified — a later budget failure must not
+    // throw it away (the items passed every gate; shortfall is reported instead).
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(2);
+    expect(outcome.drops.some((d) => d.reason === 'TOPUP_ABORTED')).toBe(true);
+  });
+
+  it('never exceeds the official section target (over-ask is trimmed, with a reason)', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'T6')));
+    mocks.verifyIeltsItemsWithAI
+      .mockResolvedValueOnce(verification({ q1: 'TRUE', q2: 'fifteen' }))
+      .mockResolvedValueOnce(
+        verification({ q1: 'Monday', q2: 'six', q3: 'materials', q4: 'Monday' }),
+      );
+    mocks.extendIeltsSectionWithAI.mockResolvedValue(
+      aiOk({
+        questions: [
+          ...extensionQuestions(),
+          {
+            ...extensionQuestions()[0],
+            prompt: 'The workshop opens on which day? ______.',
+            evidenceQuotes: ['opens on Monday'],
+          },
+        ],
+      }),
+    );
+
+    const outcome = await generateIeltsPracticeContent(baseInput());
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.deliveredCount).toBe(3);
+    expect(outcome.shortfall).toBe(0);
+    expect(outcome.drops.some((d) => d.reason === 'TOPUP_TRIMMED')).toBe(true);
+    const rows = mocks.createQuestions.mock.calls[0][0] as Array<{ prompt: string }>;
+    expect(rows).toHaveLength(3);
+  });
+
+  it('tells the extension which points the section already tests', async () => {
+    mocks.generateIeltsQuestionSetWithAI.mockResolvedValue(aiOk(shortReadingSet(2, 'T7')));
+    mocks.verifyIeltsItemsWithAI.mockResolvedValueOnce(verification({ q1: 'TRUE', q2: 'fifteen' }));
+    mocks.extendIeltsSectionWithAI.mockResolvedValueOnce(aiOk({ questions: [] }));
+
+    await generateIeltsPracticeContent(baseInput());
+
+    const extendCall = mocks.extendIeltsSectionWithAI.mock.calls[0][0] as { avoidPrompts: string[] };
+    expect(extendCall.avoidPrompts.join(' ')).toContain('[T7]');
+    expect(extendCall.avoidPrompts.join(' ')).toContain('Membership costs');
   });
 });
 

@@ -4,6 +4,65 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-08（III）— IELTS 完整組件補題：40 題目標改為「盡量補足」（每段對同一文本補題）
+
+### 一、背景
+2026-10-08（II）修好「AI 詞彙 ↔ 正典形式」對照後，422 已消失，但實測「完整組件（40 題）」
+仍只交付 **Reading 33/40、Listening 23/40**。
+
+### 二、病根（結構性，非 bug）
+1. **每段一有題目存活就整段定案**：`generateIeltsPracticeContent()` 的
+   `if (verified.length > 0) { …; break; }` ⇒ 缺額**永不補回**（實測 Part 2 只交 3/10，
+   其餘 7 題不再生成）；且每段最多只試 2 次（且只在「全數被丟棄」時才重試）。
+2. **提示詞與閘門不一致（聽力）**：`LISTENING_ANSWER_NOT_IN_TRANSCRIPT` 實測丟棄 18 題 ——
+   validator 要求**正確選項的文字逐字出現於逐字稿**（`validation/question-validator.ts`
+   的 code-family 規則），但提示詞只要求「完成題答案逐字出現」，從未告知模型
+   **選擇題的正確選項本身也必須逐字出現** ⇒ 模型以改寫方式出題 ⇒ 被 fail-closed 丟棄。
+
+### 三、修正
+1. **新增每段補題輪**（`generation-service.ts`）：段落的篇章／逐字稿一經接受即凍結
+   （每題必須有該文本支持），因此**不可**用「重新生成該段」（那會產生新文本）。
+   改為對**同一文本**追加題目：
+   - 新增 AI 能力 `extendIeltsSectionWithAI`（`ai/usecases/ielts-question-generation.ts`）＋
+     `buildIeltsSectionExtensionSystemPrompt`／`UserPrompt`（`ai/prompts/ielts/question-generation.ts`，
+     版本常數 `IELTS_SECTION_EXTENSION_V1`，沿用已註冊的 `IeltsQuestionGeneration` 名稱 ——
+     與 `IELTS_WRITING_PROMPT_GEN_V1` 同例）＋ items-only schema `IeltsGeneratedItemsSchema`
+     （**刻意**不接受回傳篇章／逐字稿：要模型重印 700 字篇章既貴又會與題目靜默漂移）。
+   - `IELTS_SECTION_TOPUP_MAX_ROUNDS = 2`；每輪只補不足的題數（並小幅超額請求，
+     因為閘門嚴格），**超額通過者會裁剪回官方題數並記錄 `TOPUP_TRIMMED`（永不靜默）**。
+   - 補題題目通過**同一組閘門**（機械屏檢 → blind-solve）；被否決原因回饋下一輪提示詞。
+2. **永不丟棄已通過的題目**：補題輪的供應商失敗記 `TOPUP_<failure>` 後停止；
+   額度耗盡（`BudgetExceededError`）**在此處不得往外拋**（會令整份已驗證內容作廢）——
+   記 `TOPUP_ABORTED` 後以部分段落交付，短欠如實回報。
+3. **提示詞與閘門對齊（聽力）**：`buildIeltsQuestionGenerationSystemPrompt()` 的 LISTENING
+   段落明示「**選擇／配對的正確選項文字也必須逐字出現於逐字稿**（word-boundary exact），
+   平台會拒絕只在錄音中被改寫的選項」。（**不放寬任何判準**，只把既有契約告訴模型。）
+
+### 四、實測（真實生成路徑，不持久化；同一 `full_component` 目標 40 題）
+| 技能 | 修正前 | 修正後（第 1 次） | 修正後（第 2 次） |
+| --- | --- | --- | --- |
+| READING | 33/40（54.1s） | **40/40**（70.8s） | **40/40**（61.9s） |
+| LISTENING | 23/40（63.3s） | **39/40**（68.1s） | **40/40**（83.2s） |
+
+- 段數回到官方形狀（Reading 13/13/14；Listening 10/10/10/10）。
+- `LISTENING_ANSWER_NOT_IN_TRANSCRIPT` 仍會發生（每輪 13–14 次丟棄 —— 閘門不變），
+  但補題輪現可補回，故最終只餘 0–1 題短欠。
+- 成本：每段最多多 2 輪生成＋2 次覆核；最壞情況（4 段皆短）約多 4–8 次 AI 呼叫，
+  端到端仍遠低於 Cloud Run 900s（實測 62–83s）。
+
+### 五、驗證
+- 新增 `ielts/__tests__/generation-prompts.test.ts`（7 cases）：聽力逐字稿選項規則、
+  閱讀不受該規則約束、補題提示詞不得改寫文本／只回 `{questions:[…]}`／帶入文本、
+  缺口題數、已用提示詞與否決原因。
+- 新增 `generation-service.test.ts` 補題測試（7 cases）：短段補足至目標（且以**同一篇章**
+  呼叫）、段滿不呼叫補題、補題題目同樣受閘門約束、供應商失敗保留已接受題目、
+  **額度耗盡不得 503 且不得丟棄已接受題目**、超額裁剪回官方題數、補題提示詞帶入
+  該段既有題目。
+- **負向對照**：暫時停用補題輪後重跑，`generation-service.test.ts` **7 個測試失敗**
+  ⇒ 測試為真正的回歸護欄；停用前後檔案雜湊一致（已還原）。
+
+---
+
 ## 2026-10-08（II）— 修復 IELTS「未能生成完整組件（40 題）」422（AI 詞彙 ↔ 正典形式對照）
 
 ### 一、背景（使用者回報）
@@ -65,6 +124,8 @@ All notable changes to the AI English Platform are documented here.
 合規契約（需另行舉證與調整契約測試），故本次只把它變成**可見的短欠**（`ok=true` ＋
 誠實 `shortfall`），不再整組 422 失敗。另：AI 產出的聆聽選項與逐字稿對應品質本身
 是後續可改善的提示詞/驗證工作。
+**→ 已於同日（III）處理**：判準維持不放寬，但（a）提示詞現在明示該逐字稿規則，
+（b）新增每段補題輪把缺口補回 —— 實測 Reading 40/40、Listening 39–40/40。
 
 ---
 

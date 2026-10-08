@@ -22,6 +22,7 @@
 // ============================================
 
 import {
+  extendIeltsSectionWithAI,
   generateIeltsQuestionSetWithAI,
   verifyIeltsItemsWithAI,
   generateIeltsWritingPromptWithAI,
@@ -69,6 +70,13 @@ export const IELTS_GENERATION_MAX_READING_SET_ITEMS = 14;
 export const IELTS_GENERATION_MAX_LISTENING_SET_ITEMS = 10;
 /** One generation attempt per set, plus one top-up attempt when nothing survives. */
 export const IELTS_GENERATION_MAX_ATTEMPTS_PER_SET = 2;
+/**
+ * Top-up rounds per ACCEPTED section (2026-10-08): a section's passage/transcript is
+ * fixed once accepted, so a short section is filled by asking for MORE questions about
+ * that same text — never by re-running the set generator (which authors a new text).
+ * Bounded because every round costs one generation + one blind-solve verification.
+ */
+export const IELTS_SECTION_TOPUP_MAX_ROUNDS = 2;
 /** Official full-component shapes (40 questions). */
 export const IELTS_FULL_COMPONENT_TARGETS: Record<'READING' | 'LISTENING', number[]> = {
   READING: [13, 13, 14],
@@ -519,6 +527,111 @@ const COMPONENT_DURATION_MINUTES: Record<IeltsGenerationSkill, number> = {
   LISTENING: 40,
 };
 
+/**
+ * Top up an ACCEPTED section to its official target (2026-10-08).
+ *
+ * A section's passage/transcript is frozen once accepted — every item must be supported
+ * by that exact text — so the deficit is filled by asking for more questions about the
+ * SAME text (extendIeltsSectionWithAI). Measured before this existed: an official
+ * 40-question component delivered 33 (reading) / 23 (listening) because a section was
+ * accepted as soon as ONE item survived and the deficit was never recovered.
+ *
+ * Invariants kept:
+ *   * the new items pass the SAME gates as set generation (machine screen → blind solve)
+ *   * items that already passed are NEVER discarded (a failed round or an exhausted
+ *     budget stops the top-up and delivers the partial section; shortfall stays honest)
+ *   * the section never exceeds its official target (over-asking is trimmed, with a
+ *     recorded reason — never silently)
+ */
+async function topUpSection(args: {
+  input: IeltsGenerationInput;
+  plan: { label: string; target: number };
+  section: PreparedSet;
+  difficulty?: IeltsDifficulty | undefined;
+  /** Recent prompts plus prompts already used by other sections of this run. */
+  baseAvoidPrompts: string[];
+  batch: IeltsBatchContext;
+  seenPrompts: Set<string>;
+  drops: Map<string, number>;
+}): Promise<void> {
+  const { input, plan, section, difficulty, batch, seenPrompts, drops } = args;
+  const sectionText = (section.passage ?? section.transcript ?? '').trim();
+  if (!sectionText) return;
+  const maxItems =
+    input.skill === 'READING'
+      ? IELTS_GENERATION_MAX_READING_SET_ITEMS
+      : IELTS_GENERATION_MAX_LISTENING_SET_ITEMS;
+  let rejectionNotes: string[] = [];
+
+  const record = (reason: string, by = 1) => drops.set(reason, (drops.get(reason) ?? 0) + by);
+
+  for (let round = 0; round < IELTS_SECTION_TOPUP_MAX_ROUNDS; round++) {
+    const deficit = plan.target - section.items.length;
+    if (deficit <= 0) return;
+    // Over-ask a little: the gates are strict, so asking for exactly the deficit rarely
+    // fills it. Anything extra that passes is trimmed back to the official target below.
+    const requestCount = Math.min(deficit + Math.max(1, Math.ceil(deficit / 2)), maxItems);
+
+    let extension: Awaited<ReturnType<typeof extendIeltsSectionWithAI>>;
+    try {
+      extension = await extendIeltsSectionWithAI({
+        skill: input.skill,
+        testType: input.testType,
+        sectionLabel: plan.label,
+        itemCount: requestCount,
+        itemTypes: input.itemTypes,
+        difficulty,
+        sectionText,
+        avoidPrompts: [...args.baseAvoidPrompts, ...section.items.map((i) => i.prompt)],
+        rejectionNotes,
+      });
+    } catch {
+      // A budget/provider failure here must NOT throw away items that already passed
+      // every gate: stop topping up, deliver the partial section, keep shortfall honest.
+      record('TOPUP_ABORTED');
+      return;
+    }
+    if (!extension.ok) {
+      record(`TOPUP_${extension.failure}`);
+      return;
+    }
+
+    const dropsBefore = new Map(drops);
+    const candidates = screenGeneratedItems({
+      rawQuestions: extension.data.questions,
+      skill: input.skill,
+      testType: input.testType,
+      passage: section.passage,
+      transcript: section.transcript,
+      allowedTypes: input.itemTypes,
+      batch,
+      seenPrompts,
+      drops,
+    });
+    const verified = await verifyPreparedItems({
+      skill: input.skill,
+      passage: section.passage,
+      transcript: section.transcript,
+      items: candidates,
+      drops,
+    });
+    // Feed this round's rejections into the next round's prompt.
+    rejectionNotes = [...drops.entries()]
+      .filter(([reason, count]) => count > (dropsBefore.get(reason) ?? 0))
+      .map(([reason, count]) => `${reason} (${count - (dropsBefore.get(reason) ?? 0)})`)
+      .slice(0, 8);
+
+    section.items.push(...verified);
+
+    const excess = section.items.length - plan.target;
+    if (excess > 0) {
+      section.items.splice(plan.target, excess);
+      record('TOPUP_TRIMMED', excess);
+      return;
+    }
+  }
+}
+
 export async function generateIeltsPracticeContent(
   input: IeltsGenerationInput,
 ): Promise<IeltsGenerationOutcome> {
@@ -649,7 +762,21 @@ export async function generateIeltsPracticeContent(
         .map((d) => `${d.reason} (${d.count})`);
     }
 
-    if (preparedSet) sets.push(preparedSet);
+    if (preparedSet) {
+      // The section is accepted, but it may be short of its official target — fill the
+      // deficit against the SAME passage/transcript before moving on to the next section.
+      await topUpSection({
+        input,
+        plan,
+        section: preparedSet,
+        difficulty: effectiveDifficulty,
+        baseAvoidPrompts: [...avoidPrompts, ...sets.flatMap((s) => s.items.map((i) => i.prompt))],
+        batch,
+        seenPrompts,
+        drops,
+      });
+      sets.push(preparedSet);
+    }
   }
 
   const requestedCount = plans.reduce((sum, p) => sum + p.target, 0);
