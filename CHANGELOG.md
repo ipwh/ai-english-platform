@@ -75,6 +75,12 @@ All notable changes to the AI English Platform are documented here.
    擱置中的資料庫整合測試（含新增的 IELTS 併發不變式套件）在 CI 真正執行。
 3. `npx prisma db push --skip-generate` → `npx prisma db push`（Prisma 7 CLI 已移除該旗標，
    舊寫法會以 "unknown or unexpected option" 失敗）。
+4. **修復 CI 在 `Push schema to test DB` 的長期中斷**（main 上自 2026-09-21 起每次 push 皆紅，
+   30 筆歷史全失敗）：schema 有 `embeddingVector Unsupported("vector(1536)")` ⇒ `prisma db push`
+   在全新資料庫會以 **`type "vector" does not exist`** 失敗；`pgvector/pgvector:pg17`
+   service **內含**擴充但預設未啟用。新增 `Enable pgvector extension` 步驟（用已安裝的 `pg`
+   驅動執行 `CREATE EXTENSION IF NOT EXISTS vector`）置於 db push 之前；`e2e/README.md` 的
+   示範 workflow 同步改為 pgvector 映像＋同一動作（原本用 `postgres:16`，該 schema 根本推不上去）。
 4. **regression workflow 拆成兩層**：Layer A（決定性、無 provider key、PR 安全）跑
    `validate:prompts` ＋ prompt/schema/parser/scoring 契約套件；Layer B（真實模型）
    只在 schedule／workflow_dispatch／push to main 執行，並**先 preflight**：

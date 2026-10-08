@@ -370,7 +370,10 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # pgvector, not plain postgres: the schema declares
+        # `embeddingVector Unsupported("vector(1536)")`, so `prisma db push` fails with
+        # 'type "vector" does not exist' unless the extension exists.
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -387,6 +390,10 @@ jobs:
         with: { node-version: '22', cache: 'npm' }
       - run: npm ci
       - run: npx prisma generate
+      # The image ships the extension but does not enable it.
+      - run: node -e "const{Client}=require('pg');const c=new Client({connectionString:process.env.DATABASE_URL});c.connect().then(()=>c.query('CREATE EXTENSION IF NOT EXISTS vector')).then(()=>c.end())"
+        env:
+          DATABASE_URL: ******localhost:5432/english_platform_test
       - run: npx prisma db push
       - run: npx tsx prisma/seed.ts
         env:
