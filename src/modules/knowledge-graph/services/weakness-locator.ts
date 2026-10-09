@@ -2,7 +2,7 @@
 import { getKnowledgeGraph } from './knowledge-graph';
 import { getAllPrerequisites } from './dependency-resolver';
 import type {
-  KnowledgeGraph, EnhancedWeaknessResult,
+  EnhancedWeaknessResult,
 } from '../types';
 
 // ============================================

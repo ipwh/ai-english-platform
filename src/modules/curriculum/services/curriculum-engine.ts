@@ -1,8 +1,7 @@
 // Sprint 26: CEFR Curriculum + Curriculum Engine
-import type { Curriculum, Course, Unit, Lesson, CurriculumProgress, CourseProgress, CurriculumRecommendation } from '../types';
+import type { Curriculum, Course, Unit, CurriculumProgress, CourseProgress, CurriculumRecommendation } from '../types';
 import { hkToday } from '@/shared/utils/hk-date';
 import { HKDSE_CURRICULUM } from '../data/hkdse-curriculum';
-import { getKnowledgeGraph } from '@/modules/knowledge-graph/services/knowledge-graph';
 import type { MasteryData } from '@/modules/knowledge-graph/services/dependency-resolver';
 
 const CEFR_CURRICULUM: Curriculum = {

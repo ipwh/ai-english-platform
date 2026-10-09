@@ -1,16 +1,12 @@
 // Sprint 100: Architecture Dashboard — aggregates all platform metrics into one view
 import { getRuntimeMetrics } from '@/modules/ai/services/runtime-metrics';
-import { getPerformanceBaselineReport } from '@/modules/ai/services/performance-baseline';
-import { detectRegressions } from '@/modules/ai/runtime/regression-detector';
-import { detectSaturation } from '@/modules/ai/runtime/saturation-detector';
-import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
 import { computeReliabilityScore } from '@/modules/platform/sre/reliability-score';
 import { evaluateAll } from '@/modules/platform/sre/slo-manager';
 import { getAllBudgets } from '@/modules/platform/sre/error-budget';
 import { classifyIncidents } from '@/modules/platform/sre/incident-classifier';
 import { getDeploymentDashboard } from '@/modules/platform/release/deployment-dashboard';
 import { listFlags } from '@/modules/platform/release/feature-flags';
-import { latestRelease, listReleases } from '@/modules/platform/release/release-registry';
+import { latestRelease } from '@/modules/platform/release/release-registry';
 import { generateAuditReport } from '@/modules/platform/release/release-audit';
 
 export interface PlatformArchitectureDashboard {

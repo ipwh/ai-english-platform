@@ -1,6 +1,5 @@
 // Sprint 34: LearningPathGenerator — multi-criteria path generation
 import { getKnowledgeGraph } from './knowledge-graph';
-import { shortestLearningPath } from './dependency-resolver';
 import type {
   KnowledgeGraph, GeneratedLearningPath,
 } from '../types';

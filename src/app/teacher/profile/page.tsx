@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, Settings, Shield, Mail, ChevronRight, Save, X } from 'lucide-react';
+import { LogOut, Mail, Save, X } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import { useAppStore } from '@/store/appStore';
 import { formatDate } from '@/shared/utils/utils';

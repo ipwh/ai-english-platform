@@ -5,7 +5,6 @@
 'use client';
 
 import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search, Sparkles, Clock, BookOpen,
@@ -15,7 +14,7 @@ import { logger } from '@/shared/logger/logger';
 import SkillChip from '@/components/shared/SkillChip';
 import { cleanListeningContent } from '@/components/shared/AudioPlayer';
 import { dedupeSessionQuestions } from '@/modules/exercise/services/practice-session-questions';
-import { skillLabels, difficultyLabels, gradeLabels, getGradeLabel, getSkillLabel, getDifficultyLabel } from '@/shared/utils/nav';
+import { skillLabels, gradeLabels, getGradeLabel, getSkillLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { useAppStore, type PracticeSession } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 import { PracticePageSkeleton } from '@/components/shared/Skeleton';
@@ -258,7 +257,7 @@ function PracticeListPageContent() {
     } finally {
       setGenerating(false);
     }
-  }, [form, store, router]);
+  }, [form, store, router, t]);
 
   // === 從診斷頁跳轉：自動生成針對性練習 ===
   useEffect(() => {
@@ -288,7 +287,7 @@ function PracticeListPageContent() {
     setTab('generate');
     setForm(nextForm);
     void handleGenerate(nextForm, t('practice.generatedFromDiagnostic', { label: weakLabel }));
-  }, [handleGenerate, searchParams]);
+  }, [handleGenerate, searchParams, t]);
 
   // === 從求助頁跳轉：根據學生問題自動生成練習 ===
   useEffect(() => {
@@ -321,7 +320,7 @@ function PracticeListPageContent() {
     setTab('generate');
     setForm(nextForm);
     void handleGenerate(nextForm, t('practice.generatedFromHelp', { topic }));
-  }, [handleGenerate, searchParams]);
+  }, [handleGenerate, searchParams, t]);
 
   // === 從推薦弱項快速生成 ===
   const handleQuickGenerate = useCallback((grammarItem: string, grammarZh: string) => {

@@ -4,7 +4,7 @@
 // Classification: TOOLING — developer benchmarking infrastructure
 // ============================================
 
-import type { BenchmarkResult, BenchmarkReport } from './benchmark-types';
+import type { BenchmarkReport } from './benchmark-types';
 
 export function generateMarkdownReport(report: BenchmarkReport): string {
   const lines: string[] = [

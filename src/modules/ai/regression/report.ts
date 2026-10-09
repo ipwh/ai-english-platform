@@ -4,7 +4,7 @@
 // Generates human-readable regression reports.
 // ============================================
 
-import type { RegressionReport, EvalResult } from './types';
+import type { RegressionReport } from './types';
 
 /**
  * Generate a Markdown report from regression results.

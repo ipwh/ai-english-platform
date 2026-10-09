@@ -3,7 +3,7 @@
 // ============================================
 
 import { describe, it, expect } from 'vitest';
-import { validateAllMCDistractors, validateMCDistractors } from '@/modules/ai/prompts/reading/types';
+import { validateAllMCDistractors } from '@/modules/ai/prompts/reading/types';
 import type { DSEreadingQuestion } from '@/modules/ai/prompts/reading/types';
 
 function mcq(idx: number, choices: string[], answer: string, overrides: Partial<DSEreadingQuestion> = {}): DSEreadingQuestion {

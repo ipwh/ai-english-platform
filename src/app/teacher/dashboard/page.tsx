@@ -122,7 +122,7 @@ export default function TeacherDashboardPage() {
         setLoadError(t('common.somethingWrong'));
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   // Build KPI cards from real class data
   const totalStudents = classes.reduce((sum, c) => sum + (c.studentCount || 0), 0);

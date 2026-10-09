@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Filter, RotateCcw, Lightbulb, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import { Filter, RotateCcw, BookMarked, Search, Sparkles, Loader2, CheckCircle, Brain, Plus, Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 
 import SkillChip from '@/components/shared/SkillChip';
@@ -13,7 +13,7 @@ import QuickAddVocab from '@/modules/vocabulary/components/QuickAddVocab';
 import { skillLabels, getSkillLabel } from '@/shared/utils/nav';
 import { formatDate } from '@/shared/utils/utils';
 import { useAppStore } from '@/store/appStore';
-import type { GrammarItem, LanguageSkill, MistakeType } from '@/shared/types/types';
+import type { MistakeType } from '@/shared/types/types';
 import type { MistakeItem } from '@/shared/types/types';
 import type { MistakeSkillBucket } from '@/modules/mistake/intelligence/services/mistake-skill-breakdown';
 import { getStrategyCard } from '@/modules/mistake/intelligence/services/mistake-strategy';

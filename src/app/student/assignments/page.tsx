@@ -5,14 +5,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Clock, AlertCircle, FileText } from 'lucide-react';
 
 import SkillChip from '@/components/shared/SkillChip';
-import ProgressBar from '@/components/shared/ProgressBar';
 import CountdownTimer from '@/components/shared/CountdownTimer';
 import { logger } from '@/shared/logger/logger';
 import { formatDate, daysRemaining, getStatusColor } from '@/shared/utils/utils';
-import { statusLabels, getStatusLabel } from '@/shared/utils/nav';
+import { getStatusLabel } from '@/shared/utils/nav';
 import type { AssignmentStatus } from '@/shared/types/types';
 import EmptyState from '@/components/shared/EmptyState';
 import type { AssignmentSummary } from '@/shared/types/types';

@@ -8,7 +8,7 @@
 // ============================================
 
 import type {
-  ExperimentResult, VariantResult, ConfidenceResult,
+  ExperimentResult, ConfidenceResult,
 } from './experiment';
 import {
   mean, stdDev, confidenceInterval95, stabilityScore, welchTTest,

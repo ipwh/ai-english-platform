@@ -8,7 +8,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { config } from '@/shared/config/config';
 import { logger } from '@/shared/logger/logger';
 import { z } from 'zod';
-import { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks, countMaterials } from '@/modules/student';
+import { listMaterialsFull, createMaterial, findMaterialById, updateMaterial, deleteMaterial, deleteMaterialChunks } from '@/modules/student';
 
 // ============================================
 // 上傳限制常數

@@ -6,9 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildBlueprintRetryInstruction,
   toBlueprintQualityMeta,
-  validateAllMCDistractors,
 } from '@/modules/ai/prompts/reading/types';
-import type { BlueprintQualityMeta } from '@/modules/ai/prompts/reading/types';
 
 describe('Phase 3C.2: Cleanup Regression', () => {
   // ═══ 1-3: Retry instruction coverage ═══

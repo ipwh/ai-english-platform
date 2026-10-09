@@ -1,10 +1,10 @@
 // Sprint 42: AI Experiment Platform — experiment engine
 import type {
-  ExperimentConfig, ExperimentType, ExperimentStatus, ABWinner,
+  ExperimentConfig, ExperimentType, ABWinner,
   PromptExperimentConfig, PromptExperimentResult, PromptVariant, VariantResult,
   ModelExperimentConfig, ModelExperimentResult, ModelResult, ModelRanking,
   TemperatureExperimentConfig, TemperatureExperimentResult, TemperatureResult,
-  LearningExperimentConfig, LearningExperimentResult, GroupResult, LearningGroup,
+  LearningExperimentConfig, LearningExperimentResult, GroupResult, 
   LearningGainComparison, MasteryImprovementComparison,
   ABComparison, ComparisonMetrics, CostComparison, CostBreakdown,
   ExperimentReport, ReportSummary, SuccessMetrics, RecommendationReport,

@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Target, Lightbulb, Play, Square, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Mic, Sparkles, Loader2, Clock, MessageCircle, ChevronDown, ChevronUp, Lightbulb, Play, Square, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { getGradeLabel, getDifficultyLabel } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';

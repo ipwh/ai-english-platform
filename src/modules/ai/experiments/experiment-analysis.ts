@@ -9,10 +9,10 @@ import type {
   ProviderAnalysis, SensitivityAnalysis,
 } from './experiment';
 import {
-  mean, stdDev, stabilityScore, detectOutliers, coefficientOfVariation,
+  mean, stdDev, detectOutliers, coefficientOfVariation,
 } from './statistics';
 import { rankVariants } from './winner-selection';
-import { compareAllVariants, scoreDistribution } from './experiment-comparison';
+import { compareAllVariants } from './experiment-comparison';
 
 // ── Public API ──
 

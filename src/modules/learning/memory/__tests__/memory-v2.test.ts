@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { MemoryEngine } from '../services/memory-engine';
 import { MemoryProfileGenerator } from '../services/memory-profile';
 import { MemoryInfluenceEngine } from '../services/memory-influence';
-import { createEmptyMemory, MemoryService } from '../services/memory-service';
+import { createEmptyMemory } from '../services/memory-service';
 import type { IMemoryRepository } from '../repositories/memory-repository-interface';
 import type { LearningMemory } from '../types';
 

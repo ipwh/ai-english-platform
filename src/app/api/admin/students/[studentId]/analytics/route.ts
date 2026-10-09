@@ -11,8 +11,6 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import {
   classifySessionEvidence,
-  getVerifiedPracticeSessions,
-  type SessionEvidenceEntry,
 } from '@/modules/exercise/services/practice-evidence-service';
 import {
   resolveMistakeQuestionContexts,

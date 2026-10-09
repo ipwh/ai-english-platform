@@ -5,7 +5,7 @@ export const description = 'HKDSE Grammar/Language prompts: question generation,
 export const updatedAt = '2026-07-22';
 export const author = 'AI English Platform';
 
-import { HALLUCINATION_GUARD, HALLUCINATION_GUARD_LITE } from '@/modules/ai/services/hallucination-guard';
+import { HALLUCINATION_GUARD } from '@/modules/ai/services/hallucination-guard';
 
 // ============================================
 // Hallucination Prevention — re-export centralized guard

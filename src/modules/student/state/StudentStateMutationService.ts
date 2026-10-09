@@ -2,7 +2,6 @@
 // CQRS: StudentStateBuilder (reads) + StudentStateMutationService (writes)
 // Architecture: Route → MutationService → Repository
 
-import { logger } from '@/shared/logger/logger';
 import { hkDayKey, hkWeekStartMondayUtc, hkWeekStartUtc } from '@/shared/utils/hk-date';
 import { calculateXp, getLevelInfo, checkNewBadges, getAllBadges, getGradeMultiplier } from '../progress/services/gamification';
 import type { XpEvent, BadgeCheckStats, BadgeDefinition } from '../progress/services/gamification';

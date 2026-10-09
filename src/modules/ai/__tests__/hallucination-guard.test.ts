@@ -8,7 +8,6 @@ import {
   injectHallucinationGuard,
   verifyGrounding,
   HALLUCINATION_GUARD,
-  HALLUCINATION_GUARD_LITE,
 } from '../services/hallucination-guard';
 
 beforeEach(() => {

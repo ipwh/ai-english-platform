@@ -7,8 +7,6 @@
 // for trend analysis.
 // ============================================
 
-import type { DriftThresholds } from './config';
-import type { DriftSeverity } from './config';
 
 // ── Types ──
 

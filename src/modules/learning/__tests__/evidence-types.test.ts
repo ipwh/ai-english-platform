@@ -28,7 +28,6 @@ import type {
   EvidenceKind,
   EvidenceProvenance,
   EvidenceConfidence,
-  EvidenceValidationResult,
 } from '../types/evidence-types';
 
 // ============================================

@@ -662,7 +662,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, roleFilter, levelFilter, classFilter]);
+  }, [page, search, roleFilter, levelFilter, classFilter, t]);
 
   useEffect(() => {
     fetchUsers();

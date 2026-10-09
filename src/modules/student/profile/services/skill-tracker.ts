@@ -1,5 +1,5 @@
 // Sprint 8: Skill Tracker — maps practice data to skill dimensions
-import type { SkillDimension, SkillStats, SubSkillStat } from '../types';
+import type { SkillDimension, SkillStats } from '../types';
 
 /** Map a skill string to its HKDSE dimension */
 export function mapToDimension(skill: string): SkillDimension {

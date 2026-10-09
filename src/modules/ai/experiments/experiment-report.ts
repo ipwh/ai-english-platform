@@ -7,8 +7,8 @@
 // ============================================
 
 import type {
-  ExperimentResult, ExperimentAnalysis, ExperimentConfig,
-  VariantResult, ExperimentReportConfig,
+  ExperimentResult, ExperimentAnalysis, 
+  ExperimentReportConfig,
 } from './experiment';
 import { scoreDistribution } from './experiment-comparison';
 

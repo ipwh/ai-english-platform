@@ -9,7 +9,7 @@
 // ============================================
 
 import type {
-  PipelineResult, PipelineStep, StepMetric, ValidationResult,
+  PipelineResult, StepMetric, ValidationResult,
 } from '../types';
 
 /**

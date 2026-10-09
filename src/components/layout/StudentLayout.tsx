@@ -6,7 +6,6 @@
 import SidebarLayout from './SidebarLayout';
 import VocabularyContextProvider from '@/modules/vocabulary/components/VocabularyContextProvider';
 import { studentNavItems } from '@/shared/utils/nav';
-import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {

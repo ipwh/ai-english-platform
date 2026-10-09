@@ -189,7 +189,7 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
 
       return prev;
     });
-  }, [onTextExtracted]);
+  }, [onTextExtracted, t]);
 
   /** Remove a file entry */
   const removeFile = useCallback((id: number) => {
@@ -300,7 +300,11 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
                 'bg-gray-50 dark:bg-gray-700/30'
               }`}
             >
-              {/* Thumbnail */}
+              {/* Thumbnail — a `blob:` object URL from URL.createObjectURL(), which
+                  next/image cannot optimise (it would have to be fetched through
+                  /_next/image and would need fixed intrinsic dimensions for a 40px
+                  preview). A plain <img> is the correct tool here. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={entry.previewUrl}
                 alt={`Page ${files.indexOf(entry) + 1}`}

@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Send, Loader2, CheckCircle, XCircle, Clock, AlertCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, CheckCircle, XCircle, AlertCircle, Sparkles } from 'lucide-react';
 import SkillChip from '@/components/shared/SkillChip';
 import ProgressBar from '@/components/shared/ProgressBar';
 import { formatDate } from '@/shared/utils/utils';
@@ -92,7 +92,7 @@ export default function AssignmentDetailPage() {
       })
       .catch(() => setError(t('assignment.loadFailed')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const handleAnswerChange = useCallback((questionId: string, value: string) => {
     submissionIdRef.current = '';

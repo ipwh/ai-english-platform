@@ -2,7 +2,7 @@
 // Tests: AI Service, Schema Validation & Rate Limiter
 // ============================================
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // ============================================
 // 一、AI JSON 解析測試
@@ -120,9 +120,6 @@ import {
   GeneratedQuestionsArraySchema,
   AnswerAnalysisSchema,
   WritingAnalysisSchema,
-  MistakeExplanationSchema,
-  ProgressAnalysisSchema,
-  MaterialAnalysisSchema,
   validateAIResponse,
 } from '@/modules/ai/schemas/ai-schema';
 

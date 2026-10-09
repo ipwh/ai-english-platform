@@ -182,6 +182,49 @@ describe.skipIf(!ENABLED)('IELTS concurrency invariants (real Postgres)', () => 
       expect(setReservation.reserved).toBe(true);
       expect(setReservation.usedCount).toBe(1);
     });
+
+    // Regression guard (2026-10-08, Sprint 132): an earlier loop-free rewrite of
+    // `reserveInstantQuota` refused a valid slot whenever the row APPEARED
+    // between its failed conditional UPDATE and the follow-up read — i.e. the
+    // very first INSERT race, which is exactly this shape. Measured: 10
+    // concurrent reservations from zero granted only 6 of 8.
+    it('grants the LAST available slot exactly once when starting from cap-1', async () => {
+      const day = `1970-01-05-${runId}`;
+      const cap = 4;
+      // Pre-create the row sitting one slot below the cap.
+      await db.ieltsGenerationQuota.create({
+        data: { ownerUserId: studentId, dayKey: day, bucket: 'set', usedCount: cap - 1 },
+      });
+
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          repo.reserveInstantQuota({ ownerUserId: studentId, dayKey: day, bucket: 'set', cap }),
+        ),
+      );
+
+      expect(results.filter((r) => r.reserved)).toHaveLength(1);
+      expect(
+        await repo.readInstantQuotaUsed({ ownerUserId: studentId, dayKey: day, bucket: 'set' }),
+      ).toBe(cap);
+      // Every refusal must report the authoritative count, not a guess.
+      for (const r of results.filter((x) => !x.reserved)) {
+        expect(r.usedCount).toBe(cap);
+      }
+    });
+
+    it('never grants more than the cap (10 requests, cap 1, no pre-existing row)', async () => {
+      const day = `1970-01-06-${runId}`;
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () =>
+          repo.reserveInstantQuota({ ownerUserId: studentId, dayKey: day, bucket: 'set', cap: 1 }),
+        ),
+      );
+
+      expect(results.filter((r) => r.reserved)).toHaveLength(1);
+      expect(
+        await repo.readInstantQuotaUsed({ ownerUserId: studentId, dayKey: day, bucket: 'set' }),
+      ).toBe(1);
+    });
   });
 
   // ---------------------------------------------------------------

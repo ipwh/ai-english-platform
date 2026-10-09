@@ -95,12 +95,19 @@ jobs:
 
       # Warning budget is a RATCHET: it may only ever be lowered. The 471 warnings that
       # accumulated while this step never ran (CI stopped earlier at the schema step since
-      # 2026-09-21) are tracked debt — mostly @typescript-eslint/no-unused-vars (333) and
-      # no-explicit-any (50), spread over ~100 files. Re-baselined 225 -> 480 on 2026-10-08
-      # (ADR-050) so CI reports the real state again; reduce it as the debt is paid down and
-      # never raise it without a new recorded decision.
+      # 2026-09-21) were re-baselined 225 -> 480 on 2026-10-08 (ADR-050) so CI reported the
+      # real state again. Sprint 132 then burned the count down to the measured 259
+      # (0 errors): unused imports, stale disable directives, prefer-const, stable hook
+      # dependencies, and three rules promoted to `error`. The per-rule ratchet lives in
+      # scripts/check-lint-budget.js — never raise either number without a recorded decision.
       - name: Lint check
-        run: npx eslint . --max-warnings 480
+        run: npx eslint . --max-warnings 259
+
+      # Per-rule ratchet: fails if ANY single rule exceeds its recorded budget, if a rule
+      # that used to be clean starts warning again, or if there is any error. A total alone
+      # would let debt move between rules unnoticed.
+      - name: Lint budget (per-rule ratchet)
+        run: node scripts/check-lint-budget.js
 
       # Builds the app exactly like the deployable image does (Dockerfile builder stage:
       # `npm run build`); migrations are applied by the Cloud Build `Migrate` step.

@@ -9,7 +9,7 @@ import {
   POS_CUES,
   SENTENCE_TRANSFORMATION_RULES,
 } from '@/modules/ai/prompts/reading/types';
-import type { SummaryClozeAnswerMode, SummaryClozeAnswerCheck } from '@/modules/ai/prompts/reading/types';
+import type { SummaryClozeAnswerMode } from '@/modules/ai/prompts/reading/types';
 
 // ══════════════════════════════════════════
 // A: Answer Mode Definitions

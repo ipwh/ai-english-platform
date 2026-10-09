@@ -5,7 +5,6 @@
 
 import SidebarLayout from './SidebarLayout';
 import { teacherNavSections } from '@/shared/utils/nav';
-import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {

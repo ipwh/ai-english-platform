@@ -5,15 +5,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   layoutReadingText, recalculateLayout,
-  calculateParagraphLines, calculateTotalLines, estimateCharsPerLine,
-  extractParagraphs, buildParagraphLayouts,
+  calculateParagraphLines, estimateCharsPerLine,
+  extractParagraphs, 
   renderToPlainText,
   getLayoutMetrics, resetLayoutMetrics,
-  generateLayoutReport, formatLayoutReport,
+  formatLayoutReport,
 } from '@/modules/reading/layout';
 import { getFullRuntimeReport } from '@/modules/platform/sre/reliability-dashboard';
 import { resolveLayoutOptions, resolveCharsPerLine } from '@/modules/reading/layout';
-import type { LayoutWarnings } from '@/modules/reading/layout';
 import fs from 'fs';
 import path from 'path';
 

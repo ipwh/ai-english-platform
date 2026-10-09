@@ -5,7 +5,6 @@
 // state management, approval tracking, and release notes.
 // ============================================
 
-import type { SemVer } from './prompt-metadata';
 import {
   LifecycleState, canTransition, DEFAULT_PROMOTION_RULES,
   LIFECYCLE_LABELS,

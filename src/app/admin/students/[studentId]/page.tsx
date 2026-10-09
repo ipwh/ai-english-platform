@@ -12,7 +12,7 @@ import {
   ArrowLeft, RefreshCw, TrendingUp, Target, AlertTriangle,
   BookOpen, Zap, Award, Clock,
   BarChart3, CheckCircle2, ChevronRight,
-  FileText, Volume2, MessageSquare, ClipboardList,
+  ClipboardList,
 } from 'lucide-react';
 
 // ============================================

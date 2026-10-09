@@ -13,7 +13,6 @@ import {
   validateQuestionWordingRisk,
   validateSummaryTransformItems,
   parseParagraphCount,
-  type ReadingValidationResult,
 } from '../reading-validator';
 import type { DSEreadingQuestion } from '../types';
 

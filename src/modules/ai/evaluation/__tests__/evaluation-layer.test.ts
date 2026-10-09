@@ -10,7 +10,7 @@ import { computeSemanticScore, computeKeywordScore } from '../semantic-comparato
 import { areSynonyms, getSynonyms } from '../accepted-answer';
 import { GRADING_POLICIES } from '../evaluation-types';
 import { getEvaluationMetrics, resetEvaluationMetrics } from '../evaluation-metrics';
-import { quickEvaluate, formatEvaluationResult } from '../evaluation-result';
+import { quickEvaluate } from '../evaluation-result';
 import { generateEvaluationReport } from '../evaluation-report';
 
 describe('Evaluation Layer — Architecture', () => {

@@ -1,5 +1,5 @@
 // Sprint 33: ReviewScheduler — SM-2 Enhanced + Forgetting Curve scheduling
-import { sm2NextReview, createSRSState, isDueForReview, getDueItems, forgettingCurve, calculateReviewStrength } from './learning-science';
+import { sm2NextReview, createSRSState, isDueForReview, forgettingCurve, calculateReviewStrength } from './learning-science';
 import type { ReviewScheduleEntry, ReviewUrgency } from '../types';
 
 // ============================================

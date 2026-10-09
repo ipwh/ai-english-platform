@@ -303,7 +303,7 @@ export class StudentStateBuilder {
       const { buildWeaknessProfile } = await import('@/modules/mistake/intelligence/services/mistake-intelligence-service');
       const w = await buildWeaknessProfile(studentId, 10, true);
       // Map WeaknessProfile → StudentWeakness shape (dynamic import loses type info)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const topWeaknesses = (w.topWeaknesses as Array<{ grammarCategory?: string; grammarCategoryZh?: string; name?: string; nameZh?: string; mistakeCount?: number; frequency?: number; mastered?: boolean; trend?: string; recommendation?: string; recommendationZh?: string }>).map((item) => ({
         name: item.grammarCategory ?? item.name ?? '',
         nameZh: item.grammarCategoryZh ?? item.nameZh,

@@ -3,7 +3,7 @@
 // Vocabulary Level, Grammar Quality, Writing Prompt Quality, Integrated Skills Quality
 // ============================================
 
-import type { AssessmentRule, AssessmentCheck, AssessmentContext } from '../assessment-types';
+import type { AssessmentRule, AssessmentCheck } from '../assessment-types';
 
 const norm = (s: unknown) => String(s || '').trim().toLowerCase();
 function pass(id: string): AssessmentCheck { return { ruleId: id, passed: true, score: 1, priority: 'low', estimatedRepairCost: 0 }; }

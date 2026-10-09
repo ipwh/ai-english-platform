@@ -2,7 +2,7 @@
 // Sprint 106: Assessment Engine
 // ============================================
 
-import type { AssessmentResult, AssessmentDimensions, AssessmentCheck, AssessmentContext } from './assessment-types';
+import type { AssessmentResult, AssessmentDimensions, AssessmentContext } from './assessment-types';
 import { calculateAssessmentScore, determineDecision } from './assessment-types';
 import { assessmentRegistry } from './assessment-registry';
 import { recordAssessment, recordRuleResult } from './assessment-metrics';

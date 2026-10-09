@@ -23,6 +23,13 @@ const eslintConfig = defineConfig([
   ]),
   // Downgrade non-critical rules to warnings during codebase transition.
   // These will be re-upgraded to errors once the codebase is fully cleaned.
+  //
+  // 2026-10-08 (Sprint 132): the burn-down removed every warning from
+  // `prefer-const`, `@next/next/no-img-element` and
+  // `@typescript-eslint/no-unused-expressions`, so those three are now ERRORS —
+  // the gate got stricter, not weaker. The remaining rules keep budgets instead
+  // of a global allowance (see scripts/check-lint-budget.js, which fails the
+  // build if any single rule exceeds its recorded budget).
   {
     rules: {
       "@typescript-eslint/no-unused-vars": ["warn", {
@@ -35,8 +42,10 @@ const eslintConfig = defineConfig([
       "react-hooks/exhaustive-deps": "warn",
       // React 19 new rules — downgrade to warnings during transition
       "react-hooks/set-state-in-effect": "warn",
-      "@next/next/no-img-element": "warn",
-      "prefer-const": "warn",
+      // Cleaned in Sprint 132 — promoted to errors so they can never come back.
+      "@next/next/no-img-element": "error",
+      "prefer-const": "error",
+      "@typescript-eslint/no-unused-expressions": "error",
       // Enforce structured logging — forbid console.log/error/warn
       // Use logger.info/error/warn from '@/shared/logger/logger' instead
       "no-console": ["error", {

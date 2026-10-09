@@ -8,11 +8,9 @@
 
 import type { MonitorRun } from './monitor';
 import type { QualityTrend, WindowTrend } from './quality-trend';
-import type { RegressionAssessment } from './regression-monitor';
 import type { ProviderHealth } from './provider-monitor';
 import type { Alert } from './alert';
-import type { DriftReport } from './drift-detector';
-import { DRIFT_ICONS, DRIFT_LABELS, ALERT_ICONS, ALERT_LABELS, TREND_LABELS } from './config';
+import { DRIFT_ICONS, ALERT_ICONS, TREND_LABELS } from './config';
 import { PROVIDER_STATUS_ICONS } from './provider-monitor';
 
 // ── Public API ──

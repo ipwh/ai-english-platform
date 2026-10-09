@@ -2,11 +2,10 @@
 // Graph algorithms: topological sort, cycle detection, shortest path,
 // dependency search, unlock calculation
 import type {
-  KnowledgeNode, KnowledgeEdge, KnowledgeGraph,
+  KnowledgeNode, KnowledgeGraph,
   TopologicalOrder, DependencyResult, LearningPathResult,
   WeaknessLookupResult, UnlockResult,
 } from '../types';
-import type { SkillDimension } from '@/modules/student/profile/types';
 
 // ============================================
 // Node Lookup Helpers

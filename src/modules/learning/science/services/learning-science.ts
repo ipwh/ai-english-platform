@@ -120,7 +120,7 @@ export function calculateReviewStrength(repetitions: number, avgQuality: number,
 export function scheduleRetrievalPractice(items: RetrievalItem[], mode: RetrievalPracticeSession['schedule']): RetrievalPracticeSession {
   const sorted = [...items].sort((a, b) => a.retrievalStrength - b.retrievalStrength);
 
-  let schedule: RetrievalPracticeSession['schedule'] = mode;
+  const schedule: RetrievalPracticeSession['schedule'] = mode;
   let difficulty: RetrievalPracticeSession['difficulty'] = 'medium';
 
   const avgStrength = items.length > 0 ? items.reduce((s, i) => s + i.retrievalStrength, 0) / items.length : 0;

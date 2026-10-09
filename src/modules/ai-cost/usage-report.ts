@@ -1,6 +1,5 @@
 // Sprint 13: AI Usage Report Generator
 import { getCostSummary, getModelPricing } from './cost-tracker';
-import type { CostSummary } from './types';
 
 /** Generate a human-readable AI usage report */
 export function generateReport(days?: number): string {

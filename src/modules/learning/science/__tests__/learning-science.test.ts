@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   sm2NextReview, createSRSState, isDueForReview, getDueItems,
-  forgettingCurve, generateForgettingCurve, optimalReviewTime, calculateReviewStrength,
+  forgettingCurve, generateForgettingCurve, optimalReviewTime, 
   scheduleRetrievalPractice, updateRetrievalStrength,
   generateInterleavingPlan,
   calculateDesirableDifficulty, optimalDifficultyLevel,
@@ -214,7 +214,7 @@ import { DifficultyAdjuster } from '../services/difficulty-adjuster';
 import { ConfidenceEstimator } from '../services/confidence-estimator';
 import { LearningEffectivenessAnalyzer } from '../services/effectiveness-analyzer';
 import { ReflectionGenerator } from '../services/reflection-generator';
-import type { ReviewScheduleEntry, LearningSessionInput } from '../types';
+import type { ReviewScheduleEntry } from '../types';
 
 function makeEntry(overrides: Partial<ReviewScheduleEntry> = {}): ReviewScheduleEntry {
   return {

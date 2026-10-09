@@ -1,7 +1,7 @@
 // Sprint 75: Long-term Learning Memory — Unit Tests (IMemoryRepository interface)
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createEmptyMemory, MemoryService } from '../services/memory-service';
-import { decayScore, recencyScore, weaknessSeverity, generateLearningContext, shouldUpdateMemory, calculateMemoryFreshness } from '../services/memory-scoring';
+import { MemoryService } from '../services/memory-service';
+import { decayScore, recencyScore, shouldUpdateMemory } from '../services/memory-scoring';
 import type { LearningMemory } from '../types';
 import type { IMemoryRepository } from '../repositories/memory-repository-interface';
 

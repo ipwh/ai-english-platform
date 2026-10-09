@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Loader2, Send, Sparkles, CheckCircle2, XCircle, Lightbulb,
   Target, BookOpen, AlertTriangle, Award, ChevronDown, ChevronUp,

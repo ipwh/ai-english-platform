@@ -11,9 +11,8 @@ import { callLLM } from "../services/llm-call";
 import { parseAIJSON } from "../services/json-utils";
 import { sanitizeForAI } from "../services/sanitizer";
 import { validateAIResponse, WritingAnalysisSchema } from "../schemas/ai-schema";
-import { HALLUCINATION_GUARD } from "../services/hallucination-guard";
 import { detectChinglish } from "@/modules/assessment/services/chinglish";
-import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt, type DSESkill } from "../services/rag-service";
+import { isDSERAGEnabled, retrieveMarkingScheme, buildDSEContextPrompt } from "../services/rag-service";
 import { logger } from "@/shared/logger/logger";
 import {
   evaluateTaskCoverage,

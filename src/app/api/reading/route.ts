@@ -2068,7 +2068,7 @@ async function handleLegacyGeneration(body: Record<string, unknown>) {
         response.questions = (response.questions as Array<Record<string, unknown>>).slice(0, totalQ);
       }
       response.questions = (response.questions as Array<Record<string, unknown>>).map((q: Record<string, unknown>, i: number) => {
-        let rawQuestion = (q.questionText as string) || (q.question as string) || '';
+        const rawQuestion = (q.questionText as string) || (q.question as string) || '';
         const questionZh = (q.questionTextZh as string) || (q.questionZh as string) || undefined;
 
         let question = rawQuestion.replace(/\s*\(line\s+\d+(-\d+)?\)\s*/gi, ' ');

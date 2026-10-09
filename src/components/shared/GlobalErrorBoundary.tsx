@@ -54,7 +54,12 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   };
 
   handleGoHome = () => {
-    window.location.href = '/';
+    // Deliberate FULL document navigation: this is the global error boundary, so
+    // the React tree (and therefore the client router) is untrustworthy —
+    // `useRouter().push()` cannot be relied on here. `replace()` rather than
+    // `href = '/'` so the crashed page does not stay in history (Back must not
+    // return the user to a broken screen).
+    window.location.replace('/');
   };
 
   render() {

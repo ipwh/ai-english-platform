@@ -10,7 +10,6 @@ import type {
   ParaphraseQuality,
   GrammarFit,
   Completeness,
-  EvidenceSpan,
   ReadingAnswerEvaluation,
 } from './reading-answer-types';
 import { createEmptyEvaluation } from './reading-answer-types';

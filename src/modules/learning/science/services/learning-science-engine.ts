@@ -13,8 +13,6 @@ import { reflectionGenerator } from './reflection-generator';
 import { learningScienceRepo } from '@/modules/learning/memory/repositories/learning-science-repository';
 import {
   generateInterleavingPlan,
-  scheduleRetrievalPractice,
-  generateForgettingCurve,
   generateLearningScienceReport,
 } from './learning-science';
 import type {

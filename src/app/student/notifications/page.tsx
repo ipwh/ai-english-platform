@@ -4,7 +4,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, BookOpen, Send, MessageSquare, Trophy, Megaphone, Loader2, Check } from 'lucide-react';
+import { Bell, BookOpen, Send, MessageSquare, Trophy, Megaphone, Check } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { useUIStore } from '@/store/uiStore';
 

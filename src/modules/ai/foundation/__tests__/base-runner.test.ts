@@ -2,8 +2,8 @@
 // BaseRunner Contract Tests
 // ============================================
 
-import { describe, it, expect, vi } from 'vitest';
-import { BaseRunner, type RunnerContext, type RunnerOptions } from '../runner/base-runner';
+import { describe, it, expect } from 'vitest';
+import { BaseRunner, type RunnerContext } from '../runner/base-runner';
 
 interface TestInput {
   value: number;
@@ -24,8 +24,8 @@ class TestRunner extends BaseRunner<TestInput, TestOutput, TestOptions> {
   public lifecycleEvents: string[] = [];
 
   protected async beforeRun(
-    context: RunnerContext,
-    input: TestInput,
+    _context: RunnerContext,
+    _input: TestInput,
     _options?: TestOptions,
   ): Promise<void> {
     this.lifecycleEvents.push('beforeRun');

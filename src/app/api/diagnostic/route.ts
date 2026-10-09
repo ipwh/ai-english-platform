@@ -7,7 +7,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { checkRateLimit } from '@/shared/utils/rate-limiter';
-import { logger } from '@/shared/logger/logger';
 import { submitDiagnostic, type DiagnosticAnswerInput, type DiagnosticResultInput } from '@/modules/assessment/services/diagnostic-scoring-service';
 
 const DIAGNOSTIC_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };

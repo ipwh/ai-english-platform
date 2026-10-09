@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import {
   Globe, Moon, Sun, Bell, BookOpen, Send, MessageSquare,
-  Trophy, Megaphone, Check, Loader2, Smartphone, Monitor,
+  Trophy, Megaphone, Check, Smartphone, Monitor,
 } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';

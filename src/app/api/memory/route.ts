@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { memoryService } from '@/modules/learning/memory/services/memory-service';
-import { generateLearningContext } from '@/modules/learning/memory/services/memory-scoring';
 import { logger } from '@/shared/logger/logger';
 
 // GET /api/memory?action=context|memory|freshness

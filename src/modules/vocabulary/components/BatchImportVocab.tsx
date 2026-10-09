@@ -6,7 +6,6 @@
 
 import { useState } from 'react';
 import { Upload, Loader2, CheckCircle, XCircle, Sparkles, BookMarked, X } from 'lucide-react';
-import AudioPlayer from '@/components/shared/AudioPlayer';
 import { useT } from '@/hooks/use-i18n';
 import type { WordAnalysis } from '@/modules/ai/schemas/ai-schema';
 

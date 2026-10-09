@@ -3,7 +3,7 @@
 // P0-1 through P0-5 corrective patch verification
 // ============================================
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // ============================================
 // Pure helper function tests (no mocking needed)

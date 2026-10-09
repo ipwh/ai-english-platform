@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Upload, FileText, File as FileIcon, Image, Sparkles, Search, Tag, ChevronDown, ChevronUp, Loader2, Link2, Pencil, Trash2, Check } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 
 import { formatDate } from '@/shared/utils/utils';

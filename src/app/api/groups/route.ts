@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/shared/logger/logger';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { validateRequest } from '@/shared/validation/validate';
-import { groupCreateSchema, groupUpdateSchema } from '@/shared/validation/schemas/group.schema';
+import { groupCreateSchema } from '@/shared/validation/schemas/group.schema';
 import { listGroups, findGroupById, createGroup, updateGroup, deleteGroup } from '@/modules/student';
 import { resolveTeacherStudentClass } from '@/modules/teacher/copilot/services/teacher-copilot-service';
 

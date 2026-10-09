@@ -1,5 +1,5 @@
 // Sprint 99: Rollout Policy — controls how features are rolled out to users
-import type { RolloutPolicy, RolloutPolicyType } from './release-types';
+import type { RolloutPolicy } from './release-types';
 
 const activePolicies: Map<string, RolloutPolicy> = new Map();
 

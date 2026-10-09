@@ -1,8 +1,8 @@
 // Sprint 34: SkillDependencyResolver — cross-skill analysis + bottleneck + prediction
 import { getKnowledgeGraph } from './knowledge-graph';
-import { getAllSuccessors, getAllPrerequisites } from './dependency-resolver';
+import { getAllSuccessors } from './dependency-resolver';
 import type {
-  KnowledgeGraph, NextSkillPrediction, BottleneckResult,
+  NextSkillPrediction, BottleneckResult,
 } from '../types';
 
 // ============================================

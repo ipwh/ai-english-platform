@@ -5,8 +5,6 @@
 
 import type { DSEreadingQuestion, DSEreadingQuestionType } from './types';
 import {
-  resolveSkillCategory,
-  type ReadingSkillCategory,
   SKILL_DISTRIBUTION,
 } from './types';
 

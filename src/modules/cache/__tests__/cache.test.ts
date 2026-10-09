@@ -1,6 +1,6 @@
 // Sprint 12: Cache Tests
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { get, set, del, has, ttl, getOrCompute, clearAll, clearNamespace, getStats, startPruning, stopPruning } from '../cache-service';
+import { get, set, del, has, ttl, getOrCompute, clearAll, clearNamespace, getStats, stopPruning } from '../cache-service';
 import { grammarKeys, vocabKeys, exerciseKeys, essayKeys } from '../cache-keys';
 
 beforeEach(() => { clearAll(); });

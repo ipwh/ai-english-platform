@@ -7,7 +7,6 @@
 // Deprecated → Archived
 // ============================================
 
-import type { SemVer } from './prompt-metadata';
 
 /** Lifecycle states for prompt versions */
 export enum LifecycleState {

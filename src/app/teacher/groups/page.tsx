@@ -4,7 +4,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Users, Loader2, Sparkles, Upload, FileText } from 'lucide-react';
+import { Plus, Trash2, Users, Loader2, Upload, FileText } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import { useT } from '@/hooks/use-i18n';
 

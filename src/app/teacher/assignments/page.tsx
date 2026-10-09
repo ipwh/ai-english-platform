@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Clock, Users, ChevronRight, Loader2 } from 'lucide-react';
+import { Plus, Clock, Users, Loader2 } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 
 import ProgressBar from '@/components/shared/ProgressBar';

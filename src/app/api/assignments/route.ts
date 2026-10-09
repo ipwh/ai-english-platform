@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     // 學生列表：附上自己的提交狀態與教師回饋（Review 表按 submissionId 關聯）
     let submissionMap = new Map<string, { id: string; status: string; score: number | null; submittedAt: Date | null }>();
-    let feedbackMap = new Map<string, string | null>();
+    const feedbackMap = new Map<string, string | null>();
     if (authResult.role === 'student') {
       const assignmentIds = (assignments as Array<{ id: string }>).map(a => a.id);
       if (assignmentIds.length > 0) {

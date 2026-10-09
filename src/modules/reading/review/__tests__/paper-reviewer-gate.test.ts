@@ -8,7 +8,6 @@ import {
   buildReviewerRetryFeedback,
   buildReviewMetadata,
 } from '@/modules/reading/review/paper-reviewer-gate';
-import { validateReviewStructure } from '@/modules/reading/review/paper-reviewer-types';
 import type { PaperReview } from '@/modules/reading/review/paper-reviewer-types';
 
 /** Helper: create a minimal valid paper review */

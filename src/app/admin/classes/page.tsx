@@ -43,7 +43,7 @@ export default function AdminClassesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchClasses(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

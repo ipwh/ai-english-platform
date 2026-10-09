@@ -7,7 +7,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Lightbulb, BookOpen, MessageCircle, ChevronRight, ChevronDown, ThumbsUp, Sparkles, Send, Loader2, Target, Play, ArrowRight } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
-import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
+import { buildWeakSkills } from '@/shared/utils/utils';
 import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
 
 interface StudentProfile {
@@ -401,7 +401,7 @@ export default function StudentHelpPage() {
 
     loadPersonalizedAdvice();
     return () => { cancelled = true; };
-  }, []);
+  }, [language, t]);
 
   // === 根據弱項動態排序 FAQ 分類 ===
   const sortedCategories = useMemo(() => {

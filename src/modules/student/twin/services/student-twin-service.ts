@@ -1,14 +1,12 @@
 // Sprint 37: StudentTwinService — builds the complete digital twin
 // Sprint 59: Delegates to StudentStateBuilder (canonical assembler)
 // Split-brain eliminated: ALL state now comes from ONE builder
-import { logger } from '@/shared/logger/logger';
 import { studentStateBuilder } from '../../state/StudentStateBuilder';
 import type { StudentState } from '../../state/StudentState';
 import type {
-  StudentTwin, LearningPersona, PersonaType,
-  KnowledgeState, MotivationState, ConfidenceState, LearningHabit,
-  TwinPredictions, RiskAssessment, DashboardData, SkillRank,
-  RetentionState, ForgetCurve, LearningVelocity, RecoveryMetrics,
+  StudentTwin, 
+  KnowledgeState, 
+  TwinPredictions, RiskAssessment,
 } from '../types';
 
 // ============================================

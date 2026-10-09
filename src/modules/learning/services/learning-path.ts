@@ -1,7 +1,7 @@
 // Sprint 7: Learning Path Generator
 // Generates personalized learning paths respecting prerequisites
 import type { SkillMastery, LearningPathStep } from '../types';
-import { getSkillsForLevel, getAllPrerequisites, getSkill, topologicalSort } from './knowledge-graph';
+import { getSkillsForLevel, getAllPrerequisites, topologicalSort } from './knowledge-graph';
 import { isMastered } from './mastery-calculator';
 
 /**

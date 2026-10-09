@@ -13,7 +13,7 @@
 //   - Scheduler (schedule runs)
 // ============================================
 
-import type { ContinuousEvalConfig, EvaluationSchedule, DriftSeverity } from './config';
+import type { ContinuousEvalConfig } from './config';
 import { DEFAULT_CONTINUOUS_EVAL_CONFIG } from './config';
 import type { ScoreRecord } from './score-history';
 import { scoreHistory } from './score-history';
@@ -23,7 +23,7 @@ import { detectDrift, compareDrift } from './drift-detector';
 import type { DriftReport } from './drift-detector';
 import { checkRegression, checkSustainedRegression } from './regression-monitor';
 import type { RegressionAssessment } from './regression-monitor';
-import { computeProviderHealth, computeAllProviderHealth } from './provider-monitor';
+import { computeAllProviderHealth } from './provider-monitor';
 import type { ProviderHealth } from './provider-monitor';
 import { baselineManager } from './baseline-manager';
 import { computeQualityTrend, getAllTrends } from './quality-trend';
@@ -34,8 +34,7 @@ import { scheduler } from './scheduler';
 import type { ScheduledEvalCallback } from './scheduler';
 import { EventBus, type ContinuousEvalStartedEvent, type ContinuousEvalCompletedEvent, type ContinuousEvalFailedEvent, type ContinuousEvalTimedOutEvent, type ContinuousEvalAbortedEvent } from '../foundation';
 import { EvaluationStore } from './evaluation-store';
-import { createEvaluationRecord, emptySideEffects } from './evaluation-record';
-import type { EvaluationRecord, SideEffectFlags } from './evaluation-record';
+import { createEvaluationRecord } from './evaluation-record';
 import { recoverPendingEvaluations } from './evaluation-recovery';
 import type { RecoveryReport } from './evaluation-record';
 

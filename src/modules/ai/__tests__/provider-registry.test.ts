@@ -3,7 +3,7 @@
 // P1: Core AI function test coverage
 // ============================================
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // ============================================
 // 一、Provider Interface Type Check

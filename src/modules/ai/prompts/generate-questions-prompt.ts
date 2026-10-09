@@ -4,7 +4,7 @@
 // Target: <1500 tokens for non-listening, <2500 for listening
 // ============================================
 
-import { getDSEEmpiricalTopics, validateDSEtopicMatch } from '../services/dse-topics';
+import { getDSEEmpiricalTopics } from '../services/dse-topics';
 import { selectDiverseTopic, buildDiversityInstruction } from '../services/topic-selector';
 import { STRICT_ANSWER_RULES } from '../prompts';
 import { HALLUCINATION_GUARD_LITE } from '../services/hallucination-guard';

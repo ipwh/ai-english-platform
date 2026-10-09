@@ -1,7 +1,7 @@
 // ============================================
 // Sprint 105: Case Insensitive Rule
 // ============================================
-import type { EvaluationRule, GradingPolicyConfig } from '../evaluation-types';
+import type { EvaluationRule } from '../evaluation-types';
 
 export const caseInsensitiveRule: EvaluationRule = {
   name: 'case-insensitive',

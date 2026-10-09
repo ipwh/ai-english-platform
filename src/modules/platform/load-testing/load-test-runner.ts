@@ -1,5 +1,5 @@
 // Sprint 97: Load Test Runner — executes concurrent load scenarios and collects metrics
-import type { LoadScenario, LoadResult, LoadSuite, LoadSummary, LatencyStats, ThroughputStats, ProviderLoadStats, MemoryStats, LoadError } from './load-test-types';
+import type { LoadScenario, LoadResult, LoadSuite, LoadSummary, LatencyStats, ThroughputStats, ProviderLoadStats, LoadError } from './load-test-types';
 import { getRuntimeMetrics } from '@/modules/ai/services/runtime-metrics';
 import { logger } from '@/shared/logger/logger';
 

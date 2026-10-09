@@ -6,7 +6,6 @@
 // on other experiment modules.
 // ============================================
 
-import type { SemVer } from '../prompt-versioning/prompt-metadata';
 
 // ── Experiment Configuration ──
 

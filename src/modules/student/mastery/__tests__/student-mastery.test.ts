@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { calculateMasteryScore } from '../services/mastery-formula';
 import { masteryQuerySchema, exerciseResultSchema } from '../schemas';
 import { MASTERY_SKILLS } from '../types';
-import type { MasterySkill, ExerciseResult, StudentLearningProfile } from '../types';
+import type { ExerciseResult, StudentLearningProfile } from '../types';
 
 // ============================================
 // 1. Mastery Formula Tests

@@ -14,7 +14,7 @@ import { CloFeedbackPanel } from '@/components/shared/CloRationaleCard';
 import type { CloDimensionRationaleResult } from '@/shared/types/ai-response-types';
 import type { PracticeQuestion } from '@/shared/types/types';
 import { useT } from '@/hooks/use-i18n';
-import { normalizeSkillName, buildWeakSkills } from '@/shared/utils/utils';
+import { buildWeakSkills } from '@/shared/utils/utils';
 import type { PracticeSessionLite, MistakeLite, WeakSkill } from '@/shared/utils/utils';
 import { toMcqLetter, stripMcqPrefix, normalizeAnswer, MCQ_LETTERS } from '@/modules/ai/services/question-validator';
 import { checkAnswer as serverCheckAnswer } from '@/modules/exercise/services/practice-answer-scorer';
@@ -361,7 +361,7 @@ export default function DiagnosticPage() {
         setGenError(message);
       })
       .finally(() => setLoadingQuestions(false));
-  }, []);
+  }, [language, t]);
 
   // Update writing score when CLO analysis completes (replaces placeholder -1)
   useEffect(() => {

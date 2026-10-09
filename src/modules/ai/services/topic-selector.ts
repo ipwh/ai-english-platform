@@ -13,7 +13,6 @@
 import {
   LISTENING_TOPICS_V2,
   READING_TOPICS_V2,
-  DSE_EMPIRICAL_TOPICS,
 } from './dse-topics';
 import type { TopicCategory, TopicEntry } from './dse-topics';
 import { logger } from '@/shared/logger/logger';
@@ -272,7 +271,7 @@ export function buildDiversityInstruction(params: {
   const recentTopics = getRecentTopics(params.userId, params.skill, 8);
   const recentTexts = recentTopics.map(r => r.topicText);
 
-  let instruction = `
+  const instruction = `
 ═══════════════════════════════════════
 ⚠️ TOPIC DIVERSITY ENFORCEMENT — 題材多元化強制規則
 ═══════════════════════════════════════

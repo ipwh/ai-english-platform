@@ -7,9 +7,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Play, Loader2, Check, X, RotateCcw, ArrowRight, ArrowLeft,
-  Sparkles, Brain, Target, Trophy, AlertCircle, Eye, EyeOff,
-  Volume2, Lightbulb, Search, ListChecks,
+  Play, Loader2, Check, X, RotateCcw, ArrowRight, 
+  Sparkles, Brain, Target, Trophy, AlertCircle, 
+  Lightbulb, Search, ListChecks,
 } from 'lucide-react';
 import AudioPlayer from '@/components/shared/AudioPlayer';
 import ProgressBar from '@/components/shared/ProgressBar';

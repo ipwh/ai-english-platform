@@ -933,7 +933,7 @@ export function evaluateSummaryClozeAnswer(
   const isExactMatch = sa === ma;
   const passageLower = passageText.toLowerCase();
 
-  let isGrammaticallyCorrect = true;
+  const isGrammaticallyCorrect = true;
   let isAcceptableParaphrase = false;
   let copiedWhenChangeExpected = false;
   let accepted = false;

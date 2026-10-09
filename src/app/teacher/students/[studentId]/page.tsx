@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -11,7 +11,6 @@ import {
   Loader2, TrendingUp, Clock, Hash, Zap, Star, Flame,
   FileText, Download, BarChart3, Languages, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import ProgressBar from '@/components/shared/ProgressBar';
 import { getGradeLabel } from '@/shared/utils/nav';
 import { useT } from '@/hooks/use-i18n';
 import { useAppStore } from '@/store/appStore';
@@ -182,7 +181,7 @@ export default function StudentDetailPage() {
       })
       .catch(() => setLoadError(t('teacher.studentDetail.loadFailed')))
       .finally(() => setLoading(false));
-  }, [studentId]);
+  }, [studentId, t]);
 
   const toggleSession = (id: string) => {
     setExpandedSessions(prev => {

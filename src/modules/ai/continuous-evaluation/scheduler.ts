@@ -10,7 +10,6 @@
 // ============================================
 
 import type { EvaluationSchedule } from './config';
-import { SCHEDULE_LABELS } from './config';
 
 // ── Types ──
 

@@ -16,7 +16,6 @@ import {
   requiresApiEvaluation,
   detectLexicalShift,
   detectStructuralShift,
-  normalizeForComparison,
 } from '@/modules/reading/evaluation';
 import { createEmptyEvaluation } from '@/modules/reading/evaluation';
 

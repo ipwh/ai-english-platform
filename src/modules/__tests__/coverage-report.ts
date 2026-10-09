@@ -1,5 +1,4 @@
 // Sprint 16: Coverage Report Generator
-import { execSync } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 

@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle, PencilLine } from 'lucide-react';
+import { Loader2, BookMarked, TrendingUp, Brain, Upload, FileDown, Lightbulb, ChevronDown, ChevronUp, Play, Check, X, RotateCcw, AlertCircle, PencilLine } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 
 import VocabCard from '@/modules/vocabulary/components/VocabCard';

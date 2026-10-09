@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, X, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
+import { Check, RotateCcw, MessageSquare, Sparkles, Loader2 } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 
 import { formatDate } from '@/shared/utils/utils';
@@ -37,7 +37,7 @@ export default function TeacherReviewPage() {
   useEffect(() => {
     setTeacherScore(selectedReview?.teacherScore);
     setTeacherFeedback(selectedReview?.teacherFeedback || '');
-  }, [selectedReview?.id]);
+  }, [selectedReview?.id, selectedReview?.teacherFeedback, selectedReview?.teacherScore]);
 
   // === AI 重新分析 ===
   const [aiLoading, setAiLoading] = useState(false);

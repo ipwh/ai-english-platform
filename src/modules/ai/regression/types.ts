@@ -5,7 +5,6 @@
 // All types describe evaluation fixtures, scoring, and reporting.
 // ============================================
 
-import type { ExecutionContext } from '@/modules/ai/services/execution-context';
 import type { ChatMessage } from '@/modules/ai/providers';
 
 // ── Fixture ──

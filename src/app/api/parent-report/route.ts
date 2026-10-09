@@ -7,7 +7,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { getVerifiedPracticeSessions } from '@/modules/exercise/services/practice-evidence-service';
 
 export async function GET(request: NextRequest) {
   // Auth check: only teachers/admins can generate parent reports

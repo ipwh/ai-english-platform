@@ -11,7 +11,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Volume2, Pause, Play, Square, Loader2, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
+import { Volume2, Pause, Play, Square, Loader2, AlertCircle, XCircle } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
 const IS_DEV = String(process.env.NODE_ENV) !== 'production';
@@ -403,8 +403,18 @@ export default function AudioPlayer({
     };
     loadVoices();
     const prevOnVoicesChanged = window.speechSynthesis.onvoiceschanged;
-    window.speechSynthesis.onvoiceschanged = () => {
-      if (prevOnVoicesChanged) prevOnVoicesChanged;
+    window.speechSynthesis.onvoiceschanged = (event: Event) => {
+      // Chain the handler we replaced. This used to be a no-op statement
+      // (`if (prevOnVoicesChanged) prevOnVoicesChanged;`), which silently
+      // dropped any previously registered voice-changed handler. A foreign
+      // handler that throws must never stop our own voice list refresh.
+      if (typeof prevOnVoicesChanged === 'function') {
+        try {
+          prevOnVoicesChanged.call(window.speechSynthesis, event);
+        } catch {
+          /* a failing previous handler must not break voice loading */
+        }
+      }
       loadVoices();
     };
     return () => { window.speechSynthesis.onvoiceschanged = prevOnVoicesChanged; };

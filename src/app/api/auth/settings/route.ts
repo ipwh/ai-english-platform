@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/shared/auth/auth-next';
 import { verifySessionToken } from '@/shared/auth/jwt';
 import { logger } from '@/shared/logger/logger';
-import { findUserByIdSelect, updateUser, deleteTeacherClasses, createTeacherClass } from '@/modules/student';
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   // NextAuth session

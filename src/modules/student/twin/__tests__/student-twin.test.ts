@@ -2,7 +2,6 @@
 // Tests the public API (builder delegation + type mapping)
 import { describe, it, expect, vi } from 'vitest';
 import type { StudentState } from '@/modules/student/state/StudentState';
-import type { StudentTwin } from '../types';
 
 // Mock StudentStateBuilder
 const mockState: StudentState = {

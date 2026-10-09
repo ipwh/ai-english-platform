@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { promptVersionRegistry } from '../prompt-versioning/prompt-registry';
 import {
-  LifecycleState, ALLOWED_TRANSITIONS, LIFECYCLE_LABELS,
+  LifecycleState, LIFECYCLE_LABELS,
   canTransition, isActive, isStable,
   promptLifecycleEngine,
 } from '../prompt-versioning/release-lifecycle';
@@ -27,7 +27,7 @@ import { scheduler } from '../continuous-evaluation/scheduler';
 import { monitor } from '../continuous-evaluation/monitor';
 import { EvaluationStore } from '../continuous-evaluation/evaluation-store';
 import { recoverPendingEvaluations } from '../continuous-evaluation/evaluation-recovery';
-import { createEvaluationRecord, emptySideEffects, canTransition as ceCanTransition, isTerminalStatus } from '../continuous-evaluation/evaluation-record';
+import { createEvaluationRecord, canTransition as ceCanTransition, isTerminalStatus } from '../continuous-evaluation/evaluation-record';
 import { incSuccessCounterDedup, incFailureCounterDedup, resetMetricsDedup } from '../continuous-evaluation/evaluator';
 import type { ScoreRecord } from '../continuous-evaluation/score-history';
 
@@ -1371,7 +1371,7 @@ describe('Scheduler overlap — exactly-once', () => {
 
   it('unrelated prompts remain concurrent', async () => {
     monitor.reset();
-    let callOrder: string[] = [];
+    const callOrder: string[] = [];
 
     monitor.initialize({
       providerCall: async (messages) => {

@@ -356,7 +356,7 @@ function regularizedBeta(x: number, a: number, b: number): number {
   // Continued fraction
   const front = (Math.exp(a * Math.log(x) + b * Math.log(1 - x)) / a) * (1 / betaAB);
 
-  let f = 1.0;
+  const f = 1.0;
   let c = 1.0;
   let d = 1.0 - (a + b) * x / (a + 1);
   if (Math.abs(d) < epsilon) d = epsilon;

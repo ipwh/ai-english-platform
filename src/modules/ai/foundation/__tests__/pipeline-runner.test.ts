@@ -60,7 +60,7 @@ describe('PipelineRunner', () => {
           average: sum / executed.results.length,
         };
       },
-      persist: async (aggregated: TestAggregated): Promise<void> => {
+      persist: async (_aggregated: TestAggregated): Promise<void> => {
         // no-op for testing
       },
       report: async (aggregated: TestAggregated): Promise<TestReport> => {

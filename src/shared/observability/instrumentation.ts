@@ -15,7 +15,7 @@ let otelAvailable = false;
 
 try {
   // Dynamic import — 只有在安裝了 @opentelemetry/api 時啟用
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   if (typeof require !== 'undefined') {
     require('@opentelemetry/api');
     otelAvailable = true;
@@ -56,7 +56,7 @@ export function startOtelSpan(
 ): OtelSpan {
   if (otelAvailable) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const api = require('@opentelemetry/api');
       const tracer = api.trace.getTracer('english-platform');
       const span = tracer.startSpan(name);

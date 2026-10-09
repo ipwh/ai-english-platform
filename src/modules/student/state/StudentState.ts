@@ -4,8 +4,7 @@
 
 import type { LearningPersona, KnowledgeState, MotivationState,
   ConfidenceState, LearningHabit, TwinPredictions, RiskAssessment,
-  RetentionState, ForgetCurve, LearningVelocity, RecoveryMetrics,
-  SkillRank } from '@/modules/student/twin/types';
+  RetentionState, ForgetCurve, LearningVelocity, RecoveryMetrics } from '@/modules/student/twin/types';
 
 // ============================================
 // StudentState — complete canonical state

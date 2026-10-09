@@ -1,5 +1,5 @@
 // Sprint 9: Mistake Recommendation — generates review/practice/lesson recommendations
-import type { MistakeRecord, MistakeRecommendation, MistakeStats } from '../types';
+import type { MistakeRecord, MistakeRecommendation } from '../types';
 import { analyzeMistakes } from './mistake-analytics';
 import { extractGrammarPoint, getDueForReview, estimateCategoryMastery } from './mistake-tracker';
 

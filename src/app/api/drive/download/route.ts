@@ -5,7 +5,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { logger } from '@/shared/logger/logger';
 import fs from 'node:fs';
 import path from 'node:path';
 

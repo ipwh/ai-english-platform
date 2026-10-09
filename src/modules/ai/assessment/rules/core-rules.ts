@@ -3,7 +3,7 @@
 // MCQ Quality, Distractor Quality, Answer Uniqueness, Difficulty Alignment
 // ============================================
 
-import type { AssessmentRule, AssessmentCheck, AssessmentContext } from '../assessment-types';
+import type { AssessmentRule, AssessmentCheck } from '../assessment-types';
 
 // ═══ Helpers ═══
 const norm = (s: unknown) => String(s || '').trim().toLowerCase();

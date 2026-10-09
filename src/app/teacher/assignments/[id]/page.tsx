@@ -5,9 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Loader2, Sparkles, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Users, Clock, CheckCircle, Loader2, Sparkles, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
-import ProgressBar from '@/components/shared/ProgressBar';
 import SkillChip from '@/components/shared/SkillChip';
 import { formatDate } from '@/shared/utils/utils';
 import { difficultyLabels } from '@/shared/utils/nav';
@@ -85,7 +84,7 @@ export default function TeacherAssignmentDetailPage() {
       })
       .catch(() => setError(t('teacher.assignmentDetail.notFound')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const handleTeacherFeedback = async (submissionId: string, feedback: string) => {
     setSavingFeedback(submissionId);

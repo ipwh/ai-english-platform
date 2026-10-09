@@ -2,7 +2,7 @@
 // Sprint 75: Uses IMemoryRepository interface (not in-memory Map)
 import type { IMemoryRepository } from '../repositories/memory-repository-interface';
 import { hkToday } from '@/shared/utils/hk-date';
-import { generateLearningContext, shouldUpdateMemory, decayScore } from './memory-scoring';
+import { generateLearningContext, shouldUpdateMemory } from './memory-scoring';
 import type { LearningMemory, LearningContext, GrammarMemory, VocabularyMemory, WritingStyleMemory, ReadingPreferenceMemory, LearningSpeedMemory, PreferredTopicsMemory, WeaknessMemory, StrengthMemory, RecentErrorsMemory, ReviewHistoryMemory } from '../types';
 import type { SkillDimension } from '@/modules/student/profile/types';
 

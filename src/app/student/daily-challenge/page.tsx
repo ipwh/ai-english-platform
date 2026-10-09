@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Flame, Sparkles, Loader2, Trophy, CheckCircle, XCircle, ArrowRight, Send } from 'lucide-react';
+import { Calendar, Flame, Sparkles, Loader2, Trophy, CheckCircle, XCircle, Send } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
 import { useT } from '@/hooks/use-i18n';
 

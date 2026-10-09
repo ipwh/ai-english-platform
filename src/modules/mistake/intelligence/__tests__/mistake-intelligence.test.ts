@@ -9,7 +9,6 @@ import {
 } from '../services/mistake-intelligence-formula';
 
 // Types
-import { MASTERY_SKILLS } from '@/modules/student/mastery/types';
 import type { TrendInput, WeaknessItem, WeaknessProfile } from '../types';
 import { GRAMMAR_CATEGORY_LABELS } from '../types';
 

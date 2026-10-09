@@ -2,7 +2,7 @@
 // Sprint 106: Assessment Score & Report
 // ============================================
 
-import type { AssessmentResult, AssessmentDimensions, AssessmentCheck } from './assessment-types';
+import type { AssessmentResult, AssessmentDimensions } from './assessment-types';
 
 /** Generate a human-readable assessment score summary. */
 export function formatAssessmentScore(result: AssessmentResult): string {

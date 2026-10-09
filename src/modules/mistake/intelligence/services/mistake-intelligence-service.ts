@@ -1,8 +1,8 @@
 // Sprint 32: Mistake Intelligence Service — orchestrates repo + existing mistake-db
 import type { WeaknessProfile, WeaknessItem, TrendDirection } from '../types';
 import { GRAMMAR_CATEGORY_LABELS } from '../types';
-import { getTopWeaknesses, getRecurringMistakes, getStudentSummaries, aggregateMistakes } from '../repositories/mistake-intelligence-repo';
-import { calculateTrend, calculateWeaknessSeverityScore, isPersistentWeakness } from './mistake-intelligence-formula';
+import { getTopWeaknesses, getRecurringMistakes, aggregateMistakes } from '../repositories/mistake-intelligence-repo';
+import { isPersistentWeakness } from './mistake-intelligence-formula';
 import { bucketKeyLabelZh } from './mistake-skill-breakdown';
 
 /**

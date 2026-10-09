@@ -7,7 +7,7 @@ import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { cacheFor, CACHE_MEDIUM } from '@/shared/utils/api-cache';
 import { z } from 'zod';
-import { listClasses, createClass, findClassByName, deleteClass } from '@/modules/student';
+import { listClasses, createClass } from '@/modules/student';
 
 const createClassSchema = z.object({
   name: z.string().min(1, 'name 為必填').max(10),
