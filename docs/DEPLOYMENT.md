@@ -1,6 +1,12 @@
 # Deployment Guide — AI English Platform
 
-> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-09-26 | **Tests**: 3,203 passed / 2 skipped (166 files passed / 2 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
+> **Deployment Readiness**: Engineering baseline stable | **Last release validation**: 2026-10-09 | **Tests**: 3,788 passed / 13 skipped (213 files passed / 3 skipped) | **Architecture**: Facade → UseCase → Service → Repository → Prisma
+>
+> **2026-10-09（Sprint 132）**：安全／依賴／CI 硬化。Next.js `16.2.10` → **`16.4.0`**、
+> `next-auth` `5.0.0-beta.31` → **`beta.32`**、`sharp` `0.35.5`、`vitest` `4.1.11`；
+> `npm audit` 25 → **12**（0 critical）。每一條安全下限由
+> `src/shared/__tests__/dependency-security.test.ts` 守住（含 Prisma CLI↔client 版本一致）。
+> **本批不含 schema 變更／migration** → 回滾 = 切回上一個 Cloud Run revision。
 >
 > **2026-09-26（ADR-046）**：全歷史投影改走伺服器端 SQL 聚合（Neon egress 收口）。本次
 > **不含 schema 變更／migration** → 回滾 = 切回上一個 Cloud Run revision。
@@ -25,7 +31,7 @@
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - PostgreSQL (Neon recommended) with pgvector extension
 - DeepSeek API key (primary AI provider)
 - Google Cloud project (Vertex AI + OAuth + TTS)
@@ -54,15 +60,44 @@
 
 ## Quick Deploy
 
-1. **Validate**: Run `npm test`, `node scripts/check-i18n.js`, `npx prisma validate`, and `npx tsc --noEmit`.
-2. **Database migration**: With the production `DATABASE_URL` loaded, run `npx prisma migrate deploy` **before** deploying application code. The Cloud Run scripts build and deploy images but deliberately do not run migrations.
-  - `20260921_submission_and_xp_idempotency`: replay keys for `SubmissionAttempt` and `XpTransaction`.
-  - `20260922_practice_mastery_idempotency`: `PracticeSession.masteryAppliedAt` for exactly-once mastery application.
+1. **Validate**: Run `npm test`, `node scripts/check-i18n.js`, `node scripts/check-n-plus-one.js`, `node scripts/check-lint-budget.js`, `npx prisma validate`, and `npx tsc --noEmit`.
+2. **Database migration**: the push-to-`main` Cloud Build trigger runs `prisma migrate deploy` as **Step 1 `Migrate`** (secret `DIRECT_DATABASE_URL`) *before* the image is built and deployed, and a failure aborts the whole build — so new code can never go live against an old schema. The manual path (`npm run cloud-run:deploy:win`) builds and deploys the image but **does not** run migrations, so run `npx prisma migrate deploy` yourself first (with the production `DATABASE_URL`/`DIRECT_DATABASE_URL` loaded).
+  - **Migration safety (enforced by a test)**: `src/shared/db/__tests__/migration-safety.test.ts` fails if a migration contains a destructive operation (`DROP`/`DELETE FROM`/`TRUNCATE`/`RENAME COLUMN`/`ALTER COLUMN … TYPE`/`SET NOT NULL`) that is not on its reviewed allowlist. Migrations must be **additive / backward compatible**: Cloud Run shifts traffic gradually, so the *previous* image briefly runs against the *new* schema, and a rollback must stay possible.
+  - **Two deploys racing**: `prisma migrate deploy` takes a Postgres advisory lock, so concurrent runs serialise (the second sees no pending migrations). Deploy the newest revision last if you push twice in quick succession.
 3. **Cloud Run**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>` → configure env vars → deploy.
 4. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain]/api/auth/callback/google`.
 5. **Verify**: `GET /api/health` → `{ status: "healthy" }`; check readiness and Cloud Run logs for migration- or database-related errors.
 
 > Vercel 已於 2026-09-15 移除；`vercel.json` / `@vercel/kv` / `vercel-build.js` 皆已不存在。
+
+## Scheduled maintenance job: IELTS quota retention
+
+`IeltsGenerationQuota` stores one row per (student, Hong Kong day, bucket). Nothing
+reads a past day, so old rows are pure debt (~1 700 rows/day at 850 students,
+≈ 620 k/year). Retention keeps **30 Hong Kong days** and deletes in **bounded
+batches** (500 rows per batch, at most 200 batches per run).
+
+Create a Cloud Scheduler HTTP job (mirrors the roster-sync job pattern):
+
+```bash
+# 1. Ensure CRON_SECRET exists on the Cloud Run service (reuse the roster-sync one).
+#    The endpoint is permanently disabled (503) when CRON_SECRET is unset — fail-closed.
+
+# 2. Inspect the backlog first (never deletes):
+curl -H "x-cron-secret: $CRON_SECRET" \
+  "https://<service-url>/api/admin/ielts/quota-retention?dryRun=true"
+
+# 3. Schedule the drain (daily 03:30 HKT):
+gcloud scheduler jobs create http ielts-quota-retention \
+  --schedule="30 3 * * *" --time-zone="Asia/Hong_Kong" \
+  --uri="https://<service-url>/api/admin/ielts/quota-retention" \
+  --http-method=GET \
+  --headers="x-cron-secret=$CRON_SECRET" \
+  --location=asia-east2
+```
+
+The response reports `cutoffDayKey`, `deletedRows`, `batches` and `moreRemaining`;
+`moreRemaining: true` simply means the next run continues. Re-running is always safe.
 
 ## Monitoring
 

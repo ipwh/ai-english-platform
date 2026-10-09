@@ -152,6 +152,22 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 - **通知輪詢不是 egress 目標**（實測）：`/api/notifications` 佔 94 % 的請求，但其查詢回傳
   **0 列**。要動它請先以 `db:query-stats` 提出證據。
 
+## 🔐 依賴安全與工具鏈（2026-10-09，Sprint 132）
+
+| 項目 | 現況 |
+|---|---|
+| Node | **>= 22.12.0**（`package.json` `engines` ＋ 根目錄 `.nvmrc`（22）＋ 全部 workflow `node-version: '22'`；CI 與 Cloud Build 必須同版） |
+| `npm audit` | **25 → 12**（0 critical）。其餘 12 條的「修復」全部是**降級**（Prisma → 6.x、mammoth → 0.3.29、eslint-config-next → 14.x）⇒ **不採用**；`npm audit fix --force` 一律禁用 |
+| 安全下限 | `src/shared/__tests__/dependency-security.test.ts`：14 個套件的最低安全版本 ＋ **Prisma CLI／client／engines 版本必須一致** ＋ Safari 15.4 基線不得退出 |
+| 傳遞依賴 | 以 `package.json` 的 `overrides` 在**同一 major** 內拉高（`@xmldom/xmldom`／`fast-uri`／`js-yaml`／`@grpc/grpc-js`／`browserslist`／`source-map-js`） |
+| Prisma | **7.10.0 精確釘版**（CLI／client／engines／adapters 四者同版）。`npm audit fix` 曾**兩次**只把 CLI／engines 拉高而 client 不動 ⇒ 以 `--save-exact` 封住漂移 |
+| 遷移安全 | `src/shared/db/__tests__/migration-safety.test.ts`：破壞性操作必須列入 `REVIEWED_DESTRUCTIVE_MIGRATIONS` 並附理由（**過期條目亦失敗**）；遷移可加不可減 |
+| Lint 棘輪 | `npx eslint . --max-warnings 259` ＋ `npm run lint:budget`（per-rule 預算；**只可下調**） |
+
+> ⚠️ **Safari 15.4 基線**：`browserslist` 的 `safari 15.4`／`ios_saf 15.4` **不得刪除或改高**
+> （校內 iPad 最高 iPadOS 15.8）。升級 Next.js 或動 `browserslist` 後**必須**重跑產物閘門：
+> `.next/static` 全掃 `static\s*\{` 必須為 **0**（該語法 Safari 16.4+ 才可解析）。
+
 ## 🏗️ Architecture Overview
 
 ```

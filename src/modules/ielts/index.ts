@@ -207,3 +207,11 @@ export {
   type IeltsInstantPracticeResult,
   type IeltsInstantPracticeOutcome,
 } from './services/instant-practice-service';
+export {
+  runIeltsQuotaRetention,
+  currentQuotaDayKey,
+  IELTS_QUOTA_RETENTION_DAYS,
+  IELTS_QUOTA_RETENTION_BATCH_SIZE,
+  IELTS_QUOTA_RETENTION_MAX_BATCHES,
+  type IeltsQuotaRetentionResult,
+} from './services/quota-retention-service';

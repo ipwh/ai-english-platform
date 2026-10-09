@@ -52,6 +52,34 @@ function classicUniqueViolation(fields: string[]): Error {
   );
 }
 
+/**
+ * MEASURED Prisma 7.10 + @prisma/adapter-pg P2002 shape (2026-10-09, client
+ * 7.10.0): `constraint.fields` is GONE — only the constraint INDEX NAME is
+ * reported. This is the shape the deployed runtime produces, so the retry MUST
+ * fire on it (measured failure without the name fallback: the DB-001 real-Postgres
+ * suite rejected the losing request).
+ */
+function prisma710UniqueViolation(index: string): Error {
+  return Object.assign(
+    new Error(`Unique constraint failed on the constraint: \`${index}\``),
+    {
+      code: 'P2002',
+      meta: {
+        modelName: 'Submission',
+        driverAdapterError: {
+          name: 'DriverAdapterError',
+          cause: {
+            originalCode: '23505',
+            kind: 'UniqueConstraintViolation',
+            constraint: { index },
+            table: 'Submission',
+          },
+        },
+      },
+    },
+  );
+}
+
 const state = vi.hoisted(() => ({
   submissions: [] as Array<Record<string, unknown>>,
   attempts: [] as Array<Record<string, unknown>>,
@@ -172,6 +200,29 @@ describe('submitAssignmentAttempt — unique-constraint retry', () => {
     const result = await submitAssignmentAttempt(makeInput());
 
     expect(result.submission.id).toBe('sub-winner');
+    expect(state.attempts).toHaveLength(2);
+  });
+
+  it('recovers from a concurrent-create P2002 in the Prisma 7.10 shape (index name only)', async () => {
+    state.submissions.push({
+      id: 'sub-winner',
+      assignmentId: 'asg-1',
+      studentId: 'stu-1',
+      answers: '{}',
+      score: 75,
+      status: 'submitted',
+    });
+    state.attempts.push({ id: 'att-winner', submissionId: 'sub-winner', attemptNumber: 1 });
+    state.failNextCreateError = prisma710UniqueViolation(
+      'Submission_assignmentId_studentId_key',
+    );
+
+    const result = await submitAssignmentAttempt(makeInput());
+
+    expect(result.submission.id).toBe('sub-winner');
+    expect(result.isNew).toBe(false);
+    expect(result.attempt.attemptNumber).toBe(2);
+    expect(state.submissions).toHaveLength(1);
     expect(state.attempts).toHaveLength(2);
   });
 

@@ -9,6 +9,9 @@
     "safari 15.4",
     "ios_saf 15.4"
   ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -18,6 +21,7 @@
     "cloud-run:build": "docker build --platform linux/amd64 -t english-platform .",
     "start": "next start",
     "lint": "eslint",
+    "lint:budget": "node scripts/check-lint-budget.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "architecture:verify": "npx tsc --noEmit && npm run lint && npx vitest run && npx vitest run src/modules/__tests__/architecture.test.ts",
@@ -81,14 +85,14 @@
     "postinstall": "npx --yes prisma generate"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.2",
+    "@auth/prisma-adapter": "^2.11.3",
     "@google-cloud/aiplatform": "^6.8.1",
     "@google-cloud/text-to-speech": "^6.4.1",
     "@google-cloud/vision": "^5.3.7",
     "@libsql/client": "^0.17.4",
-    "@prisma/adapter-libsql": "^7.8.0",
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-libsql": "7.10.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^3.0.3",
     "docx": "^9.7.1",
@@ -96,17 +100,17 @@
     "jose": "^6.2.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.23.0",
-    "mammoth": "^1.12.0",
-    "next": "16.2.10",
-    "next-auth": "^5.0.0-beta.31",
+    "mammoth": "^1.13.0",
+    "next": "16.4.0",
+    "next-auth": "^5.0.0-beta.32",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.19.1",
     "pg": "^8.22.0",
-    "prisma": "^7.8.0",
+    "prisma": "7.10.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.9.2",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
@@ -119,10 +123,18 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.11",
     "typescript": "^5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6",
+    "@xmldom/xmldom": "^0.8.15",
+    "browserslist": "^4.29.3",
+    "fast-uri": "^3.1.8",
+    "js-yaml": "^4.3.2",
+    "source-map-js": "^1.2.2"
   }
 }

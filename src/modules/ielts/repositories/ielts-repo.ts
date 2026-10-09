@@ -400,6 +400,42 @@ export async function readInstantQuotaUsed(args: {
   return row?.usedCount ?? 0;
 }
 
+// ---------------------------------------------------------------
+// Quota retention (2026-10-08, Sprint 132)
+// ---------------------------------------------------------------
+// One row per (student, Hong Kong day, bucket). Every consumer
+// (`reserveInstantQuota` / `releaseInstantQuota` / `readInstantQuotaUsed`) scopes
+// to the CURRENT Hong Kong day, so a row from a past day is pure debt
+// (~1 700 rows/day at ~850 students). `dayKey` is a `YYYY-MM-DD` string produced
+// by `hkDayKey()`, so a lexicographic `lt` IS the date comparison.
+//
+// Both helpers are BOUNDED: the delete reads at most `batchSize` ids per call and
+// deletes exactly those, so a scheduled run can never issue one unbounded delete
+// against a table holding hundreds of thousands of rows — the retention service
+// drains the backlog over successive batches.
+
+/** Rows strictly older than `cutoffDayKey` (dry run / reporting). */
+export async function countInstantQuotaRowsOlderThan(cutoffDayKey: string): Promise<number> {
+  return db.ieltsGenerationQuota.count({ where: { dayKey: { lt: cutoffDayKey } } });
+}
+
+/** Delete at most `batchSize` stale rows; returns how many were removed. */
+export async function deleteInstantQuotaRowsOlderThan(
+  cutoffDayKey: string,
+  batchSize: number,
+): Promise<number> {
+  const stale = await db.ieltsGenerationQuota.findMany({
+    where: { dayKey: { lt: cutoffDayKey } },
+    select: { id: true },
+    take: batchSize,
+  });
+  if (stale.length === 0) return 0;
+  const removed = await db.ieltsGenerationQuota.deleteMany({
+    where: { id: { in: stale.map((row) => row.id) } },
+  });
+  return removed.count;
+}
+
 export async function getSectionById(id: string) {
   return db.ieltsSection.findUnique({ where: { id } });
 }

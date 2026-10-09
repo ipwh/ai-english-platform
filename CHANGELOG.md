@@ -4,6 +4,97 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-09 — Sprint 132：安全／依賴／CI／生產硬化
+
+### 一、背景
+9 項審核發現（F1–F9）：依賴漏洞、Next.js 安全性更新、Safari 15.4 基線、ESLint CI 閘門、
+CI 可重現性、部署／遷移安全、依賴回歸防護、配額保留，以及**重新驗證 Sprint 131 的併發不變式**。
+
+### 二、依賴安全（F1／F3）
+`npm audit`：**25 → 12**（0 critical）。全程只升級、**零降級**、**未用 `npm audit fix --force`**。
+
+| 套件 | 前 → 後 |
+|---|---|
+| `next` | 16.2.10 → **16.4.0**（middleware/proxy bypass、Server Action SSRF/DoS、self-hosted SSG/ISR cache poisoning） |
+| `next-auth` | 5.0.0-beta.31 → **5.0.0-beta.32**；`@auth/core` **0.41.3**；`@auth/prisma-adapter` **2.11.3** |
+| `sharp` | 0.35.3 → **0.35.5**；`mammoth` 1.12.0 → **1.13.0**；`vitest` 4.1.10 → **4.1.11** |
+| 傳遞依賴（同一 major 内拉高，`overrides`） | `@xmldom/xmldom` **0.8.15**、`fast-uri` **3.1.8**、`js-yaml` **4.3.2**、`@grpc/grpc-js` **1.14.6**、`browserslist` **4.29.3**、`source-map-js` **1.2.2**、`brace-expansion` **1.1.21** |
+| Prisma | CLI／client／engines／adapters 全部 **7.10.0（精確釘版）** |
+
+- 新增 `src/shared/__tests__/dependency-security.test.ts`（19 測試）：14 套件的**最低安全版本**、
+  **Prisma CLI／client／engines 三者版本必須相同**、Safari 15.4 `browserslist` 基線不得退出。
+- **`npm audit fix` 再次把 Prisma CLI／engines 拉到 7.10.0 而 client 留在 7.8.0**（先前已發生過一次）。
+  本次改以 **`--save-exact` 精確釘版**封住該漂移，並向上對齊（非降級）。
+- 剩餘 12 條全部**只能降級才能消音**或不進生產產物：Prisma CLI 鏈（`@hono/node-server`／`valibot`／
+  `deepmerge-ts`／`mysql2`／`@prisma/config`）、ESLint 鏈（`braces`／`micromatch`／`fast-glob`，
+  `braces` 上游最新即 3.0.3、無补丁）、`mammoth`→`argparse`→`sprintf-js`。npm 建議的「修復」為
+  Prisma→6.19.3、mammoth→0.3.29、eslint-config-next→14.2.35，一律**不採用**。
+
+### 三、**P2002 payload 二度變形（F9 實測發現的生產級缺陷）**
+`npm audit fix` 把 Prisma 升至 7.10.0 後，**同一個 DB-001 併發重試再次靜默失效**：
+
+| 版本 | 錯誤位置 | 内容 |
+|---|---|---|
+| Prisma ≤ 6 | `meta.target` | `['assignmentId','studentId']` |
+| Prisma 7.8 | `meta.driverAdapterError.cause.constraint.fields` | `['"assignmentId"','"studentId"']` |
+| **Prisma 7.10** | `meta.driverAdapterError.cause.constraint.index` | **`'Submission_assignmentId_studentId_key'`（無欄位清單）** |
+
+⇒ 只讀 `fields` 在 7.10 上永遠得空陣列 ⇒ 並發首次提交的輸家**被拒絕**而非接到贏家列上。
+**單元測試全綠、只有真實 Postgres 套件抓到**（與 2026-10-08 的教訓完全一致）。
+修復在單一 owner `src/shared/db/prisma-errors.ts`：新增 `uniqueViolationConstraintName()`，
+`isUniqueViolationOn()` 先試欄位清單、再以約束名回退（逐 token 比對，長度亦須相符）；
+兩種形狀均有 fixture 鉗住（`prisma-errors.test.ts` 7 條、`submission-unique-retry.test.ts` 1 條）。
+驗證：`submission-concurrency.integration.test.ts` + `ielts-concurrency.integration.test.ts`
+**連續 3 次 12/12 全過**。
+
+### 四、ESLint CI 閘門（F2）
+CI 門檻 **480 → 259**；實測 warnings **471 → 259**（0 errors，−45%）。三條已清零的規則升為 `error`
+（`prefer-const`、`@next/next/no-img-element`、`@typescript-eslint/no-unused-expressions`），
+並新增 **per-rule 辣輪** `scripts/check-lint-budget.js`（接入 `ci.yml` 與 `npm run lint:budget`）：
+任何單一規則超預算、新規則開始告警、或任何 error ⇒ 建構失敗。**預算只可下調**。
+
+### 五、遷移安全（F4）
+新增 `src/shared/db/__tests__/migration-safety.test.ts`（5 測試）：掃描全部 `migration.sql`，
+任何破壞性操作須列入 `REVIEWED_DESTRUCTIVE_MIGRATIONS` 並附理由，**過期條目亦令測試失敗**；
+並斷言 `20261008000100_ielts_concurrency_guards` 純新增、**無**回填 `activeKey`。
+
+### 六、配額保留（F5）
+`IELTS_QUOTA_RETENTION_*`（保留 30 香港日、**分批** 500 列／批、單次上限 200 批、`dryRun` 只計數）
+＋ `GET /api/admin/ielts/quota-retention`（`CRON_SECRET`，未設定 ⇒ **503 fail-closed**）
+＋ `docs/DEPLOYMENT.md` 排程說明。
+
+> **修正**：先前這批檔案引用了兩個**從未實作**的 repo 函式
+> （`deleteInstantQuotaRowsOlderThan`／`countInstantQuotaRowsOlderThan`），因 barrel 已 re-export，
+> 令 `tsc`／`next build` 失敗、端點必 500（兩個測試以 `vi.mock` 掩蓋了它）。本次補上，
+> 且**有界**：先用 `take: batchSize` 取 id 再 `deleteMany`，**禁止**改成無界 `deleteMany`。
+
+### 七、Node 版本單一來源（F6）
+`engines.node >= 22.12.0` ＋ 根目錄 `.nvmrc`（22）＋ 全部 workflow `node-version: '22'`。
+本地 Node 24 亦符合（僅下限）；CI 與 Cloud Build 必須同版。
+
+### 八、CI（F7）
+`regression.yml` 維持兩層：`regression-deterministic`（離線、無 provider）為門檻，
+`regression-live`（需 provider）僅供參考；`calibration.yml`／`experiment.yml`／`continuous-evaluation.yml` 均對齊 Node 22。
+
+### 九、驗證（實測，2026-10-09）
+| 檢查 | 結果 |
+|---|---|
+| `npx tsc --noEmit` | **0 errors** |
+| `npm test`（含本地 `materials/`） | **3796 passed / 13 skipped**（213 檔過 / 3 檔 skip） |
+| 真實 Postgres 併發＋evidence-SQL | **13/13**（併發套件連跑 3 次穩定） |
+| `npm run build` | exit 0；`Proxy (Middleware)` 已註冊 |
+| Safari 15.4 產物閘門 | `.next/static` 的 `static {` = **0** |
+| `npx eslint . --max-warnings 259` ＋ `lint:budget` | **0 errors / 259 warnings（= 預算）** |
+| `check-n-plus-one.js` / `check-i18n.js` | exit 0 |
+| `npm audit` | **12**（3 moderate / 9 high / 0 critical） |
+
+### 十、已知限制
+- 剩餘 12 條 advisory 只能降級消音（見二）⇒ 明確選擇保留。
+- Safari 15.4 僅在**建構產物與設定層**驗證（`browserslist`＋產物掃描），**未**在真機 iPadOS 15 上測試。
+- `npm run build:prod` 需生產 Neon 連線，本地以 `npm run build`（CI 同）代替。
+
+---
+
 ## 2026-10-08（IX）— CI 全綠：架構規則真正生效（跨平台）＋ provider 歸位＋教材依賴明確跳過（ADR-050）
 
 ### 一、背景
