@@ -77,6 +77,16 @@ reads a past day, so old rows are pure debt (~1 700 rows/day at 850 students,
 ≈ 620 k/year). Retention keeps **30 Hong Kong days** and deletes in **bounded
 batches** (500 rows per batch, at most 200 batches per run).
 
+> **STATUS (2026-10-09, Sprint 133): ENDPOINT READY / JOB NOT PROVISIONED.**
+> The endpoint, the bounded cleanup and its observability are implemented and
+> certified (bounded batch, dry run, fail-closed secret, one structured event per
+> run), but **no Cloud Scheduler job exists yet in the production project**, so old
+> rows still accumulate (~1 700/day). Provisioning is the remaining external
+> operational step — Cloud Scheduler cannot be created from the repository.
+> The job's declared shape (name, schedule, timezone, header, retry) lives in
+> `cloud-scheduler.yaml` at the repo root; apply it with the command below, or use
+> it to verify an existing job has not drifted.
+
 Create a Cloud Scheduler HTTP job (mirrors the roster-sync job pattern):
 
 ```bash

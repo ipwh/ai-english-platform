@@ -1,0 +1,56 @@
+# ============================================
+# Cloud Scheduler job — IELTS generation-quota retention
+# (2026-10-09, Sprint 133)
+# ============================================
+# Declarative description of the ONE scheduled job this platform needs. The
+# endpoint it calls is bounded (500 rows per batch, at most 200 batches per run),
+# safe to re-run, and permanently disabled (503) when CRON_SECRET is not set.
+#
+# This file is the source of truth for the job's shape. Applying it is an
+# EXTERNAL operational step (Cloud Scheduler cannot be provisioned from the
+# repository), run once per environment:
+#
+#   gcloud scheduler jobs create http ielts-quota-retention \
+#     --project=<PROJECT_ID> --location=asia-east2 \
+#     --schedule="30 3 * * *" --time-zone="Asia/Hong_Kong" \
+#     --uri="<SERVICE_URL>/api/admin/ielts/quota-retention" \
+#     --http-method=GET \
+#     --headers="x-cron-secret=<CRON_SECRET>" \
+#     --attempt-deadline=180s --max-retry-attempts=3
+#
+# (Re-run with `gcloud scheduler jobs update http ... --update-headers=...` when
+#  rotating CRON_SECRET.)
+#
+# Why it matters: `IeltsGenerationQuota` holds one row per (student, Hong Kong
+# day, bucket) — ~1 700 rows/day at ~850 students, ≈620 k/year. Nothing ever
+# reads a past day, so uncleaned rows are pure debt. The endpoint:
+#
+#   GET <SERVICE_URL>/api/admin/ielts/quota-retention            → drain
+#   GET <SERVICE_URL>/api/admin/ielts/quota-retention?dryRun=true → count only
+#
+# Status: ENDPOINT READY / JOB NOT YET PROVISIONED in the production project —
+# this is the remaining external operational step of Sprint 133.
+
+job:
+  name: ielts-quota-retention
+  description: Drain IeltsGenerationQuota rows older than 30 Hong Kong days (bounded, idempotent)
+  region: asia-east2
+  schedule: "30 3 * * *" # daily 03:30 Asia/Hong_Kong (low traffic)
+  timeZone: Asia/Hong_Kong
+  httpMethod: GET
+  uriPath: /api/admin/ielts/quota-retention
+  # Server-to-server auth. The endpoint returns 503 (fail-closed) when the
+  # platform has no CRON_SECRET, and 401 on a mismatch — never "no auth required".
+  headers:
+    - name: x-cron-secret
+      # Value comes from the platform's CRON_SECRET (Secret Manager in the
+      # production project). Never commit the value here.
+      valueFrom: CRON_SECRET
+  retry:
+    maxAttempts: 3
+    attemptDeadline: 180s
+  safety:
+    dryRunQuery: "?dryRun=true" # inspect the backlog without deleting anything
+    boundedPerRun: 500 * 200 # 500 rows/batch × 200 batches maximum
+    retentionDays: 30 # Hong Kong days; a live counter can never be inside the window
+    idempotent: true # re-running simply drains whatever is left
