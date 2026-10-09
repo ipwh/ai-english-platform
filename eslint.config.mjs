@@ -36,6 +36,12 @@ const eslintConfig = defineConfig([
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",
+        // The OMIT idiom: `const { key, ...rest } = obj` binds `key` ONLY so it stays
+        // out of `rest` — it is never read by design (used heavily by the schema
+        // validation tests, e.g. `const { feedbackZh, ...invalid } = validAnswer`).
+        // This is the documented option for that pattern; a genuinely dead variable
+        // that is not a rest-sibling is still reported.
+        ignoreRestSiblings: true,
       }],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-require-imports": "warn",

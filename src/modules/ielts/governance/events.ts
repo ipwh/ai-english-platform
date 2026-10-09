@@ -23,6 +23,8 @@ export const IELTS_EVENTS = [
   'ielts.generation.failed',
   'ielts.instant.delivered',
   'ielts.mistake.explained',
+  'ielts.quota.retention.completed',
+  'ielts.quota.retention.failed',
   'ielts.ai.provider_error',
   'ielts.ai.timeout',
   'ielts.ai.invalid_output',
@@ -47,12 +49,20 @@ export interface IeltsEventFields {
   code?: string;
   /** Short machine reason — never raw content. */
   reason?: string;
+  /** Quota-retention fields (counts + a day key only, never row contents). */
+  dayKey?: string;
+  deletedRows?: number;
+  batches?: number;
+  moreRemaining?: boolean;
+  dryRun?: boolean;
+  retentionDays?: number;
 }
 
 const FAILURE_EVENTS: ReadonlySet<IeltsEventName> = new Set([
   'ielts.writing.assessment.failed',
   'ielts.speaking.prep.failed',
   'ielts.generation.failed',
+  'ielts.quota.retention.failed',
   'ielts.ai.provider_error',
   'ielts.ai.timeout',
   'ielts.ai.invalid_output',

@@ -25,6 +25,7 @@
 
 import { hkDayKey, hkDaysAgo } from '@/shared/utils/hk-date';
 import * as ieltsRepo from '../repositories/ielts-repo';
+import { emitIeltsEvent } from '../governance/events';
 
 /** Hong Kong days of quota history retained. */
 export const IELTS_QUOTA_RETENTION_DAYS = 30;
@@ -71,36 +72,82 @@ export async function runIeltsQuotaRetention(
 
   const cutoffDayKey = hkDaysAgo(IELTS_QUOTA_RETENTION_DAYS, now());
 
-  if (options.dryRun) {
-    const wouldDelete = await countStale(cutoffDayKey);
-    return {
+  // Observability (2026-10-09, Sprint 133): a SCHEDULED cleanup that fails is
+  // otherwise invisible — the only trace would be an HTTP 500 in the scheduler
+  // log. Emit exactly one structured event per run (counts and a Hong Kong day
+  // key only, never row contents) plus a failure event, then rethrow so the
+  // endpoint still reports the error to the caller.
+  const finish = (result: IeltsQuotaRetentionResult): IeltsQuotaRetentionResult => {
+    emitIeltsEvent('ielts.quota.retention.completed', {
+      dayKey: result.cutoffDayKey,
+      deletedRows: result.deletedRows,
+      batches: result.batches,
+      moreRemaining: result.moreRemaining,
+      dryRun: result.dryRun,
+      retentionDays: IELTS_QUOTA_RETENTION_DAYS,
+    });
+    return result;
+  };
+
+  try {
+    if (options.dryRun) {
+      const wouldDelete = await countStale(cutoffDayKey);
+      return finish({
+        cutoffDayKey,
+        deletedRows: 0,
+        batches: 0,
+        moreRemaining: wouldDelete > 0,
+        dryRun: true,
+        wouldDelete,
+      });
+    }
+
+    let deletedRows = 0;
+    let batches = 0;
+
+    for (let round = 0; round < IELTS_QUOTA_RETENTION_MAX_BATCHES; round++) {
+      const removed = await deleteBatch(cutoffDayKey, IELTS_QUOTA_RETENTION_BATCH_SIZE);
+      batches += 1;
+      deletedRows += removed;
+      // A short batch means the backlog is drained (or was already empty).
+      if (removed < IELTS_QUOTA_RETENTION_BATCH_SIZE) {
+        return finish({
+          cutoffDayKey,
+          deletedRows,
+          batches,
+          moreRemaining: false,
+          dryRun: false,
+          wouldDelete: 0,
+        });
+      }
+      if (round === IELTS_QUOTA_RETENTION_MAX_BATCHES - 1) {
+        // Cap reached with a full batch: rows remain and the next run continues.
+        return finish({
+          cutoffDayKey,
+          deletedRows,
+          batches,
+          moreRemaining: true,
+          dryRun: false,
+          wouldDelete: 0,
+        });
+      }
+    }
+
+    return finish({
       cutoffDayKey,
-      deletedRows: 0,
-      batches: 0,
-      moreRemaining: wouldDelete > 0,
-      dryRun: true,
-      wouldDelete,
-    };
+      deletedRows,
+      batches,
+      moreRemaining: false,
+      dryRun: false,
+      wouldDelete: 0,
+    });
+  } catch (err) {
+    emitIeltsEvent('ielts.quota.retention.failed', {
+      dayKey: cutoffDayKey,
+      reason: err instanceof Error ? err.message.slice(0, 200) : 'unknown retention failure',
+    });
+    throw err;
   }
-
-  let deletedRows = 0;
-  let batches = 0;
-
-  for (let round = 0; round < IELTS_QUOTA_RETENTION_MAX_BATCHES; round++) {
-    const removed = await deleteBatch(cutoffDayKey, IELTS_QUOTA_RETENTION_BATCH_SIZE);
-    batches += 1;
-    deletedRows += removed;
-    // A short batch means the backlog is drained (or was already empty).
-    if (removed < IELTS_QUOTA_RETENTION_BATCH_SIZE) {
-      return { cutoffDayKey, deletedRows, batches, moreRemaining: false, dryRun: false, wouldDelete: 0 };
-    }
-    if (round === IELTS_QUOTA_RETENTION_MAX_BATCHES - 1) {
-      // Cap reached with a full batch: rows remain and the next run continues.
-      return { cutoffDayKey, deletedRows, batches, moreRemaining: true, dryRun: false, wouldDelete: 0 };
-    }
-  }
-
-  return { cutoffDayKey, deletedRows, batches, moreRemaining: false, dryRun: false, wouldDelete: 0 };
 }
 
 /** Observability: today's Hong Kong day key (never a UTC day). */

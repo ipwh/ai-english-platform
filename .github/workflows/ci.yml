@@ -96,12 +96,14 @@ jobs:
       # Warning budget is a RATCHET: it may only ever be lowered. The 471 warnings that
       # accumulated while this step never ran (CI stopped earlier at the schema step since
       # 2026-09-21) were re-baselined 225 -> 480 on 2026-10-08 (ADR-050) so CI reported the
-      # real state again. Sprint 132 then burned the count down to the measured 259
-      # (0 errors): unused imports, stale disable directives, prefer-const, stable hook
-      # dependencies, and three rules promoted to `error`. The per-rule ratchet lives in
-      # scripts/check-lint-budget.js — never raise either number without a recorded decision.
+      # real state again. Sprint 132 burned 471 -> 259 (unused imports, stale disable
+      # directives, prefer-const, stable hook deps, three rules promoted to `error`);
+      # Sprint 133 removed a further 13 (the `{ omitted, ...rest }` omit idiom via the
+      # documented `ignoreRestSiblings` option + genuinely dead bindings) -> 246 measured.
+      # The per-rule ratchet lives in scripts/check-lint-budget.js — never raise either
+      # number without a recorded decision.
       - name: Lint check
-        run: npx eslint . --max-warnings 259
+        run: npx eslint . --max-warnings 246
 
       # Per-rule ratchet: fails if ANY single rule exceeds its recorded budget, if a rule
       # that used to be clean starts warning again, or if there is any error. A total alone
@@ -118,3 +120,10 @@ jobs:
       # IS created with `prisma db push`, so the gate's precondition cannot hold here.
       - name: Production Build Simulation
         run: npm run build
+
+      # Verifies the SHIPPED artifact, not the dependency graph: no tooling-only
+      # package may reach `.next/standalone/node_modules`, and every package the
+      # server externalises must be present. A missing externalised dependency is a
+      # production-only failure that no unit test can catch (2026-10-09, Sprint 133).
+      - name: Production artifact check
+        run: npm run check:artifact

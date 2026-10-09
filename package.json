@@ -22,6 +22,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:budget": "node scripts/check-lint-budget.js",
+    "check:artifact": "npx tsx scripts/check-production-artifact.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "architecture:verify": "npx tsc --noEmit && npm run lint && npx vitest run && npx vitest run src/modules/__tests__/architecture.test.ts",

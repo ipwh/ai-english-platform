@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = validateQuery(vocabProfileQuerySchema, searchParams);
-    const { studentId, status, difficulty, includeWordFamilies, reviewLimit } = query;
+    // Only `studentId` is consumed here; the schema still VALIDATES the other
+    // parameters (status/difficulty/includeWordFamilies/reviewLimit) so callers are
+    // rejected for malformed input, but binding them would be dead code.
+    const { studentId } = query;
 
     // Ownership
     if (authResult.role === 'student' && studentId !== authResult.userId) {

@@ -22,12 +22,14 @@ const { execSync } = require('child_process');
 /**
  * Recorded warning budgets. Baseline before the burn-down: 471 total (AGENTS.md;
  * the `--max-warnings` gate itself sat at 480 from 2026-10-08, ADR-050).
- * Sprint 132 measured 262 and removed 3 more (unused parameters renamed to the
- * `_` form this config allows), so the budgets below sum to 259 — the exact
- * measured state, verified 2026-10-09 (0 errors).
+ * Sprint 132 measured 262 and removed 3 more → 259. Sprint 133 removed a further
+ * 13 with no rule suppression: the `const { omitted, ...rest }` OMIT idiom is now
+ * covered by the documented `ignoreRestSiblings` option (the binding exists only
+ * to keep the key out of `rest`), plus genuinely dead query bindings were dropped.
+ * 246 is the exact measured state, verified 2026-10-09 (0 errors).
  */
 const BUDGETS = {
-  '@typescript-eslint/no-unused-vars': 147, // unused locals/params (case-by-case; auto-removal proved unsafe)
+  '@typescript-eslint/no-unused-vars': 134, // unused locals/params (case-by-case; auto-removal proved unsafe)
   '@typescript-eslint/no-explicit-any': 50, // dynamic admin façade + legacy components
   'react-hooks/set-state-in-effect': 35, // React 19 rule; needs component restructuring
   'react-hooks/exhaustive-deps': 15, // remaining deps are component-local fns / props

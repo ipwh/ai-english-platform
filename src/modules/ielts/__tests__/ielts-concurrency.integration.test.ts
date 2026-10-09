@@ -19,10 +19,12 @@
 // ============================================
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { hkDayKey, hkDaysAgo } from '@/shared/utils/hk-date';
 
 type DbClient = typeof import('@/shared/db/db')['db'];
 type Repo = typeof import('../repositories/ielts-repo');
 type AttemptService = typeof import('../services/attempt-service');
+type RetentionService = typeof import('../services/quota-retention-service');
 
 const ENABLED = Boolean(process.env.TEST_DATABASE_URL);
 // The Prisma client is constructed from DATABASE_URL; the gate above uses
@@ -134,6 +136,46 @@ describe.skipIf(!ENABLED)('IELTS concurrency invariants (real Postgres)', () => 
       });
       expect(rows).toHaveLength(1);
       expect(rows[0].usedCount).toBe(CAP);
+    });
+
+    // Certification (2026-10-09, Sprint 133) — Test A of the release audit.
+    // A 20-request burst is the strongest shape available from a single process
+    // and it must satisfy BOTH sides of the invariant:
+    //   SAFETY    — never more than the cap   (grants <= 8)
+    //   LIVENESS  — never fewer than the cap  (grants == 8) when capacity exists
+    // A regression that under-grants (measured 2026-10-08: 10 requests granted 6)
+    // fails the liveness half just as loudly as an over-grant fails safety.
+    it('grants EXACTLY the cap under a 20-request burst (safety AND liveness)', async () => {
+      const day = `1970-01-07-${runId}`;
+      const results = await Promise.all(
+        Array.from({ length: 20 }, () =>
+          repo.reserveInstantQuota({
+            ownerUserId: studentId,
+            dayKey: day,
+            bucket: 'set',
+            cap: CAP,
+          }),
+        ),
+      );
+
+      const granted = results.filter((r) => r.reserved);
+      expect(granted).toHaveLength(CAP); // <= CAP (safety) AND >= CAP (liveness)
+
+      // The counter the database actually holds must agree with the grants.
+      expect(
+        await repo.readInstantQuotaUsed({ ownerUserId: studentId, dayKey: day, bucket: 'set' }),
+      ).toBe(CAP);
+
+      const rows = await db.ieltsGenerationQuota.findMany({
+        where: { ownerUserId: studentId, dayKey: day },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].usedCount).toBe(CAP);
+
+      // Every refusal must be authoritative (the true count, never a guess).
+      for (const r of results.filter((x) => !x.reserved)) {
+        expect(r.usedCount).toBe(CAP);
+      }
     });
 
     it('the 9th request of a fresh day is refused (and the cap is exactly 8)', async () => {
@@ -408,6 +450,105 @@ describe.skipIf(!ENABLED)('IELTS concurrency invariants (real Postgres)', () => 
 
       const responses = await db.ieltsResponse.findMany({ where: { attemptId } });
       expect(responses).toHaveLength(1);
+    });
+  });
+
+  // ---------------------------------------------------------------
+  // F4 — quota retention safety (2026-10-09, Sprint 133)
+  // ---------------------------------------------------------------
+  // `deleteInstantQuotaRowsOlderThan` is deliberately GLOBAL (it cleans the whole
+  // table, not one owner), so these proofs live in this file rather than their
+  // own: a second file running in parallel would both race the row counts and let
+  // the cleanup delete the other file's fixtures mid-test. Assertions are scoped
+  // to this suite's own rows so they stay exact.
+  describe('F4 — quota retention safety', () => {
+    let retention: RetentionService;
+    /** 12:00 HKT on 2026-10-09 — a fixed instant so the cutoff is deterministic. */
+    const NOW = new Date('2026-10-09T04:00:00.000Z');
+    const CUTOFF = hkDaysAgo(30, NOW);
+
+    beforeAll(async () => {
+      retention = await import('../services/quota-retention-service');
+    });
+
+    const countDay = (dayKey: string) =>
+      db.ieltsGenerationQuota.count({ where: { ownerUserId: studentId, dayKey } });
+
+    it('removes ONLY rows strictly older than the cutoff, never the current day', async () => {
+      const staleDay = hkDaysAgo(31, NOW); // strictly older  → must go
+      const atCutoff = hkDaysAgo(30, NOW); // == cutoff       → must SURVIVE (strict lt)
+      const recent = hkDaysAgo(1, NOW); // must survive
+      const today = hkDayKey(NOW); // the LIVE counter  → must survive
+
+      for (const dayKey of [staleDay, atCutoff, recent, today]) {
+        await db.ieltsGenerationQuota.create({
+          data: { ownerUserId: studentId, dayKey, bucket: 'retention-set', usedCount: 1 },
+        });
+      }
+
+      const result = await retention.runIeltsQuotaRetention({}, { now: () => NOW });
+      expect(result.cutoffDayKey).toBe(CUTOFF);
+
+      expect(await countDay(staleDay)).toBe(0);
+      expect(await countDay(atCutoff)).toBe(1);
+      expect(await countDay(recent)).toBe(1);
+      expect(await countDay(today)).toBe(1);
+    });
+
+    it('bounds each batch, drains the backlog, and is idempotent when re-run', async () => {
+      const bulkDay = hkDaysAgo(40, NOW);
+      const TOTAL = 1200;
+
+      await db.ieltsGenerationQuota.createMany({
+        data: Array.from({ length: TOTAL }, (_, i) => ({
+          ownerUserId: studentId,
+          dayKey: bulkDay,
+          bucket: `retention-bulk-${i}`,
+          usedCount: 1,
+        })),
+      });
+      expect(await countDay(bulkDay)).toBe(TOTAL);
+
+      // ONE repository call is bounded: it removes at most `batchSize` rows.
+      const firstBatch = await repo.deleteInstantQuotaRowsOlderThan(CUTOFF, 500);
+      expect(firstBatch).toBe(500);
+      expect(await countDay(bulkDay)).toBe(TOTAL - 500);
+
+      // A full run drains the remainder inside the round cap.
+      const result = await retention.runIeltsQuotaRetention({}, { now: () => NOW });
+      expect(await countDay(bulkDay)).toBe(0);
+      expect(result.moreRemaining).toBe(false);
+      expect(result.batches).toBeLessThanOrEqual(retention.IELTS_QUOTA_RETENTION_MAX_BATCHES);
+
+      // Repeated execution is safe: nothing left for this day, no error reported.
+      const again = await retention.runIeltsQuotaRetention({}, { now: () => NOW });
+      expect(await countDay(bulkDay)).toBe(0);
+      expect(again.moreRemaining).toBe(false);
+    });
+
+    it('a dry run counts the backlog and deletes nothing', async () => {
+      const dryDay = hkDaysAgo(45, NOW);
+      await db.ieltsGenerationQuota.createMany({
+        data: [0, 1, 2].map((i) => ({
+          ownerUserId: studentId,
+          dayKey: dryDay,
+          bucket: `retention-dry-${i}`,
+          usedCount: 1,
+        })),
+      });
+
+      const result = await retention.runIeltsQuotaRetention({ dryRun: true }, { now: () => NOW });
+
+      expect(result.dryRun).toBe(true);
+      expect(result.deletedRows).toBe(0);
+      expect(result.batches).toBe(0);
+      expect(result.wouldDelete).toBeGreaterThanOrEqual(3);
+      expect(await countDay(dryDay)).toBe(3); // nothing removed
+    });
+
+    it('keeps a retention window of at least 30 Hong Kong days', () => {
+      expect(retention.IELTS_QUOTA_RETENTION_DAYS).toBeGreaterThanOrEqual(30);
+      expect(CUTOFF < hkDayKey(NOW)).toBe(true); // YYYY-MM-DD compares lexicographically
     });
   });
 });

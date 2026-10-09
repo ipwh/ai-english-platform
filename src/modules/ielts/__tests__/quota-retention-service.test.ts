@@ -14,6 +14,9 @@ vi.mock('@/modules/ielts/repositories/ielts-repo', () => ({
   countInstantQuotaRowsOlderThan: vi.fn(),
 }));
 
+const events = vi.hoisted(() => ({ emit: vi.fn() }));
+vi.mock('../governance/events', () => ({ emitIeltsEvent: events.emit }));
+
 import {
   runIeltsQuotaRetention,
   IELTS_QUOTA_RETENTION_DAYS,
@@ -129,5 +132,55 @@ describe('runIeltsQuotaRetention — dry run', () => {
 
     expect(result.wouldDelete).toBe(0);
     expect(result.moreRemaining).toBe(false);
+  });
+});
+
+// ============================================
+// Observability (2026-10-09, Sprint 133)
+// ============================================
+// A SCHEDULED cleanup that fails is otherwise invisible: the only trace would be
+// an HTTP 500 in the scheduler's own log, with no counts and no cutoff. These
+// tests pin that every run emits exactly one structured event, that a failure
+// emits a failure event, and that neither carries anything sensitive.
+describe('runIeltsQuotaRetention — observability', () => {
+  it('emits exactly ONE completion event per run, with counts and no secrets', async () => {
+    mocks.deleteBatch.mockResolvedValue(0);
+
+    await runIeltsQuotaRetention({}, deps());
+
+    const completions = events.emit.mock.calls.filter(
+      (call) => call[0] === 'ielts.quota.retention.completed',
+    );
+    expect(completions).toHaveLength(1);
+
+    const fields = (completions[0]?.[1] ?? {}) as Record<string, unknown>;
+    expect(fields.dayKey).toBe(hkDaysAgo(IELTS_QUOTA_RETENTION_DAYS, NOW));
+    expect(fields.retentionDays).toBe(IELTS_QUOTA_RETENTION_DAYS);
+    expect(fields.dryRun).toBe(false);
+    expect(typeof fields.deletedRows).toBe('number');
+    expect(typeof fields.batches).toBe('number');
+    // Counts and a day key only — never a secret, a token or student content.
+    const serialized = JSON.stringify(fields).toLowerCase();
+    expect(serialized).not.toContain('secret');
+    expect(serialized).not.toContain('token');
+    expect(serialized).not.toContain('password');
+    expect(serialized).not.toContain('@');
+  });
+
+  it('emits a failure event and RETHROWS when the cleanup fails', async () => {
+    mocks.deleteBatch.mockRejectedValue(new Error('db unreachable'));
+
+    await expect(runIeltsQuotaRetention({}, deps())).rejects.toThrow('db unreachable');
+
+    const failures = events.emit.mock.calls.filter(
+      (call) => call[0] === 'ielts.quota.retention.failed',
+    );
+    expect(failures).toHaveLength(1);
+    const fields = (failures[0]?.[1] ?? {}) as Record<string, unknown>;
+    expect(String(fields.reason)).toContain('db unreachable');
+    // A failed run must never also report success.
+    expect(
+      events.emit.mock.calls.filter((call) => call[0] === 'ielts.quota.retention.completed'),
+    ).toHaveLength(0);
   });
 });
