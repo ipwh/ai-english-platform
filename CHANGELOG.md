@@ -4,7 +4,39 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-10-10 (III) — Sprint 138：憑證事件收容與授權發布準備
+## 2026-10-10 (IV) — Sprint 139：間歇性測試根因與依賴治理複核
+
+（本 Sprint 未推送、未部署、未變更雲端資源；亦**未**執行任何 Neon 憑證操作。）
+
+### 一、P1 間歇性測試：根因已確立（**時間限制**，非邏輯缺陷）
+`admin-student-analytics-context` 在 2026-10-10 完整套件中失敗 1 次，真實訊息為
+`Error: Test timed out in 5000ms`（**非**斷言或狀態失敗）。日誌中的
+`[student-state] loadMastery failed` 是**預期**的降級路徑 —— 該檔把所有 DB 呼叫模擬為 null，
+不是失敗原因。
+- 證據：`vitest.config.ts` 未設定 `testTimeout` ⇒ 套用預設 5000ms；該次執行累計
+  transform 73.6s／import 101.8s／tests 67.8s（壁鐘僅 24.8s）⇒ 工作區位於 OneDrive 同步目錄，
+  219 檔平行執行時 I/O 競爭嚴重；本檔每個 test 呼叫路由（內部對多項模擬查詢 Promise.all），
+  平時約 0.65s、該次被拉長到 5.64s。
+- 已排除其他原因：`beforeEach` 每次重設全部 mock（無跨測試狀態／順序依賴）、單檔連續執行
+  5 次全縯、隔離執行 7/7、全套件重跑全縯（失敗無法重現）。
+- 處置：為**本檔**加註明確 20s 上限（`describe(…, { timeout: 20_000 }, …)`）並將量測寫入註解；
+  **未**放寬全域預設值（保留對真實卡死的偵測）、**未**修改任何生產行為、**未**以重試或略過
+  的方式消音。
+- 驗證：`tsc` 0 errors；本檔 7/7；**完整套件連續 3 次 3859 passed / 0 failed**（219 檔）。
+
+### 二、P1 依賴治理複核
+- 以**現行 lockfile** 重新稽核：仍為 **12 條**（3 moderate／9 high／0 critical），套件集合與
+  Sprint 136–138 登錄完全一致 ⇒ **無新增、無移除、無修復**（稽核執行 ≠ 修復）。
+- A／B 群的風險接受**尚未取得具名負責人簽署**（登錄文件仍為空白範本）⇒ 閘門維持
+  `RISK ACCEPTANCE REQUIRED`；C 群（`mammoth`）維持 `RUNTIME_EXPOSURE_UNCERTAIN`，
+  在取得縮小範圍的新證據前不得群體接受。
+- 未施加任何不支援的 override 或降級。
+
+### 三、P1 維運與 Safari（未變更）
+- Scheduler（`ielts-quota-retention`）與 3 條告警政策：**NOT PROVISIONED／NOT AUTHORIZED**
+  （無有效雲端憑證）；端點仍以 `x-cron-secret` 驗證，**不得**在端點具備 JWT 驗證前啟用 OIDC。
+- Safari：維持 `ARTIFACT-VERIFIED / DEVICE-UNVERIFIED`（未於實機執行，未捏造結果）。
+- 遠端無分歧（0 behind／10 ahead，fast-forward）；**未推送**（無授權）。
 
 **本 Sprint 未推送、未部署、未變更任何雲端資源**（無授權）。
 

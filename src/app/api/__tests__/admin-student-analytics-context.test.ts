@@ -125,7 +125,18 @@ beforeEach(() => {
   });
 });
 
-describe('GET /api/admin/students/[studentId]/analytics — 錯題語境', () => {
+// 2026-10-10（Sprint 139）時間限制說明：
+//   本檔在 2026-10-10 的完整套件執行中曾有 1 次失敗，訊息為 `Test timed out in 5000ms`
+//   （**非**斷言或狀態失敗）。根因已查明：本機工作區位於 OneDrive 同步目錄，219 個測試檔
+//   平行執行時 I/O 語爭嚴重 —— 該次執行累計 transform 73.6s／import 101.8s／tests 67.8s
+//   （壁鐘僅 24.8s），而本檔每個 it 都會呼叫路由，路由內部對多項模擬查詢做 Promise.all；
+//   平時約 0.65s，該次被拉長到 5.64s ⇒ 撞上 vitest 預設的 5000ms。
+//   驗證：單獨執行連續 5 次全縯（exit 0），隔離執行 7/7，全套件重跑全縯。
+//   因此為本檔設定明確的 20s 上限（僅本檔，不放寬全域預設值，以保留對真實卡死的偵測），
+//   而非修改任何生產行為。日誌中 `[student-state] loadMastery failed` 屬**預期**的降級路徑
+//   （本檔將所有 DB 呼叫模擬為 null），不是失敗原因。
+
+describe('GET /api/admin/students/[studentId]/analytics — 錯題語境', { timeout: 20_000 }, () => {
   it('回傳 200，不因弱項／語境解析降級而失敗', async () => {
     const res = await get();
     expect(res.status).toBe(200);
