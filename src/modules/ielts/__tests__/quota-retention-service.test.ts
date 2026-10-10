@@ -159,6 +159,8 @@ describe('runIeltsQuotaRetention — observability', () => {
     expect(fields.dryRun).toBe(false);
     expect(typeof fields.deletedRows).toBe('number');
     expect(typeof fields.batches).toBe('number');
+    // Operational signal: how long the run took (for "last successful run" triage).
+    expect(typeof fields.durationMs).toBe('number');
     // Counts and a day key only — never a secret, a token or student content.
     const serialized = JSON.stringify(fields).toLowerCase();
     expect(serialized).not.toContain('secret');

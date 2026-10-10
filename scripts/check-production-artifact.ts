@@ -13,9 +13,9 @@
 //   4. prints the artifact package inventory as evidence.
 //
 // Usage:
-//   node scripts/check-production-artifact.js         (via tsx)
-//   npm run check:artifact
-//   npm run check:artifact -- --json
+//   npm run check:artifact                                  (via tsx)
+//   npm run check:artifact -- --json                        (machine-readable)
+//   npm run check:artifact -- --artifact <dir> [--static <dir>]   (explicit build output)
 //
 // Requires a completed `npm run build` (the same command CI and the Docker image
 // run). Fails loudly when the artifact is missing rather than silently passing.
@@ -29,9 +29,19 @@ import {
   scanJavaScriptForUnsupportedSyntax,
 } from '../src/shared/deployment/production-artifact-rules';
 
-const STANDALONE = join(process.cwd(), '.next', 'standalone');
+/**
+ * `--artifact <dir>` / `--static <dir>` point the gate at a specific build output
+ * instead of the repository default (used by operators and by the CLI test that
+ * proves the missing-artifact path fails loudly).
+ */
+function argValue(flag: string): string | null {
+  const index = process.argv.indexOf(flag);
+  return index >= 0 && index + 1 < process.argv.length ? process.argv[index + 1] : null;
+}
+
+const STANDALONE = argValue('--artifact') ?? join(process.cwd(), '.next', 'standalone');
 const ARTIFACT_NODE_MODULES = join(STANDALONE, 'node_modules');
-const STATIC_DIR = join(process.cwd(), '.next', 'static');
+const STATIC_DIR = argValue('--static') ?? join(process.cwd(), '.next', 'static');
 const json = process.argv.includes('--json');
 
 function fail(message: string): never {

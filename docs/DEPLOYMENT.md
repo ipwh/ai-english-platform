@@ -64,6 +64,36 @@
 2. **Database migration**: the push-to-`main` Cloud Build trigger runs `prisma migrate deploy` as **Step 1 `Migrate`** (secret `DIRECT_DATABASE_URL`) *before* the image is built and deployed, and a failure aborts the whole build — so new code can never go live against an old schema. The manual path (`npm run cloud-run:deploy:win`) builds and deploys the image but **does not** run migrations, so run `npx prisma migrate deploy` yourself first (with the production `DATABASE_URL`/`DIRECT_DATABASE_URL` loaded).
   - **Migration safety (enforced by a test)**: `src/shared/db/__tests__/migration-safety.test.ts` fails if a migration contains a destructive operation (`DROP`/`DELETE FROM`/`TRUNCATE`/`RENAME COLUMN`/`ALTER COLUMN … TYPE`/`SET NOT NULL`) that is not on its reviewed allowlist. Migrations must be **additive / backward compatible**: Cloud Run shifts traffic gradually, so the *previous* image briefly runs against the *new* schema, and a rollback must stay possible.
   - **Two deploys racing**: `prisma migrate deploy` takes a Postgres advisory lock, so concurrent runs serialise (the second sees no pending migrations). Deploy the newest revision last if you push twice in quick succession.
+  - **⚠️ KNOWN DEFECT — the migration history has NO baseline (verified 2026-10-10, Sprint 134).**
+    `prisma migrate deploy` **cannot provision an empty database**: after the first two
+    migrations only `StudentMastery` / `StudentMistakeSummary` exist, so
+    `20260719_json_fields_migration` fails with `column "badgeIds" does not exist`
+    (its `BEGIN` block aborts and every later statement is skipped). Reproduce it against a
+    throwaway database:
+
+    ```bash
+    createdb mig_diag
+    DATABASE_URL=... DIRECT_DATABASE_URL=... npx prisma migrate deploy   # fails at migration 3
+    ```
+
+    **Impact:** production and CI are unaffected — production applies only *pending*
+    migrations to a database that already has the full history, and CI builds its schema with
+    `prisma db push`. The defect affects **fresh environments only**: disaster recovery, a new
+    staging database, a new Neon branch, or any clone rebuilt from migrations.
+
+    **Do not edit the existing migration files** — Prisma validates applied-migration checksums,
+    so a modified file makes `migrate deploy` fail against production. Correct remediation
+    (requires an authorised operator with database access):
+
+    1. Generate the baseline from the schema:
+       `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script`
+    2. For a **new** environment: apply that SQL (or `prisma db push`), then mark history as applied:
+       `npx prisma migrate resolve --applied <migration_name>` for each existing migration.
+    3. For **existing** environments: no action needed — their history is already recorded.
+    4. Track the permanent fix (a proper squashed baseline + `migrate resolve`) as its own change.
+
+    Acceptance criteria: `prisma migrate deploy` against a brand-new database exits 0 and
+    produces the same schema as `prisma db push`.
 3. **Cloud Run**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>` → configure env vars → deploy.
 4. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain]/api/auth/callback/google`.
 5. **Verify**: `GET /api/health` → `{ status: "healthy" }`; check readiness and Cloud Run logs for migration- or database-related errors.

@@ -11,13 +11,17 @@
 // ============================================
 
 import { describe, expect, it, afterAll, beforeAll } from 'vitest';
+import { databaseGate } from '@/shared/__tests__/database-gate';
 
 // Imports are lazy (inside beforeAll) so the skipped suite never loads the
 // Prisma adapter in environments without TEST_DATABASE_URL.
 type DbClient = typeof import('@/shared/db/db')['db'];
 type SubmitFn = typeof import('../services/submission-attempt-service')['submitAssignmentAttempt'];
 
-const ENABLED = Boolean(process.env.TEST_DATABASE_URL);
+const ENABLED = databaseGate(
+  Boolean(process.env.TEST_DATABASE_URL),
+  'DB-001 concurrent first submission',
+);
 
 describe.skipIf(!ENABLED)('DB-001 real-Postgres concurrent first submission', () => {
   let db: DbClient;

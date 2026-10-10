@@ -7,7 +7,9 @@
 // a missing externalised dependency, and (when a build output exists locally) the
 // REAL artifact must satisfy both.
 import { describe, expect, it } from 'vitest';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   evaluateProductionArtifact,
@@ -135,6 +137,37 @@ describe('scanJavaScriptForUnsupportedSyntax — Safari 15.4 gate', () => {
     ]);
     expect(violations.map((v) => v.path)).toEqual(['a.js', 'c.js']);
   });
+});
+
+// ============================================
+// CLI failure path — the gate must never "pass" by finding nothing to check.
+// ============================================
+describe('check-production-artifact CLI', () => {
+  it('exits non-zero when the artifact directory does not exist', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'artifact-'));
+    let status = 0;
+    let output = '';
+    try {
+      // Run the gate through the repo's own tsx entry point with the running Node
+      // binary: no shell, so paths containing spaces stay intact on every platform.
+      execFileSync(
+        process.execPath,
+        [
+          join(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+          join(process.cwd(), 'scripts', 'check-production-artifact.ts'),
+          '--artifact',
+          empty,
+        ],
+        { cwd: process.cwd(), encoding: 'utf8', stdio: 'pipe' },
+      );
+    } catch (err) {
+      const failure = err as { status?: number; stdout?: string; stderr?: string };
+      status = failure.status ?? -1;
+      output = `${failure.stdout ?? ''}${failure.stderr ?? ''}`;
+    }
+    expect(status).not.toBe(0);
+    expect(output).toContain('no production artifact');
+  }, 60_000);
 });
 
 // ============================================

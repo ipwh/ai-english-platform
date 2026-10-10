@@ -20,13 +20,17 @@
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { hkDayKey, hkDaysAgo } from '@/shared/utils/hk-date';
+import { databaseGate } from '@/shared/__tests__/database-gate';
 
 type DbClient = typeof import('@/shared/db/db')['db'];
 type Repo = typeof import('../repositories/ielts-repo');
 type AttemptService = typeof import('../services/attempt-service');
 type RetentionService = typeof import('../services/quota-retention-service');
 
-const ENABLED = Boolean(process.env.TEST_DATABASE_URL);
+const ENABLED = databaseGate(
+  Boolean(process.env.TEST_DATABASE_URL),
+  'IELTS concurrency + retention invariants',
+);
 // The Prisma client is constructed from DATABASE_URL; the gate above uses
 // TEST_DATABASE_URL (the documented convention in this repo).
 if (ENABLED && !process.env.DATABASE_URL) {

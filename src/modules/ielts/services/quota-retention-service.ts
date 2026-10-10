@@ -71,6 +71,7 @@ export async function runIeltsQuotaRetention(
   const now = deps.now ?? (() => new Date());
 
   const cutoffDayKey = hkDaysAgo(IELTS_QUOTA_RETENTION_DAYS, now());
+  const startedAt = Date.now();
 
   // Observability (2026-10-09, Sprint 133): a SCHEDULED cleanup that fails is
   // otherwise invisible — the only trace would be an HTTP 500 in the scheduler
@@ -85,6 +86,7 @@ export async function runIeltsQuotaRetention(
       moreRemaining: result.moreRemaining,
       dryRun: result.dryRun,
       retentionDays: IELTS_QUOTA_RETENTION_DAYS,
+      durationMs: Date.now() - startedAt,
     });
     return result;
   };
@@ -145,6 +147,7 @@ export async function runIeltsQuotaRetention(
     emitIeltsEvent('ielts.quota.retention.failed', {
       dayKey: cutoffDayKey,
       reason: err instanceof Error ? err.message.slice(0, 200) : 'unknown retention failure',
+      durationMs: Date.now() - startedAt,
     });
     throw err;
   }

@@ -32,6 +32,11 @@ jobs:
       # invariants in src/modules/ielts/__tests__/ielts-concurrency.integration.test.ts).
       # Same database as DATABASE_URL — the flag only lifts the skip guard.
       TEST_DATABASE_URL: postgresql://ci_user:ci_pass@localhost:5432/ci_test
+      # The PostgreSQL integration suites MUST run in this workflow. Without this
+      # flag a missing/renamed TEST_DATABASE_URL would silently SKIP the concurrency,
+      # submission-atomicity and evidence-SQL invariants while CI stayed green
+      # (fixed 2026-10-10, Sprint 134 — see src/shared/__tests__/database-gate.ts).
+      REQUIRE_DATABASE: '1'
       # JWT_SECRET / AUTH_SECRET must be >= 32 characters (enforced by the schema in
       # src/shared/config/config.ts). Shorter placeholders made `next build` fail while
       # collecting page data for /api/admin/cleanup-mock-data — invisible until the build

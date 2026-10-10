@@ -190,6 +190,28 @@ describe("Release audit — fail-closed operations", () => {
 });
 
 describe("Release audit — repository-wide forbidden runtime imports", () => {
+  /**
+   * Matches IMPORT SPECIFIERS only. A prose mention of the path (a comment, a doc
+   * string, a test fixture name) is not a runtime import and must not fail the
+   * audit. The previous raw `content.includes('modules/ai/calibration')` check
+   * produced exactly that false positive on 2026-10-10 (Sprint 134): a helper's
+   * comment naming the corpus-availability pattern was flagged while importing
+   * nothing from the module.
+   */
+  const FORBIDDEN_IMPORT =
+    /(?:from\s*|import\s*\(\s*|require\(\s*|import\s+)['"][^'"]*modules\/ai\/calibration/;
+
+  it("the detector matches real imports and ignores prose", () => {
+    // Positive controls — every supported import form must be caught.
+    expect(FORBIDDEN_IMPORT.test("import { x } from '@/modules/ai/calibration/intake-service';")).toBe(true);
+    expect(FORBIDDEN_IMPORT.test("export { y } from '@/modules/ai/calibration/freeze';")).toBe(true);
+    expect(FORBIDDEN_IMPORT.test("const m = await import('@/modules/ai/calibration/freeze');")).toBe(true);
+    expect(FORBIDDEN_IMPORT.test("import '@/modules/ai/calibration/side-effect';")).toBe(true);
+    expect(FORBIDDEN_IMPORT.test("const m = require('../../modules/ai/calibration/marking');")).toBe(true);
+    // Negative control — prose is not an import.
+    expect(FORBIDDEN_IMPORT.test('// see src/modules/ai/calibration/__tests__/corpus-availability.ts')).toBe(false);
+  });
+
   it("no file outside the calibration module and its allowed consumers imports it", () => {
     const allowedDirs = [
       join(PROJECT_ROOT, "src", "modules", "ai", "calibration"),
@@ -206,11 +228,15 @@ describe("Release audit — repository-wide forbidden runtime imports", () => {
       const insideAllowed = allowedDirs.some(d => file.startsWith(d));
       if (insideAllowed || allowedFiles.has(file)) continue;
       const content = readFileSync(file, "utf-8");
-      if (content.includes("modules/ai/calibration")) {
+      if (FORBIDDEN_IMPORT.test(content)) {
         violations.push(file);
       }
     }
     expect(violations, `forbidden runtime imports:\n${violations.join("\n")}`)
       .toEqual([]);
-  });
+    // Repo-wide IO-bound scan (≈700 files, every one read). The default 5s budget
+    // is ample in isolation but is exceeded when 200+ suites run in parallel on a
+    // saturated machine — measured 2026-10-10: the failure was a TIMEOUT, never an
+    // assertion. The assertion itself is unchanged.
+  }, 30_000);
 });

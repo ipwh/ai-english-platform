@@ -26,11 +26,15 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { databaseGate } from '@/shared/__tests__/database-gate';
 
 const DB_URL = process.env.DATABASE_URL ?? '';
 const IS_DISPOSABLE_HOST = /(?:^|@|\/\/)(?:localhost|127\.0\.0\.1)(?::|\/|$)/.test(DB_URL);
 const OPTED_IN = process.env.EVIDENCE_SQL_TEST === '1';
-const ENABLED = Boolean(DB_URL) && (IS_DISPOSABLE_HOST || OPTED_IN);
+const ENABLED = databaseGate(
+  Boolean(DB_URL) && (IS_DISPOSABLE_HOST || OPTED_IN),
+  'practice-evidence SQL equivalence',
+);
 
 type DbClient = typeof import('@/shared/db/db')['db'];
 type BuildSql = typeof import('../repositories/practice-repo')['buildVerifiedTotalsSql'];
