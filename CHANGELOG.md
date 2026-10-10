@@ -4,6 +4,43 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-10 (II) — Sprint 137：發布執行與殘餘風險收口（驗證型 Sprint）
+
+**本 Sprint 未推送、未部署、未變更任何雲端資源**（無授權）。
+
+### 一、P0 生產身分與部署路徑（以可驗證證據為限）
+- 讀取來源確認：**Cloud Build `Migrate`** 用 Secret Manager `DIRECT_DATABASE_URL`（version latest）；
+  執行期 `DATABASE_URL` 由 Cloud Run 服務環境提供，手動部署腳本以 `--update-env-vars`（合併語意）
+  維護；`cloud-run-env.yaml` **只是本機 gitignored 的參考檔**（供 8 個本機腳本作為最後備援來源），
+  **不是**部署來源 —— Sprint 136 報告中對此的推論已收窄更正。
+- **`migrate deploy` 在兩條部署路徑都只會執行一次**：push 路徑＝Cloud Build `Migrate` 1 次
+  （Dockerfile 建構用 `npm run build`，非 `build:prod`）；手動路徑＝`cloud-run-deploy.ps1` Step 2
+  1 次，且 Step 3 用 `gcloud builds submit --tag`（不套用 `cloudbuild.yaml`）⇒ 不會重複。
+  即使有人另外手動跑 `npm run build:prod`（亦會執行 migrate deploy），效果仍為 no-op，
+  並由 Postgres advisory lock 序列化。
+- **`LIVE_PRODUCTION_DATABASE_IDENTITY = UNVERIFIED`（維持）**：使用者 gcloud 憑證過期
+  （Sprint 136），可用的服務帳號金鑰為 `vision-api-user@…`，**無** `run.services.*` 權限
+  （PERMISSION_DENIED，已於隔離的 `CLOUDSDK_CONFIG` 下嘗試，未更動使用者 gcloud 狀態）；
+  且本 Sprint 稽核主機**無法連線**生產 Neon 端點（TCP 通、TLS/protocol 層被重置：
+  `ECONNRESET`、`P1001`）⇒ Sprint 136 的只讀量測**不再重新確認**（該次結果仍以其時間戳為準）。
+  此為稽核端限制，**不代表**生產受影響（服務由 GCP 內部連線）。
+- 修正 `scripts/production-build.js` 訊息中已移除的 Prisma 7 旗標（`--to-schema-datamodel` → `--to-schema`）。
+
+### 二、P1 依賴殘餘風險登錄（12 條）
+新增 `docs/production/dependency-residual-risk-2026-10-10.md`：逐條記錄版本、GHSA/CVE、攻擊前提、
+依賴路徑、是否出貨、是否可達、廠商修復狀態、處置與**風險負責人**。處置僅用六種允許標籤；
+`mammoth` 維持 `RUNTIME_EXPOSURE_UNCERTAIN`（僅 CLI 入口引用 argparse，library 路徑未引用）；
+`braces`／`sprintf-js` 官方 **Patched: None**；`mysql2`／`deepmerge-ts` 被 prisma **精確釘版**，
+`npm audit` 唯一建議修復是禁止的 prisma 降級 ⇒ **未施加任何不支援的 override**。
+**稽核不等於修復**：12 條全部仍存在，需發佈負責人明示接受或等上游釋出。
+
+### 三、P1 稽核事件揭露（自我揭露）
+本 Sprint 有一條指令以「列出設定鍵名」為意圖，卻以整行比對讀取了 gitignored 的
+`cloud-run-env.yaml`，導致一組生產連線字串（含密碼）被印入**本機**工作階段逐字稿。
+影響已查證：該檔**未被 git 追蹤**、**無任何已追蹤檔含該憑證**（全庫掃描 0 命中）、
+未推送、未傳送至任何遠端。建議操作者於方便時**輪替該 Neon 角色密碼**作為預防措施。
+詳見登錄文件的 Audit incident log。
+
 ## 2026-10-10 — Sprint 136：生產遷移預檢、部署安全與營運收尾
 
 ### 一、只讀生產遷移預檢（本 Sprint 的關鍵證據）

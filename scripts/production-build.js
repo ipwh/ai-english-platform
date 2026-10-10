@@ -105,7 +105,7 @@ if (decision.action === 'continue') {
   if (isMissingMigration) {
     console.warn('⚠️  No migration history found — project was previously using prisma db push.');
     console.warn('   DEV ONLY: falling back to prisma db push (NEVER in production).');
-    console.warn('   To migrate: run `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql`');
+    console.warn('   To migrate: run `npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql`');
     const pushResult = run('npx --yes prisma db push', 'prisma db push (dev fallback)', { captureOutput: true });
     if (!pushResult.ok) {
       const pushOutput = pushResult.output;
