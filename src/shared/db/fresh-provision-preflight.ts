@@ -78,3 +78,59 @@ export function evaluateFreshProvisionPreflight(
     reason: '資料庫完全空白（無遷移歷史、無使用者資料表）——可安全走基線佈建。',
   };
 }
+
+// ============================================
+// 佈建後置條件：歷史必須「恰好等於」本倉庫的遷移集合
+// ============================================
+// 2026-10-10（Sprint 136）：`migrate resolve --applied` 是逐筆外部命令，
+// 若任何一筆靜默失敗、被標記 rolled_back、或補進了不屬於本倉庫的列，
+// 後續 `migrate deploy` 仍可能看似正常。本判定把「歷史一致」變成可測試的斷言，
+// 而不是靠人工讀取當下的輸出。
+
+export interface AppliedMigrationRecord {
+  migrationName: string;
+  /** `finished_at IS NOT NULL` */
+  finished: boolean;
+  /** `rolled_back_at IS NOT NULL` */
+  rolledBack: boolean;
+}
+
+export interface MigrationHistoryCheck {
+  ok: boolean;
+  problems: string[];
+}
+
+export function evaluateMigrationHistory(
+  records: readonly AppliedMigrationRecord[],
+  expectedNames: readonly string[]
+): MigrationHistoryCheck {
+  const problems: string[] = [];
+  const seen = new Set(records.map(record => record.migrationName));
+
+  for (const name of expectedNames) {
+    if (!seen.has(name)) {
+      problems.push(`歷史缺少遷移列：${name}`);
+    }
+  }
+
+  const expected = new Set(expectedNames);
+  for (const record of records) {
+    if (!expected.has(record.migrationName)) {
+      problems.push(
+        `歷史含未知遷移列：${record.migrationName}（${
+          record.rolledBack ? 'rolled_back' : record.finished ? 'applied' : 'unfinished'
+        }）`
+      );
+    } else if (record.rolledBack) {
+      problems.push(`遷移被標記為 rolled_back：${record.migrationName}`);
+    } else if (!record.finished) {
+      problems.push(`遷移未完成（unfinished）：${record.migrationName}`);
+    }
+  }
+
+  if (records.length !== expectedNames.length) {
+    problems.push(`歷史列數不符：實際 ${records.length} 筆、預期 ${expectedNames.length} 筆`);
+  }
+
+  return { ok: problems.length === 0, problems };
+}

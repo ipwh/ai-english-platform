@@ -173,6 +173,35 @@ gcloud scheduler jobs create http ielts-quota-retention \
 The response reports `cutoffDayKey`, `deletedRows`, `batches` and `moreRemaining`;
 `moreRemaining: true` simply means the next run continues. Re-running is always safe.
 
+### Operator runbook — provisioning the job and the alerts (external steps)
+
+**Prerequisites:** Cloud SDK authenticated against the production project with
+`roles/cloudscheduler.admin` and `roles/monitoring.alertPolicyEditor`; the Cloud Scheduler API
+enabled; `CRON_SECRET` already set on the Cloud Run service (the endpoint returns **503** when it is
+missing — fail-closed).
+
+> **Audit state (2026-10-10, Sprint 136): NOT PROVISIONED and NOT AUTHORIZED.** The audit's gcloud
+> credentials were expired (`Reauthentication failed. cannot prompt during non-interactive
+> execution`), so **no cloud resource was read, created or modified** during this sprint. The steps
+> below are the exact operator actions; the repository cannot perform them.
+
+1. **Check current state (read-only)** — expect NOT_FOUND until provisioned:
+   `gcloud scheduler jobs describe ielts-quota-retention --location=asia-east2`
+2. **Inspect the backlog first (never deletes):**
+   `curl -H "x-cron-secret: $CRON_SECRET" "https://<service-url>/api/admin/ielts/quota-retention?dryRun=true"`
+3. **Create the job** using the header form (the endpoint verifies `x-cron-secret` today; OIDC would
+   require endpoint-side JWT verification that is **not implemented** — do not enable
+   `--oidc-service-account-email` until it is):
+   `gcloud scheduler jobs create http ielts-quota-retention --schedule="30 3 * * *" --time-zone="Asia/Hong_Kong" --uri="https://<service-url>/api/admin/ielts/quota-retention" --http-method=GET --headers="x-cron-secret=$CRON_SECRET" --location=asia-east2`
+4. **Smoke test:** `gcloud scheduler jobs run ielts-quota-retention --location=asia-east2`, then confirm
+   exactly **one** `ielts.quota.retention.completed` event in Cloud Logging for that run.
+5. **Create the three alert policies** (failures / starvation / silence) as designed above, pointed at
+   the Cloud Run service's logs.
+6. **Rollback:** `gcloud scheduler jobs pause ielts-quota-retention --location=asia-east2` — pausing is
+   always safe (the endpoint is idempotent and `dryRun` never writes).
+7. **Expected evidence:** job state `ENABLED`; one `completed` event per run carrying `dayKey`,
+   `deletedRows`, `batches`, `moreRemaining`, `durationMs`; no secret material in any log payload.
+
 ## Monitoring
 
 - **Health**: `GET /api/health` — service status
@@ -231,6 +260,42 @@ Target: iPad Air 2 / iPad mini 4 class hardware on **iPadOS 15.8 (Safari 15.6)**
 
 A failure here is a **release blocker**, not cosmetic: the school fleet includes devices that
 cannot be upgraded past iPadOS 15.8.
+
+## Recovery: a failed migration or a failed deployment
+
+**A failed `Migrate` step aborts the build before the image is deployed**, so the running service
+keeps the previous revision and the previous schema. Recovery order matters:
+
+1. **Diagnose read-only — never improvise DDL:**
+   ```bash
+   npx prisma migrate status                        # applied / pending / failed records
+   npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+   ```
+   `migrate status` exits 0 with “Database schema is up to date!” when history and schema agree;
+   `migrate diff` exits 0 = zero drift, 2 = drift detected, 1 = error.
+2. **If a migration failed halfway** (a record with `finished_at IS NULL` and
+   `rolled_back_at IS NULL`), Prisma refuses further deploys (P3009). Mark that one migration as
+   rolled back and **fix forward with a NEW migration**:
+   ```bash
+   npx prisma migrate resolve --rolled-back <migration_name>
+   ```
+   **Never** edit the failed migration file — applied-migration checksums are validated, so editing
+   it breaks every environment.
+3. **If the schema is already correct but a history record is missing**, do not re-run the migration;
+   record it after review with `npx prisma migrate resolve --applied <migration_name>`.
+4. **Roll the service back** (traffic only) with the commands below. Migrations are additive-only
+   (enforced by `src/shared/db/__tests__/migration-safety.test.ts`), so the previous image keeps
+   working against the newer schema — that is what makes a traffic rollback safe.
+5. **Rebuild from scratch** (disaster recovery / new environment) with the fresh-provisioning path
+   above; it refuses any database that is not completely empty, so it cannot be aimed at production
+   by accident.
+
+**Verified production history detail (read-only preflight, 2026-10-10):** `_prisma_migrations`
+contains **one rolled-back record** for the pre-rename name
+`20261003_ielts_assessment_rubric_version` (from the 2026-10-03 incident), alongside **24 applied**
+records, **0 unfinished** and **0 pending**. This is expected and deploy-safe: `migrate deploy`
+refuses only on *unfinished* records (P3009). The exact shape was reproduced on a disposable
+database — `migrate deploy` stayed a no-op (exit 0) and `migrate diff` reported zero drift.
 
 ## Rollback
 

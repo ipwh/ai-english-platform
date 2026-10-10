@@ -72,30 +72,28 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      # `embeddingVector Unsupported("vector(1536)")` makes `prisma db push` emit a
-      # `vector(1536)` column, which fails on a fresh database with
-      # 'type "vector" does not exist'. The pgvector image SHIPS the extension but does
-      # not enable it, so enable it first. The `pg` driver is already installed (it
-      # backs @prisma/adapter-pg), so no extra tooling is required.
-      - name: Enable pgvector extension
-        run: |
-          node -e "const{Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();await c.query('CREATE EXTENSION IF NOT EXISTS vector');await c.end();console.log('pgvector extension ready');})().catch((e)=>{console.error('pgvector setup failed:',e.message);process.exit(1)});"
+      # 2026-10-10 (Sprint 136): the test database is initialized through the COMMITTED
+      # provisioning path — baseline (prisma/baseline/schema-baseline.sql) → migration
+      # history recorded → `prisma migrate deploy` asserted to be a no-op → `migrate diff`
+      # asserted to report zero drift — instead of `prisma db push`. `db push` never
+      # replays `prisma migrate deploy`, which is exactly how the broken migration chain
+      # stayed invisible until it was reproduced by hand (2026-10-09).
+      # The step also enables the pgvector extension (the script does it): the image SHIPS
+      # it disabled, and `embeddingVector Unsupported("vector(1536)")` needs it.
+      - name: Initialize test database (committed fresh-provisioning path)
+        run: npm run db:provision:fresh:apply
 
-      - name: Push schema to test DB
-        # `--skip-generate` was removed in Prisma 7 (the CLI rejects it:
-        # "unknown or unexpected option"). `prisma generate` is already its own step.
-        run: npx prisma db push
-
-      # 2026-10-09 (Sprint 135 P0): the step above builds the test database with
-      # `prisma db push`, which NEVER replays `prisma migrate deploy`. The migration
-      # chain is therefore not exercised anywhere in CI, and it cannot be replayed from
-      # zero: migration #3 (`20260719_json_fields_migration`) assumes columns that no
-      # migration creates (reproduced at HEAD 46707151 — apply #1 and #2 succeed, #3
-      # aborts the transaction, exit 1). This step runs the committed repair path against
-      # a throwaway EMPTY database and asserts the full contract:
+      # 2026-10-09 (Sprint 135 P0), re-scoped 2026-10-10 (Sprint 136): this step re-asserts
+      # the contract on a THROWAWAY database, independently of the test database that the
+      # step above initialized. Previously the migration chain was exercised NOWHERE in CI
+      # and could not be replayed from zero: migration #3
+      # (`20260719_json_fields_migration`) assumes columns that no migration creates
+      # (reproduced at HEAD 46707151 — apply #1 and #2 succeed, #3 aborts the transaction,
+      # exit 1). The contract asserted here:
       #   empty DB → baseline (prisma/baseline/schema-baseline.sql) → migration history
-      #   recorded → `prisma migrate deploy` is a NO-OP → `prisma migrate diff --exit-code`
-      #   reports ZERO drift.
+      #   recorded (asserted to be EXACTLY the repository's migration set) →
+      #   `prisma migrate deploy` is a NO-OP → `prisma migrate diff --exit-code` reports
+      #   ZERO drift.
       # Exit codes: 0 ok · 1 verification failed (incl. drift, which is migrate-diff 2) ·
       # 2 usage/connection · 3 refused because the database is not empty. Any non-zero
       # fails the job, so a regression here cannot ship silently.
@@ -158,10 +156,11 @@ jobs:
       # Builds the app exactly like the deployable image does (Dockerfile builder stage:
       # `npm run build`); migrations are applied by the Cloud Build `Migrate` step.
       #
-      # scripts/production-build.js is deliberately NOT used here: with NODE_ENV=production
-      # its migration gate fails closed on any database without migration history (measured
-      # 2026-10-08: P3005) and `db push` is never a production fallback — but this CI database
-      # IS created with `prisma db push`, so the gate's precondition cannot hold here.
+      # scripts/production-build.js is deliberately NOT used here: it runs
+      # `npx prisma migrate deploy` against the configured database as part of the build
+      # (fail-closed when NODE_ENV=production), i.e. a deploy-time write that belongs to the
+      # Cloud Build `Migrate` step and must not happen inside a CI build. The migration
+      # contract is asserted explicitly by the provisioning steps above instead.
       - name: Production Build Simulation
         run: npm run build
 

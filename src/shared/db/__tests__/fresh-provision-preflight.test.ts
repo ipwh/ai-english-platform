@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FRESH_PROVISION_REFUSED_EXIT_CODE,
   evaluateFreshProvisionPreflight,
+  evaluateMigrationHistory,
 } from '../fresh-provision-preflight';
 
 describe('evaluateFreshProvisionPreflight', () => {
@@ -101,6 +102,63 @@ describe('evaluateFreshProvisionPreflight', () => {
   });
 });
 
+describe('evaluateMigrationHistory（佈建後置條件）', () => {
+  const expected = ['20260719_add_student_mastery', '20260813_grammar_question_store'];
+  const applied = (name: string) => ({ migrationName: name, finished: true, rolledBack: false });
+
+  it('歷史恰好等於預期集合時通過', () => {
+    const check = evaluateMigrationHistory(expected.map(applied), expected);
+    expect(check.ok).toBe(true);
+    expect(check.problems).toEqual([]);
+  });
+
+  it('缺少任一筆即失敗（不得靜默少記）', () => {
+    const check = evaluateMigrationHistory([applied(expected[0])], expected);
+    expect(check.ok).toBe(false);
+    expect(check.problems.join(' ')).toContain('歷史缺少遷移列');
+    expect(check.problems.join(' ')).toContain(expected[1]);
+  });
+
+  it('預期遷移被標記 rolled_back 即失敗', () => {
+    const check = evaluateMigrationHistory(
+      [{ migrationName: expected[0], finished: false, rolledBack: true }, applied(expected[1])],
+      expected
+    );
+    expect(check.ok).toBe(false);
+    expect(check.problems.join(' ')).toContain('rolled_back');
+  });
+
+  it('預期遷移未完成（unfinished）即失敗', () => {
+    const check = evaluateMigrationHistory(
+      [{ migrationName: expected[0], finished: false, rolledBack: false }, applied(expected[1])],
+      expected
+    );
+    expect(check.ok).toBe(false);
+    expect(check.problems.join(' ')).toContain('unfinished');
+  });
+
+  it('含未知歷史列即失敗（例如生產環境的舊更名紀錄不得被佈建接受）', () => {
+    const check = evaluateMigrationHistory(
+      [
+        ...expected.map(applied),
+        { migrationName: '20261003_ielts_assessment_rubric_version', finished: false, rolledBack: true },
+      ],
+      expected
+    );
+    expect(check.ok).toBe(false);
+    expect(check.problems.join(' ')).toContain('歷史含未知遷移列');
+  });
+
+  it('列數不符必被回報', () => {
+    const check = evaluateMigrationHistory(expected.map(applied), [...expected, 'x']);
+    expect(check.problems.join(' ')).toContain('歷史列數不符');
+  });
+
+  it('空集合對空預期為通過（不可無條件失敗）', () => {
+    expect(evaluateMigrationHistory([], []).ok).toBe(true);
+  });
+});
+
 describe('佈建腳本使用單一 owner 判定（源碼掃描）', () => {
   const scriptPath = join(
     import.meta.dirname ?? __dirname,
@@ -116,6 +174,14 @@ describe('佈建腳本使用單一 owner 判定（源碼掃描）', () => {
     );
     expect(source).toContain('evaluateFreshProvisionPreflight(');
     expect(source).toContain('FRESH_PROVISION_REFUSED_EXIT_CODE');
+  });
+
+  it('佈建後會斷言歷史一致（不得只在輸出裡「看起來」正確）', () => {
+    const source = readFileSync(scriptPath, 'utf8');
+
+    expect(source).toContain('evaluateMigrationHistory(');
+    expect(source).toContain('FROM _prisma_migrations');
+    expect(source).toMatch(/if\s*\(!historyCheck\.ok\)/);
   });
 
   it('佈建腳本預設 dry-run：不得在非 --apply 路徑呼叫 resolve/deploy 的寫入', () => {

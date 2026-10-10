@@ -4,6 +4,64 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-10 — Sprint 136：生產遷移預檢、部署安全與營運收尾
+
+### 一、只讀生產遷移預檢（本 Sprint 的關鍵證據）
+以 `.env.local` 的連線字串（**與 `cloud-run-env.yaml` 的生產值 SHA-256 完全相同**，專案
+`amiable-nirvana-500300-a0` 相符）對線上 Neon 庫做**只讀**預檢（僅 SELECT／`migrate diff`，
+未執行 `migrate resolve`、未套用遷移、未修改任何資料）：
+
+| 檢查 | 結果 |
+|---|---|
+| 資料庫 | `neondb`、PostgreSQL 17.11、public 55 張表（54 + `_prisma_migrations`） |
+| 遷移歷史 | 25 列：**24 applied／0 unfinished／1 rolled_back** |
+| 未完成紀錄 | 無（P3009 不會觸發） |
+| 待套用遷移 | **0**（`migrate status`：`Database schema is up to date!`，exit 0） |
+| 結構漂移 | **零**（`migrate diff --from-config-datasource --to-schema --exit-code` = 0） |
+| 佈建路徑對生產的作用 | `db:provision:fresh` 於預檢中**拒絕**（exit 3） |
+
+- 那筆 `rolled_back` 是 2026-10-03 事故的**舊更名紀錄** `20261003_ielts_assessment_rubric_version`
+  （現行檔名為 `20261003000300_…`）。**實測重現**：在可丟棄資料庫上造出同形狀紀錄後，
+  `migrate deploy` 仍為 no-op（exit 0）、漂移 0 ⇒ 對部署安全。
+- `cloudbuild.yaml` 的 `Migrate` 步只跑 `npm ci && npx prisma migrate deploy`（secretEnv
+  `DIRECT_DATABASE_URL`），**不呼叫**佈建腳本 ⇒ 不可能對非空庫誤跑基線佈建。
+- 此次預檢**未能**驗證：gcloud 憑證已過期（`Reauthentication failed`），故無法讀取線上
+  Secret Manager 版本或 Cloud Run 服務環境來交叉比對 ⇒ 連線身分為「與倉庫部署設定完全一致」
+  之強證據，但未經 GCP 端獨立確認（已標示）。
+
+### 二、P0 佈建契約硬化與 CI 執行方式修正
+- 新增**後置條件** `evaluateMigrationHistory()`（純函式、7 新測試）：佈建後必須斷言歷史
+  **恰好等於**倉庫的遷移集合（無缺少、無 rolled_back、無 unfinished、無多餘列）——
+  不再只靠「人眼讀當下輸出」。佈建腳本在 `migrate deploy` 前先跑此斷言，失敗即 exit 1。
+- 新增實測的拒絕與錯誤路徑：有表無歷史 ⇒ exit 3（`HAS_EXISTING_TABLES`）；資料庫不存在 ⇒
+  exit 2（可讀錯誤訊息，無堆疊崩潰）。
+- **CI 改用已提交的佈建路徑初始化測試庫**（原本 `prisma db push`）：`db push` 永不重放
+  `migrate deploy`，正是遷移鏈壞掉而 CI 全綠的原因。現在 `ci_test` 由基線 →
+  補記歷史 → deploy no-op → 零漂移建出（本機已依新順序重跑：exit 0 + 54 表 + 歷史一致）。
+- 同步更正「Production Build Simulation」註解：`scripts/production-build.js` 會自己跑
+  `npx prisma migrate deploy`（部署期寫入），不得寫在 CI 建構步裡。
+
+### 三、P1 依賴顧問（12 條）逐一查證後**不強行升級**
+以實際 GHSA／CVE 原文核對受影響函式與路徑（非僅「bundle 裡找不到」）：
+`braces` CVE-2026-93687（嵌套 glob 堆疊耗盡）、`deepmerge-ts` CVE-2026-40345（遞迴物件圖堆疊耗盡）、
+`sprintf-js` CVE-2026-97058（未界定精度 → RangeError DoS）、`mysql2` GHSA-3f6p-5ww8-9rcr（明文密碼降級）
+與 GHSA-rgwj-5xj2-c3m3（zlib 解壓縮炸彈）。**均需攻擊者控制 MySQL 端點、遞迴設定物件、格式字串或 glob**。
+- `braces`／`sprintf-js` 官方標示 **Patched: None**（無可行修復，只能等上游）。
+- `mysql2`／`deepmerge-ts`：`prisma@7.10.0` 分別**精確釘版 3.15.3／7.1.5**（非範圍），
+  `npm audit` 唯一建議的「修復」是把 prisma **降級到 6.x**（禁止）。強行 override 等於背離廠商釘版，
+  且該路徑需存在 MySQL 端點（本專案只有 PostgreSQL）⇒ **不採用**，改列明確處置。
+- 12 條全部不在隨映像出貨的 42 個套件內（套件清單、Next 檔案追蹤清單、有對照組的標記掃描三法一致）。
+
+### 四、營運文件與最終驗證
+- `docs/DEPLOYMENT.md`：新增「失敗遷移／部署的復原程序」（診斷→`resolve --rolled-back`→修正
+  推進，及絕不修改已套用遷移的原因）與 Scheduler／告警的**營運者 runbook**（前置條件、指令、
+  煙霧測試、pause 回滾、預期證據），並明確標示 **NOT PROVISIONED／NOT AUTHORIZED**。
+- 本次審核**未**推送、未部署、未變更任何雲端資源（任務未授權）。
+- 最終驗證（本提交）：`tsc` 0 errors；**218 檔 / 3856 測試全過、0 失敗、0 跳過**（真實 PostgreSQL 17，
+  `REQUIRE_DATABASE=1`）；`npm run build` exit 0；產物檢查 exit 0（42 套件、78 bundle、0 Safari 違規）；
+  ESLint **246 warnings / 0 errors**（`--max-warnings 246` 通過，棘輪不動）；lint budget exit 0；
+  N+1 exit 0；i18n exit 0；`npm audit` 12（3 moderate／9 high／0 critical）。
+
 ## 2026-10-09 (II) — Sprint 135：遷移復原、證據強化與發布收尾
 
 ### 一、P0 遷移修復：全新資料庫佈建（重現 → 修復 → CI 常態驗證）

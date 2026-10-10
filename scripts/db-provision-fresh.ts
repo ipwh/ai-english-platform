@@ -46,6 +46,7 @@ import { argValue, getDbUrl } from './lib/db-env';
 import {
   FRESH_PROVISION_REFUSED_EXIT_CODE,
   evaluateFreshProvisionPreflight,
+  evaluateMigrationHistory,
 } from '@/shared/db/fresh-provision-preflight';
 
 const EXIT_OK = 0;
@@ -203,6 +204,32 @@ async function main(): Promise<number> {
       }
       console.log(`      ✓ ${name}`);
     }
+
+    // 後置條件：歷史必須恰好等於本倉庫的遷移集合（不得靜默多記／少記／rolled_back）。
+    const historyRows = await pool.query<{
+      migration_name: string;
+      finished: boolean;
+      rolled_back: boolean;
+    }>(
+      `SELECT migration_name,
+              finished_at IS NOT NULL     AS finished,
+              rolled_back_at IS NOT NULL  AS rolled_back
+         FROM _prisma_migrations`
+    );
+    const historyCheck = evaluateMigrationHistory(
+      historyRows.rows.map(row => ({
+        migrationName: row.migration_name,
+        finished: row.finished,
+        rolledBack: row.rolled_back,
+      })),
+      migrations
+    );
+    if (!historyCheck.ok) {
+      console.error('      ✗ 遷移歷史驗證失敗：');
+      for (const problem of historyCheck.problems) console.error(`        · ${problem}`);
+      return EXIT_VERIFY_FAILED;
+    }
+    console.log(`      ✓ 遷移歷史一致（${migrations.length} 筆：全數 finished、無 rolled_back、無多餘列）`);
 
     console.log('[4/4] 驗證 …');
     if (!verifyDeployed(url)) return EXIT_VERIFY_FAILED;
