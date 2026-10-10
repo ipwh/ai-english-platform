@@ -112,6 +112,21 @@ describe('deterministic objective grading', () => {
     expect(item.awardedMarks).toBe(0);
     expect(item.rationale).toContain('No answer');
   });
+
+  it('carries a Traditional-Chinese counterpart for every deterministic message (中英對照)', () => {
+    const correct = gradeObjectiveItem(objective());
+    expect(correct.rationaleZh).toContain('正確');
+    expect(correct.improvementZh).toBeNull();
+
+    const wrong = gradeObjectiveItem(objective({ answerText: 'A' }));
+    expect(wrong.rationaleZh).toContain('不正確');
+    expect(wrong.rationaleZh).toContain('B');
+    expect(wrong.improvementZh).toBeTruthy();
+
+    const blank = gradeObjectiveItem(objective({ answerText: '' }));
+    expect(blank.rationaleZh).toContain('沒有作答');
+    expect(blank.improvementZh).toBeTruthy();
+  });
 });
 
 describe('open-ended AI grading (fail-closed)', () => {
@@ -121,14 +136,16 @@ describe('open-ended AI grading (fail-closed)', () => {
 
   it('uses the AI verdict, clamps marks and passes improvement through', async () => {
     mocks.gradeAI.mockResolvedValue({
-      promptVersion: 'custom-practice-grading-v1',
+      promptVersion: 'custom-practice-grading-v2',
       results: [
         {
           questionId: 'q2',
           verdict: 'partially_correct',
           awardedMarks: 1,
           rationale: 'Tense is correct but the adverb placement is odd.',
+          rationaleZh: '時態正確，但副詞位置不自然。',
           improvement: 'Move "just" after "has".',
+          improvementZh: '請把 "just" 移到 "has" 之後。',
           confidence: 0.9,
         },
       ],
@@ -144,6 +161,37 @@ describe('open-ended AI grading (fail-closed)', () => {
     expect(result.items[0].verdict).toBe('partially_correct');
     expect(result.items[0].awardedMarks).toBe(1);
     expect(result.items[0].improvement).toContain('Move');
+    // 中英對照: the Chinese feedback reaches the student alongside the English.
+    expect(result.items[0].rationaleZh).toBe('時態正確，但副詞位置不自然。');
+    expect(result.items[0].improvementZh).toContain('just');
+  });
+
+  it('still marks correctly when the marker omits the Chinese (a missing translation is not a missing mark)', async () => {
+    mocks.gradeAI.mockResolvedValue({
+      promptVersion: 'custom-practice-grading-v2',
+      results: [
+        {
+          questionId: 'q2',
+          verdict: 'correct',
+          awardedMarks: 2,
+          rationale: 'Both criteria are met.',
+          improvement: null,
+          confidence: 0.9,
+        },
+      ],
+    });
+
+    const result = await gradeCustomPracticeAnswers({
+      spec: { category: 'grammar', difficulty: 'intermediate' },
+      questions: [openEndedQuestion()],
+      objective: [],
+    });
+
+    expect(result.degraded).toBe(false);
+    expect(result.items[0].verdict).toBe('correct');
+    expect(result.items[0].awardedMarks).toBe(2);
+    expect(result.items[0].rationaleZh).toBeNull();
+    expect(result.items[0].improvementZh).toBeNull();
   });
 
   it('never awards more than maxMarks even if the model asks for it', async () => {
@@ -235,15 +283,20 @@ describe('open-ended AI grading (fail-closed)', () => {
 describe('buildOverallFeedback', () => {
   it('summarizes the marks and never claims DSE validity', () => {
     const feedback = buildOverallFeedback([
-      { questionId: 'a', verdict: 'correct', awardedMarks: 1, maxMarks: 1, rationale: '', improvement: null, needsReview: false },
-      { questionId: 'b', verdict: 'incorrect', awardedMarks: 0, maxMarks: 1, rationale: '', improvement: null, needsReview: false },
-      { questionId: 'c', verdict: 'needs_review', awardedMarks: 0, maxMarks: 2, rationale: '', improvement: null, needsReview: true },
+      { questionId: 'a', verdict: 'correct', awardedMarks: 1, maxMarks: 1, rationale: '', rationaleZh: null, improvement: null, improvementZh: null, needsReview: false },
+      { questionId: 'b', verdict: 'incorrect', awardedMarks: 0, maxMarks: 1, rationale: '', rationaleZh: null, improvement: null, improvementZh: null, needsReview: false },
+      { questionId: 'c', verdict: 'needs_review', awardedMarks: 0, maxMarks: 2, rationale: '', rationaleZh: null, improvement: null, improvementZh: null, needsReview: true },
     ]);
 
-    expect(feedback).toContain('1 correct');
-    expect(feedback).toContain('1 incorrect');
-    expect(feedback).toContain('1 awaiting review');
-    expect(feedback).toContain('not a validated HKDSE score');
-    expect(feedback).toContain('not marked as wrong');
+    expect(feedback.en).toContain('1 correct');
+    expect(feedback.en).toContain('1 incorrect');
+    expect(feedback.en).toContain('1 awaiting review');
+    expect(feedback.en).toContain('not a validated HKDSE score');
+    expect(feedback.en).toContain('not marked as wrong');
+    // 中英對照: the same summary exists in Traditional Chinese for weaker-English students.
+    expect(feedback.zh).toContain('正確 1 題');
+    expect(feedback.zh).toContain('不正確 1 題');
+    expect(feedback.zh).toContain('待審（未評分）1 題');
+    expect(feedback.zh).toContain('並非考評局評分');
   });
 });

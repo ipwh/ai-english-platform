@@ -57,7 +57,13 @@ export const CustomPracticeGradingSchema = z.object({
         verdict: z.enum(['correct', 'partially_correct', 'incorrect']),
         awardedMarks: z.number().int().min(0).max(5),
         rationale: z.string().min(1).max(800),
+        // Bilingual feedback. Nullable (not required) on purpose: a model that
+        // omits the Chinese must NOT invalidate the whole response — that would
+        // turn one missing translation into "no marks at all" for every item.
+        // The prompt requires them, the UI falls back to English when absent.
+        rationaleZh: z.string().max(800).nullable().default(null),
         improvement: z.string().max(400).nullable().default(null),
+        improvementZh: z.string().max(400).nullable().default(null),
         confidence: z.number().min(0).max(1),
       })
     )

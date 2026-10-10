@@ -69,14 +69,18 @@ export interface SubmissionRowForDelivery {
   totalMarks: number | null;
   needsReviewCount: number;
   overallFeedback: string | null;
+  overallFeedbackZh: string | null;
   responses: Array<{
     questionId: string;
     verdict: string;
     awardedMarks: number;
     rationale: string;
+    /** Nullable: rows graded before the bilingual contract (2026-10-10). */
+    rationaleZh: string | null;
     referenceAnswer: string;
     acceptedAlternatives: string;
     improvement: string | null;
+    improvementZh: string | null;
     needsReview: boolean;
     question: {
       orderIndex: number;
@@ -113,9 +117,11 @@ export function toDeliveredResults(submission: SubmissionRowForDelivery): Delive
       awardedMarks: response.awardedMarks,
       maxMarks: response.question.maxMarks,
       rationale: response.rationale,
+      rationaleZh: response.rationaleZh ?? null,
       referenceAnswer: response.referenceAnswer,
       acceptedAlternatives: parseStringArray(response.acceptedAlternatives),
       improvement: response.improvement,
+      improvementZh: response.improvementZh ?? null,
       explanationEn: response.question.explanationEn,
       explanationZh: response.question.explanationZh,
       misconceptionTags: parseStringArray(response.question.misconceptionTags),
@@ -134,6 +140,7 @@ export function toDeliveredResults(submission: SubmissionRowForDelivery): Delive
     totalMarks,
     needsReviewCount: submission.needsReviewCount,
     overallFeedback: submission.overallFeedback,
+    overallFeedbackZh: submission.overallFeedbackZh ?? null,
     gradingDegraded: submission.needsReviewCount > 0,
     responses,
   };

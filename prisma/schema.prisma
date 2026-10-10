@@ -1223,6 +1223,8 @@ model CustomPracticeSubmission {
   /// 評分器**無法判定**的題數（永不因此斷言為答錯）。
   needsReviewCount     Int   @default(0)
   overallFeedback      String?
+  /// 同一段整體評語的繁體中文版（中英對照自學；可能為 NULL）。
+  overallFeedbackZh    String?
   gradingModel         String?
   gradingPromptVersion String?
 
@@ -1241,9 +1243,13 @@ model CustomPracticeResponse {
   verdict              String // correct | partially_correct | incorrect | needs_review
   awardedMarks         Int
   rationale            String
+  /// `rationale` 的繁體中文版（中英對照自學；AI 未提供時為 NULL）。
+  rationaleZh          String?
   referenceAnswer      String
   acceptedAlternatives String @default("[]")
   improvement          String?
+  /// `improvement` 的繁體中文版（中英對照自學；AI 未提供時為 NULL）。
+  improvementZh        String?
   needsReview          Boolean @default(false)
   answeredAt           DateTime @default(now())
 

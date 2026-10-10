@@ -21,7 +21,7 @@ import { useT } from '@/hooks/use-i18n';
 type Category = 'grammar' | 'sentence_pattern' | 'vocabulary';
 type Difficulty = 'basic' | 'intermediate' | 'advanced';
 type QuestionType = 'mc' | 'fill_blank' | 'error_correction' | 'transformation' | 'sentence_production';
-type ErrorKind = 'session' | 'rate' | 'quality' | 'verifier' | 'provider' | 'already' | 'generic' | null;
+type ErrorKind = 'session' | 'rate' | 'category' | 'invalid' | 'quality' | 'verifier' | 'provider' | 'already' | 'generic' | null;
 
 interface DeliveredQuestion {
   id: string;
@@ -65,9 +65,11 @@ interface ResultResponse {
   awardedMarks: number;
   maxMarks: number;
   rationale: string;
+  rationaleZh: string | null;
   referenceAnswer: string;
   acceptedAlternatives: string[];
   improvement: string | null;
+  improvementZh: string | null;
   explanationEn: string;
   explanationZh: string | null;
   misconceptionTags: string[];
@@ -81,6 +83,7 @@ interface Results {
   totalMarks: number;
   needsReviewCount: number;
   overallFeedback: string | null;
+  overallFeedbackZh: string | null;
   gradingDegraded: boolean;
   responses: ResultResponse[];
 }
@@ -110,6 +113,21 @@ function multipleChoiceStem(prompt: string, options: readonly MultipleChoiceOpti
   if (options.length !== 4) return prompt;
   const firstOption = prompt.indexOf(`${options[0].letter})`);
   return firstOption > 0 ? prompt.slice(0, firstOption).trim() : prompt;
+}
+
+/**
+ * 中英對照 feedback: the Traditional-Chinese line comes first (students with weaker
+ * English study from it) and the English original follows, so the language being
+ * learnt stays visible. Kept as two lines rather than one paragraph so a missing
+ * translation degrades to English instead of leaving a gap in the sentence.
+ */
+function BilingualFeedback({ zh, en }: { zh: string | null; en: string }) {
+  return (
+    <div className="space-y-0.5">
+      {zh && <p>{zh}</p>}
+      <p className={zh ? 'text-slate-600' : undefined}>{en}</p>
+    </div>
+  );
 }
 
 export default function CustomPracticePage() {
@@ -201,6 +219,15 @@ export default function CustomPracticePage() {
       }
       if (response.status === 429) {
         setErrorKind('rate');
+        return;
+      }
+      if (response.status === 400) {
+        const body = (await response.json().catch(() => ({}))) as { code?: string };
+        // CATEGORY_AMBIGUOUS means "we could not tell what you want"; INVALID_REQUEST
+        // means the request itself was unusable (too short, out-of-range count…).
+        // Both need a concrete, bilingual explanation — the generic "something went
+        // wrong" left the student with no idea what to change (observed 2026-10-10).
+        setErrorKind(body.code === 'CATEGORY_AMBIGUOUS' ? 'category' : 'invalid');
         return;
       }
       if (response.status === 422) {
@@ -311,6 +338,10 @@ export default function CustomPracticePage() {
         return t('customPractice.error.session');
       case 'rate':
         return t('customPractice.error.rate');
+      case 'category':
+        return t('customPractice.error.category');
+      case 'invalid':
+        return t('customPractice.error.invalidRequest');
       case 'quality':
         return t('customPractice.error.quality');
       case 'verifier':
@@ -563,7 +594,7 @@ export default function CustomPracticePage() {
                       <p className="font-medium">
                         {t(`customPractice.verdict.${result.verdict}`)} · {result.awardedMarks}/{result.maxMarks}
                       </p>
-                      <p>{result.rationale}</p>
+                      <BilingualFeedback zh={result.rationaleZh} en={result.rationale} />
                       {!result.needsReview && (
                         <p>
                           <span className="font-medium">{t('customPractice.referenceAnswer')}: </span>
@@ -576,15 +607,15 @@ export default function CustomPracticePage() {
                           {result.acceptedAlternatives.join(' / ')}
                         </p>
                       )}
-                      <p>
-                        <span className="font-medium">{t('customPractice.explanation')}: </span>
-                        {result.explanationEn}
-                      </p>
+                      <div>
+                        <p className="font-medium">{t('customPractice.explanation')}</p>
+                        <BilingualFeedback zh={result.explanationZh} en={result.explanationEn} />
+                      </div>
                       {result.improvement && (
-                        <p>
-                          <span className="font-medium">{t('customPractice.improvement')}: </span>
-                          {result.improvement}
-                        </p>
+                        <div>
+                          <p className="font-medium">{t('customPractice.improvement')}</p>
+                          <BilingualFeedback zh={result.improvementZh} en={result.improvement} />
+                        </div>
                       )}
                     </div>
                   )}
@@ -615,7 +646,7 @@ export default function CustomPracticePage() {
           <p className="text-sm font-medium text-slate-800">
             {t('customPractice.score', { awarded: results.awardedMarks, total: results.totalMarks })}
           </p>
-          {results.overallFeedback && <p className="text-sm text-slate-700">{results.overallFeedback}</p>}
+          {results.overallFeedback && <BilingualFeedback zh={results.overallFeedbackZh} en={results.overallFeedback} />}
           {results.needsReviewCount > 0 && (
             <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
               {t('customPractice.needsReviewNote', { count: results.needsReviewCount })}

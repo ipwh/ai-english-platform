@@ -891,6 +891,7 @@ CREATE TABLE "CustomPracticeSubmission" (
     "totalMarks" INTEGER,
     "needsReviewCount" INTEGER NOT NULL DEFAULT 0,
     "overallFeedback" TEXT,
+    "overallFeedbackZh" TEXT,
     "gradingModel" TEXT,
     "gradingPromptVersion" TEXT,
 
@@ -906,9 +907,11 @@ CREATE TABLE "CustomPracticeResponse" (
     "verdict" TEXT NOT NULL,
     "awardedMarks" INTEGER NOT NULL,
     "rationale" TEXT NOT NULL,
+    "rationaleZh" TEXT,
     "referenceAnswer" TEXT NOT NULL,
     "acceptedAlternatives" TEXT NOT NULL DEFAULT '[]',
     "improvement" TEXT,
+    "improvementZh" TEXT,
     "needsReview" BOOLEAN NOT NULL DEFAULT false,
     "answeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

@@ -2,7 +2,7 @@
   "datasetVersion": "custom-practice-grading-baseline-v1",
   "createdAt": "2026-10-10",
   "language": "en",
-  "gradingPromptVersion": "custom-practice-grading-v1",
+  "gradingPromptVersion": "custom-practice-grading-v2",
   "verificationPromptVersion": "custom-practice-verification-v1",
   "reviewStatusSummary": {
     "reviewed": 0,

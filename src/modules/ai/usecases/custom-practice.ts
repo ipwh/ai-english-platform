@@ -21,8 +21,8 @@ import {
   type CustomPracticeVerificationResponse,
 } from '../schemas/custom-practice-schema';
 import {
-  CUSTOM_PRACTICE_GENERATION_V1,
-  CUSTOM_PRACTICE_GRADING_V1,
+  CUSTOM_PRACTICE_GENERATION_V2,
+  CUSTOM_PRACTICE_GRADING_V2,
   CUSTOM_PRACTICE_VERIFICATION_V1,
   buildCustomPracticeGenerationPrompt,
   buildCustomPracticeGradingPrompt,
@@ -53,11 +53,19 @@ export async function generateCustomPracticeWithAI(
       { role: 'user', content: user },
     ],
     // Slightly creative (varied items) but JSON-mode so the schema can be enforced.
-    options: { temperature: 0.4, maxTokens: 3200, jsonMode: true },
+    // maxTokens must cover the LARGEST request the UI allows (10 questions), each with
+    // two explanations (En + Zh), a rubric and accepted/rejected answer lists.
+    // Measured 2026-10-10: 5 items ≈ 7.1k JSON characters, 10 items with all five
+    // question types = 11.4k–12.4k characters. The previous 3200 budget truncated the
+    // JSON, every repair strategy failed and 10 questions threw
+    // "AI 回傳格式無法解析" — deterministically, on every retry (the same request with
+    // maxTokens 8000 generated all 10 items). Verification and grading budgets are
+    // unaffected: both returned all 10 items within their existing limits.
+    options: { temperature: 0.4, maxTokens: 12000, jsonMode: true },
     schema: CustomPracticeGenerationSchema,
   });
 
-  return { questions: response.questions, promptVersion: CUSTOM_PRACTICE_GENERATION_V1 };
+  return { questions: response.questions, promptVersion: CUSTOM_PRACTICE_GENERATION_V2 };
 }
 
 export interface CustomPracticeGradingResult {
@@ -87,7 +95,7 @@ export async function gradeCustomPracticeWithAI(input: {
     schema: CustomPracticeGradingSchema,
   });
 
-  return { results: response.results, promptVersion: CUSTOM_PRACTICE_GRADING_V1 };
+  return { results: response.results, promptVersion: CUSTOM_PRACTICE_GRADING_V2 };
 }
 
 export interface CustomPracticeVerificationResult {

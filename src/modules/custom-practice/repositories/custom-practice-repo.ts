@@ -115,6 +115,8 @@ export interface PersistSubmissionInput {
   totalMarks: number;
   needsReviewCount: number;
   overallFeedback: string | null;
+  /** Traditional-Chinese counterpart of `overallFeedback` (bilingual self-study). */
+  overallFeedbackZh: string | null;
   gradingModel: string | null;
   gradingPromptVersion: string;
   responses: Array<{
@@ -123,9 +125,11 @@ export interface PersistSubmissionInput {
     verdict: string;
     awardedMarks: number;
     rationale: string;
+    rationaleZh: string | null;
     referenceAnswer: string;
     acceptedAlternatives: string[];
     improvement: string | null;
+    improvementZh: string | null;
     needsReview: boolean;
   }>;
 }
@@ -149,6 +153,7 @@ export async function createSubmissionWithResponses(input: PersistSubmissionInpu
           totalMarks: input.totalMarks,
           needsReviewCount: input.needsReviewCount,
           overallFeedback: input.overallFeedback,
+          overallFeedbackZh: input.overallFeedbackZh,
           gradingModel: input.gradingModel,
           gradingPromptVersion: input.gradingPromptVersion,
           responses: {
@@ -158,9 +163,11 @@ export async function createSubmissionWithResponses(input: PersistSubmissionInpu
               verdict: response.verdict,
               awardedMarks: response.awardedMarks,
               rationale: response.rationale,
+              rationaleZh: response.rationaleZh,
               referenceAnswer: response.referenceAnswer,
               acceptedAlternatives: JSON.stringify(response.acceptedAlternatives),
               improvement: response.improvement,
+              improvementZh: response.improvementZh,
               needsReview: response.needsReview,
             })),
           },

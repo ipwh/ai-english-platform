@@ -38,7 +38,8 @@ export const DEFAULT_EXERCISE_TYPES: Record<PracticeCategory, readonly PracticeQ
 const CATEGORY_KEYWORDS: Record<PracticeCategory, readonly string[]> = {
   grammar: [
     'grammar', 'tense', 'tenses', 'present tense', 'past tense', 'past simple', 'past perfect',
-    'present perfect', 'future', 'continuous', 'progressive', 'participle', 'article', 'articles',
+    'present perfect', 'future tense', 'future simple', 'future continuous', 'future perfect',
+    'continuous', 'progressive', 'participle', 'article', 'articles',
     'preposition', 'prepositions', 'subject-verb', 'agreement', 'gerund', 'infinitive', 'passive',
     'active voice', 'modal', 'pronoun', 'plural', 'countable', 'uncountable', 'punctuation',
   ],
@@ -46,7 +47,7 @@ const CATEGORY_KEYWORDS: Record<PracticeCategory, readonly string[]> = {
     'sentence pattern', 'pattern', 'conditional', 'conditionals', 'zero conditional',
     'first conditional', 'second conditional', 'third conditional', 'if clause', 'inversion',
     'relative clause', 'clause', 'conjunction', 'connective', 'cause and effect', 'comparative',
-    'superlative', 'reported speech', 'indirect speech',
+    'superlative', 'reported speech', 'indirect speech', 'simile', 'as as',
   ],
   vocabulary: [
     'vocabulary', 'word', 'words', 'enough', 'too', 'too much', 'too many', 'collocation',
@@ -54,6 +55,52 @@ const CATEGORY_KEYWORDS: Record<PracticeCategory, readonly string[]> = {
     'synonym', 'antonym', 'meaning', 'usage', 'use of', 'idiom',
   ],
 };
+
+/**
+ * Chinese topic words, matched as plain substrings (Chinese has no word
+ * boundaries). The platform's own UI is bilingual, so a student who cannot spell
+ * "conditional" must not be refused by 由系統判斷 — the terms below are the
+ * everyday Chinese names of the same three categories.
+ */
+const CHINESE_CATEGORY_KEYWORDS: Record<PracticeCategory, readonly string[]> = {
+  grammar: [
+    '文法', '語法', '時態', '過去式', '現在式', '現在完成式', '過去完成式', '被動語態', '介詞', '冠詞',
+    '代名詞', '情態動詞', '動名詞', '不定詞', '現在分詞', '單複數',
+  ],
+  sentence_pattern: [
+    '句式', '句構', '句型', '條件句', '子句', '連接詞', '比較級', '最高級', '轉述', '倒裝句', '比喻',
+  ],
+  vocabulary: ['詞彙', '生字', '單字', '片語', '慣用語', '近義詞', '反義詞', '搭配詞', '字義'],
+};
+
+/**
+ * WEAK grammar evidence: words that name a topic on their own ("should and
+ * could", "the future" — the way students actually ask) but are ordinary
+ * auxiliaries or generic time words in meta-phrasing ("I would like to practise
+ * conditionals", "conditional sentences about the possible future"). They are
+ * consulted ONLY when the request names no topic at all, so they can never turn a
+ * clearly-identified request into a refusal. Without this fallback a plain
+ * "should and could" matched nothing and the API answered 400 (2026-10-10 report).
+ */
+const WEAK_GRAMMAR_KEYWORDS: readonly string[] = [
+  'should', 'could', 'would', 'shall', 'will', 'can', 'may', 'might', 'must',
+  'ought', 'had better', 'used to', 'modals', 'modal verbs', 'future',
+];
+
+/** One keyword as a whole word, tolerating a plural/possessive final word. */
+const keywordPatterns = new Map<string, RegExp>();
+
+function keywordPattern(keyword: string): RegExp {
+  const cached = keywordPatterns.get(keyword);
+  if (cached) return cached;
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // "infinitive" must also match "infinitives": 6B Unit 15 is titled
+  // "Infinitives with/without to", and a student who copies the unit title used to
+  // be refused because the list only contained the singular form.
+  const pattern = new RegExp(` ${escaped}(?:'s|s|es)? `);
+  keywordPatterns.set(keyword, pattern);
+  return pattern;
+}
 
 export interface NormalizeRequestInput {
   requestText?: unknown;
@@ -76,6 +123,25 @@ export function normalizeRequestText(raw: unknown): string {
     .trim();
 }
 
+/**
+ * Is this weak keyword being used AS the topic, or is it ordinary grammar inside a
+ * meta/politeness frame?
+ *
+ * A student who lists modals ("should and could", "can vs must") or ends the request
+ * with one ("if … will", "the future") is naming a topic. A student who writes
+ * "I would like to practise spelling" or "Can I practise spelling?" has only used an
+ * auxiliary, and that request still names no known topic — it must be clarified
+ * rather than silently answered with grammar practice (found in the 2026-10-10
+ * review; the weak fallback was firing on every politeness frame).
+ */
+function isTopicUse(haystack: string, keyword: string): boolean {
+  const core = `${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:'s|s|es)?`;
+  const atEnd = new RegExp(` ${core}(?: please)? $`);
+  const connector = '(?:and|or|vs|versus)';
+  const listed = new RegExp(`(?: ${connector} ${core} )|(?: ${core} ${connector} )`);
+  return atEnd.test(haystack) || listed.test(haystack);
+}
+
 export function inferCategory(text: string): { category: PracticeCategory | null; ambiguous: boolean } {
   // Normalize to a token stream first: punctuation and the end of the string must
   // behave exactly like a separating space, otherwise "…past perfect." would not
@@ -85,12 +151,21 @@ export function inferCategory(text: string): { category: PracticeCategory | null
     .replace(/[^a-z0-9'-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()} `;
-  const hits = CUSTOM_PRACTICE_CATEGORIES.filter(category =>
-    CATEGORY_KEYWORDS[category].some(keyword => haystack.includes(` ${keyword} `))
+  const matches = (keywords: readonly string[]) => keywords.some(keyword => keywordPattern(keyword).test(haystack));
+  const matchesChinese = (keywords: readonly string[]) => keywords.some(keyword => text.includes(keyword));
+
+  const hits = CUSTOM_PRACTICE_CATEGORIES.filter(
+    category => matches(CATEGORY_KEYWORDS[category]) || matchesChinese(CHINESE_CATEGORY_KEYWORDS[category])
   );
 
   if (hits.length === 1) return { category: hits[0], ambiguous: false };
-  return { category: null, ambiguous: hits.length > 1 };
+  if (hits.length > 1) return { category: null, ambiguous: true };
+  // No topic named: a modal verb (or "the future") still identifies grammar — but
+  // only where the student used it as the topic (see `isTopicUse`).
+  const weak = WEAK_GRAMMAR_KEYWORDS.some(
+    keyword => matches([keyword]) && isTopicUse(haystack, keyword)
+  );
+  return { category: weak ? 'grammar' : null, ambiguous: false };
 }
 
 function isCategory(value: unknown): value is PracticeCategory {

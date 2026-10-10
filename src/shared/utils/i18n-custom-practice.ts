@@ -73,7 +73,9 @@ export const customPracticeTranslations: Record<string, { zh: string; en: string
   'customPractice.improvement': { zh: '改善建議', en: 'Improvement' },
   'customPractice.verdict.correct': { zh: '正確', en: 'Correct' },
   'customPractice.verdict.partially_correct': { zh: '部分正確', en: 'Partially correct' },
-  'customPractice.verdict.incorrect': { zh: '未正確', en: 'Incorrect' },
+  // 「不正確」not「未正確」: the student reported that "未正確" reads as ambiguous in
+  // Chinese ("not yet correct" vs "wrong"), which hides why the answer lost marks.
+  'customPractice.verdict.incorrect': { zh: '不正確', en: 'Incorrect' },
   'customPractice.verdict.needs_review': { zh: '待審（未評分）', en: 'Awaiting review (not marked)' },
   'customPractice.targetRule': { zh: '考核重點', en: 'Target' },
 
@@ -88,6 +90,14 @@ export const customPracticeTranslations: Record<string, { zh: string; en: string
 
   'customPractice.error.session': { zh: '登入已逾時，請重新登入。', en: 'Your session has expired — please sign in again.' },
   'customPractice.error.rate': { zh: '操作太頻繁，請稍後再試。', en: 'Too many requests — please wait a moment and try again.' },
+  'customPractice.error.category': {
+    zh: '系統無法從你的描述判斷練習類別，請選擇「文法 / 時態」、「句式 / 條件句」或「詞彙用法（enough / too…）」，或把想練的文法結構寫得更具體（例如：should / could 的用法）。',
+    en: 'The system could not tell which practice category you meant. Choose Grammar & tenses, Sentence patterns & conditionals or Vocabulary usage (enough / too…), or name the structure you want to practise (for example: "should vs could").',
+  },
+  'customPractice.error.invalidRequest': {
+    zh: '輸入的內容不符合格式，因此未出題：描述需為 3 至 400 字，題數需為 3 至 10 題，題型需為系統提供的選項。請檢查後再試一次。',
+    en: 'The request was not in a usable form, so nothing was generated: the description must be 3–400 characters, the number of questions 3–10, and the question types must be one of the options offered. Please check and try again.',
+  },
   'customPractice.error.quality': {
     zh: '生成的題目未通過驗證，因此沒有交付任何題目。請換個說法再試。',
     en: 'The generated questions did not pass verification, so nothing was delivered. Try wording your request differently.',

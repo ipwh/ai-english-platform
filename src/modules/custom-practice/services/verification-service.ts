@@ -28,6 +28,14 @@ import { normalizeFreeTextAnswer, OPEN_ENDED_MIN_CONFIDENCE } from './grading-se
 
 export const MAX_REGENERATION_ROUNDS = 1;
 
+/**
+ * Phrases that admit the ITEM itself is broken (as opposed to explaining why a
+ * distractor is wrong). Kept deliberately narrow — see the comment in
+ * `screenForDeterministicDefects`.
+ */
+const ITEM_LEVEL_DEFECT =
+  /\b(question|item|sentence|answer key|key|correct answer)\s+(is|are|was|were)\s+(incorrect|wrong|ambiguous|unclear|impossible)\b|\bcannot be determined\b|\bno correct (answer|option)\b|\b(more than one|multiple|two)\s+(answers?|options?)\s+(is|are)\s+(correct|possible)\b/;
+
 export interface VerificationRejection {
   index: number;
   reason: string;
@@ -79,9 +87,13 @@ export function screenForDeterministicDefects(questions: readonly ValidatedQuest
       return;
     }
 
-    // An explanation that admits the item is broken must never reach a student.
+    // An explanation that admits the ITEM is broken must never reach a student.
+    // Careful: teaching text legitimately says a *distractor* is wrong ("…, so 'will
+    // call' is incorrect here", "Option A is wrong because…") — that is not an
+    // admission about the item. The previous pattern matched any "is incorrect/wrong/
+    // ambiguous", so sound items were silently dropped (observed live 2026-10-10).
     const explanation = question.explanationEn.toLowerCase();
-    if (/(is (incorrect|wrong|ambiguous)|cannot be determined|no correct (answer|option))/.test(explanation)) {
+    if (ITEM_LEVEL_DEFECT.test(explanation)) {
       rejections.push({ index, reason: 'the explanation itself states the item is defective' });
     }
   });

@@ -129,6 +129,7 @@ export async function submitCustomPracticeSet(input: {
   const awardedMarks = decided.reduce((sum, item) => sum + item.awardedMarks, 0);
   const totalMarks = ordered.reduce((sum, item) => sum + item.maxMarks, 0);
   const needsReviewCount = ordered.filter(item => item.needsReview).length;
+  const overallFeedback = buildOverallFeedback(ordered);
 
   try {
     await createSubmissionWithResponses({
@@ -137,7 +138,8 @@ export async function submitCustomPracticeSet(input: {
       awardedMarks,
       totalMarks,
       needsReviewCount,
-      overallFeedback: buildOverallFeedback(ordered),
+      overallFeedback: overallFeedback.en,
+      overallFeedbackZh: overallFeedback.zh,
       gradingModel: null,
       gradingPromptVersion: graded.promptVersion ?? 'unavailable',
       responses: set.questions.map(question => {
@@ -148,9 +150,11 @@ export async function submitCustomPracticeSet(input: {
           verdict: item.verdict,
           awardedMarks: item.awardedMarks,
           rationale: item.rationale,
+          rationaleZh: item.rationaleZh,
           referenceAnswer: question.answerKey,
           acceptedAlternatives: parseStringArray(question.acceptedAnswers),
           improvement: item.improvement,
+          improvementZh: item.improvementZh,
           needsReview: item.needsReview,
         };
       }),

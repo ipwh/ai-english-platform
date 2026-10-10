@@ -91,9 +91,12 @@ export interface DeliveredResponse {
   awardedMarks: number;
   maxMarks: number;
   rationale: string;
+  /** The same explanation in Traditional Chinese; null when the marker omitted it. */
+  rationaleZh: string | null;
   referenceAnswer: string;
   acceptedAlternatives: string[];
   improvement: string | null;
+  improvementZh: string | null;
   explanationEn: string;
   explanationZh: string | null;
   misconceptionTags: string[];
@@ -109,6 +112,7 @@ export interface DeliveredResults {
   totalMarks: number;
   needsReviewCount: number;
   overallFeedback: string | null;
+  overallFeedbackZh: string | null;
   /** True when at least one item could not be graded by the AI marker. */
   gradingDegraded: boolean;
   responses: DeliveredResponse[];
@@ -121,7 +125,10 @@ export interface GradedItem {
   awardedMarks: number;
   maxMarks: number;
   rationale: string;
+  /** Traditional-Chinese counterpart of `rationale` (bilingual self-study feedback). */
+  rationaleZh: string | null;
   improvement: string | null;
+  improvementZh: string | null;
   needsReview: boolean;
 }
 

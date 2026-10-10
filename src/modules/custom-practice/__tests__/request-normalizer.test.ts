@@ -66,6 +66,25 @@ describe('category inference', () => {
     expect(result.category).toBeNull();
     expect(result.ambiguous).toBe(false);
   });
+
+  it('infers grammar from modal verbs alone (2026-10-10 report: "should and could" 400ed)', () => {
+    expect(inferCategory('should and could')).toEqual({ category: 'grammar', ambiguous: false });
+    expect(inferCategory('can vs must')).toEqual({ category: 'grammar', ambiguous: false });
+    expect(inferCategory('modal verbs')).toEqual({ category: 'grammar', ambiguous: false });
+  });
+
+  it('never lets a modal AUXILIARY overrule a named topic', () => {
+    // "would" is grammar evidence, "conditionals" is sentence-pattern evidence:
+    // counting them equally used to refuse a perfectly identifiable request.
+    expect(inferCategory('I would like to practise conditionals')).toEqual({
+      category: 'sentence_pattern',
+      ambiguous: false,
+    });
+    expect(inferCategory('Could you give me vocabulary practice with enough?')).toEqual({
+      category: 'vocabulary',
+      ambiguous: false,
+    });
+  });
 });
 
 describe('normalizePracticeRequest', () => {
