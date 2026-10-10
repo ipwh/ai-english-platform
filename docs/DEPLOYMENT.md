@@ -206,6 +206,32 @@ instead mint an OIDC token (`--oidc-service-account-email`) which the endpoint v
 Google's public keys (`audience` = service URL); that removes the shared long-lived secret and
 should be adopted when the job is provisioned. Never commit a real `CRON_SECRET`.
 
+## Safari 15.4 device verification checklist (manual — NOT automated)
+
+**Status: `ARTIFACT-VERIFIED / DEVICE-UNVERIFIED`.** `npm run check:artifact` proves the *build
+output* contains no post-Safari-15.4 syntax (78 client bundles scanned 2026-10-09: **0 violations** —
+covers class static blocks, `Object/Map.groupBy`, `Promise.withResolvers`, `Array.fromAsync`,
+`toSorted/toReversed/toSpliced`, RegExp lookbehind). It **cannot** prove how a real iPad behaves —
+only a device can. Run this on the oldest supported hardware before relying on it.
+
+Target: iPad Air 2 / iPad mini 4 class hardware on **iPadOS 15.8 (Safari 15.6)** — the support floor.
+
+1. **Hydration** — sign in with Google from the login page. A button that does nothing means the
+   client runtime failed to parse (SyntaxError); note the failing chunk name from the Safari console
+   and compare it with `npm run check:artifact`.
+2. **Core student flow** — open a practice session, answer an MC question, press “下一題”: the page
+   must navigate, and the answered question must not come back un-answered.
+3. **Audio** — play a listening item end-to-end (TTS MP3 must not stop after the first segment).
+4. **PDF export** — export a writing analysis; a corrupted or HTML-renamed file means the PDF path
+   regressed (it must fail loudly, never fall back to HTML).
+5. **Styling floor** (known limitations, not defects) — Tailwind 4 uses `@property` (Safari 16.4 ✗)
+   and `color-mix()` (Safari 16.2 ✗), so on iPadOS 15 translucent colours and some gradients
+   degrade; `@layer` (15.4 ✓) is fine.
+6. **Record** the outcome (device, iPadOS version, date) in the release notes.
+
+A failure here is a **release blocker**, not cosmetic: the school fleet includes devices that
+cannot be upgraded past iPadOS 15.8.
+
 ## Rollback
 
 ```bash
