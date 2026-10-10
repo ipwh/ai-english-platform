@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = validateQuery(studentAnalyticsQuerySchema, searchParams);
-    const { studentId, weeks } = query;
+    const { studentId } = query;
 
     // 2026-08-30 audit (R5): 學生只可看自己；教師只可看任教班級學生（主班級 ∪ StudentClass）；admin 豁免
     if (auth.role === 'student' && studentId !== auth.userId) {

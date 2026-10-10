@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, questionId, studentAnswer, correctAnswer, mistakeType, aiExplanation } = body;
+    const { studentId, questionId, mistakeType, aiExplanation } = body;
 
     if (!studentId || !questionId) {
       return NextResponse.json({ error: 'studentId, questionId 為必填 / studentId and questionId are required' }, { status: 400 });

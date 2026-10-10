@@ -727,7 +727,7 @@ export class TeacherCopilotService {
     return skills;
   }
 
-  private buildDailyPlans(focusSkills: SkillDimension[], data: any): DailyPlan[] {
+  private buildDailyPlans(focusSkills: SkillDimension[], _data: unknown): DailyPlan[] {
     const days: Array<'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday'> = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     return days.map((day, i) => {
       const skill = focusSkills[i % focusSkills.length];
@@ -754,7 +754,7 @@ export class TeacherCopilotService {
     };
   }
 
-  private buildVocabularyFocus(data: any): VocabularyFocus {
+  private buildVocabularyFocus(_data: unknown): VocabularyFocus {
     return {
       themes: ['Environment', 'Technology', 'Education'],
       targetWordCount: 20,
@@ -767,7 +767,7 @@ export class TeacherCopilotService {
     };
   }
 
-  private buildWritingFocus(data: any): WritingFocus {
+  private buildWritingFocus(_data: unknown): WritingFocus {
     return {
       textTypes: [
         { type: 'Essay', typeZh: '文章', readiness: 0.6 },

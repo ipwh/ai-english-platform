@@ -7,7 +7,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, Flame, Sparkles, Loader2, Trophy, CheckCircle, XCircle, Send } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
-import { useT } from '@/hooks/use-i18n';
 
 type QuestionType = 'mc' | 'fill-blank' | 'short-writing' | 'matching';
 
@@ -40,8 +39,7 @@ interface ChallengeState {
 }
 
 export default function DailyChallengePage() {
-  const { language, userId } = useAppStore();
-  const { t } = useT();
+  const { language } = useAppStore();
   const [state, setState] = useState<ChallengeState>({ status: 'loading' });
   const [studentId, setStudentId] = useState('');
   const [gradeLevel, setGradeLevel] = useState('S4');

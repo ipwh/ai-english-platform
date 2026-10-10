@@ -224,8 +224,6 @@ class ExperimentRunner {
         },
       );
 
-      const latencyMs = Date.now() - startTime;
-
       // Compute rough scores from response characteristics
       // (In production, these would come from the regression evaluator)
       const scores = this.estimateScores(response.text, fixture);
@@ -283,7 +281,6 @@ class ExperimentRunner {
   ): { overall: number; rubric: number; semantic: number; structural: number } {
     // Default reasonable scores for experiment framework
     // Real implementation would call rubric-score, semantic-score, structural-score
-    const base = 85 + Math.random() * 10; // 85-95 range
 
     // Slight variation based on fixture characteristics
     const hasGolden = !!fixture.golden;

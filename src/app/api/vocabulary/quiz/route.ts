@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
               source: `Generated from ${vocabItems.length} vocabulary items / 從 ${vocabItems.length} 個生字中生成`,
             });
           }
-        } catch (aiErr) {
+        } catch {
           logger.warn({ module: 'vocab-quiz' }, 'AI MCQ generation failed, falling back to match mode');
         }
       }

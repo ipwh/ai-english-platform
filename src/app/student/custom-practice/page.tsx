@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, RefreshCw, Sparkles } from 'lucide-react';
@@ -29,7 +29,7 @@ interface DeliveredQuestion {
   questionType: string;
   instructions: string;
   prompt: string;
-  targetRule: string;
+  targetTopic: string;
   maxMarks: number;
 }
 
@@ -281,9 +281,23 @@ export default function CustomPracticePage() {
     }
   }, []);
 
+  // 「練習歷史」以 `?set=<id>` 連到某一份自訂練習（2026-10-10）。以 window.location
+  // 讀取而非 useSearchParams()：後者會令本頁必須加 Suspense 邊界才可建構。
+  // 只執行一次（重新生成／重新載入不得被舊參數覆蓋）。
+  const openedFromHistory = useRef(false);
+  useEffect(() => {
+    if (openedFromHistory.current) return;
+    openedFromHistory.current = true;
+    const setId = new URLSearchParams(window.location.search).get('set');
+    if (!setId) return;
+    // Deferred to the next task: `openSet` updates state, and React 19 forbids a
+    // synchronous state update inside an effect (react-hooks/set-state-in-effect).
+    const timer = setTimeout(() => void openSet(setId), 0);
+    return () => clearTimeout(timer);
+  }, [openSet]);
+
   const submit = useCallback(async () => {
     if (!set || submitting) return;
-
     const answered = Object.values(answers).filter(value => value.trim().length > 0).length;
     if (answered === 0) {
       setErrorKind(null);
@@ -404,7 +418,7 @@ export default function CustomPracticePage() {
 
       <section aria-labelledby="request-heading" className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
         <h2 id="request-heading" className="text-base font-medium text-slate-900">
-          {t('customPractice.requestLabel')}
+          {t('customPractice.requestSectionTitle')}
         </h2>
 
         <div>
@@ -541,9 +555,11 @@ export default function CustomPracticePage() {
                   <p className="whitespace-pre-wrap text-sm text-slate-800">
                     {isMultipleChoice ? multipleChoiceStem(question.prompt, options) : question.prompt}
                   </p>
-                  <p className="text-xs text-slate-500">
-                    {t('customPractice.targetRule')}: {question.targetRule}
-                  </p>
+                  {!results && (
+                    <p className="text-xs text-slate-500">
+                      {t('customPractice.targetRule')}: {question.targetTopic}
+                    </p>
+                  )}
 
                   {!results && (
                     isMultipleChoice && options.length === 4 ? (
@@ -595,6 +611,9 @@ export default function CustomPracticePage() {
                         {t(`customPractice.verdict.${result.verdict}`)} · {result.awardedMarks}/{result.maxMarks}
                       </p>
                       <BilingualFeedback zh={result.rationaleZh} en={result.rationale} />
+                      <p className="text-xs text-slate-600">
+                        {t('customPractice.targetRule')}: {result.targetRule}
+                      </p>
                       {!result.needsReview && (
                         <p>
                           <span className="font-medium">{t('customPractice.referenceAnswer')}: </span>

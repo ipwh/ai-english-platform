@@ -330,7 +330,6 @@ function normalPValue(z: number): number {
   const a5 = 1.061405429;
   const p = 0.3275911;
 
-  const sign = z < 0 ? -1 : 1;
   const x = Math.abs(z) / Math.sqrt(2);
   const t = 1.0 / (1.0 + p * x);
   const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
@@ -356,7 +355,6 @@ function regularizedBeta(x: number, a: number, b: number): number {
   // Continued fraction
   const front = (Math.exp(a * Math.log(x) + b * Math.log(1 - x)) / a) * (1 / betaAB);
 
-  const f = 1.0;
   let c = 1.0;
   let d = 1.0 - (a + b) * x / (a + 1);
   if (Math.abs(d) < epsilon) d = epsilon;

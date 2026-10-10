@@ -12,7 +12,7 @@ export async function exportStudents(filters?: { academicYear?: string; classNam
   });
 }
 
-export async function exportTeachers(filters?: { academicYear?: string }) {
+export async function exportTeachers() {
   return db.user.findMany({
     where: { role: 'teacher' },
     select: { id: true, name: true, nameZh: true, nameEn: true, email: true, class: { select: { name: true } } } satisfies Prisma.UserSelect,

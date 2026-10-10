@@ -69,7 +69,6 @@ describe('KnowledgeGraph', () => {
 
   it('should have correct dependency chain', () => {
     // Verify the example chain: Present Perfect → Passive Voice → Relative Clause → Reported Speech
-    const pp = getSkill('present-perfect')!;
     const pv = getSkill('passive-voice')!;
     const rc = getSkill('relative-clauses')!;
     const rs = getSkill('reported-speech')!;

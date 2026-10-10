@@ -83,7 +83,6 @@ describe('HistoryRegistry', () => {
 
   it('should retrieve state at a specific time', () => {
     const registry = new HistoryRegistry<TestItem>();
-    const beforeAll = new Date().toISOString();
     registry.register({ id: 'a', value: 0, label: 'start' });
 
     // Should retrieve the item using the timestamp before registration

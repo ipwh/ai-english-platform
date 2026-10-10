@@ -436,7 +436,6 @@ describe('LearningEffectivenessAnalyzer', () => {
 
   it('should detect declining retention trend', () => {
     const old = new Date(Date.now() - 10 * 86400000).toISOString();
-    const mid = new Date(Date.now() - 5 * 86400000).toISOString();
     const recent = new Date(Date.now() - 86400000).toISOString();
 
     const entries = [

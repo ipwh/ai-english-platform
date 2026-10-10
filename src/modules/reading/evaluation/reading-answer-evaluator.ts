@@ -280,7 +280,7 @@ export function answersEquivalent(studentAnswer: string, expectedAnswer: string)
 export function assessCompleteness(
   answer: string,
   expectedAnswer: string,
-  maxWords?: number,
+  _maxWords?: number,
 ): Completeness {
   if (!answer.trim()) return 'partial';
 

@@ -26,12 +26,18 @@ const { execSync } = require('child_process');
  * 13 with no rule suppression: the `const { omitted, ...rest }` OMIT idiom is now
  * covered by the documented `ignoreRestSiblings` option (the binding exists only
  * to keep the key out of `rest`), plus genuinely dead query bindings were dropped.
- * 246 is the exact measured state, verified 2026-10-09 (0 errors).
+ * 246 was the exact measured state, verified 2026-10-09 (0 errors).
+ *
+ * 2026-10-10 (Sprint 144): burned 246 → 79 — every `no-unused-vars` (134) removed
+ * (dead `useState` values whose setter was still called, unused params/imports,
+ * counters that were incremented but never read, unused helper functions) and 29
+ * `explicit-any` uses replaced by real Prisma types / payload interfaces. No rule
+ * was suppressed to reach the number: the one remaining `adminDbQuery` façade keeps
+ * its deliberate `any` and is counted below.
  */
 const BUDGETS = {
-  '@typescript-eslint/no-unused-vars': 134, // unused locals/params (case-by-case; auto-removal proved unsafe)
-  '@typescript-eslint/no-explicit-any': 50, // dynamic admin façade + legacy components
-  'react-hooks/set-state-in-effect': 35, // React 19 rule; needs component restructuring
+  '@typescript-eslint/no-explicit-any': 18, // Prisma dynamic bridges + legacy payload types
+  'react-hooks/set-state-in-effect': 34, // React 19 rule; needs component restructuring
   'react-hooks/exhaustive-deps': 15, // remaining deps are component-local fns / props
   '@typescript-eslint/no-require-imports': 12, // deliberate: dual SQLite/Postgres driver loading
 };

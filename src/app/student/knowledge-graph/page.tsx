@@ -127,7 +127,7 @@ function computeLayout(
 }
 
 export default function KnowledgeGraphPage() {
-  const { t, language } = useT();
+  const { language } = useT();
   const { userId } = useAppStore();
   const [graph, setGraph] = useState<KGGraph | null>(null);
   const [loading, setLoading] = useState(true);

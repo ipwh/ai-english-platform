@@ -186,7 +186,7 @@ export function generateInterleavingPlan(topics: string[], itemsPerTopic: Record
 // 5. DESIRABLE DIFFICULTY (Optimal Challenge)
 // ============================================
 
-export function calculateDesirableDifficulty(currentAccuracy: number, recentAccuracy: number): DesirableDifficultyConfig {
+export function calculateDesirableDifficulty(currentAccuracy: number, _recentAccuracy: number): DesirableDifficultyConfig {
   const targetAccuracy = 0.75; // Sweet spot: 70-85%
   let adjustment: DesirableDifficultyConfig['adjustment'];
   let suggestedDifficulty: DesirableDifficultyConfig['suggestedDifficulty'];
@@ -226,7 +226,7 @@ export function optimalDifficultyLevel(masteryScore: number, streakDays: number)
 // 6. METACOGNITION (Self-assessment + Calibration)
 // ============================================
 
-export function generateMetacognitionPrompts(topic: string, topicZh: string): MetacognitionPrompt {
+export function generateMetacognitionPrompts(topic: string, _topicZh: string): MetacognitionPrompt {
   return {
     beforePractice: [
       `How confident are you in your understanding of "${topic}"? (1-5)`,
@@ -289,12 +289,9 @@ export function estimateMastery(
   let posteriorVariance = 0.25; // High initial uncertainty
 
   for (const e of evidence) {
-    // Likelihood: if mastered, P(correct) = 0.9 - 0.1*difficulty/5; if not, P(correct) = 0.25
-    const slipProbability = 0.1 + (e.difficulty / 5) * 0.25;  // Mastered but slipped
-    const guessProbability = 0.25;                               // Not mastered but guessed
-
-    const likelihoodCorrect = posteriorMean * (1 - slipProbability) + (1 - posteriorMean) * guessProbability;
-    const likelihoodObserved = e.correct ? likelihoodCorrect : (1 - likelihoodCorrect);
+    // NOTE: the slip/guess likelihood model is not used by the simplified conjugate
+    // update below (it consumes only the observed outcome); it is documented here so
+    // a future full-posterior implementation has the parameters at hand.
 
     // Simplified Bayesian update using Beta-Bernoulli conjugate
     const alpha = posteriorMean * ((posteriorMean * (1 - posteriorMean) / Math.max(posteriorVariance, 0.01)) - 1);

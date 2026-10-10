@@ -70,7 +70,7 @@ export function scanModuleCoverage(): CoverageReport {
 }
 
 /** Generate a human-readable coverage report */
-export function formatCoverageReport(report: CoverageReport, vitestOutput?: string): string {
+export function formatCoverageReport(report: CoverageReport, _vitestOutput?: string): string {
   const lines: string[] = [
     '═══════════════════════════════════════',
     '     Test Coverage Report',

@@ -221,7 +221,7 @@ export class LearningPathGenerator {
     g: KnowledgeGraph,
     gradeLevel: string,
     masteryScores: Record<string, number>,
-    maxMinutes?: number,
+    _maxMinutes?: number,
   ): { nodes: string[]; rationale: string; rationaleZh: string } {
     // DSE exam prep: focus on high-importance nodes at student's grade level
     const nodes = [...g.nodes.entries()]

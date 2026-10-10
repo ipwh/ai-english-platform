@@ -62,10 +62,10 @@ function CustomTooltip({ active, payload, label }: any) {
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm">
         <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
-        {payload.map((p: any, i: number) => (
+        {payload.map((p: { name?: string; value?: unknown; dataKey?: string }, i: number) => (
           <p key={i} className="text-gray-600 dark:text-gray-400">
             {/* 2026-09-21：無資料的準確率為 null → 顯示「—」而非「null%」 */}
-            {p.name}: <span className="font-semibold">{p.value == null ? '—' : p.value}{p.value != null && (p.dataKey === 'avgAccuracy' || p.dataKey === 'accuracy' || p.dataKey === 'avgScore') ? '%' : ''}</span>
+            {p.name}: <span className="font-semibold">{p.value == null ? '—' : String(p.value)}{p.value != null && (p.dataKey === 'avgAccuracy' || p.dataKey === 'accuracy' || p.dataKey === 'avgScore') ? '%' : ''}</span>
           </p>
         ))}
       </div>

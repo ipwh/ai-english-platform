@@ -43,10 +43,10 @@ async function generatePDF(data: ExportData): Promise<Buffer> {
     const f = 'CJK'; const cw = doc.page.width - 100; let y = 50;
 
     const checkPage = (n: number) => { if (y + n > doc.page.height - 50) { doc.addPage(); y = 50; } };
-    const text = (t: string, size: number, color?: string, indent?: number, opts?: any) => {
+    const text = (t: string, size: number, color?: string, indent?: number) => {
       doc.font(f).fontSize(size).fillColor(color || '#1a1a1a');
       const x = 50 + (indent || 0);
-      doc.text(t, x, y, { width: cw - (indent || 0), lineGap: 2, ...opts });
+      doc.text(t, x, y, { width: cw - (indent || 0), lineGap: 2 });
       y = doc.y + 4;
     };
     const heading = (t: string) => { checkPage(40); y += 6; text(t, 14, '#0891b2'); };
@@ -86,7 +86,7 @@ async function generatePDF(data: ExportData): Promise<Buffer> {
       if (caps.length) { heading('Captured Points'); caps.forEach(pt => text(`✓ ${pt}`, 9, '#16a34a', 5)); }
       if (miss.length) { heading('Missed Points'); miss.forEach(pt => text(`✗ ${pt}`, 9, '#dc2626', 5)); }
 
-      const ge = (a.grammarErrors as any[]) || [];
+      const ge = (a.grammarErrors as Array<{ original?: string; correction?: string; explanation?: string }> | undefined) || [];
       if (ge.length) { heading('Grammar Errors'); ge.forEach(e => { text(`✗ ${e.original}`, 9, '#dc2626', 5); text(`→ ${e.correction}`, 9, '#16a34a', 10); if (e.explanation) text(`  ${e.explanation}`, 8, '#666666', 10); }); }
 
       if (a.generalComment) { heading('AI Feedback'); text(String(a.generalComment), 10, '#333333'); }
@@ -102,10 +102,10 @@ async function generatePDF(data: ExportData): Promise<Buffer> {
 // ==================== DOCX ====================
 async function generateDOCX(data: ExportData): Promise<Buffer> {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } = await import('docx');
-  const children: any[] = [];
+  const children: Array<InstanceType<typeof Paragraph> | InstanceType<typeof Table>> = [];
   const h1 = (t: string) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(t)], spacing: { before: 300, after: 100 } });
   const h2 = (t: string, c?: string) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: t, color: c || '000000' })], spacing: { before: 200, after: 80 } });
-  const p = (t: string, o?: any) => new Paragraph({ children: [new TextRun({ text: t, ...o })], spacing: { after: 80 } });
+  const p = (t: string, o?: { bold?: boolean; italics?: boolean; color?: string; size?: number }) => new Paragraph({ children: [new TextRun({ text: t, ...o })], spacing: { after: 80 } });
   const sep = () => children.push(new Paragraph({ spacing: { after: 120 }, children: [] }));
 
   children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('DSE Integrated Skills Report')], spacing: { after: 100 } }));
@@ -141,7 +141,8 @@ async function generateDOCX(data: ExportData): Promise<Buffer> {
     const caps = (a.capturedPoints as string[]) || [], miss = (a.missedPoints as string[]) || [];
     if (caps.length) { children.push(h2(`Captured Points (${caps.length})`, '16a34a')); caps.forEach(pt => children.push(p(`✓ ${pt}`))); }
     if (miss.length) { children.push(h2(`Missed Points (${miss.length})`, 'dc2626')); miss.forEach(pt => children.push(p(`✗ ${pt}`))); } sep();
-    const ge = (a.grammarErrors as any[]) || [];
+    const ge = (a.grammarErrors as Array<{ original?: string; correction?: string; explanation?: string }> | undefined) || [];
+    if (ge.length) { children.push(h2('Grammar Errors', 'dc2626')); ge.forEach(e => { children.push(p(`✗ ${e.original}`, { color: 'dc2626' })); children.push(p(`→ ${e.correction}`, { color: '16a34a' })); if (e.explanation) children.push(p(`  ${e.explanation}`, { size: 18, color: '666666' })); }); sep(); }
     if (ge.length) { children.push(h2('Grammar Errors', 'dc2626')); ge.forEach(e => { children.push(p(`✗ ${e.original}`, { color: 'dc2626' })); children.push(p(`→ ${e.correction}`, { color: '16a34a' })); if (e.explanation) children.push(p(`  ${e.explanation}`, { size: 18, color: '666666' })); }); sep(); }
     if (a.generalComment) { children.push(h2('AI Feedback', '2563eb')); children.push(p(String(a.generalComment))); if (a.generalCommentZh) children.push(p(String(a.generalCommentZh), { size: 18, color: '666666' })); sep(); }
     const tips = (a.improvementTips as string[]) || [];

@@ -31,11 +31,14 @@ export default function ProgressBar({
   label,
   showPercentage = true,
   size = 'md',
-  color = 'blue',
+  color,
   className = '',
 }: ProgressBarProps) {
   const pct = Math.min(Math.round((value / max) * 100), 100);
-  const barColor = pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+  // An explicitly requested colour wins; otherwise the bar stays a traffic light.
+  const barColor = color
+    ? colorMap[color]
+    : pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
 
   return (
     <div className={`w-full ${className}`}>

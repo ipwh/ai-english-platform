@@ -194,7 +194,6 @@ class ContinuousEvaluator {
     const { providerCall, loadDataset, datasetId, promptName, promptVersion, triggerType, evaluationId } = options;
     const timeoutMs = options.timeoutMs ?? ContinuousEvaluator.DEFAULT_TIMEOUT_MS;
     const signal = options.signal;
-    const startTime = Date.now();
 
     // If already aborted before starting, return immediately
     if (signal?.aborted) {
@@ -266,8 +265,6 @@ class ContinuousEvaluator {
 
     // Aggregate
     const successful = results.filter(r => r.success);
-    const allFailed = results.every(r => !r.success);
-    const n = Math.max(1, successful.length);
     const firstFailure = results.find(r => !r.success);
 
     const record: ScoreRecord = {

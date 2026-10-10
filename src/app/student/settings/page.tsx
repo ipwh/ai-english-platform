@@ -23,7 +23,7 @@ const NOTIF_TYPES = [
 const STORAGE_KEY = 'notif-settings';
 
 export default function StudentSettingsPage() {
-  const { t, language } = useT();
+  const { language } = useT();
   const store = useAppStore();
 
   // ── Notification state (localStorage-synced) ──

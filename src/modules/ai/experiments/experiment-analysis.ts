@@ -123,7 +123,7 @@ function generateFindings(
 
 function generateRecommendations(
   result: ExperimentResult,
-  ranked: ReturnType<typeof rankVariants>,
+  _ranked: ReturnType<typeof rankVariants>,
 ): string[] {
   const recommendations: string[] = [];
 

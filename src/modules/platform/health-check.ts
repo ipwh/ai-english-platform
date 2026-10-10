@@ -37,7 +37,9 @@ async function checkDb(): Promise<HealthStatus> {
 async function checkCache(): Promise<HealthStatus> {
   const start = Date.now();
   try {
-    const stats = cacheService.getStats();
+    // Probe the cache (the result is unused, but the call must still surface a throwing
+    // stats implementation as `degraded`).
+    cacheService.getStats();
     return { status: 'healthy', latencyMs: Date.now() - start };
   } catch (err) {
     return { status: 'degraded', latencyMs: Date.now() - start, error: String(err) };
@@ -48,7 +50,7 @@ async function checkProviders(): Promise<HealthStatus> {
   const start = Date.now();
   try {
     const available = providerRegistry.getAvailableProviders();
-    const total = providerRegistry.getAvailableProviders().length;
+      const total = available.length;
     if (total === 0) return { status: 'unhealthy', latencyMs: Date.now() - start, error: 'No AI providers available' };
     return { status: 'healthy', latencyMs: Date.now() - start };
   } catch (err) {

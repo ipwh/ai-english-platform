@@ -519,7 +519,6 @@ describe('v6: Canonical Student State Enforcement', () => {
 
 describe('v7: Cache Layer Enforcement', () => {
   it('Only cache/ module owns cache implementation', () => {
-    const cacheFiles = ['src/modules/cache/cache-service.ts'];
     const forbidden = ['new Map<string, CacheEntry>', 'inMemoryStore = new Map'];
     const modules = getModuleDirs();
     for (const mod of modules) {
@@ -1171,8 +1170,6 @@ describe('v17: Production Readiness (Sprint 96)', () => {
   });
 
   it('Benchmark uses workflow engine or usecase facade', () => {
-    const content = readFileSync(join(BENCHMARK_DIR, 'benchmark-runner.ts'), 'utf-8');
-    const hasRef = content.includes('usecases') || content.includes('workflow');
     // Benchmark runner is generic; CLI script uses usecase imports
     const cliContent = readFileSync(join(import.meta.dirname, '..', '..', '..', 'scripts', 'benchmark-ai.ts'), 'utf-8');
     expect(cliContent).toContain('usecases/');

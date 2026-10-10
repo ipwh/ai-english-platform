@@ -42,7 +42,7 @@ vi.mock('@/modules/custom-practice/repositories/custom-practice-repo', () => ({
 import { inferCategory, normalizePracticeRequest } from '@/modules/custom-practice/services/request-normalizer';
 import { validateGeneratedQuestions } from '@/modules/custom-practice/services/generation-service';
 import { screenForDeterministicDefects } from '@/modules/custom-practice/services/verification-service';
-import { toDeliveredSet } from '@/modules/custom-practice/services/delivery-service';
+import { toDeliveredSet, targetTopicOf } from '@/modules/custom-practice/services/delivery-service';
 import { gradeObjectiveItem, normalizeFreeTextAnswer } from '@/modules/custom-practice/services/grading-service';
 import type { PracticeCategory, PracticeSpec, PracticeQuestionType, ValidatedQuestion } from '@/modules/custom-practice/domain/types';
 
@@ -352,9 +352,48 @@ describe('pre-submission disclosure', () => {
       ['category', 'createdAt', 'difficulty', 'id', 'interpretation', 'objective', 'questionCount', 'questions', 'submitted'].sort()
     );
     expect(Object.keys(delivered.questions[0]).sort()).toEqual(
-      ['id', 'instructions', 'maxMarks', 'orderIndex', 'prompt', 'questionType', 'targetRule'].sort()
+      ['id', 'instructions', 'maxMarks', 'orderIndex', 'prompt', 'questionType', 'targetTopic'].sort()
     );
+    // The rule itself is the answer: only its topic may be delivered pre-submission.
+    expect(delivered.questions[0].targetTopic).toBe('past perfect');
     expect(JSON.stringify(delivered)).not.toMatch(/answerKey|acceptedAnswers|rubric|explanation|misconception/i);
+  });
+
+  it('delivers only the topic, never the rule detail (2026-10-10 report: the hint gave the answer)', () => {
+    const delivered = toDeliveredSet(
+      {
+        id: 'set-2',
+        objective: '[grammar] conditionals',
+        category: 'grammar',
+        difficulty: 'intermediate',
+        interpretation: null,
+        createdAt: new Date('2026-10-10T00:00:00.000Z'),
+        questions: [
+          {
+            id: 'q1',
+            orderIndex: 0,
+            questionType: 'mc',
+            instructions: 'Choose the correct option to complete the sentence.',
+            prompt: 'If I ______ you, I would apologise.  A) am  B) was  C) were  D) be',
+            // What the model actually returns: topic + the rule that gives the answer away.
+            targetRule: 'Second conditional: if + past simple (were for all persons), would + base verb',
+            maxMarks: 1,
+          },
+        ],
+      } as unknown as Parameters<typeof toDeliveredSet>[0],
+      false
+    );
+
+    expect(delivered.questions[0].targetTopic).toBe('Second conditional');
+    expect(delivered.questions[0].targetTopic).not.toContain('were');
+    expect(JSON.stringify(delivered)).not.toContain('past simple');
+  });
+
+  it('keeps a rule that has no colon intact (the topic IS the rule name)', () => {
+    expect(targetTopicOf('past perfect')).toBe('past perfect');
+    expect(targetTopicOf('too + adjective + to-infinitive')).toBe('too + adjective + to-infinitive');
+    expect(targetTopicOf('  Third conditional : would have + past participle ')).toBe('Third conditional');
+    expect(targetTopicOf('   ')).toBe('');
   });
 });
 
@@ -385,6 +424,19 @@ describe('multiple-choice marking as a student experiences it', () => {
 
   it('never marks a wrong letter as correct', () => {
     expect(gradeObjectiveItem({ ...base, answerText: 'C' }).verdict).toBe('incorrect');
+  });
+
+  it('tells the student which option they chose, and gives actionable advice (2026-10-10)', () => {
+    const graded = gradeObjectiveItem({ ...base, answerText: 'C' });
+    // "Expected: B" alone left the student comparing two letters with no context.
+    expect(graded.rationale).toContain('You answered "C"');
+    expect(graded.rationale).toContain('Expected: B');
+    expect(graded.rationaleZh).toContain('你的答案是「C」');
+    // The advice must ask for work the student can actually do, not "rewrite it as B".
+    expect(graded.improvement).toContain('write one sentence of your own');
+    expect(graded.improvement).not.toMatch(/rewrite the answer as/i);
+    expect(graded.improvementZh).toContain('自己寫一句');
+    expect(graded.improvementZh).not.toContain('改寫為');
   });
 
   it('normalizes curly apostrophes so a copied answer still matches', () => {

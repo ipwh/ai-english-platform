@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
     );
 
     if (!metaRes.ok) {
-      const err = await metaRes.text();
       return NextResponse.json({ error: `無法存取檔案 (${metaRes.status})。請確認已分享給服務帳號。` }, { status: 403 });
     }
 

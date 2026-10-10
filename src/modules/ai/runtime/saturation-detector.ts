@@ -1,5 +1,4 @@
 // Sprint 97: Runtime Saturation Detector — detects provider overload, retry storms, memory pressure
-import { getRuntimeMetrics } from '../services/runtime-metrics';
 import { getCapacityPlan } from './capacity-planner';
 
 export type SaturationSeverity = 'healthy' | 'warning' | 'critical';
@@ -20,7 +19,6 @@ export interface SaturationReport {
 }
 
 export function detectSaturation(): SaturationReport {
-  const metrics = getRuntimeMetrics();
   const capacity = getCapacityPlan();
   const checks: SaturationCheck[] = [];
 

@@ -188,8 +188,6 @@ export function comparePromptVersions(
   baselineId: string, candidateId: string,
   baselineVersion: string, candidateVersion: string,
 ): PromptVersionComparison {
-  const metricNames: EvalMetric[] = ['latency', 'cost', 'hallucination_risk', 'consistency', 'json_validity', 'rubric_score'];
-
   const metricsDiff = {} as PromptVersionComparison['metricsDiff'];
   let improvements = 0, regressions = 0;
 

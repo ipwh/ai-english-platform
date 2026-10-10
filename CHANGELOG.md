@@ -4,7 +4,74 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-10-10 (IX) — 自訂練習：學生情境壓力測試（真實 AI ＋ 真實資料庫）與五項缺陷修復
+## 2026-10-10 (X) — 自訂練習回饋修正（考核重點、改善建議、重複標題）＋練習歷史整合＋ESLint 246→79
+
+### 回報（教師，`/student/custom-practice`）
+1. 「你想練習甚麼？」重複出現。
+2. 「考核重點」提示太多，仿佛已給予答案。
+3. 「改善建議」只寫「請重溫本題的規則，然後把答案改寫為『C』」——毫無作用。
+4. 自訂練習的練習記錄應連上「練習歷史」。
+5. 仔細修正 ESLint warnings。
+
+### 變更
+1. **重複標題**（`app/student/custom-practice/page.tsx`）：區段標題與欄位標籤原本共用
+   `customPractice.requestLabel`，故「你想練習甚麼？」出現兩次。新增
+   `customPractice.requestSectionTitle`（出題設定／Practice setup）作區段標題。
+2. **考核重點改為作答後才揭示規則**（`custom-practice/services/delivery-service.ts` +
+   `domain/types.ts`）：作答前只交付 `targetTopic`（`targetRule` 冒號前的部分，例如
+   `Second conditional`），**冒號後的規則本身（＝答案）不再隨題目外送**；提交後在批改結果中
+   顯示完整 `targetRule`。新增 `targetTopicOf()`（唯一 owner）＋ `DeliveredQuestion.targetTopic`；
+   E2E fixture 與情境矩陣測試同步更新（並新增「作答前不得出現規則細節」的斷言）。
+3. **改善建議改成可執行**（`grading-service.ts`）：答錯選擇題時，改為
+   「請看下方解說找出規則，然後自己寫一句使用正確答案『C』的句子」／英文對應版（原本只叫學生
+   「把答案改寫為 C」）；同時在判定理由中**指出學生實際選了哪個選項**
+   （`不正確。你的答案是「A」，正確答案是「C」`），不再只說 `Expected: C`。
+4. **練習記錄連上「練習歷史」**（新增 `custom-practice/services/history-service.ts`、
+   `repositories/custom-practice-repo.ts` 兩個有界查詢、`/api/practice/history` 併入
+   `customPracticeDays`／`customPracticeSets`、`app/student/progress/page.tsx` 顯示）：
+   - 只有自訂練習的日子也會出現在月清單（原本完全不顯示）；
+   - 當日逐份列出（時間、目標、已批改分數或未提交）＋「查看 / 續做」連到
+     `/student/custom-practice?set=<id>`（該頁新增 `?set=` 自動載入，伺服器仍以
+     擁有者為權限，非擁有者 404）；
+   - **隔離契約不變**：自訂練習以**獨立鍵**回傳、永不參與證據投影／準確率／掌握度／XP，
+     日清單的數字也不與 HKDSE 場次相加；HKDSE 歷史讀取失敗仍正常（自訂練習區塊為附加資料，
+     失敗只記 warning）。
+   - 新增 `__tests__/history-service.test.ts`（香港日界線、未提交不得回報 0 分、
+     只呼叫兩個有界讀取）。
+5. **ESLint 246 → 79 warnings（0 errors），棘輪同步下調**：
+   - `@typescript-eslint/no-unused-vars`：**134 → 0**，並依 repo 政策**升級為 error**（今後不可能
+     再累積）。逐項處理：死掉的 `useState`（值從未被讀取但 setter 仍被呼叫）、未使用的參數／
+     匯入／區域變數、只被 `++` 卻從未被讀取的計數器、未被引用的輔助函式與型別；
+     **未使用任何 rule 抑制**。
+   - `@typescript-eslint/no-explicit-any`：50 → 18（管理後台 façade 改用真實 Prisma 型別
+     `Prisma.UserUpdateInput`／`UserWhereInput`／`ClassCreateInput` 等；PDF／DOCX 匯出、
+     tooltip、快取、prompt registry 改用實際 payload 型別）。保留的 18 為 Prisma `groupBy`
+     動態轉接（簽章要求呼叫端帶字面 `by`）與 legacy payload 型別。
+   - `ci.yml` `--max-warnings` 480→**79**；`scripts/check-lint-budget.js` per-rule 預算同步下調
+     （`no-explicit-any` 18、`set-state-in-effect` 34、`exhaustive-deps` 15、
+     `no-require-imports` 12）；`AGENTS.md`／`README.md` 數字更新。
+   - **未處理**（需元件重構，屬既有技術債，預算已記錄）：`react-hooks/set-state-in-effect` 34
+     與 `react-hooks/exhaustive-deps` 15；`no-require-imports` 12 為 SQLite／Postgres 雙驅動
+     的刻意同步載入（`db.ts` 等），改動風險高於收益。
+6. **環境修復（非程式改動）**：`node_modules` 內多個檔案是 OneDrive 雲端預留位置
+   （`os error 389`：`next/dist/esm/build/templates/edge-wrapper.js`、`postcss/lib/postcss.js`），
+   令 `npm run build` 無法讀檔。已以 `npm ci`（並重建 `.next`）還原，之後建構成功。
+
+### 驗證（實際執行）
+- `npx tsc --noEmit` ⇒ **0 error（全庫）**。
+- `npx eslint . --max-warnings 79` ⇒ **0 errors / 79 warnings**（exit 0）；`node
+  scripts/check-lint-budget.js` ⇒ **OK（無規則超額）**。
+- `npx vitest run`（**全套**）⇒ **225 檔通過 / 4 檔跳過；3981 passed / 0 failed**。
+- `npm run build` ⇒ **exit 0**（Next 16 生產建構；含全部改動的路由與頁面）。
+- iPad／Safari 15.4 基線守門（AGENTS.md 規定）：`.next/static` 掃描 `static{` ⇒ **0 命中**。
+- `node scripts/check-i18n.js` ⇒ exit 0（新增 i18n 鍵皆為 zh／en 成對）。
+
+### 已知限制（未驗證）
+- E2E（Playwright）未執行：本機無測試資料庫與執行中的伺服器；`e2e/custom-practice.spec.ts` 已
+  同步更新為 `targetTopic`（作答前欄位），由 CI／部署後環境執行。
+
+---
+
 
 ### 測試方法（模擬小六學生使用流程）
 以 Oxford Grammar Wonderland 6A／6B 已完成的實體練習為素材（掃描 PDF 無文字層，以頁面影像讀取

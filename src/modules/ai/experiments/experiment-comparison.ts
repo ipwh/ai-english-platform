@@ -7,7 +7,7 @@ import type {
   ExperimentResult, VariantResult,
   VariantComparison, ProviderComparison,
 } from './experiment';
-import { welchTTest, cohensD, mean } from './statistics';
+import { welchTTest, mean } from './statistics';
 
 // ── Variant Comparison ──
 
@@ -29,7 +29,6 @@ export function compareVariants(
   const scoresB = vB.runs.filter(r => !r.failed).map(r => r.overallScore);
 
   const tTest = welchTTest(scoresA, scoresB);
-  const d = cohensD(scoresA, scoresB);
 
   let winner: string;
   if (!tTest.significant) {

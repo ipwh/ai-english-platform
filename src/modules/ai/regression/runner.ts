@@ -51,7 +51,6 @@ class RegressionRunnerImpl extends BaseRunner<RunOptions, RegressionReport> {
     _context: RunnerContext,
     input: RunOptions,
   ): Promise<RegressionReport> {
-    const config = input.config ?? DEFAULT_REGRESSION_CONFIG;
     const fixtures = loadFixtures(input.fixturesDir, input.filter);
 
     const results: EvalResult[] = [];
@@ -152,7 +151,6 @@ async function evaluateFixture(
   // Step 1: Call AI provider
   let output: unknown;
   let provider = 'unknown';
-  let callLatency = 0;
 
   try {
     const response = await options.provider(
@@ -160,7 +158,6 @@ async function evaluateFixture(
       fixture.options,
     );
     provider = response.provider;
-    callLatency = response.latencyMs;
 
     // Parse JSON output
     try {

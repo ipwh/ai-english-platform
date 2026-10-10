@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
-  const userId = authResult.userId!;
   try {
 
     // 解析上傳檔案

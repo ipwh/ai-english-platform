@@ -16,6 +16,10 @@ export const customPracticeTranslations: Record<string, { zh: string; en: string
   },
 
   'customPractice.requestLabel': { zh: '你想練習甚麼？', en: 'What do you want to practise?' },
+  // Section heading for the form. It must NOT repeat `requestLabel`: the heading and
+  // the field label used the same string, so the student saw the question twice
+  // (2026-10-10 report).
+  'customPractice.requestSectionTitle': { zh: '出題設定', en: 'Practice setup' },
   'customPractice.requestPlaceholder': {
     zh: '例如：我經常分不清 past perfect 和 past simple',
     en: 'For example: I keep mixing up past perfect and past simple',

@@ -2,7 +2,7 @@
 import type { CacheEntry, CacheNamespace, CacheOptions, CacheStats } from './types';
 import { logger } from '@/shared/logger/logger';
 
-const store = new Map<string, CacheEntry<any>>();
+const store = new Map<string, CacheEntry<unknown>>();
 const hitCounts = new Map<CacheNamespace, number>();
 const missCounts = new Map<CacheNamespace, number>();
 
@@ -121,8 +121,8 @@ export function getStats(): CacheStats {
     if (now > entry.expiresAt) expired++;
   }
 
-  for (const [ns, h] of hitCounts) totalHits += h;
-  for (const [ns, m] of missCounts) totalMisses += m;
+  for (const [, h] of hitCounts) totalHits += h;
+  for (const [, m] of missCounts) totalMisses += m;
 
   return {
     entries: store.size,

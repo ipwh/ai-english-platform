@@ -121,7 +121,6 @@ function scoreHallucination(obj: Record<string, unknown> | null): number {
 function scoreConsistency(obj: Record<string, unknown> | null): number {
   if (!obj) return 0;
   let score = 8;
-  const str = JSON.stringify(obj);
 
   // Check question count consistency
   const questions = extractQuestions(obj);

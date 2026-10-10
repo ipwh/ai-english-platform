@@ -186,7 +186,7 @@ function computeSlope(records: ScoreRecord[]): number {
 
   // Convert timestamps to days from first record
   const base = new Date(records[0].timestamp).getTime();
-  const points = records.map((r, i) => ({
+  const points = records.map(r => ({
     x: (new Date(r.timestamp).getTime() - base) / (24 * 60 * 60 * 1000),
     y: r.overallScore,
   }));

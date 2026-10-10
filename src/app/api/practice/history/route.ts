@@ -20,6 +20,10 @@ import {
   getPracticeHistoryDay,
   getPracticeHistoryDayForTeacher,
 } from '@/modules/exercise/services/practice-history-service';
+import {
+  getCustomPracticeHistoryDay,
+  getCustomPracticeHistoryMonth,
+} from '@/modules/custom-practice';
 import { hkMonthKey } from '@/shared/utils/hk-date';
 
 const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -74,7 +78,17 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'month 格式須為 YYYY-MM / month must be YYYY-MM' }, { status: 400 });
       }
       const data = await getPracticeHistoryMonth(studentId, month);
-      return NextResponse.json({ view: 'month', ...data });
+      // 2026-10-10：自訂練習（Custom Practice）也屬於練習歷史。**只在獨立鍵回傳**，
+      // 永不與 HKDSE 場次聚合相加（自訂練習不產生證據／準確率／掌握度／XP）。
+      const customPracticeDays = await getCustomPracticeHistoryMonth(studentId, month).catch(err => {
+        // 讀取失敗不得令 HKDSE 歷史整頁失敗（該區塊只是補充記錄）。
+        logger.warn(
+          { module: 'practice-history', error: err instanceof Error ? err.message : String(err) },
+          'custom practice history month failed'
+        );
+        return [];
+      });
+      return NextResponse.json({ view: 'month', ...data, customPracticeDays });
     }
 
     if (view === 'day') {
@@ -91,7 +105,14 @@ export async function GET(request: NextRequest) {
       const data = includeAnswers
         ? await getPracticeHistoryDayForTeacher(studentId, day)
         : await getPracticeHistoryDay(studentId, day);
-      return NextResponse.json({ view: 'day', ...data });
+      const customPracticeSets = await getCustomPracticeHistoryDay(studentId, day).catch(err => {
+        logger.warn(
+          { module: 'practice-history', error: err instanceof Error ? err.message : String(err) },
+          'custom practice history day failed'
+        );
+        return [];
+      });
+      return NextResponse.json({ view: 'day', ...data, customPracticeSets });
     }
 
     return NextResponse.json({ error: '不支援的 view（month | day）/ Unsupported view' }, { status: 400 });

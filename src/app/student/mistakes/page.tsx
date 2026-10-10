@@ -37,7 +37,6 @@ export default function MistakesPage() {
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [breakdown, setBreakdown] = useState<MistakeSkillBucket[]>([]);
   const [expandedBucket, setExpandedBucket] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState(false);
   const [studentId, setStudentId] = useState<string>('');
   const [gradeLevel, setGradeLevel] = useState('S4');
 
@@ -70,14 +69,13 @@ export default function MistakesPage() {
 
   const loadMistakes = () => {
     if (!studentId) return;
-    setLoadError(false);
     fetch(`/api/mistakes?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
       .then(d => {
         if (d.mistakes?.length) setMistakes(d.mistakes);
         setBreakdown(Array.isArray(d.breakdown) ? d.breakdown : []);
       })
-      .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load mistakes'); setLoadError(true); });
+      .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load mistakes'); });
   };
 
   useEffect(() => { loadMistakes(); }, [studentId]);

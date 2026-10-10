@@ -199,7 +199,6 @@ export default function PracticeQuestionPage() {
   const sessionQuestions = store.currentSession?.questions ?? EMPTY_QUESTIONS;
   const sessionIndex = sessionQuestions.findIndex(q => q.id === params.id);
   const sessionTotal = sessionQuestions.length;
-  const sessionProgress = sessionTotal > 0 ? ((sessionIndex + 1) / sessionTotal) * 100 : 0;
 
   // 2026-10-07：下一題一律由 findNextSessionQuestionIndex 決定 ——
   // 它會跳過 id 與當前題目相同的項目（否則 router.push 會指向當前 URL，

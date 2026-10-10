@@ -157,16 +157,12 @@ export default function TeacherMaterialsPage() {
   };
 
   const [materials, setMaterials] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
 
   const loadMaterials = () => {
-    setLoading(true); setLoadError(false);
     fetch('/api/materials')
       .then(r => r.json())
       .then(d => setMaterials(d.materials || []))
-      .catch((e) => { logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Failed to load materials'); setLoadError(true); })
-      .finally(() => setLoading(false));
+      .catch((e) => { logger.error({ module: 'teacher-materials', error: e instanceof Error ? e.message : String(e) }, 'Failed to load materials'); });
   };
 
   useEffect(() => { loadMaterials(); }, []);
@@ -273,7 +269,6 @@ export default function TeacherMaterialsPage() {
             const file = e.target.files?.[0];
             if (!file) return;
             setUploading(true);
-            const fileSizeKB = (file.size / 1024).toFixed(0);
 
             if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
               const text = await file.text();

@@ -90,9 +90,13 @@ export function gradeObjectiveItem(input: ObjectiveGradingInput): GradedItem {
   // A single-letter key also accepts the option marker however the student typed it
   // ("B)" / "(b)" / "b) had started"): for a letter key that is the same choice, and
   // marking it wrong would tell a student who answered correctly that they did not.
+  const letterKey = /^[a-d]$/.test(key);
   const matched =
-    candidates.includes(answer) || (/^[a-d]$/.test(key) && optionMarkerLetter(answer) === key);
+    candidates.includes(answer) || (letterKey && optionMarkerLetter(answer) === key);
   const verdict: PracticeVerdict = matched ? 'correct' : 'incorrect';
+  // For a choice question, name the option the student actually picked: "Expected: C"
+  // alone leaves them comparing two letters with no idea what they chose (2026-10-10).
+  const chosen = input.answerText.trim().slice(0, 40);
 
   return {
     questionId: input.questionId,
@@ -101,12 +105,20 @@ export function gradeObjectiveItem(input: ObjectiveGradingInput): GradedItem {
     maxMarks: input.maxMarks,
     rationale: matched
       ? `Correct. Accepted answer: ${input.answerKey}.`
-      : `Incorrect. Expected: ${input.answerKey}.`,
+      : letterKey && chosen
+        ? `Incorrect. You answered "${chosen}". Expected: ${input.answerKey}.`
+        : `Incorrect. Expected: ${input.answerKey}.`,
     rationaleZh: matched
       ? `正確。接受的答案：${input.answerKey}。`
-      : `不正確。預期答案：${input.answerKey}。`,
-    improvement: matched ? null : `Review the rule behind this item, then rewrite the answer as "${input.answerKey}".`,
-    improvementZh: matched ? null : `請重溫本題的規則，然後把答案改寫為「${input.answerKey}」。`,
+      : letterKey && chosen
+        ? `不正確。你的答案是「${chosen}」，正確答案是「${input.answerKey}」。`
+        : `不正確。預期答案：${input.answerKey}。`,
+    improvement: matched
+      ? null
+      : `Read the explanation below, find the rule it names, then write one sentence of your own that uses the correct answer "${input.answerKey}".`,
+    improvementZh: matched
+      ? null
+      : `請看下方解說找出它指出的規則，然後自己寫一句使用正確答案「${input.answerKey}」的句子。`,
     needsReview: false,
   };
 }

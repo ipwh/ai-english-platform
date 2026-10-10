@@ -36,7 +36,6 @@ export default function SRSReviewFlow({ studentId, reviewType, onComplete }: SRS
   const [error, setError] = useState('');
   const [flipped, setFlipped] = useState(false);
   const [results, setResults] = useState<{ id: string; outcome: 'easy' | 'hard' | 'again' }[]>([]);
-  const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
   // Load due cards
@@ -84,10 +83,8 @@ export default function SRSReviewFlow({ studentId, reviewType, onComplete }: SRS
 
     // Advance or complete
     if (currentIndex + 1 >= cards.length) {
-      setSubmitting(true);
       // Wait for all submissions
       setTimeout(() => {
-        setSubmitting(false);
         setCompleted(true);
         onComplete?.(newResults);
       }, 500);

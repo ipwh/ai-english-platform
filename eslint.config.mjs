@@ -32,7 +32,11 @@ const eslintConfig = defineConfig([
   // build if any single rule exceeds its recorded budget).
   {
     rules: {
-      "@typescript-eslint/no-unused-vars": ["warn", {
+      // 2026-10-10 (Sprint 144): `no-unused-vars` reached ZERO and is now an ERROR —
+      // the gate got stricter, not weaker. Every one of the 134 was removed (dead state
+      // whose setter was still called, unused params/imports, counters incremented but
+      // never read, unused helpers); no rule was suppressed to get there.
+      "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",

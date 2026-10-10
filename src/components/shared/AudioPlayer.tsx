@@ -19,7 +19,6 @@ const IS_DEV = String(process.env.NODE_ENV) !== 'production';
 interface AudioPlayerProps {
   text: string;
   label?: string;
-  autoPlay?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   onPlayEnd?: () => void;
@@ -134,28 +133,6 @@ function splitMultiSpeakerLine(text: string): string {
 }
 
 /** 剝離所有角色標籤（確保 TTS 不朗讀 "Boy:" "Man:" 等），清除引號、多餘空白 */
-function stripSpeakerLabels(text: string): string {
-  return text
-    // 移除行首角色標籤（含冒號/破折號後的所有變體）
-    .replace(/^[A-Za-z]+(?:\s+[A-Za-z0-9]+)?\s*[:：\-–—]\s*/gm, '')
-    // 移除行中角色標籤（緊接換行後的標籤，splitMultiSpeakerLine 產生）
-    .replace(/\n[A-Za-z]+(?:\s+[A-Za-z0-9]+)?\s*[:：\-–—]\s*/g, '\n')
-    // 移除所有引號（單雙、彎直）
-    .replace(/[""'']/g, '')
-    // 移除殘餘孤立冒號/破折號
-    .replace(/^\s*[:：\-–—]\s*/gm, '')
-    // 壓縮多餘空白
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/** 為 TTS 準備文字：先正規化多角色行，再剝離標籤，保留乾淨對話 */
-function prepareTextForTTS(text: string): string {
-  const normalized = splitMultiSpeakerLine(text);
-  return stripSpeakerLabels(normalized);
-}
-
 function parseDialogue(text: string): DialogueLine[] {
   const normalized = splitMultiSpeakerLine(text);
   const lines = normalized.split(/\n/).map(l => l.trim()).filter(Boolean);
@@ -254,7 +231,6 @@ export function cleanListeningContent(text: string): string {
 export default function AudioPlayer({
   text,
   label = '播放',
-  autoPlay = false,
   size = 'md',
   className = '',
   onPlayEnd,

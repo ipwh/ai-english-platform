@@ -9,7 +9,7 @@ import { hkDayKey, hkToday } from '@/shared/utils/hk-date';
  */
 export async function buildStudentTrends(
   studentId: string,
-  weeks = 12,
+  _weeks = 12,
 ): Promise<StudentTrends> {
   const { studentStateBuilder } = await import('@/modules/student/state/StudentStateBuilder');
   const state = await studentStateBuilder.build(studentId);

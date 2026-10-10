@@ -8,9 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ragService } from '@/modules/ai';
-import { getEmbedding, searchSimilarChunks } from '@/modules/ai/providers/vertex-embeddings';
+import { searchSimilarChunks } from '@/modules/ai/providers/vertex-embeddings';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
-import { logger } from '@/shared/logger/logger';
 
 // ---- RAG 查詢 ----
 export async function POST(request: NextRequest) {

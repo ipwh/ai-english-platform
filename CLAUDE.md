@@ -231,6 +231,21 @@ Custom Practice (2026-10-10, Sprints 140-143) — student-authored practice requ
     ├─ Pre-submission disclosure (single owner): services/delivery-service.ts —
     │    toDeliveredSet() / toDeliveredResults(); pre-submission responses NEVER carry
     │    answerKey / rubric / explanation (verified through the real API in E2E).
+    │    2026-10-10: the pre-answer payload carries `targetTopic` (the part of
+    │    `targetRule` before the colon) instead of the rule itself — a student reported
+    │    that showing "Second conditional: if + past simple (were for all persons),
+    │    would + base verb" before answering gave the answer away. `targetTopicOf()` is
+    │    the single owner of that split; the full rule is delivered only with the
+    │    post-submission results.
+    ├─ Practice-history integration (2026-10-10): services/history-service.ts —
+    │    getCustomPracticeHistoryMonth() (one row per Hong Kong day, GROUP BY in SQL) and
+    │    getCustomPracticeHistoryDay() (bounded to that day) feed
+    │    /api/practice/history (own key: customPracticeDays / customPracticeSets) so the
+    │    練習歷史 view lists custom-practice sets next to the HKDSE sessions — a day with
+    │    ONLY custom practice now appears at all, and each set links to
+    │    /student/custom-practice?set=<id> (owner-scoped, non-owner 404). Isolation is
+    │    unchanged: these are engagement records, never summed with the HKDSE aggregates
+    │    and never part of evidence/accuracy/mastery/XP.
     ├─ Bilingual feedback / 中英對照 (2026-10-10) — a student reported that the marked
     │    feedback was English-only, which defeats self-study for weaker-English
     │    students. Every piece of feedback therefore carries a Traditional-Chinese
@@ -376,6 +391,8 @@ Dev tooling:
 - IELTS 併發護欄（每日生成額度／單一進行中場次／單次提交）: `src/modules/ielts/repositories/ielts-repo.ts` — `reserveInstantQuota()`／`releaseInstantQuota()`（`IeltsGenerationQuota`，唯一 `(ownerUserId, dayKey, bucket)`，**唯一**每日閘門，單一條件式 UPDATE；**禁止** `count()` → `if (count < cap)`）、`IeltsAttempt.activeKey` 唯一索引（`IN_PROGRESS` 時持有 `<userId>:<testId>`，提交／放棄清 `NULL`；`abandonActiveAttempts()` 供 `force` 重考）、`finalizeAttemptSubmission()`（條件式狀態轉移＋response 列**同一交易**，敗者 409）、`persistGeneratedTest()`／`persistGeneratedWritingTask()`（test＋sections＋questions 同一交易；**AI 呼叫永不進交易**）；整合驗證 `src/modules/ielts/__tests__/ielts-concurrency.integration.test.ts`（DB-gated，CI 執行）。詳見 ADR-049
 - 自訂練習評分、交付揭露、重複提交與評估基線（2026-10-10，Sprint 140–143）: `custom-practice/services/grading-service.ts`（客觀題決定性 `gradeObjectiveItem()`；開放式題 `needsReview`）＋ `custom-practice/services/delivery-service.ts`（`toDeliveredSet()`／`toDeliveredResults()`，作答前永不泄露答案）＋ `custom-practice/services/submission-service.ts`（`CustomPracticeSubmission.setId` 唯一索引為重複提交權威 ⇒ 409；評分在交易外）＋ `custom-practice/evaluation/{fixtures/grading-baseline-v1.json, grading-evaluation-runner.ts}`（評估基線：**人類覆核 0 ⇒ PROVISIONAL**；runner 走生產評分入口、永不呼叫 provider；分母 19／8 分開）。**禁止**把一致性數字當作評分效度
 - 自訂練習中英對照、類別推斷與生成預算（2026-10-10）: `custom-practice/services/grading-service.ts` 是**中英對照回饋**的唯一產生者（客觀題／待審題的繁中訊息由它決定性產生；開放式題由同一 AI 呼叫要求 `rationaleZh`／`improvementZh`，prompt `custom-practice-grading-v2`）；`custom-practice/services/request-normalizer.ts` 的類別推斷以「**具名主題**（強證據）優先、**modal 動詞／泛用時間詞**（弱證據）僅在未具名時採用」為唯一規則（`inferCategory()`；關鍵詞以「尾詞可有複數」比對 ⇒ 單元標題 `Infinitives with/without to` 可命中；另有中文主題詞 ⇒ 學生可用中文描述；**弱證據另須「當主題用」**——列舉（`should and could`）或收尾（`if … will`、`the future`），禮貌框架（`I would like to practise spelling`、`Can I practise spelling?`）**永不**算數，否則會把無主題的請求靜默變成文法練習而非要求澄清）。**禁止**：AI 未提供繁中時令整份評分失敗（欄位一律 nullable，缺翻譯只降級為純英文，**永不**變成「沒有分數」）；把 modal 動詞或泛用詞（`future`）當成與具名主題等價的證據（會令明確請求被誤判歧義）；**生成 token 預算必須覆蓋 UI 允許的最大請求**（`ai/usecases/custom-practice.ts` 生成 `maxTokens` **12000**：10 題 × 五種題型的 JSON 實測 11 378–12 920 字元，3200 會截斷 JSON 並令「選 10 題」**每次**都失敗）；覆核螢幕的「題目自我否定」判定必須限於**題目層級**用語（教學文字說「干擾項 A 是錯的」不是缺陷，誤判會靜默丟掉合格題目）
+- 自訂練習練習記錄 → 練習歷史整合（2026-10-10）: `custom-practice/services/history-service.ts`（`getCustomPracticeHistoryMonth()` 每日一列／`getCustomPracticeHistoryDay()` 單日有界）＋ `custom-practice-repo.countOwnSetsByDayKey()`／`listOwnSetsByDayKey()`（香港日界線 SQL 與 practice-repo 同式：`+ interval '8 hours'`）；入口 `/api/practice/history` 以**獨立鍵** `customPracticeDays`／`customPracticeSets` 回傳，`app/student/progress/page.tsx` 併入月清單（只有自訂練習的日子也必須出現）並連到 `/student/custom-practice?set=<id>`。**禁止**把它與 HKDSE 場次聚合／準確率相加（自訂練習永不產生證據／掌握度／錯題／XP）；HKDSE 歷史讀取失敗不得因自訂練習區塊而失敗
+- 自訂練習作答前資訊揭露（2026-10-10）: `custom-practice/services/delivery-service.ts` 的 `targetTopicOf()` — 作答前只交付 `targetTopic`（`targetRule` 冒號前的主題），**冒號後的規則＝答案**，只在提交後的 `DeliveredResponse.targetRule` 出現；`gradeObjectiveItem()` 的改善建議必須可執行（禁止「把答案改寫為 X」這種等同公布答案的句子），並在判定理由中指出學生實際選擇
 - Listening Answer Scoring (聆聽評分權威): `listening/services/listening-answer-scoring.ts` — `listening-server-exact-match`；忽略所有客戶端評分欄位；委派正典 `scorePracticeAnswer()`；解析不到／marks 無效／開放式題型 ⇒ NOT_PROJECTABLE（不部分計分）
 - Adaptive Learning: `learning/services/adaptive-learning-pipeline.ts`
 - Learning Decisions: `learning/decisions/LearningDecisionEngine`

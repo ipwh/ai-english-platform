@@ -56,4 +56,8 @@ export type { VerificationOutcome, VerificationRejection } from './services/veri
 
 export { submitCustomPracticeSet } from './services/submission-service';
 
+export { getCustomPracticeHistoryDay, getCustomPracticeHistoryMonth } from './services/history-service';
+export type { CustomPracticeHistoryDay, CustomPracticeHistoryEntry } from './services/history-service';
+
 export { getOwnedSet, getSubmissionWithResponses, listOwnSets } from './repositories/custom-practice-repo';
+export { targetTopicOf } from './services/delivery-service';

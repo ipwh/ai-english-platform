@@ -8,7 +8,11 @@ export async function adminUpdateUser(args: Prisma.UserUpdateArgs) { return db.u
 export async function adminCreateUser(args: Prisma.UserCreateArgs) { return db.user.create(args); }
 export async function adminDeleteUsers(args: Prisma.UserDeleteManyArgs) { return db.user.deleteMany(args); }
 export async function adminCountUsers(args?: Prisma.UserCountArgs) { return db.user.count(args!); }
-export async function adminGroupUsers(args: Prisma.UserGroupByArgs) { return (db.user as any).groupBy(args); }
+export async function adminGroupUsers(args: Prisma.UserGroupByArgs) {
+  // Prisma's groupBy signature demands the literal `by` field at the call site; this
+  // façade forwards a caller-built argument object, so the shape is asserted here.
+  return db.user.groupBy(args as unknown as Parameters<typeof db.user.groupBy>[0]);
+}
 
 export async function adminFindPracticeSessions(args: Prisma.PracticeSessionFindManyArgs) { return db.practiceSession.findMany(args); }
 export async function adminCountPracticeSessions(args?: Prisma.PracticeSessionCountArgs) { return db.practiceSession.count(args!); }
@@ -23,11 +27,13 @@ export async function adminCountLoginLogs(args?: Prisma.LoginLogCountArgs) { ret
 
 export async function adminCountVocab(args?: Prisma.VocabItemCountArgs) { return db.vocabItem.count(args!); }
 export async function adminFindVocab(args: Prisma.VocabItemFindManyArgs) { return db.vocabItem.findMany(args); }
-export async function adminGroupVocab(args: Prisma.VocabItemGroupByArgs) { return (db.vocabItem as any).groupBy(args); }
+export async function adminGroupVocab(args: Prisma.VocabItemGroupByArgs) {
+  return db.vocabItem.groupBy(args as unknown as Parameters<typeof db.vocabItem.groupBy>[0]);
+}
 
 export async function adminCountMistakes(args?: Prisma.MistakeCountArgs) { return db.mistake.count(args!); }
 export async function adminFindMistakes(args: Prisma.MistakeFindManyArgs) { return db.mistake.findMany(args); }
 
 export async function adminFindWeeklySnapshots(args: Prisma.WeeklySnapshotFindManyArgs) { return db.weeklySnapshot.findMany(args); }
 
-export async function adminTransaction(ops: any[]) { return db.$transaction(ops); }
+export async function adminTransaction(ops: Prisma.PrismaPromise<unknown>[]) { return db.$transaction(ops); }

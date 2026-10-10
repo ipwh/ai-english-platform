@@ -526,7 +526,7 @@ export interface FullPaperPromptParams {
 }
 
 export function buildFullDSEPaperPrompt(params: FullPaperPromptParams): string {
-  const { gradeLevel, part, targetLevel, topic, textTypes, hkLocalRatio = 0.4 } = params;
+  const { gradeLevel, part, targetLevel, topic, textTypes } = params;
 
   const levelPrompt = buildHKEAALevelPrompt(targetLevel, part);
   const partMixPrompt = buildPartQuestionMixPrompt(part);

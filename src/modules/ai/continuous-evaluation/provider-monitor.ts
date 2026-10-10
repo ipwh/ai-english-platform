@@ -82,7 +82,6 @@ export function computeProviderHealth(
 
   const successful = providerRecords.filter(r => r.success);
   const failed = providerRecords.filter(r => !r.success);
-  const withRetries = providerRecords.filter(r => r.retryCount > 0);
   const withRepairs = providerRecords.filter(r => r.jsonRepairCount > 0);
 
   const successRate = successful.length / total;

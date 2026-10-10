@@ -209,7 +209,6 @@ export default function OcrUpload({ onTextExtracted, disabled = false, className
 
   const pendingCount = files.filter(f => f.status === 'pending').length;
   const doneCount = files.filter(f => f.status === 'done').length;
-  const errorCount = files.filter(f => f.status === 'error').length;
   const totalCount = files.length;
   const canProcess = pendingCount > 0 && !processing && !disabled;
 

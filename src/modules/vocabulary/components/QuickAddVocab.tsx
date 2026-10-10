@@ -45,7 +45,6 @@ export default function QuickAddVocab({
   const [word, setWord] = useState(initialWord || '');
   const [analysis, setAnalysis] = useState<WordAnalysis | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const [existingVocab, setExistingVocab] = useState<unknown>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-open if initialWord is provided
@@ -119,7 +118,6 @@ export default function QuickAddVocab({
       const data = await res.json();
 
       if (res.status === 409 || data.error === 'duplicate') {
-        setExistingVocab(data.vocab);
         setStage('duplicate');
         return;
       }
@@ -138,7 +136,6 @@ export default function QuickAddVocab({
         setStage('idle');
         setWord('');
         setAnalysis(null);
-        setExistingVocab(null);
       }, 2000);
     } catch {
       setErrorMsg(t('vocab.addFailed'));
@@ -151,7 +148,6 @@ export default function QuickAddVocab({
     setWord('');
     setAnalysis(null);
     setErrorMsg('');
-    setExistingVocab(null);
     onClose?.();
   };
 

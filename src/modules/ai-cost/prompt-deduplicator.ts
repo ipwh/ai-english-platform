@@ -53,8 +53,7 @@ export function dedupCacheKey(model: AIModel, prompt: string): string {
 
 /** Group similar prompts for potential batching */
 export function detectBatchCandidates(
-  prompts: Array<{ prompt: string; model: AIModel }>,
-  similarityThreshold = 0.8
+  prompts: Array<{ prompt: string; model: AIModel }>
 ): Array<Array<{ prompt: string; model: AIModel; hash: string }>> {
   const groups = new Map<string, Array<{ prompt: string; model: AIModel; hash: string }>>();
 

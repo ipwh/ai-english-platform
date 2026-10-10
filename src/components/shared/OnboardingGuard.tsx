@@ -17,7 +17,6 @@ export default function OnboardingGuard({ children, studentId }: OnboardingGuard
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [practiceCount, setPracticeCount] = useState(0);
 
   useEffect(() => {
     if (!studentId) {
@@ -38,7 +37,6 @@ export default function OnboardingGuard({ children, studentId }: OnboardingGuard
         const practiceRes = await fetch(`/api/practice?studentId=${encodeURIComponent(studentId)}`);
         const practiceData = await practiceRes.json();
         const sessions = practiceData?.sessions?.length || 0;
-        setPracticeCount(sessions);
 
         // 新學生 = 無診斷記錄 + 練習少於 3 次
         if (!hasDiagnostic && sessions < 3) {

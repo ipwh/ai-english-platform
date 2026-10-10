@@ -91,7 +91,7 @@ ${HALLUCINATION_GUARD_LITE}
 ${dseContextPrompt}`;
 }
 
-function buildListeningSection(count: number, difficulty: string, gradeLevel: string): string {
+function buildListeningSection(count: number, difficulty: string, _gradeLevel: string): string {
   const lineGuide = difficulty === 'remedial' ? '6-8 lines' : difficulty === 'core' ? '8-12 lines' : '12-16 lines';
   return `─── DSE Paper 3 Listening ───
 Each question has its OWN independent listeningContent (short dialogue, ${lineGuide} per question).

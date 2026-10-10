@@ -190,7 +190,6 @@ export default function DiagnosticPage() {
 
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
-  const [weakSkills, setWeakSkills] = useState<WeakSkill[]>([]);
   const [recentPerformance, setRecentPerformance] = useState<{ date: string; accuracy: number; questionsDone: number }[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [genError, setGenError] = useState('');
@@ -253,7 +252,6 @@ export default function DiagnosticPage() {
         const derivedWeakSkills = buildWeakSkills(sessions, mistakes);
         const plans = buildDiagnosticPlans(studentLevel, derivedWeakSkills);
 
-        setWeakSkills(derivedWeakSkills);
         // R3.10-C.2: 近期表現只使用 verified row-derived 證據；
         // 不可驗證 session 絕不用原始 totalQuestions/correctCount 計算準確率。
         setRecentPerformance(
@@ -745,7 +743,7 @@ export default function DiagnosticPage() {
                 🎧 {t('diagnostic.skillListening')}
               </p>
               <div className="mb-2">
-                <AudioPlayer text={currentQ.listeningContent || ''} useCloudTTS={true} autoPlay={false} />
+                <AudioPlayer text={currentQ.listeningContent || ''} useCloudTTS={true} />
               </div>
               <details className="text-sm">
                 <summary className="cursor-pointer text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 text-xs font-medium">

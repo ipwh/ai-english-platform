@@ -17,7 +17,7 @@ import type { PipelineInput, PipelineStage, AdaptiveLearningResult } from '../ty
 export async function executePipeline(input: PipelineInput): Promise<AdaptiveLearningResult> {
   const startTime = Date.now();
   const stages: PipelineStage[] = [];
-  const { studentId, gradeLevel, maxRecommendations = 5 } = input;
+  const { studentId, maxRecommendations = 5 } = input;
 
   // === Stage 1: Fetch Mastery (S31) ===
   let masteryProfile: { overallMastery: number; bySkill: Record<string, number> } = {

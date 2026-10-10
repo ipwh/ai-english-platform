@@ -46,5 +46,16 @@ export const progressTranslations: Record<string, { zh: string; en: string }> = 
   'progress.historyEmpty': { zh: '這個月還沒有練習記錄', en: 'No practice recorded this month' },
   'progress.historyEmptyDay': { zh: '這天沒有練習記錄', en: 'No practice recorded on this day' },
   'progress.historyDayHint': { zh: '點擊日期可查看當日逐場練習', en: 'Tap a day to see its sessions' },
+  // 自訂練習（Custom Practice）紀錄也屬於練習歷史（2026-10-10）。這些是 engagement
+  // 記錄：永不計入準確率／掌握度／錯題／XP，因此獨立一節顯示。
+  'progress.customPracticeTitle': { zh: '自訂練習', en: 'Custom Practice' },
+  'progress.customPracticeSets': { zh: '{count} 份自訂練習', en: '{count} custom practice set(s)' },
+  'progress.customPracticeMarked': { zh: '已批改 {awarded}/{total}', en: 'Marked {awarded}/{total}' },
+  'progress.customPracticePending': { zh: '未提交', en: 'Not submitted' },
+  'progress.customPracticeOpen': { zh: '查看 / 續做', en: 'Open / continue' },
+  'progress.customPracticeNote': {
+    zh: '自訂練習為 AI 輔助自學，不計入準確率及掌握度。',
+    en: 'Custom practice is AI-assisted self-study; it is not counted in accuracy or mastery.',
+  },
   'progress.unverified': { zh: '未驗證', en: 'Unverified' },
 };

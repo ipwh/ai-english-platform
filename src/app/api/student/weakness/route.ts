@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = validateQuery(weaknessQuerySchema, searchParams);
-    const { studentId, limit, category, includeRecommendations } = query;
+    const { studentId, category } = query;
 
     // Ownership: students can only see their own weakness data; teachers only students in their taught classes
     if (authResult.role === 'student' && studentId !== authResult.userId) {

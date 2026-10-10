@@ -206,14 +206,14 @@ describe('validateAndFixQuestion — MCQ consistency', () => {
 
   it('should auto-fix even with smart quotes in answer text', () => {
     const q = { ...baseQuestion, answer: "4 o\u2019clock" }; // smart quote
-    const { fixed, warnings } = validateAndFixQuestion(q, 1);
+    const { fixed } = validateAndFixQuestion(q, 1);
     // After normalization, smart quotes become straight quotes → should match "4 o'clock"
     expect(fixed.answer).toBe('B');
   });
 
   it('should warn when answer does not match any choice', () => {
     const q = { ...baseQuestion, answer: 'midnight' };
-    const { fixed, warnings } = validateAndFixQuestion(q, 1);
+    const { warnings } = validateAndFixQuestion(q, 1);
     expect(warnings.length).toBeGreaterThan(0);
     expect(warnings[0]).toContain('does not match');
   });

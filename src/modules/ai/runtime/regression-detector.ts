@@ -22,8 +22,6 @@ export interface RegressionReport {
 
 const CRITICAL_LATENCY_INCREASE = 50; // 50% increase = critical
 const WARNING_LATENCY_INCREASE = 25;
-const CRITICAL_TOKEN_INCREASE = 30;
-const WARNING_TOKEN_INCREASE = 15;
 
 function severityFromDelta(deltaPercent: number, warningThreshold: number, criticalThreshold: number): RegressionSeverity {
   if (deltaPercent >= criticalThreshold) return 'critical';

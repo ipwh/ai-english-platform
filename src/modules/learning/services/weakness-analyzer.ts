@@ -28,7 +28,6 @@ export function analyzeWeaknesses(
   gradeLevel: string
 ): WeaknessResult[] {
   const results: WeaknessResult[] = [];
-  const allSkills = getSkill('tenses-simple') ? true : false; // Guard: graph must be loaded
 
   // Get all skills appropriate for this grade level
   const levels = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];

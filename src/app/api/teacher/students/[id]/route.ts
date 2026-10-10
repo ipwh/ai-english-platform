@@ -73,7 +73,7 @@ export async function GET(
     }
 
     const analytics = await getStudentAnalytics(studentId);
-    const { sessions: rawPracticeSessions, mistakes, vocabTotal, vocabMastered, drafts: writingDrafts, xp: xpTransactions, snapshots: weeklySnapshots, submissions } = analytics;
+    const { sessions: rawPracticeSessions, mistakes, vocabTotal, vocabMastered, drafts: writingDrafts, xp: xpTransactions, snapshots: weeklySnapshots } = analytics;
 
     // R3.10-C: 每筆 session 附上 verified row-derived 聚合值；
     // 零答案 / 歷史不可驗證的 sessions → verified = { status: 'unverifiable' }。

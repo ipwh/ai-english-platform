@@ -108,6 +108,97 @@ export async function listOwnSets(ownerUserId: string, take = 20) {
   });
 }
 
+// ============================================
+// Practice-history integration (2026-10-10)
+// ============================================
+// 學生端「我的進度」的練習歷史原本只列 HKDSE 練習場次（PracticeSession），
+// 自訂練習只在自訂練習頁看得到。以下兩個查詢把自訂練習**併入同一份歷史視圖**，
+// 但只是 engagement 記錄：
+//   · 一個香港日一份的自訂練習紀錄；
+//   · **永不**參與證據投影（`evaluatePracticeEvidence`）、準確率、掌握度、XP。
+// 香港日界線以與 practice-repo 相同的 SQL 表達式計算（`+ interval '8 hours'`）。
+
+export interface CustomPracticeDayCount {
+  dayKey: string;
+  setsCount: number;
+}
+
+/** 指定區間內每個香港日建立的練習份數（DB 端 GROUP BY；每日一列）。 */
+export async function countOwnSetsByDayKey(
+  ownerUserId: string,
+  since: Date,
+  until: Date
+): Promise<CustomPracticeDayCount[]> {
+  return db.$queryRawUnsafe<CustomPracticeDayCount[]>(
+    `
+    SELECT to_char(s."createdAt" + interval '8 hours', 'YYYY-MM-DD') AS "dayKey",
+           count(*)::int AS "setsCount"
+    FROM "CustomPracticeSet" s
+    WHERE s."ownerUserId" = $1
+      AND s."createdAt" >= $2::timestamptz
+      AND s."createdAt" < $3::timestamptz
+    GROUP BY 1
+    ORDER BY 1 DESC
+    `,
+    ownerUserId,
+    since,
+    until
+  );
+}
+
+export interface CustomPracticeSetSummaryRow {
+  id: string;
+  objective: string;
+  category: string;
+  difficulty: string;
+  questionCount: number;
+  createdAt: Date;
+  submitted: boolean;
+  submittedAt: Date | null;
+  awardedMarks: number | null;
+  totalMarks: number | null;
+  needsReviewCount: number | null;
+}
+
+/** 指定香港日的逐份自訂練習（有界：只查該日，附提交摘要）。 */
+export async function listOwnSetsByDayKey(
+  ownerUserId: string,
+  since: Date,
+  until: Date,
+  take = 50
+): Promise<CustomPracticeSetSummaryRow[]> {
+  const rows = await db.customPracticeSet.findMany({
+    where: { ownerUserId, createdAt: { gte: since, lt: until } },
+    orderBy: { createdAt: 'asc' },
+    take,
+    select: {
+      id: true,
+      objective: true,
+      category: true,
+      difficulty: true,
+      questionCount: true,
+      createdAt: true,
+      submission: {
+        select: { submittedAt: true, awardedMarks: true, totalMarks: true, needsReviewCount: true },
+      },
+    },
+  });
+
+  return rows.map(row => ({
+    id: row.id,
+    objective: row.objective,
+    category: row.category,
+    difficulty: row.difficulty,
+    questionCount: row.questionCount,
+    createdAt: row.createdAt,
+    submitted: row.submission !== null,
+    submittedAt: row.submission?.submittedAt ?? null,
+    awardedMarks: row.submission?.awardedMarks ?? null,
+    totalMarks: row.submission?.totalMarks ?? null,
+    needsReviewCount: row.submission?.needsReviewCount ?? null,
+  }));
+}
+
 export interface PersistSubmissionInput {
   setId: string;
   ownerUserId: string;

@@ -1,7 +1,5 @@
 // Sprint 98: Incident Classifier — auto-classifies runtime issues
 import type { Incident, IncidentCategory, IncidentReport, IncidentSeverity } from './slo-types';
-import { detectSaturation } from '@/modules/ai/runtime/saturation-detector';
-import { detectRegressions } from '@/modules/ai/runtime/regression-detector';
 import { getRuntimeMetrics } from '@/modules/ai/services/runtime-metrics';
 import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
 
@@ -11,8 +9,6 @@ let counter = 0;
 export function classifyIncidents(): IncidentReport {
   const incidents: Incident[] = [];
   const m = getRuntimeMetrics();
-  const saturation = detectSaturation();
-  const regression = detectRegressions();
   const capacity = getCapacityPlan();
 
   // Provider failures

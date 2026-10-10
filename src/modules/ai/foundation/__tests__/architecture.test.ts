@@ -105,7 +105,6 @@ describe('Architecture: No duplicate Foundation patterns in PromptOps modules', 
     for (const dir of PROMPTOPS_DIRS) {
       const files = findTsFiles(`src/modules/ai/${dir}`);
       for (const file of files) {
-        const content = readFile(path.relative(process.cwd(), file));
         const fileName = path.basename(file);
 
         // Skip test files, fixtures

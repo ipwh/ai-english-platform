@@ -475,7 +475,6 @@ export default function ReadingPracticePage() {
     if (!allAnswered) return;
 
     savedRef.current = true;
-    const correctCount = Object.values(answers).filter(a => a.isCorrect).length;
 
     const practicePayload = {
       studentId: useAuthStore.getState().userId,

@@ -67,7 +67,13 @@ export interface DeliveredQuestion {
   questionType: string;
   instructions: string;
   prompt: string;
-  targetRule: string;
+  /**
+   * The topic being practised ONLY (the part of `targetRule` before the colon).
+   * The rule itself is the answer, so it is revealed after submission with the
+   * explanation, never while the student is still working (2026-10-10 report:
+   * the full rule was shown before answering and gave the answer away).
+   */
+  targetTopic: string;
   maxMarks: number;
 }
 

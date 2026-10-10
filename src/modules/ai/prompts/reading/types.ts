@@ -1564,7 +1564,6 @@ export function validateAllMCDistractors(questions: DSEreadingQuestion[]): Bluep
   const issues: BlueprintIssue[] = [];
   let mcCount = 0;
   let noTrapCount = 0;
-  let bannedCount = 0;
 
   for (const q of questions) {
     if (!q.choices || q.choices.length < 3) continue;
@@ -1576,7 +1575,6 @@ export function validateAllMCDistractors(questions: DSEreadingQuestion[]): Bluep
 
     // Banned patterns → critical
     if (check.bannedPatternFound) {
-      bannedCount++;
       issues.push({
         code: 'MC_BANNED_PATTERN',
         severity: 'critical',

@@ -91,7 +91,10 @@ export default function StudentDashboardPage() {
       if (data?.sessions) {
         // R3.10-C.2: 只使用 verified row-derived 證據；不可驗證 session 不產生
         // 準確率資料點（絕不回退原始 totalQuestions/correctCount）。
-        setRecentPerformance(data.sessions.slice(0, 5).flatMap((s: any) => {
+        setRecentPerformance(data.sessions.slice(0, 5).flatMap((s: {
+          startedAt: string;
+          verified?: { status?: string; correctCount?: number | null; totalQuestions?: number | null };
+        }) => {
           const v = s.verified;
           if (!v || v.status !== 'verified') return [];
           return [{

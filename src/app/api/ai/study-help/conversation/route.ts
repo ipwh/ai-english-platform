@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { studentId, question, history, studentProfile } = body as {
+    const { question, history, studentProfile } = body as {
       studentId: string;
       question: string;
       history?: { role: 'user' | 'assistant'; content: string }[];

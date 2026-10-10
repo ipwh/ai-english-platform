@@ -144,7 +144,7 @@ export function loadFixtures(): GoldenFixture[] {
 // ============================================
 
 export async function runGoldenBenchmark(
-  options: { timeoutMs?: number } = {},
+  _options: { timeoutMs?: number } = {},
 ): Promise<BenchmarkReport> {
   const fixtures = loadFixtures();
 
@@ -201,7 +201,7 @@ export async function runGoldenBenchmark(
         },
         hasHumanScores,
       });
-    } catch (err) {
+    } catch {
       results.push({
         fixtureId: fixture.id,
         actual: { overallScore: null },

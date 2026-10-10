@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = validateQuery(recommendationQuerySchema, searchParams);
-    const { studentId, type, limit, includeBreakdown } = query;
+    const { studentId, type } = query;
 
     // Ownership: students can only see their own recommendations; teachers only students in their taught classes
     if (authResult.role === 'student' && studentId !== authResult.userId) {

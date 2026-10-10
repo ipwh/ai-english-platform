@@ -66,14 +66,6 @@ async function generatePDF(analysis: WritingAnalysis): Promise<Buffer> {
   let y = 50;
 
   // Helper: 安全輸出文字（處理中文換行）
-  const addText = (text: string, fontSize: number, opts?: { color?: string; indent?: number }) => {
-    doc.font(font).fontSize(fontSize);
-    if (opts?.color) doc.fillColor(opts.color);
-    else doc.fillColor('#1a1a1a');
-    const x = 50 + (opts?.indent || 0);
-    doc.text(text, x, y, { width: contentWidth - (opts?.indent || 0), lineGap: 3 });
-    y = doc.y + 4;
-  };
 
   const checkPageBreak = (needed: number) => {
     if (y + needed > doc.page.height - 50) {
@@ -353,7 +345,7 @@ export async function POST(request: NextRequest) {
   if (!authResult.authenticated) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
-  const userId = authResult.userId!;
+
   try {
 
     const { searchParams } = new URL(request.url);

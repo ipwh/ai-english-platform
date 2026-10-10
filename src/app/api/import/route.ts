@@ -5,7 +5,6 @@ import { adminDbQuery } from '@/modules/admin/services/admin-operations';
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByIdSelect } from '@/modules/student';
 import { verifyAdmin } from '@/shared/auth/admin-auth';
 import { hashPasswordSync } from '@/shared/auth/crypto';
 import { parseCSV } from '@/shared/utils/import-utils';
@@ -93,7 +92,6 @@ export async function POST(request: NextRequest) {
   };
 
   try {
-    const contentType = request.headers.get('content-type') || '';
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const role = formData.get('role') as string; // "student" | "teacher"

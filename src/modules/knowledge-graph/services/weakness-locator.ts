@@ -114,7 +114,7 @@ export class WeaknessLocator {
     currentCefrLevel?: string;
   }): import('../types').LearningGapResult {
     const g = getKnowledgeGraph();
-    const { studentId, gradeLevel, masteredNodeIds, currentCefrLevel } = opts;
+    const { studentId, gradeLevel, masteredNodeIds } = opts;
 
     const masteredSet = new Set(masteredNodeIds);
 
@@ -135,7 +135,6 @@ export class WeaknessLocator {
         const gradeNum = parseInt(gradeLevel.slice(1));
         const nodeGradeNum = parseInt(node.hkdseLevel.slice(1));
         const gradeGap = gradeNum - nodeGradeNum;
-        const estimatedDaysBehind = gradeGap * 0; // Simplified — in practice would use actual dates
 
         return {
           nodeId: id,

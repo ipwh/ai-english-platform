@@ -733,7 +733,7 @@ export class ExperimentService {
     const baseLatency = variant.temperature > 0.5 ? 300 : 450;
     const baseCost = 0.0001 + variant.temperature * 0.0001;
 
-    return testCases.map((_, i) => ({
+    return testCases.map(() => ({
       score: Math.max(0.01, this.round(baseScore + (Math.random() - 0.5) * 0.2)),
       latency: Math.max(1, Math.round(baseLatency + (Math.random() - 0.5) * 200)),
       cost: this.round(baseCost + Math.random() * 0.0001, 5),

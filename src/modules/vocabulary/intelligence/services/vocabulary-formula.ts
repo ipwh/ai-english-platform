@@ -5,11 +5,6 @@ import type { VocabStatus, VocabWordProfile } from '../types';
 // Status Computation
 // ============================================
 
-/** Map CEFR level from mastery + word difficulty hints */
-const CEFR_HINTS: Record<string, string> = {
-  a1: 'A1', a2: 'A2', b1: 'B1', b2: 'B2', c1: 'C1', c2: 'C2',
-};
-
 /**
  * Compute vocabulary status from familiarity + mastery level + SRS state.
  *

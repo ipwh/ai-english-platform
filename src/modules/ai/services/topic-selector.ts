@@ -25,8 +25,6 @@ import { logger } from '@/shared/logger/logger';
 const USER_TOPIC_HISTORY_SIZE = 20;
 /** 類別輪換：同一類別至少間隔 N 次選取 */
 const CATEGORY_COOLDOWN = 4;
-/** 全域最大 user history 數量（防止 memory leak） */
-const MAX_USER_HISTORIES = 200;
 /** 定期清理：當 user 數超過此值時觸發 */
 const CLEANUP_THRESHOLD = 150;
 

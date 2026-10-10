@@ -34,7 +34,6 @@ function getFeedbackEventCountStub() { return 0; }
 function detectPatternsStub() { return []; }
 function getKnowledgeStateStub() { return {}; }
 function getLearningHistoryStub(_limit?: number) { return []; }
-function generateFeedbackReportStub() { return 'No feedback data available.'; }
 function getQuestionQualityMetricsStub() { return { totalQuestions: 0, approved: 0, warned: 0, rejected: 0, repaired: 0, avgScore: 0 }; }
 function getAdaptiveMetricsStub() { return { totalSessions: 0, avgMasteryGain: 0, recommendationAccuracy: 0 }; }
 function getHumanReviewMetricsStub() { return { totalReviews: 0, pending: 0, approved: 0, rejected: 0, avgReviewTimeMs: 0 }; }

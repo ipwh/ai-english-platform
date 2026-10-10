@@ -29,6 +29,18 @@ export interface QuestionRowForDelivery {
   maxMarks: number;
 }
 
+/**
+ * 作答前只交付「考核主題」：`targetRule` 冒號前的部分。
+ * 例："Second conditional: if + past simple (were for all persons), would + base
+ * verb" ⇒ "Second conditional"。冒號後才是規則本身（＝答案），提交後隨解說揭示 ——
+ * 學生回報「考核重點的提示太多，仿佛已給予答案」(2026-10-10)。
+ */
+export function targetTopicOf(targetRule: string): string {
+  const [topic] = targetRule.split(/[:：]/);
+  const trimmed = topic.trim();
+  return trimmed.length > 0 ? trimmed : targetRule.trim();
+}
+
 export interface SetRowForDelivery {
   id: string;
   objective: string;
@@ -55,7 +67,8 @@ export function toDeliveredSet(set: SetRowForDelivery, submitted: boolean): Deli
       questionType: question.questionType,
       instructions: question.instructions,
       prompt: question.prompt,
-      targetRule: question.targetRule,
+      // The full rule stays server-side until the student has answered.
+      targetTopic: targetTopicOf(question.targetRule),
       maxMarks: question.maxMarks,
     })),
   };

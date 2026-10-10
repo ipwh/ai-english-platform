@@ -76,7 +76,7 @@ export function calculateAssessmentScore(dimensions: Omit<AssessmentDimensions, 
 }
 
 /** Determine decision from score and critical failures */
-export function determineDecision(score: number, hasCriticalFailures: boolean, hasHighFailures: boolean): AssessmentDecision {
+export function determineDecision(score: number, hasCriticalFailures: boolean, _hasHighFailures: boolean): AssessmentDecision {
   if (score >= 80 && !hasCriticalFailures) return 'approved';
   if (score >= 50 && !hasCriticalFailures) return 'warning';
   if (score >= 30 && !hasCriticalFailures) return 'repair_required';

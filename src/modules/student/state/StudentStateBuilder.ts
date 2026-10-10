@@ -57,13 +57,6 @@ interface RawSubSkill {
   updatedAt?: string | { toISOString?: () => string };
 }
 
-/** Weakness profile from buildWeaknessProfile() */
-interface RawWeaknessProfile {
-  topWeaknesses: Array<{ grammarItem?: string; skill?: string; [k: string]: unknown }>;
-  totalMistakes?: number;
-  generatedAt: string;
-}
-
 /** Vocab profile from buildVocabProfile() */
 interface RawVocabProfile {
   known?: unknown[];
@@ -87,7 +80,6 @@ interface RawLearningProfile {
 
 type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type Trend = 'improving' | 'stable' | 'declining';
-type Trajectory = 'accelerating' | 'steady' | 'plateauing' | 'declining' | 'decelerating';
 
 interface KnowledgeState {
   currentMastery: Record<string, number>;
@@ -430,7 +422,7 @@ export class StudentStateBuilder {
     };
   }
 
-  private deriveConfidence(memory: StudentMemory | null, mastery: Record<string, number>): ConfidenceState {
+  private deriveConfidence(memory: StudentMemory | null, _mastery: Record<string, number>): ConfidenceState {
     const c = memory?.confidence;
     return {
       overallConfidence: c?.overallConfidence ?? 0.5,
@@ -509,13 +501,11 @@ export class StudentStateBuilder {
     };
   }
 
-  private deriveForgetCurve(entries: ReviewEntry[]): any {
-    const mastered = entries.filter(e => e.isMastered).length;
-    const total = Math.max(1, entries.length);
+  private deriveForgetCurve(_entries: ReviewEntry[]): any {
     return { curves: {}, composite: [], knowledgeHalfLifeDays: 7, computedAt: new Date().toISOString() };
   }
 
-  private deriveVelocity(entries: ReviewEntry[], knowledge: KnowledgeState): LearningVelocity {
+  private deriveVelocity(entries: ReviewEntry[], _knowledge: KnowledgeState): LearningVelocity {
     const mastered = entries.filter(e => e.isMastered).length;
     const total = Math.max(1, entries.length);
     const rate = mastered / total;

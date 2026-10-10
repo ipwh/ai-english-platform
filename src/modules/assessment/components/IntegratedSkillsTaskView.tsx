@@ -47,7 +47,6 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
       {steps.map((step, i) => {
         const isActive = activeStep === step.num;
         const isDone = step.done;
-        const Icon = step.icon;
         return (
           <div key={step.num} className="flex items-center flex-1">
             <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -83,7 +82,7 @@ function StepIndicator({ activeStep, listeningCompleted, hasNotes, hasWriting }:
 // ============================================
 // 子元件：匯出按鈕
 // ============================================
-function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: IntegratedTaskData; s: any }) {
+function ExportBtn({ fmt, color, task, s }: { fmt: string; color: string; task: IntegratedTaskData; s: { taskType?: string; studentNotes?: string; studentWriting?: string; analysis?: unknown } }) {
   const [loading, setLoading] = useState(false);
   const label = fmt === 'pdf' ? '📄 PDF' : '📝 DOCX';
   return (
@@ -440,7 +439,7 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         if (res.ok) {
           const json = await res.json();
           const map: Record<number, { q: string; h: string }> = {};
-          (json.translations || []).forEach((item: any, i: number) => { if (item) map[i] = { q: item.q || '', h: item.h || '' }; });
+          (json.translations || []).forEach((item: { q?: string; h?: string } | null, i: number) => { if (item) map[i] = { q: item.q || '', h: item.h || '' }; });
           setZhTranslations(map);
         }
       } catch { /* ignore */ }

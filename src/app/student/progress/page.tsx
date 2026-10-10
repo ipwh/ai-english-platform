@@ -5,6 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { TrendingUp, Target, Sparkles, Loader2, CalendarDays, ChevronDown } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -52,9 +53,24 @@ interface HistorySession {
     | { status: 'unverifiable'; reason: string };
 }
 
+/** 自訂練習（Custom Practice）當日紀錄 — engagement only，永不參與證據投影。 */
+interface HistoryCustomPracticeSet {
+  id: string;
+  objective: string;
+  category: string;
+  difficulty: string;
+  questionCount: number;
+  createdAt: string;
+  submitted: boolean;
+  awardedMarks: number | null;
+  totalMarks: number | null;
+  needsReviewCount: number | null;
+}
+
 interface HistoryDayDetailState {
   loading: boolean;
   sessions: HistorySession[] | null;
+  customPractice: HistoryCustomPracticeSet[] | null;
   error: boolean;
 }
 
@@ -72,6 +88,7 @@ export default function StudentProgressPage() {
   // === 練習歷史（逐日回顧）狀態 ===
   const [historyMonth, setHistoryMonth] = useState('');
   const [historyDays, setHistoryDays] = useState<HistoryDay[] | null>(null);
+  const [historyCustomPracticeDays, setHistoryCustomPracticeDays] = useState<Array<{ dayKey: string; setsCount: number }>>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -101,12 +118,20 @@ export default function StudentProgressPage() {
       const data = await res.json();
       if (res.ok && Array.isArray(data.days)) {
         setHistoryDays(data.days as HistoryDay[]);
+        // 自訂練習日（可能有「只有自訂練習」的日子，HKDSE 場次聚合不會包含它們）
+        setHistoryCustomPracticeDays(
+          Array.isArray(data.customPracticeDays)
+            ? (data.customPracticeDays as Array<{ dayKey: string; setsCount: number }>)
+            : []
+        );
       } else {
         setHistoryDays([]);
+        setHistoryCustomPracticeDays([]);
         setHistoryError(true);
       }
     } catch {
       setHistoryDays([]);
+      setHistoryCustomPracticeDays([]);
       setHistoryError(true);
     } finally {
       setHistoryLoading(false);
@@ -121,18 +146,28 @@ export default function StudentProgressPage() {
     setExpandedDay((prev) => (prev === dayKey ? null : dayKey));
     const cached = dayDetails[dayKey];
     if (cached?.sessions || cached?.loading) return;
-    setDayDetails((prev) => ({ ...prev, [dayKey]: { loading: true, sessions: null, error: false } }));
+    setDayDetails((prev) => ({ ...prev, [dayKey]: { loading: true, sessions: null, customPractice: null, error: false } }));
     void (async () => {
       try {
         const res = await fetch(`/api/practice/history?studentId=${encodeURIComponent(store.userId ?? '')}&view=day&day=${encodeURIComponent(dayKey)}`);
         const data = await res.json();
         if (res.ok && Array.isArray(data.sessions)) {
-          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: data.sessions as HistorySession[], error: false } }));
+          setDayDetails((cur) => ({
+            ...cur,
+            [dayKey]: {
+              loading: false,
+              sessions: data.sessions as HistorySession[],
+              customPractice: Array.isArray(data.customPracticeSets)
+                ? (data.customPracticeSets as HistoryCustomPracticeSet[])
+                : [],
+              error: false,
+            },
+          }));
         } else {
-          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, error: true } }));
+          setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, customPractice: null, error: true } }));
         }
       } catch {
-        setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, error: true } }));
+        setDayDetails((cur) => ({ ...cur, [dayKey]: { loading: false, sessions: null, customPractice: null, error: true } }));
       }
     })();
   }, [dayDetails, store.userId]);
@@ -183,6 +218,20 @@ export default function StudentProgressPage() {
       [t('progress.volumeChart')]: d.questions,
       [t('progress.accuracyChart')]: d.vTotal > 0 ? Math.round((d.vCorrect / d.vTotal) * 100) : 0,
     }));
+  })();
+
+  // 練習歷史的日期清單＝ HKDSE 場次日 ∪ 自訂練習日（2026-10-10）。
+  // 自訂練習日必須一併列出，否則「只做了自訂練習」的日子根本不會出現。
+  // 兩邊的數字**永不相加**：自訂練習是 engagement 記錄，不計入準確率／掌握度／XP。
+  const historyDayList = (() => {
+    const merged = new Map<string, HistoryDay & { customPracticeCount: number }>();
+    for (const day of historyDays ?? []) merged.set(day.dayKey, { ...day, customPracticeCount: 0 });
+    for (const day of historyCustomPracticeDays) {
+      const existing = merged.get(day.dayKey);
+      if (existing) existing.customPracticeCount = day.setsCount;
+      else merged.set(day.dayKey, { dayKey: day.dayKey, sessionsCount: 0, questionsTotal: 0, skills: [], customPracticeCount: day.setsCount });
+    }
+    return Array.from(merged.values()).sort((a, b) => b.dayKey.localeCompare(a.dayKey));
   })();
 
   return (
@@ -345,14 +394,14 @@ export default function StudentProgressPage() {
           </div>
         )}
 
-        {!historyLoading && !historyError && historyDays && historyDays.length === 0 && (
+        {!historyLoading && !historyError && historyDays && historyDayList.length === 0 && (
           <p className="text-sm text-gray-400 py-8 text-center">{t('progress.historyEmpty')}</p>
         )}
 
-        {!historyLoading && !historyError && historyDays && historyDays.length > 0 && (
+        {!historyLoading && !historyError && historyDayList.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-gray-400 mb-2">{t('progress.historyDayHint')}</p>
-            {historyDays.map((day) => {
+            {historyDayList.map((day) => {
               const detail = dayDetails[day.dayKey];
               const isExpanded = expandedDay === day.dayKey;
               return (
@@ -369,6 +418,11 @@ export default function StudentProgressPage() {
                         <span className="text-xs text-gray-400">
                           {day.sessionsCount} {t('common.sessions')} · {day.questionsTotal}{t('progress.questionsSuffix')}
                         </span>
+                        {day.customPracticeCount > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-full">
+                            {t('progress.customPracticeTitle')} ×{day.customPracticeCount}
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {day.skills.map((skill) => (
@@ -394,7 +448,7 @@ export default function StudentProgressPage() {
                       {!detail?.loading && detail?.error && (
                         <p className="text-xs text-gray-400 py-3 text-center">{t('progress.loadFailed')}</p>
                       )}
-                      {!detail?.loading && detail?.sessions && detail.sessions.length === 0 && (
+                      {!detail?.loading && detail?.sessions && detail.sessions.length === 0 && !(detail.customPractice && detail.customPractice.length > 0) && (
                         <p className="text-xs text-gray-400 py-3 text-center">{t('progress.historyEmptyDay')}</p>
                       )}
                       {!detail?.loading && detail?.sessions && detail.sessions.length > 0 && (
@@ -423,6 +477,41 @@ export default function StudentProgressPage() {
                               </span>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* 自訂練習（Custom Practice）當日紀錄 — 2026-10-10。
+                          與 HKDSE 場次分開顯示：它不產生證據／準確率／掌握度／XP。 */}
+                      {!detail?.loading && detail?.customPractice && detail.customPractice.length > 0 && (
+                        <div className="mt-2 border-t border-dashed border-gray-200 dark:border-gray-700 pt-2">
+                          <p className="text-xs font-medium text-indigo-700 dark:text-indigo-300 mb-1">
+                            {t('progress.customPracticeTitle')}
+                          </p>
+                          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                            {detail.customPractice.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between gap-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-gray-400">{formatHistoryTime(item.createdAt)}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 break-words">{item.objective}</span>
+                                  </div>
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    {item.questionCount}{t('progress.questionsSuffix')}
+                                    {item.submitted
+                                      ? ` · ${t('progress.customPracticeMarked', { awarded: item.awardedMarks ?? 0, total: item.totalMarks ?? 0 })}`
+                                      : ` · ${t('progress.customPracticePending')}`}
+                                  </p>
+                                </div>
+                                <Link
+                                  href={`/student/custom-practice?set=${encodeURIComponent(item.id)}`}
+                                  className="shrink-0 rounded-md border border-gray-200 dark:border-gray-600 px-3 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                  {t('progress.customPracticeOpen')}
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-1">{t('progress.customPracticeNote')}</p>
                         </div>
                       )}
                     </div>

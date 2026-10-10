@@ -23,7 +23,6 @@ export default function StudentAssignmentsPage() {
   const { t } = useT();
   const [filter, setFilter] = useState<AssignmentStatus | 'all'>('all');
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // 取得學生作業及提交狀態（伺服器已附上該學生的 submission 狀態與教師回饋）
@@ -55,7 +54,7 @@ export default function StudentAssignmentsPage() {
         setAssignments(mapped);
       })
       .catch((e) => { logger.error({ module: 'student-assignments', error: e instanceof Error ? e.message : String(e) }, 'Failed to load assignments'); })
-      .finally(() => setLoading(false));
+      .catch(() => undefined);
   }, []);
 
   const filtered = filter === 'all' ? assignments : assignments.filter(a => a.status === filter);

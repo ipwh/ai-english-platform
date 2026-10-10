@@ -467,7 +467,6 @@ export function validateDistractorQuality(
   questions: DSEreadingQuestion[],
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  let totalIssues = 0;
 
   for (const q of questions) {
     if (!q.choices || q.choices.length === 0) continue;
@@ -494,7 +493,6 @@ export function validateDistractorQuality(
             message: `Question #${q.index}: choice "${c.slice(0, 50)}" contains banned pattern`,
             details: { questionIndex: q.index, choice: c },
           });
-          totalIssues++;
           break;
         }
       }
@@ -510,7 +508,6 @@ export function validateDistractorQuality(
             message: `Question #${q.index}: choices ${String.fromCharCode(65 + i)} and ${String.fromCharCode(65 + j)} are near-duplicates`,
             details: { questionIndex: q.index, choiceA: cleaned[i], choiceB: cleaned[j] },
           });
-          totalIssues++;
         }
       }
     }
@@ -527,7 +524,6 @@ export function validateDistractorQuality(
             message: `Question #${q.index}: choice ${String.fromCharCode(65 + i)} is ${lengths[i]} chars vs average ${Math.round(avgLen)} — may stand out`,
             details: { questionIndex: q.index, choiceIndex: i, length: lengths[i], average: Math.round(avgLen) },
           });
-          totalIssues++;
         }
       }
     }
@@ -542,7 +538,6 @@ export function validateDistractorQuality(
           message: `Question #${q.index}: choice ${String.fromCharCode(65 + i)} has only ${wordCount} substantive word(s)`,
           details: { questionIndex: q.index, choiceIndex: i },
         });
-        totalIssues++;
       }
     }
 
@@ -563,7 +558,6 @@ export function validateDistractorQuality(
           message: `Question #${q.index}: no distractor shares vocabulary with the question stem — may be trivially eliminable`,
           details: { questionIndex: q.index },
         });
-        totalIssues++;
       }
     }
   }

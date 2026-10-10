@@ -27,15 +27,14 @@ describe('ProviderRegistry — Fallback Chain 邏輯', () => {
 
     // 手動模擬 registry fallback 邏輯
     const providers = [primary, secondary];
-    let lastError: Error | undefined;
     let result = '';
 
     for (let i = 0; i < providers.length; i++) {
       try {
         result = await providers[i].call([{ role: 'user', content: 'test' }]);
         break;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
+      } catch {
+        // try the next provider (this test only asserts the successful path)
       }
     }
 

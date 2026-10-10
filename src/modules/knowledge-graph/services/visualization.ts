@@ -21,10 +21,6 @@ const SKILL_COLORS: Record<SkillDimension, { bg: string; border: string }> = {
   speaking:   { bg: '#e0f7fa', border: '#00838f' },
 };
 
-const MASTERY_COLOR = '#4caf50';
-const UNLOCKED_COLOR = '#ff9800';
-const LOCKED_COLOR = '#9e9e9e';
-
 // ============================================
 // Layered Layout Algorithm
 // ============================================

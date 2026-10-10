@@ -26,7 +26,7 @@ export interface PromptDefinition {
   /** Human-readable description of what this prompt does */
   description: string;
   /** Builder function (optional — inline prompts have no standalone builder) */
-  build?: (...args: any[]) => string;
+  build?: (...args: never[]) => string;
   /** Feature area */
   feature: string;
 }

@@ -213,7 +213,7 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 | 傳遞依賴 | 以 `package.json` 的 `overrides` 在**同一 major** 內拉高（`@xmldom/xmldom`／`fast-uri`／`js-yaml`／`@grpc/grpc-js`／`browserslist`／`source-map-js`） |
 | Prisma | **7.10.0 精確釘版**（CLI／client／engines／adapters 四者同版）。`npm audit fix` 曾**兩次**只把 CLI／engines 拉高而 client 不動 ⇒ 以 `--save-exact` 封住漂移 |
 | 遷移安全 | `src/shared/db/__tests__/migration-safety.test.ts`：破壞性操作必須列入 `REVIEWED_DESTRUCTIVE_MIGRATIONS` 並附理由（**過期條目亦失敗**）；遷移可加不可減 |
-| Lint 棘輪 | `npx eslint . --max-warnings 259` ＋ `npm run lint:budget`（per-rule 預算；**只可下調**） |
+| Lint 棘輪 | `npx eslint . --max-warnings 79` ＋ `npm run lint:budget`（per-rule 預算；**只可下調**） |
 
 > ⚠️ **Safari 15.4 基線**：`browserslist` 的 `safari 15.4`／`ios_saf 15.4` **不得刪除或改高**
 > （校內 iPad 最高 iPadOS 15.8）。升級 Next.js 或動 `browserslist` 後**必須**重跑產物閘門：

@@ -63,10 +63,6 @@ function PracticeListPageContent() {
   const autoStartedRef = useRef(false);
   const profileLoadedRef = useRef(false);
   const [tab, setTab] = useState<'generate' | 'browse'>('generate');
-  const [search, setSearch] = useState('');
-  const [skillFilter, setSkillFilter] = useState<string>('all');
-  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyLevel | 'all'>('all');
-  const [gradeFilter, setGradeFilter] = useState<GradeLevel | 'all'>('all');
 
   // === AI 生成狀態 ===
   const [form, setForm] = useState<GenerateForm>(defaultForm);

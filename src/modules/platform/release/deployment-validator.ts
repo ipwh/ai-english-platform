@@ -2,21 +2,17 @@
 import type { DeploymentValidationResult, DeploymentCheck, DeploymentPolicy } from './release-types';
 import { getRuntimeMetrics } from '@/modules/ai/services/runtime-metrics';
 import { evaluateAll } from '@/modules/platform/sre/slo-manager';
-import { getAllBudgets } from '@/modules/platform/sre/error-budget';
 import { computeReliabilityScore } from '@/modules/platform/sre/reliability-score';
 import { detectSaturation } from '@/modules/ai/runtime/saturation-detector';
 import { getCapacityPlan } from '@/modules/ai/runtime/capacity-planner';
-import { detectRegressions } from '@/modules/ai/runtime/regression-detector';
 
 export function validateDeployment(policy: DeploymentPolicy, architectureTestCount: number, unitTestCount: number): DeploymentValidationResult {
   const checks: DeploymentCheck[] = [];
   const m = getRuntimeMetrics();
   const saturation = detectSaturation();
   const capacity = getCapacityPlan();
-  const regression = detectRegressions();
   const reliability = computeReliabilityScore();
   const sloReport = evaluateAll();
-  const budgets = getAllBudgets();
 
   // Success rate
   const successRate = m.totalCalls > 0 ? 1 - (m.validationFailures || 0) / m.totalCalls : 1;

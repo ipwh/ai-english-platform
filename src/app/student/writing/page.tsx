@@ -79,7 +79,6 @@ export default function WritingPage() {
   const [rewriteLoading, setRewriteLoading] = useState(false);
   const [rewrittenText, setRewrittenText] = useState('');
   const [rewriteSummary, setRewriteSummary] = useState<string[]>([]);
-  const [showRewrite, setShowRewrite] = useState(false);
   // === 中等水平範文（Generated Model — artifact identity + pedagogical target）===
   const [midModelLoading, setMidModelLoading] = useState(false);
   const [midModel, setMidModel] = useState<{ essay: string; metadata?: WritingArtifactMetadata } | null>(null);
@@ -319,7 +318,6 @@ export default function WritingPage() {
       if (res.ok && json.rewrite) {
         setRewrittenText(json.rewrite.revisedText);
         setRewriteSummary(json.rewrite.changesSummary || []);
-        setShowRewrite(true);
         setShowDiff(true);
       } else {
         showToast('error', json.error || t('writing.rewriteFailed'));

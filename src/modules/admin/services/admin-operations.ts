@@ -2,6 +2,7 @@
 // Exists ONLY to eliminate db imports from admin routes.
 // Each method corresponds to a route's db needs.
 import { db, getBulkDb } from '@/shared/db/db';
+import type { Prisma } from '@prisma/client';
 import { SCHOOL_EMAIL_DOMAINS, isSchoolDomainEmail } from '@/shared/auth/sign-in-role';
 
 // ── admin/classes ──
@@ -79,10 +80,10 @@ export async function adminLinkTeacherToAllClasses(teacherId: string): Promise<n
 export async function adminEnsureGetUser(email: string) {
   return db.user.findUnique({ where: { email }, select: { id: true, role: true } });
 }
-export async function adminEnsureUpdateUser(email: string, data: any) {
+export async function adminEnsureUpdateUser(email: string, data: Prisma.UserUpdateInput) {
   return db.user.update({ where: { email }, data });
 }
-export async function adminEnsureCreateUser(data: any) {
+export async function adminEnsureCreateUser(data: Prisma.UserCreateInput) {
   return db.user.create({ data });
 }
 
@@ -135,11 +136,13 @@ export function adminGetBulkDb() { return getBulkDb(); }
 export { db as adminDb } from '@/shared/db/db';
 
 // ── admin/export-sheets ──
-export async function adminExportGroupByUsers(args: any) { return db.user.groupBy(args as any); }
-export async function adminExportCountUsers(args: any) { return db.user.count(args); }
+export async function adminExportGroupByUsers(args: Prisma.UserGroupByArgs) {
+  return db.user.groupBy(args as unknown as Parameters<typeof db.user.groupBy>[0]);
+}
+export async function adminExportCountUsers(args: Prisma.UserCountArgs) { return db.user.count(args); }
 
 // ── admin/export/students ──
-export async function adminExportFindStudents(where: any) {
+export async function adminExportFindStudents(where: Prisma.UserWhereInput) {
   return db.user.findMany({ where, orderBy: { classNumber: 'asc' }, select: { id: true, name: true, nameZh: true, nameEn: true, email: true, classNumber: true, level: true, xp: true, streakDays: true, overallAccuracy: true, class: { select: { name: true, gradeLevel: true } } } });
 }
 
@@ -149,7 +152,7 @@ export async function adminExportFindTeachers() {
 }
 
 // ── admin/export/stream/students ──
-export async function adminExportStreamStudents(where: any, skip: number, take: number) {
+export async function adminExportStreamStudents(where: Prisma.UserWhereInput, skip: number, take: number) {
   return db.user.findMany({ where, select: { id: true, name: true, nameZh: true, nameEn: true, email: true, classNumber: true, xp: true, streakDays: true, overallAccuracy: true, class: { select: { name: true } } }, orderBy: { classNumber: 'asc' }, skip, take });
 }
 
@@ -158,7 +161,7 @@ export async function adminFixGetUsersWithoutClass() {
   return db.user.findMany({ where: { role: 'student', OR: [{ classId: null }, { class: null }] }, select: { id: true, classNumber: true } });
 }
 export async function adminFixGetAllClasses() { return db.class.findMany(); }
-export async function adminFixCreateClass(data: any) { return db.class.create({ data }); }
+export async function adminFixCreateClass(data: Prisma.ClassCreateInput) { return db.class.create({ data }); }
 export async function adminFixUpdateUserClass(userId: string, classId: string) {
   return db.user.update({ where: { id: userId }, data: { classId } });
 }
@@ -166,11 +169,13 @@ export async function adminFixUpdateUserClass(userId: string, classId: string) {
 // ── admin/login-logs ──
 export async function adminLoginLogsFind(take: number) { return db.loginLog.findMany({ orderBy: { loginAt: 'desc' }, take }); }
 export async function adminLoginLogsCount() { return db.loginLog.count(); }
-export async function adminLoginLogsCreate(data: any) { return db.loginLog.create({ data }); }
+export async function adminLoginLogsCreate(data: Prisma.LoginLogCreateInput) { return db.loginLog.create({ data }); }
 
 // ── admin/stats ──
-export async function adminStatsGroupUsers(args: any) { return (db.user as any).groupBy(args); }
-export async function adminStatsCountUsers(where: any) { return db.user.count({ where }); }
+export async function adminStatsGroupUsers(args: Prisma.UserGroupByArgs) {
+  return db.user.groupBy(args as unknown as Parameters<typeof db.user.groupBy>[0]);
+}
+export async function adminStatsCountUsers(where: Prisma.UserWhereInput) { return db.user.count({ where }); }
 export async function adminStatsCountClasses() { return db.class.count(); }
 export async function adminStatsCountAssignments() { return db.assignment.count(); }
 export async function adminStatsCountSubmissions() { return db.submission.count(); }
@@ -206,7 +211,7 @@ export async function adminUserFindById(id: string) { return db.user.findUnique(
 export async function adminUserUpsertClass(name: string, gradeLevel: string) {
   return db.class.upsert({ where: { name }, update: {}, create: { name, gradeLevel } });
 }
-export async function adminUserUpdate(id: string, data: any) { return db.user.update({ where: { id }, data }); }
+export async function adminUserUpdate(id: string, data: Prisma.UserUpdateInput) { return db.user.update({ where: { id }, data }); }
 export async function adminUserDeleteCascade(userId: string) {
   await db.$transaction([
     db.submission.deleteMany({ where: { studentId: userId } }),
@@ -243,6 +248,10 @@ export async function adminImportTeachersFindUsers(emails: string[]) {
 }
 
 // ── Generic catch-all for admin routes (use as LAST RESORT only) ──
+// Deliberately untyped dynamic façade: the caller's Prisma args/result shape is only
+// known at the call site, and typing this as `unknown` breaks every admin route that
+// reads the result (measured 2026-10-10: 30 TS18046/TS2339 errors). The typed wrappers
+// above are the preferred path; this one is counted in the no-explicit-any budget.
 export async function adminDbQuery(model: string, method: string, args: any) {
   return (db as any)[model][method](args);
 }

@@ -253,7 +253,7 @@ describe('Experiment → Evaluation', () => {
     expect(history.length).toBeGreaterThan(0);
 
     const originalStatus = history[0].status;
-    history[0].status = 'MUTATED' as any;
+    history[0].status = 'MUTATED' as unknown as typeof history[0]['status'];
 
     // Retrieve again — should be unchanged
     const history2 = experimentRegistry.history('test-prompt');
@@ -278,7 +278,7 @@ describe('Experiment → Evaluation', () => {
 
     const retrieved = experimentRegistry.get(config.id)!;
     const originalStatus = retrieved.status;
-    retrieved.status = 'MUTATED' as any;
+    retrieved.status = 'MUTATED' as unknown as typeof retrieved['status'];
 
     const retrieved2 = experimentRegistry.get(config.id)!;
     expect(retrieved2.status).toBe(originalStatus);
@@ -558,9 +558,10 @@ describe('Monitor concurrency safety', () => {
   it('different prompts should evaluate concurrently', async () => {
     monitor.reset();
     let resolveReading!: (v: { text: string; provider: string; latencyMs: number }) => void;
-    let resolveWriting!: (v: { text: string; provider: string; latencyMs: number }) => void;
     const readingDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveReading = r; });
-    const writingDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(r => { resolveWriting = r; });
+    // A second, deliberately-never-resolved deferred (the concurrency assertion only
+    // needs the first call to be in flight).
+    const writingDeferred = new Promise<{ text: string; provider: string; latencyMs: number }>(() => {});
     let callIndex = 0;
 
     monitor.initialize({
@@ -892,9 +893,8 @@ describe('Error taxonomy', () => {
     const controller = new AbortController();
     controller.abort(); // Abort before starting
 
-    let providerCalled = false;
     monitor.initialize({
-      providerCall: async () => { providerCalled = true; return { text: '{}', provider: 'test', latencyMs: 1 }; },
+      providerCall: async () => ({ text: '{}', provider: 'test', latencyMs: 1 }),
       loadDataset: async () => [{ id: 'f1', messages: [{ role: 'user', content: 'test' }] }],
       datasetId: 'abort-test',
     });
@@ -1544,8 +1544,6 @@ describe('Durability — recovery', () => {
     const rec = createEvaluationRecord(evalId, 'reading', 'default', 1, 'manual');
     await store.create(rec);
 
-    const beforeCount = scoreHistory.count();
-
     // Run recovery
     monitor.initialize({
       providerCall: async () => ({ text: '{}', provider: 'test', latencyMs: 1 }),
@@ -1902,7 +1900,7 @@ describe('Recovery — crash simulation', () => {
     await store.update(evalId, { status: 'completed', result: record, finalizedAt: Date.now() });
 
     monitor.reset();
-    const r1 = await recoverPendingEvaluations(store, monitor.events);
+    await recoverPendingEvaluations(store, monitor.events);
     const r2 = await recoverPendingEvaluations(store, monitor.events);
     const r3 = await recoverPendingEvaluations(store, monitor.events);
 

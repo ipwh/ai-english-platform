@@ -437,7 +437,6 @@ export function getGraphStats(graph: KnowledgeGraph): {
   const leafNodes: string[] = [];
   let totalPrereqs = 0;
   let maxPrereqs = 0;
-  const nodeIds = new Set(graph.nodes.keys());
   const referencedAsPrereq = new Set<string>();
   const referencedAsSuccessor = new Set<string>();
 

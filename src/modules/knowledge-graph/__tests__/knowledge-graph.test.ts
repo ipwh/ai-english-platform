@@ -286,7 +286,6 @@ describe('WeaknessLookup', () => {
     // tenses-continuous prerequisite (tenses-simple) is mastered
     // It should be recommended if it appears in the top weak nodes
     // and its prerequisites are satisfied
-    const hasTensesContinuous = result.recommendedNodes.includes('tenses-continuous');
     // Verify that all recommended nodes have their prereqs met
     for (const recId of result.recommendedNodes) {
       const node = graph.nodes.get(recId);

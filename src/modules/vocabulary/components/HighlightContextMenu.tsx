@@ -7,18 +7,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { BookMarked, Sparkles } from 'lucide-react';
 
-const DEV_LOG = typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-interface HighlightContextMenuProps {
-  /** 學生 ID */
-  studentId: string;
-  /** 年級 */
-  gradeLevel: string;
-  /** 加入成功回呼 */
-  onWordAdded?: (word: string) => void;
-}
-
 interface Position {
   x: number;
   y: number;
@@ -102,7 +90,7 @@ return;
   }, [showMenuForSelection]);
 
   // touchend: backup for older iOS
-  const handleTouchEnd = useCallback((e: TouchEvent) => {
+  const handleTouchEnd = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;

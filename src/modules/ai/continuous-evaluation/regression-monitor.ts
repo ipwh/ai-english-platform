@@ -142,7 +142,6 @@ function checkAgainstRollingAverage(
   thresholds: AlertThresholds,
 ): RegressionCheck {
   const delta = current.overallScore - summary.meanOverall;
-  const deltaPct = summary.meanOverall !== 0 ? (delta / summary.meanOverall) * 100 : 0;
   const absDrop = Math.abs(Math.min(0, delta));
 
   const isRegression = delta < -thresholds.overallDropPct;

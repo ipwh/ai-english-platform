@@ -33,9 +33,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: authResult.error }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId') || authResult.userId;
-
   try {
     // For now, preferences are client-side managed via localStorage
     // This API provides the categories and acts as a future server-side sync point

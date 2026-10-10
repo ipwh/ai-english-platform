@@ -17,7 +17,6 @@ export default function TeacherReviewPage() {
   const { t, language } = useT();
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [selectedReview, setSelectedReview] = useState<ReviewItem | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/reviews')
@@ -26,8 +25,7 @@ export default function TeacherReviewPage() {
         setReviews(d.reviews || []);
         if (d.reviews?.length > 0) setSelectedReview(d.reviews[0]);
       })
-      .catch((e) => { logger.error({ module: 'teacher-review', error: e instanceof Error ? e.message : String(e) }, 'Failed to load reviews'); })
-      .finally(() => setLoading(false));
+      .catch((e) => { logger.error({ module: 'teacher-review', error: e instanceof Error ? e.message : String(e) }, 'Failed to load reviews'); });
   }, []);
   const [filter, setFilter] = useState<'all' | 'pending' | 'reviewed'>('all');
   const [teacherScore, setTeacherScore] = useState<number | undefined>(undefined);

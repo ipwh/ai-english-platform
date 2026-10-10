@@ -250,7 +250,6 @@ describe('CLO score computation', () => {
 
   it('applies length penalty correctly with Math.max (LLM cannot be more severe)', () => {
     // Deterministic length penalty
-    const ratio = 0.4; // 40% of target
     const deterministicPenalty = -15;
     // Platform policy: LLM penalty cannot be more severe than deterministic
     const llmPenalty1 = -5;  // LLM less severe → use -5

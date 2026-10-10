@@ -114,7 +114,6 @@ export function ingestExternalEvidence(
   const hasOverall = submission.overallScore !== undefined;
 
   // 3. Overall-scored submissions go through the canonical intake checker.
-  let checkerAccepted = false;
   if (hasOverall) {
     const check = checkHumanMarkerEvidenceIntake({
       evidenceId: submission.evidenceId,
@@ -133,7 +132,6 @@ export function ingestExternalEvidence(
       verificationRequired: true,
       notes: submission.notes,
     });
-    checkerAccepted = check.accepted;
     if (!check.accepted) {
       reasons.push(...check.reasons);
     }
