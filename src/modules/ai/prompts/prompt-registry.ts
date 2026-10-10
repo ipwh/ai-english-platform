@@ -67,6 +67,20 @@ export function listPrompts(): PromptDefinition[] {
 // Initial Registration — prompts used by executeAI()
 // ============================================
 
+// 0. Self-Directed Practice — builders in custom-practice/prompts.ts (2026-10-10)
+registerPrompt({
+  name: 'CustomPracticeGeneration',
+  version: 'v1',
+  description: 'Generate a self-directed practice set from a student-authored request (grammar / sentence pattern / vocabulary)',
+  feature: 'CustomPractice',
+});
+registerPrompt({
+  name: 'CustomPracticeGrading',
+  version: 'v1',
+  description: 'Rubric-aware marking of open-ended practice answers with per-item confidence',
+  feature: 'CustomPractice',
+});
+
 // 1. MaterialAnalysis — inline prompt in analyze-material.ts
 registerPrompt({
   name: 'MaterialAnalysis',

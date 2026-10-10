@@ -1,0 +1,86 @@
+// ============================================
+// Self-Directed Practice — AI usecases (2026-10-10, Sprint 140)
+// ============================================
+// The ONLY place that talks to the model for this feature. Both usecases go
+// through the canonical pipeline (`executeAI()` → callLLM → parse → Zod
+// validate); no second pipeline and no provider access are introduced.
+//
+// Failure semantics: provider errors, timeouts, budget exhaustion and
+// unparseable JSON all THROW (or surface as a schema error). Nothing here
+// invents a fallback verdict — the caller decides, and for grading the only
+// permitted fallback is "needs review", never "incorrect".
+// ============================================
+
+import { executeAI } from '../services/ai-execution';
+import {
+  CustomPracticeGenerationSchema,
+  CustomPracticeGradingSchema,
+  type CustomPracticeGeneratedQuestion,
+  type CustomPracticeGradingResponse,
+} from '../schemas/custom-practice-schema';
+import {
+  CUSTOM_PRACTICE_GENERATION_V1,
+  CUSTOM_PRACTICE_GRADING_V1,
+  buildCustomPracticeGenerationPrompt,
+  buildCustomPracticeGradingPrompt,
+  type CustomPracticeGenerationPromptInput,
+  type CustomPracticeGradingPromptItem,
+} from '../prompts/custom-practice/prompts';
+
+export interface CustomPracticeGenerationResult {
+  questions: CustomPracticeGeneratedQuestion[];
+  promptVersion: string;
+}
+
+export async function generateCustomPracticeWithAI(
+  input: CustomPracticeGenerationPromptInput
+): Promise<CustomPracticeGenerationResult> {
+  const { system, user } = buildCustomPracticeGenerationPrompt(input);
+
+  const response = await executeAI({
+    context: {
+      feature: 'CustomPractice',
+      useCase: 'GeneratePracticeSet',
+      promptName: 'CustomPracticeGeneration',
+    },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    // Slightly creative (varied items) but JSON-mode so the schema can be enforced.
+    options: { temperature: 0.4, maxTokens: 3200, jsonMode: true },
+    schema: CustomPracticeGenerationSchema,
+  });
+
+  return { questions: response.questions, promptVersion: CUSTOM_PRACTICE_GENERATION_V1 };
+}
+
+export interface CustomPracticeGradingResult {
+  results: CustomPracticeGradingResponse['results'];
+  promptVersion: string;
+}
+
+export async function gradeCustomPracticeWithAI(input: {
+  category: string;
+  difficulty: string;
+  items: readonly CustomPracticeGradingPromptItem[];
+}): Promise<CustomPracticeGradingResult> {
+  const { system, user } = buildCustomPracticeGradingPrompt(input);
+
+  const response = await executeAI({
+    context: {
+      feature: 'CustomPractice',
+      useCase: 'GradePracticeSubmission',
+      promptName: 'CustomPracticeGrading',
+    },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    // Low temperature: marking must be as reproducible as the model allows.
+    options: { temperature: 0.1, maxTokens: 2600, jsonMode: true },
+    schema: CustomPracticeGradingSchema,
+  });
+
+  return { results: response.results, promptVersion: CUSTOM_PRACTICE_GRADING_V1 };
+}

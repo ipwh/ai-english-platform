@@ -71,6 +71,8 @@ model User {
   // 2026-10-03: IELTS 子系統（與 HKDSE 資料完全隔離）
   ieltsAttempts IeltsAttempt[]
   ieltsAssessments IeltsAssessment[]
+  // 2026-10-10: self-directed practice sets (isolated from HKDSE evidence / XP).
+  customPracticeSets CustomPracticeSet[]
 
   // === RAG 關聯 ===
   uploadedMaterials Material[]
@@ -1140,6 +1142,109 @@ model IeltsGenerationQuota {
   updatedAt   DateTime @updatedAt
 
   @@unique([ownerUserId, dayKey, bucket])
+}
+
+// ============================================
+// Self-Directed Practice (2026-10-10, Sprint 140)
+// ============================================
+// 學生自行輸入學習需求 → 伺服器正規化為具型別的規格 → AI 出題 → 學生作答 →
+// 伺服器評分（客觀題決定性；開放式題 AI 結構化，低信心即標示待審）。
+//
+// **刻意與 HKDSE 證據／準確率／掌握度／錯題／XP 完全隔離**（與 IELTS 子系統同一理由）：
+// 題目為即時 AI 生成、未經人工驗證，**不得**推動任何 DSE 指標。
+//
+// 並發護欄（ADR-049）：提交的單一性由 **資料庫** 強制（`setId @unique`），
+// 不以「先查再寫」實作；重複提交撞 P2002 → 409。
+model CustomPracticeSet {
+  id             String   @id @default(cuid())
+  ownerUserId    String
+  owner          User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  /// 學生原話（未受信任內容，永不當作指令）。
+  requestText    String
+  /// 由請求推導出的正規化學習目標。
+  objective      String
+  category       String   // grammar | sentence_pattern | vocabulary
+  difficulty     String   // basic | intermediate | advanced
+  questionCount  Int
+  /// 請求含糊而由伺服器推斷時，向學生明示所採用的解讀。
+  interpretation String?
+  promptVersion  String
+  model          String?
+  createdAt      DateTime @default(now())
+
+  questions  CustomPracticeQuestion[]
+  submission CustomPracticeSubmission?
+
+  @@index([ownerUserId, createdAt])
+}
+
+model CustomPracticeQuestion {
+  id                String @id @default(cuid())
+  setId             String
+  set               CustomPracticeSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  orderIndex        Int
+  questionType      String // mc | fill_blank | error_correction | transformation | sentence_production
+  instructions      String
+  prompt            String
+  /// **僅伺服器端**：提交前永不外送（交付閘門在 attempt-service）。
+  answerKey         String
+  /// JSON 陣列：其他可接受的答案。
+  acceptedAnswers   String @default("[]")
+  /// JSON 陣列：{ answer, why } 已知錯誤答案（評分提示與迷思標籤來源）。
+  rejectedAnswers   String @default("[]")
+  /// JSON：{ marks, criteria[] } — 明示評分規準。
+  rubric            String
+  targetRule        String
+  explanationZh     String?
+  explanationEn     String
+  /// JSON 陣列：迷思概念標籤。
+  misconceptionTags String @default("[]")
+  maxMarks          Int    @default(1)
+
+  responses CustomPracticeResponse[]
+
+  @@unique([setId, orderIndex])
+}
+
+model CustomPracticeSubmission {
+  id                   String @id @default(cuid())
+  /// 資料庫強制：一個練習組最多只有一份提交（重複提交 → P2002 → 409）。
+  setId                String @unique
+  set                  CustomPracticeSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  ownerUserId          String
+  status               String @default("SUBMITTED") // SUBMITTED | GRADED
+  submittedAt          DateTime @default(now())
+  gradedAt             DateTime?
+  awardedMarks         Int?
+  totalMarks           Int?
+  /// 評分器**無法判定**的題數（永不因此斷言為答錯）。
+  needsReviewCount     Int   @default(0)
+  overallFeedback      String?
+  gradingModel         String?
+  gradingPromptVersion String?
+
+  responses CustomPracticeResponse[]
+
+  @@index([ownerUserId, submittedAt])
+}
+
+model CustomPracticeResponse {
+  id                   String @id @default(cuid())
+  submissionId         String
+  submission           CustomPracticeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId           String
+  question             CustomPracticeQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText           String
+  verdict              String // correct | partially_correct | incorrect | needs_review
+  awardedMarks         Int
+  rationale            String
+  referenceAnswer      String
+  acceptedAlternatives String @default("[]")
+  improvement          String?
+  needsReview          Boolean @default(false)
+  answeredAt           DateTime @default(now())
+
+  @@unique([submissionId, questionId])
 }
 
 model IeltsAssessment {

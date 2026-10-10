@@ -221,6 +221,31 @@ export type { IeltsMistakeExplanationResponse } from '@/modules/ai/schemas/ielts
 // Runtime budget policy — typed exhaustion error for 503 mapping in routes
 export { BudgetExceededError, isBudgetExceededError } from '@/modules/ai/runtime/budget-policy';
 
+// Self-Directed Practice (2026-10-10, Sprint 140) — student-authored practice requests.
+export { generateCustomPracticeWithAI, gradeCustomPracticeWithAI } from '@/modules/ai/usecases/custom-practice';
+export type {
+  CustomPracticeGenerationResult,
+  CustomPracticeGradingResult,
+} from '@/modules/ai/usecases/custom-practice';
+export {
+  CUSTOM_PRACTICE_CATEGORIES,
+  CUSTOM_PRACTICE_DIFFICULTIES,
+  CUSTOM_PRACTICE_QUESTION_TYPES,
+  CustomPracticeGenerationSchema,
+  CustomPracticeGradingSchema,
+} from '@/modules/ai/schemas/custom-practice-schema';
+export type {
+  CustomPracticeCategory,
+  CustomPracticeDifficulty,
+  CustomPracticeGeneratedQuestion,
+  CustomPracticeGradingResponse,
+  CustomPracticeQuestionType,
+} from '@/modules/ai/schemas/custom-practice-schema';
+export {
+  CUSTOM_PRACTICE_GENERATION_V1,
+  CUSTOM_PRACTICE_GRADING_V1,
+} from '@/modules/ai/prompts/custom-practice/prompts';
+
 // AI Evaluator (reading answer evaluation)
 export { evaluateWithAI, type AIEvaluationResult } from '@/modules/ai/services/ai-evaluator';
 
