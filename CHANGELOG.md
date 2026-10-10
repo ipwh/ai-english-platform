@@ -4,6 +4,89 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-10 (V) — Sprint 140–143：自訂練習（Custom Practice）＋ 評分評估基線（Sprint 143）
+
+（本 Sprint 系列未推送部署以外無任何雲端變更；**未**執行任何 Neon 憑證操作；**未**新增資料庫遷移。）
+
+### 一、自訂練習子系統（Sprint 140–142，於前三個 commit 落地，本次補記文件）
+學生在 `/student/custom-practice` 用自己的話描述想練什麼（文法／句型／詞彙），
+AI 生成練習 → 交付前驗證 → 伺服器評分 → 逐題回饋、參考答案與改進建議。
+
+**不變式（可稽核）**
+- **評分權威單一 owner**：`custom-practice/services/grading-service.ts` — 客觀題
+  （mc／fill_blank／error_correction／transformation）一律由 `gradeObjectiveItem()`
+  決定性評分（答案正規化＋`acceptedAnswers`＋詞序），**永不**呼叫 AI；開放式題才走
+  AI 評分，信心不足 ⇒ `needsReview`（`OPEN_ENDED_MIN_CONFIDENCE = 0.6`），**永不**硬判對錯，
+  AI 不可用時也不偽造判定。
+- **交付前答案不泄露**：`services/delivery-service.ts` 的 `toDeliveredSet()`／
+  `toDeliveredResults()` 是唯一 owner —— 作答前的回應**永不**含 `answerKey`／`rubric`／
+  `explanation`（Sprint 142 E2E 以真實 HTTP 回應驗證欄位不存在）。
+- **生成即驗證**：`services/verification-service.ts` 決定性缺陷篩檢 ＋ 獨立 blind-solve
+  覆核；不合格丟棄並**有界**重生（`MAX_REGENERATION_ROUNDS = 1`），不足時如實回報。
+- **重複提交由資料庫決定**：`CustomPracticeSubmission.setId` 唯一索引為權威，競爭敗者經
+  `isUniqueViolation()` 轉 **409 `ALREADY_SUBMITTED`**（非「先查再寫」）；評分（含 AI 呼叫）
+  在交易**之外**，交易只寫入已評分結果。
+- **歸屬授權**：讀取與提交一律以 `ownerUserId` 查詢；他人練習回 **404**（不是 403）。
+- **與 HKDSE／IELTS 證據完全隔離**：自訂練習不寫入 HKDSE 準確率／掌握度／錯題／XP，
+  亦不使用 IELTS 配額或 band 資料。
+
+### 二、Sprint 143：評分評估基線（本 Sprint 主體）
+- **版本化評估資料集**：`src/modules/custom-practice/evaluation/fixtures/grading-baseline-v1.json`
+  （`datasetVersion = custom-practice-grading-baseline-v1`；評分 prompt
+  `custom-practice-grading-v1`；驗證 prompt `custom-practice-verification-v1`）：
+  **27 筆 fixture**，每筆含穩定 id、類別／錯誤類別、題型、題目（答案鍵＋可接受答案＋rubric＋
+  目標規則）、學生作答、預期 verdict 與分數範圍、預期 needs_review、理由與出處。
+  **人類覆核 0 筆（27 筆全部 PROVISIONAL）** —— 檔案內明文宣告：不得把本檔的一致性數字
+  當作評分效度。
+- **決定性評估 runner**：`evaluation/grading-evaluation-runner.ts` 直接呼叫**生產**評分入口
+  `gradeCustomPracticeAnswers()`（與提交服務呼叫的是**同一函式**，非測試專用近似），
+  **永不**呼叫 provider、**永不**連外（原始碼掃描禁止 `executeAI`／`fetch(`／`@/modules/ai`）。
+  分母明列且分開：deterministic **19**（全部以生產路徑評分）／provider-dependent **8**
+  （只計數、不評分，排除於準確率分母）。
+  實測：agreement **19/19（100%）**、false accept **0**、false reject **0**、
+  分數範圍違反 **0**、needs_review **1/19**；依題型 mc 7/7、fill_blank 11/11、
+  transformation 1/1；依錯誤類別 13 類逐類列出。
+  **此為「契約一致性」證據，不是評分效度。**
+- **守門測試**：`__tests__/grading-baseline.test.ts`（11 項）——資料集結構／唯一 id／
+  必要覆蓋／版本一致、人類覆核覆蓋如實為 0、與 HKDSE／IELTS 資料隔離（禁字掃描）、
+  runner 確實走生產路徑且不得含 provider／網路呼叫（原始碼掃描）、以「一被呼叫就丟錯」的
+  provider mock 證明決定性路徑**零 AI 呼叫**、兩次執行逐欄相同（可重現）。
+- **瀏覽器覆蓋（實際執行，非推論）**：
+  - 桌面：`npx playwright test e2e/custom-practice.spec.ts --project=chromium-desktop --workers=1`
+    ⇒ **8/8 通過（exit 0，15.2s）**。
+  - 行動（Pixel 7）：`--project=chromium-mobile` ⇒ **8/8 通過（exit 0，15.2s）**。
+  - 新增「網路中斷／重試」情境（REAL-DB）：離線提交 ⇒ 顯示錯誤訊息且**無任何持久化**
+    （`GET /api/custom-practice/:id` 回 `results: null`）；恢復連線後重試 ⇒ 成功且僅一筆提交；
+    同答案再次送出 ⇒ 伺服器 **409** 拒絕；重新載入後由歷史還原已持久化的結果。
+- **測試 harness 修正**（Sprint 142 發現、143 收斂）：本套件每次執行**只做一次真實登入**
+  （`beforeAll` 取得 session cookie 後注入每個 context），因登入端點限流為 **5 次／分鐘／IP**，
+  且登入 UI 與其限流已由 `e2e/auth-security.spec.ts` 覆蓋；Playwright 需 `--workers=1`
+  （否則每個 worker 各跑一次 `beforeAll` ⇒ 多一次登入）。失敗時 HTML 報告伺服器會**保持
+  程序存活**，故以 `--reporter=list`／`PW_TEST_HTML_REPORT_OPEN=never` 執行。
+
+### 三、驗證（實際指令與退出碼）
+| 閘門 | 命令 | 結果 |
+| --- | --- | --- |
+| 型別 | `npx tsc --noEmit` | exit 0（0 errors） |
+| 全套件 | `npx vitest run`（`DATABASE_URL`／`TEST_DATABASE_URL`＝本機 PostgreSQL，`REQUIRE_DATABASE=1`） | exit 0，**226 檔／3951 測試通過、0 略過** |
+| Lint | `npx eslint . --max-warnings 246` | exit 0（0 errors／246 warnings，恰在棘輪上限） |
+| Lint 預算 | `node scripts/check-lint-budget.js` | exit 0 |
+| i18n | `node scripts/check-i18n.js` | exit 0 |
+| N+1 | `node scripts/check-n-plus-one.js` | exit 0 |
+| 建構 | `npm run build` | exit 0（167/167 靜態頁） |
+| 產物 | `npm run check:artifact` | exit 0（42 套件／79 bundle；Safari 15.4 語法閘通過） |
+| 遷移 | `npx prisma migrate status` | exit 0（26 遷移，schema up to date；本 Sprint 無遷移） |
+
+### 四、已知限制（不得誇大）
+- **人類覆核 0 筆**：資料集一致性 100% **不代表**評分正確、有效或可用於成績。
+- provider-dependent 8 筆在本次**未評分**（需 provider 憑證）；其評估屬另一次連線執行。
+- **CI 尚未接入 Playwright**：本次只提供可執行且已記錄前置條件的程序，**未**修改任何
+  workflow（不削弱既有 CI 契約）。
+- **共用每日原子配額仍為設計**：未實作；**未**改動 IELTS 配額子系統。
+- 教師覆核介面（自訂練習題目審核）尚不存在：目前僅學生端自用，**未**進入任何題庫。
+
+---
+
 ## 2026-10-10 (IV) — Sprint 139：間歇性測試根因與依賴治理複核
 
 （本 Sprint 未推送、未部署、未變更雲端資源；亦**未**執行任何 Neon 憑證操作。）

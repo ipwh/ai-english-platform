@@ -22,6 +22,8 @@ const RUN = randomUUID().slice(0, 8);
 
 const STUDENT = { email: `e2e-cp-${RUN}@test.local`, password: 'test-password-1' };
 const OTHER_STUDENT = { email: `e2e-cp-other-${RUN}@test.local`, password: 'test-password-1' };
+// (STUDENT/OTHER_STUDENT passwords still matter: `captureSessionCookie` performs the
+// single real login against `POST /api/auth/login`.)
 
 let db: Client;
 let studentId = '';
@@ -29,6 +31,7 @@ let otherStudentId = '';
 let setId = '';
 let unsubmittedSetId = '';
 let unsubmittedQuestionId = '';
+let unsubmittedQuestionIds: string[] = [];
 let foreignSetId = '';
 let questionIds: string[] = [];
 let foreignQuestionId = '';
@@ -131,17 +134,18 @@ async function createSet(ownerId: string, label: string): Promise<{ setId: strin
   return { setId: id, questionIds: ids };
 }
 
-async function login(page: import('@playwright/test').Page, email: string, password: string) {
-  await page.goto('/login');
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"], button:has-text("登入"), button:has-text("Sign in")');
-  await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 30_000 });
-}
-
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
-/** Session cookie captured ONCE — the app rate limits its login endpoint per IP. */
+/**
+ * Session cookie captured ONCE per run — the app rate limits its login endpoint per IP
+ * (5 attempts / minute), and the login UI plus that limit are covered by
+ * `e2e/auth-security.spec.ts`. This suite therefore performs exactly ONE real login
+ * and injects the resulting session into every context, so it can never trip the
+ * limiter it is not testing.
+ *
+ * Run it with `--workers=1`: the fixtures below are shared module state, and a second
+ * worker would run `beforeAll` again (a second login) for no added coverage.
+ */
 let sessionCookie: string | null = null;
 
 async function captureSessionCookie(request: import('@playwright/test').APIRequestContext) {
@@ -217,6 +221,7 @@ test.beforeAll(async ({ playwright }) => {
   const unsubmitted = await createSet(studentId, 'unsubmitted past perfect');
   unsubmittedSetId = unsubmitted.setId;
   unsubmittedQuestionId = unsubmitted.questionIds[0];
+  unsubmittedQuestionIds = unsubmitted.questionIds;
 
   const foreign = await createSet(otherStudentId, 'foreign past perfect');
   foreignSetId = foreign.setId;
@@ -238,7 +243,7 @@ test('unauthenticated access redirects to the login page', async ({ page }) => {
 test.describe('authenticated student flow', () => {
   test('MOCKED-PROVIDER happy path: generate → answer → submit → results → history → reload', async ({ page, context }) => {
     await mockGenerationSuccess(context);
-    await login(page, STUDENT.email, STUDENT.password);
+    await authenticate(context);
 
     // 1–4: enter a request, generate and display the validated exercise.
     await page.goto('/student/custom-practice');
@@ -341,6 +346,95 @@ test.describe('authenticated student flow', () => {
     });
     await page.getByRole('button', { name: /開始出題|Generate practice/ }).click();
     await expect(page.getByText(/操作太頻繁|Too many requests/)).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('REAL-DB: a network interruption blocks the submit, then the retry succeeds exactly once', async ({ page, context }) => {
+    await authenticate(context);
+
+    // Mocked generation, but submission goes to the real API/DB.
+    await context.route('**/api/custom-practice', async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          set: {
+            id: unsubmittedSetId,
+            objective: '[grammar] unsubmitted past perfect',
+            category: 'grammar',
+            difficulty: 'intermediate',
+            interpretation: null,
+            createdAt: new Date().toISOString(),
+            questionCount: unsubmittedQuestionIds.length,
+            submitted: false,
+            questions: [
+              {
+                id: unsubmittedQuestionIds[0],
+                orderIndex: 0,
+                questionType: 'mc',
+                instructions: 'Choose the correct option.',
+                prompt: 'By the time we arrived, the film ___.  A) started  B) had started  C) starts  D) starting',
+                targetRule: 'past perfect',
+                maxMarks: 1,
+              },
+              {
+                id: unsubmittedQuestionIds[1],
+                orderIndex: 1,
+                questionType: 'fill_blank',
+                instructions: 'Complete with the correct form of the verb.',
+                prompt: 'She ___ (finish) the report before the meeting started.',
+                targetRule: 'past perfect form',
+                maxMarks: 1,
+              },
+            ],
+          },
+          meta: { requestedCount: 2, deliveredCount: unsubmittedQuestionIds.length, shortfall: 0, droppedCount: 0, rejectedByVerification: 0, regenerationRounds: 1, interpretation: null, promptVersion: 'v1', verificationPromptVersion: 'v1' },
+        }),
+      });
+    });
+
+    await page.goto('/student/custom-practice');
+    await page.fill('#cp-request', 'past perfect tense');
+    await page.getByRole('button', { name: /開始出題|Generate practice/ }).click();
+    await expect(page.getByText(/By the time we arrived/)).toBeVisible({ timeout: 30_000 });
+
+    await page.fill(`#answer-${unsubmittedQuestionIds[0]}`, 'B');
+
+    // --- network drop: the submit must fail visibly and persist NOTHING ---
+    await context.setOffline(true);
+    await page.getByRole('button', { name: /提交並批改|Submit for marking/ }).click();
+    await expect(page.getByText(/發生錯誤|Something went wrong/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/得分|Score:/)).toHaveCount(0);
+
+    await context.setOffline(false);
+
+    // The failed attempt left no trace: no submission, no results, nothing to dispute.
+    const afterFailure = await context.request.get(`/api/custom-practice/${unsubmittedSetId}`);
+    expect(((await afterFailure.json()) as { results: unknown }).results).toBeNull();
+
+    // --- retry online: the submission succeeds exactly once ---
+    await page.getByRole('button', { name: /提交並批改|Submit for marking/ }).click();
+    await expect(page.getByText(/得分|Score:/)).toBeVisible({ timeout: 30_000 });
+
+    const afterRetry = await context.request.get(`/api/custom-practice/${unsubmittedSetId}`);
+    const retried = (await afterRetry.json()) as { results: { awardedMarks: number } | null };
+    expect(retried.results).not.toBeNull();
+
+    // The server (unique index on the set), not the UI, is the authority on duplicates:
+    // the same answers sent again are refused with 409.
+    const duplicate = await context.request.post(`/api/custom-practice/${unsubmittedSetId}/submit`, {
+      data: { answers: { [unsubmittedQuestionIds[0]]: 'B' } },
+    });
+    expect(duplicate.status()).toBe(409);
+
+    // --- reload after the interruption reflects the PERSISTED state ---
+    await page.reload();
+    await page.getByRole('button', { name: /更新記錄|Refresh/ }).click();
+    await page
+      .locator('li', { hasText: 'unsubmitted past perfect' })
+      .getByRole('button', { name: /查看|View/ })
+      .click();
+    await expect(page.getByText(/得分|Score:/)).toBeVisible({ timeout: 30_000 });
   });
 
   test('MOCKED-PROVIDER: insufficient verified questions surfaces the quality message', async ({ page, context }) => {

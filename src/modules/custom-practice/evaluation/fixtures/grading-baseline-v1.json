@@ -1,0 +1,568 @@
+{
+  "datasetVersion": "custom-practice-grading-baseline-v1",
+  "createdAt": "2026-10-10",
+  "language": "en",
+  "gradingPromptVersion": "custom-practice-grading-v1",
+  "verificationPromptVersion": "custom-practice-verification-v1",
+  "reviewStatusSummary": {
+    "reviewed": 0,
+    "unreviewed": 27,
+    "reviewedBy": null,
+    "reviewedAt": null,
+    "note": "NO FIXTURE HAS BEEN REVIEWED BY A QUALIFIED HUMAN. Every case below is PROVISIONAL: the expected values are the assistant's reading of the stated grading contract, not teacher ground truth. Do not report agreement figures from this file as grading validity."
+  },
+  "caseSchema": {
+    "id": "stable case id",
+    "category": "grammar | sentence_pattern | vocabulary",
+    "errorCategory": "classification used for per-category metrics",
+    "questionType": "mc | fill_blank | error_correction | transformation | sentence_production",
+    "question": "the item as generated (instructions, prompt, answerKey, acceptedAnswers, rubric, targetRule, maxMarks)",
+    "studentResponse": "exactly what the student submitted",
+    "expected": { "verdict": "correct | partially_correct | incorrect | needs_review", "scoreRange": "[min,max] inclusive marks", "needsReview": "boolean" },
+    "deterministic": "true when the production grading path decides this case WITHOUT an AI call (the only cases CI may score)",
+    "provenance": "who authored the expectation and when",
+    "rationale": "why the expectation is what it is"
+  },
+  "cases": [
+    {
+      "id": "tense-001-present-simple-mc-correct",
+      "category": "grammar",
+      "errorCategory": "tense-selection",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the correct option.",
+        "prompt": "She ___ to school every day. A) go B) goes C) going D) gone",
+        "answerKey": "B",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["present simple third person -s"] },
+        "targetRule": "present simple: third person singular takes -s",
+        "maxMarks": 1
+      },
+      "studentResponse": "B",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "The key is B and the student chose B; the deterministic scorer must award the mark."
+    },
+    {
+      "id": "tense-002-present-simple-mc-wrong",
+      "category": "grammar",
+      "errorCategory": "tense-selection",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the correct option.",
+        "prompt": "She ___ to school every day. A) go B) goes C) going D) gone",
+        "answerKey": "B",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["present simple third person -s"] },
+        "targetRule": "present simple: third person singular takes -s",
+        "maxMarks": 1
+      },
+      "studentResponse": "A",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Subject-verb agreement error: 'she go' is ungrammatical."
+    },
+    {
+      "id": "tense-003-case-and-space-insensitive",
+      "category": "grammar",
+      "errorCategory": "formatting-variance",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete the sentence.",
+        "prompt": "He ___ (write) three letters yesterday.",
+        "answerKey": "wrote",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["past simple irregular form"] },
+        "targetRule": "past simple: irregular verb write → wrote",
+        "maxMarks": 1
+      },
+      "studentResponse": "  WROTE.  ",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Case, surrounding spaces and trailing punctuation are normalized before comparison."
+    },
+    {
+      "id": "past-perfect-001-mc-correct",
+      "category": "grammar",
+      "errorCategory": "past-perfect-sequencing",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the correct option.",
+        "prompt": "By the time we arrived, the film ___. A) started B) had started C) starts D) starting",
+        "answerKey": "B",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["past perfect for the earlier of two past actions"] },
+        "targetRule": "past perfect for the earlier past action",
+        "maxMarks": 1
+      },
+      "studentResponse": "B",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Correct sequencing choice."
+    },
+    {
+      "id": "past-perfect-002-accepted-alternative",
+      "category": "grammar",
+      "errorCategory": "equivalent-wording",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete with the correct form of the verb.",
+        "prompt": "She ___ (finish) the report before the meeting started.",
+        "answerKey": "had finished",
+        "acceptedAnswers": ["had already finished", "had finished already"],
+        "rubric": { "marks": 2, "criteria": ["past perfect form", "adverb placement does not change meaning"] },
+        "targetRule": "past perfect form",
+        "maxMarks": 2
+      },
+      "studentResponse": "had already finished",
+      "expected": { "verdict": "correct", "scoreRange": [2, 2], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Listed accepted alternative: the adjunct does not change the target form."
+    },
+    {
+      "id": "past-perfect-003-simple-past-misuse",
+      "category": "grammar",
+      "errorCategory": "past-perfect-sequencing",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete with the correct form of the verb.",
+        "prompt": "She ___ (finish) the report before the meeting started.",
+        "answerKey": "had finished",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 2, "criteria": ["past perfect form"] },
+        "targetRule": "past perfect form",
+        "maxMarks": 2
+      },
+      "studentResponse": "finished",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Common learner error: past simple used for the earlier of two past actions."
+    },
+    {
+      "id": "past-perfect-004-contextually-unsuitable-but-listed",
+      "category": "grammar",
+      "errorCategory": "contextual-unsuitability",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete the sentence about a sequence of past events.",
+        "prompt": "By 2019, the company ___ (open) five branches in Asia.",
+        "answerKey": "had opened",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 2, "criteria": ["past perfect for a state completed before a past reference time", "plural object agreement"] },
+        "targetRule": "past perfect for completion before a past reference point",
+        "maxMarks": 2
+      },
+      "studentResponse": "opened",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Grammatical in isolation but wrong for the reference-time relation the rubric demands. NOTE: the deterministic path cannot reason about context — it decides only because this response is not the key or a listed alternative, which is precisely why the objective path must not be used to judge free-form context."
+    },
+    {
+      "id": "conditional-001-zero-conditional-mc",
+      "category": "sentence_pattern",
+      "errorCategory": "conditional-pattern",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the correct option.",
+        "prompt": "If you heat ice, it ___. A) melts B) melted C) will melt D) would melt",
+        "answerKey": "A",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["zero conditional: present + present for general truths"] },
+        "targetRule": "zero conditional (if + present simple, present simple)",
+        "maxMarks": 1
+      },
+      "studentResponse": "A",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "General truth → zero conditional."
+    },
+    {
+      "id": "conditional-002-zero-conditional-wrong-form",
+      "category": "sentence_pattern",
+      "errorCategory": "conditional-pattern",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the correct option.",
+        "prompt": "If you heat ice, it ___. A) melts B) melted C) will melt D) would melt",
+        "answerKey": "A",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["zero conditional: present + present for general truths"] },
+        "targetRule": "zero conditional (if + present simple, present simple)",
+        "maxMarks": 1
+      },
+      "studentResponse": "C",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "First-conditional form used for a general truth."
+    },
+    {
+      "id": "conditional-003-target-rule-compliance-mc",
+      "category": "sentence_pattern",
+      "errorCategory": "target-rule-compliance",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the sentence that follows the zero conditional pattern.",
+        "prompt": "A) If it rains, we would stay home. B) If it rains, we stay home. C) If it rained, we stayed home. D) If it will rain, we stay home.",
+        "answerKey": "B",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["present simple in both clauses"] },
+        "targetRule": "zero conditional (if + present simple, present simple)",
+        "maxMarks": 1
+      },
+      "studentResponse": "B",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Only B uses present simple in both clauses."
+    },
+    {
+      "id": "too-enough-001-word-order-mc",
+      "category": "vocabulary",
+      "errorCategory": "word-order",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the correct option.",
+        "prompt": "The coffee is ___ hot to drink. A) enough B) too C) too much D) much too",
+        "answerKey": "B",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["too + adjective before an infinitive of result"] },
+        "targetRule": "too + adjective (+ to-infinitive)",
+        "maxMarks": 1
+      },
+      "studentResponse": "B",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "'too hot to drink' is the standard construction."
+    },
+    {
+      "id": "too-enough-002-enough-plural-count",
+      "category": "vocabulary",
+      "errorCategory": "word-order",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete with enough or too.",
+        "prompt": "There are ___ chairs for everyone, so nobody has to stand. (enough / too)",
+        "answerKey": "enough",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["enough before a plural noun expresses sufficiency"] },
+        "targetRule": "enough + noun (sufficiency)",
+        "maxMarks": 1
+      },
+      "studentResponse": "enough",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "'chairs enough' would be ungrammatical; enough precedes the noun here."
+    },
+    {
+      "id": "too-enough-003-common-error",
+      "category": "vocabulary",
+      "errorCategory": "common-learner-error",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete with enough or too.",
+        "prompt": "There are ___ chairs for everyone, so nobody has to stand. (enough / too)",
+        "answerKey": "enough",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["enough before a plural noun expresses sufficiency"] },
+        "targetRule": "enough + noun (sufficiency)",
+        "maxMarks": 1
+      },
+      "studentResponse": "too",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "'too chairs' is ungrammatical and contradicts the clause that follows."
+    },
+    {
+      "id": "vocab-001-promoted-adjective",
+      "category": "vocabulary",
+      "errorCategory": "collocation",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Choose the word that collocates.",
+        "prompt": "She made a ___ effort to finish on time. (strong / powerful)",
+        "answerKey": "strong",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["conventional collocation with 'effort'"] },
+        "targetRule": "collocation: strong effort",
+        "maxMarks": 1
+      },
+      "studentResponse": "powerful",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Grammatically possible in form but not the conventional collocation the item tests."
+    },
+    {
+      "id": "vocab-002-alternative-not-listed",
+      "category": "vocabulary",
+      "errorCategory": "equivalent-wording",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Choose the word that collocates.",
+        "prompt": "She made a ___ effort to finish on time. (strong / powerful)",
+        "answerKey": "strong",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["conventional collocation with 'effort'"] },
+        "targetRule": "collocation: strong effort",
+        "maxMarks": 1
+      },
+      "studentResponse": "strong ",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Whitespace variance only."
+    },
+    {
+      "id": "requirement-001-all-blank-objective",
+      "category": "grammar",
+      "errorCategory": "incomplete-response",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete the sentence.",
+        "prompt": "He ___ (write) three letters yesterday.",
+        "answerKey": "wrote",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["past simple irregular form"] },
+        "targetRule": "past simple: write → wrote",
+        "maxMarks": 1
+      },
+      "studentResponse": "",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "An unanswered objective item scores zero and is reported as unanswered — not as a language error."
+    },
+    {
+      "id": "requirement-002-all-blank-open-ended",
+      "category": "grammar",
+      "errorCategory": "incomplete-response",
+      "questionType": "transformation",
+      "question": {
+        "instructions": "Rewrite using the past perfect.",
+        "prompt": "She finished the report. Then the meeting started.",
+        "answerKey": "She had finished the report before the meeting started.",
+        "acceptedAnswers": ["She had finished the report before the meeting began."],
+        "rubric": { "marks": 2, "criteria": ["past perfect for the earlier action", "both events expressed"] },
+        "targetRule": "past perfect sequencing",
+        "maxMarks": 2
+      },
+      "studentResponse": "",
+      "expected": { "verdict": "needs_review", "scoreRange": [0, 0], "needsReview": true },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Blank open-ended answers are explicitly NOT marked (no AI call, no 'incorrect') — deterministic behaviour worth locking down."
+    },
+    {
+      "id": "requirement-003-max-marks-bound",
+      "category": "grammar",
+      "errorCategory": "score-bounds",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete the sentence.",
+        "prompt": "He ___ (write) three letters yesterday.",
+        "answerKey": "wrote",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["past simple irregular form"] },
+        "targetRule": "past simple: write → wrote",
+        "maxMarks": 1
+      },
+      "studentResponse": "wrote",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Awarded marks must never exceed maxMarks."
+    },
+    {
+      "id": "ambiguous-001-underspecified-mc",
+      "category": "grammar",
+      "errorCategory": "ambiguous-question",
+      "questionType": "mc",
+      "question": {
+        "instructions": "Choose the best option.",
+        "prompt": "Choose the best sentence. A) He had finished. B) He finished. C) He has finished. D) He finishes.",
+        "answerKey": "A",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 1, "criteria": ["no explicit criterion stated"] },
+        "targetRule": "past perfect",
+        "maxMarks": 1
+      },
+      "studentResponse": "B",
+      "expected": { "verdict": "needs_review", "scoreRange": [0, 0], "needsReview": true },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "The instructions do not state a criterion, so no option is defensibly 'best'. PROVISIONAL: this case documents the ambiguity the blind verifier is expected to catch at generation time; it is not scored by the deterministic run."
+    },
+    {
+      "id": "ambiguous-002-no-context-fill-blank",
+      "category": "grammar",
+      "errorCategory": "ambiguous-question",
+      "questionType": "fill_blank",
+      "question": {
+        "instructions": "Complete the sentence.",
+        "prompt": "He ___ (finish) the report.",
+        "answerKey": "finished",
+        "acceptedAnswers": ["has finished", "had finished"],
+        "rubric": { "marks": 1, "criteria": ["any grammatical tense"] },
+        "targetRule": "tense choice without a time reference",
+        "maxMarks": 1
+      },
+      "studentResponse": "has finished",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": true,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "Without a time reference several tenses are grammatical, so the generated item must list them as accepted alternatives; this case proves the contract is honoured when the author lists them."
+    },
+    {
+      "id": "unsuitable-001-open-ended-context",
+      "category": "sentence_pattern",
+      "errorCategory": "contextual-unsuitability",
+      "questionType": "sentence_production",
+      "question": {
+        "instructions": "Write one sentence using the zero conditional about a general truth.",
+        "prompt": "Write about the effect of heat on ice.",
+        "answerKey": "If you heat ice, it melts.",
+        "acceptedAnswers": ["If ice is heated, it melts."],
+        "rubric": { "marks": 2, "criteria": ["zero conditional form", "general truth expressed", "topically relevant to the prompt"] },
+        "targetRule": "zero conditional (general truth)",
+        "maxMarks": 2
+      },
+      "studentResponse": "If I heat ice yesterday, it will melted.",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL AI-graded case: wrong conditional form plus tense and morphology errors. Requires the provider and a human reviewer before its expectation can be treated as evidence."
+    },
+    {
+      "id": "unsuitable-002-grammatical-but-off-topic",
+      "category": "sentence_pattern",
+      "errorCategory": "contextual-unsuitability",
+      "questionType": "sentence_production",
+      "question": {
+        "instructions": "Write one sentence using the zero conditional about a general truth.",
+        "prompt": "Write about the effect of heat on ice.",
+        "answerKey": "If you heat ice, it melts.",
+        "acceptedAnswers": ["If ice is heated, it melts."],
+        "rubric": { "marks": 2, "criteria": ["zero conditional form", "general truth expressed", "topically relevant to the prompt"] },
+        "targetRule": "zero conditional (general truth)",
+        "maxMarks": 2
+      },
+      "studentResponse": "If you study hard, you pass exams.",
+      "expected": { "verdict": "partially_correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL: form and general-truth semantics are correct but the sentence is off-topic, so the rubric's relevance criterion should cost a mark. The exact mark is a human judgement call."
+    },
+    {
+      "id": "alternative-001-open-ended-equivalent",
+      "category": "grammar",
+      "errorCategory": "equivalent-wording",
+      "questionType": "transformation",
+      "question": {
+        "instructions": "Rewrite using the past perfect.",
+        "prompt": "She finished the report. Then the meeting started.",
+        "answerKey": "She had finished the report before the meeting started.",
+        "acceptedAnswers": ["She had finished the report before the meeting began.", "Before the meeting started, she had finished the report."],
+        "rubric": { "marks": 2, "criteria": ["past perfect for the earlier action", "both events expressed", "meaning preserved"] },
+        "targetRule": "past perfect sequencing",
+        "maxMarks": 2
+      },
+      "studentResponse": "Before the meeting began, she had finished the report.",
+      "expected": { "verdict": "correct", "scoreRange": [2, 2], "needsReview": false },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL: reordered clause with a synonym ('began') — the rubric explicitly accepts equivalent wording. Guards against exact-string grading."
+    },
+    {
+      "id": "error-correction-001-common-mistake",
+      "category": "grammar",
+      "errorCategory": "common-learner-error",
+      "questionType": "error_correction",
+      "question": {
+        "instructions": "Correct the mistake.",
+        "prompt": "He has went to the library.",
+        "answerKey": "He has gone to the library.",
+        "acceptedAnswers": ["He has gone to the library"],
+        "rubric": { "marks": 1, "criteria": ["past participle of go"] },
+        "targetRule": "present perfect: go → gone",
+        "maxMarks": 1
+      },
+      "studentResponse": "He has gone to the library.",
+      "expected": { "verdict": "correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL: the corrected form matches the key; needs the AI path because error correction is open-ended."
+    },
+    {
+      "id": "incomplete-001-partial-transformation",
+      "category": "grammar",
+      "errorCategory": "incomplete-response",
+      "questionType": "transformation",
+      "question": {
+        "instructions": "Rewrite using the past perfect.",
+        "prompt": "She finished the report. Then the meeting started.",
+        "answerKey": "She had finished the report before the meeting started.",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 2, "criteria": ["past perfect for the earlier action", "both events expressed"] },
+        "targetRule": "past perfect sequencing",
+        "maxMarks": 2
+      },
+      "studentResponse": "She had finished the report.",
+      "expected": { "verdict": "partially_correct", "scoreRange": [1, 1], "needsReview": false },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL: the target structure is present but the second event is missing, so one of the two rubric criteria is unmet."
+    },
+    {
+      "id": "needs-review-001-open-ended-unsure",
+      "category": "vocabulary",
+      "errorCategory": "ambiguity-requires-review",
+      "questionType": "sentence_production",
+      "question": {
+        "instructions": "Use 'too' in one sentence to describe an excess.",
+        "prompt": "Write one sentence with too about the soup.",
+        "answerKey": "The soup is too salty to eat.",
+        "acceptedAnswers": ["The soup was too salty to eat."],
+        "rubric": { "marks": 1, "criteria": ["too + adjective expressing excess"] },
+        "targetRule": "too + adjective",
+        "maxMarks": 1
+      },
+      "studentResponse": "The soup is very salty.",
+      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL: the target structure is absent (very ≠ too), so the mark is clear even though the sentence is grammatical."
+    },
+    {
+      "id": "needs-review-002-provider-unavailable",
+      "category": "grammar",
+      "errorCategory": "system-failure-behaviour",
+      "questionType": "transformation",
+      "question": {
+        "instructions": "Rewrite using the past perfect.",
+        "prompt": "She finished the report. Then the meeting started.",
+        "answerKey": "She had finished the report before the meeting started.",
+        "acceptedAnswers": [],
+        "rubric": { "marks": 2, "criteria": ["past perfect for the earlier action"] },
+        "targetRule": "past perfect sequencing",
+        "maxMarks": 2
+      },
+      "studentResponse": "She had finished the report before the meeting started.",
+      "expected": { "verdict": "needs_review", "scoreRange": [0, 0], "needsReview": true },
+      "deterministic": false,
+      "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
+      "rationale": "PROVISIONAL: when the marker is unavailable the correct answer must still NOT be marked wrong. This case is asserted deterministically by the grading-service unit tests with a failing provider; it is listed here for completeness of the baseline."
+    }
+  ]
+}

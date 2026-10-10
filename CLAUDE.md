@@ -6,10 +6,10 @@ See AGENTS.md for shared agent instructions.
 - **Stack**: Next.js 16, TypeScript 5 strict, Prisma 7, PostgreSQL (Neon), Tailwind 4
 - **Auth**: JWT (jose) + NextAuth v5 dual auth
 - **AI**: DeepSeek (primary) → Grok (fallback); Gemini Flash / Flash-Lite entries remain in the chain but their API key was retired 2026-08-20; Claude/OpenAI placeholders. **DeepSeek V4.1 thinking mode is opt-in** — the provider sends `thinking: {type:'disabled'}` unless the caller passes `thinking: true` (the API default ignores `temperature` and spends `max_tokens` on `reasoning_content`; see CHANGELOG 2026-09-15)
-- **Testing**: Vitest 4, **3856 pass / 0 skipped / 218 files** against a real PostgreSQL (`REQUIRE_DATABASE=1`, measured 2026-10-10 Sprint 136); without a database the 18 DB-gated cases skip (⇒ 3830 / 18). With the local `materials/` corpus present (214 files passed, 3 skipped — fully green; incl. the `useT()` stability guard and the TTS speaker-label guard; practice-session-questions contract (場次題目去重／下一題索引，2026-10-07); generate-questions-prompt contract (MC 唯一可辯護答案，2026-10-08); IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, question-type/answer-key mapping contracts (提示詞詞彙 ↔ 正典名稱／選項代碼，2026-10-08), generation prompt contracts + per-section top-up contracts (聽力逐字稿選項規則、補題不得改寫文本／不得丟棄已接受題目，2026-10-08 III), listening transcript release gate + transcript-reveal contract (提交前不得釋出逐字稿、承諾必須有實作，2026-10-08 V), instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates; help-page AI-practice delivery contract + IELTS student-flow contract (variant-first + remembered variant) + teacher dashboard/students-list contracts (2026-10-07); prisma-errors contract ＋ IELTS concurrency invariants (DB-gated, 2026-10-08) ＋ architecture rules that now run on every platform (ADR-050)). The 3 skipped files are gated (11 of the 13 skipped tests belong to the IELTS concurrency suite): **two** need `TEST_DATABASE_URL` (`ielts-concurrency.integration.test.ts`, `submission-concurrency.integration.test.ts` — `ci.yml` sets it), one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`). **42 further cases skip when `materials/` is absent** (the corpus is local-only and excluded from the deploy image): they are gated per case by `src/modules/ai/calibration/__tests__/corpus-availability.ts`, so CI runs the synthetic contracts and reports the corpus cases as skipped instead of failing (ADR-050)
+- **Testing**: Vitest 4, **3951 pass / 0 skipped / 226 files** against a real PostgreSQL (`REQUIRE_DATABASE=1`, measured 2026-10-10 Sprint 143); the Sprint 136 baseline was 3856 / 218 (before Custom Practice); without a database the 18 DB-gated cases skip (⇒ 3830 / 18). With the local `materials/` corpus present (214 files passed, 3 skipped — fully green; incl. the `useT()` stability guard and the TTS speaker-label guard; practice-session-questions contract (場次題目去重／下一題索引，2026-10-07); generate-questions-prompt contract (MC 唯一可辯護答案，2026-10-08); IELTS module suite incl. audit-invariants source scans (isolation both directions, prohibited provenance labels, prompt/rubric versioning, scoring determinism, cache + anti-injection scans), answer-leak/contraction guards, strict four-component overall band, question-type/answer-key mapping contracts (提示詞詞彙 ↔ 正典名稱／選項代碼，2026-10-08), generation prompt contracts + per-section top-up contracts (聽力逐字稿選項規則、補題不得改寫文本／不得丟棄已接受題目，2026-10-08 III), listening transcript release gate + transcript-reveal contract (提交前不得釋出逐字稿、承諾必須有實作，2026-10-08 V), instant self-study gates (owner-only delivery, daily cap, never-listed), mistake-explanation advisory gates, starter-content provisioning gates, generation gates (machine screen + blind-solve + QA_REQUIRED ceiling), speaking-prep no-score contract, compliance-audit gates; help-page AI-practice delivery contract + IELTS student-flow contract (variant-first + remembered variant) + teacher dashboard/students-list contracts (2026-10-07); prisma-errors contract ＋ IELTS concurrency invariants (DB-gated, 2026-10-08) ＋ architecture rules that now run on every platform (ADR-050)). The 3 skipped files are gated (11 of the 13 skipped tests belong to the IELTS concurrency suite): **two** need `TEST_DATABASE_URL` (`ielts-concurrency.integration.test.ts`, `submission-concurrency.integration.test.ts` — `ci.yml` sets it), one is the DB-gated evidence-SQL suite (runs in CI via `DATABASE_URL`, or with `EVIDENCE_SQL_TEST=1`). **42 further cases skip when `materials/` is absent** (the corpus is local-only and excluded from the deploy image): they are gated per case by `src/modules/ai/calibration/__tests__/corpus-availability.ts`, so CI runs the synthetic contracts and reports the corpus cases as skipped instead of failing (ADR-050)
 - **Build**: `node scripts/production-build.js` (exit 0) — 正式建構（`npm run build:prod`）；Vercel 已於 2026-09-15 移除，唯一部署目標為 Cloud Run。**push 自動部署已內含遷移**（2026-10-04 VI）：GitHub→Cloud Build trigger 已改為使用 repo 的 `cloudbuild.yaml`（`filename=cloudbuild.yaml`；2026-10-04 前為內嵌設定、**不套用遷移**）：流程＝`npm ci && npx prisma migrate deploy`（Step `Migrate`，連線取自 Secret Manager `DIRECT_DATABASE_URL`）→ docker build `--no-cache -f Dockerfile` → push → `gcloud run deploy`（帶 timeout 900s／併發 50／記憶體 1Gi，不再只繼承範本）；**遷移失敗即中止，不會產生「新程式碼＋舊 schema」**。Build SA `694494166764-compute@developer.gserviceaccount.com` 已具 `roles/secretmanager.secretAccessor`。手動路徑（`scripts/cloud-run-deploy.ps1` Step 2，用本機 `.env.local` 直連）仍可用。服務基線：timeout **900s**（2026-10-04 為 IELTS 完整組件生成提升）、併發 = 50（事故基線）、記憶體 1Gi
-- **Key modules**: 23 under `src/modules/` (including 5 AI infra + foundation modules, `listening/` — the server-owned listening question store added 2026-09-21 — and `ielts/` — the isolated IELTS-style practice subsystem added 2026-10-03)
-- **API routes**: 115 under `src/app/api/`
+- **Key modules**: 24 under `src/modules/` (including 5 AI infra + foundation modules, `listening/` — the server-owned listening question store added 2026-09-21, `ielts/` — the isolated IELTS-style practice subsystem added 2026-10-03, and `custom-practice/` — student-authored practice requests added 2026-10-10)
+- **API routes**: 138 route files under `src/app/api/`
 - **Architecture**: Facade→UseCase→Service→Repository→Prisma — single pipeline, single owner per responsibility
 - **AI Pipeline**: `executeAI()` for JSON, `executeAIRaw()` for raw text. 11/13 use cases use canonical pipeline. `callLLM()` is re-exported by the facade for route-level raw-text calls (R3.10-L).
 - **AI Facade**: 63+ exported symbols (incl. types) — API routes use `@/modules/ai` (few documented exceptions: `rag` route uses `ai/providers/vertex-embeddings`, `reading` route uses prompt builders, `generate-model-essay` uses core modules). Answer verification adds `verifyGeneratedAnswers` / `inspectGeneratedQuestion` / `summarizeVerificationDrops`; IELTS adds `assessIeltsWritingWithAI` / `prepareIeltsSpeakingWithAI` / `generateIeltsQuestionSetWithAI` / `extendIeltsSectionWithAI` / `verifyIeltsItemsWithAI` / `generateIeltsWritingPromptWithAI` / `verifyIeltsWritingPromptWithAI` / `explainIeltsMistakeWithAI` (+ prompt-version constants; `extendIeltsSectionWithAI` tops an accepted section up against its own frozen passage/transcript, 2026-10-08). `isAIConfigured()` / `isDeepSeekConfigured()` / `getAIProviders()` are re-exported from `ai/providers/provider-availability.ts` (2026-10-08)
@@ -215,6 +215,50 @@ IELTS — Isolated Practice Subsystem (2026-10-03, PHASE IELTS-01):
        Pattern digest: docs/ielts/IELTS_PRACTICE_PATTERNS.md.
        Compliance audit (2026-10-03): docs/ielts/IELTS_COMPLIANCE_AUDIT.md.
 
+Custom Practice (2026-10-10, Sprints 140-143) — student-authored practice requests:
+  src/modules/custom-practice/ — the student describes what to practise in their own
+    words; the platform generates an exercise, verifies it BEFORE delivery, grades it
+    on the server and returns per-item feedback, reference answers and improvement.
+    Fully ISOLATED from HKDSE evidence/accuracy/mastery/mistakes/XP and from IELTS
+    quotas/band data (never reuses either).
+    ├─ Grading authority (single owner): services/grading-service.ts —
+    │    gradeObjectiveItem() is deterministic for objective types (mc / fill_blank /
+    │    error_correction / transformation): normalization + acceptedAnswers + word
+    │    order; NO AI call, ever. Open-ended items go to the AI marker, and low
+    │    confidence ⇒ needsReview (OPEN_ENDED_MIN_CONFIDENCE = 0.6) — a failure never
+    │    becomes a fabricated verdict. gradeCustomPracticeAnswers() is the ONE entry
+    │    the submission service and the evaluation runner both call.
+    ├─ Pre-submission disclosure (single owner): services/delivery-service.ts —
+    │    toDeliveredSet() / toDeliveredResults(); pre-submission responses NEVER carry
+    │    answerKey / rubric / explanation (verified through the real API in E2E).
+    ├─ Generation: services/generation-service.ts + verification-service.ts —
+    │    deterministic defect screen + independent BLIND-SOLVE verification, bounded
+    │    regeneration (MAX_REGENERATION_ROUNDS = 1), honest shortfall reporting.
+    ├─ Submission: services/submission-service.ts — AI call OUTSIDE the transaction;
+    │    duplicate protection is DB-enforced (unique CustomPracticeSubmission.setId →
+    │    isUniqueViolation() ⇒ 409 ALREADY_SUBMITTED; never read-check-write);
+    │    non-owner access is 404, never 403.
+    └─ Evaluation baseline (Sprint 143): evaluation/fixtures/grading-baseline-v1.json
+         (datasetVersion custom-practice-grading-baseline-v1; grading prompt
+         custom-practice-grading-v1) = 27 fixtures, EACH with a stable id, question,
+         student response, expected verdict/score range/needs_review, rationale and
+         provenance. HUMAN REVIEW = 0 ⇒ every fixture is PROVISIONAL.
+         evaluation/grading-evaluation-runner.ts calls the PRODUCTION grading entry
+         point (never a test-only approximation), never calls a provider and never
+         touches the network. Denominators are explicit: deterministic 19 (scored) /
+         provider-dependent 8 (counted, not scored, excluded from the accuracy
+         denominator). Measured 2026-10-10: agreement 19/19, false accept 0, false
+         reject 0, score-range violations 0, needs_review 1/19; by type mc 7/7,
+         fill_blank 11/11, transformation 1/1. THIS IS CONTRACT CONSISTENCY, NOT
+         GRADING VALIDITY — with 0 human-reviewed fixtures no accuracy claim may be
+         made. Guard tests: __tests__/grading-baseline.test.ts (schema/coverage,
+         isolation scan, production-path source scan, a provider mock that throws if
+         called, reproducibility).
+         UI: /student/custom-practice; E2E: e2e/custom-practice.spec.ts (desktop and
+         Pixel 7 — 8/8 each, ACTUALLY EXECUTED; must run with --workers=1 and performs
+         exactly ONE real login per run because the login endpoint is limited to
+         5/min/IP).
+
 Practice Evidence Aggregation — Server-side (2026-09-26, ADR-046):
   Cumulative projections (accuracy / weekly snapshot / per-skill totals / admin export)
     → practice-evidence-rules.ts (SINGLE rule definition, shared by TS + SQL)
@@ -307,6 +351,7 @@ Dev tooling:
 - Prisma 唯一鍵衝突（P2002）解析: `src/shared/db/prisma-errors.ts` — `isUniqueViolation()`／`uniqueViolationFields()`／`isUniqueViolationOn()`；**必須**同時處理經典 `meta.target` 與 Prisma 7 driver adapter 的 `meta.driverAdapterError.cause.constraint.fields`（欄位帶 SQL 引號；讀 `meta.target` 在此版本**永遠為 false** ⇒ 併發重試靜默失效）；**禁止**任何模組自行解析 P2002 metadata（2026-10-08，ADR-049）；**payload 形狀已兩度變更**：7.8＝`cause.constraint.fields`（帶 SQL 引號），**7.10＝只有 `cause.constraint.index`（索引名）**，只讀 `fields` 會在同一重試上再次靜默失效（2026-10-09 實測，DB-001 真實 Postgres 套件抓到），兩者都必須支援並各有 fixture
 - 依賴安全下限、遷移安全與配額保留: `src/shared/__tests__/dependency-security.test.ts`（14 套件最低安全版本＋Prisma CLI／client／engines 版本必須一致＋Safari 15.4 基線不得動搖）、`src/shared/db/__tests__/migration-safety.test.ts`（破壞性遷移必須列入 `REVIEWED_DESTRUCTIVE_MIGRATIONS`，過期條目亦失敗）、`src/modules/ielts/services/quota-retention-service.ts`（保留 30 香港日、分批 ≤500 列 × 200 批、`dryRun` 只計數）＋ `ielts-repo.deleteInstantQuotaRowsOlderThan()`／`countInstantQuotaRowsOlderThan()`（**有界**，禁無界 `deleteMany`）＋ `GET /api/admin/ielts/quota-retention`（`CRON_SECRET`；未設定 ⇒ **503 fail-closed**）（2026-10-09，Sprint 132）
 - IELTS 併發護欄（每日生成額度／單一進行中場次／單次提交）: `src/modules/ielts/repositories/ielts-repo.ts` — `reserveInstantQuota()`／`releaseInstantQuota()`（`IeltsGenerationQuota`，唯一 `(ownerUserId, dayKey, bucket)`，**唯一**每日閘門，單一條件式 UPDATE；**禁止** `count()` → `if (count < cap)`）、`IeltsAttempt.activeKey` 唯一索引（`IN_PROGRESS` 時持有 `<userId>:<testId>`，提交／放棄清 `NULL`；`abandonActiveAttempts()` 供 `force` 重考）、`finalizeAttemptSubmission()`（條件式狀態轉移＋response 列**同一交易**，敗者 409）、`persistGeneratedTest()`／`persistGeneratedWritingTask()`（test＋sections＋questions 同一交易；**AI 呼叫永不進交易**）；整合驗證 `src/modules/ielts/__tests__/ielts-concurrency.integration.test.ts`（DB-gated，CI 執行）。詳見 ADR-049
+- 自訂練習評分、交付揭露、重複提交與評估基線（2026-10-10，Sprint 140–143）: `custom-practice/services/grading-service.ts`（客觀題決定性 `gradeObjectiveItem()`；開放式題 `needsReview`）＋ `custom-practice/services/delivery-service.ts`（`toDeliveredSet()`／`toDeliveredResults()`，作答前永不泄露答案）＋ `custom-practice/services/submission-service.ts`（`CustomPracticeSubmission.setId` 唯一索引為重複提交權威 ⇒ 409；評分在交易外）＋ `custom-practice/evaluation/{fixtures/grading-baseline-v1.json, grading-evaluation-runner.ts}`（評估基線：**人類覆核 0 ⇒ PROVISIONAL**；runner 走生產評分入口、永不呼叫 provider；分母 19／8 分開）。**禁止**把一致性數字當作評分效度
 - Listening Answer Scoring (聆聽評分權威): `listening/services/listening-answer-scoring.ts` — `listening-server-exact-match`；忽略所有客戶端評分欄位；委派正典 `scorePracticeAnswer()`；解析不到／marks 無效／開放式題型 ⇒ NOT_PROJECTABLE（不部分計分）
 - Adaptive Learning: `learning/services/adaptive-learning-pipeline.ts`
 - Learning Decisions: `learning/decisions/LearningDecisionEngine`

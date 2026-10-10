@@ -65,6 +65,53 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   ASSESSMENT_GOVERNANCE、SOURCES、COMPLIANCE_AUDIT、FULL_AUDIT 2026-10-03）。
 - 驗證：`npm test`（IELTS 套件 24 檔／307 測試；全套 3686 pass／2 gated skips）。
 
+## ✍️ 自訂練習 Custom Practice（2026-10-10，Sprint 140–143）
+
+學生用**自己的話**描述想練什麼（例：「past perfect tense」、「formal letter opening」），
+平台即時生成練習、交付前驗證、伺服器評分，並給逐題回饋、參考答案與改進建議。
+
+### 學生流程
+1. `/student/custom-practice` 輸入需求（可指定文法／句型／詞彙與難度、題數）。
+2. 生成結果**先過交付前驗證**（決定性缺陷篩檢 ＋ 獨立 blind-solve 覆核）；不足題數如實回報。
+3. 作答 → 提交 → **伺服器評分**：客觀題決定性評分；開放式題 AI 評分且信心不足 ⇒
+   標示「待覆核（needs_review）」，**永不**硬判對錯。
+4. 歷史記錄可重新開啟檢視（已提交的練習會顯示分數、參考答案與解說）。
+
+### 不變式（可稽核）
+- **評分單一 owner**：`src/modules/custom-practice/services/grading-service.ts`。客觀題
+  **永不**呼叫 AI；開放式題 AI 失敗時回 `needs_review`，不偽造判定。
+- **作答前答案不泄露**：`services/delivery-service.ts` 是唯一交付 owner，作答前回應不含
+  `answerKey`／`rubric`／`explanation`。
+- **重複提交由資料庫決定**：`CustomPracticeSubmission.setId` 唯一索引 ⇒ 競爭敗者 **409**；
+  評分（含 AI 呼叫）在交易外。
+- **歸屬**：他人練習一律 **404**（不是 403）。
+- **與 HKDSE／IELTS 完全隔離**：不寫入準確率／掌握度／錯題／XP，不使用 IELTS 配額或 band 資料。
+
+### 評分評估基線（Sprint 143，**證據優先**）
+- 資料集：`src/modules/custom-practice/evaluation/fixtures/grading-baseline-v1.json`
+  （`datasetVersion = custom-practice-grading-baseline-v1`）——**27 筆 fixture**，
+  每筆含題目、學生作答、預期 verdict／分數範圍／needs_review、理由與出處。
+  **人類覆核 0 筆（全部 PROVISIONAL）**。
+- Runner：`src/modules/custom-practice/evaluation/grading-evaluation-runner.ts` —— 呼叫
+  **生產**評分入口（與提交服務同一函式）、**永不**呼叫 provider。
+- 執行方式（不需憑證）：
+  ```bash
+  npx vitest run src/modules/custom-practice/__tests__/grading-baseline.test.ts
+  ```
+  分母明列：deterministic 19（實測 agreement 19/19、false accept 0、false reject 0、
+  分數範圍違反 0、needs_review 1/19）／provider-dependent 8（只計數、不評分）。
+- **限制**：以上是「契約一致性」，**不是**評分效度；人類覆核為 0 時不得對外宣稱準確率。
+
+### 瀏覽器驗證（實際執行）
+```bash
+npx playwright test e2e/custom-practice.spec.ts --project=chromium-desktop --workers=1
+npx playwright test e2e/custom-practice.spec.ts --project=chromium-mobile  --workers=1
+```
+桌面與行動（Pixel 7）皆 **8/8 通過**；涵蓋作答前不泄露答案、跨學生 404、重複提交 409、
+網路中斷／重試（離線提交不留任何痕跡、重試僅產生一筆、重新載入還原已持久化結果）。
+前置條件：`BASE_URL`（預設 `http://localhost:3000`）、可用的 `TEST_DATABASE_URL`、
+應用程式已啟動；每輪**只做一次真實登入**（登入端點限流 5 次／分鐘／IP）。
+
 ## 📉 Neon Egress 維運（2026-09-26，ADR-046）
 
 ### 背景
