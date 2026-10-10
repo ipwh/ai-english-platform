@@ -64,12 +64,13 @@
 2. **Database migration**: the push-to-`main` Cloud Build trigger runs `prisma migrate deploy` as **Step 1 `Migrate`** (secret `DIRECT_DATABASE_URL`) *before* the image is built and deployed, and a failure aborts the whole build — so new code can never go live against an old schema. The manual path (`npm run cloud-run:deploy:win`) builds and deploys the image but **does not** run migrations, so run `npx prisma migrate deploy` yourself first (with the production `DATABASE_URL`/`DIRECT_DATABASE_URL` loaded).
   - **Migration safety (enforced by a test)**: `src/shared/db/__tests__/migration-safety.test.ts` fails if a migration contains a destructive operation (`DROP`/`DELETE FROM`/`TRUNCATE`/`RENAME COLUMN`/`ALTER COLUMN … TYPE`/`SET NOT NULL`) that is not on its reviewed allowlist. Migrations must be **additive / backward compatible**: Cloud Run shifts traffic gradually, so the *previous* image briefly runs against the *new* schema, and a rollback must stay possible.
   - **Two deploys racing**: `prisma migrate deploy` takes a Postgres advisory lock, so concurrent runs serialise (the second sees no pending migrations). Deploy the newest revision last if you push twice in quick succession.
-  - **⚠️ KNOWN DEFECT — the migration history has NO baseline (verified 2026-10-10, Sprint 134).**
-    `prisma migrate deploy` **cannot provision an empty database**: after the first two
+  - **✅ REPAIRED — the migration history now has a baseline (found 2026-10-09, Sprint 134; repaired and certified 2026-10-09, Sprint 135).**
+    `prisma migrate deploy` **could not provision an empty database**: after the first two
     migrations only `StudentMastery` / `StudentMistakeSummary` exist, so
-    `20260719_json_fields_migration` fails with `column "badgeIds" does not exist`
-    (its `BEGIN` block aborts and every later statement is skipped). Reproduce it against a
-    throwaway database:
+    `20260719_json_fields_migration` aborts the transaction
+    (`ERROR: current transaction is aborted, commands ignored until end of transaction block`)
+    and every later migration is skipped. Reproduced at HEAD `46707151` against a throwaway
+    database:
 
     ```bash
     createdb mig_diag
@@ -85,15 +86,48 @@
     so a modified file makes `migrate deploy` fail against production. Correct remediation
     (requires an authorised operator with database access):
 
-    1. Generate the baseline from the schema:
-       `npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script`
-    2. For a **new** environment: apply that SQL (or `prisma db push`), then mark history as applied:
-       `npx prisma migrate resolve --applied <migration_name>` for each existing migration.
-    3. For **existing** environments: no action needed — their history is already recorded.
-    4. Track the permanent fix (a proper squashed baseline + `migrate resolve`) as its own change.
+    **Repair (implemented, committed, exercised on every CI run):**
 
-    Acceptance criteria: `prisma migrate deploy` against a brand-new database exits 0 and
-    produces the same schema as `prisma db push`.
+    - `prisma/baseline/schema-baseline.sql` — the baseline generated from `schema.prisma`
+      (54 tables / 72 indexes). Regenerate with `npm run db:baseline:generate`.
+      **Prisma 7 renamed this flag**: `--to-schema` — `--to-schema-datamodel` was removed
+      (likewise `--from-url` → `--from-config-datasource`).
+    - `scripts/db-provision-fresh.ts` — the **only** supported fresh-provisioning path.
+      It refuses any database that is not completely empty (decision owner:
+      `src/shared/db/fresh-provision-preflight.ts`; exit code 3), ensures the `vector`
+      extension exists, applies the baseline, records all 24 migrations with
+      `prisma migrate resolve --applied`, then asserts that `migrate deploy` is a **no-op**
+      and that `migrate diff --exit-code` reports **zero drift**.
+    - Commands: `npm run db:provision:fresh` (dry run — **no writes**),
+      `npm run db:provision:fresh:apply` (empty database only), `npm run db:provision:verify`
+      (re-run check on an existing database), `npm run db:verify:drift` (drift gate).
+    - **Existing databases are never touched**: a database that already has
+      `_prisma_migrations` is refused and left unchanged — verified on `mig_base` and
+      `mig_diag` (3 history rows / 3 tables before **and** after the refusal).
+    - `migrate deploy` reporting “no pending migrations” is **not** a drift check: it stays
+      green even when the schema has drifted, so both checks always run together.
+
+    Verified 2026-10-09 (Sprint 135) on PostgreSQL 17 + pgvector:
+
+    | # | Scenario | Database used | Result |
+    |---|---|---|---|
+    | 1 | Empty database | `mig_fresh2`, `fresh_provision_test`, `ci_test` (rebuilt) | exit 0 — 54 tables, 24 migrations recorded, deploy **no-op**, drift **0** |
+    | 2 | Existing database (partial history) | `mig_base`, `mig_diag` | exit **3** refused, byte-for-byte unchanged |
+    | 3 | Drift | provisioned DB + injected `StudentMastery.drift_probe` | exit **1**; `migrate diff` exit 2 naming the exact change |
+    | 4 | Re-run | provisioned DB, `npm run db:provision:verify` | exit 0 (deploy no-op, drift 0) |
+
+    Acceptance criteria: **met** — `prisma migrate deploy` against a brand-new database exits 0
+    as a no-op, and the resulting schema matches `schema.prisma` exactly (`migrate diff` exit 0).
+    CI enforces this on every run (step “Fresh-database provisioning (empty DB → baseline →
+    deploy no-op → zero drift)” in `.github/workflows/ci.yml`), so the migration chain can no
+    longer silently stop being replayable.
+
+    **Permanent fix still open (deliberately NOT done autonomously):** collapsing the 24
+    migrations into one squashed baseline and deleting the old files rewrites the history of
+    *every* environment (production, CI, every clone) and requires `prisma migrate resolve`
+    everywhere, so it needs an authorised operator. Prove the squash before deploying it with
+    `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma
+    --exit-code` (exit 0 = the squashed chain is equivalent).
 3. **Cloud Run**: `npm run cloud-run:deploy:win -- -ProjectId <PROJECT_ID>` → configure env vars → deploy.
 4. **Google OAuth**: GCP Console → APIs & Services → OAuth 2.0 → add redirect URI: `https://[domain]/api/auth/callback/google`.
 5. **Verify**: `GET /api/health` → `{ status: "healthy" }`; check readiness and Cloud Run logs for migration- or database-related errors.
@@ -146,6 +180,31 @@ The response reports `cutoffDayKey`, `deletedRows`, `batches` and `moreRemaining
 - **Features**: `GET /api/health?type=features` — feature flag states
 - **Logs**: Cloud Logging（結構化 JSON）→ 可匯出至 Datadog/Axiom
 - **Metrics**: Cloud Monitoring（請求數、延遲、執行個體數）
+
+### Alerting (design complete / policies NOT provisioned)
+
+The retention job emits **exactly one** structured event per run: `ielts.quota.retention.completed`
+(`dayKey`, `deletedRows`, `batches`, `moreRemaining`, `dryRun`, `durationMs`) or
+`ielts.quota.retention.failed` (`reason`, `durationMs`). Both names are declared in the IELTS
+governance allowlist (`src/modules/ielts/governance/events.ts`), so alert policies can be added
+without touching application code. Recommended Cloud Logging log-based alerts:
+
+1. **Failure** — `jsonPayload.event="ielts.quota.retention.failed"` → page immediately. The
+   endpoint also returns non-2xx and Cloud Scheduler retries 3× before giving up.
+2. **Starvation** — `jsonPayload.event="ielts.quota.retention.completed" AND jsonPayload.moreRemaining=true`
+   more than 3 times in 24 h → the bounded drain is not keeping up with intake (~1 700 rows/day).
+3. **Silence** — no `completed` event for 48 h → the job is disabled, or `CRON_SECRET` was
+   rotated without updating the scheduler header.
+
+> **STATUS: NOT PROVISIONED** — same external-operator constraint as the scheduler job itself
+> (alert policies cannot be created from the repository). Until then, check the endpoint's
+> response body manually with `?dryRun=true`.
+
+**Credential direction (documented, not implemented):** the job currently authenticates with a
+static `x-cron-secret` header (fail-closed 503 when the secret is unset). Cloud Scheduler can
+instead mint an OIDC token (`--oidc-service-account-email`) which the endpoint verifies against
+Google's public keys (`audience` = service URL); that removes the shared long-lived secret and
+should be adopted when the job is provisioned. Never commit a real `CRON_SECRET`.
 
 ## Rollback
 

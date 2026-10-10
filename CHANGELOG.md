@@ -4,6 +4,56 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-09 (II) — Sprint 135：遷移復原、證據強化與發布收尾
+
+### 一、P0 遷移修復：全新資料庫佈建（重現 → 修復 → CI 常態驗證）
+`prisma migrate deploy` 對**空資料庫**必然失敗：遷移 #3 `20260719_json_fields_migration` 假設
+`User."badgeIds"`／`User."subjects"` 已存在（`DO $$ RAISE EXCEPTION $$`），但 #1／#2 只建立
+`StudentMastery`／`StudentMistakeSummary`。HEAD `46707151` 重現：`#1 ✓ #2 ✓ #3 →
+ERROR: current transaction is aborted`（exit 1）。影響僅限**全新環境**（災難復原／新 Neon 分支／
+重建的 clone）；生產（只有待套用遷移）與 CI（`db push`）不受影響。
+
+- 新增 `prisma/baseline/schema-baseline.sql`（由 `schema.prisma` 產生：54 表／72 索引；
+  `npm run db:baseline:generate`）。**Prisma 7 已移除 `--to-schema-datamodel` 與 `--from-url`**
+  ⇒ 正確旗標為 `--to-schema`、`--from-config-datasource`（舊寫法會直接 usage error）。
+- 新增 `scripts/db-provision-fresh.ts`（`db:provision:fresh`／`…:apply`／`db:provision:verify`）：
+  只接受**完全空白**的資料庫（判定 owner `src/shared/db/fresh-provision-preflight.ts`；非空白 ⇒ exit 3）
+  → 確保 vector extension → 套用基線 → 24 筆遷移以 `migrate resolve --applied` 補記歷史 →
+  斷言 `migrate deploy` 為 **no-op** 且 `migrate diff --exit-code` **零漂移**。
+  **永不重寫已套用遷移**；既有資料庫實測**拒絕且完全未改動**（`mig_base`／`mig_diag`
+  3 列歷史／3 張表，前後相同）。
+- 四情境實測（PostgreSQL 17 + pgvector）：空庫 exit 0（54 表、deploy no-op、漂移 0）；既有庫 exit 3；
+  注入 `StudentMastery.drift_probe` 後 exit 1（`migrate diff` exit 2 並指出該欄位）；
+  重跑 `--verify-only` exit 0。**注意**：`migrate deploy` 回報「no pending」**不代表**零漂移
+  （注入漂移後它仍 exit 0）⇒ 兩個檢查必須同時執行。
+- CI 新增步驟（`.github/workflows/ci.yml`）：在丟棄式空庫上跑完整契約（`--apply` → `--verify` →
+  再次 `--apply` 必須 exit 3 且不得改動資料庫）；以 Git Bash 抽取同一區塊實測 exit 0。
+- 認證用測試庫改由**同一條已提交路徑**重建（`ci_test`：54 表 + 24 筆歷史、零漂移）。
+- 永久修復（**未**自動作業）：把 24 筆遷移壓成單一 squash 基線會重寫**所有環境**的歷史，
+  需授權操作者執行；事前可用 `prisma migrate diff --from-migrations … --to-schema … --exit-code` 驗證等價。
+
+### 二、P1 依賴顧問證據強化（不再只靠標記掃描）
+12 條顧問（3 moderate／9 high／0 critical）以**三種獨立方法**判定是否隨映像出貨：
+`.next/standalone/node_modules` 清單（42 套件）、Next **檔案追蹤清單**（`.nft.json`，47 套件）、
+以及**有對照組的**打包標記掃描（`mammoth`=1／`next-auth`=60／`@prisma/client`=4 命中 ⇒ 偵測器有效；
+8 個顧問套件全部 0 命中）。`npm ls --omit=dev`：8 個在生產樹、6 個僅 dev。
+`mammoth` 鏈（唯一 runtime 相關）：`argparse` 僅在 `bin/mammoth`（CLI，無 `.js` 副檔名）被引用，
+應用只匯入 library；該 CLI 不存在於任何打包產物。所有 `npm audit` 建議修復都是**降級**
+（prisma→6.x、eslint-config-next→14.x、mammoth→0.3.29）⇒ 不採用（`dependency-security.test.ts` 已禁止）。
+
+### 三、P1 維運、Safari 與棘輪
+- `docs/DEPLOYMENT.md`：遷移一節改為「已修復」（四情境表＋驗收條件＋Prisma 7 旗標變更）；
+  新增告警設計（`ielts.quota.retention.failed` 即時告警／`moreRemaining:true` 24 小時內 >3 次／
+  48 小時靜默）與 OIDC 取代靜態 `x-cron-secret` 的方向。排程與告警皆明確標示 **NOT PROVISIONED**
+  （Cloud Scheduler／告警政策無法由倉庫建立）。
+- Safari 維持 `ARTIFACT-VERIFIED / DEVICE-UNVERIFIED`（78 個客戶端 bundle、0 違規；實機未測）。
+- ESLint 棘輪不動：**246 warnings / 0 errors**，`check-lint-budget.js` exit 0。
+
+### 四、驗證（本提交）
+`tsc` 0 errors；**218 檔 / 3848 測試全過、0 失敗、0 跳過**（`REQUIRE_DATABASE=1` + 真實 PostgreSQL 17）；
+無資料庫時 17 個併發案例 + 1 個證據 SQL 案例跳過（⇒ 3830 過 / 18 跳過）；`npm run build` exit 0；
+產物檢查 exit 0（42 套件、0 禁用、78 bundle、0 Safari 違規）；`npm audit` 12；N+1（707 檔）exit 0；i18n exit 0。
+
 ## 2026-10-09 — Sprint 132：安全／依賴／CI／生產硬化
 
 ### 一、背景

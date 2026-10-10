@@ -86,6 +86,45 @@ jobs:
         # "unknown or unexpected option"). `prisma generate` is already its own step.
         run: npx prisma db push
 
+      # 2026-10-09 (Sprint 135 P0): the step above builds the test database with
+      # `prisma db push`, which NEVER replays `prisma migrate deploy`. The migration
+      # chain is therefore not exercised anywhere in CI, and it cannot be replayed from
+      # zero: migration #3 (`20260719_json_fields_migration`) assumes columns that no
+      # migration creates (reproduced at HEAD 46707151 — apply #1 and #2 succeed, #3
+      # aborts the transaction, exit 1). This step runs the committed repair path against
+      # a throwaway EMPTY database and asserts the full contract:
+      #   empty DB → baseline (prisma/baseline/schema-baseline.sql) → migration history
+      #   recorded → `prisma migrate deploy` is a NO-OP → `prisma migrate diff --exit-code`
+      #   reports ZERO drift.
+      # Exit codes: 0 ok · 1 verification failed (incl. drift, which is migrate-diff 2) ·
+      # 2 usage/connection · 3 refused because the database is not empty. Any non-zero
+      # fails the job, so a regression here cannot ship silently.
+      - name: Fresh-database provisioning (empty DB → baseline → deploy no-op → zero drift)
+        env:
+          PROVISION_URL: postgresql://ci_user:ci_pass@localhost:5432/fresh_provision_test
+        run: |
+          node -e "const{Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();await c.query('CREATE DATABASE fresh_provision_test');await c.end();console.log('fresh database created');})().catch((e)=>{console.error('fresh db create failed:',e.message);process.exit(1)});"
+
+          # 1. Provision the empty database (asserts deploy no-op + zero drift internally).
+          DATABASE_URL="$PROVISION_URL" DIRECT_DATABASE_URL="$PROVISION_URL" \
+            npm run db:provision:fresh:apply
+
+          # 2. Re-run safety: verifying the provisioned database must stay green.
+          DATABASE_URL="$PROVISION_URL" DIRECT_DATABASE_URL="$PROVISION_URL" \
+            npm run db:provision:verify
+
+          # 3. Re-applying must REFUSE (exit 3) instead of touching an existing database.
+          set +e
+          DATABASE_URL="$PROVISION_URL" DIRECT_DATABASE_URL="$PROVISION_URL" \
+            npm run db:provision:fresh:apply
+          refusal_code=$?
+          set -e
+          if [ "$refusal_code" -ne 3 ]; then
+            echo "ERROR: expected refusal exit 3 on a non-empty database, got $refusal_code"
+            exit 1
+          fi
+          echo "Refusal exit 3 confirmed on a non-empty database."
+
       - name: TypeScript type check
         run: npx tsc --noEmit
 
