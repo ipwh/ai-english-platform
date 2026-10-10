@@ -12,8 +12,9 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
 
@@ -97,6 +98,7 @@ const QUESTION_TYPES: QuestionType[] = ['mc', 'fill_blank', 'error_correction', 
 
 export default function CustomPracticePage() {
   const { t } = useT();
+  const router = useRouter();
 
   const [requestText, setRequestText] = useState('');
   const [category, setCategory] = useState<Category | 'auto'>('auto');
@@ -116,6 +118,26 @@ export default function CustomPracticePage() {
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  // Session guard (found by the Sprint 142 browser test): this page is reachable
+  // when a visitor has no session, and without a check they would see an empty form
+  // with no explanation. The check sets NO state (only navigates), so it does not
+  // consume the react-hooks/set-state-in-effect budget.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/custom-practice');
+        if (!cancelled && response.status === 401) router.replace('/login');
+      } catch {
+        // Offline or transient failure: leave the form usable rather than bouncing
+        // the student to the login page.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const loadHistory = useCallback(async () => {
     try {
