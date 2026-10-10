@@ -76,13 +76,14 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 ### 學生流程
 1. `/student/custom-practice` 輸入需求（可指定文法／句型／詞彙與難度、題數）。
 2. 生成結果**先過交付前驗證**（決定性缺陷篩檢 ＋ 獨立 blind-solve 覆核）；不足題數如實回報。
-3. 作答 → 提交 → **伺服器評分**：客觀題決定性評分；開放式題 AI 評分且信心不足 ⇒
+3. 作答 → 提交 → **伺服器評分**：多項選擇題以點擊選項並由伺服器決定性評分；填空、改錯、
+   句式轉換及造句等文字題由 AI 作二次語意批改，且信心不足 ⇒
    標示「待覆核（needs_review）」，**永不**硬判對錯。
 4. 歷史記錄可重新開啟檢視（已提交的練習會顯示分數、參考答案與解說）。
 
 ### 不變式（可稽核）
-- **評分單一 owner**：`src/modules/custom-practice/services/grading-service.ts`。客觀題
-  **永不**呼叫 AI；開放式題 AI 失敗時回 `needs_review`，不偽造判定。
+- **評分單一 owner**：`src/modules/custom-practice/services/grading-service.ts`。只有多項選擇題
+  **永不**呼叫 AI；填空及其他文字題使用 AI 語意批改，AI 失敗時回 `needs_review`，不偽造判定。
 - **作答前答案不泄露**：`services/delivery-service.ts` 是唯一交付 owner，作答前回應不含
   `answerKey`／`rubric`／`explanation`。
 - **重複提交由資料庫決定**：`CustomPracticeSubmission.setId` 唯一索引 ⇒ 競爭敗者 **409**；
@@ -101,8 +102,8 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   ```bash
   npx vitest run src/modules/custom-practice/__tests__/grading-baseline.test.ts
   ```
-  分母明列：deterministic 19（實測 agreement 19/19、false accept 0、false reject 0、
-  分數範圍違反 0、needs_review 1/19）／provider-dependent 8（只計數、不評分）。
+  分母明列：deterministic 9（實測 agreement 9/9、false accept 0、false reject 0、
+  分數範圍違反 0、needs_review 2/9）／provider-dependent 18（只計數、不評分）。
 - **限制**：以上是「契約一致性」，**不是**評分效度；人類覆核為 0 時不得對外宣稱準確率。
 
 ### 瀏覽器驗證（實際執行）

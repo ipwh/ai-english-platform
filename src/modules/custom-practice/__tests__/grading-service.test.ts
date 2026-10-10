@@ -72,6 +72,31 @@ describe('deterministic objective grading', () => {
     expect(item.awardedMarks).toBe(1);
   });
 
+  it('sends fill-in-the-blank answers through the AI semantic marker', async () => {
+    mocks.gradeAI.mockResolvedValue({
+      promptVersion: 'custom-practice-grading-v1',
+      results: [
+        {
+          questionId: 'q2',
+          verdict: 'correct',
+          awardedMarks: 1,
+          rationale: 'The answer is grammatically equivalent in this context.',
+          improvement: null,
+          confidence: 0.95,
+        },
+      ],
+    });
+
+    const result = await gradeCustomPracticeAnswers({
+      spec: { category: 'grammar', difficulty: 'intermediate' },
+      questions: [openEndedQuestion({ questionId: 'q2', questionType: 'fill_blank', maxMarks: 1 })],
+      objective: [],
+    });
+
+    expect(mocks.gradeAI).toHaveBeenCalledOnce();
+    expect(result.items[0].verdict).toBe('correct');
+  });
+
   it('marks a wrong answer incorrect with actionable feedback', () => {
     const item = gradeObjectiveItem(objective({ answerText: 'A' }));
     expect(item.verdict).toBe('incorrect');

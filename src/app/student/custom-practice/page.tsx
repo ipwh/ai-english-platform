@@ -33,6 +33,11 @@ interface DeliveredQuestion {
   maxMarks: number;
 }
 
+interface MultipleChoiceOption {
+  letter: string;
+  text: string;
+}
+
 interface DeliveredSet {
   id: string;
   objective: string;
@@ -95,6 +100,17 @@ interface HistoryItem {
 const CATEGORIES: Category[] = ['grammar', 'sentence_pattern', 'vocabulary'];
 const DIFFICULTIES: Difficulty[] = ['basic', 'intermediate', 'advanced'];
 const QUESTION_TYPES: QuestionType[] = ['mc', 'fill_blank', 'error_correction', 'transformation', 'sentence_production'];
+
+function parseMultipleChoiceOptions(prompt: string): MultipleChoiceOption[] {
+  const matches = [...prompt.matchAll(/(?:^|\s)([A-D])[).]\s+(.+?)(?=\s+[A-D][).]\s+|$)/g)];
+  return matches.map(match => ({ letter: match[1], text: match[2].trim() }));
+}
+
+function multipleChoiceStem(prompt: string, options: readonly MultipleChoiceOption[]): string {
+  if (options.length !== 4) return prompt;
+  const firstOption = prompt.indexOf(`${options[0].letter})`);
+  return firstOption > 0 ? prompt.slice(0, firstOption).trim() : prompt;
+}
 
 export default function CustomPracticePage() {
   const { t } = useT();
@@ -483,29 +499,63 @@ export default function CustomPracticePage() {
           <ol className="space-y-4">
             {set.questions.map((question, index) => {
               const result = results?.responses.find(response => response.questionId === question.id);
+              const isMultipleChoice = question.questionType === 'mc';
+              const options = isMultipleChoice ? parseMultipleChoiceOptions(question.prompt) : [];
+              const selectedAnswer = answers[question.id] ?? '';
               return (
                 <li key={question.id} className="space-y-2 rounded-md border border-slate-200 p-3">
                   <p className="text-sm font-medium text-slate-900">
                     {index + 1}. {question.instructions}
                   </p>
-                  <p className="whitespace-pre-wrap text-sm text-slate-800">{question.prompt}</p>
+                  <p className="whitespace-pre-wrap text-sm text-slate-800">
+                    {isMultipleChoice ? multipleChoiceStem(question.prompt, options) : question.prompt}
+                  </p>
                   <p className="text-xs text-slate-500">
                     {t('customPractice.targetRule')}: {question.targetRule}
                   </p>
 
                   {!results && (
-                    <div>
-                      <label htmlFor={`answer-${question.id}`} className="mb-1 block text-xs font-medium text-slate-600">
-                        {t('customPractice.answerLabel')}
-                      </label>
-                      <textarea
-                        id={`answer-${question.id}`}
-                        value={answers[question.id] ?? ''}
-                        onChange={event => setAnswers(current => ({ ...current, [question.id]: event.target.value }))}
-                        rows={2}
-                        className="w-full rounded-md border border-slate-300 p-2 text-sm focus:border-slate-500 focus:outline-none"
-                      />
-                    </div>
+                    isMultipleChoice && options.length === 4 ? (
+                      <fieldset className="space-y-2">
+                        <legend className="mb-1 block text-xs font-medium text-slate-600">
+                          {t('customPractice.answerLabel')}
+                        </legend>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {options.map(option => {
+                            const selected = selectedAnswer === option.letter;
+                            return (
+                              <button
+                                key={option.letter}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => setAnswers(current => ({ ...current, [question.id]: option.letter }))}
+                                className={`rounded-md border p-2 text-left text-sm ${
+                                  selected
+                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    : 'border-slate-300 bg-white text-slate-800 hover:border-slate-500'
+                                }`}
+                              >
+                                <span className="mr-2 font-semibold">{option.letter}.</span>
+                                {option.text}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    ) : (
+                      <div>
+                        <label htmlFor={`answer-${question.id}`} className="mb-1 block text-xs font-medium text-slate-600">
+                          {t('customPractice.answerLabel')}
+                        </label>
+                        <textarea
+                          id={`answer-${question.id}`}
+                          value={selectedAnswer}
+                          onChange={event => setAnswers(current => ({ ...current, [question.id]: event.target.value }))}
+                          rows={2}
+                          className="w-full rounded-md border border-slate-300 p-2 text-sm focus:border-slate-500 focus:outline-none"
+                        />
+                      </div>
+                    )
                   )}
 
                   {result && (

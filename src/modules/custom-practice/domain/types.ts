@@ -22,8 +22,8 @@ export type PracticeQuestionType =
 
 export type PracticeVerdict = 'correct' | 'partially_correct' | 'incorrect' | 'needs_review';
 
-/** Objective types are marked deterministically; the rest need a rubric judgement. */
-export const OBJECTIVE_QUESTION_TYPES: readonly PracticeQuestionType[] = ['mc', 'fill_blank'];
+/** Only MC is marked deterministically; text answers need semantic judgement. */
+export const OBJECTIVE_QUESTION_TYPES: readonly PracticeQuestionType[] = ['mc'];
 
 export function isObjectiveQuestionType(type: string): boolean {
   return (OBJECTIVE_QUESTION_TYPES as readonly string[]).includes(type);

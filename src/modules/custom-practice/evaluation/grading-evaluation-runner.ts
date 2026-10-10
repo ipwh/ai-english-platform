@@ -6,8 +6,8 @@
 //
 // Denominators are explicit and split by grading path:
 //   · DETERMINISTIC fixtures  — the production path decides without any AI call
-//     (objective items, and blank open-ended answers, which are deliberately left
-//     unmarked). These are the ONLY fixtures CI may score.
+//     (MC items, and blank text answers, which are deliberately left unmarked).
+//     These are the ONLY fixtures CI may score.
 //   · PROVIDER-DEPENDENT fixtures — open-ended answers that require the AI marker.
 //     They are NEVER scored here (no provider, no credentials, no flakiness): they
 //     are counted and reported as skipped so the denominator cannot be inflated.
@@ -103,7 +103,7 @@ export interface EvaluationReport {
   results: CaseResult[];
 }
 
-const OBJECTIVE_TYPES = new Set(['mc', 'fill_blank']);
+const OBJECTIVE_TYPES = new Set(['mc']);
 
 export function loadGradingBaseline(path?: string): BaselineDataset {
   const file = path ?? join(import.meta.dirname ?? __dirname, 'fixtures', 'grading-baseline-v1.json');
@@ -120,8 +120,15 @@ function isNegative(verdict: PracticeVerdict): boolean {
  * evaluation is exactly the code students hit.
  */
 export async function runGradingEvaluation(dataset: BaselineDataset): Promise<EvaluationReport> {
-  const deterministicCases = dataset.cases.filter(item => item.deterministic);
-  const providerCases = dataset.cases.filter(item => !item.deterministic);
+  // The fixture flag is historical metadata; the production question type and
+  // answer content decide which path is safe to run without a provider.
+  const deterministicCases = dataset.cases.filter(
+    item =>
+      (OBJECTIVE_TYPES.has(item.questionType) && item.deterministic) ||
+      item.studentResponse.trim().length === 0
+  );
+  const deterministicIds = new Set(deterministicCases.map(item => item.id));
+  const providerCases = dataset.cases.filter(item => !deterministicIds.has(item.id));
 
   const results: CaseResult[] = [];
 

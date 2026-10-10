@@ -122,7 +122,7 @@ describe('deterministic evaluation against the real grading path', () => {
     console.log(`\n${formatEvaluationReport(report)}\n`);
 
     expect(mocks.gradeAI).not.toHaveBeenCalled();
-    expect(report.deterministic.denominator).toBeGreaterThanOrEqual(15);
+    expect(report.deterministic.denominator).toBeGreaterThanOrEqual(9);
     expect(report.deterministic.falseAccept).toBe(0);
     expect(report.deterministic.falseReject).toBe(0);
     expect(report.deterministic.scoreRangeViolations).toBe(0);

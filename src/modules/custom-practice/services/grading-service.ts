@@ -2,10 +2,12 @@
 // Self-Directed Practice — grading service (2026-10-10, Sprint 140)
 // ============================================
 // Phase 3. Two marking paths, chosen by question type:
-//   - OBJECTIVE (mc, fill_blank): deterministic server-side comparison against
-//     the key plus the model's accepted variants. No AI, no cost, reproducible.
+//   - OBJECTIVE (mc): deterministic server-side comparison against the key.
+//     No AI, no cost, reproducible.
 //   - OPEN-ENDED (error_correction, transformation, sentence_production): a
 //     rubric-aware AI judgement, SCHEMA-VALIDATED, with two fail-closed rules:
+//     fill_blank also uses this semantic path because equivalent answers cannot
+//     safely be reduced to exact string comparison.
 //       (1) low confidence ⇒ `needs_review` (never an asserted "incorrect");
 //       (2) AI unavailable/timeout/malformed ⇒ every open-ended item becomes
 //           `needs_review`, and the caller is told grading was degraded.

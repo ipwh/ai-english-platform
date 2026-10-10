@@ -339,10 +339,10 @@
         "maxMarks": 1
       },
       "studentResponse": "",
-      "expected": { "verdict": "incorrect", "scoreRange": [0, 0], "needsReview": false },
+      "expected": { "verdict": "needs_review", "scoreRange": [0, 0], "needsReview": true },
       "deterministic": true,
       "provenance": "authored-by-assistant-2026-10-10 (unreviewed)",
-      "rationale": "An unanswered objective item scores zero and is reported as unanswered — not as a language error."
+      "rationale": "An unanswered text item is not sent to the AI marker and is left for review — never silently marked incorrect."
     },
     {
       "id": "requirement-002-all-blank-open-ended",

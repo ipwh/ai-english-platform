@@ -119,6 +119,19 @@ describe('verifyGeneratedQuestions', () => {
 
   it('accepts an independent answer that matches an accepted alternative', async () => {
     mocks.verifyAI.mockResolvedValue({ promptVersion: 'v1', results: [verifyResult(0, { answer: 'had started' })] });
+    mocks.gradeAI.mockResolvedValue({
+      promptVersion: 'custom-practice-grading-v1',
+      results: [
+        {
+          questionId: 'verify-0',
+          verdict: 'correct',
+          awardedMarks: 1,
+          rationale: 'The independent answer satisfies the rubric.',
+          improvement: null,
+          confidence: 0.95,
+        },
+      ],
+    });
 
     const outcome = await verifyGeneratedQuestions({
       spec: SPEC,
