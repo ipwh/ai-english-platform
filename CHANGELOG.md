@@ -4,7 +4,36 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-10-10 (VI) — 生產事故修復：題目指涉篇章卻沒有篇章（學生回報「沒有生成 passage」）
+## 2026-10-10 (VII) — 導覽：新增「自訂文法與詞彙練習」入口＋知識圖譜位置調整
+
+### 變更（依教師指示）
+- `src/shared/utils/nav.ts`（學生左側選單的唯一設定來源）：新增
+  **「自訂文法與詞彙練習」**（`i18nKey: customPractice.title` —— 與頁面標題同一份文字，
+  不重複維護；icon `Sparkles`），位置在**「AI 練習」之下**，指向 `/student/custom-practice`。
+- **「知識圖譜」**移至**「個人檔案」之上**。
+- 前情：Sprint 140–143 完成的自訂練習原本**沒有任何導覽入口**，只能直接輸入網址；本次補上可發現性。
+
+### 驗證（實際執行，**生產模式**）
+- 以 `npm run build`（exit 0）＋ `node .next/standalone/server.js`（與部署映像相同）啟動，
+  再跑 `e2e/student-nav.spec.ts`：
+  - 桌面 `--project=chromium-desktop`：**2/2 通過（exit 0）** —— 以真實 DOM 斷言「自訂練習」
+    緊接在「AI 練習」之後、`/student/profile` 緊接在 `/student/knowledge-graph` 之後；
+    並實際**點擊**入口，確認導向 `/student/custom-practice` 且頁面標題與選單文字一致。
+  - 行動 `--project=chromium-mobile`（Pixel 7）：**1/1 通過 ＋ 1 明確略過**
+    （左側選單在行動版隱藏，改底部分頁列；略過的是「點擊」測試，非失敗）。
+- 全套：`npx tsc --noEmit` exit 0；`npx vitest run` exit 0（**227 檔／3957 測試**；
+  首次執行有 1 個**無關的既有 flaky 測試**（`learning/evidence-types.test.ts` 的 id-counter）
+  失敗，單檔隔離與全套重跑皆全綠）；eslint exit 0（246 warnings／0 errors）；
+  lint budget／i18n／N+1／artifact exit 0。
+
+### 環境備註（供日後 E2E）
+- 生產模式需要 `AUTH_SECRET` 與 `JWT_SECRET`（各 ≥ 32 字元），否則 config 驗證令登入回 500；
+  `next start` **不支援** `output: standalone`，須用 `node .next/standalone/server.js`
+  並把 `.next/static`、`public` 複製到 standalone 目錄（與 Dockerfile 相同）。
+- dev 模式曾觀察到 NextAuth client fetch 失敗 → `GlobalErrorBoundary` 自動重載造成頁面
+  **自我重載迴圈**（令點擊測試無法進行）；改用生產模式後不復現。
+
+---
 
 ### 症狀
 學生在 `/student/practice/<questionId>` 看到

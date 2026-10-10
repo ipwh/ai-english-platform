@@ -7,7 +7,7 @@ import {
   TrendingUp, PencilLine, ClipboardList, HelpCircle,
   User, Users, GraduationCap, Upload,
   ClipboardCheck, Settings, Search, Headphones,
-  Mic, Calendar, BookText, FileText, GitBranch, Brain,
+  Mic, Calendar, BookText, FileText, GitBranch, Brain, Sparkles,
   type LucideIcon
 } from 'lucide-react';
 import { t } from '@/shared/utils/i18n';
@@ -43,18 +43,22 @@ export const studentNavItems: NavItem[] = [
   { label: '學習主頁', i18nKey: 'nav.dashboard', href: '/student/dashboard', icon: LayoutDashboard },
   { label: '每日挑戰', i18nKey: 'nav.dailyChallenge', href: '/student/daily-challenge', icon: Calendar },
   { label: 'AI 練習', i18nKey: 'nav.practice', href: '/student/practice', icon: BookOpen },
+  // 2026-10-10：自訂練習（學生用自己的話描述想練什麼）。標籤沿用頁面標題
+  // `customPractice.title`，導覽與頁面只有一份文字。
+  { label: '自訂文法與詞彙練習', i18nKey: 'customPractice.title', href: '/student/custom-practice', icon: Sparkles },
   { label: 'DSE閱讀理解', i18nKey: 'nav.reading', href: '/student/reading', icon: BookText },
   { label: 'DSE寫作支援', i18nKey: 'nav.writing', href: '/student/writing', icon: PencilLine },
   { label: 'DSE Integrated Skills', i18nKey: 'nav.integratedSkills', href: '/student/integrated-skills', icon: Headphones },
   { label: 'IELTS 備考', i18nKey: 'nav.ielts', href: '/student/ielts', icon: GraduationCap },
   { label: '會話練習', i18nKey: 'nav.speaking', href: '/student/speaking', icon: Mic },
-  { label: '知識圖譜', i18nKey: 'nav.knowledgeGraph', href: '/student/knowledge-graph', icon: GitBranch },
   { label: '生字簿', i18nKey: 'nav.vocabulary', href: '/student/vocabulary', icon: BookMarked },
   { label: '我的錯題', i18nKey: 'nav.mistakes', href: '/student/mistakes', icon: AlertTriangle },
   { label: '我的進度', i18nKey: 'nav.progress', href: '/student/progress', icon: TrendingUp },
   { label: '我的作業', i18nKey: 'nav.assignments', href: '/student/assignments', icon: ClipboardList },
   { label: '診斷測驗', i18nKey: 'nav.diagnostic', href: '/student/diagnostic', icon: Search },
   { label: '求助建議', i18nKey: 'nav.help', href: '/student/help', icon: HelpCircle },
+  // 2026-10-10：知識圖譜移至「個人檔案」之上。
+  { label: '知識圖譜', i18nKey: 'nav.knowledgeGraph', href: '/student/knowledge-graph', icon: GitBranch },
   { label: '個人檔案', i18nKey: 'nav.profile', href: '/student/profile', icon: User },
 ];
 

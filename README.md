@@ -67,6 +67,9 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ## ✍️ 自訂練習 Custom Practice（2026-10-10，Sprint 140–143）
 
+> **入口**：學生左側選單 →「自訂文法與詞彙練習」（在「AI 練習」之下，2026-10-10 新增），
+> 或直接前往 `/student/custom-practice`。
+
 學生用**自己的話**描述想練什麼（例：「past perfect tense」、「formal letter opening」），
 平台即時生成練習、交付前驗證、伺服器評分，並給逐題回饋、參考答案與改進建議。
 
