@@ -57,6 +57,45 @@ const OPTION_LETTER_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
+ * 「指涉篇章」題目的偵測樣式。
+ *
+ * 2026-10-10 生產回報：學生看到「According to the passage, what does the word
+ * 'infrasound' mean?」卻**沒有任何篇章可讀**。任何技能都可能出現這種題目 ——
+ * 模型可自發附帶篇章（見 runner 的閱讀篇章區塊），也可能只寫了題目而沒有篇章。
+ * 後者是一道無法作答的題目，必須在交付前丟棄（由補題輪補足）。
+ */
+const PASSAGE_REFERENCE_PATTERNS: readonly RegExp[] = [
+  /according to the (?:passage|text|article|author|writer)\b/i,
+  /\bin (?:the|this) (?:passage|text|article)\b/i,
+  /\bthe (?:passage|article|text) (?:says|states|mentions|suggests|shows|indicates|implies|describes)\b/i,
+  /\bthe (?:writer|author) (?:says|states|thinks|believes|suggests|argues|implies|mentions)\b/i,
+  /\bparagraph\s*(?:\d+|[A-D])\b/i,
+];
+
+/**
+ * 交付前判準：題目指涉篇章，但本題沒有附帶足夠的篇章內容 ⇒ 不可交付。
+ *
+ * 門檻與閱讀題的內容閘一致（≥ 50 字元）；純文字比對、零 AI 成本，
+ * 主路徑與 JSON 修復路徑皆經 `applyRoundQualityGates()` 套用。
+ */
+export function referencesUnseenPassage(question: GeneratedQuestion): boolean {
+  // 「有材料可讀」即不丟棄：篇章（閱讀／改錯）或對話（聆聽）。
+  // 門檻與閱讀題的內容閘一致（≥ 50 字元）。
+  if ((question.readingContent ?? '').trim().length >= 50) return false;
+  if ((question.listeningContent ?? '').trim().length >= 50) return false;
+  const haystack = [
+    question.prompt,
+    question.promptZh,
+    question.explanationEn,
+    question.explanationZh,
+    ...(question.choices ?? []),
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' ');
+  return PASSAGE_REFERENCE_PATTERNS.some(pattern => pattern.test(haystack));
+}
+
+/**
  * 將解說文字中的選項字母由「舊編號」重對應為「洗牌後編號」。
  *
  * 病根（2026-09-26 回報）：`shuffleMCAnswers()` 會重排選項並更新答案鍵字母，
@@ -359,6 +398,22 @@ export async function generateQuestions(
         }
         roundUsable = usableReading;
       }
+    }
+
+    // === Passage-reference integrity（2026-10-10，學生回報「沒有生成 passage」）===
+    // 任何技能都可能交回「According to the passage …」的題目而**沒有**篇章
+    // （模型自發附帶篇章，或只寫了題目）。缺篇章 ⇒ 題目無法作答，一律丟棄，
+    // 由補題輪補足；永不因湊數而放寬（fail-closed，逐題判定）。
+    const unseenPassage = roundUsable.filter(referencesUnseenPassage);
+    if (unseenPassage.length > 0) {
+      logger.warn(
+        { module: 'ai-service', label, droppedCount: unseenPassage.length, totalQuestions: roundUsable.length },
+        'Questions referencing a passage with no passage delivered were dropped',
+      );
+      if (unseenPassage.length === roundUsable.length) {
+        lastError = 'Questions referenced a passage that was not provided';
+      }
+      roundUsable = roundUsable.filter(q => !referencesUnseenPassage(q));
     }
 
     return roundUsable;

@@ -103,6 +103,9 @@ export const practiceTranslations: Record<string, { zh: string; en: string }> = 
   'practice.question.hideText': { zh: '隱藏文字版本', en: 'Hide text version' },
   'practice.question.listeningContentText': { zh: '聆聽內容文字', en: 'Listening content text' },
   'practice.question.readingPassage': { zh: '閱讀篇章', en: 'Reading Passage' },
+  // 2026-10-10（生產回報「沒有生成 passage」）：篇章可能隨**非閱讀技能**交付
+  // （詞彙／文法，或模型自發附帶篇章）。此時標示為「題目內文」，與診斷頁用語一致。
+  'practice.question.contextText': { zh: '題目內文', en: 'Question text' },
   'practice.question.showZhHint': { zh: '顯示中文提示', en: 'Show Chinese hint' },
   'practice.question.inputAnswer': { zh: '請輸入答案...', en: 'Enter your answer...' },
   'practice.question.writeAnswer': { zh: '請在此寫下你的答案...', en: 'Write your answer here...' },

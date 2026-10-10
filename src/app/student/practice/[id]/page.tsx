@@ -570,13 +570,18 @@ export default function PracticeQuestionPage() {
           </div>
         )}
 
-        {/* 閱讀理解題：顯示閱讀篇章（改錯題由下方獨立區塊顯示，避免重複） */}
-        {isReading && question.type !== 'error-correction' && question.readingContent && (
+        {/* 篇章：只要題目帶有 readingContent 就**必須**顯示。舊碼只在
+            `languageSkill === 'reading'` 時渲染，一旦篇章隨其他技能交付
+            （詞彙／文法，或模型自發附帶篇章），題目就會被單獨顯示 —— 學生看到
+            「According to the passage …」卻無篇章可讀（2026-10-10 生產回報
+            「沒有生成 passage」）。條件與診斷頁（`languageSkill === 'reading'
+            || readingContent`）一致。 */}
+        {question.type !== 'error-correction' && question.readingContent && (
           <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border-2 border-indigo-300 dark:border-indigo-600">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">📖</span>
               <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                {t('practice.question.readingPassage')}
+                {isReading ? t('practice.question.readingPassage') : t('practice.question.contextText')}
               </span>
             </div>
             <p className="text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed whitespace-pre-line">

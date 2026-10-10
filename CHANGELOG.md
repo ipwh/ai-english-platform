@@ -4,7 +4,58 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-10-10 (V) — Sprint 140–143：自訂練習（Custom Practice）＋ 評分評估基線（Sprint 143）
+## 2026-10-10 (VI) — 生產事故修復：題目指涉篇章卻沒有篇章（學生回報「沒有生成 passage」）
+
+### 症狀
+學生在 `/student/practice/<questionId>` 看到
+「According to the passage, what does the word 'infrasound' mean?」與四個選項，
+但**畫面上沒有任何篇章** —— 一道無法作答的題目。
+
+### 根因（兩個缺陷，缺一即可發生）
+1. **runner 把「有沒有篇章」綁在技能標記上**：`src/app/student/practice/[id]/page.tsx`
+   只在 `languageSkill === 'reading'` 時渲染 `readingContent`。篇章一旦隨**其他技能**交付
+   （文法／詞彙，或模型自發附帶篇章），題目就會被單獨顯示。診斷頁早就用「有內容就顯示」
+   的條件（`languageSkill === 'reading' || readingContent`），練習 runner 未同步 ——
+   同一類缺陷只修了一處。
+2. **生成端沒有「指涉篇章卻沒篇章」的閘門**：閱讀題有內容閘（`readingContent` ≥ 50 字元），
+   非閱讀技能沒有。模型自發寫出「According to the passage …」但沒有篇章時，題目會原樣交付。
+
+### 修復
+- `src/app/student/practice/[id]/page.tsx`：**只要題目帶有 `readingContent` 就逐題顯示**
+  （改錯題維持原有專屬區塊，避免重複）；非閱讀技能標示為「題目內文」
+  （新 i18n key `practice.question.contextText`），與診斷頁用語一致。
+- `src/modules/ai/usecases/generate-questions.ts`：新增 **`referencesUnseenPassage()`**
+  決定性閘門，在**每一輪共用品質閘**（主路徑與 JSON 修復路徑共用）逐題判定：
+  題目／選項／解說指涉篇章（`according to the passage/text/article/author/writer`、
+  `in the passage`、`the passage states…`、`paragraph N` …）而本題沒有篇章
+  （篇章或對話 < 50 字元）⇒ 丟棄，由補題輪補足（fail-closed、零 AI 成本）。
+
+### 測試
+- 單元：`ai/__tests__/generate-questions-topup.test.ts` 新增 2 例 ——（1）非閱讀技能中
+  「指涉篇章但無篇章」的題目被丟棄，且**補題回到要求數量**；（2）同一題目若附帶篇章
+  （≥ 50 字元）則**保留**（不得誤殺）。
+- 契約（原始碼掃描）：`exercise/__tests__/practice-runner-passage-contract.test.ts` 釘住
+  runner「有 `readingContent` 就顯示」「不得用 `isReading &&` 擋」「篇章不得被 `submitted`
+  條件隱藏」「仍傳入 AI 解說」。
+- 瀏覽器（**實際執行**）：`e2e/practice-passage.spec.ts` —— 以**文法**請求生成一道附帶篇章的
+  「According to the passage …」題目（僅 mock 生成呼叫，runner 與畫面全真），驗證篇章與選項都顯示。
+  桌面 `--project=chromium-desktop` **1/1 通過（exit 0）**；行動 `--project=chromium-mobile`
+  （Pixel 7）**1/1 通過（exit 0）**。
+
+### 驗證
+`npx tsc --noEmit` exit 0；`npx vitest run` exit 0（**227 檔／3957 測試**；首次重跑曾因
+OneDrive I/O 競爭令 vitest worker 崩潰（`Worker exited unexpectedly`）而非斷言失敗，重跑全綠）；
+`npx eslint . --max-warnings 246` exit 0（246 warnings／0 errors，恰在棘輪上限）；
+lint budget／i18n／N+1 exit 0；`npm run build` exit 0；`npm run check:artifact` exit 0。
+
+### 限制（誠實揭露）
+- 修復自**部署後新生成**的練習開始生效。學生瀏覽器內正在進行的場次只存在記憶體
+  （`practiceStore` 沒有 persist），重新載入即消失，需重新生成。
+- 生成端閘門是**文字樣式**判定（清單見程式註解），不宣稱能捕捉所有措辭；
+  被誤殺的題目由補題輪補回，數量受 `MAX_ROUNDS` 限制。
+- **未**以真實 provider 重新生成生產樣本量測誤殺率（需 AI 憑證與配額）；單元測試以假回應覆蓋。
+
+---
 
 （本 Sprint 系列未推送部署以外無任何雲端變更；**未**執行任何 Neon 憑證操作；**未**新增資料庫遷移。）
 

@@ -329,6 +329,40 @@ describe('generateQuestions — top-up never lowers the quality bar', () => {
     expect(mockCallLLM).toHaveBeenCalledTimes(1);
   });
 
+  // 2026-10-10 生產回報（學生）：「According to the passage, what does the word
+  // 'infrasound' mean?」—— 題目指涉篇章卻沒有篇章可讀。非閱讀技能（文法／詞彙）
+  // 沒有閱讀內容閘，模型自發寫出的「指涉篇章題」過去會原樣交付。
+  it('drops a passage-referencing item that ships no passage (any skill)', async () => {
+    mockCallLLM.mockResolvedValueOnce(batchOf([
+      mcQuestion(1, 'According to the passage, what does the word "infrasound" mean?'),
+      mcQuestion(2),
+      mcQuestion(3),
+      mcQuestion(4),
+      mcQuestion(5),
+    ]));
+    mockCallLLM.mockResolvedValueOnce(batchOf([mcQuestion(6), mcQuestion(7), mcQuestion(8)]));
+
+    const questions = await generateQuestions(input); // grammar request → no reading gate
+
+    expect(questions).toHaveLength(5);
+    expect(questions.some(q => /according to the passage/i.test(q.prompt))).toBe(false);
+    expect(mockCallLLM).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a passage-referencing item when the passage is delivered with it', async () => {
+    mockCallLLM.mockResolvedValueOnce(batchOf([
+      { ...mcQuestion(1, 'According to the passage, what does the word "infrasound" mean?'), readingContent: okPassage(1) },
+      mcQuestion(2),
+      mcQuestion(3),
+    ]));
+
+    const questions = await generateQuestions({ ...input, count: 3 });
+
+    expect(questions).toHaveLength(3);
+    expect(questions.some(q => /according to the passage/i.test(q.prompt))).toBe(true);
+    expect(mockCallLLM).toHaveBeenCalledTimes(1);
+  });
+
   it('never reuses the same dialogue for two delivered questions', async () => {
     mockCallLLM.mockResolvedValueOnce(batchOf([
       listeningQuestion(1, okDialogue(1)),
