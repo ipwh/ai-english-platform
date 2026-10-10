@@ -82,9 +82,31 @@ stand as of that timestamp and were **not re-attested** in Sprint 137, and
 
 - **2026-10-10 (Sprint 137):** a shell pattern intended to list configuration *key names* matched
   whole lines of the gitignored `cloud-run-env.yaml`, so a production connection string (including
-  the password) was printed into the local session transcript. Verified impact: the file is
-  **gitignored and untracked**, and **no tracked file** contains the credential (scanned for the
-  provider's credential prefix across all tracked files: 0 hits) — nothing was pushed, and no remote
-  system received it. **Recommended action (operator):** treat the credential as local-exposure only
-  and rotate the Neon role password at the next convenient window as a precaution, since local chat
-  transcripts are retained outside the repository's protection.
+  the password) was printed into the local session output.
+  **Correction (Sprint 138):** the earlier statement that “no remote system received it” was
+  inaccurate — the output became part of the session context transmitted to the **GitHub Copilot
+  service**, so the value must be treated as disclosed to an authorized third party. Verified scope:
+  **no tracked file** contains it (full tracked-file scan: 0 hits), nothing was pushed, and no GCP
+  resource was modified; **two local transcript files** retain it. Rotation is therefore **required**,
+  not precautionary. Full record and operator runbook:
+  `docs/production/credential-incident-2026-10-10.md`. Status: **OPEN — PENDING EXTERNAL OPERATOR
+  ACTION** (no Neon/cloud write access or authorization in the audit environment).
+
+## Risk acceptance record (requires release-owner signature)
+
+Nothing in the register is remediated. Two groups share one exposure profile and can be decided
+together; the third cannot.
+
+| Group | Advisories | Recommended decision | Justification | Review / expiry | Remediation trigger |
+|---|---|---|---|---|---|
+| **A — lint tooling** | `braces`, `micromatch`, `fast-glob`, `@next/eslint-plugin-next`, `eslint-config-next` | Accept | Not in the production dependency tree, artifact or bundles; runs only on developer machines and CI lint steps; two packages have **no upstream patch at all** | 2026-11-10 | An `eslint-config-next`/Next release vendoring patched `braces` |
+| **B — Prisma CLI chain** | `prisma`, `@prisma/config`, `deepmerge-ts`, `mysql2` ×2 | Accept | Vendor **exact-pins** these versions; the only npm-suggested fix is a forbidden Prisma downgrade; the code runs only in Cloud Build `Migrate`/local CLI with repo-controlled inputs; **no MySQL endpoint exists** in this deployment | 2026-11-10 | A Prisma release that raises the pins |
+| **C — mammoth chain** | `mammoth`, `argparse`, `sprintf-js` | **Cannot be group-accepted** — keep `RUNTIME_EXPOSURE_UNCERTAIN` | The library *is* shipped; the advisory concerns format-string handling reached through the CLI entry (0 `argparse` references under `mammoth/lib/**`, 0 bundle hits), but a negative for every possible input cannot be proven | 2026-10-24 (short cycle) | A mammoth release dropping argparse, or new evidence narrowing the affected API |
+
+**Acceptance statement (to be completed by the release owner):**
+
+> I have reviewed `docs/production/dependency-residual-risk-2026-10-10.md`. I accept the residual
+> risk for Group □ A  □ B as described, with the stated justification, review date and remediation
+> triggers. Group C: □ accepted  □ not accepted.
+
+Owner: ____________ Date: ____________ Expiry/review: ____________

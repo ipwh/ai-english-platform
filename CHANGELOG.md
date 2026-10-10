@@ -4,7 +4,42 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
-## 2026-10-10 (II) — Sprint 137：發布執行與殘餘風險收口（驗證型 Sprint）
+## 2026-10-10 (III) — Sprint 138：憑證事件收容與授權發布準備
+
+**本 Sprint 未推送、未部署、未變更任何雲端資源**（無授權）。
+
+### 一、P0 憑證事件（**OPEN — PENDING EXTERNAL OPERATOR ACTION**，不得聲稱已關閉）
+- 新增 `docs/production/credential-incident-2026-10-10.md`：事件記錄、**已量測**的曝露範圍、
+  憑證消費者清單、旋轉 runbook（零停機優先：先建新 Neon 角色 → 新增 secret 版本 → 執行期改
+  用 **secret 參照** → 驗證 → 才淘汰舊憑證；全程密碼不得經命令列參數、不得入 argv）、回滾與證據要求。
+- 量測範圍：**沒有任何已追蹤檔**含該憑證（全庫掃描 0 命中）；3 個本機 gitignored 設定檔
+  （`.env.local` 2 處、`.env` 1 處、`cloud-run-env.yaml` 2 處）；**2 個本機逐字稿檔**保留該值
+  （`3672d3f6-….jsonl`、`cd331cb5-….jsonl`）；未推送、未修改任何 GCP 資源。
+- **更正 Sprint 137**：「無遠端系統收到」不準確 —— 工具輸出會成為 session context 傳送至
+  GitHub Copilot 服務 ⇒ 應視為已向授權第三方揭露，**旋轉屬必要而非預防措施**。
+- 新增回歸護欄 `src/shared/__tests__/secret-hygiene.test.ts`（含對照組）：掃描所有 git 追蹤檔，
+  禁止出現「帶內嵌密碼的 Neon 連線字串」或「供應商憑證前綴」；樣本以片段組裝並斷言測試檔自身
+  不含可命中字面。刻意不採用通用的 `postgresql://user:password@` 形狀（本倉庫的正當本機／CI
+  佔位字串會誤判，已於實作前實測確認）。
+- 未執行旋轉：本環境無 Neon／雲端寫入權限與授權。
+
+### 二、P0 生產身分（**UNVERIFIED**，維持）
+- 仍無法讀取：session 使用的服務帳號（`vision-api-user@…`）缺 `run.services.*` 權限，
+  使用者憑證已過期；生產端點自稽核主機不可達（TCP 可連、TLS/protocol 層重置）；
+  本機亦無可公開觀測的 app URL ⇒ **生產健康狀態未觀測**（不代表生產異常，而是未觀測）。
+- Sprint 136 的只讀量測（24 applied／1 rolled_back／0 unfinished／0 pending／零漂移）
+  仍僅以其時間戳為準，本 Sprint **未重新確認**。
+
+### 三、P1 依賴風險接受（**RISK ACCEPTANCE REQUIRED**）
+- 登錄文件新增 `Risk acceptance record`：A 群（lint 工具鏈）、B 群（Prisma CLI 鏈，含
+  `mysql2`／`deepmerge-ts` 為 prisma 精確釘版）建議接受並附理由／覆核日期／修復觸發條件；
+  **C 群（mammoth 鏈）不得群體接受**，維持 `RUNTIME_EXPOSURE_UNCERTAIN` 並採短週期覆核
+  （2026-10-24）。**稽核 ≠ 修復：12 條全部仍存在**，仍未施加任何不支援的 override／降級。
+
+### 四、P1 維運與發布授權
+- Scheduler 與 3 條告警政策：**NOT PROVISIONED／NOT AUTHORIZED**（無有效雲端憑證）；
+  OIDC 仍不得啟用（端點尚無 JWT 驗證）。Safari 維持 `ARTIFACT-VERIFIED / DEVICE-UNVERIFIED`。
+- 遠端無分歧（0 behind／9 ahead，fast-forward）；**未推送**（無授權）。
 
 **本 Sprint 未推送、未部署、未變更任何雲端資源**（無授權）。
 
