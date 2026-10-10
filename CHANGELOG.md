@@ -4,6 +4,34 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+## 2026-10-10 (XI) — 自訂練習：改善建議指向錯方向（「下方」）＋練習歷史「0 次練習」誤導
+
+### 回報（學生，部署後實測 `/student/custom-practice` 與「我的進度 → 練習歷史」）
+1. 改善建議寫「請看**下方**解說…」，但**下方並沒有解說**（解說在改善建議之上）。
+2. 練習歷史當日列顯示「**0 次練習 · 0 題**」卻同時顯示「自訂練習 ×12」——學生／教師無法理解。
+
+### 根因與修正
+1. **位置指涉錯誤＋建議本身無法執行**（`custom-practice/services/grading-service.ts`）：
+   - 解說區塊在 UI 中排在改善建議**之前**，故「下方／below」方向相反；且當時的建議是
+     「用正確答案『A』造一句」——**選擇題的答案是一個字母**，無法造句。
+   - 新增 `actionAdvice()`：有 `targetRule` 時要求學生用**本題考核的結構**造句
+     （例：`請重讀本題解說，然後用本題考核的結構「good at + gerund」自己造一句。`）；
+     沒有結構時退回「抄寫正確選項，並寫出你選的選項為何不符合規則」。
+     `ObjectiveGradingInput` 新增 `targetRule`（由 `submission-service` 帶入）。
+   - 測試釘住：建議必須**不得**出現 `下方`／`below`／`改寫為`／`rewrite the answer as`，
+     且必須含考核結構；無結構時走後備語句。
+2. **零值不得顯示**（`app/student/progress/page.tsx`）：當日列只在 `sessionsCount > 0` 時顯示
+   「N 次練習 · M 題」；只有自訂練習的日子只顯示「自訂練習 ×N」徽章。
+   （2026-09-20 稽核的同一原則：**無資料 ≠ 0** —— 這裡是「沒有 DSE 場次」被寫成 0。）
+
+### 驗證（實際執行）
+- `npx tsc --noEmit` ⇒ 0 error；`npx eslint . --max-warnings 79` ⇒ 0 errors / 79 warnings；
+  `node scripts/check-lint-budget.js` ⇒ OK；`npx vitest run`（全套）⇒ **3982 passed / 0 failed**；
+  `npm run build` ⇒ **exit 0**。
+- 學生端可見的三段文字（考核重點／解說／改善建議）方向與內容已由測試與本次修正一致。
+
+---
+
 ## 2026-10-10 (X) — 自訂練習回饋修正（考核重點、改善建議、重複標題）＋練習歷史整合＋ESLint 246→79
 
 ### 回報（教師，`/student/custom-practice`）
@@ -72,6 +100,94 @@ All notable changes to the AI English Platform are documented here.
 
 ---
 
+
+### 測試方法（模擬小六學生使用流程）
+以 Oxford Grammar Wonderland 6A／6B 已完成的實體練習為素材（掃描 PDF 無文字層，以頁面影像讀取
+單元主題：Unit 1「if … will／Similes: as … as, be … like」、reported speech、`too + adjective +
+to-infinitive`、Unit 15「Infinitives with/without to」、comparatives…），把「學生會怎樣按主題輸入」
+逐項餵進 `/student/custom-practice` 的**真實**管線：
+1. **決定性矩陣**（新增 `__tests__/student-scenario-matrix.test.ts`，33 案，零 AI 成本）：
+   類別推斷 × 題型組合 × 交付前揭露 × 覆核螢幕 × 客觀題評分。
+2. **真實 AI 模擬**（`CP_LIVE_SIM=1` gated，永不進 CI）：10 個情境（自動類別／指定類別／
+   單一題型／全部五種題型／3 題與 10 題）× 生成 → 機械閘 → blind-solve 覆核 → 評分。
+3. **真實資料庫全流程**：臨時學生 → 生成 → 交付（檢查答案外洩）→ 提交 → 刪除（無殘留）。
+
+### 缺陷 1（高）— 選 10 題必然失敗：生成 token 預算過小
+- 實測：`questionCount=10` × 五種題型 ⇒ `maxTokens: 3200` 令 JSON **被截斷**，五種修復策略
+  全數失敗 ⇒ 每次重試都拋「AI 回傳格式無法解析」⇒ 學生看到 502「題目無法生成，請再試一次」，
+  **永遠無法成功**（10 題 mc-only 亦同）。5 題時 JSON 已達 7 135 字元（≈3 000 tokens），
+  10 題實測 11 378–12 920 字元 ⇒ 3200 必然不足。
+- 修正：`ai/usecases/custom-practice.ts` 生成 `maxTokens` 3200 → **12000**（覆核與評分維持原值：
+  實測 10 題在 2 600 預算下仍 10/10 通過，故不動）。
+- 驗證：真實服務 `generateCustomPracticeSet()` ⇒ **deliveredCount 10/10、shortfall 0、dropped 0**、
+  24 s（`regenerationRounds: 2`，補題迴圈正常運作）；provider 接受 12000（`deepseek-chat`）。
+
+### 缺陷 2（中）— 單元標題／複數主題被「由系統判斷」拒絕
+- 實測 6B Unit 15 的**單元標題原字**「Infinitives with or without to」被拒（關鍵詞只有單數
+  `infinitive`）；`comparatives/superlatives/relative clauses/idioms/phrases/pronouns…
+  複數形全部落空；6B Unit 1「Similes」不在詞表；6A Unit 1 的單元說明句
+  「conditional sentences about the **possible future**」因泛用詞 `future` 與 `conditional`
+  互斥 ⇒ 判為歧義而拒絕。
+- 修正（`custom-practice/services/request-normalizer.ts`）：
+  - 關鍵詞改以「尾詞可有複數／所有格」比對（`infinitive` ⇒ `infinitives`）；
+  - 泛用描述詞 `future` 降為**弱證據**（`future tense` 等仍為強證據）；
+  - 補入 `simile`／`as as`；
+  - **新增中文主題詞**（條件句／時態／現在完成式／詞彙／片語／比較級…）：平台本身是中英對照，
+    英文程度稍差的學生以中文描述不應被拒。
+- 仍保留原有政策：真正互相矛盾的請求（例：`conditionals and prepositions`）一律拒絕並
+  提示選擇類別 —— 明示選擇永遠優先於文字推斷。
+
+### 缺陷 3（中）— 覆核螢幕誤丟合格題目
+- `screenForDeterministicDefects()` 原本只要解說出現 `is incorrect/wrong/ambiguous` 就丟題，
+  但教學文字本來就會寫「干擾項 A 是錯的」（例：`…, so 'will call' is incorrect here`）⇒
+  合格題目被靜默丟棄（真實模擬 10 個情境中有 2 個命中此分支）。
+- 修正：規則收窄至**題目層級**的自認缺陷（`the correct answer is ambiguous`、
+  `no correct option`、`more than one option is correct`…），並補測試同時釘住兩個方向。
+
+### 缺陷 4（低）— 400 只回「發生錯誤，請再試一次。」
+- 學生輸入 1–2 字（或描述不合法）⇒ 400 `INVALID_REQUEST` ⇒ UI 落回**通用**錯誤訊息，
+  學生不知道要改甚麼（原回報畫面的同一句話）。
+- 修正：新增雙語 `customPractice.error.invalidRequest`（明列 3–400 字／3–10 題／題型限制），
+  400 依 `code` 分流（`CATEGORY_AMBIGUOUS` → 類別提示；其餘 → 格式提示）。
+
+### 缺陷 5（低）— 選擇題答案鍵只認單一字母
+- 學生以選項代號作答（`B)`／`(b)`／`b) had started`）一律判「不正確」。
+- 修正（`grading-service.ts`）：單字母答案鍵亦接受**選項代號寫法**（要求代號後緊接
+  `) . :` 或行尾，故「a boy ran…」不會被誤認為 A）。
+
+### 缺陷 6（中，獨立審核發現）— 禮貌句式的 modal 被當成主題
+- 「弱證據」原本只要沒命中具名主題就採用 ⇒ `I would like to practise spelling`、
+  `Can I practise spelling?` 一律被靜默判為 grammar（原本會要求澄清），與模組自述政策
+  「沒有證據就要求澄清」矛盾。
+- 修正：弱證據**只在學生把它當主題用**時才成立 —— 列舉（`should and could`、`can vs must`，
+  連接詞 and／or／vs／versus）或收尾（`if … will`、`the future`）；禮貌框架中的助動詞不再算數。
+  同時保留「I would like to practise should and could」仍判 grammar。
+
+### 驗證（實際執行）
+- `npx tsc --noEmit` ⇒ 全庫 **0 error**（含 `src/`）。
+- `npx eslint . --max-warnings 480` ⇒ **0 errors / 246 warnings**（棘輪上限 480；本次改動檔 0 warning）。
+- `npx vitest run`（**全套**）⇒ **224 檔通過 / 4 檔跳過；3974 passed / 0 failed**。
+- `npx vitest run src/modules/custom-practice src/modules/ai src/app/api` ⇒ **1 705 passed / 4 skipped**；
+  `npx vitest run src/modules/__tests__ src/shared` ⇒ **303 passed**（架構、i18n、依賴安全、遷移安全）。
+- 新增 `student-scenario-matrix.test.ts`（34 案，含缺陷 6 的兩個方向）全綠；`node scripts/check-i18n.js` exit 0。
+- 真實 AI／真實資料庫模擬如上述（生成 10/10、交付前無答案外洩）。
+- **遷移已手動套用**（2026-10-10，依指示）：`npx prisma migrate deploy` ⇒ 套用
+  `20261010000300_custom_practice_bilingual_feedback`；`npm run db:verify:drift` ⇒
+  **No difference detected（零漂移）**；`npx prisma migrate status` ⇒ 27 migrations、up to date、無 pending。
+  （套用前提交路徑在本機曾報 `column overallFeedbackZh does not exist`，套用後即具備。）
+- 獨立審核（code-review）已完成：確認雙語欄位全鏈 nullable 貫通、選項代號容錯不會誤收、
+  覆核螢幕新舊行為兩方向正確、遷移純新增且與 baseline／schema 一致、prompt 版本改名無殘留引用；
+  唯一發現即上方缺陷 6（已修正並補測試）。
+
+### 已知殘留（未修，僅記錄）
+- 學生同時指名兩個類別（例：`conditionals and prepositions`、中文「小六英文文法，特別是條件句」）
+  仍一律拒絕 —— 這是既有政策（既有測試明示），但對「先講大範圍、再講重點」的自然寫法不友善。
+- 未列入詞表的主題（`then and than`、`spelling`）仍拒絕；訊息會引導選類別。
+- `(A) … (B) …` 格式的選項：機械閘接受但學生端解析不到 ⇒ 會退回文字輸入框。
+
+---
+
+## 2026-10-10 (IX) — 自訂練習：學生情境壓力測試（真實 AI ＋ 真實資料庫）與五項缺陷修復
 
 ### 測試方法（模擬小六學生使用流程）
 以 Oxford Grammar Wonderland 6A／6B 已完成的實體練習為素材（掃描 PDF 無文字層，以頁面影像讀取

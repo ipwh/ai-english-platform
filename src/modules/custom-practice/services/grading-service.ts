@@ -66,6 +66,33 @@ export interface ObjectiveGradingInput {
   answerKey: string;
   acceptedAnswers: readonly string[];
   maxMarks: number;
+  /**
+   * The structure the item tests (the question's `targetRule`). Used to make the
+   * written advice actionable: for a choice question the "answer" is a LETTER, so
+   * telling the student to write a sentence with it is meaningless (2026-10-10
+   * report: "「下方」並沒有解說" + advice that could not be acted on).
+   */
+  targetRule?: string | null;
+}
+
+/**
+ * Advice a student can actually carry out. The explanation is rendered ABOVE this
+ * advice, so never point "below" (the student reported there was nothing below); and
+ * never ask for a sentence built on an option letter — name the tested structure
+ * instead.
+ */
+function actionAdvice(targetRule: string | null | undefined): { en: string; zh: string } {
+  const rule = targetRule?.trim();
+  if (rule) {
+    return {
+      en: `Re-read the explanation for this question, then write one sentence of your own that uses the structure it tests ("${rule}").`,
+      zh: `請重讀本題解說，然後用本題考核的結構「${rule}」自己造一句。`,
+    };
+  }
+  return {
+    en: 'Re-read the explanation for this question, then copy the correct option and write down why the option you chose does not fit the rule.',
+    zh: '請重讀本題解說，然後抄寫正確選項，並寫出你選的選項為何不符合規則。',
+  };
 }
 
 export function gradeObjectiveItem(input: ObjectiveGradingInput): GradedItem {
@@ -113,12 +140,8 @@ export function gradeObjectiveItem(input: ObjectiveGradingInput): GradedItem {
       : letterKey && chosen
         ? `不正確。你的答案是「${chosen}」，正確答案是「${input.answerKey}」。`
         : `不正確。預期答案：${input.answerKey}。`,
-    improvement: matched
-      ? null
-      : `Read the explanation below, find the rule it names, then write one sentence of your own that uses the correct answer "${input.answerKey}".`,
-    improvementZh: matched
-      ? null
-      : `請看下方解說找出它指出的規則，然後自己寫一句使用正確答案「${input.answerKey}」的句子。`,
+    improvement: matched ? null : actionAdvice(input.targetRule).en,
+    improvementZh: matched ? null : actionAdvice(input.targetRule).zh,
     needsReview: false,
   };
 }

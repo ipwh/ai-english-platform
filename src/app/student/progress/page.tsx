@@ -415,9 +415,13 @@ export default function StudentProgressPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatHistoryDayLabel(day.dayKey, language)}</span>
-                        <span className="text-xs text-gray-400">
-                          {day.sessionsCount} {t('common.sessions')} · {day.questionsTotal}{t('progress.questionsSuffix')}
-                        </span>
+                        {/* 只有自訂練習的日子不得顯示「0 次練習 · 0 題」（2026-10-10 回報：
+                            學生看到 0 次練習卻有 12 份自訂練習）。 */}
+                        {day.sessionsCount > 0 && (
+                          <span className="text-xs text-gray-400">
+                            {day.sessionsCount} {t('common.sessions')} · {day.questionsTotal}{t('progress.questionsSuffix')}
+                          </span>
+                        )}
                         {day.customPracticeCount > 0 && (
                           <span className="text-[11px] px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-full">
                             {t('progress.customPracticeTitle')} ×{day.customPracticeCount}

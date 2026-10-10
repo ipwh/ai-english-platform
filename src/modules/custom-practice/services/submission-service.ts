@@ -82,6 +82,7 @@ export async function submitCustomPracticeSet(input: {
         answerKey: question.answerKey,
         acceptedAnswers: parseStringArray(question.acceptedAnswers),
         maxMarks: question.maxMarks,
+        targetRule: question.targetRule,
       });
       continue;
     }

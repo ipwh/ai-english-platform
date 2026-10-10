@@ -427,16 +427,27 @@ describe('multiple-choice marking as a student experiences it', () => {
   });
 
   it('tells the student which option they chose, and gives actionable advice (2026-10-10)', () => {
-    const graded = gradeObjectiveItem({ ...base, answerText: 'C' });
+    const graded = gradeObjectiveItem({ ...base, answerText: 'C', targetRule: 'good at + gerund' });
     // "Expected: B" alone left the student comparing two letters with no context.
     expect(graded.rationale).toContain('You answered "C"');
     expect(graded.rationale).toContain('Expected: B');
     expect(graded.rationaleZh).toContain('你的答案是「C」');
-    // The advice must ask for work the student can actually do, not "rewrite it as B".
+    // The advice must name the structure being tested — a sentence cannot be built on
+    // the option letter, and the explanation is rendered ABOVE this text, so it must
+    // not point "below" (2026-10-10 report: 「下方」並沒有解說).
     expect(graded.improvement).toContain('write one sentence of your own');
-    expect(graded.improvement).not.toMatch(/rewrite the answer as/i);
-    expect(graded.improvementZh).toContain('自己寫一句');
-    expect(graded.improvementZh).not.toContain('改寫為');
+    expect(graded.improvement).toContain('good at + gerund');
+    expect(graded.improvement).not.toMatch(/below|rewrite the answer as/i);
+    expect(graded.improvementZh).toContain('good at + gerund');
+    expect(graded.improvementZh).toContain('自己造一句');
+    expect(graded.improvementZh).not.toMatch(/下方|改寫為/);
+  });
+
+  it('falls back to copy-and-explain advice when the item has no stated structure', () => {
+    const graded = gradeObjectiveItem({ ...base, answerText: 'C' });
+    expect(graded.improvement).toContain('copy the correct option');
+    expect(graded.improvement).not.toContain('"B"');
+    expect(graded.improvementZh).toContain('抄寫正確選項');
   });
 
   it('normalizes curly apostrophes so a copied answer still matches', () => {
