@@ -89,8 +89,11 @@ export async function POST(request: NextRequest) {
           deliveredCount: generated.deliveredCount,
           shortfall: generated.shortfall,
           droppedCount: generated.droppedCount,
+          rejectedByVerification: generated.rejectedByVerification,
+          regenerationRounds: generated.regenerationRounds,
           interpretation: normalized.spec.interpretation,
           promptVersion: generated.promptVersion,
+          verificationPromptVersion: generated.verificationPromptVersion,
         },
       },
       { status: 201 }

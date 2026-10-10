@@ -51,6 +51,9 @@ export type { GradePracticeSetResult, ObjectiveGradingInput, OpenEndedQuestionIn
 
 export { toDeliveredResults, toDeliveredSet } from './services/delivery-service';
 
+export { MAX_REGENERATION_ROUNDS, screenForDeterministicDefects, verifyGeneratedQuestions } from './services/verification-service';
+export type { VerificationOutcome, VerificationRejection } from './services/verification-service';
+
 export { submitCustomPracticeSet } from './services/submission-service';
 
 export { getOwnedSet, getSubmissionWithResponses, listOwnSets } from './repositories/custom-practice-repo';

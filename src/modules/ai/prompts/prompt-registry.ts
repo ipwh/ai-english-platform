@@ -80,6 +80,12 @@ registerPrompt({
   description: 'Rubric-aware marking of open-ended practice answers with per-item confidence',
   feature: 'CustomPractice',
 });
+registerPrompt({
+  name: 'CustomPracticeVerification',
+  version: 'v1',
+  description: 'Blind verification: solves generated practice items without seeing the proposed answer key',
+  feature: 'CustomPractice',
+});
 
 // 1. MaterialAnalysis — inline prompt in analyze-material.ts
 registerPrompt({

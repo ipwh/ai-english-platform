@@ -1170,6 +1170,9 @@ model CustomPracticeSet {
   interpretation String?
   promptVersion  String
   model          String?
+  /// JSON：驗證狀態與提示詞版本（{ status, rounds, rejected, promptVersions }）。
+  /// 只記錄中繼資料，永不記錄答案鍵。
+  verificationMeta String?
   createdAt      DateTime @default(now())
 
   questions  CustomPracticeQuestion[]

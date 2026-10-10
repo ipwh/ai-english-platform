@@ -852,6 +852,7 @@ CREATE TABLE "CustomPracticeSet" (
     "interpretation" TEXT,
     "promptVersion" TEXT NOT NULL,
     "model" TEXT,
+    "verificationMeta" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CustomPracticeSet_pkey" PRIMARY KEY ("id")

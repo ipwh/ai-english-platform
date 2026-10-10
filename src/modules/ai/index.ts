@@ -222,10 +222,11 @@ export type { IeltsMistakeExplanationResponse } from '@/modules/ai/schemas/ielts
 export { BudgetExceededError, isBudgetExceededError } from '@/modules/ai/runtime/budget-policy';
 
 // Self-Directed Practice (2026-10-10, Sprint 140) — student-authored practice requests.
-export { generateCustomPracticeWithAI, gradeCustomPracticeWithAI } from '@/modules/ai/usecases/custom-practice';
+export { generateCustomPracticeWithAI, gradeCustomPracticeWithAI, verifyCustomPracticeWithAI } from '@/modules/ai/usecases/custom-practice';
 export type {
   CustomPracticeGenerationResult,
   CustomPracticeGradingResult,
+  CustomPracticeVerificationResult,
 } from '@/modules/ai/usecases/custom-practice';
 export {
   CUSTOM_PRACTICE_CATEGORIES,
@@ -244,6 +245,7 @@ export type {
 export {
   CUSTOM_PRACTICE_GENERATION_V1,
   CUSTOM_PRACTICE_GRADING_V1,
+  CUSTOM_PRACTICE_VERIFICATION_V1,
 } from '@/modules/ai/prompts/custom-practice/prompts';
 
 // AI Evaluator (reading answer evaluation)

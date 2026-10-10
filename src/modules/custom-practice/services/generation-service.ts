@@ -18,6 +18,7 @@ import { generateCustomPracticeWithAI, type CustomPracticeGeneratedQuestion } fr
 import { logger } from '@/shared/logger/logger';
 import { CustomPracticeError, type PracticeSpec, type PracticeQuestionType, type ValidatedQuestion } from '../domain/types';
 import { persistGeneratedSet } from '../repositories/custom-practice-repo';
+import { MAX_REGENERATION_ROUNDS, verifyGeneratedQuestions } from './verification-service';
 
 export interface DroppedQuestion {
   index: number;
@@ -40,11 +41,15 @@ function countOptionMarkers(prompt: string): number {
 /** Deterministic gate. Exported so it can be unit-tested without any AI call. */
 export function validateGeneratedQuestions(
   generated: readonly CustomPracticeGeneratedQuestion[],
-  spec: PracticeSpec
+  spec: PracticeSpec,
+  options: { excludePrompts?: readonly string[]; limit?: number } = {}
 ): ValidateGeneratedQuestionsResult {
   const valid: ValidatedQuestion[] = [];
   const dropped: DroppedQuestion[] = [];
-  const seenPrompts = new Set<string>();
+  // Cross-round dedupe: prompts already accepted in an earlier round must not
+  // reappear as "new" questions.
+  const seenPrompts = new Set<string>((options.excludePrompts ?? []).map(normalizedPromptKey));
+  const limit = options.limit ?? spec.questionCount;
 
   generated.forEach((question, index) => {
     const drop = (reason: string) => dropped.push({ index, reason });
@@ -83,7 +88,7 @@ export function validateGeneratedQuestions(
     }
     seenPrompts.add(promptKey);
 
-    if (valid.length >= spec.questionCount) {
+    if (valid.length >= limit) {
       drop('exceeds the requested question count');
       return;
     }
@@ -118,7 +123,11 @@ export interface GeneratePracticeSetResult {
   requestedCount: number;
   shortfall: number;
   droppedCount: number;
+  /** Items thrown away by the blind verification pass. */
+  rejectedByVerification: number;
+  regenerationRounds: number;
   promptVersion: string;
+  verificationPromptVersion: string | null;
 }
 
 export async function generateCustomPracticeSet(input: {
@@ -127,50 +136,104 @@ export async function generateCustomPracticeSet(input: {
 }): Promise<GeneratePracticeSetResult> {
   const { ownerUserId, spec } = input;
 
-  const generated = await generateCustomPracticeWithAI({
-    requestText: spec.requestText,
-    objective: spec.objective,
-    category: spec.category,
-    difficulty: spec.difficulty,
-    questionCount: spec.questionCount,
-    exerciseTypes: spec.exerciseTypes,
-  });
+  const accepted: ValidatedQuestion[] = [];
+  const rejectedReasons: string[] = [];
+  let droppedCount = 0;
+  let rounds = 0;
+  let generationPromptVersion = '';
+  let verificationPromptVersion: string | null = null;
 
-  const { valid, dropped } = validateGeneratedQuestions(generated.questions, spec);
+  // Bounded regeneration: at most MAX_REGENERATION_ROUNDS extra rounds, and the
+  // loop stops as soon as a round makes no progress — it can never run forever,
+  // and it never lowers the quality bar to reach the requested count.
+  while (rounds <= MAX_REGENERATION_ROUNDS && accepted.length < spec.questionCount) {
+    rounds += 1;
+    const deficit = spec.questionCount - accepted.length;
 
-  if (valid.length === 0) {
+    const generated = await generateCustomPracticeWithAI({
+      requestText: spec.requestText,
+      objective: spec.objective,
+      category: spec.category,
+      difficulty: spec.difficulty,
+      questionCount: Math.max(deficit, 1),
+      exerciseTypes: spec.exerciseTypes,
+    });
+    generationPromptVersion = generated.promptVersion;
+
+    const { valid, dropped } = validateGeneratedQuestions(generated.questions, spec, {
+      excludePrompts: accepted.map(question => question.prompt),
+      limit: deficit,
+    });
+    droppedCount += dropped.length;
+
+    const verification = await verifyGeneratedQuestions({ spec, questions: valid });
+    verificationPromptVersion = verification.verificationPromptVersion ?? verificationPromptVersion;
+
+    if (!verification.verifierAvailable) {
+      // Fail closed: delivering unverified questions would silently lower the bar.
+      throw new CustomPracticeError(
+        'GENERATION_FAILED',
+        'The questions could not be verified just now, so nothing was delivered. Please try again in a moment.',
+        { verifierAvailable: false, rounds }
+      );
+    }
+
+    accepted.push(...verification.accepted);
+    for (const rejection of verification.rejected) rejectedReasons.push(rejection.reason);
+
+    if (verification.accepted.length === 0) break;
+  }
+
+  if (accepted.length === 0) {
     logger.warn(
-      { module: 'custom-practice', ownerUserId, dropped: dropped.slice(0, 5) },
-      'custom practice generation produced no usable question'
+      { module: 'custom-practice', ownerUserId, rejectedReasons: rejectedReasons.slice(0, 5) },
+      'custom practice: nothing survived validation + blind verification'
     );
     throw new CustomPracticeError(
       'GENERATION_FAILED',
-      'The generated exercise did not pass validation. Please try again with a slightly different request.',
-      { dropped }
+      'The generated exercise did not pass validation and verification. Please try again with a slightly different request.',
+      { rejectedReasons: rejectedReasons.slice(0, 5) }
     );
   }
+
+  const verificationMeta = JSON.stringify({
+    status: accepted.length === spec.questionCount ? 'verified' : 'verified_shortfall',
+    rounds,
+    accepted: accepted.length,
+    rejected: rejectedReasons.length,
+    promptVersions: {
+      generation: generationPromptVersion,
+      verification: verificationPromptVersion,
+    },
+  });
 
   const persisted = await persistGeneratedSet({
     ownerUserId,
     spec,
-    promptVersion: generated.promptVersion,
+    promptVersion: generationPromptVersion,
     model: null,
-    questions: valid,
+    verificationMeta,
+    // Re-index across rounds: orderIndex is unique per set, and each round starts
+    // numbering at zero.
+    questions: accepted.map((question, index) => ({ ...question, orderIndex: index })),
   });
 
-  if (valid.length < spec.questionCount) {
+  if (accepted.length < spec.questionCount) {
     logger.warn(
-      { module: 'custom-practice', ownerUserId, requested: spec.questionCount, delivered: valid.length },
-      'custom practice delivered fewer questions than requested'
+      { module: 'custom-practice', ownerUserId, requested: spec.questionCount, delivered: accepted.length },
+      'custom practice delivered fewer verified questions than requested'
     );
   }
 
   return {
     setId: persisted.setId,
-    deliveredCount: valid.length,
+    deliveredCount: accepted.length,
     requestedCount: spec.questionCount,
-    shortfall: spec.questionCount - valid.length,
-    droppedCount: dropped.length,
-    promptVersion: generated.promptVersion,
+    shortfall: spec.questionCount - accepted.length,
+    droppedCount,
+    rejectedByVerification: rejectedReasons.length,
+    regenerationRounds: rounds,
+    promptVersion: generationPromptVersion,
+    verificationPromptVersion,
   };
 }

@@ -13,6 +13,77 @@
 
 export const CUSTOM_PRACTICE_GENERATION_V1 = 'custom-practice-generation-v1';
 export const CUSTOM_PRACTICE_GRADING_V1 = 'custom-practice-grading-v1';
+export const CUSTOM_PRACTICE_VERIFICATION_V1 = 'custom-practice-verification-v1';
+
+export interface CustomPracticeVerificationPromptItem {
+  index: number;
+  questionType: string;
+  instructions: string;
+  prompt: string;
+  targetRule: string;
+  rubric: string;
+}
+
+/**
+ * Independent ("blind") verification prompt.
+ *
+ * The proposed answer key is deliberately NOT included: the verifier must derive
+ * its own answer first, and only later (deterministically, or through the grading
+ * usecase) is that answer compared against the key. A second model pass reduces
+ * wrong keys; it does NOT guarantee correctness, and nothing here may claim so.
+ */
+export function buildCustomPracticeVerificationPrompt(input: {
+  category: string;
+  difficulty: string;
+  items: readonly CustomPracticeVerificationPromptItem[];
+}): { system: string; user: string } {
+  const system = [
+    'You are solving English practice questions to CHECK them. You have NOT been shown any answer key.',
+    '',
+    'For each item, answer it yourself, then judge whether the item is fit to give to a student.',
+    'Return ONE JSON object, no prose:',
+    '{ "results": [ {',
+    '    "index": the item index given below,',
+    '    "answer": your own answer (for multiple choice give the option letter, e.g. "B"),',
+    '    "confidence": number between 0 and 1 for YOUR answer,',
+    '    "ambiguous": true when more than one answer could be defended,',
+    '    "ambiguousReason": why it is ambiguous (or null),',
+    '    "rubricSatisfiable": false when the stated rubric cannot be satisfied as written,',
+    '    "issue": any other defect you found — contradictory instructions, information missing from the',
+    '      question, a target rule that does not match the question (or null)',
+    '} ] }',
+    '',
+    'Rules:',
+    '1. Answer from the question alone. Do not assume a hidden key exists — if the question cannot be',
+    '   answered as written, say so through `ambiguous` / `issue` instead of guessing.',
+    '2. Set ambiguous = true whenever a careful teacher would accept a second answer.',
+    '3. Set confidence below 0.5 when you are unsure of your own answer.',
+    '4. Judge the target rule: if the question does not actually test the stated structure, report it.',
+    '5. Never invent information that is not in the question or the target rule.',
+  ].join('\n');
+
+  const items = input.items.map(item =>
+    [
+      '--- item ---',
+      `index: ${item.index}`,
+      `questionType: ${item.questionType}`,
+      `instructions: ${item.instructions}`,
+      `question: ${item.prompt}`,
+      `targetRule: ${item.targetRule}`,
+      `rubric: ${item.rubric}`,
+    ].join('\n')
+  );
+
+  const user = [
+    `Practice category: ${input.category}`,
+    `Difficulty: ${input.difficulty}`,
+    `Items to check: ${input.items.length}`,
+    '',
+    ...items,
+  ].join('\n');
+
+  return { system, user };
+}
 
 export interface CustomPracticeGenerationPromptInput {
   requestText: string;

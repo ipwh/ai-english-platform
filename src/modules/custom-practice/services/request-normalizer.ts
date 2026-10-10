@@ -77,9 +77,16 @@ export function normalizeRequestText(raw: unknown): string {
 }
 
 export function inferCategory(text: string): { category: PracticeCategory | null; ambiguous: boolean } {
-  const haystack = ` ${text.toLowerCase()} `;
+  // Normalize to a token stream first: punctuation and the end of the string must
+  // behave exactly like a separating space, otherwise "…past perfect." would not
+  // match the "past perfect" keyword (found by the Sprint 141 route tests).
+  const haystack = ` ${text
+    .toLowerCase()
+    .replace(/[^a-z0-9'-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()} `;
   const hits = CUSTOM_PRACTICE_CATEGORIES.filter(category =>
-    CATEGORY_KEYWORDS[category].some(keyword => haystack.includes(` ${keyword} `) || haystack.includes(`${keyword},`) || haystack.includes(`${keyword}.`) || haystack.endsWith(` ${keyword}`))
+    CATEGORY_KEYWORDS[category].some(keyword => haystack.includes(` ${keyword} `))
   );
 
   if (hits.length === 1) return { category: hits[0], ambiguous: false };

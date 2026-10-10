@@ -68,3 +68,23 @@ export const CustomPracticeGradingSchema = z.object({
 export type CustomPracticeGeneratedQuestion = z.infer<typeof CustomPracticeQuestionSchema>;
 export type CustomPracticeGenerationResponse = z.infer<typeof CustomPracticeGenerationSchema>;
 export type CustomPracticeGradingResponse = z.infer<typeof CustomPracticeGradingSchema>;
+
+/** Blind verification result — produced WITHOUT the proposed answer key. */
+export const CustomPracticeVerificationSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        index: z.number().int().min(0).max(20),
+        answer: z.string().max(600).default(''),
+        confidence: z.number().min(0).max(1),
+        ambiguous: z.boolean().default(false),
+        ambiguousReason: z.string().max(400).nullable().default(null),
+        rubricSatisfiable: z.boolean().default(true),
+        issue: z.string().max(400).nullable().default(null),
+      })
+    )
+    .min(1)
+    .max(20),
+});
+
+export type CustomPracticeVerificationResponse = z.infer<typeof CustomPracticeVerificationSchema>;

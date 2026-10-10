@@ -48,6 +48,19 @@ describe('category inference', () => {
     expect(result.ambiguous).toBe(true);
   });
 
+  it('matches keywords at the END of the sentence and before punctuation', () => {
+    // Regression (Sprint 141): the trailing-space haystack used to make a keyword
+    // that ends the string unmatchable, so "…practise the zero conditional" was
+    // reported as having no evidence at all.
+    expect(inferCategory('I want to practise the zero conditional').category).toBe('sentence_pattern');
+    expect(inferCategory('My problem is the past perfect.').category).toBe('grammar');
+    expect(inferCategory('Help me with enough and too!').category).toBe('vocabulary');
+  });
+
+  it('treats hyphens and apostrophes as part of a word (subject-verb agreement)', () => {
+    expect(inferCategory('subject-verb agreement drills').category).toBe('grammar');
+  });
+
   it('returns no category when there is no evidence at all', () => {
     const result = inferCategory('something interesting please');
     expect(result.category).toBeNull();

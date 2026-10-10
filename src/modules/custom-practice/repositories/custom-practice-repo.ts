@@ -20,6 +20,8 @@ export interface PersistGeneratedSetInput {
   spec: PracticeSpec;
   promptVersion: string;
   model: string | null;
+  /** JSON metadata about blind verification — never contains answer keys. */
+  verificationMeta: string;
   questions: ValidatedQuestion[];
 }
 
@@ -42,6 +44,7 @@ export async function persistGeneratedSet(input: PersistGeneratedSetInput): Prom
           interpretation: input.spec.interpretation,
           promptVersion: input.promptVersion,
           model: input.model,
+          verificationMeta: input.verificationMeta,
           questions: {
             create: input.questions.map(question => ({
               orderIndex: question.orderIndex,

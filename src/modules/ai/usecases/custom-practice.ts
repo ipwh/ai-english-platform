@@ -15,16 +15,21 @@ import { executeAI } from '../services/ai-execution';
 import {
   CustomPracticeGenerationSchema,
   CustomPracticeGradingSchema,
+  CustomPracticeVerificationSchema,
   type CustomPracticeGeneratedQuestion,
   type CustomPracticeGradingResponse,
+  type CustomPracticeVerificationResponse,
 } from '../schemas/custom-practice-schema';
 import {
   CUSTOM_PRACTICE_GENERATION_V1,
   CUSTOM_PRACTICE_GRADING_V1,
+  CUSTOM_PRACTICE_VERIFICATION_V1,
   buildCustomPracticeGenerationPrompt,
   buildCustomPracticeGradingPrompt,
+  buildCustomPracticeVerificationPrompt,
   type CustomPracticeGenerationPromptInput,
   type CustomPracticeGradingPromptItem,
+  type CustomPracticeVerificationPromptItem,
 } from '../prompts/custom-practice/prompts';
 
 export interface CustomPracticeGenerationResult {
@@ -83,4 +88,39 @@ export async function gradeCustomPracticeWithAI(input: {
   });
 
   return { results: response.results, promptVersion: CUSTOM_PRACTICE_GRADING_V1 };
+}
+
+export interface CustomPracticeVerificationResult {
+  results: CustomPracticeVerificationResponse['results'];
+  promptVersion: string;
+}
+
+/**
+ * Blind verification: the verifier derives its own answer and judges fitness
+ * WITHOUT being shown the proposed key. Comparison against the key happens
+ * afterwards, in the feature module, using deterministic rules (objective items)
+ * or the grading usecase (open-ended items).
+ */
+export async function verifyCustomPracticeWithAI(input: {
+  category: string;
+  difficulty: string;
+  items: readonly CustomPracticeVerificationPromptItem[];
+}): Promise<CustomPracticeVerificationResult> {
+  const { system, user } = buildCustomPracticeVerificationPrompt(input);
+
+  const response = await executeAI({
+    context: {
+      feature: 'CustomPractice',
+      useCase: 'VerifyPracticeQuestions',
+      promptName: 'CustomPracticeVerification',
+    },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    options: { temperature: 0.2, maxTokens: 2600, jsonMode: true },
+    schema: CustomPracticeVerificationSchema,
+  });
+
+  return { results: response.results, promptVersion: CUSTOM_PRACTICE_VERIFICATION_V1 };
 }
