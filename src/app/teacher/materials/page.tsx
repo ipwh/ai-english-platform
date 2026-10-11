@@ -19,6 +19,23 @@ const typeIcons: Record<string, React.ElementType> = {
   'ppt': FileIcon,
 };
 
+/** A material row as `/api/materials` returns it (only the fields this page reads). */
+interface TeacherMaterialRow {
+  id: string;
+  title: string;
+  type: string;
+  fileType: string;
+  description?: string | null;
+  tags?: string[];
+  gradeLevel?: string | null;
+  extractedText?: string;
+  ragStatus?: string;
+  ocrStatus?: string;
+  fileSize?: string | number | null;
+  uploadedAt?: string | null;
+  createdAt?: string;
+}
+
 export default function TeacherMaterialsPage() {
   const { t } = useT();
   const { language } = useAppStore();
@@ -55,7 +72,7 @@ export default function TeacherMaterialsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleEdit = (m: any) => {
+  const handleEdit = (m: TeacherMaterialRow) => {
     setEditingId(m.id);
     setEditTitle(m.title);
     setEditDesc(m.description || '');
@@ -156,7 +173,7 @@ export default function TeacherMaterialsPage() {
     finally { setIndexingId(null); }
   };
 
-  const [materials, setMaterials] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<TeacherMaterialRow[]>([]);
 
   const loadMaterials = () => {
     fetch('/api/materials')
@@ -430,7 +447,7 @@ export default function TeacherMaterialsPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">{m.title}</h3>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {m.tags.map((tag: string) => (
+                    {(m.tags ?? []).map((tag: string) => (
                       <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-500 flex items-center gap-1">
                         <Tag className="w-2 h-2" /> {tag}
                       </span>
@@ -466,11 +483,11 @@ export default function TeacherMaterialsPage() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-xs text-gray-400">{t('teacher.materials.ocrStatus')}</span>
-                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${(statusLabel[m.ocrStatus] ?? statusLabel.none).color}`}>{(statusLabel[m.ocrStatus] ?? statusLabel.none).label}</span>
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${(statusLabel[m.ocrStatus ?? 'none'] ?? statusLabel.none).color}`}>{(statusLabel[m.ocrStatus ?? 'none'] ?? statusLabel.none).label}</span>
                     </div>
                     <div>
                       <span className="text-xs text-gray-400">{t('teacher.materials.ragStatus')}</span>
-                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${(statusLabel[m.ragStatus] ?? statusLabel.none).color}`}>{(statusLabel[m.ragStatus] ?? statusLabel.none).label}</span>
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${(statusLabel[m.ragStatus ?? 'none'] ?? statusLabel.none).color}`}>{(statusLabel[m.ragStatus ?? 'none'] ?? statusLabel.none).label}</span>
                     </div>
                   </div>
 

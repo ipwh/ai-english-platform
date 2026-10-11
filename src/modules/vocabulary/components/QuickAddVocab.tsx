@@ -47,12 +47,14 @@ export default function QuickAddVocab({
   const [errorMsg, setErrorMsg] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-open if initialWord is provided
+  // Auto-open if initialWord is provided.
+  // Deferred to a microtask (react-hooks/set-state-in-effect).
   useEffect(() => {
-    if (initialWord) {
+    if (!initialWord) return;
+    void Promise.resolve().then(() => {
       setWord(initialWord);
       setStage('input');
-    }
+    });
   }, [initialWord]);
 
   // Focus input when modal opens

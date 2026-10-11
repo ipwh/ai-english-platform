@@ -745,7 +745,7 @@ export class TeacherCopilotService {
     });
   }
 
-  private buildGrammarFocus(data: any): GrammarFocus {
+  private buildGrammarFocus(data: { grammarErrors: string[] }): GrammarFocus {
     return {
       topics: data.grammarErrors.slice(0, 3).map((t: string, i: number) => ({ topic: t, topicZh: t, classErrorRate: 0, priority: 3 - i })),
       recommendedExercises: ['Fill-in-the-blank', 'Error correction'],

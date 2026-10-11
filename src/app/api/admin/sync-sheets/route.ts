@@ -456,15 +456,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 計算最終班別分布
-    const distribution = await (db.user as any).groupBy({
+    const distribution = await db.user.groupBy({
       by: ['classId'],
       where: { role: 'student', classId: { not: null } },
-      _count: true,
+      _count: { _all: true },
     });
     const allClasses = await db.class.findMany({ select: { id: true, name: true } });
     for (const d of distribution) {
       const cls = allClasses.find(c => c.id === d.classId);
-      if (cls) result.classDistribution[cls.name] = d._count;
+      if (cls) result.classDistribution[cls.name] = d._count._all;
     }
 
     logger.info({ module: 'sync-sheets', created: result.created, updated: result.updated, classFixed: result.classFixed, unassigned: result.unassigned, errors: result.errors.length }, 'Sync complete');

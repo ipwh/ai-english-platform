@@ -203,7 +203,8 @@ export default function IeltsTestPage() {
   );
 
   useEffect(() => {
-    void load();
+    // Deferred to a microtask (see the loader pattern in the IELTS pages).
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   // Stop any playing clip when leaving the page (and release its blob URL).

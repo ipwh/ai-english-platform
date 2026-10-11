@@ -5,6 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -18,8 +20,6 @@ interface ExportData {
 }
 
 function loadCJKFont(): Buffer | null {
-  const path = require('node:path') as typeof import('node:path');
-  const fs = require('node:fs') as typeof import('node:fs');
   const bundled = path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
   if (fs.existsSync(bundled)) return fs.readFileSync(bundled);
   const candidates = ['C:\\Windows\\Fonts\\msjh.ttc', '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc'];
@@ -35,7 +35,16 @@ async function generatePDF(data: ExportData): Promise<Buffer> {
 
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    const doc = new PDFDocument({ size: 'A4', margin: 50, font: '', info: { Title: 'Integrated Skills Report' } }) as any;
+    // `font: ''` deliberately disables PDFKit's built-in AFM fonts (they are unavailable
+    // when the bundle resolves `__dirname` to /ROOT); the only font used is the embedded
+    // CJK font registered below. The cast is needed because the option's type expects a
+    // real font name.
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 50,
+      font: '',
+      info: { Title: 'Integrated Skills Report' },
+    } as unknown as PDFKit.PDFDocumentOptions) as unknown as PDFKit.PDFDocument;
     doc.on('data', (c: Buffer) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);

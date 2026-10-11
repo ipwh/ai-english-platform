@@ -175,7 +175,7 @@ export default function PracticeQuestionPage() {
       logger.error({ module: 'student-practice-detail', error: error instanceof Error ? error.message : String(error) }, 'XP award failed');
       return false;
     }
-  }, [store.userId]);
+  }, [store.userId, store.language]);
 
   const retryCompletionXp = useCallback(async () => {
     if (!pendingCompletionXp) return;

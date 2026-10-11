@@ -12,11 +12,18 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useT } from '@/hooks/use-i18n';
+import {
+  CUSTOM_PRACTICE_TOPIC_GROUPS,
+  TOPIC_REQUEST_MAX_CHARS,
+  composePracticeRequestPlan,
+  topicQuestionTypeDefaults,
+  type PracticeTopicCategory,
+} from '@/shared/utils/custom-practice-topics';
 
 type Category = 'grammar' | 'sentence_pattern' | 'vocabulary';
 type Difficulty = 'basic' | 'intermediate' | 'advanced';
@@ -53,6 +60,8 @@ interface GenerationMeta {
   requestedCount: number;
   deliveredCount: number;
   shortfall: number;
+  /** Ticked question types no delivered item uses (empty in the normal case). */
+  missingTypes?: string[];
   rejectedByVerification: number;
   regenerationRounds: number;
   interpretation: string | null;
@@ -130,8 +139,17 @@ function BilingualFeedback({ zh, en }: { zh: string | null; en: string }) {
   );
 }
 
+/** Display label of a catalogue topic (module scope so the React Compiler can keep optimizing). */
+function topicLabelForId(category: PracticeTopicCategory, id: string, language: string): string {
+  const option = CUSTOM_PRACTICE_TOPIC_GROUPS[category]
+    .flatMap(group => group.options)
+    .find(item => item.id === id);
+  if (!option) return id;
+  return language === 'en' ? option.label : option.labelZh;
+}
+
 export default function CustomPracticePage() {
-  const { t } = useT();
+  const { t, language } = useT();
   const router = useRouter();
 
   const [requestText, setRequestText] = useState('');
@@ -139,6 +157,23 @@ export default function CustomPracticePage() {
   const [difficulty, setDifficulty] = useState<Difficulty>('intermediate');
   const [questionCount, setQuestionCount] = useState(5);
   const [types, setTypes] = useState<QuestionType[]>([]);
+  /** Ticked topics of the chosen category (`CUSTOM_PRACTICE_TOPIC_GROUPS`). */
+  const [topics, setTopics] = useState<string[]>([]);
+
+  // What is actually sent to the server: ticked topics (canonical English names) first,
+  // then the student's own words. Ticking alone is therefore enough to generate.
+  // Memoized so the derived value is stable (the React Compiler requires manual
+  // memoization dependencies to match what it infers — see eslint react-hooks/preserve-manual-memoization).
+  const composed = useMemo(
+    () =>
+      composePracticeRequestPlan(
+        requestText,
+        category === 'auto' ? null : (category as PracticeTopicCategory),
+        topics
+      ),
+    [requestText, category, topics]
+  );
+  const composedRequest = composed.text;
 
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -205,7 +240,7 @@ export default function CustomPracticePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestText,
+          requestText: composedRequest,
           category: category === 'auto' ? undefined : category,
           difficulty,
           questionCount,
@@ -254,7 +289,7 @@ export default function CustomPracticePage() {
     } finally {
       setGenerating(false);
     }
-  }, [category, difficulty, generating, loadHistory, questionCount, requestText, types]);
+  }, [category, composedRequest, difficulty, generating, loadHistory, questionCount, types]);
 
   // Declared BEFORE `submit` so it can be a real dependency of it (the repo
   // promotes react-hooks/exhaustive-deps to an error — a suppressed dependency
@@ -447,13 +482,73 @@ export default function CustomPracticePage() {
                   name="cp-category"
                   value={value}
                   checked={category === value}
-                  onChange={() => setCategory(value)}
+                  onChange={() => {
+                    // Topics belong to a category: switching clears the selection so a
+                    // ticked grammar topic can never leak into a vocabulary request.
+                    setCategory(value);
+                    setTopics([]);
+                  }}
                 />
                 <span>{t(`customPractice.category.${value}`)}</span>
               </label>
             ))}
           </div>
         </fieldset>
+
+        {category !== 'auto' && (
+          <fieldset className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <legend className="text-sm font-medium text-slate-700">{t('customPractice.topicsLegend')}</legend>
+            <p className="text-xs text-slate-500">{t('customPractice.topicsHint')}</p>
+            <div className="space-y-3">
+              {CUSTOM_PRACTICE_TOPIC_GROUPS[category].map(group => (
+                <div key={group.id} className="space-y-1.5">
+                  <p className="text-xs font-semibold text-slate-600">
+                    {language === 'en' ? group.labelEn : group.labelZh}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map(option => {
+                      const selected = topics.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() =>
+                            setTopics(current =>
+                              current.includes(option.id)
+                                ? current.filter(item => item !== option.id)
+                                : [...current, option.id]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs ${
+                            selected
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-300 bg-white text-slate-700 hover:border-slate-500'
+                          }`}
+                        >
+                          {language === 'en' ? option.label : option.labelZh}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">
+              {t('customPractice.topicsCount', { count: topics.length, used: composedRequest.length, max: TOPIC_REQUEST_MAX_CHARS })}
+            </p>
+            {composed.omittedTopicIds.length > 0 && (
+              <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                {t('customPractice.topicsOmitted', {
+                  count: composed.omittedTopicIds.length,
+                  labels: composed.omittedTopicIds
+                    .map(id => topicLabelForId(category, id, language))
+                    .join(language === 'en' ? ', ' : '、'),
+                })}
+              </p>
+            )}
+          </fieldset>
+        )}
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-slate-700">{t('customPractice.difficultyLegend')}</legend>
@@ -490,6 +585,15 @@ export default function CustomPracticePage() {
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-slate-700">{t('customPractice.typesLegend')}</legend>
+          {category !== 'auto' && types.length === 0 && topics.length > 0 && (
+            <p className="text-xs text-slate-500">
+              {t('customPractice.typesAutoByTopic', {
+                types: topicQuestionTypeDefaults(category, topics)
+                  .map(type => t(`customPractice.type.${type}`))
+                  .join(language === 'en' ? ', ' : '、'),
+              })}
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {QUESTION_TYPES.map(value => (
               <label key={value} className="flex items-center gap-2 rounded-md border border-slate-200 p-2 text-sm">
@@ -512,7 +616,7 @@ export default function CustomPracticePage() {
         <button
           type="button"
           onClick={() => void generate()}
-          disabled={generating || requestText.trim().length < 3}
+          disabled={generating || composedRequest.trim().length < 3}
           className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {generating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
@@ -536,6 +640,14 @@ export default function CustomPracticePage() {
           {meta && meta.shortfall > 0 && (
             <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
               {t('customPractice.shortfall', { requested: meta.requestedCount, delivered: meta.deliveredCount })}
+            </p>
+          )}
+
+          {meta && (meta.missingTypes?.length ?? 0) > 0 && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
+              {t('customPractice.missingTypes', {
+                types: (meta.missingTypes ?? []).map(type => t(`customPractice.type.${type}`)).join(language === 'en' ? ', ' : '、'),
+              })}
             </p>
           )}
 

@@ -14,22 +14,43 @@ const mocks = vi.hoisted(() => ({
   createSubmission: vi.fn(),
   getSubmission: vi.fn(),
   gradeAI: vi.fn(),
+  generateAI: vi.fn(),
+  persistGeneratedSet: vi.fn(),
 }));
 
 vi.mock('@/modules/ai', () => ({
   gradeCustomPracticeWithAI: mocks.gradeAI,
+  generateCustomPracticeWithAI: mocks.generateAI,
 }));
 
 vi.mock('../repositories/custom-practice-repo', () => ({
   getOwnedSet: mocks.getOwnedSet,
   createSubmissionWithResponses: mocks.createSubmission,
   getSubmissionWithResponses: mocks.getSubmission,
-  persistGeneratedSet: vi.fn(),
+  persistGeneratedSet: mocks.persistGeneratedSet,
 }));
+
+// The blind-solve verifier is a separate AI pass; these tests are about the generation loop's
+// type handling, so verification is stubbed to accept everything it is given (and the real
+// verifier still has its own suite).
+vi.mock('../services/verification-service', async () => {
+  const actual = await vi.importActual<typeof import('../services/verification-service')>(
+    '../services/verification-service'
+  );
+  return {
+    ...actual,
+    verifyGeneratedQuestions: vi.fn(async ({ questions }: { questions: unknown[] }) => ({
+      accepted: questions,
+      rejected: [],
+      verifierAvailable: true,
+      verificationPromptVersion: 'test-verification-v1',
+    })),
+  };
+});
 
 import { CustomPracticeError } from '../domain/types';
 import { toDeliveredSet } from '../services/delivery-service';
-import { validateGeneratedQuestions } from '../services/generation-service';
+import { typesToAimAt, validateGeneratedQuestions } from '../services/generation-service';
 import { submitCustomPracticeSet } from '../services/submission-service';
 import type { CustomPracticeGeneratedQuestion } from '@/modules/ai';
 
@@ -60,6 +81,108 @@ const generatedQuestion = (
   misconceptionTags: ['tense-choice'],
   maxMarks: 1,
   ...overrides,
+});
+
+describe('typesToAimAt (the ticked type is a promise)', () => {
+  const spec = (types: readonly string[], questionCount = 3) =>
+    ({ ...SPEC, exerciseTypes: types, questionCount }) as never;
+
+  it('aims a top-up round at the ticked types that are still missing', () => {
+    // Round 1 returned only mc; 轉換 and 造句 were ticked and still fit in the deficit.
+    expect(typesToAimAt(spec(['mc', 'transformation', 'sentence_production']), [{ questionType: 'mc' }] as never, 2)).toEqual([
+      'transformation',
+      'sentence_production',
+    ]);
+  });
+
+  it('leaves the first round and complete sets alone', () => {
+    expect(typesToAimAt(spec(['mc', 'transformation']), [], 3)).toEqual(['mc', 'transformation']);
+    expect(typesToAimAt(spec(['mc', 'transformation']), [{ questionType: 'mc' }, { questionType: 'transformation' }] as never, 1)).toEqual([
+      'mc',
+      'transformation',
+    ]);
+  });
+
+  it('keeps the full list when the missing types would not fit the remaining slots', () => {
+    // Four missing types but only one slot: narrowing would waste the round (count wins).
+    expect(typesToAimAt(spec(['mc', 'fill_blank', 'error_correction', 'transformation', 'sentence_production']), [{ questionType: 'mc' }] as never, 1)).toEqual([
+      'mc',
+      'fill_blank',
+      'error_correction',
+      'transformation',
+      'sentence_production',
+    ]);
+  });
+
+  it('never narrows a single-type selection (nothing was left out)', () => {
+    expect(typesToAimAt(spec(['mc']), [{ questionType: 'mc' }] as never, 2)).toEqual(['mc']);
+  });
+});
+
+describe('generateCustomPracticeSet — the top-up round is aimed at the missing types', () => {
+  beforeEach(() => {
+    mocks.persistGeneratedSet.mockReset();
+    mocks.persistGeneratedSet.mockImplementation(async (input: { questions: unknown[] }) => ({
+      setId: 'set-1',
+      questions: (input.questions as Array<{ orderIndex: number }>).map((question, index) => ({
+        id: `q-${index}`,
+        orderIndex: question.orderIndex,
+        maxMarks: 1,
+        questionType: 'mc',
+      })),
+    }));
+  });
+
+  it('asks the second round ONLY for the ticked types round 1 did not deliver', async () => {
+    const spec = {
+      ...SPEC,
+      questionCount: 2,
+      exerciseTypes: ['mc', 'transformation'],
+    };
+    // Round 1 yields ONE mc item (so a top-up is needed, and 轉換 is still missing).
+    // Round 2 should then be asked for transformation alone.
+    mocks.generateAI
+      .mockResolvedValueOnce({
+        promptVersion: 'test-v4',
+        questions: [generatedQuestion()],
+      })
+      .mockResolvedValueOnce({
+        promptVersion: 'test-v4',
+        questions: [
+          generatedQuestion({
+            questionType: 'transformation',
+            prompt: 'Rewrite: The film started before we arrived.',
+            answerKey: 'The film had started before we arrived.',
+            rubric: { marks: 1, criteria: ['uses the past perfect for the earlier action'] },
+          }),
+        ],
+      });
+
+    const { generateCustomPracticeSet } = await import('../services/generation-service');
+    const result = await generateCustomPracticeSet({ ownerUserId: 'student-1', spec: spec as never });
+
+    expect(mocks.generateAI).toHaveBeenCalledTimes(2);
+    expect(mocks.generateAI.mock.calls[0][0].exerciseTypes).toEqual(['mc', 'transformation']);
+    // The second call is narrowed to what the student ticked and never received.
+    expect(mocks.generateAI.mock.calls[1][0].exerciseTypes).toEqual(['transformation']);
+    expect(result.missingTypes).toEqual([]);
+  });
+
+  it('reports a ticked type that never arrived instead of staying silent', async () => {
+    const spec = { ...SPEC, questionCount: 2, exerciseTypes: ['mc', 'transformation'] };
+    // Every round returns the same mc item: the top-up round cannot add 轉換, so it must be reported.
+    mocks.generateAI.mockReset();
+    mocks.generateAI.mockResolvedValue({
+      promptVersion: 'test-v4',
+      questions: [generatedQuestion()],
+    });
+
+    const { generateCustomPracticeSet } = await import('../services/generation-service');
+    const result = await generateCustomPracticeSet({ ownerUserId: 'student-1', spec: spec as never });
+
+    expect(result.missingTypes).toEqual(['transformation']);
+    expect(result.deliveredCount).toBeLessThan(result.requestedCount);
+  });
 });
 
 describe('validateGeneratedQuestions (deterministic gate)', () => {

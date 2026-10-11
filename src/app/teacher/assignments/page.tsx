@@ -3,7 +3,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Plus, Clock, Users, Loader2 } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
@@ -21,7 +21,7 @@ export default function TeacherAssignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const loadAssignments = () => {
+  const loadAssignments = useCallback(() => {
     setLoading(true);
     setLoadError(false);
     fetch('/api/assignments')
@@ -29,9 +29,11 @@ export default function TeacherAssignmentsPage() {
       .then(d => { if (d.assignments?.length) setAssignments(d.assignments); })
       .catch((e) => { logger.error({ module: 'teacher-assignments', error: e instanceof Error ? e.message : String(e) }, 'Failed to load assignments'); setLoadError(true); })
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { loadAssignments(); }, []);
+  // Deferred to a microtask so no state is set synchronously during the effect
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => { void Promise.resolve().then(loadAssignments); }, [loadAssignments]);
 
   return (
     <div className="space-y-6">

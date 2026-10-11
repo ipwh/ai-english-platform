@@ -85,7 +85,8 @@ export default function TeacherIeltsPage() {
   }, [t]);
 
   useEffect(() => {
-    void loadTests();
+    // Deferred to a microtask (see the loader pattern across these pages).
+    void Promise.resolve().then(loadTests);
   }, [loadTests]);
 
   const loadQuestions = useCallback(

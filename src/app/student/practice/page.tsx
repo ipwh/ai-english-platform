@@ -90,9 +90,12 @@ function PracticeListPageContent() {
   }, []);
 
   // === 載入練習歷史 ===
+  // Destructured so the effect can depend on the (stable) zustand action itself: depending on
+  // `store` would re-run the effect on every render, since the store object is rebuilt each time.
+  const { loadPracticeHistory } = store;
   useEffect(() => {
-    if (store.userId) store.loadPracticeHistory();
-  }, [store.userId]);
+    if (store.userId) loadPracticeHistory();
+  }, [store.userId, loadPracticeHistory]);
 
   // === 練習記錄 ===
   const recentSessions = store.getRecentSessions(5);
@@ -280,9 +283,12 @@ function PracticeListPageContent() {
       gradeLevel,
     };
 
-    setTab('generate');
-    setForm(nextForm);
-    void handleGenerate(nextForm, t('practice.generatedFromDiagnostic', { label: weakLabel }));
+    // Deferred to a microtask: this effect sets state (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => {
+      setTab('generate');
+      setForm(nextForm);
+      void handleGenerate(nextForm, t('practice.generatedFromDiagnostic', { label: weakLabel }));
+    });
   }, [handleGenerate, searchParams, t]);
 
   // === 從求助頁跳轉：根據學生問題自動生成練習 ===
@@ -313,9 +319,12 @@ function PracticeListPageContent() {
       topic,
     };
 
-    setTab('generate');
-    setForm(nextForm);
-    void handleGenerate(nextForm, t('practice.generatedFromHelp', { topic }));
+    // Deferred to a microtask: this effect sets state (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => {
+      setTab('generate');
+      setForm(nextForm);
+      void handleGenerate(nextForm, t('practice.generatedFromHelp', { topic }));
+    });
   }, [handleGenerate, searchParams, t]);
 
   // === 從推薦弱項快速生成 ===
@@ -331,7 +340,7 @@ function PracticeListPageContent() {
     setTab('generate');
     // Auto-trigger generation for quick workflow
     void handleGenerate(nextForm, `${grammarZh} (${t('practice.recommendHint')})`);
-  }, [handleGenerate, defaultForm, t]);
+  }, [handleGenerate, t]);
 
   return (
     <div className="space-y-6">

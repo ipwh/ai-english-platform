@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend,
@@ -84,7 +84,7 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -97,9 +97,11 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  useEffect(() => { fetchStats(); }, []);
+  // Deferred to a microtask so no state is set synchronously during the effect
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => { void Promise.resolve().then(fetchStats); }, [fetchStats]);
 
   if (loading) {
     return (

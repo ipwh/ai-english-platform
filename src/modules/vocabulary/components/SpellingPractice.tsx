@@ -92,6 +92,14 @@ export default function SpellingPractice({
   const [pickerError, setPickerError] = useState('');
   const pickerFetchedRef = useRef(false);
 
+  // handleGenerate reads the current word selection; mirroring it into refs keeps that
+  // callback stable (react-hooks/exhaustive-deps) without re-triggering the
+  // auto-generate effect below every time the student ticks another word.
+  const pickedIdsRef = useRef(pickedIds);
+  const wordIdsRef = useRef(wordIds);
+  useEffect(() => { pickedIdsRef.current = pickedIds; }, [pickedIds]);
+  useEffect(() => { wordIdsRef.current = wordIds; }, [wordIds]);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input on new word & scroll into view for mobile
@@ -161,10 +169,10 @@ export default function SpellingPractice({
     try {
       let url = `/api/vocabulary/spelling?studentId=${encodeURIComponent(studentId)}&count=${count}&mode=${mode}`;
       // In pick mode, pass selected word IDs
-      if (mode === 'pick' && pickedIds.size > 0) {
-        url += `&wordIds=${Array.from(pickedIds).join(',')}`;
-      } else if (wordIds && wordIds.length > 0) {
-        url += `&wordIds=${wordIds.join(',')}`;
+      if (mode === 'pick' && pickedIdsRef.current.size > 0) {
+        url += `&wordIds=${Array.from(pickedIdsRef.current).join(',')}`;
+      } else if (wordIdsRef.current && wordIdsRef.current.length > 0) {
+        url += `&wordIds=${wordIdsRef.current.join(',')}`;
       }
       const res = await fetch(url);
       const data = await res.json();
@@ -192,9 +200,10 @@ export default function SpellingPractice({
   }, [studentId, count, mode, t, language]);
 
   // If preselected words provided, generate session on mount
+  // Deferred to a microtask (react-hooks/set-state-in-effect).
   useEffect(() => {
     if (preselectedWords?.length && !sessionId) {
-      handleGenerate();
+      void Promise.resolve().then(handleGenerate);
     }
   }, [preselectedWords, sessionId, handleGenerate]);
 

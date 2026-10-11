@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
@@ -330,7 +330,7 @@ export default function StudentAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -343,9 +343,12 @@ export default function StudentAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
 
-  useEffect(() => { fetchAnalytics(); }, [studentId]);
+  useEffect(() => {
+    // Deferred to a microtask: see the loader pattern used across the admin pages.
+    void Promise.resolve().then(fetchAnalytics);
+  }, [fetchAnalytics]);
 
   // ---- Loading ----
   if (loading) {

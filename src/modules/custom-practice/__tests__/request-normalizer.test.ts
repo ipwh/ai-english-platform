@@ -16,6 +16,7 @@ vi.mock('@/modules/ai', () => ({
 }));
 
 import {
+  DEFAULT_EXERCISE_TYPES,
   MAX_QUESTIONS,
   MAX_REQUEST_CHARS,
   MIN_QUESTIONS,
@@ -97,6 +98,17 @@ describe('normalizePracticeRequest', () => {
     expect(result.spec.difficulty).toBe('intermediate');
     expect(result.spec.questionCount).toBe(5);
     expect(result.spec.interpretation).toBeNull();
+    // The request names two catalogue topics, so their mix applies (2026-10-10: the defaults
+    // became topic-aware — the category mix is the fallback, pinned in the next assertion).
+    expect(result.spec.exerciseTypes).toEqual(['mc', 'fill_blank', 'error_correction']);
+  });
+
+  it('applies the category mix when the request names no catalogue topic', () => {
+    const result = normalizePracticeRequest({ requestText: 'should and could', category: 'grammar' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.spec.exerciseTypes).toEqual([...DEFAULT_EXERCISE_TYPES.grammar]);
     expect(result.spec.exerciseTypes).toContain('transformation');
   });
 

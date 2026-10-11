@@ -142,7 +142,9 @@ export default function IeltsDashboardPage() {
   }, [t]);
 
   useEffect(() => {
-    void load();
+    // Deferred to a microtask: `load` sets state, and a synchronous setState inside an
+    // effect is what react-hooks/set-state-in-effect forbids.
+    void Promise.resolve().then(load);
   }, [load]);
 
   const published = variant ? tests.filter((test) => test.testType === variant) : [];

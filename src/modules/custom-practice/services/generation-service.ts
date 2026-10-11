@@ -122,12 +122,41 @@ export interface GeneratePracticeSetResult {
   deliveredCount: number;
   requestedCount: number;
   shortfall: number;
+  /**
+   * Question types the student ticked that no delivered item uses. Normally empty (the
+   * top-up round is aimed at them — see `typesToAimAt`); non-empty means the promise could
+   * not be kept for those types, and the caller tells the student instead of staying silent.
+   */
+  missingTypes: PracticeQuestionType[];
   droppedCount: number;
   /** Items thrown away by the blind verification pass. */
   rejectedByVerification: number;
   regenerationRounds: number;
   promptVersion: string;
   verificationPromptVersion: string | null;
+}
+
+/**
+ * The question types a regeneration round should aim at.
+ *
+ * The student's type selection is a promise: if 句式轉換 was ticked and the first round
+ * returned only multiple-choice items, refilling the deficit with "any allowed type" would
+ * quietly leave the promise unkept (2026-10-11 report). So a top-up round is aimed at the
+ * ticked types that are still missing — but only when every missing type fits in the
+ * remaining deficit, because otherwise the round would have to squeeze several types into
+ * one item slot and would waste the attempt (delivery count wins in that case).
+ */
+export function typesToAimAt(
+  spec: PracticeSpec,
+  accepted: readonly ValidatedQuestion[],
+  deficit: number
+): PracticeQuestionType[] {
+  if (accepted.length === 0 || spec.exerciseTypes.length < 2) return spec.exerciseTypes;
+  const missing = spec.exerciseTypes.filter(
+    type => !accepted.some(question => question.questionType === type)
+  );
+  if (missing.length === 0) return spec.exerciseTypes;
+  return missing.length <= deficit ? missing : spec.exerciseTypes;
 }
 
 export async function generateCustomPracticeSet(input: {
@@ -149,6 +178,7 @@ export async function generateCustomPracticeSet(input: {
   while (rounds <= MAX_REGENERATION_ROUNDS && accepted.length < spec.questionCount) {
     rounds += 1;
     const deficit = spec.questionCount - accepted.length;
+    const roundTypes = typesToAimAt(spec, accepted, deficit);
 
     const generated = await generateCustomPracticeWithAI({
       requestText: spec.requestText,
@@ -156,7 +186,7 @@ export async function generateCustomPracticeSet(input: {
       category: spec.category,
       difficulty: spec.difficulty,
       questionCount: Math.max(deficit, 1),
-      exerciseTypes: spec.exerciseTypes,
+      exerciseTypes: roundTypes,
     });
     generationPromptVersion = generated.promptVersion;
 
@@ -196,11 +226,18 @@ export async function generateCustomPracticeSet(input: {
     );
   }
 
+  const missingTypes = spec.exerciseTypes.filter(
+    type => !accepted.some(question => question.questionType === type)
+  );
+
   const verificationMeta = JSON.stringify({
     status: accepted.length === spec.questionCount ? 'verified' : 'verified_shortfall',
     rounds,
     accepted: accepted.length,
     rejected: rejectedReasons.length,
+    requestedTypes: spec.exerciseTypes,
+    deliveredTypes: [...new Set(accepted.map(question => question.questionType))],
+    missingTypes,
     promptVersions: {
       generation: generationPromptVersion,
       verification: verificationPromptVersion,
@@ -230,6 +267,7 @@ export async function generateCustomPracticeSet(input: {
     deliveredCount: accepted.length,
     requestedCount: spec.questionCount,
     shortfall: spec.questionCount - accepted.length,
+    missingTypes,
     droppedCount,
     rejectedByVerification: rejectedReasons.length,
     regenerationRounds: rounds,

@@ -232,7 +232,9 @@ export default function DiagnosticPage() {
 
   // 🔥 載入時根據學生年級與弱項自動生成診斷題目
   useEffect(() => {
-    setLoadingQuestions(true);
+    // Deferred to a microtask so no state is set synchronously during the effect
+    // (react-hooks/set-state-in-effect); the fetch below is async anyway.
+    void Promise.resolve().then(() => setLoadingQuestions(true));
     fetch('/api/auth/profile')
       .then(async profileRes => {
         const profileJson = await profileRes.json();
@@ -364,7 +366,10 @@ export default function DiagnosticPage() {
   // Update writing score when CLO analysis completes (replaces placeholder -1)
   useEffect(() => {
     if (!writingAnalysis || !completed) return;
-    setResults(prev => prev.map(r => {
+    // The score merge is applied in a microtask: it derives from props/state, and a
+    // synchronous setState inside an effect is what react-hooks/set-state-in-effect
+    // forbids (it would cascade an extra render during the commit).
+    void Promise.resolve().then(() => setResults(prev => prev.map(r => {
       if (r.id !== 'writing') return r;
       // Convert CLO scores (each /7) to percentage
       const { contentScore, languageScore, organizationScore } = writingAnalysis;
@@ -378,7 +383,7 @@ export default function DiagnosticPage() {
         ...r,
         score: percentage,
       };
-    }));
+    })));
   }, [writingAnalysis, completed, t]);
 
   // Fetch peer averages when results are computed.

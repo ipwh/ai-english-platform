@@ -198,8 +198,16 @@ describe('MemoryInfluenceEngine', () => {
 describe('Memory v2 — Backward Compatibility', () => {
   it('should handle v1 memory objects', () => {
     const v1 = createEmptyMemory('v1-student');
-    // Engine should auto-upgrade
-    const upgraded = (engine as any).ensureV2(v1);
+    // Engine should auto-upgrade (ensureV2 is internal to the engine, so reach it
+    // through an explicit narrow cast rather than `any`). The upgraded shape carries the
+    // v2 sub-states the assertions below read.
+    const upgraded = (engine as unknown as {
+      ensureV2(memory: LearningMemory): LearningMemory & {
+        confidence: unknown;
+        motivation: unknown;
+        learningHabits: unknown;
+      };
+    }).ensureV2(v1);
     expect(upgraded.confidence).toBeDefined();
     expect(upgraded.motivation).toBeDefined();
     expect(upgraded.learningHabits).toBeDefined();

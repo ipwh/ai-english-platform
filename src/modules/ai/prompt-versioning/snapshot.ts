@@ -9,6 +9,7 @@
 // - Evaluation report ID
 // ============================================
 
+import { execSync } from 'node:child_process';
 import type { SemVer } from './prompt-metadata';
 
 /** Complete snapshot of an AI generation context */
@@ -115,8 +116,8 @@ export function generateSnapshotId(): string {
 /** Get current git commit SHA */
 export function getGitCommit(): string {
   try {
-    // In Node.js, we can read .git/HEAD
-    const { execSync } = require('child_process');
+    // Node-only module (prompt-versioning is imported by the AI infra server code and
+    // the versioning CLI, never by a client component), so a static import is safe.
     return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
   } catch {
     return 'unknown';

@@ -67,6 +67,7 @@ export default function IntegratedSkillsPage() {
           .catch(() => { /* silent */ });
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only restore of the saved draft: the zustand store object is rebuilt on every edit, so depending on it would re-apply the draft and clobber the student's in-progress notes/writing.
   }, []);
 
   const handleGenerate = async () => {

@@ -21,7 +21,7 @@ import {
   type CustomPracticeVerificationResponse,
 } from '../schemas/custom-practice-schema';
 import {
-  CUSTOM_PRACTICE_GENERATION_V2,
+  CUSTOM_PRACTICE_GENERATION_V4,
   CUSTOM_PRACTICE_GRADING_V2,
   CUSTOM_PRACTICE_VERIFICATION_V1,
   buildCustomPracticeGenerationPrompt,
@@ -65,7 +65,7 @@ export async function generateCustomPracticeWithAI(
     schema: CustomPracticeGenerationSchema,
   });
 
-  return { questions: response.questions, promptVersion: CUSTOM_PRACTICE_GENERATION_V2 };
+  return { questions: response.questions, promptVersion: CUSTOM_PRACTICE_GENERATION_V4 };
 }
 
 export interface CustomPracticeGradingResult {

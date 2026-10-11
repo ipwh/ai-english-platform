@@ -25,16 +25,20 @@ export default function NotificationSettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setSettings(JSON.parse(raw));
-      } else {
+    // Deferred to a microtask (see the note above): the body seeds state from
+    // localStorage, which must not run as a synchronous setState inside the effect.
+    void Promise.resolve().then(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          setSettings(JSON.parse(raw));
+        } else {
+          setSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
+        }
+      } catch {
         setSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
       }
-    } catch {
-      setSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
-    }
+    });
   }, []);
 
   const toggle = (key: string) => {

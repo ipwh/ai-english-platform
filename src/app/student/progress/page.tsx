@@ -95,18 +95,24 @@ export default function StudentProgressPage() {
   const [dayDetails, setDayDetails] = useState<Record<string, HistoryDayDetailState>>({});
 
   // 載入練習歷史（先確保 session 就緒）
+  // Destructured so the effect can depend on the (stable) zustand actions rather than on
+  // `store`, whose object identity is rebuilt on every render.
+  const { initSession, loadPracticeHistory } = store;
+  // Deferred to a microtask: this effect sets state (react-hooks/set-state-in-effect).
   useEffect(() => {
-    setLoading(true);
-    setLoadError(false);
-    store.initSession()
-      .then(() => store.loadPracticeHistory())
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }, []);
+    void Promise.resolve().then(() => {
+      setLoading(true);
+      setLoadError(false);
+      return initSession()
+        .then(() => loadPracticeHistory())
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false));
+    });
+  }, [initSession, loadPracticeHistory]);
 
   // 預設顯示香港當前月份（在 effect 設定，避免 SSR/hydration 跨日界線不一致）
   useEffect(() => {
-    setHistoryMonth((prev) => prev || hkMonthKey());
+    void Promise.resolve().then(() => setHistoryMonth((prev) => prev || hkMonthKey()));
   }, []);
 
   const loadHistoryMonth = useCallback(async (month: string) => {
@@ -139,7 +145,9 @@ export default function StudentProgressPage() {
   }, [store.userId]);
 
   useEffect(() => {
-    if (historyMonth) void loadHistoryMonth(historyMonth);
+    if (!historyMonth) return;
+    // Deferred to a microtask: loadHistoryMonth sets state (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => loadHistoryMonth(historyMonth));
   }, [historyMonth, loadHistoryMonth]);
 
   const toggleHistoryDay = useCallback((dayKey: string) => {

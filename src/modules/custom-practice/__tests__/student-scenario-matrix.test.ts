@@ -172,6 +172,27 @@ describe('category inference for workbook-topic requests', () => {
     expect(inferCategory('past tense and reported speech').ambiguous).toBe(true);
   });
 
+  it('recognises the syllabus families a student types by hand (2026-10-10 expansion)', () => {
+    expect(inferCategory('noun clauses').category).toBe('sentence_pattern');
+    expect(inferCategory('cleft sentences').category).toBe('sentence_pattern');
+    expect(inferCategory('adverbial clauses').category).toBe('sentence_pattern');
+    expect(inferCategory('quantifiers').category).toBe('grammar');
+    expect(inferCategory('used to').category).toBe('grammar');
+    expect(inferCategory('modal perfects').category).toBe('grammar');
+    expect(inferCategory('punctuation').category).toBe('grammar');
+    expect(inferCategory('fixed collocations').category).toBe('vocabulary');
+    expect(inferCategory('confusable words').category).toBe('vocabulary');
+  });
+
+  it('a KNOWN limitation: the unit title "participle clauses" is refused, not guessed', () => {
+    // "participle" is grammar evidence (分詞作形容詞) and "clause" is sentence-pattern
+    // evidence, so typing the workbook unit title hits both and the platform asks the
+    // student to choose a category instead of guessing. The picker avoids the dead end:
+    // its chip is labelled 分詞構句 / `reduced clauses (V-ing / p.p. clauses)`.
+    expect(inferCategory('participle clauses')).toEqual({ category: null, ambiguous: true });
+    expect(inferCategory('reduced clauses').category).toBe('sentence_pattern');
+  });
+
   it('lets an explicit choice win over the wording of the request', () => {
     const result = normalizePracticeRequest({ requestText: 'conditionals and prepositions', category: 'grammar' });
     expect(result.ok).toBe(true);

@@ -203,8 +203,9 @@ export default function SidebarLayout({
   }, [store, unreadCount]);
 
   // 切換路由時自動關閉 mobile 側欄
+  // Deferred to a microtask (react-hooks/set-state-in-effect).
   useEffect(() => {
-    setMobileOpen(false);
+    void Promise.resolve().then(() => setMobileOpen(false));
   }, [pathname]);
 
   // sidebarOpen=true → 側欄展開 (w-64)；sidebarOpen=false → 側欄收合為圖標 (w-20)

@@ -145,10 +145,14 @@ jobs:
       # 2026-10-10 (Sprint 144) burned 246 -> 79: all 134 `no-unused-vars` removed (dead
       # state, unused params/imports, counters that were incremented but never read) and
       # 29 `no-explicit-any` replaced by real Prisma/payload types, with no rule
-      # suppression. The per-rule ratchet lives in scripts/check-lint-budget.js.
+      # suppression. 2026-10-10 (Sprint 145) burned 79 -> 0: the remaining deliberate
+      # `any`/`require()` uses became inline-justified exceptions and every react-hooks
+      # warning was fixed (deferred effect state writes, `useCallback` loaders,
+      # destructured zustand actions). The budget is now ZERO: any new warning fails.
+      # The per-rule ratchet lives in scripts/check-lint-budget.js.
       # Never raise either number without a recorded decision.
       - name: Lint check
-        run: npx eslint . --max-warnings 79
+        run: npx eslint . --max-warnings 0
 
       # Per-rule ratchet: fails if ANY single rule exceeds its recorded budget, if a rule
       # that used to be clean starts warning again, or if there is any error. A total alone

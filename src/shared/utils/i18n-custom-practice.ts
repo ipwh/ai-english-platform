@@ -24,13 +24,32 @@ export const customPracticeTranslations: Record<string, { zh: string; en: string
     zh: '例如：我經常分不清 past perfect 和 past simple',
     en: 'For example: I keep mixing up past perfect and past simple',
   },
-  'customPractice.requestHint': { zh: '3 至 400 個字元', en: '3 to 400 characters' },
+  'customPractice.requestHint': {
+    zh: '3 至 400 個字元。也可選擇下面的類別，勾選想練的主題。',
+    en: '3 to 400 characters. You can also choose a category below and tick the topics you want.',
+  },
 
   'customPractice.categoryLegend': { zh: '練習類別', en: 'Practice category' },
   'customPractice.category.auto': { zh: '由系統判斷', en: 'Let the system decide' },
   'customPractice.category.grammar': { zh: '文法 / 時態', en: 'Grammar & tenses' },
   'customPractice.category.sentence_pattern': { zh: '句式 / 條件句', en: 'Sentence patterns & conditionals' },
-  'customPractice.category.vocabulary': { zh: '詞彙用法（enough / too…）', en: 'Vocabulary usage (enough / too…)' },
+  'customPractice.category.vocabulary': { zh: '詞彙用法', en: 'Vocabulary usage' },
+
+  // Topic picker — the barrier-lowering path (2026-10-10): the student ticks topics
+  // instead of having to name a structure from scratch.
+  'customPractice.topicsLegend': { zh: '想練的主題（可多選）', en: 'Topics (pick any number)' },
+  'customPractice.topicsHint': {
+    zh: '可只勾選主題（可跨組多選），或在最上面的方框補充自己的說法；兩者會一併送出。',
+    en: 'Ticking is enough on its own — pick as many as you like across the groups, and you can also add your own words in the box above; both are sent together.',
+  },
+  'customPractice.topicsCount': {
+    zh: '已選 {count} 項 · 送出內容 {used}/{max} 字元',
+    en: '{count} selected · request length {used}/{max} characters',
+  },
+  'customPractice.topicsOmitted': {
+    zh: '字數上限所限，以下 {count} 個已勾選主題未能送出（其餘會照常出題）：{labels}。如要練這些主題，請減少勾選或分次練習。',
+    en: 'The character limit left out {count} of your ticked topics (everything else is still used): {labels}. Untick some, or practise them in a separate set.',
+  },
 
   'customPractice.difficultyLegend': { zh: '程度', en: 'Difficulty' },
   'customPractice.difficulty.basic': { zh: '基礎', en: 'Basic' },
@@ -40,6 +59,14 @@ export const customPracticeTranslations: Record<string, { zh: string; en: string
   'customPractice.countLabel': { zh: '題目數量（3–10）', en: 'Number of questions (3–10)' },
 
   'customPractice.typesLegend': { zh: '題型（可選多項，留空表示由系統決定）', en: 'Question types (optional; leave empty to let the system decide)' },
+  'customPractice.typesAutoByTopic': {
+    zh: '依你勾選的主題，未選題型時將使用：{types}。',
+    en: 'Based on the topics you ticked, leaving this empty will use: {types}.',
+  },
+  'customPractice.missingTypes': {
+    zh: '以下你勾選的題型未能在本次出題中產生（其餘題目已通過覆核）：{types}。可再按「重新生成」或改選其他題型。',
+    en: 'These question types you ticked could not be produced this time (everything delivered passed verification): {types}. Try regenerate, or pick a different mix.',
+  },
   'customPractice.type.mc': { zh: '選擇題', en: 'Multiple choice' },
   'customPractice.type.fill_blank': { zh: '填空', en: 'Fill in the blank' },
   'customPractice.type.error_correction': { zh: '改錯', en: 'Error correction' },
@@ -95,8 +122,8 @@ export const customPracticeTranslations: Record<string, { zh: string; en: string
   'customPractice.error.session': { zh: '登入已逾時，請重新登入。', en: 'Your session has expired — please sign in again.' },
   'customPractice.error.rate': { zh: '操作太頻繁，請稍後再試。', en: 'Too many requests — please wait a moment and try again.' },
   'customPractice.error.category': {
-    zh: '系統無法從你的描述判斷練習類別，請選擇「文法 / 時態」、「句式 / 條件句」或「詞彙用法（enough / too…）」，或把想練的文法結構寫得更具體（例如：should / could 的用法）。',
-    en: 'The system could not tell which practice category you meant. Choose Grammar & tenses, Sentence patterns & conditionals or Vocabulary usage (enough / too…), or name the structure you want to practise (for example: "should vs could").',
+    zh: '系統無法從你的描述判斷練習類別，請選擇「文法 / 時態」、「句式 / 條件句」或「詞彙用法」，或把想練的文法結構寫得更具體（例如：should / could 的用法）。',
+    en: 'The system could not tell which practice category you meant. Choose Grammar & tenses, Sentence patterns & conditionals or Vocabulary usage, or name the structure you want to practise (for example: "should vs could").',
   },
   'customPractice.error.invalidRequest': {
     zh: '輸入的內容不符合格式，因此未出題：描述需為 3 至 400 字，題數需為 3 至 10 題，題型需為系統提供的選項。請檢查後再試一次。',

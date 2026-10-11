@@ -67,7 +67,7 @@ export default function MistakesPage() {
       .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Profile fetch failed'); });
   }, [store.userId]);
 
-  const loadMistakes = () => {
+  useEffect(() => {
     if (!studentId) return;
     fetch(`/api/mistakes?studentId=${encodeURIComponent(studentId)}`)
       .then(r => r.json())
@@ -76,9 +76,7 @@ export default function MistakesPage() {
         setBreakdown(Array.isArray(d.breakdown) ? d.breakdown : []);
       })
       .catch((e) => { logger.error({ module: 'student-mistakes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load mistakes'); });
-  };
-
-  useEffect(() => { loadMistakes(); }, [studentId]);
+  }, [studentId]);
 
   // === AI 解說狀態 ===
   const [explainingId, setExplainingId] = useState<string | null>(null);

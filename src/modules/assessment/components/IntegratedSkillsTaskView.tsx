@@ -464,6 +464,9 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
   const hasUnsavedChanges = currentContent !== lastSavedContent && (s.studentNotes || s.studentWriting);
 
   // Save to localStorage + backend API
+  // `s.saveDraft` is destructured so this callback can depend on the (stable) zustand action
+  // itself — depending on `s` would recreate the callback on every edit and reset the autosave timer.
+  const { saveDraft: saveDraftToBackendAction } = s;
   const saveDraft = useCallback(async () => {
     if (!s.studentNotes && !s.studentWriting) return;
     setSaveState('saving');
@@ -473,14 +476,14 @@ export default function IntegratedSkillsTaskView({ task, onBack }: Props) {
         studentNotes: s.studentNotes, studentWriting: s.studentWriting, savedAt: Date.now(),
       }));
       // Also save to backend if logged in
-      try { await s.saveDraft(); } catch { /* backend optional */ }
+      try { await saveDraftToBackendAction(); } catch { /* backend optional */ }
       setLastSavedContent(currentContent);
       setSaveState('saved');
       setTimeout(() => setSaveState('idle'), 3000);
     } catch {
       setSaveState('idle');
     }
-  }, [s.studentNotes, s.studentWriting, s.gradeLevel, s.difficulty, s.taskType, currentContent]);
+  }, [s.studentNotes, s.studentWriting, s.gradeLevel, s.difficulty, s.taskType, currentContent, saveDraftToBackendAction]);
 
   useEffect(() => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);

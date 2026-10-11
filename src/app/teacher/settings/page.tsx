@@ -76,16 +76,19 @@ export default function TeacherSettingsPage() {
       .then(d => setCustomGroups(d.groups || []))
       .catch((e) => { logger.error({ module: 'teacher-settings', error: e instanceof Error ? e.message : String(e) }, 'Failed to load groups'); });
 
-    // Load local settings
-    const local = loadLocalSettings();
-    if (local.selectedGrades) setSelectedGrades(local.selectedGrades);
-    if (local.grammarEnabled) setGrammarEnabled(local.grammarEnabled);
-    if (local.passScore) setPassScore(local.passScore);
-    if (local.masteryThreshold) setMasteryThreshold(local.masteryThreshold);
-    if (local.notifSubmission !== undefined) setNotifSubmission(local.notifSubmission);
-    if (local.notifLowCompletion !== undefined) setNotifLowCompletion(local.notifLowCompletion);
-    if (local.notifInactive !== undefined) setNotifInactive(local.notifInactive);
-    if (local.notifMaintenance !== undefined) setNotifMaintenance(local.notifMaintenance);
+    // Load local settings — deferred to a microtask so the seed does not run as a
+    // setState during the effect (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => {
+      const local = loadLocalSettings();
+      if (local.selectedGrades) setSelectedGrades(local.selectedGrades);
+      if (local.grammarEnabled) setGrammarEnabled(local.grammarEnabled);
+      if (local.passScore) setPassScore(local.passScore);
+      if (local.masteryThreshold) setMasteryThreshold(local.masteryThreshold);
+      if (local.notifSubmission !== undefined) setNotifSubmission(local.notifSubmission);
+      if (local.notifLowCompletion !== undefined) setNotifLowCompletion(local.notifLowCompletion);
+      if (local.notifInactive !== undefined) setNotifInactive(local.notifInactive);
+      if (local.notifMaintenance !== undefined) setNotifMaintenance(local.notifMaintenance);
+    });
   }, []);
 
   const toggleClass = (id: string) => {

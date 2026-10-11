@@ -338,11 +338,14 @@ let _memoryEngine: MemoryEngine | null = null;
 export const memoryEngine: MemoryEngine = new Proxy({} as MemoryEngine, {
   get(_, prop) {
     if (!_memoryEngine) {
+      // Lazy runtime load: the DB repository pulls in Prisma, which must not be loaded
+      // eagerly by modules that only need the in-memory shape.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate lazy load (keeps Prisma out of non-DB load paths)
       const { memoryDbRepo } = require('../repositories/memory-db-repository');
       _memoryEngine = new MemoryEngine(memoryDbRepo);
     }
-    const target = _memoryEngine as any;
-    const val = target[prop];
-    return typeof val === 'function' ? val.bind(target) : val;
+    // `Reflect.get` keeps the proxy's dynamic forwarding typed without an `any` cast.
+    const val = Reflect.get(_memoryEngine, prop as string | symbol);
+    return typeof val === 'function' ? val.bind(_memoryEngine) : val;
   },
 });

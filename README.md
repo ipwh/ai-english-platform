@@ -75,7 +75,26 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
 
 ### 學生流程
 1. `/student/custom-practice` 輸入需求（可指定文法／句型／詞彙與難度、題數）。
-2. 生成結果**先過交付前驗證**（決定性缺陷篩檢 ＋ 獨立 blind-solve 覆核）；不足題數如實回報。
+   **選單式選題（2026-10-10）**：選定練習類別後，頁面會列出該類別**所有**常見主題，並**分組**顯示
+   （例：文法／時態 →「時態」「動詞與語態」「詞類」「句法要點」；句式 →「子句」「強調與倒裝」
+   「語氣」「比較與結果」「寫作句式」；詞彙 →「用法與搭配」「詞義關係」「主題詞彙與慣用語」），
+   共 **55 個主題**（文法 23／句式 21／詞彙 11），可**跨組多選**；自訂文字框仍保留
+   （可只勾、只打字或兩者混合）。系統會把選項與文字組成最終需求
+   （`src/shared/utils/custom-practice-topics.ts`，上限 400 字元與伺服器同一常數），
+   降低「不知道可以練甚麼」的門檻。
+   > 目錄設計限制：每個主題標籤**只可命中一個類別**（`inferCategory()` 命中多於一類即
+   > 400 `CATEGORY_AMBIGUOUS`），故分詞構句的英文標籤用 `reduced clauses`（避開屬文法的
+   > `participle`）、介詞搭配用 `fixed collocation pairs`（避開 `preposition`）；合約測試見
+   > `src/modules/custom-practice/__tests__/topic-options.test.ts`。
+2. **題型預設依所選主題（2026-10-10）**：題型留空時，系統不再只用「類別」的預設，而是依學生
+   勾選的主題決定（例：分詞構句 → 句式轉換／選擇題／改錯；標點 → 選擇題／改錯；介詞搭配 →
+   填空／選擇題／改錯）。畫面會在未選題型時顯示將使用的題型；學生一旦自行勾選題型，一律以
+   學生的選擇為準。請求文字沒有指明任何目錄主題時，才回退到類別預設。
+   **勾選的題型是承諾（2026-10-11）**：允許多種題型且題數不少於題型數時，交付的題目必須
+   **每種至少一題**；若某種題型最終仍無法產生，回應會帶 `missingTypes`，畫面以中英對照明說
+   （不靜默）。勾選主題過多而超出 400 字元上限時，系統**只納入完整的主題標籤**（永不切斷），
+   並列出被略過的主題，請學生分次練習。
+3. 生成結果**先過交付前驗證**（決定性缺陷篩檢 ＋ 獨立 blind-solve 覆核）；不足題數如實回報。
 3. 作答 → 提交 → **伺服器評分**：多項選擇題以點擊選項並由伺服器決定性評分；填空、改錯、
    句式轉換及造句等文字題由 AI 作二次語意批改，且信心不足 ⇒
    標示「待覆核（needs_review）」，**永不**硬判對錯。
@@ -105,6 +124,22 @@ AI 驅動的香港中學英文學習平台，依據 **ELE KLACG 2017** 課程指
   分母明列：deterministic 9（實測 agreement 9/9、false accept 0、false reject 0、
   分數範圍違反 0、needs_review 2/9）／provider-dependent 18（只計數、不評分）。
 - **限制**：以上是「契約一致性」，**不是**評分效度；人類覆核為 0 時不得對外宣稱準確率。
+
+### 模擬與量測工具（需要 provider；`CP_LIVE_SIM=1` 才會執行）
+```bash
+# 主題 × 題型：8 個代表性主題，檢查「所選主題是否真的出相關題目、答案鍵是否批得對」
+$env:CP_LIVE_SIM="1"; npx tsx scripts/simulate-custom-practice-topics.ts
+# 造句（sentence_production）在開放式主題的 needs_review 比率；--topic= 可只重測一個主題
+$env:CP_LIVE_SIM="1"; npx tsx scripts/measure-sentence-production.ts [--topic=category/id]
+# 選項組合矩陣（單一題型／多題型／多主題／難度／題數／不相容組合）；--only= 可只跑一個案例
+$env:CP_LIVE_SIM="1"; npx tsx scripts/simulate-custom-practice-combinations.ts [--only=<caseId>]
+```
+兩者走**生產鏈路**（生成 → 結構驗證 → blind-solve 覆核 → 生產評分入口），不落任何練習資料，
+唯一副作用是 AI 用量帳本計數。實測（2026-10-10）：8/8 主題首題與主題相關、答案鍵判「正確」、
+故意錯誤答案判「不正確」；造句 needs_review **0/30**（樣本 10 題 × 3 類答案，
+0/30 的 95% 上界約 10%，**不可**解讀為永不需要覆核）。實測（2026-10-11）：全選 5 種題型時
+**5/5 五種題型齊全**、只勾轉換時 3/3 全為轉換（修正前為 4/5，缺一種已勾選題型）；
+10 題全選題型單輪 8/10（五種齊全、無 JSON 截斷）、詞彙 10 題 10/10。
 
 ### 瀏覽器驗證（實際執行）
 ```bash
@@ -213,7 +248,7 @@ powershell -ExecutionPolicy Bypass -File scripts/cloud-run-deploy.ps1 -ProjectId
 | 傳遞依賴 | 以 `package.json` 的 `overrides` 在**同一 major** 內拉高（`@xmldom/xmldom`／`fast-uri`／`js-yaml`／`@grpc/grpc-js`／`browserslist`／`source-map-js`） |
 | Prisma | **7.10.0 精確釘版**（CLI／client／engines／adapters 四者同版）。`npm audit fix` 曾**兩次**只把 CLI／engines 拉高而 client 不動 ⇒ 以 `--save-exact` 封住漂移 |
 | 遷移安全 | `src/shared/db/__tests__/migration-safety.test.ts`：破壞性操作必須列入 `REVIEWED_DESTRUCTIVE_MIGRATIONS` 並附理由（**過期條目亦失敗**）；遷移可加不可減 |
-| Lint 棘輪 | `npx eslint . --max-warnings 79` ＋ `npm run lint:budget`（per-rule 預算；**只可下調**） |
+| Lint 棘輪 | `npx eslint . --max-warnings 0` ＋ `npm run lint:budget`（per-rule 預算已清零；任何新 warning 即失敗） |
 
 > ⚠️ **Safari 15.4 基線**：`browserslist` 的 `safari 15.4`／`ios_saf 15.4` **不得刪除或改高**
 > （校內 iPad 最高 iPadOS 15.8）。升級 Next.js 或動 `browserslist` 後**必須**重跑產物閘門：

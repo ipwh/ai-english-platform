@@ -9,7 +9,7 @@ import type { StudentState, StudentIdentity, StudentMemory,
   StudentEngagement, StudentPracticeSummary } from './StudentState';
 import type { SkillRank, LearningPersona, MotivationState,
   ConfidenceState, LearningHabit, TwinPredictions, RiskAssessment,
-  LearningVelocity, RecoveryMetrics } from '../twin/types';
+  LearningVelocity, RecoveryMetrics, ForgetCurve } from '../twin/types';
 
 // ============================================
 // Internal types
@@ -81,9 +81,27 @@ interface RawLearningProfile {
 type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type Trend = 'improving' | 'stable' | 'declining';
 
+/** Retention projection returned by `deriveRetention` (consumed by the state snapshot). */
+interface RetentionState {
+  overallRate: number;
+  perSkill: Record<string, number>;
+  averageRetentionDays: number;
+  atRiskSkills: string[];
+  strongSkills: string[];
+  trend: Trend;
+  recommendedReviewCadence: number;
+}
+
+/** Forget-curve placeholder returned by `deriveForgetCurve` (shape: twin/types `ForgetCurve`). */
+interface ForgetCurveState {
+  curves: ForgetCurve['curves'];
+  composite: ForgetCurve['composite'];
+  knowledgeHalfLifeDays: number;
+  computedAt: string;
+}
+
 interface KnowledgeState {
-  currentMastery: Record<string, number>;
-  predictedMastery: { '7d': Record<string, number>; '30d': Record<string, number>; '90d': Record<string, number> };
+  currentMastery: Record<string, number>;  predictedMastery: { '7d': Record<string, number>; '30d': Record<string, number>; '90d': Record<string, number> };
   strongSkills: SkillRank[]; weakSkills: SkillRank[];
   estimatedHkdseLevel: string; estimatedCefrLevel: CefrLevel;
   nodesMastered: number; totalNodes: number;
@@ -490,7 +508,7 @@ export class StudentStateBuilder {
     };
   }
 
-  private deriveRetention(entries: ReviewEntry[], _k: KnowledgeState): any {
+  private deriveRetention(entries: ReviewEntry[], _k: KnowledgeState): RetentionState {
     const rate = entries.filter(e => (e.retentionProbability??0) > 0.5).length / Math.max(1, entries.length);
     return {
       overallRate: rate, perSkill: {},
@@ -501,7 +519,7 @@ export class StudentStateBuilder {
     };
   }
 
-  private deriveForgetCurve(_entries: ReviewEntry[]): any {
+  private deriveForgetCurve(_entries: ReviewEntry[]): ForgetCurveState {
     return { curves: {}, composite: [], knowledgeHalfLifeDays: 7, computedAt: new Date().toISOString() };
   }
 

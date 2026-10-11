@@ -217,9 +217,10 @@ let _memoryService: MemoryService | null = null;
 export const memoryService: MemoryService = new Proxy({} as MemoryService, {
   get(_, prop) {
     if (!_memoryService) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate lazy load (see memory-engine.ts)
       const { memoryDbRepo } = require('../repositories/memory-db-repository');
       _memoryService = new MemoryService(memoryDbRepo);
     }
-    return (_memoryService as any)[prop];
+    return Reflect.get(_memoryService, prop as string | symbol);
   },
 });

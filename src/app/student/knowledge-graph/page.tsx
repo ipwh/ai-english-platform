@@ -138,11 +138,7 @@ export default function KnowledgeGraphPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState<string>('');
 
-  useEffect(() => {
-    fetchGraph();
-  }, [filterSkill]);
-
-  async function fetchGraph() {
+  const fetchGraph = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const params = new URLSearchParams();
@@ -196,7 +192,13 @@ export default function KnowledgeGraphPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterSkill, userId, language]);
+
+  // 依技能篩選重新載入；Deferred to a microtask: fetchGraph sets state
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    void Promise.resolve().then(fetchGraph);
+  }, [fetchGraph]);
 
   const handleNodeClick = useCallback((node: KGNode) => {
     setSelectedNode(prev => prev?.id === node.id ? null : node);

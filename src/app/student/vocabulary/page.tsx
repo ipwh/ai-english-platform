@@ -131,8 +131,10 @@ export default function VocabularyPage() {
       .catch((e) => { logger.error({ module: 'student-vocabulary', error: e instanceof Error ? e.message : String(e) }, 'SRS review fetch failed'); });
   }, [studentId]);
 
-  useEffect(() => { loadVocab(); }, [loadVocab]);
-  useEffect(() => { if (studentId) loadSrsReview(); }, [loadSrsReview, studentId]);
+  // Deferred to a microtask: the loaders set state, and a synchronous setState inside an
+  // effect is what react-hooks/set-state-in-effect forbids.
+  useEffect(() => { void Promise.resolve().then(loadVocab); }, [loadVocab]);
+  useEffect(() => { void Promise.resolve().then(() => { if (studentId) loadSrsReview(); }); }, [loadSrsReview, studentId]);
 
   // Load AI review suggestions
   const loadReviewSuggestions = useCallback(() => {

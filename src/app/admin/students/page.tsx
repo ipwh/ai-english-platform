@@ -4,7 +4,7 @@
 // ============================================
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useT } from '@/hooks/use-i18n';
 import {
@@ -86,7 +86,7 @@ export default function AdminStudentsPage() {
   // Stable error message (avoid t in deps to prevent infinite loops)
   const loadFailedMsg = '載入失敗';
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -119,13 +119,15 @@ export default function AdminStudentsPage() {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  };
+  }, [classFilter, levelFilter, page, pageSize, search]);
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchStudents();
+    // Started in a microtask so no state is set synchronously during the effect
+    // (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(fetchStudents);
     return () => { mountedRef.current = false; };
-  }, [page, search, levelFilter, classFilter]);
+  }, [fetchStudents]);
 
   const handleSearch = () => {
     setSearch(searchInput);

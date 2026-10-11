@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
           requestedCount: generated.requestedCount,
           deliveredCount: generated.deliveredCount,
           shortfall: generated.shortfall,
+          missingTypes: generated.missingTypes,
           droppedCount: generated.droppedCount,
           rejectedByVerification: generated.rejectedByVerification,
           regenerationRounds: generated.regenerationRounds,

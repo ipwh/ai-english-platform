@@ -280,7 +280,7 @@ export default function AudioPlayer({
   } | null>(null);
 
   // Mark as client-side mounted (SSR-safe: ensures all hooks run in same order)
-  useEffect(() => { setIsClient(true); }, []);
+  useEffect(() => { void Promise.resolve().then(() => setIsClient(true)); }, []);
 
   // ============================================
   // 統一 Cleanup Helper — 停止所有播放來源
@@ -417,7 +417,9 @@ export default function AudioPlayer({
 
   // Fix: text prop 變化（切換題目）時徹底清理前一題的 audio 資源
   useEffect(() => {
-    cleanupAllPlayback();
+    // Deferred to a microtask: cleanupAllPlayback sets state, and a synchronous setState
+    // inside an effect is what react-hooks/set-state-in-effect forbids.
+    void Promise.resolve().then(cleanupAllPlayback);
   }, [text, cleanupAllPlayback]);
 
   // 監聽全域停止事件
@@ -428,7 +430,7 @@ export default function AudioPlayer({
 
   // 語速變更時停止現有播放（防止疊聲）
   useEffect(() => {
-    cleanupAllPlayback();
+    void Promise.resolve().then(cleanupAllPlayback);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally narrow: re-init playback only on speed change
   }, [speed]);
 
@@ -690,7 +692,7 @@ export default function AudioPlayer({
     };
 
     trySpeak();
-  }, [text, onPlayEnd, speed, useCloudTTS, cleanupAllPlayback, estimateDuration, startProgress]);
+  }, [text, onPlayEnd, onPlayStart, speed, useCloudTTS, cleanupAllPlayback, startProgress]);
 
   /** 使用者按下播放鍵（在同一個按鈕上兼具播放 / 停止切換語意） */
   const handlePlayWebSpeech = useCallback(() => {

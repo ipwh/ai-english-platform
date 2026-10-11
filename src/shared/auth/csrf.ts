@@ -28,7 +28,10 @@ export function generateCsrfToken(): string {
   if (typeof globalThis.crypto !== 'undefined') {
     globalThis.crypto.getRandomValues(bytes);
   } else {
-    // Node.js fallback (should not happen at edge, but safe)
+    // Node.js fallback (should not happen at edge, but safe). Kept as a runtime
+    // `require` because this module must stay loadable in the Edge runtime, where a
+    // static `node:crypto` import would fail the build.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Edge-safe module: static node: import is not allowed here
     const nodeCrypto = require('node:crypto');
     nodeCrypto.randomFillSync(bytes);
   }

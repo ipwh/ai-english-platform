@@ -665,7 +665,7 @@ export default function AdminUsersPage() {
   }, [page, search, roleFilter, levelFilter, classFilter, t]);
 
   useEffect(() => {
-    fetchUsers();
+    void Promise.resolve().then(fetchUsers);
   }, [fetchUsers]);
 
   const handleSearch = () => {

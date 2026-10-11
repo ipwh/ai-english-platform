@@ -3,33 +3,48 @@
 // ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Loader2, AlertTriangle, GraduationCap } from 'lucide-react';
 import { logger } from '@/shared/logger/logger';
 import { useT } from '@/hooks/use-i18n';
 import { gradeLabels } from '@/shared/utils/nav';
 
+/** Rows as `/api/classes` returns them (with Prisma `_count`), and as the page renders them. */
+interface TeacherClassApiRow {
+  _count?: { students?: number; assignments?: number };
+}
+
+interface TeacherClassRow extends TeacherClassApiRow {
+  id: string;
+  name: string;
+  gradeLevel: string;
+  studentCount: number;
+  assignmentCount: number;
+}
+
 export default function TeacherClassesPage() {
   const { t } = useT();
-  const [classes, setClasses] = useState<any[]>([]);
+  const [classes, setClasses] = useState<TeacherClassRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const loadClasses = () => {
+  const loadClasses = useCallback(() => {
     setLoading(true); setLoadError('');
     fetch('/api/classes')
       .then(r => r.json())
-      .then(d => setClasses((d.classes || []).map((c: any) => ({
+      .then(d => setClasses((d.classes || []).map((c: TeacherClassApiRow) => ({
         ...c,
         studentCount: c._count?.students ?? 0,
         assignmentCount: c._count?.assignments ?? 0,
       }))))
       .catch((e) => { logger.error({ module: 'teacher-classes', error: e instanceof Error ? e.message : String(e) }, 'Failed to load classes'); setLoadError(t('common.somethingWrong')); })
       .finally(() => setLoading(false));
-  };
+  }, [t]);
 
-  useEffect(() => { loadClasses(); }, []);
+  // Deferred to a microtask so no state is set synchronously during the effect
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => { void Promise.resolve().then(loadClasses); }, [loadClasses]);
 
   return (
     <div className="space-y-6">

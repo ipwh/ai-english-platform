@@ -243,7 +243,7 @@ export type {
   CustomPracticeQuestionType,
 } from '@/modules/ai/schemas/custom-practice-schema';
 export {
-  CUSTOM_PRACTICE_GENERATION_V2,
+  CUSTOM_PRACTICE_GENERATION_V4,
   CUSTOM_PRACTICE_GRADING_V2,
   CUSTOM_PRACTICE_VERIFICATION_V1,
 } from '@/modules/ai/prompts/custom-practice/prompts';

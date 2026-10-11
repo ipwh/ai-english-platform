@@ -4,6 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 import { getVocabForExport } from '@/modules/vocabulary/services/vocabulary-service';
@@ -16,8 +18,6 @@ function tryParse(val: unknown): string[] {
 
  
 function getCJKFont(): Buffer | null {
-  const path = require('node:path') as typeof import('node:path');
-  const fs = require('node:fs') as typeof import('node:fs');
   const paths = [
     path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf'),
     path.join(process.cwd(), 'fonts', 'NotoSansTC-Regular.ttf'),

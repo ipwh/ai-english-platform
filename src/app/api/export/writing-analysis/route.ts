@@ -5,6 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 import { verifyApiAuth } from '@/shared/auth/api-auth';
 import { logger } from '@/shared/logger/logger';
 
@@ -26,8 +28,6 @@ interface WritingAnalysis {
 /** 嘗試載入中文字型（支援 Windows 開發 + Cloud Run Linux 容器部署） */
  
 function loadCJKFont(): Buffer {
-  const path = require('node:path') as typeof import('node:path');
-  const fs = require('node:fs') as typeof import('node:fs');
   const bundled = path.join(process.cwd(), 'public', 'fonts', 'NotoSansTC-Regular.ttf');
   if (fs.existsSync(bundled)) return fs.readFileSync(bundled);
 

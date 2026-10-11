@@ -155,17 +155,16 @@ function sleep(ms: number): Promise<void> {
 // AI Request Queue — simple in-process FIFO
 // ============================================
 
-interface QueueItem<T> {
+interface QueueItem {
   id: string;
-  task: () => Promise<T>;
-  resolve: (value: T) => void;
-  reject: (err: Error) => void;
+  /** Runs the task and settles the caller's promise (kept non-generic so the FIFO can hold mixed task types). */
+  run: () => Promise<void>;
   priority: number;
   createdAt: number;
 }
 
 class AIRequestQueue {
-  private queue: QueueItem<any>[] = [];
+  private queue: QueueItem[] = [];
   private processing = false;
   private concurrency: number;
   private activeCount = 0;
@@ -179,7 +178,15 @@ class AIRequestQueue {
     return new Promise<T>((resolve, reject) => {
       this.queue.push({
         id: `aiq_${++this.counter}_${Date.now()}`,
-        task, resolve, reject, priority, createdAt: Date.now(),
+        run: async () => {
+          try {
+            resolve(await task());
+          } catch (err) {
+            reject(err instanceof Error ? err : new Error(String(err)));
+          }
+        },
+        priority,
+        createdAt: Date.now(),
       });
       this.queue.sort((a, b) => b.priority - a.priority || a.createdAt - b.createdAt);
       this.processNext();
@@ -195,10 +202,7 @@ class AIRequestQueue {
       this.activeCount++;
 
       try {
-        const result = await item.task();
-        item.resolve(result);
-      } catch (err) {
-        item.reject(err instanceof Error ? err : new Error(String(err)));
+        await item.run();
       } finally {
         this.activeCount--;
       }

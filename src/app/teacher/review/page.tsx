@@ -31,10 +31,14 @@ export default function TeacherReviewPage() {
   const [teacherScore, setTeacherScore] = useState<number | undefined>(undefined);
   const [teacherFeedback, setTeacherFeedback] = useState('');
 
-  // Sync teacherScore/teacherFeedback when selectedReview changes
+  // Sync teacherScore/teacherFeedback when selectedReview changes.
+  // Deferred to a microtask so the sync does not run as a setState during the effect
+  // (react-hooks/set-state-in-effect).
   useEffect(() => {
-    setTeacherScore(selectedReview?.teacherScore);
-    setTeacherFeedback(selectedReview?.teacherFeedback || '');
+    void Promise.resolve().then(() => {
+      setTeacherScore(selectedReview?.teacherScore);
+      setTeacherFeedback(selectedReview?.teacherFeedback || '');
+    });
   }, [selectedReview?.id, selectedReview?.teacherFeedback, selectedReview?.teacherScore]);
 
   // === AI 重新分析 ===

@@ -14,9 +14,11 @@ import { logger } from '@/shared/logger/logger';
 let otelAvailable = false;
 
 try {
-  // Dynamic import — 只有在安裝了 @opentelemetry/api 時啟用
-   
+  // Runtime probe for an OPTIONAL peer dependency: `@opentelemetry/api` is not in
+  // package.json, so a static import would break the build when it is absent. The
+  // require must stay dynamic.
   if (typeof require !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
     require('@opentelemetry/api');
     otelAvailable = true;
   }
@@ -56,7 +58,7 @@ export function startOtelSpan(
 ): OtelSpan {
   if (otelAvailable) {
     try {
-       
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency (see the probe above)
       const api = require('@opentelemetry/api');
       const tracer = api.trace.getTracer('english-platform');
       const span = tracer.startSpan(name);

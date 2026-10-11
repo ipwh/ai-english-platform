@@ -249,9 +249,11 @@ export async function adminImportTeachersFindUsers(emails: string[]) {
 
 // ── Generic catch-all for admin routes (use as LAST RESORT only) ──
 // Deliberately untyped dynamic façade: the caller's Prisma args/result shape is only
-// known at the call site, and typing this as `unknown` breaks every admin route that
-// reads the result (measured 2026-10-10: 30 TS18046/TS2339 errors). The typed wrappers
-// above are the preferred path; this one is counted in the no-explicit-any budget.
+// known at the call site, and typing this as `unknown` breaks the 40+ admin call sites
+// that read the result (measured 2026-10-10: 30 TS18046/TS2339 errors). The typed
+// wrappers above are the preferred path.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- documented dynamic façade (see above)
 export async function adminDbQuery(model: string, method: string, args: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same façade: `db` is indexed by the caller's model name
   return (db as any)[model][method](args);
 }

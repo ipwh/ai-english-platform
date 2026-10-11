@@ -3,6 +3,7 @@
 import type { PlatformPlugin, PluginContext } from './plugin';
 import { pluginRegistry } from './plugin-registry';
 import { platformEventBus } from '../events/in-memory-event-bus';
+import type { DomainEvent } from '../events/domain-event';
 import { logger } from '@/shared/logger/logger';
 import { config } from '@/shared/config/config';
 
@@ -10,8 +11,11 @@ import { config } from '@/shared/config/config';
 function buildPluginContext(): PluginContext {
   return {
     eventBus: {
-      subscribe: (eventType, handler) => platformEventBus.subscribe(eventType, handler as any),
-      publish: (event) => platformEventBus.publish(event as any),
+      // `PluginContext.eventBus` speaks in `unknown`; the platform bus speaks in
+      // DomainEvent. A handler that accepts `unknown` is assignable to one that accepts
+      // DomainEvent (contravariance), so only the publish direction needs a cast.
+      subscribe: (eventType, handler) => platformEventBus.subscribe(eventType, handler),
+      publish: (event) => platformEventBus.publish(event as DomainEvent),
     },
     logger: {
       info: (meta, msg) => logger.info(meta, msg),

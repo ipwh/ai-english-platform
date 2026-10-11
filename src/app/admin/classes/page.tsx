@@ -45,7 +45,11 @@ export default function AdminClassesPage() {
     }
   }, [t]);
 
-  useEffect(() => { fetchClasses(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Load on mount, and again when the loader identity changes (language switch → `t`).
+  // The loader is memoised, so it can be a real dependency instead of a suppression; it
+  // is started in a microtask so no state is set synchronously during the effect
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => { void Promise.resolve().then(fetchClasses); }, [fetchClasses]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;

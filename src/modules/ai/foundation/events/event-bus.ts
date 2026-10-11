@@ -23,11 +23,15 @@ export type EventSubscriber<E extends BaseEvent = BaseEvent> = (event: E) => voi
 /**
  * Internal subscription record.
  */
-interface Subscription<E extends BaseEvent = BaseEvent> {
+interface Subscription {
   /** Unique subscriber ID */
   id: string;
-  /** The callback */
-  callback: EventSubscriber<E>;
+  /**
+   * The callback. Typed with `never` so that every narrower per-event subscriber the
+   * public API accepts can be stored here (function parameters are contravariant);
+   * `publish()` casts back to the concrete event before invoking it.
+   */
+  callback: EventSubscriber<never>;
   /** Priority (higher = earlier execution) */
   priority: EventPriority;
   /** If true, auto-unsubscribe after first invocation */
@@ -254,7 +258,10 @@ export class EventBus {
    */
   private subscribeInternal(
     eventType: string,
-    callback: EventSubscriber<any>,
+    // `EventSubscriber<BaseEvent>` cannot accept the narrower per-event subscribers the
+    // public API passes (function parameters are contravariant); `never` accepts all of
+    // them, and the invocation site below casts back to the concrete event type.
+    callback: EventSubscriber<never>,
     options: SubscribeOptions,
   ): () => void {
     const id = `sub-${++this.idCounter}`;
@@ -289,7 +296,9 @@ export class EventBus {
 
     for (const sub of toNotify) {
       try {
-        sub.callback(event);
+        // The stored callback is `EventSubscriber<never>` (see `Subscription`); at
+        // invocation time the concrete event is known, so cast it back.
+        (sub.callback as EventSubscriber<BaseEvent>)(event);
       } catch (err) {
         // Isolate subscriber errors — don't crash the bus
         console.error(

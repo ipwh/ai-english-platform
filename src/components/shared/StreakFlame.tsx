@@ -29,7 +29,7 @@ function getFlameLevel(days: number): keyof typeof FLAME_CONFIG {
 
 export default function StreakFlame({ streakDays, size = 'md', className = '' }: StreakFlameProps) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { void Promise.resolve().then(() => setMounted(true)); }, []);
 
   const level = getFlameLevel(streakDays);
   if (!mounted || level === 'none') return null;

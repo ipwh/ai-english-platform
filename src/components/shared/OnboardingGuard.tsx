@@ -20,7 +20,9 @@ export default function OnboardingGuard({ children, studentId }: OnboardingGuard
 
   useEffect(() => {
     if (!studentId) {
-      setChecking(false);
+      // Deferred to a microtask: a synchronous setState inside an effect is what
+      // react-hooks/set-state-in-effect forbids.
+      void Promise.resolve().then(() => setChecking(false));
       return;
     }
 

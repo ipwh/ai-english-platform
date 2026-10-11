@@ -15,6 +15,10 @@ import {
   CUSTOM_PRACTICE_DIFFICULTIES,
   CUSTOM_PRACTICE_QUESTION_TYPES,
 } from '@/modules/ai';
+import {
+  topicIdsFromRequest,
+  topicQuestionTypeDefaults,
+} from '@/shared/utils/custom-practice-topics';
 import type {
   PracticeCategory,
   PracticeDifficulty,
@@ -37,17 +41,28 @@ export const DEFAULT_EXERCISE_TYPES: Record<PracticeCategory, readonly PracticeQ
 /** Keyword evidence per category. Order-independent; a tie is treated as ambiguous. */
 const CATEGORY_KEYWORDS: Record<PracticeCategory, readonly string[]> = {
   grammar: [
-    'grammar', 'tense', 'tenses', 'present tense', 'past tense', 'past simple', 'past perfect',
+    'grammar', 'tense', 'tenses', 'present tense', 'past tense', 'present simple', 'simple present',
+    'past simple', 'simple past', 'past perfect',
     'present perfect', 'future tense', 'future simple', 'future continuous', 'future perfect',
     'continuous', 'progressive', 'participle', 'article', 'articles',
     'preposition', 'prepositions', 'subject-verb', 'agreement', 'gerund', 'infinitive', 'passive',
     'active voice', 'modal', 'pronoun', 'plural', 'countable', 'uncountable', 'punctuation',
+    // 2026-10-10 (Sprint 146): the topic catalogue gained chips for these, and a ticked
+    // topic must classify exactly like the same words typed by the student.
+    // 'adjective' is deliberately ABSENT: it is part of the vocabulary request
+    // "enough and too with adjectives" (regression-cased), so the chip relies on "adverb".
+    'used to', 'quantifier', 'adverb', 'negation',
   ],
   sentence_pattern: [
     'sentence pattern', 'pattern', 'conditional', 'conditionals', 'zero conditional',
     'first conditional', 'second conditional', 'third conditional', 'if clause', 'inversion',
     'relative clause', 'clause', 'conjunction', 'connective', 'cause and effect', 'comparative',
     'superlative', 'reported speech', 'indirect speech', 'simile', 'as as',
+    // 2026-10-10 (Sprint 146): clause / mood / emphasis chip coverage. Multi-word keys
+    // ("question form", "indirect question") are used instead of a bare "question" so that
+    // a politeness frame like "I have a question about vocabulary" is not read as a topic.
+    'question form', 'indirect question', 'cleft', 'subjunctive', 'wish', 'parallel', 'emphasis',
+    'discourse', 'causative',
   ],
   vocabulary: [
     'vocabulary', 'word', 'words', 'enough', 'too', 'too much', 'too many', 'collocation',
@@ -66,9 +81,15 @@ const CHINESE_CATEGORY_KEYWORDS: Record<PracticeCategory, readonly string[]> = {
   grammar: [
     '文法', '語法', '時態', '過去式', '現在式', '現在完成式', '過去完成式', '被動語態', '介詞', '冠詞',
     '代名詞', '情態動詞', '動名詞', '不定詞', '現在分詞', '單複數',
+    // 2026-10-10 (Sprint 146). Bare '副詞' is deliberately absent: it would collide with
+    // '副詞子句' (sentence_pattern) and turn a clear request into an ambiguity refusal.
+    '否定句', '數量詞', '形容詞', '標點',
   ],
   sentence_pattern: [
     '句式', '句構', '句型', '條件句', '子句', '連接詞', '比較級', '最高級', '轉述', '倒裝句', '比喻',
+    // 2026-10-10 (Sprint 146): clause / mood / emphasis chips. All are multi-character
+    // terms that do not appear inside any grammar or vocabulary keyword above.
+    '強調句', '假設語氣', '疑問句', '平行結構', '使役', '篇章標記',
   ],
   vocabulary: ['詞彙', '生字', '單字', '片語', '慣用語', '近義詞', '反義詞', '搭配詞', '字義'],
 };
@@ -176,6 +197,21 @@ function isDifficulty(value: unknown): value is PracticeDifficulty {
   return typeof value === 'string' && (CUSTOM_PRACTICE_DIFFICULTIES as readonly string[]).includes(value);
 }
 
+/**
+ * The question types used when the student left 題型 blank.
+ *
+ * Topic-aware first: the catalogue knows that 分詞構句 is learned by rewriting and that
+ * punctuation is learned by spotting the error, so a ticked topic picks its own mix. The
+ * category default remains the fallback for a free-text request (or when the 400-character
+ * cap cut the labels off), and an explicit student choice never reaches this function.
+ */
+function resolveDefaultExerciseTypes(category: PracticeCategory, requestText: string): PracticeQuestionType[] {
+  const fromTopics = topicQuestionTypeDefaults(category, topicIdsFromRequest(category, requestText)).filter(
+    isQuestionType
+  );
+  return fromTopics.length > 0 ? fromTopics : [...DEFAULT_EXERCISE_TYPES[category]];
+}
+
 function isQuestionType(value: unknown): value is PracticeQuestionType {
   return typeof value === 'string' && (CUSTOM_PRACTICE_QUESTION_TYPES as readonly string[]).includes(value);
 }
@@ -235,7 +271,7 @@ export function normalizePracticeRequest(input: NormalizeRequestInput): Normaliz
 
   let exerciseTypes: PracticeQuestionType[];
   if (input.exerciseTypes === undefined || input.exerciseTypes === null) {
-    exerciseTypes = [...DEFAULT_EXERCISE_TYPES[category]];
+    exerciseTypes = resolveDefaultExerciseTypes(category, requestText);
   } else {
     if (!Array.isArray(input.exerciseTypes) || input.exerciseTypes.length === 0) {
       return { ok: false, code: 'INVALID_REQUEST', message: 'exerciseTypes must be a non-empty array' };

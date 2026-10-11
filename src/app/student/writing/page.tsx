@@ -237,10 +237,14 @@ export default function WritingPage() {
       setSuggestions([t('writing.tipUnavailable') || (lang === 'zh' ? '寫作提示暫時無法載入，請稍後重試。' : 'Writing tips are temporarily unavailable. Please try again later.')]);
     }
     finally { setAssistLoading(false); }
-  }, [draft, generatedPrompt, showSuggestions, showVocabHelp, lang]);
+  }, [draft, generatedPrompt, showSuggestions, showVocabHelp, gradeLevel, difficulty, lang, t]);
 
   useEffect(() => {
-    if (draft.length < 20) { setSuggestions([]); setVocabHelp([]); return; }
+    if (draft.length < 20) {
+      // Deferred to a microtask (react-hooks/set-state-in-effect).
+      void Promise.resolve().then(() => { setSuggestions([]); setVocabHelp([]); });
+      return;
+    }
     const timer = setTimeout(fetchAssistance, 1500);
     return () => clearTimeout(timer);
   }, [draft, fetchAssistance]);

@@ -31,16 +31,20 @@ export default function StudentSettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setNotifSettings(JSON.parse(raw));
-      } else {
+    // Deferred to a microtask: seeding state from localStorage inside the effect body
+    // would be a synchronous setState during commit (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          setNotifSettings(JSON.parse(raw));
+        } else {
+          setNotifSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
+        }
+      } catch {
         setNotifSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
       }
-    } catch {
-      setNotifSettings({ assignment: true, submission: true, feedback: true, achievement: true, system: true });
-    }
+    });
   }, []);
 
   const toggleNotif = (key: string) => {

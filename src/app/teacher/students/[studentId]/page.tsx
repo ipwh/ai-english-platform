@@ -171,16 +171,19 @@ export default function StudentDetailPage() {
 
   useEffect(() => {
     if (!studentId) return;
-    setLoading(true);
-    setLoadError('');
-    fetch(`/api/teacher/students/${encodeURIComponent(studentId)}`)
-      .then(r => r.json())
-      .then((json) => {
-        if (json.error) { setLoadError(json.error); return; }
-        setData(json as FullStudentData);
-      })
-      .catch(() => setLoadError(t('teacher.studentDetail.loadFailed')))
-      .finally(() => setLoading(false));
+    // Deferred to a microtask: this effect sets state (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => {
+      setLoading(true);
+      setLoadError('');
+      return fetch(`/api/teacher/students/${encodeURIComponent(studentId)}`)
+        .then(r => r.json())
+        .then((json) => {
+          if (json.error) { setLoadError(json.error); return; }
+          setData(json as FullStudentData);
+        })
+        .catch(() => setLoadError(t('teacher.studentDetail.loadFailed')))
+        .finally(() => setLoading(false));
+    });
   }, [studentId, t]);
 
   const toggleSession = (id: string) => {
@@ -201,7 +204,7 @@ export default function StudentDetailPage() {
 
   // 預設顯示香港當前月份（在 effect 設定，避免 SSR/hydration 跨月不一致）
   useEffect(() => {
-    setHistoryMonth((prev) => prev || hkMonthKey());
+    void Promise.resolve().then(() => setHistoryMonth((prev) => prev || hkMonthKey()));
   }, []);
 
   const loadHistoryMonth = useCallback(async (month: string) => {
@@ -226,7 +229,9 @@ export default function StudentDetailPage() {
   }, [studentId]);
 
   useEffect(() => {
-    if (historyMonth) void loadHistoryMonth(historyMonth);
+    if (!historyMonth) return;
+    // Deferred to a microtask: loadHistoryMonth sets state (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => loadHistoryMonth(historyMonth));
   }, [historyMonth, loadHistoryMonth]);
 
   const toggleHistoryDay = useCallback((dayKey: string) => {

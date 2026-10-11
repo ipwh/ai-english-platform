@@ -34,13 +34,17 @@ const { execSync } = require('child_process');
  * `explicit-any` uses replaced by real Prisma types / payload interfaces. No rule
  * was suppressed to reach the number: the one remaining `adminDbQuery` façade keeps
  * its deliberate `any` and is counted below.
+ *
+ * 2026-10-10 (Sprint 145): burned 79 → **0** — the last `explicit-any` / `require()`
+ * uses became inline-justified exceptions, and every remaining react-hooks warning
+ * was fixed for real (state writes in effects deferred to a microtask; loaders
+ * wrapped in `useCallback`; zustand actions destructured so effects depend on the
+ * stable action instead of the per-render store object). The budgets are therefore
+ * empty and the allowance is 0: ANY new warning of ANY rule now fails this gate,
+ * which is the strongest form of the ratchet. Nothing has to be raised to add code —
+ * fix the warning or add a justified inline `eslint-disable-next-line` with a reason.
  */
-const BUDGETS = {
-  '@typescript-eslint/no-explicit-any': 18, // Prisma dynamic bridges + legacy payload types
-  'react-hooks/set-state-in-effect': 34, // React 19 rule; needs component restructuring
-  'react-hooks/exhaustive-deps': 15, // remaining deps are component-local fns / props
-  '@typescript-eslint/no-require-imports': 12, // deliberate: dual SQLite/Postgres driver loading
-};
+const BUDGETS = {};
 
 /** Total allowance (must equal the sum of the budgets above). */
 const TOTAL_BUDGET = Object.values(BUDGETS).reduce((a, b) => a + b, 0);
